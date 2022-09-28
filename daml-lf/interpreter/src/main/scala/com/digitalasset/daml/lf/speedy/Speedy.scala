@@ -26,7 +26,6 @@ import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
-import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.collection.mutable
 
@@ -129,14 +128,31 @@ private[lf] object Speedy {
       readAs: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
       commitLocation: Option[Location],
-      /* Flag to trace usage of get_time builtins */
-      var dependsOnTime: Boolean,
-      // global contract discriminators, that are discriminators from contract created in previous transactions
-      var cachedContracts: Map[V.ContractId, CachedContract],
-      var numInputContracts: Int,
       limits: interpretation.Limits,
       disclosureKeyTable: DisclosedContractKeyTable,
   ) extends LedgerMode {
+
+    /* Flag to trace usage of get_time builtins */
+    private[this] var dependsOnTime: Boolean = false
+    // global contract discriminators, that are discriminators from contract created in previous transactions
+    private[this] var cachedContracts: Map[V.ContractId, CachedContract] = Map.empty
+    private[this] var numInputContracts: Int = 0
+
+    private[speedy] def setDependsOnTime(): Unit =
+      dependsOnTime = true
+
+    private[lf] def getDependsOnTime: Boolean =
+      dependsOnTime
+
+    private[speedy] def getCachedContracts: Map[V.ContractId, CachedContract] =
+      cachedContracts
+
+    private[speedy] def getCachedContract(contractId: V.ContractId): Option[CachedContract] =
+      cachedContracts.get(contractId)
+
+    private[speedy] def hasCachedContract(contractId: V.ContractId): Boolean =
+      cachedContracts.contains(contractId)
+
     private[lf] val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
       if (validating) { _ => SVisibleToStakeholders.Visible }
       else {
@@ -438,56 +454,10 @@ private[lf] object Speedy {
       this.actuals = actuals
     }
 
-    /** Push a single location to the continuation stack for the sake of
-      *        maintaining a stack trace.
+    /** Track the location of the expression being evaluated
       */
     def pushLocation(loc: Location): Unit = {
       lastLocation = Some(loc)
-      val last_index = kontStack.size() - 1
-      val last_kont = if (last_index >= 0) Some(kontStack.get(last_index)) else None
-      last_kont match {
-        // NOTE(MH): If the top of the continuation stack is the monadic token,
-        // we push location information under it to account for the implicit
-        // lambda binding the token.
-
-        // TODO: Understand how the current approach to stack-trace actually works.
-        // Peeking under KArg on the kontStack seems so unprincipled, and relies on our
-        // continued use of SEAppGeneral, which we want to remove.
-
-        case Some(KArg(_, Array(SEValue.Token))) => {
-          // Can't call pushKont here, because we don't push at the top of the stack.
-          kontStack.add(last_index, KLocation(this, loc))
-          if (enableInstrumentation) {
-            track.incrPushesKont()
-            track.setDepthKont(kontDepth())
-          }
-        }
-        // NOTE(MH): When we use a cached top level value, we need to put the
-        // stack trace it produced back on the continuation stack to get
-        // complete stack trace at the use site. Thus, we store the stack traces
-        // of top level values separately during their execution.
-        case Some(KCacheVal(machine, v, defn, stack_trace)) =>
-          discard(kontStack.set(last_index, KCacheVal(machine, v, defn, loc :: stack_trace)))
-        case _ => pushKont(KLocation(this, loc))
-      }
-    }
-
-    /** Push an entire stack trace to the continuation stack. The first
-      *        element of the list will be pushed last.
-      */
-    def pushStackTrace(locs: List[Location]): Unit =
-      locs.reverse.foreach(pushLocation)
-
-    /** Compute a stack trace from the locations in the continuation stack.
-      *        The last seen location will come last.
-      */
-    def stackTrace(): ImmArray[Location] = {
-      val s = ImmArray.newBuilder[Location]
-      kontStack.forEach {
-        case KLocation(_, location) => discard(s += location)
-        case _ => ()
-      }
-      s.result()
     }
 
     /** Reuse an existing speedy machine to evaluate a new expression.
@@ -556,8 +526,7 @@ private[lf] object Speedy {
 
     def lookupVal(eval: SEVal): Control = {
       eval.cached match {
-        case Some((v, stack_trace)) =>
-          pushStackTrace(stack_trace)
+        case Some(v) =>
           Control.Value(v)
 
         case None =>
@@ -565,11 +534,11 @@ private[lf] object Speedy {
           compiledPackages.getDefinition(ref) match {
             case Some(defn) =>
               defn.cached match {
-                case Some((svalue, stackTrace)) =>
-                  eval.setCached(svalue, stackTrace)
+                case Some(svalue) =>
+                  eval.setCached(svalue)
                   Control.Value(svalue)
                 case None =>
-                  pushKont(KCacheVal(this, eval, defn, Nil))
+                  pushKont(KCacheVal(this, eval, defn))
                   Control.Expression(defn.body)
               }
             case None =>
@@ -868,7 +837,7 @@ private[lf] object Speedy {
         coid: V.ContractId,
         handleKeyFound: (Machine, V.ContractId) => Control,
     ): Control =
-      onLedger.cachedContracts.get(coid) match {
+      onLedger.getCachedContract(coid) match {
         case Some(cachedContract) =>
           val stakeholders = cachedContract.signatories union cachedContract.observers
           onLedger.visibleToStakeholders(stakeholders) match {
@@ -931,9 +900,6 @@ private[lf] object Speedy {
           committers = committers,
           readAs = readAs,
           commitLocation = commitLocation,
-          dependsOnTime = false,
-          cachedContracts = Map.empty,
-          numInputContracts = 0,
           contractKeyUniqueness = contractKeyUniqueness,
           limits = limits,
           disclosureKeyTable = new DisclosedContractKeyTable,
@@ -971,7 +937,6 @@ private[lf] object Speedy {
     @throws[PackageNotFound]
     @throws[CompilationError]
     // Construct a machine for running an update expression (testing -- avoiding scenarios)
-    @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppGeneral")
     def fromUpdateSExpr(
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
@@ -985,8 +950,7 @@ private[lf] object Speedy {
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
-        expr = SEAppGeneral(updateSE, Array(SEValue.Token)),
-        // expr = SEApp(updateSE, Array(SValue.SToken)), // TODO: when stack-trace hackery is resolved
+        expr = SEApp(updateSE, Array(SValue.SToken)),
         committers = committers,
         readAs = Set.empty,
         limits = limits,
@@ -998,15 +962,14 @@ private[lf] object Speedy {
     @throws[PackageNotFound]
     @throws[CompilationError]
     // Construct an off-ledger machine for running scenario.
-    @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppGeneral")
     def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
         scenario: SExpr,
-    )(implicit loggingContext: LoggingContext): Machine = Machine.fromPureSExpr(
-      compiledPackages = compiledPackages,
-      expr = SEAppGeneral(scenario, Array(SEValue.Token)),
-      // expr = SEApp(scenario, Array(SValue.SToken)), // TODO: when stack-trace hackery is resolved
-    )
+    )(implicit loggingContext: LoggingContext): Machine =
+      Machine.fromPureSExpr(
+        compiledPackages = compiledPackages,
+        expr = SEApp(scenario, Array(SValue.SToken)),
+      )
 
     @throws[PackageNotFound]
     @throws[CompilationError]
@@ -1432,13 +1395,11 @@ private[lf] object Speedy {
       machine: Machine,
       v: SEVal,
       defn: SDefinition,
-      stack_trace: List[Location],
   ) extends Kont {
 
     def execute(sv: SValue): Control = {
-      machine.pushStackTrace(stack_trace)
-      v.setCached(sv, stack_trace)
-      defn.setCached(sv, stack_trace)
+      v.setCached(sv)
+      defn.setCached(sv)
       Control.Value(sv)
     }
   }
@@ -1592,13 +1553,6 @@ private[lf] object Speedy {
         Control.Error(
           IError.UnhandledException(excep.ty, excep.value.toUnnormalizedValue)
         )
-    }
-  }
-
-  /** A location frame stores a location annotation found in the AST. */
-  final case class KLocation(machine: Machine, location: Location) extends Kont {
-    def execute(v: SValue): Control = {
-      Control.Value(v)
     }
   }
 

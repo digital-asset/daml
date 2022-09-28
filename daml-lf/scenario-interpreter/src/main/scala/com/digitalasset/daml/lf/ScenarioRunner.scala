@@ -134,12 +134,17 @@ object ScenarioRunner {
     val runner = new ScenarioRunner(machine, initialSeed)
     handleUnsafe(runner.runUnsafe) match {
       case Left(err) =>
+        val stackTrace =
+          machine.getLastLocation match {
+            case None => ImmArray()
+            case Some(location) => ImmArray(location)
+          }
         ScenarioError(
           runner.ledger,
           machine.traceLog,
           machine.warningLog,
           runner.currentSubmission,
-          machine.stackTrace(),
+          stackTrace,
           err,
         )
       case Right(t) => t

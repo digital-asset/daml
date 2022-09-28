@@ -221,6 +221,7 @@ object TransactionGenerator {
         Some(scalaTemplateId),
         contractKey.map(_._1),
         Some(scalaRecord),
+        None,
         interfaceViews.map(_._1),
         signatories ++ observers,
         signatories,

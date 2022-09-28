@@ -60,8 +60,9 @@ object TransactionFilterValidator {
       interfaceId <- requirePresence(filter.interfaceId, "interfaceId")
       validatedId <- validateIdentifier(interfaceId)
     } yield domain.InterfaceFilter(
-      validatedId,
-      filter.includeInterfaceView,
+      interfaceId = validatedId,
+      includeView = filter.includeInterfaceView,
+      includeCreateArgumentsBlob = filter.includeCreateArgumentsBlob,
     )
   }
 }

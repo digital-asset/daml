@@ -9,7 +9,7 @@ import akka.http.scaladsl.model._
 import com.daml.api.util.TimestampConversion
 import com.daml.lf.data.Ref
 import com.daml.http.domain.ContractId
-import com.daml.http.domain.TemplateId.OptionalPkg
+import com.daml.http.domain.ContractTypeId.OptionalPkg
 import com.daml.http.endpoints.MeteringReportEndpoint.MeteringReportDateRequest
 import com.daml.http.json.SprayJson.objectField
 import com.daml.http.json._
@@ -94,7 +94,7 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
   "create should fail with custom tokens that contain no ledger id" in withHttpService { fixture =>
     import fixture.encoder
     val alice = getUniqueParty("Alice")
-    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
+    val command = iouCreateCommand(alice)
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
     val headers = HttpServiceTestFixture.authorizationHeader(
@@ -150,7 +150,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   import AbstractHttpServiceIntegrationTestFuns.ciouDar
 
   object CIou {
-    val CIou: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "CIou", "CIou")
+    val CIou: domain.ContractTypeId.Template.OptionalPkg =
+      domain.ContractTypeId.Template(None, "CIou", "CIou")
   }
 
   override def useTls = UseTls.NoTls
@@ -338,7 +339,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
               acl.size shouldBe 0
               warnings shouldBe Some(
                 domain.UnknownTemplateIds(
-                  List(domain.TemplateId(None, "UnknownModule", "UnknownEntity"))
+                  List(domain.ContractTypeId(None, "UnknownModule", "UnknownEntity"))
                 )
               )
             }
@@ -359,8 +360,8 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
               errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
               inside(warnings) { case Some(domain.UnknownTemplateIds(unknownTemplateIds)) =>
                 unknownTemplateIds.toSet shouldBe Set(
-                  domain.TemplateId(None, "AAA", "BBB"),
-                  domain.TemplateId(None, "XXX", "YYY"),
+                  domain.ContractTypeId(None, "AAA", "BBB"),
+                  domain.ContractTypeId(None, "XXX", "YYY"),
                 )
               }
           }
@@ -665,7 +666,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       import fixture.encoder
       for {
         (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
+        command = iouCreateCommand(alice)
         input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
         headers <- fixture
           .headersWithPartyAuth(actAs = List(alice.unwrap), readAs = List("Bob"))
@@ -686,16 +687,15 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       import fixture.encoder
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val command: domain.CreateCommand[v.Record, OptionalPkg] =
-          iouCreateCommand(alice).copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
+          iouCreateCommand(alice)
+            .copy(templateId = domain.ContractTypeId(None, "Iou", "Dummy"))
         val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
         fixture
           .postJsonRequest(Uri.Path("/v1/create"), input, headers)
           .parseResponse[JsValue]
           .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.BadRequest, _) =>
-            val unknownTemplateId: OptionalPkg =
-              domain
-                .TemplateId(None, command.templateId.moduleName, command.templateId.entityName)
+            val unknownTemplateId: OptionalPkg = command.templateId.copy(packageId = None)
             error should include(
               s"Cannot resolve template ID, given: ${unknownTemplateId: OptionalPkg}"
             )
@@ -708,9 +708,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       def genSubmissionId() = domain.SubmissionId(UUID.randomUUID().toString)
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val cmdId = domain.CommandId apply UUID.randomUUID().toString
-        def cmd(
-            submissionId: domain.SubmissionId
-        ): domain.CreateCommand[v.Record, OptionalPkg] =
+        def cmd(submissionId: domain.SubmissionId) =
           iouCreateCommand(
             alice,
             amount = "19002.0",
@@ -1500,7 +1498,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
       // The numContracts size should test for https://github.com/digital-asset/daml/issues/10339
       val numContracts: Long = 2000
-      val helperId = domain.TemplateId(None, "Account", "Helper")
+      val helperId = domain.ContractTypeId.Template(None, "Account", "Helper")
       val payload = recordFromFields(ShRecord(owner = v.Value.Sum.Party(alice.unwrap)))
       val createCmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] =
         domain.CreateAndExerciseCommand(
@@ -1589,7 +1587,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       def userCreateCommand(
           username: domain.Party,
           following: Seq[domain.Party] = Seq.empty,
-      ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
+      ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
         val followingList = lfToApi(
           VAx.seq(VAx.partyDomain).inj(following)
         ).sum

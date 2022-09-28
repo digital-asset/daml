@@ -20,7 +20,7 @@ INCONSISTENT_INPUT
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: The correct resolution depends on the business flow, for example it may be possible to proceed without an archived contract as an input, or the transaction submission may be retried to load the up-to-date value of a contract key.
 
@@ -36,7 +36,7 @@ VALIDATION_FAILURE
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Either some input contracts have been pruned or the participant is misbehaving.
 
@@ -58,7 +58,7 @@ INVALID_PARTICIPANT_STATE
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: Contact support.
 
@@ -74,7 +74,7 @@ MISSING_INPUT_STATE
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: Contact support.
 
@@ -90,7 +90,7 @@ REJECTION_REASON_NOT_SET
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: Contact support.
 
@@ -106,7 +106,7 @@ SUBMISSION_FAILED
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: Contact support.
 
@@ -130,7 +130,7 @@ RESOURCE_EXHAUSTED
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: Retry the transaction submission or provide the details to the participant operator.
 
@@ -146,7 +146,7 @@ RESOURCE_OVERLOADED
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: Retry the transaction submission or provide the details to the participant operator.
 
@@ -168,7 +168,7 @@ CAUSAL_MONOTONICITY_VIOLATED
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Retry the transaction submission.
 
@@ -184,7 +184,7 @@ INVALID_RECORD_TIME
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Retry the submission or contact the participant operator.
 
@@ -200,7 +200,7 @@ RECORD_TIME_OUT_OF_BOUNDS
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: Retry the submission or contact the participant operator.
 
@@ -216,7 +216,7 @@ RECORD_TIME_OUT_OF_RANGE
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Retry the transaction submission or contact the participant operator.
 
@@ -250,7 +250,7 @@ INDEX_DB_INVALID_RESULT_SET
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: Contact support.
 
@@ -266,7 +266,7 @@ INDEX_DB_SQL_NON_TRANSIENT_ERROR
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: Contact the participant operator.
 
@@ -282,7 +282,7 @@ INDEX_DB_SQL_TRANSIENT_ERROR
 
     **Category**: TransientServerFailure
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status UNAVAILABLE including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status UNAVAILABLE including a detailed error message.
 
     **Resolution**: Re-submit the request.
 
@@ -304,7 +304,7 @@ HEAP_MEMORY_OVER_LIMIT
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: The following actions can be taken: 1. Review the historical use of heap space by inspecting the metric given in the message. 2. Review the current heap space limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require a large amount of memory to process.
 
@@ -320,7 +320,7 @@ LEDGER_API_INTERNAL_ERROR
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: Contact support.
 
@@ -336,7 +336,7 @@ MAXIMUM_NUMBER_OF_STREAMS
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: The following actions can be taken: 1. Review the historical need for concurrent streaming by inspecting the metric given in the message. 2. Review the maximum streams limit configured in the rate limiting configuration. 3. Try to space out streaming requests such that they do not need to run in parallel with each other.
 
@@ -352,7 +352,7 @@ PARTICIPANT_BACKPRESSURE
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: Wait a bit and retry, preferably with some backoff factor. If possible, ask other participants to send fewer requests; the domain operator can enforce this by imposing a rate limit.
 
@@ -368,7 +368,7 @@ REQUEST_TIME_OUT
 
     **Category**: DeadlineExceededRequestStateUnknown
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status DEADLINE_EXCEEDED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status DEADLINE_EXCEEDED including a detailed error message.
 
     **Resolution**: Retry for transient problems. If non-transient contact the operator as the time-out limit might be too short.
 
@@ -384,7 +384,7 @@ SERVER_IS_SHUTTING_DOWN
 
     **Category**: TransientServerFailure
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status UNAVAILABLE including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status UNAVAILABLE including a detailed error message.
 
     **Resolution**: Contact the participant operator.
 
@@ -400,7 +400,7 @@ SERVICE_NOT_RUNNING
 
     **Category**: TransientServerFailure
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status UNAVAILABLE including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status UNAVAILABLE including a detailed error message.
 
     **Resolution**: Retry re-submitting the request. If the error persists, contact the participant operator.
 
@@ -416,7 +416,7 @@ THREADPOOL_OVERLOADED
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: The following actions can be taken: Here the 'queue size' for the threadpool = 'submitted tasks' - 'completed tasks' - 'running tasks' 1. Review the historical 'queue size' growth by inspecting the metric given in the message. 2. Review the maximum 'queue size' limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require a lot of CPU or database power.       
 
@@ -432,7 +432,7 @@ UNSUPPORTED_OPERATION
 
     **Category**: InternalUnsupportedOperation
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status UNIMPLEMENTED without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status UNIMPLEMENTED without any details for security reasons.
 
     **Resolution**: This error is caused by a participant node misconfiguration or by an implementation bug. Resolution requires participant operator intervention.
 
@@ -454,7 +454,7 @@ CONFIGURATION_ENTRY_REJECTED
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Fetch newest configuration and/or retry.
 
@@ -470,7 +470,7 @@ INTERNALLY_INVALID_KEY
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: Contact support.
 
@@ -486,7 +486,7 @@ PACKAGE_UPLOAD_REJECTED
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Refer to the detailed message of the received error.
 
@@ -508,7 +508,7 @@ CONCURRENT_PARTY_DETAILS_UPDATE_DETECTED
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: Read this party again to obtain its most recent state and in particular its most recent resource version. Use the obtained information to build and send a new update request.
 
@@ -524,7 +524,7 @@ INTERNAL_PARTY_RECORD_ALREADY_EXISTS
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: This error can indicate a problem with the server's storage or implementation.
 
@@ -540,7 +540,7 @@ INTERNAL_PARTY_RECORD_NOT_FOUND
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: This error can indicate a problem with the server's storage or implementation.
 
@@ -556,7 +556,7 @@ INVALID_PARTY_DETAILS_UPDATE_REQUEST
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the error details for specific information on what made the request invalid. Retry with an adjusted update request.
 
@@ -572,7 +572,7 @@ MAX_PARTY_DETAILS_ANNOTATIONS_SIZE_EXCEEDED
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Retry with fewer annotations or delete some of the party's existing annotations.
 
@@ -588,7 +588,7 @@ PARTY_NOT_FOUND
 
     **Category**: InvalidGivenCurrentSystemStateResourceMissing
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
 
     **Resolution**: Check that you are connecting to the right participant node and that the party is spelled correctly.
 
@@ -610,7 +610,7 @@ CONCURRENT_USER_UPDATE_DETECTED
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: Read this user again to obtain its most recent state and in particular its most recent resource version. Use the obtained information to build and send a new update request.
 
@@ -626,7 +626,7 @@ INVALID_USER_UPDATE_REQUEST
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the error details for specific information on what made the request invalid. Retry with an adjusted update request.
 
@@ -642,7 +642,7 @@ MAX_USER_ANNOTATIONS_SIZE_EXCEEDED
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Retry with fewer annotations or delete some of the user's existing annotations.
 
@@ -658,7 +658,7 @@ TOO_MANY_USER_RIGHTS
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Retry with a smaller number of rights or delete some of the already existing rights of this user. Contact the participant operator if the limit is too low.
 
@@ -674,7 +674,7 @@ USER_ALREADY_EXISTS
 
     **Category**: InvalidGivenCurrentSystemStateResourceExists
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ALREADY_EXISTS including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ALREADY_EXISTS including a detailed error message.
 
     **Resolution**: Check that you are connecting to the right participant node and the user-id is spelled correctly, or use the user that already exists.
 
@@ -690,7 +690,7 @@ USER_NOT_FOUND
 
     **Category**: InvalidGivenCurrentSystemStateResourceMissing
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
 
     **Resolution**: Check that you are connecting to the right participant node and the user-id is spelled correctly, if yes, create the user.
 
@@ -712,7 +712,7 @@ INTERNAL_AUTHORIZATION_ERROR
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: Contact the participant operator.
 
@@ -728,7 +728,7 @@ PERMISSION_DENIED
 
     **Category**: InsufficientPermission
 
-    **Conveyance**: This error is logged with log-level WARN on the server side. This error is exposed on the API with grpc-status PERMISSION_DENIED without any details due to security reasons
+    **Conveyance**: This error is logged with log-level WARN on the server side. It is exposed on the API with grpc-status PERMISSION_DENIED without any details for security reasons.
 
     **Resolution**: Inspect your command and your token or ask your participant operator for an explanation why this command failed.
 
@@ -744,7 +744,7 @@ STALE_STREAM_AUTHORIZATION
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: The application should automatically retry fetching the stream. It will either succeed, or fail with an explicit denial of authentication or permission.
 
@@ -760,7 +760,7 @@ UNAUTHENTICATED
 
     **Category**: AuthInterceptorInvalidAuthenticationCredentials
 
-    **Conveyance**: This error is logged with log-level WARN on the server side. This error is exposed on the API with grpc-status UNAUTHENTICATED without any details due to security reasons
+    **Conveyance**: This error is logged with log-level WARN on the server side. It is exposed on the API with grpc-status UNAUTHENTICATED without any details for security reasons.
 
     **Resolution**: Ask your participant operator to provide you with an appropriate JWT token.
 
@@ -782,7 +782,7 @@ FAILED_TO_DETERMINE_LEDGER_TIME
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: Retry the transaction submission.
 
@@ -804,7 +804,7 @@ CONTRACT_NOT_ACTIVE
 
     **Category**: InvalidGivenCurrentSystemStateResourceMissing
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
 
     **Resolution**: This error indicates an application error.
 
@@ -820,7 +820,7 @@ DAML_AUTHORIZATION_ERROR
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: This error type occurs if there is an application error.
 
@@ -836,7 +836,7 @@ DAML_INTERPRETATION_ERROR
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: This error type occurs if there is an application error.
 
@@ -852,7 +852,7 @@ DAML_INTERPRETER_INVALID_ARGUMENT
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: This error type occurs if there is an application error.
 
@@ -874,7 +874,7 @@ CONTRACT_KEY_NOT_FOUND
 
     **Category**: InvalidGivenCurrentSystemStateResourceMissing
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
 
     **Resolution**: This error type occurs if there is contention on a contract.
 
@@ -896,7 +896,7 @@ ALLOWED_LANGUAGE_VERSIONS
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Use a DAR compiled with a language version that this participant supports.
 
@@ -912,7 +912,7 @@ PACKAGE_VALIDATION_FAILED
 
     **Category**: MaliciousOrFaultyBehaviour
 
-    **Conveyance**: This error is logged with log-level WARN on the server side. This error is exposed on the API with grpc-status UNKNOWN without any details due to security reasons
+    **Conveyance**: This error is logged with log-level WARN on the server side. It is exposed on the API with grpc-status UNKNOWN without any details for security reasons.
 
     **Resolution**: Contact support.
 
@@ -934,7 +934,7 @@ COMMAND_PREPROCESSING_FAILED
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect error details and correct your application.
 
@@ -956,7 +956,7 @@ CONTRACT_NOT_FOUND
 
     **Category**: InvalidGivenCurrentSystemStateResourceMissing
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
 
     **Resolution**: This error type occurs if there is contention on a contract.
 
@@ -972,7 +972,7 @@ DISCLOSED_CONTRACT_INVALID
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Re-submit the command using valid disclosed contract payload and metadata.
 
@@ -988,7 +988,7 @@ DUPLICATE_COMMAND
 
     **Category**: InvalidGivenCurrentSystemStateResourceExists
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ALREADY_EXISTS including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ALREADY_EXISTS including a detailed error message.
 
     **Resolution**: The correct resolution depends on the use case. If the error received pertains to a submission retried due to a timeout, do nothing, as the previous command has already been accepted. If the intent is to submit a new command, re-submit using a distinct command id. 
 
@@ -1004,7 +1004,7 @@ DUPLICATE_CONTRACT_KEY
 
     **Category**: InvalidGivenCurrentSystemStateResourceExists
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ALREADY_EXISTS including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ALREADY_EXISTS including a detailed error message.
 
     **Resolution**: This error indicates an application error.
 
@@ -1020,7 +1020,7 @@ INCONSISTENT
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: The correct resolution depends on the business flow, for example it may be possible to proceed without an archived contract as an input, or the transaction submission may be retried to load the up-to-date value of a contract key.
 
@@ -1036,7 +1036,7 @@ INCONSISTENT_CONTRACTS
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: The correct resolution depends on the business flow, for example it may be possible to proceed without the archived contract as an input, or a different contract could be used.
 
@@ -1052,7 +1052,7 @@ INCONSISTENT_CONTRACT_KEY
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Retry the transaction submission.
 
@@ -1068,7 +1068,7 @@ INVALID_LEDGER_TIME
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Retry the transaction submission.
 
@@ -1084,7 +1084,7 @@ SUBMISSION_ALREADY_IN_FLIGHT
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: Listen to the command completion stream until a completion for the in-flight command submission is published. Alternatively, resubmit the command. If the in-flight submission has finished successfully by then, this will return more detailed information about the earlier one. If the in-flight submission has failed by then, the resubmission will attempt to record the new transaction on the ledger. 
 
@@ -1106,7 +1106,7 @@ DAR_NOT_SELF_CONSISTENT
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Contact the supplier of the Dar.
 
@@ -1122,7 +1122,7 @@ DAR_VALIDATION_ERROR
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the error message and contact support.
 
@@ -1138,7 +1138,7 @@ PACKAGE_SERVICE_INTERNAL_ERROR
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: Inspect the error message and contact support.
 
@@ -1160,7 +1160,7 @@ DAR_PARSE_ERROR
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the error message and contact support.
 
@@ -1176,7 +1176,7 @@ INVALID_DAR
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the error message for details and contact support.
 
@@ -1192,7 +1192,7 @@ INVALID_DAR_FILE_NAME
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect error message for details and change the file name accordingly
 
@@ -1208,7 +1208,7 @@ INVALID_LEGACY_DAR
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Please use a more recent dar version.
 
@@ -1224,7 +1224,7 @@ INVALID_ZIP_ENTRY
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the error message for details and contact support.
 
@@ -1240,7 +1240,7 @@ ZIP_BOMB
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the dar and contact support.
 
@@ -1262,7 +1262,7 @@ INVALID_ARGUMENT
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the reason given and correct your application.
 
@@ -1278,7 +1278,7 @@ INVALID_DEDUPLICATION_PERIOD
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Inspect the error message, adjust the value of the deduplication period or ask the participant operator to increase the maximum deduplication period.
 
@@ -1294,7 +1294,7 @@ INVALID_FIELD
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the reason given and correct your application.
 
@@ -1310,7 +1310,7 @@ LEDGER_ID_MISMATCH
 
     **Category**: InvalidGivenCurrentSystemStateResourceMissing
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
 
     **Resolution**: Ensure that your application is correctly configured to use the correct ledger.
 
@@ -1326,7 +1326,7 @@ MISSING_FIELD
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the reason given and correct your application.
 
@@ -1342,7 +1342,7 @@ NON_HEXADECIMAL_OFFSET
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Ensure the offset is specified as a hexadecimal string.
 
@@ -1358,7 +1358,7 @@ OFFSET_AFTER_LEDGER_END
 
     **Category**: InvalidGivenCurrentSystemStateSeekAfterEnd
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status OUT_OF_RANGE including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status OUT_OF_RANGE including a detailed error message.
 
     **Resolution**: Use an offset that is before the ledger end.
 
@@ -1374,7 +1374,7 @@ OFFSET_OUT_OF_RANGE
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Inspect the error message and use a valid offset.
 
@@ -1390,7 +1390,7 @@ PARTICIPANT_PRUNED_DATA_ACCESSED
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Use an offset that is after the pruning offset.
 
@@ -1412,7 +1412,7 @@ LEDGER_CONFIGURATION_NOT_FOUND
 
     **Category**: InvalidGivenCurrentSystemStateResourceMissing
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
 
     **Resolution**: Contact the participant operator.
 
@@ -1428,7 +1428,7 @@ PACKAGE_NOT_FOUND
 
     **Category**: InvalidGivenCurrentSystemStateResourceMissing
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
 
     **Resolution**: Use a package id pertaining to a package existing on the ledger.
 
@@ -1444,7 +1444,7 @@ TEMPLATES_OR_INTERFACES_NOT_FOUND
 
     **Category**: InvalidGivenCurrentSystemStateResourceMissing
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
 
     **Resolution**: Use valid template or interface ids in your query or ask the participant operator to upload the package containing the necessary interfaces/templates.
 
@@ -1460,7 +1460,7 @@ TRANSACTION_NOT_FOUND
 
     **Category**: InvalidGivenCurrentSystemStateResourceMissing
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
 
     **Resolution**: Check the transaction id and verify that the requested transaction is visible to the requesting parties.
 
@@ -1484,7 +1484,7 @@ DISPUTED
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: Contact support.
 
@@ -1502,7 +1502,7 @@ OUT_OF_QUOTA
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: Inspect the error message and retry after after correcting the underlying issue.
 
@@ -1518,7 +1518,7 @@ PARTY_NOT_KNOWN_ON_LEDGER
 
     **Category**: InvalidGivenCurrentSystemStateResourceMissing
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
 
     **Resolution**: Check that all the informee party identifiers are correct, allocate all the informee parties, request their allocation or wait for them to be allocated before retrying the transaction submission.
 
@@ -1534,7 +1534,7 @@ SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT
 
     **Category**: InsufficientPermission
 
-    **Conveyance**: This error is logged with log-level WARN on the server side. This error is exposed on the API with grpc-status PERMISSION_DENIED without any details due to security reasons
+    **Conveyance**: This error is logged with log-level WARN on the server side. It is exposed on the API with grpc-status PERMISSION_DENIED without any details for security reasons.
 
     **Resolution**: Contact the participant operator or re-submit with an authorized party.
 
@@ -1550,7 +1550,7 @@ SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER
 
     **Category**: InvalidGivenCurrentSystemStateResourceMissing
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
 
     **Resolution**: Check that the party identifier is correct, allocate the submitting party, request its allocation or wait for it to be allocated before retrying the transaction submission.
 
@@ -1572,7 +1572,7 @@ INTERNALLY_DUPLICATE_KEYS
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: Contact support.
 
@@ -1588,7 +1588,7 @@ INTERNALLY_INCONSISTENT_KEYS
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: Contact support.
 
