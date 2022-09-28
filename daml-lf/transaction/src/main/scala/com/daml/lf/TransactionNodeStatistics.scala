@@ -4,6 +4,8 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.data.Ref.PackageId
+
 object TransactionNodeStatistics {
 
   /** Container for transaction statistics.
@@ -89,10 +91,31 @@ object TransactionNodeStatistics {
     *  rolled back nodes (those nodes that do appear under a rollback node) on
     *  the other hand within a given transaction `tx`.
     */
-  def apply(tx: VersionedTransaction): TransactionNodeStatistics =
-    apply(tx.transaction)
+  def apply(
+      tx: VersionedTransaction,
+      excludedPackages: Set[PackageId] = Set.empty,
+  ): TransactionNodeStatistics =
+    apply(tx.transaction, excludedPackages)
 
-  def apply(tx: Transaction): TransactionNodeStatistics = {
+  /** Calculate the node statistics unless all actions in the transaction use infrastructure packages in
+    * which case return Empty.
+    */
+  def apply(
+      tx: Transaction,
+      excludedPackages: Set[PackageId],
+  ): TransactionNodeStatistics = {
+    println(excludedPackages)
+    val excluded = tx.nodes.values
+      .collect({ case a: Node.Action => a })
+      .forall(_.packageIds.forall(excludedPackages.contains))
+    if (!excluded) {
+      build(tx)
+    } else {
+      TransactionNodeStatistics.Empty
+    }
+  }
+
+  private def build(tx: Transaction): TransactionNodeStatistics = {
     val committed = emptyFields
     val rolledBack = emptyFields
     var rollbackDepth = 0

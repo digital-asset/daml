@@ -182,6 +182,35 @@ class TransactionNodeStatisticsSpec
         }
       }
     }
+
+    "exclude infrastructure transactions" in {
+      forEvery(testCases) { (makeNode, _) =>
+        val builder = TxBuilder()
+        val node = makeNode(builder)
+        val excludedPackageIds = Set(node).collect({ case a: Node.Action => a.packageIds }).flatten
+        builder.add(node)
+        TransactionNodeStatistics(
+          builder.build(),
+          excludedPackageIds,
+        ) shouldBe TransactionNodeStatistics.Empty
+      }
+    }
+
+    "only exclude transaction if all packages are infrastructure" in {
+      forEvery(testCases) { (makeNode, _) =>
+        val builder = TxBuilder()
+        val nonExcludedNode = makeNode(builder)
+        val excludedNode = makeNode(builder)
+        val excludedPackageIds =
+          Set(excludedNode).collect({ case a: Node.Action => a.packageIds }).flatten
+        builder.add(nonExcludedNode)
+        builder.add(excludedNode)
+        TransactionNodeStatistics(
+          builder.build(),
+          excludedPackageIds,
+        ) should not be (TransactionNodeStatistics.Empty)
+      }
+    }
   }
 
 }
