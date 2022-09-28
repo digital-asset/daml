@@ -11,21 +11,17 @@ import java.time.Instant
 
 class IndexerMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
     extends MetricHandle.Factory {
-  // TODO: use varGauge
-  val lastReceivedRecordTime = new VarGauge[Long](0)
-  registry.register(prefix :+ "last_received_record_time", lastReceivedRecordTime)
+  val lastReceivedRecordTime: Gauge[VarGauge[Long], Long] =
+    varGauge(prefix :+ "last_received_record_time", 0)
 
-  // TODO: use varGauge
-  val lastReceivedOffset = new VarGauge[String]("<none>")
-  registry.register(prefix :+ "last_received_offset", lastReceivedOffset)
+  val lastReceivedOffset: Gauge[VarGauge[String], String] =
+    varGauge(prefix :+ "last_received_offset", "<none>")
 
-  // TODO: register Gauge to return GaugeM and add into MetricHandle.Factory as varGauge
-  registerGauge(
+  val ledgerEndSequentialId: Gauge[VarGauge[Long], Long] =
+    varGauge(prefix :+ "ledger_end_sequential_id", 0)
+
+  gauge(
     prefix :+ "current_record_time_lag",
-    () => () => Instant.now().toEpochMilli - lastReceivedRecordTime.getValue,
-    registry,
+    () => () => Instant.now().toEpochMilli - lastReceivedRecordTime.metric.getValue,
   )
-
-  val ledgerEndSequentialId = new VarGauge[Long](0L)
-  registry.register(prefix :+ "ledger_end_sequential_id", ledgerEndSequentialId)
 }

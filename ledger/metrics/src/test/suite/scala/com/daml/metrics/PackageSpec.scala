@@ -12,11 +12,14 @@ import scala.concurrent.{ExecutionContext, Future}
 class PackageSpec extends AsyncWordSpec with Matchers {
   "gauge registration" should {
     "succeed on multiple threads in parallel for the same metric name" in {
-      val registry = new MetricRegistry
+      val metrics = new MetricHandle.Factory {
+        override def prefix: MetricName = MetricName.Daml
+        override def registry: MetricRegistry = new MetricRegistry
+      }
       implicit val executionContext: ExecutionContext = ExecutionContext.global
-      val metricName = MetricName.Daml :+ "a" :+ "test"
+      val metricName = metrics.prefix :+ "a" :+ "test"
       val instances =
-        (1 to 1000).map(_ => Future(registerGauge(metricName, () => () => 1.0, registry)))
+        (1 to 1000).map(_ => Future(metrics.gauge(metricName, () => () => 1.0)))
       Future.sequence(instances).map { _ =>
         succeed
       }

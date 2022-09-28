@@ -4,7 +4,8 @@
 package com.daml.metrics
 
 import cats.data.EitherT
-import com.codahale.{metrics => codahale}
+import com.codahale.{metrics => codahaleM}
+import com.codahale.metrics.MetricRegistry.MetricSupplier
 
 import scala.concurrent.{Future, blocking}
 
@@ -46,6 +47,13 @@ object MetricHandle {
         res
       }
     }
+
+    def gauge[T](name: MetricName, gaugeSupplier: MetricSupplier[codahaleM.Gauge[_]]): Gauge[codahaleM.Gauge[T], T] =
+      registry.synchronized {
+        registry.remove(name)
+        val gauge = registry.gauge(name, gaugeSupplier).asInstanceOf[codahaleM.Gauge[T]]
+        Gauge(name, gauge)
+      }
 
     def meter(name: MetricName): Meter = {
       // This is idempotent

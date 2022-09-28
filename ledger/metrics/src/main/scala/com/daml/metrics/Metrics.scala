@@ -3,9 +3,7 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.{Gauge, MetricRegistry, SharedMetricRegistries}
-import com.codahale.metrics.MetricRegistry.MetricSupplier
-import com.codahale.metrics._
+import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
 
 object Metrics {
   def fromSharedMetricRegistries(registryName: String): Metrics =
@@ -14,9 +12,6 @@ object Metrics {
 
 final class Metrics(val registry: MetricRegistry) {
 
-  def register(name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Unit =
-    registerGauge(name, gaugeSupplier, registry)
-
   object test {
     private val Prefix: MetricName = MetricName("test")
 
@@ -24,7 +19,7 @@ final class Metrics(val registry: MetricRegistry) {
   }
 
   object daml extends MetricHandle.Factory {
-    override val prefix: MetricName = MetricName.Daml // move in the constructor ?
+    override val prefix: MetricName = MetricName.Daml
     override val registry = Metrics.this.registry
 
     object commands extends CommandMetrics(prefix :+ "commands", registry)

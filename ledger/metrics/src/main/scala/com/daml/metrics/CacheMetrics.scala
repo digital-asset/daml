@@ -23,6 +23,8 @@ final class CacheMetrics(override val prefix: MetricName, override val registry:
   def registerWeightGauge(weightGauge: Gauge[Long]): Unit =
     register(prefix :+ "weight", () => weightGauge)
 
-  private def register(name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Unit =
-    registerGauge(name, gaugeSupplier, registry)
+  private def register(name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Unit = {
+    gauge(name, gaugeSupplier)
+    ()
+  }
 }
