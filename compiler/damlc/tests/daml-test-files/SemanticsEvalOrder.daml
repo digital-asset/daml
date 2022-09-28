@@ -22,14 +22,14 @@ evTyAbsErasableErr = scenario do
 
 -- @ERROR overApply OK
 overApply = scenario do
-  let f x = error "overApply OK"
-  let _ = f 1 (error "overApply Failed")
+  let f x = error "overApply Failed"
+  let _ = f 1 (error "overApply OK")
   let _ = f 1 2
   pure ()
 
 -- @ERROR EvExpAppErr1 OK
 evExpAppErr1 = scenario do
-  let _ = (error "EvExpAppErr1 OK") (error "EvExpAppErr1 failed")
+  let _ = (error "EvExpAppErr1 failed") (error "EvExpAppErr1 OK")
   pure ()
 
 -- @ERROR EvExpAppErr2 OK
@@ -153,10 +153,10 @@ evExpFoldrErr2 = scenario do
 
 -- @ERROR EvExpFoldrErr3 OK
 evExpFoldrErr3 = scenario do
-  pure (foldr f identity [1] (error "EvExpFoldrErr3 failed"))
+  pure (foldr f identity [1] (error "EvExpFoldrErr3 OK"))
   where
     f: Int -> (Int -> Int) -> (Int -> Int)
-    f _ _ = error "EvExpFoldrErr3 OK"
+    f _ _ = error "EvExpFoldrErr3 failed"
 
 -- @ERROR EvExpFoldlErr1 OK
 evExpFoldlErr1 = scenario do
@@ -174,10 +174,10 @@ evExpFoldlErr2 = scenario do
 
 -- @ERROR EvExpFoldlErr3 OK
 evExpFoldlErr3 = scenario do
-  pure (foldl f identity [1] (error "EvExpFoldlErr3 failed"))
+  pure (foldl f identity [1] (error "EvExpFoldlErr3 OK"))
   where
     f: (Int -> Int) -> Int -> (Int -> Int)
-    f _ _ = error "EvExpFoldlErr3 OK"
+    f _ _ = error "EvExpFoldlErr3 failed"
 
 -- @ERROR EvExpUpPureErr OK
 evExpUpPureErr = scenario do

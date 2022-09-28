@@ -99,6 +99,7 @@ object SExpr {
 
   object SEValue extends SValueContainer[SEValue] // used by Compiler
 
+  // NICK, kill this...
   /** Function application with general arguments (deprecated)
     * Although 'fun' is atomic, 'args' are still any kind of expression.
     * This case would not exist if we performed a full/standard ANF pass.

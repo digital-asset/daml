@@ -567,7 +567,7 @@ private[lf] object Speedy {
     /** This function is used to enter an ANF application.  The function has been evaluated to
       *      a value, and so have the arguments - they just need looking up
       */
-    // TODO: share common code with executeApplication
+    // TODO: share common code with executeApplication //NICK
     private[speedy] def enterApplication(vfun: SValue, newArgs: Array[SExprAtomic]): Control = {
       vfun match {
         case SValue.SPAP(prim, actualsSoFar, arity) =>
@@ -626,6 +626,7 @@ private[lf] object Speedy {
       }
     }
 
+    // NICK.. kill..
     /** The function has been evaluated to a value, now start evaluating the arguments. */
     private[speedy] def executeApplication(vfun: SValue, newArgs: Array[SExpr]): Control = {
       vfun match {
@@ -1078,6 +1079,7 @@ private[lf] object Speedy {
     }
   }
 
+  // NICK, kill this..
   /** The function has been evaluated to a value. Now restore the environment and execute the application */
   private[speedy] final case class KArg(
       machine: Machine,

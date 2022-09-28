@@ -34,7 +34,6 @@ import com.daml.lf.speedy.{SExpr1 => source}
 import com.daml.lf.speedy.{SExpr => target}
 import com.daml.lf.speedy.Compiler.CompilationError
 
-import scala.annotation.nowarn
 import scala.annotation.tailrec
 
 import scalaz.{@@, Tag}
@@ -300,21 +299,12 @@ private[lf] object Anf {
       case source.SEVal(x) => transform(depth, target.SEVal(x))(k)
 
       case source.SEApp(func, args) =>
-        // It's safe to perform ANF if the func-expression has no effects when evaluated.
-        val safeFunc =
-          func match {
-            // we know that trivially in these two cases
-            case source.SEBuiltin(b) =>
-              val overApp = args.lengthCompare(b.arity) > 0
-              !overApp
-            case _ => false
+        atomizeExps(depth, env, args, k) { (depth, args) => k =>
+          atomizeExp(depth, env, func, k) { (depth, func) => k =>
+            val func1 = makeRelativeA(depth)(func)
+            val args1 = args.map(makeRelativeA(depth))
+            transform(depth, target.SEAppAtomic(func1, args1.toArray))(k)
           }
-        // It's also safe to perform ANF for applications of a single argument.
-        val singleArg = args.lengthCompare(1) == 0
-        if (safeFunc || singleArg) {
-          transformMultiApp(depth, env, func, args, k)(transform)
-        } else {
-          transformMultiAppSafely(depth, env, func, args, k)(transform)
         }
 
       case source.SEMakeClo(fvs0, arity, body) =>
@@ -426,65 +416,4 @@ private[lf] object Anf {
     }
     loop(body, rhss.reverse)
   }
-
-  /* This function is used when transforming known functions.  And so we can we sure that
-   the ANF transform is safe, and will not change the evaluation order
-   */
-  private[this] def transformMultiApp(
-      depth: DepthA,
-      env: Env,
-      func: source.SExpr,
-      args: List[source.SExpr],
-      k: K[target.SExpr],
-  )(transform: Tx[target.SExpr]): Res = {
-
-    atomizeExp(depth, env, func, k) { (depth, func) => k =>
-      atomizeExps(depth, env, args, k) { (depth, args) => k =>
-        val func1 = makeRelativeA(depth)(func)
-        val args1 = args.map(makeRelativeA(depth))
-        transform(depth, target.SEAppAtomic(func1, args1.toArray))(k)
-      }
-    }
-  }
-
-  /* This function must be used when transforming an application of unknown function.  The
-   translated application is *not* in proper ANF form.
-   */
-
-  @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppOnlyFunIsAtomic")
-  private[this] def transformMultiAppSafely(
-      depth: DepthA,
-      env: Env,
-      func: source.SExpr,
-      args: List[source.SExpr],
-      k: K[target.SExpr],
-  )(transform: Tx[target.SExpr]): Res = {
-
-    atomizeExp(depth, env, func, k) { (depth, func) => k =>
-      val func1 = makeRelativeA(depth)(func)
-      // we dont atomize the args here
-      flattenExpList(depth, env, args) { args =>
-        // we build a non-atomic application here (only the function is atomic)
-        transform(depth, target.SEAppOnlyFunIsAtomic(func1, args.toArray))(k)
-      }
-    }
-  }
-
-  private[this] def flattenExpList(depth: DepthA, env: Env, exps0: List[source.SExpr])(
-      k: K[List[target.SExpr]]
-  ): Res = {
-
-    def loop(acc: List[target.SExpr], exps: List[source.SExpr]): Res = {
-      exps match {
-        case exp :: exps =>
-          flattenExp(depth, env, exp) { exp =>
-            loop(exp :: acc, exps)
-          }
-        case Nil =>
-          k(acc.reverse)
-      }
-    }
-    loop(Nil, exps0)
-  }
-
 }
