@@ -256,7 +256,7 @@ class ReplService(
       )
     )
     if (!results.isEmpty) {
-      scriptExpr = SEApp(scriptExpr, results.map(SEValue(_)).toArray)
+      scriptExpr = SEApp(scriptExpr, results.toArray)
     }
 
     val signatures = this.signatures.updated(homePackageId, AstUtil.toSignature(pkg))

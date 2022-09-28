@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.Instant
 import java.util.concurrent.TimeoutException
+
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.IncludeInterfaceView
@@ -16,12 +17,22 @@ import com.daml.ledger.api.v1.admin.config_management_service.{
   SetTimeModelResponse,
   TimeModel,
 }
+import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.package_management_service.{
   PackageDetails,
   UploadDarFileRequest,
 }
 import com.daml.ledger.api.v1.admin.participant_pruning_service.PruneResponse
-import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails
+import com.daml.ledger.api.v1.admin.party_management_service.{
+  AllocatePartyRequest,
+  AllocatePartyResponse,
+  GetPartiesRequest,
+  GetPartiesResponse,
+  ListKnownPartiesResponse,
+  PartyDetails,
+  UpdatePartyDetailsRequest,
+  UpdatePartyDetailsResponse,
+}
 import com.daml.ledger.api.v1.command_completion_service.{
   Checkpoint,
   CompletionEndRequest,
@@ -76,6 +87,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   override def referenceOffset: LedgerOffset = delegate.referenceOffset
   override def nextKeyId: () => String = delegate.nextKeyId
   override def nextUserId: () => String = delegate.nextUserId
+  override def nextPartyId: () => String = delegate.nextUserId
   override def delayMechanism: DelayMechanism = delegate.delayMechanism
 
   override def currentEnd(): Future[LedgerOffset] =
@@ -117,13 +129,29 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   )
   override def allocateParty(): Future[Primitive.Party] =
     withTimeout("Allocate party", delegate.allocateParty())
+
+  def allocateParty(req: AllocatePartyRequest): Future[AllocatePartyResponse] =
+    withTimeout("Allocate party", delegate.allocateParty(req))
+
+  override def updatePartyDetails(
+      req: UpdatePartyDetailsRequest
+  ): Future[UpdatePartyDetailsResponse] =
+    withTimeout("Update party details", delegate.updatePartyDetails(req))
+
   override def allocateParty(
-      partyIdHint: Option[String],
-      displayName: Option[String],
+      partyIdHint: Option[String] = None,
+      displayName: Option[String] = None,
+      localMetadata: Option[ObjectMeta] = None,
   ): Future[Primitive.Party] = withTimeout(
     s"Allocate party with hint $partyIdHint and display name $displayName",
-    delegate.allocateParty(partyIdHint, displayName),
+    delegate.allocateParty(partyIdHint, displayName, localMetadata),
   )
+
+  override def getParties(req: GetPartiesRequest): Future[GetPartiesResponse] = withTimeout(
+    s"Get parties",
+    delegate.getParties(req),
+  )
+
   override def allocateParties(n: Int): Future[Vector[Primitive.Party]] = withTimeout(
     s"Allocate $n parties",
     delegate.allocateParties(n),
@@ -136,6 +164,11 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     "List known parties",
     delegate.listKnownParties(),
   )
+  override def listKnownPartiesResp(): Future[ListKnownPartiesResponse] = withTimeout(
+    "List known parties",
+    delegate.listKnownPartiesResp(),
+  )
+
   override def waitForParties(
       otherParticipants: Iterable[ParticipantTestContext],
       expectedParties: Set[Primitive.Party],

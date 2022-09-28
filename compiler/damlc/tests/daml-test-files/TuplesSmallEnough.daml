@@ -1,0 +1,8 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | Check that no warning is emitted if tuple of size <= 5 is used
+module TuplesSmallEnough where
+
+x : (Int, Int, Int, Int, Int)
+x = (1, 2, 3, 4, 5)

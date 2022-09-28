@@ -19,7 +19,7 @@ package com.daml.lf.speedy
   *
   *  The speedy machine now expects that it will never have to execute a non-ANF expression,
   *  crashing at runtime if one is encountered. In particular we must ensure that the
-  *  expression forms: SEAppGeneral and SECase are removed, and replaced by the simpler
+  *  expression forms: SEApp(General) and SECase are removed, and replaced by the simpler
   *  SEAppAtomic and SECaseAtomic (plus SELet as required).
   *
   *  This compilation phase transforms from SExpr1 to SExpr.
@@ -34,6 +34,7 @@ import com.daml.lf.speedy.{SExpr1 => source}
 import com.daml.lf.speedy.{SExpr => target}
 import com.daml.lf.speedy.Compiler.CompilationError
 
+import scala.annotation.nowarn
 import scala.annotation.tailrec
 
 import scalaz.{@@, Tag}
@@ -450,6 +451,7 @@ private[lf] object Anf {
    translated application is *not* in proper ANF form.
    */
 
+  @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppOnlyFunIsAtomic")
   private[this] def transformMultiAppSafely(
       depth: DepthA,
       env: Env,
@@ -463,7 +465,7 @@ private[lf] object Anf {
       // we dont atomize the args here
       flattenExpList(depth, env, args) { args =>
         // we build a non-atomic application here (only the function is atomic)
-        transform(depth, target.SEAppAtomicFun(func1, args.toArray))(k)
+        transform(depth, target.SEAppOnlyFunIsAtomic(func1, args.toArray))(k)
       }
     }
   }

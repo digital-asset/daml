@@ -333,7 +333,7 @@ object SBuiltinInterfaceTest {
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   ): Try[Either[SError, SValue]] =
     evalSExpr(
-      SEApp(compiledBasePkgs.compiler.unsafeCompile(e), args.map(SEValue(_))),
+      SEApp(compiledBasePkgs.compiler.unsafeCompile(e), args),
       onLedger,
       getPkg,
       getContract,
@@ -352,7 +352,7 @@ object SBuiltinInterfaceTest {
         Speedy.Machine.fromUpdateSExpr(
           compiledBasePkgs,
           transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
-          updateSE = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
+          updateSE = SELet1(e, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
           committers = Set(alice),
         )
       else

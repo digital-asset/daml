@@ -42,6 +42,7 @@ com/daml/daml_lf_dev/daml_lf_1.proto
 com/daml/ledger/api/v1/active_contracts_service.proto
 com/daml/ledger/api/v1/admin/config_management_service.proto
 com/daml/ledger/api/v1/admin/metering_report_service.proto
+com/daml/ledger/api/v1/admin/object_meta.proto
 com/daml/ledger/api/v1/admin/package_management_service.proto
 com/daml/ledger/api/v1/admin/participant_pruning_service.proto
 com/daml/ledger/api/v1/admin/party_management_service.proto

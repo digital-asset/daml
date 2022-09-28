@@ -187,7 +187,7 @@ object Script {
 
   final case class Action(expr: SExpr, scriptIds: ScriptIds) extends Script
   final case class Function(expr: SExpr, param: Type, scriptIds: ScriptIds) extends Script {
-    def apply(arg: SExpr): Script.Action = Script.Action(SEApp(expr, Array(arg)), scriptIds)
+    def apply(arg: SValue): Script.Action = Script.Action(SEApp(expr, Array(arg)), scriptIds)
   }
 
   def fromIdentifier(
@@ -368,7 +368,7 @@ object Runner {
           case Some(f) =>
             f(inputJson, script.param) match {
               case Left(msg) => throw new ConverterException(msg)
-              case Right(arg) => script.apply(SEValue(arg))
+              case Right(arg) => script.apply(arg)
             }
           case None =>
             throw new RuntimeException(
@@ -470,16 +470,22 @@ private[lf] class Runner(
               .flatMap { scriptF =>
                 scriptF match {
                   case ScriptF.Catch(act, handle) =>
-                    run(SEApp(SEValue(act), Array(SEValue(SUnit)))).transformWith {
+                    run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
                       case Success(v) => Future.successful(SEValue(v))
                       case Failure(
                             exce @ Runner.InterpretationError(
                               SError.SErrorDamlException(IE.UnhandledException(typ, value))
                             )
                           ) =>
-                        machine.setExpressionToEvaluate(
-                          SEApp(SEValue(handle), Array(SBToAny(typ)(SEImportValue(typ, value))))
-                        )
+                        val e =
+                          SELet1(
+                            SEImportValue(typ, value),
+                            SELet1(
+                              SEAppAtomic(SEBuiltin(SBToAny(typ)), Array(SELocS(1))),
+                              SEAppAtomic(SEValue(handle), Array(SELocS(1))),
+                            ),
+                          )
+                        machine.setExpressionToEvaluate(e)
                         stepToValue()
                           .fold(Future.failed, Future.successful)
                           .flatMap {
@@ -530,7 +536,7 @@ private[lf] class Runner(
         case SRecord(_, _, vals) if vals.size == 1 || vals.size == 2 => {
           vals.get(0) match {
             case SPAP(_, _, _) =>
-              Future(SEApp(SEValue(vals.get(0)), Array(SEValue(SUnit))))
+              Future(SEAppAtomic(SEValue(vals.get(0)), Array(SEValue(SUnit))))
             case _ =>
               Future.failed(
                 new ConverterException(

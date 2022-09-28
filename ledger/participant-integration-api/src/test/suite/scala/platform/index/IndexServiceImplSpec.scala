@@ -17,6 +17,7 @@ import com.daml.platform.index.IndexServiceImpl.{
 }
 import com.daml.platform.index.IndexServiceImplSpec.Scope
 import com.daml.platform.store.dao.EventProjectionProperties
+import com.daml.platform.store.dao.EventProjectionProperties.InterfaceViewFilter
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import org.mockito.MockitoSugar
@@ -39,7 +40,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     val memoFunc = memoizedTransactionFilterProjection(
       view,
       TransactionFilter(
-        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true)))))
+        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true, true)))))
       ),
       true,
     )
@@ -55,7 +56,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         EventProjectionProperties(
           true,
           Map.empty[String, Set[Identifier]],
-          Map(party.toString -> Map(template1 -> Set(iface1))),
+          Map(party.toString -> Map(template1 -> InterfaceViewFilter(Set(iface1), true))),
         ),
       )
     ) // filter gets complicated, filters template1 for iface1, projects iface1
@@ -77,7 +78,12 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
         EventProjectionProperties(
           true,
           Map.empty[String, Set[Identifier]],
-          Map(party.toString -> Map(template1 -> Set(iface1), template2 -> Set(iface1))),
+          Map(
+            party.toString -> Map(
+              template1 -> InterfaceViewFilter(Set(iface1), true),
+              template2 -> InterfaceViewFilter(Set(iface1), true),
+            )
+          ),
         ),
       )
     ) // filter gets even more complicated, filters template1 and template2 for iface1, projects iface1 for both templates
@@ -188,7 +194,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     templateFilter(
       PackageMetadata(),
       TransactionFilter(
-        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true)))))
+        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true, true)))))
       ),
     ) shouldBe Map.empty
   }
@@ -197,7 +203,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     templateFilter(
       PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1))),
       TransactionFilter(
-        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true)))))
+        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true, true)))))
       ),
     ) shouldBe Map(template1 -> Set(party))
   }
@@ -206,7 +212,11 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     templateFilter(
       PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template2))),
       TransactionFilter(
-        Map(party -> Filters(InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, true)))))
+        Map(
+          party -> Filters(
+            InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, true, true)))
+          )
+        )
       ),
     ) shouldBe Map(template1 -> Set(party), template2 -> Set(party))
   }
@@ -222,8 +232,8 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
             InclusiveFilters(
               templateIds = Set(template3),
               interfaceFilters = Set(
-                InterfaceFilter(iface1, true),
-                InterfaceFilter(iface2, true),
+                InterfaceFilter(iface1, true, true),
+                InterfaceFilter(iface2, true, true),
               ),
             )
           )
@@ -255,7 +265,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "return an unknown interface for not known interface" in new Scope {
     checkUnknownTemplatesOrInterfaces(
       new TransactionFilter(
-        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true)))))
+        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true, true)))))
       ),
       PackageMetadata(),
     ) shouldBe List(Right(iface1))
@@ -264,7 +274,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "return zero unknown interfaces for known interface" in new Scope {
     checkUnknownTemplatesOrInterfaces(
       new TransactionFilter(
-        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true)))))
+        Map(party -> Filters(InclusiveFilters(Set(), Set(InterfaceFilter(iface1, true, true)))))
       ),
       PackageMetadata(interfaces = Set(iface1)),
     ) shouldBe List()
@@ -282,9 +292,11 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
     checkUnknownTemplatesOrInterfaces(
       new TransactionFilter(
         Map(
-          party -> Filters(InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, true)))),
+          party -> Filters(
+            InclusiveFilters(Set(template1), Set(InterfaceFilter(iface1, true, true)))
+          ),
           party2 -> Filters(
-            InclusiveFilters(Set(template2, template3), Set(InterfaceFilter(iface2, true)))
+            InclusiveFilters(Set(template2, template3), Set(InterfaceFilter(iface2, true, true)))
           ),
         )
       ),

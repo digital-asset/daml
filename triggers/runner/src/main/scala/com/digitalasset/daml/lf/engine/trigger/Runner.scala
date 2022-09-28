@@ -590,7 +590,7 @@ class Runner(
     }
 
   def makeApp(func: SExpr, values: Array[SValue]): SExpr = {
-    SEApp(func, values.map(SEValue(_)))
+    SEApp(func, values)
   }
 
   private[this] def makeAppD(func: SValue, values: SValue*) = makeApp(SEValue(func), values.toArray)

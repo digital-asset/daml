@@ -432,7 +432,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           .fromUpdateSExpr(
             pkgs,
             seed,
-            if (args.isEmpty) se else SEApp(se, args.map(SEValue(_))),
+            if (args.isEmpty) se else SEApp(se, args),
             parties,
             disclosedContracts = disclosedContracts.map(_.unversioned),
             traceLog = traceLog,

@@ -26,7 +26,9 @@ import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
+import scalaz.std.list._
 import scalaz.std.option._
+import scalaz.std.scalaFuture._
 import scalaz.std.vector._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
@@ -163,7 +165,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
             inside(msgs) { case Seq(warningMsg, errorMsg) =>
               val warning = decodeServiceWarning(warningMsg)
               inside(warning) { case domain.UnknownTemplateIds(ids) =>
-                ids shouldBe List(domain.TemplateId(None, "AA", "BB"))
+                ids shouldBe List(domain.ContractTypeId(None, "AA", "BB"))
               }
               val error = decodeErrorResponse(errorMsg)
               error shouldBe domain.ErrorResponse(
@@ -692,7 +694,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, headers) = aliceHeaders
-        templateId = domain.TemplateId(None, "Account", "Account")
+        templateId = TpId.Account.Account
         fetchRequest = (contractIdAtOffset: Option[Option[domain.ContractId]]) => {
           import json.JsonProtocol._
           List(
@@ -808,7 +810,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         (alice, aliceAuthHeaders) = aliceHeaders
         bobHeaders <- fixture.getUniquePartyAndAuthHeaders("Bob")
         (bob, bobAuthHeaders) = bobHeaders
-        templateId = domain.TemplateId(None, "Account", "Account")
+        templateId = TpId.Account.Account
 
         f1 =
           postCreateCommand(
@@ -914,7 +916,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       archive = (id: domain.ContractId) =>
         for {
           r <- postArchiveCommand(
-            domain.TemplateId(None, "Account", "Account"),
+            TpId.Account.Account,
             id,
             fixture,
             headers,
@@ -1235,10 +1237,10 @@ abstract class AbstractWebsocketServiceIntegrationTest
   "no duplicates should be returned when retrieving contracts for multiple parties" in withHttpService {
     fixture =>
       import fixture.uri
-      val aliceAndBob = List("Alice", "Bob")
 
       def test(
           expectedContractId: String,
+          expectedParties: Vector[JsString],
           killSwitch: UniqueKillSwitch,
       ): Sink[JsValue, Future[ShouldHaveEnded]] = {
         val dslSyntax = Consume.syntax[JsValue]
@@ -1251,7 +1253,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
             _ = inside(sharedAccount) { case JsObject(obj) =>
               inside((obj get "owners", obj get "number")) {
                 case (Some(JsArray(owners)), Some(JsString(number))) =>
-                  owners should contain theSameElementsAs Vector(JsString("Alice"), JsString("Bob"))
+                  owners should contain theSameElementsAs expectedParties
                   number shouldBe "4444"
               }
             }
@@ -1270,6 +1272,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
       }
 
       for {
+        aliceAndBob @ List(alice, bob) <- List("Alice", "Bob").traverse { p =>
+          fixture.getUniquePartyAndAuthHeaders(p).map(_._1.unwrap)
+        }
         jwtForAliceAndBob <-
           jwtForParties(uri)(actAs = aliceAndBob, readAs = Nil, ledgerId = testId)
         createResponse <-
@@ -1290,7 +1295,11 @@ abstract class AbstractWebsocketServiceIntegrationTest
         )
           .viaMat(KillSwitches.single)(Keep.right)
           .preMaterialize()
-        result <- source via parseResp runWith test(expectedContractId.unwrap, killSwitch)
+        result <- source via parseResp runWith test(
+          expectedContractId.unwrap,
+          Vector(JsString(alice), JsString(bob)),
+          killSwitch,
+        )
       } yield inside(result) { case ShouldHaveEnded(_, 2, _) =>
         succeed
       }

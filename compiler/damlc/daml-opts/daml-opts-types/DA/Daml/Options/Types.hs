@@ -7,6 +7,7 @@ module DA.Daml.Options.Types
     ( Options(..)
     , EnableScenarioService(..)
     , EnableScenarios(..)
+    , AllowLargeTuples(..)
     , SkipScenarioValidation(..)
     , DlintUsage(..)
     , Haddock(..)
@@ -115,6 +116,8 @@ data Options = Options
   , optAccessTokenPath :: Maybe FilePath
   -- ^ Path to a file containing an access JWT token. This is used for building to query/fetch
   -- packages from remote ledgers.
+  , optAllowLargeTuples :: AllowLargeTuples
+  -- ^ Do not warn when tuples of size > 5 are used
   }
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
@@ -138,6 +141,9 @@ newtype EnableScenarioService = EnableScenarioService { getEnableScenarioService
     deriving Show
 
 newtype EnableScenarios = EnableScenarios { getEnableScenarios :: Bool }
+    deriving Show
+
+newtype AllowLargeTuples = AllowLargeTuples { getAllowLargeTuples :: Bool }
     deriving Show
 
 damlArtifactDir :: FilePath
@@ -207,6 +213,7 @@ defaultOptions mbVersion =
         , optIgnorePackageMetadata = IgnorePackageMetadata False
         , optEnableOfInterestRule = False
         , optAccessTokenPath = Nothing
+        , optAllowLargeTuples = AllowLargeTuples False
         }
 
 getBaseDir :: IO FilePath

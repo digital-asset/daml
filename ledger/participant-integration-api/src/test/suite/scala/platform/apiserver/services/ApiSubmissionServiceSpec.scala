@@ -8,7 +8,7 @@ import com.daml.api.util.TimeProvider
 import com.daml.error.definitions.ErrorCause
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.DeduplicationPeriod.DeduplicationDuration
-import com.daml.ledger.api.domain.{CommandId, Commands, PartyDetails}
+import com.daml.ledger.api.domain.{CommandId, Commands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
@@ -43,7 +43,6 @@ import org.scalatest.matchers.should.Matchers
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletableFuture.completedFuture
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -64,7 +63,6 @@ class ApiSubmissionServiceSpec
 
   private val builder = TransactionBuilder()
   private val knownParties = (1 to 100).map(idx => s"party-$idx").toArray
-  private val knownPartiesSet = knownParties.toSet
   private val missingParties = (101 to 200).map(idx => s"party-$idx").toArray
   private val allInformeesInTransaction = knownParties ++ missingParties
   for {
@@ -92,118 +90,6 @@ class ApiSubmissionServiceSpec
     apiSubmissionService()
       .submit(SubmitRequest(commands))
       .futureValue
-  }
-
-  behavior of "allocateMissingInformees"
-
-  it should "allocate missing informees" in new TestContext {
-    when(partyManagementService.getParties(any[Seq[Ref.Party]])(any[LoggingContext]))
-      .thenAnswer[Seq[Ref.Party]] { parties =>
-        Future.successful(
-          parties.view
-            .filter(knownPartiesSet)
-            .map(PartyDetails(_, Option.empty, isLocal = true))
-            .toList
-        )
-      }
-    when(
-      writeService.allocateParty(
-        any[Option[Ref.Party]],
-        any[Option[Ref.Party]],
-        any[Ref.SubmissionId],
-      )(any[LoggingContext], any[TelemetryContext])
-    ).thenReturn(completedFuture(state.SubmissionResult.Acknowledged))
-
-    private val results =
-      apiSubmissionService(implicitPartyAllocation = true)
-        .allocateMissingInformees(transaction)
-        .futureValue
-
-    results should have size 100
-    all(results) should be(state.SubmissionResult.Acknowledged)
-    missingParties.foreach { party =>
-      verify(writeService).allocateParty(
-        eqTo(Some(Ref.Party.assertFromString(party))),
-        eqTo(Some(party)),
-        any[Ref.SubmissionId],
-      )(any[LoggingContext], any[TelemetryContext])
-    }
-    verifyNoMoreInteractions(writeService)
-  }
-
-  it should "not allocate if all parties are already known" in new TestContext {
-    when(partyManagementService.getParties(any[Seq[Ref.Party]])(any[LoggingContext]))
-      .thenAnswer[Seq[Ref.Party]] { parties =>
-        Future.successful(parties.view.map(PartyDetails(_, Option.empty, isLocal = true)).toList)
-      }
-    when(
-      writeService.allocateParty(
-        any[Option[Ref.Party]],
-        any[Option[Ref.Party]],
-        any[Ref.SubmissionId],
-      )(any[LoggingContext], any[TelemetryContext])
-    ).thenReturn(completedFuture(state.SubmissionResult.Acknowledged))
-
-    private val results =
-      apiSubmissionService(implicitPartyAllocation = true)
-        .allocateMissingInformees(transaction)
-        .futureValue
-
-    results shouldBe Seq.empty[state.SubmissionResult]
-    verify(writeService, never).allocateParty(
-      any[Option[Ref.Party]],
-      any[Option[String]],
-      any[Ref.SubmissionId],
-    )(any[LoggingContext], any[TelemetryContext])
-  }
-
-  it should "not allocate missing informees if implicit party allocation is disabled" in new TestContext {
-    private val results = apiSubmissionService(implicitPartyAllocation = false)
-      .allocateMissingInformees(transaction)
-      .futureValue
-
-    results shouldBe Seq.empty[state.SubmissionResult]
-    verify(writeService, never).allocateParty(
-      any[Option[Ref.Party]],
-      any[Option[String]],
-      any[Ref.SubmissionId],
-    )(any[LoggingContext], any[TelemetryContext])
-  }
-
-  it should "forward SubmissionResult if it failed" in new TestContext {
-    val party = "party-1"
-    private val typedParty = Ref.Party.assertFromString(party)
-    private val submissionFailure = state.SubmissionResult.SynchronousError(
-      RpcStatus.of(Status.Code.INTERNAL.value(), s"Failed to allocate $party.", Seq.empty)
-    )
-    when(
-      writeService.allocateParty(
-        eqTo(Some(typedParty)),
-        eqTo(Some(party)),
-        any[Ref.SubmissionId],
-      )(any[LoggingContext], any[TelemetryContext])
-    ).thenReturn(completedFuture(submissionFailure))
-    when(partyManagementService.getParties(Seq(typedParty)))
-      .thenReturn(Future(List.empty[PartyDetails]))
-    private val builder = TransactionBuilder()
-    builder.add(
-      builder.create(
-        "00" + "00" * 32 + "01",
-        "test:test",
-        Value.ValueNil,
-        Seq(party),
-        Seq.empty,
-        Option.empty,
-      )
-    )
-    private val transaction = builder.buildSubmitted()
-
-    private val results =
-      apiSubmissionService(implicitPartyAllocation = true)
-        .allocateMissingInformees(transaction)
-        .futureValue
-
-    results shouldBe Seq(submissionFailure)
   }
 
   behavior of "submit"
@@ -238,7 +124,7 @@ class ApiSubmissionServiceSpec
       ErrorCause.DamlLf(
         LfError.Preprocessing(
           LfError.Preprocessing.Lookup(
-            LookupError(
+            LookupError.NotFound(
               Reference.Package(defaultPackageId),
               Reference.Package(defaultPackageId),
             )
@@ -392,18 +278,15 @@ class ApiSubmissionServiceSpec
     ).thenReturn(CompletableFuture.completedFuture(SubmissionResult.Acknowledged))
 
     def apiSubmissionService(
-        implicitPartyAllocation: Boolean = false,
-        checkOverloaded: TelemetryContext => Option[state.SubmissionResult] = _ => None,
+        checkOverloaded: TelemetryContext => Option[state.SubmissionResult] = _ => None
     ) = new ApiSubmissionService(
       writeService = writeService,
-      partyManagementService = partyManagementService,
       timeProviderType = timeProviderType,
       timeProvider = timeProvider,
       ledgerConfigurationSubscription = ledgerConfigurationSubscription,
       seedService = seedService,
       commandExecutor = commandExecutor,
       checkOverloaded = checkOverloaded,
-      configuration = ApiSubmissionService.Configuration(implicitPartyAllocation),
       metrics = metrics,
     )
   }

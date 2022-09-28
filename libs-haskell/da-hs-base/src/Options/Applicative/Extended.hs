@@ -2,15 +2,18 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module Options.Applicative.Extended
-    ( module Options.Applicative
-    , YesNoAuto (..)
+    ( YesNoAuto (..)
     , flagYesNoAuto
     , flagYesNoAuto'
     , determineAuto
     , determineAutoM
+    , optionOnce
+    , optionOnce'
+    , strOptionOnce
     ) where
 
 import Options.Applicative
+import GHC.Exts (IsString (..))
 
 -- | A morally boolean value with a default third option (called Auto) to be determined later.
 data YesNoAuto
@@ -37,7 +40,7 @@ determineAutoM m = \case
 -- This maps yes to "Just true", no to "Just False" and auto to "Nothing"
 flagYesNoAuto' :: String -> String -> Mod OptionFields YesNoAuto -> Parser YesNoAuto
 flagYesNoAuto' flagName helpText mods =
-    option reader (long flagName <> value Auto <> help helpText <> completeWith ["true", "false", "yes", "no", "auto"] <> mods)
+    optionOnce reader (long flagName <> value Auto <> help helpText <> completeWith ["true", "false", "yes", "no", "auto"] <> mods)
   where reader = eitherReader $ \case
             "yes" -> Right Yes
             "true" -> Right Yes
@@ -53,3 +56,23 @@ flagYesNoAuto flagName defaultValue helpText mods =
     determineAuto defaultValue <$> flagYesNoAuto' flagName (helpText <> commonHelp) mods
     where
         commonHelp = " Can be set to \"yes\", \"no\" or \"auto\" to select the default (" <> show defaultValue <> ")"
+
+-- | optparse-applicative does not provide useful error messages when a valid
+-- option is passed more than once https://github.com/pcapriotti/optparse-applicative/issues/395
+--
+-- This provides better error messages by constructing two parsers for the same
+-- option, where the second parser automatically throws an infomative error.
+--
+-- If the option is specified a second time, the second parser is invoked and
+-- triggers an error.
+optionOnce :: ReadM a -> Mod OptionFields a -> Parser a
+optionOnce = optionOnce' "Option specified more than once."
+
+optionOnce' :: String -> ReadM a -> Mod OptionFields a -> Parser a
+optionOnce' errMsg reader options = const <$> actualParser <*> errorIfTwiceParser
+    where
+    actualParser = option reader options
+    errorIfTwiceParser = option (readerError errMsg) (options <> hidden <> value (error "optionOnce: should not happen"))
+
+strOptionOnce :: IsString a => Mod OptionFields a -> Parser a
+strOptionOnce = optionOnce str

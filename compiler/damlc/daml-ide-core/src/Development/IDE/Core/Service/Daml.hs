@@ -55,6 +55,7 @@ data DamlEnv = DamlEnv
   , envDamlLfVersion :: LF.Version
   , envSkipScenarioValidation :: SkipScenarioValidation
   , envEnableScenarios :: EnableScenarios
+  , envAllowLargeTuples :: AllowLargeTuples
   , envTestFilter :: T.Text -> Bool
   }
 
@@ -73,6 +74,7 @@ mkDamlEnv opts scenarioService = do
         , envDamlLfVersion = optDamlLfVersion opts
         , envSkipScenarioValidation = optSkipScenarioValidation opts
         , envEnableScenarios = optEnableScenarios opts
+        , envAllowLargeTuples = optAllowLargeTuples opts
         , envTestFilter = optTestFilter opts
         }
 

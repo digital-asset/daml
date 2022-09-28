@@ -21,6 +21,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
   ExperimentalContractIds,
+  ExperimentalExplicitDisclosure,
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -56,16 +57,20 @@ object SandboxOnXRunner {
       configAdaptor: BridgeConfigAdaptor,
       config: Config,
       bridgeConfig: BridgeConfig,
+      explicitDisclosureUnsafeEnabled: Boolean = false,
   ): ResourceOwner[Port] =
     new ResourceOwner[Port] {
       override def acquire()(implicit context: ResourceContext): Resource[Port] =
-        SandboxOnXRunner.run(bridgeConfig, config, configAdaptor).acquire()
+        SandboxOnXRunner
+          .run(bridgeConfig, config, configAdaptor, explicitDisclosureUnsafeEnabled)
+          .acquire()
     }
 
   def run(
       bridgeConfig: BridgeConfig,
       config: Config,
       configAdaptor: BridgeConfigAdaptor,
+      explicitDisclosureUnsafeEnabled: Boolean,
   ): ResourceOwner[Port] = newLoggingContext { implicit loggingContext =>
     implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
     implicit val materializer: Materializer = Materializer(actorSystem)
@@ -87,7 +92,6 @@ object SandboxOnXRunner {
       buildWriteServiceLambda = buildWriteService(
         participantId = participantId,
         feedSink = stateUpdatesFeedSink,
-        participantConfig = participantConfig,
         bridgeConfig = bridgeConfig,
         materializer = materializer,
         loggingContext = loggingContext,
@@ -112,6 +116,7 @@ object SandboxOnXRunner {
           contractIdFeatures = ExperimentalContractIds.of(
             v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
           ),
+          explicitDisclosure = ExperimentalExplicitDisclosure.of(explicitDisclosureUnsafeEnabled),
         ),
         authService = configAdaptor.authService(participantConfig),
         buildWriteService = buildWriteServiceLambda,
@@ -128,6 +133,7 @@ object SandboxOnXRunner {
         timeServiceBackendO = timeServiceBackendO,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
+        explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
       )(actorSystem, materializer).owner
     } yield {
       logInitializationHeader(
@@ -169,7 +175,9 @@ object SandboxOnXRunner {
     config.participants.toList match {
 
       case (participantId, participantConfig) :: Nil =>
-        ResourceOwner.successful((participantId, participantConfig))
+        ResourceOwner.successful(
+          (participantConfig.participantIdOverride.getOrElse(participantId), participantConfig)
+        )
       case _ =>
         ResourceOwner.failed {
           val loggingMessage = "Sandbox-on-X can only be run with a single participant."
@@ -182,7 +190,6 @@ object SandboxOnXRunner {
   def buildWriteService(
       participantId: Ref.ParticipantId,
       feedSink: Sink[(Offset, Update), NotUsed],
-      participantConfig: ParticipantConfig,
       bridgeConfig: BridgeConfig,
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -195,7 +202,6 @@ object SandboxOnXRunner {
     for {
       ledgerBridge <- LedgerBridge.owner(
         participantId,
-        participantConfig,
         bridgeConfig,
         indexService,
         bridgeMetrics,

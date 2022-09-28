@@ -4,7 +4,7 @@
 package com.daml.http.json
 
 import com.daml.http.ErrorMessages.cannotResolveTemplateId
-import com.daml.http.domain.{HasTemplateId, TemplateId}
+import com.daml.http.domain.{ContractTypeId, HasTemplateId, TemplateId}
 import com.daml.http.json.JsValueToApiValueConverter.mustBeApiRecord
 import com.daml.http.util.FutureUtil.either
 import com.daml.http.util.Logging.InstanceUUID
@@ -159,19 +159,21 @@ class DomainJsonDecoder(
 
   def decodeCreateAndExerciseCommand(a: JsValue, jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
       implicit
-      ev1: JsonReader[domain.CreateAndExerciseCommand[JsValue, JsValue, TemplateId.OptionalPkg]],
+      ev1: JsonReader[
+        domain.CreateAndExerciseCommand[JsValue, JsValue, ContractTypeId.OptionalPkg]
+      ],
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): EitherT[Future, JsonError, domain.CreateAndExerciseCommand[
     lav1.value.Record,
     lav1.value.Value,
-    TemplateId.RequiredPkg,
+    ContractTypeId.RequiredPkg,
   ]] = {
     val err = "DomainJsonDecoder_decodeCreateAndExerciseCommand"
     for {
       fjj <- either(
         SprayJson
-          .decode[domain.CreateAndExerciseCommand[JsValue, JsValue, TemplateId.OptionalPkg]](a)
+          .decode[domain.CreateAndExerciseCommand[JsValue, JsValue, ContractTypeId.OptionalPkg]](a)
           .liftErrS(err)(JsonError)
       ).flatMap(_ traverse (templateId_(_, jwt, ledgerId)))
 
@@ -193,13 +195,13 @@ class DomainJsonDecoder(
   }
 
   private def templateId_(
-      id: domain.TemplateId.OptionalPkg,
+      id: domain.ContractTypeId.OptionalPkg,
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.TemplateId.Resolved] =
+  ): ET[domain.ContractTypeId.Resolved] =
     eitherT(
       resolveContractTypeId(jwt, ledgerId)(id)
         .map(_.toOption.flatten.toRightDisjunction(JsonError(cannotResolveTemplateId(id))))

@@ -278,6 +278,10 @@ final class CommandsValidator(
 }
 
 object CommandsValidator {
+  def apply(ledgerId: LedgerId, explicitDisclosureUnsafeEnabled: Boolean) = new CommandsValidator(
+    ledgerId = ledgerId,
+    validateDisclosedContracts = new ValidateDisclosedContracts(explicitDisclosureUnsafeEnabled),
+  )
 
   /** Effective submitters of a command
     * @param actAs Guaranteed to be non-empty. Will contain exactly one element in most cases.

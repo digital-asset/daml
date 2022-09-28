@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.index.v2
 
 import com.daml.ledger.api.domain
+import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 
@@ -16,12 +17,17 @@ trait LedgerPartyExists {
   def exists(party: Ref.Party): Future[Boolean]
 }
 
+case class PartyDetailsUpdate(
+    party: Ref.Party,
+    displayNameUpdate: Option[Option[String]],
+    isLocalUpdate: Option[Boolean],
+    metadataUpdate: ObjectMetaUpdate,
+)
+
 case class PartyRecordUpdate(
     party: Ref.Party,
     metadataUpdate: ObjectMetaUpdate,
-) {
-  def isNoUpdate: Boolean = metadataUpdate.isNoUpdate
-}
+)
 
 trait PartyRecordStore {
   import PartyRecordStore._
@@ -35,26 +41,23 @@ trait PartyRecordStore {
       implicit loggingContext: LoggingContext
   ): Future[Result[domain.ParticipantParty.PartyRecord]]
 
-  def getPartyRecord(party: Ref.Party)(implicit
+  def getPartyRecordO(party: Ref.Party)(implicit
       loggingContext: LoggingContext
-  ): Future[Result[domain.ParticipantParty.PartyRecord]]
+  ): Future[Result[Option[domain.ParticipantParty.PartyRecord]]]
 
 }
 
 object PartyRecordStore {
   type Result[T] = Either[Error, T]
 
-  /** Represents an edge case where a participant server submits a party allocation command
-    * but crashes before it had a chance to create a corresponding party-record (upon the successful party allocation).
-    */
-  final case object PartyRecordNotFoundOnUpdateException extends RuntimeException
-
   sealed trait Error
 
   final case class PartyNotFound(party: Ref.Party) extends Error
-  final case class PartyRecordNotFound(party: Ref.Party) extends Error
-  final case class PartyRecordExists(party: Ref.Party) extends Error
+  final case class PartyRecordNotFoundFatal(party: Ref.Party) extends Error
+  final case class PartyRecordExistsFatal(party: Ref.Party) extends Error
   final case class ConcurrentPartyUpdate(party: Ref.Party) extends Error
-  final case class MaxAnnotationsSizeExceeded(party: Ref.Party) extends Error
+  final case class MaxAnnotationsSizeExceeded(party: Ref.Party) extends Error {
+    def getReason: String = ResourceAnnotationValidation.AnnotationsSizeExceededError.reason
+  }
 
 }

@@ -134,7 +134,7 @@ tests =
           testFileContent <- T.readFileUtf8 testFile
           T.writeFileUtf8
               (uiDir </> "src" </> "index.test.ts")
-              (T.replace "create-daml-app" (T.pack projectName) testFileContent)
+              (T.replace "\"npm\"" "\"npm-cli.js\"" (T.replace "create-daml-app" (T.pack projectName) testFileContent))
           -- patch daml.yaml, remove JavaScript code generation entry so that patched generated code
           -- is not overwritten
           let damlYaml = cdaDir </> "daml.yaml"

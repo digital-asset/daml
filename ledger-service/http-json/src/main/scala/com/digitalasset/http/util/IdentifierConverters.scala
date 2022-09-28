@@ -25,7 +25,7 @@ object IdentifierConverters {
     )
   }
 
-  def lfIdentifier(a: http.domain.TemplateId.RequiredPkg): lf.data.Ref.Identifier = {
+  def lfIdentifier(a: http.domain.ContractTypeId.RequiredPkg): lf.data.Ref.Identifier = {
     import lf.data.Ref
     Ref.Identifier(
       Ref.PackageId.assertFromString(a.packageId),
@@ -36,7 +36,7 @@ object IdentifierConverters {
     )
   }
 
-  def refApiIdentifier(a: http.domain.TemplateId.RequiredPkg): lar.TemplateId =
+  def refApiIdentifier(a: http.domain.ContractTypeId.RequiredPkg): lar.TemplateId =
     lar.TemplateId(FC.apiIdentifier(a))
 
   def apiLedgerId(a: com.daml.ledger.api.domain.LedgerId): lar.LedgerId =

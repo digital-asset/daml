@@ -22,6 +22,7 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
           None,
           None,
           None,
+          None,
           Seq.empty,
           Seq.empty,
           Seq.empty,

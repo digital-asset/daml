@@ -6,7 +6,7 @@ package com.daml.http
 import cats.effect.IO
 import com.codahale.metrics.MetricRegistry
 import com.daml.http.dbbackend.{ContractDao, JdbcConfig}
-import com.daml.http.domain.TemplateId
+import com.daml.http.domain.ContractTypeId
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
@@ -186,14 +186,14 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
     import dao.logHandler, dao.jdbcDriver.q.queries
 
     "should be used on template insertion and reads" in {
-      def getOrElseInsertTemplate(tpid: TemplateId[String]) = instanceUUIDLogCtx(implicit lc =>
+      def getOrElseInsertTemplate(tpid: ContractTypeId[String]) = instanceUUIDLogCtx(implicit lc =>
         dao.transact(
           queries
             .surrogateTemplateId(tpid.packageId, tpid.moduleName, tpid.entityName)
         )
       )
 
-      val tpId = TemplateId("pkg", "mod", "ent")
+      val tpId = ContractTypeId("pkg", "mod", "ent")
       for {
         storedStpId <- getOrElseInsertTemplate(tpId) // insert the template id into the cache
         cachedStpId <- getOrElseInsertTemplate(tpId) // should trigger a read from cache
@@ -208,7 +208,7 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
       import dbbackend.Queries.DBContract, spray.json.{JsObject, JsNull, JsValue},
       spray.json.DefaultJsonProtocol._
 
-      val tpId = TemplateId("pkg", "mod", "UncomCollision")
+      val tpId = ContractTypeId("pkg", "mod", "UncomCollision")
 
       val simulation = instanceUUIDLogCtx { implicit lc =>
         def stid =

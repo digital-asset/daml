@@ -556,16 +556,22 @@ private[validation] object Typing {
               iiBody = coImpl.body,
             )
           )
-          def error = throw EExpectedViewType(env.ctx, view)
           view match {
-            case TTyCon(tycon) =>
-              handleLookup(env.ctx, pkgInterface.lookupDataType(tycon)) match {
-                case DDataType(_, ImmArray(), DataRecord(_)) =>
+            case TTyCon(tycon) => {
+              val DDataType(_, args, dataCon) =
+                handleLookup(env.ctx, pkgInterface.lookupDataType(tycon))
+              if (args.length > 0)
+                throw EViewTypeHasVars(env.ctx, view)
+              dataCon match {
+                case DataRecord(_) =>
                 case _ =>
-                  error
+                  throw EViewTypeConNotRecord(env.ctx, dataCon, view)
               }
+            }
+            case TApp(_, _) =>
+              throw EViewTypeHasVars(env.ctx, view)
             case _ =>
-              error
+              throw EViewTypeHeadNotCon(env.ctx, view, view)
           }
       }
 
@@ -582,6 +588,7 @@ private[validation] object Typing {
         templateId: TypeConName,
     ): PackageInterface.InterfaceInstanceInfo = {
       pkgInterface.lookupInterfaceInstance(interfaceId, templateId) match {
+        case Right(iiInfo) => iiInfo
         case Left(err) =>
           err match {
             case lookupErr: LookupError.NotFound =>
@@ -598,7 +605,6 @@ private[validation] object Typing {
                 ambiIfaceErr.instance.templateName,
               )
           }
-        case Right(iiInfo) => iiInfo
       }
     }
 

@@ -40,7 +40,6 @@ private[validate] class SequenceImpl(
     initialLedgerEnd: Offset,
     initialAllocatedParties: Set[Ref.Party],
     initialLedgerConfiguration: Option[Configuration],
-    validatePartyAllocation: Boolean,
     bridgeMetrics: BridgeMetrics,
     maxDeduplicationDuration: Duration,
 ) extends Sequence {
@@ -260,15 +259,14 @@ private[validate] class SequenceImpl(
       completionInfo: CompletionInfo,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Validation[Unit] =
-    if (validatePartyAllocation) {
-      val unallocatedInformees = transactionInformees diff allocatedParties
-      Either.cond(
-        unallocatedInformees.isEmpty,
-        (),
-        UnallocatedParties(unallocatedInformees.toSet)(completionInfo),
-      )
-    } else Right(())
+  ): Validation[Unit] = {
+    val unallocatedInformees = transactionInformees diff allocatedParties
+    Either.cond(
+      unallocatedInformees.isEmpty,
+      (),
+      UnallocatedParties(unallocatedInformees.toSet)(completionInfo),
+    )
+  }
 
   private def checkTimeModel(
       transaction: Transaction,

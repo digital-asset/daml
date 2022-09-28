@@ -5,6 +5,9 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1.admin;
 
+import "com/daml/ledger/api/v1/admin/object_meta.proto";
+import "google/protobuf/field_mask.proto";
+
 option java_outer_classname = "UserManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
@@ -18,6 +21,17 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // (1) ``HasRight(r)`` denoting whether the authenticated user has right ``r`` and
 // (2) ``IsAuthenticatedUser(uid)`` denoting whether ``uid`` is the empty string or equal to the id of the authenticated user.
 //
+// The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
+// (1) ``Optional`` denoting the client may leave the field unset when sending a request.
+// (2) ``Required`` denoting the client must set the field to a non-default value when sending a request.
+//
+// A user resource consists of:
+// (1) a set of properties represented by the ``User`` message,
+// (2) a set of user rights, where each right is represented by the ``Right`` message.
+//
+// A user resource, once it has been created, can be modified.
+// In order to update the properties represented by the ``User`` message use the ``UpdateUser`` RPC. The only fields that can be modified are those marked as ``Modifiable``.
+// In order to grant or revoke user rights use ``GrantRights' and ``RevokeRights`` RPCs.
 service UserManagementService {
 
     // Create a new user.
@@ -36,6 +50,9 @@ service UserManagementService {
     // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc GetUser (GetUserRequest) returns (GetUserResponse);
 
+    // Update selected modifiable attribute of a user resource described by the ``User`` message.
+    rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse);
+
     // Delete an existing user and all its rights.
     // Errors:
     // - ``NOT_FOUND``: if the user doesn't exist
@@ -52,6 +69,7 @@ service UserManagementService {
     rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
 
     // Grant rights to a user.
+    // Granting rights does not affect the resource version of the corresponding user.
     // Errors:
     // - ``NOT_FOUND``: if the user doesn't exist
     // - ``UNAUTHENTICATED``: if the request does not include a valid access token
@@ -60,6 +78,7 @@ service UserManagementService {
     rpc GrantUserRights (GrantUserRightsRequest) returns (GrantUserRightsResponse);
 
     // Revoke rights from a user.
+    // Revoking rights does not affect the resource version of the corresponding user.
     // Errors:
     // - ``NOT_FOUND``: if the user doesn't exist
     // - ``UNAUTHENTICATED``: if the request does not include a valid access token
@@ -96,8 +115,21 @@ message User {
     // Ledger API clients SHOULD set this field to a non-empty value for all users to
     // enable the users to act on the ledger using their own Daml party.
     // Users for participant administrators MAY have an associated primary party.
-    // Optional
+    // Optional,
+    // Modifiable
     string primary_party = 2;
+
+    // When set, then the user is denied all access to the Ledger API.
+    // Otherwise, the user has access to the Ledger API as per the user's rights.
+    // Optional,
+    // Modifiable
+    bool is_deactivated = 3;
+
+    // The metadata of this user.
+    // Note that the ``metadata.resource_version`` tracks changes to the properties described by the ``User`` message and not the user's rights.
+    // Optional,
+    // Modifiable
+    ObjectMeta metadata = 4;
 }
 
 
@@ -116,6 +148,7 @@ message Right {
         string party = 1;
     }
 
+    // Required
     oneof kind {
         // The user can administrate the participant node.
         ParticipantAdmin participant_admin = 1;
@@ -138,7 +171,7 @@ message CreateUserRequest {
 
     // The rights to be assigned to the user upon creation,
     // which SHOULD include appropriate rights for the ``user.primary_party``.
-    // Required
+    // Optional
     repeated Right rights = 2;
 }
 
@@ -157,6 +190,36 @@ message GetUserRequest {
 
 message GetUserResponse {
     // Retrieved user.
+    User user = 1;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin)``
+message UpdateUserRequest {
+    // The user to update.
+    // Required,
+    // Modifiable
+    User user = 1;
+
+    // An update mask specifies how and which properties of the ``User`` message are to be updated.
+    // An update mask consists of a set of update paths.
+    // A valid update path points to a field or a subfield relative to the ``User`` message.
+    // A valid update mask must:
+    // (1) contain at least one update path,
+    // (2) contain only valid update paths.
+    // Fields that can be updated are marked as ``Modifiable``.
+    // An update path can also point to a non-``Modifiable`` fields such as 'id' and 'metadata.resource_version'
+    // because they are used:
+    // (1) to identify the user resource subject to the update, 
+    // (2) for concurrent change control.
+    // Examples of valid update paths: 'primary_party', 'metadata', 'metadata.annotations'.
+    // For additional information see the documentation for standard protobuf3's ``google.protobuf.FieldMask``.
+    // For similar Ledger API see ``com.daml.ledger.api.v1.admin.UpdatePartyDetailsRequest``.
+    // Required
+    google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdateUserResponse {
+    // Updated user
     User user = 1;
 }
 

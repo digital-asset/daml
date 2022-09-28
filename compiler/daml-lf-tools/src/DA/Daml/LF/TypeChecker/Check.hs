@@ -871,21 +871,14 @@ checkIface m iface = do
   -- check view
   let (func, _) = viewtype ^. _TApps
   tycon <- case func of
-    TVar {} -> throwWithContext (EExpectedViewType "a type variable" viewtype)
     TCon tycon -> pure tycon
-    TSynApp {} -> throwWithContext (EExpectedViewType "a type synonym" viewtype)
     TApp {} -> error "checkIface: should not happen"
-    TBuiltin {} -> throwWithContext (EExpectedViewType "a built-in type" viewtype)
-    TForall {} -> throwWithContext (EExpectedViewType "a forall-quantified type" viewtype)
-    TStruct {} -> throwWithContext (EExpectedViewType "a structural record" viewtype)
-    TNat {} -> throwWithContext (EExpectedViewType "a type-level natural number" viewtype)
+    _ -> throwWithContext (EViewTypeHeadNotCon func viewtype)
   DefDataType _loc _naem _serializable tparams dataCons <- inWorld (lookupDataType tycon)
-  unless (null tparams) $ throwWithContext (EExpectedViewType "a type constructor with type variables" viewtype)
+  unless (null tparams) $ throwWithContext (EViewTypeHasVars viewtype)
   case dataCons of
     DataRecord {} -> pure ()
-    DataVariant {} -> throwWithContext (EExpectedViewType "a variant type" viewtype)
-    DataEnum {} -> throwWithContext (EExpectedViewType "an enum type" viewtype)
-    DataInterface {} -> throwWithContext (EExpectedViewType "a interface type" viewtype)
+    _ -> throwWithContext (EViewTypeConNotRecord dataCons viewtype)
 
   -- check requires
   when (tcon `S.member` intRequires iface) $

@@ -9,8 +9,8 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{IdString, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
-import com.daml.lf.speedy.SValue.SContractId
+import com.daml.lf.speedy.SExpr.{SEMakeClo}
+import com.daml.lf.speedy.SValue.{SContractId, SToken}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
@@ -246,7 +246,7 @@ object ExplicitDisclosureLib {
         transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureTest"),
         updateSE =
           if (setupArgs.isEmpty) contextSExpr
-          else SExpr.SEApp(contextSExpr, setupArgs.map(SEValue(_))),
+          else SExpr.SEApp(contextSExpr, setupArgs),
         committers = committers,
         disclosedContracts = disclosedContracts,
       )
@@ -258,7 +258,7 @@ object ExplicitDisclosureLib {
 
     assert(setupResult.isRight)
 
-    machine.setExpressionToEvaluate(SExpr.SEApp(runUpdateSExpr(sexpr), Array(SEValue.Token)))
+    machine.setExpressionToEvaluate(SExpr.SEApp(runUpdateSExpr(sexpr), Array(SToken)))
 
     val result = SpeedyTestLib.run(
       machine = machine,
@@ -282,7 +282,7 @@ object ExplicitDisclosureLib {
     val machine =
       Speedy.Machine.fromUpdateSExpr(
         pkg,
-        transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureTest"),
+        transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureLib"),
         updateSE = runUpdateSExpr(sexpr),
         committers = committers,
         disclosedContracts = disclosedContracts,
@@ -309,22 +309,6 @@ object ExplicitDisclosureLib {
         expectedResult == actualResult,
         s"Failed with unexpected inactive contracts: $expectedResult != $actualResult $debugMessage",
         s"Failed with unexpected inactive contracts: $expectedResult == $actualResult",
-      )
-  }
-
-  def haveCachedContractIds(contractIds: ContractId*): Matcher[Speedy.OnLedger] = Matcher {
-    ledger =>
-      val expectedResult = contractIds.toSet
-      val actualResult = ledger.cachedContracts.keySet
-      val debugMessage = Seq(
-        s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
-        s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
-      ).mkString("\n  ", "\n  ", "")
-
-      MatchResult(
-        expectedResult == actualResult,
-        s"Failed with unexpected cached contracts: $expectedResult != $actualResult $debugMessage",
-        s"Failed with unexpected cached contracts: $expectedResult == $actualResult",
       )
   }
 
