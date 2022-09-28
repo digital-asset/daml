@@ -5,7 +5,7 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.Value
-import com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders
+import com.daml.ledger.javaapi.data.codegen.{PrimitiveValueDecoders, ValueDecoder}
 import com.daml.lf.codegen.backend.java.{JavaEscaper, ObjectMethods}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.typesig.{Type, TypeVar}
@@ -143,7 +143,7 @@ object VariantConstructorClass extends StrictLogging {
     val typeParamsValueDecoders = CodeBlock.join(
       allConverterParams.map { param =>
         if (converterParamsNameSet.contains(param.name))
-          CodeBlock.of("$N::apply", param)
+          CodeBlock.of("$T.fromFunction($N)", classOf[ValueDecoder[_]], param)
         else
           CodeBlock.of("$T.impossible()", classOf[PrimitiveValueDecoders])
       }.asJava,

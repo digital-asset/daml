@@ -242,7 +242,7 @@ private[inner] object VariantClass extends StrictLogging {
       )
     val fromValueParams = CodeBlock.join(
       typeVariablesExtractorParameters.functionParameterSpecs.map { param =>
-        CodeBlock.of("$N::apply", param)
+        CodeBlock.of("$T.fromFunction($N)", classOf[ValueDecoder[_]], param)
       }.asJava,
       ", ",
     )

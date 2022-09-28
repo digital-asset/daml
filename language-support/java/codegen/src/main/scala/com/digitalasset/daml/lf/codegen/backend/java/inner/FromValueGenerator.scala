@@ -49,7 +49,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
 
     val fromValueParams = CodeBlock.join(
       converterParams.map { param =>
-        CodeBlock.of("$N::apply", param)
+        CodeBlock.of("$T.fromFunction($N)", classOf[ValueDecoder[_]], param)
       }.asJava,
       ", ",
     )
