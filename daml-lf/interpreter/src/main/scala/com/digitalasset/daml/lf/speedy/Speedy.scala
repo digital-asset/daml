@@ -567,7 +567,6 @@ private[lf] object Speedy {
     /** This function is used to enter an ANF application.  The function has been evaluated to
       *      a value, and so have the arguments - they just need looking up
       */
-    // TODO: share common code with executeApplication //NICK
     private[speedy] def enterApplication(vfun: SValue, newArgs: Array[SExprAtomic]): Control = {
       vfun match {
         case SValue.SPAP(prim, actualsSoFar, arity) =>
@@ -624,68 +623,6 @@ private[lf] object Speedy {
         case _ =>
           throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Applying non-PAP: $vfun")
       }
-    }
-
-    // NICK.. kill..
-    /** The function has been evaluated to a value, now start evaluating the arguments. */
-    private[speedy] def executeApplication(vfun: SValue, newArgs: Array[SExpr]): Control = {
-      vfun match {
-        case SValue.SPAP(prim, actualsSoFar, arity) =>
-          val missing = arity - actualsSoFar.size
-          val newArgsLimit = Math.min(missing, newArgs.length)
-
-          val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
-          discard[Boolean](actuals.addAll(actualsSoFar))
-
-          val othersLength = newArgs.length - missing
-
-          // Not enough arguments. Push a continuation to construct the PAP.
-          if (othersLength < 0) {
-            this.pushKont(KPap(this, prim, actuals, arity))
-          } else {
-            // Too many arguments: Push a continuation to re-apply the over-applied args.
-            if (othersLength > 0) {
-              val others = new Array[SExpr](othersLength)
-              System.arraycopy(newArgs, missing, others, 0, othersLength)
-              this.pushKont(KArg(this, others))
-            }
-            // Now the correct number of arguments is ensured. What kind of prim do we have?
-            prim match {
-              case closure: SValue.PClosure =>
-                // Push a continuation to execute the function body when the arguments have been evaluated
-                this.pushKont(KFun(this, closure, actuals))
-
-              case SValue.PBuiltin(builtin) =>
-                // Push a continuation to execute the builtin when the arguments have been evaluated
-                this.pushKont(KBuiltin(this, builtin, actuals))
-            }
-          }
-          this.evaluateArguments(actuals, newArgs, newArgsLimit)
-
-        case _ =>
-          throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Applying non-PAP: $vfun")
-      }
-    }
-
-    /** Evaluate the first 'n' arguments in 'args'.
-      *      'args' will contain at least 'n' expressions, but it may contain more(!)
-      *
-      *      This is because, in the call from 'executeApplication' below, although over-applied
-      *      arguments are pushed into a continuation, they are not removed from the original array
-      *      which is passed here as 'args'.
-      */
-    private[speedy] def evaluateArguments(
-        actuals: util.ArrayList[SValue],
-        args: Array[SExpr],
-        n: Int,
-    ): Control = {
-      var i = 1
-      while (i < n) {
-        val arg = args(n - i)
-        this.pushKont(KPushTo(this, actuals, arg))
-        i = i + 1
-      }
-      Control.Expression(args(0))
     }
 
     // This translates a well-typed LF value (typically coming from the ledger)
@@ -1076,25 +1013,6 @@ private[lf] object Speedy {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       machine.enterApplication(vfun, newArgs)
-    }
-  }
-
-  // NICK, kill this..
-  /** The function has been evaluated to a value. Now restore the environment and execute the application */
-  private[speedy] final case class KArg(
-      machine: Machine,
-      newArgs: Array[SExpr],
-  ) extends Kont
-      with SomeArrayEquals {
-
-    private[this] val savedBase = machine.markBase()
-    private[this] val frame = machine.currentFrame
-    private[this] val actuals = machine.currentActuals
-
-    def execute(vfun: SValue): Control = {
-      machine.restoreBase(savedBase);
-      machine.restoreFrameAndActuals(frame, actuals)
-      machine.executeApplication(vfun, newArgs)
     }
   }
 

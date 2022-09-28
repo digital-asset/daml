@@ -10,8 +10,6 @@ import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 
-import scala.annotation.nowarn
-
 private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK machine states
 
   def ppMachine(m: Machine): String = {
@@ -48,11 +46,9 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
     s"${x.ref.qualifiedName.name}"
   }
 
-  @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppOnlyFunIsAtomic")
   def pp(e: SExpr): String = e match {
     case SEValue(v) => s"(VALUE)${pp(v)}"
     case loc: SELoc => pp(loc)
-    case SEAppOnlyFunIsAtomic(func, args) => s"@N(${pp(func)},${commas(args.map(pp))})"
     case SEAppAtomicGeneral(func, args) => s"@A(${pp(func)},${commas(args.map(pp))})"
     case SEAppAtomicSaturatedBuiltin(b, args) => s"@B(${pp(SEBuiltin(b))},${commas(args.map(pp))})"
     case SEMakeClo(fvs, arity, body) => s"[${commas(fvs.map(pp))}]\\$arity.${pp(body)}"
