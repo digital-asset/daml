@@ -27,7 +27,8 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
   protected final Function<DamlRecord, Data> fromValue;
 
   /**
-   * Static method to generate an implementation of {@code ValueDecoder} of type {@code Data} with metadata from the provided {@code ContractCompanion}.
+   * Static method to generate an implementation of {@code ValueDecoder} of type {@code Data} with
+   * metadata from the provided {@code ContractCompanion}.
    *
    * @param companion an instance of {@code ContractCompanion}.
    * @return The {@code ValueDecoder} for parsing {@code Value} to get an instance of {@code Data}.
