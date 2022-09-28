@@ -35,12 +35,12 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json.{
+  DeserializationException,
   JsArray,
   JsNull,
   JsObject,
   JsString,
   JsValue,
-  DeserializationException,
   enrichAny => `sj enrichAny`,
 }
 import com.daml.fetchcontracts.domain.ResolvedQuery
@@ -262,69 +262,167 @@ abstract class AbstractWebsocketServiceIntegrationTest
   "interface sub" - {
     "query endpoint" in withHttpService { fixture =>
       import fixture.uri
-      val query = """[
+      val query =
+        """[
         {"templateIds": ["IAccount:IAccount"], "query": {"isAbcPrefix": true}},
         {"templateIds": ["IAccount:IAccount"], "query": {"is123Suffix": true}}
       ]"""
 
-      def createAccount(
+      @nowarn("msg=pattern var evtsWrapper .* is never used")
+      def resp(
           owner: domain.Party,
-          amount: String,
           headers: List[HttpHeader],
-      ) = postCreateCommand(
-        accountCreateCommand(owner, amount),
-        fixture,
-        headers = headers,
-      )
+          kill: UniqueKillSwitch,
+      ): Sink[JsValue, Future[ShouldHaveEnded]] = {
+        def createAccount(
+            owner: domain.Party,
+            amount: String,
+            headers: List[HttpHeader],
+        ) = postCreateCommand(
+          accountCreateCommand(owner, amount),
+          fixture,
+          headers = headers,
+        )
 
-      val resp = () => {
-        val dslSyntax = Consume.syntax[Message]
+        def exerciseTransferPayload(cid: domain.ContractId) = {
+          import json.JsonProtocol._
+          Map(
+            "templateId" -> "IAccount:IAccount".toJson,
+            "contractId" -> cid.toJson,
+            "choice" -> "ChangeAmount".toJson,
+            "argument" -> Map("newAmount" -> "abcxx").toJson,
+          ).toJson
+        }
+
+        val dslSyntax = Consume.syntax[JsValue]
         import dslSyntax._
+
+//        def readAndExtract(amount: String): Consume.FCC[JsValue, CreatedAccountEvent] = for {
+//          _ <- liftF(createAccount(owner, amount, headers))
+//          AccountQuery(createdAccountEvent) <- readOne
+//        } yield createdAccountEvent
+
         Consume.interpret(
           for {
-            result1 <- readOne
-            TextMessage.Strict(message1) = result1.asTextMessage
-            result2 <- readOne
-            TextMessage.Strict(message2) = result2.asTextMessage
-            result3 <- readOne
-            TextMessage.Strict(message3) = result3.asTextMessage
-            rest <- drain
-            heartbeats = rest.collect { case m: TextMessage => m.getStrictText }
-            _ = Inspectors.forAll(heartbeats)(assertHeartbeat)
-          } yield (message1, message2, message3, heartbeats)
+            ContractDelta(Vector(), _, Some(offset)) <- readOne
+//            Seq(createdAccountEvent1, createdAccountEvent2, createdAccountEvent3) <-
+//              List("abc123", "abc456", "def123").traverse(readAndExtract)
+
+            _ <- liftF(createAccount(owner, "abc123", headers))
+            AccountQuery(createdAccountEvent1) <- readOne
+            _ = {
+              createdAccountEvent1.created.record.amount shouldBe "abc123"
+              createdAccountEvent1.created.record.isAbcPrefix shouldBe true
+              createdAccountEvent1.created.record.is123Suffix shouldBe true
+              createdAccountEvent1.created.templateId.moduleName should ===("IAccount")
+              createdAccountEvent1.created.templateId.entityName should ===("IAccount")
+              createdAccountEvent1.matchedQueries shouldBe Vector(0, 1)
+            }
+            _ <- liftF(createAccount(owner, "abc456", headers))
+            AccountQuery(createdAccountEvent2) <- readOne
+            _ = {
+              createdAccountEvent2.created.record.amount shouldBe "abc456"
+              createdAccountEvent2.created.record.isAbcPrefix shouldBe true
+              createdAccountEvent2.created.record.is123Suffix shouldBe false
+              createdAccountEvent2.created.templateId.moduleName should ===("IAccount")
+              createdAccountEvent2.created.templateId.entityName should ===("IAccount")
+              createdAccountEvent2.matchedQueries shouldBe Vector(0)
+            }
+
+            _ <- liftF(createAccount(owner, "def123", headers))
+            AccountQuery(createdAccountEvent3) <- readOne
+            _ = {
+              createdAccountEvent3.created.record.amount shouldBe "def123"
+              createdAccountEvent3.created.record.isAbcPrefix shouldBe false
+              createdAccountEvent3.created.record.is123Suffix shouldBe true
+              createdAccountEvent3.created.templateId.moduleName should ===("IAccount")
+              createdAccountEvent3.created.templateId.entityName should ===("IAccount")
+              createdAccountEvent3.matchedQueries shouldBe Vector(1)
+            }
+
+            _ <- liftF(createAccount(owner, "def456", headers))
+
+            _ <- liftF(
+              fixture.postJsonRequest(
+                Uri.Path("/v1/exercise"),
+                exerciseTransferPayload(createdAccountEvent1.created.contractId),
+                headers,
+              ) map { case (statusCode, _) =>
+                statusCode.isSuccess shouldBe true
+              }
+            )
+
+            evtsWrapper @ ContractDelta(
+              Vector(_),
+              Vector(observeConsumed),
+              Some(lastSeenOffset),
+            ) <- readOne
+            liveStartOffset = {
+              observeConsumed.contractId should ===(createdAccountEvent1.created.contractId)
+              inside(evtsWrapper) { case JsObject(obj) =>
+                inside(obj get "events") {
+                  case Some(
+                        JsArray(
+                          Vector(
+                            Archived(
+                              ContractIdField(
+                                JsString(archivedContractId),
+                                TemplateIdField(ContractTypeId(archivedTemplateId), _),
+                              ),
+                              _,
+                            ),
+                            Created(
+                              CreatedAccount(
+                                CreatedAccountContract(_, createdTemplateId, createdRecord)
+                              ),
+                              MatchedQueries(NumList(matchedQueries), _),
+                            ),
+                          )
+                        )
+                      ) =>
+                    archivedContractId should ===(createdAccountEvent1.created.contractId)
+                    // TODO should be IAccount instead of Account
+                    archivedTemplateId.moduleName should ===("Account")
+                    archivedTemplateId.entityName should ===("Account")
+
+                    createdTemplateId.moduleName should ===("IAccount")
+                    createdTemplateId.entityName should ===("IAccount")
+
+                    createdRecord.amount shouldBe "abcxx"
+                    createdRecord.isAbcPrefix shouldBe true
+                    createdRecord.is123Suffix shouldBe false
+                    matchedQueries shouldBe Vector(0)
+                }
+              }
+              offset
+            }
+            _ = kill.shutdown()
+            heartbeats <- drain
+            hbCount = (heartbeats.iterator.map(heartbeatOffset).toSet + lastSeenOffset).size - 1
+          } yield ShouldHaveEnded(
+            liveStartOffset = liveStartOffset,
+            msgCount = 2 + hbCount,
+            lastSeenOffset = lastSeenOffset,
+          )
         )
       }
 
       for {
-        aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        (alice, aliceAuthHeaders) = aliceHeaders
-        _ <- createAccount(alice, "abc123", aliceAuthHeaders)
-        _ <- createAccount(alice, "abc456", aliceAuthHeaders)
-        _ <- createAccount(alice, "def123", aliceAuthHeaders)
-        _ <- createAccount(alice, "def456", aliceAuthHeaders)
+        (alice, aliceAuthHeaders) <- fixture.getUniquePartyAndAuthHeaders("Alice")
         jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
-        (message1, message2, message3, heartbeats) <- singleClientQueryStream(
+        (kill, source) = singleClientQueryStream(
           jwt,
           uri,
           query,
-        ).runWith(resp())
+        ).viaMat(KillSwitches.single)(Keep.right)
+          .preMaterialize()
+        ShouldHaveEnded(_, msgCount, _) <- source via parseResp runWith resp(
+          alice,
+          aliceAuthHeaders,
+          kill,
+        )
       } yield {
-        message1 should include(s""""amount":"abc123"""")
-        message1 should include(s""""isAbcPrefix":true""")
-        message1 should include(s""""is123Suffix":true""")
-        message1 should include(s""""matchedQueries":[0,1]""")
-
-        message2 should include(s""""amount":"abc456"""")
-        message2 should include(s""""isAbcPrefix":true""")
-        message2 should include(s""""is123Suffix":false""")
-        message2 should include(s""""matchedQueries":[0]""")
-
-        message3 should include(s""""amount":"def123"""")
-        message3 should include(s""""isAbcPrefix":false""")
-        message3 should include(s""""is123Suffix":true""")
-        message3 should include(s""""matchedQueries":[1]""")
-
-        Inspectors.forAll(heartbeats)(assertHeartbeat)
+        msgCount should ===(2)
       }
     }
   }
