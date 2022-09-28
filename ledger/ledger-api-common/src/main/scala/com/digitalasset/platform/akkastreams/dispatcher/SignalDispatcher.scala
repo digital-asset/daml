@@ -103,6 +103,7 @@ class SignalDispatcher private () {
               // Fail if any of the sources failed
               results.map(_.get)
             }
+            .map(_ => ())
         }
       }
   }

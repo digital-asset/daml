@@ -72,11 +72,21 @@ final class ErrorInterceptor extends ServerInterceptor {
           val newMetadata =
             Option(Status.trailersFromThrowable(selfServiceException)).getOrElse(new Metadata())
           val newStatus = Status.fromThrowable(selfServiceException)
-          LogOnUnhandledFailureInClose(delegate().close(newStatus, newMetadata))
+          LogOnUnhandledFailureInClose(superClose(newStatus, newMetadata))
         } else {
-          LogOnUnhandledFailureInClose(delegate().close(status, trailers))
+          LogOnUnhandledFailureInClose(superClose(status, trailers))
         }
       }
+
+      /** This method serves as an accessor to the super.close() which facilitates its access from the outside of this class.
+        * This is needed in order to allow the call to be captured in the closure passed to the [[LogOnUnhandledFailureInClose]]
+        * error handler.
+        *
+        * TODO As of Scala 2.13.8, not using this redirection results in a runtime IllegalAccessError.
+        *      Remove this redirection once the runtime exception can be avoided.
+        */
+      private def superClose(status: Status, trailers: Metadata): Unit =
+        super.close(status, trailers)
     }
 
     val listener = next.startCall(forwardingCall, headers)
