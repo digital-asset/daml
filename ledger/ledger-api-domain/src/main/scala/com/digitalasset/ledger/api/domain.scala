@@ -48,6 +48,7 @@ object domain {
   final case class InterfaceFilter(
       interfaceId: Ref.Identifier,
       includeView: Boolean,
+      includeCreateArgumentsBlob: Boolean,
   )
 
   final case class InclusiveFilters(

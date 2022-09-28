@@ -8,7 +8,7 @@ import akka.http.scaladsl.model._
 import com.daml.lf.value.{Value => LfValue}
 import EndpointsCompanion._
 import Endpoints.ET
-import domain.{JwtPayloadTag, JwtWritePayload, TemplateId}
+import domain.{ContractTypeId, JwtPayloadTag, JwtWritePayload, TemplateId}
 import json._
 import util.FutureUtil.{either, eitherT}
 import util.Logging.{InstanceUUID, RequestID}
@@ -105,7 +105,7 @@ private[http] final class CreateAndExercise(
           decoder
             .decodeCreateAndExerciseCommand(reqBody, jwt, toLedgerId(jwtPayload.ledgerId))
             .liftErr(InvalidUserInput): ET[
-            domain.CreateAndExerciseCommand[ApiRecord, ApiValue, TemplateId.RequiredPkg]
+            domain.CreateAndExerciseCommand[ApiRecord, ApiValue, ContractTypeId.RequiredPkg]
           ]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 

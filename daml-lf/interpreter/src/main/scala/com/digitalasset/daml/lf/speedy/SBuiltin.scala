@@ -1026,10 +1026,9 @@ private[lf] object SBuiltin {
       val chosenValue = machine.normValue(templateId, args.get(0))
       val coid = getSContractId(args, 1)
       val cached =
-        onLedger.cachedContracts.getOrElse(
-          coid,
-          crash(s"Contract ${coid.coid} is missing from cache"),
-        )
+        onLedger
+          .getCachedContract(coid)
+          .getOrElse(crash(s"Contract ${coid.coid} is missing from cache"))
       val sigs = cached.signatories
       val templateObservers = cached.observers
       val ctrls = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
@@ -1131,7 +1130,7 @@ private[lf] object SBuiltin {
         onLedger: OnLedger,
     ): Control = {
       val coid = getSContractId(args, 0)
-      onLedger.cachedContracts.get(coid) match {
+      onLedger.getCachedContract(coid) match {
         case Some(cached) =>
           onLedger.ptx.consumedByOrInactive(coid) match {
             case Some(Left(nid)) =>
@@ -1452,10 +1451,9 @@ private[lf] object SBuiltin {
     ): Control = {
       val coid = getSContractId(args, 0)
       val cached =
-        onLedger.cachedContracts.getOrElse(
-          coid,
-          crash(s"Contract ${coid.coid} is missing from cache"),
-        )
+        onLedger
+          .getCachedContract(coid)
+          .getOrElse(crash(s"Contract ${coid.coid} is missing from cache"))
       val signatories = cached.signatories
       val observers = cached.observers
       val key = cached.key
@@ -1612,7 +1610,7 @@ private[lf] object SBuiltin {
                   machine.pushKont(
                     KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
                   )
-                  if (onLedger.cachedContracts.contains(coid)) {
+                  if (onLedger.hasCachedContract(coid)) {
                     (Control.Value(SUnit), true)
                   } else {
                     // SBFetchAny will populate onLedger.cachedContracts with the contract pointed by coid
@@ -1674,7 +1672,7 @@ private[lf] object SBuiltin {
       // $ugettime :: Token -> Timestamp
       machine.ledgerMode match {
         case onLedger: OnLedger =>
-          onLedger.dependsOnTime = true
+          onLedger.setDependsOnTime()
         case OffLedger =>
       }
       Control.Question(

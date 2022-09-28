@@ -473,14 +473,15 @@ object PackageService {
 
   private def getKeys(
       interface: typesig.PackageSignature
-  ): Map[TemplateId.RequiredPkg, typesig.Type] =
+  ): Map[ContractTypeId.RequiredPkg, typesig.Type] =
     interface.typeDecls.collect {
       case (
             qn,
             typesig.PackageSignature.TypeDecl
               .Template(_, typesig.DefTemplate(_, Some(keyType), _)),
           ) =>
-        val templateId = TemplateId(interface.packageId, qn.module.dottedName, qn.name.dottedName)
+        val templateId =
+          ContractTypeId.Template(interface.packageId, qn.module.dottedName, qn.name.dottedName)
         (templateId, keyType)
     }
 }

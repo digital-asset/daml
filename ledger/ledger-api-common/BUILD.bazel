@@ -32,6 +32,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/transaction",
+        "//daml-lf/transaction:value_proto_java",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger/error",

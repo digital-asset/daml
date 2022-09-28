@@ -58,7 +58,8 @@ object Reporter {
 
     private def indented(msg: String, n: Int = 2): String = {
       val indent = " " * n
-      msg.linesIterator.map(l => s"$indent$l").mkString("\n")
+      if (msg != null) msg.linesIterator.map(l => s"$indent$l").mkString("\n")
+      else ""
     }
 
     private def printReport(results: Vector[LedgerTestSummary]): Unit =

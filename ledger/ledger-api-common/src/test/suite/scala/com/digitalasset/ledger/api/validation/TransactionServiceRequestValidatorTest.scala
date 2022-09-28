@@ -58,6 +58,7 @@ class TransactionServiceRequestValidatorTest
                         )
                       ),
                       includeInterfaceView = true,
+                      includeCreateArgumentsBlob = true,
                     )
                   ),
                 )

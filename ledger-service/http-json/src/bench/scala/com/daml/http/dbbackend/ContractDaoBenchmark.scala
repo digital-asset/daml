@@ -11,7 +11,7 @@ import com.daml.dbutils.ConnectionPool
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.dbbackend.OracleQueries.DisableContractPayloadIndexing
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
-import com.daml.http.domain.TemplateId
+import com.daml.http.domain.ContractTypeId
 import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.daml.metrics.Metrics
 import com.daml.testing.oracle
@@ -73,7 +73,7 @@ abstract class ContractDaoBenchmark {
     agreementText = "",
   )
 
-  protected def insertTemplate(tpid: TemplateId.RequiredPkg): SurrogateTpId = {
+  protected def insertTemplate(tpid: ContractTypeId.RequiredPkg): SurrogateTpId = {
     instanceUUIDLogCtx(implicit lc =>
       dao
         .transact(

@@ -165,7 +165,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
             inside(msgs) { case Seq(warningMsg, errorMsg) =>
               val warning = decodeServiceWarning(warningMsg)
               inside(warning) { case domain.UnknownTemplateIds(ids) =>
-                ids shouldBe List(domain.TemplateId(None, "AA", "BB"))
+                ids shouldBe List(domain.ContractTypeId(None, "AA", "BB"))
               }
               val error = decodeErrorResponse(errorMsg)
               error shouldBe domain.ErrorResponse(
@@ -810,7 +810,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       for {
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, headers) = aliceHeaders
-        templateId = domain.TemplateId(None, "Account", "Account")
+        templateId = TpId.Account.Account
         fetchRequest = (contractIdAtOffset: Option[Option[domain.ContractId]]) => {
           import json.JsonProtocol._
           List(
@@ -926,7 +926,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         (alice, aliceAuthHeaders) = aliceHeaders
         bobHeaders <- fixture.getUniquePartyAndAuthHeaders("Bob")
         (bob, bobAuthHeaders) = bobHeaders
-        templateId = domain.TemplateId(None, "Account", "Account")
+        templateId = TpId.Account.Account
 
         f1 =
           postCreateCommand(
@@ -1032,7 +1032,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       archive = (id: domain.ContractId) =>
         for {
           r <- postArchiveCommand(
-            domain.TemplateId(None, "Account", "Account"),
+            TpId.Account.Account,
             id,
             fixture,
             headers,

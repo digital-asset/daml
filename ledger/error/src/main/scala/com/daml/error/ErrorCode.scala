@@ -171,14 +171,14 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
 
   /** The error conveyance doc string provides a statement about the form this error will be returned to the user */
   private[error] def errorConveyanceDocString: Option[String] = {
-    val loggedAs = s"This error is logged with log-level $logLevel on the server side."
+    val loggedAs = s"This error is logged with log-level $logLevel on the server side"
     val apiLevel = (category.grpcCode, exposedViaApi) match {
       case (Some(code), true) =>
         if (category.securitySensitive)
-          s"\nThis error is exposed on the API with grpc-status $code without any details due to security reasons"
+          s". It is exposed on the API with grpc-status $code without any details for security reasons."
         else
-          s"\nThis error is exposed on the API with grpc-status $code including a detailed error message"
-      case _ => ""
+          s" and exposed on the API with grpc-status $code including a detailed error message."
+      case _ => "."
     }
     Some(loggedAs ++ apiLevel)
   }

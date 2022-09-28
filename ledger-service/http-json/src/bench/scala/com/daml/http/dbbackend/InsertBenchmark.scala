@@ -5,7 +5,7 @@ package com.daml.http.dbbackend
 
 import cats.instances.list._
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
-import com.daml.http.domain.TemplateId
+import com.daml.http.domain.ContractTypeId
 import org.openjdk.jmh.annotations._
 import scalaz.std.list._
 import spray.json._
@@ -29,7 +29,7 @@ trait InsertBenchmark extends ContractDaoBenchmark {
   @Setup(Level.Trial)
   override def setup(): Unit = {
     super.setup()
-    tpid = insertTemplate(TemplateId("-pkg-", "M", "T"))
+    tpid = insertTemplate(ContractTypeId("-pkg-", "M", "T"))
     contracts = (1 until numContracts + 1).map { i =>
       // Use negative cids to avoid collisions with other contracts
       contract(-i, "Alice", tpid)
