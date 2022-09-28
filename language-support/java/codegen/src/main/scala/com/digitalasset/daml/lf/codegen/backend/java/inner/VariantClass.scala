@@ -194,6 +194,7 @@ private[inner] object VariantClass extends StrictLogging {
         throw new IllegalArgumentException("Required either ClassName or ParameterizedTypeName")
     }
 
+  // TODO #15120 delete
   private def generateDeprecatedConcreteFromValue(
       t: ClassName
   ): MethodSpec = {
@@ -214,6 +215,7 @@ private[inner] object VariantClass extends StrictLogging {
       .build()
   }
 
+  // TODO #15120 delete
   private def generateDeprecatedParameterizedFromValue(
       variant: ParameterizedTypeName
   ): MethodSpec = {

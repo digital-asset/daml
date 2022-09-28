@@ -105,6 +105,7 @@ object VariantConstructorClass extends StrictLogging {
       .build()
   }
 
+  // TODO #15120 delete
   private def deprecatedFromValue(
       typeParameters: IndexedSeq[String],
       allTypeParameters: IndexedSeq[String],

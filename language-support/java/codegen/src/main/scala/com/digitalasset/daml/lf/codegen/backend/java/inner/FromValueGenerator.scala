@@ -21,6 +21,7 @@ import scala.jdk.CollectionConverters._
 
 private[inner] object FromValueGenerator extends StrictLogging {
 
+  // TODO #15120 delete
   def generateDeprecatedFromValueForRecordLike(
       className: TypeName,
       typeParameters: IndexedSeq[String],

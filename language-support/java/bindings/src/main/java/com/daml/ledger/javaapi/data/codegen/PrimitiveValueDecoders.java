@@ -7,7 +7,7 @@ import com.daml.ledger.javaapi.data.*;
 import java.time.Instant;
 import java.time.LocalDate;
 
-public class PrimitiveValueDecoders {
+public final class PrimitiveValueDecoders {
   public static ValueDecoder<Boolean> fromBool =
       value -> value.asBool().orElseThrow(() -> mismatched(Bool.class)).getValue();
   public static ValueDecoder<Long> fromInt64 =

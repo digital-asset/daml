@@ -65,6 +65,7 @@ private[inner] object VariantRecordMethods extends StrictLogging {
       ),
   )
 
+  // TODO #15120 delete
   private def generateDeprecatedFromValue(
       typeParameters: IndexedSeq[String],
       allTypeParameters: IndexedSeq[String],

@@ -85,6 +85,7 @@ private[inner] object EnumClass extends StrictLogging {
     builder.build()
   }
 
+  // TODO #15120 delete
   private def generateDeprecatedFromValue(
       className: ClassName,
       enumeration: typesig.Enum,

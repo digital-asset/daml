@@ -23,50 +23,51 @@ object VariantValueDecodersMethods {
       packagePrefixes: Map[PackageId, String],
       subPackage: String,
   ): Vector[MethodSpec] = {
-    val methodSpecs = new collection.mutable.ArrayBuffer[MethodSpec]
-    val variantRecords = new collection.mutable.HashSet[String]()
-
-    for (fieldInfo <- getFieldsWithTypes(variant.fields, packagePrefixes)) {
-      val FieldInfo(damlName, damlType, javaName, _) = fieldInfo
-      damlType match {
-        case TypeCon(TypeConName(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
-          // Variant records will be dealt with in a subsequent phase
-          variantRecords.add(damlName)
-        case _ =>
-          val className =
-            ClassName.bestGuess(s"$subPackage.$javaName").parameterized(typeArgs)
-          methodSpecs +=
-            variantConDecoderMethod(damlName, typeArgs, className, damlType, packagePrefixes)
-      }
-    }
-    for (child <- typeWithContext.typesLineages) yield {
-      // A child of a variant can be either:
-      // - a record of a constructor of the variant itself
-      // - a type unrelated to the variant
-      if (variantRecords.contains(child.name)) {
-        child.`type`.typ match {
-          case Some(Normal(DefDataType(typeVars, record: Record.FWT))) =>
-            val typeParameters = typeVars.map(JavaEscaper.escapeString)
+    val (variantRecords, methodSpecs) =
+      getFieldsWithTypes(variant.fields, packagePrefixes).partitionMap { fieldInfo =>
+        val FieldInfo(damlName, damlType, javaName, _) = fieldInfo
+        damlType match {
+          case TypeCon(TypeConName(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
+            // Variant records will be dealt with in a subsequent phase
+            Left(damlName)
+          case _ =>
             val className =
-              ClassName.bestGuess(s"$subPackage.${child.name}").parameterized(typeParameters)
-
-            methodSpecs += FromValueGenerator.generateValueDecoderForRecordLike(
-              getFieldsWithTypes(record.fields, packagePrefixes),
-              className,
-              typeArgs,
-              s"valueDecoder${child.name}",
-              FromValueGenerator.variantCheck(child.name, _, _),
-              packagePrefixes,
-            )
-          case t =>
-            val c = s"${typeWithContext.name}.${child.name}"
-            throw new IllegalArgumentException(
-              s"Underlying type of constructor $c is not Record (found: $t)"
+              ClassName.bestGuess(s"$subPackage.$javaName").parameterized(typeArgs)
+            Right(
+              variantConDecoderMethod(damlName, typeArgs, className, damlType, packagePrefixes)
             )
         }
       }
+
+    val recordAddons = for {
+      child <- typeWithContext.typesLineages
+      if variantRecords.contains(child.name)
+    } yield {
+      // A child of a variant can be either:
+      // - a record of a constructor of the variant itself
+      // - a type unrelated to the variant
+      child.`type`.typ match {
+        case Some(Normal(DefDataType(typeVars, record: Record.FWT))) =>
+          val typeParameters = typeVars.map(JavaEscaper.escapeString)
+          val className =
+            ClassName.bestGuess(s"$subPackage.${child.name}").parameterized(typeParameters)
+
+          FromValueGenerator.generateValueDecoderForRecordLike(
+            getFieldsWithTypes(record.fields, packagePrefixes),
+            className,
+            typeArgs,
+            s"valueDecoder${child.name}",
+            FromValueGenerator.variantCheck(child.name, _, _),
+            packagePrefixes,
+          )
+        case t =>
+          val c = s"${typeWithContext.name}.${child.name}"
+          throw new IllegalArgumentException(
+            s"Underlying type of constructor $c is not Record (found: $t)"
+          )
+      }
     }
-    methodSpecs.toVector
+    (methodSpecs ++ recordAddons).toVector
   }
 
   private def variantConDecoderMethod(
