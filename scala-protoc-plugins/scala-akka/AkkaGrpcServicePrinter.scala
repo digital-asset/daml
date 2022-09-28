@@ -12,76 +12,9 @@ final class AkkaGrpcServicePrinter(
 )(implicit descriptorImplicits: DescriptorImplicits) {
   import descriptorImplicits._
 
-  private val streamObserver = "_root_.io.grpc.stub.StreamObserver"
-  private val killSwitchName = s""""${service.getName}KillSwitch ${System.nanoTime()}""""
-
-  private def observer(typeParam: String): String = s"$streamObserver[$typeParam]"
-
-  private def serviceMethodSignature(method: MethodDescriptor): PrinterEndo = { p =>
-    method.streamType match {
-      case StreamType.Unary => p
-      case StreamType.ClientStreaming => p
-      case StreamType.ServerStreaming =>
-        p.add(s"def ${method.name}(")
-          .indent
-          .add(s"request: ${method.inputType.scalaType},")
-          .add(s"responseObserver: ${observer(method.outputType.scalaType)}")
-          .outdent
-          .add(s"): Unit = {")
-          .indent
-          .add("if (closed.get()) {")
-          .indent
-          .add("responseObserver.onError(closingError)")
-          .outdent
-          .add("} else {")
-          .indent
-          .add(
-            "val sink = com.daml.grpc.adapter.server.akka.ServerAdapter.toSink(responseObserver)"
-          )
-          .add(s"${method.name}Source(request).via(killSwitch.flow).runWith(sink)")
-          .add("()")
-          .outdent
-          .add("}")
-          .outdent
-          .add("}")
-          .add(
-            s"protected def ${method.name}Source(request: ${method.inputType.scalaType}): akka.stream.scaladsl.Source[${method.outputType.scalaType}, akka.NotUsed]"
-          )
-          .newline
-      case StreamType.Bidirectional =>
-        p
-    }
-  }
-
-  private def traitBody: PrinterEndo = {
-    val endos: PrinterEndo = { p =>
-      p.call(service.methods.map(m => serviceMethodSignature(m)): _*)
-    }
-
-    p =>
-      p.add("protected implicit def esf: com.daml.grpc.adapter.ExecutionSequencerFactory")
-        .add("protected implicit def mat: akka.stream.Materializer")
-        .call(closureUtils)
-        .newline
-        .call(endos)
-  }
-
-  private def closureUtils: PrinterEndo = { p =>
-    p.newline
-      .add(s"protected val killSwitch = akka.stream.KillSwitches.shared($killSwitchName)")
-      .add("protected val closed = new java.util.concurrent.atomic.AtomicBoolean(false)")
-      .add(
-        "protected def closingError = com.daml.grpc.adapter.server.akka.ServerAdapter.closingError()"
-      )
-      .add("def close(): Unit = {")
-      .indent
-      .add("if (closed.compareAndSet(false, true)) killSwitch.abort(closingError)")
-      .outdent
-      .add("}")
-  }
+  private val StreamObserver = "_root_.io.grpc.stub.StreamObserver"
 
   def printService(printer: FunctionalPrinter): Option[FunctionalPrinter] = {
-
     val hasStreamingEndpoint: Boolean = service.methods.exists(_.isServerStreaming)
 
     if (hasStreamingEndpoint) Some {
@@ -91,12 +24,93 @@ final class AkkaGrpcServicePrinter(
           "",
           s"trait ${service.name}AkkaGrpc extends ${service.getName}Grpc.${service.getName} with AutoCloseable {",
         )
-        .indent
         .call(traitBody)
-        .newline
-        .outdent
         .add("}")
     }
     else None
+  }
+
+  private def responseType(method: MethodDescriptor): String = method.outputType.scalaType
+
+  private def observer(typeParam: String): String = s"$StreamObserver[$typeParam]"
+
+  private def serviceMethodSignature(method: MethodDescriptor): PrinterEndo = { p =>
+    method.streamType match {
+      case StreamType.Unary => p
+      case StreamType.ClientStreaming => p
+      case StreamType.ServerStreaming =>
+        p
+          .add(s"def ${method.name}(")
+          .indent
+          .add(s"request: ${method.inputType.scalaType},")
+          .add(s"responseObserver: ${observer(responseType(method))}")
+          .outdent
+          .add("): Unit =")
+          .indent
+          .add("synchronized {")
+          .indent
+          .add("if (closed) {")
+          .indent
+          .add(
+            "responseObserver.onError(com.daml.grpc.adapter.server.akka.ServerAdapter.closingError())"
+          )
+          .outdent
+          .add("} else {")
+          .indent
+          .add(
+            s"val killSwitch = com.daml.grpc.adapter.server.akka.ServerAdapter.registerStream(${method.name}Source(request), responseObserver)"
+          )
+          .add("killSwitches = killSwitch :: killSwitches")
+          .outdent
+          .add("}")
+          .outdent
+          .add("}")
+          .outdent
+          .newline
+          .add(s"protected def ${method.name}Source(")
+          .indent
+          .add(s"request: ${method.inputType.scalaType}")
+          .outdent
+          .add(s"): akka.stream.scaladsl.Source[${responseType(method)}, akka.NotUsed]")
+          .newline
+      case StreamType.Bidirectional => p
+    }
+  }
+
+  private def traitBody: PrinterEndo = {
+    val endos: PrinterEndo = { p =>
+      p.newline
+        .call(service.methods.map(m => serviceMethodSignature(m)): _*)
+    }
+
+    p =>
+      p.indent
+        .add("protected implicit def esf: com.daml.grpc.adapter.ExecutionSequencerFactory")
+        .add("protected implicit def mat: akka.stream.Materializer")
+        .call(closeMethod)
+        .call(endos)
+        .outdent
+  }
+
+  private def closeMethod: PrinterEndo = { p =>
+    p
+      .add("@volatile private var closed = false")
+      .add("@volatile private var killSwitches = List.empty[akka.stream.KillSwitch]")
+      .newline
+      .add("def close(): Unit =")
+      .indent
+      .add("synchronized {")
+      .indent
+      .add("if (!closed) {")
+      .indent
+      .add("closed = true")
+      .add(
+        "killSwitches.foreach(_.abort(com.daml.grpc.adapter.server.akka.ServerAdapter.closingError()))"
+      )
+      .outdent
+      .add("}")
+      .outdent
+      .add("}")
+      .outdent
   }
 }
