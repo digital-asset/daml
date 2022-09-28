@@ -16,6 +16,11 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits.{defaultParserParameters => _, _}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.ledger.FailedAuthorization
+import com.daml.lf.ledger.FailedAuthorization.{
+  ExerciseMissingAuthorization,
+  FetchMissingAuthorization,
+  LookupByKeyMissingAuthorization,
+}
 import com.daml.lf.testing.parser.{ParserParameters, defaultPackageId}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ValueParty, ValueRecord}
@@ -142,7 +147,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       };
     }
 
-    module Test{
+    module Test {
       val noParty: Option Party = None @Party;
       val someParty: Party -> Option Party = \(p: Party) -> Some @Party p;
       val noCid: Option (ContractId Unit) = None @(ContractId Unit);
@@ -187,7 +192,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
           in ubind
             helperId: ContractId Test:Helper <- Test:createHelper exercisingParty;
-            x: M:Nested <-exercise @Test:Helper Exe helperId arg
+            x: M:Nested <- exercise @Test:Helper Exe helperId arg
           in upure @Unit ();
 
       val fetch_by_id: Party -> ContractId M:T -> Update Unit =
@@ -1484,7 +1489,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of a local contract with visibility failure
+        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of a local contract with failure authorization
         "visibility failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1497,10 +1502,23 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) {
             case Success(
-                  Left(SErrorDamlException(IE.ContractKeyNotVisible(_, key, _, _, _)))
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        ExerciseMissingAuthorization(`T`, _, _, authParties, requiredParties),
+                      )
+                    )
+                  )
                 ) =>
-              key.templateId shouldBe T
-              msgs shouldBe Seq("starts test", "maintainers")
+              authParties shouldBe Set(charlie)
+              requiredParties shouldBe Set(alice)
+              msgs shouldBe Seq(
+                "starts test",
+                "maintainers",
+                "choice controllers",
+                "choice observers",
+              )
           }
         }
       }
@@ -2438,9 +2456,17 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) {
             case Success(
-                  Left(SErrorDamlException(IE.ContractKeyNotVisible(_, key, _, _, _)))
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        FetchMissingAuthorization(`T`, _, stakeholders, authParties),
+                      )
+                    )
+                  )
                 ) =>
-              key.templateId shouldBe T
+              stakeholders shouldBe Set(alice)
+              authParties shouldBe Set(charlie)
               msgs shouldBe Seq("starts test", "maintainers")
           }
         }
@@ -2984,9 +3010,17 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
           inside(res) {
             case Success(
-                  Left(SErrorDamlException(IE.ContractKeyNotVisible(_, key, _, _, _)))
+                  Left(
+                    SErrorDamlException(
+                      IE.FailedAuthorization(
+                        _,
+                        LookupByKeyMissingAuthorization(`T`, _, maintainers, authParties),
+                      )
+                    )
+                  )
                 ) =>
-              key.templateId shouldBe T
+              maintainers shouldBe Set(alice)
+              authParties shouldBe Set(charlie)
               msgs shouldBe Seq("starts test", "maintainers")
           }
         }
