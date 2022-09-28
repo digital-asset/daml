@@ -328,8 +328,8 @@ requestTests run _runScenarios = testGroup "requests"
               , "assetIssuer asset = asset.issuer"
               ]
           lenses <- getCodeLenses main'
-          Just mainFp <- pure $ T.pack <$> uriToFilePath (main' ^. uri)
-          let signature = "assetIssuer : HasField \"issuer\" r a => r -> a"
+          let mainUri = getUri (main' ^. uri)
+              signature = "assetIssuer : HasField \"issuer\" r a => r -> a"
               addTypeSigLens =
                   CodeLens
                       { _range = Range (Position 1 0) (Position 1 11)
@@ -338,7 +338,7 @@ requestTests run _runScenarios = testGroup "requests"
                           , _command = "typesignature.add"
                           , _arguments = Just $ List $ singleton $ Aeson.object
                               [ "changes" .= Aeson.object
-                                  [ Aeson.Key.fromText ("file://" <> mainFp) .=
+                                  [ Aeson.Key.fromText mainUri .=
                                       [ Aeson.object
                                           [ "newText" .= (signature <> "\n")
                                           , "range" .= toJSON (Range (Position 1 0) (Position 1 0))
