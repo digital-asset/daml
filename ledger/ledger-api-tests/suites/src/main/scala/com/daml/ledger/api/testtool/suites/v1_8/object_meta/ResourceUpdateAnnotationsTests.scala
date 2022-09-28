@@ -77,7 +77,7 @@ trait ResourceUpdateAnnotationsTests {
   )
 
   testWithFreshResource(
-    "TestAnnotationsKeySyntaxOnResourceUpdate",
+    "TestAnnotationsKeySyntaxOnResourceUpdateWhenAddingKey",
     "Test the annotations' key syntax for the update RPC",
   )(annotations = Map(validKey -> "a"))(implicit ec =>
     implicit ledger =>
