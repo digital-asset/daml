@@ -302,48 +302,28 @@ abstract class AbstractWebsocketServiceIntegrationTest
         val dslSyntax = Consume.syntax[JsValue]
         import dslSyntax._
 
-//        def readAndExtract(amount: String): Consume.FCC[JsValue, CreatedAccountEvent] = for {
-//          _ <- liftF(createAccount(owner, amount, headers))
-//          AccountQuery(createdAccountEvent) <- readOne
-//        } yield createdAccountEvent
+        def readAndExtract(
+            record: AccountRecord,
+            mq: Vector[Int],
+        ): Consume.FCC[JsValue, CreatedAccountEvent] = for {
+          _ <- liftF(createAccount(owner, record.amount, headers))
+          AccountQuery(event) <- readOne
+        } yield {
+          event.created.record should ===(record)
+          event.created.templateId.copy(packageId = None) should ===(TpId.IAccount.IAccount)
+          event.matchedQueries should ===(mq)
+          event
+        }
 
         Consume.interpret(
           for {
             ContractDelta(Vector(), _, Some(offset)) <- readOne
-//            Seq(createdAccountEvent1, createdAccountEvent2, createdAccountEvent3) <-
-//              List("abc123", "abc456", "def123").traverse(readAndExtract)
-
-            _ <- liftF(createAccount(owner, "abc123", headers))
-            AccountQuery(createdAccountEvent1) <- readOne
-            _ = {
-              createdAccountEvent1.created.record.amount shouldBe "abc123"
-              createdAccountEvent1.created.record.isAbcPrefix shouldBe true
-              createdAccountEvent1.created.record.is123Suffix shouldBe true
-              createdAccountEvent1.created.templateId.moduleName should ===("IAccount")
-              createdAccountEvent1.created.templateId.entityName should ===("IAccount")
-              createdAccountEvent1.matchedQueries shouldBe Vector(0, 1)
-            }
-            _ <- liftF(createAccount(owner, "abc456", headers))
-            AccountQuery(createdAccountEvent2) <- readOne
-            _ = {
-              createdAccountEvent2.created.record.amount shouldBe "abc456"
-              createdAccountEvent2.created.record.isAbcPrefix shouldBe true
-              createdAccountEvent2.created.record.is123Suffix shouldBe false
-              createdAccountEvent2.created.templateId.moduleName should ===("IAccount")
-              createdAccountEvent2.created.templateId.entityName should ===("IAccount")
-              createdAccountEvent2.matchedQueries shouldBe Vector(0)
-            }
-
-            _ <- liftF(createAccount(owner, "def123", headers))
-            AccountQuery(createdAccountEvent3) <- readOne
-            _ = {
-              createdAccountEvent3.created.record.amount shouldBe "def123"
-              createdAccountEvent3.created.record.isAbcPrefix shouldBe false
-              createdAccountEvent3.created.record.is123Suffix shouldBe true
-              createdAccountEvent3.created.templateId.moduleName should ===("IAccount")
-              createdAccountEvent3.created.templateId.entityName should ===("IAccount")
-              createdAccountEvent3.matchedQueries shouldBe Vector(1)
-            }
+            Seq(createdAccountEvent1, _, _) <-
+              List(
+                (AccountRecord("abc123", true, true), Vector(0, 1)),
+                (AccountRecord("abc456", true, false), Vector(0)),
+                (AccountRecord("def123", false, true), Vector(1)),
+              ).traverse((readAndExtract _).tupled)
 
             _ <- liftF(createAccount(owner, "def456", headers))
 
