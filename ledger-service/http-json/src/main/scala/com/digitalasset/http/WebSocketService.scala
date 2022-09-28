@@ -1107,7 +1107,7 @@ class WebSocketService(
         val (aerrors, errors, dstep) = step.partitionBimap(
           ae =>
             domain.ArchivedContract
-              .fromLedgerApi(ae)
+              .fromLedgerApi(resolvedQuery, ae)
               .liftErr(ServerError.fromMsg),
           ce =>
             domain.ActiveContract

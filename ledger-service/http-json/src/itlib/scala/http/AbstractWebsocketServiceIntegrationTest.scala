@@ -382,8 +382,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
                       ) =>
                     archivedContractId should ===(createdAccountEvent1.created.contractId)
                     // TODO should be IAccount instead of Account
-                    archivedTemplateId.moduleName should ===("Account")
-                    archivedTemplateId.entityName should ===("Account")
+                    archivedTemplateId.moduleName should ===("IAccount")
+                    archivedTemplateId.entityName should ===("IAccount")
 
                     createdTemplateId.moduleName should ===("IAccount")
                     createdTemplateId.entityName should ===("IAccount")

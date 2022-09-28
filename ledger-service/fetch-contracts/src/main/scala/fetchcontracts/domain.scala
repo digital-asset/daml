@@ -122,7 +122,7 @@ package domain {
             val payload = in.interfaceViews
               .find(_.interfaceId.exists(_ == id))
               .flatMap(_.viewValue) required "interfaceView"
-            (\/-(ContractTypeId.Interface fromLedgerApi id), None, payload)
+            (\/-(interfaceId), None, payload)
           case _ =>
             val id = in.templateId.required("templateId").map(ContractTypeId.Template.fromLedgerApi)
             (id, in.contractKey, in.createArguments required "createArguments")
