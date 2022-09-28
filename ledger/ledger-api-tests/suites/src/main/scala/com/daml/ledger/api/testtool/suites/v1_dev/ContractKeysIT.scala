@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.testtool.suites.v1_8
+package com.daml.ledger.api.testtool.suites.v1_dev
 
 import java.util.regex.Pattern
 
@@ -384,7 +384,7 @@ final class ContractKeysIT extends LedgerTestSuite {
 
   test(
     "CKLocalKeyVisibility",
-    "Visibility should be checked for fetch-by-key/lookup-by-key of contracts created in the current transaction",
+    "Visibility should *not* be checked for fetch-by-key/lookup-by-key of contracts created in the current transaction",
     allocate(SingleParty, SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger1, party1), Participant(ledger2, party2)) =>
@@ -392,12 +392,8 @@ final class ContractKeysIT extends LedgerTestSuite {
       for {
         ops <- ledger1.create(party1, LocalKeyVisibilityOperations(party1, party2))
         _ <- synchronize(ledger1, ledger2)
-        failedLookup <- ledger2
-          .exercise(party2, ops.exerciseLocalLookup())
-          .mustFail("lookup not visible")
-        failedFetch <- ledger2
-          .exercise(party2, ops.exerciseLocalFetch())
-          .mustFail("fetch not visible")
+        _ <- ledger2.exercise(party2, ops.exerciseLocalLookup())
+        _ <- ledger2.exercise(party2, ops.exerciseLocalFetch())
         _ <- ledger2.exercise(
           actAs = List(party2),
           readAs = List(party1),
@@ -408,20 +404,7 @@ final class ContractKeysIT extends LedgerTestSuite {
           readAs = List(party1),
           ops.exerciseLocalFetch(),
         )
-      } yield {
-        assertGrpcError(
-          failedLookup,
-          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
-          Some("not visible"),
-          checkDefiniteAnswerMetadata = true,
-        )
-        assertGrpcError(
-          failedFetch,
-          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
-          Some("not visible"),
-          checkDefiniteAnswerMetadata = true,
-        )
-      }
+      } yield ()
   })
 
   test(
