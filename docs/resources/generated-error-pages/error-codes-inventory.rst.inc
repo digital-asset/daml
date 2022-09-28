@@ -508,7 +508,7 @@ CONCURRENT_PARTY_DETAILS_UPDATE_DETECTED
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: Read this party again to obtain its most recent state and in particular its most recent resource version. Use the obtained information to build and send a new update request.
 
@@ -524,7 +524,7 @@ INTERNAL_PARTY_RECORD_ALREADY_EXISTS
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: This error can indicate a problem with the server's storage or implementation.
 
@@ -540,7 +540,7 @@ INTERNAL_PARTY_RECORD_NOT_FOUND
 
     **Category**: SystemInternalAssumptionViolated
 
-    **Conveyance**: This error is logged with log-level ERROR on the server side. This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
 
     **Resolution**: This error can indicate a problem with the server's storage or implementation.
 
@@ -556,7 +556,7 @@ INVALID_PARTY_DETAILS_UPDATE_REQUEST
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the error details for specific information on what made the request invalid. Retry with an adjusted update request.
 
@@ -572,7 +572,7 @@ MAX_PARTY_DETAILS_ANNOTATIONS_SIZE_EXCEEDED
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Retry with fewer annotations or delete some of the party's existing annotations.
 
@@ -588,7 +588,7 @@ PARTY_NOT_FOUND
 
     **Category**: InvalidGivenCurrentSystemStateResourceMissing
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status NOT_FOUND including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
 
     **Resolution**: Check that you are connecting to the right participant node and that the party is spelled correctly.
 
@@ -610,7 +610,7 @@ CONCURRENT_USER_UPDATE_DETECTED
 
     **Category**: ContentionOnSharedResources
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status ABORTED including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
     **Resolution**: Read this user again to obtain its most recent state and in particular its most recent resource version. Use the obtained information to build and send a new update request.
 
@@ -626,7 +626,7 @@ INVALID_USER_UPDATE_REQUEST
 
     **Category**: InvalidIndependentOfSystemState
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the error details for specific information on what made the request invalid. Retry with an adjusted update request.
 
@@ -642,7 +642,7 @@ MAX_USER_ANNOTATIONS_SIZE_EXCEEDED
 
     **Category**: InvalidGivenCurrentSystemStateOther
 
-    **Conveyance**: This error is logged with log-level INFO on the server side. This error is exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
 
     **Resolution**: Retry with fewer annotations or delete some of the user's existing annotations.
 
