@@ -826,12 +826,6 @@ describe("interfaces", () => {
       templateId: "Hidden:NotVisibleInTs",
     };
     const initialPayload: NotVisibleInTs = { owner: ALICE_PARTY };
-    type MinimalCreateResponse<T, K> = {
-      templateId: string;
-      contractId: ContractId<T>;
-      payload: T;
-      key: K;
-    };
 
     // make a contract whose template is not in the JS image
     // we can't use ledger.create without knowing the exact template ID
@@ -846,7 +840,7 @@ describe("interfaces", () => {
     } = (await submittableLedger.submit("v1/create", {
       templateId: NotVisibleInTs.templateId,
       payload: initialPayload,
-    })) as MinimalCreateResponse<NotVisibleInTs, { _1: Text; _2: Party }>;
+    })) as CreateEvent<NotVisibleInTs, { _1: Text; _2: Party }>;
     expect(nvitFQTID).toEqual(expect.stringMatching(/:Hidden:NotVisibleInTs$/));
     expect(payloadResp).toEqual(initialPayload);
     expect(keyResp).toEqual({ _1: "three three three", _2: ALICE_PARTY });
