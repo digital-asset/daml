@@ -7,10 +7,11 @@ import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
 import com.daml.platform.akkastreams.dispatcher.SignalDispatcher.Signal
-import org.slf4j.LoggerFactory
+import org.slf4j.{Logger, LoggerFactory}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /** A fanout signaller that can be subscribed to dynamically.
   * Signals may be coalesced, but if a signal is sent, we guarantee that all consumers subscribed before
@@ -18,7 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class SignalDispatcher private () {
 
-  val logger = LoggerFactory.getLogger(getClass)
+  val logger: Logger = LoggerFactory.getLogger(getClass)
 
   private val runningState: AtomicReference[Option[Set[SourceQueueWithComplete[Signal]]]] =
     new AtomicReference(Some(Set.empty))
@@ -69,10 +70,10 @@ class SignalDispatcher private () {
     }
 
   /** Closes this SignalDispatcher by failing the existing Source subscriptions with the provided throwable. */
-  def fail(newThrowable: () => Throwable): Future[Unit] =
+  def fail(throwableBuilder: () => Throwable): Future[Unit] =
     shutdownInternal { source =>
       implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.parasitic
-      val throwable = newThrowable()
+      val throwable = throwableBuilder()
       source.fail(throwable)
       source
         .watchCompletion()
@@ -90,7 +91,18 @@ class SignalDispatcher private () {
       .getAndSet(None)
       .fold(throw new IllegalStateException("SignalDispatcher is already closed")) { sources =>
         Future.delegate {
-          Future.traverse(sources)(shutdownSourceQueue).map(_ => ())
+          Future
+            .traverse(sources) { source =>
+              // Return a successful Future wrapping a Try
+              // to ensure that Future.traverse waits for the completion of all sources
+              shutdownSourceQueue(source)
+                .map(Success(_))
+                .recover { case failure => Failure(failure) }
+            }
+            .map { results =>
+              // Fail if any of the sources failed
+              results.map(_.get)
+            }
         }
       }
   }

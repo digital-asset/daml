@@ -165,7 +165,7 @@ final class ErrorInterceptorSpec
 
   LogOnUnhandledFailureInClose.getClass.getSimpleName - {
     "is transparent when no exception is thrown" in {
-      @volatile var idx = 0
+      var idx = 0
       val call = () => {
         idx += 1
         idx
