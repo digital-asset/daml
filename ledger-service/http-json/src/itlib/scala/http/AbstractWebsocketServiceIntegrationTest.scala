@@ -286,12 +286,17 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
         def exerciseTransferPayload(cid: domain.ContractId) = {
           import json.JsonProtocol._
-          Map(
-            "templateId" -> "IAccount:IAccount".toJson,
-            "contractId" -> cid.toJson,
-            "choice" -> "ChangeAmount".toJson,
-            "argument" -> Map("newAmount" -> "abcxx").toJson,
-          ).toJson
+          val ecid: domain.ContractLocator[JsValue] =
+            domain.EnrichedContractId(Some(TpId.IAccount.IAccount), cid)
+          domain
+            .ExerciseCommand(
+              ecid,
+              choice = domain.Choice("ChangeAmount"),
+              argument = Map("newAmount" -> "abcxx").toJson,
+              None,
+              None,
+            )
+            .toJson
         }
 
         val dslSyntax = Consume.syntax[JsValue]
