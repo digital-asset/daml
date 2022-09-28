@@ -89,6 +89,7 @@ carbon_test_names = [
     "carbonv1",
     "carbonv2",  #carbonv2 depends on carbon v1
     "carbonv3",  #carbonv3 depends on carbon v2
+    "modelext",  #modelext depends on model
 ]
 
 general_test_names = [
@@ -112,6 +113,7 @@ da_scala_dar_resources_library(
     data_dependencies = {
         "carbonv2": ["//ledger/test-common:carbonv1-tests-%s.build"],
         "carbonv3": ["//ledger/test-common:carbonv2-tests-%s.build"],
+        "modelext": ["//ledger/test-common:model-tests-%s.build"],
     },
     enable_scenarios = True,
     exclusions = {

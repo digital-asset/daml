@@ -8,6 +8,7 @@ import com.daml.ledger.api.v1.commands.{
   Commands => ProtoCommands,
   DisclosedContract => ProtoDisclosedContract,
 }
+import ProtoDisclosedContract.{Arguments => ProtoArguments}
 import com.daml.ledger.api.v1.contract_metadata.{ContractMetadata => ProtoContractMetadata}
 import com.daml.ledger.api.v1.value.{
   Identifier => ProtoIdentifier,
@@ -133,11 +134,17 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
   }
 
   it should "fail validation on invalid create arguments record field" in {
+    def invalidateArguments(arguments: ProtoArguments): ProtoArguments =
+      ProtoArguments.CreateArguments(
+        arguments.createArguments.get.update(
+          _.fields.set(scala.Seq(ProtoRecordField("something", None)))
+        )
+      )
     val withInvalidRecordField =
       ProtoCommands(disclosedContracts =
         scala.Seq(
           api.protoDisclosedContract.update(
-            _.arguments.fields.set(scala.Seq(ProtoRecordField("something", None)))
+            _.arguments.modify(invalidateArguments)
           )
         )
       )
@@ -211,6 +218,27 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       metadata = Map.empty,
     )
   }
+
+  it should "fail validation on unexpected create arguments blob" in {
+    val withCrappyArguments =
+      ProtoCommands(disclosedContracts =
+        scala.Seq(
+          api.protoDisclosedContract.update(
+            _.arguments := ProtoArguments.CreateArgumentsBlob(
+              com.google.protobuf.any.Any("crap", ByteString.EMPTY)
+            )
+          )
+        )
+      )
+
+    requestMustFailWith(
+      request = validateDisclosedContracts(withCrappyArguments),
+      code = Status.Code.INVALID_ARGUMENT,
+      description =
+        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field blob: Type of the Any message does not match the given class.",
+      metadata = Map.empty,
+    )
+  }
 }
 
 object ValidateDisclosedContractsTest {
@@ -226,7 +254,7 @@ object ValidateDisclosedContractsTest {
       ProtoIdentifier("package", moduleName = "module", entityName = "entity")
     val contractId: String = "00" + "00" * 31 + "ef"
     val keyHash: Hash = Hash.assertFromString("00" * 31 + "ff")
-    val contractArguments: ProtoRecord = ProtoRecord(
+    val contractArgumentsRecord: ProtoRecord = ProtoRecord(
       Some(templateId),
       scala.Seq(ProtoRecordField("something", Some(ProtoValue(ProtoValue.Sum.Bool(true))))),
     )
@@ -238,7 +266,7 @@ object ValidateDisclosedContractsTest {
     val protoDisclosedContract: ProtoDisclosedContract = ProtoDisclosedContract(
       templateId = Some(templateId),
       contractId = contractId,
-      arguments = Some(contractArguments),
+      arguments = ProtoArguments.CreateArguments(contractArgumentsRecord),
       metadata = Some(contractMetadata),
     )
     val protoCommands: ProtoCommands =

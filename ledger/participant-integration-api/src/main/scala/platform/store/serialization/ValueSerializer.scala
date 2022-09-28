@@ -4,9 +4,10 @@
 package com.daml.platform.store.serialization
 
 import java.io.InputStream
-
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.value.{ValueCoder, ValueOuterClass}
+import com.google.protobuf.any.Any
+import com.google.protobuf.{Any => JavaAny}
 
 private[platform] object ValueSerializer {
 
@@ -17,6 +18,16 @@ private[platform] object ValueSerializer {
     ValueCoder
       .encodeVersionedValue(ValueCoder.CidEncoder, value)
       .fold(error => sys.error(s"$errorContext (${error.errorMessage})"), _.toByteArray)
+
+  def serializeValueAny(
+      value: VersionedValue,
+      errorContext: => String,
+  ): Any = ValueCoder
+    .encodeVersionedValue(ValueCoder.CidEncoder, value)
+    .fold(
+      error => sys.error(s"$errorContext (${error.errorMessage})"),
+      versionedValue => Any.fromJavaProto(JavaAny.pack(versionedValue)),
+    )
 
   private def deserializeValueHelper(
       stream: InputStream,
