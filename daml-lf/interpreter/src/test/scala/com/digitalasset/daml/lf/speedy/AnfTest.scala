@@ -15,9 +15,6 @@ import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Pretty.SExpr._
 import com.daml.lf.data.Ref._
 
-import scala.annotation.nowarn
-
-@nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppOnlyFunIsAtomic")
 class AnfTest extends AnyWordSpec with Matchers {
 
   "identity: [\\x. x]" should {
@@ -96,55 +93,10 @@ class AnfTest extends AnyWordSpec with Matchers {
     }
   }
 
-  "unknown multi-arg fun: [\\f g. f (g 1) (g 2)]" should {
-    "be transformed to ANF as expected (safely)" in {
-      val original =
-        slam(2, sapp2(sarg0, sapp(sarg1, snum1), sapp(sarg1, snum2)))
-      val expected =
-        lam(2, app2n(arg0, appa(arg1, num1), appa(arg1, num2)))
-      testTransform(original, expected)
-    }
-  }
-
-  "known apps nested in unknown: [\\f g x. f (g (x+1)) (g (x+2))]" should {
-    "be transformed to ANF as expected (safely)" in {
-      val original =
-        slam(
-          2,
-          sapp2(
-            sarg0,
-            sapp(sarg1, sbinop(SBSubInt64, sarg3, snum1)),
-            sapp(sarg1, sbinop(SBSubInt64, sarg3, snum2)),
-          ),
-        )
-      val expected =
-        lam(
-          2,
-          app2n(
-            arg0,
-            let1b2(SBSubInt64, arg3, num1, appa(arg1, stack1)),
-            let1b2(SBSubInt64, arg3, num2, appa(arg1, stack1)),
-          ),
-        )
-      testTransform(original, expected)
-    }
-  }
-
   "error applied to 1 arg" should {
     "be transformed to ANF as expected" in {
       val original = slam(1, source.SEApp(source.SEBuiltin(SBUserError), List(sarg0)))
       val expected = lam(1, target.SEAppAtomicSaturatedBuiltin(SBUserError, Array(arg0)))
-      testTransform(original, expected)
-    }
-  }
-
-  "error (over) applied to 2 arg" should {
-    "be transformed to ANF as expected" in {
-      val original = slam(2, source.SEApp(source.SEBuiltin(SBUserError), List(sarg0, sarg1)))
-      val expected = lam(
-        2,
-        target.SEAppOnlyFunIsAtomic(target.SEBuiltin(SBUserError), Array(arg0, arg1)),
-      )
       testTransform(original, expected)
     }
   }
@@ -204,14 +156,6 @@ class AnfTest extends AnyWordSpec with Matchers {
   private def clo1(fv: target.SELoc, n: Int, body: target.SExpr): target.SExpr =
     target.SEMakeClo(Array(fv), n, body)
 
-  @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppOnlyFunIsAtomic")
-  private def app2n(
-      func: target.SExprAtomic,
-      arg1: target.SExpr,
-      arg2: target.SExpr,
-  ): target.SExpr =
-    target.SEAppOnlyFunIsAtomic(func, Array(arg1, arg2))
-
   // anf builders
   private def let1(rhs: target.SExpr, body: target.SExpr): target.SExpr =
     target.SELet1General(rhs, body)
@@ -265,7 +209,6 @@ class AnfTest extends AnyWordSpec with Matchers {
   private def arg0 = target.SELocA(0)
   private def arg1 = target.SELocA(1)
   private def arg2 = target.SELocA(2)
-  private def arg3 = target.SELocA(3)
   private def free0 = target.SELocF(0)
   private def stack1 = target.SELocS(1)
   private def stack2 = target.SELocS(2)
@@ -286,14 +229,11 @@ class AnfTest extends AnyWordSpec with Matchers {
     source.SEApp(source.SEBuiltin(op), List(x, y))
   private def sbinop(op: SBuiltinArithmetic, x: source.SExpr, y: source.SExpr): source.SExpr =
     source.SEApp(source.SEBuiltin(op), List(x, y))
-  private def sapp2(func: source.SExpr, arg1: source.SExpr, arg2: source.SExpr): source.SExpr =
-    source.SEApp(func, List(arg1, arg2))
   private def site(i: source.SExpr, t: source.SExpr, e: source.SExpr): source.SExpr =
     source.SECase(i, List(source.SCaseAlt(patTrue, t), source.SCaseAlt(patFalse, e)))
   private def sarg0 = source.SELocA(0)
   private def sarg1 = source.SELocA(1)
   private def sarg2 = source.SELocA(2)
-  private def sarg3 = source.SELocA(3)
   private def sfree0 = source.SELocF(0)
   private def snum0 = snum(0)
   private def snum1 = snum(1)
