@@ -366,16 +366,11 @@ abstract class AbstractWebsocketServiceIntegrationTest
                         )
                       ) =>
                     archivedContractId should ===(createdAccountEvent1.created.contractId)
-                    // TODO should be IAccount instead of Account
-                    archivedTemplateId.moduleName should ===("IAccount")
-                    archivedTemplateId.entityName should ===("IAccount")
+                    archivedTemplateId.copy(packageId = None) should ===(TpId.IAccount.IAccount)
 
-                    createdTemplateId.moduleName should ===("IAccount")
-                    createdTemplateId.entityName should ===("IAccount")
+                    createdTemplateId.copy(packageId = None) should ===(TpId.IAccount.IAccount)
 
-                    createdRecord.amount shouldBe "abcxx"
-                    createdRecord.isAbcPrefix shouldBe true
-                    createdRecord.is123Suffix shouldBe false
+                    createdRecord should ===(AccountRecord("abcxx", true, false))
                     matchedQueries shouldBe Vector(0)
                 }
               }
