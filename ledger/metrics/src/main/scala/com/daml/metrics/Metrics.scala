@@ -21,7 +21,7 @@ final class Metrics(val registry: MetricRegistry) {
   object test {
     private val Prefix: MetricName = MetricName("test")
 
-    val db: DatabaseMetrics = new DatabaseMetrics(registry, Prefix, "db")
+    val db: DatabaseMetrics = new DatabaseMetrics(Prefix, "db", registry)
   }
 
   object daml {
@@ -75,9 +75,9 @@ final class Metrics(val registry: MetricRegistry) {
       object cache {
         private val Prefix: MetricName = execution.Prefix :+ "cache"
 
-        val keyState: CacheMetrics = new CacheMetrics(registry, Prefix :+ "key_state")
+        val keyState: CacheMetrics = new CacheMetrics(Prefix :+ "key_state", registry)
         val contractState: CacheMetrics =
-          new CacheMetrics(registry, Prefix :+ "contract_state")
+          new CacheMetrics(Prefix :+ "contract_state", registry)
 
         val registerCacheUpdate: Timer = registry.timer(Prefix :+ "register_update")
 
@@ -132,10 +132,10 @@ final class Metrics(val registry: MetricRegistry) {
     object userManagement {
       private val Prefix = daml.Prefix :+ "user_management"
 
-      val cache = new CacheMetrics(registry, Prefix :+ "cache")
+      val cache = new CacheMetrics(Prefix :+ "cache", registry)
 
       private def createDbMetrics(name: String): DatabaseMetrics =
-        new DatabaseMetrics(registry, Prefix, name)
+        new DatabaseMetrics(Prefix, name, registry)
       val getUserInfo: DatabaseMetrics = createDbMetrics("get_user_info")
       val createUser: DatabaseMetrics = createDbMetrics("create_user")
       val deleteUser: DatabaseMetrics = createDbMetrics("delete_user")
@@ -149,7 +149,7 @@ final class Metrics(val registry: MetricRegistry) {
       private val Prefix = daml.Prefix :+ "party_record_store"
 
       private def createDbMetrics(name: String): DatabaseMetrics =
-        new DatabaseMetrics(registry, Prefix, name)
+        new DatabaseMetrics(Prefix, name, registry)
       val getPartyRecord: DatabaseMetrics = createDbMetrics("get_party_record")
       val createPartyRecord: DatabaseMetrics = createDbMetrics("create_party_record")
       val updatePartyRecord: DatabaseMetrics = createDbMetrics("update_party_record")
@@ -194,7 +194,7 @@ final class Metrics(val registry: MetricRegistry) {
         val prune: Timer = registry.timer(Prefix :+ "prune")
 
         private val createDbMetrics: String => DatabaseMetrics =
-          new DatabaseMetrics(registry, Prefix, _)
+          new DatabaseMetrics(Prefix, _, registry)
 
         private val overall = createDbMetrics("all")
         val waitAll: Timer = overall.waitTimer
@@ -220,7 +220,7 @@ final class Metrics(val registry: MetricRegistry) {
         val loadPartyEntries: DatabaseMetrics = createDbMetrics("load_party_entries")
 
         object storeTransactionDbMetrics
-            extends DatabaseMetrics(registry, Prefix, "store_ledger_entry")
+            extends DatabaseMetrics(Prefix, "store_ledger_entry", registry)
 
         val storeRejectionDbMetrics: DatabaseMetrics = createDbMetrics(
           "store_rejection"
@@ -340,7 +340,7 @@ final class Metrics(val registry: MetricRegistry) {
     object parallelIndexer {
       private val Prefix: MetricName = daml.Prefix :+ "parallel_indexer"
 
-      val initialization = new DatabaseMetrics(registry, Prefix, "initialization")
+      val initialization = new DatabaseMetrics(Prefix, "initialization", registry)
 
       // Number of state updates persisted to the database
       // (after the effect of the corresponding Update is persisted into the database,
@@ -388,11 +388,11 @@ final class Metrics(val registry: MetricRegistry) {
 
       // Ingestion stage
       // Parallel ingestion of prepared data into the database
-      val ingestion = new DatabaseMetrics(registry, Prefix, "ingestion")
+      val ingestion = new DatabaseMetrics(Prefix, "ingestion", registry)
 
       // Tail ingestion stage
       // The throttled update of ledger end parameters
-      val tailIngestion = new DatabaseMetrics(registry, Prefix, "tail_ingestion")
+      val tailIngestion = new DatabaseMetrics(Prefix, "tail_ingestion", registry)
     }
 
     object services {
@@ -481,7 +481,7 @@ final class Metrics(val registry: MetricRegistry) {
         val searchQuery: Timer = registry.timer(Prefix :+ "search_query")
       }
 
-      val surrogateTemplateIdCache = new CacheMetrics(registry, Prefix :+ "surrogate_tpid_cache")
+      val surrogateTemplateIdCache = new CacheMetrics(Prefix :+ "surrogate_tpid_cache", registry)
 
       // Meters how long processing of a command submission request takes
       val commandSubmissionTimer: Timer = registry.timer(Prefix :+ "command_submission_timing")
