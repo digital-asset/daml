@@ -436,7 +436,7 @@ final class UserManagementServiceIT
           )
         )
         .mustFailWith(
-          "allocating a user",
+          "allocating  a user",
           LedgerApiErrors.RequestValidation.InvalidArgument,
           Some(
             "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: The value of an annotation is empty for key: 'k2'"
