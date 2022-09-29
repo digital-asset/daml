@@ -4,6 +4,7 @@
 module Main where
 
 import DA.TextMap
+import DA.Functor ((<&>))
 import qualified DA.Map
 import qualified Lib.Mod hiding (Overridden)
 import qualified Lib.ModIfaceOnly
@@ -211,3 +212,16 @@ template Asset with
       getOtherOwner = owner
       somethingImpl = do
         pure ()
+
+interface Cloneable where
+  viewtype Lib.Mod.EmptyInterfaceView
+  getSelfKind : Text
+  getCloner : Party
+  cloneSelf : Update (ContractId Cloneable)
+
+  choice Clone : (ContractId Cloneable, Text)
+    with
+      echo : Text
+    controller getCloner this
+    do
+      cloneSelf this <&> (, "cloned " <> getSelfKind this <> ": " <> echo)
