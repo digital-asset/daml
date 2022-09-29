@@ -7,7 +7,7 @@ load(":util.bzl", "daml_ledger_export_test")
 # documentation. This functions as both a golden test on ledger exports and to
 # make sure that the documentation stays up-to-date.
 daml_ledger_export_test(
-    name = "example-export",
+    name = "matches-docs",
     dar = "//daml-script/test:script-test.dar",
     expected_args_json = "//docs:source/tools/export/output-root/args.json",
     expected_daml = "//docs:source/tools/export/output-root/Export.daml",
