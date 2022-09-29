@@ -104,7 +104,6 @@ object TransactionNodeStatistics {
       tx: Transaction,
       excludedPackages: Set[PackageId],
   ): TransactionNodeStatistics = {
-    println(excludedPackages)
     val excluded = tx.nodes.values
       .collect({ case a: Node.Action => a })
       .forall(_.packageIds.forall(excludedPackages.contains))
