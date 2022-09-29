@@ -191,6 +191,7 @@ private[export] object Encode {
           tuple(value.fields.map(f => go(f.getValue.sum)))
         case Sum.Record(value) => encodeRecord(partyMap, cidMap, value)
         // TODO Handle sums of products properly
+        // https://github.com/digital-asset/daml/issues/14723
         case Sum.Variant(value) =>
           parens(
             qualifyId(value.getVariantId.copy(entityName = value.constructor)) +

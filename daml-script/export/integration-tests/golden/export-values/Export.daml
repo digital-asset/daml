@@ -1,0 +1,97 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+module Export where
+import Daml.Script
+import qualified DA.Map
+import qualified DA.Date
+import qualified Values
+import qualified DA.Stack
+import qualified DA.Traversable
+import qualified DA.TextMap
+import qualified DA.Time
+
+-- | Mapping from party names in the original ledger state
+-- to parties to be used in 'export'.
+type Parties = DA.TextMap.TextMap Party
+
+-- | Look-up a party based on the party name in the original ledger state.
+lookupParty : DA.Stack.HasCallStack => Text -> Parties -> Party
+lookupParty old parties =
+  case DA.TextMap.lookup old parties of
+    None -> error ("Missing party " <> old)
+    Some new -> new
+
+-- | Allocates fresh parties from the party management service.
+allocateParties : Script Parties
+allocateParties = DA.Traversable.mapA allocateParty (DA.TextMap.fromList
+  [ ("Bank", "Bank") ])
+
+-- | Mapping from missing contract ids to replacement contract ids.
+--
+-- You can provide replacement contract ids in an input file to
+-- the @--input-file@ argument of @daml script@, or you can provide
+-- replacements from within Daml script.
+--
+-- >>> (replacement, _):_ <- query @T alice_0
+-- >>> let args = Args with
+-- >>>   parties = Parties with alice_0
+-- >>>   contracts = DA.TextMap.fromList [("00737...", replacement)]
+-- >>> export args
+type Contracts = DA.TextMap.TextMap (ContractId ())
+
+-- | Look-up a replacement for a missing contract id. Fails if none is found.
+lookupContract : DA.Stack.HasCallStack => Text -> Contracts -> ContractId a
+lookupContract old contracts =
+  case DA.TextMap.lookup old contracts of
+    None -> error ("Missing contract id " <> old)
+    Some new -> coerceContractId new
+
+-- | Arguments to 'export'. See 'Parties' and 'Contracts' for details.
+data Args = Args with
+  parties : Parties
+  contracts : Contracts
+
+-- | Test 'export' with freshly allocated parties and
+-- no replacements for missing contract ids.
+testExport : Script ()
+testExport = do
+  parties <- allocateParties
+  let contracts = DA.TextMap.empty
+  export Args with ..
+
+-- | The Daml ledger export.
+export : Args -> Script ()
+export Args{parties, contracts} = do
+  let bank_0 = lookupParty "Bank" parties
+  token_1_0 <- submit bank_0 do
+    createCmd (Values.Token {owner = bank_0})
+  _ <- submit bank_0 do
+    createCmd (Values.Container {owner = bank_0, unit = (), bool = False,
+        dec = 3.1415926535, int = 42, text = "43",
+        date = (DA.Date.date 2021 DA.Date.Aug 1),
+        time = (DA.Time.time (DA.Date.date 2022 DA.Date.Sep 2) 22 10 30),
+        cid = token_1_0, tuple2 = (44, "45"), tuple3 = (46, "47", False),
+        tuple4 = (48, "49", True, ()), enums = [Values.Aye, Values.Bee,
+          Values.Cee, Values.Dee], record = (Values.Record {int = 50,
+            text = "51", bool = True}), hkRecord = (Values.HkRecord {int = 52,
+            text = "53", bool = True, aye = Values.Bee, bee = 54,
+            ayeBees = [(Values.Aye, 55), (Values.Cee, 56)]}), intList = [57, 58,
+          59, 60], tuple2List = [(61, "62"), (63, "64"), (65, "66")],
+        textMap = (DA.TextMap.fromList [("67", (Values.Record {int = 68,
+                  text = "69", bool = False})), ("70", (Values.Record {int = 71,
+                  text = "72", bool = True}))]),
+        genMap = (DA.Map.fromList [(Values.Aye, (Values.Record {int = 73,
+                  text = "74", bool = False})), (Values.Dee,
+              (Values.Record {int = 75, text = "76", bool = True}))]),
+        intOpts = [None, (Some 77), None, (Some 78)], intListOpts = [None,
+          (Some []), (Some [79]), (Some [80, 81, 82])],
+        variants = [(Values.VarInt 83), (Values.VarText "84"),
+          (Values.VarRec (Values.Record {int = 85, text = "86", bool = True}))],
+        hkVariants = [(Values.HkVarInt 91), (Values.HkVarText "92"),
+          (Values.HkVarAye Values.Cee), (Values.HkVarBee 93),
+          (Values.HkVarCee ()), (Values.HkVarRec (Values.HkRecord {int = 94,
+                text = "95", bool = True, aye = Values.Bee, bee = 96,
+                ayeBees = [(Values.Aye, 97), (Values.Cee, 98)]}))]})
+  pure ()
