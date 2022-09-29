@@ -9,12 +9,15 @@ load(":util.bzl", "daml_ledger_export_test")
 daml_ledger_export_test(
     name = "example-export",
     dar = "//daml-script/test:script-test.dar",
-    script_identifier = "ScriptExample:initializeFixed",
-    parties = ["Alice", "Bob"],
-    expected_daml = "//docs:source/tools/export/output-root/Export.daml",
     expected_args_json = "//docs:source/tools/export/output-root/args.json",
+    expected_daml = "//docs:source/tools/export/output-root/Export.daml",
     expected_daml_yaml = "//docs:source/tools/export/output-root/daml.yaml",
-    out_daml = "Export.daml",
     out_args_json = "args.json",
+    out_daml = "Export.daml",
     out_daml_yaml = "daml.yaml",
+    parties = [
+        "Alice",
+        "Bob",
+    ],
+    script_identifier = "ScriptExample:initializeFixed",
 )
