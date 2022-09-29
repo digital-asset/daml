@@ -39,6 +39,7 @@ import com.daml.ledger.api.v1.transaction_filter.{
 import com.daml.ledger.test.modelext.TestExtension.IDelegated
 
 import java.time.temporal.ChronoUnit
+import java.util.regex.Pattern
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
@@ -444,23 +445,15 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           testContext.disclosedContract.update(_.metadata.modify(_.clearCreatedAt))
         )
         .mustFail("using a disclosed contract with missing createdAt in contract metadata")
-
-      //      // TODO ED: Assert missing contract key hash when ledger side metadata validation is implemented
-      //      // Exercise a choice using an invalid disclosed contract (missing key hash in contract metadata for a contract that has a contract key associated)
-      //      errorMissingKeyHash <- testContext
-      //        .exerciseFetchDelegated(
-      //          testContext.disclosedContract.update(_.metadata.contractKeyHash.set(ByteString.EMPTY))
-      //        )
-      //        .mustFail(
-      //          "using a disclosed contract with missing key hash in contract metadata for a contract that has a contract key associated"
-      //        )
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         errorMalformedPayload,
-        // TODO ED: Verify that this error code is good enough for the user
-        //          and that it includes the contract id
         LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
-        None,
+        Some(
+          Pattern.compile(
+            "Expecting 2 field for record .*\\:Test\\:Delegated, but got 1"
+          )
+        ),
         checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(
