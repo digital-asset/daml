@@ -79,6 +79,7 @@ hj_scalacopts = lf_scalacopts + [
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/scala-utils",
+            "//libs-scala/struct-json",
             "@maven//:io_dropwizard_metrics_metrics_core",
         ],
     )
