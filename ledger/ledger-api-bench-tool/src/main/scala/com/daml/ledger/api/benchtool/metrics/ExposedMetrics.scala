@@ -3,9 +3,10 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
-import com.codahale.metrics.{Counter, Histogram, MetricRegistry, SlidingTimeWindowArrayReservoir}
+import com.codahale.metrics.{MetricRegistry, SlidingTimeWindowArrayReservoir}
+import com.codahale.{metrics => codahale}
 import com.daml.ledger.api.benchtool.util.TimeUtil
-import com.daml.metrics.MetricHandle.VarGauge
+import com.daml.metrics.MetricHandle.{Counter, Gauge, Histogram, VarGauge}
 import com.daml.metrics.{Gauges, MetricName}
 import com.google.protobuf.timestamp.Timestamp
 
@@ -62,26 +63,26 @@ object ExposedMetrics {
       clock: Clock = Clock.systemUTC(),
   ): ExposedMetrics[T] = {
     val counterMetric = CounterMetric[T](
-      counter = registry.counter(Prefix :+ "count" :+ streamName),
+      counter = Counter(Prefix :+ "count" :+ streamName, registry.counter(Prefix :+ "count" :+ streamName)),
       countingFunction = countingFunction,
     )
     val bytesProcessedMetric = BytesProcessedMetric[T](
-      bytesProcessed = registry.counter(Prefix :+ "bytes_read" :+ streamName),
+      bytesProcessed = Counter(Prefix :+ "bytes_read" :+ streamName, registry.counter(Prefix :+ "bytes_read" :+ streamName)),
       sizingFunction = sizingFunction,
     )
-    val delaysHistogram = new Histogram(
+    val delaysHistogram = new codahale.Histogram(
       new SlidingTimeWindowArrayReservoir(slidingTimeWindow.toNanos, TimeUnit.NANOSECONDS)
     )
     val delayMetric = recordTimeFunction.map { f =>
       DelayMetric[T](
-        delays = registry.register(Prefix :+ "delay" :+ streamName, delaysHistogram),
+        delays = Histogram(Prefix :+ "delay" :+ streamName, registry.register(Prefix :+ "delay" :+ streamName, delaysHistogram)),
         recordTimeFunction = f,
       )
     }
     val latestRecordTimeMetric = recordTimeFunction.map { f =>
       LatestRecordTimeMetric[T](
         latestRecordTime =
-          registry.register(Prefix :+ "latest_record_time" :+ streamName, new Gauges.VarGauge[Long](0L)),
+          Gauge(Prefix :+ "latest_record_time" :+ streamName, registry.register(Prefix :+ "latest_record_time" :+ streamName, new Gauges.VarGauge[Long](0L))),
         recordTimeFunction = f,
       )
     }

@@ -163,7 +163,7 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
         initialCacheIndex = offset(1L),
         cache = SizedCache.from(
           SizedCache.Configuration(2),
-          new CacheMetrics(new MetricRegistry, new MetricName(Vector("test"))),
+          new CacheMetrics(new MetricName(Vector("test")), new MetricRegistry),
         ),
         registerUpdateTimer = cacheUpdateTimer,
       )

@@ -4,9 +4,9 @@
 package com.daml.metrics
 
 import java.util.concurrent.TimeUnit
-
 import cats.data.EitherT
 import com.codahale.metrics.MetricRegistry.MetricSupplier
+import com.codahale.metrics.Snapshot
 import com.codahale.{metrics => codahale}
 
 import scala.concurrent.{Future, blocking}
@@ -86,9 +86,9 @@ object MetricHandle {
     }
 
     def update(duration: Long, unit: TimeUnit): Unit = metric.update(duration, unit)
-
     def getCount: Long = metric.getCount
-
+    def getSnapshot: Snapshot = metric.getSnapshot
+    def getMeanRate: Double = metric.getMeanRate
   }
 
   sealed case class Gauge[U <: codahale.Gauge[T], T](name: String, metric: U)
@@ -120,6 +120,7 @@ object MetricHandle {
 
     def update(value: Long): Unit = metric.update(value)
     def update(value: Int): Unit = metric.update(value)
+    def getSnapshot: Snapshot = metric.getSnapshot
   }
 
   type VarGauge[T] = Gauge[Gauges.VarGauge[T], T]

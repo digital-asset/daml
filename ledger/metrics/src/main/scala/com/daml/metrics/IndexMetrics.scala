@@ -3,8 +3,7 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricHandle.{Counter, Timer}
-
+import com.daml.metrics.MetricHandle.{Counter, Timer, VarGauge}
 import com.codahale.metrics.MetricRegistry
 
 class IndexMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
