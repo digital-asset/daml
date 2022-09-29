@@ -852,7 +852,7 @@ private[lf] object Speedy {
                     | but none of the reading parties [$readers] are contract stakeholders [$stakeholders].
                     | Use of divulged contracts is deprecated and incompatible with pruning.
                     | To remedy, add one of the readers [$readers] as an observer to the contract.
-                    |""".stripMargin.replaceAll("\r\n|\n", ""),
+                    |""".stripMargin.replaceAll("\r|\n", ""),
               )
             )
         }
