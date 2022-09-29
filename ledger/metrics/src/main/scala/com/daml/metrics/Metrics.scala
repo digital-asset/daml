@@ -10,12 +10,13 @@ object Metrics {
     new Metrics(SharedMetricRegistries.getOrCreate(registryName))
 }
 
-final class Metrics(val registry: MetricRegistry) {
+final class Metrics(override val registry: MetricRegistry) extends MetricHandle.Factory{
+  override val prefix = MetricName("")
 
   object test {
-    private val Prefix: MetricName = MetricName("test")
+    private val prefix: MetricName = MetricName("test")
 
-    val db: DatabaseMetrics = new DatabaseMetrics(Prefix, "db", registry)
+    val db: DatabaseMetrics = new DatabaseMetrics(prefix, "db", registry)
   }
 
   object daml extends MetricHandle.Factory {
