@@ -52,7 +52,7 @@ class Endpoints(
     shouldLogHttpBodies: Boolean,
     userManagementClient: UserManagementClient,
     ledgerIdentityClient: LedgerIdentityClient,
-    tracerProvide: TracerProvider = NoReportingTracerProvider,
+    tracerProvider: TracerProvider = NoReportingTracerProvider,
     maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"),
 )(implicit ec: ExecutionContext, mat: Materializer) {
 
@@ -157,7 +157,7 @@ class Endpoints(
           .map(_.contentType)
           .contains(ContentTypes.`application/json`)
       ) {
-        def logWithBodyInCtx(body: com.daml.logging.entries.LoggingValue) =
+        def logWithBodyInCtx(body: com.daml.logging.entries.LoggingValue): Unit =
           withEnrichedLoggingContext(
             LoggingContextOf.label[RequestEntity],
             s"${kind}_body" -> body,
