@@ -29,6 +29,7 @@ case class ExampleExportClientConfig(
     darPath: File,
     targetPort: Int,
     scriptIdentifier: String,
+    parties: Seq[Party],
     outputExportDaml: Path,
     outputArgsJson: Path,
     outputDamlYaml: Path,
@@ -42,6 +43,7 @@ object ExampleExportClientConfig {
         darPath = null,
         targetPort = -1,
         scriptIdentifier = null,
+        parties = Seq.empty[Party],
         outputExportDaml = null,
         outputArgsJson = null,
         outputDamlYaml = null,
@@ -75,6 +77,13 @@ object ExampleExportClientConfig {
       .required()
       .action((x, c) => c.copy(scriptIdentifier = x))
       .text("Daml script to run for export.")
+    opt[Seq[String]]("party")
+      .unbounded()
+      .action((x, c) => c.copy(parties = c.parties ++ Party.subst(x.toList)))
+      .text(
+        "Export ledger state as seen by these parties. " +
+          "Pass --party multiple times or use a comma-separated list of party names to specify multiple parties."
+      )
     opt[String]("output")
       .hidden()
       .withFallback(() => sys.env.getOrElse("EXPORT_OUT", ""))
@@ -143,7 +152,7 @@ object ExampleExportClient {
           ledgerPort = clientConfig.targetPort,
           partyConfig = PartyConfig(
             allParties = false,
-            parties = Party.subst(Seq("Alice", "Bob")),
+            parties = clientConfig.parties,
           ),
           exportType = Some(
             Config.EmptyExportScript.copy(

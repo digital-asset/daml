@@ -23,6 +23,8 @@ client_server_build(
     client_args = [
         "--target-port=%PORT%",
         "--script-identifier=ScriptExample:initializeFixed",
+        "--party=Alice",
+        "--party=Bob",
     ],
     client_files = ["//daml-script/test:script-test.dar"],
     data = ["//daml-script/test:script-test.dar"],
