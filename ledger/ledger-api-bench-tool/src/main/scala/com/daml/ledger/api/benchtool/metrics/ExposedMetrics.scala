@@ -63,11 +63,15 @@ object ExposedMetrics {
       clock: Clock = Clock.systemUTC(),
   ): ExposedMetrics[T] = {
     val counterMetric = CounterMetric[T](
-      counter = Counter(Prefix :+ "count" :+ streamName, registry.counter(Prefix :+ "count" :+ streamName)),
+      counter =
+        Counter(Prefix :+ "count" :+ streamName, registry.counter(Prefix :+ "count" :+ streamName)),
       countingFunction = countingFunction,
     )
     val bytesProcessedMetric = BytesProcessedMetric[T](
-      bytesProcessed = Counter(Prefix :+ "bytes_read" :+ streamName, registry.counter(Prefix :+ "bytes_read" :+ streamName)),
+      bytesProcessed = Counter(
+        Prefix :+ "bytes_read" :+ streamName,
+        registry.counter(Prefix :+ "bytes_read" :+ streamName),
+      ),
       sizingFunction = sizingFunction,
     )
     val delaysHistogram = new codahale.Histogram(
@@ -75,14 +79,20 @@ object ExposedMetrics {
     )
     val delayMetric = recordTimeFunction.map { f =>
       DelayMetric[T](
-        delays = Histogram(Prefix :+ "delay" :+ streamName, registry.register(Prefix :+ "delay" :+ streamName, delaysHistogram)),
+        delays = Histogram(
+          Prefix :+ "delay" :+ streamName,
+          registry.register(Prefix :+ "delay" :+ streamName, delaysHistogram),
+        ),
         recordTimeFunction = f,
       )
     }
     val latestRecordTimeMetric = recordTimeFunction.map { f =>
       LatestRecordTimeMetric[T](
-        latestRecordTime =
-          Gauge(Prefix :+ "latest_record_time" :+ streamName, registry.register(Prefix :+ "latest_record_time" :+ streamName, new Gauges.VarGauge[Long](0L))),
+        latestRecordTime = Gauge(
+          Prefix :+ "latest_record_time" :+ streamName,
+          registry
+            .register(Prefix :+ "latest_record_time" :+ streamName, new Gauges.VarGauge[Long](0L)),
+        ),
         recordTimeFunction = f,
       )
     }

@@ -10,7 +10,7 @@ object Metrics {
     new Metrics(SharedMetricRegistries.getOrCreate(registryName))
 }
 
-final class Metrics(override val registry: MetricRegistry) extends MetricHandle.Factory{
+final class Metrics(override val registry: MetricRegistry) extends MetricHandle.Factory {
   override val prefix = MetricName("")
 
   object test {

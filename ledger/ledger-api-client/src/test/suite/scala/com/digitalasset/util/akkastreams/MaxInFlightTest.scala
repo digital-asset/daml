@@ -26,7 +26,11 @@ class MaxInFlightTest
 
     "not interfere with elements passing through" in {
       val elemCount = 1000L
-      val bidi = MaxInFlight[Long, Long](1, Counter("capacity", new codahale.Counter), Counter("length", new codahale.Counter))
+      val bidi = MaxInFlight[Long, Long](
+        1,
+        Counter("capacity", new codahale.Counter),
+        Counter("length", new codahale.Counter),
+      )
 
       val result = Source.repeat(1L).take(elemCount).via(bidi.join(Flow[Long])).runFold(0L)(_ + _)
 
@@ -36,7 +40,11 @@ class MaxInFlightTest
     "actually keep the number of in-flight elements bounded" in {
       val elemCount = 1000L
       val maxElementsInFlight = 10
-      val bidi = MaxInFlight[Long, Long](maxElementsInFlight, Counter("capacity", new codahale.Counter), Counter("length", new codahale.Counter))
+      val bidi = MaxInFlight[Long, Long](
+        maxElementsInFlight,
+        Counter("capacity", new codahale.Counter),
+        Counter("length", new codahale.Counter),
+      )
 
       val flow = bidi.join(new DiesOnTooManyInFlights(maxElementsInFlight, 1.second))
 

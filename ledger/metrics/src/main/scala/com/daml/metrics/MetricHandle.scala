@@ -50,7 +50,10 @@ object MetricHandle {
       }
     }
 
-    def gauge[T](name: MetricName, gaugeSupplier: MetricSupplier[codahale.Gauge[_]]): Gauge[codahale.Gauge[T], T] =
+    def gauge[T](
+        name: MetricName,
+        gaugeSupplier: MetricSupplier[codahale.Gauge[_]],
+    ): Gauge[codahale.Gauge[T], T] =
       registry.synchronized {
         registry.remove(name)
         val gauge = registry.gauge(name, gaugeSupplier).asInstanceOf[codahale.Gauge[T]]
@@ -78,7 +81,8 @@ object MetricHandle {
       new DatabaseMetrics(prefix, name, registry)
   }
 
-  sealed case class Timer(name: String, metric: codahale.Timer) extends MetricHandle[codahale.Timer] {
+  sealed case class Timer(name: String, metric: codahale.Timer)
+      extends MetricHandle[codahale.Timer] {
     def metricType: String = "Timer"
 
     def timeEitherT[E, A](ev: EitherT[Future, E, A]): EitherT[Future, E, A] = {
@@ -96,14 +100,16 @@ object MetricHandle {
     def metricType: String = "Gauge"
   }
 
-  sealed case class Meter(name: String, metric: codahale.Meter) extends MetricHandle[codahale.Meter] {
+  sealed case class Meter(name: String, metric: codahale.Meter)
+      extends MetricHandle[codahale.Meter] {
     def metricType: String = "Meter"
 
     def mark(): Unit = metric.mark()
 
   }
 
-  sealed case class Counter(name: String, metric: codahale.Counter) extends MetricHandle[codahale.Counter] {
+  sealed case class Counter(name: String, metric: codahale.Counter)
+      extends MetricHandle[codahale.Counter] {
     def metricType: String = "Counter"
 
     def inc(): Unit = metric.inc

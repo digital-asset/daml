@@ -266,9 +266,12 @@ object ParallelIndexerSubscription {
           implicit loggingContext =>
             dbDispatcher.executeSql(metrics.daml.parallelIndexer.tailIngestion) { connection =>
               ingestTailFunction(ledgerEndFrom(lastBatch))(connection)
-              metrics.daml.indexer.ledgerEndSequentialId.metric.updateValue(lastBatch.lastSeqEventId)
-              metrics.daml.indexer.lastReceivedRecordTime.metric.updateValue(lastBatch.lastRecordTime)
-              metrics.daml.indexer.lastReceivedOffset.metric.updateValue(lastBatch.lastOffset.toHexString)
+              metrics.daml.indexer.ledgerEndSequentialId.metric
+                .updateValue(lastBatch.lastSeqEventId)
+              metrics.daml.indexer.lastReceivedRecordTime.metric
+                .updateValue(lastBatch.lastRecordTime)
+              metrics.daml.indexer.lastReceivedOffset.metric
+                .updateValue(lastBatch.lastOffset.toHexString)
               logger.info("Ledger end updated in IndexDB")
               batchOfBatches
             }

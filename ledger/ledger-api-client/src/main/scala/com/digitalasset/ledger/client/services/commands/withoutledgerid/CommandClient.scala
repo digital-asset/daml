@@ -11,7 +11,11 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
-import com.daml.ledger.api.v1.command_completion_service.{CompletionEndRequest, CompletionEndResponse, CompletionStreamRequest}
+import com.daml.ledger.api.v1.command_completion_service.{
+  CompletionEndRequest,
+  CompletionEndResponse,
+  CompletionStreamRequest,
+}
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -20,7 +24,10 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.CommandClientConfiguration
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
 import com.daml.ledger.client.services.commands._
-import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{CompletionFailure, CompletionSuccess}
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
+}
 import com.daml.ledger.client.services.commands.tracker.TrackedCommandKey
 import com.daml.metrics.MetricHandle.Counter
 import com.daml.util.Ctx
@@ -120,7 +127,11 @@ private[daml] final class CommandClient(
       tracker <- trackCommandsUnbounded[Context](parties, ledgerIdToUse, token)
     } yield {
       // The counters are ignored on the client
-      MaxInFlight(config.maxCommandsInFlight, Counter("capacity", new codahale.Counter), Counter("name", new codahale.Counter))
+      MaxInFlight(
+        config.maxCommandsInFlight,
+        Counter("capacity", new codahale.Counter),
+        Counter("name", new codahale.Counter),
+      )
         .joinMat(tracker)(Keep.right)
     }
   }
