@@ -483,24 +483,13 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
       Speedy.Control.Value(SContractId(contractId))
     }
 
-    "reject non-visible local contract keys" in new VisibilityChecking {
+    "accept non-visible local contract keys" in new VisibilityChecking {
       val result: Try[Speedy.Control] = Try {
         machine.checkKeyVisibility(ledger, localContractKey, localContractId, handleKeyFound)
       }
 
-      inside(result) {
-        case Failure(
-              SErrorDamlException(
-                interpretation.Error.ContractKeyNotVisible(
-                  `localContractId`,
-                  `localContractKey`,
-                  _,
-                  _,
-                  _,
-                )
-              )
-            ) =>
-          succeed
+      inside(result) { case Success(Speedy.Control.Value(SContractId(`localContractId`))) =>
+        succeed
       }
     }
 
