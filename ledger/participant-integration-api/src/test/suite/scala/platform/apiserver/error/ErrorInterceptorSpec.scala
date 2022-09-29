@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 final class ErrorInterceptorSpec
-  extends AsyncFreeSpec
+    extends AsyncFreeSpec
     with BeforeAndAfter
     with AkkaBeforeAndAfterAll
     with Matchers
@@ -174,7 +174,7 @@ final class ErrorInterceptorSpec
       assert(LogOnUnhandledFailureInClose(call()) === 2)
     }
 
-    "logs and re-throws the exception of a " in {
+    "logs and re-throws the exception" in {
       val failure = new RuntimeException("some failure")
       val failingCall = () => throw failure
 
@@ -204,8 +204,8 @@ final class ErrorInterceptorSpec
   }
 
   private def exerciseUnaryFutureEndpoint(
-                                           helloService: BindableService
-                                         ): Future[StatusRuntimeException] = {
+      helloService: BindableService
+  ): Future[StatusRuntimeException] = {
     val response: Future[HelloResponse] = server(
       tested = new ErrorInterceptor(),
       service = helloService,
@@ -218,8 +218,8 @@ final class ErrorInterceptorSpec
   }
 
   private def exerciseStreamingAkkaEndpoint(
-                                             helloService: BindableService
-                                           ): Future[StatusRuntimeException] = {
+      helloService: BindableService
+  ): Future[StatusRuntimeException] = {
     val response: Future[Vector[HelloResponse]] = server(
       tested = new ErrorInterceptor(),
       service = helloService,
@@ -247,9 +247,9 @@ final class ErrorInterceptorSpec
   }
 
   private def assertFooMissingError(
-                                     actual: StatusRuntimeException,
-                                     expectedMsg: String,
-                                   ): Assertion = {
+      actual: StatusRuntimeException,
+      expectedMsg: String,
+  ): Assertion = {
     assertError(
       actual,
       expectedStatusCode = FooMissingErrorCode.category.grpcCode.get,
@@ -273,9 +273,9 @@ object ErrorInterceptorSpec {
   }
 
   private def serverOwner(
-                           interceptor: ServerInterceptor,
-                           service: BindableService,
-                         ): ResourceOwner[Server] =
+      interceptor: ServerInterceptor,
+      service: BindableService,
+  ): ResourceOwner[Server] =
     new ResourceOwner[Server] {
       def acquire()(implicit context: ResourceContext): Resource[Server] =
         Resource(Future {
@@ -292,16 +292,16 @@ object ErrorInterceptorSpec {
     }
 
   object FooMissingErrorCode
-    extends ErrorCode(
-      id = "FOO_MISSING_ERROR_CODE",
-      ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-    )(ErrorClass.root()) {
+      extends ErrorCode(
+        id = "FOO_MISSING_ERROR_CODE",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      )(ErrorClass.root()) {
 
     case class Error(msg: String)(implicit
-                                  val loggingContext: ContextualizedErrorLogger
+        val loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
-      cause = s"Foo is missing: ${msg}"
-    )
+          cause = s"Foo is missing: ${msg}"
+        )
 
   }
 
@@ -318,18 +318,18 @@ object ErrorInterceptorSpec {
   }
 
   /** @param useSelfService - whether to use self service error codes or "rogue" exceptions
-   * @param errorInsideFutureOrStream - whether to signal the exception inside a Future or a Stream, or outside to them
-   */
+    * @param errorInsideFutureOrStream - whether to signal the exception inside a Future or a Stream, or outside to them
+    */
   class HelloServiceFailing(useSelfService: Boolean, errorInsideFutureOrStream: Boolean)(implicit
-                                                                                         protected val esf: ExecutionSequencerFactory,
-                                                                                         protected val mat: Materializer,
+      protected val esf: ExecutionSequencerFactory,
+      protected val mat: Materializer,
   ) extends HelloServiceAkkaGrpc
-    with HelloServiceResponding
-    with HelloServiceBase {
+      with HelloServiceResponding
+      with HelloServiceBase {
 
     override protected def serverStreamingSource(
-                                                  request: HelloRequest
-                                                ): Source[HelloResponse, NotUsed] = {
+        request: HelloRequest
+    ): Source[HelloResponse, NotUsed] = {
       val where = if (errorInsideFutureOrStream) "inside" else "outside"
       val t: Throwable = if (useSelfService) {
         FooMissingErrorCode

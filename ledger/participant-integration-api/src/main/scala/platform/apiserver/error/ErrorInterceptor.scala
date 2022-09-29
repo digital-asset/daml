@@ -3,20 +3,11 @@
 
 package com.daml.platform.apiserver.error
 
-import com.daml.error.{BaseError, DamlContextualizedErrorLogger}
 import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.{BaseError, DamlContextualizedErrorLogger}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
-import io.grpc.{
-  ForwardingServerCallListener,
-  Metadata,
-  ServerCall,
-  ServerCallHandler,
-  ServerInterceptor,
-  Status,
-  StatusException,
-  StatusRuntimeException,
-}
+import io.grpc._
 
 import scala.util.control.NonFatal
 
@@ -26,41 +17,41 @@ final class ErrorInterceptor extends ServerInterceptor {
   private val emptyLoggingContext = LoggingContext.newLoggingContext(identity)
 
   override def interceptCall[ReqT, RespT](
-                                           call: ServerCall[ReqT, RespT],
-                                           headers: Metadata,
-                                           next: ServerCallHandler[ReqT, RespT],
-                                         ): ServerCall.Listener[ReqT] = {
+      call: ServerCall[ReqT, RespT],
+      headers: Metadata,
+      next: ServerCallHandler[ReqT, RespT],
+  ): ServerCall.Listener[ReqT] = {
 
     val forwardingCall = new SimpleForwardingServerCall[ReqT, RespT](call) {
 
       /** Here we are trying to detect status/trailers pairs that:
-       * - originated from the server implementation (i.e. Participant services as opposed to internal to gRPC implementation) AND
-       * - did not originate from self-service errors infrastructure.
-       * NOTE: We are not attempting to detect if a status/trailers pair originates from exceptional conditions within gRPC implementation itself.
-       *
-       * We are handling unary endpoints that returned failed Futures,
-       * We are NOT handling here exceptions thrown outside of Futures or Akka streams. These are handled separately in
-       * [[com.daml.platform.apiserver.error.ErrorListener]].
-       * We are NOT handling here exceptions thrown inside Akka streaming. These are handled in
-       * [[com.daml.grpc.adapter.server.akka.ServerAdapter.toSink]]
-       *
-       * Details:
-       * The gRPC services that we generate via scalapb are using [[scalapb.grpc.Grpc.completeObserver]]
-       * when bridging from Future[T] and into io.grpc.stub.StreamObserver[T].
-       * [[scalapb.grpc.Grpc.completeObserver]] does the following:
-       * a) propagates instances of StatusException and StatusRuntimeException without changes,
-       * b) translates other throwables into a StatusException with Status.INTERNAL.
-       * We assume that we don't need to deal with a) but need to detect and deal with b).
-       * Knowing that Status.INTERNAL is used only by [[com.daml.error.ErrorCategory.SystemInternalAssumptionViolated]],
-       * which is marked a security sensitive, we have the following heuristic: check whether gRPC status is Status.INTERNAL
-       * and gRPC status description is not security sanitized.
-       */
+        * - originated from the server implementation (i.e. Participant services as opposed to internal to gRPC implementation) AND
+        * - did not originate from self-service errors infrastructure.
+        * NOTE: We are not attempting to detect if a status/trailers pair originates from exceptional conditions within gRPC implementation itself.
+        *
+        * We are handling unary endpoints that returned failed Futures,
+        * We are NOT handling here exceptions thrown outside of Futures or Akka streams. These are handled separately in
+        * [[com.daml.platform.apiserver.error.ErrorListener]].
+        * We are NOT handling here exceptions thrown inside Akka streaming. These are handled in
+        * [[com.daml.grpc.adapter.server.akka.ServerAdapter.toSink]]
+        *
+        * Details:
+        * The gRPC services that we generate via scalapb are using [[scalapb.grpc.Grpc.completeObserver]]
+        * when bridging from Future[T] and into io.grpc.stub.StreamObserver[T].
+        * [[scalapb.grpc.Grpc.completeObserver]] does the following:
+        * a) propagates instances of StatusException and StatusRuntimeException without changes,
+        * b) translates other throwables into a StatusException with Status.INTERNAL.
+        * We assume that we don't need to deal with a) but need to detect and deal with b).
+        * Knowing that Status.INTERNAL is used only by [[com.daml.error.ErrorCategory.SystemInternalAssumptionViolated]],
+        * which is marked a security sensitive, we have the following heuristic: check whether gRPC status is Status.INTERNAL
+        * and gRPC status description is not security sanitized.
+        */
       override def close(status: Status, trailers: Metadata): Unit = {
         if (
           status.getCode == Status.Code.INTERNAL &&
-            (status.getDescription == null || !BaseError.isSanitizedSecuritySensitiveMessage(
-              status.getDescription
-            ))
+          (status.getDescription == null || !BaseError.isSanitizedSecuritySensitiveMessage(
+            status.getDescription
+          ))
         ) {
           val recreatedException = status.asRuntimeException(trailers)
           val selfServiceException = LedgerApiErrors.InternalError
@@ -72,43 +63,45 @@ final class ErrorInterceptor extends ServerInterceptor {
           val newMetadata =
             Option(Status.trailersFromThrowable(selfServiceException)).getOrElse(new Metadata())
           val newStatus = Status.fromThrowable(selfServiceException)
-          LogOnUnhandledFailureInClose(superClose(newStatus, newMetadata))
+          LogOnUnhandledFailureInClose(closeWithCopiedMetadata(newStatus, newMetadata))
         } else {
-          LogOnUnhandledFailureInClose(superClose(status, trailers))
+          LogOnUnhandledFailureInClose(closeWithCopiedMetadata(status, trailers))
         }
       }
 
       /** This method serves as an accessor to the super.close() which facilitates its access from the outside of this class.
-       * This is needed in order to allow the call to be captured in the closure passed to the [[LogOnUnhandledFailureInClose]]
-       * error handler.
-       *
-       * TODO As of Scala 2.13.8, not using this redirection results in a runtime IllegalAccessError.
-       *      Remove this redirection once the runtime exception can be avoided.
-       */
-      private def superClose(status: Status, trailers: Metadata): Unit =
-        super.close(status, trailers)
+        * This is needed in order to allow the call to be captured in the closure passed to the [[LogOnUnhandledFailureInClose]]
+        * error handler.
+        *
+        * TODO As of Scala 2.13.8, not using this redirection results in a runtime IllegalAccessError.
+        *      Remove this redirection once the runtime exception can be avoided.
+        */
+      private def closeWithCopiedMetadata(status: Status, trailers: Metadata): Unit = {
+        val copiedMetadata = MetadataUtils.copy(trailers)
+        super.close(status, copiedMetadata)
+      }
     }
 
     val listener = next.startCall(forwardingCall, headers)
+
     new ErrorListener(
       delegate = listener,
-      call = call,
+      call = forwardingCall,
     )
   }
-
 }
 
 class ErrorListener[ReqT, RespT](delegate: ServerCall.Listener[ReqT], call: ServerCall[ReqT, RespT])
-  extends ForwardingServerCallListener.SimpleForwardingServerCallListener[ReqT](delegate) {
+    extends ForwardingServerCallListener.SimpleForwardingServerCallListener[ReqT](delegate) {
 
   private val logger = ContextualizedLogger.get(getClass)
   private val emptyLoggingContext = LoggingContext.newLoggingContext(identity)
 
   /** Handles errors arising outside Futures or Akka streaming.
-   *
-   * NOTE: We don't override other listener methods: onCancel, onComplete, onReady and onMessage;
-   * as it seems overriding only onHalfClose is sufficient.
-   */
+    *
+    * NOTE: We don't override other listener methods: onCancel, onComplete, onReady and onMessage;
+    * as it seems overriding only onHalfClose is sufficient.
+    */
   override def onHalfClose(): Unit = {
     try {
       super.onHalfClose()

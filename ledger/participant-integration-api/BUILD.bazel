@@ -61,6 +61,7 @@ compile_deps = [
     "//libs-scala/build-info",
     "//libs-scala/contextualized-logging",
     "//libs-scala/concurrent",
+    "//libs-scala/grpc-utils",
     "//libs-scala/logging-entries",
     "//libs-scala/ports",
     "//libs-scala/resources",
