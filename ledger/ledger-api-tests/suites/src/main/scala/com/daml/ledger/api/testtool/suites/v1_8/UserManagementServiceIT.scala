@@ -408,7 +408,7 @@ final class UserManagementServiceIT
   })
 
   userManagementTest(
-    shortIdentifier = "TestCreateUserWithInvalidResourceVersion",
+    shortIdentifier = "TestInvalidResourceVersionInCreateUser",
     description = "Exercise CreateUser rpc using resource version",
     requiresUserAndPartyLocalMetadataExtensions = true,
   )(implicit ec => { implicit ledger =>
