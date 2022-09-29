@@ -1,87 +1,20 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load(
-    "//bazel_tools/client_server:client_server_build.bzl",
-    "client_server_build",
-)
-load(
-    "//bazel_tools/sh:sh.bzl",
-    "sh_inline_test",
-)
-load("@os_info//:os_info.bzl", "is_windows")
-
-client_server_build(
-    name = "example-export",
-    outs = [
-        "example-export/Export.daml",
-        "example-export/args.json",
-        "example-export/daml.yaml",
-    ],
-    client = "//daml-script/export/integration-tests/example-export-client",
-    client_args = [
-        "--target-port=%PORT%",
-        "--script-identifier=ScriptExample:initializeFixed",
-        "--party=Alice",
-        "--party=Bob",
-    ],
-    client_files = ["//daml-script/test:script-test.dar"],
-    data = ["//daml-script/test:script-test.dar"],
-    output_env = "EXPORT_OUT",
-    server = "//ledger/sandbox-on-x:sandbox-on-x-ephemeral-postgresql",
-    server_args = [
-        "run-legacy-cli-config --participant=participant-id=example,port=0,port-file=%PORT_FILE%",
-    ],
-) if not is_windows else None
-# Disabled on Windows since postgres gets unhappy in client_server_build.
+load(":util.bzl", "daml_ledger_export_test")
 
 # Compare the generated Daml ledger export to the example export used in the
 # documentation. This functions as both a golden test on ledger exports and to
 # make sure that the documentation stays up-to-date.
-#
-# Normalizes the expected output by removing the copyright header and any
-# documentation import markers and normalizes the actual output by adding a
-# newline to the last line if missing.
-#
-# Normalizes the data-dependencies by replacing the SDK version, package-id
-# hashes with a placeholder, and Windows path separators by Unix separators.
-sh_inline_test(
-    name = "example-export-compare",
-    cmd = """\
-EXPECTED_EXPORT=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/Export.daml))
-EXPECTED_ARGS=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/args.json))
-EXPECTED_YAML=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/daml.yaml))
-ACTUAL_EXPORT=$$(canonicalize_rlocation $(rootpath :example-export/Export.daml))
-ACTUAL_ARGS=$$(canonicalize_rlocation $(rootpath :example-export/args.json))
-ACTUAL_YAML=$$(canonicalize_rlocation $(rootpath :example-export/daml.yaml))
-# Normalize the expected file by removing the copyright header and any documentation import markers.
-# Normalize the actual output by adding a newline to the last line if missing.
-$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;/^-- EXPORT/d' $$EXPECTED_EXPORT) <($(POSIX_SED) '$$a\\' $$ACTUAL_EXPORT) || {{
-  echo "$$EXPECTED_EXPORT did not match $$ACTUAL_EXPORT"
-  exit 1
-}}
-$(POSIX_DIFF) -Naur --strip-trailing-cr $$EXPECTED_ARGS <($(POSIX_SED) '$$a\\' $$ACTUAL_ARGS) || {{
-  echo "$$EXPECTED_ARGS did not match $$ACTUAL_ARGS"
-  exit 1
-}}
-# Normalize the expected file by removing the copyright header and any documentation import markers.
-# Normalize the data-dependencies by replacing the SDK version, package-id hashes with a placeholder, and Windows path separators by Unix separators.
-$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;s/[0-9a-f]\\{{64\\}}/HASH/;s/daml-\\(script\\|stdlib\\)-0\\.0\\.0/daml-\\1-{ghc_version}/;s/sdk-version: 0\\.0\\.0/sdk-version: {sdk_version}/' $$EXPECTED_YAML) <($(POSIX_SED) 's/[0-9a-f]\\{{64\\}}/HASH/;s,\\\\,/,g;$$a\\' $$ACTUAL_YAML) || {{
-  echo "$$EXPECTED_YAML did not match $$ACTUAL_YAML"
-  exit 1
-}}
-""".format(
-        ghc_version = ghc_version,
-        sdk_version = sdk_version,
-    ),
-    data = [
-        ":example-export/Export.daml",
-        ":example-export/args.json",
-        ":example-export/daml.yaml",
-        "//docs:source/tools/export/output-root/Export.daml",
-        "//docs:source/tools/export/output-root/args.json",
-        "//docs:source/tools/export/output-root/daml.yaml",
-    ],
-    toolchains = ["@rules_sh//sh/posix:make_variables"],
-) if not is_windows else None
+daml_ledger_export_test(
+    name = "example-export",
+    dar = "//daml-script/test:script-test.dar",
+    script_identifier = "ScriptExample:initializeFixed",
+    parties = ["Alice", "Bob"],
+    expected_daml = "//docs:source/tools/export/output-root/Export.daml",
+    expected_args_json = "//docs:source/tools/export/output-root/args.json",
+    expected_daml_yaml = "//docs:source/tools/export/output-root/daml.yaml",
+    out_daml = "Export.daml",
+    out_args_json = "args.json",
+    out_daml_yaml = "daml.yaml",
+)
