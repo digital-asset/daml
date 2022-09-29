@@ -163,15 +163,17 @@ private[lf] object Speedy {
     private[lf] def incompleteTransaction: IncompleteTransaction = ptx.finishIncomplete
     private[lf] def nodesToString: String = ptx.nodesToString
 
-    private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean = {
-      ptx.disclosedContracts.find(_.contractId.value == contractId).nonEmpty
-    }
+    private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
+      ptx.disclosedContractIds.contains(contractId)
 
     private[speedy] def isDisclosedContractKey(
         contractId: V.ContractId,
         key: GlobalKey,
     ): Boolean = {
-      isDisclosedContract(contractId) && disclosureKeyTable.isValidEntry(key, contractId)
+      isDisclosedContract(contractId) && disclosureKeyTable.isValidDisclosedContractKeyEntry(
+        key,
+        contractId,
+      )
     }
 
     private[speedy] def updateCachedContracts(cid: V.ContractId, contract: CachedContract): Unit = {
@@ -269,7 +271,10 @@ private[lf] object Speedy {
     private[speedy] def contractIdByKey(keyHash: crypto.Hash): Option[SValue.SContractId] =
       keyMap.get(keyHash)
 
-    private[speedy] def isValidEntry(key: GlobalKey, contractId: V.ContractId): Boolean = {
+    private[speedy] def isValidDisclosedContractKeyEntry(
+        key: GlobalKey,
+        contractId: V.ContractId,
+    ): Boolean = {
       contractIdByKey(key.hash).map(_.value).contains(contractId)
     }
 
@@ -891,10 +896,11 @@ private[lf] object Speedy {
               Warning(
                 commitLocation = onLedger.commitLocation,
                 message =
-                  s"Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid} "
-                    + s"but none of the reading parties [$readers] are contract stakeholders [$stakeholders]. "
-                    + "Use of divulged contracts is deprecated and incompatible with pruning. "
-                    + s"To remedy, add one of the readers [$readers] as an observer to the contract.",
+                  s"""Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid}
+                    |but none of the reading parties [$readers] are contract stakeholders [$stakeholders].
+                    |Use of divulged contracts is deprecated and incompatible with pruning.
+                    |To remedy, add one of the readers [$readers] as an observer to the contract.
+                    |""".stripMargin,
               )
             )
         }
