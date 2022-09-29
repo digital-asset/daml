@@ -849,10 +849,10 @@ private[lf] object Speedy {
                 commitLocation = onLedger.commitLocation,
                 message =
                   s"""Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid}
-                    |but none of the reading parties [$readers] are contract stakeholders [$stakeholders].
-                    |Use of divulged contracts is deprecated and incompatible with pruning.
-                    |To remedy, add one of the readers [$readers] as an observer to the contract.
-                    |""".stripMargin,
+                    | but none of the reading parties [$readers] are contract stakeholders [$stakeholders].
+                    | Use of divulged contracts is deprecated and incompatible with pruning.
+                    | To remedy, add one of the readers [$readers] as an observer to the contract.
+                    |""".replaceAll("\n", "").stripMargin,
               )
             )
         }
