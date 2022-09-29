@@ -919,6 +919,12 @@ main =
                     , "  p2 <- allocateParty \"p2\""
                     , "  cid <- submit p1 $ createCmd (LocalKeyVisibility p1 p2)"
                     , "  submit p2 $ exerciseCmd cid LocalFetch"
+                    , "localLookupFetchMustFail = do"
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  p2 <- allocateParty \"p2\""
+                    , "  cid <- submit p1 $ createCmd (LocalKeyVisibility p1 p2)"
+                    , "  submitMustFail p2 $ exerciseCmd cid LocalLookup"
+                    , "  submitMustFail p2 $ exerciseCmd cid LocalFetch"
                     , "localLookupFetchMulti = do"
                     , "  p1 <- allocateParty \"p1\""
                     , "  p2 <- allocateParty \"p2\""
@@ -926,10 +932,12 @@ main =
                     , "  submitMulti [p2] [p1]  $ exerciseCmd cid LocalLookup"
                     , "  submitMulti [p2] [p1] $ exerciseCmd cid LocalFetch"
                     ]
-                expectScriptSuccess rs (vr "localLookup") $ \r ->
-                  matchRegex r "Transactions:"
-                expectScriptSuccess rs (vr "localFetch") $ \r ->
-                  matchRegex r "Transactions:"
+                expectScriptFailure rs (vr "localLookup") $ \r ->
+                  matchRegex r "not visible to the committer"
+                expectScriptFailure rs (vr "localFetch") $ \r ->
+                  matchRegex r "not visible to the committer"
+                expectScriptSuccess rs (vr "localLookupFetchMustFail") $ \r ->
+                  matchRegex r "Active contracts:"
                 expectScriptSuccess rs (vr "localLookupFetchMulti") $ \r ->
                   matchRegex r "Active contracts:",
               testCase "exceptions" $ do
