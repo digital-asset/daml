@@ -28,6 +28,7 @@ import scala.concurrent.duration.Duration
 case class ExampleExportClientConfig(
     darPath: File,
     targetPort: Int,
+    scriptIdentifier: String,
     outputExportDaml: Path,
     outputArgsJson: Path,
     outputDamlYaml: Path,
@@ -40,6 +41,7 @@ object ExampleExportClientConfig {
       ExampleExportClientConfig(
         darPath = null,
         targetPort = -1,
+        scriptIdentifier = null,
         outputExportDaml = null,
         outputArgsJson = null,
         outputDamlYaml = null,
@@ -69,6 +71,10 @@ object ExampleExportClientConfig {
       .required()
       .action((x, c) => c.copy(targetPort = x))
       .text("Daml ledger port to connect to.")
+    opt[String]("script-identifier")
+      .required()
+      .action((x, c) => c.copy(scriptIdentifier = x))
+      .text("Daml script to run for export.")
     opt[String]("output")
       .hidden()
       .withFallback(() => sys.env.getOrElse("EXPORT_OUT", ""))
@@ -102,7 +108,7 @@ object ExampleExportClient {
 
     val config = RunnerCliConfig(
       darPath = clientConfig.darPath,
-      scriptIdentifier = "ScriptExample:initializeFixed",
+      scriptIdentifier = clientConfig.scriptIdentifier,
       ledgerHost = Some("localhost"),
       ledgerPort = Some(clientConfig.targetPort),
       participantConfig = None,

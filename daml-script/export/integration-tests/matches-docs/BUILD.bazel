@@ -22,6 +22,7 @@ client_server_build(
     client = "//daml-script/export/integration-tests/example-export-client",
     client_args = [
         "--target-port=%PORT%",
+        "--script-identifier=ScriptExample:initializeFixed",
     ],
     client_files = ["//daml-script/test:script-test.dar"],
     data = ["//daml-script/test:script-test.dar"],
