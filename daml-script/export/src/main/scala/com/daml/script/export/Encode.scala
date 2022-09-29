@@ -164,7 +164,7 @@ private[export] object Encode {
           Doc.text("Some new -> new")).nested(2)).nested(2)
 
   private def encodePartyType(): Doc =
-    Doc.text("-- | Mapping from party names in the original ledger state ") /
+    Doc.text("-- | Mapping from party names in the original ledger state") /
       Doc.text("-- to parties to be used in 'export'.") /
       Doc.text("type Parties = DA.TextMap.TextMap Party")
 
