@@ -184,3 +184,24 @@ Contract Keys and Maintainers
 
   Because of this, the ``key`` must include the ``maintainer`` ``Party`` or parties (for example, as part of a tuple or record), and the ``maintainer`` must be a signatory.
 - For a full explanation, see :doc:`/daml/reference/contract-keys`.
+
+Interface Instances
+*******************
+
+.. warning::
+  This feature is under active development and not officially supported in
+  production environments.
+
+.. literalinclude:: ../code-snippets-dev/Interfaces.daml
+   :language: daml
+   :start-after: -- INTERFACE_INSTANCE_IN_TEMPLATE_BEGIN
+   :end-before: -- INTERFACE_INSTANCE_IN_TEMPLATE_END
+
+- Used to make a template an instance of an existing interface.
+- The clause must start with the keywords ``interface instance``, followed by
+  the name of the interface, then the keyword ``for`` and the name of the
+  template (which must match the enclosing declaration), and finally the keyword
+  ``where``, which introduces a block where **all** the methods of the interface
+  must be implemented.
+- See :doc:`interfaces` for full reference information on interfaces, or
+  section :ref:`interface-instances` for interface instances specifically.

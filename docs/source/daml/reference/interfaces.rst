@@ -168,6 +168,8 @@ Empty Interfaces
   methods, precondition or choices. However, a view type must always be defined,
   though it can be set to unit.
 
+.. _interface-instances:
+
 Interface Instances
 *******************
 
