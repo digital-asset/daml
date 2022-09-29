@@ -397,13 +397,23 @@ package domain {
   }
 
   object ArchivedContract {
-    def fromLedgerApi(in: lav1.event.ArchivedEvent): Error \/ ArchivedContract =
+    def fromLedgerApi(
+        resolvedQuery: domain.ResolvedQuery,
+        in: lav1.event.ArchivedEvent,
+    ): Error \/ ArchivedContract = {
+      val resolvedTemplateId = resolvedQuery match {
+        case ResolvedQuery.ByInterfaceId(interfaceId) =>
+          \/-(interfaceId)
+        case _ =>
+          (in.templateId required "templateId").map(ContractTypeId.Template.fromLedgerApi)
+      }
       for {
-        templateId <- in.templateId required "templateId"
+        templateId <- resolvedTemplateId
       } yield ArchivedContract(
         contractId = ContractId(in.contractId),
-        templateId = ContractTypeId.Template fromLedgerApi templateId,
+        templateId = templateId,
       )
+    }
 
     def fromLedgerApi(in: lav1.event.ExercisedEvent): Error \/ Option[ArchivedContract] =
       if (in.consuming) {
