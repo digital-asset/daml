@@ -179,14 +179,10 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
     }
   }
 
-  // TODO ED: When the conformance tests are enabled, check this test for flakiness
   test(
     "EDMetadata",
     "All create events have correctly-defined metadata",
     allocate(Parties(2)),
-    // TODO ED: Remove this conditional toggle once Canton consumes this commit so
-    //          it can pass in the `ledger-api-test-tool-on-canton`
-    enabled = _.explicitDisclosure,
   )(implicit ec => { case Participants(Participant(ledger, owner, delegate)) =>
     val contractKey = ledger.nextKeyId()
     for {
