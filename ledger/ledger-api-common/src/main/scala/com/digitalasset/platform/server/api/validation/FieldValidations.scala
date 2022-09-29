@@ -3,6 +3,7 @@
 
 package com.daml.platform.server.api.validation
 
+import com.daml.api.util.TimestampConversion
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
@@ -16,10 +17,11 @@ import com.daml.ledger.participant.state.index.ResourceAnnotationValidation.{
   InvalidAnnotationsKeyError,
 }
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{Bytes, Ref}
+import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
+import com.google.protobuf.timestamp.Timestamp
 import io.grpc.StatusRuntimeException
 
 import scala.util.{Failure, Success, Try}
@@ -241,4 +243,20 @@ object FieldValidations {
       case Right(_) => Right(annotations)
     }
   }
+
+  def validateTimestamp(timestamp: Timestamp, fieldName: String)(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Time.Timestamp] =
+    Try(
+      TimestampConversion
+        .toLf(
+          protoTimestamp = timestamp,
+          mode = TimestampConversion.ConversionMode.Exact,
+        )
+    ).toEither.left
+      .map(errMsg =>
+        invalidArgument(
+          s"Can not represent $fieldName ($timestamp) as a Daml timestamp: ${errMsg.getMessage}"
+        )
+      )
 }
