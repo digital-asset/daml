@@ -4,16 +4,16 @@
 package com.daml.lf.codegen.backend.java
 
 import java.util
-
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.ledger.javaapi.data.{DamlGenMap, DamlList, DamlOptional, DamlTextMap}
+import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.typesig._
 import com.squareup.javapoet._
-import javax.lang.model.element.Modifier
 
+import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
 package inner {
@@ -126,6 +126,7 @@ package object inner {
       case TypeCon(_, _) | TypeVar(_) =>
         sys.error("Assumption error: toAPITypeName should not be called for type constructors!")
     }
+
   def fullyQualifiedName(
       identifier: Identifier,
       packagePrefixes: Map[PackageId, String],
@@ -204,6 +205,28 @@ package object inner {
       .initializer("$S", packageId)
       .build()
   }
+
+  /** A record is a variant record if and only if
+    * 1. it is part of the package where the variant is (i.e Package is None)
+    * 2. its identifier has the same module as the variant
+    * 3. its identifier name is equal to the variant identifier name with the constructor name appended
+    */
+  private[inner] def isVariantRecord(
+      typeWithContext: TypeWithContext,
+      constructor: String,
+      identifier: Identifier,
+  ): Boolean = {
+    typeWithContext.interface.typeDecls.get(identifier.qualifiedName).exists(isRecord) &&
+    typeWithContext.identifier.qualifiedName.module == identifier.qualifiedName.module &&
+    typeWithContext.identifier.qualifiedName.name.segments == identifier.qualifiedName.name.segments.init &&
+    constructor == identifier.qualifiedName.name.segments.last
+  }
+
+  private def isRecord(interfaceType: PackageSignature.TypeDecl): Boolean =
+    interfaceType.`type`.dataType match {
+      case _: Record[_] => true
+      case _: Variant[_] | _: Enum => false
+    }
 
   implicit class TypeNameExtensions(name: TypeName) {
     def rawType: ClassName = name match {

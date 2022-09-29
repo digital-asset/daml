@@ -422,6 +422,9 @@ trait AbstractHttpServiceIntegrationTestFuns
     object Test {
       val MultiPartyContract: TId = CtId.Template(None, "Test", "MultiPartyContract")
     }
+    object IAccount {
+      val IAccount: IId = CtId.Interface(None, "IAccount", "IAccount")
+    }
     object Account {
       val Account: TId = CtId.Template(None, "Account", "Account")
       val KeyedByVariantAndRecord: TId = CtId.Template(None, "Account", "KeyedByVariantAndRecord")

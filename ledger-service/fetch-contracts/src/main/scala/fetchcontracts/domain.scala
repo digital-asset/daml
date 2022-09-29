@@ -126,7 +126,7 @@ package domain {
               val payload = in.interfaceViews
                 .find(_.interfaceId.exists(_ == id))
                 .flatMap(_.viewValue) required "interfaceView"
-              Some((\/-(ContractTypeId.Interface fromLedgerApi id), None, payload))
+              Some((\/-(interfaceId), None, payload))
             case ResolvedQuery.ByTemplateId(_) | ResolvedQuery.ByTemplateIds(_) => None
           }
         case ForQuery.Tpl => None

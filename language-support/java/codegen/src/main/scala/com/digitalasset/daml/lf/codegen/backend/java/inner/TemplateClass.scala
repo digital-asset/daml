@@ -85,7 +85,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .addType(generateCreateAndClass(\/-(template.implementedInterfaces)))
         .addField(generateCompanion(className, template.key, packagePrefixes))
         .addFields(RecordFields(fields).asJava)
-        .addMethods(RecordMethods(fields, className, IndexedSeq.empty, packagePrefixes).asJava)
+        .addMethods(TemplateMethods(fields, className, packagePrefixes).asJava)
       generateByKeyMethod(template.key, packagePrefixes) foreach { byKeyMethod =>
         templateType
           .addMethod(byKeyMethod)
@@ -456,6 +456,7 @@ private[inner] object TemplateClass extends StrictLogging {
     )
     val contractIdName = ClassName bestGuess "ContractId"
     val contractName = ClassName bestGuess "Contract"
+    val valueDecoderLambdaArgName = "v"
     FieldSpec
       .builder(
         ParameterizedTypeName.get(
@@ -472,13 +473,15 @@ private[inner] object TemplateClass extends StrictLogging {
         Modifier.PUBLIC,
       )
       .initializer(
-        "$Znew $T<>($>$Z$S,$W$N, $T::new, $T::fromValue, $T::new" + keyParams + "$<)",
+        "$Znew $T<>($>$Z$S,$W$N, $T::new, $N -> $T.templateValueDecoder().decode($N), $T::new" + keyParams + "$<)",
         Seq(
           fieldClass,
           templateClassName,
           templateIdFieldName,
           contractIdName,
+          valueDecoderLambdaArgName,
           templateClassName,
+          valueDecoderLambdaArgName,
           contractName,
         ) ++ keyArgs: _*
       )

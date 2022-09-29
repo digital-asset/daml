@@ -8,27 +8,35 @@ import com.daml.lf.codegen.backend.java.ObjectMethods
 import com.daml.lf.data.Ref.PackageId
 import com.squareup.javapoet._
 
-private[inner] object RecordMethods {
+private[inner] object TemplateMethods {
 
   def apply(
       fields: Fields,
       className: ClassName,
-      typeParameters: IndexedSeq[String],
       packagePrefixes: Map[PackageId, String],
   ): Vector[MethodSpec] = {
-
     val constructor = ConstructorGenerator.generateConstructor(fields)
-
-    val conversionMethods = distinctTypeVars(fields, typeParameters).flatMap { params =>
+    val conversionMethods = distinctTypeVars(fields, IndexedSeq.empty[String]).flatMap { params =>
       val deprecatedFromValue = FromValueGenerator.generateDeprecatedFromValueForRecordLike(
-        className.parameterized(typeParameters),
+        className,
         params,
       )
-      val valueDecoder = FromValueGenerator.generateValueDecoderForRecordLike(
-        fields,
-        className.parameterized(typeParameters),
+      val valueDecoder = FromValueGenerator.generateContractCompanionValueDecoder(
+        className,
         params,
-        "valueDecoder",
+      )
+      val toValue = ToValueGenerator.generateToValueForRecordLike(
+        params,
+        fields,
+        packagePrefixes,
+        ClassName.get(classOf[javaapi.data.DamlRecord]),
+        name => CodeBlock.of("return new $T($L)", classOf[javaapi.data.DamlRecord], name),
+      )
+      val privateGetValueDecoder = FromValueGenerator.generateValueDecoderForRecordLike(
+        fields,
+        className,
+        params,
+        "templateValueDecoder",
         (inVar, outVar) =>
           CodeBlock.builder
             .addStatement(
@@ -39,18 +47,12 @@ private[inner] object RecordMethods {
             )
             .build(),
         packagePrefixes,
+        isPublic = false,
       )
-      val toValue = ToValueGenerator.generateToValueForRecordLike(
-        params,
-        fields,
-        packagePrefixes,
-        ClassName.get(classOf[javaapi.data.DamlRecord]),
-        name => CodeBlock.of("return new $T($L)", classOf[javaapi.data.DamlRecord], name),
-      )
-      List(deprecatedFromValue, valueDecoder, toValue)
+      List(deprecatedFromValue, valueDecoder, toValue, privateGetValueDecoder)
     }
 
     Vector(constructor) ++ conversionMethods ++
-      ObjectMethods(className, typeParameters, fields.map(_.javaName))
+      ObjectMethods(className, IndexedSeq.empty[String], fields.map(_.javaName))
   }
 }

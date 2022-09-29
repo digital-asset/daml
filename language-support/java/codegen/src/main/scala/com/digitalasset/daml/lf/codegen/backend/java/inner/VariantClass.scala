@@ -6,13 +6,14 @@ package com.daml.lf.codegen.backend.java.inner
 import com.daml.ledger.javaapi
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.codegen.backend.java.JavaEscaper
-import com.daml.lf.data.Ref.{Identifier, PackageId}
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.typesig._
 import PackageSignature.TypeDecl.Normal
+import com.daml.ledger.javaapi.data.codegen.ValueDecoder
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
-import javax.lang.model.element.Modifier
 
+import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -43,7 +44,19 @@ private[inner] object VariantClass extends StrictLogging {
         .addTypeVariables(typeArguments.map(TypeVariableName.get).asJava)
         .addMethod(MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC).build())
         .addMethod(generateAbstractToValueSpec(typeArguments))
-        .addMethod(generateFromValue(typeArguments, constructorInfo, variantClassName, subPackage))
+        .addMethod(
+          generateDeprecatedFromValue(typeArguments, variantClassName)
+        )
+        .addMethod(generateValueDecoder(typeArguments, constructorInfo, variantClassName))
+        .addMethods(
+          VariantValueDecodersMethods(
+            typeArguments,
+            variant,
+            typeWithContext,
+            packagePrefixes,
+            subPackage,
+          ).asJava
+        )
         .addField(createPackageIdField(typeWithContext.interface.packageId))
         .build()
       val constructors = generateConstructorClasses(
@@ -57,28 +70,6 @@ private[inner] object VariantClass extends StrictLogging {
       (variantType, constructors)
     }
 
-  private def isRecord(interfaceType: PackageSignature.TypeDecl): Boolean =
-    interfaceType.`type`.dataType match {
-      case _: Record[_] => true
-      case _: Variant[_] | _: Enum => false
-    }
-
-  /** A record is a variant record if and only if
-    * 1. it is part of the package where the variant is (i.e Package is None)
-    * 2. its identifier has the same module as the variant
-    * 3. its identifier name is equal to the variant identifier name with the constructor name appended
-    */
-  private def isVariantRecord(
-      typeWithContext: TypeWithContext,
-      constructor: String,
-      identifier: Identifier,
-  ): Boolean = {
-    typeWithContext.interface.typeDecls.get(identifier.qualifiedName).exists(isRecord) &&
-    typeWithContext.identifier.qualifiedName.module == identifier.qualifiedName.module &&
-    typeWithContext.identifier.qualifiedName.name.segments == identifier.qualifiedName.name.segments.init &&
-    constructor == identifier.qualifiedName.name.segments.last
-  }
-
   private def generateAbstractToValueSpec(typeArgs: IndexedSeq[String]): MethodSpec =
     MethodSpec
       .methodBuilder("toValue")
@@ -87,12 +78,11 @@ private[inner] object VariantClass extends StrictLogging {
       .returns(classOf[javaapi.data.Variant])
       .build()
 
-  private def initFromValueBuilder(t: TypeName): MethodSpec.Builder =
+  private def initFromValueBuilder(t: TypeName, methodName: String): MethodSpec.Builder =
     MethodSpec
-      .methodBuilder("fromValue")
+      .methodBuilder(methodName)
       .addModifiers(Modifier.STATIC, Modifier.PUBLIC)
       .returns(t)
-      .addParameter(classOf[javaapi.data.Value], "value$")
 
   private def variantExtractor(t: TypeName): CodeBlock =
     CodeBlock.of(
@@ -102,87 +92,189 @@ private[inner] object VariantClass extends StrictLogging {
     )
 
   private def switchOnConstructor(
-      builder: MethodSpec.Builder,
+      builder: CodeBlock.Builder,
       constructors: Fields,
       variant: ClassName,
-      subPackage: String,
-      useConstructor: String => CodeBlock,
-  ): MethodSpec.Builder = {
+      useValueDecoder: String => CodeBlock,
+  ): CodeBlock.Builder = {
     val constructorsAsString = constructors.map(_.damlName).mkString("[", ", ", "]")
     logger.debug(s"Generating switch on constructors $constructorsAsString for $variant")
     for (constructorInfo <- constructors) {
       builder
         .beginControlFlow("if ($S.equals(variant$$.getConstructor()))", constructorInfo.damlName)
-        .addStatement(useConstructor(List(subPackage, constructorInfo.javaName).mkString(".")))
+        .addStatement(useValueDecoder(s"valueDecoder${constructorInfo.javaName}"))
         .endControlFlow()
     }
     builder
       .addStatement(
         "throw new IllegalArgumentException($S)",
-        s"Found unknown constructor variant$$.getConstructor() for variant $variant, expected one of ${constructorsAsString}",
+        s"Found unknown constructor variant$$.getConstructor() for variant $variant, expected one of $constructorsAsString",
       )
   }
 
-  private def generateParameterizedFromValue(
+  private def generateParameterizedValueDecoder(
       variant: ParameterizedTypeName,
       constructors: Fields,
-      subPackage: String,
   ): MethodSpec = {
-    logger.debug(s"Generating fromValue static method for $variant")
+    logger.debug(s"Generating valueDecoder static method for $variant")
     require(
       variant.typeArguments.asScala.forall(_.isInstanceOf[TypeVariableName]),
       s"All type arguments of ${variant.rawType} must be generic",
     )
-    val builder = initFromValueBuilder(variant)
+    val returnType = ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), variant)
+    val builder = initFromValueBuilder(returnType, "valueDecoder")
+    builder.beginControlFlow("return $L ->", "value$")
+
     val typeVariablesExtractorParameters =
       FromValueExtractorParameters.generate(
         variant.typeArguments.asScala.map(_.toString).toIndexedSeq
       )
+
     builder.addTypeVariables(typeVariablesExtractorParameters.typeVariables.asJava)
-    builder.addParameters(typeVariablesExtractorParameters.parameterSpecs.asJava)
-    builder.addStatement("$L", variantExtractor(variant.rawType))
+    builder.addParameters(typeVariablesExtractorParameters.valueDecoderParameterSpecs.asJava)
+
+    val decodeValueCodeBuilder = CodeBlock
+      .builder()
+
+    decodeValueCodeBuilder.addStatement("$L", variantExtractor(variant.rawType))
     val extractors =
       CodeBlock.join(
         variant.typeArguments.asScala.map(t => CodeBlock.of("$L", s"fromValue$t")).asJava,
         ", ",
       )
     switchOnConstructor(
-      builder,
+      decodeValueCodeBuilder,
       constructors,
       variant.rawType,
-      subPackage,
-      constructor => CodeBlock.of("return $L.fromValue(variant$$, $L)", constructor, extractors),
+      valueDecoder => CodeBlock.of("return $L($L).decode(variant$$)", valueDecoder, extractors),
     )
-    builder.build()
+
+    builder
+      .addCode(decodeValueCodeBuilder.build())
+      .endControlFlow("")
+      .build()
   }
 
-  private def generateConcreteFromValue(
+  private def generateConcreteValueDecoder(
       t: ClassName,
       constructors: Fields,
-      subPackage: String,
   ): MethodSpec = {
-    logger.debug(s"Generating fromValue static method for $t")
-    val builder = initFromValueBuilder(t).addStatement("$L", variantExtractor(t))
+    logger.debug(s"Generating valueDecoder static method for $t")
+    val returnType = ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), t)
+    val builder = initFromValueBuilder(returnType, "valueDecoder")
+      .beginControlFlow("return $L ->", "value$")
+
+    val decodeValueCodeBuilder = CodeBlock
+      .builder()
+      .addStatement("$L", variantExtractor(t))
+
     switchOnConstructor(
-      builder,
+      decodeValueCodeBuilder,
       constructors,
       t,
-      subPackage,
-      c => CodeBlock.of("return $L.fromValue(variant$$)", c),
+      valueDecoder => CodeBlock.of("return $L().decode(variant$$)", valueDecoder),
+    )
+
+    builder
+      .addCode(decodeValueCodeBuilder.build())
+      .endControlFlow("")
+      .build()
+  }
+
+  private def generateDeprecatedFromValue(
+      typeArguments: IndexedSeq[String],
+      variantClassName: ClassName,
+  ): MethodSpec =
+    variantClassName.parameterized(typeArguments) match {
+      case variant: ClassName =>
+        generateDeprecatedConcreteFromValue(variant)
+      case variant: ParameterizedTypeName =>
+        generateDeprecatedParameterizedFromValue(variant)
+      case _ =>
+        throw new IllegalArgumentException("Required either ClassName or ParameterizedTypeName")
+    }
+
+  // TODO #15120 delete
+  private def generateDeprecatedConcreteFromValue(
+      t: ClassName
+  ): MethodSpec = {
+    logger.debug(s"Generating depreacted fromValue static method for $t")
+    initFromValueBuilder(t, "fromValue")
+      .addParameter(classOf[javaapi.data.Value], "value$")
+      .addAnnotation(classOf[Deprecated])
+      .addJavadoc(
+        "@deprecated since Daml $L; $L",
+        "2.5.0",
+        s"use {@code valueDecoder} instead",
+      )
+      .addStatement("$L", variantExtractor(t))
+      .addStatement(
+        "return valueDecoder().decode($L)",
+        "value$",
+      )
+      .build()
+  }
+
+  // TODO #15120 delete
+  private def generateDeprecatedParameterizedFromValue(
+      variant: ParameterizedTypeName
+  ): MethodSpec = {
+    logger.debug(s"Generating deprecated fromValue static method for $variant")
+    require(
+      variant.typeArguments.asScala.forall(_.isInstanceOf[TypeVariableName]),
+      s"All type arguments of ${variant.rawType} must be generic",
+    )
+    val builder = initFromValueBuilder(variant, "fromValue")
+      .addParameter(classOf[javaapi.data.Value], "value$")
+
+    val typeVariablesExtractorParameters =
+      FromValueExtractorParameters.generate(
+        variant.typeArguments.asScala.map(_.toString).toIndexedSeq
+      )
+    builder
+      .addTypeVariables(typeVariablesExtractorParameters.typeVariables.asJava)
+      .addParameters(typeVariablesExtractorParameters.functionParameterSpecs.asJava)
+      .addAnnotation(classOf[Deprecated])
+      .addJavadoc(
+        "@deprecated since Daml $L; $L",
+        "2.5.0",
+        s"use {@code valueDecoder} instead",
+      )
+    val fromValueParams = CodeBlock.join(
+      typeVariablesExtractorParameters.functionParameterSpecs.map { param =>
+        CodeBlock.of("$T.fromFunction($N)", classOf[ValueDecoder[_]], param)
+      }.asJava,
+      ", ",
+    )
+
+    val classStaticAccessor = {
+      val typeParameterList = CodeBlock.join(
+        variant.typeArguments.asScala.map { param =>
+          CodeBlock.of("$T", param)
+        }.asJava,
+        ", ",
+      )
+      CodeBlock.of("$T.<$L>", variant.rawType, typeParameterList)
+    }
+
+    builder.addStatement(
+      "return $LvalueDecoder($L).decode($L)",
+      classStaticAccessor,
+      fromValueParams,
+      "value$",
     )
     builder.build()
   }
 
-  private def generateFromValue(
+  private def generateValueDecoder(
       typeArguments: IndexedSeq[String],
       constructorInfo: Fields,
       variantClassName: ClassName,
-      subPackage: String,
   ): MethodSpec =
     variantClassName.parameterized(typeArguments) match {
-      case variant: ClassName => generateConcreteFromValue(variant, constructorInfo, subPackage)
+      case variant: ClassName => generateConcreteValueDecoder(variant, constructorInfo)
       case variant: ParameterizedTypeName =>
-        generateParameterizedFromValue(variant, constructorInfo, subPackage)
+        generateParameterizedValueDecoder(variant, constructorInfo)
       case _ =>
         throw new IllegalArgumentException("Required either ClassName or ParameterizedTypeName")
     }
@@ -198,6 +290,7 @@ private[inner] object VariantClass extends StrictLogging {
     val innerClasses = new collection.mutable.ArrayBuffer[TypeSpec]
     val variantRecords = new collection.mutable.HashSet[String]()
     val fullVariantClassName = variantClassName.parameterized(typeArgs)
+
     for (fieldInfo <- getFieldsWithTypes(variant.fields, packagePrefixes)) {
       val FieldInfo(damlName, damlType, javaName, _) = fieldInfo
       damlType match {
@@ -217,6 +310,7 @@ private[inner] object VariantClass extends StrictLogging {
           )
       }
     }
+
     for (child <- typeWithContext.typesLineages) yield {
       // A child of a variant can be either:
       // - a record of a constructor of the variant itself

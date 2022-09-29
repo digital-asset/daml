@@ -9,6 +9,8 @@ import ut.bar.{Bar, ParameterizedContractId}
 import com.daml.ledger.javaapi.data.codegen.ContractId
 import shapeless.test.illTyped
 
+import scala.annotation.nowarn
+
 final class FromValueSpec extends AnyWordSpec with Matchers {
 
   "contractId<Bar>" should {
@@ -16,7 +18,9 @@ final class FromValueSpec extends AnyWordSpec with Matchers {
       val fromConstructor: ParameterizedContractId[Bar] =
         new ParameterizedContractId(new Bar.ContractId("SomeID"))
       val parametrizedContractId: ParameterizedContractId[Bar] =
-        ParameterizedContractId.fromValue(fromConstructor.toValue(_.toValue), Bar.fromValue)
+        ParameterizedContractId
+          .valueDecoder(Bar.valueDecoder())
+          .decode(fromConstructor.toValue(_.toValue))
       val contractIdBar: ContractId[Bar] = parametrizedContractId.parameterizedContractId
 
       illTyped(
@@ -24,8 +28,19 @@ final class FromValueSpec extends AnyWordSpec with Matchers {
         "type mismatch.+ContractId\\[.+Bar\\].+Bar.ContractId",
       )
 
-      contractIdBar should not be a[Bar.ContractId]
+      contractIdBar shouldBe a[Bar.ContractId]
       Bar.ContractId.fromContractId(contractIdBar) shouldBe a[Bar.ContractId]
+    }
+
+    "decode with deprecated fromValue Method" in {
+      val fromConstructor: ParameterizedContractId[Bar] =
+        new ParameterizedContractId(new Bar.ContractId("SomeID"))
+      @nowarn("msg=method fromValue in class .* is deprecated")
+      val parametrizedContractId: ParameterizedContractId[Bar] =
+        ParameterizedContractId
+          .fromValue(fromConstructor.toValue(_.toValue), Bar.valueDecoder().decode)
+      val contractIdBar: ContractId[Bar] = parametrizedContractId.parameterizedContractId
+      contractIdBar should not be a[Bar.ContractId]
     }
   }
 }

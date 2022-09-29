@@ -48,12 +48,10 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
     s"${x.ref.qualifiedName.name}"
   }
 
-  @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppGeneral")
   @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppOnlyFunIsAtomic")
   def pp(e: SExpr): String = e match {
     case SEValue(v) => s"(VALUE)${pp(v)}"
     case loc: SELoc => pp(loc)
-    case SEAppGeneral(func, args) => s"@E(${pp(func)},${commas(args.map(pp))})"
     case SEAppOnlyFunIsAtomic(func, args) => s"@N(${pp(func)},${commas(args.map(pp))})"
     case SEAppAtomicGeneral(func, args) => s"@A(${pp(func)},${commas(args.map(pp))})"
     case SEAppAtomicSaturatedBuiltin(b, args) => s"@B(${pp(SEBuiltin(b))},${commas(args.map(pp))})"
