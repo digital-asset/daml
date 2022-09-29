@@ -98,7 +98,7 @@ object ResolvedQuery {
 
   sealed abstract class Unsupported(val errorMsg: String) extends Product with Serializable
   final case object CannotQueryBothTemplateIdsAndInterfaceIds
-      extends Unsupported("Cannot resolve any template ID from request")
+      extends Unsupported("Cannot query both templates IDs and interface IDs")
   final case object CannotQueryManyInterfaceIds
       extends Unsupported("Cannot query more than one interface ID")
   final case object CannotBeEmpty extends Unsupported("Cannot resolve any template ID from request")
