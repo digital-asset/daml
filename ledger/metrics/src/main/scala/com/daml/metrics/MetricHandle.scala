@@ -27,8 +27,8 @@ object MetricHandle {
 
     def timer(name: MetricName): Timer = Timer(name, registry.timer(name))
 
-    def varGauge[T](name: MetricName, initial: T): Gauge[VarGauge[T], T] =
-      addGauge(name, VarGauge[T](initial), _.updateValue(initial))
+    def varGauge[T](name: MetricName, initial: T): VarGauge[T] =
+      addGauge(name, Gauges.VarGauge[T](initial), _.updateValue(initial))
 
     @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
     private def addGauge[T <: codahale.Gauge[M], M](
@@ -122,6 +122,6 @@ object MetricHandle {
     def update(value: Int): Unit = metric.update(value)
   }
 
-  type VarGaugeM[T] = Gauge[VarGauge[T], T]
+  type VarGauge[T] = Gauge[Gauges.VarGauge[T], T]
 
 }
