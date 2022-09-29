@@ -5,7 +5,7 @@ package com.daml.metrics
 
 import com.daml.metrics.MetricHandle.{Counter, Timer}
 
-import com.codahale.metrics.{MetricRegistry}
+import com.codahale.metrics.MetricRegistry
 
 class IndexMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
     extends MetricHandle.Factory {
@@ -20,8 +20,8 @@ class IndexMetrics(override val prefix: MetricName, override val registry: Metri
 
   object db extends IndexDBMetrics(prefix :+ "db", registry)
 
-  val ledgerEndSequentialId = new VarGauge[Long](0L)
-  registry.register(prefix :+ "ledger_end_sequential_id", ledgerEndSequentialId)
+  val ledgerEndSequentialId: VarGauge[Long] =
+    varGauge(prefix :+ "ledger_end_sequential_id", 0)
 
   object lfValue {
     private val prefix = IndexMetrics.this.prefix :+ "lf_value"

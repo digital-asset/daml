@@ -5,7 +5,8 @@ package com.daml.ledger.api.benchtool.metrics
 
 import com.codahale.metrics.{Counter, Histogram, MetricRegistry, SlidingTimeWindowArrayReservoir}
 import com.daml.ledger.api.benchtool.util.TimeUtil
-import com.daml.metrics.{MetricName, VarGauge}
+import com.daml.metrics.MetricHandle.VarGauge
+import com.daml.metrics.{Gauges, MetricName}
 import com.google.protobuf.timestamp.Timestamp
 
 import java.time.{Clock, Duration}
@@ -34,7 +35,7 @@ final class ExposedMetrics[T](
       metric
         .recordTimeFunction(elem)
         .lastOption
-        .foreach(recordTime => metric.latestRecordTime.updateValue(recordTime.seconds))
+        .foreach(recordTime => metric.latestRecordTime.metric.updateValue(recordTime.seconds))
     }
   }
 
@@ -80,7 +81,7 @@ object ExposedMetrics {
     val latestRecordTimeMetric = recordTimeFunction.map { f =>
       LatestRecordTimeMetric[T](
         latestRecordTime =
-          registry.register(Prefix :+ "latest_record_time" :+ streamName, new VarGauge[Long](0L)),
+          registry.register(Prefix :+ "latest_record_time" :+ streamName, new Gauges.VarGauge[Long](0L)),
         recordTimeFunction = f,
       )
     }
