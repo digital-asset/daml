@@ -5,6 +5,8 @@ package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.Identifier;
 
+import java.util.List;
+
 /**
  * Metadata and utilities associated with an interface as a whole. Its subclasses serve to
  * disambiguate various generated {@code toInterface} overloads.
@@ -12,7 +14,8 @@ import com.daml.ledger.javaapi.data.Identifier;
  * @param <I> The generated interface marker class.
  */
 public abstract class InterfaceCompanion<I> extends ContractTypeCompanion {
-  protected InterfaceCompanion(Identifier templateId) {
-    super(templateId);
+  protected InterfaceCompanion(Identifier templateId, List<ChoiceMetadata<?, ?, ?>> choices) {
+    //TODO: Need to figure out the right types for choices here
+    super(templateId, choices);
   }
 }

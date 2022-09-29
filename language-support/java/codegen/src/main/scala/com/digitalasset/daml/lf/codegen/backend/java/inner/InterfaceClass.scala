@@ -4,13 +4,16 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data.codegen.InterfaceCompanion
-import com.daml.lf.data.Ref.{PackageId, QualifiedName}
-import com.daml.lf.typesig, typesig.DefInterface
+import com.daml.lf.codegen.backend.java.inner.TemplateClass.toChoiceNameField
+import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
+import com.daml.lf.typesig
+import typesig.DefInterface
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.-\/
 
 import javax.lang.model.element.Modifier
+import scala.jdk.CollectionConverters._
 
 object InterfaceClass extends StrictLogging {
 
@@ -28,6 +31,11 @@ object InterfaceClass extends StrictLogging {
         .classBuilder(interfaceName)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
         .addField(generateTemplateIdField(packageId, interfaceId))
+        .addFields(
+          TemplateClass
+            .generateChoicesMetadata(interfaceName, packagePrefixes, interface.choices)
+            .asJava
+        )
         .addField(generateInterfaceCompanionField())
         .addType(
           ContractIdClass
@@ -51,7 +59,12 @@ object InterfaceClass extends StrictLogging {
           TemplateClass.generateCreateAndClass(-\/(ContractIdClass.For.Interface))
         )
         .addType(TemplateClass.generateByKeyClass(-\/(ContractIdClass.For.Interface)))
-        .addType(generateInterfaceCompanionClass(interfaceName = interfaceName))
+        .addType(
+          generateInterfaceCompanionClass(
+            interfaceName = interfaceName,
+            choiceNames = interface.choices.keySet,
+          )
+        )
         .addMethod {
           // interface classes are not inhabited
           MethodSpec.constructorBuilder().addModifiers(Modifier.PRIVATE).build()
@@ -75,7 +88,10 @@ object InterfaceClass extends StrictLogging {
       .initializer("new $N()", companionName)
       .build()
 
-  private def generateInterfaceCompanionClass(interfaceName: ClassName): TypeSpec = TypeSpec
+  private def generateInterfaceCompanionClass(
+      interfaceName: ClassName,
+      choiceNames: Set[ChoiceName],
+  ): TypeSpec = TypeSpec
     .classBuilder(companionName)
     .superclass(
       ParameterizedTypeName
@@ -86,7 +102,19 @@ object InterfaceClass extends StrictLogging {
       MethodSpec
         .constructorBuilder()
         // intentionally package-private
-        .addStatement("super($T.$N)", interfaceName, ClassGenUtils.templateIdFieldName)
+        .addStatement(
+          "super($T.$N, $T.of($L))",
+          interfaceName,
+          ClassGenUtils.templateIdFieldName,
+          classOf[java.util.List[_]],
+          CodeBlock
+            .join(
+              choiceNames
+                .map(choiceName => CodeBlock.of("$N", toChoiceNameField(choiceName)))
+                .asJava,
+              ",$W",
+            ),
+        )
         .build()
     }
     .build()

@@ -446,7 +446,7 @@ private[inner] object TemplateClass extends StrictLogging {
       typeWithContext.name,
     )
 
-  private def generateChoicesMetadata(
+  def generateChoicesMetadata(
       templateClassName: ClassName,
       packagePrefixes: Map[PackageId, String],
       templateChoices: Map[ChoiceName, TemplateChoice.FWT],
@@ -602,6 +602,6 @@ private[inner] object TemplateClass extends StrictLogging {
       )
   }
 
-  private def toChoiceNameField(choiceName: ChoiceName): String =
+  def toChoiceNameField(choiceName: ChoiceName): String =
     s"CHOICE_$choiceName"
 }

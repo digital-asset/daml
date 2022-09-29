@@ -48,7 +48,9 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
       Function<String, Id> newContractId,
       Function<DamlRecord, Data> fromValue,
       List<ChoiceMetadata<Data, ?, ?>> choices) {
-    super(templateId);
+    // TODO: passing in the choices to super() for interfaces means we ave to pass it here too..
+    //  Are the types still valid?
+    super(templateId, choices);
     this.templateClassName = templateClassName;
     this.newContractId = newContractId;
     this.fromValue = fromValue;
