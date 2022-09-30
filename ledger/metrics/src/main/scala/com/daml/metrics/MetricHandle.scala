@@ -8,6 +8,7 @@ import cats.data.EitherT
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics.Snapshot
 import com.codahale.metrics.Timer.Context
+import com.codahale.{metrics => codahale}
 
 import scala.concurrent.{Future, blocking}
 
