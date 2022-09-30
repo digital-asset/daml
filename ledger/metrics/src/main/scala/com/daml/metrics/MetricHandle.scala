@@ -86,7 +86,7 @@ object MetricHandle {
     def metricType: String = "Timer"
 
     def timeEitherT[E, A](ev: EitherT[Future, E, A]): EitherT[Future, E, A] = {
-      EitherT(Timed.future(this, ev.value))
+      EitherT(Timed.future(metric, ev.value))
     }
 
     def update(duration: Long, unit: TimeUnit): Unit = metric.update(duration, unit)

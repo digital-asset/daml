@@ -7,6 +7,7 @@ import java.util.concurrent.CompletionStage
 
 import akka.Done
 import akka.stream.scaladsl.{Keep, Source}
+import com.codahale.{metrics => codahale}
 import com.daml.metrics.MetricHandle.{Counter, Meter, Timer}
 import com.daml.concurrent
 
@@ -15,7 +16,10 @@ import scala.concurrent.{ExecutionContext, Future}
 object Timed {
 
   def value[T](timer: Timer, value: => T): T =
-    timer.metric.time(() => value)
+    this.value[T](timer.metric, value)
+
+  def value[T](timer: codahale.Timer, value: => T): T =
+    timer.time(() => value)
 
   def trackedValue[T](meter: Meter, value: => T): T = {
     meter.metric.mark(+1)
@@ -53,7 +57,11 @@ object Timed {
   }
 
   def future[T](timer: Timer, future: => Future[T]): Future[T] = {
-    val ctx = timer.metric.time()
+    this.future[T](timer.metric, future)
+  }
+
+  def future[T](timer: codahale.Timer, future: => Future[T]): Future[T] = {
+    val ctx = timer.time()
     val result = future
     result.onComplete(_ => ctx.stop())(ExecutionContext.parasitic)
     result
