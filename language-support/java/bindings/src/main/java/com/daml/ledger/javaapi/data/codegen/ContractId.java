@@ -54,7 +54,7 @@ public class ContractId<T> implements Exercises<ExerciseCommand> {
 
   // overridden by every code generator, but decoding abstractly can e.g.
   // produce a ContractId<Foo> that is not a Foo.ContractId
-  protected ContractTypeCompanion<T, T> getCompanion() {
+  protected ContractTypeCompanion<T, ?> getCompanion() {
     throw new UnsupportedOperationException(
         "Cannot exercise on a contract ID type without code-generated exercise methods");
   }
