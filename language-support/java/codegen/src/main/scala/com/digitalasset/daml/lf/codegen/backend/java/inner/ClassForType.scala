@@ -46,11 +46,15 @@ object ClassForType extends StrictLogging {
     for {
       (interfaceName, interface) <- typeWithContext.interface.interfaces.toList
       className = ClassName.bestGuess(fullyQualifiedName(interfaceName))
+      interfaceViewTypeName = ClassName.bestGuess(
+        fullyQualifiedName(interface.viewType.get, packagePrefixes)
+      )
       packageName = className.packageName()
       interfaceClass =
         InterfaceClass
           .generate(
             className,
+            interfaceViewTypeName,
             interface,
             packagePrefixes,
             typeWithContext.interface.typeDecls,

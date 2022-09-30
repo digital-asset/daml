@@ -11,8 +11,12 @@ import com.daml.ledger.javaapi.data.Identifier;
  *
  * @param <I> The generated interface marker class.
  */
-public abstract class InterfaceCompanion<I> extends ContractTypeCompanion {
-  protected InterfaceCompanion(Identifier templateId) {
+public abstract class InterfaceCompanion<I, View> extends ContractTypeCompanion<I, View> {
+
+  public final ValueDecoder<View> valueDecoder;
+
+  protected InterfaceCompanion(Identifier templateId, ValueDecoder<View> valueDecoder) {
     super(templateId);
+    this.valueDecoder = valueDecoder;
   }
 }
