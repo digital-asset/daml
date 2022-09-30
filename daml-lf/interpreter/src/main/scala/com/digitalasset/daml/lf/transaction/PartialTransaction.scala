@@ -230,6 +230,9 @@ private[speedy] case class PartialTransaction(
 
   import PartialTransaction._
 
+  val disclosedContractIds: Set[Value.ContractId] =
+    disclosedContracts.map(_.contractId.value).toSeq.toSet
+
   def consumedByOrInactive(cid: Value.ContractId): Option[Either[NodeId, Unit]] = {
     contractState.consumedByOrInactive(cid)
   }

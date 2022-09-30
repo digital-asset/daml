@@ -128,9 +128,8 @@ private[platform] case class StateCache[K, V](
     eventualUpdate
       .map { (value: V) =>
         pendingUpdates.synchronized {
-          pendingUpdates
-            .get(key)
-            .map { pendingForKey =>
+          pendingUpdates.get(key) match {
+            case Some(pendingForKey) =>
               // Only update the cache if the current update is targeting the cacheIndex
               // sampled when initially dispatched in `putAsync`.
               // Otherwise we can assume that a more recent `putAsync` has an update in-flight
@@ -142,8 +141,11 @@ private[platform] case class StateCache[K, V](
                 )
               }
               removeFromPending(key)
-            }
-            .getOrElse(logger.error(s"Pending updates tracker for $key not registered "))
+            case None =>
+              logger.warn(
+                s"Pending updates tracker for $key not registered. This could be due to a transient error causing a restart in the index service."
+              )
+          }
         }
       }
       .recover {

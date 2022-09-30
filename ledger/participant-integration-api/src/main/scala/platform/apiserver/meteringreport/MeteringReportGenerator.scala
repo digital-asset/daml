@@ -11,9 +11,9 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.apiserver.meteringreport.MeteringReport._
 import com.google.protobuf.struct.Struct
 import com.google.protobuf.timestamp.{Timestamp => ProtoTimestamp}
-import scalapb.json4s.JsonFormat
 import spray.json.enrichAny
 import HmacSha256.Key
+import com.daml.struct.json.StructJsonFormat
 
 class MeteringReportGenerator(participantId: Ref.ParticipantId, key: Key) {
 
@@ -57,7 +57,7 @@ class MeteringReportGenerator(participantId: Ref.ParticipantId, key: Key) {
     )
 
     JcsSigner.sign(report, key).map { signedReport =>
-      JsonFormat.parser.fromJsonString[Struct](signedReport.toJson.compactPrint)
+      StructJsonFormat.read(signedReport.toJson)
     }
   }
 

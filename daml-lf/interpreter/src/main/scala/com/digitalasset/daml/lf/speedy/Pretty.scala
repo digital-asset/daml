@@ -487,7 +487,6 @@ private[lf] object Pretty {
       case SELocF(i) => char('F') + str(i)
     }
 
-    @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppGeneral")
     @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppOnlyFunIsAtomic")
     def prettySExpr(index: Int)(e: SExpr): Doc =
       e match {
@@ -532,10 +531,6 @@ private[lf] object Pretty {
             case SBGetTime => text("$getTime")
             case _ => str(x)
           }
-        case SEAppGeneral(fun, args) =>
-          val prefix = prettySExpr(index)(fun) + text("@E(")
-          intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
-            .tightBracketBy(prefix, char(')'))
         case SEAppOnlyFunIsAtomic(fun, args) =>
           val prefix = prettySExpr(index)(fun) + text("@N(")
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))

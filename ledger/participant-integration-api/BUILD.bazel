@@ -69,6 +69,7 @@ compile_deps = [
     "//libs-scala/scala-utils",
     "//libs-scala/timer-utils",
     "//libs-scala/nameof",
+    "//libs-scala/struct-json",
     "@maven//:com_google_guava_guava",
     "@maven//:com_zaxxer_HikariCP",
     "@maven//:io_dropwizard_metrics_metrics_core",
@@ -97,7 +98,6 @@ scala_compile_deps = [
     "@maven//:org_playframework_anorm_anorm_tokenizer",
     "@maven//:org_scalaz_scalaz_core",
     "@maven//:io_spray_spray_json",
-    "@maven//:com_thesamet_scalapb_scalapb_json4s",
 ]
 
 runtime_deps = [

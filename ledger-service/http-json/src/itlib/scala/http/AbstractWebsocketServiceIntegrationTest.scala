@@ -35,12 +35,12 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json.{
+  DeserializationException,
   JsArray,
   JsNull,
   JsObject,
   JsString,
   JsValue,
-  DeserializationException,
   enrichAny => `sj enrichAny`,
 }
 import com.daml.fetchcontracts.domain.ResolvedQuery
@@ -262,51 +262,147 @@ abstract class AbstractWebsocketServiceIntegrationTest
   "interface sub" - {
     "query endpoint" in withHttpService { fixture =>
       import fixture.uri
-      val query = """[
+      val query =
+        """[
         {"templateIds": ["IAccount:IAccount"], "query": {"isAbcPrefix": true}},
         {"templateIds": ["IAccount:IAccount"], "query": {"is123Suffix": true}}
       ]"""
 
-      def createAccount(
+      @nowarn("msg=pattern var evtsWrapper .* is never used")
+      def resp(
           owner: domain.Party,
-          amount: String,
           headers: List[HttpHeader],
-      ) = postCreateCommand(
-        accountCreateCommand(owner, amount),
-        fixture,
-        headers = headers,
-      )
+          kill: UniqueKillSwitch,
+      ): Sink[JsValue, Future[ShouldHaveEnded]] = {
+        def createAccount(
+            owner: domain.Party,
+            amount: String,
+            headers: List[HttpHeader],
+        ) = postCreateCommand(
+          accountCreateCommand(owner, amount),
+          fixture,
+          headers = headers,
+        )
+
+        def exerciseTransferPayload(cid: domain.ContractId) = {
+          import json.JsonProtocol._
+          val ecid: domain.ContractLocator[JsValue] =
+            domain.EnrichedContractId(Some(TpId.IAccount.IAccount), cid)
+          domain
+            .ExerciseCommand(
+              ecid,
+              choice = domain.Choice("ChangeAmount"),
+              argument = Map("newAmount" -> "abcxx").toJson,
+              None,
+              None,
+            )
+            .toJson
+        }
+
+        val dslSyntax = Consume.syntax[JsValue]
+        import dslSyntax._
+
+        def readAndExtract(
+            record: AccountRecord,
+            mq: Vector[Int],
+        ): Consume.FCC[JsValue, CreatedAccountEvent] = for {
+          _ <- liftF(createAccount(owner, record.amount, headers))
+          AccountQuery(event) <- readOne
+        } yield {
+          event.created.record should ===(record)
+          event.created.templateId.copy(packageId = None) should ===(TpId.IAccount.IAccount)
+          event.matchedQueries should ===(mq)
+          event
+        }
+
+        Consume.interpret(
+          for {
+            ContractDelta(Vector(), _, Some(offset)) <- readOne
+            Seq(createdAccountEvent1, _, _) <-
+              List(
+                (AccountRecord("abc123", true, true), Vector(0, 1)),
+                (AccountRecord("abc456", true, false), Vector(0)),
+                (AccountRecord("def123", false, true), Vector(1)),
+              ).traverse((readAndExtract _).tupled)
+
+            _ <- liftF(createAccount(owner, "def456", headers))
+
+            _ <- liftF(
+              fixture.postJsonRequest(
+                Uri.Path("/v1/exercise"),
+                exerciseTransferPayload(createdAccountEvent1.created.contractId),
+                headers,
+              ) map { case (statusCode, _) =>
+                statusCode.isSuccess shouldBe true
+              }
+            )
+
+            evtsWrapper @ ContractDelta(
+              Vector(_),
+              Vector(observeConsumed),
+              Some(lastSeenOffset),
+            ) <- readOne
+            liveStartOffset = {
+              observeConsumed.contractId should ===(createdAccountEvent1.created.contractId)
+              inside(evtsWrapper) { case JsObject(obj) =>
+                inside(obj get "events") {
+                  case Some(
+                        JsArray(
+                          Vector(
+                            Archived(
+                              ContractIdField(
+                                JsString(archivedContractId),
+                                TemplateIdField(ContractTypeId(archivedTemplateId), _),
+                              ),
+                              _,
+                            ),
+                            Created(
+                              CreatedAccount(
+                                CreatedAccountContract(_, createdTemplateId, createdRecord)
+                              ),
+                              MatchedQueries(NumList(matchedQueries), _),
+                            ),
+                          )
+                        )
+                      ) =>
+                    archivedContractId should ===(createdAccountEvent1.created.contractId)
+                    archivedTemplateId.copy(packageId = None) should ===(TpId.IAccount.IAccount)
+
+                    createdTemplateId.copy(packageId = None) should ===(TpId.IAccount.IAccount)
+
+                    createdRecord should ===(AccountRecord("abcxx", true, false))
+                    matchedQueries shouldBe Vector(0)
+                }
+              }
+              offset
+            }
+            _ = kill.shutdown()
+            heartbeats <- drain
+            hbCount = (heartbeats.iterator.map(heartbeatOffset).toSet + lastSeenOffset).size - 1
+          } yield ShouldHaveEnded(
+            liveStartOffset = liveStartOffset,
+            msgCount = 2 + hbCount,
+            lastSeenOffset = lastSeenOffset,
+          )
+        )
+      }
+
       for {
-        aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        (alice, aliceAuthHeaders) = aliceHeaders
-        _ <- createAccount(alice, "abc123", aliceAuthHeaders)
-        _ <- createAccount(alice, "abc456", aliceAuthHeaders)
-        _ <- createAccount(alice, "def123", aliceAuthHeaders)
-        _ <- createAccount(alice, "def456", aliceAuthHeaders)
+        (alice, aliceAuthHeaders) <- fixture.getUniquePartyAndAuthHeaders("Alice")
         jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
-        clientMsg <- singleClientQueryStream(
+        (kill, source) = singleClientQueryStream(
           jwt,
           uri,
           query,
-        ).take(4)
-          .runWith(collectResultsAsTextMessage)
-      } yield inside(clientMsg) { case result1 +: result2 +: result3 +: heartbeats =>
-        result1 should include(s""""amount":"abc123"""")
-        result1 should include(s""""isAbcPrefix":true""")
-        result1 should include(s""""is123Suffix":true""")
-        result1 should include(s""""matchedQueries":[0,1]""")
-
-        result2 should include(s""""amount":"abc456"""")
-        result2 should include(s""""isAbcPrefix":true""")
-        result2 should include(s""""is123Suffix":false""")
-        result2 should include(s""""matchedQueries":[0]""")
-
-        result3 should include(s""""amount":"def123"""")
-        result3 should include(s""""isAbcPrefix":false""")
-        result3 should include(s""""is123Suffix":true""")
-        result3 should include(s""""matchedQueries":[1]""")
-
-        Inspectors.forAll(heartbeats)(assertHeartbeat)
+        ).viaMat(KillSwitches.single)(Keep.right)
+          .preMaterialize()
+        ShouldHaveEnded(_, msgCount, _) <- source via parseResp runWith resp(
+          alice,
+          aliceAuthHeaders,
+          kill,
+        )
+      } yield {
+        msgCount should ===(2)
       }
     }
   }
