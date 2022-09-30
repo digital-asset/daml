@@ -353,14 +353,11 @@ final class UserManagementServiceIT
         Some(
           User(
             id = AdminUserId,
-            metadata =
-              if (useMeta)
-                Some(
-                  ObjectMeta(
-                    resourceVersion = get1.getUser.getMetadata.resourceVersion
-                  )
-                )
-              else None,
+            metadata = Option.when(useMeta)(
+              ObjectMeta(
+                resourceVersion = get1.getUser.getMetadata.resourceVersion
+              )
+            ),
           )
         ),
       )
