@@ -31,7 +31,7 @@ object MetricHandle {
       addGauge(name, Gauges.VarGauge[T](initial), _.updateValue(initial))
 
     @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-    private def addGauge[T <: codahale.Gauge[M], M](
+    def addGauge[T <: codahale.Gauge[M], M](
         name: MetricName,
         newGauge: => T,
         resetExisting: (T => Unit),
