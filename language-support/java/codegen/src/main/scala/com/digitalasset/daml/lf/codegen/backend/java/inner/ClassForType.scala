@@ -47,7 +47,14 @@ object ClassForType extends StrictLogging {
       (interfaceName, interface) <- typeWithContext.interface.interfaces.toList
       className = ClassName.bestGuess(fullyQualifiedName(interfaceName))
       interfaceViewTypeName = ClassName.bestGuess(
-        fullyQualifiedName(interface.viewType.get, packagePrefixes)
+        fullyQualifiedName(
+          interface.viewType.getOrElse(
+            throw new IllegalArgumentException(
+              s"View Type is required for interface $interfaceName"
+            )
+          ),
+          packagePrefixes,
+        )
       )
       packageName = className.packageName()
       interfaceClass =
