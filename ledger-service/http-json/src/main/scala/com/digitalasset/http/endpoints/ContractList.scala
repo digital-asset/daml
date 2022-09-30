@@ -87,7 +87,7 @@ private[http] final class ContractList(
       metrics: Metrics,
   ): Future[Error \/ SearchResult[Error \/ JsValue]] = for {
     parseAndDecodeTimerCtx <- Future(
-      metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.metric.time()
+      metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.time()
     )
     res <- inputAndJwtPayload[JwtPayload](req).run.map {
       _.map { case (jwt, jwtPayload, _) =>

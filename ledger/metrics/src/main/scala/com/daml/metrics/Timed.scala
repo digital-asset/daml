@@ -33,7 +33,7 @@ object Timed {
   }
 
   def completionStage[T](timer: Timer, future: => CompletionStage[T]): CompletionStage[T] = {
-    val ctx = timer.metric.time()
+    val ctx = timer.time()
     future.whenComplete { (_, _) =>
       ctx.stop()
       ()
@@ -68,7 +68,7 @@ object Timed {
   }
 
   def future[EC, T](timer: Timer, future: => concurrent.Future[EC, T]): concurrent.Future[EC, T] = {
-    val ctx = timer.metric.time()
+    val ctx = timer.time()
     val result = future
     result.onComplete(_ => ctx.stop())(concurrent.ExecutionContext.parasitic)
     result
@@ -93,7 +93,7 @@ object Timed {
   }
 
   def source[Out, Mat](timer: Timer, source: => Source[Out, Mat]): Source[Out, Mat] = {
-    val ctx = timer.metric.time()
+    val ctx = timer.time()
     source
       .watchTermination()(Keep.both[Mat, Future[Done]])
       .mapMaterializedValue { case (mat, done) =>

@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 import cats.data.EitherT
 import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics.Snapshot
-import com.codahale.{metrics => codahale}
+import com.codahale.metrics.Timer.Context
 
 import scala.concurrent.{Future, blocking}
 
@@ -93,6 +93,7 @@ object MetricHandle {
     def getCount: Long = metric.getCount
     def getSnapshot: Snapshot = metric.getSnapshot
     def getMeanRate: Double = metric.getMeanRate
+    def time(): Context = metric.time()
   }
 
   sealed case class Gauge[U <: codahale.Gauge[T], T](name: String, metric: U)

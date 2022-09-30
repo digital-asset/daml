@@ -31,7 +31,7 @@ object InstrumentedGraph {
 
     override def offer(elem: T): QueueOfferResult = {
       val result = delegate.offer(
-        delayTimer.metric.time() -> elem
+        delayTimer.time() -> elem
       )
       result match {
         case QueueOfferResult.Enqueued =>

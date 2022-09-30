@@ -133,7 +133,7 @@ private[http] final class RouteSetup(
   def getParseAndDecodeTimerCtx()(implicit
       metrics: Metrics
   ): ET[Timer.Context] =
-    EitherT.pure(metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.metric.time())
+    EitherT.pure(metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.time())
 
   private[endpoints] def input(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
