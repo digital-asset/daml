@@ -18,7 +18,7 @@ object ContractClass {
   def builder(
       templateClassName: ClassName,
       key: Option[Type],
-      packagePrefixes: Map[PackageId, Test],
+      packagePrefixes: Map[PackageId, String],
   ) = Builder.create(templateClassName, key, packagePrefixes)
 
   case class Builder private (
