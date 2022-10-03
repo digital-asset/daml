@@ -88,10 +88,17 @@ export Args{parties, contracts} = do
         intOpts = [None, (Some 77), None, (Some 78)], intListOpts = [None,
           (Some []), (Some [79]), (Some [80, 81, 82])],
         variants = [(Values.VarInt 83), (Values.VarText "84"),
-          (Values.VarRec (Values.Record {int = 85, text = "86", bool = True}))],
+          (Values.VarRec (Values.Record {int = 85, text = "86", bool = True})),
+          (Values.VarFields {rec = (Values.Record {int = 87, text = "88",
+                  bool = True}), int = 89, text = "90"})],
         hkVariants = [(Values.HkVarInt 91), (Values.HkVarText "92"),
           (Values.HkVarAye Values.Cee), (Values.HkVarBee 93),
           (Values.HkVarCee ()), (Values.HkVarRec (Values.HkRecord {int = 94,
                 text = "95", bool = True, aye = Values.Bee, bee = 96,
-                ayeBees = [(Values.Aye, 97), (Values.Cee, 98)]}))]})
+                ayeBees = [(Values.Aye, 97), (Values.Cee, 98)]})),
+          (Values.HkVarFields {hkRec = (Values.HkRecord {int = 99, text = "100",
+                  bool = True, aye = Values.Dee, bee = 101,
+                  ayeBees = [(Values.Bee, 102), (Values.Cee, 103)]}), int = 104,
+              text = "105", ayeBeeCees = [(Values.Dee, 106, ()), (Values.Aye,
+                  107, ())]})]})
   pure ()
