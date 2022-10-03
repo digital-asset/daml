@@ -38,8 +38,8 @@ object MetricHandle {
     ): Gauge[T, M] = gauge(name, registry.register(name, newGauge), resetGauge)
 
     def gaugeWithSupplier[T <: codahale.Gauge[M], M](
-      name: MetricName,
-      gaugeSupplier: MetricSupplier[codahale.Gauge[_]],
+        name: MetricName,
+        gaugeSupplier: MetricSupplier[codahale.Gauge[_]],
     ): Gauge[T, M] =
       gauge(name, registry.gauge(name, gaugeSupplier).asInstanceOf[T], _ => ())
 
