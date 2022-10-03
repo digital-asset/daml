@@ -362,8 +362,6 @@ private[export] object Encode {
       variant.getVariantId.entityName + "." + variant.constructor
     )
 
-  // TODO Handle sums of products properly
-  // https://github.com/digital-asset/daml/issues/14723
   private def encodeVariant(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
