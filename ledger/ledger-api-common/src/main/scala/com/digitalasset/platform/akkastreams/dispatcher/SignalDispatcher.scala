@@ -77,9 +77,13 @@ class SignalDispatcher private () {
       source.fail(throwable)
       source
         .watchCompletion()
-        .recoverWith {
-          // This throwable is expected so map to Success
-          case `throwable` => Future.unit
+        .recover {
+          case `throwable` =>
+            // This throwable is expected so map to Success
+            ()
+          case unexpectedThrowable =>
+            // On unexpected throwable, warn and continue
+            logger.warn(s"Unexpected failure on Source shutdown", unexpectedThrowable)
         }
     }
 
@@ -89,22 +93,23 @@ class SignalDispatcher private () {
     implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.parasitic
     runningState
       .getAndSet(None)
-      .fold(throw new IllegalStateException("SignalDispatcher is already closed")) { sources =>
-        Future.delegate {
-          Future
-            .traverse(sources) { source =>
-              // Return a successful Future wrapping a Try
-              // to ensure that Future.traverse waits for the completion of all sources
-              shutdownSourceQueue(source)
-                .map(Success(_))
-                .recover { case failure => Failure(failure) }
-            }
-            .map { results =>
-              // Fail if any of the sources failed
-              results.map(_.get)
-            }
-            .map(_ => ())
-        }
+      .fold(Future.failed[Unit](new IllegalStateException("SignalDispatcher is already closed"))) {
+        sources =>
+          Future.delegate {
+            Future
+              .traverse(sources) { source =>
+                // Return a successful Future wrapping a Try
+                // to ensure that Future.traverse waits for the completion of all sources
+                shutdownSourceQueue(source)
+                  .map(Success(_))
+                  .recover { case failure => Failure(failure) }
+              }
+              .map { results =>
+                // Fail if any of the sources failed
+                results.map(_.get)
+              }
+              .map(_ => ())
+          }
       }
   }
 }

@@ -3,15 +3,13 @@
 
 package com.daml.grpc.adapter.server.akka
 
-import akka.NotUsed
-import akka.stream.{KillSwitch, KillSwitches, Materializer}
-import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.scaladsl.Sink
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.rs.ServerSubscriber
-import io.grpc.{StatusException, StatusRuntimeException}
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
+import io.grpc.{StatusException, StatusRuntimeException}
 
 import scala.concurrent.{Future, Promise}
 
@@ -40,13 +38,13 @@ object ServerAdapter {
                 .asGrpcError
           }
         }
-
       }
 
     Sink
       .fromSubscriber(subscriber)
       .mapMaterializedValue(_ => {
         val promise = Promise[Unit]()
+
         subscriber.completionFuture.handle[Unit]((_, throwable) => {
           if (throwable == null) promise.success(()) else promise.failure(throwable)
           ()
@@ -58,19 +56,4 @@ object ServerAdapter {
   /** Used in [[com.daml.protoc.plugins.akka.AkkaGrpcServicePrinter]] */
   def closingError(): StatusRuntimeException =
     LedgerApiErrors.ServerIsShuttingDown.Reject()(errorLogger).asGrpcError
-
-  /** Used in [[com.daml.protoc.plugins.akka.AkkaGrpcServicePrinter]] */
-  def registerStream[RespT](
-      source: Source[RespT, NotUsed],
-      responseObserver: StreamObserver[RespT],
-  )(implicit
-      materializer: Materializer,
-      executionSequencerFactory: ExecutionSequencerFactory,
-  ): KillSwitch = {
-    val sink = com.daml.grpc.adapter.server.akka.ServerAdapter.toSink(responseObserver)
-    source
-      .viaMat(KillSwitches.single)(Keep.right)
-      .toMat(sink)(Keep.left)
-      .run()
-  }
 }

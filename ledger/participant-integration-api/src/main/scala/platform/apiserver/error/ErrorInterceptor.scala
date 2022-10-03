@@ -82,7 +82,7 @@ final class ErrorInterceptor extends ServerInterceptor {
         * This is needed in order to allow the call to be captured in the closure passed to the [[LogOnUnhandledFailureInClose]]
         * error handler.
         *
-        * TODO As of Scala 2.13.8, not using this redirection results in a runtime IllegalAccessError.
+        * TODO As at Scala 2.13.8, not using this redirection results in a runtime IllegalAccessError.
         *      Remove this redirection once the runtime exception can be avoided.
         */
       private def superClose(status: Status, trailers: Metadata): Unit =

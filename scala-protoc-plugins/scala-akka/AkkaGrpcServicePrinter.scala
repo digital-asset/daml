@@ -22,7 +22,7 @@ final class AkkaGrpcServicePrinter(
         .add(
           "package " + service.getFile.scalaPackage.fullName,
           "",
-          s"trait ${service.name}AkkaGrpc extends ${service.getName}Grpc.${service.getName} with AutoCloseable {",
+          s"trait ${service.name}AkkaGrpc extends ${service.getName}Grpc.${service.getName} with com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement {",
         )
         .call(traitBody)
         .add("}")
@@ -47,24 +47,9 @@ final class AkkaGrpcServicePrinter(
           .outdent
           .add("): Unit =")
           .indent
-          .add("synchronized {")
-          .indent
-          .add("if (closed) {")
-          .indent
           .add(
-            "responseObserver.onError(com.daml.grpc.adapter.server.akka.ServerAdapter.closingError())"
+            s"registerStream(() => ${method.name}Source(request), responseObserver)"
           )
-          .outdent
-          .add("} else {")
-          .indent
-          .add(
-            s"val killSwitch = com.daml.grpc.adapter.server.akka.ServerAdapter.registerStream(${method.name}Source(request), responseObserver)"
-          )
-          .add("killSwitches = killSwitch :: killSwitches")
-          .outdent
-          .add("}")
-          .outdent
-          .add("}")
           .outdent
           .newline
           .add(s"protected def ${method.name}Source(")
@@ -87,30 +72,7 @@ final class AkkaGrpcServicePrinter(
       p.indent
         .add("protected implicit def esf: com.daml.grpc.adapter.ExecutionSequencerFactory")
         .add("protected implicit def mat: akka.stream.Materializer")
-        .call(closeMethod)
         .call(endos)
         .outdent
-  }
-
-  private def closeMethod: PrinterEndo = { p =>
-    p
-      .add("@volatile private var closed = false")
-      .add("@volatile private var killSwitches = List.empty[akka.stream.KillSwitch]")
-      .newline
-      .add("def close(): Unit =")
-      .indent
-      .add("synchronized {")
-      .indent
-      .add("if (!closed) {")
-      .indent
-      .add("closed = true")
-      .add(
-        "killSwitches.foreach(_.abort(com.daml.grpc.adapter.server.akka.ServerAdapter.closingError()))"
-      )
-      .outdent
-      .add("}")
-      .outdent
-      .add("}")
-      .outdent
   }
 }
