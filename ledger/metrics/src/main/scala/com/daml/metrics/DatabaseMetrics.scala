@@ -3,21 +3,23 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.{MetricRegistry, Timer}
+import com.daml.metrics.MetricHandle.Timer
+
+import com.codahale.metrics.{MetricRegistry}
 
 class DatabaseMetrics private[metrics] (
-    registry: MetricRegistry,
-    prefix: MetricName,
+    override val prefix: MetricName,
     val name: String,
-) {
+    override val registry: MetricRegistry,
+) extends MetricHandle.Factory {
   protected val dbPrefix: MetricName = prefix :+ name
 
-  val waitTimer: Timer = registry.timer(dbPrefix :+ "wait")
-  val executionTimer: Timer = registry.timer(dbPrefix :+ "exec")
-  val translationTimer: Timer = registry.timer(dbPrefix :+ "translation")
-  val compressionTimer: Timer = registry.timer(dbPrefix :+ "compression")
-  val commitTimer: Timer = registry.timer(dbPrefix :+ "commit")
-  val queryTimer: Timer = registry.timer(dbPrefix :+ "query")
+  val waitTimer: Timer = timer(dbPrefix :+ "wait")
+  val executionTimer: Timer = timer(dbPrefix :+ "exec")
+  val translationTimer: Timer = timer(dbPrefix :+ "translation")
+  val compressionTimer: Timer = timer(dbPrefix :+ "compression")
+  val commitTimer: Timer = timer(dbPrefix :+ "commit")
+  val queryTimer: Timer = timer(dbPrefix :+ "query")
 }
 
 object DatabaseMetrics {

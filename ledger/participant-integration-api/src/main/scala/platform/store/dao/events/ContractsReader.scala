@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.dao.events
 
-import com.codahale.metrics.Timer
+import com.daml.metrics.MetricHandle.Timer
 import com.daml.error.definitions.IndexErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.offset.Offset
