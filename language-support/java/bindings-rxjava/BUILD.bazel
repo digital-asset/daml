@@ -25,8 +25,8 @@ load(
 
 da_java_library(
     name = "bindings-rxjava",
-    javacopts = da_java_bindings_javacopts,
     srcs = glob(["src/main/java/**/*.java"]),
+    javacopts = da_java_bindings_javacopts,
     tags = [
         "javadoc_root_packages=com.daml.ledger.rxjava",
         "maven_coordinates=com.daml:bindings-rxjava:__VERSION__",
