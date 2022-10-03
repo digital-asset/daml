@@ -78,6 +78,12 @@ data Variant
   -}
   | VarInt Int
   | VarText Text
+  {-  The compiler fails with error
+        > Constructors with multiple fields must give explicit field names,
+        > e.g. Foo with bar : Int; baz : Int
+      so we don't test this case.
+  | VarIntText Int Text
+  -}
   | VarRec Record
   | VarFields with
       rec : Record
@@ -87,11 +93,24 @@ data Variant
 
 data HkVariant a b c
   = HkVarUnit
+  {-  The compiler warns
+        > Variant type HkVariant constructor HkVarExplicitUnit has a single argument
+        > of type (). The argument will not be preserved when importing this
+        > package via data-dependencies.
+      so we don't test this case.
+  | HkVarExplicitUnit ()
+  -}
   | HkVarInt Int
   | HkVarText Text
   | HkVarAye a
   | HkVarBee b
   | HkVarCee c
+  {-  The compiler fails with error
+        > Constructors with multiple fields must give explicit field names,
+        > e.g. Foo with bar : Int; baz : Int
+      so we don't test this case.
+  | VarIntTextAyeBee Int Text a b
+  -}
   | HkVarRec (HkRecord a b)
   | HkVarFields with
       hkRec : HkRecord a b
