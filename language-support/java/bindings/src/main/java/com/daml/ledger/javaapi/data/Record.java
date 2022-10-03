@@ -25,22 +25,19 @@ public final class Record extends DamlRecord {
     super(Arrays.asList(fields));
   }
 
-  public Record(@NonNull Identifier recordId, @NonNull List<@NonNull Field> fields) {
-    super(recordId, (List) fields); // safe-ish cast due to java.util.List being invariant in E
+  public Record(@NonNull Identifier recordId, @NonNull List<@NonNull ? extends Field> fields) {
+    super(recordId, fields);
   }
 
-  public Record(@NonNull List<@NonNull Field> fields) {
-    super((List) fields); // safe-ish cast due to java.util.List being invariant in E
+  public Record(@NonNull List<@NonNull ? extends Field> fields) {
+    super(fields);
   }
 
   public Record(
       @NonNull Optional<Identifier> recordId,
-      @NonNull List<@NonNull Field> fields,
+      @NonNull List<@NonNull ? extends Field> fields,
       Map<String, Value> fieldsMap) {
-    super(
-        recordId,
-        (List) fields,
-        fieldsMap); // safe-ish cast due to java.util.List being invariant in E
+    super(recordId, fields, fieldsMap);
   }
 
   /** @deprecated Use {@link DamlRecord#fromProto(ValueOuterClass.Record)} instead */
