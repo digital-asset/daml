@@ -20,7 +20,7 @@ class IndexerMetrics(override val prefix: MetricName, override val registry: Met
   val ledgerEndSequentialId: VarGauge[Long] =
     varGauge(prefix :+ "ledger_end_sequential_id", 0)
 
-  gauge(
+  gaugeWithSupplier(
     prefix :+ "current_record_time_lag",
     () => () => Instant.now().toEpochMilli - lastReceivedRecordTime.metric.getValue,
   )

@@ -31,35 +31,28 @@ object MetricHandle {
     def varGauge[T](name: MetricName, initial: T): VarGauge[T] =
       addGauge(name, Gauges.VarGauge[T](initial), _.updateValue(initial))
 
-    @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
     def addGauge[T <: codahale.Gauge[M], M](
         name: MetricName,
         newGauge: => T,
-        resetExisting: (T => Unit),
+        resetGauge: (T => Unit),
     ): Gauge[T, M] = blocking {
       synchronized {
-        val res: Gauge[T, M] = Option(registry.getGauges.get(name: String)) match {
-          case Some(existingGauge) => Gauge(name, existingGauge.asInstanceOf[T])
-          case None =>
-            val gauge = newGauge
-            // This is not idempotent, therefore we need to query first.
-            registry.register(name, gauge)
-            Gauge(name, gauge)
+        registry.remove(name)
+        val res: Gauge[T, M] = {
+          val gauge = newGauge
+          registry.register(name, gauge)
+          Gauge(name, gauge)
         }
-        resetExisting(res.metric)
+        resetGauge(res.metric)
         res
       }
     }
 
-    def gauge[T](
+    def gaugeWithSupplier[T <: codahale.Gauge[M], M](
         name: MetricName,
         gaugeSupplier: MetricSupplier[codahale.Gauge[_]],
-    ): Gauge[codahale.Gauge[T], T] =
-      registry.synchronized {
-        registry.remove(name)
-        val gauge = registry.gauge(name, gaugeSupplier).asInstanceOf[codahale.Gauge[T]]
-        Gauge(name, gauge)
-      }
+    ): Gauge[T, M] =
+      addGauge(name, registry.gauge(name, gaugeSupplier).asInstanceOf[T], _ => ())
 
     def meter(name: MetricName): Meter = {
       // This is idempotent
