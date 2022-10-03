@@ -9,8 +9,8 @@ import java.util.concurrent.{CompletableFuture, Executor}
 import com.daml.caching.CaffeineCache
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.User
-import com.daml.ledger.participant.state.index.v2.{UserManagementStore, UserUpdate}
 import com.daml.ledger.participant.state.index.v2.UserManagementStore.{Result, UserInfo}
+import com.daml.ledger.participant.state.index.v2.{UserManagementStore, UserUpdate}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.LoggingContext

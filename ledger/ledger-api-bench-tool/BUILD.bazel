@@ -56,7 +56,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-resources",
         "//ledger/metrics",
-        "//ledger/participant-state-index",
+        "//ledger/participant-local-store",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
