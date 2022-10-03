@@ -23,8 +23,6 @@ public final class DamlList extends Value {
     return damlList;
   }
 
-  private static DamlList EMPTY = fromPrivateList(Collections.EMPTY_LIST);
-
   public static DamlList of(@NonNull List<@NonNull Value> values) {
     return fromPrivateList(new ArrayList<>(values));
   }
