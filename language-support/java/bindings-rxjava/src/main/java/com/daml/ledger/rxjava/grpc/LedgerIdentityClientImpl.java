@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
+@Deprecated
 public class LedgerIdentityClientImpl implements LedgerIdentityClient {
 
   private LedgerIdentityServiceGrpc.LedgerIdentityServiceFutureStub serviceStub;
