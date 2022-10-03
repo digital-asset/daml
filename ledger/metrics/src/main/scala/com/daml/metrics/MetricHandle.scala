@@ -35,24 +35,29 @@ object MetricHandle {
         name: MetricName,
         newGauge: => T,
         resetGauge: (T => Unit),
+    ): Gauge[T, M] = gauge(name, registry.register(name, newGauge), resetGauge)
+
+    def gaugeWithSupplier[T <: codahale.Gauge[M], M](
+      name: MetricName,
+      gaugeSupplier: MetricSupplier[codahale.Gauge[_]],
+    ): Gauge[T, M] =
+      gauge(name, registry.gauge(name, gaugeSupplier).asInstanceOf[T], _ => ())
+
+    def gauge[T <: codahale.Gauge[M], M](
+        name: MetricName,
+        registerGauge: => T,
+        resetGauge: (T => Unit),
     ): Gauge[T, M] = blocking {
       synchronized {
         registry.remove(name)
         val res: Gauge[T, M] = {
-          val gauge = newGauge
-          registry.register(name, gauge)
+          val gauge = registerGauge
           Gauge(name, gauge)
         }
         resetGauge(res.metric)
         res
       }
     }
-
-    def gaugeWithSupplier[T <: codahale.Gauge[M], M](
-        name: MetricName,
-        gaugeSupplier: MetricSupplier[codahale.Gauge[_]],
-    ): Gauge[T, M] =
-      addGauge(name, registry.gauge(name, gaugeSupplier).asInstanceOf[T], _ => ())
 
     def meter(name: MetricName): Meter = {
       // This is idempotent
