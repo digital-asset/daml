@@ -265,6 +265,8 @@
   type: jar-scala
 - target: //libs-scala/nameof:nameof
   type: jar-scala
+- target: //libs-scala/struct-json:struct-json
+  type: jar-scala
 - target: //ledger/error:error
   type: jar-scala
 - target: //ledger/error:error-test-lib

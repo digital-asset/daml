@@ -12,6 +12,10 @@ Interfaces
 
   **viewtype** `TokenView <type-retroactiveinterfaceinstance-tokenview-57374_>`_
 
+  + **Choice Archive**
+
+    (no fields)
+
   + **Choice GetRich**
 
     .. list-table::

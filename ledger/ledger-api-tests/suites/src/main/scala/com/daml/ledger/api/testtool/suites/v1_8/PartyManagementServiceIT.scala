@@ -296,9 +296,10 @@ final class PartyManagementServiceIT
     "It should get details for multiple parties, if they exist",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
+    val useMeta = ledger.features.userAndPartyLocalMetadataExtensions
     for {
       party1 <- ledger.allocateParty(
-        partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
+        partyIdHint = Some("PMGetPartiesDetails_" + Random.alphanumeric.take(10).mkString),
         displayName = Some("Alice"),
         localMetadata = Some(
           ObjectMeta(
@@ -307,7 +308,7 @@ final class PartyManagementServiceIT
         ),
       )
       party2 <- ledger.allocateParty(
-        partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
+        partyIdHint = Some("PMGetPartiesDetails_" + Random.alphanumeric.take(10).mkString),
         displayName = Some("Bob"),
         localMetadata = Some(
           ObjectMeta(
@@ -327,13 +328,15 @@ final class PartyManagementServiceIT
             party = Ref.Party.assertFromString(Tag.unwrap(party1)),
             displayName = "Alice",
             isLocal = true,
-            localMetadata = Some(ObjectMeta(annotations = Map("k1" -> "v1"))),
+            localMetadata =
+              if (useMeta) Some(ObjectMeta(annotations = Map("k1" -> "v1"))) else Some(ObjectMeta()),
           ),
           PartyDetails(
             party = Ref.Party.assertFromString(Tag.unwrap(party2)),
             displayName = "Bob",
             isLocal = true,
-            localMetadata = Some(ObjectMeta(annotations = Map("k2" -> "v2"))),
+            localMetadata =
+              if (useMeta) Some(ObjectMeta(annotations = Map("k2" -> "v2"))) else Some(ObjectMeta()),
           ),
         ),
         s"The allocated parties, ${Seq(party1, party2)}, were not retrieved successfully. Instead, got $partyDetails.",
@@ -354,6 +357,7 @@ final class PartyManagementServiceIT
     "It should list all known, previously-allocated parties",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
+    val useMeta = ledger.features.userAndPartyLocalMetadataExtensions
     for {
       party1 <- ledger.allocateParty(
         partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
@@ -387,7 +391,8 @@ final class PartyManagementServiceIT
             party = party1.toString,
             displayName = "",
             isLocal = true,
-            localMetadata = Some(ObjectMeta(annotations = Map("k1" -> "v1"))),
+            localMetadata =
+              if (useMeta) Some(ObjectMeta(annotations = Map("k1" -> "v1"))) else Some(ObjectMeta()),
           ),
           PartyDetails(
             party = party2.toString,

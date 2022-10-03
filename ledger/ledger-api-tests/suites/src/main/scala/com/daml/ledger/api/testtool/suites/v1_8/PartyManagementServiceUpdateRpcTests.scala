@@ -25,6 +25,7 @@ trait PartyManagementServiceUpdateRpcTests {
   testWithFreshPartyDetails(
     "PMUpdateAllUpdatableFields",
     "Update all updatable fields",
+    requiresUserAndPartyLocalMetadataExtensions = true,
   )(annotations = Map("k1" -> "v1", "k2" -> "v2", "k3" -> "v3"))(implicit ec =>
     implicit ledger =>
       partyDetails =>
@@ -60,6 +61,7 @@ trait PartyManagementServiceUpdateRpcTests {
   testWithFreshPartyDetails(
     "PMFailAttemptingToUpdateIsLocal",
     "Fail attempting to update is_local attribute",
+    requiresUserAndPartyLocalMetadataExtensions = true,
   )()(implicit ec =>
     implicit ledger =>
       partyDetails =>
@@ -85,6 +87,7 @@ trait PartyManagementServiceUpdateRpcTests {
   testWithFreshPartyDetails(
     "PMFailAttemptingToUpdateDisplayName",
     "Fail attempting to update display_name attribute",
+    requiresUserAndPartyLocalMetadataExtensions = true,
   )()(implicit ec =>
     implicit ledger =>
       partyDetails =>
@@ -110,6 +113,7 @@ trait PartyManagementServiceUpdateRpcTests {
   testWithFreshPartyDetails(
     "PMAllowSpecifyingIsLocalAndDisplayNameIfMatchingTheRealValues",
     "Allow specifying is_local and display_name if values in the update request match real values",
+    requiresUserAndPartyLocalMetadataExtensions = true,
   )(displayName = "displayName1")(implicit ec =>
     implicit ledger =>
       partyDetails =>
@@ -137,6 +141,7 @@ trait PartyManagementServiceUpdateRpcTests {
   testWithFreshPartyDetails(
     "UpdatePartyDetailsEvenIfMetadataIsNotSetInUpdateRequest",
     "Update a party details even if the metadata field is not set in the update request",
+    requiresUserAndPartyLocalMetadataExtensions = true,
   )()(implicit ec =>
     implicit ledger =>
       partyDetails =>

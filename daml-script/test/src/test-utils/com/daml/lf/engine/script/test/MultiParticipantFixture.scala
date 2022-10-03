@@ -54,7 +54,7 @@ trait MultiParticipantFixture
           val domainPublicApi = LockedFreePort.find()
           val domainAdminApi = LockedFreePort.find()
           val cantonPath = rlocation(
-            "external/canton/lib/canton-open-source-2.4.0-SNAPSHOT.jar"
+            "external/canton/lib/canton-open-source-2.5.0-SNAPSHOT.jar"
           )
           val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
           val java = s"${System.getenv("JAVA_HOME")}/bin/java${exe}"

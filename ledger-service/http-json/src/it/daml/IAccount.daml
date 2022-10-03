@@ -14,9 +14,23 @@ data IAccountViewType = IAccountViewType with
 
 interface IAccount where
   viewtype IAccountViewType
+
+  changeAmountImpl : Text -> Update (ContractId IAccount)
+
+  choice ChangeAmount : ContractId IAccount
+    with
+      newAmount : Text
+    controller (view this).owner
+    do
+      changeAmountImpl this newAmount
+
   interface instance IAccount for Account where
     view = IAccountViewType with
       owner = owner
       amount = number
       isAbcPrefix = isPrefixOf "abc" number
       is123Suffix = isSuffixOf "123" number
+
+    changeAmountImpl newAmount = do
+          cid <- create this with number = newAmount
+          pure (toInterfaceContractId @IAccount cid)

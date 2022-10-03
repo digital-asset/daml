@@ -164,7 +164,7 @@ private[export] object Encode {
           Doc.text("Some new -> new")).nested(2)).nested(2)
 
   private def encodePartyType(): Doc =
-    Doc.text("-- | Mapping from party names in the original ledger state ") /
+    Doc.text("-- | Mapping from party names in the original ledger state") /
       Doc.text("-- to parties to be used in 'export'.") /
       Doc.text("type Parties = DA.TextMap.TextMap Party")
 
@@ -191,6 +191,7 @@ private[export] object Encode {
           tuple(value.fields.map(f => go(f.getValue.sum)))
         case Sum.Record(value) => encodeRecord(partyMap, cidMap, value)
         // TODO Handle sums of products properly
+        // https://github.com/digital-asset/daml/issues/14723
         case Sum.Variant(value) =>
           parens(
             qualifyId(value.getVariantId.copy(entityName = value.constructor)) +

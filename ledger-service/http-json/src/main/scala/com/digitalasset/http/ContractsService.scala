@@ -14,6 +14,7 @@ import com.daml.http.domain.{ContractTypeId, GetActiveContractsRequest, JwtPaylo
 import ContractTypeId.toLedgerApiValue
 import com.daml.http.json.JsonProtocol.LfValueCodec
 import com.daml.http.query.ValuePredicate
+import com.daml.metrics.MetricHandle.Timer
 import com.daml.fetchcontracts.util.{
   AbsoluteBookmark,
   ContractStreamStep,
@@ -43,7 +44,6 @@ import spray.json.JsValue
 import scala.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import scalaz.std.scalaFuture._
-import com.codahale.metrics.Timer
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
 

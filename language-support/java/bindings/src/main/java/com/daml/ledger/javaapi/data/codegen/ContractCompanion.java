@@ -20,11 +20,39 @@ import java.util.function.Function;
  * @param <Data> The generated {@link com.daml.ledger.javaapi.data.Template} subclass named after
  *     the template, whose instances contain only the payload.
  */
-public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompanion {
+public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompanion<Data, Data> {
   final String templateClassName; // not something we want outside this package
 
   protected final Function<String, Id> newContractId;
   protected final Function<DamlRecord, Data> fromValue;
+
+  /**
+   * Static method to generate an implementation of {@code ValueDecoder} of type {@code Data} with
+   * metadata from the provided {@code ContractCompanion}.
+   *
+   * @param companion an instance of {@code ContractCompanion}.
+   * @return The {@code ValueDecoder} for parsing {@code Value} to get an instance of {@code Data}.
+   */
+  public static <Data> ValueDecoder<Data> valueDecoder(
+      ContractCompanion<?, ? extends ContractId<Data>, Data> companion) {
+    return new ValueDecoder<>() {
+      @Override
+      public Data decode(Value value) {
+        DamlRecord record =
+            value
+                .asRecord()
+                .orElseThrow(
+                    () ->
+                        new IllegalArgumentException("Contracts must be constructed from Records"));
+        return companion.fromValue.apply(record);
+      }
+
+      @Override
+      public ContractId<Data> fromContractId(String contractId) {
+        return companion.newContractId.apply(contractId);
+      }
+    };
+  }
 
   /**
    * Tries to parse a contract from an event expected to create a {@code Ct} contract.

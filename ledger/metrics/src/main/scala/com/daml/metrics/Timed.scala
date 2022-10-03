@@ -7,7 +7,8 @@ import java.util.concurrent.CompletionStage
 
 import akka.Done
 import akka.stream.scaladsl.{Keep, Source}
-import com.codahale.metrics.{Counter, Meter, Timer}
+import com.codahale.{metrics => codahale}
+import com.daml.metrics.MetricHandle.{Counter, Meter, Timer}
 import com.daml.concurrent
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -15,12 +16,15 @@ import scala.concurrent.{ExecutionContext, Future}
 object Timed {
 
   def value[T](timer: Timer, value: => T): T =
+    this.value[T](timer.metric, value)
+
+  def value[T](timer: codahale.Timer, value: => T): T =
     timer.time(() => value)
 
   def trackedValue[T](meter: Meter, value: => T): T = {
-    meter.mark(+1)
+    meter.metric.mark(+1)
     val result = value
-    meter.mark(-1)
+    meter.metric.mark(-1)
     result
   }
 
@@ -37,9 +41,9 @@ object Timed {
   }
 
   def trackedCompletionStage[T](meter: Meter, future: => CompletionStage[T]): CompletionStage[T] = {
-    meter.mark(+1)
+    meter.metric.mark(+1)
     future.whenComplete { (_, _) =>
-      meter.mark(-1)
+      meter.metric.mark(-1)
       ()
     }
   }
@@ -53,6 +57,10 @@ object Timed {
   }
 
   def future[T](timer: Timer, future: => Future[T]): Future[T] = {
+    this.future[T](timer.metric, future)
+  }
+
+  def future[T](timer: codahale.Timer, future: => Future[T]): Future[T] = {
     val ctx = timer.time()
     val result = future
     result.onComplete(_ => ctx.stop())(ExecutionContext.parasitic)
@@ -67,13 +75,13 @@ object Timed {
   }
 
   def trackedFuture[T](counter: Counter, future: => Future[T]): Future[T] = {
-    counter.inc()
-    future.andThen { case _ => counter.dec() }(ExecutionContext.parasitic)
+    counter.metric.inc()
+    future.andThen { case _ => counter.metric.dec() }(ExecutionContext.parasitic)
   }
 
   def trackedFuture[T](meter: Meter, future: => Future[T]): Future[T] = {
-    meter.mark(+1)
-    future.andThen { case _ => meter.mark(-1) }(ExecutionContext.parasitic)
+    meter.metric.mark(+1)
+    future.andThen { case _ => meter.metric.mark(-1) }(ExecutionContext.parasitic)
   }
 
   def timedAndTrackedFuture[T](timer: Timer, counter: Counter, future: => Future[T]): Future[T] = {

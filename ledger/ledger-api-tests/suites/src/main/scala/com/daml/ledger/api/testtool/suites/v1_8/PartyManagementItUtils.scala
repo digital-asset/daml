@@ -84,6 +84,7 @@ trait PartyManagementItUtils { self: PartyManagementServiceIT =>
   def testWithFreshPartyDetails(
       shortIdentifier: String,
       description: String,
+      requiresUserAndPartyLocalMetadataExtensions: Boolean,
   )(
       annotations: Map[String, String] = Map.empty,
       displayName: String = "",
@@ -94,7 +95,8 @@ trait PartyManagementItUtils { self: PartyManagementServiceIT =>
       shortIdentifier = shortIdentifier,
       description = description,
       partyAllocation = allocate(NoParties),
-      enabled = (features: Features) => features.userAndPartyLocalMetadataExtensions,
+      enabled = (features: Features) =>
+        !requiresUserAndPartyLocalMetadataExtensions || features.userAndPartyLocalMetadataExtensions,
     )(implicit ec => { case Participants(Participant(ledger)) =>
       withFreshParty(
         annotations = annotations,
@@ -102,6 +104,24 @@ trait PartyManagementItUtils { self: PartyManagementServiceIT =>
       ) { partyDetails =>
         body(ec)(ledger)(partyDetails)
       }(ledger, ec)
+    })
+  }
+
+  def testWithoutPartyDetails(
+      shortIdentifier: String,
+      description: String,
+      requiresUserAndPartyLocalMetadataExtensions: Boolean,
+  )(
+      body: ExecutionContext => ParticipantTestContext => Future[Unit]
+  ): Unit = {
+    test(
+      shortIdentifier = shortIdentifier,
+      description = description,
+      partyAllocation = allocate(NoParties),
+      enabled = (features: Features) =>
+        !requiresUserAndPartyLocalMetadataExtensions || features.userAndPartyLocalMetadataExtensions,
+    )(implicit ec => { case Participants(Participant(ledger)) =>
+      body(ec)(ledger)
     })
   }
 

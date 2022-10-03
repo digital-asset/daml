@@ -142,7 +142,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       };
     }
 
-    module Test{
+    module Test {
       val noParty: Option Party = None @Party;
       val someParty: Party -> Option Party = \(p: Party) -> Some @Party p;
       val noCid: Option (ContractId Unit) = None @(ContractId Unit);
@@ -187,7 +187,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
           in ubind
             helperId: ContractId Test:Helper <- Test:createHelper exercisingParty;
-            x: M:Nested <-exercise @Test:Helper Exe helperId arg
+            x: M:Nested <- exercise @Test:Helper Exe helperId arg
           in upure @Unit ();
 
       val fetch_by_id: Party -> ContractId M:T -> Update Unit =
@@ -326,23 +326,24 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
     ),
   )
 
-  private[this] def buildContract(observer: Party) = Versioned(
-    TransactionVersion.StableVersions.max,
-    Value.ContractInstance(
-      T,
-      Value.ValueRecord(
-        None,
-        ImmArray(
-          None -> Value.ValueParty(alice),
-          None -> Value.ValueParty(observer),
-          None -> Value.ValueTrue,
-          None -> keyValue,
-          None -> emptyNestedValue,
+  private[this] def buildContract(observer: Party): Versioned[Value.ContractInstance] =
+    Versioned(
+      TransactionVersion.StableVersions.max,
+      Value.ContractInstance(
+        T,
+        Value.ValueRecord(
+          None,
+          ImmArray(
+            None -> Value.ValueParty(alice),
+            None -> Value.ValueParty(observer),
+            None -> Value.ValueTrue,
+            None -> keyValue,
+            None -> emptyNestedValue,
+          ),
         ),
+        "agreement",
       ),
-      "agreement",
-    ),
-  )
+    )
 
   private[this] def buildDisclosedContract(signatory: Party): Versioned[DisclosedContract] =
     Versioned(
@@ -455,7 +456,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
   // is rejected in both cases “only” change the error message which is relatively harmless.
   // Specifically this means that we need to test ordering of catchable errors
   // relative to other catchable errors and other non-catchable errors but we don’t
-  // need to check ordering of non-catchable errors relative to other non-cachable errors.
+  // need to check ordering of non-catchable errors relative to other non-catchable errors.
 
   "evaluation order" - {
 
@@ -1595,7 +1596,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq("starts test", "maintainers")
         }
       }
-
     }
 
     List("exercise_interface", "exercise_interface_with_guard").foreach { testCase =>

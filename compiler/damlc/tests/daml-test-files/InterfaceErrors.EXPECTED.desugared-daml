@@ -36,6 +36,29 @@ instance DA.Internal.Desugar.HasIsInterfaceType MyInterface where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq MyInterface where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive MyInterface where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+instance DA.Internal.Desugar.HasToAnyChoice MyInterface DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice _
+    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [MyInterface])
+instance DA.Internal.Desugar.HasFromAnyChoice MyInterface DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice _
+    = GHC.Types.primitive
+        @"EFromAnyInterfaceChoice" ([] : [MyInterface])
+instance DA.Internal.Desugar.HasExerciseGuarded MyInterface DA.Internal.Desugar.Archive (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @MyInterface cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @MyInterface cid pred)
+instance DA.Internal.Desugar.HasExercise MyInterface DA.Internal.Desugar.Archive (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @MyInterface cid)
+        arg
 instance DA.Internal.Desugar.HasToAnyChoice MyInterface MyVirtualChoice (()) where
   _toAnyChoice _
     = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [MyInterface])
@@ -59,6 +82,20 @@ instance DA.Internal.Desugar.HasExercise MyInterface MyVirtualChoice (()) where
 data MyVirtualChoice
   = MyVirtualChoice {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+_choice_MyInterfaceArchive :
+  (MyInterface
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId MyInterface
+   -> MyInterface
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming MyInterface,
+   DA.Internal.Desugar.Optional (MyInterface
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_MyInterfaceArchive
+  = (\ this arg@DA.Internal.Desugar.Archive
+       -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
 _choice_MyInterfaceMyVirtualChoice :
   (MyInterface -> MyVirtualChoice -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId MyInterface

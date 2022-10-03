@@ -162,6 +162,19 @@ private[lf] object Speedy {
     private[lf] def incompleteTransaction: IncompleteTransaction = ptx.finishIncomplete
     private[lf] def nodesToString: String = ptx.nodesToString
 
+    private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
+      ptx.disclosedContractIds.contains(contractId)
+
+    private[speedy] def isDisclosedContractKey(
+        contractId: V.ContractId,
+        key: GlobalKey,
+    ): Boolean = {
+      isDisclosedContract(contractId) && disclosureKeyTable.isValidDisclosedContractKeyEntry(
+        key,
+        contractId,
+      )
+    }
+
     private[speedy] def updateCachedContracts(cid: V.ContractId, contract: CachedContract): Unit = {
       enforceLimit(
         contract.signatories.size,
@@ -256,6 +269,13 @@ private[lf] object Speedy {
 
     private[speedy] def contractIdByKey(keyHash: crypto.Hash): Option[SValue.SContractId] =
       keyMap.get(keyHash)
+
+    private[speedy] def isValidDisclosedContractKeyEntry(
+        key: GlobalKey,
+        contractId: V.ContractId,
+    ): Boolean = {
+      contractIdByKey(key.hash).map(_.value).contains(contractId)
+    }
 
     private[speedy] def toMap: Map[crypto.Hash, SValue.SContractId] = keyMap.toMap
   }
@@ -815,18 +835,27 @@ private[lf] object Speedy {
         cid: V.ContractId,
         contract: CachedContract,
     ): Unit = {
-      onLedger.visibleToStakeholders(contract.stakeholders) match {
-        case SVisibleToStakeholders.Visible => ()
-        case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-          val readers = (actAs union readAs).mkString(",")
-          val stakeholders = contract.stakeholders.mkString(",")
-          this.warningLog.add(
-            Warning(
-              commitLocation = onLedger.commitLocation,
-              message =
-                s"Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid} but none of the reading parties [${readers}] are contract stakeholders [${stakeholders}]. Use of divulged contracts is deprecated and incompatible with pruning. To remedy, add one of the readers [${readers}] as an observer to the contract.",
+      // For disclosed contracts, we do not perform visibility checking
+      if (!onLedger.isDisclosedContract(cid)) {
+        onLedger.visibleToStakeholders(contract.stakeholders) match {
+          case SVisibleToStakeholders.Visible =>
+            ()
+
+          case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+            val readers = (actAs union readAs).mkString(",")
+            val stakeholders = contract.stakeholders.mkString(",")
+            this.warningLog.add(
+              Warning(
+                commitLocation = onLedger.commitLocation,
+                message =
+                  s"""Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid}
+                    | but none of the reading parties [$readers] are contract stakeholders [$stakeholders].
+                    | Use of divulged contracts is deprecated and incompatible with pruning.
+                    | To remedy, add one of the readers [$readers] as an observer to the contract.
+                    |""".stripMargin.replaceAll("\r|\n", ""),
+              )
             )
-          )
+        }
       }
     }
 
@@ -836,26 +865,33 @@ private[lf] object Speedy {
         gkey: GlobalKey,
         coid: V.ContractId,
         handleKeyFound: (Machine, V.ContractId) => Control,
-    ): Control =
-      onLedger.getCachedContract(coid) match {
-        case Some(cachedContract) =>
-          val stakeholders = cachedContract.signatories union cachedContract.observers
-          onLedger.visibleToStakeholders(stakeholders) match {
-            case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-              throw SErrorDamlException(
-                interpretation.Error
-                  .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
-              )
-            case _ =>
-              handleKeyFound(this, coid)
-          }
-        case None =>
-          throw SErrorCrash(
-            NameOf.qualifiedNameOfCurrentFunc,
-            s"contract ${coid.coid} not in cachedContracts",
-          )
-      }
+    ): Control = {
+      // For disclosed contract keys, we do not perform visibility checking
+      if (onLedger.isDisclosedContractKey(coid, gkey)) {
+        handleKeyFound(this, coid)
+      } else {
+        onLedger.getCachedContract(coid) match {
+          case Some(cachedContract) =>
+            val stakeholders = cachedContract.signatories union cachedContract.observers
+            onLedger.visibleToStakeholders(stakeholders) match {
+              case SVisibleToStakeholders.Visible =>
+                handleKeyFound(this, coid)
 
+              case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+                throw SErrorDamlException(
+                  interpretation.Error
+                    .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+                )
+            }
+
+          case None =>
+            throw SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"contract ${coid.coid} not in cachedContracts",
+            )
+        }
+      }
+    }
   }
 
   object Machine {
@@ -1410,8 +1446,6 @@ private[lf] object Speedy {
     def execute(sv: SValue): Control = {
       machine.withOnLedger("KCacheContract") { onLedger =>
         val cached = SBuiltin.extractCachedContract(machine, sv)
-        // TODO (drsk) disable this check for disclosed contracts.
-        // https://github.com/digital-asset/daml/issues/14168
         machine.checkContractVisibility(onLedger, cid, cached)
         onLedger.addGlobalContract(cid, cached)
         Control.Value(cached.any)

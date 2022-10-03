@@ -4,14 +4,8 @@
 package com.daml.ledger.api.testtool.suites.v1_8.object_meta
 
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.testtool.infrastructure.Allocation.{
-  NoParties,
-  Participant,
-  Participants,
-  allocate,
-}
 import com.daml.ledger.api.testtool.infrastructure.ExpectedErrorDescription
-import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.suites.v1_8.PartyManagementServiceIT
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.party_management_service.{
@@ -60,6 +54,7 @@ trait ObjectMetaTestsForPartyManagementService extends ObjectMetaTests with Obje
     testWithFreshPartyDetails(
       shortIdentifier = shortIdentifier,
       description = description,
+      requiresUserAndPartyLocalMetadataExtensions = true,
     )(annotations = annotations)(body)
   }
 
@@ -69,14 +64,11 @@ trait ObjectMetaTestsForPartyManagementService extends ObjectMetaTests with Obje
   )(
       body: ExecutionContext => ParticipantTestContext => Future[Unit]
   ): Unit = {
-    test(
+    testWithoutPartyDetails(
       shortIdentifier = shortIdentifier,
       description = description,
-      partyAllocation = allocate(NoParties),
-      enabled = (features: Features) => features.userAndPartyLocalMetadataExtensions,
-    )(implicit ec => { case Participants(Participant(ledger)) =>
-      body(ec)(ledger)
-    })
+      requiresUserAndPartyLocalMetadataExtensions = true,
+    )(body)
   }
 
   override private[object_meta] def createResourceWithAnnotations(
