@@ -67,7 +67,7 @@ is of type ``T``, i.e. the implicit record defined by the template.
 Within choices, you can additionally use the binding ``self`` to refer to the
 contract ID of the current contract (the one on which the choice is being
 executed). For a contract of template ``T``, the ``self`` binding is of type
-``ContractId T``. 
+``ContractId T``.
 
 .. _daml-ref-template-let:
 
@@ -187,10 +187,6 @@ Contract Keys and Maintainers
 
 Interface Instances
 *******************
-
-.. warning::
-  This feature is under active development and not officially supported in
-  production environments.
 
 .. literalinclude:: ../code-snippets-dev/Interfaces.daml
    :language: daml
