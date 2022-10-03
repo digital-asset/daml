@@ -10,6 +10,8 @@ import com.daml.ledger.javaapi.data.Identifier;
  * disambiguate various generated {@code toInterface} overloads.
  *
  * @param <I> The generated interface marker class.
+ * @param <View> The {@link DamlRecord} subclass representing the interface view, as may be
+ *     retrieved from the ACS or transaction stream.
  */
 public abstract class InterfaceCompanion<I, View> extends ContractTypeCompanion<I, View> {
 
