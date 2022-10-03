@@ -15,6 +15,10 @@ import java.util.function.Function;
  * Metadata and utilities associated with a template as a whole, rather than one single contract
  * made from that template.
  *
+ * <p>Application code <em>should not</em> instantiate or subclass; instead, refer to the {@code
+ * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses. All
+ * {@code protected} members herein are considered part of the <strong>INTERNAL API</strong>.
+ *
  * @param <Ct> The {@link Contract} subclass generated within the template class.
  * @param <Id> The {@link ContractId} subclass generated within the template class.
  * @param <Data> The generated {@link com.daml.ledger.javaapi.data.Template} subclass named after
