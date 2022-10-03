@@ -16,6 +16,7 @@ object InterfaceClass extends StrictLogging {
 
   def generate(
       interfaceName: ClassName,
+      interfaceViewTypeName: ClassName,
       interface: DefInterface.FWT,
       packagePrefixes: Map[PackageId, String],
       typeDeclarations: Map[QualifiedName, typesig.PackageSignature.TypeDecl],
@@ -51,7 +52,12 @@ object InterfaceClass extends StrictLogging {
           TemplateClass.generateCreateAndClass(-\/(ContractIdClass.For.Interface))
         )
         .addType(TemplateClass.generateByKeyClass(-\/(ContractIdClass.For.Interface)))
-        .addType(generateInterfaceCompanionClass(interfaceName = interfaceName))
+        .addType(
+          generateInterfaceCompanionClass(
+            interfaceName = interfaceName,
+            interfaceViewTypeName = interfaceViewTypeName,
+          )
+        )
         .addMethod {
           // interface classes are not inhabited
           MethodSpec.constructorBuilder().addModifiers(Modifier.PRIVATE).build()
@@ -75,18 +81,27 @@ object InterfaceClass extends StrictLogging {
       .initializer("new $N()", companionName)
       .build()
 
-  private def generateInterfaceCompanionClass(interfaceName: ClassName): TypeSpec = TypeSpec
+  private def generateInterfaceCompanionClass(
+      interfaceName: ClassName,
+      interfaceViewTypeName: ClassName,
+  ): TypeSpec = TypeSpec
     .classBuilder(companionName)
     .superclass(
       ParameterizedTypeName
-        .get(ClassName get classOf[InterfaceCompanion[_]], interfaceName)
+        .get(ClassName get classOf[InterfaceCompanion[_, _]], interfaceName, interfaceViewTypeName)
     )
     .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
     .addMethod {
       MethodSpec
         .constructorBuilder()
         // intentionally package-private
-        .addStatement("super($T.$N)", interfaceName, ClassGenUtils.templateIdFieldName)
+        .addStatement(
+          "super($T.$N, $T.$L())",
+          interfaceName,
+          ClassGenUtils.templateIdFieldName,
+          interfaceViewTypeName,
+          "valueDecoder",
+        )
         .build()
     }
     .build()
