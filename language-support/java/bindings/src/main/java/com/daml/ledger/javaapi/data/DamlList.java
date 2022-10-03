@@ -27,7 +27,6 @@ public final class DamlList extends Value {
     return fromPrivateList(new ArrayList<>(values));
   }
 
-  @SafeVarargs
   public static DamlList of(@NonNull Value... values) {
     return fromPrivateList(Arrays.asList(values));
   }
@@ -38,7 +37,6 @@ public final class DamlList extends Value {
   }
 
   @Deprecated // use DamlMap:of
-  @SafeVarargs
   public DamlList(@NonNull Value... values) {
     this(Arrays.asList(values));
   }
