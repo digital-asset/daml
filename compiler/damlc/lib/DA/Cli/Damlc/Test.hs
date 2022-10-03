@@ -169,6 +169,11 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
               , percentage coveredNrOfTemplates nrOfTemplates <> ","
               , "choices"
               , percentage coveredNrOfChoices nrOfChoices
+              , unlines $
+                  ["templates:"] <> [printFullTemplateName (fullTemplateName pidM m t) | (pidM, m, t) <- templates] <>
+                  ["choices:"] <> [printFullTemplateName (fullTemplateName pidM m t) <> ":" <> T.unpack c | (pidM, m, t, LF.ChoiceName c) <- choices] <>
+                  ["covered templates:"] <> map printFullTemplateName (S.toList coveredTemplates) <>
+                  ["covered choices:"] <> [printFullTemplateName tName <> ":" <> T.unpack c | (tName, c) <- S.toList coveredChoices]
               ]
       when getShowCoverage $ do
           putStrLn $
@@ -190,7 +195,7 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
       | j > 0 = show (round @Double $ 100.0 * (fromIntegral i / fromIntegral j) :: Int) <> "%"
       | otherwise = "100%"
     allScenarioNodes = [n | (_vr, Right res) <- results, n <- V.toList $ SS.scenarioResultNodes res]
-    coveredTemplates =
+    coveredTemplatesAll =
         nubSort $
         [ templateId
         | n <- allScenarioNodes
@@ -199,13 +204,19 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
         , Just contractInstance <- [node_CreateContractInstance]
         , Just templateId <- [SS.contractInstanceTemplateId contractInstance]
         ]
+    coveredTemplates =
+        S.fromList [fullTemplateName pidM m t | (pidM, m, t) <- templates] `S.intersection`
+        S.fromList
+            [ fullTemplateNameProto tId
+            | tId <- coveredTemplatesAll
+            ]
     missingTemplates =
         S.fromList [fullTemplateName pidM m t | (pidM, m, t) <- templates] `S.difference`
         S.fromList
             [ fullTemplateNameProto tId
-            | tId <- coveredTemplates
+            | tId <- coveredTemplatesAll
             ]
-    coveredChoices =
+    coveredChoicesAll =
         nubSort $
         [ (templateId, node_ExerciseChoiceId)
         | n <- allScenarioNodes
@@ -214,11 +225,17 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
                                                      }) <- [SS.nodeNode n]
         , Just templateId <- [node_ExerciseTemplateId]
         ]
+    coveredChoices =
+        S.fromList [(fullTemplateName pidM m t, LF.unChoiceName n) | (pidM, m, t, n) <- choices] `S.intersection`
+        S.fromList
+            [ (fullTemplateNameProto t, TL.toStrict c)
+            | (t, c) <- coveredChoicesAll
+            ]
     missingChoices =
         S.fromList [(fullTemplateName pidM m t, LF.unChoiceName n) | (pidM, m, t, n) <- choices] `S.difference`
         S.fromList
             [ (fullTemplateNameProto t, TL.toStrict c)
-            | (t, c) <- coveredChoices
+            | (t, c) <- coveredChoicesAll
             ]
     nrOfTemplates = length templates
     nrOfChoices = length choices
