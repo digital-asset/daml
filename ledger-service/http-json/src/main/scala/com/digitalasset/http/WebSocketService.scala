@@ -189,6 +189,8 @@ object WebSocketService {
     def resolve[Q](
         offPrefix: Option[StartingOffset],
         query: Query[Q],
+        resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
+        resolveTemplateId: PackageService.ResolveTemplateId,
     ): Future[Error \/ WSResolvedQuery[Q]]
   }
 
@@ -196,6 +198,7 @@ object WebSocketService {
       offPrefix: Option[StartingOffset],
       query: Query[Q],
       resolvedQuery: domain.ResolvedQuery,
+      unresolved: Set[domain.ContractTypeId.OptionalPkg],
   )
 
   sealed trait StreamQuery[A] {
@@ -264,9 +267,11 @@ object WebSocketService {
       override def resolve[Q](
           offPrefix: Option[StartingOffset],
           query: Query[Q],
+          resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
+          resolveTemplateId: PackageService.ResolveTemplateId,
       ) = {
         // TODO Fix Ray
-        Future.successful(\/-(WSResolvedQuery(offPrefix, query, ResolvedQuery.Empty)))
+        Future.successful(\/-(WSResolvedQuery(offPrefix, query, ResolvedQuery.Empty, Set())))
       }
 
       override def removePhantomArchives(request: SearchForeverRequest) = None
@@ -446,9 +451,11 @@ object WebSocketService {
       override def resolve[Q](
           offPrefix: Option[StartingOffset],
           query: Query[Q],
+          resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
+          resolveTemplateId: PackageService.ResolveTemplateId,
       ) = {
         // TODO fix Ray
-        Future.successful(\/-(WSResolvedQuery(offPrefix, query, ResolvedQuery.Empty)))
+        Future.successful(\/-(WSResolvedQuery(offPrefix, query, ResolvedQuery.Empty, Set())))
       }
 
       private def decodeWithFallback[Hint](
@@ -585,6 +592,8 @@ object WebSocketService {
 
 class WebSocketService(
     contractsService: ContractsService,
+    resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
+    resolveTemplateId: PackageService.ResolveTemplateId,
     decoder: DomainJsonDecoder,
     lookupType: ValuePredicate.TypeLookup,
     wsConfig: Option[WebsocketConfig],
@@ -650,7 +659,7 @@ class WebSocketService(
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): Flow[Message, Message, NotUsed] = {
-    val Q = implicitly[StreamQueryReader[A]]
+    val sqReader = implicitly[StreamQueryReader[A]]
     Flow[Message]
       .mapAsync(1)(parseJson)
       .via(withOptPrefix(ejv => ejv.toOption flatMap readStartingOffset))
@@ -659,7 +668,7 @@ class WebSocketService(
           offPrefix <- either[Future, Error, Option[StartingOffset]](oeso.sequence)
           jv <- either[Future, Error, JsValue](ejv)
           a <- eitherT(
-            Q.parse(
+            sqReader.parse(
               resumingAtOffset = offPrefix.isDefined,
               decoder,
               jv,
@@ -680,7 +689,7 @@ class WebSocketService(
         (for {
           e <- eitherT(Future.successful(errorOrOffPrefixQuery))
           a <- eitherT(
-            Q.resolve(e._1, e._2): Future[
+            sqReader.resolve(e._1, e._2, resolveContractTypeId, resolveTemplateId): Future[
               Error \/ WSResolvedQuery[_]
             ]
           )
@@ -688,11 +697,11 @@ class WebSocketService(
       }
       .flatMapMerge(
         2, // 2 streams max, the 2nd is to be able to send an error back
-        _.map { case r: WSResolvedQuery[q] =>
+        _.map { case wsResolvedQuery: WSResolvedQuery[q] =>
           // TODO Ray fix downstream to use the WSResolvedQuery instead.
-          implicit val SQ: StreamQuery[q] = r.query.alg
+          implicit val SQ: StreamQuery[q] = wsResolvedQuery.query.alg
           getTransactionSourceForParty[q](
-            r,
+            wsResolvedQuery,
             jwt,
             toLedgerId(jwtPayload.ledgerId),
             jwtPayload.parties,
@@ -801,18 +810,17 @@ class WebSocketService(
       parties: domain.PartySet,
   )(implicit
       lc: LoggingContextOf[InstanceUUID],
-      Q: StreamQuery[A],
+      sq: StreamQuery[A],
   ): Source[Error \/ Message, NotUsed] = {
     val offPrefix = wsResolvedQuery.offPrefix
     val rawRequest = wsResolvedQuery.query.q
     // If there is a prefix, replace the empty offsets in the request with it
-    val request = Q.adjustRequest(offPrefix, rawRequest)
+    val request = sq.adjustRequest(offPrefix, rawRequest)
 
     Source
       .lazySource { () =>
-        val res = queryPredicate(request, jwt, ledgerId)
-        val StreamPredicate(resolved, unresolved, fn, _) = res
-        processResolved(Q, jwt, ledgerId, parties, request, offPrefix, resolved, unresolved)(fn)
+        val StreamPredicate(resolved, unresolved, fn, _) = queryPredicate(request, jwt, ledgerId)
+        processResolved(sq, jwt, ledgerId, parties, request, offPrefix, resolved, unresolved)(fn)
       }
       .mapMaterializedValue { _: Future[_] =>
         NotUsed
