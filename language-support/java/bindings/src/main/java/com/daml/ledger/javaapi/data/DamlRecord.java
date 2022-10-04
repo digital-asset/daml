@@ -23,25 +23,24 @@ public class DamlRecord extends Value {
     this(Arrays.asList(fields));
   }
 
-  public DamlRecord(@NonNull Identifier recordId, @NonNull List<@NonNull ? extends Field> fields) {
+  public DamlRecord(@NonNull Identifier recordId, @NonNull List<@NonNull Field> fields) {
     this(Optional.of(recordId), fields, fieldsListToHashMap(fields));
   }
 
-  public DamlRecord(@NonNull List<@NonNull ? extends Field> fields) {
+  public DamlRecord(@NonNull List<@NonNull Field> fields) {
     this(Optional.empty(), fields, fieldsListToHashMap(fields));
   }
 
   public DamlRecord(
       @NonNull Optional<Identifier> recordId,
-      @NonNull List<@NonNull ? extends Field> fields,
+      @NonNull List<@NonNull Field> fields,
       Map<String, Value> fieldsMap) {
     this.recordId = recordId;
-    this.fields = Collections.unmodifiableList(fields);
+    this.fields = fields;
     this.fieldsMap = fieldsMap;
   }
 
-  private static Map<String, Value> fieldsListToHashMap(
-      @NonNull List<@NonNull ? extends Field> fields) {
+  private static Map<String, Value> fieldsListToHashMap(@NonNull List<@NonNull Field> fields) {
     if (fields.isEmpty() || !fields.get(0).getLabel().isPresent()) {
       return Collections.emptyMap();
     } else {
