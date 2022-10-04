@@ -24,6 +24,10 @@
 >
 > **viewtype** [EmptyInterfaceView](#type-interface-emptyinterfaceview-28816)
 >
+> * **Choice Archive**
+>
+>   (no fields)
+>
 > * **Choice GetRich**
 >
 >   | Field                                                                          | Type                                                                           | Description |

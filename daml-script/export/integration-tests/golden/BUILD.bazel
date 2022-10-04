@@ -1,0 +1,55 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(":util.bzl", "daml_ledger_export_test")
+load("//rules_daml:daml.bzl", "daml_compile", "daml_test")
+
+# Compare the generated Daml ledger export to the example export used in the
+# documentation. This functions as both a golden test on ledger exports and to
+# make sure that the documentation stays up-to-date.
+daml_ledger_export_test(
+    name = "matches-docs",
+    dar = "//daml-script/test:script-test.dar",
+    expected_args_json = "//docs:source/tools/export/output-root/args.json",
+    expected_daml = "//docs:source/tools/export/output-root/Export.daml",
+    expected_daml_yaml = "//docs:source/tools/export/output-root/daml.yaml",
+    out_args_json = "args.json",
+    out_daml = "Export.daml",
+    out_daml_yaml = "daml.yaml",
+    parties = [
+        "Alice",
+        "Bob",
+    ],
+    script_identifier = "ScriptExample:initializeFixed",
+)
+
+daml_compile(
+    name = "export-values",
+    srcs = [":export-values/Values.daml"],
+    dependencies = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_ledger_export_test(
+    name = "export-values",
+    dar = ":export-values.dar",
+    expected_args_json = ":export-values/args.json",
+    expected_daml = ":export-values/Export.daml",
+    expected_daml_yaml = ":export-values/daml.yaml",
+    out_args_json = "out/args.json",
+    out_daml = "out/Export.daml",
+    out_daml_yaml = "out/daml.yaml",
+    parties = ["Bank"],
+    script_identifier = "Values:initialize",
+)
+
+# Test that 'Export.daml' actually compiles. We use the expected file instead
+# of the actual one, but if the test above passes they should be identical
+# (modulo normalization).
+daml_test(
+    name = "export-values-valid",
+    srcs = [
+        ":export-values/Export.daml",
+        ":export-values/Values.daml",
+    ],
+    deps = ["//daml-script/daml:daml-script.dar"],
+)

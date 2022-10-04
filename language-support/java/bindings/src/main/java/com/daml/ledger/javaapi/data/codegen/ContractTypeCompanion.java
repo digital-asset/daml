@@ -8,13 +8,18 @@ import com.daml.ledger.javaapi.data.Identifier;
 import java.util.List;
 
 /** The commonality between {@link ContractCompanion} and {@link InterfaceCompanion}. */
-public abstract class ContractTypeCompanion<Marker> {
+public abstract class ContractTypeCompanion<Maker, Data> {
   /** The full template ID of the template or interface that defined this companion. */
   public final Identifier TEMPLATE_ID;
-  //TODO: Need to figure out the right type params here
-  private final List<ChoiceMetadata<Marker, ?, ?>> choices;
+  private final List<ChoiceMetadata<Maker, ?, ?>> choices;
 
-  protected ContractTypeCompanion(Identifier templateId, List<ChoiceMetadata<Marker, ?, ?>> choices) {
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by {@link ContractCompanion} and {@link
+   * InterfaceCompanion}, and <em>should not be referenced directly</em>. Applications should refer
+   * to code-generated {@code COMPANION} and {@code INTERFACE} fields specific to the template or
+   * interface in question instead.
+   */
+  protected ContractTypeCompanion(Identifier templateId, List<ChoiceMetadata<Maker, ?, ?>> choices) {
     TEMPLATE_ID = templateId;
     this.choices = choices;
   }

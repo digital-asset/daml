@@ -26,7 +26,6 @@ import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
-import scala.annotation.nowarn
 import scala.annotation.tailrec
 import scala.collection.mutable
 
@@ -163,6 +162,19 @@ private[lf] object Speedy {
     private[lf] def incompleteTransaction: IncompleteTransaction = ptx.finishIncomplete
     private[lf] def nodesToString: String = ptx.nodesToString
 
+    private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
+      ptx.disclosedContractIds.contains(contractId)
+
+    private[speedy] def isDisclosedContractKey(
+        contractId: V.ContractId,
+        key: GlobalKey,
+    ): Boolean = {
+      isDisclosedContract(contractId) && disclosureKeyTable.isValidDisclosedContractKeyEntry(
+        key,
+        contractId,
+      )
+    }
+
     private[speedy] def updateCachedContracts(cid: V.ContractId, contract: CachedContract): Unit = {
       enforceLimit(
         contract.signatories.size,
@@ -257,6 +269,13 @@ private[lf] object Speedy {
 
     private[speedy] def contractIdByKey(keyHash: crypto.Hash): Option[SValue.SContractId] =
       keyMap.get(keyHash)
+
+    private[speedy] def isValidDisclosedContractKeyEntry(
+        key: GlobalKey,
+        contractId: V.ContractId,
+    ): Boolean = {
+      contractIdByKey(key.hash).map(_.value).contains(contractId)
+    }
 
     private[speedy] def toMap: Map[crypto.Hash, SValue.SContractId] = keyMap.toMap
   }
@@ -455,56 +474,10 @@ private[lf] object Speedy {
       this.actuals = actuals
     }
 
-    /** Push a single location to the continuation stack for the sake of
-      *        maintaining a stack trace.
+    /** Track the location of the expression being evaluated
       */
     def pushLocation(loc: Location): Unit = {
       lastLocation = Some(loc)
-      val last_index = kontStack.size() - 1
-      val last_kont = if (last_index >= 0) Some(kontStack.get(last_index)) else None
-      last_kont match {
-        // NOTE(MH): If the top of the continuation stack is the monadic token,
-        // we push location information under it to account for the implicit
-        // lambda binding the token.
-
-        // TODO: Understand how the current approach to stack-trace actually works.
-        // Peeking under KArg on the kontStack seems so unprincipled, and relies on our
-        // continued use of SEAppGeneral, which we want to remove.
-
-        case Some(KArg(_, Array(SEValue.Token))) => {
-          // Can't call pushKont here, because we don't push at the top of the stack.
-          kontStack.add(last_index, KLocation(this, loc))
-          if (enableInstrumentation) {
-            track.incrPushesKont()
-            track.setDepthKont(kontDepth())
-          }
-        }
-        // NOTE(MH): When we use a cached top level value, we need to put the
-        // stack trace it produced back on the continuation stack to get
-        // complete stack trace at the use site. Thus, we store the stack traces
-        // of top level values separately during their execution.
-        case Some(KCacheVal(machine, v, defn, stack_trace)) =>
-          discard(kontStack.set(last_index, KCacheVal(machine, v, defn, loc :: stack_trace)))
-        case _ => pushKont(KLocation(this, loc))
-      }
-    }
-
-    /** Push an entire stack trace to the continuation stack. The first
-      *        element of the list will be pushed last.
-      */
-    def pushStackTrace(locs: List[Location]): Unit =
-      locs.reverse.foreach(pushLocation)
-
-    /** Compute a stack trace from the locations in the continuation stack.
-      *        The last seen location will come last.
-      */
-    def stackTrace(): ImmArray[Location] = {
-      val s = ImmArray.newBuilder[Location]
-      kontStack.forEach {
-        case KLocation(_, location) => discard(s += location)
-        case _ => ()
-      }
-      s.result()
     }
 
     /** Reuse an existing speedy machine to evaluate a new expression.
@@ -573,8 +546,7 @@ private[lf] object Speedy {
 
     def lookupVal(eval: SEVal): Control = {
       eval.cached match {
-        case Some((v, stack_trace)) =>
-          pushStackTrace(stack_trace)
+        case Some(v) =>
           Control.Value(v)
 
         case None =>
@@ -582,11 +554,11 @@ private[lf] object Speedy {
           compiledPackages.getDefinition(ref) match {
             case Some(defn) =>
               defn.cached match {
-                case Some((svalue, stackTrace)) =>
-                  eval.setCached(svalue, stackTrace)
+                case Some(svalue) =>
+                  eval.setCached(svalue)
                   Control.Value(svalue)
                 case None =>
-                  pushKont(KCacheVal(this, eval, defn, Nil))
+                  pushKont(KCacheVal(this, eval, defn))
                   Control.Expression(defn.body)
               }
             case None =>
@@ -863,18 +835,27 @@ private[lf] object Speedy {
         cid: V.ContractId,
         contract: CachedContract,
     ): Unit = {
-      onLedger.visibleToStakeholders(contract.stakeholders) match {
-        case SVisibleToStakeholders.Visible => ()
-        case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-          val readers = (actAs union readAs).mkString(",")
-          val stakeholders = contract.stakeholders.mkString(",")
-          this.warningLog.add(
-            Warning(
-              commitLocation = onLedger.commitLocation,
-              message =
-                s"Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid} but none of the reading parties [${readers}] are contract stakeholders [${stakeholders}]. Use of divulged contracts is deprecated and incompatible with pruning. To remedy, add one of the readers [${readers}] as an observer to the contract.",
+      // For disclosed contracts, we do not perform visibility checking
+      if (!onLedger.isDisclosedContract(cid)) {
+        onLedger.visibleToStakeholders(contract.stakeholders) match {
+          case SVisibleToStakeholders.Visible =>
+            ()
+
+          case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+            val readers = (actAs union readAs).mkString(",")
+            val stakeholders = contract.stakeholders.mkString(",")
+            this.warningLog.add(
+              Warning(
+                commitLocation = onLedger.commitLocation,
+                message =
+                  s"""Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid}
+                    | but none of the reading parties [$readers] are contract stakeholders [$stakeholders].
+                    | Use of divulged contracts is deprecated and incompatible with pruning.
+                    | To remedy, add one of the readers [$readers] as an observer to the contract.
+                    |""".stripMargin.replaceAll("\r|\n", ""),
+              )
             )
-          )
+        }
       }
     }
 
@@ -884,26 +865,33 @@ private[lf] object Speedy {
         gkey: GlobalKey,
         coid: V.ContractId,
         handleKeyFound: (Machine, V.ContractId) => Control,
-    ): Control =
-      onLedger.getCachedContract(coid) match {
-        case Some(cachedContract) =>
-          val stakeholders = cachedContract.signatories union cachedContract.observers
-          onLedger.visibleToStakeholders(stakeholders) match {
-            case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-              throw SErrorDamlException(
-                interpretation.Error
-                  .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
-              )
-            case _ =>
-              handleKeyFound(this, coid)
-          }
-        case None =>
-          throw SErrorCrash(
-            NameOf.qualifiedNameOfCurrentFunc,
-            s"contract ${coid.coid} not in cachedContracts",
-          )
-      }
+    ): Control = {
+      // For disclosed contract keys, we do not perform visibility checking
+      if (onLedger.isDisclosedContractKey(coid, gkey)) {
+        handleKeyFound(this, coid)
+      } else {
+        onLedger.getCachedContract(coid) match {
+          case Some(cachedContract) =>
+            val stakeholders = cachedContract.signatories union cachedContract.observers
+            onLedger.visibleToStakeholders(stakeholders) match {
+              case SVisibleToStakeholders.Visible =>
+                handleKeyFound(this, coid)
 
+              case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+                throw SErrorDamlException(
+                  interpretation.Error
+                    .ContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+                )
+            }
+
+          case None =>
+            throw SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"contract ${coid.coid} not in cachedContracts",
+            )
+        }
+      }
+    }
   }
 
   object Machine {
@@ -985,7 +973,6 @@ private[lf] object Speedy {
     @throws[PackageNotFound]
     @throws[CompilationError]
     // Construct a machine for running an update expression (testing -- avoiding scenarios)
-    @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppGeneral")
     def fromUpdateSExpr(
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
@@ -999,8 +986,7 @@ private[lf] object Speedy {
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
-        expr = SEAppGeneral(updateSE, Array(SEValue.Token)),
-        // expr = SEApp(updateSE, Array(SValue.SToken)), // TODO: when stack-trace hackery is resolved
+        expr = SEApp(updateSE, Array(SValue.SToken)),
         committers = committers,
         readAs = Set.empty,
         limits = limits,
@@ -1012,15 +998,14 @@ private[lf] object Speedy {
     @throws[PackageNotFound]
     @throws[CompilationError]
     // Construct an off-ledger machine for running scenario.
-    @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppGeneral")
     def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
         scenario: SExpr,
-    )(implicit loggingContext: LoggingContext): Machine = Machine.fromPureSExpr(
-      compiledPackages = compiledPackages,
-      expr = SEAppGeneral(scenario, Array(SEValue.Token)),
-      // expr = SEApp(scenario, Array(SValue.SToken)), // TODO: when stack-trace hackery is resolved
-    )
+    )(implicit loggingContext: LoggingContext): Machine =
+      Machine.fromPureSExpr(
+        compiledPackages = compiledPackages,
+        expr = SEApp(scenario, Array(SValue.SToken)),
+      )
 
     @throws[PackageNotFound]
     @throws[CompilationError]
@@ -1446,13 +1431,11 @@ private[lf] object Speedy {
       machine: Machine,
       v: SEVal,
       defn: SDefinition,
-      stack_trace: List[Location],
   ) extends Kont {
 
     def execute(sv: SValue): Control = {
-      machine.pushStackTrace(stack_trace)
-      v.setCached(sv, stack_trace)
-      defn.setCached(sv, stack_trace)
+      v.setCached(sv)
+      defn.setCached(sv)
       Control.Value(sv)
     }
   }
@@ -1463,8 +1446,6 @@ private[lf] object Speedy {
     def execute(sv: SValue): Control = {
       machine.withOnLedger("KCacheContract") { onLedger =>
         val cached = SBuiltin.extractCachedContract(machine, sv)
-        // TODO (drsk) disable this check for disclosed contracts.
-        // https://github.com/digital-asset/daml/issues/14168
         machine.checkContractVisibility(onLedger, cid, cached)
         onLedger.addGlobalContract(cid, cached)
         Control.Value(cached.any)
@@ -1606,13 +1587,6 @@ private[lf] object Speedy {
         Control.Error(
           IError.UnhandledException(excep.ty, excep.value.toUnnormalizedValue)
         )
-    }
-  }
-
-  /** A location frame stores a location annotation found in the AST. */
-  final case class KLocation(machine: Machine, location: Location) extends Kont {
-    def execute(v: SValue): Control = {
-      Control.Value(v)
     }
   }
 

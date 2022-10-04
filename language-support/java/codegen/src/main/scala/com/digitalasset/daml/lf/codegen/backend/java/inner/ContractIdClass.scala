@@ -204,7 +204,7 @@ object ContractIdClass {
 
     def generateGetCompanion(kind: For) =
       ClassGenUtils.generateGetCompanion(
-        ClassName get classOf[javaapi.data.codegen.ContractTypeCompanion[_]],
+        ClassName get classOf[javaapi.data.codegen.ContractTypeCompanion[_, _]],
         kind match {
           case For.Interface => InterfaceClass.companionName
           case For.Template => ClassGenUtils.companionFieldName

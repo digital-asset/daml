@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.BidiFlow
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import akka.stream.{Attributes, BidiShape, Inlet, Outlet}
-import com.codahale.metrics.Counter
+import com.daml.metrics.MetricHandle.Counter
 import org.slf4j.LoggerFactory
 
 /** Enforces that at most [[maxInFlight]] items traverse the flow underneath this one.

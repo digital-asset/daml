@@ -9,7 +9,7 @@ import qualified DA.Traversable
 import qualified DA.Stack
 import qualified DA.TextMap
 
--- | Mapping from party names in the original ledger state 
+-- | Mapping from party names in the original ledger state
 -- to parties to be used in 'export'.
 type Parties = DA.TextMap.TextMap Party
 

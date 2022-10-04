@@ -4,10 +4,11 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.suites.NamesSpec._
+import org.scalatest.AppendedClues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class NamesSpec extends AnyWordSpec with Matchers {
+class NamesSpec extends AnyWordSpec with Matchers with AppendedClues {
   "test suite names" should {
     "only contain letters" in {
       all(allTestSuiteNames) should fullyMatch regex """[A-Za-z]+""".r
@@ -25,9 +26,13 @@ class NamesSpec extends AnyWordSpec with Matchers {
       all(allTestIdentifiers) should fullyMatch regex """[A-Za-z][A-Za-z0-9]*""".r
     }
 
-    "not be a prefix of or equal to any other name, so that each test can be included independently" in {
-      allTestIdentifiers.zipWithIndex.foreach { case (testIdentifier, i) =>
-        all(allTestIdentifiers.drop(i + 1)) should not startWith testIdentifier
+    "not be a prefix of or equal to any other name, so that each test can be included independently (per each test suite)" in {
+      allTestIdentifiersPerTestSuite.map { case (testSuiteName, testIdentifiers) =>
+        testIdentifiers.zipWithIndex.foreach { case (testIdentifier, i) =>
+          all(
+            testIdentifiers.drop(i + 1)
+          ) should not startWith testIdentifier withClue (s"test suite name: '$testSuiteName''")
+        }
       }
     }
   }
@@ -48,5 +53,7 @@ object NamesSpec {
 
   private val allTests = allTestSuites.flatMap(_.tests)
   private val allTestIdentifiers = allTests.map(_.shortIdentifier)
+  private val allTestIdentifiersPerTestSuite =
+    allTestSuites.map(suite => suite.name -> suite.tests.map(_.shortIdentifier))
   private val allTestNames = allTests.map(_.name).sorted
 }

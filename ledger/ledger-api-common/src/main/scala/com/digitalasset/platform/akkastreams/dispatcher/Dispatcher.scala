@@ -43,10 +43,15 @@ trait Dispatcher[Index] {
     */
   def shutdown(): Future[Unit]
 
-  /** Triggers shutdown of the Dispatcher by eagerly failing
-    * all outstanding stream subscriptions with the given throwable.
+  /** Triggers shutdown of the Dispatcher by eagerly failing all outstanding stream subscriptions with a throwable.
+    *
+    * @param throwableBuilder Create a new throwable.
+    *                     It is important to create a new throwable for each failed subscription
+    *                     since the throwable closing the streams or parts of it can be mutable.
+    *                     (e.g. the [[io.grpc.Metadata]] provided as part of [[io.grpc.StatusRuntimeException]]
+    *                     is mutated in the gRPC layer)
     */
-  def cancel(throwable: Throwable): Future[Unit]
+  def cancel(throwableBuilder: () => Throwable): Future[Unit]
 }
 
 object Dispatcher {

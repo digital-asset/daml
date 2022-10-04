@@ -19,6 +19,7 @@ object InterfaceClass extends StrictLogging {
 
   def generate(
       interfaceName: ClassName,
+      interfaceViewTypeName: ClassName,
       interface: DefInterface.FWT,
       packagePrefixes: Map[PackageId, String],
       typeDeclarations: Map[QualifiedName, typesig.PackageSignature.TypeDecl],
@@ -63,6 +64,7 @@ object InterfaceClass extends StrictLogging {
           generateInterfaceCompanionClass(
             interfaceName = interfaceName,
             choiceNames = interface.choices.keySet,
+            interfaceViewTypeName = interfaceViewTypeName,
           )
         )
         .addMethod {
@@ -91,11 +93,12 @@ object InterfaceClass extends StrictLogging {
   private def generateInterfaceCompanionClass(
       interfaceName: ClassName,
       choiceNames: Set[ChoiceName],
+      interfaceViewTypeName: ClassName,
   ): TypeSpec = TypeSpec
     .classBuilder(companionName)
     .superclass(
       ParameterizedTypeName
-        .get(ClassName get classOf[InterfaceCompanion[_]], interfaceName)
+        .get(ClassName get classOf[InterfaceCompanion[_, _]], interfaceName, interfaceViewTypeName)
     )
     .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
     .addMethod {
@@ -103,9 +106,11 @@ object InterfaceClass extends StrictLogging {
         .constructorBuilder()
         // intentionally package-private
         .addStatement(
-          "super($T.$N, $T.of($L))",
+          "super($T.$N, $T.$L(), $T.of($L))",
           interfaceName,
           ClassGenUtils.templateIdFieldName,
+          interfaceViewTypeName,
+          "valueDecoder",
           classOf[java.util.List[_]],
           CodeBlock
             .join(

@@ -3,10 +3,14 @@
 
 package com.daml.lf.codegen.backend.java
 
-import com.squareup.javapoet.{ClassName, MethodSpec, TypeName}
+import com.squareup.javapoet.{ClassName, CodeBlock, MethodSpec, TypeName}
 import com.typesafe.scalalogging.StrictLogging
+
 import javax.lang.model.element.Modifier
 import com.daml.lf.codegen.backend.java.inner.ClassNameExtensions
+
+import java.util.Objects
+import scala.jdk.CollectionConverters._
 
 private[codegen] object ObjectMethods extends StrictLogging {
 
@@ -57,8 +61,18 @@ private[codegen] object ObjectMethods extends StrictLogging {
       initEqualsBuilder(className)
         .addStatement("$T other = ($T) object", className, className)
         .addStatement(
-          s"return ${List.fill(fieldNames.size)("this.$L.equals(other.$L)").mkString(" && ")}",
-          fieldNames.flatMap(fieldName => IndexedSeq(fieldName, fieldName)): _*
+          CodeBlock.of(
+            "return $L",
+            CodeBlock.join(
+              fieldNames
+                .map(fieldName =>
+                  CodeBlock
+                    .of("$T.equals(this.$L, other.$L)", classOf[Objects], fieldName, fieldName)
+                )
+                .asJava,
+              " && ",
+            ),
+          )
         )
         .build()
     }
@@ -77,7 +91,7 @@ private[codegen] object ObjectMethods extends StrictLogging {
     initHashCodeBuilder()
       .addStatement(
         s"return $$T.hash(${List.fill(fieldNames.size)("this.$L").mkString(", ")})",
-        (IndexedSeq(classOf[java.util.Objects]) ++ fieldNames): _*
+        IndexedSeq(classOf[java.util.Objects]) ++ fieldNames: _*
       )
       .build()
 
@@ -109,10 +123,10 @@ private[codegen] object ObjectMethods extends StrictLogging {
       initToStringBuilder()
         .addStatement(
           s"return $$T.format($$S, ${List.fill(fieldNames.size)("this.$L").mkString(", ")})",
-          (IndexedSeq(
+          IndexedSeq(
             classOf[java.lang.String],
             template(className, fieldNames, enclosingClassName),
-          ) ++ fieldNames): _*
+          ) ++ fieldNames: _*
         )
         .build()
     }

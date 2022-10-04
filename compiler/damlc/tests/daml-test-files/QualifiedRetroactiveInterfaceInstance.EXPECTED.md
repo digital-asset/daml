@@ -6,6 +6,10 @@
 
 > **viewtype** [TokenView](#type-qualifiedretroactiveinterfaceinstance-tokenview-25557)
 >
+> * **Choice Archive**
+>
+>   (no fields)
+>
 > * **Choice GetRich**
 >
 >   | Field                                                                          | Type                                                                           | Description |

@@ -29,6 +29,12 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
   /** The party IDs of this contract's observers. */
   public final Set<String> observers;
 
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+   * and <em>should not be referenced directly</em>. Applications should refer to the constructors
+   * of code-generated subclasses, or {@link ContractCompanion#fromCreatedEvent}, instead.
+   */
   protected Contract(
       Id id,
       Data data,

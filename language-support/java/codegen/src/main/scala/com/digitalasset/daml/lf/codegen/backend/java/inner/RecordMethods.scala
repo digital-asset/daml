@@ -20,10 +20,15 @@ private[inner] object RecordMethods {
     val constructor = ConstructorGenerator.generateConstructor(fields)
 
     val conversionMethods = distinctTypeVars(fields, typeParameters).flatMap { params =>
-      val fromValue = FromValueGenerator.generateFromValueForRecordLike(
+      val deprecatedFromValue = FromValueGenerator.generateDeprecatedFromValueForRecordLike(
+        className.parameterized(typeParameters),
+        params,
+      )
+      val valueDecoder = FromValueGenerator.generateValueDecoderForRecordLike(
         fields,
         className.parameterized(typeParameters),
         params,
+        "valueDecoder",
         (inVar, outVar) =>
           CodeBlock.builder
             .addStatement(
@@ -42,7 +47,7 @@ private[inner] object RecordMethods {
         ClassName.get(classOf[javaapi.data.DamlRecord]),
         name => CodeBlock.of("return new $T($L)", classOf[javaapi.data.DamlRecord], name),
       )
-      List(fromValue, toValue)
+      List(deprecatedFromValue, valueDecoder, toValue)
     }
 
     Vector(constructor) ++ conversionMethods ++

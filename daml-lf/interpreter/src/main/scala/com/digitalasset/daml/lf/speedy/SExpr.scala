@@ -54,9 +54,7 @@ object SExpr {
   /** Reference to a value. On first lookup the evaluated expression is
     * stored in 'cached'.
     */
-  final case class SEVal(
-      ref: SDefinitionRef
-  ) extends SExpr {
+  final case class SEVal(ref: SDefinitionRef) extends SExpr {
 
     // The variable `_cached` is used to cache the evaluation of the
     // LF value defined by `ref` once it has been computed.  Hence we
@@ -68,12 +66,11 @@ object SExpr {
     // `setCached`) is done atomically.
     // This is similar how hashcode evaluation is cached in String
     // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/tip/src/share/classes/java/lang/String.java
-    private var _cached: Option[(SValue, List[Location])] = None
+    private var _cached: Option[SValue] = None
 
-    def cached: Option[(SValue, List[Location])] = _cached
+    def cached: Option[SValue] = _cached
 
-    def setCached(sValue: SValue, stack_trace: List[Location]): Unit =
-      _cached = Some((sValue, stack_trace))
+    def setCached(sValue: SValue): Unit = _cached = Some(sValue)
 
     def execute(machine: Machine): Control = {
       machine.lookupVal(this)
@@ -101,18 +98,6 @@ object SExpr {
   }
 
   object SEValue extends SValueContainer[SEValue] // used by Compiler
-
-  /** Function application with general function/arguments (deprecated)
-    * This case is used only by: fromUpdateSExpr and fromScenarioSExpr.
-    * The use required because of our current stack-trace support, which peeks under KArg.
-    */
-  @deprecated("Prefer SEAppAtomic or SEApp helper instead.")
-  final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
-    def execute(machine: Machine): Control = {
-      machine.pushKont(KArg(machine, args))
-      Control.Expression(fun)
-    }
-  }
 
   /** Function application with general arguments (deprecated)
     * Although 'fun' is atomic, 'args' are still any kind of expression.

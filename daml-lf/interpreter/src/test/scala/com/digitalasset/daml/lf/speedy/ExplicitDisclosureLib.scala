@@ -9,9 +9,16 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{IdString, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SExpr.{SEMakeClo}
+import com.daml.lf.speedy.SExpr.SEMakeClo
 import com.daml.lf.speedy.SValue.{SContractId, SToken}
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
+import com.daml.lf.speedy.Speedy.CachedContract
+import com.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
+  TransactionVersion,
+  Versioned,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
 import org.scalatest.matchers.{MatchResult, Matcher}
@@ -114,11 +121,12 @@ object ExplicitDisclosureLib {
       maintainer: Party,
       templateId: Ref.Identifier = houseTemplateId,
       withHash: Boolean = true,
+      label: String = testKeyName,
   ): DisclosedContract = {
     val key = Value.ValueRecord(
       None,
       ImmArray(
-        None -> Value.ValueText(testKeyName),
+        None -> Value.ValueText(label),
         None -> Value.ValueList(FrontStack.from(ImmArray(Value.ValueParty(maintainer)))),
       ),
     )
@@ -154,13 +162,13 @@ object ExplicitDisclosureLib {
     )
   }
 
-  def buildContractKey(maintainer: Party): GlobalKey =
+  def buildContractKey(maintainer: Party, label: String = testKeyName): GlobalKey =
     GlobalKey.assertBuild(
       houseTemplateType,
       Value.ValueRecord(
         None,
         ImmArray(
-          None -> Value.ValueText(testKeyName),
+          None -> Value.ValueText(label),
           None -> Value.ValueList(FrontStack.from(ImmArray(Value.ValueParty(maintainer)))),
         ),
       ),
@@ -201,6 +209,40 @@ object ExplicitDisclosureLib {
       "test",
     ),
   )
+
+  def buildHouseCachedContract(
+      signatory: Party,
+      maintainer: Party,
+      templateId: Ref.Identifier = houseTemplateId,
+      withKey: Boolean = true,
+      label: String = testKeyName,
+  ): CachedContract = {
+    val key = Value.ValueRecord(
+      None,
+      ImmArray(
+        None -> Value.ValueText(label),
+        None -> Value.ValueList(FrontStack.from(ImmArray(Value.ValueParty(maintainer)))),
+      ),
+    )
+    val keyNode: Option[Node.KeyWithMaintainers] =
+      if (withKey) Some(Node.KeyWithMaintainers(key, Set(maintainer))) else None
+    val contract = SValue.SRecord(
+      templateId,
+      ImmArray("label", "maintainers").map(Ref.Name.assertFromString),
+      ArrayList(
+        SValue.SText(label),
+        SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainer)))),
+      ),
+    )
+
+    CachedContract(
+      templateId,
+      contract,
+      signatories = Set(signatory),
+      observers = Set.empty,
+      key = keyNode,
+    )
+  }
 
   val getOwner: Value => Option[Party] = {
     case Value.ValueRecord(_, ImmArray(_ -> Value.ValueParty(owner), _)) =>
