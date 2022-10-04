@@ -69,7 +69,7 @@ class DispatcherState(dispatcherShutdownTimeout: Duration)(implicit
       case DispatcherRunning(dispatcher) =>
         dispatcherStateRef = DispatcherNotRunning
         dispatcher
-          .cancel(dispatcherNotRunning())
+          .cancel(dispatcherNotRunning)
           .transform {
             case Success(_) =>
               logger.info(s"Active $ServiceName stopped.")
