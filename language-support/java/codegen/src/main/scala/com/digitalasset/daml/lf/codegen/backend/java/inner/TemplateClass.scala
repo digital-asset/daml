@@ -94,7 +94,9 @@ private[inner] object TemplateClass extends StrictLogging {
             templateChoices,
           ).asJava
         )
-        .addField(generateCompanion(className, template.key, packagePrefixes))
+        .addField(
+          generateCompanion(className, template.key, packagePrefixes, templateChoices.keySet)
+        )
         .addFields(RecordFields(fields).asJava)
         .addMethods(TemplateMethods(fields, className, packagePrefixes).asJava)
       generateByKeyMethod(template.key, packagePrefixes) foreach { byKeyMethod =>
