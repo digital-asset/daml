@@ -3,13 +3,15 @@
 
 package com.daml.ledger.javaapi.data.codegen;
 
-import com.daml.ledger.javaapi.data.CreatedEvent;
+import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.DamlRecord;
-import com.daml.ledger.javaapi.data.Identifier;
-import com.daml.ledger.javaapi.data.Value;
+
+import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Metadata and utilities associated with a template as a whole, rather than one single contract
@@ -66,6 +68,13 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
 
   public Id toContractId(ContractId<Data> parameterizedContractId) {
     return newContractId.apply(parameterizedContractId.contractId);
+  }
+
+  @Override
+  public TransactionFilter transactionFilter(Set<String> parties) {
+    Filter filter = new InclusiveFilter(Set.of(TEMPLATE_ID), Collections.emptyMap());
+    Map<String, Filter> partyToFilters = parties.stream().collect(Collectors.toMap(Function.identity(), x -> filter));
+    return new FiltersByParty(partyToFilters);
   }
 
   protected ContractCompanion(
