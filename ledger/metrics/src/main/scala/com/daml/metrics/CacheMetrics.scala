@@ -3,26 +3,28 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.MetricRegistry.MetricSupplier
-import com.codahale.metrics.{Counter, Gauge, MetricRegistry, Timer}
+import com.daml.metrics.MetricHandle.{Counter, Timer}
 
-final class CacheMetrics(
-    registry: MetricRegistry,
-    prefix: MetricName,
-) {
-  val hitCount: Counter = registry.counter(prefix :+ "hits")
-  val missCount: Counter = registry.counter(prefix :+ "misses")
-  val loadSuccessCount: Counter = registry.counter(prefix :+ "load_successes")
-  val loadFailureCount: Counter = registry.counter(prefix :+ "load_failures")
-  val totalLoadTime: Timer = registry.timer(prefix :+ "load_total_time")
-  val evictionCount: Counter = registry.counter(prefix :+ "evictions")
-  val evictionWeight: Counter = registry.counter(prefix :+ "evicted_weight")
+import com.codahale.metrics.MetricRegistry.MetricSupplier
+import com.codahale.metrics.{Gauge, MetricRegistry}
+
+final class CacheMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
+    extends MetricHandle.Factory {
+  val hitCount: Counter = counter(prefix :+ "hits")
+  val missCount: Counter = counter(prefix :+ "misses")
+  val loadSuccessCount: Counter = counter(prefix :+ "load_successes")
+  val loadFailureCount: Counter = counter(prefix :+ "load_failures")
+  val totalLoadTime: Timer = timer(prefix :+ "load_total_time")
+  val evictionCount: Counter = counter(prefix :+ "evictions")
+  val evictionWeight: Counter = counter(prefix :+ "evicted_weight")
 
   def registerSizeGauge(sizeGauge: Gauge[Long]): Unit =
     register(prefix :+ "size", () => sizeGauge)
   def registerWeightGauge(weightGauge: Gauge[Long]): Unit =
     register(prefix :+ "weight", () => weightGauge)
 
-  private def register(name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Unit =
-    registerGauge(name, gaugeSupplier, registry)
+  private def register(name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Unit = {
+    gaugeWithSupplier(name, gaugeSupplier)
+    ()
+  }
 }

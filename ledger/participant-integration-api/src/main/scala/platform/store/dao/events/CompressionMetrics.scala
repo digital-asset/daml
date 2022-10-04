@@ -3,8 +3,8 @@
 
 package com.daml.platform.store.dao.events
 
-import com.codahale.metrics.Histogram
 import com.daml.metrics.Metrics
+import com.daml.metrics.MetricHandle.Histogram
 
 object CompressionMetrics {
 

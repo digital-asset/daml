@@ -6,10 +6,6 @@
 Reference: Interfaces
 #####################
 
-.. warning::
-  This feature is under active development and not officially supported in
-  production environments.
-
 In Daml, an interface defines an abstract type together with a behavior
 specified by its view type, method signatures, and choices. For a template to
 conform to this interface, there must be a corresponding ``interface instance``
@@ -167,6 +163,8 @@ Empty Interfaces
 - It is possible (though not necessarily useful) to define an interface without
   methods, precondition or choices. However, a view type must always be defined,
   though it can be set to unit.
+
+.. _interface-instances:
 
 Interface Instances
 *******************

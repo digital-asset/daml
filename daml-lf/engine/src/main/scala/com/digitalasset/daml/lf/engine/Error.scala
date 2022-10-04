@@ -127,6 +127,13 @@ object Error {
 
     final case class BadDisclosedContract(message: String) extends Error
 
+    final case class DuplicateDisclosedContractId(
+        contractId: Value.ContractId,
+        templateId: Ref.Identifier,
+    ) extends Error {
+      override def message: String =
+        s"Preprocessor encountered a duplicate disclosed contract ID $contractId for template $templateId"
+    }
   }
 
   // Error happening during interpretation

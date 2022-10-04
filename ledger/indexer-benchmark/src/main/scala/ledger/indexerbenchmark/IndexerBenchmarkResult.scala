@@ -3,7 +3,7 @@
 
 package com.daml.ledger.indexerbenchmark
 
-import com.codahale.metrics.{MetricRegistry, Snapshot}
+import com.codahale.metrics.Snapshot
 import com.daml.metrics.Metrics
 
 class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, stopTime: Long) {
@@ -11,11 +11,11 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
   private val duration: Double = (stopTime - startTime).toDouble / 1000000000.0
   private val updates: Long = metrics.daml.parallelIndexer.updates.getCount
   private val updateRate: Double = updates / duration
-  private val inputMappingDurationMetric = metrics.registry.timer(
-    MetricRegistry.name(metrics.daml.parallelIndexer.inputMapping.executor, "duration")
+  private val inputMappingDurationMetric = metrics.timer(
+    metrics.daml.parallelIndexer.inputMapping.executor :+ "duration"
   )
-  private val batchingDurationMetric = metrics.registry.timer(
-    MetricRegistry.name(metrics.daml.parallelIndexer.batching.executor, "duration")
+  private val batchingDurationMetric = metrics.timer(
+    metrics.daml.parallelIndexer.batching.executor :+ "duration"
   )
   val (failure, minimumUpdateRateFailureInfo): (Boolean, String) =
     config.minUpdateRate match {

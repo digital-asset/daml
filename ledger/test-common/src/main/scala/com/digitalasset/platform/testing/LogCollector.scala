@@ -51,8 +51,8 @@ object LogCollector {
       logger: ClassTag[Logger],
   ): Seq[Entry] =
     log
-      .get(test.runtimeClass.getName)
-      .flatMap(_.get(logger.runtimeClass.getName))
+      .get(test.runtimeClass.getName.stripSuffix("$"))
+      .flatMap(_.get(logger.runtimeClass.getName.stripSuffix("$")))
       .fold(IndexedSeq.empty[Entry])(_.result())
 
   def clear[Test](implicit test: ClassTag[Test]): Unit = {

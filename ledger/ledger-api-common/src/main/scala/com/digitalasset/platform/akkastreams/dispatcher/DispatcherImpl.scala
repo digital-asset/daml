@@ -128,8 +128,8 @@ final class DispatcherImpl[Index: Ordering](
       dispatcher.shutdown()
     }
 
-  override def cancel(throwable: Throwable): Future[Unit] =
-    shutdownInternal(_.fail(throwable))
+  override def cancel(throwableBuilder: () => Throwable): Future[Unit] =
+    shutdownInternal(_.fail(throwableBuilder))
 
   private def shutdownInternal(shutdown: SignalDispatcher => Future[Unit]): Future[Unit] =
     state.getAndUpdate {

@@ -19,7 +19,12 @@ import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.v1.event.Event.Event
 import com.daml.ledger.api.v1.event.{CreatedEvent, InterfaceView}
 import com.daml.ledger.api.v1.transaction.Transaction
-import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
+import com.daml.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  InterfaceFilter,
+  TransactionFilter,
+}
 import com.daml.ledger.api.v1.value.{Identifier, Record}
 import com.daml.ledger.test.semantic.InterfaceViews._
 import com.daml.ledger.test.{
@@ -60,6 +65,32 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       )
       events = transactions.flatMap(createdEvents)
     } yield basicAssertions(c1.toString, c2.toString, c3.toString, events)
+  })
+
+  test(
+    "ISTransactionsCreateArgumentsBlob",
+    "Subscribing on transaction stream by interface with createArgumentsBlob",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    import ledger._
+    for {
+      _ <- create(party, T1(party, 1))
+      transactionsWithBlob <- flatTransactions(
+        getTransactionsRequest(interfaceFilter(party.toString, includeCreateArgumentsBlob = true))
+      )
+      transactionsWithoutBlob <- flatTransactions(
+        getTransactionsRequest(interfaceFilter(party.toString, includeCreateArgumentsBlob = false))
+      )
+    } yield {
+      assertIsBlobProduced(
+        transactionsWithBlob.flatMap(createdEvents),
+        createArgumentsBlobNonEmpty = true,
+      )
+      assertIsBlobProduced(
+        transactionsWithoutBlob.flatMap(createdEvents),
+        createArgumentsBlobNonEmpty = false,
+      )
+    }
   })
 
   test(
@@ -109,6 +140,11 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       "Create event 1 createArguments must NOT be empty",
       createdEvent1.createArguments.isEmpty,
       false,
+    )
+    assertEquals(
+      "Create event 1 createArgumentsBlob must be empty",
+      createdEvent1.createArgumentsBlob.isEmpty,
+      true,
     )
     assert(
       createdEvent1.getCreateArguments.fields.forall(_.label.nonEmpty),
@@ -698,6 +734,29 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
 
     val actualValue = assertDefined(view.viewValue, "Value is not defined")
     checkValue(actualValue)
+  }
+
+  private def interfaceFilter(party: String, includeCreateArgumentsBlob: Boolean) = {
+    val ifaceFilter = new InterfaceFilter(
+      interfaceId = Some(Tag.unwrap(I.id)),
+      includeInterfaceView = false,
+      includeCreateArgumentsBlob = includeCreateArgumentsBlob,
+    )
+    val filters = new InclusiveFilters(interfaceFilters = List(ifaceFilter))
+    new TransactionFilter(Map(party -> new Filters(Some(filters))))
+  }
+
+  private def assertIsBlobProduced(
+      eventsWithBlob: Vector[CreatedEvent],
+      createArgumentsBlobNonEmpty: Boolean,
+  ): Unit = {
+    val createdEventWithBlob = eventsWithBlob.head
+    assertEquals(
+      "Create event 1 template ID",
+      createdEventWithBlob.templateId.get.toString,
+      Tag.unwrap(T1.id).toString,
+    )
+    assertEquals(createdEventWithBlob.createArgumentsBlob.nonEmpty, createArgumentsBlobNonEmpty)
   }
 
 }

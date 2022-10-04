@@ -13,7 +13,16 @@ import Ledger, {
   Query,
   UserRightHelper,
 } from "@daml/ledger";
-import { Choice, ContractId, Int, emptyMap, Map } from "@daml/types";
+import {
+  Choice,
+  ContractId,
+  Int,
+  emptyMap,
+  Map,
+  Party,
+  Template,
+  lookupTemplate,
+} from "@daml/types";
 import pEvent from "p-event";
 import _ from "lodash";
 import WebSocket from "ws";
@@ -652,6 +661,12 @@ describe("interfaces", () => {
   type Token = buildAndLint.Main.Token;
   const Token = buildAndLint.Main.Token;
 
+  type RecPartial<T> = T extends object
+    ? {
+        [P in keyof T]?: RecPartial<T[P]>;
+      }
+    : T;
+
   async function aliceLedgerPayloadContract() {
     const aliceLedger = new Ledger({
       token: ALICE_TOKEN,
@@ -784,11 +799,6 @@ describe("interfaces", () => {
     }
     const ctEvent = await queryContractId();
     stream.close();
-    type RecPartial<T> = T extends object
-      ? {
-          [P in keyof T]?: RecPartial<T[P]>;
-        }
-      : T;
     const expectedEvent: RecPartial<Event<Token>> = {
       created: {
         contractId: tokenCid,
@@ -798,6 +808,75 @@ describe("interfaces", () => {
       matchedQueries: [0],
     };
     expect(ctEvent).toMatchObject(expectedEvent);
+  });
+
+  test("undecodable exercise result event data is discarded", async () => {
+    const ledger = new Ledger({
+      token: ALICE_TOKEN,
+      httpBaseUrl: httpBaseUrl(),
+    });
+    // upload a dar we did not codegen
+    const hiddenDar = await fs.readFile(getEnv("HIDDEN_DAR"));
+    await ledger.uploadDarFile(hiddenDar);
+
+    // pretend we have access to NotVisibleInTs.  For this test to be
+    // meaningful we *must not* codegen or load Hidden
+    type NotVisibleInTs = { owner: Party };
+    const NotVisibleInTs: Pick<Template<{ owner: Party }>, "templateId"> = {
+      templateId: "Hidden:NotVisibleInTs",
+    };
+    const initialPayload: NotVisibleInTs = { owner: ALICE_PARTY };
+
+    // make a contract whose template is not in the JS image
+    // we can't use ledger.create without knowing the exact template ID
+    const submittableLedger = ledger as unknown as {
+      submit: typeof ledger["submit"];
+    };
+    const {
+      templateId: nvitFQTID,
+      contractId: nvitCid,
+      payload: payloadResp,
+      key: keyResp,
+    } = (await submittableLedger.submit("v1/create", {
+      templateId: NotVisibleInTs.templateId,
+      payload: initialPayload,
+    })) as CreateEvent<NotVisibleInTs, { _1: Text; _2: Party }>;
+    expect(nvitFQTID).toEqual(expect.stringMatching(/:Hidden:NotVisibleInTs$/));
+    expect(payloadResp).toEqual(initialPayload);
+    expect(keyResp).toEqual({ _1: "three three three", _2: ALICE_PARTY });
+    // verify that we don't know the decoder for NotVisibleInTs
+    expect(() => lookupTemplate(nvitFQTID)).toThrow();
+
+    const nvitIcid: ContractId<buildAndLint.Main.Cloneable> =
+      nvitCid as ContractId<never>;
+
+    // invoke well-typed interface choice
+    const [{ _1: newIcid, _2: textResponse }, archiveAndCreate] =
+      await ledger.exercise(buildAndLint.Main.Cloneable.Clone, nvitIcid, {
+        echo: "undecodable exercise result test",
+      });
+    const expectedEvents: RecPartial<Event<object>>[] = [
+      { archived: { contractId: nvitCid, templateId: nvitFQTID } },
+      { created: { contractId: newIcid, templateId: nvitFQTID } },
+    ];
+
+    // test events are present but with empty payload
+    expect(textResponse).toEqual(
+      "cloned NotVisibleInTs: undecodable exercise result test",
+    );
+    expect(newIcid).not.toEqual(nvitIcid);
+    expect(archiveAndCreate).toMatchObject(expectedEvents);
+
+    if (!("created" in archiveAndCreate[1]))
+      throw "test above doesn't match below";
+    const [
+      ,
+      {
+        created: { payload: clonedPayload, key: clonedKey },
+      },
+    ] = archiveAndCreate;
+    expect(clonedPayload).toEqual({});
+    expect(clonedKey).toBeUndefined();
   });
 });
 

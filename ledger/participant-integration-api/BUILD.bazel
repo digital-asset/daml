@@ -55,6 +55,7 @@ compile_deps = [
     "//ledger/metrics",
     "//ledger/participant-state",
     "//ledger/participant-state-index",
+    "//ledger/participant-local-store:participant-local-store",
     "//ledger/participant-state-metrics",
     "//ledger-service/jwt",
     "//libs-scala/crypto:crypto",
@@ -69,6 +70,7 @@ compile_deps = [
     "//libs-scala/scala-utils",
     "//libs-scala/timer-utils",
     "//libs-scala/nameof",
+    "//libs-scala/struct-json",
     "@maven//:com_google_guava_guava",
     "@maven//:com_zaxxer_HikariCP",
     "@maven//:io_dropwizard_metrics_metrics_core",
@@ -84,7 +86,6 @@ compile_deps = [
     "@maven//:org_postgresql_postgresql",
     "@maven//:com_oracle_database_jdbc_ojdbc8",
     "@maven//:com_google_api_grpc_proto_google_common_protos",
-    "@maven//:com_github_ben_manes_caffeine_caffeine",
     "@maven//:com_auth0_java_jwt",
 ]
 
@@ -97,7 +98,6 @@ scala_compile_deps = [
     "@maven//:org_playframework_anorm_anorm_tokenizer",
     "@maven//:org_scalaz_scalaz_core",
     "@maven//:io_spray_spray_json",
-    "@maven//:com_thesamet_scalapb_scalapb_json4s",
 ]
 
 runtime_deps = [
@@ -189,6 +189,8 @@ da_scala_library(
         "//ledger/ledger-resources",
         "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",
+        "//ledger/participant-local-store",
+        "//ledger/participant-local-store:participant-local-store-tests-lib",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
         "//ledger/test-common:dar-files-default-lib",
@@ -291,6 +293,8 @@ da_scala_test_suite(
         "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",
         "//ledger/metrics:metrics-test-lib",
+        "//ledger/participant-local-store",
+        "//ledger/participant-local-store:participant-local-store-tests-lib",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
         "//ledger/test-common",
@@ -382,6 +386,8 @@ da_scala_test_suite(
         "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",
         "//ledger/metrics:metrics-test-lib",
+        "//ledger/participant-local-store",
+        "//ledger/participant-local-store:participant-local-store-tests-lib",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
         "//ledger/test-common",

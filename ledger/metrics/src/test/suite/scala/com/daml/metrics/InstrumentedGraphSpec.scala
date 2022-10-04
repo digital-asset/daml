@@ -4,15 +4,15 @@
 package com.daml.metrics
 
 import java.util.concurrent.atomic.AtomicLong
-
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.QueueOfferResult
-import com.codahale.metrics.{Counter, Timer}
+import com.codahale.{metrics => codahale}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.metrics.InstrumentedGraphSpec.SamplingCounter
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.metrics.InstrumentedGraph._
+import com.daml.metrics.MetricHandle.{Counter, Timer}
 
 import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -22,9 +22,9 @@ final class InstrumentedGraphSpec extends AsyncFlatSpec with Matchers with AkkaB
   behavior of "InstrumentedSource.queue"
 
   it should "correctly enqueue and measure queue delay" in {
-    val capacityCounter = new Counter()
-    val maxBuffered = new InstrumentedGraphSpec.MaxValueCounter()
-    val delayTimer = new Timer()
+    val capacityCounter = Counter("test-capacity", new codahale.Counter())
+    val maxBuffered = Counter("test-length", new InstrumentedGraphSpec.MaxValueCounter())
+    val delayTimer = Timer("test-delay", new codahale.Timer())
     val bufferSize = 2
 
     val (source, sink) =
@@ -44,7 +44,7 @@ final class InstrumentedGraphSpec extends AsyncFlatSpec with Matchers with AkkaB
       all(result) shouldBe QueueOfferResult.Enqueued
       output shouldEqual input
       delayTimer.getCount shouldEqual bufferSize
-      delayTimer.getSnapshot.getMax should be >= 5.millis.toNanos
+      delayTimer.metric.getSnapshot.getMax should be >= 5.millis.toNanos
     }
   }
 
@@ -60,9 +60,9 @@ final class InstrumentedGraphSpec extends AsyncFlatSpec with Matchers with AkkaB
     val lowAcceptanceThreshold = bufferSize - acceptanceTolerance
     val highAcceptanceThreshold = bufferSize + acceptanceTolerance
 
-    val maxBuffered = new InstrumentedGraphSpec.MaxValueCounter()
-    val capacityCounter = new Counter()
-    val delayTimer = new Timer()
+    val maxBuffered = Counter("test-length", new InstrumentedGraphSpec.MaxValueCounter())
+    val capacityCounter = Counter("test-capacity", new codahale.Counter())
+    val delayTimer = Timer("test-delay", new codahale.Timer())
 
     val stop = Promise[Unit]()
 
@@ -108,7 +108,7 @@ final class InstrumentedGraphSpec extends AsyncFlatSpec with Matchers with AkkaB
     val counter = new SamplingCounter(10.millis)
     Source(List.fill(1000)("element"))
       .throttle(producerMaxSpeed, FiniteDuration(10, "millis"))
-      .buffered(counter, 100)
+      .buffered(Counter("test", counter), 100)
       .throttle(consumerMaxSpeed, FiniteDuration(10, "millis"))
       .run()
       .map(_ => counter.finishSampling())
@@ -154,7 +154,7 @@ object InstrumentedGraphSpec {
 
   // For testing only, this counter will never decrease
   // so that we can test the maximum value read
-  private final class MaxValueCounter extends Counter {
+  private final class MaxValueCounter extends codahale.Counter {
     val decrements = new AtomicLong(0)
 
     override def dec(): Unit = {
@@ -168,7 +168,7 @@ object InstrumentedGraphSpec {
   }
 
   // For testing only, provides a sampled sequence of the state of the counter until finishSampling is called.
-  private final class SamplingCounter(samplingInterval: FiniteDuration) extends Counter {
+  private final class SamplingCounter(samplingInterval: FiniteDuration) extends codahale.Counter {
     private val t = new java.util.Timer()
     private val samples = scala.collection.mutable.ListBuffer[Long]()
     private val task = new java.util.TimerTask {

@@ -8,6 +8,7 @@ import com.daml.lf.command.ContractMetadata
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
+import com.daml.lf.engine.Error.Preprocessing.DuplicateDisclosedContractId
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.{ArrayList, DisclosedContract, SValue}
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueList, ValueParty, ValueRecord}
@@ -92,6 +93,25 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
           val finalResult = intermediaryResult.consume(_ => None, pkgs.get, _ => None)
 
           acceptDisclosedContract(finalResult)
+        }
+      }
+
+      "reject duplicate disclosed contract IDs" in {
+        val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+        val intermediaryResult =
+          preprocessor.preprocessDisclosedContracts(
+            ImmArray(normalizedContract, nonNormalizedContract)
+          )
+
+        intermediaryResult shouldBe a[ResultNeedPackage[_]]
+
+        val finalResult = intermediaryResult.consume(_ => None, pkgs.get, _ => None)
+
+        inside(finalResult) {
+          case Left(
+                Error.Preprocessing(DuplicateDisclosedContractId(`contractId`, `templateId`))
+              ) =>
+            succeed
         }
       }
     }

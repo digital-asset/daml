@@ -343,6 +343,7 @@ final class UserManagementServiceIT
     "TestAdminExists",
     "Ensure admin user exists",
   )(implicit ec => { implicit ledger =>
+    val useMeta = ledger.features.userAndPartyLocalMetadataExtensions
     for {
       get1 <- ledger.userManagement.getUser(GetUserRequest(AdminUserId))
       rights1 <- ledger.userManagement.listUserRights(ListUserRightsRequest(AdminUserId))
@@ -352,7 +353,7 @@ final class UserManagementServiceIT
         Some(
           User(
             id = AdminUserId,
-            metadata = Some(
+            metadata = Option.when(useMeta)(
               ObjectMeta(
                 resourceVersion = get1.getUser.getMetadata.resourceVersion
               )
@@ -370,7 +371,6 @@ final class UserManagementServiceIT
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
-    val userId3 = ledger.nextUserId()
     val user1 = User(
       id = userId1,
       primaryParty = "party1",
@@ -381,15 +381,6 @@ final class UserManagementServiceIT
       primaryParty = "",
       metadata = Some(ObjectMeta()),
     )
-    val user3 = User(
-      id = userId3,
-      primaryParty = "",
-      metadata = Some(
-        ObjectMeta(
-          resourceVersion = "someResourceVersion1"
-        )
-      ),
-    )
     for {
       res1 <- ledger.createUser(
         CreateUserRequest(Some(user1), Nil)
@@ -399,22 +390,44 @@ final class UserManagementServiceIT
         .mustFail("allocating a duplicate user")
       res3 <- ledger.createUser(CreateUserRequest(Some(user2), Nil))
       res4 <- ledger.deleteUser(DeleteUserRequest(userId2))
-      res5 <- ledger
-        .createUser(CreateUserRequest(Some(user3), Nil))
+    } yield {
+      assertEquals(unsetResourceVersion(res1), CreateUserResponse(Some(user1)))
+      assertUserAlreadyExists(res2)
+      assertEquals(unsetResourceVersion(res3), CreateUserResponse(Some(user2)))
+      assertEquals(res4, DeleteUserResponse())
+      if (ledger.features.userAndPartyLocalMetadataExtensions) {
+        val resourceVersion1 = res1.user.get.metadata.get.resourceVersion
+        assert(resourceVersion1.nonEmpty, "New user's resource version should be non empty")
+        val resourceVersion2 = res3.user.get.metadata.get.resourceVersion
+        assert(resourceVersion2.nonEmpty, "New user's resource version should be non empty")
+      }
+    }
+  })
+
+  userManagementTest(
+    shortIdentifier = "TestInvalidResourceVersionInCreateUser",
+    description = "Exercise CreateUser rpc using resource version",
+    requiresUserAndPartyLocalMetadataExtensions = true,
+  )(implicit ec => { implicit ledger =>
+    val userId = ledger.nextUserId()
+    val user = User(
+      id = userId,
+      primaryParty = "",
+      metadata = Some(
+        ObjectMeta(
+          resourceVersion = "someResourceVersion1"
+        )
+      ),
+    )
+    for {
+      res <- ledger
+        .createUser(CreateUserRequest(Some(user), Nil))
         .mustFail(
           "creating user with non empty resource version"
         )
     } yield {
-      assertEquals(unsetResourceVersion(res1), CreateUserResponse(Some(user1)))
-      val resourceVersion1 = res1.user.get.metadata.get.resourceVersion
-      assert(resourceVersion1.nonEmpty, "New user's resource version should be non empty")
-      assertUserAlreadyExists(res2)
-      assertEquals(unsetResourceVersion(res3), CreateUserResponse(Some(user2)))
-      val resourceVersion2 = res3.user.get.metadata.get.resourceVersion
-      assert(resourceVersion2.nonEmpty, "New user's resource version should be non empty")
-      assertEquals(res4, DeleteUserResponse())
       assertGrpcError(
-        res5,
+        res,
         LedgerApiErrors.RequestValidation.InvalidArgument,
         exceptionMessageSubstring = Some(
           "The submitted command has invalid arguments: field user.metadata.resource_version must be not set"
@@ -424,8 +437,9 @@ final class UserManagementServiceIT
   })
 
   userManagementTest(
-    "TestFailCreatingUserWhenAnnotationsValueIsEmpty",
-    "Failing to create a user when an annotations value is empty",
+    shortIdentifier = "TestFailCreatingUserWhenAnnotationsValueIsEmpty",
+    description = "Failing to create a user when an annotations value is empty",
+    requiresUserAndPartyLocalMetadataExtensions = true,
   )(implicit ec => { implicit ledger =>
     val userId1 = ledger.nextUserId()
     for {
@@ -695,7 +709,6 @@ final class UserManagementServiceIT
     val user1 = User(userId1, "party1")
     for {
       userBefore <- ledger.createUser(CreateUserRequest(Some(user1), Nil))
-      userResourceVersion1 = userBefore.user.get.metadata.get.resourceVersion
       res1 <- ledger.userManagement.grantUserRights(
         GrantUserRightsRequest(userId1, List(adminPermission))
       )
@@ -709,17 +722,20 @@ final class UserManagementServiceIT
         GrantUserRightsRequest(userId1, userRightsBatch)
       )
       userAfter <- ledger.userManagement.getUser(GetUserRequest(userId = user1.id))
-      userResourceVersion2 = userAfter.user.get.metadata.get.resourceVersion
-      _ = assertEquals(
-        "changing user rights must not change user's resource version",
-        userResourceVersion1,
-        userResourceVersion2,
-      )
     } yield {
       assertSameElements(res1.newlyGrantedRights, List(adminPermission))
       assertUserNotFound(res2)
       assertSameElements(res3.newlyGrantedRights, List.empty)
       assertSameElements(res4.newlyGrantedRights.toSet, userRightsBatch.toSet)
+      if (ledger.features.userAndPartyLocalMetadataExtensions) {
+        val userResourceVersion1 = userBefore.user.get.metadata.get.resourceVersion
+        val userResourceVersion2 = userAfter.user.get.metadata.get.resourceVersion
+        assertEquals(
+          "changing user rights must not change user's resource version",
+          userResourceVersion1,
+          userResourceVersion2,
+        )
+      }
     }
   })
 
@@ -734,7 +750,6 @@ final class UserManagementServiceIT
       userBefore <- ledger.createUser(
         CreateUserRequest(Some(user1), List(adminPermission) ++ userRightsBatch)
       )
-      userResourceVersion1 = userBefore.user.get.metadata.get.resourceVersion
       res1 <- ledger.userManagement.revokeUserRights(
         RevokeUserRightsRequest(userId1, List(adminPermission))
       )
@@ -748,17 +763,20 @@ final class UserManagementServiceIT
         RevokeUserRightsRequest(userId1, userRightsBatch)
       )
       userAfter <- ledger.userManagement.getUser(GetUserRequest(userId = user1.id))
-      userResourceVersion2 = userAfter.user.get.metadata.get.resourceVersion
-      _ = assertEquals(
-        "changing user rights must not change user's resource version",
-        userResourceVersion1,
-        userResourceVersion2,
-      )
     } yield {
       assertEquals(res1, RevokeUserRightsResponse(List(adminPermission)))
       assertUserNotFound(res2)
       assertSameElements(res3.newlyRevokedRights, List.empty)
       assertSameElements(res4.newlyRevokedRights.toSet, userRightsBatch.toSet)
+      if (ledger.features.userAndPartyLocalMetadataExtensions) {
+        val userResourceVersion1 = userBefore.user.get.metadata.get.resourceVersion
+        val userResourceVersion2 = userAfter.user.get.metadata.get.resourceVersion
+        assertEquals(
+          "changing user rights must not change user's resource version",
+          userResourceVersion1,
+          userResourceVersion2,
+        )
+      }
     }
   })
 
