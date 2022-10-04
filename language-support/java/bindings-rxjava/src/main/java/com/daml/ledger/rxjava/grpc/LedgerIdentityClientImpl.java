@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
+/** @deprecated ledger identity string is optional for all Ledger API requests since Daml 2.0.0 */
 @Deprecated
 public class LedgerIdentityClientImpl implements LedgerIdentityClient {
 
