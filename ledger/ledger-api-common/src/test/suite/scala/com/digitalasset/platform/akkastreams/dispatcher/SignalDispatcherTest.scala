@@ -77,6 +77,7 @@ class SignalDispatcherTest
 
     "remove queues from its state when failed" in { sut =>
       val s = sut.subscribe(true).runWith(TestSink.probe[SignalDispatcher.Signal])
+
       s.request(1L)
       s.expectNext(SignalDispatcher.Signal)
       sut.getRunningState should have size 1L
@@ -84,12 +85,46 @@ class SignalDispatcherTest
       val failure = new RuntimeException("Some failure")
 
       // Check fail does not return a failed future
-      Await.result(sut.fail(failure), 10.seconds)
+      Await.result(sut.fail(() => failure), 10.seconds)
 
       assertThrows[IllegalStateException](sut.getRunningState)
       assertThrows[IllegalStateException](sut.signal())
       s.expectError(failure)
       succeed
+    }
+
+    "fail sources with distinct throwables on fail" in { sut =>
+      val s1 = sut.subscribe(true).runWith(TestSink.probe[SignalDispatcher.Signal])
+      val s2 = sut.subscribe(true).runWith(TestSink.probe[SignalDispatcher.Signal])
+      val s3 = sut.subscribe(true).runWith(TestSink.probe[SignalDispatcher.Signal])
+
+      s1.request(1L)
+      s2.request(1L)
+      s3.request(1L)
+
+      s1.expectNext(SignalDispatcher.Signal)
+      s2.expectNext(SignalDispatcher.Signal)
+      s3.expectNext(SignalDispatcher.Signal)
+
+      sut.getRunningState should have size 3L
+
+      val errMessage = "Some failure"
+      val newFailure = () => new RuntimeException(errMessage)
+
+      // Check fail does not return a failed future
+      Await.result(sut.fail(newFailure), 10.seconds)
+
+      assertThrows[IllegalStateException](sut.getRunningState)
+      assertThrows[IllegalStateException](sut.signal())
+      val capturedErrors = Set(s1.expectError(), s2.expectError(), s3.expectError())
+
+      // Expected set size confirms errors are distinct
+      capturedErrors.size shouldBe 3
+      capturedErrors.foldLeft(succeed) {
+        case (`succeed`, err: RuntimeException) if err.getMessage == errMessage => succeed
+        case (`succeed`, otherErr) => fail(s"Unexpected error $otherErr")
+        case (failed, _) => failed
+      }
     }
   }
 

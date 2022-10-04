@@ -239,8 +239,10 @@ class DispatcherSpec
 
         val expectedException = new RuntimeException("some exception")
 
+        val newException = () => expectedException
+
         for {
-          _ <- dispatcher.cancel(expectedException)
+          _ <- dispatcher.cancel(newException)
           _ = publish(i100, dispatcher)
 
           _ <- out.transform {
