@@ -184,7 +184,8 @@ object WebSocketService {
         resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
         resolveTemplateId: PackageService.ResolveTemplateId,
     )(implicit
-        lc: LoggingContextOf[InstanceUUID]
+        ec: ExecutionContext,
+        lc: LoggingContextOf[InstanceUUID],
     ): Future[Error \/ (_ <: WSResolvedQuery[_])]
   }
 
@@ -260,18 +261,43 @@ object WebSocketService {
           resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
           resolveTemplateId: PackageService.ResolveTemplateId,
       )(implicit
-          lc: LoggingContextOf[InstanceUUID]
-      ) = {
+          ec: ExecutionContext,
+          lc: LoggingContextOf[InstanceUUID],
+      ): Future[Error \/ (_ <: WSResolvedQuery[_])] = {
         import JsonProtocol._
-        Future.successful(
-          // TODO fix Ray resolve the query
-          SprayJson
-            .decode[SearchForeverRequest](jv)
-            .liftErr[Error](InvalidUserInput)
-            .map { q =>
-              WSResolvedQuery(offPrefix, Query(q, this), ResolvedQuery.Empty, Set())
+
+        def getCids(searchForeverRequest: SearchForeverRequest) =
+          searchForeverRequest.queriesWithPos.toList
+            .flatMap { case (queryWithPos, _) =>
+              queryWithPos.templateIds
             }
-        )
+
+        SprayJson
+          .decode[SearchForeverRequest](jv)
+          .liftErr[Error](InvalidUserInput)
+          .map { searchForeverRequest =>
+            val cids = getCids(searchForeverRequest)
+            Future
+              .sequence(cids.map(resolveContractTypeId(jwt, ledgerId)))
+              .map { cids =>
+                val (errors, cidsResolved) = cids.partitionMap(_.toEither)
+                // TODO fix Ray, collect all errors?
+                import scalaz.syntax.show._
+                if (errors.nonEmpty) -\/(InvalidUserInput(errors(0).shows))
+                else
+                  ResolvedQuery(cidsResolved.flatten.toSet)
+                    .map(rq =>
+                      WSResolvedQuery(
+                        offPrefix,
+                        Query(searchForeverRequest, this),
+                        rq,
+                        Set(),
+                      )
+                    )
+                    .leftMap(unsupported => InvalidUserInput(unsupported.errorMsg))
+              }
+          }
+          .fold(e => Future.successful(\/.left(e)), identity)
       }
 
       override def removePhantomArchives(request: SearchForeverRequest) = None
@@ -331,8 +357,7 @@ object WebSocketService {
 
         val query = (sfQuery: domain.SearchForeverQuery, pos: Int, ix: Int) => {
           val q = prepareFilters(
-            // TODO FIX Ray, pass in the valid ResolvedQuery
-            ResolvedQuery.Empty,
+            wsResolvedQuery.resolvedQuery,
             sfQuery.query,
             lookupType,
           ): CompiledQueries
@@ -346,10 +371,8 @@ object WebSocketService {
             ((ValuePredicate, ValuePredicate.LfV => Boolean), (Int, Int))
           ]]
         StreamPredicate(
-          // TODO FIX Ray, resolvedQuery
           wsResolvedQuery.resolvedQuery,
-          // TODO FIX Ray, unresolved from ResolvedQuery
-          Set.empty[domain.ContractTypeId.OptionalPkg],
+          wsResolvedQuery.unresolved,
           fn(queriesWithPredicatesByResolvedId),
           { (parties, dao) =>
             import dao.{logHandler, jdbcDriver}
@@ -432,7 +455,8 @@ object WebSocketService {
           resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
           resolveTemplateId: PackageService.ResolveTemplateId,
       )(implicit
-          lc: LoggingContextOf[InstanceUUID]
+          ec: ExecutionContext,
+          lc: LoggingContextOf[InstanceUUID],
       ): Future[Error \/ WSResolvedQuery[_]] = {
         def go[Hint](
             alg: StreamQuery[NelCKRH[Hint, LfV]]
@@ -484,6 +508,10 @@ object WebSocketService {
         lc: LoggingContextOf[InstanceUUID]
     ): StreamPredicate[Positive] = {
 
+      // invariant: every set is non-empty
+      def getQ[K, V](resolvedWithKey: Set[(K, V)]): Map[K, HashSet[V]] =
+        resolvedWithKey.to(HashSet).groupMap(_._1)(_._2)
+
       def fn(
           q: Map[domain.ContractTypeId.Resolved, HashSet[LfV]]
       ): (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive] = { (a, _) =>
@@ -512,15 +540,13 @@ object WebSocketService {
           )
         }
       def streamPredicate(
-          q: Map[domain.TemplateId.Resolved, HashSet[LfV]],
-          resolvedQuery: ResolvedQuery,
-          unresolved: Set[OptionalPkg],
+          q: Map[domain.TemplateId.Resolved, HashSet[LfV]]
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
       ) =
         StreamPredicate(
-          resolvedQuery,
-          unresolved,
+          wsResolvedQuery.resolvedQuery,
+          wsResolvedQuery.unresolved,
           fn(q),
           { (parties, dao) =>
             import dao.{logHandler, jdbcDriver}
@@ -528,9 +554,17 @@ object WebSocketService {
             selectContractsMultiTemplate(parties, dbQueries(q), MatchedQueryMarker.Unused)
           },
         )
-      // TODO FIX Ray
-      val _ = streamPredicate(null, null, null)
-      null
+
+      val resolvedWithKey: Set[(domain.ContractTypeId.Resolved, LfV)] =
+        wsResolvedQuery.request.toList.flatMap { x: CKR[LfV] =>
+          wsResolvedQuery.resolvedQuery.resolved
+            // TODO fix Ray comparing optionalPkg with Resolved probably does not work.
+            .find(_ == x.ekey.templateId)
+            .map((_, x.ekey.key))
+        }.toSet
+
+      val q = getQ(resolvedWithKey)
+      streamPredicate(q)
     }
 
     override def renderCreatedMetadata(p: Unit) = Map.empty
@@ -799,7 +833,7 @@ class WebSocketService(
     val offPrefix = wsResolvedQuery.offPrefix
     val rawRequest = wsResolvedQuery.request
     // If there is a prefix, replace the empty offsets in the request with it
-    // TODO fix Ray
+    // TODO fix Ray cleanup, can add this to WSResolvedQuery
     val adjustedWsResolvedQuery =
       wsResolvedQuery.copy(request = sq.adjustRequest(offPrefix, rawRequest))
     Source
