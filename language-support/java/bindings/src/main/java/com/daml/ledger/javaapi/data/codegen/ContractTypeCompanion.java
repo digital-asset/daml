@@ -16,6 +16,4 @@ public abstract class ContractTypeCompanion<Maker, Data> {
   protected ContractTypeCompanion(Identifier templateId) {
     TEMPLATE_ID = templateId;
   }
-
-  public abstract TransactionFilter transactionFilter(Set<String> parties);
 }

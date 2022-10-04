@@ -70,13 +70,6 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
     return newContractId.apply(parameterizedContractId.contractId);
   }
 
-  @Override
-  public TransactionFilter transactionFilter(Set<String> parties) {
-    Filter filter = new InclusiveFilter(Set.of(TEMPLATE_ID), Collections.emptyMap());
-    Map<String, Filter> partyToFilters = parties.stream().collect(Collectors.toMap(Function.identity(), x -> filter));
-    return new FiltersByParty(partyToFilters);
-  }
-
   protected ContractCompanion(
       String templateClassName,
       Identifier templateId,

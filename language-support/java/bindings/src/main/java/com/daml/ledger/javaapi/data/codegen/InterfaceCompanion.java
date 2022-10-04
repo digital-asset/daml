@@ -25,11 +25,4 @@ public abstract class InterfaceCompanion<I, View> extends ContractTypeCompanion<
     super(templateId);
     this.valueDecoder = valueDecoder;
   }
-
-  @Override
-  public TransactionFilter transactionFilter(Set<String> parties) {
-    Filter filter = new InclusiveFilter(Collections.emptySet(), Map.of(TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW));
-    Map<String, Filter> partyToFilters = parties.stream().collect(Collectors.toMap(Function.identity(), x -> filter));
-    return new FiltersByParty(partyToFilters);
-  }
 }
