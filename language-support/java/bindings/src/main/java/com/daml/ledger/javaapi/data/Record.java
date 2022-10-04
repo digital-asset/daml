@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import static java.util.Collections.unmodifiableList;
 
 // FIXME When removing this after the deprecation period is over, make DamlRecord final
 /** @deprecated Use {@link DamlRecord} instead. */
@@ -26,11 +27,11 @@ public final class Record extends DamlRecord {
   }
 
   public Record(@NonNull Identifier recordId, @NonNull List<@NonNull Field> fields) {
-    super(recordId, (List) fields); // safe-ish cast due to java.util.List being invariant in E
+    super(recordId, unmodifiableList(fields));
   }
 
   public Record(@NonNull List<@NonNull Field> fields) {
-    super((List) fields); // safe-ish cast due to java.util.List being invariant in E
+    super(unmodifiableList(fields));
   }
 
   public Record(
@@ -39,8 +40,8 @@ public final class Record extends DamlRecord {
       Map<String, Value> fieldsMap) {
     super(
         recordId,
-        (List) fields,
-        fieldsMap); // safe-ish cast due to java.util.List being invariant in E
+        unmodifiableList(fields),
+        fieldsMap);
   }
 
   /** @deprecated Use {@link DamlRecord#fromProto(ValueOuterClass.Record)} instead */
