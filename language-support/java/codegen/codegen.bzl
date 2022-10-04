@@ -1,6 +1,8 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
+
 def mangle(name):
     return ".".join(name.rsplit("-", 1))
 
@@ -35,6 +37,7 @@ def dar_to_java(**kwargs):
 
     native.java_library(
         name = lib,
+        javacopts = da_java_bindings_javacopts,
         srcs = [
             ":%s" % src_jar,
         ],
