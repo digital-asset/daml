@@ -86,7 +86,7 @@ private[inner] object TemplateClass extends StrictLogging {
           )
         )
         .addMethod(generateCreateAndMethod())
-        .addType(generateCreateAndClass(\/-(template.implementedInterfaces)))
+        .addType(generateCreateAndClass(className, \/-(template.implementedInterfaces)))
         .addFields(
           generateChoicesMetadata(
             className: ClassName,
@@ -94,15 +94,13 @@ private[inner] object TemplateClass extends StrictLogging {
             templateChoices,
           ).asJava
         )
-        .addField(
-          generateCompanion(className, template.key, packagePrefixes, templateChoices.keys.toSet)
-        )
+        .addField(generateCompanion(className, template.key, packagePrefixes))
         .addFields(RecordFields(fields).asJava)
         .addMethods(TemplateMethods(fields, className, packagePrefixes).asJava)
       generateByKeyMethod(template.key, packagePrefixes) foreach { byKeyMethod =>
         templateType
           .addMethod(byKeyMethod)
-          .addType(generateByKeyClass(\/-(template.implementedInterfaces)))
+          .addType(generateByKeyClass(className, \/-(template.implementedInterfaces)))
       }
       logger.debug("End")
       templateType.build()
@@ -167,7 +165,8 @@ private[inner] object TemplateClass extends StrictLogging {
     }
 
   private[inner] def generateByKeyClass(
-      implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName]
+      markerName: ClassName,
+      implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName],
   ) = {
     import scala.language.existentials
     val (superclass, companionArg) = implementedInterfaces.fold(
@@ -194,7 +193,7 @@ private[inner] object TemplateClass extends StrictLogging {
           .addStatement("super($Lkey)", companionArg)
           .build()
       )
-      .addGetCompanion(implementedInterfaces)
+      .addGetCompanion(markerName, implementedInterfaces)
       .addMethods(
         implementedInterfaces
           .fold(
@@ -313,7 +312,8 @@ private[inner] object TemplateClass extends StrictLogging {
       .build()
 
   private[inner] def generateCreateAndClass(
-      implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName]
+      markerName: ClassName,
+      implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName],
   ) = {
     import scala.language.existentials
     val (superclass, companionArg) = implementedInterfaces.fold(
@@ -331,7 +331,7 @@ private[inner] object TemplateClass extends StrictLogging {
           ClassName get classOf[javaapi.data.CreateAndExerciseCommand],
         )
       )
-      .addGetCompanion(implementedInterfaces)
+      .addGetCompanion(markerName, implementedInterfaces)
       .addMethod(
         MethodSpec
           .constructorBuilder()
@@ -596,11 +596,13 @@ private[inner] object TemplateClass extends StrictLogging {
   private implicit final class `TypeSpec extensions`(private val self: TypeSpec.Builder)
       extends AnyVal {
     private[TemplateClass] def addGetCompanion(
-        isInterface: ContractIdClass.For.Interface.type \/ _
+        markerName: ClassName,
+        isInterface: ContractIdClass.For.Interface.type \/ _,
     ) =
       self.addMethod(
         ContractIdClass.Builder.generateGetCompanion(
-          isInterface.map(_ => ContractIdClass.For.Template).merge
+          markerName,
+          isInterface.map(_ => ContractIdClass.For.Template).merge,
         )
       )
   }

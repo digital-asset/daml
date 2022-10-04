@@ -180,6 +180,7 @@ public class SubmitCommandsRequest {
         deduplicationPeriod = Optional.of(Duration.ofSeconds(d.getSeconds(), d.getNanos()));
         break;
       case DEDUPLICATION_TIME:
+        @SuppressWarnings("deprecation")
         com.google.protobuf.Duration t = commands.getDeduplicationTime();
         deduplicationPeriod = Optional.of(Duration.ofSeconds(t.getSeconds(), t.getNanos()));
         break;
@@ -248,11 +249,14 @@ public class SubmitCommandsRequest {
                     .setSeconds(rel.getSeconds())
                     .setNanos(rel.getNano())));
     deduplicationTime.ifPresent(
-        dedup ->
-            builder.setDeduplicationTime(
-                com.google.protobuf.Duration.newBuilder()
-                    .setSeconds(dedup.getSeconds())
-                    .setNanos(dedup.getNano())));
+        dedup -> {
+          @SuppressWarnings("deprecation")
+          var unused =
+              builder.setDeduplicationTime(
+                  com.google.protobuf.Duration.newBuilder()
+                      .setSeconds(dedup.getSeconds())
+                      .setNanos(dedup.getNano()));
+        });
     submissionId.ifPresent(builder::setSubmissionId);
     return builder.build();
   }

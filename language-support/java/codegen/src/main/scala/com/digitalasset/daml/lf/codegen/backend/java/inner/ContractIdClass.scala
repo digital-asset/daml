@@ -202,9 +202,13 @@ object ContractIdClass {
       exerciseChoiceBuilder.build()
     }
 
-    def generateGetCompanion(kind: For) =
+    def generateGetCompanion(markerName: ClassName, kind: For) =
       ClassGenUtils.generateGetCompanion(
-        ClassName get classOf[javaapi.data.codegen.ContractTypeCompanion[_, _]],
+        ParameterizedTypeName.get(
+          ClassName get classOf[javaapi.data.codegen.ContractTypeCompanion[_, _]],
+          markerName,
+          WildcardTypeName subtypeOf classOf[Object],
+        ),
         kind match {
           case For.Interface => InterfaceClass.companionName
           case For.Template => ClassGenUtils.companionFieldName
@@ -271,7 +275,7 @@ object ContractIdClass {
           .build()
       idClassBuilder
         .addMethod(constructor)
-        .addMethod(generateGetCompanion(kind))
+        .addMethod(generateGetCompanion(templateClassName, kind))
       Builder(templateClassName, contractIdClassName, idClassBuilder, choices, packagePrefixes)
     }
   }
