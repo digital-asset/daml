@@ -3,6 +3,8 @@
 
 package com.daml.ledger.javaapi.data;
 
+import static java.util.Collections.unmodifiableList;
+
 import com.daml.ledger.api.v1.ValueOuterClass;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -11,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
-import static java.util.Collections.unmodifiableList;
 
 // FIXME When removing this after the deprecation period is over, make DamlRecord final
 /** @deprecated Use {@link DamlRecord} instead. */
@@ -38,10 +39,7 @@ public final class Record extends DamlRecord {
       @NonNull Optional<Identifier> recordId,
       @NonNull List<@NonNull Field> fields,
       Map<String, Value> fieldsMap) {
-    super(
-        recordId,
-        unmodifiableList(fields),
-        fieldsMap);
+    super(recordId, unmodifiableList(fields), fieldsMap);
   }
 
   /** @deprecated Use {@link DamlRecord#fromProto(ValueOuterClass.Record)} instead */
