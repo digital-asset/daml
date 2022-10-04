@@ -87,18 +87,15 @@ private[apiserver] final class ApiVersionService private (
       .map(apiVersionResponse)
       .andThen(logger.logErrorsOnCall[GetLedgerApiVersionResponse])
       .recoverWith { case NonFatal(_) =>
-        internalError
+        Future.failed(
+          LedgerApiErrors.InternalError
+            .VersionService(message = "Cannot read Ledger API version")
+            .asGrpcError
+        )
       }
 
   private def apiVersionResponse(version: String) =
     GetLedgerApiVersionResponse(version, Some(featuresDescriptor))
-
-  private lazy val internalError: Future[Nothing] =
-    Future.failed(
-      LedgerApiErrors.InternalError
-        .VersionService(message = "Cannot read Ledger API version")
-        .asGrpcError
-    )
 
   private def readVersion(versionFileName: String): Try[String] =
     Try {

@@ -8,8 +8,8 @@ import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.rs.ServerSubscriber
-import io.grpc.{StatusException, StatusRuntimeException}
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
+import io.grpc.{StatusException, StatusRuntimeException}
 
 import scala.concurrent.{Future, Promise}
 
@@ -38,13 +38,13 @@ object ServerAdapter {
                 .asGrpcError
           }
         }
-
       }
 
     Sink
       .fromSubscriber(subscriber)
       .mapMaterializedValue(_ => {
         val promise = Promise[Unit]()
+
         subscriber.completionFuture.handle[Unit]((_, throwable) => {
           if (throwable == null) promise.success(()) else promise.failure(throwable)
           ()
@@ -53,10 +53,7 @@ object ServerAdapter {
       })
   }
 
-  /** Used in [[com.daml.protoc.plugins.akka.AkkaGrpcServicePrinter]]
-    */
-  def closingError(): StatusRuntimeException = {
+  /** Used in [[com.daml.protoc.plugins.akka.AkkaGrpcServicePrinter]] */
+  def closingError(): StatusRuntimeException =
     LedgerApiErrors.ServerIsShuttingDown.Reject()(errorLogger).asGrpcError
-  }
-
 }

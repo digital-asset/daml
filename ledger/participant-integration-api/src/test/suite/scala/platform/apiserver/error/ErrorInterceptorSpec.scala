@@ -3,23 +3,13 @@
 
 package com.daml.platform.apiserver.error
 
-import java.net.{InetAddress, InetSocketAddress}
-import java.util.concurrent.TimeUnit
-
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
-import com.daml.error.definitions.DamlError
-import com.daml.error.definitions.LedgerApiErrors
+import ch.qos.logback.classic.Level
+import com.daml.error.definitions.{DamlError, LedgerApiErrors}
 import com.daml.error.utils.ErrorDetails
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCategory,
-  ErrorClass,
-  ErrorCode,
-  ErrorsAssertions,
-}
+import com.daml.error._
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -27,19 +17,23 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, Test
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceAkkaGrpc, HelloServiceGrpc}
-import com.daml.platform.testing.{LogCollectorAssertions, StreamConsumer}
+import com.daml.platform.testing.LogCollector.ThrowableEntry
+import com.daml.platform.testing.{LogCollector, LogCollectorAssertions, StreamConsumer}
 import com.daml.ports.Port
 import io.grpc.netty.NettyServerBuilder
-import io.grpc.{BindableService, ServerServiceDefinition, _}
-import org.scalatest.{Assertion, Assertions, Checkpoints}
+import io.grpc._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{Assertion, Assertions, BeforeAndAfter, Checkpoints}
 
-import scala.concurrent.Future
+import java.net.{InetAddress, InetSocketAddress}
+import java.util.concurrent.TimeUnit
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 final class ErrorInterceptorSpec
     extends AsyncFreeSpec
+    with BeforeAndAfter
     with AkkaBeforeAndAfterAll
     with Matchers
     with Eventually
@@ -52,6 +46,10 @@ final class ErrorInterceptorSpec
 
   private val bypassMsg: String =
     "(should still intercept the error to bypass default gRPC error handling)"
+
+  before {
+    LogCollector.clear[this.type]
+  }
 
   classOf[ErrorInterceptor].getSimpleName - {
 
@@ -162,7 +160,46 @@ final class ErrorInterceptorSpec
             }
         }
       }
+    }
+  }
 
+  LogOnUnhandledFailureInClose.getClass.getSimpleName - {
+    "is transparent when no exception is thrown" in {
+      var idx = 0
+      val call = () => {
+        idx += 1
+        idx
+      }
+      assert(LogOnUnhandledFailureInClose(call()) === 1)
+      assert(LogOnUnhandledFailureInClose(call()) === 2)
+    }
+
+    "logs and re-throws the exception of a " in {
+      val failure = new RuntimeException("some failure")
+      val failingCall = () => throw failure
+
+      implicit val ec: ExecutionContextExecutor = ExecutionContext.global
+
+      Future(LogOnUnhandledFailureInClose(failingCall())).failed.map {
+        case `failure` =>
+          val actual = LogCollector.readAsEntries[this.type, LogOnUnhandledFailureInClose.type]
+          assertSingleLogEntry(
+            actual = actual,
+            expectedLogLevel = Level.ERROR,
+            expectedMsg =
+              "LEDGER_API_INTERNAL_ERROR(4,0): Unhandled error in ServerCall.close(). The gRPC client might have not been notified about the call/stream termination. Either notify clients to retry pending unary/streaming calls or restart the participant server.",
+            expectedMarkerAsString =
+              """{err-context: "{location=ErrorInterceptor.scala:<line-number>, throwableO=Some(java.lang.RuntimeException: some failure)}"}""",
+            expectedThrowableEntry = Some(
+              ThrowableEntry(
+                className = "java.lang.RuntimeException",
+                message = "some failure",
+              )
+            ),
+          )
+          succeed
+        case other => fail("Unexpected failure", other)
+      }
     }
   }
 
