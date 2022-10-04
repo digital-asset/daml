@@ -25,7 +25,7 @@ public abstract class InterfaceCompanion<I, View> extends ContractTypeCompanion<
    * and <em>should not be referenced directly</em>. Applications should refer to the {@code
    * INTERFACE} field on generated code for Daml interfaces instead.
    */
-  protected InterfaceCompanion(Identifier templateId, ValueDecoder<View> valueDecoder, List<ChoiceMetadata<?, ?, ?>> choices) {
+  protected InterfaceCompanion(Identifier templateId, ValueDecoder<View> valueDecoder, List<ChoiceMetadata<I, ?, ?>> choices) {
     super(templateId, choices);
     this.valueDecoder = valueDecoder;
   }
