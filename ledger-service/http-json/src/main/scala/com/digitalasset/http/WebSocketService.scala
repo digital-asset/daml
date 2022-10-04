@@ -172,31 +172,36 @@ object WebSocketService {
         identity,
       )(_ append _)
   }
-  // TODO fix Ray pass in the resolve functions to the StreamQueryReader instances
   case class Query[Q](q: Q, alg: StreamQuery[Q])
   sealed abstract class StreamQueryReader[A] {
 
-    def parse(
-        resumingAtOffset: Boolean,
+    def parseAndResolve(
+        offPrefix: Option[StartingOffset],
         decoder: DomainJsonDecoder,
         jv: JsValue,
         jwt: Jwt,
         ledgerId: LedgerApiDomain.LedgerId,
-    )(implicit
-        lc: LoggingContextOf[InstanceUUID]
-    ): Future[Error \/ (_ <: Query[_])]
-
-    def resolve[Q](
-        offPrefix: Option[StartingOffset],
-        query: Query[Q],
         resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
         resolveTemplateId: PackageService.ResolveTemplateId,
-    ): Future[Error \/ WSResolvedQuery[Q]]
+    )(implicit
+        lc: LoggingContextOf[InstanceUUID]
+    ): Future[Error \/ (_ <: WSResolvedQuery[_])]
+  }
+
+  object WSResolvedQuery {
+    def apply[Q](
+        offPrefix: Option[StartingOffset],
+        query: Query[Q],
+        resolvedQuery: domain.ResolvedQuery,
+        unresolved: Set[domain.ContractTypeId.OptionalPkg],
+    ): WSResolvedQuery[Q] =
+      WSResolvedQuery(offPrefix, query.q, query.alg, resolvedQuery, unresolved)
   }
 
   case class WSResolvedQuery[Q](
       offPrefix: Option[StartingOffset],
-      query: Query[Q],
+      request: Q,
+      alg: StreamQuery[Q],
       resolvedQuery: domain.ResolvedQuery,
       unresolved: Set[domain.ContractTypeId.OptionalPkg],
   )
@@ -209,7 +214,7 @@ object WebSocketService {
     def removePhantomArchives(request: A): Option[Set[domain.ContractId]]
 
     private[WebSocketService] def predicate(
-        request: A,
+        wsResolvedQuery: WSResolvedQuery[A],
         lookupType: ValuePredicate.TypeLookup,
         jwt: Jwt,
         ledgerId: LedgerApiDomain.LedgerId,
@@ -246,38 +251,33 @@ object WebSocketService {
 
       type Positive = NonEmptyList[Int]
 
-      override def parse(
-          resumingAtOffset: Boolean,
+      override def parseAndResolve(
+          offPrefix: Option[StartingOffset],
           decoder: DomainJsonDecoder,
           jv: JsValue,
           jwt: Jwt,
           ledgerId: LedgerApiDomain.LedgerId,
+          resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
+          resolveTemplateId: PackageService.ResolveTemplateId,
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
       ) = {
         import JsonProtocol._
         Future.successful(
+          // TODO fix Ray resolve the query
           SprayJson
             .decode[SearchForeverRequest](jv)
             .liftErr[Error](InvalidUserInput)
-            .map(Query(_, this))
+            .map { q =>
+              WSResolvedQuery(offPrefix, Query(q, this), ResolvedQuery.Empty, Set())
+            }
         )
-      }
-
-      override def resolve[Q](
-          offPrefix: Option[StartingOffset],
-          query: Query[Q],
-          resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
-          resolveTemplateId: PackageService.ResolveTemplateId,
-      ) = {
-        // TODO Fix Ray
-        Future.successful(\/-(WSResolvedQuery(offPrefix, query, ResolvedQuery.Empty, Set())))
       }
 
       override def removePhantomArchives(request: SearchForeverRequest) = None
 
       override private[WebSocketService] def predicate(
-          request: SearchForeverRequest,
+          wsResolvedQuery: WSResolvedQuery[SearchForeverRequest],
           lookupType: ValuePredicate.TypeLookup,
           jwt: Jwt,
           ledgerId: LedgerApiDomain.LedgerId,
@@ -287,7 +287,7 @@ object WebSocketService {
 
         import scalaz.syntax.foldable._
         import util.Collections._
-
+        val request = wsResolvedQuery.request
         val indexedOffsets: Vector[Option[domain.Offset]] =
           request.queriesWithPos.map { case (q, _) => q.offset }.toVector
 
@@ -347,7 +347,7 @@ object WebSocketService {
           ]]
         StreamPredicate(
           // TODO FIX Ray, resolvedQuery
-          ResolvedQuery.Empty,
+          wsResolvedQuery.resolvedQuery,
           // TODO FIX Ray, unresolved from ResolvedQuery
           Set.empty[domain.ContractTypeId.OptionalPkg],
           fn(queriesWithPredicatesByResolvedId),
@@ -421,16 +421,19 @@ object WebSocketService {
 
       import JsonProtocol._
 
-      override def parse(
-          resumingAtOffset: Boolean,
+      type NelCKRH[Hint, V] = NonEmptyList[domain.ContractKeyStreamRequest[Hint, V]]
+
+      override def parseAndResolve(
+          offPrefix: Option[StartingOffset],
           decoder: DomainJsonDecoder,
           jv: JsValue,
           jwt: Jwt,
           ledgerId: LedgerApiDomain.LedgerId,
+          resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
+          resolveTemplateId: PackageService.ResolveTemplateId,
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
-      ) = {
-        type NelCKRH[Hint, V] = NonEmptyList[domain.ContractKeyStreamRequest[Hint, V]]
+      ): Future[Error \/ WSResolvedQuery[_]] = {
         def go[Hint](
             alg: StreamQuery[NelCKRH[Hint, LfV]]
         )(implicit ev: JsonReader[NelCKRH[Hint, JsValue]]) =
@@ -443,20 +446,11 @@ object WebSocketService {
             bs <- rightT {
               as.map(a => decodeWithFallback(decoder, a, jwt, ledgerId)).sequence
             }
-          } yield Query(bs, alg)
-        if (resumingAtOffset) go(ResumingEnrichedContractKeyWithStreamQuery())
+            // TODO fix Ray
+          } yield WSResolvedQuery(offPrefix, Query(bs, alg), ResolvedQuery.Empty, Set())
+        if (offPrefix.isDefined) go(ResumingEnrichedContractKeyWithStreamQuery())
         else go(InitialEnrichedContractKeyWithStreamQuery())
       }.run
-
-      override def resolve[Q](
-          offPrefix: Option[StartingOffset],
-          query: Query[Q],
-          resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
-          resolveTemplateId: PackageService.ResolveTemplateId,
-      ) = {
-        // TODO fix Ray
-        Future.successful(\/-(WSResolvedQuery(offPrefix, query, ResolvedQuery.Empty, Set())))
-      }
 
       private def decodeWithFallback[Hint](
           decoder: DomainJsonDecoder,
@@ -482,7 +476,7 @@ object WebSocketService {
     protected type CKR[+V] = domain.ContractKeyStreamRequest[Cid, V]
 
     override private[WebSocketService] def predicate(
-        request: NonEmptyList[CKR[LfV]],
+        wsResolvedQuery: WSResolvedQuery[NonEmptyList[CKR[LfV]]],
         lookupType: TypeLookup,
         jwt: Jwt,
         ledgerId: LedgerApiDomain.LedgerId,
@@ -667,39 +661,29 @@ class WebSocketService(
         (for {
           offPrefix <- either[Future, Error, Option[StartingOffset]](oeso.sequence)
           jv <- either[Future, Error, JsValue](ejv)
-          a <- eitherT(
-            sqReader.parse(
-              resumingAtOffset = offPrefix.isDefined,
+          q <- eitherT(
+            sqReader.parseAndResolve(
+              offPrefix,
               decoder,
               jv,
               jwt,
               toLedgerId(jwtPayload.ledgerId),
-            ): Future[
-              Error \/ Query[_]
-            ]
+              resolveContractTypeId,
+              resolveTemplateId,
+            )
           )
-        } yield (offPrefix, a: Query[_])).run
+        } yield q).run
       }
       .via(
         allowOnlyFirstInput(
           InvalidUserInput("Multiple requests over the same WebSocket connection are not allowed.")
         )
       )
-      .mapAsync(1) { errorOrOffPrefixQuery =>
-        (for {
-          e <- eitherT(Future.successful(errorOrOffPrefixQuery))
-          a <- eitherT(
-            sqReader.resolve(e._1, e._2, resolveContractTypeId, resolveTemplateId): Future[
-              Error \/ WSResolvedQuery[_]
-            ]
-          )
-        } yield a).run
-      }
       .flatMapMerge(
         2, // 2 streams max, the 2nd is to be able to send an error back
         _.map { case wsResolvedQuery: WSResolvedQuery[q] =>
           // TODO Ray fix downstream to use the WSResolvedQuery instead.
-          implicit val SQ: StreamQuery[q] = wsResolvedQuery.query.alg
+          implicit val SQ: StreamQuery[q] = wsResolvedQuery.alg
           getTransactionSourceForParty[q](
             wsResolvedQuery,
             jwt,
@@ -794,14 +778,14 @@ class WebSocketService(
 
   // simple alias to avoid passing in the class parameters
   private[this] def queryPredicate[A](
-      request: A,
+      wsResolvedQuery: WSResolvedQuery[A],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
       lc: LoggingContextOf[InstanceUUID],
       Q: StreamQuery[A],
   ): StreamPredicate[Q.Positive] =
-    Q.predicate(request, lookupType, jwt, ledgerId)
+    Q.predicate(wsResolvedQuery, lookupType, jwt, ledgerId)
 
   private def getTransactionSourceForParty[A](
       wsResolvedQuery: WSResolvedQuery[A],
@@ -813,14 +797,24 @@ class WebSocketService(
       sq: StreamQuery[A],
   ): Source[Error \/ Message, NotUsed] = {
     val offPrefix = wsResolvedQuery.offPrefix
-    val rawRequest = wsResolvedQuery.query.q
+    val rawRequest = wsResolvedQuery.request
     // If there is a prefix, replace the empty offsets in the request with it
-    val request = sq.adjustRequest(offPrefix, rawRequest)
-
+    // TODO fix Ray
+    val adjustedWsResolvedQuery =
+      wsResolvedQuery.copy(request = sq.adjustRequest(offPrefix, rawRequest))
     Source
       .lazySource { () =>
-        val StreamPredicate(resolved, unresolved, fn, _) = queryPredicate(request, jwt, ledgerId)
-        processResolved(sq, jwt, ledgerId, parties, request, offPrefix, resolved, unresolved)(fn)
+        val StreamPredicate(_, unresolved, fn, _) =
+          queryPredicate(wsResolvedQuery, jwt, ledgerId)
+        processResolved(
+          sq,
+          jwt,
+          ledgerId,
+          parties,
+          adjustedWsResolvedQuery,
+          offPrefix,
+          unresolved,
+        )(fn)
       }
       .mapMaterializedValue { _: Future[_] =>
         NotUsed
@@ -832,19 +826,20 @@ class WebSocketService(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      request: A,
+      wsResolvedQuery: WSResolvedQuery[A],
       offPrefix: Option[domain.StartingOffset],
-      resolvedQuery: ResolvedQuery,
       unresolved: Set[OptionalPkg],
   )(
       fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[sq.Positive]
   )(implicit lc: LoggingContextOf[InstanceUUID]) = {
     // Take all remaining queries without offset, these will be the ones for which an ACS request is needed
+    val request = wsResolvedQuery.request
     val acsRequest = sq.acsRequest(offPrefix, request)
-
+    // TODO fix Ray, move some code to WSResolvedQuery for acs
+    val acsWsResolvedQuery = acsRequest.map(r => wsResolvedQuery.copy(request = r))
     // Stream predicates specific for the ACS part
     val acsPred: Option[StreamPredicate[sq.Positive]] =
-      acsRequest
+      acsWsResolvedQuery
         .map(queryPredicate(_, jwt, ledgerId)(lc, sq))
 
     val cataRes: Source[
@@ -863,12 +858,12 @@ class WebSocketService(
               case liveBegin @ StepAndErrors(_, LiveBegin(offset)) =>
                 val acsEnd = offset.toOption.map(domain.StartingOffset(_))
                 Source
-                  .single(liveBegin) ++ liveFrom(resolvedQuery, jwt, ledgerId, parties, request)(
+                  .single(liveBegin) ++ liveFrom(jwt, ledgerId, parties, wsResolvedQuery)(
                   acsEnd
                 )(lc, sq)
               case txn @ StepAndErrors(_, Txn(_, offset)) =>
                 val acsEnd = Some(domain.StartingOffset(offset))
-                Source.single(txn) ++ liveFrom(resolvedQuery, jwt, ledgerId, parties, request)(
+                Source.single(txn) ++ liveFrom(jwt, ledgerId, parties, wsResolvedQuery)(
                   acsEnd
                 )(lc, sq)
             }
@@ -882,13 +877,13 @@ class WebSocketService(
               jwt,
               ledgerId,
               parties,
-              resolvedQuery.resolved.toList,
+              wsResolvedQuery.resolvedQuery.resolved.toList,
               liveStartingOffset,
               Terminates.Never,
             )
             .via(
               convertFilterContracts(
-                resolvedQuery,
+                wsResolvedQuery.resolvedQuery,
                 fn,
               )
             )
@@ -907,37 +902,38 @@ class WebSocketService(
   }
 
   private def liveFrom[A](
-      resolvedQuery: ResolvedQuery,
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      request: A,
+      wsResolvedQuery: WSResolvedQuery[A],
   )(
       acsEnd: Option[StartingOffset]
   )(implicit
       lc: LoggingContextOf[InstanceUUID],
       Q: StreamQuery[A],
   ): Source[StepAndErrors[Q.Positive, JsValue], NotUsed] = {
+    val request = wsResolvedQuery.request
     val shiftedRequest = Q.adjustRequest(acsEnd, request)
     val liveStartingOffset = Q.liveStartingOffset(acsEnd, shiftedRequest)
-
+    val shiftedWsResolvedQuery = wsResolvedQuery.copy(request = shiftedRequest)
     // Produce the predicate that is going to be applied to the incoming transaction stream
     // We need to apply this to the request with all the offsets shifted so that each stream
     // can filter out anything from liveStartingOffset to the query-specific offset
-    val res = queryPredicate(shiftedRequest, jwt, ledgerId)
+    // TODO Ray shift wsResolveQuery
+    val res = queryPredicate(shiftedWsResolvedQuery, jwt, ledgerId)
     val StreamPredicate(_, _, fn, _) = res
     contractsService
       .insertDeleteStepSource(
         jwt,
         ledgerId,
         parties,
-        resolvedQuery.resolved.toList,
+        wsResolvedQuery.resolvedQuery.resolved.toList,
         liveStartingOffset,
         Terminates.Never,
       )
       .via(
         convertFilterContracts(
-          resolvedQuery,
+          wsResolvedQuery.resolvedQuery,
           fn,
         )
       )
