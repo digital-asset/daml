@@ -22,7 +22,6 @@ import qualified DA.Pretty as Pretty
 import Data.Either
 import qualified Data.HashSet as HashSet
 import Data.List.Extra
-import qualified Data.Map as M
 import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Set as S
@@ -59,6 +58,17 @@ execTest inFiles runAllTests coverage color mbJUnitOutput opts = do
         diags <- getDiagnostics h
         when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
 
+data LocalOrExternal
+    = Local LF.Module
+    | External LF.ExternalPackage
+    deriving (Show, Eq)
+
+loeGetModules :: LocalOrExternal -> [(Maybe LF.PackageId, LF.Module)]
+loeGetModules (Local mod) = pure (Nothing, mod)
+loeGetModules (External pkg) =
+    [ (Just (LF.extPackageId pkg), mod)
+    | mod <- NM.elems $ LF.packageModules $ LF.extPackagePkg pkg
+    ]
 
 testRun ::
        IdeState
@@ -81,14 +91,6 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
     -- get all external dependencies
     extPkgs <- fmap (nubSortOn LF.extPackageId . concat) $ runActionSync h $
       Shake.forP files $ \file -> getExternalPackages file
-    let extModules =
-                [ (Just pId, mod)
-                | pkg <- extPkgs
-                , let modules = NM.elems $ LF.packageModules $ LF.extPackagePkg pkg
-                , let pId = LF.extPackageId pkg
-                , mod <- modules
-                ]
-
 
     results <- runActionSync h $ do
         Shake.forP files $ \file -> do
@@ -104,21 +106,23 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
                  Nothing -> pure [] -- nothing to test
                  Just file ->
                      runActionSync h $
-                     forM extPkgs $ \pkg -> snd <$> runScenariosScriptsPkg file pkg extPkgs
+                     forM extPkgs $ \pkg -> do
+                         (_fileDiagnostics, mbResults) <- runScenariosScriptsPkg file pkg extPkgs
+                         pure (pkg, mbResults)
         else pure []
 
-    let allResults = concat $ [result | (_file, _mod, Just result) <- results] ++ catMaybes extResults
+    let allResults :: [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
+        allResults =
+            [(Local mod, result) | (_file, mod, Just result) <- results]
+            ++ [(External pkg, result) | (pkg, Just result) <- extResults]
 
     -- print test summary after all tests have run
-    printSummary color allResults
+    printSummary color (concatMap snd allResults)
 
     -- print total test coverage
     printTestCoverage
         coverage
         extPkgs
-        ([(Nothing, mod) | (_file, mod, _result) <- results] ++
-         [extModule | runAllTests, extModule <- extModules]
-        )
         allResults
 
     whenJust mbJUnitOutput $ \junitOutput -> do
@@ -157,11 +161,10 @@ printSummary color res =
 printTestCoverage ::
     ShowCoverage
     -> [LF.ExternalPackage]
-    -> [(Maybe LF.PackageId, LF.Module)]
-    -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)]
+    -> [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
     -> IO ()
-printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
-  | any (\(_, errOrRes) -> isLeft errOrRes) results = pure ()
+printTestCoverage ShowCoverage {getShowCoverage} extPkgs results
+  | any (isLeft . snd) $ concatMap snd results = pure ()
   | otherwise = do
       putStrLn $
           unwords
@@ -182,19 +185,24 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs modules results
               ["choices never executed:"] <>
               [printFullTemplateName t <> ":" <> T.unpack c | (t, c) <- S.toList missingChoices]
   where
-    pkgMap =
-        M.fromList
-            [ ( LF.unPackageId $ LF.extPackageId extPkg
-              , fmap LF.packageName $ LF.packageMetadata $ LF.extPackagePkg extPkg)
-            | extPkg <- extPkgs
-            ]
-    pkgIdToPkgName pId = maybe pId LF.unPackageName $ join $ M.lookup pId pkgMap
+    modules :: [(Maybe LF.PackageId, LF.Module)]
+    modules = concatMap (loeGetModules . fst) results
+
+    pkgIdToPkgName :: T.Text -> T.Text
+    pkgIdToPkgName targetPid =
+        case filter isTargetPackage extPkgs of
+          [] -> targetPid
+          [matchingPkg] -> maybe targetPid (LF.unPackageName . LF.packageName) $ LF.packageMetadata $ LF.extPackagePkg matchingPkg
+          _ -> error ("pkgIdToPkgName: more than one package matching name " <> T.unpack targetPid)
+        where
+            isTargetPackage pkg = targetPid == LF.unPackageId (LF.extPackageId pkg)
+
     templates = [(pidM, m, t) | (pidM, m) <- modules, t <- NM.toList $ LF.moduleTemplates m]
     choices = [(pidM, m, t, n) | (pidM, m, t) <- templates, n <- NM.names $ LF.tplChoices t]
     percentage i j
       | j > 0 = show (round @Double $ 100.0 * (fromIntegral i / fromIntegral j) :: Int) <> "%"
       | otherwise = "100%"
-    allScenarioNodes = [n | (_vr, Right res) <- results, n <- V.toList $ SS.scenarioResultNodes res]
+    allScenarioNodes = [n | (_, results) <- results, (_vr, Right res) <- results, n <- V.toList $ SS.scenarioResultNodes res]
     coveredTemplatesAll =
         nubSort $
         [ templateId
