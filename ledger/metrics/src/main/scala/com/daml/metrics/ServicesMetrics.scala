@@ -27,8 +27,8 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
     val getTransactionTreeById: Timer = timer(prefix :+ "get_transaction_tree_by_id")
     val getActiveContracts: Timer = timer(prefix :+ "get_active_contracts")
     val lookupActiveContract: Timer = timer(prefix :+ "lookup_active_contract")
-    val lookupContractAfterInterpretation: Timer = timer(
-      prefix :+ "lookup_contract_after_interpretation"
+    val lookupContractStateWithoutDivulgence: Timer = timer(
+      prefix :+ "lookup_contract_state_without_divulgence"
     )
     val lookupContractKey: Timer = timer(prefix :+ "lookup_contract_key")
     val lookupMaximumLedgerTime: Timer = timer(prefix :+ "lookup_maximum_ledger_time")

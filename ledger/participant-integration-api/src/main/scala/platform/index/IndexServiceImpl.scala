@@ -85,6 +85,10 @@ private[index] class IndexServiceImpl(
   private val LedgerApiStreamsBufferSize = 128
   private val logger = ContextualizedLogger.get(getClass)
 
+  private val maximumLedgerTimeService = new ContractStoreBasedMaximumLedgerTimeService(
+    contractStore
+  )
+
   override def getParticipantId()(implicit
       loggingContext: LoggingContext
   ): Future[Ref.ParticipantId] =
@@ -267,11 +271,6 @@ private[index] class IndexServiceImpl(
   ): Future[Option[VersionedContractInstance]] =
     contractStore.lookupActiveContract(forParties, contractId)
 
-  override def lookupContractForValidation(contractId: ContractId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[(VersionedContractInstance, Timestamp)]] =
-    contractStore.lookupContractForValidation(contractId)
-
   override def getTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
@@ -285,11 +284,6 @@ private[index] class IndexServiceImpl(
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     transactionsReader
       .lookupTransactionTreeById(transactionId.unwrap, requestingParties)
-
-  override def lookupMaximumLedgerTimeAfterInterpretation(
-      contractIds: Set[ContractId]
-  )(implicit loggingContext: LoggingContext): Future[MaximumLedgerTime] =
-    contractStore.lookupMaximumLedgerTimeAfterInterpretation(contractIds)
 
   override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
@@ -468,6 +462,16 @@ private[index] class IndexServiceImpl(
     LedgerApiErrors.ServiceNotRunning
       .Reject("Index Service")(new DamlContextualizedErrorLogger(logger, loggingContext, None))
       .asGrpcError
+
+  override def lookupContractStateWithoutDivulgence(contractId: ContractId)(implicit
+      loggingContext: LoggingContext
+  ): Future[ContractState] =
+    contractStore.lookupContractStateWithoutDivulgence(contractId)
+
+  override def lookupMaximumLedgerTimeAfterInterpretation(ids: Set[ContractId])(implicit
+      loggingContext: LoggingContext
+  ): Future[MaximumLedgerTime] =
+    maximumLedgerTimeService.lookupMaximumLedgerTimeAfterInterpretation(ids)
 }
 
 object IndexServiceImpl {

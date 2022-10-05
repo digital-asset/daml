@@ -6,7 +6,7 @@ package com.daml.ledger.sandbox.bridge.validate
 import cats.data.EitherT
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime}
+import com.daml.ledger.participant.state.index.v2.{ContractState, IndexService, MaximumLedgerTime}
 import com.daml.ledger.participant.state.v2.CompletionInfo
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge._
@@ -167,15 +167,16 @@ private[validate] class ConflictCheckWithCommittedImpl(
       case (f, provided) =>
         f.flatMapF { _ =>
           indexService
-            .lookupContractForValidation(provided.unversioned.contractId)
+            .lookupContractStateWithoutDivulgence(provided.unversioned.contractId)
             .map {
-              case None =>
+              case ContractState.Archived | ContractState.NotFound =>
                 // Disclosed contract was archived or never existed
                 Left(UnknownContracts(Set(provided.unversioned.contractId))(completionInfo))
-              case Some(actual) =>
-                sameContractData(actual, provided).left.map { errMessage =>
-                  logger.info(errMessage)
-                  DisclosedContractInvalid(provided.unversioned.contractId, completionInfo)
+              case ContractState.Active(contractInstance, ledgerEffectiveTime) =>
+                sameContractData(contractInstance, ledgerEffectiveTime, provided).left.map {
+                  errMessage =>
+                    logger.info(errMessage)
+                    DisclosedContractInvalid(provided.unversioned.contractId, completionInfo)
                 }
             }
         }
@@ -183,25 +184,25 @@ private[validate] class ConflictCheckWithCommittedImpl(
   }
 
   private def sameContractData(
-      actual: (Value.VersionedContractInstance, Timestamp),
+      actualContractInstance: Value.VersionedContractInstance,
+      actualLedgerEffectiveTime: Timestamp,
       provided: Versioned[DisclosedContract],
   ): Either[String, Unit] = {
     val providedContractId = provided.unversioned.contractId
 
-    val actualTemplate = actual._1.unversioned.template
+    val actualTemplate = actualContractInstance.unversioned.template
     val providedTemplate = provided.unversioned.templateId
 
-    val actualArgument = actual._1.unversioned.arg
+    val actualArgument = actualContractInstance.unversioned.arg
     val providedArgument = provided.unversioned.argument
 
-    val actualLet = actual._2
     val providedLet = provided.unversioned.metadata.createdAt
 
     if (actualTemplate != providedTemplate)
       Left(s"Disclosed contract $providedContractId has invalid template id")
     else if (actualArgument != providedArgument)
       Left(s"Disclosed contract $providedContractId has invalid argument")
-    else if (actualLet != providedLet)
+    else if (actualLedgerEffectiveTime != providedLet)
       Left(s"Disclosed contract $providedContractId has invalid ledgerEffectiveTime")
     else
       Right(())
