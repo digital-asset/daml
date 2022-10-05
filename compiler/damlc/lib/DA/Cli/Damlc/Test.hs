@@ -111,7 +111,12 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
                          pure (pkg, mbResults)
         else pure []
 
-    let allResults :: [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
+    let -- All Packages / Modules mentioned somehow
+        allPackages :: [LocalOrExternal]
+        allPackages = [Local mod | (_, mod, _) <- results] ++ map External extPkgs
+
+        -- All results: subset of packages / modules that actually got scenarios run
+        allResults :: [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
         allResults =
             [(Local mod, result) | (_file, mod, Just result) <- results]
             ++ [(External pkg, result) | (pkg, Just result) <- extResults]
@@ -122,7 +127,7 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
     -- print total test coverage
     printTestCoverage
         coverage
-        extPkgs
+        allPackages
         allResults
 
     whenJust mbJUnitOutput $ \junitOutput -> do
@@ -160,10 +165,10 @@ printSummary color res =
 
 printTestCoverage ::
     ShowCoverage
-    -> [LF.ExternalPackage]
+    -> [LocalOrExternal]
     -> [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
     -> IO ()
-printTestCoverage ShowCoverage {getShowCoverage} extPkgs results
+printTestCoverage ShowCoverage {getShowCoverage} allPackages results
   | any (isLeft . snd) $ concatMap snd results = pure ()
   | otherwise = do
       putStrLn $
@@ -186,16 +191,21 @@ printTestCoverage ShowCoverage {getShowCoverage} extPkgs results
               [printFullTemplateName t <> ":" <> T.unpack c | (t, c) <- S.toList missingChoices]
   where
     modules :: [(Maybe LF.PackageId, LF.Module)]
-    modules = concatMap (loeGetModules . fst) results
+    modules = concatMap loeGetModules allPackages
 
     pkgIdToPkgName :: T.Text -> T.Text
     pkgIdToPkgName targetPid =
-        case filter isTargetPackage extPkgs of
+        case mapMaybe isTargetPackage allPackages of
           [] -> targetPid
           [matchingPkg] -> maybe targetPid (LF.unPackageName . LF.packageName) $ LF.packageMetadata $ LF.extPackagePkg matchingPkg
           _ -> error ("pkgIdToPkgName: more than one package matching name " <> T.unpack targetPid)
         where
-            isTargetPackage pkg = targetPid == LF.unPackageId (LF.extPackageId pkg)
+            isTargetPackage loe
+                | External pkg <- loe
+                , targetPid == LF.unPackageId (LF.extPackageId pkg)
+                = Just pkg
+                | otherwise
+                = Nothing
 
     templates = [(pidM, m, t) | (pidM, m) <- modules, t <- NM.toList $ LF.moduleTemplates m]
     choices = [(pidM, m, t, n) | (pidM, m, t) <- templates, n <- NM.names $ LF.tplChoices t]
