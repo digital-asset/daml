@@ -3,94 +3,25 @@
 
 package com.daml.platform.sandbox.auth
 
-import java.util.UUID
-
-import com.daml.error.ErrorsAssertions
-import com.daml.error.utils.ErrorDetails
-import com.daml.ledger.api.v1.admin.user_management_service.{Right}
-import com.daml.ledger.runner.common.Config
-import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
-import com.daml.platform.sandbox.services.SubmitAndWaitDummyCommandHelpers
+import com.daml.ledger.api.v1.admin.user_management_service.UpdateUserRequest
 import com.google.protobuf.field_mask.FieldMask
-import io.grpc.{Status, StatusRuntimeException}
 
-import scala.concurrent.{Future}
-import scala.util.{Failure, Success}
+import scala.concurrent.Future
 
-final class UpdateUserAuthIT
-    extends ServiceCallAuthTests
-    with SubmitAndWaitDummyCommandHelpers
-    with ErrorsAssertions {
+final class UpdateUserAuthIT extends AdminServiceCallAuthTests with UserManagementAuth {
 
-  private val UserManagementCacheExpiryInSeconds = 1
+  override def serviceCallName: String = "UserManagementService#UpdateUser"
 
-  override def config: Config = super.config.copy(
-    participants = singleParticipant(
-      ApiServerConfig.copy(
-        userManagement = ApiServerConfig.userManagement
-          .copy(
-            cacheExpiryAfterWriteInSeconds = UserManagementCacheExpiryInSeconds
-          )
-      )
-    )
-  )
-
-  override def serviceCallName: String = ""
-
-  override protected def serviceCallWithToken(token: Option[String]): Future[Any] = ???
-
-  private val testId = UUID.randomUUID().toString
-
-  it should "bar the user's self-deactivation" in {
-    import com.daml.ledger.api.v1.admin.{user_management_service => proto}
-
-    val userIdAlice = testId + "-alice-3"
+  override def serviceCallWithToken(token: Option[String]): Future[Any] = {
     for {
-      (_, tokenAliceO) <- createUserByAdmin(
-        userId = userIdAlice,
-        rights = Vector(Right(Right.Kind.ParticipantAdmin(Right.ParticipantAdmin()))),
+      response <- createFreshUser(token)
+      _ <- stub(token).updateUser(
+        UpdateUserRequest(
+          user = response.user,
+          updateMask = Some(FieldMask(scala.Seq("is_deactivated"))),
+        )
       )
-      err <- updateUser(
-        accessToken = tokenAliceO.get,
-        req = proto.UpdateUserRequest(
-          user = Some(
-            proto.User(
-              id = userIdAlice,
-              isDeactivated = true,
-            )
-          ),
-          updateMask = Some(FieldMask(paths = Seq("is_deactivated"))),
-        ),
-      ).transform {
-        case Success(_) =>
-          fail("Expected a failure when a user tries to self-deactivate, but received success")
-        case Failure(e) => Success(e)
-      }
-    } yield {
-      err match {
-        case sre: StatusRuntimeException =>
-          assertError(
-            actual = sre,
-            expectedStatusCode = Status.Code.INVALID_ARGUMENT,
-            expectedMessage =
-              "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Requesting user cannot self-deactivate",
-            expectedDetails = List(
-              ErrorDetails.ErrorInfoDetail(
-                "INVALID_ARGUMENT",
-                Map(
-                  "participantId" -> "'sandbox-participant'",
-                  "category" -> "8",
-                  "definite_answer" -> "false",
-                ),
-              )
-            ),
-            verifyEmptyStackTrace = false,
-          )
-        case _ => fail("Unexpected error", err)
-      }
-      assert(true)
-    }
-
+    } yield ()
   }
 
 }

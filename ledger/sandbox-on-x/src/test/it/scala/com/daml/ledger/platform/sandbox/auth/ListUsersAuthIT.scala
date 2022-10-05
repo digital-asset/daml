@@ -3,13 +3,15 @@
 
 package com.daml.platform.sandbox.auth
 
+import com.daml.ledger.api.v1.admin.user_management_service.ListUsersRequest
+
 import scala.concurrent.Future
 
-final class GetTimeAuthIT extends PublicServiceCallAuthTests with TimeAuth {
+final class ListUsersAuthIT extends AdminServiceCallAuthTests with UserManagementAuth {
 
-  override def serviceCallName: String = "TimeService#GetTime"
+  override def serviceCallName: String = "UserManagementService#ListUsers"
 
   override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    loadTimeNow(token)
+    stub(token).listUsers(ListUsersRequest())
 
 }
