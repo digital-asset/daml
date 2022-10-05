@@ -10,7 +10,7 @@ import java.util.Objects;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class CompletionStreamResponse {
+public final class CompletionStreamResponse {
 
   private final Optional<Checkpoint> checkpoint;
 

@@ -7,7 +7,7 @@ import com.daml.ledger.api.v1.TransactionServiceOuterClass;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class GetLedgerEndResponse {
+public final class GetLedgerEndResponse {
 
   private final LedgerOffset offset;
 
