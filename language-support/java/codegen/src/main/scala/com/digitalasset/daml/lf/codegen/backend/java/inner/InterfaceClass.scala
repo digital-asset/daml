@@ -34,7 +34,12 @@ object InterfaceClass extends StrictLogging {
         .addField(generateTemplateIdField(packageId, interfaceId))
         .addFields(
           TemplateClass
-            .generateChoicesMetadata(interfaceName, packagePrefixes, interface.choices)
+            .generateChoicesMetadata(
+              interfaceName,
+              packagePrefixes,
+              interface.choices,
+              withPrefixes = false, // TODO: remove in #15154
+            )
             .asJava
         )
         .addField(generateInterfaceCompanionField())

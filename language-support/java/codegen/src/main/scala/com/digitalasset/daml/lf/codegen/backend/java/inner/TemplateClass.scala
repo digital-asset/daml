@@ -452,16 +452,18 @@ private[inner] object TemplateClass extends StrictLogging {
       templateClassName: ClassName,
       packagePrefixes: Map[PackageId, String],
       templateChoices: Map[ChoiceName, TemplateChoice.FWT],
+      withPrefixes: Boolean = true, // TODO: remove in #15154
   ): Seq[FieldSpec] = {
     templateChoices.map { case (choiceName, choice) =>
       val fieldClass = classOf[ChoiceMetadata[_, _, _]]
+      val maybePrefix = if (withPrefixes) packagePrefixes else Map.empty[PackageId, String]
       FieldSpec
         .builder(
           ParameterizedTypeName.get(
             ClassName get fieldClass,
             templateClassName,
             toJavaTypeName(choice.param, packagePrefixes),
-            toJavaTypeName(choice.returnType, packagePrefixes),
+            toJavaTypeName(choice.returnType, maybePrefix),
           ),
           toChoiceNameField(choiceName),
           Modifier.STATIC,
