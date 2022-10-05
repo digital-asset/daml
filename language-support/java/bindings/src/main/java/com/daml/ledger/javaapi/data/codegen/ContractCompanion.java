@@ -6,12 +6,9 @@ package com.daml.ledger.javaapi.data.codegen;
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.DamlRecord;
 
-import java.util.Collections;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * Metadata and utilities associated with a template as a whole, rather than one single contract

@@ -4,12 +4,9 @@
 package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.Identifier;
-import com.daml.ledger.javaapi.data.TransactionFilter;
-
-import java.util.Set;
 
 /** The commonality between {@link ContractCompanion} and {@link InterfaceCompanion}. */
-public abstract class ContractTypeCompanion<Maker, Data> {
+public abstract class ContractTypeCompanion<Marker, Data> {
   /** The full template ID of the template or interface that defined this companion. */
   public final Identifier TEMPLATE_ID;
 

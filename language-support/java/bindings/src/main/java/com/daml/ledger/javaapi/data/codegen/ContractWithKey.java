@@ -38,8 +38,7 @@ public abstract class ContractWithKey<Id, Data, Key> extends Contract<Id, Data> 
   @Override
   public final String toString() {
     return String.format(
-        "%s.Contract(%s, %s, %s, %s, %s, %s)",
-        getCompanion().templateClassName,
+        "Contract(%s, %s, %s, %s, %s, %s)",
         this.id,
         this.data,
         this.agreementText,

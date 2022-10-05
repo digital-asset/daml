@@ -84,27 +84,36 @@ object InterfaceClass extends StrictLogging {
   private def generateInterfaceCompanionClass(
       interfaceName: ClassName,
       interfaceViewTypeName: ClassName,
-  ): TypeSpec = TypeSpec
-    .classBuilder(companionName)
-    .superclass(
-      ParameterizedTypeName
-        .get(ClassName get classOf[InterfaceCompanion[_, _]], interfaceName, interfaceViewTypeName)
-    )
-    .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
-    .addMethod {
-      MethodSpec
-        .constructorBuilder()
-        // intentionally package-private
-        .addStatement(
-          "super($T.$N, $T.$L())",
-          interfaceName,
-          ClassGenUtils.templateIdFieldName,
-          interfaceViewTypeName,
-          "valueDecoder",
-        )
-        .build()
-    }
-    .build()
+  ): TypeSpec = {
+    val contractIdClassName = ClassName bestGuess "ContractId"
+    TypeSpec
+      .classBuilder(companionName)
+      .superclass(
+        ParameterizedTypeName
+          .get(
+            ClassName get classOf[InterfaceCompanion[_, _, _]],
+            interfaceName,
+            contractIdClassName,
+            interfaceViewTypeName,
+          )
+      )
+      .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
+      .addMethod {
+        MethodSpec
+          .constructorBuilder()
+          // intentionally package-private
+          .addStatement(
+            "super($T.$N, $T::new, $T.$L())",
+            interfaceName,
+            ClassGenUtils.templateIdFieldName,
+            contractIdClassName,
+            interfaceViewTypeName,
+            "valueDecoder",
+          )
+          .build()
+      }
+      .build()
+  }
 
   private def generateTemplateIdField(packageId: PackageId, name: QualifiedName): FieldSpec =
     ClassGenUtils.generateTemplateIdField(
