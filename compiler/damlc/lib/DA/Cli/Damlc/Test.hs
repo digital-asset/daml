@@ -204,7 +204,6 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
   | any (isLeft . snd) $ concatMap snd results = pure ()
   | otherwise = do
       printReport $ report "local" isLocal
-      printReport $ report "external" (not . isLocal)
   where
     report :: String -> (LocalOrExternal -> Bool) -> Report
     report groupName pred =
@@ -239,32 +238,25 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
             { groupName
             , definedChoicesInside
             , internalExercisedAnywhere
-            , internalExercisedInternal
-            , externalExercisedInternal
             , definedTemplatesInside
             , internalCreatedAnywhere
-            , internalCreatedInternal
-            , externalCreatedInternal
             } = do
         let percentage i j
               | j > 0 = show (round @Double $ 100.0 * (fromIntegral i / fromIntegral j) :: Int) <> "%"
               | otherwise = "100%"
         let frac msg a b = msg ++ ": " ++ show a ++ " / " ++ show b
         let pct msg a b = frac msg a b ++ " (" ++ percentage a b ++ ")"
+        let indent = ("  " ++)
         putStrLn $ "test coverage group: " ++ groupName
-        putStrLn $ "  " ++ pct "internal choices exercised anywhere" (S.size internalExercisedAnywhere) (S.size definedChoicesInside)
-        putStrLn $ "  " ++ pct "internal templates created anywhere" (S.size internalCreatedAnywhere) (S.size definedTemplatesInside)
-        putStrLn $ "  " ++ frac "internal choices exercised internally" (S.size internalExercisedInternal) (S.size definedChoicesInside)
-        putStrLn $ "  " ++ frac "internal templates created internally" (S.size internalCreatedInternal) (S.size definedTemplatesInside)
-        putStrLn $ "  " ++ frac "external choices exercised internally" (S.size externalExercisedInternal) (S.size $ M.keysSet allDefinedChoices `S.difference` definedChoicesInside)
-        putStrLn $ "  " ++ frac "external templates created internally" (S.size externalCreatedInternal) (S.size $ M.keysSet allDefinedTemplates `S.difference` definedTemplatesInside)
+        putStrLn $ indent $ pct "choices" (S.size internalExercisedAnywhere) (S.size definedChoicesInside)
+        putStrLn $ indent $ pct "templates" (S.size internalCreatedAnywhere) (S.size definedTemplatesInside)
         when getShowCoverage $ do
             putStrLn $
                 unlines $
                 ["templates never created:"] <>
-                map printTemplateIdentifier (S.toList $ definedTemplatesInside `S.difference` internalCreatedAnywhere) <>
+                map (indent . printTemplateIdentifier) (S.toList $ definedTemplatesInside `S.difference` internalCreatedAnywhere) <>
                 ["choices never executed:"] <>
-                map printChoiceIdentifier (S.toList $ definedChoicesInside `S.difference` internalExercisedAnywhere)
+                map (indent . printChoiceIdentifier) (S.toList $ definedChoicesInside `S.difference` internalExercisedAnywhere)
 
     lfTemplateIdentifier :: TemplateInfo -> TemplateIdentifier
     lfTemplateIdentifier (pkgIdMay, m, t) =
@@ -303,12 +295,6 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
         , choice <- NM.toList $ LF.tplChoices template
         , let name = LF.unChoiceName $ LF.chcName choice
         ]
-
-    allDefinedTemplates :: M.Map TemplateIdentifier TemplateInfo
-    allDefinedTemplates = templatesDefinedIn allPackages
-
-    allDefinedChoices :: M.Map ChoiceIdentifier (TemplateInfo, LF.TemplateChoice)
-    allDefinedChoices = choicesDefinedIn allPackages
 
     allCreatedTemplates :: S.Set TemplateIdentifier
     allCreatedTemplates = foldMap (createdTemplates . snd) results
