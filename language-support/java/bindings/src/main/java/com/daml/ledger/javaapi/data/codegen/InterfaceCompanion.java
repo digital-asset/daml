@@ -5,7 +5,6 @@ package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.DamlRecord;
-
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -23,23 +22,26 @@ public abstract class InterfaceCompanion<I, Id, View> extends ContractTypeCompan
 
   public final ValueDecoder<View> valueDecoder;
 
-  public Contract<Id, View> fromIdAndRecord(
-          String contractId,
-          Map<Identifier, DamlRecord> interfaceViews,
-          Optional<String> agreementText,
-          Set<String> signatories,
-          Set<String> observers) throws IllegalAccessException {
+  private Contract<Id, View> fromIdAndRecord(
+      String contractId,
+      Map<Identifier, DamlRecord> interfaceViews,
+      Optional<String> agreementText,
+      Set<String> signatories,
+      Set<String> observers)
+      throws IllegalAccessException {
     Optional<DamlRecord> maybeRecord = Optional.ofNullable(interfaceViews.get(TEMPLATE_ID));
     Id id = newContractId.apply(contractId);
-    if(maybeRecord.isPresent()) {
+    if (maybeRecord.isPresent()) {
       View view = valueDecoder.decode(maybeRecord.get());
       return new ContractWithInterfaceView<>(id, view, agreementText, signatories, observers);
     } else {
+      // TODO: CL handle all exceptional cases
       throw new IllegalAccessException("interface view not found. It could be failed");
     }
   }
 
-  public final Contract<Id, View> fromCreatedEvent(CreatedEvent event) throws IllegalAccessException {
+  public final Contract<Id, View> fromCreatedEvent(CreatedEvent event)
+      throws IllegalAccessException {
     return fromIdAndRecord(
         event.getContractId(),
         event.getInterfaceViews(),
@@ -49,10 +51,7 @@ public abstract class InterfaceCompanion<I, Id, View> extends ContractTypeCompan
   }
 
   protected InterfaceCompanion(
-    Identifier templateId,
-    Function<String, Id> newContractId,
-    ValueDecoder<View> valueDecoder
-  ) {
+      Identifier templateId, Function<String, Id> newContractId, ValueDecoder<View> valueDecoder) {
     super(templateId);
     this.newContractId = newContractId;
     this.valueDecoder = valueDecoder;

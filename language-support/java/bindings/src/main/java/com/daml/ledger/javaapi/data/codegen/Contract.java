@@ -72,10 +72,6 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
   public String toString() {
     return String.format(
         "Contract(%s, %s, %s, %s, %s)",
-        this.id,
-        this.data,
-        this.agreementText,
-        this.signatories,
-        this.observers);
+        this.id, this.data, this.agreementText, this.signatories, this.observers);
   }
 }

@@ -39,11 +39,6 @@ public abstract class ContractWithKey<Id, Data, Key> extends Contract<Id, Data> 
   public final String toString() {
     return String.format(
         "Contract(%s, %s, %s, %s, %s, %s)",
-        this.id,
-        this.data,
-        this.agreementText,
-        this.key,
-        this.signatories,
-        this.observers);
+        this.id, this.data, this.agreementText, this.key, this.signatories, this.observers);
   }
 }

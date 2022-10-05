@@ -19,7 +19,6 @@ public final class ContractWithInterfaceView<Id, View> extends Contract<Id, View
 
   @Override
   public boolean equals(Object object) {
-    return object instanceof ContractWithInterfaceView
-        && super.equals(object);
+    return object instanceof ContractWithInterfaceView && super.equals(object);
   }
 }
