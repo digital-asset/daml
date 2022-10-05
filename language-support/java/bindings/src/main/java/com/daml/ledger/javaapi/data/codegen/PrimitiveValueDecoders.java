@@ -7,6 +7,11 @@ import com.daml.ledger.javaapi.data.*;
 import java.time.Instant;
 import java.time.LocalDate;
 
+/**
+ * {@link ValueDecoder}s for Daml types that are not code-generated.
+ *
+ * @see ValueDecoder
+ */
 public final class PrimitiveValueDecoders {
   public static ValueDecoder<Boolean> fromBool =
       value -> value.asBool().orElseThrow(() -> mismatched(Bool.class)).getValue();
