@@ -22,6 +22,7 @@ import qualified DA.Pretty as Pretty
 import Data.Either
 import qualified Data.HashSet as HashSet
 import Data.List.Extra
+import qualified Data.Map.Strict as M
 import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Set as S
@@ -62,6 +63,10 @@ data LocalOrExternal
     = Local LF.Module
     | External LF.ExternalPackage
     deriving (Show, Eq)
+
+isLocal :: LocalOrExternal -> Bool
+isLocal (Local _) = True
+isLocal _ = False
 
 loeGetModules :: LocalOrExternal -> [(Maybe LF.PackageId, LF.Module)]
 loeGetModules (Local mod) = pure (Nothing, mod)
@@ -163,6 +168,33 @@ printSummary color res =
         ]
     printScenarioResults color res
 
+data TemplateIdentifier = TemplateIdentifier
+    { package :: Maybe T.Text -- `package == Nothing` means local package
+    , qualifiedTemplate :: T.Text
+    }
+    deriving (Eq, Ord, Show)
+
+data ChoiceIdentifier = ChoiceIdentifier
+    { packageTemplate :: TemplateIdentifier
+    , choice :: T.Text
+    }
+    deriving (Eq, Ord, Show)
+
+type TemplateInfo = (Maybe LF.PackageId, LF.Module, LF.Template)
+
+data Report = Report
+    { groupName :: String
+    , definedChoicesInside :: S.Set ChoiceIdentifier
+    , internalExercisedAnywhere :: S.Set ChoiceIdentifier
+    , internalExercisedInternal :: S.Set ChoiceIdentifier
+    , externalExercisedInternal :: S.Set ChoiceIdentifier
+    , definedTemplatesInside :: S.Set TemplateIdentifier
+    , internalCreatedAnywhere :: S.Set TemplateIdentifier
+    , internalCreatedInternal :: S.Set TemplateIdentifier
+    , externalCreatedInternal :: S.Set TemplateIdentifier
+    }
+    deriving (Show, Eq, Ord)
+
 printTestCoverage ::
     ShowCoverage
     -> [LocalOrExternal]
@@ -171,27 +203,147 @@ printTestCoverage ::
 printTestCoverage ShowCoverage {getShowCoverage} allPackages results
   | any (isLeft . snd) $ concatMap snd results = pure ()
   | otherwise = do
-      putStrLn $
-          unwords
-              [ "test coverage: templates"
-              , percentage coveredNrOfTemplates nrOfTemplates <> ","
-              , "choices"
-              , percentage coveredNrOfChoices nrOfChoices
-              , unlines $
-                  ["templates:"] <> [printFullTemplateName (fullTemplateName pidM m t) | (pidM, m, t) <- templates] <>
-                  ["choices:"] <> [printFullTemplateName (fullTemplateName pidM m t) <> ":" <> T.unpack c | (pidM, m, t, LF.ChoiceName c) <- choices] <>
-                  ["covered templates:"] <> map printFullTemplateName (S.toList coveredTemplates) <>
-                  ["covered choices:"] <> [printFullTemplateName tName <> ":" <> T.unpack c | (tName, c) <- S.toList coveredChoices]
-              ]
-      when getShowCoverage $ do
-          putStrLn $
-              unlines $
-              ["templates never created:"] <> map printFullTemplateName (S.toList missingTemplates) <>
-              ["choices never executed:"] <>
-              [printFullTemplateName t <> ":" <> T.unpack c | (t, c) <- S.toList missingChoices]
+      printReport $ report "local" isLocal
+      printReport $ report "external" (not . isLocal)
   where
-    modules :: [(Maybe LF.PackageId, LF.Module)]
-    modules = concatMap loeGetModules allPackages
+    report :: String -> (LocalOrExternal -> Bool) -> Report
+    report groupName pred =
+        let filteredResults :: [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
+            filteredResults = filter (pred . fst) results
+            definedTemplatesInside = M.keysSet $ templatesDefinedIn $ map fst filteredResults
+            definedChoicesInside = M.keysSet $ choicesDefinedIn $ map fst filteredResults
+            exercisedInside = foldMap (exercisedChoices . snd) filteredResults
+            createdInside = foldMap (createdTemplates . snd) filteredResults
+            internalExercisedAnywhere = allExercisedChoices `S.intersection` definedChoicesInside
+            internalExercisedInternal = exercisedInside `S.intersection` definedChoicesInside
+            externalExercisedInternal = exercisedInside `S.difference` definedChoicesInside
+            internalCreatedAnywhere = allCreatedTemplates `S.intersection` definedTemplatesInside
+            internalCreatedInternal = createdInside `S.intersection` definedTemplatesInside
+            externalCreatedInternal = createdInside `S.difference` definedTemplatesInside
+        in
+        Report
+            { groupName
+            , definedChoicesInside
+            , internalExercisedAnywhere
+            , internalExercisedInternal
+            , externalExercisedInternal
+            , definedTemplatesInside
+            , internalCreatedAnywhere
+            , internalCreatedInternal
+            , externalCreatedInternal
+            }
+
+    printReport :: Report -> IO ()
+    printReport
+        Report
+            { groupName
+            , definedChoicesInside
+            , internalExercisedAnywhere
+            , internalExercisedInternal
+            , externalExercisedInternal
+            , definedTemplatesInside
+            , internalCreatedAnywhere
+            , internalCreatedInternal
+            , externalCreatedInternal
+            } = do
+        let percentage i j
+              | j > 0 = show (round @Double $ 100.0 * (fromIntegral i / fromIntegral j) :: Int) <> "%"
+              | otherwise = "100%"
+        let frac msg a b = msg ++ ": " ++ show a ++ " / " ++ show b
+        let pct msg a b = frac msg a b ++ " (" ++ percentage a b ++ ")"
+        putStrLn $ "test coverage group: " ++ groupName
+        putStrLn $ "  " ++ pct "internal choices exercised anywhere" (S.size internalExercisedAnywhere) (S.size definedChoicesInside)
+        putStrLn $ "  " ++ pct "internal templates created anywhere" (S.size internalCreatedAnywhere) (S.size definedTemplatesInside)
+        putStrLn $ "  " ++ frac "internal choices exercised internally" (S.size internalExercisedInternal) (S.size definedChoicesInside)
+        putStrLn $ "  " ++ frac "internal templates created internally" (S.size internalCreatedInternal) (S.size definedTemplatesInside)
+        putStrLn $ "  " ++ frac "external choices exercised internally" (S.size externalExercisedInternal) (S.size $ M.keysSet allDefinedChoices `S.difference` definedChoicesInside)
+        putStrLn $ "  " ++ frac "external templates created internally" (S.size externalCreatedInternal) (S.size $ M.keysSet allDefinedTemplates `S.difference` definedTemplatesInside)
+        when getShowCoverage $ do
+            putStrLn $
+                unlines $
+                ["templates never created:"] <>
+                map printTemplateIdentifier (S.toList $ definedTemplatesInside `S.difference` internalCreatedAnywhere) <>
+                ["choices never executed:"] <>
+                map printChoiceIdentifier (S.toList $ definedChoicesInside `S.difference` internalExercisedAnywhere)
+
+    lfTemplateIdentifier :: TemplateInfo -> TemplateIdentifier
+    lfTemplateIdentifier (pkgIdMay, m, t) =
+        let package = fmap LF.unPackageId pkgIdMay
+            qualifiedTemplate =
+                LF.moduleNameString (LF.moduleName m) <> ":" <> T.concat (LF.unTypeConName (LF.tplTypeCon t))
+        in
+        TemplateIdentifier { package, qualifiedTemplate }
+
+    ssIdentifierToIdentifier :: SS.Identifier -> TemplateIdentifier
+    ssIdentifierToIdentifier SS.Identifier {SS.identifierPackage, SS.identifierName} =
+        let package = do
+                pIdSumM <- identifierPackage
+                pIdSum <- SS.packageIdentifierSum pIdSumM
+                case pIdSum of
+                    SS.PackageIdentifierSumSelf _ -> Nothing
+                    SS.PackageIdentifierSumPackageId pId -> Just $ TL.toStrict pId
+            qualifiedTemplate = TL.toStrict identifierName
+        in
+        TemplateIdentifier { package, qualifiedTemplate }
+
+    templatesDefinedIn :: [LocalOrExternal] -> M.Map TemplateIdentifier TemplateInfo
+    templatesDefinedIn localOrExternals = M.fromList
+        [ (lfTemplateIdentifier templateInfo, templateInfo)
+        | localOrExternal <- localOrExternals
+        , (pkgIdMay, module_) <- loeGetModules localOrExternal
+        , template <- NM.toList $ LF.moduleTemplates module_
+        , let templateInfo = (pkgIdMay, module_, template)
+        ]
+
+    choicesDefinedIn :: [LocalOrExternal] -> M.Map ChoiceIdentifier (TemplateInfo, LF.TemplateChoice)
+    choicesDefinedIn localOrExternals = M.fromList
+        [ (ChoiceIdentifier templateIdentifier name, (templateInfo, choice))
+        | (templateIdentifier, templateInfo) <- M.toList $ templatesDefinedIn localOrExternals
+        , let (_, _, template) = templateInfo
+        , choice <- NM.toList $ LF.tplChoices template
+        , let name = LF.unChoiceName $ LF.chcName choice
+        ]
+
+    allDefinedTemplates :: M.Map TemplateIdentifier TemplateInfo
+    allDefinedTemplates = templatesDefinedIn allPackages
+
+    allDefinedChoices :: M.Map ChoiceIdentifier (TemplateInfo, LF.TemplateChoice)
+    allDefinedChoices = choicesDefinedIn allPackages
+
+    allCreatedTemplates :: S.Set TemplateIdentifier
+    allCreatedTemplates = foldMap (createdTemplates . snd) results
+
+    allExercisedChoices :: S.Set ChoiceIdentifier
+    allExercisedChoices = foldMap (exercisedChoices . snd) results
+
+    createdTemplates :: [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> S.Set TemplateIdentifier
+    createdTemplates results =
+        S.fromList $
+        [ ssIdentifierToIdentifier identifier
+        | n <- scenarioNodes results
+        , Just (SS.NodeNodeCreate SS.Node_Create {SS.node_CreateContractInstance}) <-
+              [SS.nodeNode n]
+        , Just contractInstance <- [node_CreateContractInstance]
+        , Just identifier <- [SS.contractInstanceTemplateId contractInstance]
+        ]
+
+    exercisedChoices :: [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> S.Set ChoiceIdentifier
+    exercisedChoices results =
+        S.fromList $
+        [ ChoiceIdentifier (ssIdentifierToIdentifier identifier) (TL.toStrict node_ExerciseChoiceId)
+        | n <- scenarioNodes results
+        , Just (SS.NodeNodeExercise SS.Node_Exercise { SS.node_ExerciseTemplateId
+                                                     , SS.node_ExerciseChoiceId
+                                                     }) <- [SS.nodeNode n]
+        , Just identifier <- [node_ExerciseTemplateId]
+        ]
+
+    scenarioNodes :: [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> [SS.Node]
+    scenarioNodes results =
+        [ node
+        | (_virtualResource, Right result) <- results
+        , node <- V.toList $ SS.scenarioResultNodes result
+        ]
 
     pkgIdToPkgName :: T.Text -> T.Text
     pkgIdToPkgName targetPid =
@@ -207,71 +359,16 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
                 | otherwise
                 = Nothing
 
-    templates = [(pidM, m, t) | (pidM, m) <- modules, t <- NM.toList $ LF.moduleTemplates m]
-    choices = [(pidM, m, t, n) | (pidM, m, t) <- templates, n <- NM.names $ LF.tplChoices t]
-    percentage i j
-      | j > 0 = show (round @Double $ 100.0 * (fromIntegral i / fromIntegral j) :: Int) <> "%"
-      | otherwise = "100%"
-    allScenarioNodes = [n | (_, results) <- results, (_vr, Right res) <- results, n <- V.toList $ SS.scenarioResultNodes res]
-    coveredTemplatesAll =
-        nubSort $
-        [ templateId
-        | n <- allScenarioNodes
-        , Just (SS.NodeNodeCreate SS.Node_Create {SS.node_CreateContractInstance}) <-
-              [SS.nodeNode n]
-        , Just contractInstance <- [node_CreateContractInstance]
-        , Just templateId <- [SS.contractInstanceTemplateId contractInstance]
-        ]
-    coveredTemplates =
-        S.fromList [fullTemplateName pidM m t | (pidM, m, t) <- templates] `S.intersection`
-        S.fromList
-            [ fullTemplateNameProto tId
-            | tId <- coveredTemplatesAll
-            ]
-    missingTemplates =
-        S.fromList [fullTemplateName pidM m t | (pidM, m, t) <- templates] `S.difference`
-        S.fromList
-            [ fullTemplateNameProto tId
-            | tId <- coveredTemplatesAll
-            ]
-    coveredChoicesAll =
-        nubSort $
-        [ (templateId, node_ExerciseChoiceId)
-        | n <- allScenarioNodes
-        , Just (SS.NodeNodeExercise SS.Node_Exercise { SS.node_ExerciseTemplateId
-                                                     , SS.node_ExerciseChoiceId
-                                                     }) <- [SS.nodeNode n]
-        , Just templateId <- [node_ExerciseTemplateId]
-        ]
-    coveredChoices =
-        S.fromList [(fullTemplateName pidM m t, LF.unChoiceName n) | (pidM, m, t, n) <- choices] `S.intersection`
-        S.fromList
-            [ (fullTemplateNameProto t, TL.toStrict c)
-            | (t, c) <- coveredChoicesAll
-            ]
-    missingChoices =
-        S.fromList [(fullTemplateName pidM m t, LF.unChoiceName n) | (pidM, m, t, n) <- choices] `S.difference`
-        S.fromList
-            [ (fullTemplateNameProto t, TL.toStrict c)
-            | (t, c) <- coveredChoicesAll
-            ]
-    nrOfTemplates = length templates
-    nrOfChoices = length choices
-    coveredNrOfChoices = length coveredChoices
-    coveredNrOfTemplates = length coveredTemplates
-    printFullTemplateName (pIdM, name) =
-        T.unpack $ maybe name (\pId -> pkgIdToPkgName pId <> ":" <> name) pIdM
-    fullTemplateName pidM m t =
-        ( fmap LF.unPackageId pidM
-        , (LF.moduleNameString $ LF.moduleName m) <> ":" <>
-          (T.concat $ LF.unTypeConName $ LF.tplTypeCon t))
-    fullTemplateNameProto SS.Identifier {SS.identifierPackage, SS.identifierName} =
-        ( do pIdSumM <- identifierPackage
-             pIdSum <- SS.packageIdentifierSum pIdSumM
-             case pIdSum of
-                 SS.PackageIdentifierSumSelf _ -> Nothing
-                 SS.PackageIdentifierSumPackageId pId -> Just $ TL.toStrict pId
-        , TL.toStrict identifierName)
+    printTemplateIdentifier :: TemplateIdentifier -> String
+    printTemplateIdentifier TemplateIdentifier { package, qualifiedTemplate } =
+        T.unpack $ maybe
+            qualifiedTemplate
+            (\pId -> pkgIdToPkgName pId <> ":" <> qualifiedTemplate)
+            package
+
+    printChoiceIdentifier :: ChoiceIdentifier -> String
+    printChoiceIdentifier ChoiceIdentifier { packageTemplate, choice } =
+        printTemplateIdentifier packageTemplate <> ":" <> T.unpack choice
 
 printScenarioResults :: UseColor -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> IO ()
 printScenarioResults color results = do
