@@ -36,7 +36,7 @@ Before starting, you need to perform the following steps:
 when upgrading versions.
 
 *Sandbox on X* CLI supports 4 different commands:
- * *run* - Runs SoX with configuration provided in [HOCON](https://github.com/lightbend/config/blob/master/HOCON.md) 
+ * *run* - Runs SoX with configuration provided in [HOCON](https://github.com/lightbend/config/blob/master/HOCON.md)
  format.
  * *run-legacy-cli-config* - Runs SoX with command-line parameters.
  * *convert-config* - Converts configuration provided in command-line parameters to HOCON configuration.
@@ -47,25 +47,25 @@ To see all the command line options that SoX supports, run:
     $ java -jar sandbox-on-x.jar --help
 
 ### Running Sandbox-on-X using HOCON configuration
- 
+
 In this mode SoX requires a configuration file to run. When starting SoX, configuration files can be provided using:
 
     $ java -jar sandbox-on-x.jar run --config conf_filename -c conf_filename2
 
-which will start SoX by merging the content of *conf_filename2* into *conf_filename*. Both options 
-`-c` and `–-config` are equivalent. If several configuration files assign values to the same key, the 
+which will start SoX by merging the content of *conf_filename2* into *conf_filename*. Both options
+`-c` and `–-config` are equivalent. If several configuration files assign values to the same key, the
 last value is taken. The section on static configuration explains how to write a configuration file.
 
 It is also possible to provide values for the HOCON path in the configuration directly using `-C key=value` option.
-It can be useful for providing simple short config info. 
+It can be useful for providing simple short config info.
 
-Full documentation of all possible configuration values can be 
+Full documentation of all possible configuration values can be
 found in [reference.conf](https://github.com/digital-asset/daml/blob/main/ledger/sandbox-on-x/reference.conf)
 
 ### Running Sandbox-on-X using CLI-driven configuration (Legacy)
 
-> Note: This style of running is deprecated and configuration via HOCON should be 
-> used in preference to get access to all the configuration options. 
+> Note: This style of running is deprecated and configuration via HOCON should be
+> used in preference to get access to all the configuration options.
 
 Two command line parameters for legacy mode are mandatory when running *Sandbox on X*:
 the participant-id and the port. You can specify them as follows:
@@ -153,7 +153,7 @@ outstanding tasks and resume normal operations.
 
 The command-line interface provides multiple configuration parameters to help
 tune for availability and performance. These parameters can also be set using
-HOCON configuration file. 
+HOCON configuration file.
 
 - ``--max-inbound-message-size``.
   You can use this parameter to increase (or decrease) the maximum size of a
@@ -614,7 +614,7 @@ A timer. Time to compute an interface view within LF-Value translation step in t
 
 ### ``daml.index.package_metadata.decode_archive``
 
-A timer. Time to decode a package archive to extract metadata information. 
+A timer. Time to decode a package archive to extract metadata information.
 
 ### ``daml.index.package_metadata.view_init``
 
