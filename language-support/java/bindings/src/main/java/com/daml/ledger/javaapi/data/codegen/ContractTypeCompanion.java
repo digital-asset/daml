@@ -4,14 +4,14 @@
 package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.Identifier;
-
 import java.util.List;
 
 /** The commonality between {@link ContractCompanion} and {@link InterfaceCompanion}. */
-public abstract class ContractTypeCompanion<Maker, Data> {
+public abstract class ContractTypeCompanion<ContractType, Data> {
   /** The full template ID of the template or interface that defined this companion. */
   public final Identifier TEMPLATE_ID;
-  private final List<ChoiceMetadata<Maker, ?, ?>> choices;
+
+  private final List<ChoiceMetadata<ContractType, ?, ?>> choices;
 
   /**
    * <strong>INTERNAL API</strong>: this is meant for use by {@link ContractCompanion} and {@link
@@ -19,7 +19,8 @@ public abstract class ContractTypeCompanion<Maker, Data> {
    * to code-generated {@code COMPANION} and {@code INTERFACE} fields specific to the template or
    * interface in question instead.
    */
-  protected ContractTypeCompanion(Identifier templateId, List<ChoiceMetadata<Maker, ?, ?>> choices) {
+  protected ContractTypeCompanion(
+      Identifier templateId, List<ChoiceMetadata<ContractType, ?, ?>> choices) {
     TEMPLATE_ID = templateId;
     this.choices = choices;
   }

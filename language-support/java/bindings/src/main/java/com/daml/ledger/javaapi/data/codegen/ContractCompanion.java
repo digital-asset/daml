@@ -7,7 +7,6 @@ import com.daml.ledger.javaapi.data.CreatedEvent;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Identifier;
 import com.daml.ledger.javaapi.data.Value;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -85,8 +84,6 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
       Function<String, Id> newContractId,
       Function<DamlRecord, Data> fromValue,
       List<ChoiceMetadata<Data, ?, ?>> choices) {
-    // TODO: passing in the choices to super() for interfaces means we ave to pass it here too..
-    //  Are the types still valid?
     super(templateId, choices);
     this.templateClassName = templateClassName;
     this.newContractId = newContractId;
@@ -104,12 +101,12 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
      * instead.
      */
     public WithoutKey(
-            String templateClassName,
-            Identifier templateId,
-            Function<String, Id> newContractId,
-            Function<DamlRecord, Data> fromValue,
-            NewContract<Ct, Id, Data> newContract,
-            List<ChoiceMetadata<Data, ?, ?>> choices) {
+        String templateClassName,
+        Identifier templateId,
+        Function<String, Id> newContractId,
+        Function<DamlRecord, Data> fromValue,
+        NewContract<Ct, Id, Data> newContract,
+        List<ChoiceMetadata<Data, ?, ?>> choices) {
       super(templateClassName, templateId, newContractId, fromValue, choices);
       this.newContract = newContract;
     }
