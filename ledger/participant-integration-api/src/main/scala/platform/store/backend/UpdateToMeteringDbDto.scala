@@ -29,6 +29,7 @@ object UpdateToMeteringDbDto {
       } yield (ci.applicationId, statistics.committed.actions + statistics.rolledBack.actions))
         .groupMapReduce(_._1)(_._2)(_ + _)
         .toList
+        .filter(_._2 != 0)
         .sortBy(_._1)
         .map { case (applicationId, count) =>
           DbDto.TransactionMetering(
