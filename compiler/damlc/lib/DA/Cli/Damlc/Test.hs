@@ -242,23 +242,28 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
             , internalExercisedAnywhere
             , definedTemplatesInside
             , internalCreatedAnywhere
-            } = do
+            } =
         let percentage i j
               | j > 0 = show (round @Double $ 100.0 * (fromIntegral i / fromIntegral j) :: Int) <> "%"
               | otherwise = "100%"
-        let frac msg a b = msg ++ ": " ++ show a ++ " / " ++ show b
-        let pct msg a b = frac msg a b ++ " (" ++ percentage a b ++ ")"
-        let indent = ("  " ++)
-        putStrLn $ "test coverage group: " ++ groupName
-        putStrLn $ indent $ pct "choices" (S.size internalExercisedAnywhere) (S.size definedChoicesInside)
-        putStrLn $ indent $ pct "templates" (S.size internalCreatedAnywhere) (S.size definedTemplatesInside)
-        when getShowCoverage $ do
-            putStrLn $
-                unlines $
-                ["templates never created:"] <>
+            frac msg a b = msg ++ ": " ++ show a ++ " / " ++ show b
+            pct msg a b = frac msg a b ++ " (" ++ percentage a b ++ ")"
+            indent = ("  " ++)
+            header = "group: " ++ groupName
+            body1 =
+                [ pct "choices" (S.size internalExercisedAnywhere) (S.size definedChoicesInside)
+                , pct "templates" (S.size internalCreatedAnywhere) (S.size definedTemplatesInside)
+                ]
+            body2
+              | not getShowCoverage = []
+              | otherwise =
+                [ "templates never created:" ] <>
                 map (indent . printTemplateIdentifier) (S.toList $ definedTemplatesInside `S.difference` internalCreatedAnywhere) <>
                 ["choices never executed:"] <>
                 map (indent . printChoiceIdentifier) (S.toList $ definedChoicesInside `S.difference` internalExercisedAnywhere)
+            msg = unlines $ header : map indent (body1 ++ body2)
+        in
+        putStrLn msg
 
     lfTemplateIdentifier :: TemplateInfo -> TemplateIdentifier
     lfTemplateIdentifier (pkgIdMay, m, t) =
