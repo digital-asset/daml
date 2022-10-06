@@ -6,7 +6,7 @@ package com.daml.ledger.javaapi.data.codegen;
 import java.util.Optional;
 import java.util.Set;
 
-public final class ContractWithInterfaceView<Id, View> extends Contract<Id, View> {
+final class ContractWithInterfaceView<Id, View> extends Contract<Id, View> {
 
   ContractWithInterfaceView(
       Id id,

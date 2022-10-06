@@ -7,6 +7,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory;
 import com.daml.ledger.api.v1.TransactionServiceGrpc;
 import com.daml.ledger.api.v1.TransactionServiceOuterClass;
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.rxjava.ContractUtil;
 import com.daml.ledger.rxjava.TransactionsClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
@@ -71,6 +72,41 @@ public final class TransactionClientImpl implements TransactionsClient {
       boolean verbose,
       String accessToken) {
     return getTransactions(begin, end, filter, verbose, Optional.of(accessToken));
+  }
+
+  private <Ct> Flowable<Ct> getTransactions(
+      ContractUtil<Ct> contractUtil,
+      LedgerOffset begin,
+      Set<String> parties,
+      boolean verbose,
+      Optional<String> accessToken) {
+    TransactionFilter filter = contractUtil.transactionFilter(parties);
+    Flowable<Transaction> transactions = getTransactions(begin, filter, verbose, accessToken);
+    Flowable<CreatedEvent> createdEvents =
+        transactions
+            .concatMapIterable(Transaction::getEvents)
+            .flatMap(
+                event ->
+                    (event instanceof CreatedEvent)
+                        ? Flowable.just((CreatedEvent) event)
+                        : Flowable.empty());
+    return createdEvents.map(contractUtil::toContract);
+  }
+
+  @Override
+  public <Ct> Flowable<Ct> getTransactions(
+      ContractUtil<Ct> contractUtil, LedgerOffset begin, Set<String> parties, boolean verbose) {
+    return getTransactions(contractUtil, begin, parties, verbose, Optional.empty());
+  }
+
+  @Override
+  public <Ct> Flowable<Ct> getTransactions(
+      ContractUtil<Ct> contractUtil,
+      LedgerOffset begin,
+      Set<String> parties,
+      boolean verbose,
+      String accessToken) {
+    return getTransactions(contractUtil, begin, parties, verbose, Optional.of(accessToken));
   }
 
   private Flowable<Transaction> getTransactions(
