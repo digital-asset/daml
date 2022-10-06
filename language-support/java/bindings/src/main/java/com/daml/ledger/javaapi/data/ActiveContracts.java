@@ -56,7 +56,7 @@ public class ActiveContracts<Ct> implements WorkflowEvent {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    ActiveContracts<Ct> that = (ActiveContracts<Ct>) o;
+    ActiveContracts<?> that = (ActiveContracts<?>) o;
     return Objects.equals(offset, that.offset)
         && Objects.equals(activeContracts, that.activeContracts)
         && Objects.equals(workflowId, that.workflowId);
