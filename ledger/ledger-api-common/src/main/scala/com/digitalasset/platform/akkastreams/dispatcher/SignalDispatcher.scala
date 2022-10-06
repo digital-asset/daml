@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
 import com.daml.platform.akkastreams.dispatcher.SignalDispatcher.Signal
-import org.slf4j.LoggerFactory
+import org.slf4j.{Logger, LoggerFactory}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
@@ -19,7 +19,7 @@ import scala.util.{Failure, Success}
   */
 class SignalDispatcher private () {
 
-  val logger = LoggerFactory.getLogger(getClass)
+  val logger: Logger = LoggerFactory.getLogger(getClass)
 
   private val runningState: AtomicReference[Option[Set[SourceQueueWithComplete[Signal]]]] =
     new AtomicReference(Some(Set.empty))
@@ -63,29 +63,53 @@ class SignalDispatcher private () {
   /** Closes this SignalDispatcher by gracefully completing the existing Source subscriptions.
     * For any downstream with pending signals, at least one such signal will be sent first.
     */
-  def shutdown(): Future[Unit] = shutdownInternal(_.complete())
+  def shutdown(): Future[Unit] =
+    shutdownInternal { source =>
+      source.complete()
+      source.watchCompletion()
+    }
 
   /** Closes this SignalDispatcher by failing the existing Source subscriptions with the provided throwable. */
-  def fail(throwable: Throwable): Future[Unit] =
-    shutdownInternal(_.fail(throwable)).transform {
-      // This throwable is expected so map to Success
-      case Failure(`throwable`) => Success(())
-      case other => other
-    }(ExecutionContext.parasitic)
+  def fail(throwableBuilder: () => Throwable): Future[Unit] =
+    shutdownInternal { source =>
+      implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.parasitic
+      val throwable = throwableBuilder()
+      source.fail(throwable)
+      source
+        .watchCompletion()
+        .recover {
+          case `throwable` =>
+            // This throwable is expected so map to Success
+            ()
+          case unexpectedThrowable =>
+            // On unexpected throwable, warn and continue
+            logger.warn(s"Unexpected failure on Source shutdown", unexpectedThrowable)
+        }
+    }
 
   private def shutdownInternal(
-      shutdownSourceQueue: SourceQueueWithComplete[_] => Unit
+      shutdownSourceQueue: SourceQueueWithComplete[_] => Future[_]
   ): Future[Unit] = {
     implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.parasitic
     runningState
       .getAndSet(None)
-      .fold(throw new IllegalStateException("SignalDispatcher is already closed")) { sources =>
-        Future.delegate {
-          sources.foreach(shutdownSourceQueue)
-          Future
-            .sequence(sources.map(_.watchCompletion()))
-            .map(_ => ())
-        }
+      .fold(Future.failed[Unit](new IllegalStateException("SignalDispatcher is already closed"))) {
+        sources =>
+          Future.delegate {
+            Future
+              .traverse(sources) { source =>
+                // Return a successful Future wrapping a Try
+                // to ensure that Future.traverse waits for the completion of all sources
+                shutdownSourceQueue(source)
+                  .map(Success(_))
+                  .recover { case failure => Failure(failure) }
+              }
+              .map { results =>
+                // Fail if any of the sources failed
+                results.map(_.get)
+              }
+              .map(_ => ())
+          }
       }
   }
 }

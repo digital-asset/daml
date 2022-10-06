@@ -11,6 +11,12 @@ public abstract class ContractWithKey<Id, Data, Key> extends Contract<Id, Data> 
   /** The contract's key, if it was present in the event. */
   public final Optional<Key> key;
 
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+   * and <em>should not be referenced directly</em>. Applications should refer to the constructors
+   * of code-generated subclasses, or {@link ContractCompanion#fromCreatedEvent}, instead.
+   */
   protected ContractWithKey(
       Id id,
       Data data,

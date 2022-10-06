@@ -4,10 +4,9 @@
 package com.daml.platform.store.cache
 
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
-import com.daml.lf.data.Time.Timestamp
+import com.daml.ledger.participant.state.index.v2
+import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value.VersionedContractInstance
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.store.cache.ContractKeyStateValue._
@@ -43,11 +42,27 @@ private[platform] class MutableCacheBackedContractStore(
   override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Contract]] =
+    lookupContractStateValue(contractId)
+      .flatMap(contractStateToResponse(readers, contractId))
+
+  override def lookupContractStateWithoutDivulgence(
+      contractId: ContractId
+  )(implicit loggingContext: LoggingContext): Future[v2.ContractState] =
+    lookupContractStateValue(contractId)
+      .map {
+        case active: Active =>
+          v2.ContractState.Active(active.contract, active.createLedgerEffectiveTime)
+        case _: Archived => v2.ContractState.Archived
+        case NotFound => v2.ContractState.NotFound
+      }
+
+  private def lookupContractStateValue(
+      contractId: ContractId
+  )(implicit loggingContext: LoggingContext): Future[ContractStateValue] =
     contractStateCaches.contractState
       .get(contractId)
       .map(Future.successful)
       .getOrElse(readThroughContractsCache(contractId))
-      .flatMap(contractStateToResponse(readers, contractId))
 
   override def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit
       loggingContext: LoggingContext
@@ -57,93 +72,6 @@ private[platform] class MutableCacheBackedContractStore(
       .map(Future.successful)
       .getOrElse(readThroughKeyCache(key))
       .map(keyStateToResponse(_, readers))
-
-  override def lookupMaximumLedgerTimeAfterInterpretation(ids: Set[ContractId])(implicit
-      loggingContext: LoggingContext
-  ): Future[MaximumLedgerTime] =
-    Future
-      .successful(partitionCached(ids))
-      .flatMap {
-        case Left(archivedContracts) =>
-          Future.successful(MaximumLedgerTime.Archived(archivedContracts))
-
-        case Right((cached, toBeFetched)) if toBeFetched.isEmpty =>
-          Future.successful(MaximumLedgerTime.from(cached.maxOption))
-
-        case Right((cached, toBeFetched)) =>
-          readThroughMaximumLedgerTime(toBeFetched.toList, cached.maxOption)
-      }
-
-  override def lookupContractForValidation(
-      contractId: ContractId
-  )(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[(VersionedContractInstance, Timestamp)]] =
-    contractStateCaches.contractState
-      .get(contractId)
-      .map(Future.successful)
-      .getOrElse(readThroughContractsCache(contractId))
-      .map {
-        case NotFound => None
-        case Active(contract, _, let) => Some(contract -> let)
-        case Archived(_) => None
-      }
-
-  private def readThroughMaximumLedgerTime(
-      missing: List[ContractId],
-      acc: Option[Timestamp],
-  ): Future[MaximumLedgerTime] =
-    missing match {
-      case contractId :: restOfMissing =>
-        readThroughContractsCache(contractId).flatMap {
-          case active: Active =>
-            val newMaximumLedgerTime = Some(
-              (active.createLedgerEffectiveTime :: acc.toList).max
-            )
-            readThroughMaximumLedgerTime(restOfMissing, newMaximumLedgerTime)
-
-          case _: Archived =>
-            Future.successful(MaximumLedgerTime.Archived(Set(contractId)))
-
-          case NotFound =>
-            // If cannot be found: no create or archive event for the contract.
-            // Since this contract is part of the input, it was able to be looked up once.
-            // So this is the case of a divulged contract, which was not archived.
-            // Divulged contract does not change maximumLedgerTime
-
-            readThroughMaximumLedgerTime(restOfMissing, acc)
-        }
-
-      case _ => Future.successful(MaximumLedgerTime.from(acc))
-    }
-
-  private def partitionCached(
-      ids: Set[ContractId]
-  )(implicit
-      loggingContext: LoggingContext
-  ): Either[Set[ContractId], (Set[Timestamp], Set[ContractId])] = {
-    val cacheQueried = ids.view.map(id => id -> contractStateCaches.contractState.get(id)).toVector
-
-    val cached = cacheQueried
-      .foldLeft[Either[Set[ContractId], Set[Timestamp]]](Right(Set.empty[Timestamp])) {
-        // successful lookups
-        case (Right(timestamps), (_, Some(active: Active))) =>
-          Right(timestamps + active.createLedgerEffectiveTime)
-        case (Right(timestamps), (_, None)) => Right(timestamps)
-
-        // failure cases
-        case (acc, (cid, Some(Archived(_) | NotFound))) =>
-          val missingContracts = acc.left.getOrElse(Set.empty) + cid
-          Left(missingContracts)
-        case (acc @ Left(_), _) => acc
-      }
-
-    cached
-      .map { cached =>
-        val missing = cacheQueried.view.collect { case (id, None) => id }.toSet
-        (cached, missing)
-      }
-  }
 
   private def readThroughContractsCache(contractId: ContractId)(implicit
       loggingContext: LoggingContext

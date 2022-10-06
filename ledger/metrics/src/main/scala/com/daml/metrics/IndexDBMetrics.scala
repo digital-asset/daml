@@ -10,35 +10,8 @@ import com.codahale.metrics.MetricRegistry
 class IndexDBMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
     extends MetricHandle.FactoryWithDBMetrics {
 
-  val storePartyEntry: Timer = timer(
-    prefix :+ "store_party_entry"
-  ) // FIXME: remove this metric variable since is is used only in Spec
-  val storePackageEntry: Timer = timer(
-    prefix :+ "store_package_entry"
-  ) // FIXME: remove this metric variable since is is used only in Spec
-
-  val storeTransactionCombined: Timer =
-    timer(prefix :+ "store_ledger_entry_combined")
-
-  val storeRejection: Timer = timer(
-    prefix :+ "store_rejection"
-  ) // FIXME: remove this metric variable since is is used only in Spec
-  val storeConfigurationEntry: Timer = timer(
-    prefix :+ "store_configuration_entry"
-  ) // FIXME: remove this metric variable since is is used only in Spec
-
-  val lookupLedgerId: Timer = timer(prefix :+ "lookup_ledger_id")
-  val lookupParticipantId: Timer = timer(prefix :+ "lookup_participant_id")
-  val lookupLedgerEnd: Timer = timer(prefix :+ "lookup_ledger_end")
-  val lookupLedgerConfiguration: Timer =
-    timer(prefix :+ "lookup_ledger_configuration")
   val lookupKey: Timer = timer(prefix :+ "lookup_key")
   val lookupActiveContract: Timer = timer(prefix :+ "lookup_active_contract")
-  val getParties: Timer = timer(prefix :+ "get_parties")
-  val listKnownParties: Timer = timer(prefix :+ "list_known_parties")
-  val listLfPackages: Timer = timer(prefix :+ "list_lf_packages")
-  val getLfArchive: Timer = timer(prefix :+ "get_lf_archive")
-  val prune: Timer = timer(prefix :+ "prune")
 
   private val overall = createDbMetrics("all")
   val waitAll: Timer = overall.waitTimer
