@@ -203,9 +203,9 @@ printTestCoverage ::
 printTestCoverage ShowCoverage {getShowCoverage} allPackages results
   | any (isLeft . snd) $ concatMap snd results = pure ()
   | otherwise = do
-      printReport $ report "templates/choices defined in module" isLocal
-      printReport $ report "templates/choices defined outside module" (not . isLocal)
-      printReport $ report "all templates/choices available" (const True)
+      printReport $ report "defined in local module" isLocal
+      printReport $ report "defined in external modules" (not . isLocal)
+      printReport $ report "defined anywhere" (const True)
   where
     report :: String -> (LocalOrExternal -> Bool) -> Report
     report groupName pred =
@@ -249,7 +249,7 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
             frac msg a b = msg ++ ": " ++ show a ++ " / " ++ show b
             pct msg a b = frac msg a b ++ " (" ++ percentage a b ++ ")"
             indent = ("  " ++)
-            header = "group: " ++ groupName
+            header = groupName ++ ":"
             body1 =
                 [ pct "choices" (S.size internalExercisedAnywhere) (S.size definedChoicesInside)
                 , pct "templates" (S.size internalCreatedAnywhere) (S.size definedTemplatesInside)
