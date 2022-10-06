@@ -5,16 +5,16 @@ import DA.Set (singleton)
 import Daml.Script
 
 -- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Account.Factory qualified as Account (F)
 import Daml.Finance.Interface.Holding.Base qualified as Holding (I)
-import Daml.Finance.Interface.Holding.Factory.Account qualified as Account (F)
-import Daml.Finance.Interface.Holding.Factory.Holding qualified as Holding (F)
+import Daml.Finance.Interface.Holding.Factory qualified as Holding (F)
 import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument (I)
 import Daml.Finance.Interface.Types.Common (AccountKey, Id(..), InstrumentKey(..))
 
 -- IMPLEMENTATION DEPENDENCIES --
-import Daml.Finance.Holding.Account qualified as Account (Factory(..))
+import Daml.Finance.Account.Account qualified as Account (Factory(..))
 import Daml.Finance.Holding.Fungible qualified as Fungible (Factory(..))
-import Daml.Finance.Instrument.Base.Instrument (Instrument(..))
+import Daml.Finance.Instrument.Token.Instrument (Instrument(..))
 
 import Workflow.CreateAccount qualified as CreateAccount
 import Workflow.CreditAccount qualified as CreditAccount
@@ -46,7 +46,7 @@ runTransfer = do
     createCmd Fungible.Factory
       with
         provider = bank
-        observers = fromList [("PublicObserver", singleton $ singleton public )]
+        observers = fromList [("PublicObserver", singleton public )]
   -- CREATE_HOLDING_FACTORY_END
 
   -- Alice and Bob setup account @Bank

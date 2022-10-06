@@ -12,17 +12,18 @@ dependencies:
   - daml-script
 data-dependencies:
   # INTERFACE DEPENDENCIES
-  - .lib/daml-finance-interface-holding-0.1.3.dar
-  - .lib/daml-finance-interface-instrument-base-0.1.3.dar
-  - .lib/daml-finance-interface-lifecycle-0.1.3.dar
-  - .lib/daml-finance-interface-settlement-0.1.3.dar
-  - .lib/daml-finance-interface-types-0.1.3.dar
+  - .lib/daml-finance-interface-holding-0.1.5.dar
+  - .lib/daml-finance-interface-account-0.1.0.dar
+  - .lib/daml-finance-interface-instrument-base-0.1.5.dar
+  - .lib/daml-finance-interface-lifecycle-0.1.6.dar
+  - .lib/daml-finance-interface-settlement-0.1.6.dar
+  - .lib/daml-finance-interface-types-0.1.5.dar
   # IMPLEMENTATION DEPENDENCIES
-  - .lib/daml-finance-holding-0.1.3.dar
-  - .lib/daml-finance-instrument-base-0.1.3.dar
-  - .lib/daml-finance-lifecycle-0.1.3.dar
-  - .lib/daml-finance-refdata-0.1.3.dar
-  - .lib/daml-finance-settlement-0.1.3.dar
+  - .lib/daml-finance-holding-0.1.5.dar
+  - .lib/daml-finance-account-0.1.0.dar
+  - .lib/daml-finance-instrument-token-0.1.5.dar
+  - .lib/daml-finance-lifecycle-0.1.6.dar
+  - .lib/daml-finance-settlement-0.1.6.dar
 start-navigator: no
 build-options:
   - --target=1.15

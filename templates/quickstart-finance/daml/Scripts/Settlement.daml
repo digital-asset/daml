@@ -1,7 +1,7 @@
 module Scripts.Settlement where
 
 import DA.Map as M (empty)
-import DA.Set as S (fromList)
+import DA.Set as S (fromList, singleton)
 import Daml.Script
 
 -- INTERFACE DEPENDENCIES --
@@ -14,7 +14,7 @@ import Daml.Finance.Interface.Settlement.Types (Allocation(..), Approval(..))
 import Daml.Finance.Interface.Types.Common (AccountKey, Id(..), InstrumentKey(..))
 
 -- IMPLEMENTATION DEPENDENCIES --
-import Daml.Finance.Instrument.Base.Instrument (Instrument(..))
+import Daml.Finance.Instrument.Token.Instrument (Instrument(..))
 import Daml.Finance.Settlement.Factory (Factory(..))
 
 import Workflow.CreditAccount qualified as CreditAccount
@@ -92,29 +92,34 @@ runSettlement = do
   -- Settle the DvP Trade
 
   -- i. Bob allocates his asset, Alice approves by providing her account.
-  allocatedPaySettleInstructionCid <- submit bob do
+  (allocatedPaySettleInstructionCid, _) <- submit bob do
     exerciseCmd paySettleInstructionCid Instruction.Allocate with
+      actors = S.singleton bob
       allocation = Pledge $ coerceContractId bobHoldingCid
 
   approvedPaySettleInstructionCid <- submit alice do
     exerciseCmd allocatedPaySettleInstructionCid Instruction.Approve with
+      actors = S.singleton alice
       approval = TakeDelivery aliceAccount
 
   -- ii. Alice allocates her asset, Bob approves by providing his account.
   -- ALLOCATE_APPROVE_BEGIN
-  allocatedRecSettleInstructionCid <- submit alice do
+  (allocatedRecSettleInstructionCid, _) <- submit alice do
     exerciseCmd recSettleInstructionCid Instruction.Allocate with
+      actors = S.singleton alice
       allocation = Pledge $ coerceContractId aliceHoldingCid
 
   approvedRecSettleInstructionCid <- submit bob do
     exerciseCmd allocatedRecSettleInstructionCid Instruction.Approve with
+      actors = S.singleton bob
       approval = TakeDelivery bobAccount
   -- ALLOCATE_APPROVE_END
 
   -- iii. Bob executes the settlement.
   -- SETTLE_BEGIN
   [bobHoldingCid, aliceHoldingCid] <- submitMulti [bob] [public] do
-    exerciseCmd batchCid Batch.Settle
+    exerciseCmd batchCid Batch.Settle with
+      actors = singleton bob
   -- SETTLE_END
 
   pure (alice, bank, bob, public, aliceAccount, bobAccount, usdInstrument, tokenInstrument, settlementFactoryCid, toInterfaceContractId aliceHoldingCid, toInterfaceContractId bobHoldingCid)
