@@ -67,7 +67,7 @@ def install_java_deps():
             "com.auth0:java-jwt:3.10.3",
             "com.auth0:jwks-rsa:0.11.0",
             "com.chuusai:shapeless_{}:2.3.3".format(scala_major_version),
-            "com.github.ben-manes.caffeine:caffeine:2.8.0",
+            "com.github.ben-manes.caffeine:caffeine:3.0.5",
             "com.github.pureconfig:pureconfig_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-core_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-generic_{}:0.14.0".format(scala_major_version),
