@@ -4,7 +4,7 @@
 package com.daml.lf.engine.trigger
 
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.{Dar, DarReader}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.util.ByteString
@@ -27,6 +27,7 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
 import com.daml.bazeltools.BazelRunfiles.requiredResource
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.command_service._
@@ -38,7 +39,9 @@ import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement
+import com.daml.lf.data.Ref.PackageId
 import com.daml.timer.RetryStrategy
+import com.google.protobuf.empty.Empty
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.time.{Seconds, Span}
 
@@ -56,13 +59,14 @@ trait AbstractTriggerServiceTestHelper
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(30, Seconds)))
 
-  protected val darPath = requiredResource("triggers/service/test-model.dar")
+  protected val darPath: File = requiredResource("triggers/service/test-model.dar")
 
   // Encoded dar used in service initialization
-  protected lazy val dar = DarReader.assertReadArchiveFromFile(darPath).map(p => p.pkgId -> p.proto)
-  protected lazy val testPkgId = dar.main._1
+  protected lazy val dar: Dar[(PackageId, DamlLf.ArchivePayload)] =
+    DarReader.assertReadArchiveFromFile(darPath).map(p => p.pkgId -> p.proto)
+  protected lazy val testPkgId: PackageId = dar.main._1
 
-  protected def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
+  protected def submitCmd(client: LedgerClient, party: String, cmd: Command): Future[Empty] = {
     val req = SubmitAndWaitRequest(
       Some(
         Commands(

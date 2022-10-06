@@ -313,7 +313,6 @@ da_scala_test_suite(
           cp -L $(location :test-model/ErrorTrigger.daml) $$TMP_DIR/daml
           cp -L $(location :test-model/LowLevelErrorTrigger.daml) $$TMP_DIR/daml
           cp -L $(location :test-model/ReadAs.daml) $$TMP_DIR/daml
-          cp -L $(location :test-model/InterfaceTriggers.daml) $$TMP_DIR/daml
           cp -L $(location {daml_trigger}) $$TMP_DIR/daml-trigger.dar
           cp -L $(location {daml_script}) $$TMP_DIR/daml-script.dar
           cat << EOF > $$TMP_DIR/daml.yaml
