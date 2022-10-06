@@ -69,32 +69,32 @@ data SrcLoc = SrcLoc
   }
 
 instance DA.Internal.Record.HasField "srcLocPackage"   SrcLoc Text where
-  getField (SrcLoc a _ _ _ _ _ _) = a
-  setField a (SrcLoc _ b c d e f g) = SrcLoc a b c d e f g
+  getField SrcLoc {srcLocPackage} = srcLocPackage
+  setField srcLocPackage' SrcLoc {..} = SrcLoc {srcLocPackage = srcLocPackage', ..}
 
 instance DA.Internal.Record.HasField "srcLocModule"    SrcLoc Text where
-  getField (SrcLoc _ b _ _ _ _ _) = b
-  setField b (SrcLoc a _ c d e f g) = SrcLoc a b c d e f g
+  getField SrcLoc {srcLocModule} = srcLocModule
+  setField srcLocModule' SrcLoc {..} = SrcLoc {srcLocModule = srcLocModule', ..}
 
 instance DA.Internal.Record.HasField "srcLocFile"      SrcLoc Text where
-  getField (SrcLoc _ _ c _ _ _ _) = c
-  setField c (SrcLoc a b _ d e f g) = SrcLoc a b c d e f g
+  getField SrcLoc {srcLocFile} = srcLocFile
+  setField srcLocFile' SrcLoc {..} = SrcLoc {srcLocFile = srcLocFile', ..}
 
 instance DA.Internal.Record.HasField "srcLocStartLine" SrcLoc Int where
-  getField (SrcLoc _ _ _ d _ _ _) = d
-  setField d (SrcLoc a b c _ e f g) = SrcLoc a b c d e f g
+  getField SrcLoc {srcLocStartLine} = srcLocStartLine
+  setField srcLocStartLine' SrcLoc {..} = SrcLoc {srcLocStartLine = srcLocStartLine', ..}
 
 instance DA.Internal.Record.HasField "srcLocStartCol"  SrcLoc Int where
-  getField (SrcLoc _ _ _ _ e _ _) = e
-  setField e (SrcLoc a b c d _ f g) = SrcLoc a b c d e f g
+  getField SrcLoc {srcLocStartCol} = srcLocStartCol
+  setField srcLocStartCol' SrcLoc {..} = SrcLoc {srcLocStartCol = srcLocStartCol', ..}
 
 instance DA.Internal.Record.HasField "srcLocEndLine"   SrcLoc Int where
-  getField (SrcLoc _ _ _ _ _ f _) = f
-  setField f (SrcLoc a b c d e _ g) = SrcLoc a b c d e f g
+  getField SrcLoc {srcLocEndLine} = srcLocEndLine
+  setField srcLocEndLine' SrcLoc {..} = SrcLoc {srcLocEndLine = srcLocEndLine', ..}
 
 instance DA.Internal.Record.HasField "srcLocEndCol"    SrcLoc Int where
-  getField (SrcLoc _ _ _ _ _ _ g) = g
-  setField g (SrcLoc a b c d e f _) = SrcLoc a b c d e f g
+  getField SrcLoc {srcLocEndCol} = srcLocEndCol
+  setField srcLocEndCol' SrcLoc {..} = SrcLoc {srcLocEndCol = srcLocEndCol', ..}
 
 convSrcLoc : GHC.SrcLoc -> SrcLoc
 convSrcLoc GHC.SrcLoc{..} =
