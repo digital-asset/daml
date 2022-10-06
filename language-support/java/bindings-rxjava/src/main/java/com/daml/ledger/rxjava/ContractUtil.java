@@ -36,7 +36,7 @@ public final class ContractUtil<Ct> {
     return new ContractUtil<>(companion::fromCreatedEvent, filter);
   }
 
-  public Ct toContract(CreatedEvent createdEvent) throws IllegalAccessException {
+  public Ct toContract(CreatedEvent createdEvent) throws IllegalArgumentException {
     return fromCreatedEvent.apply(createdEvent);
   }
 
@@ -52,6 +52,6 @@ public final class ContractUtil<Ct> {
 
   @FunctionalInterface
   private interface FromCreatedEventFunc<T, R> {
-    R apply(T t) throws IllegalAccessException;
+    R apply(T t) throws IllegalArgumentException;
   }
 }

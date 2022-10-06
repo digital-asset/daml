@@ -43,20 +43,22 @@ public abstract class InterfaceCompanion<I, Id, View> extends ContractTypeCompan
       Optional<String> agreementText,
       Set<String> signatories,
       Set<String> observers)
-      throws IllegalAccessException {
+      throws IllegalArgumentException {
     Optional<DamlRecord> maybeRecord = Optional.ofNullable(interfaceViews.get(TEMPLATE_ID));
+    Optional<DamlRecord> maybeFailedRecord = Optional.ofNullable(interfaceViews.get(TEMPLATE_ID));
     Id id = newContractId.apply(contractId);
-    if (maybeRecord.isPresent()) {
+    if (maybeFailedRecord.isPresent()) {
+      throw new IllegalArgumentException("Failed interface view for " + TEMPLATE_ID);
+    } else if (maybeRecord.isPresent()) {
       View view = valueDecoder.decode(maybeRecord.get());
       return new ContractWithInterfaceView<>(id, view, agreementText, signatories, observers);
     } else {
-      // TODO: CL handle all exceptional cases
-      throw new IllegalAccessException("interface view not found. It could be failed");
+      throw new IllegalArgumentException("interface view of " + TEMPLATE_ID + " not found.");
     }
   }
 
   public final Contract<Id, View> fromCreatedEvent(CreatedEvent event)
-      throws IllegalAccessException {
+      throws IllegalArgumentException {
     return fromIdAndRecord(
         event.getContractId(),
         event.getInterfaceViews(),
