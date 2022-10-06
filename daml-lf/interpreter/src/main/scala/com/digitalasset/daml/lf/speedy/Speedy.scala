@@ -1241,21 +1241,6 @@ private[lf] object Speedy {
     Control.Expression(e)
   }
 
-  private[speedy] final case class KMatch(machine: Machine, alts: Array[SCaseAlt])
-      extends Kont
-      with SomeArrayEquals {
-
-    private[this] val savedBase = machine.markBase()
-    private[this] val frame = machine.currentFrame
-    private[this] val actuals = machine.currentActuals
-
-    def execute(v: SValue): Control = {
-      machine.restoreBase(savedBase);
-      machine.restoreFrameAndActuals(frame, actuals)
-      executeMatchAlts(machine, alts, v)
-    }
-  }
-
   /** Push the evaluated value to the array 'to', and start evaluating the expression 'next'.
     * This continuation is used to implement both function application and lets. In
     * the case of function application the arguments are pushed into the 'actuals' array of
