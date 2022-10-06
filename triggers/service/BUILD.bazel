@@ -3,6 +3,7 @@
 
 load("@oracle//:index.bzl", "oracle_tags")
 load("@build_environment//:configuration.bzl", "sdk_version")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
 load("@os_info//:os_info.bzl", "is_windows")
 load(
     "//bazel_tools:scala.bzl",
@@ -135,7 +136,9 @@ da_scala_library(
     name = "trigger-service-tests",
     srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*.scala"]),
     data = [
-        ":test-model.dar",
+        ":test-model{}.dar".format(suffix)
+        for lf_version in COMPILER_LF_VERSIONS + [""]
+        for suffix in [("-" + lf_version) if lf_version else ""]
     ] + (
         [
             "@toxiproxy_dev_env//:bin/toxiproxy-cmd",
@@ -291,25 +294,29 @@ da_scala_test_suite(
     ],
 )
 
-genrule(
-    name = "test-model",
-    srcs =
-        glob(["test-model/*.daml"]) + [
-            "//triggers/daml:daml-trigger.dar",
-            "//daml-script/daml:daml-script.dar",
-        ],
-    outs = ["test-model.dar"],
-    cmd = """
-      set -eou pipefail
-      TMP_DIR=$$(mktemp -d)
-      mkdir -p $$TMP_DIR/daml
-      cp -L $(location :test-model/TestTrigger.daml) $$TMP_DIR/daml
-      cp -L $(location :test-model/ErrorTrigger.daml) $$TMP_DIR/daml
-      cp -L $(location :test-model/LowLevelErrorTrigger.daml) $$TMP_DIR/daml
-      cp -L $(location :test-model/ReadAs.daml) $$TMP_DIR/daml
-      cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
-      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR
-      cat << EOF > $$TMP_DIR/daml.yaml
+# Build one DAR per LF version to bundle with the SDK.
+# Also build one DAR with the default LF version for test-cases.
+[
+    genrule(
+        name = "test-model{}".format(suffix),
+        srcs =
+            glob(["test-model/*.daml"]) + [
+                "//triggers/daml:daml-trigger{}".format(suffix),
+                "//daml-script/daml:daml-script{}".format(suffix),
+            ],
+        outs = ["test-model{}.dar".format(suffix)],
+        cmd = """
+          set -eou pipefail
+          TMP_DIR=$$(mktemp -d)
+          mkdir -p $$TMP_DIR/daml
+          cp -L $(location :test-model/TestTrigger.daml) $$TMP_DIR/daml
+          cp -L $(location :test-model/ErrorTrigger.daml) $$TMP_DIR/daml
+          cp -L $(location :test-model/LowLevelErrorTrigger.daml) $$TMP_DIR/daml
+          cp -L $(location :test-model/ReadAs.daml) $$TMP_DIR/daml
+          cp -L $(location :test-model/InterfaceTriggers.daml) $$TMP_DIR/daml
+          cp -L $(location {daml_trigger}) $$TMP_DIR/daml-trigger.dar
+          cp -L $(location {daml_script}) $$TMP_DIR/daml-script.dar
+          cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: test-model
 source: daml
@@ -319,12 +326,24 @@ dependencies:
   - daml-prim
   - daml-trigger.dar
   - daml-script.dar
+build-options: {build_options}
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location test-model.dar)
-      rm -rf $$TMP_DIR
-    """.format(sdk = sdk_version),
-    tools = ["//compiler/damlc"],
-    visibility = ["//visibility:public"],
-)
+          $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$@
+          rm -rf $$TMP_DIR
+        """.format(
+            build_options = str([
+                "--target",
+                lf_version,
+            ] if lf_version else []),
+            sdk = sdk_version,
+            daml_script = "//daml-script/daml:daml-script{}".format(suffix),
+            daml_trigger = "//triggers/daml:daml-trigger{}".format(suffix),
+        ),
+        tools = ["//compiler/damlc"],
+        visibility = ["//visibility:public"],
+    )
+    for lf_version in COMPILER_LF_VERSIONS + [""]
+    for suffix in [("-" + lf_version) if lf_version else ""]
+]
 
 exports_files(["release/trigger-service-logback.xml"])

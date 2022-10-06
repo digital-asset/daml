@@ -45,8 +45,7 @@ import org.scalatest.time.{Seconds, Span}
 import java.nio.file.Files
 import scala.concurrent.duration._
 
-// Tests for all trigger service configurations go here
-trait AbstractTriggerServiceTest
+trait AbstractTriggerServiceTestHelper
     extends AsyncFlatSpec
     with HttpCookies
     with TriggerServiceFixture
@@ -60,8 +59,8 @@ trait AbstractTriggerServiceTest
   protected val darPath = requiredResource("triggers/service/test-model.dar")
 
   // Encoded dar used in service initialization
-  protected val dar = DarReader.assertReadArchiveFromFile(darPath).map(p => p.pkgId -> p.proto)
-  protected val testPkgId = dar.main._1
+  protected lazy val dar = DarReader.assertReadArchiveFromFile(darPath).map(p => p.pkgId -> p.proto)
+  protected lazy val testPkgId = dar.main._1
 
   protected def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
     val req = SubmitAndWaitRequest(
@@ -101,7 +100,7 @@ trait AbstractTriggerServiceTest
       * https://github.com/digital-asset/daml/issues/13076
       */
     def inClaims(testFn: => Future[Assertion])(implicit pos: source.Position) =
-      AbstractTriggerServiceTest.this.inClaims(self, testFn)
+      AbstractTriggerServiceTestHelper.this.inClaims(self, testFn)
   }
 
   def startTrigger(
@@ -230,6 +229,10 @@ trait AbstractTriggerServiceTest
     eventually {
       pred(getTriggerStatus(triggerInstance).map(_._2))
     }
+}
+
+// Tests for all trigger service configurations go here
+trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
 
   it should "start up and shut down server" in
     withTriggerService(List(dar)) { _ =>
@@ -439,7 +442,7 @@ trait AbstractTriggerServiceTest
         .completionSource(List(aliceAcs.unwrap), LedgerOffset(Boundary(LEDGER_BEGIN)))
         .collect({
           case CompletionStreamElement.CompletionElement(completion, _)
-              if !completion.transactionId.isEmpty =>
+              if completion.transactionId.nonEmpty =>
             completion
         })
         .take(1)
