@@ -129,7 +129,7 @@ public class TemplateMethodTest {
   @Test
   void contractHasToString() {
     assertEquals(
-        "tests.template1.SimpleTemplate.Contract(ContractId(cid), "
+        "Contract(ContractId(cid), "
             + "tests.template1.SimpleTemplate(Bob), Optional[I agree], [], [])",
         SimpleTemplate.Contract.fromCreatedEvent(agreementEvent).toString());
   }
