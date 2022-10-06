@@ -316,8 +316,8 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
                 ""
             exitCode @?= ExitSuccess
             let out = lines stdout
-            assertBool ("test coverage is reported correctly: " <> out!!4)
-                       ("test coverage: templates 50%, choices 33%" == (out!!4))
+            assertBool ("test coverage is reported correctly: " <> stdout)
+                       ("defined in local module:\n  choices: 1 / 3 (33%)\n  templates: 1 / 2 (50%)" `isInfixOf` stdout)
             assertBool ("test summary is reported correctly: " <> out!!1)
                        ("Test Summary" `isPrefixOf` (out!!1))
             assertBool ("test summary is reported correctly: " <> out!!3)
