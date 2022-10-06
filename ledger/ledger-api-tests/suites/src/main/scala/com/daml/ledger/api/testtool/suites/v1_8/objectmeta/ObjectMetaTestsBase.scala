@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.testtool.suites.v1_8.object_meta
+package com.daml.ledger.api.testtool.suites.v1_8.objectmeta
 
 import com.daml.ledger.api.testtool.infrastructure.ExpectedErrorDescription
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
@@ -12,22 +12,22 @@ import scala.concurrent.{ExecutionContext, Future}
 trait ObjectMetaTestsBase {
 
   // A resource containing an ObjectMeta metadata
-  private[object_meta] type Resource
-  private[object_meta] type ResourceId
+  private[objectmeta] type Resource
+  private[objectmeta] type ResourceId
 
-  private[object_meta] def getId(resource: Resource): ResourceId
+  private[objectmeta] def getId(resource: Resource): ResourceId
 
-  private[object_meta] def annotationsUpdateRequestFieldPath: String
+  private[objectmeta] def annotationsUpdateRequestFieldPath: String
 
-  private[object_meta] def resourceVersionUpdatePath: String
-  private[object_meta] def annotationsUpdatePath: String
-  private[object_meta] def annotationsShortUpdatePath: String
-  private[object_meta] def resourceIdPath: String
+  private[objectmeta] def resourceVersionUpdatePath: String
+  private[objectmeta] def annotationsUpdatePath: String
+  private[objectmeta] def annotationsShortUpdatePath: String
+  private[objectmeta] def resourceIdPath: String
 
-  private[object_meta] def extractAnnotations(resource: Resource): Map[String, String]
-  private[object_meta] def extractMetadata(resource: Resource): ObjectMeta
+  private[objectmeta] def extractAnnotations(resource: Resource): Map[String, String]
+  private[objectmeta] def extractMetadata(resource: Resource): ObjectMeta
 
-  private[object_meta] def update(
+  private[objectmeta] def update(
       id: ResourceId,
       annotations: Map[String, String],
       updatePaths: Seq[String],
@@ -37,26 +37,26 @@ trait ObjectMetaTestsBase {
       ledger: ParticipantTestContext,
   ): Future[ObjectMeta]
 
-  private[object_meta] def fetchNewestAnnotations(
+  private[objectmeta] def fetchNewestAnnotations(
       id: ResourceId
   )(implicit
       ec: ExecutionContext,
       ledger: ParticipantTestContext,
   ): Future[Map[String, String]]
 
-  private[object_meta] def createResourceWithAnnotations(annotations: Map[String, String])(implicit
+  private[objectmeta] def createResourceWithAnnotations(annotations: Map[String, String])(implicit
       ec: ExecutionContext,
       ledger: ParticipantTestContext,
   ): Future[Map[String, String]]
 
-  private[object_meta] def testWithoutResource(
+  private[objectmeta] def testWithoutResource(
       shortIdentifier: String,
       description: String,
   )(
       body: ExecutionContext => ParticipantTestContext => Future[Unit]
   ): Unit
 
-  private[object_meta] def testWithFreshResource(
+  private[objectmeta] def testWithFreshResource(
       shortIdentifier: String,
       description: String,
   )(
@@ -65,15 +65,15 @@ trait ObjectMetaTestsBase {
       body: ExecutionContext => ParticipantTestContext => Resource => Future[Unit]
   ): Unit
 
-  private[object_meta] def assertValidResourceVersionString(v: String, sourceMsg: String): Unit = {
+  private[objectmeta] def assertValidResourceVersionString(v: String, sourceMsg: String): Unit = {
     assert(v.nonEmpty, s"resource version (from $sourceMsg) must be non empty")
   }
 
-  private[object_meta] def concurrentUserUpdateDetectedErrorDescription(
+  private[objectmeta] def concurrentUserUpdateDetectedErrorDescription(
       id: ResourceId
   ): ExpectedErrorDescription
 
-  private[object_meta] def invalidUpdateRequestErrorDescription(
+  private[objectmeta] def invalidUpdateRequestErrorDescription(
       id: ResourceId,
       errorMessageSuffix: String,
   ): ExpectedErrorDescription
