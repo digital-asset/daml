@@ -203,7 +203,9 @@ printTestCoverage ::
 printTestCoverage ShowCoverage {getShowCoverage} allPackages results
   | any (isLeft . snd) $ concatMap snd results = pure ()
   | otherwise = do
-      printReport $ report "local" isLocal
+      printReport $ report "templates/choices defined in module" isLocal
+      printReport $ report "templates/choices defined outside module" (not . isLocal)
+      printReport $ report "all templates/choices available" (const True)
   where
     report :: String -> (LocalOrExternal -> Bool) -> Report
     report groupName pred =
