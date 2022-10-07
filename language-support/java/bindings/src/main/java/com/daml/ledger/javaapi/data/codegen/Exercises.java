@@ -17,5 +17,5 @@ public interface Exercises<Cmd> {
    * and <em>should not be referenced directly</em>. Applications should call choice-specific {@code
    * exercise*} methods generated from their Daml code instead.
    */
-  Cmd makeExerciseCmd(String choice, Value choiceArgument);
+  <A, R> Update<R> makeExerciseCmd(ChoiceMetadata<?, ? super A, ? extends R> choice, A choiceArgument);
 }

@@ -6,8 +6,12 @@ package com.daml.lf.codegen.backend.java.inner
 import com.daml.ledger.javaapi
 import ClassGenUtils.{companionFieldName, templateIdFieldName}
 import com.daml.lf.codegen.TypeWithContext
-import com.daml.lf.data.Ref, Ref.{ChoiceName, PackageId, QualifiedName}
-import com.daml.lf.typesig, typesig._
+import com.daml.lf.data.Ref
+import Ref.{ChoiceName, PackageId, QualifiedName}
+import com.daml.ledger.javaapi.data.codegen.{ChoiceMetadata, Update}
+import com.daml.lf.codegen.backend.java.inner.ToValueGenerator.generateToValueConverter
+import com.daml.lf.typesig
+import typesig._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{\/, \/-}
@@ -83,7 +87,16 @@ private[inner] object TemplateClass extends StrictLogging {
         )
         .addMethod(generateCreateAndMethod())
         .addType(generateCreateAndClass(className, \/-(template.implementedInterfaces)))
-        .addField(generateCompanion(className, template.key, packagePrefixes))
+        .addFields(
+          generateChoicesMetadata(
+            className: ClassName,
+            packagePrefixes,
+            templateChoices,
+          ).asJava
+        )
+        .addField(
+          generateCompanion(className, template.key, packagePrefixes, templateChoices.keySet)
+        )
         .addFields(RecordFields(fields).asJava)
         .addMethods(TemplateMethods(fields, className, packagePrefixes).asJava)
       generateByKeyMethod(template.key, packagePrefixes) foreach { byKeyMethod =>
@@ -140,8 +153,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .addParameter(toJavaTypeName(key, packagePrefixes), "key")
         .addStatement(
           "return new ByKey($L)",
-          ToValueGenerator
-            .generateToValueConverter(key, CodeBlock.of("key"), newNameGenerator, packagePrefixes),
+          generateToValueConverter(key, CodeBlock.of("key"), newNameGenerator, packagePrefixes),
         )
         .addJavadoc(
           """Set up an {@link $T};$Winvoke an {@code exercise} method on the result of
@@ -250,7 +262,12 @@ private[inner] object TemplateClass extends StrictLogging {
     MethodSpec
       .methodBuilder(s"exerciseByKey${choiceName.capitalize}")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .returns(classOf[javaapi.data.ExerciseByKeyCommand])
+      .returns(
+        ParameterizedTypeName.get(
+          ClassName get classOf[Update[_]],
+          toJavaTypeName(choice.returnType, packagePrefixes),
+        )
+      )
       .makeDeprecated(
         howToFix = s"use {@code byKey(key).exercise${choiceName.capitalize}} instead",
         sinceDaml = "2.3.0",
@@ -399,7 +416,10 @@ private[inner] object TemplateClass extends StrictLogging {
         howToFix = s"use {@code createAnd().exercise${choiceName.capitalize}} instead",
         sinceDaml = "2.3.0",
       )
-      .returns(classOf[javaapi.data.CreateAndExerciseCommand])
+      .returns(
+        ParameterizedTypeName
+          .get(ClassName get classOf[Update[_]], toJavaTypeName(choice.returnType, packagePrefixes))
+      )
       .addParameter(javaType, "arg")
       .addStatement(
         "return createAnd().exercise$L(arg)",
@@ -417,7 +437,8 @@ private[inner] object TemplateClass extends StrictLogging {
   ): MethodSpec =
     ClassGenUtils.generateFlattenedCreateOrExerciseMethod(
       "createAndExercise",
-      ClassName get classOf[javaapi.data.CreateAndExerciseCommand],
+      ParameterizedTypeName
+        .get(ClassName get classOf[Update[_]], toJavaTypeName(choice.returnType, packagePrefixes)),
       choiceName,
       choice,
       fields,
@@ -436,10 +457,55 @@ private[inner] object TemplateClass extends StrictLogging {
       typeWithContext.name,
     )
 
+  def generateChoicesMetadata(
+      templateClassName: ClassName,
+      packagePrefixes: Map[PackageId, String],
+      templateChoices: Map[ChoiceName, TemplateChoice.FWT],
+      withPrefixes: Boolean = true, // TODO: remove in #15154
+  ): Seq[FieldSpec] = {
+    templateChoices.map { case (choiceName, choice) =>
+      val fieldClass = classOf[ChoiceMetadata[_, _, _]]
+      val maybePrefix = if (withPrefixes) packagePrefixes else Map.empty[PackageId, String]
+      FieldSpec
+        .builder(
+          ParameterizedTypeName.get(
+            ClassName get fieldClass,
+            templateClassName,
+            toJavaTypeName(choice.param, packagePrefixes),
+            toJavaTypeName(choice.returnType, maybePrefix),
+          ),
+          toChoiceNameField(choiceName),
+          Modifier.STATIC,
+          Modifier.FINAL,
+          Modifier.PUBLIC,
+        )
+        .initializer(
+          "$Z$T.create($S, value$$ -> $L, value$$ -> $L)",
+          fieldClass,
+          choiceName,
+          generateToValueConverter(
+            choice.param,
+            CodeBlock.of("value$$"),
+            Iterator.empty,
+            packagePrefixes,
+          ),
+          FromValueGenerator.extractor(
+            choice.returnType,
+            "value$",
+            CodeBlock.of("$L", "value$"),
+            newNameGenerator,
+            maybePrefix,
+          ),
+        )
+        .build()
+    }.toSeq
+  }
+
   private def generateCompanion(
       templateClassName: ClassName,
       maybeKey: Option[Type],
       packagePrefixes: Map[PackageId, String],
+      choiceNames: Set[ChoiceName],
   ): FieldSpec = {
     import scala.language.existentials
     import javaapi.data.codegen.ContractCompanion
@@ -475,7 +541,7 @@ private[inner] object TemplateClass extends StrictLogging {
         Modifier.PUBLIC,
       )
       .initializer(
-        "$Znew $T<>($>$Z$S,$W$N, $T::new, $N -> $T.templateValueDecoder().decode($N), $T::new" + keyParams + "$<)",
+        "$Znew $T<>($>$Z$S,$W$N, $T::new, $N -> $T.templateValueDecoder().decode($N), $T::new, $T.of($L)" + keyParams + "$<)",
         Seq(
           fieldClass,
           templateClassName,
@@ -485,6 +551,14 @@ private[inner] object TemplateClass extends StrictLogging {
           templateClassName,
           valueDecoderLambdaArgName,
           contractName,
+          classOf[java.util.List[_]],
+          CodeBlock
+            .join(
+              choiceNames
+                .map(choiceName => CodeBlock.of("$N", toChoiceNameField(choiceName)))
+                .asJava,
+              ",$W",
+            ),
         ) ++ keyArgs: _*
       )
       .build()
@@ -552,4 +626,7 @@ private[inner] object TemplateClass extends StrictLogging {
         )
       )
   }
+
+  def toChoiceNameField(choiceName: ChoiceName): String =
+    s"CHOICE_$choiceName"
 }
