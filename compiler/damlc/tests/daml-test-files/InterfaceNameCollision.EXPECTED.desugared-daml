@@ -41,11 +41,10 @@ instance DA.Internal.Desugar.HasArchive Iface where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice Iface DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Iface])
+  _toAnyChoice _ = GHC.Types.primitive @"EToAnyChoice" ([] : [Iface])
 instance DA.Internal.Desugar.HasFromAnyChoice Iface DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Iface])
+    = GHC.Types.primitive @"EFromAnyChoice" ([] : [Iface])
 instance DA.Internal.Desugar.HasExerciseGuarded Iface DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -60,11 +59,10 @@ instance DA.Internal.Desugar.HasExercise Iface DA.Internal.Desugar.Archive (()) 
         (DA.Internal.Desugar.toInterfaceContractId @Iface cid)
         arg
 instance DA.Internal.Desugar.HasToAnyChoice Iface FooBar (()) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Iface])
+  _toAnyChoice _ = GHC.Types.primitive @"EToAnyChoice" ([] : [Iface])
 instance DA.Internal.Desugar.HasFromAnyChoice Iface FooBar (()) where
   _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Iface])
+    = GHC.Types.primitive @"EFromAnyChoice" ([] : [Iface])
 instance DA.Internal.Desugar.HasExerciseGuarded Iface FooBar (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive

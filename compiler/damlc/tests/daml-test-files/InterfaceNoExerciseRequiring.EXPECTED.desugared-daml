@@ -45,11 +45,10 @@ instance DA.Internal.Desugar.HasArchive Token where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice Token DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
+  _toAnyChoice _ = GHC.Types.primitive @"EToAnyChoice" ([] : [Token])
 instance DA.Internal.Desugar.HasFromAnyChoice Token DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
+    = GHC.Types.primitive @"EFromAnyChoice" ([] : [Token])
 instance DA.Internal.Desugar.HasExerciseGuarded Token DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -64,11 +63,10 @@ instance DA.Internal.Desugar.HasExercise Token DA.Internal.Desugar.Archive (()) 
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
 instance DA.Internal.Desugar.HasToAnyChoice Token GetRich (ContractId Token) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
+  _toAnyChoice _ = GHC.Types.primitive @"EToAnyChoice" ([] : [Token])
 instance DA.Internal.Desugar.HasFromAnyChoice Token GetRich (ContractId Token) where
   _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
+    = GHC.Types.primitive @"EFromAnyChoice" ([] : [Token])
 instance DA.Internal.Desugar.HasExerciseGuarded Token GetRich (ContractId Token) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -168,10 +166,10 @@ instance DA.Internal.Desugar.HasArchive SubToken where
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice SubToken DA.Internal.Desugar.Archive (()) where
   _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [SubToken])
+    = GHC.Types.primitive @"EToAnyChoice" ([] : [SubToken])
 instance DA.Internal.Desugar.HasFromAnyChoice SubToken DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [SubToken])
+    = GHC.Types.primitive @"EFromAnyChoice" ([] : [SubToken])
 instance DA.Internal.Desugar.HasExerciseGuarded SubToken DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive

@@ -37,10 +37,10 @@ instance DA.Internal.Desugar.HasArchive Gettable where
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice Gettable DA.Internal.Desugar.Archive (()) where
   _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Gettable])
+    = GHC.Types.primitive @"EToAnyChoice" ([] : [Gettable])
 instance DA.Internal.Desugar.HasFromAnyChoice Gettable DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Gettable])
+    = GHC.Types.primitive @"EFromAnyChoice" ([] : [Gettable])
 instance DA.Internal.Desugar.HasExerciseGuarded Gettable DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -56,10 +56,10 @@ instance DA.Internal.Desugar.HasExercise Gettable DA.Internal.Desugar.Archive ((
         arg
 instance DA.Internal.Desugar.HasToAnyChoice Gettable Get (Gettable) where
   _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Gettable])
+    = GHC.Types.primitive @"EToAnyChoice" ([] : [Gettable])
 instance DA.Internal.Desugar.HasFromAnyChoice Gettable Get (Gettable) where
   _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Gettable])
+    = GHC.Types.primitive @"EFromAnyChoice" ([] : [Gettable])
 instance DA.Internal.Desugar.HasExerciseGuarded Gettable Get (Gettable) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive

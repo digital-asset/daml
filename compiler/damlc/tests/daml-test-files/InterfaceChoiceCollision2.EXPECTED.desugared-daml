@@ -51,10 +51,10 @@ instance DA.Internal.Desugar.HasArchive Interface where
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice Interface DA.Internal.Desugar.Archive (()) where
   _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Interface])
+    = GHC.Types.primitive @"EToAnyChoice" ([] : [Interface])
 instance DA.Internal.Desugar.HasFromAnyChoice Interface DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Interface])
+    = GHC.Types.primitive @"EFromAnyChoice" ([] : [Interface])
 instance DA.Internal.Desugar.HasExerciseGuarded Interface DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -70,10 +70,10 @@ instance DA.Internal.Desugar.HasExercise Interface DA.Internal.Desugar.Archive (
         arg
 instance DA.Internal.Desugar.HasToAnyChoice Interface MyArchive (()) where
   _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Interface])
+    = GHC.Types.primitive @"EToAnyChoice" ([] : [Interface])
 instance DA.Internal.Desugar.HasFromAnyChoice Interface MyArchive (()) where
   _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Interface])
+    = GHC.Types.primitive @"EFromAnyChoice" ([] : [Interface])
 instance DA.Internal.Desugar.HasExerciseGuarded Interface MyArchive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive

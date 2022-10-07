@@ -60,11 +60,10 @@ instance DA.Internal.Desugar.HasArchive Token where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice Token DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
+  _toAnyChoice _ = GHC.Types.primitive @"EToAnyChoice" ([] : [Token])
 instance DA.Internal.Desugar.HasFromAnyChoice Token DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
+    = GHC.Types.primitive @"EFromAnyChoice" ([] : [Token])
 instance DA.Internal.Desugar.HasExerciseGuarded Token DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -80,12 +79,11 @@ instance DA.Internal.Desugar.HasExercise Token DA.Internal.Desugar.Archive (()) 
         arg
 instance DA.Internal.Desugar.HasToAnyChoice Token Split ((ContractId Token,
                                                           ContractId Token)) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
+  _toAnyChoice _ = GHC.Types.primitive @"EToAnyChoice" ([] : [Token])
 instance DA.Internal.Desugar.HasFromAnyChoice Token Split ((ContractId Token,
                                                             ContractId Token)) where
   _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
+    = GHC.Types.primitive @"EFromAnyChoice" ([] : [Token])
 instance DA.Internal.Desugar.HasExerciseGuarded Token Split ((ContractId Token,
                                                               ContractId Token)) where
   exerciseGuarded pred cid arg
@@ -102,11 +100,10 @@ instance DA.Internal.Desugar.HasExercise Token Split ((ContractId Token,
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
 instance DA.Internal.Desugar.HasToAnyChoice Token Transfer (ContractId Token) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
+  _toAnyChoice _ = GHC.Types.primitive @"EToAnyChoice" ([] : [Token])
 instance DA.Internal.Desugar.HasFromAnyChoice Token Transfer (ContractId Token) where
   _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
+    = GHC.Types.primitive @"EFromAnyChoice" ([] : [Token])
 instance DA.Internal.Desugar.HasExerciseGuarded Token Transfer (ContractId Token) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -121,11 +118,10 @@ instance DA.Internal.Desugar.HasExercise Token Transfer (ContractId Token) where
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
 instance DA.Internal.Desugar.HasToAnyChoice Token Noop (()) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
+  _toAnyChoice _ = GHC.Types.primitive @"EToAnyChoice" ([] : [Token])
 instance DA.Internal.Desugar.HasFromAnyChoice Token Noop (()) where
   _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
+    = GHC.Types.primitive @"EFromAnyChoice" ([] : [Token])
 instance DA.Internal.Desugar.HasExerciseGuarded Token Noop (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -140,11 +136,10 @@ instance DA.Internal.Desugar.HasExercise Token Noop (()) where
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
 instance DA.Internal.Desugar.HasToAnyChoice Token GetRich (ContractId Token) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
+  _toAnyChoice _ = GHC.Types.primitive @"EToAnyChoice" ([] : [Token])
 instance DA.Internal.Desugar.HasFromAnyChoice Token GetRich (ContractId Token) where
   _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
+    = GHC.Types.primitive @"EFromAnyChoice" ([] : [Token])
 instance DA.Internal.Desugar.HasExerciseGuarded Token GetRich (ContractId Token) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -331,9 +326,9 @@ instance DA.Internal.Desugar.HasIsInterfaceType Asset where
 instance DA.Internal.Desugar.HasExercise Asset DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice Asset DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Asset DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 _choice_AssetArchive :
   (Asset
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
