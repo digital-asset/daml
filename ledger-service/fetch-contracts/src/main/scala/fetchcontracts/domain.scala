@@ -103,7 +103,7 @@ package domain {
     case object IgnoreInterface
 
     def fromLedgerApi[RQ: ForQuery](
-        resolvedQuery: domain.ResolvedQuery,
+        resolvedQuery: RQ,
         gacr: lav1.active_contracts_service.GetActiveContractsResponse,
     ): Error \/ List[ActiveContract[lav1.value.Value]] = {
       gacr.activeContracts.toList.traverse(fromLedgerApi(resolvedQuery, _))
