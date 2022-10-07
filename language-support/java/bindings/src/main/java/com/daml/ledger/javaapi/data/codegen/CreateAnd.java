@@ -16,9 +16,10 @@ public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
   }
 
   @Override
-  public CreateAndExerciseCommand makeExerciseCmd(String choice, Value choiceArgument) {
-    return new CreateAndExerciseCommand(
-        getCompanion().TEMPLATE_ID, createArguments.toValue(), choice, choiceArgument);
+  public <A, R> Update<R> makeExerciseCmd(ChoiceMetadata<?, ? super A, ? extends R> choice, A choiceArgument) {
+    CreateAndExerciseCommand command = new CreateAndExerciseCommand(
+      getCompanion().TEMPLATE_ID, createArguments.toValue(), choice.name, choice.encodeArg.apply(choiceArgument));
+    return new CreateAndExerciseUpdate<>(command);
   }
 
   /** The origin of the choice, not the createArguments. */
@@ -37,10 +38,11 @@ public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
     }
 
     @Override
-    public final CreateAndExerciseCommand makeExerciseCmd(String choice, Value choiceArgument) {
+    public final <A, R> Update<R> makeExerciseCmd(ChoiceMetadata<?, ? super A, ? extends R> choice, A choiceArgument) {
       // TODO #14056 use getCompanion().TEMPLATE_ID as the interface ID
-      return new CreateAndExerciseCommand(
-          createSource.TEMPLATE_ID, createArguments.toValue(), choice, choiceArgument);
+      CreateAndExerciseCommand command = new CreateAndExerciseCommand(
+              createSource.TEMPLATE_ID, createArguments.toValue(), choice.name, choice.encodeArg.apply(choiceArgument));
+      return new CreateAndExerciseUpdate<>(command);
     }
   }
 }

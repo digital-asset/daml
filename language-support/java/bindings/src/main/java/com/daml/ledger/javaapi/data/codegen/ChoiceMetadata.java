@@ -7,16 +7,18 @@ import com.daml.ledger.javaapi.data.Value;
 import java.util.function.Function;
 
 public final class ChoiceMetadata<Tpl, ArgType, ResType> {
-  public final String name;
-  private final Function<ArgType, Value> encodeArg;
+    public final String name;
+    public final Function<ArgType, Value> encodeArg;
+    private final ValueDecoder<ResType> valueDecoder;
 
-  private ChoiceMetadata(final String name, final Function<ArgType, Value> encodeArg) {
-    this.name = name;
-    this.encodeArg = encodeArg;
-  }
+    private ChoiceMetadata(final String name, final Function<ArgType, Value> encodeArg, ValueDecoder<ResType> valueDecoder) {
+        this.name = name;
+        this.encodeArg = encodeArg;
+        this.valueDecoder = valueDecoder;
+    }
 
-  public static <Tpl, ArgType, ResType> ChoiceMetadata<Tpl, ArgType, ResType> create(
-      final String name, final Function<ArgType, Value> encodeArg) {
-    return new ChoiceMetadata<>(name, encodeArg);
-  }
+    public static <Tpl, ArgType, ResType> ChoiceMetadata<Tpl, ArgType, ResType> create(
+            final String name, final Function<ArgType, Value> encodeArg, ValueDecoder<ResType> valueDecoder) {
+        return new ChoiceMetadata<>(name, encodeArg, valueDecoder);
+    }
 }
