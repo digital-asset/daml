@@ -215,6 +215,7 @@ final class LedgerServices(val ledgerId: String) {
     }
   }
 
+  @deprecated("ledger identity service", since = "2.0.0")
   def withLedgerIdentityClient(
       getResponse: () => Future[String],
       authService: AuthService = AuthServiceWildcard,

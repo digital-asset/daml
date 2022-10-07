@@ -14,6 +14,7 @@ module DA.Stack
 import Prelude
 import DA.Text
 import GHC.Stack.Types hiding (SrcLoc(..))
+import qualified DA.Internal.Record
 import qualified GHC.Stack.Types as GHC
 
 -- | Pretty-print a `CallStack`.
@@ -66,6 +67,34 @@ data SrcLoc = SrcLoc
   , srcLocEndLine   : Int
   , srcLocEndCol    : Int
   }
+
+instance DA.Internal.Record.HasField "srcLocPackage"   SrcLoc Text where
+  getField SrcLoc {srcLocPackage} = srcLocPackage
+  setField srcLocPackage' SrcLoc {..} = SrcLoc {srcLocPackage = srcLocPackage', ..}
+
+instance DA.Internal.Record.HasField "srcLocModule"    SrcLoc Text where
+  getField SrcLoc {srcLocModule} = srcLocModule
+  setField srcLocModule' SrcLoc {..} = SrcLoc {srcLocModule = srcLocModule', ..}
+
+instance DA.Internal.Record.HasField "srcLocFile"      SrcLoc Text where
+  getField SrcLoc {srcLocFile} = srcLocFile
+  setField srcLocFile' SrcLoc {..} = SrcLoc {srcLocFile = srcLocFile', ..}
+
+instance DA.Internal.Record.HasField "srcLocStartLine" SrcLoc Int where
+  getField SrcLoc {srcLocStartLine} = srcLocStartLine
+  setField srcLocStartLine' SrcLoc {..} = SrcLoc {srcLocStartLine = srcLocStartLine', ..}
+
+instance DA.Internal.Record.HasField "srcLocStartCol"  SrcLoc Int where
+  getField SrcLoc {srcLocStartCol} = srcLocStartCol
+  setField srcLocStartCol' SrcLoc {..} = SrcLoc {srcLocStartCol = srcLocStartCol', ..}
+
+instance DA.Internal.Record.HasField "srcLocEndLine"   SrcLoc Int where
+  getField SrcLoc {srcLocEndLine} = srcLocEndLine
+  setField srcLocEndLine' SrcLoc {..} = SrcLoc {srcLocEndLine = srcLocEndLine', ..}
+
+instance DA.Internal.Record.HasField "srcLocEndCol"    SrcLoc Int where
+  getField SrcLoc {srcLocEndCol} = srcLocEndCol
+  setField srcLocEndCol' SrcLoc {..} = SrcLoc {srcLocEndCol = srcLocEndCol', ..}
 
 convSrcLoc : GHC.SrcLoc -> SrcLoc
 convSrcLoc GHC.SrcLoc{..} =

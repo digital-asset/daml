@@ -16,6 +16,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 
+@deprecated("Ledger identity string is optional for all ledger API requests", since = "2.0.0")
 final class LedgerIdentityClientTest extends AnyFlatSpec with Matchers with AuthMatchers {
 
   import LedgerIdentityClientTest._

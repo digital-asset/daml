@@ -5,7 +5,6 @@ package com.daml.platform.store.cache
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.MaximumLedgerTime
 import com.daml.ledger.resources.Resource
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.ImmArray
@@ -13,16 +12,14 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractInstance, ValueRecord, ValueText}
+import com.daml.ledger.participant.state.index.v2.ContractState
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.cache.MutableCacheBackedContractStoreSpec.{cId_5, _}
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
-import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
-  ContractState,
-  KeyAssigned,
-  KeyUnassigned,
-}
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{KeyAssigned, KeyUnassigned}
+
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -203,42 +200,7 @@ class MutableCacheBackedContractStoreSpec extends AsyncWordSpec with Matchers wi
     }
   }
 
-  "lookupMaximumLedgerTime" should {
-    "return the maximum ledger time with cached values" in {
-      for {
-        store <- contractStore(cachesSize = 2L).asFuture
-        // populate the cache
-        _ <- store.lookupActiveContract(Set(bob), cId_2)
-        _ <- store.lookupActiveContract(Set(bob), cId_3)
-        maxLedgerTime <- store.lookupMaximumLedgerTimeAfterInterpretation(Set(cId_2, cId_3, cId_4))
-      } yield {
-        maxLedgerTime shouldBe MaximumLedgerTime.Max(t4)
-      }
-    }
-
-    "fail if one of the cached contract ids doesn't have an associated active contract" in {
-      for {
-        store <- contractStore(cachesSize = 1L).asFuture
-        // populate the cache
-        _ <- store.lookupActiveContract(Set(bob), cId_5)
-        maxLedgerTime <- store.lookupMaximumLedgerTimeAfterInterpretation(Set(cId_1, cId_5))
-      } yield {
-        maxLedgerTime shouldBe MaximumLedgerTime.Archived(Set(cId_5))
-      }
-    }
-
-    "fail if one of the fetched contract ids doesn't have an associated active contract" in {
-      for {
-        store <- contractStore(cachesSize = 0L).asFuture
-        maxLedgerTime <- store.lookupMaximumLedgerTimeAfterInterpretation(Set(cId_1, cId_5))
-      } yield {
-        // since with cacheIndex 2L both of them are archived due to set semantics it is accidental which we check first with read-through
-        maxLedgerTime shouldBe a[MaximumLedgerTime.Archived]
-      }
-    }
-  }
-
-  "lookupContractAfterInterpretation" should {
+  "lookupContractStateWithoutDivulgence" should {
     "resolve lookup from cache" in {
       for {
         store <- contractStore(cachesSize = 2L).asFuture
@@ -255,22 +217,26 @@ class MutableCacheBackedContractStoreSpec extends AsyncWordSpec with Matchers wi
             cId_5 -> ContractStateValue.Archived(Set.empty),
           ),
         )
-        activeContractLookupResult <- store.lookupContractForValidation(cId_4)
-        archivedContractLookupResult <- store.lookupContractForValidation(cId_5)
+        activeContractLookupResult <- store.lookupContractStateWithoutDivulgence(cId_4)
+        archivedContractLookupResult <- store.lookupContractStateWithoutDivulgence(cId_5)
+        nonExistentContractLookupResult <- store.lookupContractStateWithoutDivulgence(cId_7)
       } yield {
-        activeContractLookupResult shouldBe Some(contract4 -> t4)
-        archivedContractLookupResult shouldBe None
+        activeContractLookupResult shouldBe ContractState.Active(contract4, t4)
+        archivedContractLookupResult shouldBe ContractState.Archived
+        nonExistentContractLookupResult shouldBe ContractState.NotFound
       }
     }
 
     "resolve lookup from the ContractsReader when not cached" in {
       for {
         store <- contractStore(cachesSize = 0L).asFuture
-        activeContractLookupResult <- store.lookupContractForValidation(cId_4)
-        archivedContractLookupResult <- store.lookupContractForValidation(cId_5)
+        activeContractLookupResult <- store.lookupContractStateWithoutDivulgence(cId_4)
+        archivedContractLookupResult <- store.lookupContractStateWithoutDivulgence(cId_5)
+        nonExistentContractLookupResult <- store.lookupContractStateWithoutDivulgence(cId_7)
       } yield {
-        activeContractLookupResult shouldBe Some(contract4 -> t4)
-        archivedContractLookupResult shouldBe None
+        activeContractLookupResult shouldBe ContractState.Active(contract4, t4)
+        archivedContractLookupResult shouldBe ContractState.Archived
+        nonExistentContractLookupResult shouldBe ContractState.NotFound
       }
     }
   }
@@ -314,7 +280,8 @@ object MutableCacheBackedContractStoreSpec {
   }
 
   case class ContractsReaderFixture() extends LedgerDaoContractsReader {
-    @volatile private var initialResultForCid6 = Future.successful(Option.empty[ContractState])
+    @volatile private var initialResultForCid6 =
+      Future.successful(Option.empty[LedgerDaoContractsReader.ContractState])
 
     override def lookupKeyState(key: Key, validAt: Offset)(implicit
         loggingContext: LoggingContext

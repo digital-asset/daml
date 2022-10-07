@@ -10,7 +10,9 @@ import io.grpc.{Status, StatusRuntimeException}
 
 import scala.concurrent.Future
 
-class ListUserRightsWithGivenUserIdAuthIT extends AdminServiceCallAuthTests {
+class ListUserRightsWithGivenUserIdAuthIT
+    extends AdminServiceCallAuthTests
+    with UserManagementAuth {
 
   override def serviceCallName: String = "UserManagementService#ListUserRights(given-user-id)"
 
@@ -19,8 +21,7 @@ class ListUserRightsWithGivenUserIdAuthIT extends AdminServiceCallAuthTests {
     val testId = UUID.randomUUID().toString
 
     def getRights(userId: String): Future[ListUserRightsResponse] =
-      stub(UserManagementServiceGrpc.stub(channel), token)
-        .listUserRights(ListUserRightsRequest(userId))
+      stub(token).listUserRights(ListUserRightsRequest(userId))
 
     for {
       // create a normal users
