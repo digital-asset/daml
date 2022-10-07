@@ -23,8 +23,7 @@ public abstract class ContractTypeCompanion<ContractType, Data> {
    * // it is better to retrieve it directly from the generated field
    * var c2 = Bar.CHOICE_Transfer;
    * </pre>
-   *
-   * */
+   */
   public final Map<String, ChoiceMetadata<ContractType, ?, ?>> choices;
 
   /**
@@ -36,6 +35,7 @@ public abstract class ContractTypeCompanion<ContractType, Data> {
   protected ContractTypeCompanion(
       Identifier templateId, List<ChoiceMetadata<ContractType, ?, ?>> choices) {
     TEMPLATE_ID = templateId;
-    this.choices = choices.stream().collect(Collectors.toMap(choice -> choice.name , Function.identity()));
+    this.choices =
+        choices.stream().collect(Collectors.toMap(choice -> choice.name, Function.identity()));
   }
 }
