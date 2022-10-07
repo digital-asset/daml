@@ -103,11 +103,6 @@ object ResolvedQuery {
       extends Unsupported("Cannot query more than one interface ID")
   final case object CannotBeEmpty extends Unsupported("Cannot resolve any template ID from request")
 
-  // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok where it is used
-  final case object Empty extends ResolvedQuery {
-    def resolved = Set.empty[ContractTypeId.Resolved]
-  }
-
   final case class ByTemplateIds(templateIds: Set[ContractTypeId.Template.Resolved])
       extends ResolvedQuery {
     def resolved: Set[ContractTypeId.Resolved] =
