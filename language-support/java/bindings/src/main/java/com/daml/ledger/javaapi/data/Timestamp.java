@@ -14,7 +14,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  *
  * @see com.daml.ledger.api.v1.ValueOuterClass.Value#getTimestamp()
  */
-public class Timestamp extends Value {
+public final class Timestamp extends Value {
 
   /**
    * Constructs a {@link Timestamp} from milliseconds since UNIX epoch.

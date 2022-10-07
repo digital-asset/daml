@@ -7,7 +7,7 @@ import com.daml.ledger.api.v1.CommandsOuterClass;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class ExerciseCommand extends Command {
+public final class ExerciseCommand extends Command {
 
   private final Identifier templateId;
 

@@ -7,7 +7,7 @@ import com.daml.ledger.api.v1.ValueOuterClass;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class Text extends Value {
+public final class Text extends Value {
 
   private final String value;
 
