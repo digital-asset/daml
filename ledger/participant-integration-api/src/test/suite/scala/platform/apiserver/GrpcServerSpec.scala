@@ -86,7 +86,7 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
     }
 
     "rate limit interceptor is installed" in {
-      val metrics = new Metrics(new MetricRegistry)
+      val metrics = Metrics.ForTesting
       resources(metrics).use { channel =>
         metrics.registry
           .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
@@ -125,7 +125,7 @@ object GrpcServerSpec {
   }
 
   private def resources(
-      metrics: Metrics = new Metrics(new MetricRegistry)
+      metrics: Metrics = Metrics.ForTesting
   ): ResourceOwner[ManagedChannel] =
     for {
       executor <- ResourceOwner.forExecutorService(() => Executors.newSingleThreadExecutor())

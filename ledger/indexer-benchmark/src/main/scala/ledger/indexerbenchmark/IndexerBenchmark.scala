@@ -3,11 +3,12 @@
 
 package com.daml.ledger.indexerbenchmark
 
+import java.util.concurrent.{Executors, TimeUnit}
+
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
@@ -21,7 +22,6 @@ import com.daml.platform.LedgerApiServer
 import com.daml.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
 import com.daml.resources
 
-import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 import scala.io.StdIn
@@ -33,7 +33,7 @@ class IndexerBenchmark() {
       config: Config,
   ): Future[Unit] = {
     newLoggingContext { implicit loggingContext =>
-      val metrics = new Metrics(new MetricRegistry)
+      val metrics = Metrics.ForTesting
       metrics.registry.registerAll(new JvmMetricSet)
 
       val system = ActorSystem("IndexerBenchmark")

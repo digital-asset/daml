@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.dao
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -55,7 +54,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = Metrics.ForTesting
     val dbType = DbType.jdbcType(jdbcUrl)
     val storageBackendFactory = StorageBackendFactory.of(dbType)
     DbSupport

@@ -4,7 +4,6 @@
 package com.daml.http
 
 import cats.effect.IO
-import com.codahale.metrics.MetricRegistry
 import com.daml.http.dbbackend.{ContractDao, JdbcConfig}
 import com.daml.http.domain.ContractTypeId
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
@@ -23,7 +22,7 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
   this: AsyncTestSuite with Matchers with Inside =>
 
   protected def jdbcConfig: JdbcConfig
-  protected implicit val metrics: Metrics = new Metrics(new MetricRegistry())
+  protected implicit val metrics: Metrics = Metrics.ForTesting
 
   // has to be lazy because jdbcConfig is NOT initialized yet
   protected lazy val dao = dbbackend.ContractDao(

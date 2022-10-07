@@ -3,6 +3,8 @@
 
 package com.daml.platform.store.cache
 
+import java.util.concurrent.TimeUnit
+
 import com.codahale.metrics.MetricRegistry
 import com.daml.caching.{CaffeineCache, ConcurrentCache, SizedCache}
 import com.daml.ledger.offset.Offset
@@ -15,7 +17,6 @@ import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.math.BigInt.long2bigInt

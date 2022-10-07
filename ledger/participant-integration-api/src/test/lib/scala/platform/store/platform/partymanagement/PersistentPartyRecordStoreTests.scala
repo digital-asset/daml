@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.platform.partymanagement
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
 import com.daml.metrics.Metrics
 import com.daml.platform.partymanagement.PersistentPartyRecordStore
@@ -16,7 +15,7 @@ trait PersistentPartyRecordStoreTests extends PersistentStoreSpecBase with Party
 
   override def newStore() = new PersistentPartyRecordStore(
     dbSupport = dbSupport,
-    metrics = new Metrics(new MetricRegistry()),
+    metrics = Metrics.ForTesting,
     timeProvider = TimeProvider.UTC,
     executionContext = executionContext,
   )
