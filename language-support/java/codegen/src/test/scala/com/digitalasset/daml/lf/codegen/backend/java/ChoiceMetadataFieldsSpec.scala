@@ -47,4 +47,3 @@ final class ChoiceMetadataFieldsSpec extends AnyWordSpec with Matchers {
     }
   }
 }
-
