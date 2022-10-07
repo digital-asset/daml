@@ -6,6 +6,9 @@ package com.daml.ledger.javaapi.data.codegen;
 import com.daml.ledger.javaapi.data.*;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * {@link ValueDecoder}s for Daml types that are not code-generated.
@@ -30,6 +33,36 @@ public final class PrimitiveValueDecoders {
       value -> value.asUnit().orElseThrow(() -> mismatched(Unit.class));
   public static final ValueDecoder<LocalDate> fromDate =
       value -> value.asDate().orElseThrow(() -> mismatched(Date.class)).getValue();
+
+  public static <T> ValueDecoder<List<T>> fromList(ValueDecoder<T> element) {
+    return value ->
+        value
+            .asList()
+            .map(dl -> dl.toList(element::decode))
+            .orElseThrow(() -> mismatched(List.class));
+  }
+
+  public static <T> ValueDecoder<Optional<T>> fromOptional(ValueDecoder<T> element) {
+    return value ->
+        value
+            .asOptional()
+            .map(dopt -> dopt.toOptional(element::decode))
+            .orElseThrow(() -> mismatched(Optional.class));
+  }
+
+  public static <T> ValueDecoder<ContractId<T>> fromContractId(ValueDecoder<T> contractType) {
+    return value ->
+        contractType.fromContractId(
+            value.asContractId().orElseThrow(() -> mismatched(ContractId.class)).getValue());
+  }
+
+  public static <T> ValueDecoder<Map<String, T>> fromTextMap(ValueDecoder<T> valueType) {
+    return value ->
+        value
+            .asTextMap()
+            .map(dtm -> dtm.toMap(valueType::decode))
+            .orElseThrow(() -> mismatched(Map.class));
+  }
 
   public static <T> ValueDecoder<T> impossible() {
     return x -> {
