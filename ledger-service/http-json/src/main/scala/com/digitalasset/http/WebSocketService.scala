@@ -39,7 +39,7 @@ import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.traverse._
 import scalaz.std.list._
-import scalaz.{@@, -\/, \/, \/-, Foldable, Monoid, Liskov, NonEmptyList, OneAnd, Semigroup, Tag}
+import scalaz.{@@, -\/, \/, \/-, Foldable, Liskov, NonEmptyList, OneAnd, Semigroup, Tag}
 import Liskov.<~<
 import com.daml.fetchcontracts.domain.ResolvedQuery
 import ResolvedQuery.Unsupported
@@ -244,35 +244,29 @@ object WebSocketService {
     (Unsupported \/ ResolvedQuery) @@ UnsupportedOrResolvedQueryTag
   private val UnsupportedOrResolvedQuery = Tag.of[UnsupportedOrResolvedQueryTag]
 
-  private implicit val `Unsupported or ResolvedQuery monoid`
+  private implicit val `Unsupported or ResolvedQuery semigroup`
       : Semigroup[UnsupportedOrResolvedQuery] = {
     import ResolvedQuery._
-    UnsupportedOrResolvedQuery.subst(
-      Monoid.instance(
-        {
-          case (-\/(CannotQueryBothTemplateIdsAndInterfaceIds), _) |
-              (_, -\/(CannotQueryBothTemplateIdsAndInterfaceIds)) =>
-            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+    UnsupportedOrResolvedQuery subst Semigroup.instance {
+      case (-\/(CannotQueryBothTemplateIdsAndInterfaceIds), _) |
+          (_, -\/(CannotQueryBothTemplateIdsAndInterfaceIds)) =>
+        -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
 
-          case (-\/(CannotQueryManyInterfaceIds), _) | (_, -\/(CannotQueryManyInterfaceIds)) =>
-            -\/(CannotQueryManyInterfaceIds)
+      case (-\/(CannotQueryManyInterfaceIds), _) | (_, -\/(CannotQueryManyInterfaceIds)) =>
+        -\/(CannotQueryManyInterfaceIds)
 
-          case (-\/(CannotBeEmpty), _) | (_, -\/(CannotBeEmpty)) => -\/(CannotBeEmpty)
+      case (-\/(CannotBeEmpty), _) | (_, -\/(CannotBeEmpty)) => -\/(CannotBeEmpty)
 
-          case (\/-(ByInterfaceId(_)), \/-(ByTemplateId(_)) | \/-(ByTemplateIds(_))) |
-              (\/-(ByTemplateId(_)) | \/-(ByTemplateIds(_)), \/-(ByInterfaceId(_))) =>
-            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+      case (\/-(ByInterfaceId(_)), \/-(ByTemplateId(_)) | \/-(ByTemplateIds(_))) |
+          (\/-(ByTemplateId(_)) | \/-(ByTemplateIds(_)), \/-(ByInterfaceId(_))) =>
+        -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
 
-          case (\/-(ByInterfaceId(interfaceIdA)), \/-(ByInterfaceId(interfaceIdB))) =>
-            if (interfaceIdA == interfaceIdB) \/-(ByInterfaceId(interfaceIdA))
-            else -\/(CannotQueryManyInterfaceIds)
+      case (\/-(ByInterfaceId(interfaceIdA)), \/-(ByInterfaceId(interfaceIdB))) =>
+        if (interfaceIdA == interfaceIdB) \/-(ByInterfaceId(interfaceIdA))
+        else -\/(CannotQueryManyInterfaceIds)
 
-          // TODO SC violates identity law: ByTemplateId <> Empty
-          case (\/-(a), \/-(b)) => ResolvedQuery(a.resolved ++ b.resolved)
-        },
-        \/-(Empty),
-      )
-    )
+      case (\/-(a), \/-(b)) => ResolvedQuery(a.resolved ++ b.resolved)
+    }
   }
 
   implicit def SearchForeverRequestWithStreamQuery(implicit
