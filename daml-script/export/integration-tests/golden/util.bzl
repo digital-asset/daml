@@ -47,7 +47,9 @@ def daml_ledger_export_test(
             output_env = "EXPORT_OUT",
             server = "//ledger/sandbox-on-x:sandbox-on-x-ephemeral-postgresql",
             server_args = [
-                "run-legacy-cli-config --participant=participant-id=example,port=0,port-file=%PORT_FILE%",
+                "run",
+                "-C ledger.participants.default.api-server.port=0",
+                "-C ledger.participants.default.api-server.port-file=%PORT_FILE%",
             ],
         )
 
