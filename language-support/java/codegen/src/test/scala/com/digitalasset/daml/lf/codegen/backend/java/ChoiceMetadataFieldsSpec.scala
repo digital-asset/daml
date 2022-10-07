@@ -1,19 +1,19 @@
 package com.daml.lf.codegen.backend.java
 
+import com.daml.ledger.javaapi.data.Unit
 import com.daml.ledger.javaapi.data.codegen.ChoiceMetadata
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import retro.InterfaceRetro
 import ut.bar.Bar
+import ut.da.internal.template.Archive
 
 import scala.jdk.CollectionConverters._
 
 final class ChoiceMetadataFieldsSpec extends AnyWordSpec with Matchers {
   "Template" should {
     "have choice fields" in {
-      val choice = Bar.CHOICE_Archive
-
-      choice shouldBe a[ChoiceMetadata[_, _, _]]
+      val choice: ChoiceMetadata[Bar, Archive, Unit] = Bar.CHOICE_Archive
       choice.name shouldBe "Archive"
     }
 
@@ -31,11 +31,7 @@ final class ChoiceMetadataFieldsSpec extends AnyWordSpec with Matchers {
       val choices = Set(InterfaceRetro.CHOICE_Archive, InterfaceRetro.CHOICE_Transfer)
       val expectedNames = Set("Archive", "Transfer")
 
-      choices.foreach { choice =>
-        choice shouldBe a[ChoiceMetadata[_, _, _]]
-        expectedNames.contains(choice.name) shouldBe true
-      }
-
+      choices.map(_.name) should contain theSameElementsAs expectedNames
     }
 
     "have choices map in Interface Companion(INTERFACE)" in {

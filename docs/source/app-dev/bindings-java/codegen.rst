@@ -174,7 +174,7 @@ A file is generated that defines five Java classes and an interface:
 
 .. code-block:: java
   :caption: com/acme/templates/Bar.java
-  :emphasize-lines: 3,18,24,32,40,44
+  :emphasize-lines: 3,21,27,35,43,47
 
   package com.acme.templates;
 
