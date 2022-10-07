@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.execution
 
-import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
+import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, MaximumLedgerTimeService}
 import com.daml.lf.command.{ContractMetadata, DisclosedContract}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
@@ -106,11 +106,13 @@ class ResolveMaximumLedgerTimeSpec
       cId_4 -> t4,
     )
 
-    val contractStoreMock: ContractStore = mock[ContractStore]
+    val maximumLedgerTimeServiceMock: MaximumLedgerTimeService = mock[MaximumLedgerTimeService]
     val lookedUpCidsCaptor: Captor[Set[ContractId]] = ArgCaptor[Set[ContractId]]
 
     when(
-      contractStoreMock.lookupMaximumLedgerTimeAfterInterpretation(lookedUpCidsCaptor.capture)(
+      maximumLedgerTimeServiceMock.lookupMaximumLedgerTimeAfterInterpretation(
+        lookedUpCidsCaptor.capture
+      )(
         eqTo(loggingContext)
       )
     ).delegate.thenAnswer(new Answer[Future[MaximumLedgerTime]]() {
@@ -123,6 +125,6 @@ class ResolveMaximumLedgerTimeSpec
       }
     })
 
-    val resolveMaximumLedgerTime = new ResolveMaximumLedgerTime(contractStoreMock)
+    val resolveMaximumLedgerTime = new ResolveMaximumLedgerTime(maximumLedgerTimeServiceMock)
   }
 }

@@ -99,6 +99,7 @@ private[daml] object ApiServices {
     private val activeContractsService: IndexActiveContractsService = indexService
     private val transactionsService: IndexTransactionsService = indexService
     private val contractStore: ContractStore = indexService
+    private val maximumLedgerTimeService: MaximumLedgerTimeService = indexService
     private val completionsService: IndexCompletionsService = indexService
     private val partyManagementService: IndexPartyManagementService = indexService
     private val configManagementService: IndexConfigManagementService = indexService
@@ -244,7 +245,7 @@ private[daml] object ApiServices {
               contractStore,
               metrics,
             ),
-            new ResolveMaximumLedgerTime(contractStore),
+            new ResolveMaximumLedgerTime(maximumLedgerTimeService),
             maxRetries = 3,
             metrics,
           ),
