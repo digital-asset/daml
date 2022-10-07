@@ -323,7 +323,7 @@ package domain {
         .map(_.flatten)
     }
 
-    def fromTreeEvent(
+    private[this] def fromTreeEvent(
         eventsById: Map[String, lav1.transaction.TreeEvent]
     )(eventId: String): Error \/ Vector[Contract[lav1.value.Value]] = {
       @tailrec
