@@ -357,40 +357,39 @@ object WebSocketService {
           (annotated map { case (tpid, sql, _) => (tpid, sql) }, posMap)
         }
 
-        val query = (gacr: domain.SearchForeverQuery, pos: Int, ix: Int) =>
-          for {
-            res <-
-              gacr.templateIds.toList.toNEF
-                .traverse(x =>
-                  resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
+        def query(gacr: domain.SearchForeverQuery, pos: Int, ix: Int) = for {
+          res <-
+            gacr.templateIds.toList.toNEF
+              .traverse(x =>
+                resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
+              )
+              .map(
+                _.toSet.partitionMap(
+                  identity[
+                    Either[domain.ContractTypeId.Resolved, domain.ContractTypeId.OptionalPkg]
+                  ]
                 )
-                .map(
-                  _.toSet.partitionMap(
-                    identity[
-                      Either[domain.ContractTypeId.Resolved, domain.ContractTypeId.OptionalPkg]
-                    ]
-                  )
-                )
-            (resolved, unresolved) = res
-            errorOrResolvedQuery = domain.ResolvedQuery(resolved)
-            q = errorOrResolvedQuery.fold(
-              _ => Map.empty,
-              prepareFilters(_, gacr.query, lookupType),
-            ): CompiledQueries
-          } yield (
-            UnsupportedOrResolvedQuery(
-              errorOrResolvedQuery
-            ),
-            resolved,
-            unresolved,
-            q transform ((_, p) => NonEmptyList((p, (ix, pos)))),
-          )
+              )
+          (resolved, unresolved) = res
+          errorOrResolvedQuery = domain.ResolvedQuery(resolved)
+          q = errorOrResolvedQuery.fold(
+            _ => Map.empty,
+            prepareFilters(_, gacr.query, lookupType),
+          ): CompiledQueries
+        } yield (
+          UnsupportedOrResolvedQuery(
+            errorOrResolvedQuery
+          ),
+          resolved,
+          unresolved,
+          q transform ((_, p) => NonEmptyList((p, (ix, pos)))),
+        )
 
         for {
           res <-
             request.queriesWithPos.zipWithIndex // index is used to ensure matchesOffset works properly
               .map { case ((q, pos), ix) => (q, pos, ix) }
-              .foldMapM(query.tupled)
+              .foldMapM((query _).tupled)
           (unsupportedOrResolvedQuery, resolved, unresolved, q) = res
         } yield (
           unresolved match {
