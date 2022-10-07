@@ -84,17 +84,18 @@ object InterfaceClass extends StrictLogging {
     }
 
   private[inner] val companionName = "INTERFACE"
+  private[inner] val companionClassName = "INTERFACE_"
 
   private def generateInterfaceCompanionField(): FieldSpec =
     FieldSpec
       .builder(
-        ClassName bestGuess companionName,
+        ClassName bestGuess companionClassName,
         companionName,
         Modifier.FINAL,
         Modifier.PUBLIC,
         Modifier.STATIC,
       )
-      .initializer("new $N()", companionName)
+      .initializer("new $N()", companionClassName)
       .build()
 
   private def generateInterfaceCompanionClass(
@@ -102,7 +103,7 @@ object InterfaceClass extends StrictLogging {
       choiceNames: Set[ChoiceName],
       interfaceViewTypeName: ClassName,
   ): TypeSpec = TypeSpec
-    .classBuilder(companionName)
+    .classBuilder(companionClassName)
     .superclass(
       ParameterizedTypeName
         .get(ClassName get classOf[InterfaceCompanion[_, _]], interfaceName, interfaceViewTypeName)

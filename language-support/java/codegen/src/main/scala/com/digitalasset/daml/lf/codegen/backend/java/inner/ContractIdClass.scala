@@ -139,7 +139,7 @@ object ContractIdClass {
       MethodSpec
         .methodBuilder("toInterface")
         .addModifiers(Modifier.PUBLIC)
-        .addParameter(name nestedClass InterfaceClass.companionName, "interfaceCompanion")
+        .addParameter(name nestedClass InterfaceClass.companionClassName, "interfaceCompanion")
         .addStatement("return new $T($L)", interfaceContractIdName, selfArgs)
         .returns(interfaceContractIdName)
         .build()
