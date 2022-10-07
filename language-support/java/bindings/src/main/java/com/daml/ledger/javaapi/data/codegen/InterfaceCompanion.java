@@ -4,6 +4,7 @@
 package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.Identifier;
+import java.util.List;
 
 /**
  * Metadata and utilities associated with an interface as a whole. Its subclasses serve to
@@ -23,8 +24,11 @@ public abstract class InterfaceCompanion<I, View> extends ContractTypeCompanion<
    * and <em>should not be referenced directly</em>. Applications should refer to the {@code
    * INTERFACE} field on generated code for Daml interfaces instead.
    */
-  protected InterfaceCompanion(Identifier templateId, ValueDecoder<View> valueDecoder) {
-    super(templateId);
+  protected InterfaceCompanion(
+      Identifier templateId,
+      ValueDecoder<View> valueDecoder,
+      List<ChoiceMetadata<I, ?, ?>> choices) {
+    super(templateId, choices);
     this.valueDecoder = valueDecoder;
   }
 }
