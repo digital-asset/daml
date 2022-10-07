@@ -39,7 +39,7 @@ import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.traverse._
 import scalaz.std.list._
-import scalaz.{@@, -\/, \/, \/-, Foldable, Monoid, Liskov, NonEmptyList, OneAnd, Tag}
+import scalaz.{@@, -\/, \/, \/-, Foldable, Monoid, Liskov, NonEmptyList, OneAnd, Semigroup, Tag}
 import Liskov.<~<
 import com.daml.fetchcontracts.domain.ResolvedQuery
 import ResolvedQuery.Unsupported
@@ -244,7 +244,8 @@ object WebSocketService {
     (Unsupported \/ ResolvedQuery) @@ UnsupportedOrResolvedQueryTag
   private val UnsupportedOrResolvedQuery = Tag.of[UnsupportedOrResolvedQueryTag]
 
-  private implicit val `Unsupported or ResolvedQuery monoid`: Monoid[UnsupportedOrResolvedQuery] = {
+  private implicit val `Unsupported or ResolvedQuery monoid`
+      : Semigroup[UnsupportedOrResolvedQuery] = {
     import ResolvedQuery._
     UnsupportedOrResolvedQuery.subst(
       Monoid.instance(
@@ -389,7 +390,7 @@ object WebSocketService {
           res <-
             request.queriesWithPos.zipWithIndex // index is used to ensure matchesOffset works properly
               .map { case ((q, pos), ix) => (q, pos, ix) }
-              .foldMapM((query _).tupled)
+              .foldMapM1((query _).tupled)
           (unsupportedOrResolvedQuery, resolved, unresolved, q) = res
         } yield (
           unresolved match {
