@@ -163,7 +163,7 @@ object TreeUtils {
         }
   }
 
-  case class CreatedContract(cid: ContractId, tplId: Identifier, path: List[Selector])
+  case class CreatedContract(cid: ContractId, tplId: TemplateId, path: List[Selector])
 
   def treeCreatedCids(tree: TransactionTree): Seq[CreatedContract] = {
     var cids: Seq[CreatedContract] = Seq()
@@ -173,7 +173,11 @@ object TreeUtils {
         case Kind.Exercised(_) =>
         case Kind.Created(value) =>
           cids ++= Seq(
-            CreatedContract(ContractId(value.contractId), value.getTemplateId, selectors)
+            CreatedContract(
+              ContractId(value.contractId),
+              TemplateId(value.getTemplateId),
+              selectors,
+            )
           )
       }
     }
