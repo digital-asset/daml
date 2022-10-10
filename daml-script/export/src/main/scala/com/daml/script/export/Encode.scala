@@ -522,26 +522,26 @@ private[export] object Encode {
       submit: SubmitSimple,
   ): Doc = {
     val cids = submit.simpleCommands.map(_.contractId)
-    val referencedCids = cids.filter(cid => cidRefs.contains(cid))
+    val referencedCids = cids.filter(c => cidRefs.contains(c.cid))
     val (bind, returnStmt) = referencedCids match {
       case Seq() if cids.length == 1 =>
         (Doc.text("_ <- "), Doc.empty)
       case Seq() =>
         (Doc.empty, Doc.text("pure ()"))
-      case Seq(cid) if cids.length == 1 =>
-        (encodeCidPat(cidMap, cid) :+ " <- ", Doc.empty)
-      case Seq(cid) =>
-        (encodeCidPat(cidMap, cid) :+ " <- ", "pure " +: encodeCidExpr(cidMap, cid))
+      case Seq(c) if cids.length == 1 =>
+        (encodeCidPat(cidMap, c.cid) :+ " <- ", Doc.empty)
+      case Seq(c) =>
+        (encodeCidPat(cidMap, c.cid) :+ " <- ", "pure " +: encodeCidExpr(cidMap, c.cid))
       case _ =>
         (
-          tuple(referencedCids.map(encodeCidPat(cidMap, _))) :+ " <- ",
-          "pure " +: tuple(referencedCids.map(encodeCidExpr(cidMap, _))),
+          tuple(referencedCids.map(c => encodeCidPat(cidMap, c.cid))) :+ " <- ",
+          "pure " +: tuple(referencedCids.map(c => encodeCidExpr(cidMap, c.cid))),
         )
     }
-    val actions = Doc.stack(submit.simpleCommands.map { case SimpleCommand(cmd, cid) =>
+    val actions = Doc.stack(submit.simpleCommands.map { case SimpleCommand(cmd, c) =>
       val bind = if (returnStmt.nonEmpty) {
-        if (cidRefs.contains(cid)) {
-          encodeCidPat(cidMap, cid) :+ " <- "
+        if (cidRefs.contains(c.cid)) {
+          encodeCidPat(cidMap, c.cid) :+ " <- "
         } else {
           Doc.text("_ <- ")
         }

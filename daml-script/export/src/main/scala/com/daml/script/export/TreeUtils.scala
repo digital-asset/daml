@@ -310,14 +310,14 @@ object TreeUtils {
     *
     * A create command is a simple command. An exercise command can be a simple command.
     */
-  case class SimpleCommand(command: Command, contractId: ContractId)
+  case class SimpleCommand(command: Command, contractId: SimpleCreatedContract)
 
   object SimpleCommand {
     def fromCommand(command: Command, tree: TransactionTree): Option[SimpleCommand] = {
       def simpleExercise(
           exercisedEvent: ExercisedEvent,
-          extraCreated: Set[ContractId],
-      ): Option[ContractId] = {
+          extraCreated: Seq[SimpleCreatedContract],
+      ): Option[SimpleCreatedContract] = {
         val result = exercisedEvent.exerciseResult.flatMap {
           _.sum match {
             case Sum.ContractId(value) => Some(value)
@@ -325,24 +325,40 @@ object TreeUtils {
           }
         }
         val (created, consumed) = treeEventCreatedConsumedCids(Kind.Exercised(exercisedEvent), tree)
-        val netCreated = (extraCreated ++ created.map(_.cid)) -- consumed
-        (result, netCreated.toSeq) match {
-          case (Some(cid), Seq(createdCid)) if cid == createdCid =>
-            Some(ContractId(cid))
+        val netCreated = (extraCreated ++ created).filterNot(c => consumed.contains(c.cid))
+        (result, netCreated) match {
+          case (Some(cid), Seq(created)) if cid == created.cid =>
+            Some(created)
           case _ => None
         }
       }
       command match {
         case CreateCommand(createdEvent) =>
-          Some(SimpleCommand(command, ContractId(createdEvent.contractId)))
+          Some(
+            SimpleCommand(
+              command,
+              SimpleCreatedContract(
+                ContractId(createdEvent.contractId),
+                TemplateId(createdEvent.getTemplateId),
+              ),
+            )
+          )
         case ExerciseCommand(exercisedEvent) =>
-          simpleExercise(exercisedEvent, Set.empty).map(SimpleCommand(command, _))
+          simpleExercise(exercisedEvent, Seq.empty).map(SimpleCommand(command, _))
         case ExerciseByKeyCommand(exercisedEvent, _, _) =>
-          simpleExercise(exercisedEvent, Set.empty).map(SimpleCommand(command, _))
+          simpleExercise(exercisedEvent, Seq.empty).map(SimpleCommand(command, _))
         case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
           // We count the contract created by the created event into the set of created contracts.
           // The command is only considered simple if it only creates one contract overall and returns its id.
-          simpleExercise(exercisedEvent, Set(ContractId(createdEvent.contractId)))
+          simpleExercise(
+            exercisedEvent,
+            Seq(
+              SimpleCreatedContract(
+                ContractId(createdEvent.contractId),
+                TemplateId(createdEvent.getTemplateId),
+              )
+            ),
+          )
             .map(SimpleCommand(command, _))
       }
     }
@@ -444,7 +460,15 @@ object TreeUtils {
   object SubmitSimple {
     def fromCreatedEvents(createdEvents: Seq[CreatedEvent]): SubmitSimple = {
       val simpleCommands =
-        createdEvents.map(ev => SimpleCommand(CreateCommand(ev), ContractId(ev.contractId)))
+        createdEvents.map(ev =>
+          SimpleCommand(
+            CreateCommand(ev),
+            SimpleCreatedContract(
+              ContractId(ev.contractId),
+              TemplateId(ev.getTemplateId),
+            ),
+          )
+        )
       val submitters = Party.subst(createdEvents.foldMap(_.signatories.toSet))
       submitters.toSeq match {
         case Seq(submitter) => SubmitSimpleSingle(simpleCommands, submitter)
