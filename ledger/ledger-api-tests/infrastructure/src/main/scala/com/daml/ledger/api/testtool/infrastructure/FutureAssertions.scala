@@ -35,6 +35,7 @@ final class FutureAssertions[T](future: Future[T]) {
   )(implicit executionContext: ExecutionContext): Future[Throwable] =
     handle(predicate, context)
 
+  // TODO um-for-hub: Delete me
   def mustFailWith(
       context: String,
       expected: ExpectedErrorDescription,
