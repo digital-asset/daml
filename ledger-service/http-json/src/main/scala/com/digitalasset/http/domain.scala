@@ -169,6 +169,18 @@ package domain {
       queriesWithPos: NonEmptyList[(SearchForeverQuery, Int)]
   )
 
+  final case class ResolvedSearchForeverRequest(
+      resolvedQuery: ResolvedQuery,
+      queriesWithPos: NonEmptyList[(ResolvedSearchForeverQuery, Int)],
+      // TODO Fix Ray. Add unresolved for reporting warnings
+  )
+  final case class ResolvedSearchForeverQuery(
+      // TODO #14844 remove .Template for subscriptions
+      templateIds: NonEmpty[Set[ContractTypeId.Resolved]],
+      query: Map[String, JsValue],
+      offset: Option[domain.Offset],
+  )
+
   final case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
 
   sealed abstract class UserRight extends Product with Serializable
