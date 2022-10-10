@@ -175,7 +175,7 @@ private[export] object Encode {
       encodeImports(moduleRefs)
 
   private def encodeImports(moduleRefs: Set[String]): Doc =
-    Doc.stack(moduleRefs.map(encodeImport(_)))
+    Doc.stack(moduleRefs.toList.sorted.map(encodeImport(_)))
 
   private def encodeLocalDate(d: LocalDate): Doc = {
     val formatter = DateTimeFormatter.ofPattern("uuuu 'DA.Date.'MMM d")

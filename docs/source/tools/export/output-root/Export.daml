@@ -4,10 +4,10 @@
 {-# LANGUAGE ApplicativeDo #-}
 module Export where
 import Daml.Script
-import qualified ScriptExample
-import qualified DA.Traversable
 import qualified DA.Stack
 import qualified DA.TextMap
+import qualified DA.Traversable
+import qualified ScriptExample
 
 -- | Mapping from party names in the original ledger state
 -- to parties to be used in 'export'.
