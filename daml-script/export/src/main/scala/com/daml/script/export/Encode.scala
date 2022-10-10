@@ -6,7 +6,7 @@ package com.daml.script.export
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDate, ZoneId, ZonedDateTime}
 
-import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, Party, TemplateId}
+import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, InterfaceId, Party, TemplateId}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
@@ -415,6 +415,15 @@ private[export] object Encode {
       case None => Doc.text("_")
     }
 
+  private def encodeInterfaceCidExpr(
+      interfaceId: InterfaceId,
+      cidMap: Map[ContractId, String],
+      cid: ContractId,
+  ): Doc =
+    parens(
+      "toInterfaceContractId @" +: encodeInterfaceId(interfaceId) & encodeCidExpr(cidMap, cid)
+    )
+
   private def qualifyId(id: Identifier): Doc =
     Doc.text(id.moduleName) + Doc.text(".") + Doc.text(id.entityName)
 
@@ -428,6 +437,9 @@ private[export] object Encode {
 
   private def encodeTemplateId(id: TemplateId): Doc =
     qualifyId(TemplateId.unwrap(id))
+
+  private def encodeInterfaceId(id: InterfaceId): Doc =
+    qualifyId(InterfaceId.unwrap(id))
 
   private def encodeChoice(choice: Choice): Doc =
     quotes(Choice.unwrap(choice))
@@ -498,7 +510,15 @@ private[export] object Encode {
       missingInstances: Set[TemplateId],
       exercisedEvent: ExercisedEvent,
   ): Doc = {
-    val cid = encodeCidExpr(cidMap, ContractId(exercisedEvent.contractId))
+    val cid = exercisedEvent.interfaceId match {
+      case None => encodeCidExpr(cidMap, ContractId(exercisedEvent.contractId))
+      case Some(interfaceId) =>
+        encodeInterfaceCidExpr(
+          InterfaceId(interfaceId),
+          cidMap,
+          ContractId(exercisedEvent.contractId),
+        )
+    }
     val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
     if (missingInstances.contains(TemplateId(exercisedEvent.getTemplateId))) {
       val command = Doc.text("internalExerciseCmd")
