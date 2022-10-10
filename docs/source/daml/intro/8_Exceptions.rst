@@ -99,7 +99,7 @@ trusted users looks as follows:
   :end-before: -- ORDER_TRUSTED_END
 
 Let's walk through this code. First, as mentioned, the shop owner is
-the trusting kind, so he wants to start by creating the ``Order``
+the trusting kind, so he wants to start by creating the ``Order`` no
 matter what. Next, we try to charge the customer for the order. We
 could, at this point, check their balance against the cost of the
 order, but that would amount to duplicating the logic already present

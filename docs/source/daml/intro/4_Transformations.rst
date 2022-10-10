@@ -103,7 +103,7 @@ Choices In the Ledger Model
 
 In :doc:`1_Token` you learned about the high-level structure of a Daml ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions.
 
-A *transaction* is a list of *actions*, and there are just four kinds of action: ``create``, ``exercise``, ``fetch`` and ``key assertion``.
+A *transaction* is a list of *actions*, and there are just four kinds of action: ``create``, ``fetch``, ``exercise`` and ``key assertion``.
 
 - A ``create`` action creates a new contract with the given arguments and sets its status to *active*.
 - A ``fetch`` action checks the existence and activeness of a contract.
