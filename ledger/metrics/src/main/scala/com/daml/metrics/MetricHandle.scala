@@ -10,6 +10,7 @@ import com.codahale.metrics.Snapshot
 import com.codahale.metrics.Timer.Context
 import com.codahale.{metrics => codahale}
 
+import scala.annotation.StaticAnnotation
 import scala.concurrent.{Future, blocking}
 
 sealed trait MetricHandle[T <: codahale.Metric] {
@@ -131,4 +132,19 @@ object MetricHandle {
 
   type VarGauge[T] = Gauge[Gauges.VarGauge[T], T]
 
+}
+
+object MetricDoc {
+
+  sealed trait MetricQualification
+  object MetricQualification {
+    case object Latency extends MetricQualification
+    case object Traffic extends MetricQualification
+    case object Errors extends MetricQualification
+    case object Saturation extends MetricQualification
+    case object Debug extends MetricQualification
+  }
+
+  case class Tag(summary: String, description: String, qualification: MetricQualification)
+      extends StaticAnnotation
 }

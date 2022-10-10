@@ -3,6 +3,7 @@
 
 package com.daml.metrics
 
+import com.daml.metrics.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.MetricHandle.{Histogram, Timer}
 
 import com.codahale.metrics.MetricRegistry
@@ -10,7 +11,22 @@ import com.codahale.metrics.MetricRegistry
 class IndexDBMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
     extends MetricHandle.FactoryWithDBMetrics {
 
+  @MetricDoc.Tag(
+    summary = "The time spent looking up a contract using its key.",
+    description = """This metric exposes the time looking up a contract using its key in the index
+                    |db. It is then used by the Daml interpreter when evaluating a command into a
+                    |transaction.""",
+    qualification = Debug,
+  )
   val lookupKey: Timer = timer(prefix :+ "lookup_key")
+
+  @MetricDoc.Tag(
+    summary = "The time spent fetching a contract using its id.",
+    description = """This metric exposes the time fetching a contract using its id from the index
+                    |db. It is then used by the Daml interpreter when evaluating a command into a
+                    |transaction.""",
+    qualification = Debug,
+  )
   val lookupActiveContract: Timer = timer(prefix :+ "lookup_active_contract")
 
   private val overall = createDbMetrics("all")
@@ -77,23 +93,94 @@ class IndexDBMetrics(override val prefix: MetricName, override val registry: Met
 
   object translation {
     private val prefix: MetricName = IndexDBMetrics.this.prefix :+ "translation"
+
+    @MetricDoc.Tag(
+      summary = "The time needed to deserialize and decode a Daml-LF archive.",
+      description = """A Daml archive before it can be used in the interpretation needs to be
+                      |deserialized and decoded, in other words converted into the in-memory
+                      |representation. This metric represents time necessary to do that.""",
+      qualification = Debug,
+    )
     val getLfPackage: Timer = timer(prefix :+ "get_lf_package")
   }
 
   object compression {
     private val prefix: MetricName = IndexDBMetrics.this.prefix :+ "compression"
 
+    @MetricDoc.Tag(
+      summary = "The size of the compressed arguments of a create event.",
+      description = """Event information can be compressed by the indexer before storing it in the
+                      |database. This metric collects statistics about the size of compressed
+                      |arguments of a create event.""",
+      qualification = Debug,
+    )
     val createArgumentCompressed: Histogram = histogram(prefix :+ "create_argument_compressed")
+
+    @MetricDoc.Tag(
+      summary = "The size of the decompressed argument of a create event.",
+      description = """Event information can be compressed by the indexer before storing it in the
+                      |database. This metric collects statistics about the size of decompressed
+                      |arguments of a create event.""",
+      qualification = Debug,
+    )
     val createArgumentUncompressed: Histogram = histogram(prefix :+ "create_argument_uncompressed")
+
+    @MetricDoc.Tag(
+      summary = "The size of the compressed key value of a create event.",
+      description = """Event information can be compressed by the indexer before storing it in the
+                      |database. This metric collects statistics about the size of compressed key
+                      |value of a create event.""",
+      qualification = Debug,
+    )
     val createKeyValueCompressed: Histogram = histogram(prefix :+ "create_key_value_compressed")
+
+    @MetricDoc.Tag(
+      summary = "The size of the decompressed key value of a create event.",
+      description = """Event information can be compressed by the indexer before storing it in the
+                      |database. This metric collects statistics about the size of decompressed key
+                      |value of a create event.""",
+      qualification = Debug,
+    )
     val createKeyValueUncompressed: Histogram = histogram(
       prefix :+ "create_key_value_uncompressed"
     )
+
+    @MetricDoc.Tag(
+      summary = "The size of the compressed argument of an exercise event.",
+      description = """Event information can be compressed by the indexer before storing it in the
+                      |database. This metric collects statistics about the size of compressed
+                      |arguments of an exercise event.""",
+      qualification = Debug,
+    )
     val exerciseArgumentCompressed: Histogram = histogram(prefix :+ "exercise_argument_compressed")
+
+    @MetricDoc.Tag(
+      summary = "The size of the decompressed argument of an exercise event.",
+      description = """Event information can be compressed by the indexer before storing it in the
+                      |database. This metric collects statistics about the size of decompressed
+                      |arguments of an exercise event.""",
+      qualification = Debug,
+    )
     val exerciseArgumentUncompressed: Histogram = histogram(
       prefix :+ "exercise_argument_uncompressed"
     )
+
+    @MetricDoc.Tag(
+      summary = "The size of the compressed result of an exercise event.",
+      description = """Event information can be compressed by the indexer before storing it in the
+                      |database. This metric collects statistics about the size of compressed
+                      |result of an exercise event.""",
+      qualification = Debug,
+    )
     val exerciseResultCompressed: Histogram = histogram(prefix :+ "exercise_result_compressed")
+
+    @MetricDoc.Tag(
+      summary = "The size of the decompressed result of an exercise event.",
+      description = """Event information can be compressed by the indexer before storing it in the
+                      |database. This metric collects statistics about the size of compressed
+                      |result of an exercise event.""",
+      qualification = Debug,
+    )
     val exerciseResultUncompressed: Histogram = histogram(prefix :+ "exercise_result_uncompressed")
   }
 
