@@ -61,11 +61,10 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
         description = """The in-memory fan-out buffer is a buffer that stores the last ingested
                         |maxBufferSize accepted and rejected submission updates as
                         |TransactionLogUpdate. It allows bypassing IndexDB persistence fetches for
-                        |recent updates for:
-                        |• flat and transaction tree streams
-                        |• command completion streams
-                        |• and by-event-id and by-transaction-id flat and transaction tree lookups
-                        |This metric exposes the time spent on adding a new event into the buffer.""",
+                        |recent updates for flat and transaction tree streams, command completion
+                        |streams and by-event-id and by-transaction-id flat and transaction tree
+                        |lookups. This metric exposes the time spent on adding a new event into the
+                        |buffer.""",
         qualification = Debug,
       )
       val push: Timer = timer(prefix :+ "push")
