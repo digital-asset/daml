@@ -33,7 +33,12 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
   }
 
   def ppKontStack(m: Machine): String = {
-    s"[${ppKont(m.peekKontStackEnd())}... #${m.kontDepth()}]" // head kont & size
+    val depth = m.kontDepth()
+    if (depth == 0) {
+      s"[#0]"
+    } else {
+      s"[${ppKont(m.peekKontStackEnd())}... #${depth}]" // head kont & size
+    }
   }
 
   def ppKont(k: Kont): String = k.getClass.getSimpleName
