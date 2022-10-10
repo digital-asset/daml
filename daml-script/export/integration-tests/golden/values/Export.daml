@@ -65,7 +65,7 @@ testExport = do
 export : Args -> Script ()
 export Args{parties, contracts} = do
   let bank_0 = lookupParty "Bank" parties
-  token_1_0 <- submit bank_0 do
+  (coerceContractId @_ @Values.Token -> token_1_0) <- submit bank_0 do
     createCmd (Values.Token {owner = bank_0})
   _ <- submit bank_0 do
     createCmd (Values.Container {owner = bank_0, unit = (), bool = False,

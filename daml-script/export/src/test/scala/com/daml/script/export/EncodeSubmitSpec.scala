@@ -109,7 +109,7 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
           )
           .toSubmit
         encodeSubmit(parties, cidMap, cidRefs, Set.empty, submit).render(80) shouldBe
-          """contract_0_0 <- submit alice_0 do
+          """(coerceContractId @_ @Module.Template -> contract_0_0) <- submit alice_0 do
             |  createCmd Module.Template""".stripMargin.replace(
             "\r\n",
             "\n",
@@ -131,9 +131,10 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
           )
           .toSubmit
         encodeSubmit(parties, cidMap, cidRefs, Set.empty, submit).render(80) shouldBe
-          """(contract_1_0, contract_1_1) <- submit alice_0 do
-            |  contract_1_0 <- createCmd Module.Template
-            |  contract_1_1 <- createCmd Module.Template
+          """((coerceContractId @_ @Module.Template -> contract_1_0),
+            |    (coerceContractId @_ @Module.Template -> contract_1_1)) <- submit alice_0 do
+            |  (coerceContractId @_ @Module.Template -> contract_1_0) <- createCmd Module.Template
+            |  (coerceContractId @_ @Module.Template -> contract_1_1) <- createCmd Module.Template
             |  pure (contract_1_0, contract_1_1)""".stripMargin.replace(
             "\r\n",
             "\n",
@@ -174,13 +175,13 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
           """tree <- submitTree alice_0 do
             |  exerciseCmd contract_0_0 (Module.Choice ())
             |  exerciseCmd contract_0_1 (Module.Choice ())
-            |let contract_1_0 = fromTree tree $
+            |let (coerceContractId @_ @Module.Template -> contract_1_0) = fromTree tree $
             |      exercised @Module.Template "Choice" $
             |      created @Module.Template
-            |let contract_1_1 = fromTree tree $
+            |let (coerceContractId @_ @Module.Template -> contract_1_1) = fromTree tree $
             |      exercised @Module.Template "Choice" $
             |      createdN @Module.Template 1
-            |let contract_2_0 = fromTree tree $
+            |let (coerceContractId @_ @Module.Template -> contract_2_0) = fromTree tree $
             |      exercisedN @Module.Template "Choice" 1 $
             |      created @Module.Template""".stripMargin.replace(
             "\r\n",
@@ -214,9 +215,9 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             |  createCmd Module.Template
             |  createCmd Module.Template
             |  exerciseByKeyCmd @Module.Template alice_0 (Module.Choice ())
-            |let contract_1_0 = fromTree tree $
+            |let (coerceContractId @_ @Module.Template -> contract_1_0) = fromTree tree $
             |      createdN @Module.Template 1
-            |let contract_1_1 = fromTree tree $
+            |let (coerceContractId @_ @Module.Template -> contract_1_1) = fromTree tree $
             |      exercised @Module.Template "Choice" $
             |      created @Module.Template""".stripMargin.replace(
             "\r\n",
@@ -298,10 +299,12 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
           SubmitSimpleMulti(commands, parties.keySet),
         )
           .render(80) shouldBe
-          """(contract_0_0, contract_0_2, contract_0_4) <- submitMulti [alice_0, bob_0] [] do
-            |  contract_0_0 <- createCmd Module.Template
-            |  contract_0_2 <- exerciseCmd contract_0_1 (Module.Choice ())
-            |  contract_0_4 <- createAndExerciseCmd
+          """((coerceContractId @_ @Module.Template -> contract_0_0),
+            |    (coerceContractId @_ @Module.Template -> contract_0_2),
+            |    (coerceContractId @_ @Module.Template -> contract_0_4)) <- submitMulti [alice_0, bob_0] [] do
+            |  (coerceContractId @_ @Module.Template -> contract_0_0) <- createCmd Module.Template
+            |  (coerceContractId @_ @Module.Template -> contract_0_2) <- exerciseCmd contract_0_1 (Module.Choice ())
+            |  (coerceContractId @_ @Module.Template -> contract_0_4) <- createAndExerciseCmd
             |    Module.Template
             |    (Module.Choice ())
             |  pure (contract_0_0, contract_0_2, contract_0_4)""".stripMargin.replace(

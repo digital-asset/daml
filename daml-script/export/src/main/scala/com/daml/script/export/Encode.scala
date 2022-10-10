@@ -406,8 +406,14 @@ private[export] object Encode {
     }
   }
 
-  private def encodeCidPat(cidMap: Map[ContractId, String], cid: ContractId): Doc =
-    Doc.text(cidMap.getOrElse(cid, "_"))
+  private def encodeCidPat(cidMap: Map[ContractId, String], c: CreatedContract): Doc =
+    cidMap.get(c.cid) match {
+      case Some(value) =>
+        parens(
+          "coerceContractId @_ @" +: encodeTemplateId(c.tplId) :& "->" :& value
+        )
+      case None => Doc.text("_")
+    }
 
   private def qualifyId(id: Identifier): Doc =
     Doc.text(id.moduleName) + Doc.text(".") + Doc.text(id.entityName)
@@ -508,7 +514,7 @@ private[export] object Encode {
   }
 
   private def bindCid(cidMap: Map[ContractId, String], c: CreatedContractWithPath): Doc = {
-    (Doc.text("let") & encodeCidPat(cidMap, c.cid) & Doc.text("=") & encodePath(
+    (Doc.text("let") & encodeCidPat(cidMap, c) & Doc.text("=") & encodePath(
       Doc.text("tree"),
       c.path,
     )).nested(4)
@@ -528,20 +534,20 @@ private[export] object Encode {
         (Doc.text("_ <- "), Doc.empty)
       case Seq() =>
         (Doc.empty, Doc.text("pure ()"))
-      case Seq(c) if cids.length == 1 =>
-        (encodeCidPat(cidMap, c.cid) :+ " <- ", Doc.empty)
-      case Seq(c) =>
-        (encodeCidPat(cidMap, c.cid) :+ " <- ", "pure " +: encodeCidExpr(cidMap, c.cid))
+      case Seq(cid) if cids.length == 1 =>
+        (encodeCidPat(cidMap, cid) :+ " <- ", Doc.empty)
+      case Seq(cid) =>
+        (encodeCidPat(cidMap, cid) :+ " <- ", "pure " +: encodeCidExpr(cidMap, cid.cid))
       case _ =>
         (
-          tuple(referencedCids.map(c => encodeCidPat(cidMap, c.cid))) :+ " <- ",
+          tuple(referencedCids.map(encodeCidPat(cidMap, _))) :+ " <- ",
           "pure " +: tuple(referencedCids.map(c => encodeCidExpr(cidMap, c.cid))),
         )
     }
     val actions = Doc.stack(submit.simpleCommands.map { case SimpleCommand(cmd, c) =>
       val bind = if (returnStmt.nonEmpty) {
         if (cidRefs.contains(c.cid)) {
-          encodeCidPat(cidMap, c.cid) :+ " <- "
+          encodeCidPat(cidMap, c) :+ " <- "
         } else {
           Doc.text("_ <- ")
         }
