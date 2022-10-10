@@ -136,6 +136,11 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
 
 }
 
+/** Tests that may behave differently depending on
+  *
+  * 1. whether custom or user tokens are used
+  * 2. the query store configuration
+  */
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     extends AsyncFreeSpec
@@ -1673,3 +1678,10 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   }
 
 }
+
+/** Tests that don't exercise the query store at all, but exercise different
+  * paths due to authentication method.
+  */
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
+    extends AbstractHttpServiceIntegrationTestTokenIndependent {}

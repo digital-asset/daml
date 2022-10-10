@@ -24,7 +24,7 @@ import spray.json.JsValue
 import scala.concurrent.Future
 
 abstract class HttpServiceIntegrationTest
-    extends AbstractHttpServiceIntegrationTestTokenIndependent
+    extends AbstractHttpServiceIntegrationTestQueryStoreIndependent
     with BeforeAndAfterAll {
   import HttpServiceIntegrationTest._
   import AbstractHttpServiceIntegrationTestFuns.ciouDar
