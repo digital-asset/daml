@@ -1,11 +1,11 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.platform.partymanagement
+package com.daml.ledger.participant.localstore
 
 import com.daml.ledger.api.domain.{ObjectMeta, ParticipantParty}
-import com.daml.ledger.participant.state.index.v2.PartyRecordStore.PartyRecordExistsFatal
-import com.daml.ledger.participant.state.index.v2.{
+import com.daml.ledger.participant.localstore.api.PartyRecordStore.PartyRecordExistsFatal
+import com.daml.ledger.participant.localstore.api.{
   ObjectMetaUpdate,
   PartyRecordStore,
   PartyRecordUpdate,

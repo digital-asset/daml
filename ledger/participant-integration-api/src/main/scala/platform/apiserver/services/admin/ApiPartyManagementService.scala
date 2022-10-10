@@ -16,13 +16,15 @@ import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServ
 import com.daml.ledger.api.v1.admin.party_management_service._
 import com.daml.ledger.api.v1.{admin => proto_admin}
 import com.daml.ledger.api.validation.ValidationErrors
+import com.daml.ledger.participant.localstore.api.{
+  PartyDetailsUpdate,
+  PartyRecordStore,
+  PartyRecordUpdate,
+}
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
   LedgerEndService,
-  PartyDetailsUpdate,
-  PartyRecordStore,
-  PartyRecordUpdate,
 }
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref

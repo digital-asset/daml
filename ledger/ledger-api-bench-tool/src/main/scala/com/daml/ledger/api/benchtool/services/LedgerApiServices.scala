@@ -4,7 +4,7 @@
 package com.daml.ledger.api.benchtool.services
 
 import com.daml.ledger.api.benchtool.AuthorizationHelper
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.participant.localstore.api.UserManagementStore
 import io.grpc.Channel
 
 import scala.concurrent.{ExecutionContext, Future}

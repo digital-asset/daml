@@ -7,6 +7,7 @@ import java.sql.Connection
 import java.util.concurrent.{ConcurrentLinkedQueue, CountDownLatch, Executors}
 
 import com.daml.api.util.TimeProvider
+import com.daml.ledger.participant.localstore.UserStoreTests
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{DatabaseMetrics, Metrics}

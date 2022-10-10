@@ -8,8 +8,9 @@ import java.sql.Connection
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.User
-import com.daml.ledger.participant.state.index.v2.{UserManagementStore, UserUpdate}
-import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
+import com.daml.ledger.participant.localstore.CachedUserManagementStore
+import com.daml.ledger.participant.localstore.api.{UserManagementStore, UserUpdate}
+import com.daml.ledger.participant.localstore.api.UserManagementStore.{
   Result,
   TooManyUserRights,
   UserExists,
@@ -17,11 +18,14 @@ import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
   UserNotFound,
   UsersPage,
 }
+import com.daml.ledger.participant.localstore.utils.{
+  LocalAnnotationsUtils,
+  ResourceAnnotationValidation,
+}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
-import com.daml.ledger.participant.state.index.{LocalAnnotationsUtils, ResourceAnnotationValidation}
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.backend.UserManagementStorageBackend
 import com.daml.platform.usermanagement.PersistentUserManagementStore.{

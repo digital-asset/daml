@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver.update
 
 import com.daml.ledger.api.domain.{ObjectMeta, User}
-import com.daml.ledger.participant.state.index.v2.{ObjectMetaUpdate, UserUpdate}
+import com.daml.ledger.participant.localstore.api.{ObjectMetaUpdate, UserUpdate}
 import com.daml.lf.data.Ref
 import com.google.protobuf.field_mask.FieldMask
 import org.scalatest.EitherValues

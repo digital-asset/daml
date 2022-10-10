@@ -10,8 +10,8 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.api.validation.ValidationErrors._
-import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
-import com.daml.ledger.participant.state.index.ResourceAnnotationValidation.{
+import com.daml.ledger.participant.localstore.utils.ResourceAnnotationValidation
+import com.daml.ledger.participant.localstore.utils.ResourceAnnotationValidation.{
   AnnotationsSizeExceededError,
   EmptyAnnotationsValueError,
   InvalidAnnotationsKeyError,

@@ -4,6 +4,7 @@
 package com.daml.platform.store.platform.partymanagement
 
 import com.daml.api.util.TimeProvider
+import com.daml.ledger.participant.localstore.PartyRecordStoreTests
 import com.daml.metrics.Metrics
 import com.daml.platform.partymanagement.PersistentPartyRecordStore
 import com.daml.platform.store.PersistentStoreSpecBase

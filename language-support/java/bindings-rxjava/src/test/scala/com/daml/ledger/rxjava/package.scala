@@ -20,7 +20,7 @@ import com.daml.ledger.api.auth.{
   ClaimReadAsParty,
   ClaimSet,
 }
-import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
+import com.daml.ledger.participant.localstore.InMemoryUserManagementStore
 import com.daml.logging.LoggingContext
 
 package object rxjava {

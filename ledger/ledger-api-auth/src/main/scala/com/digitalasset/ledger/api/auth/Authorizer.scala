@@ -12,7 +12,7 @@ import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.validation.ValidationErrors
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.participant.localstore.api.UserManagementStore
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}

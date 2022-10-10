@@ -12,11 +12,8 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
-import com.daml.ledger.participant.state.index.v2.{
-  IndexService,
-  PartyRecordStore,
-  UserManagementStore,
-}
+import com.daml.ledger.participant.localstore.api.{PartyRecordStore, UserManagementStore}
+import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
@@ -30,8 +27,8 @@ import com.daml.ports.{Port, PortFiles}
 import com.daml.telemetry.TelemetryContext
 import io.grpc.{BindableService, ServerInterceptor}
 import scalaz.{-\/, \/-}
-
 import java.time.Clock
+
 import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}

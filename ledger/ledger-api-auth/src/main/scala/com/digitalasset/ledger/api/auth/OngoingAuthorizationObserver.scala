@@ -10,7 +10,7 @@ import akka.actor.Scheduler
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.participant.localstore.api.UserManagementStore
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver

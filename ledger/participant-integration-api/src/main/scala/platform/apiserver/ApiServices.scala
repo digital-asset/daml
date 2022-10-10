@@ -12,6 +12,7 @@ import com.daml.ledger.api.auth.services._
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.client.services.commands.CommandSubmissionFlow
+import com.daml.ledger.participant.localstore.api.{PartyRecordStore, UserManagementStore}
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}

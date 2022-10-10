@@ -1,20 +1,18 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.usermanagement
+package com.daml.ledger.participant.localstore
 
 import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
-import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
-import com.daml.ledger.participant.state.index.v2.{ObjectMetaUpdate, UserUpdate}
-import com.daml.ledger.participant.state.index.v2.UserManagementStore.{
+import com.daml.ledger.participant.localstore.api.UserManagementStore.{
   UserInfo,
   UserNotFound,
   UsersPage,
 }
+import com.daml.ledger.participant.localstore.api.{ObjectMetaUpdate, UserUpdate}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.store.platform.usermanagement.UserStoreTests
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.freespec.AsyncFreeSpec
 

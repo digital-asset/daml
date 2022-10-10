@@ -8,15 +8,19 @@ import java.sql.Connection
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.ParticipantParty
-import com.daml.ledger.participant.state.index.v2.PartyRecordStore.{
+import com.daml.ledger.participant.localstore.api.{
+  LedgerPartyExists,
+  PartyRecordStore,
+  PartyRecordUpdate,
+}
+import com.daml.ledger.participant.localstore.api.PartyRecordStore.{
   ConcurrentPartyUpdate,
   MaxAnnotationsSizeExceeded,
   Result,
 }
-import com.daml.ledger.participant.state.index.v2.{
-  LedgerPartyExists,
-  PartyRecordStore,
-  PartyRecordUpdate,
+import com.daml.ledger.participant.localstore.utils.{
+  LocalAnnotationsUtils,
+  ResourceAnnotationValidation,
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
@@ -26,7 +30,6 @@ import com.daml.platform.partymanagement.PersistentPartyRecordStore.{
   ConcurrentPartyRecordUpdateDetectedRuntimeException,
   MaxAnnotationsSizeExceededException,
 }
-import com.daml.ledger.participant.state.index.{LocalAnnotationsUtils, ResourceAnnotationValidation}
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.backend.PartyRecordStorageBackend
 

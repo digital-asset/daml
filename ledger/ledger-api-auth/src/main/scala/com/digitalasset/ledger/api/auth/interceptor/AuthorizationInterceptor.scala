@@ -9,7 +9,7 @@ import com.daml.ledger.api.auth._
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.UserRight
 import com.daml.ledger.api.validation.ValidationErrors
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.participant.localstore.api.UserManagementStore
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
