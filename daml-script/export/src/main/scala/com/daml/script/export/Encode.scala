@@ -645,10 +645,14 @@ private[export] object Encode {
         "created @" +: encodeTemplateId(templateId)
       case CreatedSelector(templateId, index) =>
         "createdN @" +: encodeTemplateId(templateId) & Doc.str(index)
-      case ExercisedSelector(templateId, interfaceId @ _, choice, 0) =>
+      case ExercisedSelector(templateId, None, choice, 0) =>
         "exercised @" +: encodeTemplateId(templateId) & encodeChoice(choice)
-      case ExercisedSelector(templateId, interfaceId @ _, choice, index) =>
+      case ExercisedSelector(templateId, None, choice, index) =>
         "exercisedN @" +: encodeTemplateId(templateId) & encodeChoice(choice) & Doc.str(index)
+      case ExercisedSelector(templateId @ _, Some(interfaceId), choice, 0) =>
+        "exercised @" +: encodeInterfaceId(interfaceId) & encodeChoice(choice)
+      case ExercisedSelector(templateId @ _, Some(interfaceId), choice, index) =>
+        "exercisedN @" +: encodeInterfaceId(interfaceId) & encodeChoice(choice) & Doc.str(index)
     }
   }
 

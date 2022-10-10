@@ -82,10 +82,10 @@ export Args{parties, contracts} = do
   tree <- submitTree charlie_0 do
     exerciseCmd (toInterfaceContractId @InterfaceChoices.Token.Token asset_5_0) (InterfaceChoices.Token.Split {splitAmount = 120})
   let (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_6_0) = fromTree tree $
-        exercised @InterfaceChoices.Asset.Asset "Split" $
+        exercised @InterfaceChoices.Token.Token "Split" $
         created @InterfaceChoices.Asset.Asset
   let (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_6_1) = fromTree tree $
-        exercised @InterfaceChoices.Asset.Asset "Split" $
+        exercised @InterfaceChoices.Token.Token "Split" $
         createdN @InterfaceChoices.Asset.Asset 1
   (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_7_1) <- submit charlie_0 do
     _ <- exerciseCmd (toInterfaceContractId @InterfaceChoices.Token.Token asset_6_0) (InterfaceChoices.Token.Transfer {newOwner = alice_0})
