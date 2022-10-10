@@ -1624,17 +1624,20 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
       to = None,
       application = None,
     )
-    fixture
-      .postJsonRequestWithMinimumAuth[Struct](
-        Uri.Path("/v1/metering-report"),
-        request.toJson,
-      )
-      .map(inside(_) { case domain.OkResponse(meteringReport, _, StatusCodes.OK) =>
-        meteringReport
-          .fields("request")
-          .getStructValue
-          .fields("from")
-          .getStringValue shouldBe s"${isoDate}T00:00:00Z"
-      })
+    for {
+      reportStruct <- fixture
+        .postJsonRequest(
+          Uri.Path("/v1/metering-report"),
+          request.toJson,
+          headersWithAdminAuth,
+        )
+        .parseResponse[Struct]
+    } yield inside(reportStruct) { case domain.OkResponse(meteringReport, _, StatusCodes.OK) =>
+      meteringReport
+        .fields("request")
+        .getStructValue
+        .fields("from")
+        .getStringValue shouldBe s"${isoDate}T00:00:00Z"
+    }
   }
 }
