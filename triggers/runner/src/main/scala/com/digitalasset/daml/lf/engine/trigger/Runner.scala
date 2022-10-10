@@ -14,7 +14,12 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction
-import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
+import com.daml.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  InterfaceFilter,
+  TransactionFilter,
+}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement._
 import com.daml.lf.archive.Dar
@@ -81,6 +86,7 @@ final case class Trigger(
 object Machine extends StrictLogging {
   // Run speedy until we arrive at a value.
   def stepToValue(machine: Speedy.Machine): SValue = {
+    // FIXME: we mare typically called within async workflows - and so we should not throw here!!
     machine.run() match {
       case SResultFinal(v, _) => v
       case SResultError(err) => {
@@ -222,26 +228,60 @@ object Trigger extends StrictLogging {
       ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr)
     )
     val machine = Speedy.Machine.fromPureSExpr(compiledPackages, registeredTemplates)
+    val packages = compiledPackages.packageIds
+      .map(pkgId => (pkgId, compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.get))
+      .toSeq
+    val templateIds = packages.flatMap({ case (pkgId, pkg) =>
+      pkg.modules.toList.flatMap({ case (modName, module) =>
+        module.templates.keys.map(entityName =>
+          toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName)))
+        )
+      })
+    })
+    val interfaceFilters = packages.flatMap({ case (pkgId, pkg) =>
+      pkg.modules.toList.flatMap({ case (modName, module) =>
+        module.interfaces.keys.map(entityName =>
+          InterfaceFilter(
+            interfaceId =
+              Some(toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName)))),
+            includeInterfaceView = true,
+            includeCreateArgumentsBlob = false,
+          )
+        )
+      })
+    })
+
     Machine.stepToValue(machine) match {
-      case SVariant(_, "AllInDar", _, _) => {
-        val packages = compiledPackages.packageIds
-          .map(pkgId => (pkgId, compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.get))
-          .toSeq
-        val templateIds = packages.flatMap({ case (pkgId, pkg) =>
-          pkg.modules.toList.flatMap({ case (modName, module) =>
-            module.templates.keys.map(entityName =>
-              toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName)))
-            )
-          })
-        })
-        Right(Filters(Some(InclusiveFilters(templateIds))))
-      }
+      case SVariant(_, "AllInDar", _, _) =>
+        Right(
+          Filters(
+            Some(InclusiveFilters(templateIds = templateIds, interfaceFilters = interfaceFilters))
+          )
+        )
+
       case SVariant(_, "RegisteredTemplates", _, v) =>
         converter.toRegisteredTemplates(v) match {
-          case Right(tpls) => Right(Filters(Some(InclusiveFilters(tpls.map(toApiIdentifier(_))))))
-          case Left(err) => Left(err)
+          case Right(identifiers) =>
+            val apiIdentifiers = identifiers.map(toApiIdentifier)
+            Right(
+              Filters(
+                Some(
+                  InclusiveFilters(
+                    templateIds = templateIds.filter(apiIdentifiers.contains),
+                    interfaceFilters = interfaceFilters.filter(filter =>
+                      apiIdentifiers.contains(filter.getInterfaceId)
+                    ),
+                  )
+                )
+              )
+            )
+
+          case Left(err) =>
+            Left(err)
         }
-      case v => Left(s"Expected AllInDar or RegisteredTemplates but got $v")
+
+      case v =>
+        Left(s"Expected AllInDar or RegisteredTemplates but got $v")
     }
   }
 }
@@ -379,18 +419,18 @@ class Runner(
         .map { case SingleCommandFailure(commandId, s) =>
           Completion(
             commandId,
-            Some(Status(s.getStatus().getCode().value(), s.getStatus().getDescription())),
+            Some(Status(s.getStatus.getCode.value(), s.getStatus.getDescription)),
           )
         }
 
     // The transaction source (ledger).
     val transactionSource: Source[TriggerMsg, NotUsed] =
       client.transactionClient
-        .getTransactions(offset, None, filter, verbose = false)
+        .getTransactions(offset, None, filter)
         .map(TransactionMsg)
 
     // Command completion source (ledger completion stream +
-    // synchronous sumbmission failures).
+    // synchronous submission failures).
     val completionSource: Flow[SingleCommandFailure, TriggerMsg, NotUsed] =
       submissionFailureQueue
         .merge(
@@ -404,7 +444,7 @@ class Runner(
         )
         .map(CompletionMsg)
 
-    // Hearbeats source (we produce these repetitvely on a timer with
+    // Heartbeats source (we produce these repetitively on a timer with
     // the given delay interval).
     val heartbeatSource: Source[TriggerMsg, NotUsed] = heartbeat match {
       case Some(interval) =>

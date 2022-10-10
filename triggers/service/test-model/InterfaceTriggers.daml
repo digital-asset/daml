@@ -1,0 +1,78 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+
+module InterfaceTriggers where
+
+#ifdef DAML_INTERFACE
+
+import Daml.Trigger
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface I where
+  viewtype EmptyInterfaceView
+
+  getOwner: Party
+  getTag: Text
+
+  logImpl: Text -> Update ()
+
+  nonconsuming choice Log: ()
+    with
+      msg: Text
+    controller getOwner this
+    do
+      debug "DEBUGGY-I: Log exercised"
+      logImpl this msg
+
+template A
+  with
+    owner: Party
+    tag: Text
+  where
+    signatory owner
+    interface instance I for A where
+      view = EmptyInterfaceView
+
+      getOwner = owner
+      getTag = tag
+
+      logImpl msg = do
+        debug("DEBUGGY-A: Log exercised with " <> msg)
+        pure ()
+
+template B
+  with
+    owner: Party
+    tag: Text
+  where
+    signatory owner
+    interface instance I for B where
+      view = EmptyInterfaceView
+
+      getOwner = owner
+      getTag = tag
+
+      logImpl msg = do
+        debug("DEBUGGY-B: Log exercised with " <> msg)
+        pure ()
+
+trigger: Trigger ()
+trigger = Trigger with
+  initialize = do
+    debug "DEBUGGY: trigger created"
+    pure ()
+  updateState = \_ -> do
+    debug "DEBUGGY: trigger updated"
+    pure ()
+  rule = \runner -> do
+    debug "DEBUGGY: trigger called"
+    as <- filter (\(_, a) -> a.owner == runner) <$> query @A
+    debug("DEBUGGY: query result = " <> show as)
+    pure ()
+  registeredTemplates = RegisteredTemplates [registeredTemplate @A, registeredTemplate @I]
+  heartbeat = None
+
+#endif

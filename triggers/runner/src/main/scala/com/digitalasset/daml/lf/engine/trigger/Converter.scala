@@ -5,10 +5,11 @@ package com.daml.lf
 package engine
 package trigger
 
+import com.daml
 import scalaz.std.either._
 import scalaz.syntax.traverse._
-import com.daml.lf.data.{FrontStack, ImmArray, Struct}
-import com.daml.lf.data.Ref._
+import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct}
+import com.daml.lf.data.Ref.{IdString, _}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.speedy.SValue._
@@ -25,6 +26,7 @@ import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.validation.NoLoggingValueValidator
+import com.daml.lf
 import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
@@ -34,7 +36,7 @@ import com.daml.platform.participant.util.LfEngineToApi.{
 import scala.concurrent.duration.{FiniteDuration, MICROSECONDS}
 
 // Convert from a Ledger API transaction to an SValue corresponding to a Message from the Daml.Trigger module
-case class Converter(
+final case class Converter(
     fromTransaction: Transaction => Either[String, SValue],
     fromCompletion: Completion => Either[String, SValue],
     fromHeartbeat: SValue,
@@ -45,13 +47,15 @@ case class Converter(
 )
 
 // Helper to create identifiers pointing to the Daml.Trigger module
-case class TriggerIds(val triggerPackageId: PackageId) {
-  def damlTrigger(s: String) =
+final case class TriggerIds(triggerPackageId: PackageId) {
+
+  def damlTrigger(s: String): daml.lf.data.Ref.ValueRef =
     Identifier(
       triggerPackageId,
       QualifiedName(ModuleName.assertFromString("Daml.Trigger"), DottedName.assertFromString(s)),
     )
-  def damlTriggerLowLevel(s: String) =
+
+  def damlTriggerLowLevel(s: String): Ref.ValueRef =
     Identifier(
       triggerPackageId,
       QualifiedName(
@@ -59,7 +63,8 @@ case class TriggerIds(val triggerPackageId: PackageId) {
         DottedName.assertFromString(s),
       ),
     )
-  def damlTriggerInternal(s: String) =
+
+  def damlTriggerInternal(s: String): lf.data.Ref.ValueRef =
     Identifier(
       triggerPackageId,
       QualifiedName(
@@ -85,10 +90,10 @@ object Converter {
   private case class AnyContractKey(key: SValue)
 
   private def toLedgerRecord(v: SValue): Either[String, value.Record] =
-    lfValueToApiRecord(true, v.toUnnormalizedValue)
+    lfValueToApiRecord(verbose = true, v.toUnnormalizedValue)
 
   private def toLedgerValue(v: SValue): Either[String, value.Value] =
-    lfValueToApiValue(true, v.toUnnormalizedValue)
+    lfValueToApiValue(verbose = true, v.toUnnormalizedValue)
 
   private def fromIdentifier(id: value.Identifier): SValue = {
     STypeRep(
@@ -188,29 +193,29 @@ object Converter {
   object EventVariant {
     // Those values should be kept consistent with type `Event` defined in
     // triggers/daml/Daml/Trigger/LowLevel.daml
-    val CreatedEventConstructor = Name.assertFromString("CreatedEvent")
+    val CreatedEventConstructor: IdString.Name = Name.assertFromString("CreatedEvent")
     val CreatedEventConstructorRank = 0
-    val ArchiveEventConstructor = Name.assertFromString("ArchivedEvent")
+    val ArchiveEventConstructor: IdString.Name = Name.assertFromString("ArchivedEvent")
     val ArchiveEventConstructorRank = 1
   }
 
   object MessageVariant {
     // Those values should be kept consistent with type `Message` defined in
     // triggers/daml/Daml/Trigger/LowLevel.daml
-    val MTransactionVariant = Name.assertFromString("MTransaction")
+    val MTransactionVariant: IdString.Name = Name.assertFromString("MTransaction")
     val MTransactionVariantRank = 0
-    val MCompletionConstructor = Name.assertFromString("MCompletion")
+    val MCompletionConstructor: IdString.Name = Name.assertFromString("MCompletion")
     val MCompletionConstructorRank = 1
-    val MHeartbeatConstructor = Name.assertFromString("MHeartbeat")
+    val MHeartbeatConstructor: IdString.Name = Name.assertFromString("MHeartbeat")
     val MHeartbeatConstructorRank = 2
   }
 
   object CompletionStatusVariant {
     // Those values should be kept consistent `CompletionStatus` defined in
     // triggers/daml/Daml/Trigger/LowLevel.daml
-    val FailVariantConstructor = Name.assertFromString("Failed")
+    val FailVariantConstructor: IdString.Name = Name.assertFromString("Failed")
     val FailVariantConstructorRank = 0
-    val SucceedVariantConstructor = Name.assertFromString("Succeeded")
+    val SucceedVariantConstructor: IdString.Name = Name.assertFromString("Succeeded")
     val SucceedVariantConstrcutor = 1
   }
 
@@ -549,9 +554,9 @@ object Converter {
       fromCompletion(triggerIds, _),
       fromHeartbeat(triggerIds),
       fromACS(valueTranslator, triggerIds, _),
-      toFiniteDuration(_),
-      toCommands(_),
-      toRegisteredTemplates(_),
+      toFiniteDuration,
+      toCommands,
+      toRegisteredTemplates,
     )
   }
 }
