@@ -194,12 +194,15 @@ object TreeUtils {
   def treeEventCreatedConsumedCids(
       event: TreeEvent.Kind,
       tree: TransactionTree,
-  ): (Set[ContractId], Set[ContractId]) = {
-    var created = Set.empty[ContractId]
+  ): (Seq[SimpleCreatedContract], Set[ContractId]) = {
+    var created = Seq.empty[SimpleCreatedContract]
     var consumed = Set.empty[ContractId]
     traverseEventInTree(event, tree) {
       case (_, Kind.Created(value)) =>
-        created += ContractId(value.contractId)
+        created :+= SimpleCreatedContract(
+          ContractId(value.contractId),
+          TemplateId(value.getTemplateId),
+        )
       case (_, Kind.Exercised(value)) if value.consuming =>
         consumed += ContractId(value.contractId)
       case _ =>
@@ -322,7 +325,7 @@ object TreeUtils {
           }
         }
         val (created, consumed) = treeEventCreatedConsumedCids(Kind.Exercised(exercisedEvent), tree)
-        val netCreated = (extraCreated ++ created) -- consumed
+        val netCreated = (extraCreated ++ created.map(_.cid)) -- consumed
         (result, netCreated.toSeq) match {
           case (Some(cid), Seq(createdCid)) if cid == createdCid =>
             Some(ContractId(cid))
