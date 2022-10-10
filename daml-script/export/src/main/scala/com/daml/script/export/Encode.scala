@@ -172,7 +172,10 @@ private[export] object Encode {
     Doc.text("{-# LANGUAGE ApplicativeDo #-}") /
       Doc.text("module Export where") /
       Doc.text("import Daml.Script") /
-      Doc.stack(moduleRefs.map(encodeImport(_)))
+      encodeImports(moduleRefs)
+
+  private def encodeImports(moduleRefs: Set[String]): Doc =
+    Doc.stack(moduleRefs.map(encodeImport(_)))
 
   private def encodeLocalDate(d: LocalDate): Doc = {
     val formatter = DateTimeFormatter.ofPattern("uuuu 'DA.Date.'MMM d")
