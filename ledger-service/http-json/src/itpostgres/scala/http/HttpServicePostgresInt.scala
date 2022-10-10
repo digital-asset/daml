@@ -3,7 +3,6 @@
 
 package com.daml.http
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.dbutils
 import com.daml.dbutils.ConnectionPool
 import dbbackend.{DbStartupMode, JdbcConfig}
@@ -17,7 +16,7 @@ trait HttpServicePostgresInt extends AbstractHttpServiceIntegrationTestFuns with
   this: AsyncTestSuite with Matchers with Inside =>
 
   override final def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
-  protected implicit val metics = new Metrics(new MetricRegistry)
+  protected implicit val metics = Metrics.ForTesting
 
   // has to be lazy because jdbcConfig_ is NOT initialized yet
   protected lazy val dao = dbbackend.ContractDao(jdbcConfig_)

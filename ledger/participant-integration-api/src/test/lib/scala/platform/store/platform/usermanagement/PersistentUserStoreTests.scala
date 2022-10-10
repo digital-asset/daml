@@ -6,7 +6,6 @@ package com.daml.platform.store.platform.usermanagement
 import java.sql.Connection
 import java.util.concurrent.{ConcurrentLinkedQueue, CountDownLatch, Executors}
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
@@ -25,7 +24,7 @@ trait PersistentUserStoreTests extends PersistentStoreSpecBase with UserStoreTes
 
   override def newStore() = new PersistentUserManagementStore(
     dbSupport = dbSupport,
-    metrics = new Metrics(new MetricRegistry()),
+    metrics = Metrics.ForTesting,
     timeProvider = TimeProvider.UTC,
     maxRightsPerUser = 100,
   )

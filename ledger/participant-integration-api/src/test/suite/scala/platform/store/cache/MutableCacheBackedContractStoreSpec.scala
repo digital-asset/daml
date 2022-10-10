@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.cache
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.Resource
 import com.daml.lf.crypto.Hash
@@ -33,7 +32,7 @@ class MutableCacheBackedContractStoreSpec extends AsyncWordSpec with Matchers wi
     "update the contract state caches" in {
       val contractStateCaches = mock[ContractStateCaches]
       val contractStore = new MutableCacheBackedContractStore(
-        metrics = new Metrics(new MetricRegistry),
+        metrics = Metrics.ForTesting,
         contractsReader = mock[LedgerDaoContractsReader],
         contractStateCaches = contractStateCaches,
       )
@@ -265,7 +264,7 @@ object MutableCacheBackedContractStoreSpec {
       readerFixture: LedgerDaoContractsReader = ContractsReaderFixture(),
       startIndexExclusive: Offset = offset0,
   )(implicit loggingContext: LoggingContext) = {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = Metrics.ForTesting
     val contractStore = new MutableCacheBackedContractStore(
       metrics,
       readerFixture,

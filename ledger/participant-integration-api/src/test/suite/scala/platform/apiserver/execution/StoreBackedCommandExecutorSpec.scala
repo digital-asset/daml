@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver.execution
 
 import java.time.Duration
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -107,7 +106,7 @@ class StoreBackedCommandExecutorSpec
         Ref.ParticipantId.assertFromString("anId"),
         mock[IndexPackagesService],
         mock[ContractStore],
-        new Metrics(new MetricRegistry),
+        Metrics.ForTesting,
       )
 
       LoggingContext.newLoggingContext { implicit context =>

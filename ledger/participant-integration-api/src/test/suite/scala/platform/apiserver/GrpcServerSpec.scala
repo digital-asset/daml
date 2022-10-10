@@ -88,7 +88,7 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
     }
 
     "install rate limit interceptor" in {
-      val metrics = new Metrics(new MetricRegistry)
+      val metrics = Metrics.ForTesting
       val rateLimitingInterceptor = RateLimitingInterceptor(metrics, rateLimitingConfig)
       resources(metrics, List(rateLimitingInterceptor)).use { channel =>
         val metricName = MetricName(
@@ -132,7 +132,7 @@ object GrpcServerSpec {
   }
 
   private def resources(
-      metrics: Metrics = new Metrics(new MetricRegistry),
+      metrics: Metrics = Metrics.ForTesting,
       interceptors: List[ServerInterceptor] = List.empty,
   ): ResourceOwner[ManagedChannel] =
     for {
