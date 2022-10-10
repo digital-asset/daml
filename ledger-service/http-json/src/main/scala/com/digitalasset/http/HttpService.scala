@@ -34,6 +34,7 @@ import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
+import com.daml.metrics.akkahttp.AkkaHttpMetrics
 import com.daml.ports.{Port, PortFiles}
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import scalaz.Scalaz._
@@ -214,8 +215,16 @@ object HttpService {
         client.identityClient,
       )
 
+      goldenSignalsMetrics = AkkaHttpMetrics.goldenSignalsMetrics(
+        metrics.daml.HttpJsonApi.httpRequestsTotal,
+        metrics.daml.HttpJsonApi.httpErrorsTotal,
+        metrics.daml.HttpJsonApi.httpLatency,
+        metrics.daml.HttpJsonApi.httpRequestsSizeByte,
+        metrics.daml.HttpJsonApi.httpResponsesSizeByte,
+      )
+
       defaultEndpoints =
-        concat(
+        goldenSignalsMetrics apply concat(
           jsonEndpoints.all: Route,
           websocketEndpoints.transactionWebSocket,
         )
