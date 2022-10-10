@@ -194,7 +194,7 @@ private[export] object Encode {
           tuple(value.fields.map(f => go(f.getValue.sum)))
         case Sum.Record(value) => encodeRecord(partyMap, cidMap, value)
         case Sum.Variant(value) => encodeVariant(partyMap, cidMap, value)
-        case Sum.ContractId(c) => encodeCid(cidMap, ContractId(c))
+        case Sum.ContractId(c) => encodeCidExpr(cidMap, ContractId(c))
         case Sum.List(value) =>
           list(value.elements.map(v => go(v.sum)))
         case Sum.Int64(i) => Doc.str(i)
@@ -398,13 +398,16 @@ private[export] object Encode {
       Doc.intercalate(Doc.text(", "), ps.map(encodeParty(partyMap, _))) +
       Doc.text("]")
 
-  private def encodeCid(cidMap: Map[ContractId, String], cid: ContractId): Doc = {
+  private def encodeCidExpr(cidMap: Map[ContractId, String], cid: ContractId): Doc = {
     // LedgerStrings are strings that match the regexp ``[A-Za-z0-9#:\-_/ ]+
     cidMap.get(cid) match {
       case Some(value) => Doc.text(value)
       case None => parens("lookupContract" &: quotes(cid.toString) :& "contracts")
     }
   }
+
+  private def encodeCidPat(cidMap: Map[ContractId, String], cid: ContractId): Doc =
+    Doc.text(cidMap.getOrElse(cid, "_"))
 
   private def qualifyId(id: Identifier): Doc =
     Doc.text(id.moduleName) + Doc.text(".") + Doc.text(id.entityName)
@@ -489,7 +492,7 @@ private[export] object Encode {
       missingInstances: Set[TemplateId],
       exercisedEvent: ExercisedEvent,
   ): Doc = {
-    val cid = encodeCid(cidMap, ContractId(exercisedEvent.contractId))
+    val cid = encodeCidExpr(cidMap, ContractId(exercisedEvent.contractId))
     val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
     if (missingInstances.contains(TemplateId(exercisedEvent.getTemplateId))) {
       val command = Doc.text("internalExerciseCmd")
@@ -505,7 +508,7 @@ private[export] object Encode {
   }
 
   private def bindCid(cidMap: Map[ContractId, String], c: CreatedContract): Doc = {
-    (Doc.text("let") & encodeCid(cidMap, c.cid) & Doc.text("=") & encodePath(
+    (Doc.text("let") & encodeCidPat(cidMap, c.cid) & Doc.text("=") & encodePath(
       Doc.text("tree"),
       c.path,
     )).nested(4)
@@ -526,19 +529,19 @@ private[export] object Encode {
       case Seq() =>
         (Doc.empty, Doc.text("pure ()"))
       case Seq(cid) if cids.length == 1 =>
-        val encodedCid = encodeCid(cidMap, cid)
-        (encodedCid :+ " <- ", Doc.empty)
+        (encodeCidPat(cidMap, cid) :+ " <- ", Doc.empty)
       case Seq(cid) =>
-        val encodedCid = encodeCid(cidMap, cid)
-        (encodedCid :+ " <- ", "pure " +: encodedCid)
+        (encodeCidPat(cidMap, cid) :+ " <- ", "pure " +: encodeCidExpr(cidMap, cid))
       case _ =>
-        val encodedCids = referencedCids.map(encodeCid(cidMap, _))
-        (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
+        (
+          tuple(referencedCids.map(encodeCidPat(cidMap, _))) :+ " <- ",
+          "pure " +: tuple(referencedCids.map(encodeCidExpr(cidMap, _))),
+        )
     }
     val actions = Doc.stack(submit.simpleCommands.map { case SimpleCommand(cmd, cid) =>
       val bind = if (returnStmt.nonEmpty) {
         if (cidRefs.contains(cid)) {
-          encodeCid(cidMap, cid) :+ " <- "
+          encodeCidPat(cidMap, cid) :+ " <- "
         } else {
           Doc.text("_ <- ")
         }
