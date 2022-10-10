@@ -507,7 +507,7 @@ private[export] object Encode {
     }
   }
 
-  private def bindCid(cidMap: Map[ContractId, String], c: CreatedContract): Doc = {
+  private def bindCid(cidMap: Map[ContractId, String], c: CreatedContractWithPath): Doc = {
     (Doc.text("let") & encodeCidPat(cidMap, c.cid) & Doc.text("=") & encodePath(
       Doc.text("tree"),
       c.path,

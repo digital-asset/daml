@@ -163,17 +163,24 @@ object TreeUtils {
         }
   }
 
-  case class CreatedContract(cid: ContractId, tplId: TemplateId, path: List[Selector])
+  trait CreatedContract {
+    def cid: ContractId
+    def tplId: TemplateId
+  }
 
-  def treeCreatedCids(tree: TransactionTree): Seq[CreatedContract] = {
-    var cids: Seq[CreatedContract] = Seq()
+  case class SimpleCreatedContract(cid: ContractId, tplId: TemplateId) extends CreatedContract
+  case class CreatedContractWithPath(cid: ContractId, tplId: TemplateId, path: List[Selector])
+      extends CreatedContract
+
+  def treeCreatedCids(tree: TransactionTree): Seq[CreatedContractWithPath] = {
+    var cids: Seq[CreatedContractWithPath] = Seq()
     traverseTree(tree) { case (selectors, kind) =>
       kind match {
         case Kind.Empty =>
         case Kind.Exercised(_) =>
         case Kind.Created(value) =>
           cids ++= Seq(
-            CreatedContract(
+            CreatedContractWithPath(
               ContractId(value.contractId),
               TemplateId(value.getTemplateId),
               selectors,
