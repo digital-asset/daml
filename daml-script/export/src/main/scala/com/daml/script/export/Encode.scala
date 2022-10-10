@@ -7,7 +7,7 @@ import java.time.format.DateTimeFormatter
 import java.time.{LocalDate, ZoneId, ZonedDateTime}
 
 import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, Party, TemplateId}
-import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
 import com.daml.lf.data.Ref
@@ -432,19 +432,7 @@ private[export] object Encode {
     case CreateCommand(createdEvent) =>
       encodeCreatedEvent(partyMap, cidMap, missingInstances, createdEvent)
     case ExerciseCommand(exercisedEvent) =>
-      val cid = encodeCid(cidMap, ContractId(exercisedEvent.contractId))
-      val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
-      if (missingInstances.contains(TemplateId(exercisedEvent.getTemplateId))) {
-        val command = Doc.text("internalExerciseCmd")
-        val tplIdArg = "@" +: encodeTemplateId(TemplateId(exercisedEvent.getTemplateId))
-        val typeRepArg = parens("templateTypeRep" &: tplIdArg)
-        val cidArg = parens("coerceContractId" &: cid)
-        val choiceArg = parens(Doc.text("toAnyChoice") & tplIdArg & choice)
-        Doc.stack(Seq(command, typeRepArg, cidArg, choiceArg)).nested(2)
-      } else {
-        val command = Doc.text("exerciseCmd")
-        command & cid & choice
-      }
+      encodeExercisedEvent(partyMap, cidMap, missingInstances, exercisedEvent)
     case ExerciseByKeyCommand(exercisedEvent, templateId, contractKey) =>
       val key = encodeValue(partyMap, cidMap, contractKey.sum)
       val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
@@ -492,6 +480,27 @@ private[export] object Encode {
     } else {
       val command = Doc.text("createCmd")
       command & encodeRecord(partyMap, cidMap, created.getCreateArguments)
+    }
+  }
+
+  private def encodeExercisedEvent(
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
+      missingInstances: Set[TemplateId],
+      exercisedEvent: ExercisedEvent,
+  ): Doc = {
+    val cid = encodeCid(cidMap, ContractId(exercisedEvent.contractId))
+    val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
+    if (missingInstances.contains(TemplateId(exercisedEvent.getTemplateId))) {
+      val command = Doc.text("internalExerciseCmd")
+      val tplIdArg = "@" +: encodeTemplateId(TemplateId(exercisedEvent.getTemplateId))
+      val typeRepArg = parens("templateTypeRep" &: tplIdArg)
+      val cidArg = parens("coerceContractId" &: cid)
+      val choiceArg = parens(Doc.text("toAnyChoice") & tplIdArg & choice)
+      Doc.stack(Seq(command, typeRepArg, cidArg, choiceArg)).nested(2)
+    } else {
+      val command = Doc.text("exerciseCmd")
+      command & cid & choice
     }
   }
 
