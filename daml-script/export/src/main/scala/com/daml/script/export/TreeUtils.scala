@@ -4,7 +4,7 @@
 package com.daml.script.export
 
 import java.time.Instant
-import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, Party, TemplateId}
+import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, InterfaceId, Party, TemplateId}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
@@ -30,6 +30,7 @@ object TreeUtils {
   ) extends Selector
   final case class ExercisedSelector(
       templateId: TemplateId,
+      interfaceId: Option[InterfaceId],
       choice: Choice,
       index: Int,
   ) extends Selector
@@ -78,9 +79,10 @@ object TreeUtils {
         f(event, selector)
       case event @ Kind.Exercised(value) =>
         val templateId = TemplateId(value.getTemplateId)
+        val interfaceId = InterfaceId.subst(value.interfaceId)
         val choice = Choice(value.choice)
         val index = exercised((templateId, choice))
-        val selector = ExercisedSelector(templateId, choice, index)
+        val selector = ExercisedSelector(templateId, interfaceId, choice, index)
         exercised((templateId, choice)) += 1
         f(event, selector)
     }
