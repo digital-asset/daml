@@ -71,17 +71,20 @@ object ResolvedQuery {
   }
 
   def apply(resolved: Set[ContractTypeId.Resolved]): Unsupported \/ ResolvedQuery = {
+    import com.daml.nonempty.{NonEmpty, Singleton}
     val (templateIds, interfaceIds) = partition(resolved)
-    if (templateIds.nonEmpty && interfaceIds.nonEmpty) {
-      -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
-    } else if (templateIds.isEmpty && interfaceIds.size > 1) {
-      -\/(CannotQueryManyInterfaceIds)
-    } else if (templateIds.isEmpty && interfaceIds.size == 1) {
-      \/-(ByInterfaceId(interfaceIds.head))
-    } else if (templateIds.nonEmpty) {
-      \/-(ByTemplateIds(templateIds))
-    } else {
-      -\/(CannotBeEmpty)
+    templateIds match {
+      case NonEmpty(templateIds) =>
+        interfaceIds match {
+          case NonEmpty(_) => -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+          case _ => \/-(ByTemplateIds(templateIds))
+        }
+      case _ =>
+        interfaceIds match {
+          case NonEmpty(Singleton(interfaceId)) => \/-(ByInterfaceId(interfaceId))
+          case NonEmpty(_) => -\/(CannotQueryManyInterfaceIds)
+          case _ => -\/(CannotBeEmpty)
+        }
     }
   }
 
@@ -95,15 +98,10 @@ object ResolvedQuery {
 
   sealed abstract class Unsupported(val errorMsg: String) extends Product with Serializable
   final case object CannotQueryBothTemplateIdsAndInterfaceIds
-      extends Unsupported("Cannot resolve any template ID from request")
+      extends Unsupported("Cannot query both templates IDs and interface IDs")
   final case object CannotQueryManyInterfaceIds
       extends Unsupported("Cannot query more than one interface ID")
   final case object CannotBeEmpty extends Unsupported("Cannot resolve any template ID from request")
-
-  // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok where it is used
-  final case object Empty extends ResolvedQuery {
-    def resolved = Set.empty[ContractTypeId.Resolved]
-  }
 
   final case class ByTemplateIds(templateIds: Set[ContractTypeId.Template.Resolved])
       extends ResolvedQuery {
