@@ -190,7 +190,7 @@ object Converter {
       ("getAnyChoice", SAny(choice.argBinder._2, translated)),
       (
         "getAnyChoiceTemplateTypeRep",
-        fromTemplateTypeRep(toApiIdentifier(templateId)),
+        fromTemplateTypeRep(toApiIdentifier(interfaceId.getOrElse(templateId))),
       ),
     )
   }
