@@ -688,7 +688,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val command: domain.CreateCommand[v.Record, OptionalPkg] =
           iouCreateCommand(alice)
-            .copy(templateId = domain.ContractTypeId(None, "Iou", "Dummy"))
+            .copy(templateId = domain.ContractTypeId.Template(None, "Iou", "Dummy"))
         val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
         fixture
