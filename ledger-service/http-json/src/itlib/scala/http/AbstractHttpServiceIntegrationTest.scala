@@ -111,32 +111,11 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
       }): Future[Assertion]
   }
 
-  "metering-report endpoint should return metering report" in withHttpService { fixture =>
-    val isoDate = "2022-02-03"
-    val request = MeteringReportDateRequest(
-      from = LocalDate.parse(isoDate),
-      to = None,
-      application = None,
-    )
-    fixture
-      .postJsonRequestWithMinimumAuth[Struct](
-        Uri.Path("/v1/metering-report"),
-        request.toJson,
-      )
-      .map(inside(_) { case domain.OkResponse(meteringReport, _, StatusCodes.OK) =>
-        meteringReport
-          .fields("request")
-          .getStructValue
-          .fields("from")
-          .getStringValue shouldBe s"${isoDate}T00:00:00Z"
-      })
-  }
-
 }
 
 /** Tests that may behave differently depending on
   *
-  * 1. whether custom or user tokens are used
+  * 1. whether custom or user tokens are used, ''and''
   * 2. the query store configuration
   */
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -178,57 +157,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       */
     def onlyIfLargeQueries_-(fun: => Unit): Unit =
       if (testLargeQueries) label - fun else ()
-  }
-
-  "query GET" - {
-    "empty results" in withHttpService { fixture =>
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (_, headers) =>
-        fixture.searchAllExpectOk(headers).map { vector =>
-          vector should have size 0L
-        }
-      }
-    }
-
-    "single-party with results" in withHttpService { fixture =>
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val searchDataSet = genSearchDataSet(alice)
-        searchDataSet.traverse(c => postCreateCommand(c, fixture, headers)).flatMap { rs =>
-          rs.map(_.status) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
-
-          fixture
-            .getRequest(Uri.Path("/v1/query"), headers)
-            .parseResponse[Vector[JsValue]]
-            .map(inside(_) { case domain.OkResponse(vector, None, StatusCodes.OK) =>
-              vector should have size searchDataSet.size.toLong
-            }): Future[Assertion]
-        }
-      }
-    }
-
-    "multi-party" in withHttpService { fixture =>
-      for {
-        res1 <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        (alice, aliceHeaders) = res1
-        res2 <- fixture.getUniquePartyAndAuthHeaders("Bob")
-        (bob, bobHeaders) = res2
-        _ <- postCreateCommand(
-          accountCreateCommand(owner = alice, number = "42"),
-          fixture,
-          headers = aliceHeaders,
-        ).map(r => r.status shouldBe StatusCodes.OK)
-        _ <- postCreateCommand(
-          accountCreateCommand(owner = bob, number = "23"),
-          fixture,
-          headers = bobHeaders,
-        ).map(r => r.status shouldBe StatusCodes.OK)
-        _ <- fixture.searchAllExpectOk(aliceHeaders).map(cs => cs should have size 1)
-        _ <- fixture.searchAllExpectOk(bobHeaders).map(cs => cs should have size 1)
-        _ <- fixture
-          .headersWithPartyAuth(List(alice.unwrap, bob.unwrap))
-          .flatMap(headers => fixture.searchAllExpectOk(headers))
-          .map(cs => cs should have size 2)
-      } yield succeed
-    }
   }
 
   "query POST with empty query" - {
@@ -626,119 +554,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
 
   }
 
-  "create" - {
-    "succeeds with single party, proper argument" in withHttpService { fixture =>
-      import fixture.encoder
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
-
-        postCreateCommand(command, fixture, headers)
-          .map(inside(_) { case domain.OkResponse(activeContract, _, StatusCodes.OK) =>
-            assertActiveContract(activeContract)(command, encoder)
-          }): Future[Assertion]
-      }
-    }
-
-    // TEST_EVIDENCE: Authorization: reject requests with missing auth header
-    "fails if authorization header is missing" in withHttpService { fixture =>
-      import fixture.encoder
-      val alice = getUniqueParty("Alice")
-      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
-      val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-
-      fixture
-        .postJsonRequest(Uri.Path("/v1/create"), input, List())
-        .parseResponse[JsValue]
-        .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.Unauthorized, _) =>
-          error should include(
-            "missing Authorization header with OAuth 2.0 Bearer Token"
-          )
-        }): Future[Assertion]
-    }
-
-    "supports extra readAs parties" in withHttpService { fixture =>
-      import fixture.encoder
-      for {
-        (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        command = iouCreateCommand(alice)
-        input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-        headers <- fixture
-          .headersWithPartyAuth(actAs = List(alice.unwrap), readAs = List("Bob"))
-        activeContractResponse <- fixture
-          .postJsonRequest(
-            Uri.Path("/v1/create"),
-            input,
-            headers,
-          )
-          .parseResponse[domain.ActiveContract[JsValue]]
-      } yield inside(activeContractResponse) {
-        case domain.OkResponse(activeContract, _, StatusCodes.OK) =>
-          assertActiveContract(activeContract)(command, encoder)
-      }
-    }
-
-    "with unsupported templateId should return proper error" in withHttpService { fixture =>
-      import fixture.encoder
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val command: domain.CreateCommand[v.Record, OptionalPkg] =
-          iouCreateCommand(alice)
-            .copy(templateId = domain.ContractTypeId(None, "Iou", "Dummy"))
-        val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-
-        fixture
-          .postJsonRequest(Uri.Path("/v1/create"), input, headers)
-          .parseResponse[JsValue]
-          .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.BadRequest, _) =>
-            val unknownTemplateId: OptionalPkg = command.templateId.copy(packageId = None)
-            error should include(
-              s"Cannot resolve template ID, given: ${unknownTemplateId: OptionalPkg}"
-            )
-          }): Future[Assertion]
-      }
-    }
-
-    "supports command deduplication" in withHttpService { fixture =>
-      import fixture.encoder
-      def genSubmissionId() = domain.SubmissionId(UUID.randomUUID().toString)
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val cmdId = domain.CommandId apply UUID.randomUUID().toString
-        def cmd(submissionId: domain.SubmissionId) =
-          iouCreateCommand(
-            alice,
-            amount = "19002.0",
-            meta = Some(
-              domain.CommandMeta(
-                commandId = Some(cmdId),
-                actAs = None,
-                readAs = None,
-                submissionId = Some(submissionId),
-                deduplicationPeriod = Some(domain.DeduplicationPeriod.Duration(10000L)),
-              )
-            ),
-          )
-
-        val firstCreate: JsValue =
-          encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
-
-        fixture
-          .postJsonRequest(Uri.Path("/v1/create"), firstCreate, headers)
-          .parseResponse[domain.CreateCommandResponse[JsValue]]
-          .map(inside(_) { case domain.OkResponse(result, _, _) =>
-            result.completionOffset.unwrap should not be empty
-          })
-          .flatMap { _ =>
-            val secondCreate: JsValue =
-              encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
-            fixture
-              .postJsonRequest(Uri.Path("/v1/create"), secondCreate, headers)
-              .map(inside(_) { case (StatusCodes.Conflict, _) =>
-                succeed
-              }): Future[Assertion]
-          }
-      }
-    }
-  }
-
   "exercise" - {
     "succeeds normally" in withHttpService { fixture =>
       import fixture.encoder
@@ -859,36 +674,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
-  "create-and-exercise IOU_Transfer" in withHttpService { fixture =>
-    import fixture.encoder
-    for {
-      (alice, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-      (bob, _) <- fixture.getUniquePartyAndAuthHeaders("Bob")
-      cmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] =
-        iouCreateAndExerciseTransferCommand(alice, bob)
-      json: JsValue = encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
-
-      res <- fixture
-        .postJsonRequest(Uri.Path("/v1/create-and-exercise"), json, headers)
-        .parseResponse[domain.ExerciseResponse[JsValue]]
-      _ <- inside(res) { case domain.OkResponse(result, None, StatusCodes.OK) =>
-        result.completionOffset.unwrap should not be empty
-        inside(result.events) {
-          case List(
-                domain.Contract(\/-(created0)),
-                domain.Contract(-\/(archived0)),
-                domain.Contract(\/-(created1)),
-              ) =>
-            assertTemplateId(created0.templateId, cmd.templateId)
-            assertTemplateId(archived0.templateId, cmd.templateId)
-            archived0.contractId shouldBe created0.contractId
-            assertTemplateId(created1.templateId, TpId.Iou.IouTransfer)
-            asContractId(result.exerciseResult) shouldBe created1.contractId
-        }
-      }
-    } yield succeed
-  }
-
   private def assertExerciseResponseNewActiveContract(
       exerciseResponse: domain.ExerciseResponse[JsValue],
       createCmd: domain.CreateCommand[v.Record, OptionalPkg],
@@ -996,6 +781,557 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         (archivedContract.contractId.unwrap: String) shouldBe (exercise.reference.contractId.unwrap: String)
       }
     }
+
+  "fetch by contractId" - {
+    "succeeds normally" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
+
+        postCreateCommand(command, fixture, headers).flatMap(inside(_) {
+          case domain.OkResponse(result, _, StatusCodes.OK) =>
+            val contractId: ContractId = result.contractId
+            val locator = domain.EnrichedContractId(None, contractId)
+            lookupContractAndAssert(locator, contractId, command, fixture, headers)
+        }): Future[Assertion]
+      }
+    }
+
+    "succeeds normally with an interface ID" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCommand(alice, CIou.CIou)
+
+        postCreateCommand(command, fixture, headers).flatMap(inside(_) {
+          case domain.OkResponse(result, _, StatusCodes.OK) =>
+            val contractId: ContractId = result.contractId
+            val locator = domain.EnrichedContractId(Some(TpId.IIou.IIou), contractId)
+            postContractsLookup(locator, fixture.uri, headers).map(inside(_) {
+              case domain.OkResponse(Some(resultContract), _, StatusCodes.OK) =>
+                contractId shouldBe resultContract.contractId
+                assertJsPayload(resultContract)(JsObject("amount" -> JsString("42")))
+            })
+        }): Future[Assertion]
+      }
+    }
+
+    "returns {status:200, result:null} when contract is not found" in withHttpService { fixture =>
+      import fixture.uri
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val accountNumber = "abc123"
+        val locator = domain.EnrichedContractKey(
+          TpId.Account.Account,
+          JsArray(JsString(alice.unwrap), JsString(accountNumber)),
+        )
+        postContractsLookup(locator, uri.withPath(Uri.Path("/v1/fetch")), headers).map(inside(_) {
+          case domain.OkResponse(None, _, StatusCodes.OK) =>
+            succeed
+        }): Future[Assertion]
+      }
+    }
+
+    // TEST_EVIDENCE: Authorization: fetch fails when readAs not authed, even if prior fetch succeeded
+    "fails when readAs not authed, even if prior fetch succeeded" in withHttpService { fixture =>
+      import fixture.uri
+      for {
+        res <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (alice, aliceHeaders) = res
+        command = iouCreateCommand(alice)
+        createStatusOutput <- postCreateCommand(command, fixture, aliceHeaders)
+        contractId = inside(createStatusOutput) {
+          case domain.OkResponse(result, _, StatusCodes.OK) =>
+            result.contractId
+        }
+        locator = domain.EnrichedContractId(None, contractId)
+        // will cache if DB configured
+        _ <- lookupContractAndAssert(locator, contractId, command, fixture, aliceHeaders)
+        charlie = getUniqueParty("Charlie")
+        badLookup <- postContractsLookup(
+          locator,
+          uri.withPath(Uri.Path("/v1/fetch")),
+          aliceHeaders,
+          readAs = Some(List(charlie)),
+        )
+      } yield inside(badLookup) {
+        case domain.ErrorResponse(_, None, StatusCodes.Unauthorized, None) =>
+          succeed
+      }
+    }
+  }
+
+  "fetch by key" - {
+    "succeeds normally" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val accountNumber = "abc123"
+        val command: domain.CreateCommand[v.Record, OptionalPkg] =
+          accountCreateCommand(alice, accountNumber)
+
+        postCreateCommand(command, fixture, headers).flatMap(inside(_) {
+          case domain.OkResponse(result, _, StatusCodes.OK) =>
+            val contractId: ContractId = result.contractId
+            val locator = domain.EnrichedContractKey(
+              TpId.Account.Account,
+              JsArray(JsString(alice.unwrap), JsString(accountNumber)),
+            )
+            lookupContractAndAssert(locator, contractId, command, fixture, headers)
+        }): Future[Assertion]
+      }
+    }
+
+    "containing variant and record" - {
+      "encoded as array with number num" in withHttpService { fixture =>
+        fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+          testFetchByCompositeKey(
+            fixture,
+            jsObject(s"""{
+            "templateId": "Account:KeyedByVariantAndRecord",
+            "key": [
+              "$alice",
+              {"tag": "Bar", "value": 42},
+              {"baz": "another baz value"}
+            ]
+          }"""),
+            alice,
+            headers,
+          )
+        }
+      }
+
+      "encoded as record with string num" in withHttpService { fixture =>
+        fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+          testFetchByCompositeKey(
+            fixture,
+            jsObject(s"""{
+            "templateId": "Account:KeyedByVariantAndRecord",
+            "key": {
+              "_1": "$alice",
+              "_2": {"tag": "Bar", "value": "42"},
+              "_3": {"baz": "another baz value"}
+            }
+          }"""),
+            alice,
+            headers,
+          )
+        }
+      }
+    }
+  }
+
+  private def testFetchByCompositeKey(
+      fixture: UriFixture,
+      request: JsObject,
+      party: domain.Party,
+      headers: List[HttpHeader],
+  ) = {
+    val createCommand = jsObject(s"""{
+        "templateId": "Account:KeyedByVariantAndRecord",
+        "payload": {
+          "name": "ABC DEF",
+          "party": "${party.unwrap}",
+          "age": 123,
+          "fooVariant": {"tag": "Bar", "value": 42},
+          "bazRecord": {"baz": "another baz value"}
+        }
+      }""")
+    fixture
+      .postJsonRequest(Uri.Path("/v1/create"), createCommand, headers)
+      .parseResponse[domain.ActiveContract[JsValue]]
+      .flatMap(inside(_) { case domain.OkResponse(c, _, StatusCodes.OK) =>
+        val contractId: ContractId = c.contractId
+
+        fixture
+          .postJsonRequest(Uri.Path("/v1/fetch"), request, headers)
+          .parseResponse[domain.ActiveContract[JsValue]]
+          .flatMap(inside(_) { case domain.OkResponse(c, _, StatusCodes.OK) =>
+            c.contractId shouldBe contractId
+          })
+      }): Future[Assertion]
+  }
+
+  // TEST_EVIDENCE: Performance: archiving a large number of contracts should succeed
+  "archiving a large number of contracts should succeed" in withHttpService(
+    maxInboundMessageSize = StartSettings.DefaultMaxInboundMessageSize * 10
+  ) { fixture =>
+    import fixture.encoder
+    import org.scalacheck.{Arbitrary, Gen}
+    fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+      // The numContracts size should test for https://github.com/digital-asset/daml/issues/10339
+      val numContracts: Long = 2000
+      val helperId = domain.ContractTypeId.Template(None, "Account", "Helper")
+      val payload = recordFromFields(ShRecord(owner = v.Value.Sum.Party(alice.unwrap)))
+      val createCmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] =
+        domain.CreateAndExerciseCommand(
+          templateId = helperId,
+          payload = payload,
+          choice = lar.Choice("CreateN"),
+          argument = boxedRecord(recordFromFields(ShRecord(n = v.Value.Sum.Int64(numContracts)))),
+          choiceInterfaceId = None,
+          meta = None,
+        )
+
+      def encode(cmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg]): JsValue =
+        encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
+
+      def archiveCmd(cids: List[String]) =
+        domain.CreateAndExerciseCommand(
+          templateId = helperId,
+          payload = payload,
+          choice = lar.Choice("ArchiveAll"),
+          argument = boxedRecord(
+            recordFromFields(
+              ShRecord(cids =
+                lfToApi(
+                  VAx
+                    .seq(VA.contractId(Arbitrary(Gen.fail)))
+                    .inj(cids map lfv.Value.ContractId.assertFromString)
+                ).sum
+              )
+            )
+          ),
+          choiceInterfaceId = None,
+          meta = None,
+        )
+
+      def queryN(n: Long): Future[Assertion] = fixture
+        .postJsonRequest(
+          Uri.Path("/v1/query"),
+          jsObject("""{"templateIds": ["Account:Account"]}"""),
+          headers,
+        )
+        .parseResponse[Vector[JsValue]]
+        .map(inside(_) { case domain.OkResponse(result, _, StatusCodes.OK) =>
+          result should have length n
+        })
+
+      for {
+        resp <- fixture
+          .postJsonRequest(Uri.Path("/v1/create-and-exercise"), encode(createCmd), headers)
+          .parseResponse[domain.ExerciseResponse[JsValue]]
+        result = inside(resp) { case domain.OkResponse(result, _, StatusCodes.OK) =>
+          result
+        }
+        created = result.exerciseResult.convertTo[List[String]]
+        _ = created should have length numContracts
+
+        _ <- queryN(numContracts)
+
+        archiveResponse <- fixture
+          .postJsonRequest(
+            Uri.Path("/v1/create-and-exercise"),
+            encode(archiveCmd(created)),
+            headers,
+          )
+          .parseResponse[JsValue]
+        _ = inside(archiveResponse) { case domain.OkResponse(_, _, StatusCodes.OK) =>
+        }
+
+        _ <- queryN(0)
+      } yield succeed
+    }
+  }
+
+  "Should ignore conflicts on contract key hash constraint violation" in withHttpService {
+    fixture =>
+      import fixture.{client, encoder}
+      import com.daml.ledger.api.refinements.{ApiTypes => lar}
+      import shapeless.record.{Record => ShRecord}
+      val partyManagement = client.partyManagementClient
+
+      val partyIds = Vector("Alice", "Bob").map(getUniqueParty)
+      val packageId: Ref.PackageId = MetadataReader
+        .templateByName(metadataUser)(Ref.QualifiedName.assertFromString("User:User"))
+        .collectFirst { case (pkgid, _) => pkgid }
+        .getOrElse(fail(s"Cannot retrieve packageId"))
+
+      def userCreateCommand(
+          username: domain.Party,
+          following: Seq[domain.Party] = Seq.empty,
+      ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
+        val followingList = lfToApi(
+          VAx.seq(VAx.partyDomain).inj(following)
+        ).sum
+        val arg = recordFromFields(
+          ShRecord(
+            username = v.Value.Sum.Party(username.unwrap),
+            following = followingList,
+          )
+        )
+
+        domain.CreateCommand(TpId.User.User, arg, None)
+      }
+
+      def userExerciseFollowCommand(
+          contractId: lar.ContractId,
+          toFollow: domain.Party,
+      ): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
+        val reference = domain.EnrichedContractId(Some(TpId.User.User), contractId)
+        val arg = recordFromFields(ShRecord(userToFollow = v.Value.Sum.Party(toFollow.unwrap)))
+        val choice = lar.Choice("Follow")
+
+        domain.ExerciseCommand(reference, choice, boxedRecord(arg), None, None)
+      }
+
+      def followUser(contractId: lar.ContractId, actAs: domain.Party, toFollow: domain.Party) = {
+        val exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId] =
+          userExerciseFollowCommand(contractId, toFollow)
+        val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
+
+        fixture
+          .headersWithPartyAuth(actAs = List(actAs.unwrap))
+          .flatMap(headers =>
+            fixture.postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
+          )
+          .parseResponse[JsValue]
+          .map(inside(_) { case domain.OkResponse(_, _, StatusCodes.OK) =>
+          })
+
+      }
+
+      def queryUsers(fromPerspectiveOfParty: domain.Party) = {
+        val query = jsObject(s"""{
+             "templateIds": ["$packageId:User:User"],
+             "query": {}
+          }""")
+
+        fixture
+          .headersWithPartyAuth(actAs = List(fromPerspectiveOfParty.unwrap))
+          .flatMap(headers => fixture.postJsonRequest(Uri.Path("/v1/query"), query, headers))
+          .parseResponse[JsValue]
+          .map(inside(_) { case domain.OkResponse(_, _, StatusCodes.OK) =>
+          })
+      }
+
+      val commands = partyIds.map { p =>
+        (p, userCreateCommand(p))
+      }
+
+      for {
+        _ <- partyIds.traverse { p =>
+          partyManagement.allocateParty(Some(p.unwrap), None)
+        }
+        users <- commands.traverse { case (party, command) =>
+          val fut = fixture
+            .headersWithPartyAuth(actAs = List(party.unwrap))
+            .flatMap(headers =>
+              postCreateCommand(
+                command,
+                fixture,
+                headers,
+              )
+            )
+            .map(resultContractId): Future[ContractId]
+          fut.map(cid => (party, cid))
+        }
+        (alice, aliceUserId) = users(0)
+        (bob, bobUserId) = users(1)
+        _ <- followUser(aliceUserId, alice, bob)
+        _ <- queryUsers(bob)
+        _ <- followUser(bobUserId, bob, alice)
+        _ <- queryUsers(alice)
+      } yield succeed
+  }
+}
+
+/** Tests that don't exercise the query store at all, but exercise different
+  * paths due to authentication method.
+  */
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
+    extends AbstractHttpServiceIntegrationTestTokenIndependent {
+  import HttpServiceTestFixture.accountCreateCommand
+  import json.JsonProtocol._
+
+  "query GET" - {
+    "empty results" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (_, headers) =>
+        fixture.searchAllExpectOk(headers).map { vector =>
+          vector should have size 0L
+        }
+      }
+    }
+
+    "single-party with results" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val searchDataSet = genSearchDataSet(alice)
+        searchDataSet.traverse(c => postCreateCommand(c, fixture, headers)).flatMap { rs =>
+          rs.map(_.status) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
+
+          fixture
+            .getRequest(Uri.Path("/v1/query"), headers)
+            .parseResponse[Vector[JsValue]]
+            .map(inside(_) { case domain.OkResponse(vector, None, StatusCodes.OK) =>
+              vector should have size searchDataSet.size.toLong
+            }): Future[Assertion]
+        }
+      }
+    }
+
+    "multi-party" in withHttpService { fixture =>
+      for {
+        res1 <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (alice, aliceHeaders) = res1
+        res2 <- fixture.getUniquePartyAndAuthHeaders("Bob")
+        (bob, bobHeaders) = res2
+        _ <- postCreateCommand(
+          accountCreateCommand(owner = alice, number = "42"),
+          fixture,
+          headers = aliceHeaders,
+        ).map(r => r.status shouldBe StatusCodes.OK)
+        _ <- postCreateCommand(
+          accountCreateCommand(owner = bob, number = "23"),
+          fixture,
+          headers = bobHeaders,
+        ).map(r => r.status shouldBe StatusCodes.OK)
+        _ <- fixture.searchAllExpectOk(aliceHeaders).map(cs => cs should have size 1)
+        _ <- fixture.searchAllExpectOk(bobHeaders).map(cs => cs should have size 1)
+        _ <- fixture
+          .headersWithPartyAuth(List(alice.unwrap, bob.unwrap))
+          .flatMap(headers => fixture.searchAllExpectOk(headers))
+          .map(cs => cs should have size 2)
+      } yield succeed
+    }
+  }
+
+  "create" - {
+    "succeeds with single party, proper argument" in withHttpService { fixture =>
+      import fixture.encoder
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
+
+        postCreateCommand(command, fixture, headers)
+          .map(inside(_) { case domain.OkResponse(activeContract, _, StatusCodes.OK) =>
+            assertActiveContract(activeContract)(command, encoder)
+          }): Future[Assertion]
+      }
+    }
+
+    // TEST_EVIDENCE: Authorization: reject requests with missing auth header
+    "fails if authorization header is missing" in withHttpService { fixture =>
+      import fixture.encoder
+      val alice = getUniqueParty("Alice")
+      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
+      val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
+
+      fixture
+        .postJsonRequest(Uri.Path("/v1/create"), input, List())
+        .parseResponse[JsValue]
+        .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.Unauthorized, _) =>
+          error should include(
+            "missing Authorization header with OAuth 2.0 Bearer Token"
+          )
+        }): Future[Assertion]
+    }
+
+    "supports extra readAs parties" in withHttpService { fixture =>
+      import fixture.encoder
+      for {
+        (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        command = iouCreateCommand(alice)
+        input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
+        headers <- fixture
+          .headersWithPartyAuth(actAs = List(alice.unwrap), readAs = List("Bob"))
+        activeContractResponse <- fixture
+          .postJsonRequest(
+            Uri.Path("/v1/create"),
+            input,
+            headers,
+          )
+          .parseResponse[domain.ActiveContract[JsValue]]
+      } yield inside(activeContractResponse) {
+        case domain.OkResponse(activeContract, _, StatusCodes.OK) =>
+          assertActiveContract(activeContract)(command, encoder)
+      }
+    }
+
+    "with unsupported templateId should return proper error" in withHttpService { fixture =>
+      import fixture.encoder
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val command: domain.CreateCommand[v.Record, OptionalPkg] =
+          iouCreateCommand(alice)
+            .copy(templateId = domain.ContractTypeId(None, "Iou", "Dummy"))
+        val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
+
+        fixture
+          .postJsonRequest(Uri.Path("/v1/create"), input, headers)
+          .parseResponse[JsValue]
+          .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.BadRequest, _) =>
+            val unknownTemplateId: OptionalPkg = command.templateId.copy(packageId = None)
+            error should include(
+              s"Cannot resolve template ID, given: ${unknownTemplateId: OptionalPkg}"
+            )
+          }): Future[Assertion]
+      }
+    }
+
+    "supports command deduplication" in withHttpService { fixture =>
+      import fixture.encoder
+      def genSubmissionId() = domain.SubmissionId(UUID.randomUUID().toString)
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val cmdId = domain.CommandId apply UUID.randomUUID().toString
+        def cmd(submissionId: domain.SubmissionId) =
+          iouCreateCommand(
+            alice,
+            amount = "19002.0",
+            meta = Some(
+              domain.CommandMeta(
+                commandId = Some(cmdId),
+                actAs = None,
+                readAs = None,
+                submissionId = Some(submissionId),
+                deduplicationPeriod = Some(domain.DeduplicationPeriod.Duration(10000L)),
+              )
+            ),
+          )
+
+        val firstCreate: JsValue =
+          encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
+
+        fixture
+          .postJsonRequest(Uri.Path("/v1/create"), firstCreate, headers)
+          .parseResponse[domain.CreateCommandResponse[JsValue]]
+          .map(inside(_) { case domain.OkResponse(result, _, _) =>
+            result.completionOffset.unwrap should not be empty
+          })
+          .flatMap { _ =>
+            val secondCreate: JsValue =
+              encoder.encodeCreateCommand(cmd(genSubmissionId())).valueOr(e => fail(e.shows))
+            fixture
+              .postJsonRequest(Uri.Path("/v1/create"), secondCreate, headers)
+              .map(inside(_) { case (StatusCodes.Conflict, _) =>
+                succeed
+              }): Future[Assertion]
+          }
+      }
+    }
+  }
+
+  "create-and-exercise IOU_Transfer" in withHttpService { fixture =>
+    import fixture.encoder
+    for {
+      (alice, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+      (bob, _) <- fixture.getUniquePartyAndAuthHeaders("Bob")
+      cmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] =
+        iouCreateAndExerciseTransferCommand(alice, bob)
+      json: JsValue = encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
+
+      res <- fixture
+        .postJsonRequest(Uri.Path("/v1/create-and-exercise"), json, headers)
+        .parseResponse[domain.ExerciseResponse[JsValue]]
+      _ <- inside(res) { case domain.OkResponse(result, None, StatusCodes.OK) =>
+        result.completionOffset.unwrap should not be empty
+        inside(result.events) {
+          case List(
+                domain.Contract(\/-(created0)),
+                domain.Contract(-\/(archived0)),
+                domain.Contract(\/-(created1)),
+              ) =>
+            assertTemplateId(created0.templateId, cmd.templateId)
+            assertTemplateId(archived0.templateId, cmd.templateId)
+            archived0.contractId shouldBe created0.contractId
+            assertTemplateId(created1.templateId, TpId.Iou.IouTransfer)
+            asContractId(result.exerciseResult) shouldBe created1.contractId
+        }
+      }
+    } yield succeed
+  }
 
   "request non-existent endpoint should return 404 with errors" in withHttpService { fixture =>
     val badPath = Uri.Path("/contracts/does-not-exist")
@@ -1193,170 +1529,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
-  "fetch by contractId" - {
-    "succeeds normally" in withHttpService { fixture =>
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
-
-        postCreateCommand(command, fixture, headers).flatMap(inside(_) {
-          case domain.OkResponse(result, _, StatusCodes.OK) =>
-            val contractId: ContractId = result.contractId
-            val locator = domain.EnrichedContractId(None, contractId)
-            lookupContractAndAssert(locator, contractId, command, fixture, headers)
-        }): Future[Assertion]
-      }
-    }
-
-    "succeeds normally with an interface ID" in withHttpService { fixture =>
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCommand(alice, CIou.CIou)
-
-        postCreateCommand(command, fixture, headers).flatMap(inside(_) {
-          case domain.OkResponse(result, _, StatusCodes.OK) =>
-            val contractId: ContractId = result.contractId
-            val locator = domain.EnrichedContractId(Some(TpId.IIou.IIou), contractId)
-            postContractsLookup(locator, fixture.uri, headers).map(inside(_) {
-              case domain.OkResponse(Some(resultContract), _, StatusCodes.OK) =>
-                contractId shouldBe resultContract.contractId
-                assertJsPayload(resultContract)(JsObject("amount" -> JsString("42")))
-            })
-        }): Future[Assertion]
-      }
-    }
-
-    "returns {status:200, result:null} when contract is not found" in withHttpService { fixture =>
-      import fixture.uri
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val accountNumber = "abc123"
-        val locator = domain.EnrichedContractKey(
-          TpId.Account.Account,
-          JsArray(JsString(alice.unwrap), JsString(accountNumber)),
-        )
-        postContractsLookup(locator, uri.withPath(Uri.Path("/v1/fetch")), headers).map(inside(_) {
-          case domain.OkResponse(None, _, StatusCodes.OK) =>
-            succeed
-        }): Future[Assertion]
-      }
-    }
-
-    // TEST_EVIDENCE: Authorization: fetch fails when readAs not authed, even if prior fetch succeeded
-    "fails when readAs not authed, even if prior fetch succeeded" in withHttpService { fixture =>
-      import fixture.uri
-      for {
-        res <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        (alice, aliceHeaders) = res
-        command = iouCreateCommand(alice)
-        createStatusOutput <- postCreateCommand(command, fixture, aliceHeaders)
-        contractId = inside(createStatusOutput) {
-          case domain.OkResponse(result, _, StatusCodes.OK) =>
-            result.contractId
-        }
-        locator = domain.EnrichedContractId(None, contractId)
-        // will cache if DB configured
-        _ <- lookupContractAndAssert(locator, contractId, command, fixture, aliceHeaders)
-        charlie = getUniqueParty("Charlie")
-        badLookup <- postContractsLookup(
-          locator,
-          uri.withPath(Uri.Path("/v1/fetch")),
-          aliceHeaders,
-          readAs = Some(List(charlie)),
-        )
-      } yield inside(badLookup) {
-        case domain.ErrorResponse(_, None, StatusCodes.Unauthorized, None) =>
-          succeed
-      }
-    }
-  }
-
-  "fetch by key" - {
-    "succeeds normally" in withHttpService { fixture =>
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val accountNumber = "abc123"
-        val command: domain.CreateCommand[v.Record, OptionalPkg] =
-          accountCreateCommand(alice, accountNumber)
-
-        postCreateCommand(command, fixture, headers).flatMap(inside(_) {
-          case domain.OkResponse(result, _, StatusCodes.OK) =>
-            val contractId: ContractId = result.contractId
-            val locator = domain.EnrichedContractKey(
-              TpId.Account.Account,
-              JsArray(JsString(alice.unwrap), JsString(accountNumber)),
-            )
-            lookupContractAndAssert(locator, contractId, command, fixture, headers)
-        }): Future[Assertion]
-      }
-    }
-
-    "containing variant and record" - {
-      "encoded as array with number num" in withHttpService { fixture =>
-        fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-          testFetchByCompositeKey(
-            fixture,
-            jsObject(s"""{
-            "templateId": "Account:KeyedByVariantAndRecord",
-            "key": [
-              "$alice",
-              {"tag": "Bar", "value": 42},
-              {"baz": "another baz value"}
-            ]
-          }"""),
-            alice,
-            headers,
-          )
-        }
-      }
-
-      "encoded as record with string num" in withHttpService { fixture =>
-        fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-          testFetchByCompositeKey(
-            fixture,
-            jsObject(s"""{
-            "templateId": "Account:KeyedByVariantAndRecord",
-            "key": {
-              "_1": "$alice",
-              "_2": {"tag": "Bar", "value": "42"},
-              "_3": {"baz": "another baz value"}
-            }
-          }"""),
-            alice,
-            headers,
-          )
-        }
-      }
-    }
-  }
-
-  private def testFetchByCompositeKey(
-      fixture: UriFixture,
-      request: JsObject,
-      party: domain.Party,
-      headers: List[HttpHeader],
-  ) = {
-    val createCommand = jsObject(s"""{
-        "templateId": "Account:KeyedByVariantAndRecord",
-        "payload": {
-          "name": "ABC DEF",
-          "party": "${party.unwrap}",
-          "age": 123,
-          "fooVariant": {"tag": "Bar", "value": 42},
-          "bazRecord": {"baz": "another baz value"}
-        }
-      }""")
-    fixture
-      .postJsonRequest(Uri.Path("/v1/create"), createCommand, headers)
-      .parseResponse[domain.ActiveContract[JsValue]]
-      .flatMap(inside(_) { case domain.OkResponse(c, _, StatusCodes.OK) =>
-        val contractId: ContractId = c.contractId
-
-        fixture
-          .postJsonRequest(Uri.Path("/v1/fetch"), request, headers)
-          .parseResponse[domain.ActiveContract[JsValue]]
-          .flatMap(inside(_) { case domain.OkResponse(c, _, StatusCodes.OK) =>
-            c.contractId shouldBe contractId
-          })
-      }): Future[Assertion]
-  }
-
   "packages endpoint should" - {
     "return all known package IDs" in withHttpService { fixture =>
       getAllPackageIds(fixture).map { x =>
@@ -1445,194 +1617,24 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
       }
   }
 
-  // TEST_EVIDENCE: Performance: archiving a large number of contracts should succeed
-  "archiving a large number of contracts should succeed" in withHttpService(
-    maxInboundMessageSize = StartSettings.DefaultMaxInboundMessageSize * 10
-  ) { fixture =>
-    import fixture.encoder
-    import org.scalacheck.{Arbitrary, Gen}
-    fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-      // The numContracts size should test for https://github.com/digital-asset/daml/issues/10339
-      val numContracts: Long = 2000
-      val helperId = domain.ContractTypeId.Template(None, "Account", "Helper")
-      val payload = recordFromFields(ShRecord(owner = v.Value.Sum.Party(alice.unwrap)))
-      val createCmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] =
-        domain.CreateAndExerciseCommand(
-          templateId = helperId,
-          payload = payload,
-          choice = lar.Choice("CreateN"),
-          argument = boxedRecord(recordFromFields(ShRecord(n = v.Value.Sum.Int64(numContracts)))),
-          choiceInterfaceId = None,
-          meta = None,
-        )
-
-      def encode(cmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg]): JsValue =
-        encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
-
-      def archiveCmd(cids: List[String]) =
-        domain.CreateAndExerciseCommand(
-          templateId = helperId,
-          payload = payload,
-          choice = lar.Choice("ArchiveAll"),
-          argument = boxedRecord(
-            recordFromFields(
-              ShRecord(cids =
-                lfToApi(
-                  VAx
-                    .seq(VA.contractId(Arbitrary(Gen.fail)))
-                    .inj(cids map lfv.Value.ContractId.assertFromString)
-                ).sum
-              )
-            )
-          ),
-          choiceInterfaceId = None,
-          meta = None,
-        )
-
-      def queryN(n: Long): Future[Assertion] = fixture
-        .postJsonRequest(
-          Uri.Path("/v1/query"),
-          jsObject("""{"templateIds": ["Account:Account"]}"""),
-          headers,
-        )
-        .parseResponse[Vector[JsValue]]
-        .map(inside(_) { case domain.OkResponse(result, _, StatusCodes.OK) =>
-          result should have length n
-        })
-
-      for {
-        resp <- fixture
-          .postJsonRequest(Uri.Path("/v1/create-and-exercise"), encode(createCmd), headers)
-          .parseResponse[domain.ExerciseResponse[JsValue]]
-        result = inside(resp) { case domain.OkResponse(result, _, StatusCodes.OK) =>
-          result
-        }
-        created = result.exerciseResult.convertTo[List[String]]
-        _ = created should have length numContracts
-
-        _ <- queryN(numContracts)
-
-        archiveResponse <- fixture
-          .postJsonRequest(
-            Uri.Path("/v1/create-and-exercise"),
-            encode(archiveCmd(created)),
-            headers,
-          )
-          .parseResponse[JsValue]
-        _ = inside(archiveResponse) { case domain.OkResponse(_, _, StatusCodes.OK) =>
-        }
-
-        _ <- queryN(0)
-      } yield succeed
-    }
+  "metering-report endpoint should return metering report" in withHttpService { fixture =>
+    val isoDate = "2022-02-03"
+    val request = MeteringReportDateRequest(
+      from = LocalDate.parse(isoDate),
+      to = None,
+      application = None,
+    )
+    fixture
+      .postJsonRequestWithMinimumAuth[Struct](
+        Uri.Path("/v1/metering-report"),
+        request.toJson,
+      )
+      .map(inside(_) { case domain.OkResponse(meteringReport, _, StatusCodes.OK) =>
+        meteringReport
+          .fields("request")
+          .getStructValue
+          .fields("from")
+          .getStringValue shouldBe s"${isoDate}T00:00:00Z"
+      })
   }
-
-  "Should ignore conflicts on contract key hash constraint violation" in withHttpService {
-    fixture =>
-      import fixture.{client, encoder}
-      import com.daml.ledger.api.refinements.{ApiTypes => lar}
-      import shapeless.record.{Record => ShRecord}
-      val partyManagement = client.partyManagementClient
-
-      val partyIds = Vector("Alice", "Bob").map(getUniqueParty)
-      val packageId: Ref.PackageId = MetadataReader
-        .templateByName(metadataUser)(Ref.QualifiedName.assertFromString("User:User"))
-        .collectFirst { case (pkgid, _) => pkgid }
-        .getOrElse(fail(s"Cannot retrieve packageId"))
-
-      def userCreateCommand(
-          username: domain.Party,
-          following: Seq[domain.Party] = Seq.empty,
-      ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
-        val followingList = lfToApi(
-          VAx.seq(VAx.partyDomain).inj(following)
-        ).sum
-        val arg = recordFromFields(
-          ShRecord(
-            username = v.Value.Sum.Party(username.unwrap),
-            following = followingList,
-          )
-        )
-
-        domain.CreateCommand(TpId.User.User, arg, None)
-      }
-
-      def userExerciseFollowCommand(
-          contractId: lar.ContractId,
-          toFollow: domain.Party,
-      ): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
-        val reference = domain.EnrichedContractId(Some(TpId.User.User), contractId)
-        val arg = recordFromFields(ShRecord(userToFollow = v.Value.Sum.Party(toFollow.unwrap)))
-        val choice = lar.Choice("Follow")
-
-        domain.ExerciseCommand(reference, choice, boxedRecord(arg), None, None)
-      }
-
-      def followUser(contractId: lar.ContractId, actAs: domain.Party, toFollow: domain.Party) = {
-        val exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId] =
-          userExerciseFollowCommand(contractId, toFollow)
-        val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
-
-        fixture
-          .headersWithPartyAuth(actAs = List(actAs.unwrap))
-          .flatMap(headers =>
-            fixture.postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
-          )
-          .parseResponse[JsValue]
-          .map(inside(_) { case domain.OkResponse(_, _, StatusCodes.OK) =>
-          })
-
-      }
-
-      def queryUsers(fromPerspectiveOfParty: domain.Party) = {
-        val query = jsObject(s"""{
-             "templateIds": ["$packageId:User:User"],
-             "query": {}
-          }""")
-
-        fixture
-          .headersWithPartyAuth(actAs = List(fromPerspectiveOfParty.unwrap))
-          .flatMap(headers => fixture.postJsonRequest(Uri.Path("/v1/query"), query, headers))
-          .parseResponse[JsValue]
-          .map(inside(_) { case domain.OkResponse(_, _, StatusCodes.OK) =>
-          })
-      }
-
-      val commands = partyIds.map { p =>
-        (p, userCreateCommand(p))
-      }
-
-      for {
-        _ <- partyIds.traverse { p =>
-          partyManagement.allocateParty(Some(p.unwrap), None)
-        }
-        users <- commands.traverse { case (party, command) =>
-          val fut = fixture
-            .headersWithPartyAuth(actAs = List(party.unwrap))
-            .flatMap(headers =>
-              postCreateCommand(
-                command,
-                fixture,
-                headers,
-              )
-            )
-            .map(resultContractId): Future[ContractId]
-          fut.map(cid => (party, cid))
-        }
-        (alice, aliceUserId) = users(0)
-        (bob, bobUserId) = users(1)
-        _ <- followUser(aliceUserId, alice, bob)
-        _ <- queryUsers(bob)
-        _ <- followUser(bobUserId, bob, alice)
-        _ <- queryUsers(alice)
-      } yield succeed
-  }
-
 }
-
-/** Tests that don't exercise the query store at all, but exercise different
-  * paths due to authentication method.
-  */
-@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
-    extends AbstractHttpServiceIntegrationTestTokenIndependent {}
