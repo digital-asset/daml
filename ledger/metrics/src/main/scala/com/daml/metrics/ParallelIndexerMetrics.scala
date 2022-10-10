@@ -48,6 +48,7 @@ class ParallelIndexerMetrics(override val prefix: MetricName, override val regis
 
     // Bundle of metrics coming from instrumentation of the underlying thread-pool
     val executor: MetricName = prefix :+ "executor"
+    val instrumentedExecutorServiceForDocs = new InstrumentedExecutorServiceForDocs(executor)
 
     @MetricDoc.Tag(
       summary = "The batch sizes in the indexer.",
@@ -65,6 +66,7 @@ class ParallelIndexerMetrics(override val prefix: MetricName, override val regis
 
     // Bundle of metrics coming from instrumentation of the underlying thread-pool
     val executor: MetricName = prefix :+ "executor"
+    val instrumentedExecutorServiceForDocs = new InstrumentedExecutorServiceForDocs(executor)
   }
 
   // Sequence Mapping stage

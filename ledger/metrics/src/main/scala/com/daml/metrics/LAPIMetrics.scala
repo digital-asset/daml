@@ -39,6 +39,10 @@ class LAPIMetrics(override val prefix: MetricName, override val registry: Metric
   object threadpool {
     private val prefix: MetricName = LAPIMetrics.this.prefix :+ "threadpool"
 
+    val instrumentedExecutorServiceForDocs = new InstrumentedExecutorServiceForDocs(
+      prefix :+ "<threadpool>"
+    )
+
     val apiServices: MetricName = prefix :+ "api-services"
 
     val inMemoryFanOut: MetricName = prefix :+ "in_memory_fan_out"

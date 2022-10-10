@@ -188,5 +188,9 @@ class IndexDBMetrics(override val prefix: MetricName, override val registry: Met
     private val prefix: MetricName = IndexDBMetrics.this.prefix :+ "threadpool"
 
     val connection: MetricName = prefix :+ "connection"
+
+    val instrumentedExecutorServiceForDocs = new InstrumentedExecutorServiceForDocs(
+      connection :+ "<server_role>"
+    )
   }
 }
