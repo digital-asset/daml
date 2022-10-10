@@ -119,7 +119,7 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
   * 2. the query store configuration
   */
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-abstract class AbstractHttpServiceIntegrationTestTokenIndependent
+abstract class QueryStoreAndAuthDependentIntegrationTest
     extends AsyncFreeSpec
     with Matchers
     with Inside
@@ -1135,7 +1135,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
   */
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
-    extends AbstractHttpServiceIntegrationTestTokenIndependent {
+    extends QueryStoreAndAuthDependentIntegrationTest {
   import HttpServiceTestFixture.accountCreateCommand
   import json.JsonProtocol._
 
