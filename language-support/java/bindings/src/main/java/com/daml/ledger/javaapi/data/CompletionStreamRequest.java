@@ -9,7 +9,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-public class CompletionStreamRequest {
+public final class CompletionStreamRequest {
 
   private final String ledgerId;
 

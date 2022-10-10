@@ -80,7 +80,6 @@ case class TlsFixture(
             tlsConfiguration = Some(serverTlsConfiguration),
             servicesExecutor = servicesExecutor,
             metrics = Metrics.ForTesting,
-            rateLimitingConfig = None,
           )
         )
     }

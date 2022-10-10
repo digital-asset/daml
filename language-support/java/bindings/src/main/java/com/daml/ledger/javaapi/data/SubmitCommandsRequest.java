@@ -16,7 +16,7 @@ import java.util.Objects;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class SubmitCommandsRequest {
+public final class SubmitCommandsRequest {
 
   private final String workflowId;
 

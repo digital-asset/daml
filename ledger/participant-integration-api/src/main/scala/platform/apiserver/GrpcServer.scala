@@ -5,9 +5,7 @@ package com.daml.platform.apiserver
 
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.error.ErrorInterceptor
-import com.daml.platform.apiserver.ratelimiting.RateLimitingInterceptor
 import com.daml.ports.Port
 import com.google.protobuf.Message
 import io.grpc._
@@ -40,7 +38,6 @@ private[apiserver] object GrpcServer {
       metrics: Metrics,
       servicesExecutor: Executor,
       services: Iterable[BindableService],
-      rateLimitingConfig: Option[RateLimitingConfig],
   ): ResourceOwner[Server] = {
     val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
     val builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort.value))
@@ -51,7 +48,6 @@ private[apiserver] object GrpcServer {
     builder.maxInboundMessageSize(maxInboundMessageSize)
     // NOTE: Interceptors run in the reverse order in which they were added.
     interceptors.foreach(builder.intercept)
-    rateLimitingConfig.foreach(c => builder.intercept(RateLimitingInterceptor(metrics, config = c)))
     builder.intercept(new MetricsInterceptor(metrics))
     builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
     builder.intercept(new ErrorInterceptor)
