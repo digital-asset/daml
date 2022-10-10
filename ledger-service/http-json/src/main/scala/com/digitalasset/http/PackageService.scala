@@ -15,7 +15,7 @@ import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.ledger.service.{LedgerReader, TemplateIds}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.nonempty.{NonEmpty, Singleton}
-import scalaz.{EitherT, Show, \/, \/-}
+import scalaz.{\/, \/-, EitherT, Show}
 import scalaz.std.option.none
 import scalaz.std.scalaFuture._
 import scalaz.syntax.apply._
