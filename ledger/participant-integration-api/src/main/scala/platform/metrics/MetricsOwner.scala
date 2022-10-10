@@ -1,0 +1,50 @@
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.platform.metrics
+
+import java.util.concurrent.TimeUnit
+
+import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.metrics.{JvmMetricSet, Metrics}
+import com.daml.platform.config.MetricsConfig
+import com.daml.platform.config.MetricsConfig.MetricRegistryType
+import io.opentelemetry.api.OpenTelemetry
+
+import scala.concurrent.Future
+
+case class MetricsOwner(openTelemetry: OpenTelemetry, config: MetricsConfig, name: String)
+    extends ResourceOwner[Metrics] {
+  override def acquire()(implicit
+      context: ResourceContext
+  ): Resource[Metrics] = {
+    val meter = openTelemetry.meterBuilder(name).build()
+    val meterRegistry = config.registryType match {
+      case MetricRegistryType.JvmShared =>
+        SharedMetricRegistries.getOrCreate(name)
+      case MetricRegistryType.New =>
+        new MetricRegistry
+    }
+    val reporter = Option.when(config.enabled) {
+      val runningReporter = config.reporter
+        .register(meterRegistry)
+      runningReporter.start(config.reportingInterval.toMillis, TimeUnit.MILLISECONDS)
+      runningReporter
+    }
+
+    meterRegistry.registerAll(new JvmMetricSet)
+    Resource(
+      Future(
+        new Metrics(
+          meterRegistry,
+          meter,
+        )
+      )
+    ) { _ =>
+      Future {
+        reporter.foreach(_.close())
+      }
+    }
+  }
+}

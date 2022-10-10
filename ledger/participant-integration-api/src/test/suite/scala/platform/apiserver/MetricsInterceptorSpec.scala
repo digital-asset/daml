@@ -25,6 +25,7 @@ import com.daml.ports.Port
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, Channel, Server, ServerInterceptor, ServerServiceDefinition}
+import io.opentelemetry.api.GlobalOpenTelemetry
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -116,7 +117,7 @@ final class MetricsInterceptorSpec
   }
 
   private def createMetrics = {
-    new Metrics(new MetricRegistry)
+    new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
   }
 }
 

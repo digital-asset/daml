@@ -3,15 +3,16 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
+import com.codahale.metrics.MetricRegistry
+import io.opentelemetry.api.GlobalOpenTelemetry
+import io.opentelemetry.api.metrics.{Meter => OtelMeter}
 
 object Metrics {
-  lazy val ForTesting = new Metrics(new MetricRegistry)
-  def fromSharedMetricRegistries(registryName: String): Metrics =
-    new Metrics(SharedMetricRegistries.getOrCreate(registryName))
+  lazy val ForTesting = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
 }
 
-final class Metrics(override val registry: MetricRegistry) extends MetricHandle.Factory {
+final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
+    extends MetricHandle.Factory {
   override val prefix = MetricName("")
 
   object test {
