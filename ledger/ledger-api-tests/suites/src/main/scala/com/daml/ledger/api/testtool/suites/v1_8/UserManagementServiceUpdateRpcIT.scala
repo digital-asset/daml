@@ -12,8 +12,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.google.protobuf.field_mask.FieldMask
 
-trait UserManagementServiceUpdateRpcTests {
-  self: UserManagementServiceIT =>
+class UserManagementServiceUpdateRpcIT extends UserManagementServiceITBase {
 
   testWithFreshUser(
     "UpdateAllUpdatableFields",
@@ -154,6 +153,94 @@ trait UserManagementServiceUpdateRpcTests {
               s"INVALID_ARGUMENT: INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field user.id: User ID \"%%!!!\" does not match regex \"[a-z0-9@^$$.!`\\-#+'~_|:]{1,128}\""
             ),
           )
+  )
+
+  testWithFreshUser(
+    "UpdatePrimaryPartyUsingNonEmptyValue",
+    "Update primary party using a non-empty value",
+  )(primaryParty = "primaryParty0")(implicit ec =>
+    ledger =>
+      user =>
+        ledger.userManagement
+          .updateUser(
+            updateRequest(
+              id = user.id,
+              primaryParty = "primaryParty1",
+              updatePaths = Seq("primary_party"),
+            )
+          )
+          .map { updateResp =>
+            assertEquals(
+              "updating primary party",
+              extractUpdatedPrimaryParty(updateResp),
+              expected = "primaryParty1",
+            )
+          }
+  )
+
+  testWithFreshUser(
+    "UpdatePrimaryPartyUsingEmptyValue",
+    "Update primary party using the empty value",
+  )(primaryParty = "primaryParty0")(implicit ec =>
+    ledger =>
+      user =>
+        ledger.userManagement
+          .updateUser(
+            updateRequest(id = user.id, primaryParty = "", updatePaths = Seq("primary_party"))
+          )
+          .map { updateResp =>
+            assertEquals(
+              "updating primary party 3",
+              extractUpdatedPrimaryParty(updateResp),
+              expected = "",
+            )
+          }
+  )
+
+  testWithFreshUser(
+    "UpdateIsDeactivatedUsingNonDefaultValue",
+    "Update primary party using a non default value",
+  )(isDeactivated = false)(implicit ec =>
+    ledger =>
+      user =>
+        ledger.userManagement
+          .updateUser(
+            updateRequest(
+              id = user.id,
+              isDeactivated = true,
+              updatePaths = Seq("is_deactivated"),
+            )
+          )
+          .map { updateResp =>
+            assertEquals(
+              "updating is_deactivated",
+              extractIsDeactivated(updateResp),
+              expected = true,
+            )
+          }
+  )
+
+  testWithFreshUser(
+    "UpdateIsDeactivatedUsingTheDefaultValue",
+    "Update primary party using the default value",
+  )(isDeactivated = true)(implicit ec =>
+    ledger =>
+      user =>
+        ledger.userManagement
+          .updateUser(
+            updateRequest(
+              id = user.id,
+              isDeactivated = false,
+              updatePaths = Seq("is_deactivated"),
+            )
+          )
+          .map { updateResp =>
+            assertEquals(
+              "updating is_deactivated",
+              extractIsDeactivated(updateResp),
+              expected = false,
+            )
+          }
   )
 
 }

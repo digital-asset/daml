@@ -10,8 +10,6 @@ import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertEquals, _}
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.testtool.suites.v1_8.objectmeta.UserManagementObjectMetaTests
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.user_management_service.{
   CreateUserRequest,
@@ -41,12 +39,7 @@ import scala.util.{Failure, Success}
 // TODO um-for-hub: For GrantUserRightsRequest: if 'rights' field is required, than we should reject attempting to grant 0 rights. Alternatively change to 'Optional'
 // TODO um-for-hub: For RevokeUserRightsRequest: if 'rights' field is required, than we should reject attempting to revoke 0 rights. Alternatively change to 'Optional'
 
-final class UserManagementServiceIT
-    extends LedgerTestSuite
-    with UserManagementServiceITUtils
-    with UserManagementServiceUpdateRpcTests
-    with UserManagementServiceUpdatePrimitivePropertiesTests
-    with UserManagementObjectMetaTests {
+final class UserManagementServiceIT extends UserManagementServiceITBase {
 
   private val adminPermission =
     Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin()))

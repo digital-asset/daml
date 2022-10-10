@@ -9,6 +9,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   Participants,
   allocate,
 }
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.party_management_service._
@@ -16,7 +17,7 @@ import com.google.protobuf.field_mask.FieldMask
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait PartyManagementItUtils { self: PartyManagementServiceIT =>
+trait PartyManagementITBase extends LedgerTestSuite {
   def unsetResourceVersion[T](t: T): T = {
     val t2: T = t match {
       case u: PartyDetails => u.update(_.localMetadata.resourceVersion := "").asInstanceOf[T]

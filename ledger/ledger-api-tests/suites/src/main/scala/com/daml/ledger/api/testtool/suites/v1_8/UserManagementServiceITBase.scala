@@ -22,10 +22,11 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
 }
 import com.google.protobuf.field_mask.FieldMask
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait UserManagementServiceITUtils { self: UserManagementServiceIT =>
+abstract class UserManagementServiceITBase extends LedgerTestSuite {
 
   def withFreshUser[T](
       primaryParty: String = "",

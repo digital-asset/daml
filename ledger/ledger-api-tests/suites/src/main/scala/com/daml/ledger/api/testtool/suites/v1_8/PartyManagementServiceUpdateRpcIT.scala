@@ -19,8 +19,7 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
 }
 import com.google.protobuf.field_mask.FieldMask
 
-trait PartyManagementServiceUpdateRpcTests {
-  self: PartyManagementServiceIT =>
+class PartyManagementServiceUpdateRpcIT extends PartyManagementITBase {
 
   testWithFreshPartyDetails(
     "PMUpdateAllUpdatableFields",

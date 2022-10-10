@@ -1,49 +1,46 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
 package com.daml.ledger.api.testtool.suites.v1_8.objectmeta
 
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.ExpectedErrorDescription
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.testtool.suites.v1_8.UserManagementServiceIT
+import com.daml.ledger.api.testtool.suites.v1_8.PartyManagementITBase
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
-import com.daml.ledger.api.v1.admin.user_management_service.{
-  CreateUserRequest,
-  GetUserRequest,
-  User,
+import com.daml.ledger.api.v1.admin.party_management_service.{
+  AllocatePartyRequest,
+  GetPartiesRequest,
+  PartyDetails,
 }
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait UserManagementObjectMetaTests extends ObjectMetaTests with ObjectMetaTestsBase {
-  self: UserManagementServiceIT =>
+class PartyManagementServiceObjectMetaIT extends PartyManagementITBase with ObjectMetaTests {
 
-  type Resource = User
+  type Resource = PartyDetails
   type ResourceId = String
 
-  override private[objectmeta] def getId(resource: Resource): ResourceId = resource.id
+  override private[objectmeta] def getId(resource: Resource): ResourceId = resource.party
 
   override private[objectmeta] def annotationsUpdateRequestFieldPath: String =
-    "user.metadata.annotations"
+    "party_details.local_metadata.annotations"
+
+  override private[objectmeta] def resourceVersionUpdatePath: String =
+    "local_metadata.resource_version"
 
   override private[objectmeta] def annotationsUpdatePath: String =
-    "metadata.annotations"
+    "local_metadata.annotations"
 
-  override private[objectmeta] def annotationsShortUpdatePath = "metadata"
+  override private[objectmeta] def annotationsShortUpdatePath = "local_metadata"
 
-  override private[objectmeta] def resourceVersionUpdatePath = "metadata.resource_version"
-
-  override private[objectmeta] def resourceIdPath = "id"
+  override private[objectmeta] def resourceIdPath = "party"
 
   override private[objectmeta] def extractAnnotations(resource: Resource): Map[String, String] =
-    resource.getMetadata.annotations
+    resource.getLocalMetadata.annotations
 
   override private[objectmeta] def extractMetadata(resource: Resource): ObjectMeta =
-    resource.getMetadata
+    resource.getLocalMetadata
 
   override private[objectmeta] def testWithFreshResource(
       shortIdentifier: String,
@@ -53,17 +50,11 @@ trait UserManagementObjectMetaTests extends ObjectMetaTests with ObjectMetaTests
   )(
       body: ExecutionContext => ParticipantTestContext => Resource => Future[Unit]
   ): Unit = {
-    userManagementTest(
+    testWithFreshPartyDetails(
       shortIdentifier = shortIdentifier,
       description = description,
       requiresUserAndPartyLocalMetadataExtensions = true,
-    )(implicit ec => { ledger =>
-      withFreshUser(
-        annotations = annotations
-      ) { user =>
-        body(ec)(ledger)(user)
-      }(ledger, ec)
-    })
+    )(annotations = annotations)(body)
   }
 
   override private[objectmeta] def testWithoutResource(
@@ -72,38 +63,28 @@ trait UserManagementObjectMetaTests extends ObjectMetaTests with ObjectMetaTests
   )(
       body: ExecutionContext => ParticipantTestContext => Future[Unit]
   ): Unit = {
-    userManagementTest(
+    testWithoutPartyDetails(
       shortIdentifier = shortIdentifier,
       description = description,
       requiresUserAndPartyLocalMetadataExtensions = true,
-    )(implicit ec => { ledger =>
-      body(ec)(ledger)
-    })
+    )(body)
   }
 
   override private[objectmeta] def createResourceWithAnnotations(
       annotations: Map[String, String]
   )(implicit ec: ExecutionContext, ledger: ParticipantTestContext): Future[Map[String, String]] = {
-    val userId = ledger.nextUserId()
-    val req = CreateUserRequest(
-      user = Some(
-        newUser(
-          id = userId,
-          annotations = annotations,
-        )
-      )
-    )
-    ledger.userManagement
-      .createUser(req)
-      .map(extractAnnotations)
+    val req = AllocatePartyRequest(localMetadata = Some(ObjectMeta(annotations = annotations)))
+    ledger
+      .allocateParty(req)
+      .map(extractUpdatedAnnotations)
   }
 
   override private[objectmeta] def fetchNewestAnnotations(
       id: ResourceId
   )(implicit ec: ExecutionContext, ledger: ParticipantTestContext): Future[Map[String, String]] = {
-    ledger.userManagement
-      .getUser(GetUserRequest(userId = id))
-      .map(_.user.get.getMetadata.annotations)
+    ledger
+      .getParties(GetPartiesRequest(parties = Seq(id)))
+      .map(_.partyDetails.head.getLocalMetadata.annotations)
   }
 
   override private[objectmeta] def update(
@@ -113,22 +94,22 @@ trait UserManagementObjectMetaTests extends ObjectMetaTests with ObjectMetaTests
       resourceVersion: String = "",
   )(implicit ec: ExecutionContext, ledger: ParticipantTestContext): Future[ObjectMeta] = {
     val req = updateRequest(
-      id = id,
+      party = id,
       annotations = annotations,
       resourceVersion = resourceVersion,
       updatePaths = updatePaths,
     )
-    ledger.userManagement
-      .updateUser(req)
-      .map(_.getUser.getMetadata)
+    ledger
+      .updatePartyDetails(req)
+      .map(_.getPartyDetails.getLocalMetadata)
   }
 
   override private[objectmeta] def concurrentUserUpdateDetectedErrorDescription(
       id: ResourceId
   ): ExpectedErrorDescription = ExpectedErrorDescription(
-    errorCode = LedgerApiErrors.Admin.UserManagement.ConcurrentUserUpdateDetected,
+    errorCode = LedgerApiErrors.Admin.PartyManagement.ConcurrentPartyDetailsUpdateDetected,
     exceptionMessageSubstring = Some(
-      s"ABORTED: CONCURRENT_USER_UPDATE_DETECTED(2,0): Update operation for user '${id}' failed due to a concurrent update to the same user"
+      s"ABORTED: CONCURRENT_PARTY_DETAILS_UPDATE_DETECTED(2,0): Update operation for party '${id}' failed due to a concurrent update to the same party"
     ),
   )
 
@@ -136,9 +117,9 @@ trait UserManagementObjectMetaTests extends ObjectMetaTests with ObjectMetaTests
       id: ResourceId,
       errorMessageSuffix: String,
   ): ExpectedErrorDescription = ExpectedErrorDescription(
-    errorCode = LedgerApiErrors.Admin.UserManagement.InvalidUpdateUserRequest,
+    errorCode = LedgerApiErrors.Admin.PartyManagement.InvalidUpdatePartyDetailsRequest,
     exceptionMessageSubstring = Some(
-      s"INVALID_ARGUMENT: INVALID_USER_UPDATE_REQUEST(8,0): Update operation for user id '${id}' failed due to: $errorMessageSuffix"
+      s"INVALID_ARGUMENT: INVALID_PARTY_DETAILS_UPDATE_REQUEST(8,0): Update operation for party '${id}' failed due to: $errorMessageSuffix"
     ),
   )
 
