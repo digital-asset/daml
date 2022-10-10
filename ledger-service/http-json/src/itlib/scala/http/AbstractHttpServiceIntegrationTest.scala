@@ -18,7 +18,6 @@ import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.service.MetadataReader
-import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
@@ -27,11 +26,10 @@ import scalaz.std.list._
 import scalaz.std.vector._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.apply._
-import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, \/, \/-}
+import scalaz.{-\/, \/-}
 import shapeless.record.{Record => ShRecord}
 import spray.json._
 
@@ -608,15 +606,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
-  "query with invalid JSON query should return error" in withHttpService { fixture =>
-    fixture
-      .postJsonStringRequest(Uri.Path("/v1/query"), "{NOT A VALID JSON OBJECT")
-      .parseResponse[JsValue]
-      .map(inside(_) { case domain.ErrorResponse(_, _, StatusCodes.BadRequest, _) =>
-        succeed
-      }): Future[Assertion]
-  }
-
   protected implicit final class `AHS TI uri funs`(private val fixture: UriFixture) {
 
     def searchAllExpectOk(
@@ -1007,44 +996,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         (archivedContract.contractId.unwrap: String) shouldBe (exercise.reference.contractId.unwrap: String)
       }
     }
-
-  "should be able to serialize and deserialize domain commands" in withHttpService { fixture =>
-    (testCreateCommandEncodingDecoding(fixture) *>
-      testExerciseCommandEncodingDecoding(fixture)): Future[Assertion]
-  }
-
-  private def testCreateCommandEncodingDecoding(
-      fixture: HttpServiceTestFixtureData
-  ): Future[Assertion] = instanceUUIDLogCtx { implicit lc =>
-    import fixture.{uri, encoder, decoder}
-    import json.JsonProtocol._
-    import util.ErrorOps._
-
-    val command0: domain.CreateCommand[v.Record, OptionalPkg] =
-      iouCreateCommand(domain.Party("Alice"))
-
-    type F[A] = EitherT[Future, JsonError, A]
-    val x: F[Assertion] = for {
-      jsVal <- EitherT.either(
-        encoder.encodeCreateCommand(command0).liftErr(JsonError)
-      ): F[JsValue]
-      command1 <- (EitherT.rightT(jwt(uri)): F[Jwt])
-        .flatMap(decoder.decodeCreateCommand(jsVal, _, fixture.ledgerId))
-    } yield command1.bimap(removeRecordId, removePackageId) should ===(command0)
-
-    (x.run: Future[JsonError \/ Assertion]).map(_.fold(e => fail(e.shows), identity))
-  }
-
-  private def testExerciseCommandEncodingDecoding(
-      fixture: HttpServiceTestFixtureData
-  ): Future[Assertion] = {
-    import fixture.{uri, encoder, decoder}
-    val command0 = iouExerciseTransferCommand(lar.ContractId("#a-contract-ID"), domain.Party("Bob"))
-    val jsVal: JsValue = encodeExercise(encoder)(command0)
-    val command1 =
-      jwt(uri).flatMap(decodeExercise(decoder, _, fixture.ledgerId)(jsVal))
-    command1.map(_.bimap(removeRecordId, identity) should ===(command0))
-  }
 
   "request non-existent endpoint should return 404 with errors" in withHttpService { fixture =>
     val badPath = Uri.Path("/contracts/does-not-exist")
