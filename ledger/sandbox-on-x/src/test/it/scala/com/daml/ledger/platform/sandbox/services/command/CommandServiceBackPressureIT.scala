@@ -40,7 +40,7 @@ sealed trait CommandServiceBackPressureITBase
     with TestCommands
     with SuiteResourceManagementAroundAll {
 
-  private val commands = 50
+  private val commands = 100
 
   private def command(party: String) =
     CreateCommand(
@@ -111,7 +111,11 @@ sealed trait CommandServiceBackPressureITBase
     }
   }
 
-  override def bridgeConfig: BridgeConfig = BridgeConfig.Default.copy(submissionBufferSize = 2)
+  override def bridgeConfig: BridgeConfig =
+    BridgeConfig.Default.copy(
+      submissionBufferSize = 1,
+      stageBufferSize = 1,
+    )
 
   override def config = super.config.copy(
     participants = singleParticipant(
