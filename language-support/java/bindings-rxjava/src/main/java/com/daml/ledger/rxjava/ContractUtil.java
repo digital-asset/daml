@@ -13,6 +13,11 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * This class contains utilities to decode a <code>CreatedEvent</code> and create a <code>
+ * TransactionFilter</code> by provider parties It can only be instantiated with a subtype of <code>
+ * ContractCompanion</code>
+ */
 public final class ContractUtil<Ct> {
   private final FromCreatedEventFunc<CreatedEvent, Ct> fromCreatedEvent;
 

@@ -18,9 +18,30 @@ public interface ActiveContractsClient {
   Flowable<GetActiveContractsResponse> getActiveContracts(
       TransactionFilter filter, boolean verbose, String accessToken);
 
+  /**
+   * Get active Contracts
+   *
+   * @param contractUtil Utilities for specified type of contract. It can be instantiated with
+   *     <code>ContractTypeCompanion</code>
+   * @param parties Set of parties to be included in the transaction filter.
+   * @param verbose If enabled, values served over the API will contain more information than
+   *     strictly necessary to interpret the data.
+   * @return Flowable of active contracts of type <code>Ct</code>
+   */
   <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
       ContractUtil<Ct> contractUtil, Set<String> parties, boolean verbose);
 
+  /**
+   * Get active Contracts
+   *
+   * @param contractUtil Utilities for specified type of contract. It can be instantiated with
+   *     <code>ContractTypeCompanion</code>
+   * @param parties Set of parties to be included in the transaction filter.
+   * @param verbose If enabled, values served over the API will contain more information than
+   *     strictly necessary to interpret the data.
+   * @param accessToken Access token for authentication.
+   * @return Active contracts of type <code>Ct</code>
+   */
   <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
       ContractUtil<Ct> contractUtil, Set<String> parties, boolean verbose, String accessToken);
 }

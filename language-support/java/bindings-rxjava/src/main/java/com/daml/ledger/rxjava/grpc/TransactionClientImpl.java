@@ -74,7 +74,7 @@ public final class TransactionClientImpl implements TransactionsClient {
     return getTransactions(begin, end, filter, verbose, Optional.of(accessToken));
   }
 
-  private <Ct> Flowable<Ct> getTransactions(
+  private <Ct> Flowable<Ct> getContracts(
       ContractUtil<Ct> contractUtil,
       LedgerOffset begin,
       Set<String> parties,
@@ -94,19 +94,19 @@ public final class TransactionClientImpl implements TransactionsClient {
   }
 
   @Override
-  public <Ct> Flowable<Ct> getTransactions(
+  public <Ct> Flowable<Ct> getContracts(
       ContractUtil<Ct> contractUtil, LedgerOffset begin, Set<String> parties, boolean verbose) {
-    return getTransactions(contractUtil, begin, parties, verbose, Optional.empty());
+    return getContracts(contractUtil, begin, parties, verbose, Optional.empty());
   }
 
   @Override
-  public <Ct> Flowable<Ct> getTransactions(
+  public <Ct> Flowable<Ct> getContracts(
       ContractUtil<Ct> contractUtil,
       LedgerOffset begin,
       Set<String> parties,
       boolean verbose,
       String accessToken) {
-    return getTransactions(contractUtil, begin, parties, verbose, Optional.of(accessToken));
+    return getContracts(contractUtil, begin, parties, verbose, Optional.of(accessToken));
   }
 
   private Flowable<Transaction> getTransactions(
