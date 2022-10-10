@@ -188,7 +188,10 @@ object Converter {
     } yield record(
       contractIdTy,
       ("getAnyChoice", SAny(choice.argBinder._2, translated)),
-      ("getAnyChoiceTemplateTypeRep", fromIdentifier(toApiIdentifier(templateId))),
+      (
+        "getAnyChoiceTemplateTypeRep",
+        fromTemplateTypeRep(toApiIdentifier(templateId)),
+      ),
     )
   }
 
