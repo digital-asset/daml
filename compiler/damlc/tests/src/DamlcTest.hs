@@ -317,7 +317,7 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
             exitCode @?= ExitSuccess
             let out = lines stdout
             assertBool ("test coverage is reported correctly: " <> stdout)
-                       ("defined in local module:\n  choices: 1 / 3 (33%)\n  templates: 1 / 2 (50%)" `isInfixOf` stdout)
+                       ("defined in local modules:\n  choices: 1 / 3 (33%)\n  templates: 1 / 2 (50%)" `isInfixOf` stdout)
             assertBool ("test summary is reported correctly: " <> out!!1)
                        ("Test Summary" `isPrefixOf` (out!!1))
             assertBool ("test summary is reported correctly: " <> out!!3)
@@ -577,7 +577,7 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
             (unlines
               ["B.daml:needleHaystack: ok, 0 active contracts, 0 transactions."
               , "a:test_needleHaystack: ok, 0 active contracts, 0 transactions."
-              , "defined in local module:"
+              , "defined in local modules:"
               , "  choices: 0 / 0 (100%)"
               , "  templates: 0 / 0 (100%)"
               ] `isInfixOf` stdout)
@@ -647,7 +647,7 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
           assertBool ("Test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "B.daml:x: ok, 0 active contracts, 2 transactions."
-                 , "defined in local module:"
+                 , "defined in local modules:"
                  , "  choices: 1 / 3 (33%)"
                  , "  templates: 1 / 2 (50%)"
                  , "  templates never created:"
