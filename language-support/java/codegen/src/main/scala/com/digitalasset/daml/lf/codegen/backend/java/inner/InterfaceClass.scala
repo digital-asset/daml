@@ -105,7 +105,8 @@ object InterfaceClass extends StrictLogging {
           .constructorBuilder()
           // intentionally package-private
           .addStatement(
-            "super($T.$N, $T::new, $T.$L())",
+            "super($>$Z$S, $T.$N, $T::new, $T.$L())",
+            interfaceName,
             interfaceName,
             ClassGenUtils.templateIdFieldName,
             contractIdClassName,

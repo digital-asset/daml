@@ -25,8 +25,6 @@ import java.util.function.Function;
  *     the template, whose instances contain only the payload.
  */
 public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompanion<Data, Data> {
-  final String templateClassName; // not something we want outside this package
-
   protected final Function<String, Id> newContractId;
   protected final Function<DamlRecord, Data> fromValue;
 
@@ -82,8 +80,7 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
       Identifier templateId,
       Function<String, Id> newContractId,
       Function<DamlRecord, Data> fromValue) {
-    super(templateId);
-    this.templateClassName = templateClassName;
+    super(templateId, templateClassName);
     this.newContractId = newContractId;
     this.fromValue = fromValue;
   }

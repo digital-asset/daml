@@ -10,13 +10,16 @@ public abstract class ContractTypeCompanion<Marker, Data> {
   /** The full template ID of the template or interface that defined this companion. */
   public final Identifier TEMPLATE_ID;
 
+  protected final String TEMPLATE_CLASS_NAME;
+
   /**
    * <strong>INTERNAL API</strong>: this is meant for use by {@link ContractCompanion} and {@link
    * InterfaceCompanion}, and <em>should not be referenced directly</em>. Applications should refer
    * to code-generated {@code COMPANION} and {@code INTERFACE} fields specific to the template or
    * interface in question instead.
    */
-  protected ContractTypeCompanion(Identifier templateId) {
+  protected ContractTypeCompanion(Identifier templateId, String templateClassName) {
     TEMPLATE_ID = templateId;
+    TEMPLATE_CLASS_NAME = templateClassName;
   }
 }

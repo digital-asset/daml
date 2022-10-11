@@ -31,8 +31,11 @@ public abstract class InterfaceCompanion<I, Id, View> extends ContractTypeCompan
    * INTERFACE} field on generated code for Daml interfaces instead.
    */
   protected InterfaceCompanion(
-      Identifier templateId, Function<String, Id> newContractId, ValueDecoder<View> valueDecoder) {
-    super(templateId);
+      String templateClassName,
+      Identifier templateId,
+      Function<String, Id> newContractId,
+      ValueDecoder<View> valueDecoder) {
+    super(templateId, templateClassName);
     this.newContractId = newContractId;
     this.valueDecoder = valueDecoder;
   }
@@ -53,7 +56,7 @@ public abstract class InterfaceCompanion<I, Id, View> extends ContractTypeCompan
             record -> {
               View view = valueDecoder.decode(record);
               return new ContractWithInterfaceView<>(
-                  id, view, agreementText, signatories, observers);
+                  this, id, view, agreementText, signatories, observers);
             })
         .orElseThrow(
             () ->
