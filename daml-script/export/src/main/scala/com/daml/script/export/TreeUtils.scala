@@ -163,13 +163,20 @@ object TreeUtils {
         }
   }
 
-  trait CreatedContract {
+  sealed trait CreatedContract {
     def cid: ContractId
     def tplId: TemplateId
   }
 
-  case class SimpleCreatedContract(cid: ContractId, tplId: TemplateId) extends CreatedContract
-  case class CreatedContractWithPath(cid: ContractId, tplId: TemplateId, path: List[Selector])
+  object CreatedContract {
+    final case class SimpleCreatedContract(cid: ContractId, tplId: TemplateId)
+        extends CreatedContract
+
+    def apply(cid: ContractId, tplId: TemplateId): CreatedContract =
+      SimpleCreatedContract(cid, tplId)
+  }
+
+  final case class CreatedContractWithPath(cid: ContractId, tplId: TemplateId, path: List[Selector])
       extends CreatedContract
 
   def treeCreatedCids(tree: TransactionTree): Seq[CreatedContractWithPath] = {
@@ -194,12 +201,12 @@ object TreeUtils {
   def treeEventCreatedConsumedCids(
       event: TreeEvent.Kind,
       tree: TransactionTree,
-  ): (Seq[SimpleCreatedContract], Set[ContractId]) = {
-    var created = Seq.empty[SimpleCreatedContract]
+  ): (Seq[CreatedContract], Set[ContractId]) = {
+    var created = Seq.empty[CreatedContract]
     var consumed = Set.empty[ContractId]
     traverseEventInTree(event, tree) {
       case (_, Kind.Created(value)) =>
-        created :+= SimpleCreatedContract(
+        created :+= CreatedContract(
           ContractId(value.contractId),
           TemplateId(value.getTemplateId),
         )
@@ -310,14 +317,14 @@ object TreeUtils {
     *
     * A create command is a simple command. An exercise command can be a simple command.
     */
-  case class SimpleCommand(command: Command, contractId: SimpleCreatedContract)
+  case class SimpleCommand(command: Command, contractId: CreatedContract)
 
   object SimpleCommand {
     def fromCommand(command: Command, tree: TransactionTree): Option[SimpleCommand] = {
       def simpleExercise(
           exercisedEvent: ExercisedEvent,
-          extraCreated: Seq[SimpleCreatedContract],
-      ): Option[SimpleCreatedContract] = {
+          extraCreated: Seq[CreatedContract],
+      ): Option[CreatedContract] = {
         val result = exercisedEvent.exerciseResult.flatMap {
           _.sum match {
             case Sum.ContractId(value) => Some(value)
@@ -337,7 +344,7 @@ object TreeUtils {
           Some(
             SimpleCommand(
               command,
-              SimpleCreatedContract(
+              CreatedContract(
                 ContractId(createdEvent.contractId),
                 TemplateId(createdEvent.getTemplateId),
               ),
@@ -353,7 +360,7 @@ object TreeUtils {
           simpleExercise(
             exercisedEvent,
             Seq(
-              SimpleCreatedContract(
+              CreatedContract(
                 ContractId(createdEvent.contractId),
                 TemplateId(createdEvent.getTemplateId),
               )
@@ -463,7 +470,7 @@ object TreeUtils {
         createdEvents.map(ev =>
           SimpleCommand(
             CreateCommand(ev),
-            SimpleCreatedContract(
+            CreatedContract(
               ContractId(ev.contractId),
               TemplateId(ev.getTemplateId),
             ),
