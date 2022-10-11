@@ -60,7 +60,7 @@ final class IndexServiceOwner(
         metrics,
         ledgerDao.contractsReader,
         contractStateCaches = inMemoryState.contractStateCaches,
-      )(servicesExecutionContext, loggingContext)
+      )(servicesExecutionContext)
 
       lfValueTranslation = new LfValueTranslation(
         metrics = metrics,

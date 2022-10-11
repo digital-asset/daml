@@ -12,7 +12,6 @@ import com.daml.metrics.Metrics
 import com.daml.platform.store.cache.ContractKeyStateValue._
 import com.daml.platform.store.cache.ContractStateValue._
 import com.daml.platform.store.cache.MutableCacheBackedContractStore._
-import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   ActiveContract,
@@ -29,15 +28,10 @@ private[platform] class MutableCacheBackedContractStore(
     metrics: Metrics,
     contractsReader: LedgerDaoContractsReader,
     private[cache] val contractStateCaches: ContractStateCaches,
-)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
+)(implicit executionContext: ExecutionContext)
     extends ContractStore {
 
   private val logger = ContextualizedLogger.get(getClass)
-
-  def push(eventsBatch: Vector[ContractStateEvent]): Unit = {
-    debugEvents(eventsBatch)
-    contractStateCaches.push(eventsBatch)
-  }
 
   override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
       loggingContext: LoggingContext
@@ -177,34 +171,6 @@ private[platform] class MutableCacheBackedContractStore(
 
   private def nonEmptyIntersection[T](one: Set[T], other: Set[T]): Boolean =
     one.intersect(other).nonEmpty
-
-  private def debugEvents(
-      eventsBatch: Seq[ContractStateEvent]
-  )(implicit loggingContext: LoggingContext): Unit =
-    eventsBatch.foreach {
-      case ContractStateEvent.Created(
-            contractId,
-            _,
-            globalKey,
-            _,
-            _,
-            eventOffset,
-            eventSequentialId,
-          ) =>
-        logger.debug(
-          s"State events update: Created(contractId=${contractId.coid}, globalKey=$globalKey, offset=$eventOffset, eventSequentialId=$eventSequentialId)"
-        )
-      case ContractStateEvent.Archived(
-            contractId,
-            globalKey,
-            _,
-            eventOffset,
-            eventSequentialId,
-          ) =>
-        logger.debug(
-          s"State events update: Archived(contractId=${contractId.coid}, globalKey=$globalKey, offset=$eventOffset, eventSequentialId=$eventSequentialId)"
-        )
-    }
 }
 
 private[platform] object MutableCacheBackedContractStore {
