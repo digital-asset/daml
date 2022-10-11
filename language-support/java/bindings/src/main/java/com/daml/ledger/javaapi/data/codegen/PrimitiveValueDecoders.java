@@ -55,11 +55,31 @@ public final class PrimitiveValueDecoders {
             value.asContractId().orElseThrow(() -> mismatched(ContractId.class)).getValue());
   }
 
+  /**
+   * Specifically for decoding the {@code DA.Internal.LF.TextMap} primitive type.
+   *
+   * <pre>
+   * // given a ValueDecoder&lt;V> vdv
+   * // this decodes a TextMap
+   * Map&lt;String, V> m1 = fromTextMap(vdv).decode(value);
+   *
+   * // this decodes a GenMap with a Text key type
+   * // which has an incompatible encoded format
+   * Map&lt;String, V> m2 = fromGenMap(fromText, vdv).decode(value);
+   * </pre>
+   *
+   * @see #fromGenMap
+   */
   public static <T> ValueDecoder<Map<String, T>> fromTextMap(ValueDecoder<T> valueType) {
     return value ->
         value.asTextMap().orElseThrow(() -> mismatched(Map.class)).toMap(valueType::decode);
   }
 
+  /**
+   * Specifically for decoding the {@code DA.Internal.LF.Map} primitive type.
+   *
+   * @see #fromTextMap
+   */
   public static <K, V> ValueDecoder<Map<K, V>> fromGenMap(
       ValueDecoder<K> keyType, ValueDecoder<V> valueType) {
     return value ->
@@ -69,6 +89,12 @@ public final class PrimitiveValueDecoders {
             .toMap(keyType::decode, valueType::decode);
   }
 
+  /**
+   * Can be passed to decoder-producing functions to decode <em>phantom type parameters only</em>.
+   * Such type parameters appear on the left of the {@code =} in {@code data} declarations, but are
+   * used for <em>no actual data</em>. This will fail at runtime if the type parameter isn't really
+   * phantom.
+   */
   public static <T> ValueDecoder<T> impossible() {
     return x -> {
       throw new IllegalArgumentException("Expected type to be unused, but was used for " + x);
