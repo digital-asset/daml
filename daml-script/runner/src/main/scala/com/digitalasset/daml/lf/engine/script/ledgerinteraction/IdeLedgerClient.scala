@@ -93,7 +93,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
 
-    mylog("IdeLedgerClient.queryContractId")
+    // mylog("IdeLedgerClient.queryContractId")
     // def xxx : Int = ??? // NICK: Blow Up. Who calls me?
     // val _ = xxx
 
