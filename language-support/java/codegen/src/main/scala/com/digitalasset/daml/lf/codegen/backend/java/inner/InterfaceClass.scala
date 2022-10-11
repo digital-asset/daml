@@ -4,7 +4,6 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data.codegen.InterfaceCompanion
-import com.daml.lf.codegen.backend.java.inner.InterfaceClass.companionClassName
 import com.daml.lf.codegen.backend.java.inner.TemplateClass.toChoiceNameField
 import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.typesig
