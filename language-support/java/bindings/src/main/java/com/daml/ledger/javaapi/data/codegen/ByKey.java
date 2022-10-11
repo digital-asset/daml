@@ -14,15 +14,22 @@ public abstract class ByKey implements Exercises<ExerciseByKeyCommand> {
     this.contractKey = contractKey;
   }
 
-//  @Override
-//  public ExerciseByKeyUpdate<?> makeExerciseCmd(String choice, Value choiceArgument) {
-//    var command = new ExerciseByKeyCommand(getCompanion().TEMPLATE_ID, contractKey, choice, choiceArgument);
-//    return new ExerciseByKeyUpdate<>(command);
-//  }
+  //  @Override
+  //  public ExerciseByKeyUpdate<?> makeExerciseCmd(String choice, Value choiceArgument) {
+  //    var command = new ExerciseByKeyCommand(getCompanion().TEMPLATE_ID, contractKey, choice,
+  // choiceArgument);
+  //    return new ExerciseByKeyUpdate<>(command);
+  //  }
 
   @Override
-  public <A, R> Update<R> makeExerciseCmd(ChoiceMetadata<?, ? super A, ? extends R> choice, A choiceArgument) {
-    var command = new ExerciseByKeyCommand(getCompanion().TEMPLATE_ID, contractKey, choice.name, choice.encodeArg.apply(choiceArgument));
+  public <A, R> Update<R> makeExerciseCmd(
+      ChoiceMetadata<?, ? super A, ? extends R> choice, A choiceArgument) {
+    var command =
+        new ExerciseByKeyCommand(
+            getCompanion().TEMPLATE_ID,
+            contractKey,
+            choice.name,
+            choice.encodeArg.apply(choiceArgument));
     return new ExerciseByKeyUpdate<>(command);
   }
 
@@ -42,9 +49,15 @@ public abstract class ByKey implements Exercises<ExerciseByKeyCommand> {
     }
 
     @Override
-    public <A, R> Update<R> makeExerciseCmd(ChoiceMetadata<?, ? super A, ? extends R> choice, A choiceArgument) {
+    public <A, R> Update<R> makeExerciseCmd(
+        ChoiceMetadata<?, ? super A, ? extends R> choice, A choiceArgument) {
       // TODO #14056 use getCompanion().TEMPLATE_ID as the interface ID
-      var command = new ExerciseByKeyCommand(keySource.TEMPLATE_ID, contractKey, choice.name, choice.encodeArg.apply(choiceArgument));
+      var command =
+          new ExerciseByKeyCommand(
+              keySource.TEMPLATE_ID,
+              contractKey,
+              choice.name,
+              choice.encodeArg.apply(choiceArgument));
       return new ExerciseByKeyUpdate<>(command);
     }
   }

@@ -48,8 +48,14 @@ public class ContractId<T> implements Exercises<ExerciseCommand> {
   }
 
   @Override
-  public <A, R> Update<R> makeExerciseCmd(ChoiceMetadata<?, ? super A, ? extends R> choice, A choiceArgument) {
-    ExerciseCommand command = new ExerciseCommand(getCompanion().TEMPLATE_ID, contractId, choice.name, choice.encodeArg.apply(choiceArgument));
+  public <A, R> Update<R> makeExerciseCmd(
+      ChoiceMetadata<?, ? super A, ? extends R> choice, A choiceArgument) {
+    var command =
+        new ExerciseCommand(
+            getCompanion().TEMPLATE_ID,
+            contractId,
+            choice.name,
+            choice.encodeArg.apply(choiceArgument));
     return new ExerciseUpdate<>(command);
   }
 
