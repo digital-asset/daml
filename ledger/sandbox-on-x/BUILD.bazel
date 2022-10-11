@@ -21,6 +21,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_github_pureconfig_pureconfig_core",
         "@maven//:com_github_pureconfig_pureconfig_generic",
+        "@maven//:com_github_pureconfig_pureconfig_generic_base",
         "@maven//:com_chuusai_shapeless",
         "@maven//:org_typelevel_cats_core",
     ],
