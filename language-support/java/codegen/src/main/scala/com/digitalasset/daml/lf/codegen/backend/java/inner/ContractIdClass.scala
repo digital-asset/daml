@@ -46,14 +46,20 @@ object ContractIdClass {
     def build(): TypeSpec = idClassBuilder.build()
 
     def addConversionForImplementedInterfaces(
-        implementedInterfaces: Seq[Ref.TypeConName]
+        implementedInterfaces: Seq[Ref.TypeConName],
+        packagePrefixes: Map[PackageId, String],
     ): Builder = {
       idClassBuilder.addMethods(
-        generateToInterfaceMethods("ContractId", "this.contractId", implementedInterfaces).asJava
+        generateToInterfaceMethods(
+          "ContractId",
+          "this.contractId",
+          implementedInterfaces,
+          packagePrefixes,
+        ).asJava
       )
       implementedInterfaces.foreach { interfaceName =>
-        // XXX why doesn't this use packagePrefixes? -SC
-        val name = ClassName.bestGuess(fullyQualifiedName(interfaceName.qualifiedName))
+        val name =
+          ClassName.bestGuess(fullyQualifiedName(interfaceName, packagePrefixes))
         val interfaceContractIdName = name nestedClass "ContractId"
         val tplContractIdClassName = templateClassName.nestedClass("ContractId")
         idClassBuilder.addMethod(
@@ -133,10 +139,10 @@ object ContractIdClass {
       nestedReturn: String,
       selfArgs: String,
       implementedInterfaces: Seq[Ref.TypeConName],
+      packagePrefixes: Map[PackageId, String],
   ) =
     implementedInterfaces.map { interfaceName =>
-      // XXX why doesn't this use packagePrefixes? -SC
-      val name = ClassName.bestGuess(fullyQualifiedName(interfaceName.qualifiedName))
+      val name = ClassName.bestGuess(fullyQualifiedName(interfaceName, packagePrefixes))
       val interfaceContractIdName = name nestedClass nestedReturn
       MethodSpec
         .methodBuilder("toInterface")

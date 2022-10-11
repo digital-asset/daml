@@ -45,7 +45,11 @@ object ClassForType extends StrictLogging {
   ): List[JavaFile] =
     for {
       (interfaceName, interface) <- typeWithContext.interface.interfaces.toList
-      className = ClassName.bestGuess(fullyQualifiedName(interfaceName))
+      classNameString = fullyQualifiedName(
+        Identifier(typeWithContext.interface.packageId, interfaceName),
+        packagePrefixes,
+      )
+      className = ClassName.bestGuess(classNameString)
       interfaceViewTypeName = ClassName.bestGuess(
         fullyQualifiedName(
           interface.viewType.getOrElse(
