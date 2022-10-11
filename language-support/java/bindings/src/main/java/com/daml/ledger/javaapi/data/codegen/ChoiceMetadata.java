@@ -19,9 +19,9 @@ public final class ChoiceMetadata<Tpl, ArgType, ResType> {
   /** The choice name * */
   public final String name;
 
-  private final Function<ArgType, Value> encodeArg;
+  public final Function<ArgType, Value> encodeArg;
 
-  private final ValueDecoder<ResType> valueDecoder;
+  public final ValueDecoder<ResType> valueDecoder;
 
   private ChoiceMetadata(final String name, final Function<ArgType, Value> encodeArg,
                          ValueDecoder<ResType> valueDecoder) {
