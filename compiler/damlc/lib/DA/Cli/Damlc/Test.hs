@@ -209,12 +209,12 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
   where
     report :: String -> (LocalOrExternal -> Bool) -> Report
     report groupName pred =
-        let filteredResults :: [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
-            filteredResults = filter (pred . fst) results
-            definedTemplatesInside = M.keysSet $ templatesDefinedIn $ map fst filteredResults
-            definedChoicesInside = M.keysSet $ choicesDefinedIn $ map fst filteredResults
-            exercisedInside = foldMap (exercisedChoices . snd) filteredResults
-            createdInside = foldMap (createdTemplates . snd) filteredResults
+        let allMatchingPackages = filter pred allPackages
+            allMatchingResults = map snd $ filter (pred . fst) results
+            definedTemplatesInside = M.keysSet $ templatesDefinedIn allMatchingPackages
+            definedChoicesInside = M.keysSet $ choicesDefinedIn allMatchingPackages
+            exercisedInside = foldMap exercisedChoices allMatchingResults
+            createdInside = foldMap createdTemplates allMatchingResults
             internalExercisedAnywhere = allExercisedChoices `S.intersection` definedChoicesInside
             internalExercisedInternal = exercisedInside `S.intersection` definedChoicesInside
             externalExercisedInternal = exercisedInside `S.difference` definedChoicesInside
