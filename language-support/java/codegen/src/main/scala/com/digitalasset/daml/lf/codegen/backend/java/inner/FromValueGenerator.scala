@@ -249,6 +249,18 @@ private[inner] object FromValueGenerator extends StrictLogging {
     lazy val javaType = toJavaTypeName(damlType, packagePrefixes)
     logger.debug(s"Generating composite extractor for $field of type $javaType")
 
+    def oneTypeArgPrim(primFun: String, param: Type): CodeBlock = {
+      val singleArg = args.next()
+      CodeBlock.of(
+        "$T.$L($L ->$>$W$L$<)$Z.decode($L)",
+        classOf[PrimitiveValueDecoders],
+        primFun,
+        singleArg,
+        extractor(param, singleArg, CodeBlock.of("$L", singleArg), args, packagePrefixes),
+        accessor,
+      )
+    }
+
     damlType match {
       // Case #1: the type is actually a type parameter: we assume the calling code defines a
       // suitably named function that takes the result of accessing the underlying data (as
@@ -258,24 +270,11 @@ private[inner] object FromValueGenerator extends StrictLogging {
         CodeBlock.of("fromValue$L.decode($L)", JavaEscaper.escapeString(tvName), accessor)
 
       case TypePrim(PrimTypeList, ImmArraySeq(param)) =>
-        val listMapArg = args.next()
-        CodeBlock.of(
-          "$T.fromList($L ->$>$W$L$<)$Z.decode($L)",
-          classOf[PrimitiveValueDecoders],
-          listMapArg,
-          extractor(param, listMapArg, CodeBlock.of("$L", listMapArg), args, packagePrefixes),
-          accessor,
-        )
+        oneTypeArgPrim("fromList", param)
 
       case TypePrim(PrimTypeOptional, ImmArraySeq(param)) =>
-        val valArg = args.next()
-        CodeBlock.of(
-          "$T.fromOptional($L ->$>$W$L$<)$Z.decode($L)",
-          classOf[PrimitiveValueDecoders],
-          valArg,
-          extractor(param, valArg, CodeBlock.of("$L", valArg), args, packagePrefixes),
-          accessor,
-        )
+        oneTypeArgPrim("fromOptional", param)
+
       case TypePrim(PrimTypeContractId, ImmArraySeq(TypeVar(name))) =>
         CodeBlock.of(
           "$T.fromContractId(fromValue$L)$Z.decode($L)",
@@ -291,14 +290,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
           orElseThrow(apiType, field),
         )
       case TypePrim(PrimTypeTextMap, ImmArraySeq(param)) =>
-        val entryArg = args.next()
-        CodeBlock.of(
-          "$T.fromTextMap($L ->$>$W$L$<)$Z.decode($L)",
-          classOf[PrimitiveValueDecoders],
-          entryArg,
-          extractor(param, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
-          accessor,
-        )
+        oneTypeArgPrim("fromTextMap", param)
 
       case TypePrim(PrimTypeGenMap, ImmArraySeq(keyType, valueType)) =>
         val entryArg = args.next()
