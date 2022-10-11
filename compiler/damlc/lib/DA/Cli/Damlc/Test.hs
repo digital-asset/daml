@@ -289,7 +289,7 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
         in
         TemplateIdentifier { package, qualifiedTemplate }
 
-    templatesDefinedIn :: [LocalOrExternal] -> M.Map TemplateIdentifier LF.Qualified LF.Template
+    templatesDefinedIn :: [LocalOrExternal] -> M.Map TemplateIdentifier (LF.Qualified LF.Template)
     templatesDefinedIn localOrExternals = M.fromList
         [ (lfTemplateIdentifier templateInfo, templateInfo)
         | localOrExternal <- localOrExternals
