@@ -258,39 +258,23 @@ private[inner] object FromValueGenerator extends StrictLogging {
         CodeBlock.of("fromValue$L.decode($L)", JavaEscaper.escapeString(tvName), accessor)
 
       case TypePrim(PrimTypeList, ImmArraySeq(param)) =>
-        val optMapArg = args.next()
         val listMapArg = args.next()
         CodeBlock.of(
-          """$L.asList()
-            |    .map($L -> $L.toList($L ->
-            |        $L
-            |    ))
-            |    $L
-            |""".stripMargin,
-          accessor,
-          optMapArg,
-          optMapArg,
+          "$T.fromList($L ->$>$W$L$<)$Z.decode($L)",
+          classOf[PrimitiveValueDecoders],
           listMapArg,
           extractor(param, listMapArg, CodeBlock.of("$L", listMapArg), args, packagePrefixes),
-          orElseThrow(apiType, field),
+          accessor,
         )
 
       case TypePrim(PrimTypeOptional, ImmArraySeq(param)) =>
-        val optOptArg = args.next()
         val valArg = args.next()
         CodeBlock.of(
-          """$L.asOptional()
-            |    .map($L -> $L.toOptional($L ->
-            |        $L
-            |    ))
-            |    $L
-          """.stripMargin,
-          accessor,
-          optOptArg,
-          optOptArg,
+          "$T.fromOptional($L ->$>$W$L$<)$Z.decode($L)",
+          classOf[PrimitiveValueDecoders],
           valArg,
           extractor(param, valArg, CodeBlock.of("$L", valArg), args, packagePrefixes),
-          orElseThrow(apiType, field),
+          accessor,
         )
       case TypePrim(PrimTypeContractId, ImmArraySeq(TypeVar(name))) =>
         CodeBlock.of(
