@@ -3,7 +3,7 @@
 
 package com.daml.platform.server.api.validation
 
-import com.daml.ledger.participant.localstore.utils.ResourceAnnotationValidation._
+import ResourceAnnotationValidation._
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

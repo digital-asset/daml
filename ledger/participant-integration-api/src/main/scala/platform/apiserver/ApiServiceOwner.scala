@@ -12,7 +12,6 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
-import com.daml.ledger.participant.localstore.api.{PartyRecordStore, UserManagementStore}
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
@@ -22,6 +21,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.meteringreport.MeteringReportKey
 import com.daml.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
+import com.daml.platform.localstore.api.{PartyRecordStore, UserManagementStore}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{Port, PortFiles}
 import com.daml.telemetry.TelemetryContext

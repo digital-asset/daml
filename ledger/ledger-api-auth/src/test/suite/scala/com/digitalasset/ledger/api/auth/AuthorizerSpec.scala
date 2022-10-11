@@ -11,8 +11,8 @@ import org.scalatest.matchers.should.Matchers
 import java.time.Instant
 
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.participant.localstore.api.UserManagementStore
 import com.daml.logging.LoggingContext
+import com.daml.platform.localstore.api.UserManagementStore
 import org.mockito.MockitoSugar
 
 import scala.concurrent.{ExecutionContext, Future}

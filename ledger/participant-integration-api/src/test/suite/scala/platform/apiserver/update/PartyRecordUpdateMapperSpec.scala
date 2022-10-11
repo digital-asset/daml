@@ -5,8 +5,8 @@ package com.daml.platform.apiserver.update
 
 import com.daml.ledger.api.domain.ParticipantParty.PartyDetails
 import com.daml.ledger.api.domain.ObjectMeta
-import com.daml.ledger.participant.localstore.api.{ObjectMetaUpdate, PartyDetailsUpdate}
 import com.daml.lf.data.Ref
+import com.daml.platform.localstore.api.{ObjectMetaUpdate, PartyDetailsUpdate}
 import com.google.protobuf.field_mask.FieldMask
 import org.scalatest.EitherValues
 import org.scalatest.freespec.AnyFreeSpec

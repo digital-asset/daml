@@ -16,11 +16,6 @@ import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServ
 import com.daml.ledger.api.v1.admin.party_management_service._
 import com.daml.ledger.api.v1.{admin => proto_admin}
 import com.daml.ledger.api.validation.ValidationErrors
-import com.daml.ledger.participant.localstore.api.{
-  PartyDetailsUpdate,
-  PartyRecordStore,
-  PartyRecordUpdate,
-}
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
@@ -36,6 +31,7 @@ import com.daml.platform.apiserver.services.admin.ApiPartyManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.apiserver.update
 import com.daml.platform.apiserver.update.PartyRecordUpdateMapper
+import com.daml.platform.localstore.api.{PartyDetailsUpdate, PartyRecordStore, PartyRecordUpdate}
 import com.daml.platform.server.api.validation.FieldValidations
 import com.daml.platform.server.api.validation.FieldValidations.{
   optionalString,

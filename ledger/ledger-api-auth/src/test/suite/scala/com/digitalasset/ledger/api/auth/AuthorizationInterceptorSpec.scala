@@ -13,7 +13,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import java.util.concurrent.CompletableFuture
 
-import com.daml.ledger.participant.localstore.api.UserManagementStore
+import com.daml.platform.localstore.api.UserManagementStore
 
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.Promise

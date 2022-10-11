@@ -11,8 +11,8 @@ import com.daml.error.ErrorsAssertions
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.api.auth.AuthorizationError.Expired
-import com.daml.ledger.participant.localstore.api.UserManagementStore
 import com.daml.logging.LoggingContext
+import com.daml.platform.localstore.api.UserManagementStore
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver
 import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar, MockitoSugar}

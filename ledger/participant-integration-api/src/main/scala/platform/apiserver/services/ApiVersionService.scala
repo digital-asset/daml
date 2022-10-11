@@ -23,7 +23,7 @@ import com.daml.ledger.api.v1.version_service.{
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.LedgerFeatures
-import com.daml.platform.usermanagement.UserManagementConfig
+import com.daml.platform.localstore.UserManagementConfig
 import io.grpc.ServerServiceDefinition
 
 import scala.annotation.nowarn
