@@ -55,9 +55,9 @@ gatling_version = "3.5.1"
 guava_version = "31.0.1-jre"
 
 # observability libs
-dropwizard_version = "4.1.2"
+dropwizard_version = "4.2.12"
 opentelemetry_version = "1.12.0"
-prometheus_version = "0.8.1"
+prometheus_version = "0.14.1"
 
 def install_java_deps():
     maven_install(
