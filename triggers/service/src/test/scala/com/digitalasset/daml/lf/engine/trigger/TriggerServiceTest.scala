@@ -535,7 +535,7 @@ trait AbstractTriggerServiceTest
       } yield succeed
   }
 
-  // TEST_EVIDENCE: Input Validation: give a 'not found' response for a stop request with an unparseable UUID in the trigger service
+  // TEST_EVIDENCE: Confidentiality: give a 'not found' response for a stop request with an unparseable UUID in the trigger service
   it should "give a 'not found' response for a stop request with an unparseable UUID" in withTriggerService(
     Nil
   ) { uri: Uri =>
@@ -550,7 +550,7 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Input Validation: give a 'not found' response for a stop request on an unknown UUID in the trigger service
+  // TEST_EVIDENCE: Confidentiality: give a 'not found' response for a stop request on an unknown UUID in the trigger service
   it should "give a 'not found' response for a stop request on an unknown UUID" in withTriggerService(
     Nil
   ) { uri: Uri =>
