@@ -507,7 +507,7 @@ private[inner] object TemplateClass extends StrictLogging {
             "value$",
             CodeBlock.of("$L", "value$"),
             newNameGenerator,
-            maybePrefix,
+            packagePrefixes,
           ),
         )
         .build()
