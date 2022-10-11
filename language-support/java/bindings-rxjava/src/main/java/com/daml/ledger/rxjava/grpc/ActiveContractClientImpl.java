@@ -13,10 +13,10 @@ import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
 import io.grpc.Channel;
 import io.reactivex.Flowable;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 public class ActiveContractClientImpl implements ActiveContractsClient {
@@ -70,11 +70,10 @@ public class ActiveContractClientImpl implements ActiveContractsClient {
         getActiveContracts(filter, verbose, accessToken);
     return responses.map(
         response -> {
-          List<Ct> activeContracts = new ArrayList<>();
-          for (CreatedEvent createdEvent : response.getCreatedEvents()) {
-            Ct ct = contractUtil.toContract(createdEvent);
-            activeContracts.add(ct);
-          }
+          List<Ct> activeContracts =
+              response.getCreatedEvents().stream()
+                  .map(contractUtil::toContract)
+                  .collect(Collectors.toList());
           return new ActiveContracts<>(
               response.getOffset().orElse(""), activeContracts, response.getWorkflowId());
         });
