@@ -33,6 +33,8 @@ public final class PrimitiveValueDecoders {
       value -> value.asUnit().orElseThrow(() -> mismatched(Unit.class));
   public static final ValueDecoder<LocalDate> fromDate =
       value -> value.asDate().orElseThrow(() -> mismatched(Date.class)).getValue();
+  public static final ValueDecoder<java.math.BigDecimal> fromNumeric =
+      value -> value.asNumeric().orElseThrow().getValue();
 
   public static <T> ValueDecoder<List<T>> fromList(ValueDecoder<T> element) {
     return value ->
@@ -62,6 +64,15 @@ public final class PrimitiveValueDecoders {
             .asTextMap()
             .map(dtm -> dtm.toMap(valueType::decode))
             .orElseThrow(() -> mismatched(Map.class));
+  }
+
+  public static <K, V> ValueDecoder<Map<K, V>> fromGenMap(
+      ValueDecoder<K> keyType, ValueDecoder<V> valueType) {
+    return value ->
+        value
+            .asGenMap()
+            .orElseThrow(() -> mismatched(Map.class))
+            .toMap(keyType::decode, valueType::decode);
   }
 
   public static <T> ValueDecoder<T> impossible() {
