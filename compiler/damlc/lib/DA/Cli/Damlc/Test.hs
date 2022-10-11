@@ -203,8 +203,8 @@ printTestCoverage ::
 printTestCoverage ShowCoverage {getShowCoverage} allPackages results
   | any (isLeft . snd) $ concatMap snd results = pure ()
   | otherwise = do
-      printReport $ report "defined in local module" isLocal
-      printReport $ report "defined in external modules" (not . isLocal)
+      printReport $ report "defined in local package" isLocal
+      printReport $ report "defined in external packages" (not . isLocal)
       printReport $ report "defined anywhere" (const True)
   where
     report :: String -> (LocalOrExternal -> Bool) -> Report
