@@ -38,18 +38,15 @@ public final class PrimitiveValueDecoders {
 
   public static <T> ValueDecoder<List<T>> fromList(ValueDecoder<T> element) {
     return value ->
-        value
-            .asList()
-            .map(dl -> dl.toList(element::decode))
-            .orElseThrow(() -> mismatched(List.class));
+        value.asList().orElseThrow(() -> mismatched(List.class)).toList(element::decode);
   }
 
   public static <T> ValueDecoder<Optional<T>> fromOptional(ValueDecoder<T> element) {
     return value ->
         value
             .asOptional()
-            .map(dopt -> dopt.toOptional(element::decode))
-            .orElseThrow(() -> mismatched(Optional.class));
+            .orElseThrow(() -> mismatched(Optional.class))
+            .toOptional(element::decode);
   }
 
   public static <T> ValueDecoder<ContractId<T>> fromContractId(ValueDecoder<T> contractType) {
@@ -60,10 +57,7 @@ public final class PrimitiveValueDecoders {
 
   public static <T> ValueDecoder<Map<String, T>> fromTextMap(ValueDecoder<T> valueType) {
     return value ->
-        value
-            .asTextMap()
-            .map(dtm -> dtm.toMap(valueType::decode))
-            .orElseThrow(() -> mismatched(Map.class));
+        value.asTextMap().orElseThrow(() -> mismatched(Map.class)).toMap(valueType::decode);
   }
 
   public static <K, V> ValueDecoder<Map<K, V>> fromGenMap(
