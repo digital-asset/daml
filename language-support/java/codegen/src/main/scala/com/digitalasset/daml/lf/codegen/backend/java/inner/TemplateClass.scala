@@ -242,6 +242,7 @@ private[inner] object TemplateClass extends StrictLogging {
             yield {
               generateDeprecatedFlattenedStaticExerciseByKeyMethod(
                 choiceName,
+                choice,
                 key,
                 getFieldsWithTypes(record.fields, packagePrefixes),
                 packagePrefixes,
@@ -283,6 +284,7 @@ private[inner] object TemplateClass extends StrictLogging {
   // TODO #14039 delete
   private def generateDeprecatedFlattenedStaticExerciseByKeyMethod(
       choiceName: ChoiceName,
+      choice: TemplateChoice[Type],
       key: Type,
       fields: Fields,
       packagePrefixes: Map[PackageId, String],
@@ -291,7 +293,12 @@ private[inner] object TemplateClass extends StrictLogging {
     val exerciseByKeyBuilder = MethodSpec
       .methodBuilder(methodName)
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .returns(classOf[javaapi.data.ExerciseByKeyCommand])
+      .returns(
+        ParameterizedTypeName.get(
+          ClassName get classOf[Update[_]],
+          toJavaTypeName(choice.returnType, packagePrefixes),
+        )
+      )
       .addParameter(toJavaTypeName(key, packagePrefixes), "key")
     for (FieldInfo(_, _, javaName, javaType) <- fields) {
       exerciseByKeyBuilder.addParameter(javaType, javaName)
