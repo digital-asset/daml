@@ -7,6 +7,7 @@ import com.daml.ledger.javaapi.data.CreatedEvent;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Identifier;
 import com.daml.ledger.javaapi.data.Value;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -79,8 +80,9 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
       String templateClassName,
       Identifier templateId,
       Function<String, Id> newContractId,
-      Function<DamlRecord, Data> fromValue) {
-    super(templateId, templateClassName);
+      Function<DamlRecord, Data> fromValue,
+      List<ChoiceMetadata<Data, ?, ?>> choices) {
+    super(templateId, templateClassName, choices);
     this.newContractId = newContractId;
     this.fromValue = fromValue;
   }
@@ -100,8 +102,9 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
         Identifier templateId,
         Function<String, Id> newContractId,
         Function<DamlRecord, Data> fromValue,
-        NewContract<Ct, Id, Data> newContract) {
-      super(templateClassName, templateId, newContractId, fromValue);
+        NewContract<Ct, Id, Data> newContract,
+        List<ChoiceMetadata<Data, ?, ?>> choices) {
+      super(templateClassName, templateId, newContractId, fromValue, choices);
       this.newContract = newContract;
     }
 
@@ -155,8 +158,9 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
         Function<String, Id> newContractId,
         Function<DamlRecord, Data> fromValue,
         NewContract<Ct, Id, Data, Key> newContract,
+        List<ChoiceMetadata<Data, ?, ?>> choices,
         Function<Value, Key> keyFromValue) {
-      super(templateClassName, templateId, newContractId, fromValue);
+      super(templateClassName, templateId, newContractId, fromValue, choices);
       this.newContract = newContract;
       this.keyFromValue = keyFromValue;
     }

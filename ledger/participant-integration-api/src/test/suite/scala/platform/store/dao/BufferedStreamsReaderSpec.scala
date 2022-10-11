@@ -5,7 +5,6 @@ package com.daml.platform.store.dao
 
 import akka.stream.scaladsl.{Sink, Source}
 import akka.{Done, NotUsed}
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Time.Timestamp
@@ -244,7 +243,7 @@ object BufferedStreamsReaderSpec {
     self: AkkaBeforeAndAfterAll =>
 
     implicit val lc: LoggingContext = LoggingContext.ForTesting
-    val metrics = new Metrics(new MetricRegistry())
+    val metrics = Metrics.ForTesting
     val Seq(offset0, offset1, offset2, offset3) = (0 to 3) map { idx => offset(idx.toLong) }
     val offsetUpdates: Seq[(Offset, TransactionLogUpdate.TransactionAccepted)] =
       Seq(offset1, offset2, offset3).zip((1 to 3).map(idx => transaction(s"tx-$idx")))

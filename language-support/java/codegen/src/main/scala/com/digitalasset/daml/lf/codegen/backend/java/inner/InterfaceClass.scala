@@ -4,13 +4,17 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data.codegen.InterfaceCompanion
-import com.daml.lf.data.Ref.{PackageId, QualifiedName}
-import com.daml.lf.typesig, typesig.DefInterface
+import com.daml.lf.codegen.backend.java.inner.InterfaceClass.companionClassName
+import com.daml.lf.codegen.backend.java.inner.TemplateClass.toChoiceNameField
+import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
+import com.daml.lf.typesig
+import typesig.DefInterface
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.-\/
 
 import javax.lang.model.element.Modifier
+import scala.jdk.CollectionConverters._
 
 object InterfaceClass extends StrictLogging {
 
@@ -29,6 +33,16 @@ object InterfaceClass extends StrictLogging {
         .classBuilder(interfaceName)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
         .addField(generateTemplateIdField(packageId, interfaceId))
+        .addFields(
+          TemplateClass
+            .generateChoicesMetadata(
+              interfaceName,
+              packagePrefixes,
+              interface.choices,
+              withPrefixes = false, // TODO: remove in #15154
+            )
+            .asJava
+        )
         .addField(generateInterfaceCompanionField())
         .addType(
           ContractIdClass
@@ -57,6 +71,7 @@ object InterfaceClass extends StrictLogging {
         .addType(
           generateInterfaceCompanionClass(
             interfaceName = interfaceName,
+            choiceNames = interface.choices.keySet,
             interfaceViewTypeName = interfaceViewTypeName,
           )
         )
@@ -70,26 +85,28 @@ object InterfaceClass extends StrictLogging {
     }
 
   private[inner] val companionName = "INTERFACE"
+  private[inner] val companionClassName = "INTERFACE_"
 
   private def generateInterfaceCompanionField(): FieldSpec =
     FieldSpec
       .builder(
-        ClassName bestGuess companionName,
+        ClassName bestGuess companionClassName,
         companionName,
         Modifier.FINAL,
         Modifier.PUBLIC,
         Modifier.STATIC,
       )
-      .initializer("new $N()", companionName)
+      .initializer("new $N()", companionClassName)
       .build()
 
   private def generateInterfaceCompanionClass(
       interfaceName: ClassName,
+      choiceNames: Set[ChoiceName],
       interfaceViewTypeName: ClassName,
   ): TypeSpec = {
     val contractIdClassName = ClassName bestGuess "ContractId"
     TypeSpec
-      .classBuilder(companionName)
+      .classBuilder(companionClassName)
       .superclass(
         ParameterizedTypeName
           .get(
@@ -105,13 +122,21 @@ object InterfaceClass extends StrictLogging {
           .constructorBuilder()
           // intentionally package-private
           .addStatement(
-            "super($>$Z$S, $T.$N, $T::new, $T.$L())",
+            "super($>$Z$S, $T.$N, $T::new, $T.$L(), $T.of($L))",
             interfaceName,
             interfaceName,
             ClassGenUtils.templateIdFieldName,
             contractIdClassName,
             interfaceViewTypeName,
             "valueDecoder",
+            classOf[java.util.List[_]],
+            CodeBlock
+              .join(
+                choiceNames
+                  .map(choiceName => CodeBlock.of("$N", toChoiceNameField(choiceName)))
+                  .asJava,
+                ",$W",
+              ),
           )
           .build()
       }

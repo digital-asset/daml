@@ -7,7 +7,7 @@ import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class GetActiveContractsRequest {
+public final class GetActiveContractsRequest {
 
   private final String ledgerId;
 

@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class SubmitRequest {
+public final class SubmitRequest {
 
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,

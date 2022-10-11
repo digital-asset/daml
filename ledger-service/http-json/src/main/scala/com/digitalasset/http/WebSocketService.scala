@@ -39,7 +39,7 @@ import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.traverse._
 import scalaz.std.list._
-import scalaz.{@@, -\/, \/, \/-, Foldable, Monoid, Liskov, NonEmptyList, OneAnd, Tag}
+import scalaz.{@@, -\/, \/, \/-, Foldable, Liskov, NonEmptyList, OneAnd, Semigroup, Tag}
 import Liskov.<~<
 import com.daml.fetchcontracts.domain.ResolvedQuery
 import ResolvedQuery.Unsupported
@@ -244,36 +244,29 @@ object WebSocketService {
     (Unsupported \/ ResolvedQuery) @@ UnsupportedOrResolvedQueryTag
   private val UnsupportedOrResolvedQuery = Tag.of[UnsupportedOrResolvedQueryTag]
 
-  private implicit val `Unsupported or ResolvedQuery monoid`: Monoid[UnsupportedOrResolvedQuery] = {
+  private implicit val `Unsupported or ResolvedQuery semigroup`
+      : Semigroup[UnsupportedOrResolvedQuery] = {
     import ResolvedQuery._
-    UnsupportedOrResolvedQuery.subst(
-      Monoid.instance(
-        {
-          case (-\/(CannotQueryBothTemplateIdsAndInterfaceIds), _) =>
-            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
-          case (_, -\/(CannotQueryBothTemplateIdsAndInterfaceIds)) =>
-            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+    UnsupportedOrResolvedQuery subst Semigroup.instance {
+      case (-\/(CannotQueryBothTemplateIdsAndInterfaceIds), _) |
+          (_, -\/(CannotQueryBothTemplateIdsAndInterfaceIds)) =>
+        -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
 
-          case (-\/(CannotQueryManyInterfaceIds), _) => -\/(CannotQueryManyInterfaceIds)
-          case (_, -\/(CannotQueryManyInterfaceIds)) => -\/(CannotQueryManyInterfaceIds)
+      case (-\/(CannotQueryManyInterfaceIds), _) | (_, -\/(CannotQueryManyInterfaceIds)) =>
+        -\/(CannotQueryManyInterfaceIds)
 
-          case (-\/(CannotBeEmpty), _) => -\/(CannotBeEmpty)
-          case (_, -\/(CannotBeEmpty)) => -\/(CannotBeEmpty)
+      case (-\/(CannotBeEmpty), _) | (_, -\/(CannotBeEmpty)) => -\/(CannotBeEmpty)
 
-          case (\/-(ByInterfaceId(_)), \/-(ByTemplateId(_)) | \/-(ByTemplateIds(_))) =>
-            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
-          case (\/-(ByTemplateId(_)) | \/-(ByTemplateIds(_)), \/-(ByInterfaceId(_))) =>
-            -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
+      case (\/-(ByInterfaceId(_)), \/-(ByTemplateId(_)) | \/-(ByTemplateIds(_))) |
+          (\/-(ByTemplateId(_)) | \/-(ByTemplateIds(_)), \/-(ByInterfaceId(_))) =>
+        -\/(CannotQueryBothTemplateIdsAndInterfaceIds)
 
-          case (\/-(ByInterfaceId(interfaceIdA)), \/-(ByInterfaceId(interfaceIdB))) =>
-            if (interfaceIdA == interfaceIdB) \/-(ByInterfaceId(interfaceIdA))
-            else -\/(CannotQueryManyInterfaceIds)
+      case (\/-(ByInterfaceId(interfaceIdA)), \/-(ByInterfaceId(interfaceIdB))) =>
+        if (interfaceIdA == interfaceIdB) \/-(ByInterfaceId(interfaceIdA))
+        else -\/(CannotQueryManyInterfaceIds)
 
-          case (\/-(a), \/-(b)) => ResolvedQuery(a.resolved ++ b.resolved)
-        },
-        \/-(Empty),
-      )
-    )
+      case (\/-(a), \/-(b)) => ResolvedQuery(a.resolved ++ b.resolved)
+    }
   }
 
   implicit def SearchForeverRequestWithStreamQuery(implicit
@@ -359,41 +352,39 @@ object WebSocketService {
           (annotated map { case (tpid, sql, _) => (tpid, sql) }, posMap)
         }
 
-        val query = (gacr: domain.SearchForeverQuery, pos: Int, ix: Int) =>
-          for {
-            res <-
-              gacr.templateIds.toList.toNEF
-                .traverse(x =>
-                  resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
+        def query(gacr: domain.SearchForeverQuery, pos: Int, ix: Int) = for {
+          res <-
+            gacr.templateIds.toList.toNEF
+              .traverse(x =>
+                resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
+              )
+              .map(
+                _.toSet.partitionMap(
+                  identity[
+                    Either[domain.ContractTypeId.Resolved, domain.ContractTypeId.OptionalPkg]
+                  ]
                 )
-                .map(
-                  _.toSet.partitionMap(
-                    identity[
-                      Either[domain.ContractTypeId.Resolved, domain.ContractTypeId.OptionalPkg]
-                    ]
-                  )
-                )
-            (resolved, unresolved) = res
-            errorOrResolvedQuery = domain.ResolvedQuery(resolved)
-            q = prepareFilters(
-              errorOrResolvedQuery.getOrElse(ResolvedQuery.Empty),
-              gacr.query,
-              lookupType,
-            ): CompiledQueries
-          } yield (
-            UnsupportedOrResolvedQuery(
-              errorOrResolvedQuery
-            ),
-            resolved,
-            unresolved,
-            q transform ((_, p) => NonEmptyList((p, (ix, pos)))),
-          )
+              )
+          (resolved, unresolved) = res
+          errorOrResolvedQuery = domain.ResolvedQuery(resolved)
+          q = errorOrResolvedQuery.fold(
+            _ => Map.empty,
+            prepareFilters(_, gacr.query, lookupType),
+          ): CompiledQueries
+        } yield (
+          UnsupportedOrResolvedQuery(
+            errorOrResolvedQuery
+          ),
+          resolved,
+          unresolved,
+          q transform ((_, p) => NonEmptyList((p, (ix, pos)))),
+        )
 
         for {
           res <-
             request.queriesWithPos.zipWithIndex // index is used to ensure matchesOffset works properly
               .map { case ((q, pos), ix) => (q, pos, ix) }
-              .foldMapM(query.tupled)
+              .foldMapM1((query _).tupled)
           (unsupportedOrResolvedQuery, resolved, unresolved, q) = res
         } yield (
           unresolved match {

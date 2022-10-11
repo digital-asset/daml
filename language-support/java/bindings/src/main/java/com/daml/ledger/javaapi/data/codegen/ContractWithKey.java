@@ -7,6 +7,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * A superclass for all codegen-generated Contracts whose templates have a {@code key} defined.
+ *
+ * @param <Id> The generated contract ID class alongside the generated Contract class.
+ * @param <Data> The containing template's associated record type.
+ * @param <Key> The template's key type.
+ */
 public abstract class ContractWithKey<Id, Data, Key> extends Contract<Id, Data> {
   /** The contract's key, if it was present in the event. */
   public final Optional<Key> key;

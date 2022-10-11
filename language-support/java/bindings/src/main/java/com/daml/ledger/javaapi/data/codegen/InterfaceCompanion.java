@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import com.daml.ledger.javaapi.data.Identifier;
+import java.util.List;
 
 /**
  * Metadata and utilities associated with an interface as a whole. Its subclasses serve to
@@ -34,8 +36,9 @@ public abstract class InterfaceCompanion<I, Id, View> extends ContractTypeCompan
       String templateClassName,
       Identifier templateId,
       Function<String, Id> newContractId,
-      ValueDecoder<View> valueDecoder) {
-    super(templateId, templateClassName);
+      ValueDecoder<View> valueDecoder,
+      List<ChoiceMetadata<I, ?, ?>> choices) {
+    super(templateId, templateClassName, choices);
     this.newContractId = newContractId;
     this.valueDecoder = valueDecoder;
   }

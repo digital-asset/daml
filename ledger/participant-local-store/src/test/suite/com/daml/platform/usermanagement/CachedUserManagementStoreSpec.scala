@@ -3,7 +3,6 @@
 
 package com.daml.platform.usermanagement
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.ledger.participant.state.index.v2.{ObjectMetaUpdate, UserUpdate}
@@ -182,7 +181,7 @@ class CachedUserManagementStoreSpec
       delegate,
       expiryAfterWriteInSeconds = 1,
       maximumCacheSize = 10,
-      new Metrics(new MetricRegistry),
+      Metrics.ForTesting,
     )
   }
 }

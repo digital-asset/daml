@@ -7,7 +7,7 @@ import com.daml.ledger.api.v1.TransactionServiceOuterClass;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class GetTransactionsRequest {
+public final class GetTransactionsRequest {
 
   private final String ledgerId;
 

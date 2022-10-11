@@ -174,7 +174,7 @@ A file is generated that defines five Java classes and an interface:
 
 .. code-block:: java
   :caption: com/acme/templates/Bar.java
-  :emphasize-lines: 3,18,24,32,40,44
+  :emphasize-lines: 3,21,27,35,43,47
 
   package com.acme.templates;
 
@@ -182,9 +182,12 @@ A file is generated that defines five Java classes and an interface:
 
     public static final Identifier TEMPLATE_ID = new Identifier("some-package-id", "Com.Acme.Templates", "Bar");
 
+    public static final ChoiceMetadata<Bar, Archive, Unit> CHOICE_Archive =
+      ChoiceMetadata.create(/* ... */);
+
     public static final ContractCompanion.WithKey<Contract, ContractId, Bar, BarKey> COMPANION = 
         new ContractCompanion.WithKey<>("com.acme.templates.Bar",
-          TEMPLATE_ID, ContractId::new, Bar::fromValue, Contract::new, e -> BarKey.fromValue(e));
+          TEMPLATE_ID, ContractId::new, Bar::fromValue, Contract::new, e -> BarKey.fromValue(e), List.of(CHOICE_Archive));
 
     public final String owner;
     public final String name;
@@ -514,6 +517,12 @@ Effectively it is a class that contains only the inner type ContractId because o
   
   public final class TIf {
     public static final Identifier TEMPLATE_ID = new Identifier("94fb4fa48cef1ec7d474ff3d6883a00b2f337666c302ec5e2b87e986da5c27a3", "Interfaces", "TIf");
+
+    public static final ChoiceMetadata<TIf, Transfer, ContractId> CHOICE_Transfer =
+      ChoiceMetadata.create(/* ... */);
+
+    public static final ChoiceMetadata<TIf, Archive, Unit> CHOICE_Archive =
+      ChoiceMetadata.create(/* ... */);
 
     public static final INTERFACE INTERFACE = new INTERFACE();
 

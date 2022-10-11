@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.cache
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{ImmArray, Ref, Time}
@@ -29,7 +28,7 @@ class ContractStateCachesSpec extends AnyFlatSpec with Matchers with MockitoSuga
       cacheInitializationOffset,
       1L,
       1L,
-      metrics = new Metrics(new MetricRegistry),
+      metrics = Metrics.ForTesting,
     )(scala.concurrent.ExecutionContext.global, loggingContext)
 
     contractStateCaches.keyState.cacheIndex shouldBe cacheInitializationOffset

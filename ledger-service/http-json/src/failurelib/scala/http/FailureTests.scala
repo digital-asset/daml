@@ -7,7 +7,6 @@ import akka.http.javadsl.model.ws.PeerClosedConnectionException
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import akka.stream.{KillSwitches, UniqueKillSwitch}
 import akka.stream.scaladsl.{Keep, Sink}
-import com.codahale.metrics.MetricRegistry
 import com.daml.dbutils.ConnectionPool
 
 import scala.concurrent.{Future, Promise}
@@ -439,7 +438,7 @@ abstract class FailureTests
     import DbStartupOps._, com.daml.http.dbbackend.DbStartupMode._,
     com.daml.http.dbbackend.JdbcConfig, com.daml.dbutils
     val bc = jdbcConfig_.baseConfig
-    implicit val metrics: Metrics = new Metrics(new MetricRegistry())
+    implicit val metrics: Metrics = Metrics.ForTesting
     val dao = dbbackend.ContractDao(
       JdbcConfig(
         // discarding other settings

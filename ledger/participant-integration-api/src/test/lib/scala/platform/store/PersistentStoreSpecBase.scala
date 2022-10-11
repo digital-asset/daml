@@ -6,7 +6,6 @@ package com.daml.platform.store
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
@@ -87,7 +86,7 @@ trait PersistentStoreSpecBase extends BeforeAndAfterEach with BeforeAndAfterAll 
           ),
         ),
         serverRole = ServerRole.Testing(getClass),
-        metrics = new Metrics(new MetricRegistry()),
+        metrics = Metrics.ForTesting,
       )
       .acquire()
     val initializeDbAndGetDbSupportFuture: Future[DbSupport] = for {

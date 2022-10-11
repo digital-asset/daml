@@ -213,9 +213,8 @@ object Script {
 
 object Runner {
 
-  final case class InterpretationError(error: SError.SError) extends RuntimeException {
-    override def toString: String = Pretty.prettyError(error).render(80)
-  }
+  final case class InterpretationError(error: SError.SError)
+      extends RuntimeException(s"${Pretty.prettyError(error).render(80)}")
 
   private[script] val compilerConfig = {
     import Compiler._

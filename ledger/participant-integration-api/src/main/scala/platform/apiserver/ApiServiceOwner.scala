@@ -137,7 +137,6 @@ object ApiServiceOwner {
         ) :: otherInterceptors,
         servicesExecutionContext,
         metrics,
-        config.rateLimit,
       )
       _ <- ResourceOwner.forTry(() => writePortFile(apiService.port))
     } yield {
