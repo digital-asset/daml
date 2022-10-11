@@ -38,7 +38,6 @@ object InterfaceClass extends StrictLogging {
               interfaceName,
               packagePrefixes,
               interface.choices,
-              withPrefixes = false, // TODO: remove in #15154
             )
             .asJava
         )
@@ -62,10 +61,15 @@ object InterfaceClass extends StrictLogging {
           )
         )
         .addType(
-          TemplateClass.generateCreateAndClass(interfaceName, -\/(ContractIdClass.For.Interface))
+          TemplateClass.generateCreateAndClass(
+            interfaceName,
+            -\/(ContractIdClass.For.Interface),
+            packagePrefixes,
+          )
         )
         .addType(
-          TemplateClass.generateByKeyClass(interfaceName, -\/(ContractIdClass.For.Interface))
+          TemplateClass
+            .generateByKeyClass(interfaceName, -\/(ContractIdClass.For.Interface), packagePrefixes)
         )
         .addType(
           generateInterfaceCompanionClass(

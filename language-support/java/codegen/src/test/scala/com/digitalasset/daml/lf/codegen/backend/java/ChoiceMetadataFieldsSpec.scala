@@ -7,7 +7,7 @@ import com.daml.ledger.javaapi.data.Unit
 import com.daml.ledger.javaapi.data.codegen.ChoiceMetadata
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import retro.InterfaceRetro
+import ut.retro.InterfaceRetro
 import ut.bar.Bar
 import ut.da.internal.template.Archive
 
