@@ -291,21 +291,13 @@ private[inner] object FromValueGenerator extends StrictLogging {
           orElseThrow(apiType, field),
         )
       case TypePrim(PrimTypeTextMap, ImmArraySeq(param)) =>
-        val optMapArg = args.next()
         val entryArg = args.next()
         CodeBlock.of(
-          """$L.asTextMap()
-            |    .map($L -> $L.toMap($L ->
-            |        $L
-            |    ))
-            |    $L
-          """.stripMargin,
-          accessor,
-          optMapArg,
-          optMapArg,
+          "$T.fromTextMap($L ->$>$W$L$<)$Z.decode($L)",
+          classOf[PrimitiveValueDecoders],
           entryArg,
           extractor(param, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
-          orElseThrow(apiType, field),
+          accessor,
         )
 
       case TypePrim(PrimTypeGenMap, ImmArraySeq(keyType, valueType)) =>
