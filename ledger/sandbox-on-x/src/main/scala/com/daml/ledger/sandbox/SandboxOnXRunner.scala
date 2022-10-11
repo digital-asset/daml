@@ -100,6 +100,7 @@ object SandboxOnXRunner {
         servicesThreadPoolSize = servicesThreadPoolSize,
         servicesExecutionContext = servicesExecutionContext,
         timeServiceBackendO = timeServiceBackendO,
+        stageBufferSize = bridgeConfig.stageBufferSize,
       )
       apiServer <- new LedgerApiServer(
         ledgerFeatures = LedgerFeatures(
@@ -200,6 +201,7 @@ object SandboxOnXRunner {
       servicesThreadPoolSize: Int,
       servicesExecutionContext: ExecutionContextExecutorService,
       timeServiceBackendO: Option[TimeServiceBackend],
+      stageBufferSize: Int,
   ): IndexService => ResourceOwner[WriteService] = { indexService =>
     val bridgeMetrics = new BridgeMetrics(metrics)
     for {
@@ -210,6 +212,7 @@ object SandboxOnXRunner {
         bridgeMetrics,
         servicesThreadPoolSize,
         timeServiceBackendO.getOrElse(TimeProvider.UTC),
+        stageBufferSize,
       )(loggingContext, servicesExecutionContext)
       writeService <- ResourceOwner.forCloseable(() =>
         new BridgeWriteService(
