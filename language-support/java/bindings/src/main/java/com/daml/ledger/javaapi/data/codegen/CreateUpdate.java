@@ -3,6 +3,7 @@
 
 package com.daml.ledger.javaapi.data.codegen;
 
+import com.daml.ledger.javaapi.data.Command;
 import com.daml.ledger.javaapi.data.CreateCommand;
 
 public class CreateUpdate<R> extends Update<R> {
@@ -13,6 +14,11 @@ public class CreateUpdate<R> extends Update<R> {
   }
 
   public CreateCommand getCreateCommand() {
+    return createCommand;
+  }
+
+  @Override
+  public Command command() {
     return createCommand;
   }
 }

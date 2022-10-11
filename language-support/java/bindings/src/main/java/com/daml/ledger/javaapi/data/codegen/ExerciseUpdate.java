@@ -3,6 +3,7 @@
 
 package com.daml.ledger.javaapi.data.codegen;
 
+import com.daml.ledger.javaapi.data.Command;
 import com.daml.ledger.javaapi.data.ExerciseCommand;
 
 public class ExerciseUpdate<R> extends Update<R> {
@@ -13,6 +14,11 @@ public class ExerciseUpdate<R> extends Update<R> {
   }
 
   public ExerciseCommand getExerciseCommand() {
+    return exerciseCommand;
+  }
+
+  @Override
+  public Command command() {
     return exerciseCommand;
   }
 }

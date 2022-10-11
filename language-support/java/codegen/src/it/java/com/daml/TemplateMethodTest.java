@@ -36,9 +36,9 @@ public class TemplateMethodTest {
   @Test
   void contractIdHasInstanceExerciseMethods() {
     SimpleTemplate.ContractId cid = new SimpleTemplate.ContractId("id");
-    ExerciseCommand fromSplattedInt = cid.exerciseTestTemplate_Int(42L);
-    ExerciseCommand fromRecordInt = cid.exerciseTestTemplate_Int(new TestTemplate_Int(42L));
-    ExerciseCommand fromSplattedUnit = cid.exerciseTestTemplate_Unit();
+    Command fromSplattedInt = cid.exerciseTestTemplate_Int(42L).command();
+    Command fromRecordInt = cid.exerciseTestTemplate_Int(new TestTemplate_Int(42L)).command();
+    Command fromSplattedUnit = cid.exerciseTestTemplate_Unit().command();
 
     assertNotNull(fromSplattedInt, "ExerciseCommand from splatted choice was null");
     assertNotNull(fromRecordInt, "ExerciseCommand from record choice was null");
@@ -48,9 +48,9 @@ public class TemplateMethodTest {
   @Test
   void templateHasCreateAndExerciseMethods() {
     SimpleTemplate simple = new SimpleTemplate("Bob");
-    CreateAndExerciseCommand fromSplatted = simple.createAndExerciseTestTemplate_Int(42L);
-    CreateAndExerciseCommand fromRecord =
-        simple.createAndExerciseTestTemplate_Int(new TestTemplate_Int(42L));
+    Command fromSplatted = simple.createAndExerciseTestTemplate_Int(42L).command();
+    Command fromRecord =
+        simple.createAndExerciseTestTemplate_Int(new TestTemplate_Int(42L)).command();
 
     assertNotNull(fromSplatted, "CreateAndExerciseCommand from splatted choice was null");
     assertNotNull(fromRecord, "CreateAndExerciseCommand from record choice was null");

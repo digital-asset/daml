@@ -3,7 +3,6 @@
 
 package com.daml.ledger.javaapi.data.codegen;
 
-
 /**
  * Root of all generated {@code Exercises} interfaces for templates and Daml interfaces.
  *

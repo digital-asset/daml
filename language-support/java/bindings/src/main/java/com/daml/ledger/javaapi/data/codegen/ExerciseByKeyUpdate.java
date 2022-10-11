@@ -3,6 +3,7 @@
 
 package com.daml.ledger.javaapi.data.codegen;
 
+import com.daml.ledger.javaapi.data.Command;
 import com.daml.ledger.javaapi.data.ExerciseByKeyCommand;
 
 public class ExerciseByKeyUpdate<R> extends Update<R> {
@@ -13,6 +14,11 @@ public class ExerciseByKeyUpdate<R> extends Update<R> {
   }
 
   public ExerciseByKeyCommand getExerciseByKeyCommand() {
+    return exerciseByKeyCommand;
+  }
+
+  @Override
+  public Command command() {
     return exerciseByKeyCommand;
   }
 }
