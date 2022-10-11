@@ -163,7 +163,7 @@ object TreeUtils {
         }
   }
 
-  sealed trait CreatedContract {
+  sealed abstract class CreatedContract extends Product with Serializable {
     def cid: ContractId
     def tplId: TemplateId
   }
