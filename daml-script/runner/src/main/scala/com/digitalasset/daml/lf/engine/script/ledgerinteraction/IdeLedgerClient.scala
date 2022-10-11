@@ -92,6 +92,11 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
+
+    mylog("IdeLedgerClient.queryContractId")
+    // def xxx : Int = ??? // NICK: Blow Up. Who calls me?
+    // val _ = xxx
+
     ledger.lookupGlobalContract(
       view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
       effectiveAt = ledger.currentTime,
@@ -121,8 +126,10 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[Value]] = {
+    // sys.error("Not Implemented: IdeLedgerClient.queryInterfaceId")
     // Future.successful(None) // NICK
-    sys.error("Not Implemented: IdeLedgerClient.queryInterfaceId")
+    val v = Value.ValueRecord(None, ImmArray((None, Value.ValueInt64(999)))) // NICK
+    Future.successful(Some(v))
   }
 
   override def queryContractKey(

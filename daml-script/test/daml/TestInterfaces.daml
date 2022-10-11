@@ -91,12 +91,12 @@ test = script do
 interface MyInterface where
   viewtype MyView
 
-data MyView = MyView { info : Text }
+data MyView = MyView { info : Int }
 
 template MyTemplate
   with
     p : Party
-    v : Text
+    v : Int
   where
     signatory p
 
@@ -106,11 +106,13 @@ template MyTemplate
 test_queryInterfaceId : Script ()
 test_queryInterfaceId = do
   p <- allocateParty "p"
-  cid <- submit p do createCmd (MyTemplate p "42")
+  cid <- submit p do createCmd (MyTemplate p 42)
   optR <- queryContractId p cid
   let (Some r) = optR
-  r === MyTemplate p "42"
+  r === MyTemplate p 42
   let iid : ContractId MyInterface = toInterfaceContractId @MyInterface cid
-  Some v <- queryInterfaceId p iid
-  v.info === "hacky-mc-hackface" -- NICK
+  --Some v <- queryInterfaceId p iid
+  --v.info === "hacky-mc-hackface" -- NICK
+  --v.info === 999 -- NICK
+  None <- queryInterfaceId p iid
   pure ()

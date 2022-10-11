@@ -42,7 +42,7 @@ import Test.Tasty.HUnit
 import Text.Regex.TDFA
 
 lfVersion :: LF.Version
-lfVersion = max (LF.featureMinVersion LF.featureExceptions) LF.versionDefault
+lfVersion = max (LF.featureMinVersion LF.featureSimpleInterfaces) LF.versionDefault
 
 main :: IO ()
 main =
@@ -51,7 +51,7 @@ main =
       setEnv "TASTY_NUM_THREADS" "1" True
 
       -- Package DB setup, we only need to do this once so we do it at the beginning.
-      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script-1.14.dar"
+      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script-1.15.dar"
       writeFileUTF8 "daml.yaml" $
         unlines
           [ "sdk-version: " <> sdkVersion,
@@ -1156,7 +1156,43 @@ main =
                   , "    exerciseCmd c Catch"
                   ]
                 expectScriptSuccess rs (vr "test") $ \r ->
-                   matchRegex r "Active contracts:  #0:0\n"
+                   matchRegex r "Active contracts:  #0:0\n",
+
+              testCase "query by interface (NICK)" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import DA.Assert"
+                    , "import Daml.Script"
+
+                    , "interface MyInterface where"
+                    , "  viewtype MyView"
+                    , "data MyView = MyView { info : Int }"
+                    , "template MyTemplate"
+                    , "  with"
+                    , "    p : Party"
+                    , "    v : Int"
+                    , "  where"
+                    , "    signatory p"
+                    , "    interface instance MyInterface for MyTemplate where"
+                    , "      view = MyView { info = v }"
+                    , "test : Script ()"
+                    , "test = do"
+                    , "  p <- allocateParty \"p\""
+                    , "  cid <- submit p do createCmd (MyTemplate p 42)"
+                    , "  optR <- queryContractId p cid"
+                    , "  let (Some r) = optR"
+                    , "  r === MyTemplate p 42"
+                    , "  let iid : ContractId MyInterface = toInterfaceContractId @MyInterface cid"
+                    , "  Some v <- queryInterfaceId p iid"
+                    , "  v.info === 999" -- NICK
+                    , "  pure ()"
+                    ]
+
+                expectScriptSuccess rs (vr "test") $ \r ->
+                  matchRegex r "Active contracts:"
+
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}

@@ -125,8 +125,11 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       mat: Materializer,
   ): Future[Option[Value]] = {
     import com.daml.lf.data.ImmArray
-    val v = Value.ValueRecord(None, ImmArray((None, Value.ValueText("hacky-mc-hackface")))) // NICK
-    Future.successful(Some(v))
+    // val v = Value.ValueRecord(None, ImmArray((None, Value.ValueText("hacky-mc-hackface")))) // NICK
+    val v = Value.ValueRecord(None, ImmArray((None, Value.ValueInt64(999)))) // NICK
+    val _ = v
+    // Future.successful(Some(v))
+    Future.successful(None)
   }
 
   // TODO (MK) https://github.com/digital-asset/daml/issues/11737
