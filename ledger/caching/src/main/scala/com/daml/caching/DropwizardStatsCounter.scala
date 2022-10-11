@@ -26,15 +26,6 @@ private[caching] final class DropwizardStatsCounter(
     metrics.evictionWeight.inc(weight.toLong)
   }
 
-  override def snapshot(): CacheStats =
-    CacheStats.of(
-      metrics.hitCount.getCount,
-      metrics.missCount.getCount,
-      0,
-      0,
-      0,
-      metrics.evictionCount.getCount,
-      metrics.evictionWeight.getCount,
-    )
+  override def snapshot(): CacheStats = CacheStats.empty
 
 }
