@@ -68,11 +68,12 @@ isLocal :: LocalOrExternal -> Bool
 isLocal (Local _) = True
 isLocal _ = False
 
-loeGetModules :: LocalOrExternal -> [(Maybe LF.PackageId, LF.Module)]
-loeGetModules (Local mod) = pure (Nothing, mod)
+loeGetModules :: LocalOrExternal -> [(LF.Module, a -> LF.Qualified a)]
+loeGetModules (Local mod) = pure (mod, LF.Qualified LF.PRSelf (LF.moduleName mod))
 loeGetModules (External pkg) =
-    [ (Just (LF.extPackageId pkg), mod)
+    [ (mod, qualifier)
     | mod <- NM.elems $ LF.packageModules $ LF.extPackagePkg pkg
+    , let qualifier = LF.Qualified (LF.PRImport (LF.extPackageId pkg)) (LF.moduleName mod)
     ]
 
 testRun ::
@@ -180,8 +181,6 @@ data ChoiceIdentifier = ChoiceIdentifier
     }
     deriving (Eq, Ord, Show)
 
-type TemplateInfo = (Maybe LF.PackageId, LF.Module, LF.Template)
-
 data Report = Report
     { groupName :: String
     , definedChoicesInside :: S.Set ChoiceIdentifier
@@ -265,11 +264,16 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
         in
         putStrLn msg
 
-    lfTemplateIdentifier :: TemplateInfo -> TemplateIdentifier
-    lfTemplateIdentifier (pkgIdMay, m, t) =
-        let package = fmap LF.unPackageId pkgIdMay
+    lfTemplateIdentifier :: LF.Qualified LF.Template -> TemplateIdentifier
+    lfTemplateIdentifier LF.Qualified { qualPackage, qualModule, qualObject } =
+        let package =
+                case qualPackage of
+                  LF.PRSelf -> Nothing
+                  LF.PRImport (LF.PackageId pid) -> Just pid
             qualifiedTemplate =
-                LF.moduleNameString (LF.moduleName m) <> ":" <> T.concat (LF.unTypeConName (LF.tplTypeCon t))
+                LF.moduleNameString qualModule
+                    <> ":"
+                    <> T.concat (LF.unTypeConName (LF.tplTypeCon qualObject))
         in
         TemplateIdentifier { package, qualifiedTemplate }
 
@@ -285,21 +289,20 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
         in
         TemplateIdentifier { package, qualifiedTemplate }
 
-    templatesDefinedIn :: [LocalOrExternal] -> M.Map TemplateIdentifier TemplateInfo
+    templatesDefinedIn :: [LocalOrExternal] -> M.Map TemplateIdentifier LF.Qualified LF.Template
     templatesDefinedIn localOrExternals = M.fromList
         [ (lfTemplateIdentifier templateInfo, templateInfo)
         | localOrExternal <- localOrExternals
-        , (pkgIdMay, module_) <- loeGetModules localOrExternal
+        , (module_, qualifier) <- loeGetModules localOrExternal
         , template <- NM.toList $ LF.moduleTemplates module_
-        , let templateInfo = (pkgIdMay, module_, template)
+        , let templateInfo = qualifier template
         ]
 
-    choicesDefinedIn :: [LocalOrExternal] -> M.Map ChoiceIdentifier (TemplateInfo, LF.TemplateChoice)
+    choicesDefinedIn :: [LocalOrExternal] -> M.Map ChoiceIdentifier (LF.Qualified LF.Template, LF.TemplateChoice)
     choicesDefinedIn localOrExternals = M.fromList
         [ (ChoiceIdentifier templateIdentifier name, (templateInfo, choice))
         | (templateIdentifier, templateInfo) <- M.toList $ templatesDefinedIn localOrExternals
-        , let (_, _, template) = templateInfo
-        , choice <- NM.toList $ LF.tplChoices template
+        , choice <- NM.toList $ LF.tplChoices $ LF.qualObject templateInfo
         , let name = LF.unChoiceName $ LF.chcName choice
         ]
 
