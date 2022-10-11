@@ -313,7 +313,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
         )
 
       case TypeNumeric(_) =>
-        CodeBlock.of("$L.asNumeric()$L.getValue()", accessor, orElseThrow(apiType, field))
+        CodeBlock.of("$T.fromNumeric.decode($L)", classOf[PrimitiveValueDecoders], accessor)
 
       case TypePrim(prim, _) =>
         primitive(prim, apiType, field, accessor).getOrElse(
