@@ -39,15 +39,15 @@ class DomainJsonDecoder(
   type ET[A] = EitherT[Future, JsonError, A]
 
   def decodeCreateCommand(a: JsValue, jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
-      ev1: JsonReader[domain.CreateCommand[JsValue, ContractTypeId.OptionalPkg]],
+      ev1: JsonReader[domain.CreateCommand[JsValue, ContractTypeId.OptionalPkg]], // TODO #15098 .Template
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.CreateCommand[lav1.value.Record, ContractTypeId.RequiredPkg]] = {
+  ): ET[domain.CreateCommand[lav1.value.Record, ContractTypeId.RequiredPkg]] = { // TODO #15098 .Template
     val err = "DomainJsonDecoder_decodeCreateCommand"
     for {
       fj <- either(
         SprayJson
-          .decode[domain.CreateCommand[JsValue, ContractTypeId.OptionalPkg]](a)
+          .decode[domain.CreateCommand[JsValue, ContractTypeId.OptionalPkg]](a) // TODO #15098 .Template
           .liftErrS(err)(JsonError)
       )
 
@@ -223,7 +223,7 @@ class DomainJsonDecoder(
   def templateRecordType(id: domain.ContractTypeId.RequiredPkg): JsonError \/ domain.LfType =
     resolveTemplateRecordType(id).liftErr(JsonError)
 
-  def keyType(id: domain.ContractTypeId.OptionalPkg)(implicit
+  def keyType(id: domain.ContractTypeId.OptionalPkg)(implicit // TODO #15098 .Template
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
       jwt: Jwt,
