@@ -13,6 +13,7 @@ public final class Bool extends Value {
   public static final Bool TRUE = new Bool(true);
   public static final Bool FALSE = new Bool(false);
 
+  // TODO #15207 make private; delete equals/hashCode
   /** @deprecated Use {@link #of} instead; since Daml 2.5.0 */
   @Deprecated
   public Bool(boolean value) {

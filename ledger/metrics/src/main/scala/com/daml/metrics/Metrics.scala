@@ -6,6 +6,7 @@ package com.daml.metrics
 import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
 
 object Metrics {
+  lazy val ForTesting = new Metrics(new MetricRegistry)
   def fromSharedMetricRegistries(registryName: String): Metrics =
     new Metrics(SharedMetricRegistries.getOrCreate(registryName))
 }

@@ -3,7 +3,9 @@
 
 package com.daml.platform.indexer.parallel
 
-import com.codahale.metrics.MetricRegistry
+import java.sql.Connection
+import java.time.Instant
+
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto.Hash
@@ -27,8 +29,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
 
-import java.sql.Connection
-import java.time.Instant
 import scala.concurrent.{Await, Future}
 
 class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
@@ -56,7 +56,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
 
   private def offset(s: String): Offset = Offset.fromHexString(Ref.HexString.assertFromString(s))
 
-  private val metrics = new Metrics(new MetricRegistry())
+  private val metrics = Metrics.ForTesting
 
   private val someEventCreated = DbDto.EventCreate(
     event_offset = None,

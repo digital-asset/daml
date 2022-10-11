@@ -323,7 +323,7 @@ package domain {
         .map(_.flatten)
     }
 
-    def fromTreeEvent(
+    private[this] def fromTreeEvent(
         eventsById: Map[String, lav1.transaction.TreeEvent]
     )(eventId: String): Error \/ Vector[Contract[lav1.value.Value]] = {
       @tailrec
@@ -334,10 +334,9 @@ package domain {
         case head +: tail =>
           eventsById(head).kind match {
             case lav1.transaction.TreeEvent.Kind.Created(created) =>
-              // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok in this scenario
               val a =
                 ActiveContract
-                  .fromLedgerApi(domain.ResolvedQuery.Empty, created)
+                  .fromLedgerApi(domain.ActiveContract.IgnoreInterface, created)
                   .map(a => Contract[lav1.value.Value](\/-(a)))
               val newAcc = ^(acc, a)(_ :+ _)
               loop(tail, newAcc)

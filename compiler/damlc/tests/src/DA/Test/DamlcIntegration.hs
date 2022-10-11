@@ -171,15 +171,24 @@ getBondTradingTestFiles = do
     anns <- readFileAnns file
     pure [("bond-trading/Test.daml", file, anns)]
 
+getCantSkipPreprocessorTestFiles :: IO [(String, FilePath, [Ann])]
+getCantSkipPreprocessorTestFiles = do
+    cantSkipPreprocessorLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/cant-skip-preprocessor"
+    let file = cantSkipPreprocessorLocation </> "DA" </> "Internal" </> "Hack.daml"
+    anns <- readFileAnns file
+    pure [("cant-skip-preprocessor/DA/Internal/Hack.daml", file, anns)]
+
 getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> IO TestTree
 getIntegrationTests registerTODO scenarioService = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
     damlTests <-
-        (<>)
-            <$> getDamlTestFiles "compiler/damlc/tests/daml-test-files"
-            <*> getBondTradingTestFiles
+        mconcat @(IO [(String, FilePath, [Ann])])
+            [ getDamlTestFiles "compiler/damlc/tests/daml-test-files"
+            , getBondTradingTestFiles
+            , getCantSkipPreprocessorTestFiles
+            ]
 
     let (scenariosEnabledTests, plainTests) =
             partition (\(_, _, anns) -> any isEnableScenariosYes anns) damlTests

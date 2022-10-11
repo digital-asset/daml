@@ -3,6 +3,8 @@
 
 package com.daml.platform.apiserver
 
+import java.net.{InetAddress, InetSocketAddress}
+
 import akka.pattern.after
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
@@ -28,7 +30,6 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Second, Span}
 
-import java.net.{InetAddress, InetSocketAddress}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -45,7 +46,7 @@ final class MetricsInterceptorSpec
   behavior of "MetricsInterceptor"
 
   it should "count the number of calls to a given endpoint" in {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
     serverWithMetrics(metrics, new HelloServiceAkkaImplementation).use { channel: Channel =>
       for {
         _ <- Future.sequence(
@@ -60,7 +61,7 @@ final class MetricsInterceptorSpec
   }
 
   it should "count the gRPC return status" in {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
     serverWithMetrics(metrics, new HelloServiceAkkaImplementation).use { channel: Channel =>
       for {
         _ <- HelloServiceGrpc.stub(channel).single(HelloRequest(0))
@@ -77,7 +78,7 @@ final class MetricsInterceptorSpec
   }
 
   it should "time calls to an endpoint" in {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
     serverWithMetrics(metrics, new DelayedHelloService(1.second)).use { channel =>
       for {
         _ <- HelloServiceGrpc.stub(channel).single(HelloRequest(reqInt = 7))
@@ -95,7 +96,7 @@ final class MetricsInterceptorSpec
   }
 
   it should "time calls to a streaming endpoint" in {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
     serverWithMetrics(metrics, new DelayedHelloService(1.second)).use { channel =>
       for {
         _ <- new StreamConsumer[HelloResponse](observer =>
@@ -112,6 +113,10 @@ final class MetricsInterceptorSpec
         }
       }
     }
+  }
+
+  private def createMetrics = {
+    new Metrics(new MetricRegistry)
   }
 }
 

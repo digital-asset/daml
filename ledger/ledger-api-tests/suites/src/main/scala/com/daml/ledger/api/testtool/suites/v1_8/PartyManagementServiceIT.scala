@@ -6,7 +6,6 @@ package com.daml.ledger.api.testtool.suites.v1_8
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   AllocatePartyResponse,
@@ -26,12 +25,7 @@ import com.daml.ledger.client.binding.Primitive
 
 import scala.util.Random
 
-final class PartyManagementServiceIT
-    extends LedgerTestSuite
-    with PartyManagementItUtils
-    with PartyManagementServiceUpdateRpcTests
-    with PartyManagementServiceAnnotationsValidationTests
-    with PartyManagementServiceUpdateAnnotationsTests {
+final class PartyManagementServiceIT extends PartyManagementITBase {
 
   test(
     "PMNonEmptyParticipantID",

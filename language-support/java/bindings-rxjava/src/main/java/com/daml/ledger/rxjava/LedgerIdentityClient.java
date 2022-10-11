@@ -5,6 +5,7 @@ package com.daml.ledger.rxjava;
 
 import io.reactivex.Single;
 
+// TODO #15208 remove
 /**
  * An RxJava version of {@link com.daml.ledger.api.v1.LedgerIdentityServiceGrpc}
  *

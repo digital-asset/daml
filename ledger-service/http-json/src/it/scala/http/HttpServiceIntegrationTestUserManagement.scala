@@ -29,7 +29,7 @@ import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class HttpServiceIntegrationTestUserManagementNoAuth
-    extends AbstractHttpServiceIntegrationTestTokenIndependent
+    extends AbstractHttpServiceIntegrationTestQueryStoreIndependent
     with AbstractHttpServiceIntegrationTestFuns
     with HttpServiceUserFixture.UserToken
     with SandboxRequiringAuthorizationFuns

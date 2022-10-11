@@ -3,7 +3,8 @@
 
 package com.daml.ledger.sandbox.bridge.validate
 
-import com.codahale.metrics.MetricRegistry
+import java.time.Duration
+
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
@@ -35,7 +36,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, FixtureContext, OptionValues}
 
-import java.time.Duration
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 class SequenceSpec
@@ -316,7 +316,7 @@ class SequenceSpec
   }
 
   private trait TestContext extends FixtureContext {
-    private val bridgeMetrics = new BridgeMetrics(new Metrics(new MetricRegistry))
+    private val bridgeMetrics = new BridgeMetrics(Metrics.ForTesting)
     val timeProviderMock: TimeProvider = mock[TimeProvider]
     val submissionId: IdString.LedgerString =
       Ref.SubmissionId.assertFromString("some-submission-id")
