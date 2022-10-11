@@ -301,24 +301,15 @@ private[inner] object FromValueGenerator extends StrictLogging {
         )
 
       case TypePrim(PrimTypeGenMap, ImmArraySeq(keyType, valueType)) =>
-        val optMapArg = args.next()
         val entryArg = args.next()
         CodeBlock.of(
-          """$L.asGenMap()
-              |    .map($L -> $L.toMap(
-              |        $L -> $L,
-              |        $L -> $L
-              |    ))
-              |    $L
-          """.stripMargin,
-          accessor,
-          optMapArg,
-          optMapArg,
+          "$T.fromGenMap($L ->$>$W$L$<,$W$L ->$>$W$L$<)$Z.decode($L)",
+          classOf[PrimitiveValueDecoders],
           entryArg,
           extractor(keyType, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
           entryArg,
           extractor(valueType, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
-          orElseThrow(apiType, field),
+          accessor,
         )
 
       case TypeNumeric(_) =>
