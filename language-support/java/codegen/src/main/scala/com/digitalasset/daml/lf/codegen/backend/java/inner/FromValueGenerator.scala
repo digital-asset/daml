@@ -188,7 +188,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
       packagePrefixes: Map[PackageId, String],
   ): CodeBlock =
     CodeBlock.of(
-      "$T $L = $L",
+      "$T $L =$W$L",
       toJavaTypeName(fieldType, packagePrefixes),
       field,
       extractor(fieldType, field, accessor, newNameGenerator, packagePrefixes),
