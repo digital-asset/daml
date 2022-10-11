@@ -27,3 +27,8 @@ data AnyChoice = AnyChoice
   { getAnyChoice : Any
   , getAnyChoiceTemplateTypeRep : TemplateTypeRep
   }
+
+data AnyView = AnyView
+  { getAnyView : Any
+  , getAnyViewInterfaceTypeRep : TemplateTypeRep
+  }
