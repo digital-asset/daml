@@ -13,6 +13,7 @@ import com.google.protobuf
 
 object TestData {
   val defaultTemplateId = Identifier("package", "Module", "Template")
+  val defaultInterfaceId = Identifier("package", "Module", "Interface")
   val defaultParties = Party.subst(Seq("Alice"))
 
   val defaultChoice = Choice()

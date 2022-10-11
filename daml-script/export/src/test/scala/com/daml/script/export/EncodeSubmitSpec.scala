@@ -97,6 +97,34 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
           """tree <- submitTree alice_0 do
             |  exerciseCmd contract_0_0 (Module.Choice ())""".stripMargin.replace("\r\n", "\n")
       }
+      "unreferenced exercise (interface choice)" in {
+        val parties = Map(Party("Alice") -> "alice_0")
+        val cidMap = Map(
+          ContractId("cid0") -> "contract_0_0",
+          ContractId("cid1") -> "contract_1_0",
+          ContractId("cid1") -> "contract_1_1",
+        )
+        val cidRefs = Set.empty[ContractId]
+        val submit = TestData
+          .Tree(
+            Seq(
+              TestData.Exercised(
+                ContractId("cid0"),
+                Seq(
+                  TestData.Created(ContractId("cid1"))
+                ),
+                TestData.Choice(
+                  interfaceId = Some(TestData.defaultInterfaceId)
+                ),
+              )
+            )
+          )
+          .toSubmit
+        encodeSubmit(parties, cidMap, cidRefs, Set.empty, submit).render(80) shouldBe
+          """tree <- submitTree alice_0 do
+            |  exerciseCmd (toInterfaceContractId @Module.Interface contract_0_0) (Module.Choice ())""".stripMargin
+            .replace("\r\n", "\n")
+      }
       "referenced create" in {
         val parties = Map(Party("Alice") -> "alice_0")
         val cidMap = Map(ContractId("cid1") -> "contract_0_0")
@@ -183,6 +211,60 @@ class EncodeSubmitSpec extends AnyFreeSpec with Matchers {
             |      createdN @Module.Template 1
             |let (coerceContractId @_ @Module.Template -> contract_2_0) = fromTree tree $
             |      exercisedN @Module.Template "Choice" 1 $
+            |      created @Module.Template""".stripMargin.replace(
+            "\r\n",
+            "\n",
+          )
+      }
+      "referenced exercise (interface choice)" in {
+        val parties = Map(Party("Alice") -> "alice_0")
+        val cidMap = Map(
+          ContractId("cid0") -> "contract_0_0",
+          ContractId("cid1") -> "contract_1_0",
+          ContractId("cid2") -> "contract_1_1",
+          ContractId("cid3") -> "contract_0_1",
+          ContractId("cid4") -> "contract_2_0",
+          ContractId("cid5") -> "contract_2_1",
+        )
+        val cidRefs = Set(ContractId("cid1"), ContractId("cid2"), ContractId("cid4"))
+        val submit = TestData
+          .Tree(
+            Seq(
+              TestData.Exercised(
+                ContractId("cid0"),
+                Seq(
+                  TestData.Created(ContractId("cid1")),
+                  TestData.Created(ContractId("cid2")),
+                ),
+                TestData.Choice(
+                  interfaceId = Some(TestData.defaultInterfaceId)
+                ),
+              ),
+              TestData.Exercised(
+                ContractId("cid3"),
+                Seq(
+                  TestData.Created(ContractId("cid4")),
+                  TestData.Created(ContractId("cid5")),
+                ),
+                TestData.Choice(
+                  interfaceId = Some(TestData.defaultInterfaceId)
+                ),
+              ),
+            )
+          )
+          .toSubmit
+        encodeSubmit(parties, cidMap, cidRefs, Set.empty, submit).render(80) shouldBe
+          """tree <- submitTree alice_0 do
+            |  exerciseCmd (toInterfaceContractId @Module.Interface contract_0_0) (Module.Choice ())
+            |  exerciseCmd (toInterfaceContractId @Module.Interface contract_0_1) (Module.Choice ())
+            |let (coerceContractId @_ @Module.Template -> contract_1_0) = fromTree tree $
+            |      exercised @Module.Interface "Choice" $
+            |      created @Module.Template
+            |let (coerceContractId @_ @Module.Template -> contract_1_1) = fromTree tree $
+            |      exercised @Module.Interface "Choice" $
+            |      createdN @Module.Template 1
+            |let (coerceContractId @_ @Module.Template -> contract_2_0) = fromTree tree $
+            |      exercisedN @Module.Interface "Choice" 1 $
             |      created @Module.Template""".stripMargin.replace(
             "\r\n",
             "\n",
