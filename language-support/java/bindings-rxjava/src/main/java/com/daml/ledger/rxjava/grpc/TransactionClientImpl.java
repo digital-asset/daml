@@ -17,6 +17,7 @@ import io.reactivex.Single;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 public final class TransactionClientImpl implements TransactionsClient {
   private final String ledgerId;
@@ -83,13 +84,12 @@ public final class TransactionClientImpl implements TransactionsClient {
     TransactionFilter filter = contractUtil.transactionFilter(parties);
     Flowable<Transaction> transactions = getTransactions(begin, filter, verbose, accessToken);
     Flowable<CreatedEvent> createdEvents =
-        transactions
-            .concatMapIterable(Transaction::getEvents)
-            .flatMap(
-                event ->
-                    (event instanceof CreatedEvent)
-                        ? Flowable.just((CreatedEvent) event)
-                        : Flowable.empty());
+        transactions.concatMapIterable(
+            tx ->
+                tx.getEvents().stream()
+                    .filter(e -> e instanceof CreatedEvent)
+                    .map(e -> (CreatedEvent) e)
+                    .collect(Collectors.toList()));
     return createdEvents.map(contractUtil::toContract);
   }
 

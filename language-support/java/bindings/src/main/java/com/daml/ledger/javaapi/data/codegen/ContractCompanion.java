@@ -3,8 +3,10 @@
 
 package com.daml.ledger.javaapi.data.codegen;
 
-import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.CreatedEvent;
 import com.daml.ledger.javaapi.data.DamlRecord;
+import com.daml.ledger.javaapi.data.Identifier;
+import com.daml.ledger.javaapi.data.Value;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;

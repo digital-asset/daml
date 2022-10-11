@@ -8,7 +8,7 @@ import java.util.Objects;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class ActiveContracts<Ct> implements WorkflowEvent {
+public final class ActiveContracts<Ct> implements WorkflowEvent {
 
   private final String offset;
 
@@ -41,7 +41,7 @@ public class ActiveContracts<Ct> implements WorkflowEvent {
 
   @Override
   public String toString() {
-    return "GetActiveContractsResponse{"
+    return "ActiveContracts{"
         + "offset='"
         + offset
         + '\''

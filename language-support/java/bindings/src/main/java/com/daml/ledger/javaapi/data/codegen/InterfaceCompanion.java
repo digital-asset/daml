@@ -20,7 +20,7 @@ import java.util.function.Function;
  */
 public abstract class InterfaceCompanion<I, Id, View> extends ContractTypeCompanion<I, View> {
 
-  protected final Function<String, Id> newContractId;
+  private final Function<String, Id> newContractId;
 
   public final ValueDecoder<View> valueDecoder;
 
@@ -47,14 +47,25 @@ public abstract class InterfaceCompanion<I, Id, View> extends ContractTypeCompan
     Optional<DamlRecord> maybeRecord = Optional.ofNullable(interfaceViews.get(TEMPLATE_ID));
     Optional<DamlRecord> maybeFailedRecord = Optional.ofNullable(interfaceViews.get(TEMPLATE_ID));
     Id id = newContractId.apply(contractId);
-    if (maybeFailedRecord.isPresent()) {
-      throw new IllegalArgumentException("Failed interface view for " + TEMPLATE_ID);
-    } else if (maybeRecord.isPresent()) {
-      View view = valueDecoder.decode(maybeRecord.get());
-      return new ContractWithInterfaceView<>(id, view, agreementText, signatories, observers);
-    } else {
-      throw new IllegalArgumentException("interface view of " + TEMPLATE_ID + " not found.");
-    }
+
+    return maybeRecord
+        .map(
+            record -> {
+              View view = valueDecoder.decode(record);
+              return new ContractWithInterfaceView<>(
+                  id, view, agreementText, signatories, observers);
+            })
+        .orElseThrow(
+            () ->
+                maybeFailedRecord
+                    .map(
+                        record ->
+                            new IllegalArgumentException(
+                                "Failed interface view for " + TEMPLATE_ID))
+                    .orElseThrow(
+                        () ->
+                            new IllegalArgumentException(
+                                "interface view of " + TEMPLATE_ID + " not found.")));
   }
 
   public final Contract<Id, View> fromCreatedEvent(CreatedEvent event)
