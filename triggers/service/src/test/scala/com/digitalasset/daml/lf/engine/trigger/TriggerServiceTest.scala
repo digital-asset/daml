@@ -455,7 +455,7 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Semantics: restart trigger on initialization failure due to failed connection
+  // TEST_EVIDENCE: Availability: restart trigger on initialization failure due to failed connection
   it should "restart trigger on initialization failure due to failed connection" inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
@@ -475,7 +475,7 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Semantics: restart trigger on run-time failure due to dropped connection
+  // TEST_EVIDENCE: Availability: restart trigger on run-time failure due to dropped connection
   it should "restart trigger on run-time failure due to dropped connection" inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
@@ -497,7 +497,7 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Semantics: restart triggers with initialization errors
+  // TEST_EVIDENCE: Availability: restart triggers with initialization errors
   it should "restart triggers with initialization errors" in withTriggerService(List(dar)) {
     uri: Uri =>
       for {
@@ -516,7 +516,7 @@ trait AbstractTriggerServiceTest
       } yield succeed
   }
 
-  // TEST_EVIDENCE: Semantics: restart triggers with update errors
+  // TEST_EVIDENCE: Availability: restart triggers with update errors
   it should "restart triggers with update errors" inClaims withTriggerService(List(dar)) {
     uri: Uri =>
       for {
@@ -595,7 +595,7 @@ trait AbstractTriggerServiceTestWithDatabase extends AbstractTriggerServiceTest 
     }
   } yield succeed)
 
-  // TEST_EVIDENCE: Semantics: restart triggers after shutdown
+  // TEST_EVIDENCE: Availability: restart triggers after shutdown
   it should "restart triggers after shutdown" inClaims (for {
     _ <- withTriggerService(List(dar)) { uri: Uri =>
       for {
@@ -639,7 +639,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
 
   behavior of "authenticated service"
 
-  // TEST_EVIDENCE: Semantics: redirect to the configured callback URI after login
+  // TEST_EVIDENCE: Authentication: redirect to the configured callback URI after login
   it should "redirect to the configured callback URI after login" in withTriggerService(
     Nil,
     authCallback = Some("http://localhost/TRIGGER_CALLBACK"),
