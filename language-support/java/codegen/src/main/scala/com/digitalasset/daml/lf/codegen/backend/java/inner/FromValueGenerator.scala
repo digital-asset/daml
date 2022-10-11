@@ -278,10 +278,10 @@ private[inner] object FromValueGenerator extends StrictLogging {
         )
       case TypePrim(PrimTypeContractId, ImmArraySeq(TypeVar(name))) =>
         CodeBlock.of(
-          "fromValue$L.fromContractId($L.asContractId()$L.getValue())",
+          "$T.fromContractId(fromValue$L)$Z.decode($L)",
+          classOf[PrimitiveValueDecoders],
           JavaEscaper.escapeString(name),
           accessor,
-          orElseThrow(apiType, field),
         )
       case TypePrim(PrimTypeContractId, ImmArraySeq(_)) =>
         CodeBlock.of(
