@@ -8,7 +8,7 @@ import java.time.LocalDate;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class Date extends Value {
+public final class Date extends Value {
 
   private final LocalDate value;
 

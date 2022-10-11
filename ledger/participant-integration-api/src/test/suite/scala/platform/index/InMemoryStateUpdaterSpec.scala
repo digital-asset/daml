@@ -6,7 +6,6 @@ package com.daml.platform.index
 import akka.Done
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.offset.Offset
@@ -147,7 +146,7 @@ object InMemoryStateUpdaterSpec {
       scala.concurrent.ExecutionContext.global,
       scala.concurrent.ExecutionContext.global,
       FiniteDuration(10, "seconds"),
-      new Metrics(new MetricRegistry),
+      Metrics.ForTesting,
     )(
       prepare = (_, lastEventSequentialId) => result(lastEventSequentialId),
       update = cachesUpdateCaptor,

@@ -13,19 +13,22 @@ import java.time.LocalDate;
  * @see ValueDecoder
  */
 public final class PrimitiveValueDecoders {
-  public static ValueDecoder<Boolean> fromBool =
+  // constructing not allowed
+  private PrimitiveValueDecoders() {}
+
+  public static final ValueDecoder<Boolean> fromBool =
       value -> value.asBool().orElseThrow(() -> mismatched(Bool.class)).getValue();
-  public static ValueDecoder<Long> fromInt64 =
+  public static final ValueDecoder<Long> fromInt64 =
       value -> value.asInt64().orElseThrow(() -> mismatched(Int64.class)).getValue();
-  public static ValueDecoder<String> fromText =
+  public static final ValueDecoder<String> fromText =
       value -> value.asText().orElseThrow(() -> mismatched(Text.class)).getValue();
-  public static ValueDecoder<Instant> fromTimestamp =
+  public static final ValueDecoder<Instant> fromTimestamp =
       value -> value.asTimestamp().orElseThrow(() -> mismatched(Timestamp.class)).getValue();
-  public static ValueDecoder<String> fromParty =
+  public static final ValueDecoder<String> fromParty =
       value -> value.asParty().orElseThrow(() -> mismatched(Party.class)).getValue();
-  public static ValueDecoder<Unit> fromUnit =
+  public static final ValueDecoder<Unit> fromUnit =
       value -> value.asUnit().orElseThrow(() -> mismatched(Unit.class));
-  public static ValueDecoder<LocalDate> fromDate =
+  public static final ValueDecoder<LocalDate> fromDate =
       value -> value.asDate().orElseThrow(() -> mismatched(Date.class)).getValue();
 
   public static <T> ValueDecoder<T> impossible() {

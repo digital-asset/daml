@@ -487,9 +487,6 @@ These metrics are:
 
 - ``<metric.qualified.name>.hits`` (counter): the number of cache hits
 - ``<metric.qualified.name>.misses`` (counter): the number of cache misses
-- ``<metric.qualified.name>.load_successes`` (counter): the number of times a new value is successfully loaded into the cache
-- ``<metric.qualified.name>.load_failures`` (counter): the number of times a new value fails to be loaded into the cache
-- ``<metric.qualified.name>.load_total_time`` (timer): the total time spent loading new values into the cache
 - ``<metric.qualified.name>.evictions`` (counter): the number of cache evictions
 - ``<metric.qualified.name>.evicted_weight`` (counter): the total size of the values evicted from the cache
 - ``<metric.qualified.name>.size`` (gauge): the size of the cache

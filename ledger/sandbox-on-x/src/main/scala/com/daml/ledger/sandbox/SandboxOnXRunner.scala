@@ -35,11 +35,12 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.LedgerApiServer
-import com.daml.platform.apiserver.LedgerFeatures
-import com.daml.platform.apiserver.TimeServiceBackend
+import com.daml.platform.apiserver.{LedgerFeatures, TimeServiceBackend}
+import com.daml.platform.apiserver.configuration.RateLimitingConfig
+import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
+import com.daml.platform.apiserver.ratelimiting.{RateLimitingInterceptor, ThreadpoolCheck}
 import com.daml.platform.config.MetricsConfig.MetricRegistryType
-import com.daml.platform.config.MetricsConfig
-import com.daml.platform.config.ParticipantConfig
+import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.DbType
 import com.daml.ports.Port
@@ -99,6 +100,7 @@ object SandboxOnXRunner {
         servicesThreadPoolSize = servicesThreadPoolSize,
         servicesExecutionContext = servicesExecutionContext,
         timeServiceBackendO = timeServiceBackendO,
+        stageBufferSize = bridgeConfig.stageBufferSize,
       )
       apiServer <- new LedgerApiServer(
         ledgerFeatures = LedgerFeatures(
@@ -134,6 +136,8 @@ object SandboxOnXRunner {
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
         explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
+        rateLimitingInterceptor =
+          participantConfig.apiServer.rateLimit.map(buildRateLimitingInterceptor(metrics)),
       )(actorSystem, materializer).owner
     } yield {
       logInitializationHeader(
@@ -197,6 +201,7 @@ object SandboxOnXRunner {
       servicesThreadPoolSize: Int,
       servicesExecutionContext: ExecutionContextExecutorService,
       timeServiceBackendO: Option[TimeServiceBackend],
+      stageBufferSize: Int,
   ): IndexService => ResourceOwner[WriteService] = { indexService =>
     val bridgeMetrics = new BridgeMetrics(metrics)
     for {
@@ -207,6 +212,7 @@ object SandboxOnXRunner {
         bridgeMetrics,
         servicesThreadPoolSize,
         timeServiceBackendO.getOrElse(TimeProvider.UTC),
+        stageBufferSize,
       )(loggingContext, servicesExecutionContext)
       writeService <- ResourceOwner.forCloseable(() =>
         new BridgeWriteService(
@@ -299,4 +305,19 @@ object SandboxOnXRunner {
       ledgerDetails,
     )
   }
+
+  def buildRateLimitingInterceptor(
+      metrics: Metrics
+  )(config: RateLimitingConfig): RateLimitingInterceptor = {
+
+    val apiServices: ThreadpoolCount = new ThreadpoolCount(metrics)(
+      "Api Services Threadpool",
+      metrics.daml.lapi.threadpool.apiServices,
+    )
+    val apiServicesCheck = ThreadpoolCheck(apiServices, config.maxApiServicesQueueSize)
+
+    RateLimitingInterceptor(metrics, config, List(apiServicesCheck))
+
+  }
+
 }

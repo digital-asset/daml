@@ -16,6 +16,7 @@ case class BridgeConfig(
     conflictCheckingEnabled: Boolean = true,
     submissionBufferSize: Int = 500,
     maxDeduplicationDuration: Duration = DefaultMaximumDeduplicationDuration,
+    stageBufferSize: Int = 128,
 )
 
 object BridgeConfig {
@@ -46,6 +47,12 @@ object BridgeConfig {
         .text(
           "Deprecated parameter -- Implicit party creation isn't supported anymore."
         ),
+      builder
+        .opt[Int]("bridge-stage-buffer-size")
+        .text(
+          "Stage buffer size. This buffer is present between each conflict checking processing stage. Defaults to 128."
+        )
+        .action((p, c) => c.copy(extra = c.extra.copy(submissionBufferSize = p))),
       builder.checkConfig(c =>
         Either.cond(
           c.maxDeduplicationDuration.forall(_.compareTo(Duration.ofHours(1L)) <= 0),

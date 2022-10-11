@@ -8,7 +8,11 @@ import java.nio.file.Files
 
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
-import com.daml.http.dbbackend.JdbcConfig
+import AbstractHttpServiceIntegrationTestFuns.HttpServiceTestFixtureData
+import dbbackend.JdbcConfig
+import json.JsonError
+import util.Logging.instanceUUIDLogCtx
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
 import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
@@ -17,16 +21,24 @@ import json.SprayJson.{decode => jdecode}
 import com.daml.http.util.TestUtil.writeToFile
 import org.scalacheck.Gen
 import org.scalatest.{Assertion, BeforeAndAfterAll}
-import scalaz.\/-
+import scalaz.{\/-, \/, EitherT}
+import scalaz.std.scalaFuture._
+import scalaz.syntax.apply._
+import scalaz.syntax.bifunctor._
+import scalaz.syntax.show._
 import shapeless.record.{Record => ShRecord}
 import spray.json.JsValue
 
 import scala.concurrent.Future
 
+/** Tests that are exercising features independently of both user authentication
+  * and the query store.
+  */
 abstract class HttpServiceIntegrationTest
-    extends AbstractHttpServiceIntegrationTestTokenIndependent
+    extends AbstractHttpServiceIntegrationTestQueryStoreIndependent
     with BeforeAndAfterAll {
   import HttpServiceIntegrationTest._
+  import json.JsonProtocol._
   import AbstractHttpServiceIntegrationTestFuns.ciouDar
 
   private val staticContent: String = "static"
@@ -58,6 +70,53 @@ abstract class HttpServiceIntegrationTest
     super.afterAll()
   }
 
+  "query with invalid JSON query should return error" in withHttpService { fixture =>
+    fixture
+      .postJsonStringRequest(Uri.Path("/v1/query"), "{NOT A VALID JSON OBJECT")
+      .parseResponse[JsValue]
+      .map(inside(_) { case domain.ErrorResponse(_, _, StatusCodes.BadRequest, _) =>
+        succeed
+      }): Future[Assertion]
+  }
+
+  "should be able to serialize and deserialize domain commands" in withHttpService { fixture =>
+    (testCreateCommandEncodingDecoding(fixture) *>
+      testExerciseCommandEncodingDecoding(fixture)): Future[Assertion]
+  }
+
+  private def testCreateCommandEncodingDecoding(
+      fixture: HttpServiceTestFixtureData
+  ): Future[Assertion] = instanceUUIDLogCtx { implicit lc =>
+    import fixture.{uri, encoder, decoder}
+    import util.ErrorOps._
+    import com.daml.jwt.domain.Jwt
+
+    val command0: domain.CreateCommand[v.Record, domain.ContractTypeId.OptionalPkg] =
+      iouCreateCommand(domain.Party("Alice"))
+
+    type F[A] = EitherT[Future, JsonError, A]
+    val x: F[Assertion] = for {
+      jsVal <- EitherT.either(
+        encoder.encodeCreateCommand(command0).liftErr(JsonError)
+      ): F[JsValue]
+      command1 <- (EitherT.rightT(jwt(uri)): F[Jwt])
+        .flatMap(decoder.decodeCreateCommand(jsVal, _, fixture.ledgerId))
+    } yield command1.bimap(removeRecordId, removePackageId) should ===(command0)
+
+    (x.run: Future[JsonError \/ Assertion]).map(_.fold(e => fail(e.shows), identity))
+  }
+
+  private def testExerciseCommandEncodingDecoding(
+      fixture: HttpServiceTestFixtureData
+  ): Future[Assertion] = {
+    import fixture.{uri, encoder, decoder}
+    val command0 = iouExerciseTransferCommand(lar.ContractId("#a-contract-ID"), domain.Party("Bob"))
+    val jsVal: JsValue = encodeExercise(encoder)(command0)
+    val command1 =
+      jwt(uri).flatMap(decodeExercise(decoder, _, fixture.ledgerId)(jsVal))
+    command1.map(_.bimap(removeRecordId, identity) should ===(command0))
+  }
+
   "should serve static content from configured directory" in withHttpService {
     (uri: Uri, _, _, _) =>
       Http()
@@ -77,7 +136,6 @@ abstract class HttpServiceIntegrationTest
   }
 
   "exercise interface choices" - {
-    import json.JsonProtocol._
     import AbstractHttpServiceIntegrationTestFuns.{UriFixture, EncoderFixture}
 
     def createIouAndExerciseTransfer(

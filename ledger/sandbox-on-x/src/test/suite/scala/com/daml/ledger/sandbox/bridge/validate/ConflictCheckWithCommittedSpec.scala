@@ -3,7 +3,8 @@
 
 package com.daml.ledger.sandbox.bridge.validate
 
-import com.codahale.metrics.MetricRegistry
+import java.time.Duration
+
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -30,7 +31,6 @@ import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.time.Duration
 import scala.concurrent.Future
 
 class ConflictCheckWithCommittedSpec
@@ -246,7 +246,7 @@ class ConflictCheckWithCommittedSpec
     val conflictCheckWithCommitted: ConflictCheckWithCommittedImpl =
       new ConflictCheckWithCommittedImpl(
         indexService = indexServiceMock,
-        bridgeMetrics = new BridgeMetrics(new Metrics(new MetricRegistry())),
+        bridgeMetrics = new BridgeMetrics(Metrics.ForTesting),
       )(scala.concurrent.ExecutionContext.global)
 
     val inputContract: ContractId = cid(1)

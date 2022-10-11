@@ -295,8 +295,7 @@ class CommandService(
   ): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] = {
     Transactions
       .allCreatedEvents(tx)
-      // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok in this scenario
-      .traverse(ActiveContract.fromLedgerApi(domain.ResolvedQuery.Empty, _))
+      .traverse(ActiveContract.fromLedgerApi(domain.ActiveContract.IgnoreInterface, _))
       .leftMap(e => InternalError(Some(Symbol("activeContracts")), e.shows))
   }
 
