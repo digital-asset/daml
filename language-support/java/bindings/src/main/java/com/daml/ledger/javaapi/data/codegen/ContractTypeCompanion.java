@@ -35,7 +35,9 @@ public abstract class ContractTypeCompanion<ContractType, Data> {
    * interface in question instead.
    */
   protected ContractTypeCompanion(
-      Identifier templateId, String templateClassName, List<ChoiceMetadata<ContractType, ?, ?>> choices) {
+      Identifier templateId,
+      String templateClassName,
+      List<ChoiceMetadata<ContractType, ?, ?>> choices) {
     TEMPLATE_ID = templateId;
     TEMPLATE_CLASS_NAME = templateClassName;
     this.choices =
