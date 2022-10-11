@@ -49,7 +49,7 @@ public final class ContractUtil<Ct> {
     return transactionFilter(filter, parties);
   }
 
-  private TransactionFilter transactionFilter(Filter filter, Set<String> parties) {
+  private static TransactionFilter transactionFilter(Filter filter, Set<String> parties) {
     Map<String, Filter> partyToFilters =
         parties.stream().collect(Collectors.toMap(Function.identity(), x -> filter));
     return new FiltersByParty(partyToFilters);

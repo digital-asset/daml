@@ -14,7 +14,7 @@ public abstract class ContractTypeCompanion<ContractType, Data> {
   /** The full template ID of the template or interface that defined this companion. */
   public final Identifier TEMPLATE_ID;
 
-  protected final String TEMPLATE_CLASS_NAME;
+  final String TEMPLATE_CLASS_NAME;
 
   /**
    * The provides a mapping of choice name to Choice.

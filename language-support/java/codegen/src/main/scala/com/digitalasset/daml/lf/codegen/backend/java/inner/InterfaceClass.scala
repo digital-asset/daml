@@ -121,7 +121,7 @@ object InterfaceClass extends StrictLogging {
           .constructorBuilder()
           // intentionally package-private
           .addStatement(
-            "super($>$Z$S, $T.$N, $T::new, $T.$L(), $T.of($L))",
+            "super($>$Z$S, $T.$N, $T::new, $T.$L(), $T.of($L))$<$Z",
             interfaceName,
             interfaceName,
             ClassGenUtils.templateIdFieldName,
