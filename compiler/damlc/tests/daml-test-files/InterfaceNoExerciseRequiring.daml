@@ -25,9 +25,8 @@ interface Token where
 interface SubToken requires Token where
   viewtype EmptyInterfaceView
 
--- @ERROR range=33:3-34:26; Tried to exercise a choice GetRich which doesn't exist on SubToken
--- An interface I choice cannot be exercised on a different interface J,
--- even if J requires I
+-- @ERROR range=32:3-33:26; Tried to exercise a choice GetRich on SubToken
+-- This choice GetRich belongs to interface Token which SubToken implements.
 cannotExercise : ContractId SubToken -> Update (ContractId Token)
 cannotExercise sub = do
   exercise sub GetRich with
