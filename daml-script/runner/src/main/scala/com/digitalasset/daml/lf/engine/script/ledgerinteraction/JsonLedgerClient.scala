@@ -211,7 +211,7 @@ class JsonLedgerClient(
   }
   override def queryInterfaceId(
       parties: OneAnd[Set, Ref.Party],
-      templateId: Identifier,
+      interfaceId: Identifier,
       cid: ContractId,
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Option[Value]] = {
     // Future.successful(None) // NICK

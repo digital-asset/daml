@@ -11,7 +11,12 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.engine.preprocessing.ValueTranslator
+import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
+import com.daml.lf.speedy.SExpr.SExpr
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
 import com.daml.lf.transaction.{
   Versioned,
@@ -20,10 +25,12 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   Transaction,
+  TransactionVersion,
 }
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.script.converter.ConverterException
+
 import io.grpc.StatusRuntimeException
 import scalaz.OneAnd
 import scalaz.OneAnd._
@@ -84,18 +91,10 @@ class IdeLedgerClient(
     })
   }
 
-  override def queryContractId(
+  private def lookupContractInstance(
       parties: OneAnd[Set, Ref.Party],
-      templateId: Identifier,
       cid: ContractId,
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
-
-    // mylog("IdeLedgerClient.queryContractId")
-    // def xxx : Int = ??? // NICK: Blow Up. Who calls me?
-    // val _ = xxx
+  ): Option[Value.ContractInstance] = {
 
     ledger.lookupGlobalContract(
       view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
@@ -104,32 +103,88 @@ class IdeLedgerClient(
     ) match {
       case ScenarioLedger.LookupOk(
             _,
-            Versioned(_, Value.ContractInstance(_, arg, _)),
+            Versioned(_, contractInstance),
             stakeholders,
           ) if parties.any(stakeholders.contains(_)) =>
-        Future.successful(Some(ScriptLedgerClient.ActiveContract(templateId, cid, arg)))
+        Some(contractInstance)
       case _ =>
         // Note that contrary to `fetch` in a scenario, we do not
         // abort on any of the error cases. This makes sense if you
         // consider this a wrapper around the ACS endpoint where
         // we cannot differentiate between visibility errors
         // and the contract not being active.
-        Future.successful(None)
+        None
     }
   }
 
-  override def queryInterfaceId(
+  override def queryContractId(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       cid: ContractId,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
+  ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
+    Future.successful(
+      lookupContractInstance(parties, cid).map { case Value.ContractInstance(_, arg, _) =>
+        ScriptLedgerClient.ActiveContract(templateId, cid, arg)
+      }
+    )
+  }
+
+  override def queryInterfaceId(
+      parties: OneAnd[Set, Ref.Party],
+      interfaceId: Identifier,
+      cid: ContractId,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
   ): Future[Option[Value]] = {
-    // sys.error("Not Implemented: IdeLedgerClient.queryInterfaceId")
-    // Future.successful(None) // NICK
-    val v = Value.ValueRecord(None, ImmArray((None, Value.ValueInt64(999)))) // NICK
-    Future.successful(Some(v))
+    mylog(s"queryInterfaceId...")
+
+    lookupContractInstance(parties, cid) match {
+
+      case None => Future.successful(None)
+
+      case Some(Value.ContractInstance(templateId, arg, _)) =>
+        mylog(s"iid=$interfaceId")
+        mylog(s"tid=$templateId")
+
+        val valueTranslator = new ValueTranslator(
+          pkgInterface = compiledPackages.pkgInterface,
+          requireV1ContractIdSuffix = false,
+        )
+
+        valueTranslator.translateValue(TTyCon(templateId), arg) match {
+          case Left(err) =>
+            mylog(s"valueTranslator, err=$err")
+            Future.successful(None) // NICK: or error?
+
+          case Right(argument) =>
+            mylog(s"argument=$argument")
+
+            val compiler: speedy.Compiler = compiledPackages.compiler
+            val version: TransactionVersion = TransactionVersion.VDev // NICK: from where?
+            val view: speedy.InterfaceView =
+              speedy.InterfaceView(templateId, argument, interfaceId, version)
+            val sexpr: SExpr = compiler.unsafeCompileInterfaceView(view)
+            val machine: Machine =
+              Machine.fromPureSExpr(compiledPackages, sexpr)(Script.DummyLoggingContext)
+
+            machine.run() match {
+              case SResultFinal(svalue, _) =>
+                val v = svalue.toNormalizedValue(version)
+                mylog(s"have value=$v")
+                Future.successful(Some(v))
+
+              case err @ (_: SResultError | _: SResultNeedPackage | _: SResultNeedContract |
+                  _: SResultNeedKey | _: SResultNeedTime | _: SResultScenarioGetParty |
+                  _: SResultScenarioPassTime | _: SResultScenarioSubmit) =>
+                mylog(s"computeInterfaceView.interpret(): $err")
+                Future.successful(None) // NICK: or error?
+            }
+        }
+    }
   }
 
   override def queryContractKey(

@@ -112,7 +112,7 @@ main =
                     , "  r === MyTemplate p 42"
                     , "  let iid : ContractId MyInterface = toInterfaceContractId @MyInterface cid"
                     , "  Some v <- queryInterfaceId p iid"
-                    , "  v.info === 999" -- NICK
+                    , "  v.info === 42"
                     , "  pure ()"
                     ]
 

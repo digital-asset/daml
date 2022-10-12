@@ -118,7 +118,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
 
   override def queryInterfaceId(
       parties: OneAnd[Set, Ref.Party],
-      templateId: Identifier,
+      interfaceId: Identifier,
       cid: ContractId,
   )(implicit
       ec: ExecutionContext,
