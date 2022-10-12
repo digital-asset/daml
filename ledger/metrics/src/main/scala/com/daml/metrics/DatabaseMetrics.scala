@@ -27,7 +27,7 @@ class DatabaseMetrics private[metrics] (
   @MetricDoc.Tag(
     summary = "The time needed to run the SQL query and read the result.",
     description = """This metric encompasses the time measured by `query` and `commit` metrics.
-                    |Additionally it includes the time needed to obatin the DB connection,
+                    |Additionally it includes the time needed to obtain the DB connection,
                     |optionally roll it back and close the connection at the end.""",
     qualification = Debug,
   )
