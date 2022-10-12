@@ -49,7 +49,7 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
   }
 
   // concrete 1st type param would need a self-reference type param in Contract
-  protected abstract ContractCompanion<? extends Contract<Id, Data>, Id, Data> getCompanion();
+  protected abstract ContractTypeCompanion<?, Data> getCompanion();
 
   @Override
   public boolean equals(Object object) {
@@ -81,7 +81,7 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
   public String toString() {
     return String.format(
         "%s.Contract(%s, %s, %s, %s, %s)",
-        getCompanion().templateClassName,
+        getCompanion().TEMPLATE_CLASS_NAME,
         this.id,
         this.data,
         this.agreementText,

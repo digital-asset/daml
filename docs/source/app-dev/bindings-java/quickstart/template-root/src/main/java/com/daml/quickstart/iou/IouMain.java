@@ -4,6 +4,7 @@
 package com.daml.quickstart.iou;
 
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.rxjava.ContractUtil;
 import com.daml.ledger.rxjava.DamlLedgerClient;
 import com.daml.ledger.rxjava.LedgerClient;
 import com.daml.quickstart.model.iou.Iou;
@@ -59,14 +60,14 @@ public class IouMain {
 
     client
         .getActiveContractSetClient()
-        .getActiveContracts(iouFilter, true)
+        .getActiveContracts(ContractUtil.of(Iou.COMPANION), Collections.singleton(party), true)
         .blockingForEach(
-            response -> {
-              response
+            activeContracts -> {
+              activeContracts
                   .getOffset()
                   .ifPresent(offset -> acsOffset.set(new LedgerOffset.Absolute(offset)));
-              response.getCreatedEvents().stream()
-                  .map(Iou.Contract::fromCreatedEvent)
+              activeContracts
+                  .getContracts()
                   .forEach(
                       contract -> {
                         long id = idCounter.getAndIncrement();

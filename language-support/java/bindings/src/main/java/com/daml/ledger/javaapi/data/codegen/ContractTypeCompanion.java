@@ -21,6 +21,8 @@ public abstract class ContractTypeCompanion<ContractType, Data> {
   /** The full template ID of the template or interface that defined this companion. */
   public final Identifier TEMPLATE_ID;
 
+  final String TEMPLATE_CLASS_NAME;
+
   /**
    * The provides a mapping of choice name to Choice.
    *
@@ -40,8 +42,11 @@ public abstract class ContractTypeCompanion<ContractType, Data> {
    * interface in question instead.
    */
   protected ContractTypeCompanion(
-      Identifier templateId, List<ChoiceMetadata<ContractType, ?, ?>> choices) {
+      Identifier templateId,
+      String templateClassName,
+      List<ChoiceMetadata<ContractType, ?, ?>> choices) {
     TEMPLATE_ID = templateId;
+    TEMPLATE_CLASS_NAME = templateClassName;
     this.choices =
         choices.stream().collect(Collectors.toMap(choice -> choice.name, Function.identity()));
   }
