@@ -17,7 +17,6 @@ import com.typesafe.scalalogging.StrictLogging
 import scalaz.{\/, \/-}
 import scalaz.syntax.std.option._
 
-import java.util
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
@@ -536,7 +535,7 @@ private[inner] object TemplateClass extends StrictLogging {
           templateClassName,
           valueDecoderLambdaArgName,
           contractName,
-          classOf[List[_]],
+          classOf[java.util.List[_]],
           CodeBlock
             .join(
               choiceNames

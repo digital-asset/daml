@@ -12,7 +12,6 @@ import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.-\/
 
-import java.util
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
@@ -129,7 +128,7 @@ object InterfaceClass extends StrictLogging {
             contractIdClassName,
             interfaceViewTypeName,
             "valueDecoder",
-            classOf[List[_]],
+            classOf[java.util.List[_]],
             CodeBlock
               .join(
                 choiceNames
