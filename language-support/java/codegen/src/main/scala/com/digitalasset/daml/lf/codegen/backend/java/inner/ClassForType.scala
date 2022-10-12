@@ -72,7 +72,7 @@ object ClassForType extends StrictLogging {
             typeWithContext.interface.packageId,
             interfaceName,
           )
-    } yield javaFile(s"blah.$packageName", interfaceClass)
+    } yield javaFile(packageName, interfaceClass)
 
   private def generateSerializableTypes(
       typeWithContext: TypeWithContext,
