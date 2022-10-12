@@ -110,8 +110,6 @@ data Category
   | Availability
   | Confidentiality
   | Integrity
-  | NonRepudiation
-  | Resilience
   deriving (Eq,Ord,Bounded,Enum,Show)
 
 data Description = Description
@@ -152,5 +150,3 @@ ppCategory = \case
   Availability -> "Availability"
   Confidentiality -> "Confidentiality"
   Integrity -> "Integrity"
-  NonRepudiation -> "Non-Repudiation"
-  Resilience -> "Resilience"
