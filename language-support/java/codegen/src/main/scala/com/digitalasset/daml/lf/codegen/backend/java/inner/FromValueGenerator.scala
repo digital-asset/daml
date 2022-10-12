@@ -188,7 +188,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
       packagePrefixes: Map[PackageId, String],
   ): CodeBlock =
     CodeBlock.of(
-      "$T $L = $L",
+      "$T $L =$W$L",
       toJavaTypeName(fieldType, packagePrefixes),
       field,
       extractor(fieldType, field, accessor, newNameGenerator, packagePrefixes),
@@ -249,6 +249,18 @@ private[inner] object FromValueGenerator extends StrictLogging {
     lazy val javaType = toJavaTypeName(damlType, packagePrefixes)
     logger.debug(s"Generating composite extractor for $field of type $javaType")
 
+    def oneTypeArgPrim(primFun: String, param: Type): CodeBlock = {
+      val singleArg = args.next()
+      CodeBlock.of(
+        "$T.$L($L ->$>$W$L$<)$Z.decode($L)",
+        classOf[PrimitiveValueDecoders],
+        primFun,
+        singleArg,
+        extractor(param, singleArg, CodeBlock.of("$L", singleArg), args, packagePrefixes),
+        accessor,
+      )
+    }
+
     damlType match {
       // Case #1: the type is actually a type parameter: we assume the calling code defines a
       // suitably named function that takes the result of accessing the underlying data (as
@@ -258,46 +270,17 @@ private[inner] object FromValueGenerator extends StrictLogging {
         CodeBlock.of("fromValue$L.decode($L)", JavaEscaper.escapeString(tvName), accessor)
 
       case TypePrim(PrimTypeList, ImmArraySeq(param)) =>
-        val optMapArg = args.next()
-        val listMapArg = args.next()
-        CodeBlock.of(
-          """$L.asList()
-            |    .map($L -> $L.toList($L ->
-            |        $L
-            |    ))
-            |    $L
-            |""".stripMargin,
-          accessor,
-          optMapArg,
-          optMapArg,
-          listMapArg,
-          extractor(param, listMapArg, CodeBlock.of("$L", listMapArg), args, packagePrefixes),
-          orElseThrow(apiType, field),
-        )
+        oneTypeArgPrim("fromList", param)
 
       case TypePrim(PrimTypeOptional, ImmArraySeq(param)) =>
-        val optOptArg = args.next()
-        val valArg = args.next()
-        CodeBlock.of(
-          """$L.asOptional()
-            |    .map($L -> $L.toOptional($L ->
-            |        $L
-            |    ))
-            |    $L
-          """.stripMargin,
-          accessor,
-          optOptArg,
-          optOptArg,
-          valArg,
-          extractor(param, valArg, CodeBlock.of("$L", valArg), args, packagePrefixes),
-          orElseThrow(apiType, field),
-        )
+        oneTypeArgPrim("fromOptional", param)
+
       case TypePrim(PrimTypeContractId, ImmArraySeq(TypeVar(name))) =>
         CodeBlock.of(
-          "fromValue$L.fromContractId($L.asContractId()$L.getValue())",
+          "$T.fromContractId(fromValue$L)$Z.decode($L)",
+          classOf[PrimitiveValueDecoders],
           JavaEscaper.escapeString(name),
           accessor,
-          orElseThrow(apiType, field),
         )
       case TypePrim(PrimTypeContractId, ImmArraySeq(_)) =>
         CodeBlock.of(
@@ -307,46 +290,22 @@ private[inner] object FromValueGenerator extends StrictLogging {
           orElseThrow(apiType, field),
         )
       case TypePrim(PrimTypeTextMap, ImmArraySeq(param)) =>
-        val optMapArg = args.next()
-        val entryArg = args.next()
-        CodeBlock.of(
-          """$L.asTextMap()
-            |    .map($L -> $L.toMap($L ->
-            |        $L
-            |    ))
-            |    $L
-          """.stripMargin,
-          accessor,
-          optMapArg,
-          optMapArg,
-          entryArg,
-          extractor(param, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
-          orElseThrow(apiType, field),
-        )
+        oneTypeArgPrim("fromTextMap", param)
 
       case TypePrim(PrimTypeGenMap, ImmArraySeq(keyType, valueType)) =>
-        val optMapArg = args.next()
         val entryArg = args.next()
         CodeBlock.of(
-          """$L.asGenMap()
-              |    .map($L -> $L.toMap(
-              |        $L -> $L,
-              |        $L -> $L
-              |    ))
-              |    $L
-          """.stripMargin,
-          accessor,
-          optMapArg,
-          optMapArg,
+          "$T.fromGenMap($L ->$>$W$L$<,$W$L ->$>$W$L$<)$Z.decode($L)",
+          classOf[PrimitiveValueDecoders],
           entryArg,
           extractor(keyType, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
           entryArg,
           extractor(valueType, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
-          orElseThrow(apiType, field),
+          accessor,
         )
 
       case TypeNumeric(_) =>
-        CodeBlock.of("$L.asNumeric()$L.getValue()", accessor, orElseThrow(apiType, field))
+        CodeBlock.of("$T.fromNumeric.decode($L)", classOf[PrimitiveValueDecoders], accessor)
 
       case TypePrim(prim, _) =>
         primitive(prim, apiType, field, accessor).getOrElse(
