@@ -122,7 +122,8 @@ public class IouMain {
         (req, res) -> {
           Map m = g.fromJson(req.body(), Map.class);
           Iou.ContractId contractId = idMap.get(Long.parseLong(req.params("id")));
-          Update<IouTransfer.ContractId> update = contractId.exerciseIou_Transfer(m.get("newOwner").toString());
+          Update<IouTransfer.ContractId> update =
+              contractId.exerciseIou_Transfer(m.get("newOwner").toString());
           Command exerciseCommand = update.command();
           submit(client, party, exerciseCommand);
           return "Iou transfer submitted.";

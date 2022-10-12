@@ -10,7 +10,8 @@ public class ExerciseByKeyUpdate<R> extends Update<R> {
   private final ExerciseByKeyCommand exerciseByKeyCommand;
   private final ValueDecoder<R> returnTypeDecoder;
 
-  ExerciseByKeyUpdate(ExerciseByKeyCommand exerciseByKeyCommand, ValueDecoder<R> returnTypeDecoder) {
+  ExerciseByKeyUpdate(
+      ExerciseByKeyCommand exerciseByKeyCommand, ValueDecoder<R> returnTypeDecoder) {
     this.exerciseByKeyCommand = exerciseByKeyCommand;
     this.returnTypeDecoder = returnTypeDecoder;
   }

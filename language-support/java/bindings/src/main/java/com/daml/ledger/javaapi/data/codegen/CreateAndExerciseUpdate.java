@@ -10,7 +10,8 @@ public class CreateAndExerciseUpdate<R> extends Update<R> {
   private final CreateAndExerciseCommand createAndExerciseCommand;
   private final ValueDecoder<R> returnTypeDecoder;
 
-  CreateAndExerciseUpdate(CreateAndExerciseCommand createAndExerciseCommand, ValueDecoder<R> returnTypeDecoder) {
+  CreateAndExerciseUpdate(
+      CreateAndExerciseCommand createAndExerciseCommand, ValueDecoder<R> returnTypeDecoder) {
     this.createAndExerciseCommand = createAndExerciseCommand;
     this.returnTypeDecoder = returnTypeDecoder;
   }
