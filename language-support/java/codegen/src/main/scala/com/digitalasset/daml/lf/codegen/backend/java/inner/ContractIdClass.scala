@@ -182,27 +182,6 @@ object ContractIdClass {
         .returns(parameterizedUpdateType(toJavaTypeName(choice.returnType, packagePrefixes)))
       val javaType = toJavaTypeName(choice.param, packagePrefixes)
       exerciseChoiceBuilder.addParameter(javaType, "arg")
-//      choice.param match {
-//        case TypeCon(_, _) =>
-//          exerciseChoiceBuilder.addStatement(
-//            "$T argValue = arg.toValue()",
-//            classOf[javaapi.data.Value],
-//          )
-//        case TypePrim(PrimType.Unit, ImmArraySeq()) =>
-//          exerciseChoiceBuilder
-//            .addStatement(
-//              "$T argValue = $T.getInstance()",
-//              classOf[javaapi.data.Value],
-//              classOf[javaapi.data.Unit],
-//            )
-//        case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) =>
-//          exerciseChoiceBuilder
-//            .addStatement(
-//              "$T argValue = new $T(arg)",
-//              classOf[javaapi.data.Value],
-//              toAPITypeName(choice.param),
-//            )
-//      }
       exerciseChoiceBuilder.addStatement(
         "return makeExerciseCmd($L, arg)",
         TemplateClass.toChoiceNameField(choiceName),

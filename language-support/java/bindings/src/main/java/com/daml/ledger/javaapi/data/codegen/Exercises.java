@@ -16,5 +16,5 @@ public interface Exercises<Cmd> {
    * exercise*} methods generated from their Daml code instead.
    */
   <A, R> Update<R> makeExerciseCmd(
-      ChoiceMetadata<?, ? super A, ? extends R> choice, A choiceArgument);
+      ChoiceMetadata<?, ? super A, R> choice, A choiceArgument);
 }

@@ -83,8 +83,8 @@ class CodegenLedgerTest
       sruquitoContract.data shouldEqual sruquito
 
       val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
-      val reproduceCmd = glookoflyContract.id
-        .exerciseReproduce(sruquitoContract.id, tob)
+      val update = glookoflyContract.id.exerciseReproduce(sruquitoContract.id, tob)
+      val reproduceCmd = update.command()
       sendCmd(client, alice, reproduceCmd)
 
       val wolpertingers = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
@@ -109,7 +109,8 @@ class CodegenLedgerTest
       glookoflyContract.data shouldEqual glookofly
 
       val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
-      val reproduceCmd = sruquito.createAnd.exerciseReproduce(glookoflyContract.id, tob)
+      val update = sruquito.createAnd.exerciseReproduce(glookoflyContract.id, tob)
+      val reproduceCmd = update.command()
       sendCmd(client, alice, reproduceCmd)
 
       val wolpertingers = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
@@ -153,8 +154,9 @@ class CodegenLedgerTest
         readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
 
       val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
-      val reproduceByKeyCmd =
+      val update =
         Wolpertinger.byKey(glookoflyContract.key.get).exerciseReproduce(sruquitoContract.id, tob)
+      val reproduceByKeyCmd = update.command()
       sendCmd(client, alice, reproduceByKeyCmd)
 
       val wolpertingers = readActiveContractPayloads(Wolpertinger.COMPANION)(client, alice)
@@ -217,7 +219,10 @@ class CodegenLedgerTest
           client,
           asList(alice),
           asList(charlie),
-          MultiParty.byKey(new da.types.Tuple2(alice, bob)).exerciseMPFetchOtherByKey(charlie, bob),
+          MultiParty
+            .byKey(new da.types.Tuple2(alice, bob))
+            .exerciseMPFetchOtherByKey(charlie, bob)
+            .command(),
         )
       }
     } yield succeed

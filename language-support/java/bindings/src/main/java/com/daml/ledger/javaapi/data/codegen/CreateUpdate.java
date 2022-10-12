@@ -8,9 +8,11 @@ import com.daml.ledger.javaapi.data.CreateCommand;
 
 public class CreateUpdate<R> extends Update<R> {
   private final CreateCommand createCommand;
+  private final ValueDecoder<R> returnTypeDecoder;
 
-  CreateUpdate(CreateCommand createCommand) {
+  CreateUpdate(CreateCommand createCommand, ValueDecoder<R> returnTypeDecoder) {
     this.createCommand = createCommand;
+    this.returnTypeDecoder = returnTypeDecoder;
   }
 
   public CreateCommand getCreateCommand() {
@@ -20,5 +22,10 @@ public class CreateUpdate<R> extends Update<R> {
   @Override
   public Command command() {
     return createCommand;
+  }
+
+  @Override
+  public ValueDecoder<R> returnTypeDecoder() {
+    return returnTypeDecoder;
   }
 }

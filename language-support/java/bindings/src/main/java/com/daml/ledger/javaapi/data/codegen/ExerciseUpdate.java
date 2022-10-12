@@ -8,9 +8,11 @@ import com.daml.ledger.javaapi.data.ExerciseCommand;
 
 public class ExerciseUpdate<R> extends Update<R> {
   private final ExerciseCommand exerciseCommand;
+  private final ValueDecoder<R> returnTypeDecoder;
 
-  ExerciseUpdate(ExerciseCommand exerciseCommand) {
+  ExerciseUpdate(ExerciseCommand exerciseCommand, ValueDecoder<R> returnTypeDecoder) {
     this.exerciseCommand = exerciseCommand;
+    this.returnTypeDecoder = returnTypeDecoder;
   }
 
   public ExerciseCommand getExerciseCommand() {
@@ -20,5 +22,10 @@ public class ExerciseUpdate<R> extends Update<R> {
   @Override
   public Command command() {
     return exerciseCommand;
+  }
+
+  @Override
+  public ValueDecoder<R> returnTypeDecoder() {
+    return returnTypeDecoder;
   }
 }

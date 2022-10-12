@@ -21,13 +21,13 @@ public final class ChoiceMetadata<Tpl, ArgType, ResType> {
 
   public final Function<ArgType, Value> encodeArg;
 
-  public final ValueDecoder<ResType> valueDecoder;
+  public final ValueDecoder<ResType> returnTypeDecoder;
 
   private ChoiceMetadata(final String name, final Function<ArgType, Value> encodeArg,
-                         ValueDecoder<ResType> valueDecoder) {
+                         ValueDecoder<ResType> returnTypeDecoder) {
     this.name = name;
     this.encodeArg = encodeArg;
-    this.valueDecoder = valueDecoder;
+    this.returnTypeDecoder = returnTypeDecoder;
   }
 
   /**
@@ -37,7 +37,7 @@ public final class ChoiceMetadata<Tpl, ArgType, ResType> {
    * {@code CHOICE_*} fields on templates or interfaces.
    */
   public static <Tpl, ArgType, ResType> ChoiceMetadata<Tpl, ArgType, ResType> create(
-      final String name, final Function<ArgType, Value> encodeArg, ValueDecoder<ResType> valueDecoder) {
-    return new ChoiceMetadata<>(name, encodeArg, valueDecoder);
+      final String name, final Function<ArgType, Value> encodeArg, ValueDecoder<ResType> returnTypeDecoder) {
+    return new ChoiceMetadata<>(name, encodeArg, returnTypeDecoder);
   }
 }

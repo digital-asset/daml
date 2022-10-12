@@ -42,7 +42,10 @@ class Interfaces
           sendCmd(
             client,
             alice,
-            child.id.toInterface(interfaces.TIf.INTERFACE).exerciseHam(new interfaces.Ham()),
+            child.id
+              .toInterface(interfaces.TIf.INTERFACE)
+              .exerciseHam(new interfaces.Ham())
+              .command(),
           )
         }
         readActiveContractsSafe(safeChildCloneFromCreatedEvent)(client, alice)
@@ -52,6 +55,7 @@ class Interfaces
                 child.id.toInterface(interfaces.TIf.INTERFACE): interfaces.TIf.ContractId
               )
               .exerciseBar()
+              .command()
             val ex = the[io.grpc.StatusRuntimeException] thrownBy sendCmd(client, alice, cmd)
             ex.getMessage should include regex "Expected contract of type .*Child@.* but got .*ChildClone"
           }

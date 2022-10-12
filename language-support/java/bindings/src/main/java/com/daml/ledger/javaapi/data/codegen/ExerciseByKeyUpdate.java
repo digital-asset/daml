@@ -8,9 +8,11 @@ import com.daml.ledger.javaapi.data.ExerciseByKeyCommand;
 
 public class ExerciseByKeyUpdate<R> extends Update<R> {
   private final ExerciseByKeyCommand exerciseByKeyCommand;
+  private final ValueDecoder<R> returnTypeDecoder;
 
-  ExerciseByKeyUpdate(ExerciseByKeyCommand exerciseByKeyCommand) {
+  ExerciseByKeyUpdate(ExerciseByKeyCommand exerciseByKeyCommand, ValueDecoder<R> returnTypeDecoder) {
     this.exerciseByKeyCommand = exerciseByKeyCommand;
+    this.returnTypeDecoder = returnTypeDecoder;
   }
 
   public ExerciseByKeyCommand getExerciseByKeyCommand() {
@@ -20,5 +22,10 @@ public class ExerciseByKeyUpdate<R> extends Update<R> {
   @Override
   public Command command() {
     return exerciseByKeyCommand;
+  }
+
+  @Override
+  public ValueDecoder<R> returnTypeDecoder() {
+    return returnTypeDecoder;
   }
 }

@@ -4,9 +4,11 @@
 package com.daml.quickstart.iou;
 
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.codegen.Update;
 import com.daml.ledger.rxjava.DamlLedgerClient;
 import com.daml.ledger.rxjava.LedgerClient;
 import com.daml.quickstart.model.iou.Iou;
+import com.daml.quickstart.model.iou.IouTransfer;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Maps;
@@ -120,8 +122,8 @@ public class IouMain {
         (req, res) -> {
           Map m = g.fromJson(req.body(), Map.class);
           Iou.ContractId contractId = idMap.get(Long.parseLong(req.params("id")));
-          ExerciseCommand exerciseCommand =
-              contractId.exerciseIou_Transfer(m.get("newOwner").toString());
+          Update<IouTransfer.ContractId> update = contractId.exerciseIou_Transfer(m.get("newOwner").toString());
+          Command exerciseCommand = update.command();
           submit(client, party, exerciseCommand);
           return "Iou transfer submitted.";
         },
