@@ -555,7 +555,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       }
   }
 
-  // TEST_EVIDENCE: Performance: creating and listing 20K users should be possible
+  // TEST_EVIDENCE: Availability: creating and listing 20K users should be possible
   "creating and listing 20K users should be possible" in withHttpService { fixture =>
     import fixture.uri
     import spray.json._
