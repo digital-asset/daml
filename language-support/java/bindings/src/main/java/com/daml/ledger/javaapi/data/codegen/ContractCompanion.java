@@ -38,7 +38,7 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
    */
   public static <Data> ValueDecoder<Data> valueDecoder(
       ContractCompanion<?, ? extends ContractId<Data>, Data> companion) {
-    return new ValueDecoder<>() {
+    return new ValueDecoder<Data>() {
       @Override
       public Data decode(Value value) {
         DamlRecord record =

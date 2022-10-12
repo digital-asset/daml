@@ -28,16 +28,18 @@ public final class ContractUtil<Ct> {
     this.filter = filter;
   }
 
-  static <Ct> ContractUtil<Ct> of(ContractCompanion<Ct, ?, ?> companion) {
-    Filter filter = new InclusiveFilter(Set.of(companion.TEMPLATE_ID), Collections.emptyMap());
+  public static <Ct> ContractUtil<Ct> of(ContractCompanion<Ct, ?, ?> companion) {
+    Filter filter =
+        new InclusiveFilter(Collections.singleton(companion.TEMPLATE_ID), Collections.emptyMap());
     return new ContractUtil<>(companion::fromCreatedEvent, filter);
   }
 
-  static <Cid, View> ContractUtil<Contract<Cid, View>> of(
+  public static <Cid, View> ContractUtil<Contract<Cid, View>> of(
       InterfaceCompanion<?, Cid, View> companion) {
     Filter filter =
         new InclusiveFilter(
-            Collections.emptySet(), Map.of(companion.TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW));
+            Collections.emptySet(),
+            Collections.singletonMap(companion.TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW));
     return new ContractUtil<>(companion::fromCreatedEvent, filter);
   }
 

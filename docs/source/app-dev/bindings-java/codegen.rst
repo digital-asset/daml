@@ -187,7 +187,7 @@ A file is generated that defines five Java classes and an interface:
 
     public static final ContractCompanion.WithKey<Contract, ContractId, Bar, BarKey> COMPANION = 
         new ContractCompanion.WithKey<>("com.acme.templates.Bar",
-          TEMPLATE_ID, ContractId::new, Bar::fromValue, Contract::new, e -> BarKey.fromValue(e), List.of(CHOICE_Archive));
+          TEMPLATE_ID, ContractId::new, Bar::fromValue, Contract::new, e -> BarKey.fromValue(e), Arrays.asList(CHOICE_Archive));
 
     public final String owner;
     public final String name;

@@ -17,6 +17,7 @@ import com.typesafe.scalalogging.StrictLogging
 import scalaz.{\/, \/-}
 import scalaz.syntax.std.option._
 
+import java.util
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
@@ -525,7 +526,7 @@ private[inner] object TemplateClass extends StrictLogging {
         Modifier.PUBLIC,
       )
       .initializer(
-        "$Znew $T<>($>$Z$S,$W$N, $T::new, $N -> $T.templateValueDecoder().decode($N), $T::new, $T.of($L)" + keyParams + "$<)",
+        "$Znew $T<>($>$Z$S,$W$N, $T::new, $N -> $T.templateValueDecoder().decode($N), $T::new, $T.asList($L)" + keyParams + "$<)",
         Seq(
           fieldClass,
           templateClassName,
@@ -535,7 +536,7 @@ private[inner] object TemplateClass extends StrictLogging {
           templateClassName,
           valueDecoderLambdaArgName,
           contractName,
-          classOf[java.util.List[_]],
+          classOf[util.Arrays],
           CodeBlock
             .join(
               choiceNames
