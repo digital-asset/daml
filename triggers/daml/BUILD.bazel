@@ -6,22 +6,35 @@
 
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+
+TRIGGER_VERSIONS = [
+    "stable",
+    "dev",
+]
+
+copy_file(
+    name = "daml-trigger-lib",
+    src = "daml-trigger-stable-1.14.dar",
+    out = "daml-trigger.dar",
+    visibility = ["//visibility:public"],
+)
 
 # Build one DAR per LF version to bundle with the SDK.
 # Also build one DAR with the default LF version for test-cases.
 [
     genrule(
-        name = "daml-trigger{}".format(suffix),
+        name = "daml-trigger-{}{}".format(trigger_version, suffix),
         srcs = glob(["**/*.daml"]) + ["//daml-script/daml:daml-script{}".format(suffix)],
-        outs = ["daml-trigger{}.dar".format(suffix)],
+        outs = ["daml-trigger-{}{}.dar".format(trigger_version, suffix)],
         cmd = """
           set -eou pipefail
           TMP_DIR=$$(mktemp -d)
           mkdir -p $$TMP_DIR/daml/Daml/Trigger
-          cp -L $(location Daml/Trigger.daml) $$TMP_DIR/daml/Daml
-          cp -L $(location Daml/Trigger/Assert.daml) $$TMP_DIR/daml/Daml/Trigger
-          cp -L $(location Daml/Trigger/Internal.daml) $$TMP_DIR/daml/Daml/Trigger
-          cp -L $(location Daml/Trigger/LowLevel.daml) $$TMP_DIR/daml/Daml/Trigger
+          cp -L $(location {src_dir}/Daml/Trigger.daml) $$TMP_DIR/daml/Daml
+          cp -L $(location {src_dir}/Daml/Trigger/Assert.daml) $$TMP_DIR/daml/Daml/Trigger
+          cp -L $(location {src_dir}/Daml/Trigger/Internal.daml) $$TMP_DIR/daml/Daml/Trigger
+          cp -L $(location {src_dir}/Daml/Trigger/LowLevel.daml) $$TMP_DIR/daml/Daml/Trigger
           cp -L $(location {daml_script}) $$TMP_DIR/daml-script.dar
           cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
@@ -44,6 +57,7 @@ EOF
             ] if lf_version else []),
             daml_script = "//daml-script/daml:daml-script{}".format(suffix),
             sdk = sdk_version,
+            src_dir = trigger_version,
             ghc = ghc_version,
         ),
         tools = [
@@ -51,6 +65,7 @@ EOF
         ],
         visibility = ["//visibility:public"],
     )
+    for trigger_version in TRIGGER_VERSIONS
     for lf_version in COMPILER_LF_VERSIONS + [""]
     for suffix in [("-" + lf_version) if lf_version else ""]
 ]
@@ -58,8 +73,9 @@ EOF
 filegroup(
     name = "daml-trigger-dars",
     srcs = [
-        "daml-trigger-{}.dar".format(lf_version)
+        "daml-trigger-{}-{}.dar".format(trigger_version, lf_version)
         for lf_version in COMPILER_LF_VERSIONS
+        for trigger_version in TRIGGER_VERSIONS
     ],
     visibility = ["//visibility:public"],
 )
@@ -73,10 +89,10 @@ genrule(
     cmd = """
           TMP_DIR=$$(mktemp -d)
           mkdir -p $$TMP_DIR/daml/Daml/Trigger
-          cp -L $(location Daml/Trigger.daml) $$TMP_DIR/daml/Daml
-          cp -L $(location Daml/Trigger/Assert.daml) $$TMP_DIR/daml/Daml/Trigger
-          cp -L $(location Daml/Trigger/Internal.daml) $$TMP_DIR/daml/Daml/Trigger
-          cp -L $(location Daml/Trigger/LowLevel.daml) $$TMP_DIR/daml/Daml/Trigger
+          cp -L $(location stable/Daml/Trigger.daml) $$TMP_DIR/daml/Daml
+          cp -L $(location stable/Daml/Trigger/Assert.daml) $$TMP_DIR/daml/Daml/Trigger
+          cp -L $(location stable/Daml/Trigger/Internal.daml) $$TMP_DIR/daml/Daml/Trigger
+          cp -L $(location stable/Daml/Trigger/LowLevel.daml) $$TMP_DIR/daml/Daml/Trigger
           cp -L $$PWD/$(location {daml_script}) $$TMP_DIR/daml-script.dar
           cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}

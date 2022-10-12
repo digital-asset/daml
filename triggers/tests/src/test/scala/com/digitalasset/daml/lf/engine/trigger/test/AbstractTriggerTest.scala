@@ -83,9 +83,17 @@ trait AbstractTriggerTest
     } yield client
   }
 
-  override protected def darFile =
-    Try(BazelRunfiles.requiredResource("triggers/tests/acs.dar"))
-      .getOrElse(BazelRunfiles.requiredResource("triggers/tests/acs-1.dev.dar"))
+  override protected def darFile = {
+    val dars = for {
+      trigger_version <- List("stable", "dev").view
+      lf_version <- List("1.14", "1.dev")
+      x <- Try(
+        BazelRunfiles.requiredResource(s"triggers/tests/acs-${trigger_version}-${lf_version}.dar")
+      ).toOption.toList
+    } yield x
+
+    dars.head
+  }
 
   protected val dar = DarDecoder.assertReadArchiveFromFile(darFile)
   protected val compiledPackages =

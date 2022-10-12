@@ -1,0 +1,144 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
+
+module Daml.Trigger.Assert
+ ( ACSBuilder
+ , toACS
+ , testRule
+ , flattenCommands
+ , assertCreateCmd
+ , assertExerciseCmd
+ , assertExerciseByKeyCmd
+ ) where
+
+import qualified DA.List as List
+import DA.Map (Map)
+import qualified DA.Map as Map
+import qualified DA.Text as Text
+
+import Daml.Trigger hiding (queryContractId)
+import Daml.Trigger.Internal
+import Daml.Trigger.LowLevel hiding (Trigger)
+
+import Daml.Script (Script, queryContractId)
+
+-- | Used to construct an 'ACS' for 'testRule'.
+newtype ACSBuilder = ACSBuilder (Party -> [Script (AnyContractId, AnyTemplate)])
+
+instance Semigroup ACSBuilder where
+  ACSBuilder l <> ACSBuilder r =
+    ACSBuilder (\p -> l p <> r p)
+
+instance Monoid ACSBuilder where
+  mempty = ACSBuilder (const mempty)
+
+buildACS : Party -> ACSBuilder -> Script ACS
+buildACS party (ACSBuilder fetches) = do
+  activeContracts <- sequence (fetches party)
+  pure ACS
+    { activeContracts = groupActiveContracts activeContracts
+    , pendingContracts = Map.empty
+    }
+
+-- | Include the given contract in the 'ACS'. Note that the `ContractId`
+-- must point to an active contract.
+toACS : Template t => ContractId t -> ACSBuilder
+toACS cid = ACSBuilder $ \p ->
+  [ do t <-
+         queryContractId p cid >>= \case
+           None -> abort ("Failed to fetch contract passed to toACS: " <> show cid)
+           Some c -> pure c
+       pure (toAnyContractId cid, toAnyTemplate t)
+  ]
+
+-- | Execute a trigger's rule once in a scenario.
+testRule
+  : Trigger s  -- ^ Test this trigger's 'Trigger.rule'.
+  -> Party  -- ^ Execute the rule as this 'Party'.
+  -> [Party] -- ^ Execute the rule with these parties as `readAs`
+  -> ACSBuilder  -- ^ List these contracts in the 'ACS'.
+  -> Map CommandId [Command]  -- ^ The commands in flight.
+  -> s  -- ^ The trigger state.
+  -> Script (s, [Commands])  -- ^ The 'Commands' and new state emitted by the rule. The 'CommandId's will start from @"0"@.
+testRule trigger party readAs acsBuilder commandsInFlight s = do
+  time <- getTime
+  acs <- buildACS party acsBuilder
+  let state = TriggerState
+        { acs = acs
+        , actAs = party
+        , readAs = readAs
+        , userState = s
+        , commandsInFlight = commandsInFlight
+        }
+  -- A sufficiently powerful `TriggerF` command will entail redoing this as a
+  -- natural transformation from `Free TriggerF` to `Free ScriptF`, which in
+  -- turn will likely require exposing `ScriptF` or both in some "internal"
+  -- fashion.  Meanwhile, it is worth pushing `simulateRule` as far as possible
+  -- to forestall that outcome. -SC
+  let (state', commands, _) = simulateRule (runRule trigger.rule) time state
+  pure (state'.userState, commands)
+
+-- | Drop 'CommandId's and extract all 'Command's.
+flattenCommands : [Commands] -> [Command]
+flattenCommands = concatMap commands
+
+expectCommand
+  : [Command]
+  -> (Command -> Optional a)
+  -> (a -> Either Text ())
+  -> Either [Text] ()
+expectCommand commands fromCommand assertion = foldl step (Left []) commands
+  where
+    step : Either [Text] () -> Command -> Either [Text] ()
+    step (Right ()) _ = Right ()
+    step (Left msgs) command =
+      case assertion <$> fromCommand command of
+        None -> Left msgs
+        Some (Left msg) -> Left (msg :: msgs)
+        Some (Right ()) -> Right ()
+
+-- | Check that at least one command is a create command whose payload fulfills the given assertions.
+assertCreateCmd
+  : (Template t, CanAbort m)
+  => [Command]  -- ^ Check these commands.
+  -> (t -> Either Text ())  -- ^ Perform these assertions.
+  -> m ()
+assertCreateCmd commands assertion =
+  case expectCommand commands fromCreate assertion of
+    Right () -> pure ()
+    Left msgs ->
+      abort $ "Failure, found no matching create command." <> collectMessages msgs
+
+-- | Check that at least one command is an exercise command whose contract id and choice argument fulfill the given assertions.
+assertExerciseCmd
+  : (Template t, Choice t c r, CanAbort m)
+  => [Command]  -- ^ Check these commands.
+  -> ((ContractId t, c) -> Either Text ())  -- ^ Perform these assertions.
+  -> m ()
+assertExerciseCmd commands assertion =
+  case expectCommand commands fromExercise assertion of
+    Right () -> pure ()
+    Left msgs ->
+      abort $ "Failure, found no matching exercise command." <> collectMessages msgs
+
+-- | Check that at least one command is an exercise by key command whose key and choice argument fulfill the given assertions.
+assertExerciseByKeyCmd
+  : forall t c r k m
+  . (TemplateKey t k, Choice t c r, CanAbort m)
+  => [Command]  -- ^ Check these commands.
+  -> ((k, c) -> Either Text ())  -- ^ Perform these assertions.
+  -> m ()
+assertExerciseByKeyCmd commands assertion =
+  case expectCommand commands (fromExerciseByKey @t) assertion of
+    Right () -> pure ()
+    Left msgs ->
+      abort $ "Failure, found no matching exerciseByKey command." <> collectMessages msgs
+
+collectMessages : [Text] -> Text
+collectMessages [] = ""
+collectMessages msgs = "\n" <> Text.unlines (map (bullet . nest) msgs)
+  where
+    bullet txt = "  * " <> txt
+    nest = Text.intercalate "\n" . List.intersperse "    " . Text.lines

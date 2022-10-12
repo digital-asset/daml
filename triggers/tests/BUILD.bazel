@@ -7,12 +7,18 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
+load("//daml-lf/language:daml-lf.bzl", "lf_versions_aggregate")
 load("@build_environment//:configuration.bzl", "sdk_version")
 
-DAML_LF_VERSIONS = [
-    "1.dev",
-    "",  # SDK default
+TRIGGER_VERSIONS = [
+    "stable",
+    "dev",
 ]
+
+DAML_LF_VERSIONS = lf_versions_aggregate([
+    "default",
+    "dev",
+])
 
 [
     genrule(
@@ -20,7 +26,7 @@ DAML_LF_VERSIONS = [
         srcs =
             glob(["**/*.daml"]) + [
                 "//triggers/daml:daml-trigger%s.dar" % suffix,
-                "//daml-script/daml:daml-script%s.dar" % suffix,
+                "//daml-script/daml:daml-script-%s.dar" % lf_version,
             ] + [
                 "//templates:copy-trigger/src/CopyTrigger.daml",
             ],
@@ -45,7 +51,7 @@ DAML_LF_VERSIONS = [
       cp -L $(location :daml/QueryFilter.daml) $$TMP_DIR/daml
       cp -L $(location //templates:copy-trigger/src/CopyTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger{suffix}.dar) $$TMP_DIR/daml-trigger.dar
-      cp -L $(location //daml-script/daml:daml-script{suffix}.dar) $$TMP_DIR/daml-script.dar
+      cp -L $(location //daml-script/daml:daml-script-{lf_version}.dar) $$TMP_DIR/daml-script.dar
       if [ "{lf_version}" = "1.dev" ]
       then
         cp -L $(location :daml/Interface.daml) $$TMP_DIR/daml
@@ -72,8 +78,9 @@ EOF
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
+    for trigger_version in TRIGGER_VERSIONS
     for lf_version in DAML_LF_VERSIONS
-    for suffix in [("-" + lf_version) if lf_version else ""]
+    for suffix in ["-%s-%s" % (trigger_version, lf_version)]
 ]
 
 da_scala_library(
@@ -121,7 +128,7 @@ da_scala_library(
 
 [
     da_scala_test_suite(
-        name = "trigger-integration-tests" + suffix,
+        name = "trigger-integration-tests-%s" % lf_version,
         srcs = [
             "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/%s.scala" % f
             for f in [
@@ -132,10 +139,10 @@ da_scala_library(
                 "RunnerSpec",
                 "UnfoldStateSpec",
                 "ConfigSpec",
-            ] + (["DevOnly"] if lf_version else [])
+            ] + (["DevOnly"] if lf_version == "1.dev" else [])
         ],
         data = [
-            ":acs%s.dar" % suffix,
+            ":acs-stable-%s.dar" % lf_version,
             "//ledger/test-common/test-certificates",
         ],
         resources = ["//triggers/runner:src/main/resources/logback.xml"],
@@ -175,5 +182,4 @@ da_scala_library(
         ],
     )
     for lf_version in DAML_LF_VERSIONS
-    for suffix in [("-" + lf_version) if lf_version else ""]
 ]
