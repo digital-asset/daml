@@ -122,14 +122,14 @@ object InterfaceClass extends StrictLogging {
           .constructorBuilder()
           // intentionally package-private
           .addStatement(
-            "super($>$Z$S, $T.$N, $T::new, $T.$L(), $T.asList($L))$<$Z",
+            "super($>$Z$S, $T.$N, $T::new, $T.$L(), $T.of($L))$<$Z",
             interfaceName,
             interfaceName,
             ClassGenUtils.templateIdFieldName,
             contractIdClassName,
             interfaceViewTypeName,
             "valueDecoder",
-            classOf[util.Arrays],
+            classOf[List[_]],
             CodeBlock
               .join(
                 choiceNames

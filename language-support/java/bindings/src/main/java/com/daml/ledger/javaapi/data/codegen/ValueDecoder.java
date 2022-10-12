@@ -50,7 +50,7 @@ public interface ValueDecoder<Data> {
    */
   @Deprecated
   static <A> ValueDecoder<A> fromFunction(Function<Value, A> fromValue) {
-    return new ValueDecoder<A>() {
+    return new ValueDecoder<>() {
       @Override
       public A decode(Value value) {
         return fromValue.apply(value);

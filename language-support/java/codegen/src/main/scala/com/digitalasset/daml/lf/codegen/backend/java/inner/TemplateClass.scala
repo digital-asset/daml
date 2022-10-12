@@ -526,7 +526,7 @@ private[inner] object TemplateClass extends StrictLogging {
         Modifier.PUBLIC,
       )
       .initializer(
-        "$Znew $T<>($>$Z$S,$W$N, $T::new, $N -> $T.templateValueDecoder().decode($N), $T::new, $T.asList($L)" + keyParams + "$<)",
+        "$Znew $T<>($>$Z$S,$W$N, $T::new, $N -> $T.templateValueDecoder().decode($N), $T::new, $T.of($L)" + keyParams + "$<)",
         Seq(
           fieldClass,
           templateClassName,
@@ -536,7 +536,7 @@ private[inner] object TemplateClass extends StrictLogging {
           templateClassName,
           valueDecoderLambdaArgName,
           contractName,
-          classOf[util.Arrays],
+          classOf[List[_]],
           CodeBlock
             .join(
               choiceNames
