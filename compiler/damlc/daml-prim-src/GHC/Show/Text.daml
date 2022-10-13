@@ -1,0 +1,124 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+
+-- #define SHOW_TEXT_CHR_NEWTYPE
+
+module GHC.Show.Text
+  ( showsPrecText
+  ) where
+
+#ifdef SHOW_TEXT_CHR_NEWTYPE
+import GHC.Base (map)
+#endif
+import GHC.Base ((.), (++), ($))
+import GHC.Classes (Eq (..), Ord (..), (&&))
+import GHC.CString (fromString)
+import GHC.Err (error)
+import GHC.Types (Bool, Int, Text, primitive)
+
+-- # Exported
+
+showsPrecText : Int -> Text -> ShowS
+showsPrecText _ x =
+    showString "\""
+  . showLitText x
+  . showString "\""
+
+-- # Primitives
+
+primExplode : Text -> [Text]
+primExplode = primitive @"BEExplodeText"
+
+primTextToCodePoints : Text -> [Int]
+primTextToCodePoints = primitive @"BETextToCodePoints"
+
+primIntToText : Int -> Text
+primIntToText = primitive @"BEToText"
+
+-- # Internal
+
+explode : Text -> [Chr]
+
+#ifdef SHOW_TEXT_CHR_NEWTYPE
+
+newtype Chr = MkChr Text
+  deriving (Eq, Ord)
+
+#define CH(t) (MkChr t)
+
+explode = map MkChr . primExplode
+
+#else
+
+type Chr = Text
+
+#define CH(t) t
+
+explode = primExplode
+
+#endif
+
+isDec : Chr -> Bool
+isDec c = CH("0") <= c && c <= CH("9")
+
+ord : Chr -> Int
+ord CH(t) = case primTextToCodePoints t of
+  [p] -> p
+  _ -> error $ "impossible: GHC.Show.Text.ord applied to argument with length /= 1, \"" ++ t ++ "\""
+
+type ShowS = Text -> Text
+
+showString : Text -> ShowS
+showString = (++)
+
+showInt : Int -> ShowS
+showInt = showString . primIntToText
+
+showLitText : Text -> ShowS
+showLitText = showLitChrs . explode
+
+showLitChrs : [Chr] -> ShowS
+showLitChrs []               s = s
+showLitChrs (CH("\"") :: cs) s = showString "\\\"" (showLitChrs cs s)
+showLitChrs (c        :: cs) s = showLitChr c (showLitChrs cs s)
+
+showLitChr : Chr -> ShowS
+showLitChr c s | c > CH("\DEL")       = showString "\\" (protectEsc isDec (showInt (ord c)) s)
+showLitChr CH("\DEL")               s = showString "\\DEL" s
+showLitChr CH("\\")                 s = showString "\\\\" s
+showLitChr c@(CH(t)) s | c >= CH(" ") = showString t s
+showLitChr CH("\a")                 s = showString "\\a" s
+showLitChr CH("\b")                 s = showString "\\b" s
+showLitChr CH("\f")                 s = showString "\\f" s
+showLitChr CH("\n")                 s = showString "\\n" s
+showLitChr CH("\r")                 s = showString "\\r" s
+showLitChr CH("\t")                 s = showString "\\t" s
+showLitChr CH("\v")                 s = showString "\\v" s
+showLitChr CH("\SO")                s = protectEsc (== CH("H")) (showString "\\SO") s
+showLitChr c                        s = showString ("\\" ++ ascii c) s
+
+protectEsc : (Chr -> Bool) -> ShowS -> ShowS
+protectEsc p f = f . cont
+               where cont s@(explode -> c::_) | p c = showString "\\&" s
+                     cont s                         = s
+
+ascii : Chr -> Text
+ascii c = case c of
+  CH("\NUL") -> "NUL"; CH("\SOH") -> "SOH"; CH("\STX") -> "STX"; CH("\ETX") -> "ETX";
+  CH("\EOT") -> "EOT"; CH("\ENQ") -> "ENQ"; CH("\ACK") -> "ACK"; CH("\BEL") -> "BEL";
+
+  CH("\BS")  -> "BS";  CH("\HT")  -> "HT";  CH("\LF")  -> "LF";  CH("\VT")  -> "VT";
+  CH("\FF")  -> "FF";  CH("\CR")  -> "CR";  CH("\SO")  -> "SO";  CH("\SI")  -> "SI";
+
+  CH("\DLE") -> "DLE"; CH("\DC1") -> "DC1"; CH("\DC2") -> "DC2"; CH("\DC3") -> "DC3";
+  CH("\DC4") -> "DC4"; CH("\NAK") -> "NAK"; CH("\SYN") -> "SYN"; CH("\ETB") -> "ETB";
+
+  CH("\CAN") -> "CAN"; CH("\EM")  -> "EM";  CH("\SUB") -> "SUB"; CH("\ESC") -> "ESC";
+  CH("\FS")  -> "FS";  CH("\GS")  -> "GS";  CH("\RS")  -> "RS";  CH("\US")  -> "US";
+
+  CH("\SP")  -> "SP";
+
+  _ -> ""

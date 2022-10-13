@@ -21,6 +21,7 @@ import GHC.CString (fromString)
 import GHC.Tuple ()  -- We're using tuples but they are builtin syntax.
 import GHC.Types
 import GHC.Classes ()
+import GHC.Show.Text (showsPrecText)
 import DA.Types
 
 -- | `showS` should represent some text, and applying it to some argument
@@ -133,7 +134,7 @@ instance Show RoundingMode where
 #endif
 
 instance Show Text where
-  show x = "\"" ++ x ++ "\""
+  showsPrec = showsPrecText
 
 instance Show a => Show [a]  where
   showsPrec _ = showList
