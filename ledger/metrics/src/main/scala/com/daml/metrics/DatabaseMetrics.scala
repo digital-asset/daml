@@ -36,7 +36,7 @@ class DatabaseMetrics private[metrics] (
   @MetricDoc.Tag(
     summary = "The time needed to turn serialized Daml-LF values into in-memory objects.",
     description = """Some index database queries that target contracts and transactions involve a
-                    |Daml-LF translation step. For such queries this metric represents the time it
+                    |Daml-LF translation step. For such queries this metric stands for the time it
                     |takes to turn the serialized Daml-LF values into in-memory representation.""",
     qualification = Debug,
   )
