@@ -36,8 +36,7 @@ template Asset
       getAmount = amount
       setAmount x = toInterface @Token (this with amount = x)
 
--- @ERROR range=43:3-44:26; Tried to exercise a choice GetRich on Asset
--- This choice GetRich belongs to interface Token which Asset implements.
+-- @ERROR range=42:3-43:26; This choice GetRich belongs to interface Token which Asset implements.
 cannotExercise : ContractId Asset -> Update (ContractId Token)
 cannotExercise asset = do
   exercise asset GetRich with
