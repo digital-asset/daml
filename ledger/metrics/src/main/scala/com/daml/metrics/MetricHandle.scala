@@ -4,17 +4,15 @@
 package com.daml.metrics
 
 import java.util.concurrent.TimeUnit
-import cats.data.EitherT
+
 import com.codahale.metrics.MetricRegistry.MetricSupplier
-import com.codahale.metrics.Snapshot
-import com.codahale.metrics.Timer.Context
 import com.codahale.{metrics => codahale}
+import com.daml.metrics.MetricHandle.Timer.TimerStop
 
-import scala.concurrent.{Future, blocking}
+import scala.concurrent.{ExecutionContext, Future}
 
-sealed trait MetricHandle[T <: codahale.Metric] {
+sealed trait MetricHandle {
   def name: String
-  def metric: T
   def metricType: String // type string used for documentation purposes
 }
 
@@ -26,51 +24,37 @@ object MetricHandle {
 
     def registry: codahale.MetricRegistry
 
-    def timer(name: MetricName): Timer = Timer(name, registry.timer(name))
+    def timer(name: MetricName): Timer = DropwizardTimer(name, registry.timer(name))
 
-    def varGauge[T](name: MetricName, initial: T): VarGauge[T] =
-      addGauge(name, Gauges.VarGauge[T](initial), _.updateValue(initial))
-
-    def addGauge[T <: codahale.Gauge[M], M](
-        name: MetricName,
-        newGauge: => T,
-        resetGauge: (T => Unit),
-    ): Gauge[T, M] = gauge(name, registry.register(name, newGauge), resetGauge)
-
-    def gaugeWithSupplier[T <: codahale.Gauge[M], M](
-        name: MetricName,
-        gaugeSupplier: MetricSupplier[codahale.Gauge[_]],
-    ): Gauge[T, M] =
-      gauge(name, registry.gauge(name, gaugeSupplier).asInstanceOf[T], _ => ())
-
-    def gauge[T <: codahale.Gauge[M], M](
-        name: MetricName,
-        registerGauge: => T,
-        resetGauge: (T => Unit),
-    ): Gauge[T, M] = blocking {
+    def gauge[T](name: MetricName, initial: T): Gauge[T] =
       synchronized {
         registry.remove(name)
-        val res: Gauge[T, M] = {
-          val gauge = registerGauge
-          Gauge(name, gauge)
-        }
-        resetGauge(res.metric)
-        res
+        val registeredGauge = registry.register(name, Gauges.VarGauge(initial))
+        DropwizardGauge(name, registeredGauge)
       }
-    }
+
+    def gaugeWithSupplier[T](
+        name: MetricName,
+        gaugeSupplier: () => () => T,
+    ): Unit =
+      synchronized {
+        registry.remove(name)
+        val _ = registry.gauge(name, gaugeSupplier.asInstanceOf[MetricSupplier[codahale.Gauge[_]]])
+        ()
+      }
 
     def meter(name: MetricName): Meter = {
       // This is idempotent
-      Meter(name, registry.meter(name))
+      DropwizardMeter(name, registry.meter(name))
     }
 
     def counter(name: MetricName): Counter = {
       // This is idempotent
-      Counter(name, registry.counter(name))
+      DropwizardCounter(name, registry.counter(name))
     }
 
     def histogram(name: MetricName): Histogram = {
-      Histogram(name, registry.histogram(name))
+      DropwizardHistogram(name, registry.histogram(name))
     }
 
   }
@@ -80,55 +64,98 @@ object MetricHandle {
       new DatabaseMetrics(prefix, name, registry)
   }
 
-  sealed case class Timer(name: String, metric: codahale.Timer)
-      extends MetricHandle[codahale.Timer] {
+  sealed trait Timer extends MetricHandle {
+
     def metricType: String = "Timer"
 
-    def timeEitherT[E, A](ev: EitherT[Future, E, A]): EitherT[Future, E, A] = {
-      EitherT(Timed.future(metric, ev.value))
+    def update(duration: Long, unit: TimeUnit): Unit
+
+    def time[T](call: => T): T
+
+    def startAsync(): TimerStop
+
+    def timeFuture[T](call: => Future[T]): Future[T] = {
+      val stop = startAsync()
+      val result = call
+      result.onComplete(_ => stop())(ExecutionContext.parasitic)
+      result
     }
+  }
+
+  object Timer {
+    type TimerStop = () => Unit
+  }
+
+  sealed case class DropwizardTimer(name: String, metric: codahale.Timer) extends Timer {
 
     def update(duration: Long, unit: TimeUnit): Unit = metric.update(duration, unit)
-    def getCount: Long = metric.getCount
-    def getSnapshot: Snapshot = metric.getSnapshot
-    def getMeanRate: Double = metric.getMeanRate
-    def time(): Context = metric.time()
+    override def time[T](call: => T): T = metric.time(() => call)
+    override def startAsync(): TimerStop = {
+      val ctx = metric.time()
+      () => {
+        ctx.stop()
+        ()
+      }
+    }
   }
-
-  sealed case class Gauge[U <: codahale.Gauge[T], T](name: String, metric: U)
-      extends MetricHandle[codahale.Gauge[T]] {
+  sealed trait Gauge[T] extends MetricHandle {
     def metricType: String = "Gauge"
+
+    def updateValue(newValue: T): Unit
+
+    def getValue: T
   }
 
-  sealed case class Meter(name: String, metric: codahale.Meter)
-      extends MetricHandle[codahale.Meter] {
+  sealed case class DropwizardGauge[T](name: String, metric: Gauges.VarGauge[T]) extends Gauge[T] {
+    def updateValue(newValue: T): Unit = metric.updateValue(newValue)
+    override def getValue: T = metric.getValue
+  }
+
+  sealed trait Meter extends MetricHandle {
     def metricType: String = "Meter"
 
-    def mark(): Unit = metric.mark()
+    def mark(): Unit = mark(1)
+    def mark(value: Long): Unit
+
+  }
+  sealed case class DropwizardMeter(name: String, metric: codahale.Meter) extends Meter {
+
+    def mark(value: Long): Unit = metric.mark(value)
 
   }
 
-  sealed case class Counter(name: String, metric: codahale.Counter)
-      extends MetricHandle[codahale.Counter] {
-    def metricType: String = "Counter"
+  sealed trait Counter extends MetricHandle {
 
-    def inc(): Unit = metric.inc
-    def inc(n: Long): Unit = metric.inc(n)
-    def dec(): Unit = metric.dec
-    def dec(n: Long): Unit = metric.dec(n)
+    override def metricType: String = "Counter"
+    def inc(): Unit
+    def inc(n: Long): Unit
+    def dec(): Unit
+    def dec(n: Long): Unit
+    def getCount: Long
+  }
+  sealed case class DropwizardCounter(name: String, metric: codahale.Counter) extends Counter {
 
-    def getCount: Long = metric.getCount
+    override def inc(): Unit = metric.inc
+    override def inc(n: Long): Unit = metric.inc(n)
+    override def dec(): Unit = metric.dec
+    override def dec(n: Long): Unit = metric.dec(n)
+
+    override def getCount: Long = metric.getCount
   }
 
-  sealed case class Histogram(name: String, metric: codahale.Histogram)
-      extends MetricHandle[codahale.Histogram] {
+  sealed trait Histogram extends MetricHandle {
+
     def metricType: String = "Histogram"
+    def update(value: Long): Unit
+    def update(value: Int): Unit
 
-    def update(value: Long): Unit = metric.update(value)
-    def update(value: Int): Unit = metric.update(value)
-    def getSnapshot: Snapshot = metric.getSnapshot
   }
 
-  type VarGauge[T] = Gauge[Gauges.VarGauge[T], T]
+  sealed case class DropwizardHistogram(name: String, metric: codahale.Histogram)
+      extends MetricHandle
+      with Histogram {
+    override def update(value: Long): Unit = metric.update(value)
+    override def update(value: Int): Unit = metric.update(value)
+  }
 
 }

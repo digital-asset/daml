@@ -45,7 +45,7 @@ private[http] final class ContractList(
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     for {
-      parseAndDecodeTimerCtx <- getParseAndDecodeTimerCtx()
+      parseAndDecodeTimerStop <- getParseAndDecodeTimerCtx()
       input <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = input
@@ -66,7 +66,7 @@ private[http] final class ContractList(
                     .liftErr(InvalidUserInput)
                 )
               ): ET[domain.FetchRequest[LfValue]]
-          _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
+          _ <- EitherT.pure(parseAndDecodeTimerStop())
           _ = logger.debug(s"/v1/fetch fr: $fr")
 
           _ <- either(ensureReadAsAllowedByJwt(fr.readAs, jwtPayload))
@@ -86,12 +86,12 @@ private[http] final class ContractList(
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
   ): Future[Error \/ SearchResult[Error \/ JsValue]] = for {
-    parseAndDecodeTimerCtx <- Future(
-      metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.time()
+    parseAndDecodeTimerStop <- Future(
+      metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.startAsync()
     )
     res <- inputAndJwtPayload[JwtPayload](req).run.map {
       _.map { case (jwt, jwtPayload, _) =>
-        parseAndDecodeTimerCtx.close()
+        parseAndDecodeTimerStop()
         withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
           val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
             contractsService.retrieveAll(jwt, jwtPayload)
