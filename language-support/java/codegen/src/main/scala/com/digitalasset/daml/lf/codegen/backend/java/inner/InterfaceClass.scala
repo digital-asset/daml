@@ -38,7 +38,6 @@ object InterfaceClass extends StrictLogging {
               interfaceName,
               packagePrefixes,
               interface.choices,
-              withPrefixes = false, // TODO: remove in #15154
             )
             .asJava
         )
@@ -62,10 +61,15 @@ object InterfaceClass extends StrictLogging {
           )
         )
         .addType(
-          TemplateClass.generateCreateAndClass(interfaceName, -\/(ContractIdClass.For.Interface))
+          TemplateClass.generateCreateAndClass(
+            interfaceName,
+            -\/(ContractIdClass.For.Interface),
+            packagePrefixes,
+          )
         )
         .addType(
-          TemplateClass.generateByKeyClass(interfaceName, -\/(ContractIdClass.For.Interface))
+          TemplateClass
+            .generateByKeyClass(interfaceName, -\/(ContractIdClass.For.Interface), packagePrefixes)
         )
         .addType(
           generateInterfaceCompanionClass(
@@ -102,35 +106,45 @@ object InterfaceClass extends StrictLogging {
       interfaceName: ClassName,
       choiceNames: Set[ChoiceName],
       interfaceViewTypeName: ClassName,
-  ): TypeSpec = TypeSpec
-    .classBuilder(companionClassName)
-    .superclass(
-      ParameterizedTypeName
-        .get(ClassName get classOf[InterfaceCompanion[_, _]], interfaceName, interfaceViewTypeName)
-    )
-    .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
-    .addMethod {
-      MethodSpec
-        .constructorBuilder()
-        // intentionally package-private
-        .addStatement(
-          "super($T.$N, $T.$L(), $T.of($L))",
-          interfaceName,
-          ClassGenUtils.templateIdFieldName,
-          interfaceViewTypeName,
-          "valueDecoder",
-          classOf[java.util.List[_]],
-          CodeBlock
-            .join(
-              choiceNames
-                .map(choiceName => CodeBlock.of("$N", toChoiceNameField(choiceName)))
-                .asJava,
-              ",$W",
-            ),
-        )
-        .build()
-    }
-    .build()
+  ): TypeSpec = {
+    val contractIdClassName = ClassName bestGuess "ContractId"
+    TypeSpec
+      .classBuilder(companionClassName)
+      .superclass(
+        ParameterizedTypeName
+          .get(
+            ClassName get classOf[InterfaceCompanion[_, _, _]],
+            interfaceName,
+            contractIdClassName,
+            interfaceViewTypeName,
+          )
+      )
+      .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
+      .addMethod {
+        MethodSpec
+          .constructorBuilder()
+          // intentionally package-private
+          .addStatement(
+            "super($>$Z$S, $T.$N, $T::new, $T.$L(), $T.of($L))$<$Z",
+            interfaceName,
+            interfaceName,
+            ClassGenUtils.templateIdFieldName,
+            contractIdClassName,
+            interfaceViewTypeName,
+            "valueDecoder",
+            classOf[java.util.List[_]],
+            CodeBlock
+              .join(
+                choiceNames
+                  .map(choiceName => CodeBlock.of("$N", toChoiceNameField(choiceName)))
+                  .asJava,
+                ",$W",
+              ),
+          )
+          .build()
+      }
+      .build()
+  }
 
   private def generateTemplateIdField(packageId: PackageId, name: QualifiedName): FieldSpec =
     ClassGenUtils.generateTemplateIdField(

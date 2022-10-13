@@ -31,8 +31,8 @@ import com.daml.ledger.api.v1.package_service.{
   ListPackagesResponse,
 }
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
-import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.logging.LoggingContext
+import com.daml.platform.localstore.InMemoryUserManagementStore
 import com.google.protobuf.empty.Empty
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder

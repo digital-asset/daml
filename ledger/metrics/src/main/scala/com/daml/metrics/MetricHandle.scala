@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit
 import com.codahale.{metrics => codahale}
 import com.daml.metrics.MetricHandle.Timer.TimerStop
 
+import scala.annotation.StaticAnnotation
 import scala.concurrent.{ExecutionContext, Future}
 
 sealed trait MetricHandle {
@@ -183,4 +184,19 @@ object MetricHandle {
     override def update(value: Int): Unit = metric.update(value)
   }
 
+}
+
+object MetricDoc {
+
+  sealed trait MetricQualification
+  object MetricQualification {
+    case object Latency extends MetricQualification
+    case object Traffic extends MetricQualification
+    case object Errors extends MetricQualification
+    case object Saturation extends MetricQualification
+    case object Debug extends MetricQualification
+  }
+
+  case class Tag(summary: String, description: String, qualification: MetricQualification)
+      extends StaticAnnotation
 }

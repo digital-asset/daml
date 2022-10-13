@@ -19,7 +19,7 @@ import java.sql.Connection
 /** Creates a database and a [[TestBackend]].
   * Used by [[StorageBackendSpec]] to run all StorageBackend tests on different databases.
   */
-private[store] trait StorageBackendProvider {
+trait StorageBackendProvider {
   protected def jdbcUrl: String
   protected def lockIdSeed: Int
   protected def backend: TestBackend

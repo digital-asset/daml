@@ -24,8 +24,8 @@ import com.daml.ledger.api.benchtool.submission._
 import com.daml.ledger.api.benchtool.submission.foo.RandomPartySelecting
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.platform.localstore.api.UserManagementStore
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.{Logger, LoggerFactory}

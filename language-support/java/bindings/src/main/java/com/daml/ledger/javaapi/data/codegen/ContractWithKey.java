@@ -52,7 +52,7 @@ public abstract class ContractWithKey<Id, Data, Key> extends Contract<Id, Data> 
   public final String toString() {
     return String.format(
         "%s.Contract(%s, %s, %s, %s, %s, %s)",
-        getCompanion().templateClassName,
+        getCompanion().TEMPLATE_CLASS_NAME,
         this.id,
         this.data,
         this.agreementText,

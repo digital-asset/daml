@@ -67,7 +67,7 @@ private[inner] object TemplateClass extends StrictLogging {
               ContractIdClass.For.Template,
               packagePrefixes,
             )
-            .addConversionForImplementedInterfaces(template.implementedInterfaces)
+            .addConversionForImplementedInterfaces(template.implementedInterfaces, packagePrefixes)
             .addContractIdConversionCompanionForwarder()
             .build()
         )
@@ -86,7 +86,9 @@ private[inner] object TemplateClass extends StrictLogging {
           )
         )
         .addMethod(generateCreateAndMethod())
-        .addType(generateCreateAndClass(className, \/-(template.implementedInterfaces)))
+        .addType(
+          generateCreateAndClass(className, \/-(template.implementedInterfaces), packagePrefixes)
+        )
         .addFields(
           generateChoicesMetadata(
             className: ClassName,
@@ -102,7 +104,9 @@ private[inner] object TemplateClass extends StrictLogging {
       generateByKeyMethod(template.key, packagePrefixes) foreach { byKeyMethod =>
         templateType
           .addMethod(byKeyMethod)
-          .addType(generateByKeyClass(className, \/-(template.implementedInterfaces)))
+          .addType(
+            generateByKeyClass(className, \/-(template.implementedInterfaces), packagePrefixes)
+          )
       }
       logger.debug("End")
       templateType.build()
@@ -169,6 +173,7 @@ private[inner] object TemplateClass extends StrictLogging {
   private[inner] def generateByKeyClass(
       markerName: ClassName,
       implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName],
+      packagePrefixes: Map[PackageId, String],
   ) = {
     import scala.language.existentials
     val (superclass, companionArg) = implementedInterfaces.fold(
@@ -206,6 +211,7 @@ private[inner] object TemplateClass extends StrictLogging {
                   byKeyClassName,
                   s"$companionFieldName, this.contractKey",
                   implemented,
+                  packagePrefixes,
                 ),
           )
           .asJava
@@ -316,6 +322,7 @@ private[inner] object TemplateClass extends StrictLogging {
   private[inner] def generateCreateAndClass(
       markerName: ClassName,
       implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName],
+      packagePrefixes: Map[PackageId, String],
   ) = {
     import scala.language.existentials
     val (superclass, companionArg) = implementedInterfaces.fold(
@@ -353,6 +360,7 @@ private[inner] object TemplateClass extends StrictLogging {
                   createAndClassName,
                   s"$companionFieldName, this.createArguments",
                   implemented,
+                  packagePrefixes,
                 ),
           )
           .asJava
@@ -452,18 +460,16 @@ private[inner] object TemplateClass extends StrictLogging {
       templateClassName: ClassName,
       packagePrefixes: Map[PackageId, String],
       templateChoices: Map[ChoiceName, TemplateChoice.FWT],
-      withPrefixes: Boolean = true, // TODO: remove in #15154
   ): Seq[FieldSpec] = {
     templateChoices.map { case (choiceName, choice) =>
       val fieldClass = classOf[ChoiceMetadata[_, _, _]]
-      val maybePrefix = if (withPrefixes) packagePrefixes else Map.empty[PackageId, String]
       FieldSpec
         .builder(
           ParameterizedTypeName.get(
             ClassName get fieldClass,
             templateClassName,
             toJavaTypeName(choice.param, packagePrefixes),
-            toJavaTypeName(choice.returnType, maybePrefix),
+            toJavaTypeName(choice.returnType, packagePrefixes),
           ),
           toChoiceNameField(choiceName),
           Modifier.STATIC,
