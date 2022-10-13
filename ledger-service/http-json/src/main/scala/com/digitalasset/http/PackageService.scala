@@ -166,7 +166,7 @@ private class PackageService(
     def apply(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
         x: CtId[Option[String]]
     )(implicit lc: LoggingContextOf[InstanceUUID]): Future[Error \/ ResultType] = {
-      def doSearch() = PackageService.resolveTemplateId(latestMap())(x)
+      def doSearch() = latestMap() resolve x
       def doReloadAndSearchAgain() = EitherT(reload(jwt, ledgerId)).map(_ => doSearch())
       def keep(it: ResultType) = EitherT.pure(it): ET[ResultType]
       for {
@@ -304,6 +304,19 @@ object PackageService {
       )
     }
 
+    // TODO SC #14727 make sensitive to whether `a` is Unknown, Template, or Interface
+    // this will entail restructuring `ContractTypeIdMap`, possibly unifying
+    // the two in how we expose ResolveContractTypeId and ResolveTemplateId
+    def resolve(
+        a: CtId[Option[String]]
+    )(implicit
+        copyable: a.type <:< ContractTypeId[Option[String]] with ContractTypeId.Ops[CtId, _]
+    ): Option[ResolvedOf[CtId]] =
+      a.packageId match {
+        case Some(p) => all get a.copy(packageId = p)
+        case None => unique get a.copy(packageId = ())
+      }
+
     private[PackageService] def widen[O[T] >: CtId[T]]: ContractTypeIdMap[O] =
       ContractTypeIdMap(all.toMap, unique.toMap)
   }
@@ -355,16 +368,11 @@ object PackageService {
       .groupBy(key2)
       .collect { case (k, v) if v.sizeIs == 1 => (k, v.head) }
 
-  // TODO SC #14727 make sensitive to whether `a` is Unknown, Template, or Interface
-  // this will entail restructuring `ContractTypeIdMap`, possibly unifying
-  // the two in how we expose ResolveContractTypeId and ResolveTemplateId
+  @deprecated("use `m resolve a` instead", since = "2.5.0")
   def resolveTemplateId[CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]](
       m: ContractTypeIdMap[CtId]
   )(a: CtId[Option[String]]): Option[ResolvedOf[CtId]] =
-    a.packageId match {
-      case Some(p) => m.all get a.copy(packageId = p)
-      case None => m.unique get a.copy(packageId = ())
-    }
+    m resolve a
 
   private def resolveChoiceArgType(
       choiceIdMap: ChoiceTypeMap
