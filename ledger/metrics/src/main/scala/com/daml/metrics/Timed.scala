@@ -8,7 +8,7 @@ import java.util.concurrent.CompletionStage
 import akka.Done
 import akka.stream.scaladsl.{Keep, Source}
 import com.daml.concurrent
-import com.daml.metrics.MetricHandle.{Counter, Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
 
 import scala.concurrent.{ExecutionContext, Future}
 

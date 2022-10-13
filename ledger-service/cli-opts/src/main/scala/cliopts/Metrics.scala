@@ -3,8 +3,7 @@
 
 package com.daml.cliopts
 
-import com.daml.metrics.MetricsReporter
-
+import com.daml.metrics.api.reporters.MetricsReporter
 import scala.concurrent.duration.{Duration, FiniteDuration, NANOSECONDS}
 import scala.util.Try
 

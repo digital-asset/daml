@@ -4,6 +4,8 @@
 package com.daml.metrics
 
 import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
+import com.daml.metrics.api.MetricName
+import com.daml.metrics.api.dropwizard.DropwizardFactory
 
 object Metrics {
   lazy val ForTesting = new Metrics(new MetricRegistry)
@@ -11,7 +13,7 @@ object Metrics {
     new Metrics(SharedMetricRegistries.getOrCreate(registryName))
 }
 
-final class Metrics(override val registry: MetricRegistry) extends MetricHandle.DropwizardFactory {
+final class Metrics(override val registry: MetricRegistry) extends DropwizardFactory {
   override val prefix = MetricName("")
 
   object test {
@@ -20,7 +22,7 @@ final class Metrics(override val registry: MetricRegistry) extends MetricHandle.
     val db: DatabaseMetrics = new DatabaseMetrics(prefix, "db", registry)
   }
 
-  object daml extends MetricHandle.DropwizardFactory {
+  object daml extends DropwizardFactory {
     override val prefix: MetricName = MetricName.Daml
     override val registry = Metrics.this.registry
 

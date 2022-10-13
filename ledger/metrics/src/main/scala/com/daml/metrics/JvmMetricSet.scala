@@ -14,6 +14,7 @@ import com.codahale.metrics.jvm.{
 }
 import com.codahale.metrics.{Metric, MetricSet}
 import com.daml.metrics.JvmMetricSet._
+import com.daml.metrics.api.MetricName
 
 import scala.jdk.CollectionConverters._
 

@@ -3,7 +3,9 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.{MetricRegistry}
+import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.api.MetricName
+import com.daml.metrics.api.dropwizard.FactoryWithDBMetrics
 
 @MetricDoc.GroupTag(
   representative = "daml.user_management.<operation>.wait"
@@ -24,7 +26,7 @@ import com.codahale.metrics.{MetricRegistry}
   representative = "daml.user_management.<operation>.query"
 )
 class UserManagementMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.FactoryWithDBMetrics {
+    extends FactoryWithDBMetrics {
 
   val cache = new CacheMetrics(prefix :+ "cache", registry)
 
