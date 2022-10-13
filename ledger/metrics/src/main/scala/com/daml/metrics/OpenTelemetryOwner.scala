@@ -25,6 +25,7 @@ case class OpenTelemetryOwner(enabled: Boolean, reporter: Option[MetricsReporter
       meterProviderBuilder.registerMetricReader(PrometheusCollector.create()).build()
     } else meterProviderBuilder.build()
     // register the sdk telemetry globally
+    // This MUST be done before the global library is accessed, or an error will be thrown
     val openTelemetry =
       OpenTelemetrySdk.builder().setMeterProvider(meterProvider).buildAndRegisterGlobal()
     Resource(
