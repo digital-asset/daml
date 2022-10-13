@@ -3,7 +3,8 @@
 
 load("@oracle//:index.bzl", "oracle_tags")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
+load("//daml-lf/language:daml-lf.bzl", "lf_versions_aggregate")
+load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration")
 load("@os_info//:os_info.bzl", "is_windows")
 load(
     "//bazel_tools:scala.bzl",
@@ -14,6 +15,11 @@ load(
 )
 
 triggerMain = "src/main/scala/com/digitalasset/daml/lf/engine/trigger/ServiceMain.scala"
+
+target_lf_versions = lf_versions_aggregate([
+    "default",
+    "dev",
+])
 
 da_scala_library(
     name = "trigger-service",
@@ -136,9 +142,8 @@ da_scala_library(
     name = "trigger-service-tests",
     srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*.scala"]),
     data = [
-        ":test-model{}.dar".format(suffix)
-        for lf_version in COMPILER_LF_VERSIONS + [""]
-        for suffix in [("-" + lf_version) if lf_version else ""]
+        ":test-model-{}.dar".format(lf_version)
+        for lf_version in target_lf_versions
     ] + (
         [
             "@toxiproxy_dev_env//:bin/toxiproxy-cmd",
@@ -298,13 +303,13 @@ da_scala_test_suite(
 # Also build one DAR with the default LF version for test-cases.
 [
     genrule(
-        name = "test-model{}".format(suffix),
+        name = "test-model-{}".format(lf_version),
         srcs =
             glob(["test-model/*.daml"]) + [
-                "//triggers/daml:daml-trigger{}".format(suffix),
-                "//daml-script/daml:daml-script{}".format(suffix),
+                "//triggers/daml:daml-trigger-{}".format(lf_version),
+                "//daml-script/daml:daml-script-{}".format(lf_version),
             ],
-        outs = ["test-model{}.dar".format(suffix)],
+        outs = ["test-model-{}.dar".format(lf_version)],
         cmd = """
           set -eou pipefail
           TMP_DIR=$$(mktemp -d)
@@ -333,16 +338,21 @@ EOF
             build_options = str([
                 "--target",
                 lf_version,
-            ] if lf_version else []),
+            ]),
             sdk = sdk_version,
-            daml_script = "//daml-script/daml:daml-script{}".format(suffix),
-            daml_trigger = "//triggers/daml:daml-trigger{}".format(suffix),
+            daml_script = "//daml-script/daml:daml-script-{}".format(lf_version),
+            daml_trigger = "//triggers/daml:daml-trigger-{}".format(lf_version),
         ),
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
-    for lf_version in COMPILER_LF_VERSIONS + [""]
-    for suffix in [("-" + lf_version) if lf_version else ""]
+    for lf_version in target_lf_versions
 ]
+
+alias(
+    name = "test-model.dar",
+    actual = ":test-model-{}".format(lf_version_configuration.get("default")),
+    visibility = ["//visibility:public"],
+)
 
 exports_files(["release/trigger-service-logback.xml"])
