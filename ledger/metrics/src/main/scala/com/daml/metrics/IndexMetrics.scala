@@ -15,7 +15,7 @@ class IndexMetrics(override val prefix: MetricName, override val registry: Metri
     summary = "The buffer size for transaction trees requests.",
     description = """An Akka stream buffer is added at the end of all streaming queries, allowing
                     |to absorb temporary downstream backpressure (e.g. when the client is
-                    |temporarily slower than upstream delivery throughput). This metric gauges the
+                    |slower than upstream delivery throughput). This metric gauges the
                     |size of the buffer for queries requesting transaction trees.""",
     qualification = Debug,
   )
@@ -26,7 +26,7 @@ class IndexMetrics(override val prefix: MetricName, override val registry: Metri
     summary = "The buffer size for flat transactions requests.",
     description = """An Akka stream buffer is added at the end of all streaming queries, allowing
                     |to absorb temporary downstream backpressure (e.g. when the client is
-                    |temporarily slower than upstream delivery throughput). This metric gauges the
+                    |slower than upstream delivery throughput). This metric gauges the
                     |size of the buffer for queries requesting flat transactions in a specific
                     |period of time that satisfy a given predicate.""",
     qualification = Debug,
@@ -38,7 +38,7 @@ class IndexMetrics(override val prefix: MetricName, override val registry: Metri
     summary = "The buffer size for active contracts requests.",
     description = """An Akka stream buffer is added at the end of all streaming queries, allowing
                     |to absorb temporary downstream backpressure (e.g. when the client is
-                    |temporarily slower than upstream delivery throughput). This metric gauges the
+                    |slower than upstream delivery throughput). This metric gauges the
                     |size of the buffer for queries requesting active contracts that transactions
                     |satisfying a given predicate.""",
     qualification = Debug,
@@ -50,7 +50,7 @@ class IndexMetrics(override val prefix: MetricName, override val registry: Metri
     summary = "The buffer size for completions requests.",
     description = """An Akka stream buffer is added at the end of all streaming queries, allowing
                     |to absorb temporary downstream backpressure (e.g. when the client is
-                    |temporarily slower than upstream delivery throughput). This metric gauges the
+                    |slower than upstream delivery throughput). This metric gauges the
                     |size of the buffer for queries requesting the completed commands in a specific
                     |period of time.""",
     qualification = Debug,

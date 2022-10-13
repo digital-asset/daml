@@ -137,7 +137,7 @@ class ExecutionMetrics(override val prefix: MetricName, override val registry: M
       summary =
         "The number of lookups trying to resolve divulged contracts on active contracts cache hits.",
       description = """Divulged contracts are not cached in the contract state caches. On active
-                      |contract cache hits where stakeholders are not within the submission readers,
+                      |contract cache hits, where stakeholders are not within the submission readers,
                       |a contract activeness lookup is performed against the Index database. On such
                       |lookups, this counter is incremented.""",
       qualification = Debug,
@@ -149,7 +149,7 @@ class ExecutionMetrics(override val prefix: MetricName, override val registry: M
       summary =
         "The number of lookups trying to resolve divulged contracts on archived contracts cache hits.",
       description = """Divulged contracts are not cached in the contract state caches. On archived
-                      |contract cache hits where stakeholders are not within the submission readers,
+                      |contract cache hits, where stakeholders are not within the submission readers,
                       |a full contract activeness lookup (including fetching contract arguments) is
                       |performed against the Index database. On such lookups, this counter is incremented.""",
       qualification = Debug,

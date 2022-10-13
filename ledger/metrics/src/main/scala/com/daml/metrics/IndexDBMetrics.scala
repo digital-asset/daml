@@ -13,18 +13,18 @@ class IndexDBMetrics(override val prefix: MetricName, override val registry: Met
 
   @MetricDoc.Tag(
     summary = "The time spent looking up a contract using its key.",
-    description = """This metric exposes the time looking up a contract using its key in the index
-                    |db. It is then used by the Daml interpreter when evaluating a command into a
-                    |transaction.""",
+    description = """This metric exposes the time spent looking up a contract using its key in the
+                    |index db. It is then used by the Daml interpreter when evaluating a command
+                    |into a transaction.""",
     qualification = Debug,
   )
   val lookupKey: Timer = timer(prefix :+ "lookup_key")
 
   @MetricDoc.Tag(
     summary = "The time spent fetching a contract using its id.",
-    description = """This metric exposes the time fetching a contract using its id from the index
-                    |db. It is then used by the Daml interpreter when evaluating a command into a
-                    |transaction.""",
+    description = """This metric exposes the time spent fetching a contract using its id from the
+                    |index db. It is then used by the Daml interpreter when evaluating a command
+                    |into a transaction.""",
     qualification = Debug,
   )
   val lookupActiveContract: Timer = timer(prefix :+ "lookup_active_contract")
