@@ -30,7 +30,7 @@ final class CacheMetrics(override val prefix: MetricName, override val registry:
 
   @MetricDoc.Tag(
     summary = "The number of the evicted cache entries.",
-    description = "When an entry is evicted from the cache this counter is incremented.",
+    description = "When an entry is evicted from the cache, the counter is incremented.",
     qualification = Debug,
   )
   val evictionCount: Counter = counter(prefix :+ "evictions")
