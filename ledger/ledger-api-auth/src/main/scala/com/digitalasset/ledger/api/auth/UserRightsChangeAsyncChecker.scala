@@ -9,9 +9,9 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.actor.Scheduler
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.domain
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
+import com.daml.platform.localstore.api.UserManagementStore
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._

@@ -8,7 +8,7 @@ import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.usermanagement.UserManagementConfig
+import com.daml.platform.localstore.UserManagementConfig
 import com.daml.ports.Port
 
 import java.nio.file.Path

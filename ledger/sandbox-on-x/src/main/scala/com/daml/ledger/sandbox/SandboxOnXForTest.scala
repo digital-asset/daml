@@ -16,12 +16,12 @@ import com.daml.platform.config.MetricsConfig.MetricRegistryType
 import com.daml.platform.config.{MetricsConfig, ParticipantConfig => _ParticipantConfig}
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.platform.indexer.{IndexerConfig => _IndexerConfig}
+import com.daml.platform.localstore.UserManagementConfig
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
-
 import java.time.Duration
 import java.util.UUID
+
 import scala.concurrent.duration._
 
 object SandboxOnXForTest {
