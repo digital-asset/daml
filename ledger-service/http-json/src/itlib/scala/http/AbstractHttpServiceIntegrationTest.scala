@@ -946,7 +946,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       }): Future[Assertion]
   }
 
-  // TEST_EVIDENCE: Performance: archiving a large number of contracts should succeed
+  // TEST_EVIDENCE: Availability: archiving a large number of contracts should succeed
   "archiving a large number of contracts should succeed" in withHttpService(
     maxInboundMessageSize = StartSettings.DefaultMaxInboundMessageSize * 10
   ) { fixture =>

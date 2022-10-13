@@ -22,7 +22,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-// TEST_EVIDENCE: Semantics: Exceptions, throw/catch.
+// TEST_EVIDENCE: Integrity: Exceptions, throw/catch.
 class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDrivenPropertyChecks {
 
   import com.daml.lf.testing.parser.Implicits.defaultParserParameters.defaultPackageId

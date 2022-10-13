@@ -37,7 +37,7 @@ class CliConfigTest extends AnyWordSpec with Matchers with OptionValues {
       ) should ===(None)
     }
 
-    // TEST_EVIDENCE: Input Validation: auth and auth-* should not be set together for the trigger service
+    // TEST_EVIDENCE: Authorization: auth and auth-* should not be set together for the trigger service
     "auth and auth-* should not be set together" in {
       parse(baseOpts ++ Seq("--auth", "http://example.com"), Set()) should !==(None)
       parse(

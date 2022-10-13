@@ -2071,7 +2071,7 @@ class EngineTest
       )
       run(command) shouldBe a[Right[_, _]]
     }
-    // TEST_EVIDENCE: Semantics: Rollback creates cannot be exercise
+    // TEST_EVIDENCE: Integrity: Rollback creates cannot be exercise
     "creates in rollback are rolled back" in {
       val command = ApiCommand.CreateAndExercise(
         tId,
