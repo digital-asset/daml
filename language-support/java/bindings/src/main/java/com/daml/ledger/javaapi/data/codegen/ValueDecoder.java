@@ -24,6 +24,13 @@ import java.util.function.Function;
  * Bar&lt;Baz, Long> bar = Bar.valueDecoder(
  *     Baz.valueDecoder(), PrimitiveValueDecoders.fromInt64)
  *   .decode(barValue);
+ *
+ * Bar&lt;List&lt;Baz>, Map&lt;Long, String>> barWithAggregates = Bar.valueDecoder(
+ *     PrimitiveValueDecoders.fromList(Baz.valueDecoder),
+ *     PrimitiveValueDecoders.fromGenMap(
+ *       PrimitiveValueDecoders.fromInt64,
+ *       PrimitiveValueDecoders.fromText))
+ *   .decode(barAggregateValue);
  * </pre>
  *
  * @param <Data> The codegen or primitive type that this decodes a {@link Value} to.

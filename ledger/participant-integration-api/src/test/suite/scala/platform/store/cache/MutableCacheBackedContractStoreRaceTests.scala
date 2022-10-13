@@ -108,7 +108,7 @@ private object MutableCacheBackedContractStoreRaceTests {
     // Use Future.delegate here to ensure immediate control handover to the next statement
     val keyLookupF = Future.delegate(contractStore.lookupContractKey(stakeholders, event.key))
     // Update the mutable contract state cache synchronously
-    contractStore.push(Vector(contractStateEvent))
+    contractStore.contractStateCaches.push(Vector(contractStateEvent))
 
     for {
       // Lookup after synchronous update
@@ -132,7 +132,7 @@ private object MutableCacheBackedContractStoreRaceTests {
     val keyLookupF =
       Future.delegate(contractStore.lookupActiveContract(stakeholders, event.contractId))
     // Update the mutable contract state cache synchronously
-    contractStore.push(Vector(contractStateEvent))
+    contractStore.contractStateCaches.push(Vector(contractStateEvent))
 
     for {
       // Lookup after synchronous update
@@ -311,7 +311,7 @@ private object MutableCacheBackedContractStoreRaceTests {
         maxKeyCacheSize = 1L,
         metrics = metrics,
       )(ec, loggingContext),
-    )(ec, loggingContext)
+    )(ec)
   }
 
   private val toContractStateEvent: SimplifiedContractStateEvent => ContractStateEvent = {

@@ -15,15 +15,15 @@ import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{CommandConfiguration, IndexServiceConfig}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.platform.localstore.UserManagementConfig
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OParser
-
 import java.io.File
 import java.time.Duration
 import java.util.UUID
+
 import scala.jdk.DurationConverters.JavaDurationOps
 
 final case class CliConfig[Extra](

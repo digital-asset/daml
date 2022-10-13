@@ -47,7 +47,7 @@ class MutableCacheBackedContractStoreSpec extends AsyncWordSpec with Matchers wi
       val event2 = event1.copy(eventSequentialId = 2L)
       val updateBatch = Vector(event1, event2)
 
-      contractStore.push(updateBatch)
+      contractStore.contractStateCaches.push(updateBatch)
       verify(contractStateCaches).push(updateBatch)
 
       succeed
@@ -273,7 +273,7 @@ object MutableCacheBackedContractStoreSpec {
           scala.concurrent.ExecutionContext.global,
           loggingContext,
         ),
-    )(scala.concurrent.ExecutionContext.global, loggingContext)
+    )(scala.concurrent.ExecutionContext.global)
 
     Resource.successful(contractStore)
   }
