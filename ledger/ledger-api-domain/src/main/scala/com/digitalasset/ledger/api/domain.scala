@@ -345,7 +345,7 @@ object domain {
   /** Represents a party with additional known information.
     *
     * @param party       The stable unique identifier of a Daml party.
-    * @param displayName Human readable name associated with the party. Might not be unique.
+    * @param displayName Human readable name associated with the party. Might not be unique. If defined must be a non-empty string.
     * @param isLocal     True if party is hosted by the backing participant.
     */
   case class PartyDetails(party: Ref.Party, displayName: Option[String], isLocal: Boolean)

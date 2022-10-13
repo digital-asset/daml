@@ -5,7 +5,8 @@ package com.daml.platform.store.backend
 
 import java.sql.Connection
 
-import org.scalatest.Inside
+import com.daml.lf.data.Ref
+import org.scalatest.{Inside, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -16,6 +17,7 @@ import scala.util.Random
 private[backend] trait StorageBackendTestsIngestion
     extends Matchers
     with Inside
+    with OptionValues
     with StorageBackendSpec {
   this: AnyFlatSpec =>
 
@@ -92,6 +94,47 @@ private[backend] trait StorageBackendTestsIngestion
 
     // The second query should now see the party.
     partiesAfterLedgerEndUpdate should not be empty
+  }
+
+  it should "empty display name represent lack of display name" in {
+    val dtos = Vector(
+      dtoPartyEntry(offset(1), party = "party1", displayNameOverride = Some(Some(""))),
+      dtoPartyEntry(
+        offset(2),
+        party = "party2",
+        displayNameOverride = Some(Some("nonEmptyDisplayName")),
+      ),
+      dtoPartyEntry(offset(3), party = "party3", displayNameOverride = Some(None)),
+    )
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos, _))
+    executeSql(
+      updateLedgerEnd(offset(3), 0)
+    )
+
+    {
+      val knownParties = executeSql(backend.party.knownParties)
+      val party1 = knownParties.find(_.party.toString == "party1").value
+      val party2 = knownParties.find(_.party.toString == "party2").value
+      val party3 = knownParties.find(_.party.toString == "party3").value
+      party1.displayName shouldBe None
+      party2.displayName shouldBe Some("nonEmptyDisplayName")
+      party3.displayName shouldBe None
+    }
+    {
+      val party1 = executeSql(
+        backend.party.parties(parties = Seq(Ref.Party.assertFromString("party1")))
+      ).headOption.value
+      val party2 = executeSql(
+        backend.party.parties(parties = Seq(Ref.Party.assertFromString("party2")))
+      ).headOption.value
+      val party3 = executeSql(
+        backend.party.parties(parties = Seq(Ref.Party.assertFromString("party3")))
+      ).headOption.value
+      party1.displayName shouldBe None
+      party2.displayName shouldBe Some("nonEmptyDisplayName")
+      party3.displayName shouldBe None
+    }
   }
 
   private val NumberOfUpsertPackagesTests = 30
