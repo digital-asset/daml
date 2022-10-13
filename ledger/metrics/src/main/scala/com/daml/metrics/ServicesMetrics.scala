@@ -3,10 +3,9 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.MetricHandle.{Counter, Histogram, Meter, Timer}
-
 import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.MetricDoc.MetricQualification.Debug
+import com.daml.metrics.MetricHandle.{Counter, DropwizardTimer, Histogram, Meter, Timer}
 
 class ServicesMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
     extends MetricHandle.DropwizardFactory {
@@ -23,7 +22,7 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
                       |time statistics of such operations.""",
       qualification = Debug,
     )
-    val operationForDocs: Timer = Timer(prefix :+ "<operation>", null)
+    val operationForDocs: Timer = DropwizardTimer(prefix :+ "<operation>", null)
 
     val listLfPackages: Timer = timer(prefix :+ "list_lf_packages")
     val getLfArchive: Timer = timer(prefix :+ "get_lf_archive")
@@ -159,7 +158,7 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
                       |each operation.""",
       qualification = Debug,
     )
-    val readOperationForDocs: Timer = Timer(prefix :+ "<operation>", null)
+    val readOperationForDocs: Timer = DropwizardTimer(prefix :+ "<operation>", null)
 
     val getLedgerInitialConditions: Timer = timer(prefix :+ "get_ledger_initial_conditions")
     val stateUpdates: Timer = timer(prefix :+ "state_updates")
@@ -177,7 +176,7 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
                       |exposes the time needed to execute each operation.""",
       qualification = Debug,
     )
-    val writeOperationForDocs: Timer = Timer(prefix :+ "<operation>", null)
+    val writeOperationForDocs: Timer = DropwizardTimer(prefix :+ "<operation>", null)
 
     val submitTransaction: Timer = timer(prefix :+ "submit_transaction")
     val submitTransactionRunning: Meter = meter(prefix :+ "submit_transaction_running")

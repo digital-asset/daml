@@ -38,6 +38,7 @@ object MetricHandle {
     def histogram(name: MetricName): Histogram
 
   }
+
   trait DropwizardFactory extends Factory {
 
     def registry: codahale.MetricRegistry

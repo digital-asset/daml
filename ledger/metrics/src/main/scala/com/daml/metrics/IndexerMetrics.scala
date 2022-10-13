@@ -3,15 +3,11 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.MetricHandle.{Gauge, VarGauge}
-
-import com.codahale.metrics.MetricRegistry
-
 import java.time.Instant
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.MetricHandle.Gauge
+import com.daml.metrics.MetricDoc.MetricQualification.Debug
+import com.daml.metrics.MetricHandle.{DropwizardGauge, Gauge}
 
 class IndexerMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
     extends MetricHandle.DropwizardFactory {
@@ -57,7 +53,7 @@ class IndexerMetrics(override val prefix: MetricName, override val registry: Met
                     |can be negative.""",
     qualification = Debug,
   )
-  val currentRecordTimeLag: VarGauge[Long] = Gauge(prefix :+ "current_record_time_lag", null)
+  val currentRecordTimeLag: Gauge[Long] = DropwizardGauge(prefix :+ "current_record_time_lag", null)
 
   gaugeWithSupplier(
     prefix :+ "current_record_time_lag",
