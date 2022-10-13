@@ -22,6 +22,26 @@ object MetricHandle {
 
     def prefix: MetricName
 
+    def timer(name: MetricName): Timer
+
+    def gauge[T](name: MetricName, initial: T): Gauge[T]
+
+    def gaugeWithSupplier[T](
+        name: MetricName,
+        gaugeSupplier: () => () => T,
+    ): Unit
+
+    def meter(name: MetricName): Meter
+
+    def counter(name: MetricName): Counter
+
+    def histogram(name: MetricName): Histogram
+
+  }
+  trait DropwizardFactory extends Factory {
+
+    def prefix: MetricName
+
     def registry: codahale.MetricRegistry
 
     def timer(name: MetricName): Timer = DropwizardTimer(name, registry.timer(name))
@@ -59,7 +79,7 @@ object MetricHandle {
 
   }
 
-  trait FactoryWithDBMetrics extends MetricHandle.Factory {
+  trait FactoryWithDBMetrics extends MetricHandle.DropwizardFactory {
     def createDbMetrics(name: String): DatabaseMetrics =
       new DatabaseMetrics(prefix, name, registry)
   }

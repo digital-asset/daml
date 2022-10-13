@@ -8,9 +8,9 @@ import com.daml.metrics.MetricHandle.{Counter, Histogram, Meter, Timer}
 import com.codahale.metrics.MetricRegistry
 
 class ServicesMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.DropwizardFactory {
 
-  object index extends MetricHandle.Factory {
+  object index extends MetricHandle.DropwizardFactory {
     override val prefix: MetricName = ServicesMetrics.this.prefix :+ "index"
     override val registry: MetricRegistry = ServicesMetrics.this.registry
 
@@ -41,7 +41,7 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
     val prune: Timer = timer(prefix :+ "prune")
     val getTransactionMetering: Timer = timer(prefix :+ "get_transaction_metering")
 
-    object InMemoryFanoutBuffer extends MetricHandle.Factory {
+    object InMemoryFanoutBuffer extends MetricHandle.DropwizardFactory {
       override val prefix: MetricName = index.prefix :+ "in_memory_fan_out_buffer"
       override val registry: MetricRegistry = index.registry
 
@@ -51,7 +51,7 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
       val bufferSize: Histogram = histogram(prefix :+ "size")
     }
 
-    case class BufferedReader(streamName: String) extends MetricHandle.Factory {
+    case class BufferedReader(streamName: String) extends MetricHandle.DropwizardFactory {
       override val prefix: MetricName = index.prefix :+ s"${streamName}_buffer_reader"
       override val registry: MetricRegistry = index.registry
 
@@ -64,7 +64,7 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
     }
   }
 
-  object read extends MetricHandle.Factory {
+  object read extends MetricHandle.DropwizardFactory {
     override val prefix: MetricName = ServicesMetrics.this.prefix :+ "read"
     override val registry: MetricRegistry = index.registry
 
@@ -72,7 +72,7 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
     val stateUpdates: Timer = timer(prefix :+ "state_updates")
   }
 
-  object write extends MetricHandle.Factory {
+  object write extends MetricHandle.DropwizardFactory {
     override val prefix: MetricName = ServicesMetrics.this.prefix :+ "write"
     override val registry: MetricRegistry = index.registry
 

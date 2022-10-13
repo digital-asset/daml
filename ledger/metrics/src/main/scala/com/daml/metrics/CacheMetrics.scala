@@ -7,7 +7,7 @@ import com.codahale.metrics.{Gauge, MetricRegistry}
 import com.daml.metrics.MetricHandle.Counter
 
 final class CacheMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.DropwizardFactory {
   val hitCount: Counter = counter(prefix :+ "hits")
   val missCount: Counter = counter(prefix :+ "misses")
   val evictionCount: Counter = counter(prefix :+ "evictions")

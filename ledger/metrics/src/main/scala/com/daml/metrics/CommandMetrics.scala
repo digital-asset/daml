@@ -8,7 +8,7 @@ import com.daml.metrics.MetricHandle.{Counter, Meter, Timer}
 import com.codahale.metrics.{MetricRegistry}
 
 class CommandMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.DropwizardFactory {
   val validation: Timer = timer(prefix :+ "validation")
   val submissions: Timer = timer(prefix :+ "submissions")
   val submissionsRunning: Meter = meter(prefix :+ "submissions_running")

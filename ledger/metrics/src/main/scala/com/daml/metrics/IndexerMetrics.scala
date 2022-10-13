@@ -9,7 +9,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.MetricHandle.Gauge
 
 class IndexerMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.DropwizardFactory {
   val lastReceivedRecordTime: Gauge[Long] =
     gauge(prefix :+ "last_received_record_time", 0)
 

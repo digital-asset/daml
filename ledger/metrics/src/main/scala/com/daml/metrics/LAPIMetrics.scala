@@ -8,7 +8,7 @@ import com.daml.metrics.MetricHandle.{Counter, Timer}
 import com.codahale.metrics.MetricRegistry
 
 class LAPIMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.DropwizardFactory {
   def forMethod(name: String): Timer = timer(prefix :+ name)
 
   object return_status {

@@ -8,7 +8,7 @@ import com.daml.metrics.MetricHandle.{Counter, Histogram, Timer}
 import com.codahale.metrics.MetricRegistry
 
 class ParallelIndexerMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.DropwizardFactory {
   val initialization = new DatabaseMetrics(prefix, "initialization", registry)
 
   // Number of state updates persisted to the database

@@ -8,7 +8,7 @@ import com.daml.metrics.MetricHandle.{Counter, Histogram, Meter, Timer}
 import com.codahale.metrics.MetricRegistry
 
 class ExecutionMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.DropwizardFactory {
   val lookupActiveContract: Timer = timer(prefix :+ "lookup_active_contract")
   val lookupActiveContractPerExecution: Timer =
     timer(prefix :+ "lookup_active_contract_per_execution")
@@ -30,7 +30,7 @@ class ExecutionMetrics(override val prefix: MetricName, override val registry: M
   val engine: Timer = timer(prefix :+ "engine")
   val engineRunning: Meter = meter(prefix :+ "engine_running")
 
-  object cache extends MetricHandle.Factory {
+  object cache extends MetricHandle.DropwizardFactory {
     override val prefix: MetricName = ExecutionMetrics.this.prefix :+ "cache"
     override val registry = ExecutionMetrics.this.registry
 

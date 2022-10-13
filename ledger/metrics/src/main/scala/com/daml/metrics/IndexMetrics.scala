@@ -7,7 +7,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.MetricHandle.{Counter, Gauge, Timer}
 
 class IndexMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.DropwizardFactory {
   val transactionTreesBufferSize: Counter =
     counter(prefix :+ "transaction_trees_buffer_size")
   val flatTransactionsBufferSize: Counter =
