@@ -5,8 +5,7 @@ package com.daml.metrics
 
 import java.util.concurrent.TimeUnit
 
-import com.codahale.metrics.MetricRegistry.MetricSupplier
-import com.codahale.{metrics => codahale}
+import com.codahale.{metrics, metrics => codahale}
 import com.daml.metrics.MetricHandle.Timer.TimerStop
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -59,7 +58,13 @@ object MetricHandle {
     ): Unit =
       synchronized {
         registry.remove(name)
-        val _ = registry.gauge(name, gaugeSupplier.asInstanceOf[MetricSupplier[codahale.Gauge[_]]])
+        val _ = registry.gauge(
+          name,
+          () => {
+            val valueGetter = gaugeSupplier()
+            new metrics.Gauge[T] { override def getValue: T = valueGetter() }
+          },
+        )
         ()
       }
 
