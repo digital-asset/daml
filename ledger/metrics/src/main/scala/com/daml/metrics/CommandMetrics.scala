@@ -32,7 +32,7 @@ class CommandMetrics(override val prefix: MetricName, override val registry: Met
       "The number of the Daml commands that are currently being handled by the ledger api server.",
     description = """The number of the Daml commands that are currently being handled by the ledger
                     |api server (including validation, interpretation, and handing the transaction
-                    |over to the ledger).""",
+                    |over to the synchronization services).""",
     qualification = Debug,
   )
   val submissionsRunning: Meter = meter(prefix :+ "submissions_running")
