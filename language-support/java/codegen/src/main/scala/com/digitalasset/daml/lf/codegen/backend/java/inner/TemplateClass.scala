@@ -8,7 +8,12 @@ import ClassGenUtils.{companionFieldName, templateIdFieldName}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.Ref
 import Ref.{ChoiceName, PackageId, QualifiedName}
-import com.daml.ledger.javaapi.data.codegen.{ChoiceMetadata, Update}
+import com.daml.ledger.javaapi.data.codegen.{
+  ContractId,
+  ChoiceMetadata,
+  PrimitiveValueDecoders,
+  Update,
+}
 import com.daml.lf.codegen.backend.java.inner.ToValueGenerator.generateToValueConverter
 import com.daml.lf.typesig
 import typesig._
@@ -117,12 +122,17 @@ private[inner] object TemplateClass extends StrictLogging {
       .methodBuilder("create")
       .addModifiers(Modifier.PUBLIC)
       .addAnnotation(classOf[Override])
-      .returns(classOf[javaapi.data.CreateCommand])
+      .returns(updateContractIdType(name))
       .addStatement(
-        "return new $T($T.$N, this.toValue())",
+        "var command = new $T($T.$N, this.toValue())",
         classOf[javaapi.data.CreateCommand],
         name,
         templateIdFieldName,
+      )
+      .addStatement(
+        "return new $T(command, $T.fromContractId(valueDecoder()))",
+        updateContractIdType(name),
+        classOf[PrimitiveValueDecoders],
       )
       .build()
 
@@ -132,7 +142,7 @@ private[inner] object TemplateClass extends StrictLogging {
         MethodSpec
           .methodBuilder("create")
           .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-          .returns(classOf[javaapi.data.CreateCommand])
+          .returns(updateContractIdType(name))
       ) { case (b, FieldInfo(_, _, escapedName, tpe)) =>
         b.addParameter(tpe, escapedName)
       }
@@ -144,6 +154,14 @@ private[inner] object TemplateClass extends StrictLogging {
       .build()
 
   private val byKeyClassName = "ByKey"
+
+  private def updateContractIdType(name: ClassName) = ParameterizedTypeName.get(
+    ClassName get classOf[Update[_]],
+    ParameterizedTypeName.get(
+      ClassName get classOf[ContractId[_]],
+      name,
+    ),
+  )
 
   private[this] def generateByKeyMethod(
       maybeKey: Option[Type],

@@ -11,6 +11,7 @@ import com.daml.ledger.javaapi.data.Command;
 import com.daml.ledger.javaapi.data.SubmitAndWaitRequest;
 import com.daml.ledger.javaapi.data.Transaction;
 import com.daml.ledger.javaapi.data.TransactionTree;
+import com.daml.ledger.javaapi.data.codegen.Update;
 import com.daml.ledger.rxjava.CommandClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.google.protobuf.Empty;
@@ -660,6 +661,35 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Override
+  public <R> Single<R> submitAndWaitForTransaction(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Update<R> update,
+      @NonNull String accessToken) {
+    Single<Transaction> transaction;
+    transaction =
+        submitAndWaitForTransaction(
+            workflowId,
+            applicationId,
+            commandId,
+            actAs,
+            readAs,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            List.of(update.command),
+            Optional.of(accessToken));
+    return transaction.map(
+        tx -> {
+          //      tx.
+          return update.returnTypeDecoder.decode(null);
+        });
+  }
+
   private Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -868,5 +898,33 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty(),
         commands,
         Optional.of(accessToken));
+  }
+
+  @Override
+  public <R> Single<R> submitAndWaitForTransactionTree(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Update<R> update,
+      @NonNull String accessToken) {
+    var transactionTree = submitAndWaitForTransactionTree(
+            workflowId,
+            applicationId,
+            commandId,
+            actAs,
+            readAs,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            List.of(update.command),
+            Optional.of(accessToken));
+    );
+    transactionTree.map(txTree -> {
+      txTree.getEventsById()
+    });
+
+
   }
 }

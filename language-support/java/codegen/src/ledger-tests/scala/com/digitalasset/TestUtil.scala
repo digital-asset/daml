@@ -14,6 +14,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.javaapi.data
+import com.daml.ledger.javaapi.data.codegen.Update
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
   ApiServerConfig,
@@ -90,6 +91,10 @@ object TestUtil {
     Map[String, Filter](partyName -> NoFilter.instance).asJava
   )
 
+  def sendCmd(channel: Channel, partyName: String, updates: Update[_]*): Empty = {
+    sendCmd(channel, partyName, updates.map(_.command): _*)
+  }
+
   def sendCmd(channel: Channel, partyName: String, cmds: Command*): Empty = {
     CommandServiceGrpc
       .newBlockingStub(channel)
@@ -112,6 +117,15 @@ object TestUtil {
           )
           .build
       )
+  }
+
+  def sendCmd(
+      channel: Channel,
+      actAs: java.util.List[String],
+      readAs: java.util.List[String],
+      updates: Update[_]*
+  ): Empty = {
+    sendCmd(channel, actAs, readAs, updates.map(_.command): _*)
   }
 
   def sendCmd(

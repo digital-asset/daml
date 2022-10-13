@@ -5,8 +5,13 @@ package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.Command;
 
-public abstract class Update<R> {
-  public abstract Command command();
+public final class Update<R> {
+  public Command command;
 
-  public abstract ValueDecoder<R> returnTypeDecoder();
+  public ValueDecoder<R> returnTypeDecoder;
+
+  public Update(Command command, ValueDecoder<R> returnTypeDecoder) {
+    this.command = command;
+    this.returnTypeDecoder = returnTypeDecoder;
+  }
 }

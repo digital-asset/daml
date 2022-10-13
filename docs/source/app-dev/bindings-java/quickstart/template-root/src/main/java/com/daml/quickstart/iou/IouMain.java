@@ -125,7 +125,7 @@ public class IouMain {
           Iou.ContractId contractId = idMap.get(Long.parseLong(req.params("id")));
           Update<IouTransfer.ContractId> update =
               contractId.exerciseIou_Transfer(m.get("newOwner").toString());
-          Command exerciseCommand = update.command();
+          Command exerciseCommand = update.command;
           submit(client, party, exerciseCommand);
           return "Iou transfer submitted.";
         },

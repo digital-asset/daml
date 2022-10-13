@@ -45,18 +45,17 @@ class Interfaces
             child.id
               .toInterface(interfaces.TIf.INTERFACE)
               .exerciseHam(new interfaces.Ham())
-              .command(),
+              .command,
           )
         }
         readActiveContractsSafe(safeChildCloneFromCreatedEvent)(client, alice)
           .foreach { child =>
-            val cmd = interfaces.Child.ContractId
+            val update = interfaces.Child.ContractId
               .unsafeFromInterface(
                 child.id.toInterface(interfaces.TIf.INTERFACE): interfaces.TIf.ContractId
               )
               .exerciseBar()
-              .command()
-            val ex = the[io.grpc.StatusRuntimeException] thrownBy sendCmd(client, alice, cmd)
+            val ex = the[io.grpc.StatusRuntimeException] thrownBy sendCmd(client, alice, update)
             ex.getMessage should include regex "Expected contract of type .*Child@.* but got .*ChildClone"
           }
         succeed

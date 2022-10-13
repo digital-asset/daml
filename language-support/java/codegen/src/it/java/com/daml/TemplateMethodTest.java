@@ -6,6 +6,7 @@ package com.daml;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.codegen.Update;
 import java.util.Collections;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -26,8 +27,8 @@ public class TemplateMethodTest {
 
   @Test
   void templateHasCreateMethods() {
-    CreateCommand fromStatic = SimpleTemplate.create("Bob");
-    CreateCommand fromInstance = new SimpleTemplate("Bob").create();
+    Update<ContractId<SimpleTemplate>> fromStatic = SimpleTemplate.create("Bob");
+    CreateCommand fromInstance = new SimpleTemplate("Bob").create().command.asCreateCommand().get();
 
     assertNotNull(fromStatic, "CreateCommand from static method was null");
     assertNotNull(fromInstance, "CreateCommand from method was null");
@@ -36,9 +37,9 @@ public class TemplateMethodTest {
   @Test
   void contractIdHasInstanceExerciseMethods() {
     SimpleTemplate.ContractId cid = new SimpleTemplate.ContractId("id");
-    Command fromSplattedInt = cid.exerciseTestTemplate_Int(42L).command();
-    Command fromRecordInt = cid.exerciseTestTemplate_Int(new TestTemplate_Int(42L)).command();
-    Command fromSplattedUnit = cid.exerciseTestTemplate_Unit().command();
+    Command fromSplattedInt = cid.exerciseTestTemplate_Int(42L).command;
+    Command fromRecordInt = cid.exerciseTestTemplate_Int(new TestTemplate_Int(42L)).command;
+    Command fromSplattedUnit = cid.exerciseTestTemplate_Unit().command;
 
     assertNotNull(fromSplattedInt, "ExerciseCommand from splatted choice was null");
     assertNotNull(fromRecordInt, "ExerciseCommand from record choice was null");
@@ -48,9 +49,9 @@ public class TemplateMethodTest {
   @Test
   void templateHasCreateAndExerciseMethods() {
     SimpleTemplate simple = new SimpleTemplate("Bob");
-    Command fromSplatted = simple.createAndExerciseTestTemplate_Int(42L).command();
+    Command fromSplatted = simple.createAndExerciseTestTemplate_Int(42L).command;
     Command fromRecord =
-        simple.createAndExerciseTestTemplate_Int(new TestTemplate_Int(42L)).command();
+        simple.createAndExerciseTestTemplate_Int(new TestTemplate_Int(42L)).command;
 
     assertNotNull(fromSplatted, "CreateAndExerciseCommand from splatted choice was null");
     assertNotNull(fromRecord, "CreateAndExerciseCommand from record choice was null");

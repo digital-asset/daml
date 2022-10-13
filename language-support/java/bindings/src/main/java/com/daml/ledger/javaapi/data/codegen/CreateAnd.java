@@ -23,7 +23,7 @@ public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
             createArguments.toValue(),
             choice.name,
             choice.encodeArg.apply(choiceArgument));
-    return new CreateAndExerciseUpdate<>(command, choice.returnTypeDecoder);
+    return new Update<>(command, choice.returnTypeDecoder);
   }
 
   /** The origin of the choice, not the createArguments. */
@@ -51,7 +51,7 @@ public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
               createArguments.toValue(),
               choice.name,
               choice.encodeArg.apply(choiceArgument));
-      return new CreateAndExerciseUpdate<>(command, choice.returnTypeDecoder);
+      return new Update<>(command, choice.returnTypeDecoder);
     }
   }
 }
