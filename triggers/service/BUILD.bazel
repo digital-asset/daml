@@ -144,7 +144,7 @@ da_scala_library(
     data = [
         ":test-model-{}.dar".format(lf_version)
         for lf_version in target_lf_versions
-    ] + (
+    ] + [":test-model.dar"] + (
         [
             "@toxiproxy_dev_env//:bin/toxiproxy-cmd",
         ] if not is_windows else [
@@ -300,7 +300,6 @@ da_scala_test_suite(
 )
 
 # Build one DAR per LF version to bundle with the SDK.
-# Also build one DAR with the default LF version for test-cases.
 [
     genrule(
         name = "test-model-{}".format(lf_version),
@@ -349,9 +348,11 @@ EOF
     for lf_version in target_lf_versions
 ]
 
-alias(
-    name = "test-model.dar",
-    actual = ":test-model-{}".format(lf_version_configuration.get("default")),
+genrule(
+    name = "test-model",
+    srcs = [":test-model-{}".format(lf_version_configuration.get("default"))],
+    outs = ["test-model.dar"],
+    cmd = "cp -L $(location :test-model-{}) $$PWD/$@".format(lf_version_configuration.get("default")),
     visibility = ["//visibility:public"],
 )
 
