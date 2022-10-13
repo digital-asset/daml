@@ -40,7 +40,7 @@ class CommandMetrics(override val prefix: MetricName, override val registry: Met
   @MetricDoc.Tag(
     summary = "The number of Daml commands that failed in interpretation.",
     description = """The number of Daml commands that have been rejected by the interpreter
-                    |(e.g. non badly authorized action).""",
+                    |(e.g. badly authorized action).""",
     qualification = Debug,
   )
   val failedCommandInterpretations: Meter = meter(prefix :+ "failed_command_interpretations")
