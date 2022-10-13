@@ -10,16 +10,15 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.config.MetricsConfig
 import com.daml.platform.config.MetricsConfig.MetricRegistryType
-import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.api.metrics.Meter
 
 import scala.concurrent.Future
 
-case class MetricsOwner(openTelemetry: OpenTelemetry, config: MetricsConfig, name: String)
+case class MetricsOwner(meter: Meter, config: MetricsConfig, name: String)
     extends ResourceOwner[Metrics] {
   override def acquire()(implicit
       context: ResourceContext
   ): Resource[Metrics] = {
-    val meter = openTelemetry.meterBuilder(name).build()
     val meterRegistry = config.registryType match {
       case MetricRegistryType.JvmShared =>
         SharedMetricRegistries.getOrCreate(name)

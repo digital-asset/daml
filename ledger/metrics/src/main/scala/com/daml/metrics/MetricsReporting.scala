@@ -38,7 +38,7 @@ final class MetricsReporting(
     val registry = new MetricRegistry
     registry.registerAll(new JvmMetricSet)
     for {
-      openTelemetry <- OpenTelemetryOwner(enabled = true, extraMetricsReporter).acquire()
+      openTelemetryMeter <- OpenTelemetryMeterOwner(enabled = true, extraMetricsReporter).acquire()
       slf4JReporter <- acquire(newSlf4jReporter(registry))
       _ <- acquire(newJmxReporter(registry))
         .map(_.start())
@@ -50,7 +50,7 @@ final class MetricsReporting(
       _ <- Resource(Future.successful(slf4JReporter))(reporter =>
         Future.successful(reporter.report())
       )
-    } yield new Metrics(registry, openTelemetry.getMeter("daml"))
+    } yield new Metrics(registry, openTelemetryMeter)
   }
 
   private def newJmxReporter(registry: MetricRegistry): JmxReporter =

@@ -37,7 +37,6 @@ da_scala_library(
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_opentelemetry_opentelemetry_exporter_prometheus",
-        "@maven//:io_opentelemetry_opentelemetry_sdk",
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:io_prometheus_simpleclient",
         "@maven//:io_prometheus_simpleclient_dropwizard",

@@ -35,7 +35,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, OpenTelemetryOwner}
+import com.daml.metrics.{Metrics, OpenTelemetryMeterOwner}
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
@@ -81,10 +81,13 @@ object SandboxOnXRunner {
       // This is necessary because we can't declare them as implicits in a `for` comprehension.
       _ <- ResourceOwner.forActorSystem(() => actorSystem)
       _ <- ResourceOwner.forMaterializer(() => materializer)
-      openTelemetry <- OpenTelemetryOwner(config.metrics.enabled, Some(config.metrics.reporter))
+      openTelemetryMeter <- OpenTelemetryMeterOwner(
+        config.metrics.enabled,
+        Some(config.metrics.reporter),
+      )
 
       (participantId, dataSource, participantConfig) <- assertSingleParticipant(config)
-      metrics <- MetricsOwner(openTelemetry, config.metrics, participantId)
+      metrics <- MetricsOwner(openTelemetryMeter, config.metrics, participantId)
       timeServiceBackendO = configAdaptor.timeServiceBackend(participantConfig.apiServer)
       (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
 
