@@ -130,7 +130,7 @@ private[inner] object EnumClass extends StrictLogging {
         classOf[IllegalArgumentException],
         s"Expected a DamlEnum with ${className.simpleName()} constructor, found ",
       )
-      .addStatement("return ($T) $T.__enums$$.get(constructor$$)", className, className)
+      .addStatement("return $T.__enums$$.get(constructor$$)", className)
 
     MethodSpec
       .methodBuilder("valueDecoder")

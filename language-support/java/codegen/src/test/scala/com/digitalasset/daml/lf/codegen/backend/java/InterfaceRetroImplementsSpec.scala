@@ -5,7 +5,7 @@ package com.daml.lf.codegen.backend.java
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import retro.InterfaceRetro
+import ut.retro.InterfaceRetro
 import ut.retro.TemplateRetro
 
 final class InterfaceRetroImplementsSpec extends AnyWordSpec with Matchers {

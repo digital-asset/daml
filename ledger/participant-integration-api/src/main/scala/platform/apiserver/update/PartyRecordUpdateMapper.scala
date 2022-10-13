@@ -5,7 +5,7 @@ package com.daml.platform.apiserver.update
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.ParticipantParty
-import com.daml.ledger.participant.state.index.v2.{ObjectMetaUpdate, PartyDetailsUpdate}
+import com.daml.platform.localstore.api.{ObjectMetaUpdate, PartyDetailsUpdate}
 
 object PartyRecordUpdateMapper extends UpdateMapperBase {
 

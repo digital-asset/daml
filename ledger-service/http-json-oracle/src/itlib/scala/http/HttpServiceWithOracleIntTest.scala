@@ -4,7 +4,7 @@
 package com.daml.http
 
 abstract class HttpServiceWithOracleIntTest(override val disableContractPayloadIndexing: Boolean)
-    extends AbstractHttpServiceIntegrationTestTokenIndependent
+    extends QueryStoreAndAuthDependentIntegrationTest
     with HttpServiceOracleInt {
 
   override final def testLargeQueries = disableContractPayloadIndexing

@@ -21,7 +21,7 @@ public abstract class ByKey implements Exercises<ExerciseByKeyCommand> {
   }
 
   /** The origin of the choice, not the template relevant to contractKey. */
-  protected abstract ContractTypeCompanion getCompanion();
+  protected abstract ContractTypeCompanion<?, ?> getCompanion();
 
   /**
    * Parent of all generated {@code ByKey} classes within interfaces. These need to pass both the

@@ -20,9 +20,6 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
   LedgerEndService,
-  PartyDetailsUpdate,
-  PartyRecordStore,
-  PartyRecordUpdate,
 }
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
@@ -34,6 +31,7 @@ import com.daml.platform.apiserver.services.admin.ApiPartyManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.apiserver.update
 import com.daml.platform.apiserver.update.PartyRecordUpdateMapper
+import com.daml.platform.localstore.api.{PartyDetailsUpdate, PartyRecordStore, PartyRecordUpdate}
 import com.daml.platform.server.api.validation.FieldValidations
 import com.daml.platform.server.api.validation.FieldValidations.{
   optionalString,

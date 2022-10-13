@@ -3,12 +3,13 @@
 
 package com.daml.ledger.sandbox.bridge.validate
 
-import com.codahale.metrics.MetricRegistry
+import java.time.Duration
+
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime}
+import com.daml.ledger.participant.state.index.v2.{ContractState, IndexService, MaximumLedgerTime}
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckWithCommittedSpec._
@@ -30,7 +31,6 @@ import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.time.Duration
 import scala.concurrent.Future
 
 class ConflictCheckWithCommittedSpec
@@ -153,18 +153,19 @@ class ConflictCheckWithCommittedSpec
 
   it should "fail validation mismatching let in disclosed contract" in new TestContext {
     when(
-      indexServiceMock.lookupContractForValidation(eqTo(disclosedContract.contractId))(
+      indexServiceMock.lookupContractStateWithoutDivulgence(eqTo(disclosedContract.contractId))(
         any[LoggingContext]
       )
     )
       .thenReturn(
         Future.successful(
-          Some(
+          ContractState.Active(
             VersionedContractInstance(
               templateId,
               Versioned(TransactionVersion.VDev, disclosedContract.argument),
               "",
-            ) -> disclosedContract.metadata.createdAt.add(Duration.ofSeconds(1000L))
+            ),
+            disclosedContract.metadata.createdAt.add(Duration.ofSeconds(1000L)),
           )
         )
       )
@@ -180,18 +181,19 @@ class ConflictCheckWithCommittedSpec
 
   it should "fail validation mismatching contract argument in disclosed contract" in new TestContext {
     when(
-      indexServiceMock.lookupContractForValidation(eqTo(disclosedContract.contractId))(
+      indexServiceMock.lookupContractStateWithoutDivulgence(eqTo(disclosedContract.contractId))(
         any[LoggingContext]
       )
     )
       .thenReturn(
         Future.successful(
-          Some(
+          ContractState.Active(
             VersionedContractInstance(
               templateId,
               Versioned(TransactionVersion.VDev, ValueTrue),
               "",
-            ) -> disclosedContract.metadata.createdAt
+            ),
+            disclosedContract.metadata.createdAt,
           )
         )
       )
@@ -207,18 +209,19 @@ class ConflictCheckWithCommittedSpec
 
   it should "fail validation mismatching template id in disclosed contract" in new TestContext {
     when(
-      indexServiceMock.lookupContractForValidation(eqTo(disclosedContract.contractId))(
+      indexServiceMock.lookupContractStateWithoutDivulgence(eqTo(disclosedContract.contractId))(
         any[LoggingContext]
       )
     )
       .thenReturn(
         Future.successful(
-          Some(
+          ContractState.Active(
             VersionedContractInstance(
               templateId.copy(packageId = Ref.PackageId.assertFromString("anotherPackageId")),
               Versioned(TransactionVersion.VDev, disclosedContract.argument),
               "",
-            ) -> disclosedContract.metadata.createdAt
+            ),
+            disclosedContract.metadata.createdAt,
           )
         )
       )
@@ -243,7 +246,7 @@ class ConflictCheckWithCommittedSpec
     val conflictCheckWithCommitted: ConflictCheckWithCommittedImpl =
       new ConflictCheckWithCommittedImpl(
         indexService = indexServiceMock,
-        bridgeMetrics = new BridgeMetrics(new Metrics(new MetricRegistry())),
+        bridgeMetrics = new BridgeMetrics(Metrics.ForTesting),
       )(scala.concurrent.ExecutionContext.global)
 
     val inputContract: ContractId = cid(1)
@@ -320,18 +323,19 @@ class ConflictCheckWithCommittedSpec
       .thenReturn(Future.successful(None))
 
     when(
-      indexServiceMock.lookupContractForValidation(eqTo(disclosedContract.contractId))(
+      indexServiceMock.lookupContractStateWithoutDivulgence(eqTo(disclosedContract.contractId))(
         any[LoggingContext]
       )
     )
       .thenReturn(
         Future.successful(
-          Some(
+          ContractState.Active(
             VersionedContractInstance(
               templateId,
               Versioned(TransactionVersion.VDev, disclosedContract.argument),
               "",
-            ) -> disclosedContract.metadata.createdAt
+            ),
+            disclosedContract.metadata.createdAt,
           )
         )
       )

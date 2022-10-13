@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class GetPackageStatusResponse {
+public final class GetPackageStatusResponse {
 
   // Clone of the PackageServiceOuterClass.PackageStatus enumeration
   public enum PackageStatus {

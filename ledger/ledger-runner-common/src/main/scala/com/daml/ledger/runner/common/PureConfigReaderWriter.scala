@@ -24,6 +24,7 @@ import com.daml.platform.configuration.{
 }
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
+import com.daml.platform.localstore.UserManagementConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.{
   ConnectionPoolConfig,
@@ -32,7 +33,6 @@ import com.daml.platform.store.DbSupport.{
 }
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import pureconfig.configurable.{genericMapReader, genericMapWriter}

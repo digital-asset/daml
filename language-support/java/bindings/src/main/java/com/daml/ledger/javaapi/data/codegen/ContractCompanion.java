@@ -7,6 +7,7 @@ import com.daml.ledger.javaapi.data.CreatedEvent;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Identifier;
 import com.daml.ledger.javaapi.data.Value;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -15,14 +16,16 @@ import java.util.function.Function;
  * Metadata and utilities associated with a template as a whole, rather than one single contract
  * made from that template.
  *
+ * <p>Application code <em>should not</em> instantiate or subclass; instead, refer to the {@code
+ * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses. All
+ * {@code protected} members herein are considered part of the <strong>INTERNAL API</strong>.
+ *
  * @param <Ct> The {@link Contract} subclass generated within the template class.
  * @param <Id> The {@link ContractId} subclass generated within the template class.
  * @param <Data> The generated {@link com.daml.ledger.javaapi.data.Template} subclass named after
  *     the template, whose instances contain only the payload.
  */
-public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompanion {
-  final String templateClassName; // not something we want outside this package
-
+public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompanion<Data, Data> {
   protected final Function<String, Id> newContractId;
   protected final Function<DamlRecord, Data> fromValue;
 
@@ -68,13 +71,18 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
     return newContractId.apply(parameterizedContractId.contractId);
   }
 
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by {@link WithoutKey} and {@link WithKey},
+   * and <em>should not be referenced directly</em>. Applications should refer to the {@code
+   * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses instead.
+   */
   protected ContractCompanion(
       String templateClassName,
       Identifier templateId,
       Function<String, Id> newContractId,
-      Function<DamlRecord, Data> fromValue) {
-    super(templateId);
-    this.templateClassName = templateClassName;
+      Function<DamlRecord, Data> fromValue,
+      List<ChoiceMetadata<Data, ?, ?>> choices) {
+    super(templateId, templateClassName, choices);
     this.newContractId = newContractId;
     this.fromValue = fromValue;
   }
@@ -82,13 +90,21 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
   public static final class WithoutKey<Ct, Id, Data> extends ContractCompanion<Ct, Id, Data> {
     private final NewContract<Ct, Id, Data> newContract;
 
+    /**
+     * <strong>INTERNAL API</strong>: this is meant for use by <a
+     * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+     * and <em>should not be referenced directly</em>. Applications should refer to the {@code
+     * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses
+     * instead.
+     */
     public WithoutKey(
         String templateClassName,
         Identifier templateId,
         Function<String, Id> newContractId,
         Function<DamlRecord, Data> fromValue,
-        NewContract<Ct, Id, Data> newContract) {
-      super(templateClassName, templateId, newContractId, fromValue);
+        NewContract<Ct, Id, Data> newContract,
+        List<ChoiceMetadata<Data, ?, ?>> choices) {
+      super(templateClassName, templateId, newContractId, fromValue, choices);
       this.newContract = newContract;
     }
 
@@ -129,14 +145,22 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
     private final NewContract<Ct, Id, Data, Key> newContract;
     private final Function<Value, Key> keyFromValue;
 
+    /**
+     * <strong>INTERNAL API</strong>: this is meant for use by <a
+     * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+     * and <em>should not be referenced directly</em>. Applications should refer to the {@code
+     * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses
+     * instead.
+     */
     public WithKey(
         String templateClassName,
         Identifier templateId,
         Function<String, Id> newContractId,
         Function<DamlRecord, Data> fromValue,
         NewContract<Ct, Id, Data, Key> newContract,
+        List<ChoiceMetadata<Data, ?, ?>> choices,
         Function<Value, Key> keyFromValue) {
-      super(templateClassName, templateId, newContractId, fromValue);
+      super(templateClassName, templateId, newContractId, fromValue, choices);
       this.newContract = newContract;
       this.keyFromValue = keyFromValue;
     }

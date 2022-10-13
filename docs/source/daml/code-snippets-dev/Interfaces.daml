@@ -86,7 +86,7 @@ interface Square requires Rectangle, Shape where
 -- INTERFACE_TRANSITIVE_REQUIRES_CORRECT_END
 
 -- TEMPLATE_HEADER_BEGIN
-template MyTemplate
+template NameOfTemplate
   with
     field1 : Party
     field2 : Int
@@ -94,8 +94,8 @@ template MyTemplate
     signatory field1
 -- TEMPLATE_HEADER_END
 -- INTERFACE_INSTANCE_IN_TEMPLATE_BEGIN
-    interface instance MyInterface for MyTemplate where
-      view = MyInterfaceViewType "MyTemplate" 100
+    interface instance MyInterface for NameOfTemplate where
+      view = MyInterfaceViewType "NameOfTemplate" 100
       method1 = field1
       method2 = field2
       method3 False _ _ = 0
@@ -104,7 +104,7 @@ template MyTemplate
         | otherwise = y
 -- INTERFACE_INSTANCE_IN_TEMPLATE_END
 -- EMPTY_INTERFACE_INSTANCE_BEGIN
-    interface instance YourInterface for MyTemplate where
+    interface instance YourInterface for NameOfTemplate where
       view = EmptyInterfaceView
 -- EMPTY_INTERFACE_INSTANCE_END
 
@@ -118,7 +118,7 @@ interface MyNewInterface where
     controller myNewMethod1 this
     do pure $ myNewMethod2 this 0
 
-  interface instance MyNewInterface for MyTemplate where
+  interface instance MyNewInterface for NameOfTemplate where
     view = EmptyInterfaceView
     myNewMethod1 = field1
     myNewMethod2 x = field2 `min` x

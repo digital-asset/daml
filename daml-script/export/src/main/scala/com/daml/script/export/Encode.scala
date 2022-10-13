@@ -9,7 +9,7 @@ import java.time.{LocalDate, ZoneId, ZonedDateTime}
 import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, Party, TemplateId}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.value.Value.Sum
-import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.{Date, Timestamp}
 import com.daml.lf.language.Ast
@@ -164,7 +164,7 @@ private[export] object Encode {
           Doc.text("Some new -> new")).nested(2)).nested(2)
 
   private def encodePartyType(): Doc =
-    Doc.text("-- | Mapping from party names in the original ledger state ") /
+    Doc.text("-- | Mapping from party names in the original ledger state") /
       Doc.text("-- to parties to be used in 'export'.") /
       Doc.text("type Parties = DA.TextMap.TextMap Party")
 
@@ -190,12 +190,7 @@ private[export] object Encode {
         case Sum.Record(value) if isTupleId(value.getRecordId) =>
           tuple(value.fields.map(f => go(f.getValue.sum)))
         case Sum.Record(value) => encodeRecord(partyMap, cidMap, value)
-        // TODO Handle sums of products properly
-        case Sum.Variant(value) =>
-          parens(
-            qualifyId(value.getVariantId.copy(entityName = value.constructor)) +
-              Doc.text(" ") + go(value.getValue.sum)
-          )
+        case Sum.Variant(value) => encodeVariant(partyMap, cidMap, value)
         case Sum.ContractId(c) => encodeCid(cidMap, ContractId(c))
         case Sum.List(value) =>
           list(value.elements.map(v => go(v.sum)))
@@ -358,6 +353,32 @@ private[export] object Encode {
           braces(Doc.intercalate(comma, r.fields.map(encodeField(partyMap, cidMap, _))))
       )
 
+  }
+
+  private def variantFieldsRecordId(
+      variant: Variant
+  ): Identifier =
+    variant.getVariantId.withEntityName(
+      variant.getVariantId.entityName + "." + variant.constructor
+    )
+
+  private def encodeVariant(
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
+      v: Variant,
+  ): Doc = {
+    val constrId = v.getVariantId.copy(entityName = v.constructor)
+    v.getValue.sum match {
+      case Sum.Record(rec) if rec.getRecordId == variantFieldsRecordId(v) =>
+        // The record carries the fields of a variant constructor
+        // declared with record syntax, so we encode directly as a record.
+        encodeRecord(partyMap, cidMap, rec.withRecordId(constrId))
+      case _ =>
+        parens(
+          qualifyId(constrId) +
+            Doc.text(" ") + encodeValue(partyMap, cidMap, v.getValue.sum)
+        )
+    }
   }
 
   private def encodeField(

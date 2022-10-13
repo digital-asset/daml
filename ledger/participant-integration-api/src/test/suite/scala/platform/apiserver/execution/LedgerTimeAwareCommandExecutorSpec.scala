@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver.execution
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.error.definitions.ErrorCause
 import com.daml.error.definitions.ErrorCause.LedgerTime
 import com.daml.ledger.api.DeduplicationPeriod
@@ -152,7 +151,7 @@ class LedgerTimeAwareCommandExecutorSpec
       mockExecutor,
       mockResolveMaximumLedgerTime,
       3,
-      new Metrics(new MetricRegistry),
+      Metrics.ForTesting,
     )
 
     instance.execute(commands, submissionSeed, configuration)(loggingContext).map { actual =>

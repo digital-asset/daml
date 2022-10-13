@@ -146,7 +146,7 @@ class ContractKeySpec
     val submissionSeed = crypto.Hash.hashPrivateKey("contract key")
     val txSeed = crypto.Hash.deriveTransactionSeed(submissionSeed, participant, now)
 
-    // TEST_EVIDENCE: Semantics: contract keys should be evaluated only when executing create
+    // TEST_EVIDENCE: Integrity: contract keys should be evaluated only when executing create
     "be evaluated only when executing create" in {
       val templateId =
         Identifier(basicTestsPkgId, "BasicTests:ComputeContractKeyWhenExecutingCreate")
@@ -185,7 +185,7 @@ class ContractKeySpec
       result shouldBe a[Right[_, _]]
     }
 
-    // TEST_EVIDENCE: Semantics: contract keys should be evaluated after ensure clause
+    // TEST_EVIDENCE: Integrity: contract keys should be evaluated after ensure clause
     "be evaluated after ensure clause" in {
       val templateId =
         Identifier(basicTestsPkgId, "BasicTests:ComputeContractKeyAfterEnsureClause")
@@ -218,7 +218,7 @@ class ContractKeySpec
       err.message should include("Template precondition violated")
     }
 
-    // TEST_EVIDENCE: Semantics: contract keys must have a non-empty set of maintainers
+    // TEST_EVIDENCE: Integrity: contract keys must have a non-empty set of maintainers
     "not be create if has an empty set of maintainer" in {
       val templateId =
         Identifier(basicTestsPkgId, "BasicTests:NoMaintainer")
@@ -411,7 +411,7 @@ class ContractKeySpec
         "RollbackGlobalArchiveUpdates",
       )
 
-      // TEST_EVIDENCE: Semantics: contract key behaviour (non-unique mode)
+      // TEST_EVIDENCE: Integrity: contract key behaviour (non-unique mode)
       "non-uck mode" in {
         forEvery(allCases) { case (name, arg) =>
           if (nonUckFailures.contains(name)) {
@@ -421,7 +421,7 @@ class ContractKeySpec
           }
         }
       }
-      // TEST_EVIDENCE: Semantics: contract key behaviour (unique mode)
+      // TEST_EVIDENCE: Integrity: contract key behaviour (unique mode)
       "uck mode" in {
         forEvery(allCases) { case (name, arg) =>
           if (uckFailures.contains(name)) {

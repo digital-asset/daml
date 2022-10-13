@@ -23,7 +23,7 @@ import com.daml.ledger.api.v1.version_service.{
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.LedgerFeatures
-import com.daml.platform.usermanagement.UserManagementConfig
+import com.daml.platform.localstore.UserManagementConfig
 import io.grpc.ServerServiceDefinition
 
 import scala.annotation.nowarn
@@ -90,18 +90,15 @@ private[apiserver] final class ApiVersionService private (
       .map(apiVersionResponse)
       .andThen(logger.logErrorsOnCall[GetLedgerApiVersionResponse])
       .recoverWith { case NonFatal(_) =>
-        internalError
+        Future.failed(
+          LedgerApiErrors.InternalError
+            .VersionService(message = "Cannot read Ledger API version")
+            .asGrpcError
+        )
       }
 
   private def apiVersionResponse(version: String) =
     GetLedgerApiVersionResponse(version, Some(featuresDescriptor))
-
-  private lazy val internalError: Future[Nothing] =
-    Future.failed(
-      LedgerApiErrors.InternalError
-        .VersionService(message = "Cannot read Ledger API version")
-        .asGrpcError
-    )
 
   private def readVersion(versionFileName: String): Try[String] =
     Try {

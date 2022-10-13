@@ -34,10 +34,11 @@ import com.daml.platform.apiserver.services._
 import com.daml.platform.apiserver.services.admin._
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
 import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
+import com.daml.platform.localstore.UserManagementConfig
+import com.daml.platform.localstore.api.{PartyRecordStore, UserManagementStore}
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.{GrpcHealthService, GrpcTransactionService}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.telemetry.TelemetryContext
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -99,6 +100,7 @@ private[daml] object ApiServices {
     private val activeContractsService: IndexActiveContractsService = indexService
     private val transactionsService: IndexTransactionsService = indexService
     private val contractStore: ContractStore = indexService
+    private val maximumLedgerTimeService: MaximumLedgerTimeService = indexService
     private val completionsService: IndexCompletionsService = indexService
     private val partyManagementService: IndexPartyManagementService = indexService
     private val configManagementService: IndexConfigManagementService = indexService
@@ -244,7 +246,7 @@ private[daml] object ApiServices {
               contractStore,
               metrics,
             ),
-            new ResolveMaximumLedgerTime(contractStore),
+            new ResolveMaximumLedgerTime(maximumLedgerTimeService),
             maxRetries = 3,
             metrics,
           ),

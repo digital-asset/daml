@@ -10,13 +10,15 @@ import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplemen
 import com.daml.ledger.client.GrpcChannel
 import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{MetricName, Metrics}
 import com.daml.platform.apiserver.GrpcServerSpec._
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
+import com.daml.platform.apiserver.ratelimiting.RateLimitingInterceptor
+import com.daml.platform.configuration.ServerRole
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
-import io.grpc.{ManagedChannel, Status, StatusRuntimeException}
+import io.grpc.{ManagedChannel, ServerInterceptor, Status, StatusRuntimeException}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -85,12 +87,17 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
       }
     }
 
-    "rate limit interceptor is installed" in {
-      val metrics = new Metrics(new MetricRegistry)
-      resources(metrics).use { channel =>
+    "install rate limit interceptor" in {
+      val metrics = Metrics.ForTesting
+      val rateLimitingInterceptor = RateLimitingInterceptor(metrics, rateLimitingConfig)
+      resources(metrics, List(rateLimitingInterceptor)).use { channel =>
+        val metricName = MetricName(
+          metrics.daml.index.db.threadpool.connection,
+          ServerRole.ApiServer.threadPoolSuffix,
+        )
         metrics.registry
-          .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
-          .mark(rateLimitingConfig.maxApiServicesQueueSize.toLong + 1) // Over limit
+          .meter(MetricRegistry.name(metricName, "submitted"))
+          .mark(rateLimitingConfig.maxApiServicesIndexDbQueueSize.toLong + 1) // Over limit
         val helloService = HelloServiceGrpc.stub(channel)
         helloService.single(HelloRequest(7)).failed.map {
           case s: StatusRuntimeException =>
@@ -125,7 +132,8 @@ object GrpcServerSpec {
   }
 
   private def resources(
-      metrics: Metrics = new Metrics(new MetricRegistry)
+      metrics: Metrics = Metrics.ForTesting,
+      interceptors: List[ServerInterceptor] = List.empty,
   ): ResourceOwner[ManagedChannel] =
     for {
       executor <- ResourceOwner.forExecutorService(() => Executors.newSingleThreadExecutor())
@@ -136,7 +144,7 @@ object GrpcServerSpec {
         metrics = metrics,
         servicesExecutor = executor,
         services = Seq(new TestedHelloService),
-        rateLimitingConfig = Some(rateLimitingConfig),
+        interceptors = interceptors,
       )
       channel <- new GrpcChannel.Owner(
         Port(server.getPort),
