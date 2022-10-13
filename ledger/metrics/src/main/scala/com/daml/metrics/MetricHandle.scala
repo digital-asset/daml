@@ -40,8 +40,6 @@ object MetricHandle {
   }
   trait DropwizardFactory extends Factory {
 
-    def prefix: MetricName
-
     def registry: codahale.MetricRegistry
 
     def timer(name: MetricName): Timer = DropwizardTimer(name, registry.timer(name))
