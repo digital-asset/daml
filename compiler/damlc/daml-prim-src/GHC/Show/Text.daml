@@ -61,8 +61,11 @@ explode = primExplode
 
 #endif
 
-isDec : Chr -> Bool
-isDec c = CH("0") <= c && c <= CH("9")
+startsWithDigit : Text -> Bool
+startsWithDigit t = "0" <= t && t < ":" -- ':' immediately follows '9' in ASCII
+
+startsWithUppercaseH : Text -> Bool
+startsWithUppercaseH t = "H" <= t && t < "I"
 
 ord : Chr -> Int
 ord CH(t) = case primTextToCodePoints t of
@@ -86,7 +89,7 @@ showLitChrs (CH("\"") :: cs) s = showString "\\\"" (showLitChrs cs s)
 showLitChrs (c        :: cs) s = showLitChr c (showLitChrs cs s)
 
 showLitChr : Chr -> ShowS
-showLitChr c s | c > CH("\DEL")       = showString "\\" (protectEsc isDec (showInt (ord c)) s)
+showLitChr c s | c > CH("\DEL")       = showString "\\" (protectEsc startsWithDigit (showInt (ord c)) s)
 showLitChr CH("\DEL")               s = showString "\\DEL" s
 showLitChr CH("\\")                 s = showString "\\\\" s
 showLitChr c@(CH(t)) s | c >= CH(" ") = showString t s
@@ -97,13 +100,13 @@ showLitChr CH("\n")                 s = showString "\\n" s
 showLitChr CH("\r")                 s = showString "\\r" s
 showLitChr CH("\t")                 s = showString "\\t" s
 showLitChr CH("\v")                 s = showString "\\v" s
-showLitChr CH("\SO")                s = protectEsc (== CH("H")) (showString "\\SO") s
+showLitChr CH("\SO")                s = protectEsc startsWithUppercaseH (showString "\\SO") s
 showLitChr c                        s = showString ("\\" ++ ascii c) s
 
-protectEsc : (Chr -> Bool) -> ShowS -> ShowS
+protectEsc : (Text -> Bool) -> ShowS -> ShowS
 protectEsc p f = f . cont
-               where cont s@(explode -> c::_) | p c = showString "\\&" s
-                     cont s                         = s
+               where cont s | p s = showString "\\&" s
+                     cont s       = s
 
 ascii : Chr -> Text
 ascii c = case c of
