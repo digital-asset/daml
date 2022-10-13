@@ -5,7 +5,7 @@ package com.daml.metrics
 
 import java.util.concurrent.TimeUnit
 
-import com.codahale.{metrics, metrics => codahale}
+import com.codahale.{metrics => codahale}
 import com.daml.metrics.MetricHandle.Timer.TimerStop
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -62,7 +62,7 @@ object MetricHandle {
           name,
           () => {
             val valueGetter = gaugeSupplier()
-            new metrics.Gauge[T] { override def getValue: T = valueGetter() }
+            new codahale.Gauge[T] { override def getValue: T = valueGetter() }
           },
         )
         ()
