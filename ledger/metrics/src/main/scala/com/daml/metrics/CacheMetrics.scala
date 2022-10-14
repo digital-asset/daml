@@ -19,7 +19,7 @@ final class CacheMetrics(override val prefix: MetricName, override val registry:
     qualification = Debug,
   )
   @MetricDoc.GroupTag(
-    representative = "daml.execution.cache.<state_cache>.hits",
+    representative = "daml.execution.cache.<state_cache>.hits"
   )
   val hitCount: Counter = counter(prefix :+ "hits")
 
@@ -30,7 +30,7 @@ final class CacheMetrics(override val prefix: MetricName, override val registry:
     qualification = Debug,
   )
   @MetricDoc.GroupTag(
-    representative = "daml.execution.cache.<state_cache>.misses",
+    representative = "daml.execution.cache.<state_cache>.misses"
   )
   val missCount: Counter = counter(prefix :+ "misses")
 
@@ -40,7 +40,7 @@ final class CacheMetrics(override val prefix: MetricName, override val registry:
     qualification = Debug,
   )
   @MetricDoc.GroupTag(
-    representative = "daml.execution.cache.<state_cache>.evictions",
+    representative = "daml.execution.cache.<state_cache>.evictions"
   )
   val evictionCount: Counter = counter(prefix :+ "evictions")
 
@@ -50,7 +50,7 @@ final class CacheMetrics(override val prefix: MetricName, override val registry:
     qualification = Debug,
   )
   @MetricDoc.GroupTag(
-    representative = "daml.execution.cache.<state_cache>.evicted_weight",
+    representative = "daml.execution.cache.<state_cache>.evicted_weight"
   )
   val evictionWeight: Counter = counter(prefix :+ "evicted_weight")
 

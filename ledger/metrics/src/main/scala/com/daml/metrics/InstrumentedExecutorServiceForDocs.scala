@@ -9,7 +9,7 @@ import com.daml.metrics.MetricHandle.{Counter, Meter, Timer}
 class InstrumentedExecutorServiceForDocs(name: MetricName) {
 
   @MetricDoc.GroupTag(
-    representative = "daml.parallel_indexer.<stage>.executor.submitted",
+    representative = "daml.parallel_indexer.<stage>.executor.submitted"
   )
   @MetricDoc.Tag(
     summary = "The number of tasks submitted to an instrumented executor.",
@@ -21,7 +21,7 @@ class InstrumentedExecutorServiceForDocs(name: MetricName) {
   val submitted: Meter = Meter(name :+ "submitted", null)
 
   @MetricDoc.GroupTag(
-    representative = "daml.parallel_indexer.<stage>.executor.running",
+    representative = "daml.parallel_indexer.<stage>.executor.running"
   )
   @MetricDoc.Tag(
     summary = "The number of tasks running in an instrumented executor.",
@@ -33,7 +33,7 @@ class InstrumentedExecutorServiceForDocs(name: MetricName) {
   val running: Counter = Counter(name :+ "running", null)
 
   @MetricDoc.GroupTag(
-    representative = "daml.parallel_indexer.<stage>.executor.completed",
+    representative = "daml.parallel_indexer.<stage>.executor.completed"
   )
   @MetricDoc.Tag(
     summary = "The number of tasks completed in an instrumented executor.",
@@ -45,7 +45,7 @@ class InstrumentedExecutorServiceForDocs(name: MetricName) {
   val completed: Meter = Meter(name :+ "completed", null)
 
   @MetricDoc.GroupTag(
-    representative = "daml.parallel_indexer.<stage>.executor.idle",
+    representative = "daml.parallel_indexer.<stage>.executor.idle"
   )
   @MetricDoc.Tag(
     summary = "The time that a task is idle in an instrumented executor.",
@@ -57,7 +57,7 @@ class InstrumentedExecutorServiceForDocs(name: MetricName) {
   val idle: Timer = Timer(name :+ "idle", null)
 
   @MetricDoc.GroupTag(
-    representative = "daml.parallel_indexer.<stage>.executor.duration",
+    representative = "daml.parallel_indexer.<stage>.executor.duration"
   )
   @MetricDoc.Tag(
     summary = "The duration of a task is running in an instrumented executor.",

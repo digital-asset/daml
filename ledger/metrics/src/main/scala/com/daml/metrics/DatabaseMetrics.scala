@@ -16,16 +16,16 @@ class DatabaseMetrics private[metrics] (
   protected val dbPrefix: MetricName = prefix :+ name
 
   @MetricDoc.GroupTag(
-    representative = "daml.user_management.<operation>.wait",
+    representative = "daml.user_management.<operation>.wait"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.party_record_store.<operation>.wait",
+    representative = "daml.party_record_store.<operation>.wait"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.index.db.<operation>.wait",
+    representative = "daml.index.db.<operation>.wait"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.parallel_indexer.<stage>.wait",
+    representative = "daml.parallel_indexer.<stage>.wait"
   )
   @MetricDoc.Tag(
     summary = "The time needed to acquire a connection to the database.",
@@ -37,16 +37,16 @@ class DatabaseMetrics private[metrics] (
   val waitTimer: Timer = timer(dbPrefix :+ "wait")
 
   @MetricDoc.GroupTag(
-    representative = "daml.user_management.<operation>.exec",
+    representative = "daml.user_management.<operation>.exec"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.party_record_store.<operation>.exec",
+    representative = "daml.party_record_store.<operation>.exec"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.index.db.<operation>.exec",
+    representative = "daml.index.db.<operation>.exec"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.parallel_indexer.<stage>.exec",
+    representative = "daml.parallel_indexer.<stage>.exec"
   )
   @MetricDoc.Tag(
     summary = "The time needed to run the SQL query and read the result.",
@@ -58,16 +58,16 @@ class DatabaseMetrics private[metrics] (
   val executionTimer: Timer = timer(dbPrefix :+ "exec")
 
   @MetricDoc.GroupTag(
-    representative = "daml.user_management.<operation>.translation",
+    representative = "daml.user_management.<operation>.translation"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.party_record_store.<operation>.translation",
+    representative = "daml.party_record_store.<operation>.translation"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.index.db.<operation>.translation",
+    representative = "daml.index.db.<operation>.translation"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.parallel_indexer.<stage>.translation",
+    representative = "daml.parallel_indexer.<stage>.translation"
   )
   @MetricDoc.Tag(
     summary = "The time needed to turn serialized Daml-LF values into in-memory objects.",
@@ -79,16 +79,16 @@ class DatabaseMetrics private[metrics] (
   val translationTimer: Timer = timer(dbPrefix :+ "translation")
 
   @MetricDoc.GroupTag(
-    representative = "daml.user_management.<operation>.compression",
+    representative = "daml.user_management.<operation>.compression"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.party_record_store.<operation>.compression",
+    representative = "daml.party_record_store.<operation>.compression"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.index.db.<operation>.compression",
+    representative = "daml.index.db.<operation>.compression"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.parallel_indexer.<stage>.compression",
+    representative = "daml.parallel_indexer.<stage>.compression"
   )
   @MetricDoc.Tag(
     summary = "The time needed to decompress the SQL query result.",
@@ -100,16 +100,16 @@ class DatabaseMetrics private[metrics] (
   val compressionTimer: Timer = timer(dbPrefix :+ "compression")
 
   @MetricDoc.GroupTag(
-    representative = "daml.user_management.<operation>.commit",
+    representative = "daml.user_management.<operation>.commit"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.party_record_store.<operation>.commit",
+    representative = "daml.party_record_store.<operation>.commit"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.index.db.<operation>.commit",
+    representative = "daml.index.db.<operation>.commit"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.parallel_indexer.<stage>.commit",
+    representative = "daml.parallel_indexer.<stage>.commit"
   )
   @MetricDoc.Tag(
     summary = "The time needed to perform the SQL query commit.",
@@ -121,16 +121,16 @@ class DatabaseMetrics private[metrics] (
   val commitTimer: Timer = timer(dbPrefix :+ "commit")
 
   @MetricDoc.GroupTag(
-    representative = "daml.user_management.<operation>.query",
+    representative = "daml.user_management.<operation>.query"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.party_record_store.<operation>.query",
+    representative = "daml.party_record_store.<operation>.query"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.index.db.<operation>.query",
+    representative = "daml.index.db.<operation>.query"
   )
   @MetricDoc.GroupTag(
-    representative = "daml.parallel_indexer.<stage>.query",
+    representative = "daml.parallel_indexer.<stage>.query"
   )
   @MetricDoc.Tag(
     summary = "The time needed to run the SQL query.",
