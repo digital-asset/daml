@@ -15,6 +15,18 @@ class DatabaseMetrics private[metrics] (
 ) extends MetricHandle.Factory {
   protected val dbPrefix: MetricName = prefix :+ name
 
+  @MetricDoc.GroupTag(
+    representative = "daml.user_management.<operation>.wait",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.party_record_store.<operation>.wait",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.index.db.<operation>.wait",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.parallel_indexer.<stage>.wait",
+  )
   @MetricDoc.Tag(
     summary = "The time needed to acquire a connection to the database.",
     description = """SQL statements are run in a dedicated executor. This metric measures the time
@@ -24,6 +36,18 @@ class DatabaseMetrics private[metrics] (
   )
   val waitTimer: Timer = timer(dbPrefix :+ "wait")
 
+  @MetricDoc.GroupTag(
+    representative = "daml.user_management.<operation>.exec",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.party_record_store.<operation>.exec",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.index.db.<operation>.exec",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.parallel_indexer.<stage>.exec",
+  )
   @MetricDoc.Tag(
     summary = "The time needed to run the SQL query and read the result.",
     description = """This metric encompasses the time measured by `query` and `commit` metrics.
@@ -33,6 +57,18 @@ class DatabaseMetrics private[metrics] (
   )
   val executionTimer: Timer = timer(dbPrefix :+ "exec")
 
+  @MetricDoc.GroupTag(
+    representative = "daml.user_management.<operation>.translation",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.party_record_store.<operation>.translation",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.index.db.<operation>.translation",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.parallel_indexer.<stage>.translation",
+  )
   @MetricDoc.Tag(
     summary = "The time needed to turn serialized Daml-LF values into in-memory objects.",
     description = """Some index database queries that target contracts and transactions involve a
@@ -42,6 +78,18 @@ class DatabaseMetrics private[metrics] (
   )
   val translationTimer: Timer = timer(dbPrefix :+ "translation")
 
+  @MetricDoc.GroupTag(
+    representative = "daml.user_management.<operation>.compression",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.party_record_store.<operation>.compression",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.index.db.<operation>.compression",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.parallel_indexer.<stage>.compression",
+  )
   @MetricDoc.Tag(
     summary = "The time needed to decompress the SQL query result.",
     description = """Some index database queries that target contracts involve a decompression
@@ -51,6 +99,18 @@ class DatabaseMetrics private[metrics] (
   )
   val compressionTimer: Timer = timer(dbPrefix :+ "compression")
 
+  @MetricDoc.GroupTag(
+    representative = "daml.user_management.<operation>.commit",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.party_record_store.<operation>.commit",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.index.db.<operation>.commit",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.parallel_indexer.<stage>.commit",
+  )
   @MetricDoc.Tag(
     summary = "The time needed to perform the SQL query commit.",
     description = """This metric measures the time it takes to commit an SQL transaction relating
@@ -60,6 +120,18 @@ class DatabaseMetrics private[metrics] (
   )
   val commitTimer: Timer = timer(dbPrefix :+ "commit")
 
+  @MetricDoc.GroupTag(
+    representative = "daml.user_management.<operation>.query",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.party_record_store.<operation>.query",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.index.db.<operation>.query",
+  )
+  @MetricDoc.GroupTag(
+    representative = "daml.parallel_indexer.<stage>.query",
+  )
   @MetricDoc.Tag(
     summary = "The time needed to run the SQL query.",
     description = """This metric measures the time it takes to execute a block of code (on a
