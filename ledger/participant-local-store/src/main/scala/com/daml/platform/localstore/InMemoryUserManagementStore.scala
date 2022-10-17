@@ -22,7 +22,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   // Structured so we can use a ConcurrentHashMap (to more closely mimic a real implementation, where performance is key).
   // We synchronize on a private object (the mutable map), not the service (which could cause deadlocks).
   // (No need to mark state as volatile -- rely on synchronized to establish the JMM's happens-before relation.)
-  private val state: mutable.TreeMap[Ref.UserId, UserInfo] = mutable.TreeMap()
+  private val state: mutable.TreeMap[Ref.UserId, InMemUserInfo] = mutable.TreeMap()
   if (createAdmin) {
     state.put(AdminUser.user.id, AdminUser)
   }
@@ -30,7 +30,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def getUserInfo(id: UserId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserManagementStore.UserInfo]] =
-    withUser(id)(Right(_))
+    withUser(id)(info => Right(toDomainUserInfo(info)))
 
   override def createUser(user: User, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
@@ -39,10 +39,17 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       for {
         _ <- validateAnnotationsSize(user.metadata.annotations, user.id)
       } yield {
-        val userWithResourceVersion =
-          user.copy(metadata = user.metadata.copy(resourceVersionO = Some(0)))
-        state.update(user.id, UserInfo(userWithResourceVersion, rights))
-        userWithResourceVersion
+        val userWithResourceVersion = {
+          InMemUser(
+            id = user.id,
+            primaryParty = user.primaryParty,
+            isDeactivated = user.isDeactivated,
+            resourceVersion = 0,
+            annotations = user.metadata.annotations,
+          )
+        }
+        state.update(user.id, InMemUserInfo(userWithResourceVersion, rights))
+        toDomainUser(userWithResourceVersion)
       }
     }
 
@@ -53,7 +60,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       val updatedPrimaryParty = userUpdate.primaryPartyUpdateO.getOrElse(userInfo.user.primaryParty)
       val updatedIsDeactivated =
         userUpdate.isDeactivatedUpdateO.getOrElse(userInfo.user.isDeactivated)
-      val existingAnnotations = userInfo.user.metadata.annotations
+      val existingAnnotations = userInfo.user.annotations
       val updatedAnnotations =
         userUpdate.metadataUpdate.annotationsUpdateO.fold(existingAnnotations) { newAnnotations =>
           LocalAnnotationsUtils.calculateUpdatedAnnotations(
@@ -61,13 +68,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
             existing = existingAnnotations,
           )
         }
-      val currentResourceVersion = userInfo.user.metadata.resourceVersionO
-        // TODO um-for-hub: Use error codes
-        .getOrElse(
-          sys.error(
-            s"Could not find resource version on user: ${userInfo.user}. All created users must have a resource version"
-          )
-        )
+      val currentResourceVersion = userInfo.user.resourceVersion
       val newResourceVersionEither = userUpdate.metadataUpdate.resourceVersionO match {
         case None => Right(currentResourceVersion + 1)
         case Some(requestResourceVersion) =>
@@ -85,14 +86,12 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
           user = userInfo.user.copy(
             primaryParty = updatedPrimaryParty,
             isDeactivated = updatedIsDeactivated,
-            metadata = ObjectMeta(
-              resourceVersionO = Some(newResourceVersion),
-              annotations = updatedAnnotations,
-            ),
+            resourceVersion = newResourceVersion,
+            annotations = updatedAnnotations,
           )
         )
         state.update(userUpdate.id, updatedUserInfo)
-        updatedUserInfo.user
+        toDomainUser(updatedUserInfo.user)
       }
     }
   }
@@ -138,20 +137,20 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]] = {
     withState {
-      val iter: Iterator[UserInfo] = fromExcl match {
+      val iter: Iterator[InMemUserInfo] = fromExcl match {
         case None => state.valuesIterator
         case Some(after) => state.valuesIteratorFrom(start = after).dropWhile(_.user.id == after)
       }
       val users: Seq[User] = iter
         .take(maxResults)
-        .map(_.user)
+        .map(info => toDomainUser(info.user))
         .toSeq
       Right(UsersPage(users = users))
     }
   }
 
   def listAllUsers(): Future[List[User]] = withState(
-    state.valuesIterator.map(_.user).toList
+    state.valuesIterator.map(info => toDomainUser(info.user)).toList
   )
 
   private def withState[T](t: => T): Future[T] =
@@ -159,7 +158,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       Future.successful(t)
     )
 
-  private def withUser[T](id: Ref.UserId)(f: UserInfo => Result[T]): Future[Result[T]] =
+  private def withUser[T](id: Ref.UserId)(f: InMemUserInfo => Result[T]): Future[Result[T]] =
     withState(
       state.get(id) match {
         case Some(user) => f(user)
@@ -175,16 +174,17 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       }
     )
 
-  private def replaceInfo(oldInfo: UserInfo, newInfo: UserInfo) = state.synchronized {
-    assert(
-      oldInfo.user.id == newInfo.user.id,
-      s"Replace info from if ${oldInfo.user.id} to ${newInfo.user.id} -> ${newInfo.rights}",
-    )
-    state.get(oldInfo.user.id) match {
-      case Some(`oldInfo`) => state.update(newInfo.user.id, newInfo); true
-      case _ => false
+  private def replaceInfo(oldInfo: InMemUserInfo, newInfo: InMemUserInfo): Boolean =
+    state.synchronized {
+      assert(
+        oldInfo.user.id == newInfo.user.id,
+        s"Replace info from if ${oldInfo.user.id} to ${newInfo.user.id} -> ${newInfo.rights}",
+      )
+      state.get(oldInfo.user.id) match {
+        case Some(`oldInfo`) => state.update(newInfo.user.id, newInfo); true
+        case _ => false
+      }
     }
-  }
 
   private def validateAnnotationsSize(
       annotations: Map[String, String],
@@ -201,15 +201,41 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
 
 object InMemoryUserManagementStore {
 
-  private val AdminUser = UserInfo(
-    user = User(
+  case class InMemUser(
+      id: Ref.UserId,
+      primaryParty: Option[Ref.Party],
+      isDeactivated: Boolean = false,
+      resourceVersion: Long,
+      annotations: Map[String, String],
+  )
+  case class InMemUserInfo(user: InMemUser, rights: Set[UserRight])
+
+  def toDomainUserInfo(info: InMemUserInfo): UserInfo = {
+    UserInfo(
+      user = toDomainUser(info.user),
+      rights = info.rights,
+    )
+  }
+
+  def toDomainUser(user: InMemUser): User = {
+    User(
+      id = user.id,
+      primaryParty = user.primaryParty,
+      isDeactivated = user.isDeactivated,
+      metadata = ObjectMeta(
+        resourceVersionO = Some(user.resourceVersion),
+        annotations = user.annotations,
+      ),
+    )
+  }
+
+  private val AdminUser = InMemUserInfo(
+    user = InMemUser(
       id = Ref.UserId.assertFromString(UserManagementStore.DefaultParticipantAdminUserId),
       primaryParty = None,
       isDeactivated = false,
-      metadata = ObjectMeta(
-        resourceVersionO = Some(0),
-        annotations = Map.empty,
-      ),
+      resourceVersion = 0,
+      annotations = Map.empty,
     ),
     rights = Set(UserRight.ParticipantAdmin),
   )
