@@ -33,6 +33,6 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
   }
 
   override def createPartyRecordStorageBackend: PartyRecordStorageBackend =
-    new PartyRecordStorageBackendImpl()
+    PartyRecordStorageBackendImpl
 
 }

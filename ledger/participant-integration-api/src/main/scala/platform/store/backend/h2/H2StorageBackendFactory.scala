@@ -46,7 +46,7 @@ object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageB
     new PartyStorageBackendTemplate(H2QueryStrategy, ledgerEndCache)
 
   override def createPartyRecordStorageBackend: PartyRecordStorageBackend =
-    new PartyRecordStorageBackendImpl()
+    PartyRecordStorageBackendImpl
 
   override def createCompletionStorageBackend(
       stringInterning: StringInterning

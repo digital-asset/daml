@@ -188,7 +188,7 @@ trait PartyStorageBackend {
 }
 
 // TODO um-for-hub: Consider extracting from StorageBackend hierarchy
-trait PartyRecordStorageBackend {
+trait PartyRecordStorageBackend extends ResourceVersionOpsBackend {
 
   def getPartyRecord(party: Ref.Party)(
       connection: Connection
@@ -205,15 +205,6 @@ trait PartyRecordStorageBackend {
   ): Unit
 
   def deletePartyAnnotations(internalId: Int)(connection: Connection): Unit
-
-  def compareAndIncreaseResourceVersion(
-      internalId: Int,
-      expectedResourceVersion: Long,
-  )(connection: Connection): Boolean
-
-  def increaseResourceVersion(
-      internalId: Int
-  )(connection: Connection): Boolean
 
 }
 
@@ -476,7 +467,17 @@ trait StringInterningStorageBackend {
   ): Iterable[(Int, String)]
 }
 
-trait UserManagementStorageBackend {
+trait ResourceVersionOpsBackend {
+  def compareAndIncreaseResourceVersion(
+      internalId: Int,
+      expectedResourceVersion: Long,
+  )(connection: Connection): Boolean
+
+  def increaseResourceVersion(
+      internalId: Int
+  )(connection: Connection): Boolean
+}
+trait UserManagementStorageBackend extends ResourceVersionOpsBackend {
 
   def createUser(user: UserManagementStorageBackend.DbUserPayload)(connection: Connection): Int
 
@@ -515,15 +516,6 @@ trait UserManagementStorageBackend {
   def updateUserPrimaryParty(internalId: Int, primaryPartyO: Option[Ref.Party])(
       connection: Connection
   ): Boolean
-
-  def compareAndIncreaseResourceVersion(
-      internalId: Int,
-      expectedResourceVersion: Long,
-  )(connection: Connection): Boolean
-
-  def increaseResourceVersion(
-      internalId: Int
-  )(connection: Connection): Boolean
 
   def updateUserIsDeactivated(
       internalId: Int,

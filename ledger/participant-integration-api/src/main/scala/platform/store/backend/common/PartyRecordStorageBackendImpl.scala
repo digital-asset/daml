@@ -13,7 +13,7 @@ import com.daml.lf.data.Ref
 
 import scala.util.Try
 
-class PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
+object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
 
   private val PartyRecordParser: RowParser[(Int, String, Long, Long)] =
     int("internal_id") ~
