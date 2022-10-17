@@ -134,7 +134,7 @@ instance Show RoundingMode where
 #endif
 
 instance Show Text where
-  showsPrec = showsPrecText
+  showsPrec = showsPrecText -- see Note [instance Show Text]
 
 instance Show a => Show [a]  where
   showsPrec _ = showList
