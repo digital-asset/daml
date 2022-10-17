@@ -66,7 +66,7 @@ class CommandService(
   def create(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: CreateCommand[lav1.value.Record, ContractTypeId.RequiredPkg], // TODO #15098 .Template
+      input: CreateCommand[lav1.value.Record, ContractTypeId.Template.RequiredPkg],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ domain.CreateCommandResponse[lav1.value.Value]] =
@@ -181,7 +181,7 @@ class CommandService(
   }
 
   private def createCommand(
-      input: CreateCommand[lav1.value.Record, ContractTypeId.RequiredPkg] // TODO #15098 .Template
+      input: CreateCommand[lav1.value.Record, ContractTypeId.Template.RequiredPkg]
   ): lav1.commands.Command.Command.Create = {
     Commands.create(refApiIdentifier(input.templateId), input.payload)
   }

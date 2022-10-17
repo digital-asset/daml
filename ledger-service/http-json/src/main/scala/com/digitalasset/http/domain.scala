@@ -290,7 +290,7 @@ package domain {
 
   final case class CreateCommandResponse[+LfV](
       contractId: ContractId,
-      templateId: ContractTypeId.RequiredPkg, // TODO #15098 use .Template
+      templateId: ContractTypeId.Template.RequiredPkg,
       key: Option[LfV],
       payload: LfV,
       signatories: Seq[Party],

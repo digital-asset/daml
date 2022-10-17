@@ -392,10 +392,10 @@ object JsonProtocol extends JsonProtocolLow {
   )
 
   implicit val CreateCommandFormat: RootJsonFormat[
-    domain.CreateCommand[JsValue, domain.ContractTypeId.OptionalPkg]
-  ] = // TODO #15098 .Template
+    domain.CreateCommand[JsValue, domain.ContractTypeId.Template.OptionalPkg]
+  ] =
     jsonFormat3(
-      domain.CreateCommand[JsValue, domain.ContractTypeId.OptionalPkg]
+      domain.CreateCommand[JsValue, domain.ContractTypeId.Template.OptionalPkg]
     )
 
   implicit val ExerciseCommandFormat
