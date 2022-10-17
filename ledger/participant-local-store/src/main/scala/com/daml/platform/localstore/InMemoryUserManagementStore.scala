@@ -200,7 +200,7 @@ object InMemoryUserManagementStore {
       primaryParty = None,
       isDeactivated = false,
       metadata = ObjectMeta(
-        resourceVersionO = Some(1),
+        resourceVersionO = Some(0),
         annotations = Map.empty,
       ),
     ),
