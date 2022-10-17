@@ -4,14 +4,27 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
--- #define SHOW_TEXT_CHR_NEWTYPE
+{-
+Note [newtype Chr debugging]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The macro `__DEBUG__SHOW_TEXT_CHR_NEWTYPE` can be `#define`d to switch to an
+implementation where `Chr` is a newtype'd `Text`. This ensures that an
+arbitrary-length `Text` can't be used as a `Chr` without going through a
+conversion function, which can be useful during development.
+
+Since Daml newtypes impose a performance penalty (unlike Haskell newtypes), the
+implementation we actually use in `daml-prim` uses a type synonym instead
+(corresponding to the case where the macro is not defined).
+-}
+-- #define __DEBUG__SHOW_TEXT_CHR_NEWTYPE
 
 module GHC.Show.Text
   ( showsPrecText
   ) where
 
 import GHC.Base (
-#ifdef SHOW_TEXT_CHR_NEWTYPE
+#ifdef __DEBUG__SHOW_TEXT_CHR_NEWTYPE
     map,
 #endif
     (.), (++), ($)
@@ -44,7 +57,8 @@ primIntToText = primitive @"BEToText"
 
 explode : Text -> [Chr]
 
-#ifdef SHOW_TEXT_CHR_NEWTYPE
+-- See Note [newtype Chr debugging]
+#ifdef __DEBUG__SHOW_TEXT_CHR_NEWTYPE
 
 newtype Chr = MkChr Text
   deriving (Eq, Ord)
