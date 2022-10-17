@@ -25,6 +25,7 @@ import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.validation.NoLoggingValueValidator
+import com.daml.lf.language.StablePackage.DA
 import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
@@ -127,10 +128,8 @@ object Converter {
     }
   }
 
-  private def fromTemplateTypeRep(templateId: value.Identifier): SValue = {
-    val templateTypeRepTy = daInternalAny("TemplateTypeRep")
-    record(templateTypeRepTy, ("getTemplateTypeRep", fromIdentifier(templateId)))
-  }
+  private def fromTemplateTypeRep(templateId: value.Identifier): SValue =
+    record(DA.Internal.Any.TemplateTypeRep, ("getTemplateTypeRep", fromIdentifier(templateId)))
 
   private def fromAnyContractId(
       triggerIds: TriggerIds,
@@ -160,7 +159,6 @@ object Converter {
       created: CreatedEvent,
   ): Either[String, SValue] = {
     val createdTy = triggerIds.damlTriggerLowLevel("Created")
-    val anyTemplateTyCon = daInternalAny("AnyTemplate")
     val tmplId = Identifier(
       PackageId.assertFromString(created.getTemplateId.packageId),
       QualifiedName(
@@ -181,7 +179,10 @@ object Converter {
       createdTy,
       ("eventId", fromEventId(triggerIds, created.eventId)),
       ("contractId", fromAnyContractId(triggerIds, created.getTemplateId, created.contractId)),
-      ("argument", record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tmplId), tmplPayload)))),
+      (
+        "argument",
+        record(DA.Internal.Any.AnyTemplate, ("getAnyTemplate", SAny(TTyCon(tmplId), tmplPayload))),
+      ),
     )
   }
 

@@ -101,10 +101,9 @@ object Value {
   ) extends Value
 
   object ValueArithmeticError {
-    val tyCon: Ref.TypeConName =
-      StablePackage.DA.Exception.ArithmeticError.assertIdentifier("ArithmeticError")
-    val typ: Ast.Type = Ast.TTyCon(tyCon)
-    private val someTyCon = Some(tyCon)
+    import StablePackage.DA.Exception.ArithmeticError.ArithmeticError
+    val typ: Ast.Type = Ast.TTyCon(ArithmeticError)
+    private val someTyCon = Some(ArithmeticError)
     val fieldName: Ref.Name = Ref.Name.assertFromString("message")
     private val someFieldName = Some(fieldName)
     def apply(message: String): ValueRecord =
@@ -112,7 +111,7 @@ object Value {
     def unapply(excep: ValueRecord): Option[String] =
       excep match {
         case ValueRecord(id, ImmArray((field, ValueText(message))))
-            if id.forall(_ == tyCon) && field.forall(_ == fieldName) =>
+            if id.forall(_ == ArithmeticError) && field.forall(_ == fieldName) =>
           Some(message)
         case _ => None
       }
