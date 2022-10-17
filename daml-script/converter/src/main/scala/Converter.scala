@@ -21,9 +21,6 @@ private[daml] object Converter {
 
   type ErrorOr[+A] = Either[String, A]
 
-  def daInternalAny(s: String): Identifier =
-    StablePackage.DA.Internal.Any.assertIdentifier(s)
-
   def toContractId(v: SValue): ErrorOr[ContractId] =
     v.expect("ContractId", { case SContractId(cid) => cid })
 

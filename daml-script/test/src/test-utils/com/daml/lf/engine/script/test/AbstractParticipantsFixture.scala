@@ -14,7 +14,7 @@ import com.daml.lf.engine.script.{Participants, Runner}
 import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.language.Ast.Package
-import com.daml.lf.language.StablePackage
+import com.daml.lf.language.StablePackage.DA
 import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.speedy.SValue.SRecord
 import org.scalatest.Suite
@@ -48,7 +48,7 @@ trait AbstractScriptTest extends AkkaBeforeAndAfterAll {
 
   def tuple(a: SValue, b: SValue) =
     SRecord(
-      id = StablePackage.DA.Types.assertIdentifier("Tuple2"),
+      id = DA.Types.Tuple2,
       fields = ImmArray(Name.assertFromString("_1"), Name.assertFromString("_2")),
       values = ArrayList(a, b),
     )

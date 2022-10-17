@@ -13,7 +13,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.StablePackage
+import com.daml.lf.language.StablePackage.DA
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -92,9 +92,6 @@ object StackTrace {
 object Converter {
   import com.daml.script.converter.Converter._
 
-  private def daTypes(s: String): Identifier =
-    StablePackage.DA.Types.assertIdentifier(s)
-
   private def toNonEmptySet[A](as: OneAnd[FrontStack, A]): OneAnd[Set, A] = {
     import scalaz.syntax.foldable._
     OneAnd(as.head, as.tail.toSet - as.head)
@@ -114,10 +111,8 @@ object Converter {
     )
   }
 
-  private def fromTemplateTypeRep(templateId: value.Identifier): SValue = {
-    val templateTypeRepTy = daInternalAny("TemplateTypeRep")
-    record(templateTypeRepTy, ("getTemplateTypeRep", fromIdentifier(templateId)))
-  }
+  private def fromTemplateTypeRep(templateId: value.Identifier): SValue =
+    record(DA.Internal.Any.TemplateTypeRep, ("getTemplateTypeRep", fromIdentifier(templateId)))
 
   private def fromAnyContractId(
       scriptIds: ScriptIds,
@@ -142,14 +137,13 @@ object Converter {
       templateId: Identifier,
       argument: Value,
   ): Either[String, SValue] = {
-    val anyTemplateTy = daInternalAny("AnyTemplate")
     for {
       translated <- translator
         .translateValue(TTyCon(templateId), argument)
         .left
         .map(err => s"Failed to translate create argument: $err")
     } yield record(
-      anyTemplateTy,
+      DA.Internal.Any.AnyTemplate,
       ("getAnyTemplate", SAny(TTyCon(templateId), translated)),
     )
   }
@@ -178,7 +172,6 @@ object Converter {
       choiceName: ChoiceName,
       argument: Value,
   ): Either[String, SValue] = {
-    val contractIdTy = daInternalAny("AnyChoice")
     for {
       choice <- lookupChoice(templateId, interfaceId, choiceName)
       translated <- translator
@@ -186,7 +179,7 @@ object Converter {
         .left
         .map(err => s"Failed to translate exercise argument: $err")
     } yield record(
-      contractIdTy,
+      DA.Internal.Any.AnyChoice,
       ("getAnyChoice", SAny(choice.argBinder._2, translated)),
       ("getAnyChoiceTemplateTypeRep", fromIdentifier(toApiIdentifier(templateId))),
     )
@@ -710,10 +703,9 @@ object Converter {
       translator: preprocessing.ValueTranslator,
       contract: ScriptLedgerClient.ActiveContract,
   ): Either[String, SValue] = {
-    val pairTyCon = daTypes("Tuple2")
     for {
       anyTpl <- fromContract(translator, contract)
-    } yield record(pairTyCon, ("_1", SContractId(contract.contractId)), ("_2", anyTpl))
+    } yield record(DA.Types.Tuple2, ("_1", SContractId(contract.contractId)), ("_2", anyTpl))
   }
 
   def fromStatusException(
