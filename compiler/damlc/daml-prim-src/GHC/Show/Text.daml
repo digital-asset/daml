@@ -137,20 +137,14 @@ showLitChrs (c        :: cs) = showLitChr c . showLitChrs cs
 
 -- Compared with GHC's `showLitChar`, this is point-free on `ShowS`'s
 -- argument - see Note [Point-free ShowS]
+-- Also, the cases for "\a\b\f\n\r\t\v" are handled by `ctrlChrText`.
 showLitChr : Chr -> ShowS
 showLitChr c | c > CH("\DEL")       = showString "\\" . showInt (ord c) . protectEsc startsWithDigit
 showLitChr CH("\DEL")               = showString "\\DEL"
 showLitChr CH("\\")                 = showString "\\\\"
 showLitChr c@(CH(t)) | c >= CH(" ") = showString t
-showLitChr CH("\a")                 = showString "\\a"
-showLitChr CH("\b")                 = showString "\\b"
-showLitChr CH("\f")                 = showString "\\f"
-showLitChr CH("\n")                 = showString "\\n"
-showLitChr CH("\r")                 = showString "\\r"
-showLitChr CH("\t")                 = showString "\\t"
-showLitChr CH("\v")                 = showString "\\v"
 showLitChr CH("\SO")                = showString "\\SO" . protectEsc startsWithUppercaseH
-showLitChr c                        = showString "\\" . showString (ascii c)
+showLitChr c                        = showString "\\" . showString (ctrlChrText c)
 
 -- Compared with GHC's `protectEsc`, the predicate is applied to the entire
 -- suffix (instead of only its first `Char`), in order to avoid using `explode`.
@@ -164,22 +158,27 @@ protectEsc p = cont
          where cont s | p s = showString "\\&" s
                cont s       = s
 
--- Unlike GHC's `asciiTab`, this is defined as a function instead of a list,
--- since we don't have `(!!)` available for indexing.
-ascii : Chr -> Text
-ascii c = case c of
+-- Unlike GHC's `asciiTab`, on which this is based,
+--   * This is defined as a function instead of a list, since we don't have
+--     `(!!)` available for indexing.
+--   * This drops the case for `'\SP'` (the space character), since it's
+--     already covered by `showLitChr c@(CH(t)) | c >= CH(" ")`.
+--   * This drops the case for `'\SO'`, since it's  already covered by
+--     `showLitChr CH("\SO")`.
+--   * The values for "\BEL\BS\HT\LF\VT\FF\CR" are mapped directly to
+--     "\a\b\t\n\v\f\r" respectively.
+ctrlChrText : Chr -> Text
+ctrlChrText c = case c of
   CH("\NUL") -> "NUL"; CH("\SOH") -> "SOH"; CH("\STX") -> "STX"; CH("\ETX") -> "ETX";
-  CH("\EOT") -> "EOT"; CH("\ENQ") -> "ENQ"; CH("\ACK") -> "ACK"; CH("\BEL") -> "BEL";
+  CH("\EOT") -> "EOT"; CH("\ENQ") -> "ENQ"; CH("\ACK") -> "ACK"; CH("\BEL") -> "a";
 
-  CH("\BS")  -> "BS";  CH("\HT")  -> "HT";  CH("\LF")  -> "LF";  CH("\VT")  -> "VT";
-  CH("\FF")  -> "FF";  CH("\CR")  -> "CR";  CH("\SO")  -> "SO";  CH("\SI")  -> "SI";
+  CH("\BS")  -> "b";   CH("\HT")  -> "t";   CH("\LF")  -> "n";   CH("\VT")  -> "v";
+  CH("\FF")  -> "f";   CH("\CR")  -> "r"; {-CH("\SO")  -> "SO";-}CH("\SI")  -> "SI";
 
   CH("\DLE") -> "DLE"; CH("\DC1") -> "DC1"; CH("\DC2") -> "DC2"; CH("\DC3") -> "DC3";
   CH("\DC4") -> "DC4"; CH("\NAK") -> "NAK"; CH("\SYN") -> "SYN"; CH("\ETB") -> "ETB";
 
   CH("\CAN") -> "CAN"; CH("\EM")  -> "EM";  CH("\SUB") -> "SUB"; CH("\ESC") -> "ESC";
   CH("\FS")  -> "FS";  CH("\GS")  -> "GS";  CH("\RS")  -> "RS";  CH("\US")  -> "US";
-
-  CH("\SP")  -> "SP";
 
   _ -> ""
