@@ -207,7 +207,7 @@ Utility Services
 Party Management Service
 ========================
 
-Use the **party management service** to allocate parties on the ledger, update participant-local party propertiesgi and retrieve information about allocated parties.
+Use the **party management service** to allocate parties on the ledger, update party properties local to the participant and retrieve information about allocated parties.
 
 Parties govern on-ledger access control as per :ref:`Daml's privacy model <da-model-privacy>`
 and :ref:`authorization rules <da-ledgers-authorization-rules>`.
