@@ -77,6 +77,7 @@ class DarReaderTest
       archiveModuleNames shouldBe Set(
         "GHC.Enum",
         "GHC.Show",
+        "GHC.Show.Text",
         "GHC.Num",
         "GHC.Stack.Types",
         "GHC.Classes",
