@@ -27,7 +27,7 @@ public class IouMain {
   private static final Logger logger = LoggerFactory.getLogger(IouMain.class);
 
   // application id used for sending commands
-  public static final String APP_ID = "IouApp";
+  public static final int APP_ID = "IouApp";
 
   public static void main(String[] args) {
     // Extract host and port from arguments
