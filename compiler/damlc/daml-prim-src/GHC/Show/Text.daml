@@ -10,10 +10,12 @@ module GHC.Show.Text
   ( showsPrecText
   ) where
 
+import GHC.Base (
 #ifdef SHOW_TEXT_CHR_NEWTYPE
-import GHC.Base (map)
+    map,
 #endif
-import GHC.Base ((.), (++), ($))
+    (.), (++), ($)
+  )
 import GHC.Classes (Eq (..), Ord (..), (&&))
 import GHC.CString (fromString)
 import GHC.Err (error)
