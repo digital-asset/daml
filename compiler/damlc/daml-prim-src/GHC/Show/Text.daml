@@ -181,4 +181,5 @@ ctrlChrText c = case c of
   CH("\CAN") -> "CAN"; CH("\EM")  -> "EM";  CH("\SUB") -> "SUB"; CH("\ESC") -> "ESC";
   CH("\FS")  -> "FS";  CH("\GS")  -> "GS";  CH("\RS")  -> "RS";  CH("\US")  -> "US";
 
-  _ -> ""
+  CH(t) -> error $
+    "impossible: GHC.Show.Text.ctrlChrText applied to non-control-character argument, \"" ++ t ++ "\""
