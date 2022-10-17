@@ -227,8 +227,8 @@ class DomainJsonDecoder(
   def templateRecordType(id: domain.ContractTypeId.RequiredPkg): JsonError \/ domain.LfType =
     resolveTemplateRecordType(id).liftErr(JsonError)
 
-  def keyType(id: domain.ContractTypeId.OptionalPkg)(
-      implicit // TODO #15098 .Template
+  def keyType(id: domain.ContractTypeId.OptionalPkg)( // TODO #15098 .Template
+      implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
       jwt: Jwt,
