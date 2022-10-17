@@ -228,14 +228,32 @@ private[inner] object FromValueGenerator extends StrictLogging {
 
   private[this] sealed abstract class Extractor extends Product with Serializable {
     import Extractor._
+
+    /** An expression of type `T` where `T` is the decoding target */
     def extract(accessor: CodeBlock): CodeBlock = this match {
       case Decoder(decoder) => CodeBlock.of("$L$Z.decode($L)", decoder, accessor)
-      case Lambda(decodeAccessor) => decodeAccessor(accessor)
+      case FromFreeVar(decodeAccessor) => decodeAccessor(accessor)
+    }
+
+    /** An expression of type `ValueDecoder<T>` for some `T` */
+    def asDecoder(args: Iterator[String]): CodeBlock = this match {
+      case Decoder(decoder) => decoder
+      case FromFreeVar(decodeAccessor) =>
+        val lambdaBinding = args.next()
+        CodeBlock.of(
+          "$L ->$>$W$L$<",
+          lambdaBinding,
+          decodeAccessor(CodeBlock.of("$L", lambdaBinding)),
+        )
     }
   }
 
   private[this] object Extractor {
-    final case class Lambda(decodeAccessor: CodeBlock => CodeBlock) extends Extractor
+
+    /** Decode the expression passed in as an argument. */
+    final case class FromFreeVar(decodeAccessor: CodeBlock => CodeBlock) extends Extractor
+
+    /** Produce a point-free ValueDecoder. */
     final case class Decoder(decoder: CodeBlock) extends Extractor
   }
 
@@ -252,7 +270,15 @@ private[inner] object FromValueGenerator extends StrictLogging {
       accessor: CodeBlock,
       args: Iterator[String],
       packagePrefixes: Map[PackageId, String],
-  ): CodeBlock = {
+  ): CodeBlock =
+    extractorRec(damlType, field, args, packagePrefixes) extract accessor
+
+  private[this] def extractorRec(
+      damlType: Type,
+      field: String,
+      args: Iterator[String],
+      packagePrefixes: Map[PackageId, String],
+  ): Extractor = {
 
     lazy val apiType = toAPITypeName(damlType)
     lazy val javaType = toJavaTypeName(damlType, packagePrefixes)
@@ -260,20 +286,22 @@ private[inner] object FromValueGenerator extends StrictLogging {
 
     import Extractor._
 
-    def oneTypeArgPrim(primFun: String, param: Type): Extractor = {
-      val singleArg = args.next()
+    // shorten recursive calls
+    // we always want a ValueDecoder when recurring
+    def go(recDamlType: Type): CodeBlock =
+      extractorRec(recDamlType, field, args, packagePrefixes) asDecoder args
+
+    def oneTypeArgPrim(primFun: String, param: Type): Extractor =
       Decoder(
         CodeBlock.of(
-          "$T.$L($L ->$>$W$L$<)",
+          "$T.$L($L)",
           classOf[PrimitiveValueDecoders],
           primFun,
-          singleArg,
-          extractor(param, singleArg, CodeBlock.of("$L", singleArg), args, packagePrefixes),
+          go(param),
         )
       )
-    }
 
-    val suspendedResult = damlType match {
+    damlType match {
       // Case #1: the type is actually a type parameter: we assume the calling code defines a
       // suitably named function that takes the result of accessing the underlying data (as
       // defined by the accessor
@@ -296,7 +324,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
           )
         )
       case TypePrim(PrimTypeContractId, ImmArraySeq(_)) =>
-        Lambda(accessor =>
+        FromFreeVar(accessor =>
           CodeBlock.of(
             "new $T($L.asContractId()$L.getValue())",
             javaType,
@@ -308,15 +336,12 @@ private[inner] object FromValueGenerator extends StrictLogging {
         oneTypeArgPrim("fromTextMap", param)
 
       case TypePrim(PrimTypeGenMap, ImmArraySeq(keyType, valueType)) =>
-        val entryArg = args.next()
         Decoder(
           CodeBlock.of(
-            "$T.fromGenMap($L ->$>$W$L$<,$W$L ->$>$W$L$<)",
+            "$T.fromGenMap($L,$W$L)",
             classOf[PrimitiveValueDecoders],
-            entryArg,
-            extractor(keyType, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
-            entryArg,
-            extractor(valueType, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
+            go(keyType),
+            go(valueType),
           )
         )
 
@@ -344,12 +369,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
               toJavaTypeName(targ, packagePrefixes),
             )
           case targ =>
-            val innerArg = args.next()
-            toJavaTypeName(targ, packagePrefixes) -> CodeBlock.of(
-              "$L -> $L",
-              innerArg,
-              extractor(targ, field, CodeBlock.of("$L", innerArg), args, packagePrefixes),
-            )
+            toJavaTypeName(targ, packagePrefixes) -> go(targ)
         }.unzip
 
         val targsCode = CodeBlock.join(targs.map(CodeBlock.of("$L", _)).asJava, ", ")
@@ -362,6 +382,5 @@ private[inner] object FromValueGenerator extends StrictLogging {
             .build()
         )
     }
-    suspendedResult extract accessor
   }
 }
