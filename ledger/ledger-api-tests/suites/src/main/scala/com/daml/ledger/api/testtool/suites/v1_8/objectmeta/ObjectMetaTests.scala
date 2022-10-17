@@ -97,9 +97,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
             updatePaths = Seq(annotationsUpdatePath),
           ).mustFailWith(
             "updating a resource using an outdated resource version",
-            concurrentUserUpdateDetectedErrorDescription(
-              id = getId(resource)
-            ),
+            concurrentUserUpdateDetectedErrorCode,
           )
           // Updating a resource with the concurrent change detection enabled and prlviding the up-to-date resource version
           _ <- update(
@@ -178,10 +176,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
           updatePaths = Seq(annotationsUpdatePath, annotationsUpdatePath),
         ).mustFailWith(
           "updating a resource",
-          invalidUpdateRequestErrorDescription(
-            id = getId(resource),
-            errorMessageSuffix = s"The update path: '$annotationsUpdatePath' is duplicated.",
-          ),
+          invalidUpdateRequestErrorCode,
         )
   )
 
@@ -198,10 +193,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
         )
           .mustFailWith(
             "updating a resource",
-            invalidUpdateRequestErrorDescription(
-              id = getId(resource),
-              errorMessageSuffix = "The update mask contains no entries",
-            ),
+            invalidUpdateRequestErrorCode,
           )
   )
 
@@ -218,10 +210,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
             updatePaths = Seq("unknown_field"),
           ).mustFailWith(
             "fail 1",
-            invalidUpdateRequestErrorDescription(
-              id = getId(resource),
-              errorMessageSuffix = "The update path: 'unknown_field' points to an unknown field.",
-            ),
+            invalidUpdateRequestErrorCode,
           )
           _ <- update(
             id = getId(resource),
@@ -229,10 +218,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
             updatePaths = Seq("aaa!bbb"),
           ).mustFailWith(
             "fail 2",
-            invalidUpdateRequestErrorDescription(
-              id = getId(resource),
-              errorMessageSuffix = "The update path: 'aaa!bbb' points to an unknown field.",
-            ),
+            invalidUpdateRequestErrorCode,
           )
           _ <- update(
             id = getId(resource),
@@ -240,10 +226,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
             updatePaths = Seq(""),
           ).mustFailWith(
             "fail 3",
-            invalidUpdateRequestErrorDescription(
-              id = getId(resource),
-              errorMessageSuffix = "The update path: '' points to an unknown field.",
-            ),
+            invalidUpdateRequestErrorCode,
           )
         } yield ()
   )
