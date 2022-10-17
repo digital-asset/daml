@@ -494,7 +494,7 @@ object Converter {
 }
 
 // Helper to create identifiers pointing to the Daml.Trigger module
-case class TriggerIds(val triggerPackageId: PackageId) {
+final case class TriggerIds(val triggerPackageId: PackageId) {
   def damlTrigger(s: String) =
     Identifier(
       triggerPackageId,
