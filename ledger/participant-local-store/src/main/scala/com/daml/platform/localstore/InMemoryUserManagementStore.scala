@@ -51,6 +51,8 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
     withUser(userUpdate.id) { userInfo =>
       val updatedPrimaryParty = userUpdate.primaryPartyUpdateO.getOrElse(userInfo.user.primaryParty)
+      val updatedIsDeactivated =
+        userUpdate.isDeactivatedUpdateO.getOrElse(userInfo.user.isDeactivated)
       val existingAnnotations = userInfo.user.metadata.annotations
       val updatedAnnotations =
         userUpdate.metadataUpdate.annotationsUpdateO.fold(existingAnnotations) { newAnnotations =>
@@ -82,6 +84,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
         val updatedUserInfo = userInfo.copy(
           user = userInfo.user.copy(
             primaryParty = updatedPrimaryParty,
+            isDeactivated = updatedIsDeactivated,
             metadata = ObjectMeta(
               resourceVersionO = Some(newResourceVersion),
               annotations = updatedAnnotations,
