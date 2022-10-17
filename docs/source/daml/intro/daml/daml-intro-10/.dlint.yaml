@@ -1,0 +1,3 @@
+- ignore: {name: Use if}
+- ignore: {name: Use when}
+- ignore: {name: Use sum}
