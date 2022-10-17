@@ -4,6 +4,12 @@
 package com.daml.platform.store.backend.common
 
 import com.daml.platform.store.backend._
+import com.daml.platform.store.backend.localstore.{
+  PartyRecordStorageBackend,
+  PartyRecordStorageBackendImpl,
+  UserManagementStorageBackend,
+  UserManagementStorageBackendImpl,
+}
 import com.daml.platform.store.cache.LedgerEndCache
 
 trait CommonStorageBackendFactory extends StorageBackendFactory {

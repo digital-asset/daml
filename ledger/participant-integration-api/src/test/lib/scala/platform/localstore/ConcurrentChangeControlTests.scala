@@ -8,7 +8,8 @@ import java.util.concurrent.{ConcurrentLinkedQueue, CountDownLatch, Executors}
 
 import com.daml.logging.LoggingContext
 import com.daml.metrics.DatabaseMetrics
-import com.daml.platform.store.backend.{ResourceVersionOpsBackend, StorageBackendProvider}
+import com.daml.platform.store.backend.StorageBackendProvider
+import com.daml.platform.store.backend.localstore.ResourceVersionOpsBackend
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 

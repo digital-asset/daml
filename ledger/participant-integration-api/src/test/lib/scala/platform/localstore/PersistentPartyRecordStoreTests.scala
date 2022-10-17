@@ -8,12 +8,12 @@ import java.sql.Connection
 import com.daml.api.util.TimeProvider
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
-import com.daml.platform.store.backend.{
+import com.daml.platform.store.backend.StorageBackendProvider
+import com.daml.platform.store.backend.localstore.{
   PartyRecordStorageBackend,
+  PartyRecordStorageBackendImpl,
   ResourceVersionOpsBackend,
-  StorageBackendProvider,
 }
-import com.daml.platform.store.backend.common.PartyRecordStorageBackendImpl
 import org.scalatest.freespec.AsyncFreeSpec
 
 trait PersistentPartyRecordStoreTests

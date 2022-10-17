@@ -9,8 +9,11 @@ import com.daml.platform.store.backend.common.{
   ConfigurationStorageBackendTemplate,
   IngestionStorageBackendTemplate,
   PackageStorageBackendTemplate,
-  PartyRecordStorageBackendImpl,
   PartyStorageBackendTemplate,
+}
+import com.daml.platform.store.backend.localstore.{
+  PartyRecordStorageBackend,
+  PartyRecordStorageBackendImpl,
 }
 import com.daml.platform.store.backend.{
   CompletionStorageBackend,
@@ -21,7 +24,6 @@ import com.daml.platform.store.backend.{
   EventStorageBackend,
   IngestionStorageBackend,
   PackageStorageBackend,
-  PartyRecordStorageBackend,
   PartyStorageBackend,
   ResetStorageBackend,
   StorageBackendFactory,
