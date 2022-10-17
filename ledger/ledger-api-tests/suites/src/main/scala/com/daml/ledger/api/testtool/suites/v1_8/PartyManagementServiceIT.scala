@@ -136,9 +136,6 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
         .mustFailWith(
           "allocating a party",
           LedgerApiErrors.RequestValidation.InvalidArgument,
-          Some(
-            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: The value of an annotation is empty for key: 'key2'"
-          ),
         )
     } yield ()
   })

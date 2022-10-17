@@ -103,9 +103,6 @@ class PartyManagementServiceUpdateRpcIT extends PartyManagementITBase {
           .mustFailWith(
             "bad annotations key syntax on a user update",
             errorCode = LedgerApiErrors.Admin.PartyManagement.InvalidUpdatePartyDetailsRequest,
-            exceptionMessageSubstring = Some(
-              s"INVALID_ARGUMENT: INVALID_PARTY_DETAILS_UPDATE_REQUEST(8,0): Update operation for party '${partyDetails.party}' failed due to: Update request attempted to modify not-modifiable 'is_local' attribute"
-            ),
           )
   )
 
@@ -129,9 +126,6 @@ class PartyManagementServiceUpdateRpcIT extends PartyManagementITBase {
           .mustFailWith(
             "bad annotations key syntax on a user update",
             errorCode = LedgerApiErrors.Admin.PartyManagement.InvalidUpdatePartyDetailsRequest,
-            exceptionMessageSubstring = Some(
-              s"INVALID_ARGUMENT: INVALID_PARTY_DETAILS_UPDATE_REQUEST(8,0): Update operation for party '${partyDetails.party}' failed due to: Update request attempted to modify not-modifiable 'display_name' attribute"
-            ),
           )
   )
 
@@ -207,9 +201,6 @@ class PartyManagementServiceUpdateRpcIT extends PartyManagementITBase {
       .mustFailWith(
         "update with an unknown update path",
         errorCode = LedgerApiErrors.RequestValidation.MissingField,
-        exceptionMessageSubstring = Some(
-          s"INVALID_ARGUMENT: MISSING_FIELD(8,0): The submitted command is missing a mandatory field: party_details"
-        ),
       )
   })
 
@@ -232,9 +223,6 @@ class PartyManagementServiceUpdateRpcIT extends PartyManagementITBase {
         .mustFailWith(
           "updating a non-existent party",
           errorCode = LedgerApiErrors.Admin.PartyManagement.PartyNotFound,
-          exceptionMessageSubstring = Some(
-            s"NOT_FOUND: PARTY_NOT_FOUND(11,0): Party: '$party' was not found when updating a party record"
-          ),
         )
     } yield ()
   })
