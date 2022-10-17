@@ -29,8 +29,11 @@ infix 2 ==>
 (==>) : Text -> Text -> Scenario ()
 (==>) = testCase
 
+longStringSize : Int
+longStringSize = 10000
+
 longStringOf : Text -> Text
-longStringOf = implode . replicate 10000
+longStringOf = implode . replicate longStringSize
 
 -- # Test cases
 
