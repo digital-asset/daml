@@ -14,15 +14,17 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
 import com.daml.lf.transaction.{
-  Versioned,
   GlobalKey,
   IncompleteTransaction,
   Node,
   NodeId,
   Transaction,
+  Versioned,
 }
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
+import com.daml.logging.LoggingContext
+import com.daml.platform.localstore.InMemoryUserManagementStore
 import com.daml.script.converter.ConverterException
 import io.grpc.StatusRuntimeException
 import scalaz.OneAnd
@@ -61,7 +63,7 @@ class IdeLedgerClient(
 
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
-  private val userManagementStore = new ide.UserManagementStore()
+  private val userManagementStore = new InMemoryUserManagementStore(createAdmin = false)
 
   override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
       ec: ExecutionContext,
@@ -349,28 +351,30 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[Unit]] =
-    Future.successful(userManagementStore.createUser(user, rights.toSet))
+    userManagementStore
+      .createUser(user, rights.toSet)(LoggingContext.empty)
+      .map(_.toOption.map(_ => ()))
 
   override def getUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[User]] =
-    Future.successful(userManagementStore.getUser(id))
+    userManagementStore.getUser(id)(LoggingContext.empty).map(_.toOption)
 
   override def deleteUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[Unit]] =
-    Future.successful(userManagementStore.deleteUser(id))
+    userManagementStore.deleteUser(id)(LoggingContext.empty).map(_.toOption)
 
   override def listAllUsers()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[User]] =
-    Future.successful(userManagementStore.listUsers())
+    userManagementStore.listAllUsers()
 
   override def grantUserRights(
       id: UserId,
@@ -380,7 +384,9 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
-    Future.successful(userManagementStore.grantRights(id, rights.toSet).map(_.toList))
+    userManagementStore
+      .grantRights(id, rights.toSet)(LoggingContext.empty)
+      .map(_.toOption.map(_.toList))
 
   override def revokeUserRights(
       id: UserId,
@@ -390,12 +396,14 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
-    Future.successful(userManagementStore.revokeRights(id, rights.toSet).map(_.toList))
+    userManagementStore
+      .revokeRights(id, rights.toSet)(LoggingContext.empty)
+      .map(_.toOption.map(_.toList))
 
   override def listUserRights(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
-    Future.successful(userManagementStore.listUserRights(id).map(_.toList))
+    userManagementStore.listUserRights(id)(LoggingContext.empty).map(_.toOption.map(_.toList))
 }

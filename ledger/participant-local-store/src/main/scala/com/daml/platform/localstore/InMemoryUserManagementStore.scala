@@ -150,6 +150,10 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
     }
   }
 
+  def listAllUsers(): Future[List[User]] = withState(
+    state.valuesIterator.map(_.user).toList
+  )
+
   private def withState[T](t: => T): Future[T] =
     state.synchronized(
       Future.successful(t)
