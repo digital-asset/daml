@@ -78,13 +78,6 @@ conformance_test_tool_args = [
         "TLSOnePointThreeIT",
         "TLSAtLeastOnePointTwoIT",
         "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
-        # TODO um-for-hub: Enable these tests once Canton runs updated user and party management
-        "UserManagementServiceIT:TestAdminExists",
-        "UserManagementServiceIT:TestCreateUser",
-        "UserManagementServiceIT:TestGrantUserRights",
-        "UserManagementServiceIT:TestRevokeUserRights",
-        "PartyManagementServiceIT:PMGetPartiesDetails",
-        "PartyManagementServiceIT:PMListKnownParties",
     ]),
 ]
 

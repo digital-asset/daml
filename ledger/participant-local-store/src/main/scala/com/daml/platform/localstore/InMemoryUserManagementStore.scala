@@ -15,7 +15,6 @@ import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 import scala.collection.mutable
 import scala.concurrent.Future
 
-// TODO um-for-hub: For consideration: Store interfaces and their in-memory impls should live in a dedicated bazel package
 class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManagementStore {
   import InMemoryUserManagementStore._
 
@@ -200,8 +199,10 @@ object InMemoryUserManagementStore {
       id = Ref.UserId.assertFromString(UserManagementStore.DefaultParticipantAdminUserId),
       primaryParty = None,
       isDeactivated = false,
-      // TODO um-for-hub: Fill resource version
-      metadata = ObjectMeta.empty,
+      metadata = ObjectMeta(
+        resourceVersionO = Some(1),
+        annotations = Map.empty,
+      ),
     ),
     rights = Set(UserRight.ParticipantAdmin),
   )

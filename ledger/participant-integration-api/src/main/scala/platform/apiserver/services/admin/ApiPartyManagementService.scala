@@ -87,7 +87,6 @@ private[apiserver] final class ApiPartyManagementService private (
     partyManagementService
       .getParticipantId()
       .map(pid => GetParticipantIdResponse(pid.toString))
-      .andThen(logger.logErrorsOnCall[GetParticipantIdResponse])
   }
 
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
@@ -110,10 +109,7 @@ private[apiserver] final class ApiPartyManagementService private (
             }
           GetPartiesResponse(partyDetails = protoDetails)
         }
-      }.andThen(
-        // TODO um-for-hub: Check if this logging is necessary and doesn't duplicate error interceptor
-        logger.logErrorsOnCall[GetPartiesResponse]
-      )
+      }
     }
 
   override def listKnownParties(
@@ -130,7 +126,7 @@ private[apiserver] final class ApiPartyManagementService private (
         toProtoPartyDetails(partyDetails = details, metadataO = recordO.map(_.metadata))
       }
       ListKnownPartiesResponse(protoDetails)
-    }).andThen(logger.logErrorsOnCall[ListKnownPartiesResponse])
+    })
   }
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
@@ -183,7 +179,7 @@ private[apiserver] final class ApiPartyManagementService private (
             metadataO = Some(partyRecord.metadata),
           )
           AllocatePartyResponse(Some(details))
-        }).andThen(logger.logErrorsOnCall[AllocatePartyResponse])
+        })
       }
     }
   }
@@ -294,9 +290,8 @@ private[apiserver] final class ApiPartyManagementService private (
           }
           updatedPartyRecordResult <- partyRecordStore.updatePartyRecord(
             partyRecordUpdate = partyRecordUpdate,
-            ledgerPartyExists = (party: Ref.Party) => {
-              // TODO um-for-hub: Consider changing it to Future.successful(true)
-              partyManagementService.getParties(Seq(party)).map(_.nonEmpty)
+            ledgerPartyExists = (_: Ref.Party) => {
+              Future.successful(fetchedPartyDetailsO.isDefined)
             },
           )
           updatedPartyRecord: PartyRecord <- handlePartyRecordStoreResult(
@@ -317,7 +312,7 @@ private[apiserver] final class ApiPartyManagementService private (
   private def fetchPartyRecords(
       partyDetails: List[domain.PartyDetails]
   )(implicit errorLogger: DamlContextualizedErrorLogger): Future[List[Option[PartyRecord]]] =
-    // TODO um-for-hub: Consider fetching all party records in a single DB call
+    // Future optimization: Fetch party records from the DB in a batched fashion rather than one-by-one.
     partyDetails.foldLeft(Future.successful(List.empty[Option[PartyRecord]])) {
       (axF: Future[List[Option[PartyRecord]]], partyDetails: domain.PartyDetails) =>
         for {
