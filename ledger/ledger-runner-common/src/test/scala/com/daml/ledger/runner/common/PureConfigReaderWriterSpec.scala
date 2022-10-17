@@ -30,16 +30,16 @@ import com.daml.platform.configuration.{
 }
 import com.daml.platform.indexer.{IndexerConfig, PackageMetadataViewConfig}
 import com.daml.platform.indexer.ha.HaConfig
+import com.daml.platform.localstore.UserManagementConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.typesafe.config.ConfigFactory
 import pureconfig.error.ConfigReaderFailures
-
 import java.net.InetSocketAddress
 import java.nio.file.Path
 import java.time.Duration
+
 import scala.reflect.{ClassTag, classTag}
 
 class PureConfigReaderWriterSpec

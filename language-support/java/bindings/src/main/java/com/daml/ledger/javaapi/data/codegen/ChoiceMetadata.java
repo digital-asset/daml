@@ -7,7 +7,8 @@ import com.daml.ledger.javaapi.data.Value;
 import java.util.function.Function;
 
 /**
- * This represents a Daml choice
+ * This represents a Daml choice that can be exercised on {@link ContractId}s of type {@code
+ * ContractId<Tpl>}.
  *
  * @param <Tpl> The generated template class or marker interface for a Daml interface
  * @param <ArgType> The choice's argument type

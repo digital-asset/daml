@@ -9,7 +9,6 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
-import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -92,7 +91,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       ec: ExecutionContext,
   ): Future[A] = {
     implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
-    implicit val metrics: Metrics = new Metrics(new MetricRegistry())
+    implicit val metrics: Metrics = Metrics.ForTesting
     val ledgerId = ledgerIdOverwrite.getOrElse(LedgerId(testName))
     val applicationId = ApplicationId(testName)
 

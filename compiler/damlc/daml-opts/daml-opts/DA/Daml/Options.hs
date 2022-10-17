@@ -66,7 +66,7 @@ import SdkVersion (damlStdlib)
 toCompileOpts :: Options -> Ghcide.IdeOptions
 toCompileOpts Options{..} =
     Ghcide.IdeOptions
-      { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor dataDependableExtensions
+      { optPreprocessor
       , optGhcSession = getDamlGhcSession
       , optPkgLocationOpts = Ghcide.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
@@ -82,6 +82,11 @@ toCompileOpts Options{..} =
       , optDefer = Ghcide.IdeDefer False
       }
   where
+    optPreprocessor =
+      if optIsGenerated
+        then generatedPreprocessor
+        else damlPreprocessor dataDependableExtensions optMbPackageName
+
     locateInPkgDb :: String -> PackageConfig -> GHC.Module -> IO (Maybe FilePath)
     locateInPkgDb ext pkgConfig mod
       | (importDir : _) <- importDirs pkgConfig = do

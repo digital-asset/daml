@@ -4,7 +4,7 @@ module DamlcTest
    ( main
    ) where
 
-import Data.List.Extra (isInfixOf, isSuffixOf, isPrefixOf)
+import Data.List.Extra (isInfixOf, isPrefixOf)
 import System.Directory
 import System.Environment.Blank
 import System.Exit
@@ -316,8 +316,8 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
                 ""
             exitCode @?= ExitSuccess
             let out = lines stdout
-            assertBool ("test coverage is reported correctly: " <> out!!4)
-                       ("test coverage: templates 50%, choices 33%" == (out!!4))
+            assertBool ("test coverage is reported correctly: " <> stdout)
+                       ("defined in local modules:\n  choices: 1 / 3 (33%)\n  templates: 1 / 2 (50%)" `isInfixOf` stdout)
             assertBool ("test summary is reported correctly: " <> out!!1)
                        ("Test Summary" `isPrefixOf` (out!!1))
             assertBool ("test summary is reported correctly: " <> out!!3)
@@ -358,12 +358,12 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
             assertBool
                 ("test coverage is reported correctly: " <> stdout)
                 (unlines
-                     [ "templates never created:"
-                     , "Foo:S"
-                     , "choices never executed:"
-                     , "Foo:S:Archive"
-                     , "Foo:T:Archive\n"
-                     ] `isSuffixOf`
+                     [ "  templates never created:"
+                     , "    Foo:S"
+                     , "  choices never executed:"
+                     , "    Foo:S:Archive"
+                     , "    Foo:T:Archive\n"
+                     ] `isInfixOf`
                  stdout)
 -- TODO: https://github.com/digital-asset/daml/issues/13044
 -- reactive the test
@@ -507,14 +507,20 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
             (unlines
                  [ "B.daml:x: ok, 0 active contracts, 2 transactions."
                  , "a:testA: ok, 0 active contracts, 2 transactions."
-                 , "test coverage: templates 67%, choices 40%"
-                 , "templates never created:"
-                 , "B:S"
-                 , "choices never executed:"
-                 , "B:S:Archive"
-                 , "B:T:Archive"
-                 , "a:A:U:Archive\n"
-                 ] `isSuffixOf`
+                 ] `isInfixOf`
+             stdout)
+          assertBool ("Test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "defined anywhere:"
+                 , "  choices: 2 / 5 (40%)"
+                 , "  templates: 2 / 3 (67%)"
+                 , "  templates never created:"
+                 , "    B:S"
+                 , "  choices never executed:"
+                 , "    B:S:Archive"
+                 , "    B:T:Archive"
+                 , "    a:A:U:Archive"
+                 ] `isInfixOf`
              stdout)
           exitCode @?= ExitSuccess
     , testCase "Filter tests with --test-pattern" $ withTempDir $ \projDir -> do
@@ -571,8 +577,10 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
             (unlines
               ["B.daml:needleHaystack: ok, 0 active contracts, 0 transactions."
               , "a:test_needleHaystack: ok, 0 active contracts, 0 transactions."
-              , "test coverage: templates 100%, choices 100%"
-              ] `isSuffixOf` stdout)
+              , "defined in local modules:"
+              , "  choices: 0 / 0 (100%)"
+              , "  templates: 0 / 0 (100%)"
+              ] `isInfixOf` stdout)
           exitCode @?= ExitSuccess
     , testCase "Full test coverage report without --all set (but imports)" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
@@ -639,13 +647,15 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
           assertBool ("Test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "B.daml:x: ok, 0 active contracts, 2 transactions."
-                 , "test coverage: templates 50%, choices 33%"
-                 , "templates never created:"
-                 , "B:S"
-                 , "choices never executed:"
-                 , "B:S:Archive"
-                 , "B:T:Archive\n"
-                 ] `isSuffixOf`
+                 , "defined in local modules:"
+                 , "  choices: 1 / 3 (33%)"
+                 , "  templates: 1 / 2 (50%)"
+                 , "  templates never created:"
+                 , "    B:S"
+                 , "  choices never executed:"
+                 , "    B:S:Archive"
+                 , "    B:T:Archive\n"
+                 ] `isInfixOf`
              stdout)
           exitCode @?= ExitSuccess
     , testCase "File with failing script" $ do

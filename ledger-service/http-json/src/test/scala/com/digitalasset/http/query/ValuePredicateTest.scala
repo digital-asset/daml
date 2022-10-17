@@ -7,7 +7,6 @@ package query
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue, jsValueToApiValue}
 import com.daml.lf.data.{Decimal, ImmArray, Numeric, Ref, SortedLookupList, Time}
 import ImmArray.ImmArraySeq
-import com.codahale.metrics.MetricRegistry
 import com.daml.http.dbbackend.SurrogateTemplateIdCache
 import com.daml.lf.typesig
 import com.daml.lf.value.{Value => V}
@@ -297,7 +296,7 @@ class ValuePredicateTest
       ) { (backend, sql: doobie.Fragment) =>
         // we aren't running the SQL, just looking at it
         import org.scalatest.EitherValues._
-        implicit val metrics: Metrics = new Metrics(new MetricRegistry())
+        implicit val metrics: Metrics = Metrics.ForTesting
         implicit val sjd: dbbackend.SupportedJdbcDriver.TC =
           backend.configure("", Map.empty, SurrogateTemplateIdCache.MaxEntries).value
         val frag = vp.toSqlWhereClause

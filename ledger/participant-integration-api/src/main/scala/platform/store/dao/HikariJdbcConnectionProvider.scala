@@ -57,6 +57,12 @@ object DataSourceConnectionProvider {
       val transientFailureCount = new AtomicInteger(0)
 
       val checkHealth = new TimerTask {
+        private def printProblem(problem: String)(implicit loggingContext: LoggingContext): Unit = {
+          val count = transientFailureCount.incrementAndGet()
+          if (count == 1)
+            logger.info(s"Hikari connection health check failed with $problem problem")
+          ()
+        }
         override def run(): Unit = {
           LoggingContext.newLoggingContext { implicit loggingContext =>
             try {
@@ -64,12 +70,9 @@ object DataSourceConnectionProvider {
               transientFailureCount.set(0)
             } catch {
               case _: SQLTransientConnectionException =>
-                val _ = transientFailureCount.incrementAndGet()
+                printProblem("transient connection")
               case _: Throwable =>
-                val count = transientFailureCount.incrementAndGet()
-                if (count == 1)
-                  logger.info("Hikari connection health check failed unexpectedly")
-                ()
+                printProblem("unexpected")
             }
           }
         }

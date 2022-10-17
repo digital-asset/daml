@@ -13,6 +13,8 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, Test
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
+import com.daml.platform.apiserver.ratelimiting.LimitResult.LimitResultCheck
+import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
@@ -61,28 +63,8 @@ final class RateLimitingInterceptorSpec
 
   behavior of "RateLimitingInterceptor"
 
-  it should "limit calls when apiServices executor service is over limit" in {
-    val metrics = new Metrics(new MetricRegistry)
-
-    withChannel(metrics, new HelloServiceAkkaImplementation, config).use { channel: Channel =>
-      val helloService = HelloServiceGrpc.stub(channel)
-      val submitted = metrics.registry.meter(
-        MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted")
-      )
-      for {
-        _ <- helloService.single(HelloRequest(1))
-        _ = submitted.mark(config.maxApiServicesQueueSize.toLong + 1)
-        exception <- helloService.single(HelloRequest(2)).failed
-        _ = submitted.mark(-config.maxApiServicesQueueSize.toLong - 1)
-        _ <- helloService.single(HelloRequest(3))
-      } yield {
-        exception.getMessage should include(metrics.daml.lapi.threadpool.apiServices)
-      }
-    }
-  }
-
   it should "limit calls when apiServices DB thread pool executor service is over limit" in {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
     withChannel(metrics, new HelloServiceAkkaImplementation, config).use { channel: Channel =>
       val helloService = HelloServiceGrpc.stub(channel)
       val submitted = metrics.registry.meter(
@@ -107,7 +89,7 @@ final class RateLimitingInterceptorSpec
   /** Allowing metadata requests allows grpcurl to be used to debug problems */
 
   it should "allow metadata requests even when over limit" in {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
     metrics.registry
       .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
       .mark(config.maxApiServicesQueueSize.toLong + 1) // Over limit
@@ -140,7 +122,7 @@ final class RateLimitingInterceptorSpec
   }
 
   it should "allow health checks event when over limit" in {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
     metrics.registry
       .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
       .mark(config.maxApiServicesQueueSize.toLong + 1) // Over limit
@@ -180,7 +162,7 @@ final class RateLimitingInterceptorSpec
 
     // Based on a combination of JvmMetricSet and MemoryUsageGaugeSet
     val expectedMetric = s"jvm_memory_usage_pools_$poolName"
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
 
     val memoryBean = mock[MemoryMXBean]
 
@@ -223,7 +205,7 @@ final class RateLimitingInterceptorSpec
 
   it should "limit the number of streams" in {
 
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
 
     val limitStreamConfig = RateLimitingConfig.Default.copy(maxStreams = 2)
 
@@ -258,7 +240,7 @@ final class RateLimitingInterceptorSpec
 
   it should "exclude non-stream traffic from stream counts" in {
 
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
 
     val limitStreamConfig = RateLimitingConfig.Default.copy(maxStreams = 2)
 
@@ -298,7 +280,7 @@ final class RateLimitingInterceptorSpec
 
   it should "stream rate limiting should not limit non-stream traffic" in {
 
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
 
     val limitStreamConfig = RateLimitingConfig.Default.copy(maxStreams = 2)
 
@@ -328,7 +310,7 @@ final class RateLimitingInterceptorSpec
 
   it should "maintain stream count for streams cancellations" in {
 
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
 
     val limitStreamConfig = RateLimitingConfig.Default.copy(maxStreams = 2)
 
@@ -350,7 +332,7 @@ final class RateLimitingInterceptorSpec
     val initMemory = 100000L
     val increasedMemory = 200000L
 
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
 
     val memoryBean = mock[MemoryMXBean]
 
@@ -391,12 +373,47 @@ final class RateLimitingInterceptorSpec
     underTest.calculateCollectionUsageThreshold(101000) shouldBe 100000 // 101000 - 1000
   }
 
+  it should "support addition checks" in {
+    val metrics = new Metrics(new MetricRegistry)
+
+    val apiServices: ThreadpoolCount = new ThreadpoolCount(metrics)(
+      "Api Services Threadpool",
+      metrics.daml.lapi.threadpool.apiServices,
+    )
+    val apiServicesCheck = ThreadpoolCheck(apiServices, config.maxApiServicesQueueSize)
+
+    withChannel(
+      metrics,
+      new HelloServiceAkkaImplementation,
+      config,
+      additionalChecks = List(apiServicesCheck),
+    ).use { channel: Channel =>
+      val helloService = HelloServiceGrpc.stub(channel)
+      val submitted = metrics.registry.meter(
+        MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted")
+      )
+      for {
+        _ <- helloService.single(HelloRequest(1))
+        _ = submitted.mark(config.maxApiServicesQueueSize.toLong + 1)
+        exception <- helloService.single(HelloRequest(2)).failed
+        _ = submitted.mark(-config.maxApiServicesQueueSize.toLong - 1)
+        _ <- helloService.single(HelloRequest(3))
+      } yield {
+        exception.getMessage should include(metrics.daml.lapi.threadpool.apiServices)
+      }
+    }
+  }
+
 }
 
 object RateLimitingInterceptorSpec extends MockitoSugar {
 
   private val logger = LoggerFactory.getLogger(getClass)
   private val healthChecks = new HealthChecks(Map.empty[ComponentName, ReportsHealth])
+
+  private def createMetrics = {
+    new Metrics(new MetricRegistry)
+  }
 
   // For tests that do not involve memory
   private def underLimitMemoryPoolMXBean(): MemoryPoolMXBean = {
@@ -414,9 +431,13 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
       config: RateLimitingConfig,
       pool: List[MemoryPoolMXBean] = List(underLimitMemoryPoolMXBean()),
       memoryBean: MemoryMXBean = ManagementFactory.getMemoryMXBean,
+      additionalChecks: List[LimitResultCheck] = List.empty,
   ): ResourceOwner[Channel] =
     for {
-      server <- serverOwner(RateLimitingInterceptor(metrics, config, pool, memoryBean), service)
+      server <- serverOwner(
+        RateLimitingInterceptor(metrics, config, pool, memoryBean, additionalChecks),
+        service,
+      )
       channel <- GrpcClientResource.owner(Port(server.getPort))
     } yield channel
 
