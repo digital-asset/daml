@@ -534,20 +534,20 @@ internalCreateCmd arg = Commands $ Ap (\f -> f (Create arg identity) (pure coerc
 -- | HIDE A version of 'exerciseCmd' without constraints.
 --
 -- This is used for Daml ledger exports involving contracts defined in Daml-LF 1.6 or 1.7.
-internalExerciseCmd : TemplateTypeRep -> ContractId () -> AnyChoice -> Commands r
-internalExerciseCmd tplTypeRep cId arg = Commands $ Ap (\f -> f (Exercise tplTypeRep cId arg identity) (pure fromLedgerValue))
+internalExerciseCmd : forall r. TemplateTypeRep -> ContractId () -> AnyChoice -> Commands r
+internalExerciseCmd tplTypeRep cId arg = Commands $ Ap (\f -> f (Exercise tplTypeRep cId arg identity) (pure (fromLedgerValue @r)))
 
 -- | HIDE A version of 'exerciseByKeyCmd' without constraints.
 --
 -- This is used for Daml ledger exports involving contracts defined in Daml-LF 1.6 or 1.7.
-internalExerciseByKeyCmd : TemplateTypeRep -> AnyContractKey -> AnyChoice -> Commands r
-internalExerciseByKeyCmd tplTypeRep key arg = Commands $ Ap (\f -> f (ExerciseByKey tplTypeRep key arg identity) (pure fromLedgerValue))
+internalExerciseByKeyCmd : forall r. TemplateTypeRep -> AnyContractKey -> AnyChoice -> Commands r
+internalExerciseByKeyCmd tplTypeRep key arg = Commands $ Ap (\f -> f (ExerciseByKey tplTypeRep key arg identity) (pure (fromLedgerValue @r)))
 
 -- | HIDE A version of 'createAndExerciseCmd' without constraints.
 --
 -- This is used for Daml ledger exports involving contracts defined in Daml-LF 1.6 or 1.7.
-internalCreateAndExerciseCmd : AnyTemplate -> AnyChoice -> Commands r
-internalCreateAndExerciseCmd tplArg choiceArg = Commands $ Ap (\f -> f (CreateAndExercise tplArg choiceArg identity) (pure fromLedgerValue))
+internalCreateAndExerciseCmd : forall r. AnyTemplate -> AnyChoice -> Commands r
+internalCreateAndExerciseCmd tplArg choiceArg = Commands $ Ap (\f -> f (CreateAndExercise tplArg choiceArg identity) (pure (fromLedgerValue @r)))
 
 -- | Create a contract of the given template.
 createCmd : Template t => t -> Commands (ContractId t)
