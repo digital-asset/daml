@@ -6,7 +6,7 @@
 module ShowText where
 
 import DA.Foldable (forA_)
-import DA.Text (explode, implode, toCodePoints, unlines)
+import DA.Text (explode, fromCodePoints, implode, toCodePoints, unlines)
 
 -- # Setup
 
@@ -192,3 +192,8 @@ control_RS =
 
 control_US =
   "\US" ==> "\"\\US\""
+
+exhaustive = scenario do
+  forA_ [0..255] \i -> do
+    debugRaw ("exhaustive [" <> show i <> "/255]")
+    debugRaw (show (fromCodePoints [i]))
