@@ -406,7 +406,6 @@ object domain {
   )
 
   object ObjectMeta {
-    // TODO um-for-hub: Review usage
     def empty: ObjectMeta = ObjectMeta(
       resourceVersionO = None,
       annotations = Map.empty,
@@ -416,8 +415,6 @@ object domain {
   final case class User(
       id: Ref.UserId,
       primaryParty: Option[Ref.Party],
-      // TODO um-for-hub: Remove default values
-      // NOTE: Do not set 'isDeactivated' and 'metadata'. These are work-in-progress features.
       isDeactivated: Boolean = false,
       metadata: ObjectMeta = ObjectMeta.empty,
   )

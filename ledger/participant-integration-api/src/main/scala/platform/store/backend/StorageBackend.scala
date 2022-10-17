@@ -200,7 +200,6 @@ trait PartyRecordStorageBackend {
 
   def getPartyAnnotations(internalId: Int)(connection: Connection): Map[String, String]
 
-  // TODO um-for-hub: Consider using validated string types (like Ref.Party) for annotation keys and values
   def addPartyAnnotation(internalId: Int, key: String, value: String, updatedAt: Long)(
       connection: Connection
   ): Unit
