@@ -276,7 +276,7 @@ object PackageService {
   }
 
   type ResolveTemplateRecordType =
-    ContractTypeId.RequiredPkg => Error \/ typesig.Type
+    ContractTypeId.RequiredPkg => Error \/ typesig.Type // TODO #15098 .Template
 
   type AllTemplateIds =
     LoggingContextOf[
