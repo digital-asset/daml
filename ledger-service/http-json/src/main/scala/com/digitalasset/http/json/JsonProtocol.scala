@@ -5,6 +5,7 @@ package com.daml.http.json
 
 import akka.http.scaladsl.model.StatusCode
 import com.daml.http.domain
+import com.daml.http.domain.ContractTypeId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.value.Value.ContractId
@@ -294,7 +295,8 @@ object JsonProtocol extends JsonProtocolLow {
       }
     }
 
-  implicit val ActiveContractFormat: RootJsonFormat[domain.ActiveContract[JsValue]] = {
+  implicit val ActiveContractFormat
+      : RootJsonFormat[domain.ActiveContract.ResolvedCtTyId[JsValue]] = {
     implicit val `ctid resolved fmt`: JsonFormat[domain.ContractTypeId.Resolved] =
       jsonFormatFromReaderWriter(
         TemplateIdRequiredPkgFormat[domain.ContractTypeId.Template],
@@ -302,7 +304,7 @@ object JsonProtocol extends JsonProtocolLow {
         // the proper contract type ID right doesn't matter
         TemplateIdRequiredPkgFormat[domain.ContractTypeId],
       )
-    jsonFormat7(domain.ActiveContract.apply[JsValue])
+    jsonFormat7(domain.ActiveContract.apply[ContractTypeId.Resolved, JsValue])
   }
 
   implicit val ArchivedContractFormat: RootJsonFormat[domain.ArchivedContract] =
@@ -439,10 +441,18 @@ object JsonProtocol extends JsonProtocolLow {
     }
 
   implicit val CreateAndExerciseCommandFormat: RootJsonFormat[
-    domain.CreateAndExerciseCommand[JsValue, JsValue, domain.ContractTypeId.OptionalPkg]
+    domain.CreateAndExerciseCommand[
+      JsValue,
+      JsValue,
+      domain.ContractTypeId.OptionalPkg,
+    ] // TODO #15098 .Template
   ] =
     jsonFormat6(
-      domain.CreateAndExerciseCommand[JsValue, JsValue, domain.ContractTypeId.OptionalPkg]
+      domain.CreateAndExerciseCommand[
+        JsValue,
+        JsValue,
+        domain.ContractTypeId.OptionalPkg,
+      ] // TODO #15098 .Template
     )
 
   implicit val CompletionOffsetFormat: JsonFormat[domain.CompletionOffset] =

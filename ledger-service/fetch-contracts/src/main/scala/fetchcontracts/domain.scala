@@ -98,7 +98,9 @@ package domain {
     def fromLedgerApi[RQ, CtTyId](
         resolvedQuery: RQ,
         gacr: lav1.active_contracts_service.GetActiveContractsResponse,
-    )(implicit RQ: ForQuery[RQ, CtTyId]): Error \/ List[ActiveContract[CtTyId, lav1.value.Value]] = {
+    )(implicit
+        RQ: ForQuery[RQ, CtTyId]
+    ): Error \/ List[ActiveContract[CtTyId, lav1.value.Value]] = {
       gacr.activeContracts.toList.traverse(fromLedgerApi(resolvedQuery, _))
     }
 
@@ -109,7 +111,7 @@ package domain {
       type IdKeyPayload =
         (Error \/ CtTyId, Option[lav1.value.Value], Error \/ lav1.value.Record)
 
-      def templateFallback =  {
+      def templateFallback = {
         val id = in.templateId.required("templateId").map(ContractTypeId.Template.fromLedgerApi)
         (id, in.contractKey, in.createArguments required "createArguments")
       }
@@ -149,7 +151,8 @@ package domain {
     sealed abstract class ForQuery[-RQ, CtTyId] extends Product with Serializable
     object ForQuery {
       implicit case object Resolved extends ForQuery[ResolvedQuery, ContractTypeId.Resolved]
-      implicit case object Tpl extends ForQuery[IgnoreInterface.type, ContractTypeId.Template.Resolved]
+      implicit case object Tpl
+          extends ForQuery[IgnoreInterface.type, ContractTypeId.Template.Resolved]
     }
 
     implicit val covariant: Traverse[ResolvedCtTyId] = new Traverse[ResolvedCtTyId] {

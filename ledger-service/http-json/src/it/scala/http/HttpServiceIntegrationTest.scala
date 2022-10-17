@@ -91,7 +91,7 @@ abstract class HttpServiceIntegrationTest
     import util.ErrorOps._
     import com.daml.jwt.domain.Jwt
 
-    val command0: domain.CreateCommand[v.Record, domain.ContractTypeId.OptionalPkg] =
+    val command0: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
       iouCreateCommand(domain.Party("Alice"))
 
     type F[A] = EitherT[Future, JsonError, A]
@@ -140,8 +140,8 @@ abstract class HttpServiceIntegrationTest
 
     def createIouAndExerciseTransfer(
         fixture: UriFixture with EncoderFixture,
-        initialTplId: domain.ContractTypeId.OptionalPkg,
-        exerciseTid: domain.ContractTypeId.OptionalPkg,
+        initialTplId: domain.ContractTypeId.Template.OptionalPkg,
+        exerciseTid: domain.ContractTypeId.OptionalPkg, // // TODO #15098 .Interface
         choice: TExercise[_] = tExercise(choiceArgType = echoTextVA)(echoTextSample),
     ) = for {
       aliceH <- fixture.getUniquePartyAndAuthHeaders("Alice")

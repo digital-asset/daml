@@ -5,7 +5,6 @@ package com.daml.http
 
 import akka.http.scaladsl.model.headers.Authorization
 import akka.http.scaladsl.model.{StatusCodes, Uri}
-import com.daml.fetchcontracts.domain.ContractTypeId.OptionalPkg
 import com.daml.http.HttpServiceTestFixture.{UseTls, authorizationHeader, postRequest}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.http.dbbackend.JdbcConfig
@@ -84,7 +83,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       import fixture.{encoder, client => ledgerClient}
       for {
         (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
+        command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
+          iouCreateCommand(alice)
         input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
         user <- createUser(ledgerClient)(
           Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
@@ -98,7 +98,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             input,
             headers = headersWithUserAuth(user.id),
           )
-          .parseResponse[domain.ActiveContract[JsValue]]
+          .parseResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]
       } yield inside(response) { case domain.OkResponse(activeContract, _, StatusCodes.OK) =>
         assertActiveContract(activeContract)(command, encoder)
       }
@@ -109,7 +109,8 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       import fixture.{encoder, client => ledgerClient}
       val alice = getUniqueParty("Alice")
       val bob = getUniqueParty("Bob")
-      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
+      val command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
+        iouCreateCommand(alice)
       val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
       for {
         user <- createUser(ledgerClient)(
@@ -143,7 +144,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           submissionId = None,
           deduplicationPeriod = None,
         )
-        val command: domain.CreateCommand[v.Record, OptionalPkg] =
+        val command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
           iouCreateCommand(alice, meta = Some(meta))
         val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
         for {

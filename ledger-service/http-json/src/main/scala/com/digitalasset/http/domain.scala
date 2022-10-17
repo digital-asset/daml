@@ -122,7 +122,7 @@ package domain {
     }
   }
 
-  case class Contract[LfV](value: ArchivedContract \/ ActiveContract[LfV])
+  case class Contract[LfV](value: ArchivedContract \/ ActiveContract.ResolvedCtTyId[LfV])
 
   case class ArchivedContract(contractId: ContractId, templateId: ContractTypeId.RequiredPkg)
 
@@ -361,14 +361,16 @@ package domain {
     implicit val covariant: Traverse[Contract] = new Traverse[Contract] {
 
       override def map[A, B](fa: Contract[A])(f: A => B): Contract[B] = {
-        val valueB: ArchivedContract \/ ActiveContract[B] = fa.value.map(a => a.map(f))
+        val valueB: ArchivedContract \/ ActiveContract.ResolvedCtTyId[B] =
+          fa.value.map(a => a.map(f))
         Contract(valueB)
       }
 
       override def traverseImpl[G[_]: Applicative, A, B](
           fa: Contract[A]
       )(f: A => G[B]): G[Contract[B]] = {
-        val valueB: G[ArchivedContract \/ ActiveContract[B]] = fa.value.traverse(a => a.traverse(f))
+        val valueB: G[ArchivedContract \/ ActiveContract.ResolvedCtTyId[B]] =
+          fa.value.traverse(a => a.traverse(f))
         valueB.map(x => Contract[B](x))
       }
     }
@@ -376,15 +378,15 @@ package domain {
 
   private[http] object ActiveContractExtras {
     // only used in integration tests
-    implicit val `AcC hasTemplateId`: HasTemplateId.Compat[ActiveContract] =
-      new HasTemplateId[ActiveContract] {
-        override def templateId(fa: ActiveContract[_]): ContractTypeId.OptionalPkg =
+    implicit val `AcC hasTemplateId`: HasTemplateId.Compat[ActiveContract.ResolvedCtTyId] =
+      new HasTemplateId[ActiveContract.ResolvedCtTyId] {
+        override def templateId(fa: ActiveContract.ResolvedCtTyId[_]): ContractTypeId.OptionalPkg =
           (fa.templateId: ContractTypeId.RequiredPkg).map(Some(_))
 
         type TypeFromCtId = LfType
 
         override def lfType(
-            fa: ActiveContract[_],
+            fa: ActiveContract.ResolvedCtTyId[_],
             templateId: ContractTypeId.Resolved,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
