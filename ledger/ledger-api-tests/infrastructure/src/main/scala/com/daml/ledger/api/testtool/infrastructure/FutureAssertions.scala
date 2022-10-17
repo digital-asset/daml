@@ -34,7 +34,7 @@ final class FutureAssertions[T](future: Future[T]) {
   def mustFailWith(
       context: String,
       errorCode: ErrorCode,
-      exceptionMessageSubstring: Option[String],
+      exceptionMessageSubstring: Option[String] = None,
   )(implicit executionContext: ExecutionContext): Future[Unit] = {
     for {
       error <- mustFail(context)

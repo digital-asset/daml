@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.cache
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.Resource
 import com.daml.lf.crypto.Hash
@@ -33,7 +32,7 @@ class MutableCacheBackedContractStoreSpec extends AsyncWordSpec with Matchers wi
     "update the contract state caches" in {
       val contractStateCaches = mock[ContractStateCaches]
       val contractStore = new MutableCacheBackedContractStore(
-        metrics = new Metrics(new MetricRegistry),
+        metrics = Metrics.ForTesting,
         contractsReader = mock[LedgerDaoContractsReader],
         contractStateCaches = contractStateCaches,
       )
@@ -48,7 +47,7 @@ class MutableCacheBackedContractStoreSpec extends AsyncWordSpec with Matchers wi
       val event2 = event1.copy(eventSequentialId = 2L)
       val updateBatch = Vector(event1, event2)
 
-      contractStore.push(updateBatch)
+      contractStore.contractStateCaches.push(updateBatch)
       verify(contractStateCaches).push(updateBatch)
 
       succeed
@@ -265,7 +264,7 @@ object MutableCacheBackedContractStoreSpec {
       readerFixture: LedgerDaoContractsReader = ContractsReaderFixture(),
       startIndexExclusive: Offset = offset0,
   )(implicit loggingContext: LoggingContext) = {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = Metrics.ForTesting
     val contractStore = new MutableCacheBackedContractStore(
       metrics,
       readerFixture,
@@ -274,7 +273,7 @@ object MutableCacheBackedContractStoreSpec {
           scala.concurrent.ExecutionContext.global,
           loggingContext,
         ),
-    )(scala.concurrent.ExecutionContext.global, loggingContext)
+    )(scala.concurrent.ExecutionContext.global)
 
     Resource.successful(contractStore)
   }

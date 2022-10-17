@@ -462,7 +462,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
     "create" - {
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of successful create
+      // TEST_EVIDENCE: Integrity: Evaluation order of successful create
       "success" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -486,7 +486,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of create with failed precondition
+      // TEST_EVIDENCE: Integrity: Evaluation order of create with failed precondition
       "failed precondition" in {
         // Note that for LF >= 1.14 we don’t hit this as the compiler
         // generates code that throws an exception instead of returning False.
@@ -504,7 +504,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of create with duplicate contract key
+      // TEST_EVIDENCE: Integrity: Evaluation order of create with duplicate contract key
       "duplicate contract key" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -529,7 +529,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of create with empty contract key maintainers
+      // TEST_EVIDENCE: Integrity: Evaluation order of create with empty contract key maintainers
       "empty contract key maintainers" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -553,7 +553,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of create with authorization failure
+      // TEST_EVIDENCE: Integrity: Evaluation order of create with authorization failure
       "authorization failure" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -576,7 +576,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of create with contract ID in contract key
+      // TEST_EVIDENCE: Integrity: Evaluation order of create with contract ID in contract key
       "contract ID in contract key" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -603,7 +603,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of create with create argument exceeding max nesting
+      // TEST_EVIDENCE: Integrity: Evaluation order of create with create argument exceeding max nesting
       "create argument exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -626,7 +626,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of create with contract key exceeding max nesting
+      // TEST_EVIDENCE: Integrity: Evaluation order of create with contract key exceeding max nesting
       "key exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -653,7 +653,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
     "create by interface" - {
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of successful create_interface
+      // TEST_EVIDENCE: Integrity: Evaluation order of successful create_interface
       "success" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -678,7 +678,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of create_interface with failed precondition
+      // TEST_EVIDENCE: Integrity: Evaluation order of create_interface with failed precondition
       "failed precondition" in {
         // Note that for LF >= 1.14 we don’t hit this as the compiler
         // generates code that throws an exception instead of returning False.
@@ -696,7 +696,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of create_interface with duplicate contract key
+      // TEST_EVIDENCE: Integrity: Evaluation order of create_interface with duplicate contract key
       "duplicate contract key" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -721,7 +721,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of create_interface with empty contract key maintainers
+      // TEST_EVIDENCE: Integrity: Evaluation order of create_interface with empty contract key maintainers
       "empty contract key maintainers" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -747,7 +747,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of create_interface with authorization failure
+      // TEST_EVIDENCE: Integrity: Evaluation order of create_interface with authorization failure
       "authorization failure" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -770,7 +770,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of create_interface with contract ID in contract key
+      // TEST_EVIDENCE: Integrity: Evaluation order of create_interface with contract ID in contract key
       "contract ID in contract key" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -797,7 +797,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of create_interface with create argument exceeding max nesting
+      // TEST_EVIDENCE: Integrity: Evaluation order of create_interface with create argument exceeding max nesting
       "create argument exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -820,7 +820,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of create_interface with contract key exceeding max nesting
+      // TEST_EVIDENCE: Integrity: Evaluation order of create_interface with contract key exceeding max nesting
       "key exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -849,7 +849,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a non-cached global contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise of a non-cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful exercise of a non-cached global contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -874,7 +874,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a wrongly typed non-cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise of a wrongly typed non-cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -889,7 +889,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a non-cached global contract with failure authorization
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise of a non-cached global contract with failure authorization
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -913,7 +913,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a non-cached global contract with inconsistent key
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise of a non-cached global contract with inconsistent key
         "inconsistent key" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -944,7 +944,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a cached global contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise of a cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful exercise of a cached global contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -967,7 +967,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of an inactive global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise of an inactive global contract
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -984,7 +984,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a wrongly typed cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise of a wrongly typed cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1020,7 +1020,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of cached global contract with failure authorization
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise of cached global contract with failure authorization
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1040,7 +1040,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a local contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise of a local contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful exercise of a local contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1062,7 +1062,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of an inactive local contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise of an inactive local contract
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1081,7 +1081,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of an wrongly typed local contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise of an wrongly typed local contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1120,7 +1120,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise of a cached global contract with failure authorization
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise of a cached global contract with failure authorization
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1144,7 +1144,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of exercise of an unknown contract
+      // TEST_EVIDENCE: Integrity: Evaluation order of exercise of an unknown contract
       "unknown contract" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -1158,7 +1158,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of exercise with argument exceeding max nesting
+      // TEST_EVIDENCE: Integrity: Evaluation order of exercise with argument exceeding max nesting
       "argument exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -1181,7 +1181,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of exercise with output exceeding max nesting
+      // TEST_EVIDENCE: Integrity: Evaluation order of exercise with output exceeding max nesting
       "output exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -1210,7 +1210,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a non-cached global contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise_by_key of a non-cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful exercise_by_key of a non-cached global contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1252,7 +1252,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of a non-cached global contract with failure authorization
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key of a non-cached global contract with failure authorization
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1277,7 +1277,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise-by-key of a non-cached global contract with visibility failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise-by-key of a non-cached global contract with visibility failure
         "visibility failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1307,7 +1307,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a cached global contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise_by_key of a cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful exercise_by_key of a cached global contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1332,7 +1332,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of an inactive global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key of an inactive global contract
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1351,7 +1351,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of a wrongly typed cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key of a wrongly typed cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1370,7 +1370,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of cached global contract with failure authorization
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key of cached global contract with failure authorization
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1394,7 +1394,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise-by-key of a cached global contract with visibility failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise-by-key of a cached global contract with visibility failure
         "visibility failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1418,7 +1418,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a local contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise_by_key of a local contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful exercise_by_key of a local contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1441,7 +1441,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of an inactive local contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key of an inactive local contract
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1461,7 +1461,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of a cached global contract with failure authorization
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key of a cached global contract with failure authorization
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1484,7 +1484,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of a local contract with visibility failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key of a local contract with visibility failure
         "visibility failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1505,7 +1505,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key of an unknown contract
+      // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key of an unknown contract
       "unknown contract key" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -1520,7 +1520,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key with argument exceeding max nesting
+      // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key with argument exceeding max nesting
       "argument exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -1544,7 +1544,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key with result exceeding max nesting
+      // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key with result exceeding max nesting
       "result exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -1569,7 +1569,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of exercise_vy_key with empty contract key maintainers
+      // TEST_EVIDENCE: Integrity: Evaluation order of exercise_vy_key with empty contract key maintainers
       "empty contract key maintainers" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -1583,7 +1583,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of exercise_by_key with contract ID in contract key
+      // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key with contract ID in contract key
       "contract ID in contract key " in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -1608,7 +1608,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
         "a non-cached global contract" - {
 
-          // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise by interface of a non-cached global contract
+          // TEST_EVIDENCE: Integrity: Evaluation order of successful exercise by interface of a non-cached global contract
           "success" in {
             val (res, msgs) = evalUpdateApp(
               pkgs,
@@ -1635,7 +1635,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             }
           }
 
-          // TEST_EVIDENCE: Semantics: exercise_interface with a contract instance that does not implement the interface fails.
+          // TEST_EVIDENCE: Integrity: exercise_interface with a contract instance that does not implement the interface fails.
           "contract doesn't implement interface" in {
             val (res, msgs) = evalUpdateApp(
               pkgs,
@@ -1653,7 +1653,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             }
           }
 
-          // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of a non-cached global contract with failed authorization
+          // TEST_EVIDENCE: Integrity: Evaluation order of exercise_interface of a non-cached global contract with failed authorization
           "authorization failures" in {
             val (res, msgs) = evalUpdateApp(
               pkgs,
@@ -1682,7 +1682,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
         "a cached global contract" - {
 
-          // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise_interface of a cached global contract
+          // TEST_EVIDENCE: Integrity: Evaluation order of successful exercise_interface of a cached global contract
           "success" in {
             val (res, msgs) = evalUpdateApp(
               pkgs,
@@ -1707,7 +1707,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             }
           }
 
-          // TEST_EVIDENCE: Semantics: Evaluation order of exercise by interface of an inactive global contract
+          // TEST_EVIDENCE: Integrity: Evaluation order of exercise by interface of an inactive global contract
           "inactive contract" in {
             val (res, msgs) = evalUpdateApp(
               pkgs,
@@ -1725,7 +1725,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             }
           }
 
-          // TEST_EVIDENCE: Semantics: Evaluation order of exercise by interface of a cached global contract that does not implement the interface.
+          // TEST_EVIDENCE: Integrity: Evaluation order of exercise by interface of a cached global contract that does not implement the interface.
           "wrongly typed contract" in {
             val (res, msgs) = evalUpdateApp(
               pkgs,
@@ -1747,7 +1747,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             }
           }
 
-          // TEST_EVIDENCE: Semantics: This checks that type checking is done after checking activeness.
+          // TEST_EVIDENCE: Integrity: This checks that type checking is done after checking activeness.
           "wrongly typed inactive contract" in {
             val (res, msgs) = evalUpdateApp(
               pkgs,
@@ -1765,7 +1765,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             }
           }
 
-          // TEST_EVIDENCE: Semantics: Evaluation order of exercise by interface of cached global contract with failed authorization
+          // TEST_EVIDENCE: Integrity: Evaluation order of exercise by interface of cached global contract with failed authorization
           "authorization failures" in {
             val (res, msgs) = evalUpdateApp(
               pkgs,
@@ -1791,7 +1791,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
         "a local contract" - {
 
-          // TEST_EVIDENCE: Semantics: Evaluation order of successful exercise_interface of a local contract
+          // TEST_EVIDENCE: Integrity: Evaluation order of successful exercise_interface of a local contract
           "success" in {
             val (res, msgs) = evalUpdateApp(
               pkgs,
@@ -1815,7 +1815,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             }
           }
 
-          // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of an inactive local contract
+          // TEST_EVIDENCE: Integrity: Evaluation order of exercise_interface of an inactive local contract
           "inactive contract" in {
             val (res, msgs) = evalUpdateApp(
               pkgs,
@@ -1834,7 +1834,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             }
           }
 
-          // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of an local contract not implementing the interface
+          // TEST_EVIDENCE: Integrity: Evaluation order of exercise_interface of an local contract not implementing the interface
           "wrongly typed contract" in {
             val (res, msgs) = evalUpdateApp(
               pkgs,
@@ -1857,7 +1857,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             }
           }
 
-          // TEST_EVIDENCE: Semantics: This checks that type checking in exercise_interface is done after checking activeness.
+          // TEST_EVIDENCE: Integrity: This checks that type checking in exercise_interface is done after checking activeness.
           "wrongly typed inactive contract" in {
             val (res, msgs) = evalUpdateApp(
               pkgs,
@@ -1877,7 +1877,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             }
           }
 
-          // TEST_EVIDENCE: Semantics: Evaluation order of exercise_interface of a cached local contract with failed authorization
+          // TEST_EVIDENCE: Integrity: Evaluation order of exercise_interface of a cached local contract with failed authorization
           "authorization failures" in {
             val (res, msgs) = evalUpdateApp(
               pkgs,
@@ -1917,7 +1917,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a non-cached global contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch of a non-cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful fetch of a non-cached global contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1939,7 +1939,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly typed non-cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch of a wrongly typed non-cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1954,7 +1954,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a non-cached global contract with failure authorization
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch of a non-cached global contract with failure authorization
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1976,7 +1976,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a non-cached global contract with inconsistent key
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch of a non-cached global contract with inconsistent key
         "inconsistent key" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2005,7 +2005,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a cached global contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch of a cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful fetch of a cached global contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2022,7 +2022,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of an inactive global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch of an inactive global contract
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2038,7 +2038,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly typed cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch of a wrongly typed cached global contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2072,7 +2072,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of cached global contract with failure authorization
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch of cached global contract with failure authorization
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2092,7 +2092,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a local contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch of a local contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful fetch of a local contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2107,7 +2107,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of an inactive local contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch of an inactive local contract
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2124,7 +2124,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of an wrongly typed local contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch of an wrongly typed local contract
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2159,7 +2159,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a cached global contract with failure authorization
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch of a cached global contract with failure authorization
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2179,7 +2179,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a disclosed contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch of a wrongly typed disclosed contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch of a wrongly typed disclosed contract
         "wrongly typed contract" in {
           val (result, events) = evalUpdateApp(
             pkgs,
@@ -2198,7 +2198,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of fetch of an unknown contract
+      // TEST_EVIDENCE: Integrity: Evaluation order of fetch of an unknown contract
       "unknown contract" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -2217,7 +2217,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a non-cached global contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch_by_key of a non-cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful fetch_by_key of a non-cached global contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2261,7 +2261,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key of a non-cached global contract with authorization failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch_by_key of a non-cached global contract with authorization failure
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2283,7 +2283,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch-by-key of a non-cached global contract with visibility failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch-by-key of a non-cached global contract with visibility failure
         "visibility failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2313,7 +2313,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a cached global contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch_by_key of a cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful fetch_by_key of a cached global contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2330,7 +2330,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key of an inactive global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch_by_key of an inactive global contract
         "inactive contract" in {
 
           val (res, msgs) = evalUpdateApp(
@@ -2349,7 +2349,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key of a cached global contract with authorization failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch_by_key of a cached global contract with authorization failure
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2366,7 +2366,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch-by-key of a cached global contract with visibility failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch-by-key of a cached global contract with visibility failure
         "visibility failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2391,7 +2391,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a local contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch_by_key of a local contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful fetch_by_key of a local contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2407,7 +2407,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key of an inactive global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch_by_key of an inactive global contract
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2425,7 +2425,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key of a local contract with authorization failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch_by_key of a local contract with authorization failure
         "visibility failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2446,7 +2446,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key of an unknown contract key
+      // TEST_EVIDENCE: Integrity: Evaluation order of fetch_by_key of an unknown contract key
       "unknown contract key" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -2462,7 +2462,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key with empty contract key maintainers
+      // TEST_EVIDENCE: Integrity: Evaluation order of fetch_by_key with empty contract key maintainers
       "empty contract key maintainers" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -2476,7 +2476,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key with contract ID in contract key
+      // TEST_EVIDENCE: Integrity: Evaluation order of fetch_by_key with contract ID in contract key
       "contract ID in contract key " in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -2490,7 +2490,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of fetch_by_key with contract key exceeding max nesting
+      // TEST_EVIDENCE: Integrity: Evaluation order of fetch_by_key with contract key exceeding max nesting
       "key exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -2508,7 +2508,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a non-cached global contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch_interface of a non-cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful fetch_interface of a non-cached global contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2531,7 +2531,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of a non-cached global contract that doesn't implement interface.
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch_interface of a non-cached global contract that doesn't implement interface.
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2548,7 +2548,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of a non-cached global contract with failed authorization
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch_interface of a non-cached global contract with failed authorization
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2574,7 +2574,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a cached global contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch_interface of a cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful fetch_interface of a cached global contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2591,7 +2591,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of an inactive global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch_interface of an inactive global contract
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2608,7 +2608,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of a cached global contract not implementing the interface.
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch_interface of a cached global contract not implementing the interface.
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2644,7 +2644,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of cached global contract with failure authorization
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch_interface of cached global contract with failure authorization
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2664,7 +2664,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a local contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful fetch_interface of a local contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful fetch_interface of a local contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2679,7 +2679,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of an inactive local contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch_interface of an inactive local contract
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2696,7 +2696,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of an local contract not implementing the interface
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch_interface of an local contract not implementing the interface
         "wrongly typed contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2714,7 +2714,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               msgs shouldBe Seq("starts test")
           }
         }
-        // TEST_EVIDENCE: Semantics: This checks that type checking is done after checking activeness.
+        // TEST_EVIDENCE: Integrity: This checks that type checking is done after checking activeness.
         "wrongly typed inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2732,7 +2732,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of a cached global contract with failure authorization
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch_interface of a cached global contract with failure authorization
         "authorization failures" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2750,7 +2750,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of fetch_interface of an unknown contract
+      // TEST_EVIDENCE: Integrity: Evaluation order of fetch_interface of an unknown contract
       "unknown contract" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -2770,7 +2770,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a non-cached global contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful lookup_by_key of a non-cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful lookup_by_key of a non-cached global contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2793,7 +2793,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of lookup_by_key of a non-cached global contract with authorization failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of lookup_by_key of a non-cached global contract with authorization failure
         "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2815,7 +2815,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of lookup of a non-cached global contract with visibility failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of lookup of a non-cached global contract with visibility failure
         "visibility failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2845,7 +2845,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a cached global contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful lookup_by_key of a cached global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful lookup_by_key of a cached global contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2862,7 +2862,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of lookup_by_key of an inactive global contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of lookup_by_key of an inactive global contract
         "inactive contract" in {
 
           val (res, msgs) = evalUpdateApp(
@@ -2880,7 +2880,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of lookup_by_key of a cached global contract with authorization failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of lookup_by_key of a cached global contract with authorization failure
         "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2897,7 +2897,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of lookup of a cached global contract with visibility failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of lookup of a cached global contract with visibility failure
         "visibility failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2922,7 +2922,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
       "a local contract" - {
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of successful lookup_by_key of a local contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of successful lookup_by_key of a local contract
         "success" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2938,7 +2938,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of lookup_by_key of an inactive local contract
+        // TEST_EVIDENCE: Integrity: Evaluation order of lookup_by_key of an inactive local contract
         "inactive contract" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2955,7 +2955,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of lookup_by_key of a local contract with failure authorization
+        // TEST_EVIDENCE: Integrity: Evaluation order of lookup_by_key of a local contract with failure authorization
         "authorization failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2971,7 +2971,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           }
         }
 
-        // TEST_EVIDENCE: Semantics: Evaluation order of lookup_by_key of a local contract with authorization failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of lookup_by_key of a local contract with authorization failure
         "visibility failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2993,7 +2993,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       }
 
       "an undefined key" - {
-        // TEST_EVIDENCE: Semantics: Evaluation order of lookup_by_key of an unknown contract key
+        // TEST_EVIDENCE: Integrity: Evaluation order of lookup_by_key of an unknown contract key
         "successful" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -3009,7 +3009,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of lookup_by_key with empty contract key maintainers
+      // TEST_EVIDENCE: Integrity: Evaluation order of lookup_by_key with empty contract key maintainers
       "empty contract key maintainers" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -3023,7 +3023,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of lookup_by_key with contract ID in contract key
+      // TEST_EVIDENCE: Integrity: Evaluation order of lookup_by_key with contract ID in contract key
       "contract ID in contract key " in {
         val (res, msgs) = evalUpdateApp(
           pkgs,
@@ -3037,7 +3037,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         }
       }
 
-      // TEST_EVIDENCE: Semantics: Evaluation order of lookup_by_key with contract key exceeding max nesting
+      // TEST_EVIDENCE: Integrity: Evaluation order of lookup_by_key with contract key exceeding max nesting
       "key exceeds max nesting" in {
         val (res, msgs) = evalUpdateApp(
           pkgs,

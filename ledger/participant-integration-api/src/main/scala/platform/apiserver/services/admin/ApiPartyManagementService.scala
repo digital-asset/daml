@@ -20,9 +20,6 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
   LedgerEndService,
-  PartyDetailsUpdate,
-  PartyRecordStore,
-  PartyRecordUpdate,
 }
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
@@ -34,6 +31,7 @@ import com.daml.platform.apiserver.services.admin.ApiPartyManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.apiserver.update
 import com.daml.platform.apiserver.update.PartyRecordUpdateMapper
+import com.daml.platform.localstore.api.{PartyDetailsUpdate, PartyRecordStore, PartyRecordUpdate}
 import com.daml.platform.server.api.validation.FieldValidations
 import com.daml.platform.server.api.validation.FieldValidations.{
   optionalString,
@@ -269,12 +267,8 @@ private[apiserver] final class ApiPartyManagementService private (
                   )
                   .asGrpcError
               )
-              // TODO um-for-hub: Investigate why empty sting display name is represented as `""` rather than `None` in com.daml.ledger.api.domain.PartyDetails.displayName: Option[String]
             } else if (
-              partyDetailsUpdate.displayNameUpdate.exists(
-                _ != (if (fetchedPartyDetails.displayName == Some("")) None
-                      else fetchedPartyDetails.displayName)
-              )
+              partyDetailsUpdate.displayNameUpdate.exists(_ != fetchedPartyDetails.displayName)
             ) {
               Future.failed(
                 LedgerApiErrors.Admin.PartyManagement.InvalidUpdatePartyDetailsRequest
@@ -286,6 +280,8 @@ private[apiserver] final class ApiPartyManagementService private (
                   .asGrpcError
               )
             } else {
+              // NOTE: In the current implementation (as of 2022.10.13) a no-op update request
+              // will still cause an update of the resourceVersion's value.
               Future.successful(
                 PartyRecordUpdate(
                   party = partyDetailsUpdate.party,

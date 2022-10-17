@@ -80,16 +80,20 @@ private[backend] object StorageBackendTestValues {
       offset: Offset,
       party: String = someParty,
       isLocal: Boolean = true,
-  ): DbDto.PartyEntry = DbDto.PartyEntry(
-    ledger_offset = offset.toHexString,
-    recorded_at = someTime.micros,
-    submission_id = Some("submission_id"),
-    party = Some(party),
-    display_name = Some(party),
-    typ = JdbcLedgerDao.acceptType,
-    rejection_reason = None,
-    is_local = Some(isLocal),
-  )
+      displayNameOverride: Option[Option[String]] = None,
+  ): DbDto.PartyEntry = {
+    val displayName = displayNameOverride.getOrElse(Some(party))
+    DbDto.PartyEntry(
+      ledger_offset = offset.toHexString,
+      recorded_at = someTime.micros,
+      submission_id = Some("submission_id"),
+      party = Some(party),
+      display_name = displayName,
+      typ = JdbcLedgerDao.acceptType,
+      rejection_reason = None,
+      is_local = Some(isLocal),
+    )
+  }
 
   def dtoPackage(offset: Offset): DbDto.Package = DbDto.Package(
     package_id = someArchive.getHash,

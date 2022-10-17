@@ -83,7 +83,6 @@ conformance_test_tool_args = [
         "UserManagementServiceIT:TestCreateUser",
         "UserManagementServiceIT:TestGrantUserRights",
         "UserManagementServiceIT:TestRevokeUserRights",
-        "UserManagementServiceIT:TestFailCreatingUserWhenAnnotationsValueIsEmpty",
         "PartyManagementServiceIT:PMGetPartiesDetails",
         "PartyManagementServiceIT:PMListKnownParties",
     ]),

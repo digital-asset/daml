@@ -133,7 +133,7 @@ object TriggerRunnerImpl {
               case cause: Throwable =>
                 // Report the failure to the server.
                 config.server ! Server.TriggerInitializationFailure(triggerInstance, cause.toString)
-                logger.info(s"Trigger $name failed during initialization: $cause")
+                logger.error(s"Trigger $name failed during initialization", cause)
                 // Tell our monitor there's been a failure. The
                 // monitor's supervisor strategy will respond to
                 // this by writing the exception to the log and
@@ -156,7 +156,7 @@ object TriggerRunnerImpl {
             case Failed(cause) =>
               // Report the failure to the server.
               config.server ! Server.TriggerRuntimeFailure(triggerInstance, cause.toString)
-              logger.info(s"Trigger $name failed: $cause")
+              logger.error(s"Trigger $name failed", cause)
               // Tell our monitor there's been a failure. The
               // monitor's supervisor strategy will respond to this by
               // writing the exception to the log and attempting to

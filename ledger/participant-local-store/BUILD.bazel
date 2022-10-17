@@ -23,6 +23,7 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//ledger/caching",
+        "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/metrics",
         "//libs-scala/contextualized-logging",

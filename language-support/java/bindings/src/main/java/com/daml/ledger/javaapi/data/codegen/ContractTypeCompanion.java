@@ -9,10 +9,19 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/** The commonality between {@link ContractCompanion} and {@link InterfaceCompanion}. */
+/**
+ * The commonality between {@link ContractCompanion} and {@link InterfaceCompanion}.
+ *
+ * @param <ContractType> The type argument to {@link ContractId}s of this contract type. This is the
+ *     same as {@code Data} for templates, but is a pure marker type for interfaces.
+ * @param <Data> The "payload" data model for a contract. This is the template payload for
+ *     templates, and the view type for interfaces.
+ */
 public abstract class ContractTypeCompanion<ContractType, Data> {
   /** The full template ID of the template or interface that defined this companion. */
   public final Identifier TEMPLATE_ID;
+
+  final String TEMPLATE_CLASS_NAME;
 
   /**
    * The provides a mapping of choice name to Choice.
@@ -33,8 +42,11 @@ public abstract class ContractTypeCompanion<ContractType, Data> {
    * interface in question instead.
    */
   protected ContractTypeCompanion(
-      Identifier templateId, List<ChoiceMetadata<ContractType, ?, ?>> choices) {
+      Identifier templateId,
+      String templateClassName,
+      List<ChoiceMetadata<ContractType, ?, ?>> choices) {
     TEMPLATE_ID = templateId;
+    TEMPLATE_CLASS_NAME = templateClassName;
     this.choices =
         choices.stream().collect(Collectors.toMap(choice -> choice.name, Function.identity()));
   }

@@ -17,7 +17,7 @@ import org.scalatest.wordspec.AnyWordSpec
 class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   "checkKind" should {
-    // TEST_EVIDENCE: Input Validation: ill-formed kinds are rejected
+    // TEST_EVIDENCE: Integrity: ill-formed kinds are rejected
     "reject invalid kinds" in {
 
       val negativeTestCases = Table(
@@ -45,7 +45,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
   "kindOf" should {
 
-    // TEST_EVIDENCE: Input Validation: ensure builtin operators have the correct type
+    // TEST_EVIDENCE: Integrity: ensure builtin operators have the correct type
     "infers the proper kind for builtin types (but ContractId)" in {
       val testCases = Table(
         "builtin type" -> "expected kind",
@@ -97,7 +97,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       }
     }
 
-    // TEST_EVIDENCE: Input Validation: ill-formed types are rejected
+    // TEST_EVIDENCE: Integrity: ill-formed types are rejected
     "reject ill-formed types" in {
       an[ENatKindRightOfArrow] shouldBe thrownBy(env.kindOf(T"""∀ (τ: ⋆ → nat). Unit """))
     }
@@ -105,7 +105,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
   "typeOf" should {
 
-    // TEST_EVIDENCE: Input Validation: ensure expression forms have the correct type
+    // TEST_EVIDENCE: Integrity: ensure expression forms have the correct type
 
     "infers the proper type for expression" in {
       // The part of the expression that corresponds to the expression
@@ -447,7 +447,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       }
     }
 
-    // TEST_EVIDENCE: Input Validation: ill-formed expressions are rejected
+    // TEST_EVIDENCE: Integrity: ill-formed expressions are rejected
     "reject ill formed terms" in {
 
       // In the following test cases we use the variable `nothing` when we
@@ -1020,7 +1020,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       }
     }
 
-    // TEST_EVIDENCE: Input Validation: ill-formed templates are rejected
+    // TEST_EVIDENCE: Integrity: ill-formed templates are rejected
     "reject ill formed template definition" in {
 
       val pkg =
@@ -1398,7 +1398,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       )
     }
 
-    // TEST_EVIDENCE: Input Validation: ill-formed interfaces are rejected
+    // TEST_EVIDENCE: Integrity: ill-formed interfaces are rejected
     "reject ill formed interface definition" in {
 
       val pkg =
@@ -1813,7 +1813,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
   "checkModule" should {
 
-    // TEST_EVIDENCE: Input Validation: ill-formed exception definitions are rejected
+    // TEST_EVIDENCE: Integrity: ill-formed exception definitions are rejected
     "reject ill formed exception definitions" in {
 
       val pkg =
@@ -1934,7 +1934,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       }
     }
 
-    // TEST_EVIDENCE: Input Validation: ill-formed type synonyms applications are rejected
+    // TEST_EVIDENCE: Integrity: ill-formed type synonyms applications are rejected
     "reject ill formed type synonym application" in {
       val testCases = Table(
         "badly formed type synonym application",
@@ -1955,7 +1955,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       }
     }
 
-    // TEST_EVIDENCE: Input Validation: ill-formed records are rejected
+    // TEST_EVIDENCE: Integrity: ill-formed records are rejected
     "reject ill formed type record definitions" in {
 
       def checkModule(mod: Module) = {
@@ -1978,7 +1978,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
     }
 
-    // TEST_EVIDENCE: Input Validation: ill-formed variants are rejected
+    // TEST_EVIDENCE: Integrity: ill-formed variants are rejected
     "reject ill formed type variant definitions" in {
 
       def checkModule(mod: Module) = {
@@ -2001,7 +2001,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
     }
 
-    // TEST_EVIDENCE: Input Validation: ill-formed type synonyms definitions are rejected
+    // TEST_EVIDENCE: Integrity: ill-formed type synonyms definitions are rejected
     "reject ill formed type synonym definitions" in {
 
       def checkModule(mod: Module) = {

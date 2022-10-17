@@ -4,7 +4,7 @@
 package com.daml.platform.server.api.services.grpc
 
 import java.time.{Duration, Instant}
-import com.codahale.metrics.MetricRegistry
+
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.testing.utils.MockMessages._
@@ -122,7 +122,7 @@ class GrpcCommandSubmissionServiceSpec
       currentUtcTime = () => Instant.EPOCH,
       maxDeduplicationDuration = () => Some(Duration.ZERO),
       submissionIdGenerator = () => Ref.SubmissionId.assertFromString(generatedSubmissionId),
-      metrics = new Metrics(new MetricRegistry),
+      metrics = Metrics.ForTesting,
       explicitDisclosureUnsafeEnabled = false,
     )
 }

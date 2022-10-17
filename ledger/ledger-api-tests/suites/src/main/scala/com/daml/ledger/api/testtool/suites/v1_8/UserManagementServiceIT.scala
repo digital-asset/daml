@@ -10,7 +10,6 @@ import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertEquals, _}
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.user_management_service.{
   CreateUserRequest,
@@ -40,15 +39,7 @@ import scala.util.{Failure, Success}
 // TODO um-for-hub: For GrantUserRightsRequest: if 'rights' field is required, than we should reject attempting to grant 0 rights. Alternatively change to 'Optional'
 // TODO um-for-hub: For RevokeUserRightsRequest: if 'rights' field is required, than we should reject attempting to revoke 0 rights. Alternatively change to 'Optional'
 
-final class UserManagementServiceIT
-    extends LedgerTestSuite
-    with UserManagementServiceITUtils
-    with UserManagementServiceUpdateRpcTests
-    with UserManagementServiceAnnotationsValidationTests
-    with UserManagementServiceUpdateAnnotationMapTests
-    with UserManagementServiceUpdatePrimitivePropertiesTests
-    with UserManagementServiceInvalidUpdateRequestTests
-    with UserManagementServiceConcurrentUpdates {
+final class UserManagementServiceIT extends UserManagementServiceITBase {
 
   private val adminPermission =
     Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin()))
@@ -429,34 +420,9 @@ final class UserManagementServiceIT
       assertGrpcError(
         res,
         LedgerApiErrors.RequestValidation.InvalidArgument,
-        exceptionMessageSubstring = Some(
-          "The submitted command has invalid arguments: field user.metadata.resource_version must be not set"
-        ),
+        exceptionMessageSubstring = Some("user.metadata.resource_version"),
       )
     }
-  })
-
-  userManagementTest(
-    shortIdentifier = "TestFailCreatingUserWhenAnnotationsValueIsEmpty",
-    description = "Failing to create a user when an annotations value is empty",
-    requiresUserAndPartyLocalMetadataExtensions = true,
-  )(implicit ec => { implicit ledger =>
-    val userId1 = ledger.nextUserId()
-    for {
-      _ <- ledger
-        .createUser(
-          CreateUserRequest(
-            Some(newUser(id = userId1, annotations = Map("k1" -> "v1", "k2" -> "")))
-          )
-        )
-        .mustFailWith(
-          "allocating a user",
-          LedgerApiErrors.RequestValidation.InvalidArgument,
-          Some(
-            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: The value of an annotation is empty for key: 'k2'"
-          ),
-        )
-    } yield ()
   })
 
   userManagementTest(

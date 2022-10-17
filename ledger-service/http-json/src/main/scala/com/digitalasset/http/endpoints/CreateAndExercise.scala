@@ -8,7 +8,7 @@ import akka.http.scaladsl.model._
 import com.daml.lf.value.{Value => LfValue}
 import EndpointsCompanion._
 import Endpoints.ET
-import domain.{ContractTypeId, JwtPayloadTag, JwtWritePayload, TemplateId}
+import domain.{ContractTypeId, JwtPayloadTag, JwtWritePayload}
 import json._
 import util.FutureUtil.{either, eitherT}
 import util.Logging.{InstanceUUID, RequestID}
