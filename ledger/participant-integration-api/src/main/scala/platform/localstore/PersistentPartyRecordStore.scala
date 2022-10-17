@@ -261,7 +261,6 @@ class PersistentPartyRecordStore(
   private def inTransaction[T](
       dbMetric: metrics.daml.partyRecordStore.type => DatabaseMetrics
   )(thunk: Connection => Result[T])(implicit loggingContext: LoggingContext): Future[Result[T]] = {
-    // TODO um-for-hub: Consider making inTransaction fail transaction when thunk returns a Left. Then we would not have to throw exceptions and do the recovery
     dbDispatcher
       .executeSql(dbMetric(metrics.daml.partyRecordStore))(thunk)
       .recover[Result[T]] {
