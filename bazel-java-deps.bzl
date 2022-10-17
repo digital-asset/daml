@@ -119,7 +119,7 @@ def install_java_deps():
             "io.opentelemetry:opentelemetry-context:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-testing:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-trace:{}".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-semconv:1.19.0-alpha",
+            "io.opentelemetry:opentelemetry-semconv:{}-alpha".format(opentelemetry_version),
             "io.prometheus:simpleclient:{}".format(prometheus_version),
             "io.prometheus:simpleclient_dropwizard:{}".format(prometheus_version),
             "io.prometheus:simpleclient_httpserver:{}".format(prometheus_version),
