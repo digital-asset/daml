@@ -7,7 +7,7 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
-import com.daml.ledger.api.domain.ParticipantParty.PartyRecord
+import com.daml.ledger.api.domain.PartyRecord
 import com.daml.ledger.api.domain.{ObjectMeta, PartyDetails, PartyEntry}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.admin.party_management_service.AllocatePartyRequest

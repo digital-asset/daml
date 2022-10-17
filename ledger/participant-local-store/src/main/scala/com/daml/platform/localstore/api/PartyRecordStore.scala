@@ -32,17 +32,17 @@ case class PartyRecordUpdate(
 trait PartyRecordStore {
   import PartyRecordStore._
 
-  def createPartyRecord(partyRecord: domain.ParticipantParty.PartyRecord)(implicit
+  def createPartyRecord(partyRecord: domain.PartyRecord)(implicit
       loggingContext: LoggingContext
-  ): Future[Result[domain.ParticipantParty.PartyRecord]]
+  ): Future[Result[domain.PartyRecord]]
 
   def updatePartyRecord(partyRecordUpdate: PartyRecordUpdate, ledgerPartyExists: LedgerPartyExists)(
       implicit loggingContext: LoggingContext
-  ): Future[Result[domain.ParticipantParty.PartyRecord]]
+  ): Future[Result[domain.PartyRecord]]
 
   def getPartyRecordO(party: Ref.Party)(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Option[domain.ParticipantParty.PartyRecord]]]
+  ): Future[Result[Option[domain.PartyRecord]]]
 
 }
 

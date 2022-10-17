@@ -419,22 +419,17 @@ object domain {
       metadata: ObjectMeta = ObjectMeta.empty,
   )
 
-  // TODO um-for-hub: Drop redundant ParticipantParty object
-  object ParticipantParty {
+  case class ParticipantPartyDetails(
+      party: Ref.Party,
+      displayName: Option[String],
+      isLocal: Boolean,
+      metadata: ObjectMeta,
+  )
 
-    case class PartyDetails(
-        party: Ref.Party,
-        displayName: Option[String],
-        isLocal: Boolean,
-        metadata: ObjectMeta,
-    )
-
-    final case class PartyRecord(
-        party: Ref.Party,
-        metadata: ObjectMeta,
-    )
-
-  }
+  final case class PartyRecord(
+      party: Ref.Party,
+      metadata: ObjectMeta,
+  )
 
   sealed abstract class UserRight extends Product with Serializable
   object UserRight {
