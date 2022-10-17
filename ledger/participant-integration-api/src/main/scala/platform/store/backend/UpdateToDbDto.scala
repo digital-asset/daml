@@ -180,6 +180,16 @@ object UpdateToDbDto {
                       createKeyValue.isDefined
                     ),
                   event_sequential_id = 0, // this is filled later
+                  driver_metadata = Some(
+                    u.contractMetadata
+                      .getOrElse(
+                        create.coid,
+                        throw new IllegalArgumentException(
+                          s"missing driver metadata for contract ${create.coid.coid} "
+                        ),
+                      )
+                      .toByteArray
+                  ),
                 )
               ) ++ stakeholders.iterator.map(
                 DbDto.CreateFilter(

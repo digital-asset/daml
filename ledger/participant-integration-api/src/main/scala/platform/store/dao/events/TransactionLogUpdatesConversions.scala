@@ -440,8 +440,7 @@ private[events] object TransactionLogUpdatesConversions {
               createdAt = Some(TimestampConversion.fromLf(createdEvent.ledgerEffectiveTime)),
               contractKeyHash =
                 createdEvent.createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
-              // TODO ED: Store driver metadata in the database
-              driverMetadata = ByteString.EMPTY,
+              driverMetadata = ByteString.copyFrom(createdEvent.driverMetadata.toByteArray),
             )
           ),
         )

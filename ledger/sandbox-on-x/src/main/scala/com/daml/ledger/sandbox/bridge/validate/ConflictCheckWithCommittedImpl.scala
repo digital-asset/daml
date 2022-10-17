@@ -22,6 +22,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Timed
+import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -163,8 +164,8 @@ private[validate] class ConflictCheckWithCommittedImpl(
       loggingContext: LoggingContext,
   ): EitherT[Future, Rejection, Unit] = {
     // Note that the validation fails fast on the first unknown/invalid contract.
-    disclosedContracts.foldLeft(EitherT(Future.successful[Validation[Unit]](Right(())))) {
-      case (f, provided) =>
+    disclosedContracts
+      .foldLeft(EitherT(Future.successful[Validation[Unit]](Right(())))) { case (f, provided) =>
         f.flatMapF { _ =>
           indexService
             .lookupContractStateWithoutDivulgence(provided.unversioned.contractId)
@@ -180,7 +181,30 @@ private[validate] class ConflictCheckWithCommittedImpl(
                 }
             }
         }
-    }
+      }
+      .flatMapF(_ =>
+        Future.successful {
+          disclosedContracts.foldLeft(Right(()): Either[Rejection, Unit]) {
+            case (Right(_), dc) =>
+              ContractId
+                .fromString(
+                  ByteString.copyFrom(dc.unversioned.metadata.driverMetadata.toArray).toStringUtf8
+                )
+                .left
+                .map(_ =>
+                  Rejection.DisclosedContractInvalid(dc.unversioned.contractId, completionInfo)
+                )
+                .flatMap(decodedCid =>
+                  Either.cond(
+                    decodedCid == dc.unversioned.contractId,
+                    (),
+                    Rejection.DisclosedContractInvalid(dc.unversioned.contractId, completionInfo),
+                  )
+                )
+            case (left, _) => left
+          }
+        }
+      )
   }
 
   private def sameContractData(

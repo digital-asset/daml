@@ -14,10 +14,12 @@ import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge
 import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.data.Ref.ParticipantId
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.google.common.primitives.Longs
+import com.google.protobuf.ByteString
 
 import java.util.UUID
 import scala.concurrent.ExecutionContext
@@ -136,6 +138,15 @@ object LedgerBridge {
         Some(TransactionNodeStatistics(submittedTransaction))
       )
     )
+    val contractMetadata = submittedTransaction
+      .localContracts[ContractId]
+      .keySet
+      .view
+      .map[(ContractId, Bytes)]((cid: ContractId) => {
+        // Mock driver metadata so it can be tested in closed loop tests
+        cid -> Bytes.fromByteString(ByteString.copyFromUtf8(cid.coid))
+      })
+      .toMap
     Update.TransactionAccepted(
       optCompletionInfo = completionInfo,
       transactionMeta = transactionSubmission.transactionMeta,
@@ -144,7 +155,7 @@ object LedgerBridge {
       recordTime = currentTimestamp,
       divulgedContracts = Nil,
       blindingInfo = None,
-      contractMetadata = Map.empty,
+      contractMetadata = contractMetadata,
     )
   }
 
