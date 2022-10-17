@@ -25,6 +25,8 @@ import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.validation.NoLoggingValueValidator
+import com.daml.lf.language.StablePackage.DA
+import com.daml.lf.value.Value
 import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
@@ -34,192 +36,120 @@ import com.daml.platform.participant.util.LfEngineToApi.{
 import scala.concurrent.duration.{FiniteDuration, MICROSECONDS}
 
 // Convert from a Ledger API transaction to an SValue corresponding to a Message from the Daml.Trigger module
-case class Converter(
-    fromTransaction: Transaction => Either[String, SValue],
-    fromCompletion: Completion => Either[String, SValue],
-    fromHeartbeat: SValue,
-    fromACS: Seq[CreatedEvent] => Either[String, SValue],
-    toFiniteDuration: SValue => Either[String, FiniteDuration],
-    toCommands: SValue => Either[String, Seq[Command]],
-    toRegisteredTemplates: SValue => Either[String, Seq[Identifier]],
-)
+final class Converter(compiledPackages: CompiledPackages, triggerIds: TriggerIds) {
 
-// Helper to create identifiers pointing to the Daml.Trigger module
-case class TriggerIds(val triggerPackageId: PackageId) {
-  def damlTrigger(s: String) =
-    Identifier(
-      triggerPackageId,
-      QualifiedName(ModuleName.assertFromString("Daml.Trigger"), DottedName.assertFromString(s)),
-    )
-  def damlTriggerLowLevel(s: String) =
-    Identifier(
-      triggerPackageId,
-      QualifiedName(
-        ModuleName.assertFromString("Daml.Trigger.LowLevel"),
-        DottedName.assertFromString(s),
-      ),
-    )
-  def damlTriggerInternal(s: String) =
-    Identifier(
-      triggerPackageId,
-      QualifiedName(
-        ModuleName.assertFromString("Daml.Trigger.Internal"),
-        DottedName.assertFromString(s),
-      ),
-    )
-}
-
-object Converter {
+  import Converter._
   import com.daml.script.converter.Converter._, Implicits._
 
-  private case class AnyContractId(templateId: Identifier, contractId: ContractId)
-  private case class AnyTemplate(ty: Identifier, arg: SValue)
-  sealed abstract class AnyChoice extends Product with Serializable {
-    def name: ChoiceName
-    def arg: SValue
-  }
-  object AnyChoice {
-    final case class Template(name: ChoiceName, arg: SValue) extends AnyChoice
-    final case class Interface(ifaceId: Identifier, name: ChoiceName, arg: SValue) extends AnyChoice
-  }
-  private case class AnyContractKey(key: SValue)
+  private[this] val valueTranslator = new preprocessing.ValueTranslator(
+    compiledPackages.pkgInterface,
+    requireV1ContractIdSuffix = false,
+  )
 
-  private def toLedgerRecord(v: SValue): Either[String, value.Record] =
+  private[this] def validateRecord(r: value.Record): Either[String, Value.ValueRecord] =
+    NoLoggingValueValidator.validateRecord(r).left.map(_.getMessage)
+
+  private[this] def translateValue(ty: Type, value: Value): Either[String, SValue] =
+    valueTranslator.translateValue(ty, value).left.map(res => s"Failure to translate value: $res")
+
+  private[this] val anyTemplateTyCon = DA.Internal.Any.assertIdentifier("AnyTemplate")
+  private[this] val templateTypeRepTyCon = DA.Internal.Any.assertIdentifier("TemplateTypeRep")
+
+  private[this] val activeContractsTy = triggerIds.damlTriggerLowLevel("ActiveContracts")
+  private[this] val anyContractIdTy = triggerIds.damlTriggerLowLevel("AnyContractId")
+  private[this] val archivedTy = triggerIds.damlTriggerLowLevel("Archived")
+  private[this] val commandIdTy = triggerIds.damlTriggerLowLevel("CommandId")
+  private[this] val completionTy = triggerIds.damlTriggerLowLevel("Completion")
+  private[this] val createdTy = triggerIds.damlTriggerLowLevel("Created")
+  private[this] val eventIdTy = triggerIds.damlTriggerLowLevel("EventId")
+  private[this] val eventTy = triggerIds.damlTriggerLowLevel("Event")
+  private[this] val failedTy = triggerIds.damlTriggerLowLevel("CompletionStatus.Failed")
+  private[this] val messageTy = triggerIds.damlTriggerLowLevel("Message")
+  private[this] val succeedTy = triggerIds.damlTriggerLowLevel("CompletionStatus.Succeeded")
+  private[this] val transactionIdTy = triggerIds.damlTriggerLowLevel("TransactionId")
+  private[this] val transactionTy = triggerIds.damlTriggerLowLevel("Transaction")
+
+  private[this] def fromIdentifier(identifier: value.Identifier) =
+    for {
+      pkgId <- PackageId.fromString(identifier.packageId)
+      mod <- DottedName.fromString(identifier.moduleName)
+      name <- DottedName.fromString(identifier.entityName)
+    } yield Identifier(pkgId, QualifiedName(mod, name))
+
+  private[this] def toLedgerRecord(v: SValue): Either[String, value.Record] =
     lfValueToApiRecord(true, v.toUnnormalizedValue)
 
-  private def toLedgerValue(v: SValue): Either[String, value.Value] =
+  private[this] def toLedgerValue(v: SValue): Either[String, value.Value] =
     lfValueToApiValue(true, v.toUnnormalizedValue)
 
-  private def fromIdentifier(id: value.Identifier): SValue = {
-    STypeRep(
-      TTyCon(
-        TypeConName(
-          PackageId.assertFromString(id.packageId),
-          QualifiedName(
-            DottedName.assertFromString(id.moduleName),
-            DottedName.assertFromString(id.entityName),
-          ),
+  private[this] def fromTemplateTypeRep(tyCon: value.Identifier): SValue =
+    record(
+      templateTypeRepTyCon,
+      "getTemplateTypeRep" -> STypeRep(
+        TTyCon(
+          TypeConName(
+            PackageId.assertFromString(tyCon.packageId),
+            QualifiedName(
+              DottedName.assertFromString(tyCon.moduleName),
+              DottedName.assertFromString(tyCon.entityName),
+            ),
+          )
         )
-      )
-    )
-  }
-
-  private def fromTransactionId(triggerIds: TriggerIds, transactionId: String): SValue = {
-    val transactionIdTy = triggerIds.damlTriggerLowLevel("TransactionId")
-    record(transactionIdTy, ("unpack", SText(transactionId)))
-  }
-
-  private def fromEventId(triggerIds: TriggerIds, eventId: String): SValue = {
-    val eventIdTy = triggerIds.damlTriggerLowLevel("EventId")
-    record(eventIdTy, ("unpack", SText(eventId)))
-  }
-
-  private def fromCommandId(triggerIds: TriggerIds, commandId: String): SValue = {
-    val commandIdTy = triggerIds.damlTriggerLowLevel("CommandId")
-    record(commandIdTy, ("unpack", SText(commandId)))
-  }
-
-  private def fromOptionalCommandId(triggerIds: TriggerIds, commandId: String): SValue = {
-    if (commandId.isEmpty) {
-      SOptional(None)
-    } else {
-      SOptional(Some(fromCommandId(triggerIds, commandId)))
-    }
-  }
-
-  private def fromTemplateTypeRep(templateId: value.Identifier): SValue = {
-    val templateTypeRepTy = daInternalAny("TemplateTypeRep")
-    record(templateTypeRepTy, ("getTemplateTypeRep", fromIdentifier(templateId)))
-  }
-
-  private def fromAnyContractId(
-      triggerIds: TriggerIds,
-      templateId: value.Identifier,
-      contractId: String,
-  ): SValue = {
-    val contractIdTy = triggerIds.damlTriggerLowLevel("AnyContractId")
-    record(
-      contractIdTy,
-      ("templateId", fromTemplateTypeRep(templateId)),
-      ("contractId", SContractId(ContractId.assertFromString(contractId))),
-    )
-  }
-
-  private def fromArchivedEvent(triggerIds: TriggerIds, archived: ArchivedEvent): SValue = {
-    val archivedTy = triggerIds.damlTriggerLowLevel("Archived")
-    record(
-      archivedTy,
-      ("eventId", fromEventId(triggerIds, archived.eventId)),
-      ("contractId", fromAnyContractId(triggerIds, archived.getTemplateId, archived.contractId)),
-    )
-  }
-
-  private[this] def fromCreatedEvent(
-      valueTranslator: preprocessing.ValueTranslator,
-      triggerIds: TriggerIds,
-      created: CreatedEvent,
-  ): Either[String, SValue] = {
-    val createdTy = triggerIds.damlTriggerLowLevel("Created")
-    val anyTemplateTyCon = daInternalAny("AnyTemplate")
-    val tmplId = Identifier(
-      PackageId.assertFromString(created.getTemplateId.packageId),
-      QualifiedName(
-        DottedName.assertFromString(created.getTemplateId.moduleName),
-        DottedName.assertFromString(created.getTemplateId.entityName),
       ),
     )
-    for {
-      createArguments <- NoLoggingValueValidator
-        .validateRecord(created.getCreateArguments)
-        .left
-        .map(_.getMessage)
-      tmplPayload <- valueTranslator
-        .translateValue(TTyCon(tmplId), createArguments)
-        .left
-        .map(res => s"Failure to translate value in create: $res")
-    } yield record(
-      createdTy,
-      ("eventId", fromEventId(triggerIds, created.eventId)),
-      ("contractId", fromAnyContractId(triggerIds, created.getTemplateId, created.contractId)),
-      ("argument", record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tmplId), tmplPayload)))),
+
+  private[this] def fromTransactionId(transactionId: String): SValue =
+    record(transactionIdTy, "unpack" -> SText(transactionId))
+
+  private[this] def fromEventId(eventId: String): SValue =
+    record(eventIdTy, "unpack" -> SText(eventId))
+
+  private[this] def fromCommandId(commandId: String): SValue =
+    record(commandIdTy, "unpack" -> SText(commandId))
+
+  private[this] def fromOptionalCommandId(commandId: String): SValue =
+    if (commandId.isEmpty)
+      SOptional(None)
+    else
+      SOptional(Some(fromCommandId(commandId)))
+
+  private[this] def fromAnyContractId(
+      templateId: value.Identifier,
+      contractId: String,
+  ): SValue =
+    record(
+      anyContractIdTy,
+      "templateId" -> fromTemplateTypeRep(templateId),
+      "contractId" -> SContractId(ContractId.assertFromString(contractId)),
     )
-  }
 
-  object EventVariant {
-    // Those values should be kept consistent with type `Event` defined in
-    // triggers/daml/Daml/Trigger/LowLevel.daml
-    val CreatedEventConstructor = Name.assertFromString("CreatedEvent")
-    val CreatedEventConstructorRank = 0
-    val ArchiveEventConstructor = Name.assertFromString("ArchivedEvent")
-    val ArchiveEventConstructorRank = 1
-  }
+  private def fromArchivedEvent(archived: ArchivedEvent): SValue =
+    record(
+      archivedTy,
+      "eventId" -> fromEventId(archived.eventId),
+      "contractId" -> fromAnyContractId(archived.getTemplateId, archived.contractId),
+    )
 
-  object MessageVariant {
-    // Those values should be kept consistent with type `Message` defined in
-    // triggers/daml/Daml/Trigger/LowLevel.daml
-    val MTransactionVariant = Name.assertFromString("MTransaction")
-    val MTransactionVariantRank = 0
-    val MCompletionConstructor = Name.assertFromString("MCompletion")
-    val MCompletionConstructorRank = 1
-    val MHeartbeatConstructor = Name.assertFromString("MHeartbeat")
-    val MHeartbeatConstructorRank = 2
-  }
+  private[this] def fromCreatedEvent(
+      created: CreatedEvent
+  ): Either[String, SValue] =
+    for {
+      tmplId <- fromIdentifier(created.getTemplateId)
+      createArguments <- validateRecord(created.getCreateArguments)
+      tmplPayload <- translateValue(TTyCon(tmplId), createArguments)
+    } yield {
+      record(
+        createdTy,
+        "eventId" -> fromEventId(created.eventId),
+        "contractId" -> fromAnyContractId(created.getTemplateId, created.contractId),
+        "argument" -> record(
+          anyTemplateTyCon,
+          "getAnyTemplate" -> SAny(TTyCon(tmplId), tmplPayload),
+        ),
+      )
+    }
 
-  object CompletionStatusVariant {
-    // Those values should be kept consistent `CompletionStatus` defined in
-    // triggers/daml/Daml/Trigger/LowLevel.daml
-    val FailVariantConstructor = Name.assertFromString("Failed")
-    val FailVariantConstructorRank = 0
-    val SucceedVariantConstructor = Name.assertFromString("Succeeded")
-    val SucceedVariantConstrcutor = 1
-  }
-
-  private def fromEvent(
-      valueTranslator: preprocessing.ValueTranslator,
-      triggerIds: TriggerIds,
-      ev: Event,
-  ): Either[String, SValue] = {
-    val eventTy = triggerIds.damlTriggerLowLevel("Event")
+  private def fromEvent(ev: Event): Either[String, SValue] =
     ev.event match {
       case Event.Event.Archived(archivedEvent) =>
         Right(
@@ -227,12 +157,12 @@ object Converter {
             id = eventTy,
             variant = EventVariant.ArchiveEventConstructor,
             constructorRank = EventVariant.ArchiveEventConstructorRank,
-            value = fromArchivedEvent(triggerIds, archivedEvent),
+            value = fromArchivedEvent(archivedEvent),
           )
         )
       case Event.Event.Created(createdEvent) =>
         for {
-          event <- fromCreatedEvent(valueTranslator, triggerIds, createdEvent)
+          event <- fromCreatedEvent(createdEvent)
         } yield SVariant(
           id = eventTy,
           variant = EventVariant.CreatedEventConstructor,
@@ -241,60 +171,47 @@ object Converter {
         )
       case _ => Left(s"Expected Archived or Created but got ${ev.event}")
     }
-  }
 
-  private def fromTransaction(
-      valueTranslator: preprocessing.ValueTranslator,
-      triggerIds: TriggerIds,
-      t: Transaction,
-  ): Either[String, SValue] = {
-    val messageTy = triggerIds.damlTriggerLowLevel("Message")
-    val transactionTy = triggerIds.damlTriggerLowLevel("Transaction")
+  def fromTransaction(t: Transaction): Either[String, SValue] =
     for {
-      events <- t.events
-        .to(ImmArray)
-        .traverse(fromEvent(valueTranslator, triggerIds, _))
-        .map(xs => SList(FrontStack.from(xs)))
-      transactionId = fromTransactionId(triggerIds, t.transactionId)
-      commandId = fromOptionalCommandId(triggerIds, t.commandId)
+      events <- t.events.to(ImmArray).traverse(fromEvent).map(xs => SList(FrontStack.from(xs)))
+      transactionId = fromTransactionId(t.transactionId)
+      commandId = fromOptionalCommandId(t.commandId)
     } yield SVariant(
       id = messageTy,
       variant = MessageVariant.MTransactionVariant,
       constructorRank = MessageVariant.MTransactionVariantRank,
       value = record(
         transactionTy,
-        ("transactionId", transactionId),
-        ("commandId", commandId),
-        ("events", events),
+        "transactionId" -> transactionId,
+        "commandId" -> commandId,
+        "events" -> events,
       ),
     )
-  }
 
-  private def fromCompletion(triggerIds: TriggerIds, c: Completion): Either[String, SValue] = {
-    val messageTy = triggerIds.damlTriggerLowLevel("Message")
-    val completionTy = triggerIds.damlTriggerLowLevel("Completion")
-    val status: SValue = if (c.getStatus.code == 0) {
-      SVariant(
-        triggerIds.damlTriggerLowLevel("CompletionStatus"),
-        CompletionStatusVariant.SucceedVariantConstructor,
-        CompletionStatusVariant.SucceedVariantConstrcutor,
-        record(
-          triggerIds.damlTriggerLowLevel("CompletionStatus.Succeeded"),
-          ("transactionId", fromTransactionId(triggerIds, c.transactionId)),
-        ),
-      )
-    } else {
-      SVariant(
-        triggerIds.damlTriggerLowLevel("CompletionStatus"),
-        CompletionStatusVariant.FailVariantConstructor,
-        CompletionStatusVariant.FailVariantConstructorRank,
-        record(
-          triggerIds.damlTriggerLowLevel("CompletionStatus.Failed"),
-          ("status", SInt64(c.getStatus.code.asInstanceOf[Long])),
-          ("message", SText(c.getStatus.message)),
-        ),
-      )
-    }
+  def fromCompletion(c: Completion): Either[String, SValue] = {
+    val status: SValue =
+      if (c.getStatus.code == 0)
+        SVariant(
+          triggerIds.damlTriggerLowLevel("CompletionStatus"),
+          CompletionStatusVariant.SucceedVariantConstructor,
+          CompletionStatusVariant.SucceedVariantConstrcutor,
+          record(
+            succeedTy,
+            "transactionId" -> fromTransactionId(c.transactionId),
+          ),
+        )
+      else
+        SVariant(
+          triggerIds.damlTriggerLowLevel("CompletionStatus"),
+          CompletionStatusVariant.FailVariantConstructor,
+          CompletionStatusVariant.FailVariantConstructorRank,
+          record(
+            failedTy,
+            "status" -> SInt64(c.getStatus.code.asInstanceOf[Long]),
+            "message" -> SText(c.getStatus.message),
+          ),
+        )
     Right(
       SVariant(
         messageTy,
@@ -302,24 +219,30 @@ object Converter {
         MessageVariant.MCompletionConstructorRank,
         record(
           completionTy,
-          ("commandId", fromCommandId(triggerIds, c.commandId)),
-          ("status", status),
+          "commandId" -> fromCommandId(c.commandId),
+          "status" -> status,
         ),
       )
     )
   }
 
-  private def fromHeartbeat(ids: TriggerIds): SValue = {
-    val messageTy = ids.damlTriggerLowLevel("Message")
+  def fromHeartbeat: SValue =
     SVariant(
       messageTy,
       MessageVariant.MHeartbeatConstructor,
       MessageVariant.MHeartbeatConstructorRank,
       SUnit,
     )
-  }
 
-  private def toFiniteDuration(value: SValue): Either[String, FiniteDuration] =
+  def fromACS(createdEvents: Seq[CreatedEvent]): Either[String, SValue] =
+    for {
+      events <- createdEvents
+        .to(ImmArray)
+        .traverse(fromCreatedEvent)
+        .map(xs => SList(FrontStack.from(xs)))
+    } yield record(activeContractsTy, "activeContracts" -> events)
+
+  def toFiniteDuration(value: SValue): Either[String, FiniteDuration] =
     value.expect(
       "RelTime",
       { case SRecord(_, _, ArrayList(SInt64(microseconds))) =>
@@ -327,7 +250,7 @@ object Converter {
       },
     )
 
-  private def toIdentifier(v: SValue): Either[String, Identifier] =
+  private[this] def toIdentifier(v: SValue): Either[String, Identifier] =
     v.expect(
       "STypeRep",
       { case STypeRep(TTyCon(id)) =>
@@ -335,7 +258,7 @@ object Converter {
       },
     )
 
-  private def toTemplateTypeRep(v: SValue): Either[String, Identifier] =
+  private[this] def toTemplateTypeRep(v: SValue): Either[String, Identifier] =
     v.expectE(
       "TemplateTypeRep",
       { case SRecord(_, _, ArrayList(id)) =>
@@ -343,7 +266,7 @@ object Converter {
       },
     )
 
-  private def toRegisteredTemplate(v: SValue): Either[String, Identifier] =
+  private[this] def toRegisteredTemplate(v: SValue): Either[String, Identifier] =
     v.expectE(
       "RegisteredTemplate",
       { case SRecord(_, _, ArrayList(sttr)) =>
@@ -351,7 +274,7 @@ object Converter {
       },
     )
 
-  private def toRegisteredTemplates(v: SValue): Either[String, Seq[Identifier]] =
+  def toRegisteredTemplates(v: SValue): Either[String, Seq[Identifier]] =
     v.expectE(
       "list of RegisteredTemplate",
       { case SList(tpls) =>
@@ -359,7 +282,7 @@ object Converter {
       },
     )
 
-  private def toAnyContractId(v: SValue): Either[String, AnyContractId] =
+  private[this] def toAnyContractId(v: SValue): Either[String, AnyContractId] =
     v.expectE(
       "AnyContractId",
       { case SRecord(_, _, ArrayList(stid, scid)) =>
@@ -370,13 +293,12 @@ object Converter {
       },
     )
 
-  private[this] def toAnyTemplate(v: SValue): Either[String, AnyTemplate] = {
+  private[this] def toAnyTemplate(v: SValue): Either[String, AnyTemplate] =
     v match {
       case SRecord(_, _, ArrayList(SAny(TTyCon(tmplId), value))) =>
         Right(AnyTemplate(tmplId, value))
       case _ => Left(s"Expected AnyTemplate but got $v")
     }
-  }
 
   private[this] def choiceArgTypeToChoiceName(choiceCons: TypeConName) = {
     // This exploits the fact that in Daml, choice argument type names
@@ -405,7 +327,7 @@ object Converter {
         Left(s"Expected AnyChoice but got $v")
     }
 
-  private def toAnyContractKey(v: SValue): Either[String, AnyContractKey] =
+  private[this] def toAnyContractKey(v: SValue): Either[String, AnyContractKey] =
     v.expect(
       "AnyContractKey",
       { case SRecord(_, _, ArrayList(SAny(_, v), _)) =>
@@ -492,7 +414,7 @@ object Converter {
       },
     )
 
-  private def toCommand(v: SValue): Either[String, Command] = {
+  private[this] def toCommand(v: SValue): Either[String, Command] = {
     v match {
       case SVariant(_, "CreateCommand", _, createVal) =>
         for {
@@ -514,7 +436,7 @@ object Converter {
     }
   }
 
-  private def toCommands(v: SValue): Either[String, Seq[Command]] =
+  def toCommands(v: SValue): Either[String, Seq[Command]] =
     for {
       cmdValues <- v.expect(
         "[Command]",
@@ -525,33 +447,73 @@ object Converter {
       commands <- cmdValues.traverse(toCommand)
     } yield commands.toImmArray.toSeq
 
-  private def fromACS(
-      valueTranslator: preprocessing.ValueTranslator,
-      triggerIds: TriggerIds,
-      createdEvents: Seq[CreatedEvent],
-  ): Either[String, SValue] = {
-    val activeContractsTy = triggerIds.damlTriggerLowLevel("ActiveContracts")
-    for {
-      events <- createdEvents
-        .to(ImmArray)
-        .traverse(fromCreatedEvent(valueTranslator, triggerIds, _))
-        .map(xs => SList(FrontStack.from(xs)))
-    } yield record(activeContractsTy, ("activeContracts", events))
+}
+
+object Converter {
+
+  private case class AnyContractId(templateId: Identifier, contractId: ContractId)
+  private case class AnyTemplate(ty: Identifier, arg: SValue)
+  sealed abstract class AnyChoice extends Product with Serializable {
+    def name: ChoiceName
+    def arg: SValue
+  }
+  object AnyChoice {
+    final case class Template(name: ChoiceName, arg: SValue) extends AnyChoice
+    final case class Interface(ifaceId: Identifier, name: ChoiceName, arg: SValue) extends AnyChoice
+  }
+  private case class AnyContractKey(key: SValue)
+
+  object EventVariant {
+    // Those values should be kept consistent with type `Event` defined in
+    // triggers/daml/Daml/Trigger/LowLevel.daml
+    val CreatedEventConstructor = Name.assertFromString("CreatedEvent")
+    val CreatedEventConstructorRank = 0
+    val ArchiveEventConstructor = Name.assertFromString("ArchivedEvent")
+    val ArchiveEventConstructorRank = 1
   }
 
-  def apply(compiledPackages: CompiledPackages, triggerIds: TriggerIds): Converter = {
-    val valueTranslator = new preprocessing.ValueTranslator(
-      compiledPackages.pkgInterface,
-      requireV1ContractIdSuffix = false,
-    )
-    Converter(
-      fromTransaction(valueTranslator, triggerIds, _),
-      fromCompletion(triggerIds, _),
-      fromHeartbeat(triggerIds),
-      fromACS(valueTranslator, triggerIds, _),
-      toFiniteDuration(_),
-      toCommands(_),
-      toRegisteredTemplates(_),
-    )
+  object MessageVariant {
+    // Those values should be kept consistent with type `Message` defined in
+    // triggers/daml/Daml/Trigger/LowLevel.daml
+    val MTransactionVariant = Name.assertFromString("MTransaction")
+    val MTransactionVariantRank = 0
+    val MCompletionConstructor = Name.assertFromString("MCompletion")
+    val MCompletionConstructorRank = 1
+    val MHeartbeatConstructor = Name.assertFromString("MHeartbeat")
+    val MHeartbeatConstructorRank = 2
   }
+
+  object CompletionStatusVariant {
+    // Those values should be kept consistent `CompletionStatus` defined in
+    // triggers/daml/Daml/Trigger/LowLevel.daml
+    val FailVariantConstructor = Name.assertFromString("Failed")
+    val FailVariantConstructorRank = 0
+    val SucceedVariantConstructor = Name.assertFromString("Succeeded")
+    val SucceedVariantConstrcutor = 1
+  }
+}
+
+// Helper to create identifiers pointing to the Daml.Trigger module
+final case class TriggerIds(val triggerPackageId: PackageId) {
+  def damlTrigger(s: String) =
+    Identifier(
+      triggerPackageId,
+      QualifiedName(ModuleName.assertFromString("Daml.Trigger"), DottedName.assertFromString(s)),
+    )
+  def damlTriggerLowLevel(s: String) =
+    Identifier(
+      triggerPackageId,
+      QualifiedName(
+        ModuleName.assertFromString("Daml.Trigger.LowLevel"),
+        DottedName.assertFromString(s),
+      ),
+    )
+  def damlTriggerInternal(s: String) =
+    Identifier(
+      triggerPackageId,
+      QualifiedName(
+        ModuleName.assertFromString("Daml.Trigger.Internal"),
+        DottedName.assertFromString(s),
+      ),
+    )
 }
