@@ -102,7 +102,7 @@ class PartyStorageBackendTemplate(
       bool("is_local") map { case party ~ displayName ~ isLocal =>
         PartyDetails(
           party = Party.assertFromString(party),
-          displayName = displayName,
+          displayName = displayName.filter(_.nonEmpty),
           isLocal = isLocal,
         )
       }

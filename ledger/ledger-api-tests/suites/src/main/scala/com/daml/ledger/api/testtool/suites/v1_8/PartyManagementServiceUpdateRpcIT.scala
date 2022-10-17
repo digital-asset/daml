@@ -22,6 +22,32 @@ import com.google.protobuf.field_mask.FieldMask
 class PartyManagementServiceUpdateRpcIT extends PartyManagementITBase {
 
   testWithFreshPartyDetails(
+    "PMUpdatingEmptyDisplayName",
+    "Attempting to unset displayName for party which doesn't have a displayName should be a successful no-op update",
+    requiresUserAndPartyLocalMetadataExtensions = true,
+  )(displayName = "")(implicit ec =>
+    implicit ledger =>
+      partyDetails =>
+        ledger
+          .updatePartyDetails(
+            updateRequest(
+              party = partyDetails.party,
+              displayName = "",
+              updatePaths = Seq(
+                "display_name"
+              ),
+            )
+          )
+          .map { updateResp =>
+            assertEquals(
+              "updating user 1",
+              unsetResourceVersion(updateResp),
+              UpdatePartyDetailsResponse(Some(unsetResourceVersion(partyDetails))),
+            )
+          }
+  )
+
+  testWithFreshPartyDetails(
     "PMUpdateAllUpdatableFields",
     "Update all updatable fields",
     requiresUserAndPartyLocalMetadataExtensions = true,
