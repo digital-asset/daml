@@ -30,14 +30,6 @@ package object domain {
 
   type Offset = String @@ OffsetTag
 
-  // TODO #15040 A TemplateId is really usually a "contract type ID" in JSON API usage.
-  // So that is how we treat it in practice.  We can deprecate and fix the references
-  // separately.
-  @deprecated("use ContractTypeId instead", since = "2.5.0")
-  type TemplateId[+PkgId] = ContractTypeId[PkgId]
-  @deprecated("use ContractTypeId instead", since = "2.5.0")
-  final val TemplateId: ContractTypeId.type = ContractTypeId
-
   private[daml] implicit final class `fc domain ErrorOps`[A](private val o: Option[A])
       extends AnyVal {
     def required(label: String): Error \/ A =
@@ -186,10 +178,6 @@ package domain {
     type LfValue = here.LfValue
     type ContractTypeId[+PkgId] = here.ContractTypeId[PkgId]
     final val ContractTypeId = here.ContractTypeId
-    @deprecated("use ContractTypeId instead", since = "2.5.0")
-    type TemplateId[+PkgId] = here.TemplateId[PkgId]
-    @deprecated("use ContractTypeId instead", since = "2.5.0")
-    final val TemplateId = here.TemplateId
     type ContractId = here.ContractId
     final val ContractId = here.ContractId
     type Party = here.Party
