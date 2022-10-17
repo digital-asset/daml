@@ -34,11 +34,6 @@ import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-// TODO um-for-hub: Test the API behavior when user right is of kind empty.
-// TODO um-for-hub: Make sure empty rights are a valid value in a CreateUserRequest request
-// TODO um-for-hub: For GrantUserRightsRequest: if 'rights' field is required, than we should reject attempting to grant 0 rights. Alternatively change to 'Optional'
-// TODO um-for-hub: For RevokeUserRightsRequest: if 'rights' field is required, than we should reject attempting to revoke 0 rights. Alternatively change to 'Optional'
-
 final class UserManagementServiceIT extends UserManagementServiceITBase {
 
   private val adminPermission =
@@ -664,6 +659,48 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
         s"page size must be within limit. actual size: ${page.users.size}, server's limit: $maxUsersPageSize",
       )
     }
+  })
+
+  userManagementTest(
+    "TestGrantTheEmptyRight",
+    "Test granting an empty right",
+  )(implicit ec => { implicit ledger =>
+    val userId = ledger.nextUserId()
+    val user = User(userId)
+    for {
+      _ <- ledger.createUser(CreateUserRequest(Some(user), Nil))
+      _ <- ledger.userManagement
+        .grantUserRights(
+          GrantUserRightsRequest(userId, List(Permission(Permission.Kind.Empty)))
+        )
+        .mustFailWith(
+          "granting empty right",
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+          Some("unknown kind of right"),
+        )
+    } yield ()
+  })
+
+  userManagementTest(
+    "TestCreateUserWithNoRights",
+    "Test creating user with no rights",
+  )(implicit ec => { implicit ledger =>
+    for {
+      created <- ledger.createUser(CreateUserRequest(Some(User(ledger.nextUserId())), Nil))
+    } yield assert(created.user.isDefined)
+  })
+
+  userManagementTest(
+    "TestGrantingAndRevokingEmptyListOfRights",
+    "Test granting and revoking empty list of rights",
+  )(implicit ec => { implicit ledger =>
+    val userId = ledger.nextUserId()
+    val user = User(userId)
+    for {
+      _ <- ledger.createUser(CreateUserRequest(Some(user), Nil))
+      _ <- ledger.userManagement.grantUserRights(GrantUserRightsRequest(userId, List.empty))
+      _ <- ledger.userManagement.revokeUserRights(RevokeUserRightsRequest(userId, List.empty))
+    } yield ()
   })
 
   userManagementTest(
