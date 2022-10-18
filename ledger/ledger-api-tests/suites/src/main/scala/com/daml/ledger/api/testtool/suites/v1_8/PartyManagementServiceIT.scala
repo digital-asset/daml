@@ -446,4 +446,41 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     }
   })
 
+  test(
+    "UpdateAnnotationsOfNonLocalParty",
+    "Update annotations of a non-local party",
+    enabled = _.userAndPartyLocalMetadataExtensions,
+    partyAllocation = allocate(SingleParty, SingleParty),
+  )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+    for {
+      // Running a dummy transaction seems to be required by the test framework to make parties visible via getParties
+      _ <- alpha.create(alice, Dummy(alice))
+      _ <- beta.create(bob, Dummy(bob))
+
+      alphaAlice: Option[PartyDetails] <- alpha.getParties(Seq(alice, bob)).map(_.headOption)
+      alphaBob <- alpha.getParties(Seq(bob)).map(_.headOption)
+      betaAlice <- beta.getParties(Seq(alice)).map(_.headOption)
+      betaBob <- beta.getParties(Seq(bob)).map(_.headOption)
+    } yield {
+      assertEquals(
+        alphaAlice,
+        Some(PartyDetails(party = alice.unwrap, displayName = "", isLocal = true, localMetadata = Some(ObjectMeta(resourceVersion = "0", annotations = Map.empty))))
+      )
+      assertEquals(
+        alphaBob,
+        Some(PartyDetails(party = bob.unwrap, displayName = "", isLocal = false, localMetadata = Some(ObjectMeta(resourceVersion = "", annotations = Map.empty))))
+      )
+      assertEquals(
+        betaAlice,
+        Some(PartyDetails(party = alice.unwrap, displayName = "", isLocal = false, localMetadata = Some(ObjectMeta(resourceVersion = "", annotations = Map.empty))))
+      )
+      assertEquals(
+        betaBob,
+        Some(PartyDetails(party = bob.unwrap, displayName = "", isLocal = true, localMetadata = Some(ObjectMeta(resourceVersion = "0", annotations = Map.empty))))
+      )
+      assert(alpha.endpointId != beta.endpointId, s"${alpha.endpointId} != ${beta.endpointId}")
+      assert(alpha.ledgerId != beta.ledgerId, s"${alpha.ledgerId} != ${beta.ledgerId}")
+    }
+  })
+
 }
