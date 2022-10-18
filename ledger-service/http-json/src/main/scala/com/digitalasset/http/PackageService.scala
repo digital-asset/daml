@@ -150,26 +150,52 @@ private class PackageService(
 
   def packageStore: PackageStore = state.packageStore
 
-  def resolveContractTypeId(implicit
-      ec: ExecutionContext
-  ): ResolveContractTypeId.AnyKind =
-    resolveContractTypeIdFromState(() => state.contractTypeIdMap)
+  def resolveContractTypeId(implicit ec: ExecutionContext): ResolveContractTypeId =
+    resolveContractTypeIdFromState { () =>
+      val st = state
+      (st.templateIdMap, st.interfaceIdMap)
+    }
 
   // Do not reduce it to something like `PackageService.resolveTemplateId(state.templateIdMap)`
   // `state.templateIdMap` will be cached in this case.
+  @deprecated("use resolveContractTypeId instead", since = "2.5.0")
   def resolveTemplateId(implicit ec: ExecutionContext): ResolveTemplateId =
-    resolveContractTypeIdFromState(() => state.templateIdMap)
+    resolveContractTypeId
 
-  private[this] def resolveContractTypeIdFromState[
-      CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]
-  ](
-      latestMap: () => ContractTypeIdMap[CtId]
-  )(implicit ec: ExecutionContext): ResolveContractTypeId[CtId] = new ResolveContractTypeId[CtId] {
-    private type ResultType = Option[ResolvedOf[CtId]]
-    def apply(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
-        x: CtId[Option[String]]
-    )(implicit lc: LoggingContextOf[InstanceUUID]): Future[Error \/ ResultType] = {
-      def doSearch() = latestMap() resolve x
+  private[this] def resolveContractTypeIdFromState(
+      latestMaps: () => (TemplateIdMap, InterfaceIdMap)
+  )(implicit ec: ExecutionContext): ResolveContractTypeId = new ResolveContractTypeId {
+    import ResolveContractTypeId.{Overload => O}, domain.{ContractTypeId => C}
+    override def apply[U, R](jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
+        x: U with ContractTypeId.OptionalPkg
+    )(implicit
+        lc: LoggingContextOf[InstanceUUID],
+        overload: O[U, R],
+    ): Future[Error \/ Option[R]] = {
+      type ResultType = Option[R]
+      // we use a different resolution strategy depending on the static type
+      // determined by 'overload', as well as the class of 'x'.  We figure the
+      // strategy exactly once so the reload is cheaper
+      val doSearch: () => ResultType = overload match {
+        case O.Template => () => latestMaps()._1 resolve x
+        case O.Top =>
+          (x: C.OptionalPkg) match {
+            // only search the template or interface map, if that is the origin
+            // class, since searching the other map would convert template IDs
+            // to interface IDs and vice versa
+            case x: C.Template.OptionalPkg => () => latestMaps()._1 resolve x
+            case x: C.Interface.OptionalPkg => () => latestMaps()._2 resolve x
+            case x: C.Unknown.OptionalPkg => { () =>
+              val (tids, iids) = latestMaps()
+              (tids resolve x, iids resolve x) match {
+                case (tid @ Some(_), None) => tid
+                case (None, iid @ Some(_)) => iid
+                // presence in both means the ID is ambiguous
+                case (None, None) | (Some(_), Some(_)) => None
+              }
+            }
+          }
+      }
       def doReloadAndSearchAgain() = EitherT(reload(jwt, ledgerId)).map(_ => doSearch())
       def keep(it: ResultType) = EitherT.pure(it): ET[ResultType]
       for {
@@ -334,14 +360,12 @@ object PackageService {
     // TODO SC #14844 make sensitive to whether `a` is Unknown, Template, or Interface
     // this will entail restructuring `ContractTypeIdMap`, possibly unifying
     // the two in how we expose ResolveContractTypeId and ResolveTemplateId
-    def resolve(
-        a: CtId[Option[String]]
-    )(implicit
-        copyable: a.type <:< ContractTypeId[Option[String]] with ContractTypeId.Ops[CtId, _]
-    ): Option[ResolvedOf[CtId]] =
+    private[http] def resolve(
+        a: ContractTypeId[Option[String]]
+    )(implicit makeKey: ContractTypeId.Like[CtId]): Option[ResolvedOf[CtId]] =
       a.packageId match {
-        case Some(p) => all get a.copy(packageId = p)
-        case None => unique get a.copy(packageId = ())
+        case Some(p) => all get makeKey(p, a.moduleName, a.entityName)
+        case None => unique get makeKey((), a.moduleName, a.entityName)
       }
 
     @deprecated("used only for deprecated State member", since = "2.5.0")
