@@ -185,7 +185,7 @@ class SubmitRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: commands",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: commands",
           metadata = Map.empty,
         )
       }
@@ -223,7 +223,7 @@ class SubmitRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: application_id",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: application_id",
           metadata = Map.empty,
         )
       }
@@ -238,7 +238,7 @@ class SubmitRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: command_id",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: command_id",
           metadata = Map.empty,
         )
       }
@@ -253,7 +253,7 @@ class SubmitRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: party or act_as",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: party or act_as",
           metadata = Map.empty,
         )
       }
@@ -377,7 +377,7 @@ class SubmitRequestValidatorTest
             ),
             code = INVALID_ARGUMENT,
             description =
-              "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field deduplication_period: Duration must be positive",
+              "INVALID_FIELD(8,0): The submitted request has a field with invalid value: Invalid field deduplication_period: Duration must be positive",
             metadata = Map.empty,
           )
         }
@@ -457,7 +457,7 @@ class SubmitRequestValidatorTest
             ),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field some failed: some message",
+            "INVALID_FIELD(8,0): The submitted request has a field with invalid value: Invalid field some failed: some message",
           metadata = Map.empty,
         )
       }
@@ -723,7 +723,7 @@ class SubmitRequestValidatorTest
           request = testedValueValidator.validateValue(record),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: value",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: value",
           metadata = Map.empty,
         )
       }
@@ -757,7 +757,7 @@ class SubmitRequestValidatorTest
           request = testedValueValidator.validateValue(variant),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: constructor",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: constructor",
           metadata = Map.empty,
         )
       }
@@ -768,7 +768,7 @@ class SubmitRequestValidatorTest
           request = testedValueValidator.validateValue(variant),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: value",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: value",
           metadata = Map.empty,
         )
       }

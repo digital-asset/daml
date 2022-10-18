@@ -57,7 +57,7 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       deduplicationPeriod,
       failReason = "Requests with a deduplication period represented by a negative duration",
       expectedMessage =
-        "The submitted command has a field with invalid value: Invalid field deduplication_period: Duration must be positive",
+        "The submitted request has a field with invalid value: Invalid field deduplication_period: Duration must be positive",
       expectedError = LedgerApiErrors.RequestValidation.InvalidField,
     )
   })

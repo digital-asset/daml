@@ -61,7 +61,7 @@ class CompletionServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: application_id",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: application_id",
           metadata = Map.empty,
         )
       }
@@ -108,7 +108,7 @@ class CompletionServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: parties",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: parties",
           metadata = Map.empty,
         )
       }

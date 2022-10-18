@@ -112,7 +112,7 @@ class TransactionServiceRequestValidatorTest
           validator.validate(txReq.update(_.optionalFilter := None), ledgerEnd),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: filter",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: filter",
           metadata = Map.empty,
         )
       }
@@ -140,7 +140,7 @@ class TransactionServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: interfaceId",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: interfaceId",
           metadata = Map.empty,
         )
       }
@@ -150,7 +150,7 @@ class TransactionServiceRequestValidatorTest
           request = validator.validate(txReq.update(_.optionalBegin := None), ledgerEnd),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: begin",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: begin",
           metadata = Map.empty,
         )
       }
@@ -160,7 +160,7 @@ class TransactionServiceRequestValidatorTest
           request = validator.validate(txReq.update(_.begin := LedgerOffset()), ledgerEnd),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: begin.(boundary|value)",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: begin.(boundary|value)",
           metadata = Map.empty,
         )
       }
@@ -170,7 +170,7 @@ class TransactionServiceRequestValidatorTest
           request = validator.validate(txReq.withEnd(LedgerOffset()), ledgerEnd),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: end.(boundary|value)",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: end.(boundary|value)",
           metadata = Map.empty,
         )
       }
@@ -398,7 +398,7 @@ class TransactionServiceRequestValidatorTest
           request = validator.validateTransactionById(txByIdReq.withTransactionId("")),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: transaction_id",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: transaction_id",
           metadata = Map.empty,
         )
       }
@@ -408,7 +408,7 @@ class TransactionServiceRequestValidatorTest
           request = validator.validateTransactionById(txByIdReq.withRequestingParties(Nil)),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: requesting_parties",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: requesting_parties",
           metadata = Map.empty,
         )
       }
@@ -439,7 +439,7 @@ class TransactionServiceRequestValidatorTest
           request = validator.validateTransactionByEventId(txByEvIdReq.withEventId("")),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: event_id",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: event_id",
           metadata = Map.empty,
         )
       }
@@ -449,7 +449,7 @@ class TransactionServiceRequestValidatorTest
           request = validator.validateTransactionByEventId(txByEvIdReq.withRequestingParties(Nil)),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: requesting_parties",
+            "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: requesting_parties",
           metadata = Map.empty,
         )
       }

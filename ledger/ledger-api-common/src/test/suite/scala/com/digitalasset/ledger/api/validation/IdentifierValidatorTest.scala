@@ -29,7 +29,7 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils with
         FieldValidations.validateIdentifier(api.identifier.withPackageId("")),
         code = INVALID_ARGUMENT,
         description =
-          "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: package_id",
+          "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: package_id",
         metadata = Map.empty,
       )
     }
@@ -40,7 +40,7 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils with
           FieldValidations.validateIdentifier(api.identifier.withModuleName("").withEntityName("")),
         code = INVALID_ARGUMENT,
         description =
-          "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field module_name: Expected a non-empty string",
+          "INVALID_FIELD(8,0): The submitted request has a field with invalid value: Invalid field module_name: Expected a non-empty string",
         metadata = Map.empty,
       )
     }

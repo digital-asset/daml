@@ -205,7 +205,7 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
   }
 
   @Explanation(
-    """This error is emitted when a mandatory field is not set in a submitted ledger API command."""
+    """This error is emitted when a mandatory field is not set in a submitted ledger API request."""
   )
   @Resolution("Inspect the reason given and correct your application.")
   object MissingField
@@ -213,7 +213,7 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
     case class Reject(missingField: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"The submitted command is missing a mandatory field: ${missingField}",
+          cause = s"The submitted request is missing a mandatory field: ${missingField}",
           extraContext = Map("field_name" -> missingField),
         )
   }
@@ -232,7 +232,7 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
   }
 
   @Explanation(
-    """This error is emitted when a submitted ledger API command contains a field value that cannot be understood."""
+    """This error is emitted when a submitted ledger API request contains a field value that cannot be understood."""
   )
   @Resolution("Inspect the reason given and correct your application.")
   object InvalidField
@@ -241,7 +241,7 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
-            s"The submitted command has a field with invalid value: Invalid field ${fieldName}: ${message}"
+            s"The submitted request has a field with invalid value: Invalid field ${fieldName}: ${message}"
         )
   }
 

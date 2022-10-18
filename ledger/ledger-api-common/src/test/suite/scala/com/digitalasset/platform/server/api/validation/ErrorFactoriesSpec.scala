@@ -554,7 +554,7 @@ class ErrorFactoriesSpec
     "return an invalidField error" in {
       val fieldName = "my field"
       val msg =
-        s"INVALID_FIELD(8,$truncatedCorrelationId): The submitted command has a field with invalid value: Invalid field $fieldName: my message"
+        s"INVALID_FIELD(8,$truncatedCorrelationId): The submitted request has a field with invalid value: Invalid field $fieldName: my message"
       assertError(
         LedgerApiErrors.RequestValidation.InvalidField
           .Reject(fieldName, "my message")
@@ -671,7 +671,7 @@ class ErrorFactoriesSpec
       val fieldName = "my field"
 
       val msg =
-        s"MISSING_FIELD(8,$truncatedCorrelationId): The submitted command is missing a mandatory field: $fieldName"
+        s"MISSING_FIELD(8,$truncatedCorrelationId): The submitted request is missing a mandatory field: $fieldName"
       assertError(
         LedgerApiErrors.RequestValidation.MissingField
           .Reject(fieldName)

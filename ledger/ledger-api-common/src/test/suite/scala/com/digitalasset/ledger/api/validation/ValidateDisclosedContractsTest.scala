@@ -55,7 +55,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = disabledValidateDisclosedContracts(api.protoCommands),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field disclosed_contracts: feature in development: disclosed_contracts should not be set",
+        "INVALID_FIELD(8,0): The submitted request has a field with invalid value: Invalid field disclosed_contracts: feature in development: disclosed_contracts should not be set",
       metadata = Map.empty,
     )
   }
@@ -68,7 +68,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withMissingTemplateId),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.template_id",
+        "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: DisclosedContract.template_id",
       metadata = Map.empty,
     )
   }
@@ -87,7 +87,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withInvalidTemplateId),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field package_id: non expected character 0x3a in Daml-LF Package ID \"packageId:with:many:colons\"",
+        "INVALID_FIELD(8,0): The submitted request has a field with invalid value: Invalid field package_id: non expected character 0x3a in Daml-LF Package ID \"packageId:with:many:colons\"",
       metadata = Map.empty,
     )
   }
@@ -100,7 +100,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withMissingContractId),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.contract_id",
+        "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: DisclosedContract.contract_id",
       metadata = Map.empty,
     )
   }
@@ -115,7 +115,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withInvalidContractId),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field DisclosedContract.contract_id: cannot parse ContractId \"badContractId\"",
+        "INVALID_FIELD(8,0): The submitted request has a field with invalid value: Invalid field DisclosedContract.contract_id: cannot parse ContractId \"badContractId\"",
       metadata = Map.empty,
     )
   }
@@ -128,7 +128,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withMissingCreateArguments),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.arguments",
+        "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: DisclosedContract.arguments",
       metadata = Map.empty,
     )
   }
@@ -152,7 +152,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
     requestMustFailWith(
       request = validateDisclosedContracts(withInvalidRecordField),
       code = Status.Code.INVALID_ARGUMENT,
-      description = "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: value",
+      description = "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: value",
       metadata = Map.empty,
     )
   }
@@ -165,7 +165,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withMissingMetadata),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.metadata",
+        "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: DisclosedContract.metadata",
       metadata = Map.empty,
     )
   }
@@ -180,7 +180,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withMissingCreatedAt),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.metadata.created_at",
+        "MISSING_FIELD(8,0): The submitted request is missing a mandatory field: DisclosedContract.metadata.created_at",
       metadata = Map.empty,
     )
   }
@@ -214,7 +214,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withInvalidKeyHashInMetadata),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field DisclosedContract.metadata.contract_key_hash: hash should have 32 bytes, got 10",
+        "INVALID_FIELD(8,0): The submitted request has a field with invalid value: Invalid field DisclosedContract.metadata.contract_key_hash: hash should have 32 bytes, got 10",
       metadata = Map.empty,
     )
   }
@@ -235,7 +235,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withCrappyArguments),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field blob: Type of the Any message does not match the given class.",
+        "INVALID_FIELD(8,0): The submitted request has a field with invalid value: Invalid field blob: Type of the Any message does not match the given class.",
       metadata = Map.empty,
     )
   }
