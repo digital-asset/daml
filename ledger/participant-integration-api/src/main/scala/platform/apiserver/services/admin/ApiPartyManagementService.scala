@@ -10,21 +10,29 @@ import akka.stream.scaladsl.Source
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{
-  LedgerOffset,
-  ObjectMeta,
-  PartyEntry,
-  PartyRecord,
-  ParticipantPartyDetails,
-}
+import com.daml.ledger.api.domain.{LedgerOffset, ObjectMeta, PartyDetails}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
-import com.daml.ledger.api.v1.admin.party_management_service._
+import com.daml.ledger.api.v1.admin.party_management_service.{
+  AllocatePartyRequest,
+  AllocatePartyResponse,
+  GetParticipantIdRequest,
+  GetParticipantIdResponse,
+  GetPartiesRequest,
+  GetPartiesResponse,
+  ListKnownPartiesRequest,
+  ListKnownPartiesResponse,
+  PartyManagementServiceGrpc,
+  UpdatePartyDetailsRequest,
+  UpdatePartyDetailsResponse,
+}
 import com.daml.ledger.api.v1.{admin => proto_admin}
 import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
+  IndexerPartyDetails,
   LedgerEndService,
+  PartyEntry,
 }
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
@@ -36,7 +44,12 @@ import com.daml.platform.apiserver.services.admin.ApiPartyManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.apiserver.update
 import com.daml.platform.apiserver.update.PartyRecordUpdateMapper
-import com.daml.platform.localstore.api.{PartyDetailsUpdate, PartyRecordStore, PartyRecordUpdate}
+import com.daml.platform.localstore.api.{
+  PartyDetailsUpdate,
+  PartyRecord,
+  PartyRecordStore,
+  PartyRecordUpdate,
+}
 import com.daml.platform.server.api.validation.FieldValidations
 import com.daml.platform.server.api.validation.FieldValidations.{
   optionalString,
@@ -223,7 +236,7 @@ private[apiserver] final class ApiPartyManagementService private (
             "update_mask",
           )
           displayNameO <- FieldValidations.optionalString(partyDetails.displayName)(Right(_))
-          partyRecord = ParticipantPartyDetails(
+          partyRecord = PartyDetails(
             party = party,
             displayName = displayNameO,
             isLocal = partyDetails.isLocal,
@@ -313,11 +326,11 @@ private[apiserver] final class ApiPartyManagementService private (
   }
 
   private def fetchPartyRecords(
-      partyDetails: List[domain.PartyDetails]
+      partyDetails: List[IndexerPartyDetails]
   )(implicit errorLogger: DamlContextualizedErrorLogger): Future[List[Option[PartyRecord]]] =
     // Future optimization: Fetch party records from the DB in a batched fashion rather than one-by-one.
     partyDetails.foldLeft(Future.successful(List.empty[Option[PartyRecord]])) {
-      (axF: Future[List[Option[PartyRecord]]], partyDetails: domain.PartyDetails) =>
+      (axF: Future[List[Option[PartyRecord]]], partyDetails: IndexerPartyDetails) =>
         for {
           ax <- axF
           next <- partyRecordStore
@@ -393,10 +406,10 @@ private[apiserver] final class ApiPartyManagementService private (
 private[apiserver] object ApiPartyManagementService {
 
   private def toProtoPartyDetails(
-      partyDetails: domain.PartyDetails,
+      partyDetails: IndexerPartyDetails,
       metadataO: Option[ObjectMeta],
-  ): PartyDetails =
-    PartyDetails(
+  ): proto_admin.party_management_service.PartyDetails =
+    proto_admin.party_management_service.PartyDetails(
       party = partyDetails.party,
       displayName = partyDetails.displayName.getOrElse(""),
       isLocal = partyDetails.isLocal,

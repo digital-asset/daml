@@ -15,7 +15,6 @@ import com.daml.ledger.api.domain.{
   LedgerId,
   LedgerOffset,
   PackageEntry,
-  PartyEntry,
   TransactionFilter,
   TransactionId,
 }
@@ -287,12 +286,12 @@ private[index] class IndexServiceImpl(
 
   override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
-  ): Future[List[domain.PartyDetails]] =
+  ): Future[List[IndexerPartyDetails]] =
     ledgerDao.getParties(parties)
 
   override def listKnownParties()(implicit
       loggingContext: LoggingContext
-  ): Future[List[domain.PartyDetails]] =
+  ): Future[List[IndexerPartyDetails]] =
     ledgerDao.listKnownParties()
 
   override def partyEntries(

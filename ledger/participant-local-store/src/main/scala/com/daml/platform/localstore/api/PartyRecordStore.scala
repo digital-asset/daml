@@ -3,7 +3,6 @@
 
 package com.daml.platform.localstore.api
 
-import com.daml.ledger.api.domain.PartyRecord
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.server.api.validation.ResourceAnnotationValidation
