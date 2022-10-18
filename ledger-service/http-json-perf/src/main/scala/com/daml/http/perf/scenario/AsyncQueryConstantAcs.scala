@@ -5,7 +5,7 @@ package com.daml.http.perf.scenario
 
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
-import io.gatling.http.check.ws.WsTextFrameCheck
+import io.gatling.http.check.ws.WsFrameCheck
 
 import scala.concurrent.duration._
 
@@ -25,7 +25,7 @@ class AsyncQueryConstantAcs
   private val queryRequest =
     """{"templateIds": ["Iou:Iou"], "query": {"amount": {"%gt": 1.0}}}"""
 
-  val messageCheck: WsTextFrameCheck = ws
+  val messageCheck: WsFrameCheck.Text = ws
     .checkTextMessage("messageCheck")
     .check(jsonPath("$.offset").find.notExists)
     .check(jsonPath("$.events[*].created").findAll)

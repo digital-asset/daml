@@ -556,7 +556,7 @@ test_suite(
             "//libs-scala/resources-grpc",
             "//libs-scala/scala-utils",
             "//libs-scala/timer-utils",
-            "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+            "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
@@ -628,7 +628,7 @@ test_suite(
             "//libs-scala/resources",
             "//libs-scala/scala-utils",
             "//libs-scala/timer-utils",
-            "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+            "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
             "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
