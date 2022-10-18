@@ -48,7 +48,7 @@ import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
 
 class ContractsService(
-    resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
+    resolveContractTypeId: PackageService.ResolveContractTypeId,
     resolveTemplateId: PackageService.ResolveTemplateId,
     allTemplateIds: PackageService.AllTemplateIds,
     getActiveContracts: LedgerClientJwt.GetActiveContracts,

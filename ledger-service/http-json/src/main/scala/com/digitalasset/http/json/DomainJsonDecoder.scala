@@ -27,7 +27,7 @@ import scalaz.std.scalaFuture._
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 class DomainJsonDecoder(
-    resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
+    resolveContractTypeId: PackageService.ResolveContractTypeId,
     resolveTemplateRecordType: PackageService.ResolveTemplateRecordType,
     resolveChoiceArgType: PackageService.ResolveChoiceArgType,
     resolveKeyType: PackageService.ResolveKeyType,

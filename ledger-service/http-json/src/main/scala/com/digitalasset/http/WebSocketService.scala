@@ -207,7 +207,7 @@ object WebSocketService {
 
     private[WebSocketService] def predicate(
         request: A,
-        resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
+        resolveContractTypeId: PackageService.ResolveContractTypeId,
         resolveTemplateId: PackageService.ResolveTemplateId,
         lookupType: ValuePredicate.TypeLookup,
         jwt: Jwt,
@@ -299,7 +299,7 @@ object WebSocketService {
 
       override private[WebSocketService] def predicate(
           request: SearchForeverRequest,
-          resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
+          resolveContractTypeId: PackageService.ResolveContractTypeId,
           resolveTemplateId: PackageService.ResolveTemplateId,
           lookupType: ValuePredicate.TypeLookup,
           jwt: Jwt,
@@ -528,7 +528,7 @@ object WebSocketService {
 
     override private[WebSocketService] def predicate(
         request: NonEmptyList[CKR[LfV]],
-        resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
+        resolveContractTypeId: PackageService.ResolveContractTypeId,
         resolveTemplateId: PackageService.ResolveTemplateId,
         lookupType: TypeLookup,
         jwt: Jwt,
@@ -663,7 +663,7 @@ object WebSocketService {
 
 class WebSocketService(
     contractsService: ContractsService,
-    resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
+    resolveContractTypeId: PackageService.ResolveContractTypeId,
     resolveTemplateId: PackageService.ResolveTemplateId,
     decoder: DomainJsonDecoder,
     lookupType: ValuePredicate.TypeLookup,
