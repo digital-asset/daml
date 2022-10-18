@@ -294,7 +294,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
     def oneTypeArgPrim(primFun: String, param: Type): Extractor =
       Decoder(
         CodeBlock.of(
-          "$T.$L($L)",
+          "$T.$L($>$Z$L$<)",
           classOf[PrimitiveValueDecoders],
           primFun,
           go(param),
@@ -338,7 +338,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
       case TypePrim(PrimTypeGenMap, ImmArraySeq(keyType, valueType)) =>
         Decoder(
           CodeBlock.of(
-            "$T.fromGenMap($L,$W$L)",
+            "$T.fromGenMap($>$Z$L,$W$L$<)",
             classOf[PrimitiveValueDecoders],
             go(keyType),
             go(valueType),
