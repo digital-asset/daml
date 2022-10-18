@@ -186,16 +186,15 @@ object TreeUtils {
         case Kind.Empty =>
         case Kind.Exercised(_) =>
         case Kind.Created(value) =>
-          cids ++= List(
+          cids ::=
             CreatedContractWithPath(
               ContractId(value.contractId),
               TemplateId(value.getTemplateId),
               selectors,
             )
-          )
       }
     }
-    cids
+    cids.reverse
   }
 
   def treeEventCreatedConsumedCids(
@@ -206,7 +205,7 @@ object TreeUtils {
     var consumed = Set.empty[ContractId]
     traverseEventInTree(event, tree) {
       case (_, Kind.Created(value)) =>
-        created :+= CreatedContract(
+        created ::= CreatedContract(
           ContractId(value.contractId),
           TemplateId(value.getTemplateId),
         )
@@ -214,7 +213,7 @@ object TreeUtils {
         consumed += ContractId(value.contractId)
       case _ =>
     }
-    (created, consumed)
+    (created.reverse, consumed)
   }
 
   def treeReferencedCids(tree: TransactionTree): Set[ContractId] = {
