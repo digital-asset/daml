@@ -7,7 +7,7 @@ import java.sql.Connection
 
 import com.daml.lf.data.Ref
 
-trait PartyRecordStorageBackend extends ResourceVersionOpsBackend {
+trait PartyRecordStorageBackend extends ResourceVersionOps {
 
   def getPartyRecord(party: Ref.Party)(
       connection: Connection

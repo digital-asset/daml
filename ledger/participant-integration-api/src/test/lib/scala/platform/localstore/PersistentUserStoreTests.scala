@@ -11,7 +11,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.store.backend.StorageBackendProvider
 import com.daml.platform.store.backend.localstore.UserManagementStorageBackend.DbUserPayload
 import com.daml.platform.store.backend.localstore.{
-  ResourceVersionOpsBackend,
+  ResourceVersionOps,
   UserManagementStorageBackend,
   UserManagementStorageBackendImpl,
 }
@@ -30,7 +30,7 @@ trait PersistentUserStoreTests
     maxRightsPerUser = 100,
   )
 
-  override private[localstore] def testedResourceVersionBackend: ResourceVersionOpsBackend =
+  override private[localstore] def testedResourceVersionBackend: ResourceVersionOps =
     UserManagementStorageBackendImpl
 
   private[localstore] type ResourceId = Ref.UserId

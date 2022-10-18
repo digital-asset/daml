@@ -9,7 +9,7 @@ import java.util.concurrent.{ConcurrentLinkedQueue, CountDownLatch, Executors}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.DatabaseMetrics
 import com.daml.platform.store.backend.StorageBackendProvider
-import com.daml.platform.store.backend.localstore.ResourceVersionOpsBackend
+import com.daml.platform.store.backend.localstore.ResourceVersionOps
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -18,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
 trait ConcurrentChangeControlTests extends PersistentStoreSpecBase with Matchers {
   self: AsyncFreeSpec with StorageBackendProvider =>
 
-  private[localstore] def testedResourceVersionBackend: ResourceVersionOpsBackend
+  private[localstore] def testedResourceVersionBackend: ResourceVersionOps
 
   private[localstore] type ResourceId
   private[localstore] type DbResource

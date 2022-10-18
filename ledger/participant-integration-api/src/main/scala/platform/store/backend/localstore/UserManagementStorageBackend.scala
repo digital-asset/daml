@@ -9,7 +9,7 @@ import com.daml.ledger.api.domain.UserRight
 import com.daml.lf.data.Ref
 import com.daml.platform.UserId
 
-trait UserManagementStorageBackend extends ResourceVersionOpsBackend {
+trait UserManagementStorageBackend extends ResourceVersionOps {
 
   def createUser(user: UserManagementStorageBackend.DbUserPayload)(connection: Connection): Int
 

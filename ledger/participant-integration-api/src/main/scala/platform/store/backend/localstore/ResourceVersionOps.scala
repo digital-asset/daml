@@ -5,7 +5,7 @@ package com.daml.platform.store.backend.localstore
 
 import java.sql.Connection
 
-trait ResourceVersionOpsBackend {
+trait ResourceVersionOps {
   def compareAndIncreaseResourceVersion(
       internalId: Int,
       expectedResourceVersion: Long,

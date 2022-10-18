@@ -12,7 +12,7 @@ import com.daml.platform.store.backend.StorageBackendProvider
 import com.daml.platform.store.backend.localstore.{
   PartyRecordStorageBackend,
   PartyRecordStorageBackendImpl,
-  ResourceVersionOpsBackend,
+  ResourceVersionOps,
 }
 import org.scalatest.freespec.AsyncFreeSpec
 
@@ -29,7 +29,7 @@ trait PersistentPartyRecordStoreTests
     executionContext = executionContext,
   )
 
-  override private[localstore] def testedResourceVersionBackend: ResourceVersionOpsBackend =
+  override private[localstore] def testedResourceVersionBackend: ResourceVersionOps =
     PartyRecordStorageBackendImpl
 
   private[localstore] type ResourceId = Ref.Party
