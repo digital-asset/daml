@@ -609,11 +609,9 @@ object ScriptF {
 
   final case class Ctx(knownPackages: Map[String, PackageId], compiledPackages: CompiledPackages)
 
-  private def toStackTrace(ctx: Ctx, stackTrace: Option[SValue]): Either[String, StackTrace] =
-    stackTrace match {
-      case None => Right(StackTrace.empty)
-      case Some(stackTrace) => Converter.toStackTrace(ctx.knownPackages, stackTrace)
-    }
+  private def toStackTrace(ctx: Ctx, stackTrace: SValue): Either[String, StackTrace] = {
+    Converter.toStackTrace(ctx.knownPackages, stackTrace)
+  }
 
   private def parseSubmit(
       ctx: Ctx,
@@ -624,7 +622,7 @@ object ScriptF {
         readAs: List[SValue],
         freeAp: SValue,
         continue: SValue,
-        stackTrace: Option[SValue],
+        stackTrace: SValue,
     ) =
       for {
         actAs <- actAs.traverse(Converter.toParty(_)).map(toOneAndSet(_))
@@ -633,12 +631,12 @@ object ScriptF {
         stackTrace <- toStackTrace(ctx, stackTrace)
       } yield SubmitData(actAs, readAs.toSet, cmds, freeAp, stackTrace, continue)
     v match {
-      // no location
-      case SRecord(_, _, ArrayList(sParty, SRecord(_, _, ArrayList(freeAp)), continue)) =>
-        convert(OneAnd(sParty, List()), List(), freeAp, continue, None)
-      // location
-      case SRecord(_, _, ArrayList(sParty, SRecord(_, _, ArrayList(freeAp)), continue, loc)) =>
-        convert(OneAnd(sParty, List()), List(), freeAp, continue, Some(loc))
+      case SRecord(
+            _,
+            _,
+            ArrayList(sParty, SRecord(_, _, ArrayList(freeAp)), continue, stackTrace),
+          ) =>
+        convert(OneAnd(sParty, List()), List(), freeAp, continue, stackTrace)
       // multi-party actAs/readAs + location
       case SRecord(
             _,
@@ -648,16 +646,16 @@ object ScriptF {
               SList(read),
               SRecord(_, _, ArrayList(freeAp)),
               continue,
-              loc,
+              stackTrace,
             ),
           ) =>
-        convert(OneAnd(hdAct, tlAct.toList), read.toList, freeAp, continue, Some(loc))
+        convert(OneAnd(hdAct, tlAct.toList), read.toList, freeAp, continue, stackTrace)
       case _ => Left(s"Expected Submit payload but got $v")
     }
   }
 
   private def parseQuery(ctx: Ctx, v: SValue): Either[String, Query] = {
-    def convert(readAs: SValue, tplId: SValue, stackTrace: Option[SValue], continue: SValue) =
+    def convert(readAs: SValue, tplId: SValue, stackTrace: SValue, continue: SValue) =
       for {
         readAs <- Converter.toParties(readAs)
         tplId <- Converter
@@ -665,10 +663,8 @@ object ScriptF {
         stackTrace <- toStackTrace(ctx, stackTrace)
       } yield Query(readAs, tplId, stackTrace, continue)
     v match {
-      case SRecord(_, _, ArrayList(actAs, tplId, continue)) =>
-        convert(actAs, tplId, None, continue)
       case SRecord(_, _, ArrayList(actAs, tplId, continue, stackTrace)) =>
-        convert(actAs, tplId, Some(stackTrace), continue)
+        convert(actAs, tplId, stackTrace, continue)
       case _ => Left(s"Expected Query payload but got $v")
     }
   }
@@ -678,7 +674,7 @@ object ScriptF {
         actAs: SValue,
         tplId: SValue,
         cid: SValue,
-        stackTrace: Option[SValue],
+        stackTrace: SValue,
         continue: SValue,
     ) =
       for {
@@ -688,10 +684,8 @@ object ScriptF {
         stackTrace <- toStackTrace(ctx, stackTrace)
       } yield QueryContractId(actAs, tplId, cid, stackTrace, continue)
     v match {
-      case SRecord(_, _, ArrayList(actAs, tplId, cid, continue)) =>
-        convert(actAs, tplId, cid, None, continue)
       case SRecord(_, _, ArrayList(actAs, tplId, cid, continue, stackTrace)) =>
-        convert(actAs, tplId, cid, Some(stackTrace), continue)
+        convert(actAs, tplId, cid, stackTrace, continue)
       case _ => Left(s"Expected QueryContractId payload but got $v")
     }
   }
@@ -701,7 +695,7 @@ object ScriptF {
         actAs: SValue,
         tplId: SValue,
         key: SValue,
-        stackTrace: Option[SValue],
+        stackTrace: SValue,
         continue: SValue,
     ) =
       for {
@@ -711,10 +705,8 @@ object ScriptF {
         stackTrace <- toStackTrace(ctx, stackTrace)
       } yield QueryContractKey(actAs, tplId, key, stackTrace, continue)
     v match {
-      case SRecord(_, _, ArrayList(actAs, tplId, key, continue)) =>
-        convert(actAs, tplId, key, None, continue)
       case SRecord(_, _, ArrayList(actAs, tplId, key, continue, stackTrace)) =>
-        convert(actAs, tplId, key, Some(stackTrace), continue)
+        convert(actAs, tplId, key, stackTrace, continue)
       case _ => Left(s"Expected QueryContractKey payload but got $v")
     }
   }
@@ -724,7 +716,7 @@ object ScriptF {
         displayName: String,
         idHint: String,
         participantName: SValue,
-        stackTrace: Option[SValue],
+        stackTrace: SValue,
         continue: SValue,
     ) =
       for {
@@ -740,81 +732,65 @@ object ScriptF {
               SText(idHint),
               participantName,
               continue,
-            ),
-          ) =>
-        convert(displayName, idHint, participantName, None, continue)
-      case SRecord(
-            _,
-            _,
-            ArrayList(
-              SText(displayName),
-              SText(idHint),
-              participantName,
-              continue,
               stackTrace,
             ),
           ) =>
-        convert(displayName, idHint, participantName, Some(stackTrace), continue)
+        convert(displayName, idHint, participantName, stackTrace, continue)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
   }
 
   private def parseListKnownParties(ctx: Ctx, v: SValue): Either[String, ListKnownParties] = {
-    def convert(participantName: SValue, stackTrace: Option[SValue], continue: SValue) =
+    def convert(participantName: SValue, stackTrace: SValue, continue: SValue) =
       for {
         participantName <- Converter.toParticipantName(participantName)
         stackTrace <- toStackTrace(ctx, stackTrace)
       } yield ListKnownParties(participantName, stackTrace, continue)
     v match {
-      case SRecord(_, _, ArrayList(participantName, continue)) =>
-        convert(participantName, None, continue)
       case SRecord(_, _, ArrayList(participantName, continue, stackTrace)) =>
-        convert(participantName, Some(stackTrace), continue)
+        convert(participantName, stackTrace, continue)
       case _ => Left(s"Expected ListKnownParties payload but got $v")
     }
   }
 
   private def parseGetTime(ctx: Ctx, v: SValue): Either[String, GetTime] = {
-    def convert(stackTrace: Option[SValue], continue: SValue) =
+    def convert(stackTrace: SValue, continue: SValue) =
       for {
         stackTrace <- toStackTrace(ctx, stackTrace)
       } yield GetTime(stackTrace, continue)
     v match {
-      case SRecord(_, _, ArrayList(continue, stackTrace)) => convert(Some(stackTrace), continue)
-      case _ => convert(None, v)
+      case SRecord(_, _, ArrayList(continue, stackTrace)) => convert(stackTrace, continue)
+      case _ => Left(s"Expected GetTime payload but got $v")
     }
   }
 
   private def parseSetTime(ctx: Ctx, v: SValue): Either[String, SetTime] = {
-    def convert(time: SValue, stackTrace: Option[SValue], continue: SValue) =
+    def convert(time: SValue, stackTrace: SValue, continue: SValue) =
       for {
         time <- Converter.toTimestamp(time)
         stackTrace <- toStackTrace(ctx, stackTrace)
       } yield SetTime(time, stackTrace, continue)
     v match {
-      case SRecord(_, _, ArrayList(time, continue)) => convert(time, None, continue)
       case SRecord(_, _, ArrayList(time, continue, stackTrace)) =>
-        convert(time, Some(stackTrace), continue)
+        convert(time, stackTrace, continue)
       case _ => Left(s"Expected SetTime payload but got $v")
     }
   }
 
   private def parseSleep(ctx: Ctx, v: SValue): Either[String, Sleep] = {
-    def convert(micros: Long, stackTrace: Option[SValue], continue: SValue) = {
+    def convert(micros: Long, stackTrace: SValue, continue: SValue) = {
       for {
         stackTrace <- toStackTrace(ctx, stackTrace)
       } yield Sleep(micros, stackTrace, continue)
     }
 
     v match {
-      case SRecord(_, _, ArrayList(SRecord(_, _, ArrayList(SInt64(micros))), continue)) =>
-        convert(micros, None, continue)
       case SRecord(
             _,
             _,
             ArrayList(SRecord(_, _, ArrayList(SInt64(micros))), continue, stackTrace),
           ) =>
-        convert(micros, Some(stackTrace), continue)
+        convert(micros, stackTrace, continue)
       case _ => Left(s"Expected Sleep payload but got $v")
     }
 
@@ -822,7 +798,7 @@ object ScriptF {
 
   private def parseCatch(v: SValue): Either[String, Catch] = {
     v match {
-      case SRecord(_, _, ArrayList(act, handle)) =>
+      case SRecord(_, _, ArrayList(act, handle)) => // note: no stackTrace
         Right(Catch(act, handle))
       case _ => Left(s"Expected Catch payload but got $v")
     }
@@ -843,7 +819,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(userName, continue, stackTrace)) =>
         for {
           userName <- toText(userName)
-          stackTrace <- toStackTrace(ctx, Some(stackTrace))
+          stackTrace <- toStackTrace(ctx, stackTrace)
         } yield ValidateUserId(userName, stackTrace, continue)
       case _ => Left(s"Expected ValidateUserId payload but got $v")
     }
@@ -855,7 +831,7 @@ object ScriptF {
           user <- Converter.toUser(user)
           participant <- Converter.toParticipantName(participant)
           rights <- Converter.toList(rights, Converter.toUserRight)
-          stackTrace <- toStackTrace(ctx, Some(stackTrace))
+          stackTrace <- toStackTrace(ctx, stackTrace)
         } yield CreateUser(user, rights, participant, stackTrace, continue)
       case _ => Left(s"Exected CreateUser payload but got $v")
     }
@@ -866,7 +842,7 @@ object ScriptF {
         for {
           userId <- Converter.toUserId(userId)
           participant <- Converter.toParticipantName(participant)
-          stackTrace <- toStackTrace(ctx, Some(stackTrace))
+          stackTrace <- toStackTrace(ctx, stackTrace)
         } yield GetUser(userId, participant, stackTrace, continue)
       case _ => Left(s"Expected GetUser payload but got $v")
     }
@@ -877,7 +853,7 @@ object ScriptF {
         for {
           userId <- Converter.toUserId(userId)
           participant <- Converter.toParticipantName(participant)
-          stackTrace <- toStackTrace(ctx, Some(stackTrace))
+          stackTrace <- toStackTrace(ctx, stackTrace)
         } yield DeleteUser(userId, participant, stackTrace, continue)
       case _ => Left(s"Expected DeleteUser payload but got $v")
     }
@@ -887,7 +863,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(participant, continue, stackTrace)) =>
         for {
           participant <- Converter.toParticipantName(participant)
-          stackTrace <- toStackTrace(ctx, Some(stackTrace))
+          stackTrace <- toStackTrace(ctx, stackTrace)
         } yield ListAllUsers(participant, stackTrace, continue)
       case _ => Left(s"Expected ListAllUsers payload but got $v")
     }
@@ -899,7 +875,7 @@ object ScriptF {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
           participant <- Converter.toParticipantName(participant)
-          stackTrace <- toStackTrace(ctx, Some(stackTrace))
+          stackTrace <- toStackTrace(ctx, stackTrace)
         } yield GrantUserRights(userId, rights, participant, stackTrace, continue)
       case _ => Left(s"Expected GrantUserRights payload but got $v")
     }
@@ -911,7 +887,7 @@ object ScriptF {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
           participant <- Converter.toParticipantName(participant)
-          stackTrace <- toStackTrace(ctx, Some(stackTrace))
+          stackTrace <- toStackTrace(ctx, stackTrace)
         } yield RevokeUserRights(userId, rights, participant, stackTrace, continue)
       case _ => Left(s"Expected RevokeUserRights payload but got $v")
     }
@@ -922,7 +898,7 @@ object ScriptF {
         for {
           userId <- Converter.toUserId(userId)
           participant <- Converter.toParticipantName(participant)
-          stackTrace <- toStackTrace(ctx, Some(stackTrace))
+          stackTrace <- toStackTrace(ctx, stackTrace)
         } yield ListUserRights(userId, participant, stackTrace, continue)
       case _ => Left(s"Expected ListUserRights payload but got $v")
     }
