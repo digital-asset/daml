@@ -317,12 +317,14 @@ object PackageService {
       implicit case object Template extends Overload[C.Template.OptionalPkg, C.Template.Resolved]
       // TODO SC #14844 do I need this case?
       // implicit case object Interface extends Overload[C.Interface.OptionalPkg, C.Interface.Resolved]
+      case object Top extends Overload[C.OptionalPkg, C.ResolvedId[C.Definite[String]]]
     }
 
-    sealed abstract class LowPriority {
-      // XXX SC if the request model has .Unknown included, then this is no longer needed
-      // and can be replaced with Overload.Unknown above
-      implicit case object Top extends Overload[C.OptionalPkg, C.ResolvedId[C.Definite[String]]]
+    // XXX SC if the request model has .Unknown included, then LowPriority and Top are
+    // no longer needed and can be replaced with Overload.Unknown above
+    sealed abstract class LowPriority { this: Overload.type =>
+      // needs to be low priority so it doesn't win against Template
+      implicit def `fallback Top`: Overload[C.OptionalPkg, C.ResolvedId[C.Definite[String]]] = Top
     }
   }
 

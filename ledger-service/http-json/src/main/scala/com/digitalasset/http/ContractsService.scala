@@ -85,8 +85,8 @@ class ContractsService(
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
   ): Future[Option[domain.ResolvedContractRef[LfValue]]] = {
-    def resolveCt = resolveContractTypeId(jwt, ledgerId)(_)
-    def resolveTp = resolveTemplateId(jwt, ledgerId)(_)
+    def resolveCt = resolveContractTypeId(jwt, ledgerId)(_: ContractTypeId.OptionalPkg)
+    def resolveTp = resolveTemplateId(jwt, ledgerId)(_: ContractTypeId.Template.OptionalPkg)
     contractLocator match {
       case domain.EnrichedContractKey(templateId, key) =>
         resolveTp(templateId).map(_.toOption.flatten.map(x => -\/(x -> key)))
