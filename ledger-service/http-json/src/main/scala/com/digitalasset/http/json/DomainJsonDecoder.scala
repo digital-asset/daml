@@ -28,6 +28,7 @@ import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 class DomainJsonDecoder(
     resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
+    resolveTemplateId: PackageService.ResolveTemplateId,
     resolveTemplateRecordType: PackageService.ResolveTemplateRecordType,
     resolveChoiceArgType: PackageService.ResolveChoiceArgType,
     resolveKeyType: PackageService.ResolveKeyType,
@@ -53,7 +54,7 @@ class DomainJsonDecoder(
           .liftErrS(err)(JsonError)
       )
 
-      tmplId <- templateId_(fj.templateId, jwt, ledgerId)
+      tmplId <- contractTypeId_(fj.templateId, jwt, ledgerId)
       resolvedTmplId <- either(
         tmplId match {
           case tId: ContractTypeId.Template.Resolved =>
@@ -105,7 +106,7 @@ class DomainJsonDecoder(
       H: HasTemplateId[F],
   ): ET[H.TypeFromCtId] =
     for {
-      tId <- templateId_(H.templateId(fa), jwt, ledgerId)
+      tId <- contractTypeId_(H.templateId(fa), jwt, ledgerId)
       lfType <- either(
         H
           .lfType(fa, tId, resolveTemplateRecordType, resolveChoiceArgType, resolveKeyType)
@@ -150,7 +151,7 @@ class DomainJsonDecoder(
       choiceIfaceOverride <-
         (if (oIfaceId.isDefined)
            (oIfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg]).pure[ET]
-         else cmd0.choiceInterfaceId.traverse(templateId_(_, jwt, ledgerId)))
+         else cmd0.choiceInterfaceId.traverse(contractTypeId_(_, jwt, ledgerId)))
           .map(_ map ((_: domain.ContractTypeId.RequiredPkg) map some))
 
       cmd1 <-
@@ -184,34 +185,6 @@ class DomainJsonDecoder(
     ContractTypeId.RequiredPkg,
   ]] = {
     val err = "DomainJsonDecoder_decodeCreateAndExerciseCommand"
-
-    def resolveTemplateId(
-        cmd: domain.CreateAndExerciseCommand[
-          JsValue,
-          JsValue,
-          ContractTypeId.Template.OptionalPkg,
-          ContractTypeId.OptionalPkg,
-        ]
-    ): ET[domain.CreateAndExerciseCommand[
-      JsValue,
-      JsValue,
-      ContractTypeId.Template.Resolved,
-      ContractTypeId.Resolved,
-    ]] = {
-      val resolve = templateId_(_, jwt, ledgerId)
-      for {
-        templateId <- resolve(cmd.templateId).flatMap {
-          case tid: ContractTypeId.Template.Resolved =>
-            either(\/-(tid: ContractTypeId.Template.Resolved))
-          case other =>
-            either[JsonError, ContractTypeId.Template.Resolved](
-              -\/(JsonError(s"Expect contract type Id to be template Id, got otherwise: $other"))
-            ) // TODO CL can i remove type in either?
-        }
-        choiceInterfaceId <- cmd.choiceInterfaceId traverse resolve
-      } yield cmd.copy(templateId = templateId, choiceInterfaceId = choiceInterfaceId)
-    }
-
     for {
       fjj <- either(
         SprayJson
@@ -222,7 +195,7 @@ class DomainJsonDecoder(
             ContractTypeId.OptionalPkg,
           ]](a)
           .liftErrS(err)(JsonError)
-      ).flatMap(resolveTemplateId)
+      ).flatMap(_.bitraverse(templateId_(_, jwt, ledgerId), contractTypeId_(_, jwt, ledgerId)))
 
       tId = fjj.templateId
       ciId = fjj.choiceInterfaceId
@@ -241,7 +214,7 @@ class DomainJsonDecoder(
     )
   }
 
-  private def templateId_(
+  private def contractTypeId_(
       id: domain.ContractTypeId.OptionalPkg,
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
@@ -251,6 +224,19 @@ class DomainJsonDecoder(
   ): ET[domain.ContractTypeId.Resolved] =
     eitherT(
       resolveContractTypeId(jwt, ledgerId)(id)
+        .map(_.toOption.flatten.toRightDisjunction(JsonError(cannotResolveTemplateId(id))))
+    )
+
+  private def templateId_(
+      id: domain.ContractTypeId.Template.OptionalPkg,
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+  )(implicit
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ET[domain.ContractTypeId.Template.Resolved] =
+    eitherT(
+      resolveTemplateId(jwt, ledgerId)(id)
         .map(_.toOption.flatten.toRightDisjunction(JsonError(cannotResolveTemplateId(id))))
     )
 
@@ -278,7 +264,7 @@ class DomainJsonDecoder(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   ): ET[domain.LfType] =
-    templateId_(id, jwt, ledgerId).flatMap {
+    contractTypeId_(id, jwt, ledgerId).flatMap {
       case it: domain.ContractTypeId.Template.Resolved =>
         either(resolveKeyType(it: ContractTypeId.Template.Resolved).liftErr(JsonError))
       case other =>

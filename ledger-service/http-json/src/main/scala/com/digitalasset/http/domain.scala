@@ -614,15 +614,15 @@ package domain {
   }
 
   object CreateAndExerciseCommand {
-//    implicit def covariant[P, Ar, T]: Traverse[CreateAndExerciseCommand[P, Ar, T, *]] =
-//      new Traverse[CreateAndExerciseCommand[P, Ar, T, *]] {
-//        override def traverseImpl[G[_]: Applicative, A, B](
-//            fa: CreateAndExerciseCommand[P, Ar, T, A]
-//        )(f: A => G[B]): G[CreateAndExerciseCommand[P, Ar, T, B]] =
-//          ^(f(fa.templateId), fa.choiceInterfaceId traverse f) { (tId, ciId) =>
-//            fa.copy(templateId = tId, choiceInterfaceId = ciId)
-//          }
-//      }
+    implicit def covariant[P, Ar]: Bitraverse[CreateAndExerciseCommand[P, Ar, *, *]] =
+      new Bitraverse[CreateAndExerciseCommand[P, Ar, *, *]] {
+        override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
+            fa: CreateAndExerciseCommand[P, Ar, A, B]
+        )(f: A => G[C], g: B => G[D]): G[CreateAndExerciseCommand[P, Ar, C, D]] =
+          ^(f(fa.templateId), fa.choiceInterfaceId traverse g) { (tId, ciId) =>
+            fa.copy(templateId = tId, choiceInterfaceId = ciId)
+          }
+      }
   }
 
   object ExerciseResponse {
