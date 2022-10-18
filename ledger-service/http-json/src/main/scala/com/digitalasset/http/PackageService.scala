@@ -290,7 +290,7 @@ object PackageService {
     ) => Error \/ (Option[ContractTypeId.Interface.Resolved], typesig.Type)
 
   type ResolveKeyType =
-    ContractTypeId.RequiredPkg => Error \/ typesig.Type // TODO #15098 .Template
+    ContractTypeId.Template.RequiredPkg => Error \/ typesig.Type
 
   final case class ContractTypeIdMap[CtId[_]](
       all: Map[RequiredPkg[CtId], ResolvedOf[CtId]],

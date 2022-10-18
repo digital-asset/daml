@@ -487,9 +487,16 @@ package domain {
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
-        ): Error \/ LfType =
-          h(templateId)
-            .leftMap(e => Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), e.shows))
+        ): Error \/ LfType = {
+          templateId match {
+            case tid: ContractTypeId.Template.Resolved =>
+              h(tid: ContractTypeId.Template.Resolved)
+                .leftMap(e => Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), e.shows))
+            case _ =>
+              val errorMsg = s"expect contract type Id to be template Id, got otherwise."
+              -\/(Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), errorMsg))
+          }
+        }
       }
   }
 
