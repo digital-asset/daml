@@ -40,19 +40,22 @@ private class PackageService(
 
   private case class State(
       packageIds: Set[String],
-      contractTypeIdMap: ContractTypeIdMap[ContractTypeId],
+      interfaceIdMap: InterfaceIdMap,
       templateIdMap: TemplateIdMap,
       choiceTypeMap: ChoiceTypeMap,
       keyTypeMap: KeyTypeMap,
       packageStore: PackageStore,
   ) {
 
+    @deprecated("use interfaceIdMap or templateIdMap", since = "2.5.0")
+    lazy val contractTypeIdMap = templateIdMap.widen[ContractTypeId] ++ interfaceIdMap.widen
+
     def append(diff: PackageStore): State = {
       val newPackageStore = appendAndResolveRetroactiveInterfaces(resolveChoicesIn(diff))
       val (tpIdMap, ifaceIdMap) = getTemplateIdInterfaceMaps(newPackageStore)
       State(
         packageIds = newPackageStore.keySet,
-        contractTypeIdMap = tpIdMap.widen[ContractTypeId] ++ ifaceIdMap.widen,
+        interfaceIdMap = ifaceIdMap,
         templateIdMap = tpIdMap,
         choiceTypeMap = getChoiceTypeMap(newPackageStore),
         keyTypeMap = getKeyTypeMap(newPackageStore),
@@ -292,11 +295,13 @@ object PackageService {
   type ResolveKeyType =
     ContractTypeId.RequiredPkg => Error \/ typesig.Type // TODO #15098 .Template
 
-  final case class ContractTypeIdMap[CtId[_]](
+  final case class ContractTypeIdMap[CtId[T] <: ContractTypeId[T]](
       all: Map[RequiredPkg[CtId], ResolvedOf[CtId]],
       unique: Map[NoPkg[CtId], ResolvedOf[CtId]],
   ) {
     // forms a monoid with Empty
+    // TODO SC #14844 should not need anymore
+    @deprecated("used only for deprecated State member", since = "2.5.0")
     private[PackageService] def ++(o: ContractTypeIdMap[CtId]): ContractTypeIdMap[CtId] = {
       ContractTypeIdMap(
         all ++ o.all,
@@ -317,12 +322,13 @@ object PackageService {
         case None => unique get a.copy(packageId = ())
       }
 
-    private[PackageService] def widen[O[T] >: CtId[T]]: ContractTypeIdMap[O] =
+    @deprecated("used only for deprecated State member", since = "2.5.0")
+    private[PackageService] def widen[O[T] >: CtId[T] <: ContractTypeId[T]]: ContractTypeIdMap[O] =
       ContractTypeIdMap(all.toMap, unique.toMap)
   }
 
   type TemplateIdMap = ContractTypeIdMap[ContractTypeId.Template]
-  type InterfaceIdMap = ContractTypeIdMap[ContractTypeId.Interface]
+  private type InterfaceIdMap = ContractTypeIdMap[ContractTypeId.Interface]
 
   object TemplateIdMap {
     def Empty[CtId[_]]: ContractTypeIdMap[CtId] = ContractTypeIdMap(Map.empty, Map.empty)
@@ -334,14 +340,14 @@ object PackageService {
 
   type KeyTypeMap = Map[ContractTypeId.RequiredPkg, typesig.Type] // TODO #15098 .Template
 
-  def getTemplateIdInterfaceMaps(
+  private def getTemplateIdInterfaceMaps(
       packageStore: PackageStore
-  ): (TemplateIdMap, ContractTypeIdMap[ContractTypeId.Interface]) = {
+  ): (TemplateIdMap, InterfaceIdMap) = {
     import TemplateIds.{getTemplateIds, getInterfaceIds}
-    val interfaces = packageStore.values.toSet
+    val packageSigs = packageStore.values.toSet
     (
-      buildTemplateIdMap(getTemplateIds(interfaces) map ContractTypeId.Template.fromLedgerApi),
-      buildTemplateIdMap(getInterfaceIds(interfaces) map ContractTypeId.Interface.fromLedgerApi),
+      buildTemplateIdMap(getTemplateIds(packageSigs) map ContractTypeId.Template.fromLedgerApi),
+      buildTemplateIdMap(getInterfaceIds(packageSigs) map ContractTypeId.Interface.fromLedgerApi),
     )
   }
 
@@ -367,12 +373,6 @@ object PackageService {
     all
       .groupBy(key2)
       .collect { case (k, v) if v.sizeIs == 1 => (k, v.head) }
-
-  @deprecated("use `m resolve a` instead", since = "2.5.0")
-  def resolveTemplateId[CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]](
-      m: ContractTypeIdMap[CtId]
-  )(a: CtId[Option[String]]): Option[ResolvedOf[CtId]] =
-    m resolve a
 
   private def resolveChoiceArgType(
       choiceIdMap: ChoiceTypeMap
