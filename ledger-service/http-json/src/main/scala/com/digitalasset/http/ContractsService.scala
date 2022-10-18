@@ -49,7 +49,6 @@ import fconn.ConnectionIO
 
 class ContractsService(
     resolveContractTypeId: PackageService.ResolveContractTypeId,
-    resolveTemplateId: PackageService.ResolveTemplateId,
     allTemplateIds: PackageService.AllTemplateIds,
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,

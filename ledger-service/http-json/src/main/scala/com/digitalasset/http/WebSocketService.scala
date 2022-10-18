@@ -208,7 +208,6 @@ object WebSocketService {
     private[WebSocketService] def predicate(
         request: A,
         resolveContractTypeId: PackageService.ResolveContractTypeId,
-        resolveTemplateId: PackageService.ResolveTemplateId,
         lookupType: ValuePredicate.TypeLookup,
         jwt: Jwt,
         ledgerId: LedgerApiDomain.LedgerId,
@@ -300,7 +299,6 @@ object WebSocketService {
       override private[WebSocketService] def predicate(
           request: SearchForeverRequest,
           resolveContractTypeId: PackageService.ResolveContractTypeId,
-          resolveTemplateId: PackageService.ResolveTemplateId,
           lookupType: ValuePredicate.TypeLookup,
           jwt: Jwt,
           ledgerId: LedgerApiDomain.LedgerId,
@@ -529,7 +527,6 @@ object WebSocketService {
     override private[WebSocketService] def predicate(
         request: NonEmptyList[CKR[LfV]],
         resolveContractTypeId: PackageService.ResolveContractTypeId,
-        resolveTemplateId: PackageService.ResolveTemplateId,
         lookupType: TypeLookup,
         jwt: Jwt,
         ledgerId: LedgerApiDomain.LedgerId,
@@ -664,7 +661,6 @@ object WebSocketService {
 class WebSocketService(
     contractsService: ContractsService,
     resolveContractTypeId: PackageService.ResolveContractTypeId,
-    resolveTemplateId: PackageService.ResolveTemplateId,
     decoder: DomainJsonDecoder,
     lookupType: ValuePredicate.TypeLookup,
     wsConfig: Option[WebsocketConfig],
@@ -865,7 +861,7 @@ class WebSocketService(
       lc: LoggingContextOf[InstanceUUID],
       Q: StreamQuery[A],
   ): Future[StreamPredicate[Q.Positive]] =
-    Q.predicate(request, resolveContractTypeId, resolveTemplateId, lookupType, jwt, ledgerId)
+    Q.predicate(request, resolveContractTypeId, lookupType, jwt, ledgerId)
 
   private def getTransactionSourceForParty[A](
       jwt: Jwt,
