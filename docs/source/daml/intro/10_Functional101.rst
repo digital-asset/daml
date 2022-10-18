@@ -77,7 +77,7 @@ There are two interesting things going on here:
 Function Application
 ....................
 
-Let's start by looking at the right hand part ``a -> a -> a``. The ``->`` is right associative, meaning ``a -> a -> a`` is equivalent to ``a -> (a -> a)``. Using the "maps to" way of reading ``->`` we get "``a`` maps to a function that maps ``a`` to ``a``".
+Let's start by looking at the right hand part ``a -> a -> a``. The ``->`` is right associative, meaning ``a -> a -> a`` is equivalent to ``a -> (a -> a)``. Using the "maps to" way of reading ``->``, we get "``a`` maps to a function that maps ``a`` to ``a``".
 
 And this is indeed what happens. We can define a different version of ``increment`` by *partially applying* ``add``:
 
