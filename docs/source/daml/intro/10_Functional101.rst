@@ -31,7 +31,7 @@ The previous chapters of this introduction to Daml have mostly covered the struc
 When comparing Daml to Haskell it's worth noting:
 
 -   Haskell is a lazy language, which allows you to write things like ``head [1..]``, meaning "take the first element of an infinite list". Daml by contrast is strict. Expressions are fully evaluated, which means it is not possible to work with infinite data structures.
-- Daml has a ``with`` syntax for records, and dot syntax for record field access, neither of which is present in Haskell. But Daml supports Haskell's curly brace record notation.
+- Daml has a ``with`` syntax for records and dot syntax for record field access, neither of which is present in Haskell. However, Daml supports Haskell's curly brace record notation.
 - Daml has a number of Haskell compiler extensions active by default.
 - Daml doesn't support all features of Haskell's type system. For example, there are no existential types or GADTs.
 - Actions are called Monads in Haskell.
