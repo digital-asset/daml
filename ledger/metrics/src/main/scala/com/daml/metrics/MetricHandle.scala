@@ -3,15 +3,17 @@
 
 package com.daml.metrics
 
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import com.codahale.{metrics => codahale}
+import com.daml.metrics.Gauges.{GaugeWithUpdate, VarGauge}
 import com.daml.metrics.MetricHandle.Timer.TimerStop
 
 import scala.annotation.StaticAnnotation
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, blocking}
 
-sealed trait MetricHandle {
+trait MetricHandle {
   def name: String
   def metricType: String // type string used for documentation purposes
 }
@@ -45,12 +47,10 @@ object MetricHandle {
 
     def timer(name: MetricName): Timer = DropwizardTimer(name, registry.timer(name))
 
-    def gauge[T](name: MetricName, initial: T): Gauge[T] =
-      synchronized {
-        registry.remove(name)
-        val registeredGauge = registry.register(name, Gauges.VarGauge(initial))
-        DropwizardGauge(name, registeredGauge)
-      }
+    def gauge[T](name: MetricName, initial: T): Gauge[T] = {
+      val registeredgauge = reRegisterGauge[T, VarGauge[T]](name, Gauges.VarGauge(initial))
+      DropwizardGauge(name, registeredgauge)
+    }
 
     def gaugeWithSupplier[T](
         name: MetricName,
@@ -82,6 +82,15 @@ object MetricHandle {
       DropwizardHistogram(name, registry.histogram(name))
     }
 
+    protected def reRegisterGauge[T, G <: codahale.Gauge[T]](
+        name: MetricName,
+        gauge: G,
+    ): G = blocking {
+      synchronized {
+        registry.remove(name)
+        registry.register(name, gauge)
+      }
+    }
   }
 
   trait FactoryWithDBMetrics extends MetricHandle.DropwizardFactory {
@@ -94,6 +103,8 @@ object MetricHandle {
     def metricType: String = "Timer"
 
     def update(duration: Long, unit: TimeUnit): Unit
+
+    def update(duration: Duration): Unit
 
     def time[T](call: => T): T
 
@@ -109,11 +120,19 @@ object MetricHandle {
 
   object Timer {
     type TimerStop = () => Unit
+    sealed case class NoOpTimer(name: String) extends Timer {
+      override def update(duration: Long, unit: TimeUnit): Unit = ()
+      override def update(duration: Duration): Unit = ()
+      override def time[T](call: => T): T = call
+      override def startAsync(): TimerStop = () => ()
+    }
   }
 
   sealed case class DropwizardTimer(name: String, metric: codahale.Timer) extends Timer {
 
     def update(duration: Long, unit: TimeUnit): Unit = metric.update(duration, unit)
+
+    def update(duration: Duration): Unit = metric.update(duration)
     override def time[T](call: => T): T = metric.time(() => call)
     override def startAsync(): TimerStop = {
       val ctx = metric.time()
@@ -128,10 +147,12 @@ object MetricHandle {
 
     def updateValue(newValue: T): Unit
 
+    def updateValue(f: T => T): Unit = updateValue(f(getValue))
+
     def getValue: T
   }
 
-  sealed case class DropwizardGauge[T](name: String, metric: Gauges.VarGauge[T]) extends Gauge[T] {
+  sealed case class DropwizardGauge[T](name: String, metric: GaugeWithUpdate[T]) extends Gauge[T] {
     def updateValue(newValue: T): Unit = metric.updateValue(newValue)
     override def getValue: T = metric.getValue
   }

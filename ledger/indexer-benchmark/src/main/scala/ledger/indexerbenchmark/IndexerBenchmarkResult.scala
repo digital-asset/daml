@@ -103,6 +103,7 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
       case MetricHandle.DropwizardTimer(_, metric) =>
         val data = metric.getSnapshot
         dropwizardSnapshotToString(data)
+      case MetricHandle.Timer.NoOpTimer(_) => ""
     }
   }
 
@@ -110,6 +111,7 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
     timer match {
       case MetricHandle.DropwizardTimer(_, metric) =>
         metric.getMeanRate
+      case MetricHandle.Timer.NoOpTimer(_) => 0
     }
   }
   private def dropwizardSnapshotToString(data: Snapshot) = {
