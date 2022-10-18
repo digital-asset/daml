@@ -9,7 +9,7 @@ import scalaz.syntax.bind._
 import scalaz.std.either._
 import com.daml.lf.data.{ImmArray, Ref}
 import Ref._
-import com.daml.lf.language.{Ast, StablePackage}
+import com.daml.lf.language.Ast
 import com.daml.lf.speedy.{ArrayList, SValue}
 import SValue._
 import com.daml.lf.value.Value.ContractId
