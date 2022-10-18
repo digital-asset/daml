@@ -122,16 +122,31 @@ class ExecutionMetrics(override val prefix: MetricName, override val registry: M
     override val prefix: MetricName = ExecutionMetrics.this.prefix :+ "cache"
     override val registry = ExecutionMetrics.this.registry
 
-    val keyState: CacheMetrics = new CacheMetrics(prefix :+ "key_state", registry)
-    val contractState: CacheMetrics = new CacheMetrics(prefix :+ "contract_state", registry)
+    object keyState {
+      val stateCache: CacheMetrics = new CacheMetrics(prefix :+ "key_state", registry)
 
-    @MetricDoc.Tag(
-      summary = "The time spent to update the cache.",
-      description = """The total time spent in sequential update steps of the contract state caches
-                      |updating logic. This metric is created with debugging purposes in mind.""",
-      qualification = Debug,
-    )
-    val registerCacheUpdate: Timer = timer(prefix :+ "register_update")
+      @MetricDoc.Tag(
+        summary = "The time spent to update the cache.",
+        description =
+          """The total time spent in sequential update steps of the contract state caches
+                        |updating logic. This metric is created with debugging purposes in mind.""",
+        qualification = Debug,
+      )
+      val registerCacheUpdate: Timer = timer(prefix :+ "key_state" :+ "register_update")
+    }
+
+    object contractState {
+      val stateCache: CacheMetrics = new CacheMetrics(prefix :+ "contract_state", registry)
+
+      @MetricDoc.Tag(
+        summary = "The time spent to update the cache.",
+        description =
+          """The total time spent in sequential update steps of the contract state caches
+                        |updating logic. This metric is created with debugging purposes in mind.""",
+        qualification = Debug,
+      )
+      val registerCacheUpdate: Timer = timer(prefix :+ "contract_state" :+ "register_update")
+    }
 
     @MetricDoc.Tag(
       summary =
