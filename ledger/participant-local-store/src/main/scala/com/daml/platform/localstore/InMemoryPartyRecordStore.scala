@@ -88,7 +88,7 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
             } yield toPartyRecord(updatedInfo)
           case None =>
             if (partyExistsOnLedger) {
-              val newPartyRecord = domain.PartyRecord(
+              val newPartyRecord = PartyRecord(
                 party = party,
                 metadata = domain.ObjectMeta(
                   resourceVersionO = None,

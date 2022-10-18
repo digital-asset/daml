@@ -10,7 +10,7 @@ import akka.stream.scaladsl.Source
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{LedgerOffset, ObjectMeta, PartyEntry, PartyRecord}
+import com.daml.ledger.api.domain.{LedgerOffset, ObjectMeta, PartyEntry, PartyRecord, ParticipantPartyDetails}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.admin.party_management_service._
 import com.daml.ledger.api.v1.{admin => proto_admin}
@@ -217,7 +217,7 @@ private[apiserver] final class ApiPartyManagementService private (
             "update_mask",
           )
           displayNameO <- FieldValidations.optionalString(partyDetails.displayName)(Right(_))
-          partyRecord = domain.ParticipantPartyDetails(
+          partyRecord = ParticipantPartyDetails(
             party = party,
             displayName = displayNameO,
             isLocal = partyDetails.isLocal,

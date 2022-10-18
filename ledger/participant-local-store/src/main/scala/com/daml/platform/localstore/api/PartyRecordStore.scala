@@ -3,7 +3,7 @@
 
 package com.daml.platform.localstore.api
 
-import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.PartyRecord
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.server.api.validation.ResourceAnnotationValidation
@@ -32,17 +32,17 @@ case class PartyRecordUpdate(
 trait PartyRecordStore {
   import PartyRecordStore._
 
-  def createPartyRecord(partyRecord: domain.PartyRecord)(implicit
+  def createPartyRecord(partyRecord: PartyRecord)(implicit
       loggingContext: LoggingContext
-  ): Future[Result[domain.PartyRecord]]
+  ): Future[Result[PartyRecord]]
 
   def updatePartyRecord(partyRecordUpdate: PartyRecordUpdate, ledgerPartyExists: LedgerPartyExists)(
       implicit loggingContext: LoggingContext
-  ): Future[Result[domain.PartyRecord]]
+  ): Future[Result[PartyRecord]]
 
   def getPartyRecordO(party: Ref.Party)(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Option[domain.PartyRecord]]]
+  ): Future[Result[Option[PartyRecord]]]
 
 }
 
