@@ -112,7 +112,7 @@ def install_java_deps():
             "io.circe:circe-parser_{}:0.14.3".format(scala_major_version),
             "io.circe:circe-yaml_{}:0.14.1".format(scala_major_version),
             "io.dropwizard.metrics:metrics-core:{}".format(dropwizard_version),
-            "io.dropwizard.metrics:metrics-graphite:{}".format(dropwizard_version),
+            maven.artifact("io.dropwizard.metrics", "metrics-graphite", dropwizard_version, exclusions = ["com.rabbitmq:amqp-client"]),
             "io.dropwizard.metrics:metrics-jmx:{}".format(dropwizard_version),
             "io.dropwizard.metrics:metrics-jvm:{}".format(dropwizard_version),
             "io.opentelemetry:opentelemetry-api:{}".format(opentelemetry_version),
