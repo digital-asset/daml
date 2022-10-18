@@ -43,6 +43,7 @@ allStablePackages =
     , daExceptionArithmeticError
     , daExceptionAssertionFailed
     , daExceptionPreconditionFailed
+    , daInternalInterfaceAnyView
     ]
 
 allStablePackagesForVersion :: Version -> MS.Map PackageId Package
@@ -187,6 +188,21 @@ daInternalAny = package version1_7 $ NM.singleton (emptyModule modName)
       , DefDataType Nothing (mkTypeCon ["AnyContractKey"]) (IsSerializable False) [] $
           DataRecord [(mkField "getAnyContractKey", TAny), (mkField "getAnyContractKeyTemplateTypeRep", TCon (Qualified PRSelf modName (mkTypeCon ["TemplateTypeRep"])))]
       ]
+
+daInternalInterfaceAnyView :: Package
+daInternalInterfaceAnyView = Package
+  { packageLfVersion = version1_15
+  , packageModules = NM.singleton (emptyModule modName)
+      { moduleDataTypes = NM.empty
+      , moduleValues = NM.empty
+      }
+  , packageMetadata = Just PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Internal-Interface-AnyView"
+      , packageVersion = PackageVersion "1.0.0"
+      }
+  }
+  where
+    modName = mkModName ["DA", "Internal", "Interface", "AnyView"]
 
 daTimeTypes :: Package
 daTimeTypes = package version1_6 $ NM.singleton (emptyModule modName)

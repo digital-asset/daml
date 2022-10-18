@@ -98,6 +98,11 @@ private[daml] object StablePackage {
         "d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662",
         "daml-stdlib",
       )
+      val AnyView: StablePackage = build(
+        "DA.Internal.Interface.AnyView",
+        "a417c67577f9c321db0d43b5c63f82101d456f45cfe1a61c091a7b5c449f04f1",
+        "daml-stdlib",
+      )
     }
     object Logic {
       val Types: StablePackage = build(

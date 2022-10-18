@@ -1,0 +1,17 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+
+module DA.Internal.Interface.AnyView where
+
+import DA.Internal.Template
+import DA.Internal.LF
+import DA.Internal.Prelude
+
+class HasFromAnyView i v | i -> v where
+  -- | HIDE
+  _fromAnyView : proxy i -> Any -> Optional v
+
+class HasToAnyView i v | i -> v where
+  -- | HIDE
+  _toAnyView : proxy i -> v -> Any
+

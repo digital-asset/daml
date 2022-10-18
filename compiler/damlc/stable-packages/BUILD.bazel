@@ -69,6 +69,7 @@ genrule(
         "daml-stdlib/DA-Logic-Types.dalf",
         "daml-stdlib/DA-Validation-Types.dalf",
         "daml-stdlib/DA-Internal-Down.dalf",
+        "daml-stdlib/DA-Internal-Interface-AnyView.dalf",
     ],
     cmd = """
       $(location :generate-stable-package) --module GHC.Types -o $(location daml-prim/GHC-Types.dalf)
@@ -94,6 +95,7 @@ genrule(
       # These types are not serializable but they leak into typeclass methods so they need to be stable.
       $(location :generate-stable-package) --module DA.Internal.Any -o $(location daml-stdlib/DA-Internal-Any.dalf)
       $(location :generate-stable-package) --module DA.Internal.Template -o $(location daml-stdlib/DA-Internal-Template.dalf)
+      $(location :generate-stable-package) --module DA.Internal.Interface.AnyView -o $(location daml-stdlib/DA-Internal-Interface-AnyView.dalf)
     """,
     tools = [":generate-stable-package"],
     visibility = ["//visibility:public"],
@@ -125,6 +127,7 @@ filegroup(
         "daml-stdlib/DA-Set-Types.dalf",
         "daml-stdlib/DA-Time-Types.dalf",
         "daml-stdlib/DA-Validation-Types.dalf",
+        "daml-stdlib/DA-Internal-Interface-AnyView.dalf",
     ],
     visibility = ["//visibility:public"],
 )
