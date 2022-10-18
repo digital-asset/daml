@@ -263,19 +263,41 @@ object PackageService {
   type ReloadPackageStore =
     Set[String] => Future[PackageService.Error \/ Option[LedgerReader.PackageStore]]
 
-  type ResolveTemplateId = ResolveContractTypeId[ContractTypeId.Template]
+  @deprecated("use ResolveContractTypeId", since = "2.5.0")
+  type ResolveTemplateId = ResolveContractTypeId
 
-  // Like ResolveTemplateId but includes interfaces
-  sealed abstract class ResolveContractTypeId[CtId[_]] {
-    def apply(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
-        x: CtId[Option[String]]
-    )(implicit lc: LoggingContextOf[InstanceUUID]): Future[
-      PackageService.Error \/ Option[ResolvedOf[CtId]]
+  sealed abstract class ResolveContractTypeId {
+    import ResolveContractTypeId.Overload
+    def apply[U, R](jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
+        x: U with ContractTypeId.OptionalPkg
+    )(implicit lc: LoggingContextOf[InstanceUUID], overload: Overload[U, R]): Future[
+      PackageService.Error \/ Option[R]
     ]
   }
 
   object ResolveContractTypeId {
-    type AnyKind = ResolveContractTypeId[domain.ContractTypeId]
+    @deprecated("use ResolveContractTypeId", since = "2.5.0")
+    type AnyKind = ResolveContractTypeId
+
+    sealed abstract class Overload[-Unresolved, +Resolved]
+
+    import domain.{ContractTypeId => C}
+
+    object Overload extends LowPriority {
+      /* XXX SC see below note about Top
+      implicit case object Unknown
+          extends Overload[C.Unknown.OptionalPkg, C.ResolvedId[C.Definite[String]]]
+       */
+      implicit case object Template extends Overload[C.Template.OptionalPkg, C.Template.Resolved]
+      // TODO SC #14844 do I need this case?
+      // implicit case object Interface extends Overload[C.Interface.OptionalPkg, C.Interface.Resolved]
+    }
+
+    sealed abstract class LowPriority {
+      // XXX SC if the request model has .Unknown included, then this is no longer needed
+      // and can be replaced with Overload.Unknown above
+      implicit case object Top extends Overload[C.OptionalPkg, C.ResolvedId[C.Definite[String]]]
+    }
   }
 
   type ResolveTemplateRecordType =
@@ -309,7 +331,7 @@ object PackageService {
       )
     }
 
-    // TODO SC #14727 make sensitive to whether `a` is Unknown, Template, or Interface
+    // TODO SC #14844 make sensitive to whether `a` is Unknown, Template, or Interface
     // this will entail restructuring `ContractTypeIdMap`, possibly unifying
     // the two in how we expose ResolveContractTypeId and ResolveTemplateId
     def resolve(
@@ -331,7 +353,8 @@ object PackageService {
   private type InterfaceIdMap = ContractTypeIdMap[ContractTypeId.Interface]
 
   object TemplateIdMap {
-    def Empty[CtId[_]]: ContractTypeIdMap[CtId] = ContractTypeIdMap(Map.empty, Map.empty)
+    def Empty[CtId[T] <: ContractTypeId[T]]: ContractTypeIdMap[CtId] =
+      ContractTypeIdMap(Map.empty, Map.empty)
   }
 
   private type ChoiceTypeMap = Map[ContractTypeId.Resolved, NonEmpty[
