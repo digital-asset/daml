@@ -135,7 +135,7 @@ Let's turn this into prose: Given that ``t`` is the type of a template, and that
 
 That's quite a mouthful, and does require one to know what *meaning* the typeclass ``Choice`` gives to parameters ``t`` ``c`` and ``r``, but in many cases, that's obvious from the context or names of typeclasses and variables.
 
-Note that using single letters, while common, is not mandatory. The above may be made a little bit clearer by expanding the type parameter names, at the cost of making the code a bit longer:
+Using single letters, while common, is not mandatory. The above may be made a little bit clearer by expanding the type parameter names, at the cost of making the code a bit longer:
 
 .. code-block:: daml
 
@@ -203,7 +203,7 @@ You have probably already guessed it: Anywhere you can put a value in Daml you c
   :start-after: -- FUNCTION_IN_DATA_BEGIN
   :end-before: -- FUNCTION_IN_DATA_END
 
-More commonly, it makes sense to define functions locally, inside a ``let`` clause or similar. A good example of this are the ``validate`` and ``transfer`` functions defined locally in the ``Trade_Settle`` choice of the  model from chapter 9:
+More often it makes sense to define functions locally, inside a ``let`` clause or similar. Good examples of this are the ``validate`` and ``transfer`` functions defined locally in the ``Trade_Settle`` choice of the  model from chapter 9:
 
 .. literalinclude:: daml/daml-intro-9/daml/Intro/Asset/MultiTrade.daml
   :language: daml
@@ -220,7 +220,7 @@ You can see that the function signature is inferred from the context here. If yo
 
     Bear in mind that functions are not serializable, so you can't use them inside template arguments, as choice inputs, or as choice outputs. They also don't have instances of the ``Eq`` or ``Show`` typeclasses which one would commonly want on data types.
 
-The ``mapA`` and ``mapA_`` functions loop through the lists of assets and approvals, and apply the functions ``validate`` and ``transfer`` to each element of those lists, performing the resulting ``Update`` action in the process. We'll look at that more closely under :ref:`looping` below.
+The ``mapA`` and ``mapA_`` functions loop through the lists of assets and approvals and apply the functions ``validate`` and ``transfer`` to each element of those lists, performing the resulting ``Update`` action in the process. We'll look at that more closely under :ref:`looping` below.
 
 Lambdas
 .......
@@ -459,7 +459,7 @@ In effect, the lambda passed to ``foldl`` only "wants" to act on a single elemen
   :start-after: -- SUM_ARR3_BEGIN
   :end-before: -- SUM_ARR3_END
 
-As a rule of thumb, use ``map`` if the result has the same shape as the input and you don't need to carry state from one iteration to the next. Use folds if you need to accumulate state in any way.
+As a rule, use ``map`` if the result has the same shape as the input and you don't need to carry state from one iteration to the next. Use folds if you need to accumulate state in any way.
 
 Recursion
 ~~~~~~~~~
@@ -476,7 +476,7 @@ You may be tempted to make ``reverseWorker`` a local definition inside ``reverse
 Folds and Maps in Action Contexts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The folds and ``map`` function above are pure in the sense introduced in :doc:`5_Restrictions`: The functions used to map or process items have no side-effects. If you have looked at the chapter 9 models, you'll have noticed ``mapA``, ``mapA_``, and ``forA``, that seem to serve a similar role but within ``Action``\ s . A good example is the ``mapA`` call in the ``testMultiTrade`` script:
+The folds and ``map`` function above are pure in the sense introduced in :doc:`5_Restrictions`: The functions used to map or process items have no side effects. If you have looked at the chapter 9 models, you'll have noticed ``mapA``, ``mapA_``, and ``forA``, which seem to serve a similar role but within ``Action``\ s . A good example is the ``mapA`` call in the ``testMultiTrade`` script:
 
 .. literalinclude:: daml/daml-intro-9/daml/Test/Intro/Asset/MultiTrade.daml
   :language: daml
@@ -494,7 +494,7 @@ Intuitively, it's clear how to fix this: we want the compound action consisting 
 
 The ``A`` in ``mapA`` stands for "Action", and you'll find that many functions that have something to do with "looping" have an ``A`` equivalent. The most fundamental of all of these is ``foldlA : Action m => (b -> a -> m b) -> b -> [a] -> m b``, a left fold with side effects. Here the inner function has a side-effect indicated by the ``m`` so the end result ``m b`` also has a side effect: the sum of all the side effects of the inner function.
 
-To improve your familiarity with these concepts, you could try implementing ``foldlA`` in terms of ``foldl``, as well as ``sequence`` and ``mapA`` in terms of ``foldlA``. Here is one set of possible implementations:
+To improve your familiarity with these concepts, try implementing ``foldlA`` in terms of ``foldl``, as well as ``sequence`` and ``mapA`` in terms of ``foldlA``. Here is one set of possible implementations:
 
 .. literalinclude:: daml/daml-intro-10/daml/Main.daml
   :language: daml
