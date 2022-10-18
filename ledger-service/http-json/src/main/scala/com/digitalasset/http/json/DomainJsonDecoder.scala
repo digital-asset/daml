@@ -203,9 +203,9 @@ class DomainJsonDecoder(
         templateId <- resolve(cmd.templateId).flatMap {
           case tid: ContractTypeId.Template.Resolved =>
             either(\/-(tid: ContractTypeId.Template.Resolved))
-          case _ =>
+          case other =>
             either[JsonError, ContractTypeId.Template.Resolved](
-              -\/(JsonError("Expect contract type Id to be template Id, got otherwise."))
+              -\/(JsonError(s"Expect contract type Id to be template Id, got otherwise: $other"))
             ) // TODO CL can i remove type in either?
         }
         choiceInterfaceId <- cmd.choiceInterfaceId traverse resolve
@@ -281,7 +281,7 @@ class DomainJsonDecoder(
     templateId_(id, jwt, ledgerId).flatMap {
       case it: domain.ContractTypeId.Template.Resolved =>
         either(resolveKeyType(it: ContractTypeId.Template.Resolved).liftErr(JsonError))
-      case _ =>
-        either(-\/(JsonError("Expect contract type Id to be template Id, got otherwise.")))
+      case other =>
+        either(-\/(JsonError(s"Expect contract type Id to be template Id, got otherwise: $other")))
     }
 }

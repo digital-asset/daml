@@ -396,8 +396,8 @@ package domain {
             case tid: ContractTypeId.Template.Resolved =>
               f(tid: ContractTypeId.Template.Resolved)
                 .leftMap(e => Error(Symbol("ActiveContract_hasTemplateId_lfType"), e.shows))
-            case _ =>
-              val errorMsg = "Expect contract type Id to be template Id, got otherwise."
+            case other =>
+              val errorMsg = s"Expect contract type Id to be template Id, got otherwise: $other"
               -\/(Error(Symbol("ActiveContract_hasTemplateId_lfType"), errorMsg))
           }
       }
@@ -498,8 +498,8 @@ package domain {
             case tid: ContractTypeId.Template.Resolved =>
               h(tid: ContractTypeId.Template.Resolved)
                 .leftMap(e => Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), e.shows))
-            case _ =>
-              val errorMsg = s"Expect contract type Id to be template Id, got otherwise."
+            case other =>
+              val errorMsg = s"Expect contract type Id to be template Id, got otherwise: $other"
               -\/(Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), errorMsg))
           }
         }
