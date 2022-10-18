@@ -1258,7 +1258,7 @@ Validation errors raised when evaluating requests in the Ledger API.
 INVALID_ARGUMENT
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: This error is emitted when a submitted ledger API command contains an invalid argument.
+    **Explanation**: This error is emitted when a submitted ledger API request contains an invalid argument.
 
     **Category**: InvalidIndependentOfSystemState
 

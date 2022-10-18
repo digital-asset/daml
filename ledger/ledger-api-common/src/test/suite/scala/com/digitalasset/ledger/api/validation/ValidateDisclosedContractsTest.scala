@@ -195,7 +195,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withInvalidCreatedAt),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Can not represent DisclosedContract.metadata.created_at (Timestamp(1337,133,UnknownFieldSet(Map()))) as a Daml timestamp: Conversion of 1970-01-01T00:22:17.000000133Z to microsecond granularity would result in loss of precision.",
+        "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Can not represent DisclosedContract.metadata.created_at (Timestamp(1337,133,UnknownFieldSet(Map()))) as a Daml timestamp: Conversion of 1970-01-01T00:22:17.000000133Z to microsecond granularity would result in loss of precision.",
       metadata = Map.empty,
     )
   }

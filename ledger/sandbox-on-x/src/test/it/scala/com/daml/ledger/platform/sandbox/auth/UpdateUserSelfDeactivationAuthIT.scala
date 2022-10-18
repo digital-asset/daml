@@ -72,7 +72,7 @@ final class UpdateUserSelfDeactivationAuthIT
             actual = sre,
             expectedStatusCode = Status.Code.INVALID_ARGUMENT,
             expectedMessage =
-              "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Requesting user cannot self-deactivate",
+              "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Requesting user cannot self-deactivate",
             expectedDetails = List(
               ErrorDetails.ErrorInfoDetail(
                 "INVALID_ARGUMENT",

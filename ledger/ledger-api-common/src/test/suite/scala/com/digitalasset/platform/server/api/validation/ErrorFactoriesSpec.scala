@@ -694,7 +694,7 @@ class ErrorFactoriesSpec
     }
 
     val msg =
-      s"INVALID_ARGUMENT(8,$truncatedCorrelationId): The submitted command has invalid arguments: my message"
+      s"INVALID_ARGUMENT(8,$truncatedCorrelationId): The submitted request has invalid arguments: my message"
     "return an invalidArgument error" in {
       assertError(
         LedgerApiErrors.RequestValidation.InvalidArgument

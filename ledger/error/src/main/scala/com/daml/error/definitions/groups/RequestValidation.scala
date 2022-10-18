@@ -219,7 +219,7 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
   }
 
   @Explanation(
-    """This error is emitted when a submitted ledger API command contains an invalid argument."""
+    """This error is emitted when a submitted ledger API request contains an invalid argument."""
   )
   @Resolution("Inspect the reason given and correct your application.")
   object InvalidArgument
@@ -227,8 +227,7 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
     case class Reject(reason: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          // TODO um-for-hub: Update the cause to mention a 'request' instead of a 'command'
-          cause = s"The submitted command has invalid arguments: ${reason}"
+          cause = s"The submitted request has invalid arguments: ${reason}"
         )
   }
 

@@ -46,7 +46,7 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
             .fails(HelloRequest(7, ByteString.copyFromUtf8("This is some text.")))
             .failed
         } yield {
-          exception.getMessage shouldBe "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: This is some text."
+          exception.getMessage shouldBe "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: This is some text."
         }
       }
     }
@@ -61,7 +61,7 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
             .fails(HelloRequest(7, ByteString.copyFromUtf8(errorMessage)))
             .failed
         } yield {
-          exception.getMessage shouldBe s"INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: $returnedMessage"
+          exception.getMessage shouldBe s"INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: $returnedMessage"
         }
       }
     }
@@ -82,7 +82,7 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
         } yield {
           // We don't want to test the exact message content, just that it does indeed contain a
           // large chunk of the response error message, followed by "...".
-          exception.getMessage should fullyMatch regex "INVALID_ARGUMENT: INVALID_ARGUMENT\\(8,0\\): The submitted command has invalid arguments: There was an error. x{400,}\\.\\.\\.".r
+          exception.getMessage should fullyMatch regex "INVALID_ARGUMENT: INVALID_ARGUMENT\\(8,0\\): The submitted request has invalid arguments: There was an error. x{400,}\\.\\.\\.".r
         }
       }
     }

@@ -487,7 +487,7 @@ class SubmitRequestValidatorTest
           request = testedValueValidator.validateValue(DomainMocks.values.invalidApiParty),
           code = INVALID_ARGUMENT,
           description =
-            """INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
+            """INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
           metadata = Map.empty,
         )
       }
@@ -542,7 +542,7 @@ class SubmitRequestValidatorTest
               request = testedValueValidator.validateValue(input),
               code = INVALID_ARGUMENT,
               description =
-                s"""INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Could not read Numeric string "$s"""",
+                s"""INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Could not read Numeric string "$s"""",
               metadata = Map.empty,
             )
           }
@@ -573,7 +573,7 @@ class SubmitRequestValidatorTest
               request = testedValueValidator.validateValue(input),
               code = INVALID_ARGUMENT,
               description =
-                s"""INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Could not read Numeric string "$s"""",
+                s"""INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Could not read Numeric string "$s"""",
               metadata = Map.empty,
             )
           }
@@ -626,7 +626,7 @@ class SubmitRequestValidatorTest
             request = testedValueValidator.validateValue(input),
             code = INVALID_ARGUMENT,
             description =
-              s"INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: out of bound Timestamp $long",
+              s"INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: out of bound Timestamp $long",
             metadata = Map.empty,
           )
         }
@@ -664,7 +664,7 @@ class SubmitRequestValidatorTest
             request = testedValueValidator.validateValue(input),
             code = INVALID_ARGUMENT,
             description =
-              s"INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: out of bound Date $int",
+              s"INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: out of bound Date $int",
             metadata = Map.empty,
           )
         }
@@ -801,7 +801,7 @@ class SubmitRequestValidatorTest
           request = testedValueValidator.validateValue(input),
           code = INVALID_ARGUMENT,
           description =
-            """INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
+            """INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
           metadata = Map.empty,
         )
       }
@@ -827,7 +827,7 @@ class SubmitRequestValidatorTest
           request = testedValueValidator.validateValue(input),
           code = INVALID_ARGUMENT,
           description =
-            """INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
+            """INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
           metadata = Map.empty,
         )
       }
@@ -871,7 +871,7 @@ class SubmitRequestValidatorTest
           request = testedValueValidator.validateValue(input),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: key 6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b duplicated when trying to build map",
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: key 6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b duplicated when trying to build map",
           metadata = Map.empty,
         )
       }
@@ -887,7 +887,7 @@ class SubmitRequestValidatorTest
           request = testedValueValidator.validateValue(input),
           code = INVALID_ARGUMENT,
           description =
-            """INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
+            """INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
           metadata = Map.empty,
         )
       }
