@@ -110,6 +110,13 @@ class Bifunctor p where
     second : (b -> c) -> p a b -> p a c
     second = bimap identity
 
+-- | Widen the first argument if `t` interfaces `i`
+fwiden : forall i t x f. (Bifunctor f, HasToInterface t i) => f t x -> f i x
+fwiden = first toInterface
+
+-- | Widen the second argument if `t` interfaces `i`
+swiden : forall i t x f. (Bifunctor f, HasToInterface t i) => f x t -> f x i
+swiden = second toInterface
 
 
 instance Bifunctor (,) where

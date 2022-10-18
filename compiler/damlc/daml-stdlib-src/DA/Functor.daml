@@ -21,3 +21,7 @@ as <&> f = f <$> as
 -- | Replace all the locations in the input with `()`.
 void : Functor f => f a -> f ()
 void x = () <$ x
+
+-- | Widen `f t` to `f i` if `t` interfaces `i` and `f` is a covariant functor
+widen : forall i t f. (Functor f, HasToInterface t i) => f t -> f i
+widen = fmap toInterface
