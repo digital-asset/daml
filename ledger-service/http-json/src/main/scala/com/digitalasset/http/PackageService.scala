@@ -201,45 +201,42 @@ private class PackageService(
       for {
         result <- EitherT.pure(doSearch()): ET[ResultType]
         _ = logger.trace(s"Result: $result")
-        finalResult <-
-          (try x.packageId
-          catch { case e: ClassCastException => logger.error(s"s11 WHAT ${x: Any}"); throw e })
-            .fold {
-              if (result.isDefined)
-                // no package id and we do have the package, refresh if timeout
-                if (cache.packagesShouldBeFetchedAgain) {
-                  logger.trace(
-                    "no package id and we do have the package, refresh because of timeout"
-                  )
-                  doReloadAndSearchAgain()
-                } else {
-                  logger.trace(
-                    "no package id and we do have the package, -no timeout- no refresh"
-                  )
-                  keep(result)
-                }
-              // no package id and we don’t have the package, always refresh
-              else {
-                logger.trace("no package id and we don’t have the package, always refresh")
-                doReloadAndSearchAgain()
-              }
-            } { packageId =>
-              if (result.isDefined) {
-                logger.trace("package id defined & template id found, no refresh necessary")
-                keep(result)
-              } else {
-                // package id and we have the package, never refresh
-                if (state.packageIds.contains(packageId)) {
-                  logger.trace("package id and we have the package, never refresh")
-                  keep(result)
-                }
-                // package id and we don’t have the package, always refresh
-                else {
-                  logger.trace("package id and we don’t have the package, always refresh")
-                  doReloadAndSearchAgain()
-                }
-              }
-            }: ET[ResultType]
+        finalResult <- (x: C.OptionalPkg).packageId.fold {
+          if (result.isDefined)
+            // no package id and we do have the package, refresh if timeout
+            if (cache.packagesShouldBeFetchedAgain) {
+              logger.trace(
+                "no package id and we do have the package, refresh because of timeout"
+              )
+              doReloadAndSearchAgain()
+            } else {
+              logger.trace(
+                "no package id and we do have the package, -no timeout- no refresh"
+              )
+              keep(result)
+            }
+          // no package id and we don’t have the package, always refresh
+          else {
+            logger.trace("no package id and we don’t have the package, always refresh")
+            doReloadAndSearchAgain()
+          }
+        } { packageId =>
+          if (result.isDefined) {
+            logger.trace("package id defined & template id found, no refresh necessary")
+            keep(result)
+          } else {
+            // package id and we have the package, never refresh
+            if (state.packageIds.contains(packageId)) {
+              logger.trace("package id and we have the package, never refresh")
+              keep(result)
+            }
+            // package id and we don’t have the package, always refresh
+            else {
+              logger.trace("package id and we don’t have the package, always refresh")
+              doReloadAndSearchAgain()
+            }
+          }
+        }: ET[ResultType]
         _ = logger.trace(s"Final result: $finalResult")
       } yield finalResult
     }.run
