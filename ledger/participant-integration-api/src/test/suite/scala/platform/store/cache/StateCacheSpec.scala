@@ -29,9 +29,7 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
   override implicit def executionContext: ExecutionContext =
     scala.concurrent.ExecutionContext.global
 
-  private val cacheUpdateTimer = new Metrics(
-    new MetricRegistry
-  ).daml.execution.cache.registerCacheUpdate
+  private val cacheUpdateTimer = Metrics.ForTesting.timer(MetricName("cache-update"))
 
   behavior of s"$className.putAsync"
 
