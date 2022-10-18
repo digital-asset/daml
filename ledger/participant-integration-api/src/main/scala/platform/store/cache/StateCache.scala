@@ -148,7 +148,7 @@ private[platform] case class StateCache[K, V](
                   s"Pending updates tracker for $key not registered. This could be due to a transient error causing a restart in the index service."
                 )
             }
-          }
+          },
         )
       }
       .recover {
