@@ -86,7 +86,7 @@ class ContractsService(
       metrics: Metrics,
   ): Future[Option[domain.ResolvedContractRef[LfValue]]] = {
     def resolveCt = resolveContractTypeId(jwt, ledgerId)(_: ContractTypeId.OptionalPkg)
-    def resolveTp = resolveTemplateId(jwt, ledgerId)(_: ContractTypeId.Template.OptionalPkg)
+    def resolveTp = resolveContractTypeId(jwt, ledgerId)(_: ContractTypeId.Template.OptionalPkg)
     contractLocator match {
       case domain.EnrichedContractKey(templateId, key) =>
         resolveTp(templateId).map(_.toOption.flatten.map(x => -\/(x -> key)))
@@ -174,7 +174,7 @@ class ContractsService(
       import ctx.{jwt, parties, templateIds => templateId, ledgerId}
       for {
         resolvedTemplateId <- OptionT(
-          resolveTemplateId(jwt, ledgerId)(templateId)
+          resolveContractTypeId(jwt, ledgerId)(templateId)
             .map(
               _.toOption.flatten
             )
@@ -393,7 +393,7 @@ class ContractsService(
         ): Future[Option[domain.ActiveContract[LfV]]] = {
           import ctx.{jwt, parties, templateIds => templateId, ledgerId}, com.daml.lf.crypto.Hash
           for {
-            resolved <- resolveTemplateId(jwt, ledgerId)(templateId).map(_.toOption.flatten.get)
+            resolved <- resolveContractTypeId(jwt, ledgerId)(templateId).map(_.toOption.flatten.get)
             found <- unsafeRunAsync {
               import doobie.implicits._, cats.syntax.apply._
               // it is possible for the contract under a given key to have been
