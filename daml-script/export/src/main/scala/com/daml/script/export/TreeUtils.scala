@@ -179,14 +179,14 @@ object TreeUtils {
   final case class CreatedContractWithPath(cid: ContractId, tplId: TemplateId, path: List[Selector])
       extends CreatedContract
 
-  def treeCreatedCids(tree: TransactionTree): Seq[CreatedContractWithPath] = {
-    var cids: Seq[CreatedContractWithPath] = Seq()
+  def treeCreatedCids(tree: TransactionTree): List[CreatedContractWithPath] = {
+    var cids: List[CreatedContractWithPath] = List()
     traverseTree(tree) { case (selectors, kind) =>
       kind match {
         case Kind.Empty =>
         case Kind.Exercised(_) =>
         case Kind.Created(value) =>
-          cids ++= Seq(
+          cids ++= List(
             CreatedContractWithPath(
               ContractId(value.contractId),
               TemplateId(value.getTemplateId),
@@ -201,8 +201,8 @@ object TreeUtils {
   def treeEventCreatedConsumedCids(
       event: TreeEvent.Kind,
       tree: TransactionTree,
-  ): (Seq[CreatedContract], Set[ContractId]) = {
-    var created = Seq.empty[CreatedContract]
+  ): (List[CreatedContract], Set[ContractId]) = {
+    var created = List.empty[CreatedContract]
     var consumed = Set.empty[ContractId]
     traverseEventInTree(event, tree) {
       case (_, Kind.Created(value)) =>
@@ -323,7 +323,7 @@ object TreeUtils {
     def fromCommand(command: Command, tree: TransactionTree): Option[SimpleCommand] = {
       def simpleExercise(
           exercisedEvent: ExercisedEvent,
-          extraCreated: Seq[CreatedContract],
+          extraCreated: List[CreatedContract],
       ): Option[CreatedContract] = {
         val result = exercisedEvent.exerciseResult.flatMap {
           _.sum match {
@@ -334,7 +334,7 @@ object TreeUtils {
         val (created, consumed) = treeEventCreatedConsumedCids(Kind.Exercised(exercisedEvent), tree)
         val netCreated = (extraCreated ++ created).filterNot(c => consumed.contains(c.cid))
         (result, netCreated) match {
-          case (Some(cid), Seq(created)) if cid == created.cid =>
+          case (Some(cid), List(created)) if cid == created.cid =>
             Some(created)
           case _ => None
         }
@@ -351,15 +351,15 @@ object TreeUtils {
             )
           )
         case ExerciseCommand(exercisedEvent) =>
-          simpleExercise(exercisedEvent, Seq.empty).map(SimpleCommand(command, _))
+          simpleExercise(exercisedEvent, List.empty).map(SimpleCommand(command, _))
         case ExerciseByKeyCommand(exercisedEvent, _, _) =>
-          simpleExercise(exercisedEvent, Seq.empty).map(SimpleCommand(command, _))
+          simpleExercise(exercisedEvent, List.empty).map(SimpleCommand(command, _))
         case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
           // We count the contract created by the created event into the set of created contracts.
           // The command is only considered simple if it only creates one contract overall and returns its id.
           simpleExercise(
             exercisedEvent,
-            Seq(
+            List(
               CreatedContract(
                 ContractId(createdEvent.contractId),
                 TemplateId(createdEvent.getTemplateId),
