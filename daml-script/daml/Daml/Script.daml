@@ -13,6 +13,7 @@ module Daml.Script
   , submitTreeMulti
   , query
   , queryContractId
+  , queryViewContractId
   , queryContractKey
   , queryFilter
   , PartyIdHint (..)
@@ -127,6 +128,7 @@ data ScriptF a
   | SubmitTree (SubmitTreePayload a)
   | Query (QueryACS a)
   | QueryContractId (QueryContractIdPayload a)
+  | QueryViewContractId (QueryViewContractIdPayload a)
   | QueryContractKey (QueryContractKeyPayload a)
   | AllocParty (AllocateParty a)
   | ListKnownParties (ListKnownPartiesPayload a)
@@ -214,6 +216,22 @@ queryContractId p c = lift $ Free $ QueryContractId QueryContractIdPayload with
   tplId = templateTypeRep @t
   cid = coerceContractId c
   continue = pure . fmap (fromSome . fromAnyTemplate)
+  locations = getCallStack callStack
+
+data QueryViewContractIdPayload a = QueryViewContractIdPayload
+  { parties : [Party]
+  , interfaceId : TemplateTypeRep
+  , cid : ContractId ()
+  , continue : Optional LedgerValue -> a
+  , locations : [(Text, SrcLoc)]
+  } deriving Functor
+
+queryViewContractId : forall i v p. (TemplateOrInterface i, HasInterfaceView i v, IsParties p) => HasCallStack => p -> ContractId i -> Script (Optional v)
+queryViewContractId p c = lift $ Free $ QueryViewContractId QueryViewContractIdPayload with
+  parties = toParties p
+  interfaceId = templateTypeRep @i
+  cid = coerceContractId c
+  continue = pure . fmap (fromLedgerValue @ v)
   locations = getCallStack callStack
 
 data QueryContractKeyPayload a = QueryContractKeyPayload

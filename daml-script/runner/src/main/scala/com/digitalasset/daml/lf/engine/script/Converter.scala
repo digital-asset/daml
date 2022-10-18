@@ -692,6 +692,19 @@ object Converter {
       contract: ScriptLedgerClient.ActiveContract,
   ): Either[String, SValue] = fromAnyTemplate(translator, contract.templateId, contract.argument)
 
+  def fromInterfaceView(
+      translator: preprocessing.ValueTranslator,
+      viewType: Type,
+      value: Value,
+  ): Either[String, SValue] = {
+    for {
+      translated <- translator
+        .translateValue(viewType, value)
+        .left
+        .map(err => s"Failed to translate value of interface view: $err")
+    } yield translated
+  }
+
   // Convert a Created event to a pair of (ContractId (), AnyTemplate)
   def fromCreated(
       translator: preprocessing.ValueTranslator,
