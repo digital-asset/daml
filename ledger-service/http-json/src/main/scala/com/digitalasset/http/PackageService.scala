@@ -6,7 +6,7 @@ package com.daml.http
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.typesig
-import domain.{Choice, ContractTypeId, TemplateId}
+import domain.{Choice, ContractTypeId}
 import ContractTypeId.ResolvedOf
 import com.daml.http.util.IdentifierConverters
 import com.daml.http.util.Logging.InstanceUUID
@@ -276,7 +276,7 @@ object PackageService {
   }
 
   type ResolveTemplateRecordType =
-    TemplateId.RequiredPkg => Error \/ typesig.Type
+    ContractTypeId.RequiredPkg => Error \/ typesig.Type // TODO #15098 .Template
 
   type AllTemplateIds =
     LoggingContextOf[
@@ -290,7 +290,7 @@ object PackageService {
     ) => Error \/ (Option[ContractTypeId.Interface.Resolved], typesig.Type)
 
   type ResolveKeyType =
-    TemplateId.RequiredPkg => Error \/ typesig.Type
+    ContractTypeId.RequiredPkg => Error \/ typesig.Type // TODO #15098 .Template
 
   final case class ContractTypeIdMap[CtId[_]](
       all: Map[RequiredPkg[CtId], ResolvedOf[CtId]],
@@ -332,7 +332,7 @@ object PackageService {
     Map[Choice, NonEmpty[Map[Option[ContractTypeId.Interface.Resolved], typesig.Type]]]
   ]]
 
-  type KeyTypeMap = Map[TemplateId.RequiredPkg, typesig.Type]
+  type KeyTypeMap = Map[ContractTypeId.RequiredPkg, typesig.Type] // TODO #15098 .Template
 
   def getTemplateIdInterfaceMaps(
       packageStore: PackageStore
@@ -393,7 +393,7 @@ object PackageService {
 
   def resolveKey(
       keyTypeMap: KeyTypeMap
-  )(templateId: TemplateId.RequiredPkg): Error \/ typesig.Type =
+  )(templateId: ContractTypeId.RequiredPkg): Error \/ typesig.Type = // TODO #15098 .Template
     keyTypeMap
       .get(templateId)
       .toRightDisjunction(

@@ -6,8 +6,8 @@
 
 package com.daml.ledger.api.testtool.suites.v1_8.objectmeta
 
+import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.testtool.infrastructure.ExpectedErrorDescription
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.suites.v1_8.UserManagementServiceITBase
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
@@ -122,23 +122,8 @@ class UserManagementServiceObjectMetaIT extends UserManagementServiceITBase with
       .map(_.getUser.getMetadata)
   }
 
-  override private[objectmeta] def concurrentUserUpdateDetectedErrorDescription(
-      id: ResourceId
-  ): ExpectedErrorDescription = ExpectedErrorDescription(
-    errorCode = LedgerApiErrors.Admin.UserManagement.ConcurrentUserUpdateDetected,
-    exceptionMessageSubstring = Some(
-      s"ABORTED: CONCURRENT_USER_UPDATE_DETECTED(2,0): Update operation for user '${id}' failed due to a concurrent update to the same user"
-    ),
-  )
-
-  override private[objectmeta] def invalidUpdateRequestErrorDescription(
-      id: ResourceId,
-      errorMessageSuffix: String,
-  ): ExpectedErrorDescription = ExpectedErrorDescription(
-    errorCode = LedgerApiErrors.Admin.UserManagement.InvalidUpdateUserRequest,
-    exceptionMessageSubstring = Some(
-      s"INVALID_ARGUMENT: INVALID_USER_UPDATE_REQUEST(8,0): Update operation for user id '${id}' failed due to: $errorMessageSuffix"
-    ),
-  )
-
+  override private[objectmeta] def concurrentUserUpdateDetectedErrorCode: ErrorCode =
+    LedgerApiErrors.Admin.UserManagement.ConcurrentUserUpdateDetected
+  override private[objectmeta] def invalidUpdateRequestErrorCode: ErrorCode =
+    LedgerApiErrors.Admin.UserManagement.InvalidUpdateUserRequest
 }

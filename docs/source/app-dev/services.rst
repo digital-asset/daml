@@ -207,7 +207,7 @@ Utility Services
 Party Management Service
 ========================
 
-Use the **party management service** to allocate parties on the ledger and retrieve information about allocated parties.
+Use the **party management service** to allocate parties on the ledger, update party properties local to the participant and retrieve information about allocated parties.
 
 Parties govern on-ledger access control as per :ref:`Daml's privacy model <da-model-privacy>`
 and :ref:`authorization rules <da-ledgers-authorization-rules>`.
@@ -228,7 +228,7 @@ In contrast to parties, users are local to a participant node.
 The relation between a participant node's users and Daml parties is best understood by analogy to classical databases:
 a participant node's users are analogous to database users while Daml parties are analogous to database roles; and further, the rights granted to a user are analogous to the user's assigned database roles.
 
-For more information, consult the :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.UserManagementService>` for how to list, create, and delete users and their rights.
+For more information, consult the :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.UserManagementService>` for how to list, create, update and delete users and their rights.
 See the :ref:`UserManagementFeature descriptor <com.daml.ledger.api.v1.UserManagementFeature>` to learn about limits of the user management service, e.g., the maximum number of rights per user.
 The feature descriptor can be retrieved using the :ref:`Version service <version-service>`.
 

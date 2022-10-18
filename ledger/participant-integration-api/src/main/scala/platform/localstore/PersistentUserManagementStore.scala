@@ -171,7 +171,6 @@ class PersistentUserManagementStore(
           // NOTE: We starts by writing to the 'resource_version' attribute
           //       of 'participant_users' to effectively obtain an exclusive lock for
           //       updating this user for the rest of the transaction.
-          // TODO um-for-hub: See if we can generalize some of this logic between User and PartyRecord stores
           userUpdate.metadataUpdate.resourceVersionO match {
             case Some(expectedResourceVersion) =>
               if (

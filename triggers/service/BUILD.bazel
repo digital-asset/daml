@@ -3,6 +3,8 @@
 
 load("@oracle//:index.bzl", "oracle_tags")
 load("@build_environment//:configuration.bzl", "sdk_version")
+load("//daml-lf/language:daml-lf.bzl", "lf_versions_aggregate")
+load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration")
 load("@os_info//:os_info.bzl", "is_windows")
 load(
     "//bazel_tools:scala.bzl",
@@ -13,6 +15,11 @@ load(
 )
 
 triggerMain = "src/main/scala/com/digitalasset/daml/lf/engine/trigger/ServiceMain.scala"
+
+target_lf_versions = lf_versions_aggregate([
+    "default",
+    "dev",
+])
 
 da_scala_library(
     name = "trigger-service",
@@ -43,6 +50,7 @@ da_scala_library(
         "@maven//:org_typelevel_cats_kernel",
         "@maven//:com_github_pureconfig_pureconfig_core",
         "@maven//:com_github_pureconfig_pureconfig_generic",
+        "@maven//:com_github_pureconfig_pureconfig_generic_base",
     ],
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",
@@ -135,8 +143,9 @@ da_scala_library(
     name = "trigger-service-tests",
     srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*.scala"]),
     data = [
-        ":test-model.dar",
-    ] + (
+        ":test-model-{}.dar".format(lf_version)
+        for lf_version in target_lf_versions
+    ] + [":test-model.dar"] + (
         [
             "@toxiproxy_dev_env//:bin/toxiproxy-cmd",
         ] if not is_windows else [
@@ -190,7 +199,7 @@ da_scala_library(
         "//triggers/service/auth:oauth2-middleware",
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
@@ -243,7 +252,7 @@ da_scala_test_suite(
         "//libs-scala/resources",
         "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-test-server",
-        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
         "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
@@ -286,30 +295,32 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//triggers/service/auth:oauth2-test-server",
-        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
-genrule(
-    name = "test-model",
-    srcs =
-        glob(["test-model/*.daml"]) + [
-            "//triggers/daml:daml-trigger.dar",
-            "//daml-script/daml:daml-script.dar",
-        ],
-    outs = ["test-model.dar"],
-    cmd = """
-      set -eou pipefail
-      TMP_DIR=$$(mktemp -d)
-      mkdir -p $$TMP_DIR/daml
-      cp -L $(location :test-model/TestTrigger.daml) $$TMP_DIR/daml
-      cp -L $(location :test-model/ErrorTrigger.daml) $$TMP_DIR/daml
-      cp -L $(location :test-model/LowLevelErrorTrigger.daml) $$TMP_DIR/daml
-      cp -L $(location :test-model/ReadAs.daml) $$TMP_DIR/daml
-      cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
-      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR
-      cat << EOF > $$TMP_DIR/daml.yaml
+# Build one DAR per LF version to bundle with the SDK.
+[
+    genrule(
+        name = "test-model-{}".format(lf_version),
+        srcs =
+            glob(["test-model/*.daml"]) + [
+                "//triggers/daml:daml-trigger-{}".format(lf_version),
+                "//daml-script/daml:daml-script-{}".format(lf_version),
+            ],
+        outs = ["test-model-{}.dar".format(lf_version)],
+        cmd = """
+          set -eou pipefail
+          TMP_DIR=$$(mktemp -d)
+          mkdir -p $$TMP_DIR/daml
+          cp -L $(location :test-model/TestTrigger.daml) $$TMP_DIR/daml
+          cp -L $(location :test-model/ErrorTrigger.daml) $$TMP_DIR/daml
+          cp -L $(location :test-model/LowLevelErrorTrigger.daml) $$TMP_DIR/daml
+          cp -L $(location :test-model/ReadAs.daml) $$TMP_DIR/daml
+          cp -L $(location {daml_trigger}) $$TMP_DIR/daml-trigger.dar
+          cp -L $(location {daml_script}) $$TMP_DIR/daml-script.dar
+          cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: test-model
 source: daml
@@ -319,11 +330,30 @@ dependencies:
   - daml-prim
   - daml-trigger.dar
   - daml-script.dar
+build-options: {build_options}
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location test-model.dar)
-      rm -rf $$TMP_DIR
-    """.format(sdk = sdk_version),
-    tools = ["//compiler/damlc"],
+          $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$@
+          rm -rf $$TMP_DIR
+        """.format(
+            build_options = str([
+                "--target",
+                lf_version,
+            ]),
+            sdk = sdk_version,
+            daml_script = "//daml-script/daml:daml-script-{}".format(lf_version),
+            daml_trigger = "//triggers/daml:daml-trigger-{}".format(lf_version),
+        ),
+        tools = ["//compiler/damlc"],
+        visibility = ["//visibility:public"],
+    )
+    for lf_version in target_lf_versions
+]
+
+genrule(
+    name = "test-model",
+    srcs = [":test-model-{}".format(lf_version_configuration.get("default"))],
+    outs = ["test-model.dar"],
+    cmd = "cp -L $(location :test-model-{}) $$PWD/$@".format(lf_version_configuration.get("default")),
     visibility = ["//visibility:public"],
 )
 

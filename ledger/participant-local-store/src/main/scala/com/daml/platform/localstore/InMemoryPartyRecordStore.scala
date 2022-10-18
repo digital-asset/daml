@@ -38,7 +38,6 @@ object InMemoryPartyRecordStore {
 
 }
 
-// TODO um-for-hub: Consider unifying InMemoryPartyRecordStore and PersistentPartyRecordStore, such that InMemoryPartyRecordStore is obtained by having a in-memory storage backend
 class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends PartyRecordStore {
   import InMemoryPartyRecordStore._
 
@@ -70,7 +69,6 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
     })
   }
 
-  // TODO um-for-hub: Add a conformance test exercising a race conditions: multiple update on the same non-existing party-record (which exists on the ledger and is indexed by this participant) calls
   override def updatePartyRecord(
       partyRecordUpdate: PartyRecordUpdate,
       ledgerPartyExists: LedgerPartyExists,

@@ -192,7 +192,7 @@ object JsonProtocol extends JsonProtocolLow {
       case (Some(templateId), Some(key), None) =>
         -\/((templateId.convertTo[domain.ContractTypeId.Template.OptionalPkg], key))
       case (otid, None, Some(contractId)) =>
-        val a = otid map (_.convertTo[domain.TemplateId.OptionalPkg])
+        val a = otid map (_.convertTo[domain.ContractTypeId.OptionalPkg])
         val b = contractId.convertTo[domain.ContractId]
         \/-((a, b))
       case (None, Some(_), None) =>
@@ -391,9 +391,10 @@ object JsonProtocol extends JsonProtocolLow {
     domain.CommandMeta
   )
 
-  implicit val CreateCommandFormat
-      : RootJsonFormat[domain.CreateCommand[JsValue, domain.TemplateId.OptionalPkg]] = jsonFormat3(
-    domain.CreateCommand[JsValue, domain.TemplateId.OptionalPkg]
+  implicit val CreateCommandFormat: RootJsonFormat[
+    domain.CreateCommand[JsValue, domain.ContractTypeId.OptionalPkg] // TODO #15098 .Template
+  ] = jsonFormat3(
+    domain.CreateCommand[JsValue, domain.ContractTypeId.OptionalPkg] // TODO #15098 .Template
   )
 
   implicit val ExerciseCommandFormat

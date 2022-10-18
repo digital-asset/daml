@@ -15,7 +15,6 @@ import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 import scala.collection.mutable
 import scala.concurrent.Future
 
-// TODO um-for-hub: For consideration: Store interfaces and their in-memory impls should live in a dedicated bazel package
 class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManagementStore {
   import InMemoryUserManagementStore._
 
@@ -52,6 +51,8 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
     withUser(userUpdate.id) { userInfo =>
       val updatedPrimaryParty = userUpdate.primaryPartyUpdateO.getOrElse(userInfo.user.primaryParty)
+      val updatedIsDeactivated =
+        userUpdate.isDeactivatedUpdateO.getOrElse(userInfo.user.isDeactivated)
       val existingAnnotations = userInfo.user.metadata.annotations
       val updatedAnnotations =
         userUpdate.metadataUpdate.annotationsUpdateO.fold(existingAnnotations) { newAnnotations =>
@@ -83,6 +84,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
         val updatedUserInfo = userInfo.copy(
           user = userInfo.user.copy(
             primaryParty = updatedPrimaryParty,
+            isDeactivated = updatedIsDeactivated,
             metadata = ObjectMeta(
               resourceVersionO = Some(newResourceVersion),
               annotations = updatedAnnotations,
@@ -148,6 +150,10 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
     }
   }
 
+  def listAllUsers(): Future[List[User]] = withState(
+    state.valuesIterator.map(_.user).toList
+  )
+
   private def withState[T](t: => T): Future[T] =
     state.synchronized(
       Future.successful(t)
@@ -200,8 +206,10 @@ object InMemoryUserManagementStore {
       id = Ref.UserId.assertFromString(UserManagementStore.DefaultParticipantAdminUserId),
       primaryParty = None,
       isDeactivated = false,
-      // TODO um-for-hub: Fill resource version
-      metadata = ObjectMeta.empty,
+      metadata = ObjectMeta(
+        resourceVersionO = Some(0),
+        annotations = Map.empty,
+      ),
     ),
     rights = Set(UserRight.ParticipantAdmin),
   )

@@ -420,9 +420,7 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       assertGrpcError(
         res,
         LedgerApiErrors.RequestValidation.InvalidArgument,
-        exceptionMessageSubstring = Some(
-          "The submitted command has invalid arguments: field user.metadata.resource_version must be not set"
-        ),
+        exceptionMessageSubstring = Some("user.metadata.resource_version"),
       )
     }
   })
