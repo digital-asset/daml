@@ -682,15 +682,6 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
   })
 
   userManagementTest(
-    "TestCreateUserWithNoRights",
-    "Test creating user with no rights",
-  )(implicit ec => { implicit ledger =>
-    for {
-      created <- ledger.createUser(CreateUserRequest(Some(User(ledger.nextUserId())), Nil))
-    } yield assert(created.user.isDefined)
-  })
-
-  userManagementTest(
     "TestGrantingAndRevokingEmptyListOfRights",
     "Test granting and revoking empty list of rights",
   )(implicit ec => { implicit ledger =>
