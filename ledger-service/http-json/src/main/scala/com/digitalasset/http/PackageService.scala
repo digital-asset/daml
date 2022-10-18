@@ -319,7 +319,7 @@ object PackageService {
     Map[Choice, NonEmpty[Map[Option[ContractTypeId.Interface.Resolved], typesig.Type]]]
   ]]
 
-  type KeyTypeMap = Map[ContractTypeId.RequiredPkg, typesig.Type] // TODO #15098 .Template
+  type KeyTypeMap = Map[ContractTypeId.Template.Resolved, typesig.Type]
 
   def getTemplateIdInterfaceMaps(
       packageStore: PackageStore
@@ -473,7 +473,7 @@ object PackageService {
 
   private def getKeys(
       interface: typesig.PackageSignature
-  ): Map[ContractTypeId.RequiredPkg, typesig.Type] =
+  ): Map[ContractTypeId.Template.Resolved, typesig.Type] =
     interface.typeDecls.collect {
       case (
             qn,

@@ -1331,8 +1331,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
         v.Value,
         domain.ContractTypeId.Template.OptionalPkg,
         domain.ContractTypeId.OptionalPkg,
-      ] = // TODO #15098 .Template
-        iouCreateAndExerciseTransferCommand(alice, bob)
+      ] = iouCreateAndExerciseTransferCommand(alice, bob)
       json: JsValue = encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
 
       res <- fixture
