@@ -46,14 +46,15 @@ class DomainJsonEncoder(
 
     } yield y
 
-  def encodeCreateAndExerciseCommand[CtId](
+  def encodeCreateAndExerciseCommand[CtId, IfceId](
       cmd: domain.CreateAndExerciseCommand[
         lav1.value.Record,
         lav1.value.Value,
         CtId,
+        IfceId,
       ]
   )(implicit
-      ev: JsonWriter[domain.CreateAndExerciseCommand[JsValue, JsValue, CtId]]
+      ev: JsonWriter[domain.CreateAndExerciseCommand[JsValue, JsValue, CtId, IfceId]]
   ): JsonError \/ JsValue =
     for {
       payload <- apiRecordToJsObject(cmd.payload): JsonError \/ JsValue

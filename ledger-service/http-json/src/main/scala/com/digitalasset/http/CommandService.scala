@@ -128,6 +128,7 @@ class CommandService(
       input: CreateAndExerciseCommand[
         lav1.value.Record,
         lav1.value.Value,
+        ContractTypeId.Template.RequiredPkg,
         ContractTypeId.RequiredPkg,
       ],
   )(implicit
@@ -218,6 +219,7 @@ class CommandService(
       input: CreateAndExerciseCommand[
         lav1.value.Record,
         lav1.value.Value,
+        ContractTypeId.Template.RequiredPkg,
         ContractTypeId.RequiredPkg,
       ]
   ): lav1.commands.Command.Command.CreateAndExercise =

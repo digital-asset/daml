@@ -444,15 +444,17 @@ object JsonProtocol extends JsonProtocolLow {
     domain.CreateAndExerciseCommand[
       JsValue,
       JsValue,
+      domain.ContractTypeId.Template.OptionalPkg,
       domain.ContractTypeId.OptionalPkg,
-    ] // TODO #15098 .Template
+    ]
   ] =
     jsonFormat6(
       domain.CreateAndExerciseCommand[
         JsValue,
         JsValue,
+        domain.ContractTypeId.Template.OptionalPkg,
         domain.ContractTypeId.OptionalPkg,
-      ] // TODO #15098 .Template
+      ]
     )
 
   implicit val CompletionOffsetFormat: JsonFormat[domain.CompletionOffset] =

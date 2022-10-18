@@ -278,13 +278,13 @@ package domain {
       meta: Option[CommandMeta],
   )
 
-  final case class CreateAndExerciseCommand[+Payload, +Arg, +TmplId](
+  final case class CreateAndExerciseCommand[+Payload, +Arg, +TmplId, +IfceId](
       templateId: TmplId,
       payload: Payload,
       choice: domain.Choice,
       argument: Arg,
       // passing a template ID is allowed; we distinguish internally
-      choiceInterfaceId: Option[TmplId],
+      choiceInterfaceId: Option[IfceId],
       meta: Option[CommandMeta],
   )
 
@@ -392,8 +392,14 @@ package domain {
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
         ): Error \/ LfType =
-          f(templateId)
-            .leftMap(e => Error(Symbol("ActiveContract_hasTemplateId_lfType"), e.shows))
+          templateId match {
+            case tid: ContractTypeId.Template.Resolved =>
+              f(tid: ContractTypeId.Template.Resolved)
+                .leftMap(e => Error(Symbol("ActiveContract_hasTemplateId_lfType"), e.shows))
+            case _ =>
+              val errorMsg = "Expect contract type Id to be template Id, got otherwise."
+              -\/(Error(Symbol("ActiveContract_hasTemplateId_lfType"), errorMsg))
+          }
       }
   }
 
@@ -493,7 +499,7 @@ package domain {
               h(tid: ContractTypeId.Template.Resolved)
                 .leftMap(e => Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), e.shows))
             case _ =>
-              val errorMsg = s"expect contract type Id to be template Id, got otherwise."
+              val errorMsg = s"Expect contract type Id to be template Id, got otherwise."
               -\/(Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), errorMsg))
           }
         }
@@ -608,15 +614,15 @@ package domain {
   }
 
   object CreateAndExerciseCommand {
-    implicit def covariant[P, Ar]: Traverse[CreateAndExerciseCommand[P, Ar, *]] =
-      new Traverse[CreateAndExerciseCommand[P, Ar, *]] {
-        override def traverseImpl[G[_]: Applicative, A, B](
-            fa: CreateAndExerciseCommand[P, Ar, A]
-        )(f: A => G[B]): G[CreateAndExerciseCommand[P, Ar, B]] =
-          ^(f(fa.templateId), fa.choiceInterfaceId traverse f) { (tId, ciId) =>
-            fa.copy(templateId = tId, choiceInterfaceId = ciId)
-          }
-      }
+//    implicit def covariant[P, Ar, T]: Traverse[CreateAndExerciseCommand[P, Ar, T, *]] =
+//      new Traverse[CreateAndExerciseCommand[P, Ar, T, *]] {
+//        override def traverseImpl[G[_]: Applicative, A, B](
+//            fa: CreateAndExerciseCommand[P, Ar, T, A]
+//        )(f: A => G[B]): G[CreateAndExerciseCommand[P, Ar, T, B]] =
+//          ^(f(fa.templateId), fa.choiceInterfaceId traverse f) { (tId, ciId) =>
+//            fa.copy(templateId = tId, choiceInterfaceId = ciId)
+//          }
+//      }
   }
 
   object ExerciseResponse {

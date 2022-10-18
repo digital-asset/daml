@@ -57,7 +57,7 @@ class DomainJsonDecoder(
       resolvedTmplId <- either(
         tmplId match {
           case tId: ContractTypeId.Template.Resolved =>
-            \/-(tId)
+            \/-(tId: ContractTypeId.Template.Resolved)
           case _ => -\/(JsonError("ContractTypeId has to be template id"))
         }
       )
@@ -168,22 +168,61 @@ class DomainJsonDecoder(
   def decodeCreateAndExerciseCommand(a: JsValue, jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
       implicit
       ev1: JsonReader[
-        domain.CreateAndExerciseCommand[JsValue, JsValue, ContractTypeId.OptionalPkg]
+        domain.CreateAndExerciseCommand[
+          JsValue,
+          JsValue,
+          ContractTypeId.Template.OptionalPkg,
+          ContractTypeId.OptionalPkg,
+        ]
       ],
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): EitherT[Future, JsonError, domain.CreateAndExerciseCommand[
     lav1.value.Record,
     lav1.value.Value,
+    ContractTypeId.Template.RequiredPkg,
     ContractTypeId.RequiredPkg,
   ]] = {
     val err = "DomainJsonDecoder_decodeCreateAndExerciseCommand"
+
+    def resolveTemplateId(
+        cmd: domain.CreateAndExerciseCommand[
+          JsValue,
+          JsValue,
+          ContractTypeId.Template.OptionalPkg,
+          ContractTypeId.OptionalPkg,
+        ]
+    ): ET[domain.CreateAndExerciseCommand[
+      JsValue,
+      JsValue,
+      ContractTypeId.Template.Resolved,
+      ContractTypeId.Resolved,
+    ]] = {
+      val resolve = templateId_(_, jwt, ledgerId)
+      for {
+        templateId <- resolve(cmd.templateId).flatMap {
+          case tid: ContractTypeId.Template.Resolved =>
+            either(\/-(tid: ContractTypeId.Template.Resolved))
+          case _ =>
+            either[JsonError, ContractTypeId.Template.Resolved](
+              -\/(JsonError("Expect contract type Id to be template Id, got otherwise."))
+            ) // TODO CL can i remove type in either?
+        }
+        choiceInterfaceId <- cmd.choiceInterfaceId traverse resolve
+      } yield cmd.copy(templateId = templateId, choiceInterfaceId = choiceInterfaceId)
+    }
+
     for {
       fjj <- either(
         SprayJson
-          .decode[domain.CreateAndExerciseCommand[JsValue, JsValue, ContractTypeId.OptionalPkg]](a)
+          .decode[domain.CreateAndExerciseCommand[
+            JsValue,
+            JsValue,
+            ContractTypeId.Template.OptionalPkg,
+            ContractTypeId.OptionalPkg,
+          ]](a)
           .liftErrS(err)(JsonError)
-      ).flatMap(_ traverse (templateId_(_, jwt, ledgerId)))
+      ).flatMap(resolveTemplateId)
 
       tId = fjj.templateId
       ciId = fjj.choiceInterfaceId
@@ -228,7 +267,9 @@ class DomainJsonDecoder(
         .flatMap(jsObj => jsValueToApiValue(lfType, jsObj).flatMap(mustBeApiRecord))
         .valueOr(e => spray.json.deserializationError(e.shows))
 
-  def templateRecordType(id: domain.ContractTypeId.RequiredPkg): JsonError \/ domain.LfType =
+  def templateRecordType(
+      id: domain.ContractTypeId.Template.RequiredPkg
+  ): JsonError \/ domain.LfType =
     resolveTemplateRecordType(id).liftErr(JsonError)
 
   def keyType(id: domain.ContractTypeId.Template.OptionalPkg)(implicit
@@ -241,6 +282,6 @@ class DomainJsonDecoder(
       case it: domain.ContractTypeId.Template.Resolved =>
         either(resolveKeyType(it: ContractTypeId.Template.Resolved).liftErr(JsonError))
       case _ =>
-        either(-\/(JsonError("expect contract type Id to be template Id, got otherwise.")))
+        either(-\/(JsonError("Expect contract type Id to be template Id, got otherwise.")))
     }
 }

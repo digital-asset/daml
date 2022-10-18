@@ -276,7 +276,7 @@ object PackageService {
   }
 
   type ResolveTemplateRecordType =
-    ContractTypeId.RequiredPkg => Error \/ typesig.Type // TODO #15098 .Template
+    ContractTypeId.Template.RequiredPkg => Error \/ typesig.Type
 
   type AllTemplateIds =
     LoggingContextOf[
@@ -385,7 +385,7 @@ object PackageService {
 
   def resolveKey(
       keyTypeMap: KeyTypeMap
-  )(templateId: ContractTypeId.RequiredPkg): Error \/ typesig.Type = // TODO #15098 .Template
+  )(templateId: ContractTypeId.Template.RequiredPkg): Error \/ typesig.Type =
     keyTypeMap
       .get(templateId)
       .toRightDisjunction(

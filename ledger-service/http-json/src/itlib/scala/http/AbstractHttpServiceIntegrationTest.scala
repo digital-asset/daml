@@ -964,6 +964,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         v.Record,
         v.Value,
         domain.ContractTypeId.Template.OptionalPkg,
+        domain.ContractTypeId.OptionalPkg,
       ] =
         domain.CreateAndExerciseCommand(
           templateId = helperId,
@@ -975,7 +976,12 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         )
 
       def encode(
-          cmd: domain.CreateAndExerciseCommand[v.Record, v.Value, domain.ContractTypeId.OptionalPkg]
+          cmd: domain.CreateAndExerciseCommand[
+            v.Record,
+            v.Value,
+            domain.ContractTypeId.Template.OptionalPkg,
+            domain.ContractTypeId.OptionalPkg,
+          ]
       ): JsValue =
         encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
 
@@ -1323,6 +1329,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
       cmd: domain.CreateAndExerciseCommand[
         v.Record,
         v.Value,
+        domain.ContractTypeId.Template.OptionalPkg,
         domain.ContractTypeId.OptionalPkg,
       ] = // TODO #15098 .Template
         iouCreateAndExerciseTransferCommand(alice, bob)
