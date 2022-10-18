@@ -718,15 +718,25 @@ daml_test(
 )
 
 daml_test(
-    name = "daml-intro-daml-test",
+    name = "daml-intro-daml-test-excl-8-9-10",
     srcs = glob(
         ["source/daml/intro/daml/**/*.daml"],
         exclude = [
             "source/daml/intro/daml/daml-intro-8/**",
             "source/daml/intro/daml/daml-intro-9/**",
+            "source/daml/intro/daml/daml-intro-10/**",
         ],
     ),
     deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_test(
+    name = "daml-intro-daml-10-test",
+    srcs = glob(
+        ["source/daml/intro/daml/daml-intro-10/**/*.daml"],
+    ),
+    deps = ["//daml-script/daml:daml-script.dar"],
+    additional_compiler_flags = ["--ghc-option=-Wwarn=incomplete-patterns"],
 )
 
 daml_test(
