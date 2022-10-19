@@ -25,7 +25,8 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   UpdatePartyDetailsRequest,
   UpdatePartyDetailsResponse,
 }
-import com.daml.ledger.api.v1.{admin => proto_admin}
+import com.daml.ledger.api.v1.admin.party_management_service.{PartyDetails => ProtoPartyDetails}
+import com.daml.ledger.api.v1.admin.object_meta.{ObjectMeta => ProtoObjectMeta}
 import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
@@ -163,9 +164,7 @@ private[apiserver] final class ApiPartyManagementService private (
           partyIdHintO <- FieldValidations.optionalString(
             request.partyIdHint
           )(FieldValidations.requireParty)
-          metadata = request.localMetadata.getOrElse(
-            com.daml.ledger.api.v1.admin.object_meta.ObjectMeta()
-          )
+          metadata = request.localMetadata.getOrElse(ProtoObjectMeta())
           _ <- requireEmptyString(
             metadata.resourceVersion,
             "party_details.local_metadata.resource_version",
@@ -219,7 +218,7 @@ private[apiserver] final class ApiPartyManagementService private (
             "party_details",
           )
           party <- requireParty(partyDetails.party)
-          metadata = partyDetails.localMetadata.getOrElse(proto_admin.object_meta.ObjectMeta())
+          metadata = partyDetails.localMetadata.getOrElse(ProtoObjectMeta())
           resourceVersionNumberO <- optionalString(metadata.resourceVersion)(
             FieldValidations.requireResourceVersion(
               _,
@@ -408,8 +407,8 @@ private[apiserver] object ApiPartyManagementService {
   private def toProtoPartyDetails(
       partyDetails: IndexerPartyDetails,
       metadataO: Option[ObjectMeta],
-  ): proto_admin.party_management_service.PartyDetails =
-    proto_admin.party_management_service.PartyDetails(
+  ): ProtoPartyDetails =
+    ProtoPartyDetails(
       party = partyDetails.party,
       displayName = partyDetails.displayName.getOrElse(""),
       isLocal = partyDetails.isLocal,
