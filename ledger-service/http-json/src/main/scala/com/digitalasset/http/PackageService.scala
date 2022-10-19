@@ -309,7 +309,7 @@ object PackageService {
     import domain.{ContractTypeId => C}
 
     object Overload extends LowPriority {
-      /* XXX SC see below note about Top
+      /* TODO #15293 see below note about Top
       implicit case object Unknown
           extends Overload[C.Unknown.OptionalPkg, C.ResolvedId[C.Definite[String]]]
        */
@@ -317,7 +317,7 @@ object PackageService {
       case object Top extends Overload[C.OptionalPkg, C.ResolvedId[C.Definite[String]]]
     }
 
-    // XXX SC if the request model has .Unknown included, then LowPriority and Top are
+    // TODO #15293 if the request model has .Unknown included, then LowPriority and Top are
     // no longer needed and can be replaced with Overload.Unknown above
     sealed abstract class LowPriority { this: Overload.type =>
       // needs to be low priority so it doesn't win against Template
