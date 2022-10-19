@@ -181,7 +181,10 @@ object Converter {
     } yield record(
       DA.Internal.Any.AnyChoice,
       ("getAnyChoice", SAny(choice.argBinder._2, translated)),
-      ("getAnyChoiceTemplateTypeRep", fromIdentifier(toApiIdentifier(templateId))),
+      (
+        "getAnyChoiceTemplateTypeRep",
+        fromTemplateTypeRep(toApiIdentifier(interfaceId.getOrElse(templateId))),
+      ),
     )
   }
 

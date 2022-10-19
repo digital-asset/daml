@@ -24,17 +24,17 @@ daml_ledger_export_test(
 )
 
 daml_compile(
-    name = "export-values",
-    srcs = [":export-values/Values.daml"],
+    name = "values",
+    srcs = [":values/Values.daml"],
     dependencies = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_ledger_export_test(
-    name = "export-values",
-    dar = ":export-values.dar",
-    expected_args_json = ":export-values/args.json",
-    expected_daml = ":export-values/Export.daml",
-    expected_daml_yaml = ":export-values/daml.yaml",
+    name = "values",
+    dar = ":values.dar",
+    expected_args_json = ":values/args.json",
+    expected_daml = ":values/Export.daml",
+    expected_daml_yaml = ":values/daml.yaml",
     out_args_json = "out/args.json",
     out_daml = "out/Export.daml",
     out_daml_yaml = "out/daml.yaml",
@@ -46,10 +46,54 @@ daml_ledger_export_test(
 # of the actual one, but if the test above passes they should be identical
 # (modulo normalization).
 daml_test(
-    name = "export-values-valid",
+    name = "values-valid",
     srcs = [
-        ":export-values/Export.daml",
-        ":export-values/Values.daml",
+        ":values/Export.daml",
+        ":values/Values.daml",
     ],
     deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_compile(
+    name = "interface-choices",
+    srcs = [
+        ":interface-choices/InterfaceChoices.daml",
+        ":interface-choices/InterfaceChoices/Asset.daml",
+        ":interface-choices/InterfaceChoices/Token.daml",
+    ],
+    dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
+    target = "1.dev",
+)
+
+daml_ledger_export_test(
+    name = "interface-choices",
+    dar = ":interface-choices.dar",
+    dev = True,
+    expected_args_json = ":interface-choices/args.json",
+    expected_daml = ":interface-choices/Export.daml",
+    expected_daml_yaml = ":interface-choices/daml.yaml",
+    out_args_json = "out/args.json",
+    out_daml = "out/Export.daml",
+    out_daml_yaml = "out/daml.yaml",
+    parties = [
+        "Alice",
+        "Bob",
+        "Charlie",
+    ],
+    script_identifier = "InterfaceChoices:initialize",
+)
+
+# Test that 'Export.daml' actually compiles. We use the expected file instead
+# of the actual one, but if the test above passes they should be identical
+# (modulo normalization).
+daml_test(
+    name = "interface-choices-valid",
+    srcs = [
+        ":interface-choices/Export.daml",
+        ":interface-choices/InterfaceChoices.daml",
+        ":interface-choices/InterfaceChoices/Asset.daml",
+        ":interface-choices/InterfaceChoices/Token.daml",
+    ],
+    target = "1.dev",
+    deps = ["//daml-script/daml:daml-script-1.dev.dar"],
 )

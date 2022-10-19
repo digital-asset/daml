@@ -16,6 +16,7 @@ import com.daml.script.export.Dependencies.TemplateInstanceSpec
 import com.daml.script.export.TreeUtils.{
   Action,
   CreatedContract,
+  CreatedContractWithPath,
   SetTime,
   Submit,
   cmdReferencedCids,
@@ -58,7 +59,9 @@ object Export {
     val cidRefs = submits.foldMap(_.commands.foldMap(cmdReferencedCids))
 
     val acsCids =
-      sortedAcs.map(ev => CreatedContract(ContractId(ev.contractId), ev.getTemplateId, Nil))
+      sortedAcs.map(ev =>
+        CreatedContractWithPath(ContractId(ev.contractId), TemplateId(ev.getTemplateId), Nil)
+      )
     val treeCids = trees.map(treeCreatedCids(_))
     val cidMap = cidMapping(acsCids +: treeCids, cidRefs)
 
@@ -119,7 +122,7 @@ object Export {
     cids.view.zipWithIndex.flatMap { case (cs, treeIndex) =>
       cs.view.zipWithIndex.collect {
         case (c, i) if cidRefs.contains(c.cid) =>
-          c.cid -> s"${lowerFirst(c.tplId.entityName)}_${treeIndex}_$i"
+          c.cid -> s"${lowerFirst(TemplateId.unwrap(c.tplId).entityName)}_${treeIndex}_$i"
       }
     }.toMap
   }
