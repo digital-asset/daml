@@ -70,7 +70,8 @@ If you want need to add an item that needs to end up on the table of contents, y
 
 1. get the PR that introduces the new item
 2. wait for the following daily snapshot
-3. follow the instructions on https://github.com/digital-asset/docs.daml.com
+3. follow the instructions on https://github.com/digital-asset/docs.daml.com, in particular with regards to
+   [making changes to the next unreleased version](https://github.com/digital-asset/docs.daml.com#making-changes-to-the-next-unreleased-version)
 
 ## How the docs get built
 
