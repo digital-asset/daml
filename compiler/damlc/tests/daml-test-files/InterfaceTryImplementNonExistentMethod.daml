@@ -1,7 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @ERROR range=17:5-17:26; Tried to implement method nonExistentMethod, but interface I does not have a method with that name.
+-- @ERROR range=17:5-17:26; Tried to implement method ‘nonExistentMethod’, but interface ‘I’ does not have a method with that name.
 module InterfaceTryImplementNonExistentMethod where
 
 data View = View {}
