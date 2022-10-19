@@ -182,8 +182,8 @@ A file is generated that defines five Java classes and an interface:
 
     public static final Identifier TEMPLATE_ID = new Identifier("some-package-id", "Com.Acme.Templates", "Bar");
 
-    public static final ChoiceMetadata<Bar, Archive, Unit> CHOICE_Archive =
-      ChoiceMetadata.create(/* ... */);
+    public static final Choice<Bar, Archive, Unit> CHOICE_Archive =
+      Choice.create(/* ... */);
 
     public static final ContractCompanion.WithKey<Contract, ContractId, Bar, BarKey> COMPANION = 
         new ContractCompanion.WithKey<>("com.acme.templates.Bar",
@@ -518,11 +518,11 @@ Effectively it is a class that contains only the inner type ContractId because o
   public final class TIf {
     public static final Identifier TEMPLATE_ID = new Identifier("94fb4fa48cef1ec7d474ff3d6883a00b2f337666c302ec5e2b87e986da5c27a3", "Interfaces", "TIf");
 
-    public static final ChoiceMetadata<TIf, Transfer, ContractId> CHOICE_Transfer =
-      ChoiceMetadata.create(/* ... */);
+    public static final Choice<TIf, Transfer, ContractId> CHOICE_Transfer =
+      Choice.create(/* ... */);
 
-    public static final ChoiceMetadata<TIf, Archive, Unit> CHOICE_Archive =
-      ChoiceMetadata.create(/* ... */);
+    public static final Choice<TIf, Archive, Unit> CHOICE_Archive =
+      Choice.create(/* ... */);
 
     public static final INTERFACE INTERFACE = new INTERFACE();
 
