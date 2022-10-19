@@ -326,7 +326,7 @@ object PackageService {
   }
 
   type ResolveTemplateRecordType =
-    ContractTypeId.RequiredPkg => Error \/ typesig.Type // TODO #15098 .Template
+    ContractTypeId.Template.RequiredPkg => Error \/ typesig.Type
 
   type AllTemplateIds =
     LoggingContextOf[
@@ -340,7 +340,7 @@ object PackageService {
     ) => Error \/ (Option[ContractTypeId.Interface.Resolved], typesig.Type)
 
   type ResolveKeyType =
-    ContractTypeId.RequiredPkg => Error \/ typesig.Type // TODO #15098 .Template
+    ContractTypeId.Template.RequiredPkg => Error \/ typesig.Type
 
   final case class ContractTypeIdMap[CtId[T] <: ContractTypeId[T]](
       all: Map[RequiredPkg[CtId], ResolvedOf[CtId]],
@@ -381,7 +381,7 @@ object PackageService {
     Map[Choice, NonEmpty[Map[Option[ContractTypeId.Interface.Resolved], typesig.Type]]]
   ]]
 
-  type KeyTypeMap = Map[ContractTypeId.RequiredPkg, typesig.Type] // TODO #15098 .Template
+  type KeyTypeMap = Map[ContractTypeId.Template.Resolved, typesig.Type]
 
   private def getTemplateIdInterfaceMaps(
       packageStore: PackageStore
@@ -436,7 +436,7 @@ object PackageService {
 
   def resolveKey(
       keyTypeMap: KeyTypeMap
-  )(templateId: ContractTypeId.RequiredPkg): Error \/ typesig.Type = // TODO #15098 .Template
+  )(templateId: ContractTypeId.Template.RequiredPkg): Error \/ typesig.Type =
     keyTypeMap
       .get(templateId)
       .toRightDisjunction(
@@ -524,7 +524,7 @@ object PackageService {
 
   private def getKeys(
       interface: typesig.PackageSignature
-  ): Map[ContractTypeId.RequiredPkg, typesig.Type] =
+  ): Map[ContractTypeId.Template.Resolved, typesig.Type] =
     interface.typeDecls.collect {
       case (
             qn,

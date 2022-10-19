@@ -145,6 +145,9 @@ message AllocatePartyResponse {
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
+// In a scenario when a party is known to this participant
+// but has been allocated through a different participant, the resource version of it might be not set on
+// this participant until after the first update RPC has been completed.
 message UpdatePartyDetailsRequest {
   // Party to be updated
   // Required,

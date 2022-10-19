@@ -81,7 +81,7 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
       Identifier templateId,
       Function<String, Id> newContractId,
       Function<DamlRecord, Data> fromValue,
-      List<ChoiceMetadata<Data, ?, ?>> choices) {
+      List<Choice<Data, ?, ?>> choices) {
     super(templateId, templateClassName, choices);
     this.newContractId = newContractId;
     this.fromValue = fromValue;
@@ -103,7 +103,7 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
         Function<String, Id> newContractId,
         Function<DamlRecord, Data> fromValue,
         NewContract<Ct, Id, Data> newContract,
-        List<ChoiceMetadata<Data, ?, ?>> choices) {
+        List<Choice<Data, ?, ?>> choices) {
       super(templateClassName, templateId, newContractId, fromValue, choices);
       this.newContract = newContract;
     }
@@ -158,7 +158,7 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
         Function<String, Id> newContractId,
         Function<DamlRecord, Data> fromValue,
         NewContract<Ct, Id, Data, Key> newContract,
-        List<ChoiceMetadata<Data, ?, ?>> choices,
+        List<Choice<Data, ?, ?>> choices,
         Function<Value, Key> keyFromValue) {
       super(templateClassName, templateId, newContractId, fromValue, choices);
       this.newContract = newContract;

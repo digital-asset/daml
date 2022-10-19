@@ -5,6 +5,24 @@ package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
 
+@MetricDoc.GroupTag(
+  representative = "daml.party_record_store.<operation>.wait"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.party_record_store.<operation>.exec"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.party_record_store.<operation>.translation"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.party_record_store.<operation>.compression"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.party_record_store.<operation>.commit"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.party_record_store.<operation>.query"
+)
 class PartyRecordStoreMetrics(
     override val prefix: MetricName,
     override val registry: MetricRegistry,

@@ -18,7 +18,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.applicative.{ToFunctorOps => _, _}
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{EitherT, Traverse, \/}
+import scalaz.{-\/, \/, EitherT, Traverse}
 import scalaz.EitherT.eitherT
 import spray.json.{JsValue, JsonReader}
 
@@ -40,23 +40,20 @@ class DomainJsonDecoder(
 
   def decodeCreateCommand(a: JsValue, jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
       ev1: JsonReader[
-        domain.CreateCommand[JsValue, ContractTypeId.OptionalPkg]
-      ], // TODO #15098 .Template
+        domain.CreateCommand[JsValue, ContractTypeId.Template.OptionalPkg]
+      ],
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.CreateCommand[lav1.value.Record, ContractTypeId.RequiredPkg]] = { // TODO #15098 .Template
+  ): ET[domain.CreateCommand[lav1.value.Record, ContractTypeId.Template.RequiredPkg]] = {
     val err = "DomainJsonDecoder_decodeCreateCommand"
     for {
       fj <- either(
         SprayJson
-          .decode[domain.CreateCommand[JsValue, ContractTypeId.OptionalPkg]](
-            a
-          ) // TODO #15098 .Template
+          .decode[domain.CreateCommand[JsValue, ContractTypeId.Template.OptionalPkg]](a)
           .liftErrS(err)(JsonError)
       )
 
       tmplId <- templateId_(fj.templateId, jwt, ledgerId)
-
       payloadT <- either(templateRecordType(tmplId))
 
       fv <- either(
@@ -164,22 +161,28 @@ class DomainJsonDecoder(
   def decodeCreateAndExerciseCommand(a: JsValue, jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
       implicit
       ev1: JsonReader[
-        domain.CreateAndExerciseCommand[JsValue, JsValue, ContractTypeId.OptionalPkg]
+        domain.CreateAndExerciseCommand[
+          JsValue,
+          JsValue,
+          ContractTypeId.Template.OptionalPkg,
+          ContractTypeId.OptionalPkg,
+        ]
       ],
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): EitherT[Future, JsonError, domain.CreateAndExerciseCommand[
-    lav1.value.Record,
-    lav1.value.Value,
-    ContractTypeId.RequiredPkg,
-  ]] = {
+  ): EitherT[Future, JsonError, domain.CreateAndExerciseCommand.LAVResolved] = {
     val err = "DomainJsonDecoder_decodeCreateAndExerciseCommand"
     for {
       fjj <- either(
         SprayJson
-          .decode[domain.CreateAndExerciseCommand[JsValue, JsValue, ContractTypeId.OptionalPkg]](a)
+          .decode[domain.CreateAndExerciseCommand[
+            JsValue,
+            JsValue,
+            ContractTypeId.Template.OptionalPkg,
+            ContractTypeId.OptionalPkg,
+          ]](a)
           .liftErrS(err)(JsonError)
-      ).flatMap(_ traverse (templateId_(_, jwt, ledgerId)))
+      ).flatMap(_.bitraverse(templateId_(_, jwt, ledgerId), templateId_(_, jwt, ledgerId)))
 
       tId = fjj.templateId
       ciId = fjj.choiceInterfaceId
@@ -211,6 +214,19 @@ class DomainJsonDecoder(
         .map(_.toOption.flatten.toRightDisjunction(JsonError(cannotResolveTemplateId(id))))
     )
 
+  private def templateId_(
+      id: domain.ContractTypeId.Template.OptionalPkg,
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+  )(implicit
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ET[domain.ContractTypeId.Template.Resolved] =
+    eitherT(
+      resolveTemplateId(jwt, ledgerId)(id)
+        .map(_.toOption.flatten.toRightDisjunction(JsonError(cannotResolveTemplateId(id))))
+    )
+
   // TODO(Leo) see if you can get get rid of the above boilerplate and rely on the JsonReaders defined below
 
   def ApiValueJsonReader(lfType: domain.LfType): JsonReader[lav1.value.Value] =
@@ -224,15 +240,21 @@ class DomainJsonDecoder(
         .flatMap(jsObj => jsValueToApiValue(lfType, jsObj).flatMap(mustBeApiRecord))
         .valueOr(e => spray.json.deserializationError(e.shows))
 
-  def templateRecordType(id: domain.ContractTypeId.RequiredPkg): JsonError \/ domain.LfType =
+  def templateRecordType(
+      id: domain.ContractTypeId.Template.RequiredPkg
+  ): JsonError \/ domain.LfType =
     resolveTemplateRecordType(id).liftErr(JsonError)
 
-  def keyType(id: domain.ContractTypeId.OptionalPkg)( // TODO #15098 .Template
-      implicit
+  def keyType(id: domain.ContractTypeId.Template.OptionalPkg)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   ): ET[domain.LfType] =
-    templateId_(id, jwt, ledgerId).flatMap(it => either(resolveKeyType(it).liftErr(JsonError)))
+    templateId_(id, jwt, ledgerId).flatMap {
+      case it: domain.ContractTypeId.Template.Resolved =>
+        either(resolveKeyType(it: ContractTypeId.Template.Resolved).liftErr(JsonError))
+      case other =>
+        either(-\/(JsonError(s"Expect contract type Id to be template Id, got otherwise: $other")))
+    }
 }
