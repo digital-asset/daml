@@ -116,6 +116,13 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     }
   }
 
+  override def queryView(
+      parties: OneAnd[Set, Ref.Party],
+      interfaceId: Identifier,
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[Value]] = {
+    sys.error("not implemented") // TODO https://github.com/digital-asset/daml/issues/14830
+  }
+
   override def queryViewContractId(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,

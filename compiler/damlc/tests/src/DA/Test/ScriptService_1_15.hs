@@ -113,6 +113,14 @@ main =
                     , "  let iid : ContractId MyInterface = toInterfaceContractId @MyInterface cid"
                     , "  Some v <- queryViewContractId p iid"
                     , "  v.info === 142"
+
+                    , "  [] <- queryView @MyInterface p" -- NICK: temp!
+
+                    -- NICK: this is what we want to test...
+--                    , "  [(i1,v1)] <- queryView @MyInterface p"
+--                    , "  i1 === iid"
+--                    , "  v1.info === 142"
+
                     , "  pure ()"
                     ]
 

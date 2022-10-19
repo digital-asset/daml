@@ -259,6 +259,32 @@ object ScriptF {
       } yield SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(optR))))
   }
 
+  final case class QueryView(
+      parties: OneAnd[Set, Party],
+      interfaceId: Identifier,
+      stackTrace: StackTrace,
+      continue: SValue,
+  ) extends Cmd {
+    override def description = "queryView"
+
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = {
+      for {
+        viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
+        client <- Converter.toFuture(env.clients.getPartyParticipant(parties.head))
+        list <- client.queryView(parties, interfaceId)
+        list <- Converter.toFuture(
+          list
+            .to(FrontStack)
+            .traverse(Converter.fromInterfaceView(env.valueTranslator, viewType, _))
+        )
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SList(list))))
+    }
+  }
+
   final case class QueryViewContractId(
       parties: OneAnd[Set, Party],
       interfaceId: Identifier,
@@ -726,6 +752,28 @@ object ScriptF {
     }
   }
 
+  private def parseQueryView(
+      ctx: Ctx,
+      v: SValue,
+  ): Either[String, QueryView] = {
+    def convert(
+        actAs: SValue,
+        interfaceId: SValue,
+        stackTrace: Option[SValue],
+        continue: SValue,
+    ) =
+      for {
+        actAs <- Converter.toParties(actAs)
+        interfaceId <- Converter.typeRepToIdentifier(interfaceId)
+        stackTrace <- toStackTrace(ctx, stackTrace)
+      } yield QueryView(actAs, interfaceId, stackTrace, continue)
+    v match {
+      case SRecord(_, _, ArrayList(actAs, interfaceId, continue, stackTrace)) =>
+        convert(actAs, interfaceId, Some(stackTrace), continue)
+      case _ => Left(s"Expected QueryView payload but got $v")
+    }
+  }
+
   private def parseQueryViewContractId(
       ctx: Ctx,
       v: SValue,
@@ -988,6 +1036,7 @@ object ScriptF {
       case "SubmitTree" => parseSubmit(ctx, v).map(SubmitTree(_))
       case "Query" => parseQuery(ctx, v)
       case "QueryContractId" => parseQueryContractId(ctx, v)
+      case "QueryView" => parseQueryView(ctx, v)
       case "QueryViewContractId" => parseQueryViewContractId(ctx, v)
       case "QueryContractKey" => parseQueryContractKey(ctx, v)
       case "AllocParty" => parseAllocParty(ctx, v)

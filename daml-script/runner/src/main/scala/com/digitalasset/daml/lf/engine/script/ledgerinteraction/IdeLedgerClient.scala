@@ -133,6 +133,16 @@ class IdeLedgerClient(
     )
   }
 
+  override def queryView(
+      parties: OneAnd[Set, Ref.Party],
+      interfaceId: Identifier,
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[Value]] = {
+    def dummy: Seq[Value] = Seq() // NICK: dummy empty result list
+    Future.successful(
+      dummy
+    )
+  }
+
   override def queryViewContractId(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
