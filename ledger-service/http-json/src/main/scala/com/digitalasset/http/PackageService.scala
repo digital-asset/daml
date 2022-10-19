@@ -314,8 +314,6 @@ object PackageService {
           extends Overload[C.Unknown.OptionalPkg, C.ResolvedId[C.Definite[String]]]
        */
       implicit case object Template extends Overload[C.Template.OptionalPkg, C.Template.Resolved]
-      // TODO SC #14844 do I need this case?
-      // implicit case object Interface extends Overload[C.Interface.OptionalPkg, C.Interface.Resolved]
       case object Top extends Overload[C.OptionalPkg, C.ResolvedId[C.Definite[String]]]
     }
 
@@ -358,9 +356,6 @@ object PackageService {
       )
     }
 
-    // TODO SC #14844 make sensitive to whether `a` is Unknown, Template, or Interface
-    // this will entail restructuring `ContractTypeIdMap`, possibly unifying
-    // the two in how we expose ResolveContractTypeId and ResolveTemplateId
     private[http] def resolve(
         a: ContractTypeId[Option[String]]
     )(implicit makeKey: ContractTypeId.Like[CtId]): Option[ResolvedOf[CtId]] =
