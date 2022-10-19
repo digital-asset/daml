@@ -17,7 +17,8 @@ public final class Create<CtId> extends Update<CtId> {
   }
 
   @Override
-  public <T> T match(Function<Create<CtId>, T> cu, Function<ExerciseUpdate<CtId>, T> eu) {
-    return cu.apply(this);
+  public <T> T match(
+      Function<Create<CtId>, T> created, Function<ExerciseUpdate<CtId>, T> exercise) {
+    return created.apply(this);
   }
 }
