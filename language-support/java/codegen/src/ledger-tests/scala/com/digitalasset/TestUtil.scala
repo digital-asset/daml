@@ -91,7 +91,11 @@ object TestUtil {
     Map[String, Filter](partyName -> NoFilter.instance).asJava
   )
 
-  def sendCmd(channel: Channel, partyName: String, updates: Update[_]*): Empty = {
+  def sendCmd(channel: Channel, partyName: String, update: Update[_]): Empty = {
+    sendCmd(channel, partyName, List(update))
+  }
+
+  def sendCmd(channel: Channel, partyName: String, updates: List[Update[_]]): Empty = {
     sendCmd(channel, partyName, updates.map(_.command): _*)
   }
 
@@ -123,7 +127,16 @@ object TestUtil {
       channel: Channel,
       actAs: java.util.List[String],
       readAs: java.util.List[String],
-      updates: Update[_]*
+      update: Update[_],
+  ): Empty = {
+    sendCmd(channel, actAs, readAs, List(update))
+  }
+
+  def sendCmd(
+      channel: Channel,
+      actAs: java.util.List[String],
+      readAs: java.util.List[String],
+      updates: List[Update[_]],
   ): Empty = {
     sendCmd(channel, actAs, readAs, updates.map(_.command): _*)
   }

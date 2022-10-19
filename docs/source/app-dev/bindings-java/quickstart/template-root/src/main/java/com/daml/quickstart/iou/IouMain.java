@@ -4,6 +4,7 @@
 package com.daml.quickstart.iou;
 
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.codegen.ContractId;
 import com.daml.ledger.javaapi.data.codegen.Update;
 import com.daml.ledger.rxjava.ContractUtil;
 import com.daml.ledger.rxjava.DamlLedgerClient;
@@ -112,7 +113,7 @@ public class IouMain {
         "/iou",
         (req, res) -> {
           Iou iou = g.fromJson(req.body(), Iou.class);
-          CreateCommand iouCreate = iou.create();
+          Update<ContractId<Iou>> iouCreate = iou.create();
           submit(client, party, iouCreate);
           return "Iou creation submitted.";
         },
@@ -125,8 +126,7 @@ public class IouMain {
           Iou.ContractId contractId = idMap.get(Long.parseLong(req.params("id")));
           Update<IouTransfer.ContractId> update =
               contractId.exerciseIou_Transfer(m.get("newOwner").toString());
-          Command exerciseCommand = update.command;
-          submit(client, party, exerciseCommand);
+          submit(client, party, update);
           return "Iou transfer submitted.";
         },
         g::toJson);
@@ -138,6 +138,10 @@ public class IouMain {
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
+  }
+
+  private static Empty submit(LedgerClient client, String party, Update<?> update) {
+    return submit(client, party, update.command);
   }
 
   private static Empty submit(LedgerClient client, String party, Command c) {

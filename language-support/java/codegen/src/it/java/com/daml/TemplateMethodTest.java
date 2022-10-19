@@ -6,6 +6,7 @@ package com.daml;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.codegen.ContractId;
 import com.daml.ledger.javaapi.data.codegen.Update;
 import java.util.Collections;
 import java.util.Optional;
