@@ -4,7 +4,7 @@
 package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
+import com.daml.metrics.MetricDoc.MetricQualification.{Debug, Saturation, Traffic}
 import com.daml.metrics.MetricHandle.{Counter, DropwizardTimer, Histogram, Meter, Timer}
 
 class ServicesMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
@@ -80,7 +80,7 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
         summary = "The size of the in-memory fan-out buffer.",
         description = """The actual size of the in-memory fan-out buffer. This metric is mostly
                         |targeted for debugging purposes.""",
-        qualification = Debug,
+        qualification = Saturation,
       )
       val bufferSize: Histogram = histogram(prefix :+ "size")
     }
@@ -178,6 +178,14 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
     )
     val writeOperationForDocs: Timer = DropwizardTimer(prefix :+ "<operation>", null)
 
+    @MetricDoc.Tag(
+      summary = "The time to execute a write service operation.",
+      description = """The write service is an internal interface for changing the state through
+                      |the synchronization services. The methods in this interface are all methods
+                      |that are supported uniformly across all ledger implementations. This metric
+                      |exposes the time needed to execute each operation.""",
+      qualification = Traffic,
+    )
     val submitTransaction: Timer = timer(prefix :+ "submit_transaction")
     val submitTransactionRunning: Meter = meter(prefix :+ "submit_transaction_running")
     val uploadPackages: Timer = timer(prefix :+ "upload_packages")

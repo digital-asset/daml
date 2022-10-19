@@ -4,7 +4,7 @@
 package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
+import com.daml.metrics.MetricDoc.MetricQualification.{Debug, Errors, Traffic}
 import com.daml.metrics.MetricHandle.{Counter, DropwizardCounter, DropwizardTimer, Timer}
 
 class LAPIMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
@@ -15,7 +15,7 @@ class LAPIMetrics(override val prefix: MetricName, override val registry: Metric
     description = """The time spent servicing a particular type of ledger api grpc request. Unary
                     |methods report the time to serve the request, streaming methods measure the
                     |time to return the first response.""",
-    qualification = Debug,
+    qualification = Traffic,
   )
   val forMethodForDocs: Timer = DropwizardTimer(prefix :+ "<service_method>", null)
   def forMethod(name: String): Timer = timer(prefix :+ name)
@@ -27,7 +27,7 @@ class LAPIMetrics(override val prefix: MetricName, override val registry: Metric
       summary = "The number of ledger api grpc responses with this code.",
       description = """This group of metrics counts the total number gRPC status codes returned by
                       |the ledger api.""",
-      qualification = Debug,
+      qualification = Errors,
     )
     val forCodeForDocs = DropwizardCounter(prefix :+ "<gRPC_status_code>", null)
 
@@ -59,7 +59,7 @@ class LAPIMetrics(override val prefix: MetricName, override val registry: Metric
       summary = "The number of the transaction trees sent over the ledger api.",
       description = """The total number of the transaction trees sent over the ledger api streams
                       |to all clients.""",
-      qualification = Debug,
+      qualification = Traffic,
     )
     val transactionTrees: Counter = counter(prefix :+ "transaction_trees_sent")
 
@@ -67,7 +67,7 @@ class LAPIMetrics(override val prefix: MetricName, override val registry: Metric
       summary = "The number of the flat transactions sent over the ledger api.",
       description = """The total number of the flat transaction sent over the ledger api streams to
                       |all clients.""",
-      qualification = Debug,
+      qualification = Traffic,
     )
     val transactions: Counter = counter(prefix :+ "transactions_sent")
 
@@ -75,7 +75,7 @@ class LAPIMetrics(override val prefix: MetricName, override val registry: Metric
       summary = "The number of the command completions sent by the ledger api.",
       description = """The total number of completions sent over the ledger api streams to all
                       |clients.""",
-      qualification = Debug,
+      qualification = Traffic,
     )
     val completions: Counter = counter(prefix :+ "completions_sent")
 
@@ -83,7 +83,7 @@ class LAPIMetrics(override val prefix: MetricName, override val registry: Metric
       summary = "The number of the actice contracts sent by the ledger api.",
       description = """The total number of active contracts sent over the ledger api streams to all
                       |clients.""",
-      qualification = Debug,
+      qualification = Traffic,
     )
     val acs: Counter = counter(prefix :+ "acs_sent")
 
