@@ -37,7 +37,7 @@ public abstract class InterfaceCompanion<I, Id, View> extends ContractTypeCompan
       Identifier templateId,
       Function<String, Id> newContractId,
       ValueDecoder<View> valueDecoder,
-      List<ChoiceMetadata<I, ?, ?>> choices) {
+      List<Choice<I, ?, ?>> choices) {
     super(templateId, templateClassName, choices);
     this.newContractId = newContractId;
     this.valueDecoder = valueDecoder;
