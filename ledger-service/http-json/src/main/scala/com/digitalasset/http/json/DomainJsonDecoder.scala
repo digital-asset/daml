@@ -171,12 +171,7 @@ class DomainJsonDecoder(
       ],
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): EitherT[Future, JsonError, domain.CreateAndExerciseCommand[
-    lav1.value.Record,
-    lav1.value.Value,
-    ContractTypeId.Template.RequiredPkg,
-    ContractTypeId.RequiredPkg,
-  ]] = {
+  ): EitherT[Future, JsonError, domain.CreateAndExerciseCommand.LAVResolved] = {
     val err = "DomainJsonDecoder_decodeCreateAndExerciseCommand"
     for {
       fjj <- either(
