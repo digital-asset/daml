@@ -1092,12 +1092,9 @@ ofInterestRule opts = do
                     vrNoteSetNotification ovr $ LF.fileWScenarioNoLongerCompilesNote $ T.pack $
                         fromNormalizedFilePath file
 
-        let dlintEnabled = case optDlintUsage opts of
-              DlintEnabled _ _ -> True
-              DlintDisabled -> False
         let files = HashSet.toList scenarioFiles
         let dalfActions = [notifyOpenVrsOnGetDalfError f | f <- files]
-        let dlintActions = [use_ GetDlintDiagnostics f | dlintEnabled, f <- files]
+        let dlintActions = [use_ GetDlintDiagnostics f | f <- files]
         let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
         _ <- parallel $ dalfActions <> dlintActions <> runScenarioActions
         return ()
@@ -1218,20 +1215,30 @@ encodeModuleRule options =
 
 -- dlint
 
-dlintSettings :: FilePath -> Bool -> IO ([Classify], Hint)
-dlintSettings dlintDataDir enableOverrides = do
-    curdir <- getCurrentDirectory
-    home <- ((:[]) <$> getHomeDirectory) `catchIOError` (const $ return [])
-    dlintYaml <- if enableOverrides
-        then
-          findM Dir.doesFileExist $
-          map (</> ".dlint.yaml") (ancestors curdir ++ home)
-      else
-        return Nothing
+dlintSettings :: DlintUsage -> IO ([Classify], Hint)
+dlintSettings DlintDisabled = pure ([], mempty @Hint)
+dlintSettings (DlintEnabled DlintOptions {..}) = do
+    dlintRulesFile <- getDlintRulesFile dlintRulesFile
+    hintFiles <- getHintFiles dlintHintFiles
     (_, cs, hs) <- foldMapM parseSettings $
-      (dlintDataDir </> "dlint.yaml") : maybeToList dlintYaml
+      dlintRulesFile : hintFiles
     return (cs, hs)
     where
+      getDlintRulesFile :: DlintRulesFile -> IO FilePath
+      getDlintRulesFile = \case
+        DefaultDlintRulesFile -> locateRunfiles $
+          mainWorkspace </> "compiler" </> "damlc" </> "daml-ide-core" </> "dlint.yaml"
+        ExplicitDlintRulesFile path -> pure path
+
+      getHintFiles :: DlintHintFiles -> IO [FilePath]
+      getHintFiles = \case
+        ImplicitDlintHintFile -> do
+          curdir <- getCurrentDirectory
+          home <- ((:[]) <$> getHomeDirectory) `catchIOError` (const $ return [])
+          fmap maybeToList $ findM Dir.doesFileExist $
+            map (</> ".dlint.yaml") (ancestors curdir ++ home)
+        ExplicitDlintHintFiles files -> pure files
+
       ancestors = init . map joinPath . reverse . inits . splitPath
       -- `findSettings` calls `readFilesConfig` which in turn calls
       -- `readFileConfigYaml` which finally calls `decodeFileEither` from
@@ -1247,9 +1254,7 @@ dlintSettings dlintDataDir enableOverrides = do
 getDlintSettingsRule :: DlintUsage -> Rules ()
 getDlintSettingsRule usage =
     defineNoFile $ \GetDlintSettings ->
-      liftIO $ case usage of
-          DlintEnabled dir enableOverrides -> dlintSettings dir enableOverrides
-          DlintDisabled -> fail "linter configuration unspecified"
+      liftIO $ dlintSettings usage
 
 getDlintDiagnosticsRule :: Rules ()
 getDlintDiagnosticsRule =
