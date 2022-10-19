@@ -9,7 +9,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.CompletionInfo
 import com.daml.ledger.participant.state.{v2 => state}
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
@@ -181,14 +181,7 @@ object UpdateToDbDto {
                     ),
                   event_sequential_id = 0, // this is filled later
                   driver_metadata = Some(
-                    u.contractMetadata
-                      .getOrElse(
-                        create.coid,
-                        throw new IllegalArgumentException(
-                          s"missing driver metadata for contract ${create.coid.coid} "
-                        ),
-                      )
-                      .toByteArray
+                    u.contractMetadata.getOrElse(create.coid, Bytes.Empty).toByteArray
                   ),
                 )
               ) ++ stakeholders.iterator.map(

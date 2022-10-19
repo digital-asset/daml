@@ -30,11 +30,9 @@ class BridgeMetrics(metrics: Metrics) extends MetricHandle.Factory {
     object Sequence extends StageMetrics("sequence") {
       val statePrefix: MetricName = prefix :+ "state"
       val keyStateSize: Histogram = histogram(statePrefix :+ "keys")
-      val consumedContractsStateSize: Histogram =
-        histogram(statePrefix :+ "consumed_contracts")
+      val consumedContractsStateSize: Histogram = histogram(statePrefix :+ "consumed_contracts")
       val sequencerQueueLength: Histogram = histogram(statePrefix :+ "queue")
-      val deduplicationQueueLength: Histogram =
-        histogram(statePrefix :+ "deduplication_queue")
+      val deduplicationQueueLength: Histogram = histogram(statePrefix :+ "deduplication_queue")
     }
   }
 

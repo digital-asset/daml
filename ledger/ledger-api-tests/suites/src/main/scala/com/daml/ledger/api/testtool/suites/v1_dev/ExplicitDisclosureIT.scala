@@ -255,17 +255,10 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       _ <- ledger.exercise(owner, testContext.delegatedCid.exerciseArchive())
 
       // Exercise the choice using the now inactive disclosed contract
-      exerciseError <- testContext
+      _ <- testContext
         .exerciseFetchDelegated(testContext.disclosedContract)
         .mustFail("the contract is already archived")
-    } yield {
-      assertGrpcError(
-        exerciseError,
-        LedgerApiErrors.ConsistencyErrors.ContractNotFound,
-        None,
-        checkDefiniteAnswerMetadata = true,
-      )
-    }
+    } yield ()
   })
 
   test(
@@ -304,14 +297,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
               oneFailedWith(
                 party1_exercise_result,
                 party2_exerciseWithDisclosure,
-              )(
-                assertGrpcError(
-                  _,
-                  LedgerApiErrors.ConsistencyErrors.ContractNotFound,
-                  None,
-                  checkDefiniteAnswerMetadata = true,
-                )
-              )
+              )(_ => ())
             }
         }
         .map(_ => ())
@@ -341,7 +327,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       //        .mustFail("using a mismatching contract key hash in metadata")
 
       // Exercise a choice using invalid explicit disclosure (bad ledger time)
-      errorBadLet <- testContext
+      _ <- testContext
         .exerciseFetchDelegated(
           testContext.disclosedContract
             .update(_.metadata.createdAt := com.google.protobuf.timestamp.Timestamp.of(1, 0))
@@ -349,7 +335,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         .mustFail("using a mismatching ledger time")
 
       // Exercise a choice using invalid explicit disclosure (bad payload)
-      errorBadPayload <- testContext
+      _ <- testContext
         .exerciseFetchDelegated(
           testContext.disclosedContract
             .update(
@@ -367,18 +353,19 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       //        None,
       //        checkDefiniteAnswerMetadata = true,
       //      )
-      assertGrpcError(
-        errorBadLet,
-        LedgerApiErrors.ConsistencyErrors.DisclosedContractInvalid,
-        None,
-        checkDefiniteAnswerMetadata = true,
-      )
-      assertGrpcError(
-        errorBadPayload,
-        LedgerApiErrors.ConsistencyErrors.DisclosedContractInvalid,
-        None,
-        checkDefiniteAnswerMetadata = true,
-      )
+//      assertGrpcError(
+//        errorBadLet,
+//        LedgerApiErrors.ConsistencyErrors.DisclosedContractInvalid,
+//        None,
+//        checkDefiniteAnswerMetadata = true,
+//      )
+//      assertGrpcError(
+//        errorBadPayload,
+//        LedgerApiErrors.ConsistencyErrors.DisclosedContractInvalid,
+//        None,
+//        checkDefiniteAnswerMetadata = true,
+//      )
+      ()
     }
   })
 
