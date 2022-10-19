@@ -505,7 +505,7 @@ private[inner] object TemplateClass extends StrictLogging {
           Modifier.PUBLIC,
         )
         .initializer(
-          "$Z$T.create($S, value$$ -> $L, value$$ -> $L)",
+          "$Z$T.create($>$S, value$$ -> $L,$Wvalue$$ ->$W$L)$<",
           fieldClass,
           choiceName,
           generateToValueConverter(

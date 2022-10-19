@@ -21,7 +21,7 @@ public final class ChoiceMetadata<Tpl, ArgType, ResType> {
 
   public final Function<ArgType, Value> encodeArg;
 
-  public final ValueDecoder<ResType> returnTypeDecoder;
+  final ValueDecoder<ResType> returnTypeDecoder;
 
   private ChoiceMetadata(
       final String name,
