@@ -18,7 +18,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.applicative.{ToFunctorOps => _, _}
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, Traverse, \/, \/-}
+import scalaz.{-\/, \/, EitherT, Traverse}
 import scalaz.EitherT.eitherT
 import spray.json.{JsValue, JsonReader}
 
@@ -55,18 +55,11 @@ class DomainJsonDecoder(
       )
 
       tmplId <- templateId_(fj.templateId, jwt, ledgerId)
-      resolvedTmplId <- either(
-        tmplId match {
-          case tId: ContractTypeId.Template.Resolved =>
-            \/-(tId: ContractTypeId.Template.Resolved)
-          case _ => -\/(JsonError("ContractTypeId has to be template id"))
-        }
-      )
-      payloadT <- either(templateRecordType(resolvedTmplId))
+      payloadT <- either(templateRecordType(tmplId))
 
       fv <- either(
         fj
-          .copy(templateId = resolvedTmplId)
+          .copy(templateId = tmplId)
           .traversePayload(x => jsValueToApiValue(payloadT, x).flatMap(mustBeApiRecord))
       )
     } yield fv
