@@ -9,6 +9,7 @@ import akka.Done
 import akka.stream.scaladsl.{Keep, Source}
 import com.daml.concurrent
 import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
+import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -17,11 +18,12 @@ object Timed {
   def value[T](timer: Timer, value: => T): T =
     timer.time(value)
 
-  def trackedValue[T](meter: Meter, value: => T): T = {
-    meter.mark(+1)
-    val result = value
-    meter.mark(-1)
-    result
+  def trackedValue[T](meter: Meter, value: => T): T = withEmptyMetricsContext {
+    implicit metricContext =>
+      meter.mark(+1)
+      val result = value
+      meter.mark(-1)
+      result
   }
 
   def timedAndTrackedValue[T](timer: Timer, meter: Meter, value: => T): T = {
@@ -36,13 +38,14 @@ object Timed {
     }
   }
 
-  def trackedCompletionStage[T](meter: Meter, future: => CompletionStage[T]): CompletionStage[T] = {
-    meter.mark(+1)
-    future.whenComplete { (_, _) =>
-      meter.mark(-1)
-      ()
+  def trackedCompletionStage[T](meter: Meter, future: => CompletionStage[T]): CompletionStage[T] =
+    withEmptyMetricsContext { implicit metricsContext =>
+      meter.mark(+1)
+      future.whenComplete { (_, _) =>
+        meter.mark(-1)
+        ()
+      }
     }
-  }
 
   def timedAndTrackedCompletionStage[T](
       timer: Timer,
@@ -68,9 +71,10 @@ object Timed {
     future.andThen { case _ => counter.dec() }(ExecutionContext.parasitic)
   }
 
-  def trackedFuture[T](meter: Meter, future: => Future[T]): Future[T] = {
-    meter.mark(+1)
-    future.andThen { case _ => meter.mark(-1) }(ExecutionContext.parasitic)
+  def trackedFuture[T](meter: Meter, future: => Future[T]): Future[T] = withEmptyMetricsContext {
+    implicit metricsContext =>
+      meter.mark(+1)
+      future.andThen { case _ => meter.mark(-1) }(ExecutionContext.parasitic)
   }
 
   def timedAndTrackedFuture[T](timer: Timer, counter: Counter, future: => Future[T]): Future[T] = {

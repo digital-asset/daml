@@ -7,7 +7,7 @@ import com.codahale.{metrics => codahale}
 import com.daml.metrics.DatabaseMetrics
 import com.daml.metrics.api.Gauges.VarGauge
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Histogram, Meter, Timer}
-import com.daml.metrics.api.{Gauges, MetricName}
+import com.daml.metrics.api.{Gauges, MetricName, MetricsContext}
 
 import scala.concurrent.blocking
 
@@ -15,16 +15,18 @@ trait DropwizardFactory extends Factory {
 
   def registry: codahale.MetricRegistry
 
-  def timer(name: MetricName): Timer = DropwizardTimer(name, registry.timer(name))
+  override def timer(name: MetricName): Timer = DropwizardTimer(name, registry.timer(name))
 
-  def gauge[T](name: MetricName, initial: T): Gauge[T] = {
+  override def gauge[T](name: MetricName, initial: T)(implicit
+      context: MetricsContext = MetricsContext.Empty
+  ): Gauge[T] = {
     val registeredgauge = reRegisterGauge[T, VarGauge[T]](name, Gauges.VarGauge(initial))
     DropwizardGauge(name, registeredgauge)
   }
 
-  def gaugeWithSupplier[T](
+  override def gaugeWithSupplier[T](
       name: MetricName,
-      gaugeSupplier: () => () => T,
+      gaugeSupplier: () => () => (T, MetricsContext),
   ): Unit =
     synchronized {
       registry.remove(name)
@@ -32,23 +34,23 @@ trait DropwizardFactory extends Factory {
         name,
         () => {
           val valueGetter = gaugeSupplier()
-          new codahale.Gauge[T] { override def getValue: T = valueGetter() }
+          new codahale.Gauge[T] { override def getValue: T = valueGetter()._1 }
         },
       )
       ()
     }
 
-  def meter(name: MetricName): Meter = {
+  override def meter(name: MetricName): Meter = {
     // This is idempotent
     DropwizardMeter(name, registry.meter(name))
   }
 
-  def counter(name: MetricName): Counter = {
+  override def counter(name: MetricName): Counter = {
     // This is idempotent
     DropwizardCounter(name, registry.counter(name))
   }
 
-  def histogram(name: MetricName): Histogram = {
+  override def histogram(name: MetricName): Histogram = {
     DropwizardHistogram(name, registry.histogram(name))
   }
 

@@ -23,11 +23,13 @@ object MetricHandle {
 
     def timer(name: MetricName): Timer
 
-    def gauge[T](name: MetricName, initial: T): Gauge[T]
+    def gauge[T](name: MetricName, initial: T)(implicit
+        context: MetricsContext
+    ): Gauge[T]
 
     def gaugeWithSupplier[T](
         name: MetricName,
-        gaugeSupplier: () => () => T,
+        gaugeSupplier: () => () => (T, MetricsContext),
     ): Unit
 
     def meter(name: MetricName): Meter
@@ -42,15 +44,25 @@ object MetricHandle {
 
     def metricType: String = "Timer"
 
-    def update(duration: Long, unit: TimeUnit): Unit
+    def update(duration: Long, unit: TimeUnit)(implicit
+        context: MetricsContext = MetricsContext.Empty
+    ): Unit
 
-    def update(duration: Duration): Unit
+    def update(duration: Duration)(implicit
+        context: MetricsContext
+    ): Unit
 
-    def time[T](call: => T): T
+    def time[T](call: => T)(implicit
+        context: MetricsContext = MetricsContext.Empty
+    ): T
 
-    def startAsync(): TimerHandle
+    def startAsync()(implicit
+        context: MetricsContext = MetricsContext.Empty
+    ): TimerHandle
 
-    def timeFuture[T](call: => Future[T]): Future[T] = {
+    def timeFuture[T](call: => Future[T])(implicit
+        context: MetricsContext = MetricsContext.Empty
+    ): Future[T] = {
       val timer = startAsync()
       val result = call
       result.onComplete(_ => timer.stop())(ExecutionContext.parasitic)
@@ -69,9 +81,13 @@ object MetricHandle {
   trait Gauge[T] extends MetricHandle {
     def metricType: String = "Gauge"
 
-    def updateValue(newValue: T): Unit
+    def updateValue(newValue: T)(implicit
+        context: MetricsContext = MetricsContext.Empty
+    ): Unit
 
-    def updateValue(f: T => T): Unit = updateValue(f(getValue))
+    def updateValue(f: T => T)(implicit
+        context: MetricsContext
+    ): Unit = updateValue(f(getValue))
 
     def getValue: T
   }
@@ -79,26 +95,42 @@ object MetricHandle {
   trait Meter extends MetricHandle {
     def metricType: String = "Meter"
 
-    def mark(): Unit = mark(1)
-    def mark(value: Long): Unit
+    def mark()(implicit
+        context: MetricsContext = MetricsContext.Empty
+    ): Unit = mark(1)
+    def mark(value: Long)(implicit
+        context: MetricsContext
+    ): Unit
 
   }
 
   trait Counter extends MetricHandle {
 
     override def metricType: String = "Counter"
-    def inc(): Unit
-    def inc(n: Long): Unit
-    def dec(): Unit
-    def dec(n: Long): Unit
+    def inc()(implicit
+        context: MetricsContext = MetricsContext.Empty
+    ): Unit
+    def inc(n: Long)(implicit
+        context: MetricsContext
+    ): Unit
+    def dec()(implicit
+        context: MetricsContext = MetricsContext.Empty
+    ): Unit
+    def dec(n: Long)(implicit
+        context: MetricsContext
+    ): Unit
     def getCount: Long
   }
 
   trait Histogram extends MetricHandle {
 
     def metricType: String = "Histogram"
-    def update(value: Long): Unit
-    def update(value: Int): Unit
+    def update(value: Long)(implicit
+        context: MetricsContext = MetricsContext.Empty
+    ): Unit
+    def update(value: Int)(implicit
+        context: MetricsContext
+    ): Unit
 
   }
 
