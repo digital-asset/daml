@@ -280,7 +280,7 @@ zoom : Functor m => (t -> s) -> (t -> s -> t) -> StateT s m a -> StateT t m a
 zoom r w (StateT smas) = StateT $ \t ->
   smas (r t) <&> \(a, s) -> (a, w t s)
 
--- Must be kept in sync with Runner#handleStepFreeResult
+-- Must be kept in sync with Runner#freeTriggerSubmits
 data TriggerF a =
   GetTime (Time -> a)
   | Submit ([Command], Text -> a)

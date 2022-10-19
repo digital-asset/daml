@@ -86,7 +86,6 @@ final case class Trigger(
 object Machine extends StrictLogging {
   // Run speedy until we arrive at a value.
   def stepToValue(machine: Speedy.Machine): SValue = {
-    // FIXME: we mare typically called within async workflows - and so we should not throw here!!
     machine.run() match {
       case SResultFinal(v, _) => v
       case SResultError(err) => {
@@ -231,46 +230,53 @@ object Trigger extends StrictLogging {
     val packages = compiledPackages.packageIds
       .map(pkgId => (pkgId, compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.get))
       .toSeq
-    val templateIds = packages.flatMap({ case (pkgId, pkg) =>
+    def templateFilter(isRegistered: Identifier => Boolean) = packages.flatMap({ case (pkgId, pkg) =>
       pkg.modules.toList.flatMap({ case (modName, module) =>
-        module.templates.keys.map(entityName =>
-          toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName)))
-        )
+        module.templates.keys.collect {
+          case entityName if isRegistered(Identifier(pkgId, QualifiedName(modName, entityName))) =>
+            toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName)))
+        }
       })
     })
-    val interfaceFilters = packages.flatMap({ case (pkgId, pkg) =>
-      pkg.modules.toList.flatMap({ case (modName, module) =>
-        module.interfaces.keys.map(entityName =>
-          InterfaceFilter(
-            interfaceId =
-              Some(toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName)))),
-            includeInterfaceView = true,
-            includeCreateArgumentsBlob = false,
-          )
-        )
+    def interfaceFilter(isRegistered: Identifier => Boolean) =
+      packages.flatMap({ case (pkgId, pkg) =>
+        pkg.modules.toList.flatMap({ case (modName, module) =>
+          module.interfaces.keys.collect {
+            case entityName
+                if isRegistered(Identifier(pkgId, QualifiedName(modName, entityName))) =>
+              InterfaceFilter(
+                interfaceId =
+                  Some(toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName)))),
+                includeInterfaceView = true,
+                includeCreateArgumentsBlob = false,
+              )
+          }
+        })
       })
-    })
 
     Machine.stepToValue(machine) match {
       case SVariant(_, "AllInDar", _, _) =>
         Right(
           Filters(
-            Some(InclusiveFilters(templateIds = templateIds, interfaceFilters = interfaceFilters))
+            Some(
+              InclusiveFilters(
+                templateIds = templateFilter(_ => true),
+                interfaceFilters = interfaceFilter(_ => true),
+              )
+            )
           )
         )
 
       case SVariant(_, "RegisteredTemplates", _, v) =>
         converter.toRegisteredTemplates(v) match {
           case Right(identifiers) =>
-            val apiIdentifiers = identifiers.map(toApiIdentifier)
+            val isRegistered: Identifier => Boolean = identifiers.toSet.contains
             Right(
               Filters(
                 Some(
                   InclusiveFilters(
-                    templateIds = templateIds.filter(apiIdentifiers.contains),
-                    interfaceFilters = interfaceFilters.filter(filter =>
-                      apiIdentifiers.contains(filter.getInterfaceId)
-                    ),
+                    templateIds = templateFilter(isRegistered),
+                    interfaceFilters = interfaceFilter(isRegistered),
                   )
                 )
               )
@@ -358,6 +364,7 @@ class Runner(
     @tailrec def go(v: SValue): Termination = {
       val resumed: Termination Either SValue = unrollFree(v) match {
         case Right(Right(vvv @ (variant, vv))) =>
+          // Must be kept in-sync with the DAML code LowLevel#TriggerF
           vvv.match2 {
             case "GetTime" /*(Time -> a)*/ => { case DamlFun(timeA) =>
               Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
@@ -380,6 +387,7 @@ class Runner(
         case Right(Left(newState)) => Left(-\/(newState))
         case Left(e) => throw new ConverterException(e)
       }
+
       resumed match {
         case Left(newState) => newState
         case Right(suspended) => go(suspended)
@@ -626,7 +634,7 @@ class Runner(
         List(ouuid flatMap { uuid =>
           useCommandId(uuid, SeenMsgs.Transaction) option msg
         } getOrElse TransactionMsg(t.copy(commandId = "")))
-      case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
+      case x @ HeartbeatMsg() => List(x) // Heartbeats don't carry any information.
     }
 
   def makeApp(func: SExpr, values: Array[SValue]): SExpr = {

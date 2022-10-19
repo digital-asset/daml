@@ -1,11 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE CPP #-}
-
 module InterfaceTriggers where
-
-#ifdef DAML_INTERFACE
 
 import Daml.Trigger
 
@@ -16,16 +12,6 @@ interface I where
 
   getOwner: Party
   getTag: Text
-
-  logImpl: Text -> Update ()
-
-  nonconsuming choice Log: ()
-    with
-      msg: Text
-    controller getOwner this
-    do
-      debug "DEBUGGY-I: Log exercised"
-      logImpl this msg
 
 template A
   with
@@ -39,10 +25,6 @@ template A
       getOwner = owner
       getTag = tag
 
-      logImpl msg = do
-        debug("DEBUGGY-A: Log exercised with " <> msg)
-        pure ()
-
 template B
   with
     owner: Party
@@ -55,24 +37,30 @@ template B
       getOwner = owner
       getTag = tag
 
-      logImpl msg = do
-        debug("DEBUGGY-B: Log exercised with " <> msg)
-        pure ()
-
-trigger: Trigger ()
-trigger = Trigger with
+globalTrigger: Trigger ()
+globalTrigger = Trigger with
   initialize = do
-    debug "DEBUGGY: trigger created"
+    debug "globalTrigger initialize"
     pure ()
   updateState = \_ -> do
-    debug "DEBUGGY: trigger updated"
+    debug "globalTrigger updateState"
     pure ()
-  rule = \runner -> do
-    debug "DEBUGGY: trigger called"
-    as <- filter (\(_, a) -> a.owner == runner) <$> query @A
-    debug("DEBUGGY: query result = " <> show as)
+  rule = \_ -> do
+    debug "globalTrigger rule"
+    pure ()
+  registeredTemplates = AllInDar
+  heartbeat = None
+
+triggerWithRegistration: Trigger ()
+triggerWithRegistration = Trigger with
+  initialize = do
+    debug "triggerWithRegistration initialize"
+    pure ()
+  updateState = \_ -> do
+    debug "triggerWithRegistration updateState"
+    pure ()
+  rule = \_ -> do
+    debug "triggerWithRegistration rule"
     pure ()
   registeredTemplates = RegisteredTemplates [registeredTemplate @A, registeredTemplate @I]
   heartbeat = None
-
-#endif

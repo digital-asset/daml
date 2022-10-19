@@ -6,11 +6,14 @@ package com.daml.lf.engine.trigger.test
 import akka.stream.scaladsl.Flow
 import com.daml.lf.data.Ref._
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.ledger.api.v1.commands.CreateCommand
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.lf.engine.trigger.TriggerMsg
+import com.daml.script.converter.ConverterException
 
 class DevOnly
     extends AsyncWordSpec
@@ -43,5 +46,120 @@ class DevOnly
       }
     }
 
+    "trigger runner" should {
+      val templateA = Identifier(packageId, "InterfaceTriggers", "A")
+      val templateB = Identifier(packageId, "InterfaceTriggers", "B")
+
+      "succeed with all templates and interfaces registered" in {
+        val triggerId = QualifiedName.assertFromString("InterfaceTriggers:globalTrigger")
+
+        for {
+          client <- ledgerClient()
+          party <- allocateParty(client)
+          runner = getRunner(client, triggerId, party)
+
+          // Determine current ledger offset
+          (_, offset) <- runner.queryACS()
+
+          _ <- create(
+            client,
+            party,
+            CreateCommand(
+              templateId = Some(templateA),
+              createArguments = Some(
+                Record(
+                  fields = Seq(
+                    RecordField("owner", Some(Value().withParty(party))),
+                    RecordField("tag", Some(Value().withText("visible via 'AllInDar'"))),
+                  )
+                )
+              ),
+            )
+          )
+          _ <- create(
+            client,
+            party,
+            CreateCommand(
+              templateId = Some(templateB),
+              createArguments = Some(
+                Record(
+                  fields = Seq(
+                    RecordField("owner", Some(Value().withParty(party))),
+                    RecordField("tag", Some(Value().withText("visible via 'AllInDar'"))),
+                  )
+                )
+              ),
+            )
+          )
+
+          // Determine ACS for this test run's setup
+          (acs, _) <- runner.queryACS()
+
+          // 1 for create of template A
+          // 1 for create of template B
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          acs <- queryACS(client, party)
+        } yield {
+          acs(templateA) should have length 1
+          acs(templateB) should have length 1
+        }
+      }
+
+      // TODO: modify Converter so that it may parse interface and view related transaction messages
+      "fail with interface registration and implementing template not registered" in {
+        val triggerId = QualifiedName.assertFromString("InterfaceTriggers:triggerWithRegistration")
+        val result = for {
+          client <- ledgerClient()
+          party <- allocateParty(client)
+          runner = getRunner(client, triggerId, party)
+
+          // Determine current ledger offset
+          (_, offset) <- runner.queryACS()
+
+          _ <- create(
+            client,
+            party,
+            CreateCommand(
+              templateId = Some(templateA),
+              createArguments = Some(
+                Record(
+                  fields = Seq(
+                    RecordField("owner", Some(Value().withParty(party))),
+                    RecordField("tag", Some(Value().withText("visible via 'registeredTemplate @A'"))),
+                  )
+                )
+              ),
+            )
+          )
+          _ <- create(
+            client,
+            party,
+            CreateCommand(
+              templateId = Some(templateB),
+              createArguments = Some(
+                Record(
+                  fields = Seq(
+                    RecordField("owner", Some(Value().withParty(party))),
+                    RecordField("tag", Some(Value().withText("visible via 'registeredTemplate @I'"))),
+                  )
+                )
+              ),
+            )
+          )
+
+          // Determine ACS for this test run's setup
+          (acs, _) <- runner.queryACS()
+
+          // 1 for create of template A
+          // 1 for create of template B, via interface I
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+        } yield fail()
+
+        result.recoverWith {
+          case exn: ConverterException =>
+            exn.getMessage should startWith("Failure to translate value in create: TypeMismatch")
+        }
+      }
+    }
   }
 }
