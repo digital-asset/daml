@@ -104,7 +104,7 @@ def install_java_deps():
             "org.playframework.anorm:anorm_{}:2.7.0".format(scala_major_version),
             "org.playframework.anorm:anorm-akka_{}:2.7.0".format(scala_major_version),
             "com.typesafe.scala-logging:scala-logging_{}:3.9.5".format(scala_major_version),
-            "com.zaxxer:HikariCP:5.0.1",
+            "com.zaxxer:HikariCP:4.0.3",
             "eu.rekawek.toxiproxy:toxiproxy-java:2.1.7",
             "io.circe:circe-core_{}:0.14.3".format(scala_major_version),
             "io.circe:circe-generic_{}:0.14.3".format(scala_major_version),
