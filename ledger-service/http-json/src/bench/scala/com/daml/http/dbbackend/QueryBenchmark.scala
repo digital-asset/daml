@@ -29,7 +29,7 @@ trait QueryBenchmark extends ContractDaoBenchmark {
     surrogateTpid = insertTemplate(tpid)
 
     val surrogateTpids = surrogateTpid :: (0 until extraTemplates)
-      .map(i => insertTemplate(ContractTypeId("-pkg-", "M", s"T$i")))
+      .map(i => insertTemplate(ContractTypeId.Template("-pkg-", "M", s"T$i")))
       .toList
 
     val parties: List[String] = party :: (0 until extraParties).map(i => s"p$i").toList
