@@ -18,9 +18,6 @@ final class CacheMetrics(override val prefix: MetricName, override val registry:
                     |incremented.""",
     qualification = Debug,
   )
-  @MetricDoc.GroupTag(
-    representative = "daml.execution.cache.<state_cache>.hits"
-  )
   val hitCount: Counter = counter(prefix :+ "hits")
 
   @MetricDoc.Tag(
@@ -29,9 +26,6 @@ final class CacheMetrics(override val prefix: MetricName, override val registry:
                     |incremented.""",
     qualification = Debug,
   )
-  @MetricDoc.GroupTag(
-    representative = "daml.execution.cache.<state_cache>.misses"
-  )
   val missCount: Counter = counter(prefix :+ "misses")
 
   @MetricDoc.Tag(
@@ -39,18 +33,12 @@ final class CacheMetrics(override val prefix: MetricName, override val registry:
     description = "When an entry is evicted from the cache, the counter is incremented.",
     qualification = Debug,
   )
-  @MetricDoc.GroupTag(
-    representative = "daml.execution.cache.<state_cache>.evictions"
-  )
   val evictionCount: Counter = counter(prefix :+ "evictions")
 
   @MetricDoc.Tag(
     summary = "The sum of weights of cache entries evicted.",
     description = "The total weight of the entries evicted from the cache.",
     qualification = Debug,
-  )
-  @MetricDoc.GroupTag(
-    representative = "daml.execution.cache.<state_cache>.evicted_weight"
   )
   val evictionWeight: Counter = counter(prefix :+ "evicted_weight")
 

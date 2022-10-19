@@ -8,6 +8,39 @@ import com.daml.metrics.MetricHandle.{Counter, Histogram, Timer}
 
 import com.codahale.metrics.MetricRegistry
 
+@MetricDoc.GroupTag(
+  representative = "daml.parallel_indexer.<stage>.wait"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.parallel_indexer.<stage>.exec"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.parallel_indexer.<stage>.translation"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.parallel_indexer.<stage>.compression"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.parallel_indexer.<stage>.commit"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.parallel_indexer.<stage>.query"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.parallel_indexer.<stage>.executor.submitted"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.parallel_indexer.<stage>.executor.running"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.parallel_indexer.<stage>.executor.completed"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.parallel_indexer.<stage>.executor.idle"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.parallel_indexer.<stage>.executor.duration"
+)
 class ParallelIndexerMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
     extends MetricHandle.Factory {
   val initialization = new DatabaseMetrics(prefix, "initialization", registry)
