@@ -201,29 +201,17 @@ class DomainJsonDecoder(
     )
   }
 
-  private def templateId_(
-      id: domain.ContractTypeId.OptionalPkg,
+  private def templateId_[U, R](
+      id: U with domain.ContractTypeId.OptionalPkg,
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.ContractTypeId.Resolved] =
+      resolveOverload: PackageService.ResolveContractTypeId.Overload[U, R],
+  ): ET[R] =
     eitherT(
       resolveContractTypeId(jwt, ledgerId)(id)
-        .map(_.toOption.flatten.toRightDisjunction(JsonError(cannotResolveTemplateId(id))))
-    )
-
-  private def templateId_(
-      id: domain.ContractTypeId.Template.OptionalPkg,
-      jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
-  )(implicit
-      ec: ExecutionContext,
-      lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.ContractTypeId.Template.Resolved] =
-    eitherT(
-      resolveTemplateId(jwt, ledgerId)(id)
         .map(_.toOption.flatten.toRightDisjunction(JsonError(cannotResolveTemplateId(id))))
     )
 
