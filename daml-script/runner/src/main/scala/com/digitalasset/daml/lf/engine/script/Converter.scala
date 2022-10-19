@@ -705,19 +705,15 @@ object Converter {
     } yield translated
   }
 
-  def makePair(v1: SValue, v2: SValue): SValue = {
-    val pairTyCon = daTypes("Tuple2")
-    record(pairTyCon, ("_1", v1), ("_2", v2))
-  }
-
   // Convert a Created event to a pair of (ContractId (), AnyTemplate)
   def fromCreated(
       translator: preprocessing.ValueTranslator,
       contract: ScriptLedgerClient.ActiveContract,
   ): Either[String, SValue] = {
+    val pairTyCon = daTypes("Tuple2")
     for {
       anyTpl <- fromContract(translator, contract)
-    } yield makePair(SContractId(contract.contractId), anyTpl)
+    } yield record(pairTyCon, ("_1", SContractId(contract.contractId)), ("_2", anyTpl))
   }
 
   def fromStatusException(

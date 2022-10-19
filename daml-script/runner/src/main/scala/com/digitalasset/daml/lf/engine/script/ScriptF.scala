@@ -272,6 +272,13 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = {
+
+      def makePair(v1: SValue, v2: SValue): SValue = {
+        import com.daml.lf.language.StablePackage.DA
+        import com.daml.script.converter.Converter.record
+        record(DA.Types.assertIdentifier("Tuple2"), ("_1", v1), ("_2", v2))
+      }
+
       for {
         viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
         client <- Converter.toFuture(env.clients.getPartyParticipant(parties.head))
@@ -287,7 +294,7 @@ object ScriptF {
                   view,
                 )
               } yield {
-                Converter.makePair(SText(pretendCid), view)
+                makePair(SText(pretendCid), view)
               }
             }
         )
