@@ -614,6 +614,20 @@ package domain {
   }
 
   object CreateAndExerciseCommand {
+    type LAVUnresolved = CreateAndExerciseCommand[
+      lav1.value.Record,
+      lav1.value.Value,
+      domain.ContractTypeId.Template.OptionalPkg,
+      domain.ContractTypeId.OptionalPkg,
+    ]
+
+    type LAVResolved = CreateAndExerciseCommand[
+      lav1.value.Record,
+      lav1.value.Value,
+      domain.ContractTypeId.Template.RequiredPkg,
+      domain.ContractTypeId.RequiredPkg,
+    ]
+
     implicit def covariant[P, Ar]: Bitraverse[CreateAndExerciseCommand[P, Ar, *, *]] =
       new Bitraverse[CreateAndExerciseCommand[P, Ar, *, *]] {
         override def bitraverseImpl[G[_]: Applicative, A, B, C, D](

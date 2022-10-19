@@ -316,7 +316,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     fixture.headersWithAuth.flatMap(postCreateCommand(cmd, fixture, _))
 
   protected def resultContractId(
-      r: domain.SyncResponse[domain.ActiveContract.ResolvedCtTyId[_]]
+      r: domain.SyncResponse[domain.ActiveContract[_, _]]
   ) =
     inside(r) { case domain.OkResponse(result, _, _: StatusCodes.Success) =>
       result.contractId

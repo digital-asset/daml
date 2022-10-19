@@ -54,7 +54,7 @@ class DomainJsonDecoder(
           .liftErrS(err)(JsonError)
       )
 
-      tmplId <- contractTypeId_(fj.templateId, jwt, ledgerId)
+      tmplId <- templateId_(fj.templateId, jwt, ledgerId)
       resolvedTmplId <- either(
         tmplId match {
           case tId: ContractTypeId.Template.Resolved =>
@@ -106,7 +106,7 @@ class DomainJsonDecoder(
       H: HasTemplateId[F],
   ): ET[H.TypeFromCtId] =
     for {
-      tId <- contractTypeId_(H.templateId(fa), jwt, ledgerId)
+      tId <- templateId_(H.templateId(fa), jwt, ledgerId)
       lfType <- either(
         H
           .lfType(fa, tId, resolveTemplateRecordType, resolveChoiceArgType, resolveKeyType)
@@ -151,7 +151,7 @@ class DomainJsonDecoder(
       choiceIfaceOverride <-
         (if (oIfaceId.isDefined)
            (oIfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg]).pure[ET]
-         else cmd0.choiceInterfaceId.traverse(contractTypeId_(_, jwt, ledgerId)))
+         else cmd0.choiceInterfaceId.traverse(templateId_(_, jwt, ledgerId)))
           .map(_ map ((_: domain.ContractTypeId.RequiredPkg) map some))
 
       cmd1 <-
@@ -195,7 +195,7 @@ class DomainJsonDecoder(
             ContractTypeId.OptionalPkg,
           ]](a)
           .liftErrS(err)(JsonError)
-      ).flatMap(_.bitraverse(templateId_(_, jwt, ledgerId), contractTypeId_(_, jwt, ledgerId)))
+      ).flatMap(_.bitraverse(templateId_(_, jwt, ledgerId), templateId_(_, jwt, ledgerId)))
 
       tId = fjj.templateId
       ciId = fjj.choiceInterfaceId
@@ -214,7 +214,7 @@ class DomainJsonDecoder(
     )
   }
 
-  private def contractTypeId_(
+  private def templateId_(
       id: domain.ContractTypeId.OptionalPkg,
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
@@ -264,7 +264,7 @@ class DomainJsonDecoder(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   ): ET[domain.LfType] =
-    contractTypeId_(id, jwt, ledgerId).flatMap {
+    templateId_(id, jwt, ledgerId).flatMap {
       case it: domain.ContractTypeId.Template.Resolved =>
         either(resolveKeyType(it: ContractTypeId.Template.Resolved).liftErr(JsonError))
       case other =>

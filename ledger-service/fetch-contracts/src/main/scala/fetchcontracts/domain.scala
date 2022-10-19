@@ -155,14 +155,13 @@ package domain {
           extends ForQuery[IgnoreInterface.type, ContractTypeId.Template.Resolved]
     }
 
-    implicit val covariant: Traverse[ResolvedCtTyId] = new Traverse[ResolvedCtTyId] {
-
-      override def map[A, B](fa: ResolvedCtTyId[A])(f: A => B): ResolvedCtTyId[B] =
+    implicit def covariant[C]: Traverse[ActiveContract[C, *]] = new Traverse[ActiveContract[C, *]] {
+      override def map[A, B](fa: ActiveContract[C, A])(f: A => B): ActiveContract[C, B] =
         fa.copy(key = fa.key map f, payload = f(fa.payload))
 
       override def traverseImpl[G[_]: Applicative, A, B](
-          fa: ResolvedCtTyId[A]
-      )(f: A => G[B]): G[ResolvedCtTyId[B]] = {
+          fa: ActiveContract[C, A]
+      )(f: A => G[B]): G[ActiveContract[C, B]] = {
         import scalaz.syntax.apply._
         val gk: G[Option[B]] = fa.key traverse f
         val ga: G[B] = f(fa.payload)

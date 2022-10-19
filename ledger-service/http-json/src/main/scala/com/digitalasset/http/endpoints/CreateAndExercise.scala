@@ -105,12 +105,7 @@ private[http] final class CreateAndExercise(
           decoder
             .decodeCreateAndExerciseCommand(reqBody, jwt, toLedgerId(jwtPayload.ledgerId))
             .liftErr(InvalidUserInput): ET[
-            domain.CreateAndExerciseCommand[
-              ApiRecord,
-              ApiValue,
-              ContractTypeId.Template.RequiredPkg,
-              ContractTypeId.RequiredPkg,
-            ]
+            domain.CreateAndExerciseCommand.LAVResolved
           ]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 

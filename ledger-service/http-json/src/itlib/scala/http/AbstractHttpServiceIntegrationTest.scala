@@ -427,8 +427,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         val accountNumber = "abc123"
         val now = TimestampConversion.roundInstantToMicros(Instant.now)
         val nowStr = TimestampConversion.microsToInstant(now).toString
-        val command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
-          accountCreateCommand(alice, accountNumber, now)
+        val command = accountCreateCommand(alice, accountNumber, now)
 
         val packageId: Ref.PackageId = MetadataReader
           .templateByName(metadata2)(Ref.QualifiedName.assertFromString("Account:Account"))
@@ -559,8 +558,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       for {
         (alice, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (bob, _) <- fixture.getUniquePartyAndAuthHeaders("Bob")
-        create: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
-          iouCreateCommand(alice)
+        create = iouCreateCommand(alice)
         res <- postCreateCommand(create, fixture, headers)
         _ <- inside(res) { case domain.OkResponse(createResult, _, StatusCodes.OK) =>
           val exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId] =
@@ -623,8 +621,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     "Archive" in withHttpService { fixture =>
       import fixture.encoder
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val create: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
-          iouCreateCommand(alice)
+        val create = iouCreateCommand(alice)
         postCreateCommand(create, fixture, headers)
           .flatMap(inside(_) { case domain.OkResponse(createResult, _, StatusCodes.OK) =>
             val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), createResult.contractId)
@@ -786,8 +783,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   "fetch by contractId" - {
     "succeeds normally" in withHttpService { fixture =>
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
-          iouCreateCommand(alice)
+        val command = iouCreateCommand(alice)
 
         postCreateCommand(command, fixture, headers).flatMap(inside(_) {
           case domain.OkResponse(result, _, StatusCodes.OK) =>
@@ -800,8 +796,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
     "succeeds normally with an interface ID" in withHttpService { fixture =>
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
-          iouCommand(alice, CIou.CIou)
+        val command = iouCommand(alice, CIou.CIou)
 
         postCreateCommand(command, fixture, headers).flatMap(inside(_) {
           case domain.OkResponse(result, _, StatusCodes.OK) =>
@@ -864,8 +859,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     "succeeds normally" in withHttpService { fixture =>
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
         val accountNumber = "abc123"
-        val command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
-          accountCreateCommand(alice, accountNumber)
+        val command = accountCreateCommand(alice, accountNumber)
 
         postCreateCommand(command, fixture, headers).flatMap(inside(_) {
           case domain.OkResponse(result, _, StatusCodes.OK) =>
@@ -960,12 +954,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       val numContracts: Long = 2000
       val helperId = domain.ContractTypeId.Template(None, "Account", "Helper")
       val payload = recordFromFields(ShRecord(owner = v.Value.Sum.Party(alice.unwrap)))
-      val createCmd: domain.CreateAndExerciseCommand[
-        v.Record,
-        v.Value,
-        domain.ContractTypeId.Template.OptionalPkg,
-        domain.ContractTypeId.OptionalPkg,
-      ] =
+      val createCmd: domain.CreateAndExerciseCommand.LAVUnresolved =
         domain.CreateAndExerciseCommand(
           templateId = helperId,
           payload = payload,
@@ -976,12 +965,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         )
 
       def encode(
-          cmd: domain.CreateAndExerciseCommand[
-            v.Record,
-            v.Value,
-            domain.ContractTypeId.Template.OptionalPkg,
-            domain.ContractTypeId.OptionalPkg,
-          ]
+          cmd: domain.CreateAndExerciseCommand.LAVUnresolved
       ): JsValue =
         encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
 
@@ -1209,8 +1193,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
     "succeeds with single party, proper argument" in withHttpService { fixture =>
       import fixture.encoder
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        val command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
-          iouCreateCommand(alice)
+        val command = iouCreateCommand(alice)
 
         postCreateCommand(command, fixture, headers)
           .map(inside(_) { case domain.OkResponse(activeContract, _, StatusCodes.OK) =>
@@ -1223,8 +1206,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
     "fails if authorization header is missing" in withHttpService { fixture =>
       import fixture.encoder
       val alice = getUniqueParty("Alice")
-      val command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
-        iouCreateCommand(alice)
+      val command = iouCreateCommand(alice)
       val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
       fixture
@@ -1326,12 +1308,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
     for {
       (alice, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (bob, _) <- fixture.getUniquePartyAndAuthHeaders("Bob")
-      cmd: domain.CreateAndExerciseCommand[
-        v.Record,
-        v.Value,
-        domain.ContractTypeId.Template.OptionalPkg,
-        domain.ContractTypeId.OptionalPkg,
-      ] = iouCreateAndExerciseTransferCommand(alice, bob)
+      cmd = iouCreateAndExerciseTransferCommand(alice, bob)
       json: JsValue = encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
 
       res <- fixture

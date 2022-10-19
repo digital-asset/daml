@@ -65,7 +65,7 @@ private[daml] object InsertDeleteStep extends WithLAV1[InsertDeleteStep] {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   object Cid {
     implicit val ofDBC: Cid[DBContract[Any, Any, Any, Any]] = _.contractId
-    implicit val ofAC: Cid[domain.ActiveContract.ResolvedCtTyId[Any]] = _.contractId.unwrap
+    implicit val ofAC: Cid[domain.ActiveContract[Any, Any]] = _.contractId.unwrap
     implicit def ofFst[L](implicit L: Cid[L]): Cid[(L, Any)] = la => L(la._1)
     // ofFst and ofSnd should *not* both be defined, being incoherent together
   }

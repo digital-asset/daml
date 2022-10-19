@@ -13,7 +13,6 @@ import com.daml.http.json.JsonProtocol._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.domain.UserRight.{CanActAs, ParticipantAdmin}
-import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
 import com.daml.platform.sandbox.{SandboxRequiringAuthorization, SandboxRequiringAuthorizationFuns}
 import com.typesafe.scalalogging.StrictLogging
@@ -83,8 +82,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       import fixture.{encoder, client => ledgerClient}
       for {
         (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
-          iouCreateCommand(alice)
+        command = iouCreateCommand(alice)
         input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
         user <- createUser(ledgerClient)(
           Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
@@ -109,8 +107,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       import fixture.{encoder, client => ledgerClient}
       val alice = getUniqueParty("Alice")
       val bob = getUniqueParty("Bob")
-      val command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
-        iouCreateCommand(alice)
+      val command = iouCreateCommand(alice)
       val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
       for {
         user <- createUser(ledgerClient)(
@@ -144,8 +141,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           submissionId = None,
           deduplicationPeriod = None,
         )
-        val command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
-          iouCreateCommand(alice, meta = Some(meta))
+        val command = iouCreateCommand(alice, meta = Some(meta))
         val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
         for {
           user <- createUser(ledgerClient)(
