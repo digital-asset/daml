@@ -19,6 +19,7 @@ public interface LedgerClient {
 
   CommandSubmissionClient getCommandSubmissionClient();
 
+  @Deprecated
   LedgerIdentityClient getLedgerIdentityClient();
 
   PackageClient getPackageClient();

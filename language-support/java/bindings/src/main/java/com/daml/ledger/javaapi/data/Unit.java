@@ -7,7 +7,7 @@ import com.daml.ledger.api.v1.ValueOuterClass;
 import com.google.protobuf.Empty;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class Unit extends Value {
+public final class Unit extends Value {
 
   private static Unit instance = new Unit();
 

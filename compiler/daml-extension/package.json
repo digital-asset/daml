@@ -152,10 +152,5 @@
         "@types/vscode": "1.52",
         "typescript": "~4.5.4",
         "vsce": "^2.6.3"
-    },
-    "resolutions": {
-        "**/markdown-it": "^12.3.2",
-        "**/simple-get": "^4.0.1",
-        "**/minimist": "^1.2.6"
     }
 }

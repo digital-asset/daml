@@ -6,7 +6,7 @@ package com.daml.platform.apiserver.services.tracking
 import akka.stream.scaladsl.{Flow, Keep, Sink}
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import akka.{Done, NotUsed}
-import com.codahale.metrics.{Counter, Timer}
+import com.daml.metrics.MetricHandle.{Counter, Timer}
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.client.services.commands.CommandSubmission

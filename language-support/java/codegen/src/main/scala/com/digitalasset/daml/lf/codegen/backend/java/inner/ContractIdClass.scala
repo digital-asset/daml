@@ -47,14 +47,20 @@ object ContractIdClass {
     def build(): TypeSpec = idClassBuilder.build()
 
     def addConversionForImplementedInterfaces(
-        implementedInterfaces: Seq[Ref.TypeConName]
+        implementedInterfaces: Seq[Ref.TypeConName],
+        packagePrefixes: Map[PackageId, String],
     ): Builder = {
       idClassBuilder.addMethods(
-        generateToInterfaceMethods("ContractId", "this.contractId", implementedInterfaces).asJava
+        generateToInterfaceMethods(
+          "ContractId",
+          "this.contractId",
+          implementedInterfaces,
+          packagePrefixes,
+        ).asJava
       )
       implementedInterfaces.foreach { interfaceName =>
-        // XXX why doesn't this use packagePrefixes? -SC
-        val name = ClassName.bestGuess(fullyQualifiedName(interfaceName.qualifiedName))
+        val name =
+          ClassName.bestGuess(fullyQualifiedName(interfaceName, packagePrefixes))
         val interfaceContractIdName = name nestedClass "ContractId"
         val tplContractIdClassName = templateClassName.nestedClass("ContractId")
         idClassBuilder.addMethod(
@@ -131,15 +137,15 @@ object ContractIdClass {
       nestedReturn: String,
       selfArgs: String,
       implementedInterfaces: Seq[Ref.TypeConName],
+      packagePrefixes: Map[PackageId, String],
   ) =
     implementedInterfaces.map { interfaceName =>
-      // XXX why doesn't this use packagePrefixes? -SC
-      val name = ClassName.bestGuess(fullyQualifiedName(interfaceName.qualifiedName))
+      val name = ClassName.bestGuess(fullyQualifiedName(interfaceName, packagePrefixes))
       val interfaceContractIdName = name nestedClass nestedReturn
       MethodSpec
         .methodBuilder("toInterface")
         .addModifiers(Modifier.PUBLIC)
-        .addParameter(name nestedClass InterfaceClass.companionName, "interfaceCompanion")
+        .addParameter(name nestedClass InterfaceClass.companionClassName, "interfaceCompanion")
         .addStatement("return new $T($L)", interfaceContractIdName, selfArgs)
         .returns(interfaceContractIdName)
         .build()
@@ -202,9 +208,13 @@ object ContractIdClass {
       exerciseChoiceBuilder.build()
     }
 
-    def generateGetCompanion(kind: For) =
+    def generateGetCompanion(markerName: ClassName, kind: For) =
       ClassGenUtils.generateGetCompanion(
-        ClassName get classOf[javaapi.data.codegen.ContractTypeCompanion],
+        ParameterizedTypeName.get(
+          ClassName get classOf[javaapi.data.codegen.ContractTypeCompanion[_, _]],
+          markerName,
+          WildcardTypeName subtypeOf classOf[Object],
+        ),
         kind match {
           case For.Interface => InterfaceClass.companionName
           case For.Template => ClassGenUtils.companionFieldName
@@ -271,7 +281,7 @@ object ContractIdClass {
           .build()
       idClassBuilder
         .addMethod(constructor)
-        .addMethod(generateGetCompanion(kind))
+        .addMethod(generateGetCompanion(templateClassName, kind))
       Builder(templateClassName, contractIdClassName, idClassBuilder, choices, packagePrefixes)
     }
   }

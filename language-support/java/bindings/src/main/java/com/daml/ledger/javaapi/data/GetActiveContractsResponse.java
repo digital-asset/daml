@@ -10,7 +10,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class GetActiveContractsResponse implements WorkflowEvent {
+public final class GetActiveContractsResponse implements WorkflowEvent {
 
   private final String offset;
 

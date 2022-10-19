@@ -345,7 +345,7 @@ object domain {
   /** Represents a party with additional known information.
     *
     * @param party       The stable unique identifier of a Daml party.
-    * @param displayName Human readable name associated with the party. Might not be unique.
+    * @param displayName Human readable name associated with the party. Might not be unique. If defined must be a non-empty string.
     * @param isLocal     True if party is hosted by the backing participant.
     */
   case class PartyDetails(party: Ref.Party, displayName: Option[String], isLocal: Boolean)
@@ -406,7 +406,6 @@ object domain {
   )
 
   object ObjectMeta {
-    // TODO um-for-hub: Review usage
     def empty: ObjectMeta = ObjectMeta(
       resourceVersionO = None,
       annotations = Map.empty,
@@ -416,28 +415,21 @@ object domain {
   final case class User(
       id: Ref.UserId,
       primaryParty: Option[Ref.Party],
-      // TODO um-for-hub: Remove default values
-      // NOTE: Do not set 'isDeactivated' and 'metadata'. These are work-in-progress features.
       isDeactivated: Boolean = false,
       metadata: ObjectMeta = ObjectMeta.empty,
   )
 
-  // TODO um-for-hub: Drop redundant ParticipantParty object
-  object ParticipantParty {
+  case class ParticipantPartyDetails(
+      party: Ref.Party,
+      displayName: Option[String],
+      isLocal: Boolean,
+      metadata: ObjectMeta,
+  )
 
-    case class PartyDetails(
-        party: Ref.Party,
-        displayName: Option[String],
-        isLocal: Boolean,
-        metadata: ObjectMeta,
-    )
-
-    final case class PartyRecord(
-        party: Ref.Party,
-        metadata: ObjectMeta,
-    )
-
-  }
+  final case class PartyRecord(
+      party: Ref.Party,
+      metadata: ObjectMeta,
+  )
 
   sealed abstract class UserRight extends Product with Serializable
   object UserRight {

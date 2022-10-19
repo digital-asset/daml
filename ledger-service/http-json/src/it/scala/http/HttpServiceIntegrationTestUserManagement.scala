@@ -29,7 +29,7 @@ import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class HttpServiceIntegrationTestUserManagementNoAuth
-    extends AbstractHttpServiceIntegrationTestTokenIndependent
+    extends AbstractHttpServiceIntegrationTestQueryStoreIndependent
     with AbstractHttpServiceIntegrationTestFuns
     with HttpServiceUserFixture.UserToken
     with SandboxRequiringAuthorizationFuns
@@ -555,7 +555,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       }
   }
 
-  // TEST_EVIDENCE: Performance: creating and listing 20K users should be possible
+  // TEST_EVIDENCE: Availability: creating and listing 20K users should be possible
   "creating and listing 20K users should be possible" in withHttpService { fixture =>
     import fixture.uri
     import spray.json._

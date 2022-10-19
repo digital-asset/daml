@@ -3,7 +3,8 @@
 
 package com.daml.ledger.sandbox.bridge.validate
 
-import com.codahale.metrics.MetricRegistry
+import java.time.Duration
+
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -27,15 +28,13 @@ import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.time.Duration
-
 class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
   private implicit val errorLogger: ContextualizedErrorLogger =
     DamlContextualizedErrorLogger.forTesting(getClass)
 
   private val prepareSubmission = new PrepareSubmissionImpl(
-    new BridgeMetrics(new Metrics(new MetricRegistry))
+    new BridgeMetrics(Metrics.ForTesting)
   )
 
   private def cid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))

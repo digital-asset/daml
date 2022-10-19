@@ -192,7 +192,7 @@ object Trigger extends StrictLogging {
       expr <- detectTriggerType(triggerId, definition.typ)
       triggerIds = TriggerIds(expr.ty.tycon.packageId)
       hasReadAs <- detectHasReadAs(compiledPackages.pkgInterface, triggerIds)
-      converter: Converter = Converter(compiledPackages, triggerIds)
+      converter: Converter = new Converter(compiledPackages, triggerIds)
       filter <- getTriggerFilter(compiledPackages, compiler, converter, expr)
       heartbeat <- getTriggerHeartbeat(compiledPackages, compiler, converter, expr)
     } yield Trigger(expr, triggerId, triggerIds, filter, heartbeat, hasReadAs)
@@ -230,14 +230,16 @@ object Trigger extends StrictLogging {
     val packages = compiledPackages.packageIds
       .map(pkgId => (pkgId, compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.get))
       .toSeq
-    def templateFilter(isRegistered: Identifier => Boolean) = packages.flatMap({ case (pkgId, pkg) =>
-      pkg.modules.toList.flatMap({ case (modName, module) =>
-        module.templates.keys.collect {
-          case entityName if isRegistered(Identifier(pkgId, QualifiedName(modName, entityName))) =>
-            toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName)))
-        }
+    def templateFilter(isRegistered: Identifier => Boolean) =
+      packages.flatMap({ case (pkgId, pkg) =>
+        pkg.modules.toList.flatMap({ case (modName, module) =>
+          module.templates.keys.collect {
+            case entityName
+                if isRegistered(Identifier(pkgId, QualifiedName(modName, entityName))) =>
+              toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName)))
+          }
+        })
       })
-    })
     def interfaceFilter(isRegistered: Identifier => Boolean) =
       packages.flatMap({ case (pkgId, pkg) =>
         pkg.modules.toList.flatMap({ case (modName, module) =>
@@ -305,7 +307,7 @@ class Runner(
   // Compiles LF expressions into Speedy expressions.
   private val compiler: Compiler = compiledPackages.compiler
   // Converts between various objects and SValues.
-  private val converter: Converter = Converter(compiledPackages, trigger.triggerIds)
+  private val converter: Converter = new Converter(compiledPackages, trigger.triggerIds)
   // These are the command IDs used on the ledger API to submit commands for
   // this trigger for which we are awaiting either a completion or transaction
   // message, or both.

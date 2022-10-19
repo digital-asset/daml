@@ -3,10 +3,9 @@
 
 package com.daml.platform.apiserver.update
 
-import com.daml.ledger.api.domain.ParticipantParty.PartyDetails
-import com.daml.ledger.api.domain.ObjectMeta
-import com.daml.ledger.participant.state.index.v2.{ObjectMetaUpdate, PartyDetailsUpdate}
+import com.daml.ledger.api.domain.{ObjectMeta, ParticipantPartyDetails}
 import com.daml.lf.data.Ref
+import com.daml.platform.localstore.api.{ObjectMetaUpdate, PartyDetailsUpdate}
 import com.google.protobuf.field_mask.FieldMask
 import org.scalatest.EitherValues
 import org.scalatest.freespec.AnyFreeSpec
@@ -21,7 +20,7 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       isLocal: Boolean = false,
       displayNameO: Option[String] = None,
       annotations: Map[String, String] = Map.empty,
-  ): PartyDetails = PartyDetails(
+  ): ParticipantPartyDetails = ParticipantPartyDetails(
     party = party,
     displayName = displayNameO,
     isLocal = isLocal,

@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.execution
 
-import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
+import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, MaximumLedgerTimeService}
 import com.daml.lf.command.DisclosedContract
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
@@ -17,9 +17,9 @@ import scala.concurrent.{ExecutionContext, Future}
   * * Falling back to contractStore lookups for contracts that have not been provided
   * as part of submissions' `disclosed_contracts`
   *
-  * @param contractStore The contract store.
+  * @param maximumLedgerTimeService The MaximumLedgerTimeService.
   */
-class ResolveMaximumLedgerTime(contractStore: ContractStore) {
+class ResolveMaximumLedgerTime(maximumLedgerTimeService: MaximumLedgerTimeService) {
   def apply(
       usedDisclosedContracts: ImmArray[DisclosedContract],
       usedContractIds: Set[ContractId],
@@ -28,7 +28,7 @@ class ResolveMaximumLedgerTime(contractStore: ContractStore) {
 
     val contractIdsToBeLookedUp = usedContractIds -- usedDisclosedContractIds
 
-    contractStore
+    maximumLedgerTimeService
       .lookupMaximumLedgerTimeAfterInterpretation(contractIdsToBeLookedUp)
       .map(adjustTimeForDisclosedContracts(_, usedDisclosedContracts))(ExecutionContext.parasitic)
   }

@@ -10,7 +10,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class GetPackageResponse {
+public final class GetPackageResponse {
 
   // Clone of the PackageServiceOuterClass.HashFunction enumeration
   public enum HashFunction {

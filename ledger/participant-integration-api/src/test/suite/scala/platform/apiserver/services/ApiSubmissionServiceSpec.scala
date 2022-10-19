@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver.services
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
 import com.daml.error.definitions.ErrorCause
 import com.daml.ledger.api.DeduplicationPeriod
@@ -193,7 +192,7 @@ class ApiSubmissionServiceSpec
     val ledgerConfigurationSubscription = mock[LedgerConfigurationSubscription]
     val seedService = SeedService.WeakRandom
     val commandExecutor = mock[CommandExecutor]
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = Metrics.ForTesting
 
     val disclosedContract = DisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),

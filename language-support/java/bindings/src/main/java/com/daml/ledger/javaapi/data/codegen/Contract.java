@@ -29,6 +29,12 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
   /** The party IDs of this contract's observers. */
   public final Set<String> observers;
 
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+   * and <em>should not be referenced directly</em>. Applications should refer to the constructors
+   * of code-generated subclasses, or {@link ContractCompanion#fromCreatedEvent}, instead.
+   */
   protected Contract(
       Id id,
       Data data,
@@ -43,7 +49,7 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
   }
 
   // concrete 1st type param would need a self-reference type param in Contract
-  protected abstract ContractCompanion<? extends Contract<Id, Data>, Id, Data> getCompanion();
+  protected abstract ContractTypeCompanion<?, Data> getCompanion();
 
   @Override
   public boolean equals(Object object) {
@@ -75,7 +81,7 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
   public String toString() {
     return String.format(
         "%s.Contract(%s, %s, %s, %s, %s)",
-        getCompanion().templateClassName,
+        getCompanion().TEMPLATE_CLASS_NAME,
         this.id,
         this.data,
         this.agreementText,

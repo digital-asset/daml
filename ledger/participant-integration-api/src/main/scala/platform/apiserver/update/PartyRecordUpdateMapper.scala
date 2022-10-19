@@ -3,21 +3,20 @@
 
 package com.daml.platform.apiserver.update
 
-import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.ParticipantParty
-import com.daml.ledger.participant.state.index.v2.{ObjectMetaUpdate, PartyDetailsUpdate}
+import com.daml.ledger.api.domain.ParticipantPartyDetails
+import com.daml.platform.localstore.api.{ObjectMetaUpdate, PartyDetailsUpdate}
 
 object PartyRecordUpdateMapper extends UpdateMapperBase {
 
   import UpdateRequestsPaths.PartyDetailsPaths
 
-  type Resource = domain.ParticipantParty.PartyDetails
+  type Resource = ParticipantPartyDetails
   type Update = PartyDetailsUpdate
 
   override val fullResourceTrie: UpdatePathsTrie = PartyDetailsPaths.fullUpdateTrie
 
   override def makeUpdateObject(
-      partyRecord: ParticipantParty.PartyDetails,
+      partyRecord: ParticipantPartyDetails,
       updateTrie: UpdatePathsTrie,
   ): Result[PartyDetailsUpdate] = {
     for {

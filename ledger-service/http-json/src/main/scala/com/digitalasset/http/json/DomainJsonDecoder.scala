@@ -4,7 +4,7 @@
 package com.daml.http.json
 
 import com.daml.http.ErrorMessages.cannotResolveTemplateId
-import com.daml.http.domain.{ContractTypeId, HasTemplateId, TemplateId}
+import com.daml.http.domain.{ContractTypeId, HasTemplateId}
 import com.daml.http.json.JsValueToApiValueConverter.mustBeApiRecord
 import com.daml.http.util.FutureUtil.either
 import com.daml.http.util.Logging.InstanceUUID
@@ -39,15 +39,19 @@ class DomainJsonDecoder(
   type ET[A] = EitherT[Future, JsonError, A]
 
   def decodeCreateCommand(a: JsValue, jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
-      ev1: JsonReader[domain.CreateCommand[JsValue, TemplateId.OptionalPkg]],
+      ev1: JsonReader[
+        domain.CreateCommand[JsValue, ContractTypeId.OptionalPkg]
+      ], // TODO #15098 .Template
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.CreateCommand[lav1.value.Record, TemplateId.RequiredPkg]] = {
+  ): ET[domain.CreateCommand[lav1.value.Record, ContractTypeId.RequiredPkg]] = { // TODO #15098 .Template
     val err = "DomainJsonDecoder_decodeCreateCommand"
     for {
       fj <- either(
         SprayJson
-          .decode[domain.CreateCommand[JsValue, TemplateId.OptionalPkg]](a)
+          .decode[domain.CreateCommand[JsValue, ContractTypeId.OptionalPkg]](
+            a
+          ) // TODO #15098 .Template
           .liftErrS(err)(JsonError)
       )
 
@@ -220,10 +224,11 @@ class DomainJsonDecoder(
         .flatMap(jsObj => jsValueToApiValue(lfType, jsObj).flatMap(mustBeApiRecord))
         .valueOr(e => spray.json.deserializationError(e.shows))
 
-  def templateRecordType(id: domain.TemplateId.RequiredPkg): JsonError \/ domain.LfType =
+  def templateRecordType(id: domain.ContractTypeId.RequiredPkg): JsonError \/ domain.LfType =
     resolveTemplateRecordType(id).liftErr(JsonError)
 
-  def keyType(id: domain.TemplateId.OptionalPkg)(implicit
+  def keyType(id: domain.ContractTypeId.OptionalPkg)( // TODO #15098 .Template
+      implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
       jwt: Jwt,

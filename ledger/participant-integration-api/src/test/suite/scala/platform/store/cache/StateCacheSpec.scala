@@ -3,6 +3,8 @@
 
 package com.daml.platform.store.cache
 
+import java.util.concurrent.TimeUnit
+
 import com.codahale.metrics.MetricRegistry
 import com.daml.caching.{CaffeineCache, ConcurrentCache, SizedCache}
 import com.daml.ledger.offset.Offset
@@ -15,7 +17,6 @@ import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.math.BigInt.long2bigInt
@@ -28,9 +29,7 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
   override implicit def executionContext: ExecutionContext =
     scala.concurrent.ExecutionContext.global
 
-  private val cacheUpdateTimer = new Metrics(
-    new MetricRegistry
-  ).daml.execution.cache.registerCacheUpdate
+  private val cacheUpdateTimer = Metrics.ForTesting.timer(MetricName("cache-update"))
 
   behavior of s"$className.putAsync"
 
@@ -163,7 +162,7 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
         initialCacheIndex = offset(1L),
         cache = SizedCache.from(
           SizedCache.Configuration(2),
-          new CacheMetrics(new MetricRegistry, new MetricName(Vector("test"))),
+          new CacheMetrics(new MetricName(Vector("test")), new MetricRegistry),
         ),
         registerUpdateTimer = cacheUpdateTimer,
       )

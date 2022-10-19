@@ -8,7 +8,8 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, StablePackage}
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.StablePackage.DA
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr._
@@ -22,7 +23,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-// TEST_EVIDENCE: Semantics: Exceptions, throw/catch.
+// TEST_EVIDENCE: Integrity: Exceptions, throw/catch.
 class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDrivenPropertyChecks {
 
   import com.daml.lf.testing.parser.Implicits.defaultParserParameters.defaultPackageId
@@ -67,11 +68,9 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       List("M:E1", "M:E2")
         .map(id => data.Ref.Identifier.assertFromString(s"$defaultPackageId:$id"))
         .map(tyCon => TTyCon(tyCon) -> ValueRecord(Some(tyCon), data.ImmArray.Empty))
-    val arithmeticCon =
-      StablePackage.DA.Exception.ArithmeticError.assertIdentifier("ArithmeticError")
     val divZeroE =
       ValueRecord(
-        Some(arithmeticCon),
+        Some(DA.Exception.ArithmeticError.ArithmeticError),
         data.ImmArray(
           Some(data.Ref.Name.assertFromString("message")) ->
             ValueText("ArithmeticError while evaluating (DIV_INT64 1 0).")
@@ -86,7 +85,9 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       ("M:unhandled4", SErrorDamlException(IE.UnhandledException(t2, e2))),
       (
         "M:divZero",
-        SErrorDamlException(IE.UnhandledException(TTyCon(arithmeticCon), divZeroE)),
+        SErrorDamlException(
+          IE.UnhandledException(TTyCon(DA.Exception.ArithmeticError.ArithmeticError), divZeroE)
+        ),
       ),
     )
 

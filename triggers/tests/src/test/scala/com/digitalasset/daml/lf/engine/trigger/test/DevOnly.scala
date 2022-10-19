@@ -74,7 +74,7 @@ class DevOnly
                   )
                 )
               ),
-            )
+            ),
           )
           _ <- create(
             client,
@@ -89,7 +89,7 @@ class DevOnly
                   )
                 )
               ),
-            )
+            ),
           )
 
           // Determine ACS for this test run's setup
@@ -125,11 +125,14 @@ class DevOnly
                 Record(
                   fields = Seq(
                     RecordField("owner", Some(Value().withParty(party))),
-                    RecordField("tag", Some(Value().withText("visible via 'registeredTemplate @A'"))),
+                    RecordField(
+                      "tag",
+                      Some(Value().withText("visible via 'registeredTemplate @A'")),
+                    ),
                   )
                 )
               ),
-            )
+            ),
           )
           _ <- create(
             client,
@@ -140,11 +143,14 @@ class DevOnly
                 Record(
                   fields = Seq(
                     RecordField("owner", Some(Value().withParty(party))),
-                    RecordField("tag", Some(Value().withText("visible via 'registeredTemplate @I'"))),
+                    RecordField(
+                      "tag",
+                      Some(Value().withText("visible via 'registeredTemplate @I'")),
+                    ),
                   )
                 )
               ),
-            )
+            ),
           )
 
           // Determine ACS for this test run's setup
@@ -155,9 +161,8 @@ class DevOnly
           _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
         } yield fail()
 
-        result.recoverWith {
-          case exn: ConverterException =>
-            exn.getMessage should startWith("Failure to translate value in create: TypeMismatch")
+        result.recoverWith { case exn: ConverterException =>
+          exn.getMessage should startWith("Failure to translate value: TypeMismatch")
         }
       }
     }

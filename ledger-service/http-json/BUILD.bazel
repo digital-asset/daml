@@ -268,7 +268,6 @@ daml_compile(
             "//libs-scala/nonempty",
             "//libs-scala/scala-utils",
             "//libs-scala/scalatest-utils",
-            "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
@@ -348,7 +347,6 @@ alias(
             "//runtime-components/non-repudiation-postgresql",
             "//runtime-components/non-repudiation-testing",
             "@maven//:com_google_guava_guava",
-            "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
@@ -409,7 +407,6 @@ alias(
             "//libs-scala/ports",
             "//libs-scala/postgresql-testing",
             "//libs-scala/scala-utils",
-            "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
@@ -494,7 +491,6 @@ alias(
             "//libs-scala/scala-utils",
             "//runtime-components/non-repudiation",
             "//runtime-components/non-repudiation-postgresql",
-            "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
@@ -560,8 +556,7 @@ test_suite(
             "//libs-scala/resources-grpc",
             "//libs-scala/scala-utils",
             "//libs-scala/timer-utils",
-            "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
-            "@maven//:io_dropwizard_metrics_metrics_core",
+            "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
@@ -633,7 +628,7 @@ test_suite(
             "//libs-scala/resources",
             "//libs-scala/scala-utils",
             "//libs-scala/timer-utils",
-            "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+            "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
             "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_scalatest_scalatest_compatible",
         ],

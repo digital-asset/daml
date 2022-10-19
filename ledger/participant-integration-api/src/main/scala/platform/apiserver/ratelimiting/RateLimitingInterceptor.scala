@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.util.Try
 
-private[apiserver] final class RateLimitingInterceptor(
+final class RateLimitingInterceptor(
     metrics: Metrics,
     checks: List[LimitResultCheck],
 ) extends ServerInterceptor {
@@ -74,12 +74,17 @@ private[apiserver] final class RateLimitingInterceptor(
 
 object RateLimitingInterceptor {
 
-  def apply(metrics: Metrics, config: RateLimitingConfig): RateLimitingInterceptor = {
+  def apply(
+      metrics: Metrics,
+      config: RateLimitingConfig,
+      additionalChecks: List[LimitResultCheck] = List.empty,
+  ): RateLimitingInterceptor = {
     apply(
       metrics = metrics,
       config = config,
       tenuredMemoryPools = ManagementFactory.getMemoryPoolMXBeans.asScala.toList,
       memoryMxBean = ManagementFactory.getMemoryMXBean,
+      additionalChecks = additionalChecks,
     )
   }
 
@@ -88,12 +93,9 @@ object RateLimitingInterceptor {
       config: RateLimitingConfig,
       tenuredMemoryPools: List[MemoryPoolMXBean],
       memoryMxBean: MemoryMXBean,
+      additionalChecks: List[LimitResultCheck],
   ): RateLimitingInterceptor = {
 
-    val apiServices: ThreadpoolCount = new ThreadpoolCount(metrics)(
-      "Api Services Threadpool",
-      metrics.daml.lapi.threadpool.apiServices,
-    )
     val indexDbThreadpool: ThreadpoolCount = new ThreadpoolCount(metrics)(
       "Index Database Connection Threadpool",
       MetricName(metrics.daml.index.db.threadpool.connection, ServerRole.ApiServer.threadPoolSuffix),
@@ -106,10 +108,9 @@ object RateLimitingInterceptor {
       metrics = metrics,
       checks = List[LimitResultCheck](
         MemoryCheck(tenuredMemoryPools, memoryMxBean, config),
-        ThreadpoolCheck(apiServices, config.maxApiServicesQueueSize),
         ThreadpoolCheck(indexDbThreadpool, config.maxApiServicesIndexDbQueueSize),
         StreamCheck(activeStreamsCounter, activeStreamsName, config.maxStreams),
-      ),
+      ) ::: additionalChecks,
     )
   }
 

@@ -8,6 +8,7 @@ load(
 )
 load("//bazel_tools:proto.bzl", "proto_gen")
 load("//bazel_tools:java.bzl", "da_java_library")
+load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
 
 proto_gen(
     name = "ledger-api-java",
@@ -57,6 +58,7 @@ da_java_library(
         ":ledger-api-java",
         ":ledger-api-java-grpc",
     ],
+    javacopts = da_java_bindings_javacopts,
     tags = [
         "javadoc_root_packages=com.daml.ledger.javaapi.data",
         "maven_coordinates=com.daml:bindings-java:__VERSION__",
@@ -75,7 +77,7 @@ da_java_library(
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:javax_annotation_javax_annotation_api",
-        "@maven//:org_checkerframework_checker",
+        "@maven//:org_checkerframework_checker_qual",
     ],
 )
 

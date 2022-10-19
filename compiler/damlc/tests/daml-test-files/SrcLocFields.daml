@@ -1,0 +1,56 @@
+-- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ENABLE-SCENARIOS
+
+module SrcLocFields where
+
+import DA.Assert
+import DA.Stack
+
+-- | Only needed to test nested record update, e.g. `x { y.z = w }`
+data Data = Data with
+  { dummy : ()
+  , srcLoc : SrcLoc
+  }
+
+myData : Data
+myData = Data
+  { dummy = ()
+  , srcLoc = SrcLoc
+    { srcLocPackage = "1"
+    , srcLocModule = "2"
+    , srcLocFile = "3"
+    , srcLocStartLine = 4
+    , srcLocStartCol = 5
+    , srcLocEndLine = 6
+    , srcLocEndCol = 7
+    }
+  }
+
+main = scenario do
+  myData.srcLoc.srcLocPackage === "1"
+  myData.srcLoc.srcLocModule === "2"
+  myData.srcLoc.srcLocFile === "3"
+  myData.srcLoc.srcLocStartLine === 4
+  myData.srcLoc.srcLocStartCol === 5
+  myData.srcLoc.srcLocEndLine === 6
+  myData.srcLoc.srcLocEndCol === 7
+
+  let newData = myData
+        { srcLoc.srcLocPackage = "8"
+        , srcLoc.srcLocModule = "9"
+        , srcLoc.srcLocFile = "10"
+        , srcLoc.srcLocStartLine = 11
+        , srcLoc.srcLocStartCol = 12
+        , srcLoc.srcLocEndLine = 13
+        , srcLoc.srcLocEndCol = 14
+        }
+
+  newData.srcLoc.srcLocPackage === "8"
+  newData.srcLoc.srcLocModule === "9"
+  newData.srcLoc.srcLocFile === "10"
+  newData.srcLoc.srcLocStartLine === 11
+  newData.srcLoc.srcLocStartCol === 12
+  newData.srcLoc.srcLocEndLine === 13
+  newData.srcLoc.srcLocEndCol === 14

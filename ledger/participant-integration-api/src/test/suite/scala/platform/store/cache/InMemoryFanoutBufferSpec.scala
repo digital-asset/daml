@@ -4,7 +4,6 @@
 package com.daml.platform.store.cache
 
 import java.util.concurrent.Executors
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Time
@@ -450,7 +449,7 @@ class InMemoryFanoutBufferSpec
   )(test: InMemoryFanoutBuffer => Assertion): Assertion = {
     val buffer = new InMemoryFanoutBuffer(
       maxBufferSize,
-      new Metrics(new MetricRegistry),
+      Metrics.ForTesting,
       maxBufferedChunkSize = maxFetchSize,
     )
     elems.foreach { case (offset, event) => buffer.push(offset, event) }

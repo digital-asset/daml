@@ -263,11 +263,11 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           ]
     , testInteraction' "error call"
           [ input "error \"foobar\""
-          , matchOutput "^Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@86828b98{ message = \"foobar\" }$"
+          , matchOutput "Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@86828b98{ message = \"foobar\" }$"
           ]
     , testInteraction' "abort call"
           [ input "abort \"foobar\""
-          , matchOutput "^Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@86828b98{ message = \"foobar\" }$"
+          , matchOutput "Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@86828b98{ message = \"foobar\" }$"
           ]
     , testInteraction' "record dot syntax"
           [ input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice\")"

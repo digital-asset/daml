@@ -20,14 +20,18 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver._
+import com.daml.platform.apiserver.ratelimiting.RateLimitingInterceptor
 import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.index.{InMemoryStateUpdater, IndexServiceOwner}
 import com.daml.platform.indexer.IndexerServiceOwner
-import com.daml.platform.partymanagement.PersistentPartyRecordStore
+import com.daml.platform.localstore.{
+  PersistentPartyRecordStore,
+  PersistentUserManagementStore,
+  UserManagementConfig,
+}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.DbSupport
-import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
@@ -49,6 +53,7 @@ class LedgerApiServer(
     //          Currently, we provide this flag outside the HOCON configuration objects
     //          in order to ensure that participants cannot be configured to accept explicitly disclosed contracts.
     explicitDisclosureUnsafeEnabled: Boolean = false,
+    rateLimitingInterceptor: Option[RateLimitingInterceptor] = None,
 )(implicit actorSystem: ActorSystem, materializer: Materializer) {
 
   def owner: ResourceOwner[ApiService] = {
@@ -147,7 +152,7 @@ class LedgerApiServer(
       healthChecks = healthChecksWithIndexer + ("write" -> writeService),
       metrics = metrics,
       timeServiceBackend = timeServiceBackend,
-      otherInterceptors = List.empty,
+      otherInterceptors = rateLimitingInterceptor.toList,
       engine = sharedEngine,
       servicesExecutionContext = servicesExecutionContext,
       userManagementStore = PersistentUserManagementStore.cached(

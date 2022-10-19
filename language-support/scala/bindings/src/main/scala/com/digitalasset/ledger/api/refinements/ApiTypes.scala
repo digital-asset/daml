@@ -28,6 +28,10 @@ object ApiTypes {
   type TemplateId = Identifier @@ TemplateIdTag
   val TemplateId = Tag.of[TemplateIdTag]
 
+  sealed trait InterfaceIdTag
+  type InterfaceId = Identifier @@ InterfaceIdTag
+  val InterfaceId = Tag.of[InterfaceIdTag]
+
   sealed trait ApplicationIdTag
   type ApplicationId = String @@ ApplicationIdTag
   val ApplicationId = Tag.of[ApplicationIdTag]

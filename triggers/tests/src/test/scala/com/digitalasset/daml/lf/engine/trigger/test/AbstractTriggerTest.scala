@@ -178,7 +178,14 @@ trait AbstractTriggerTest
       templateId: LedgerApi.Identifier,
       contractId: String,
   )(implicit ec: ExecutionContext): Future[Unit] = {
-    exercise(client, party, templateId, contractId, "Archive", Some(LedgerApi.Value().withRecord(LedgerApi.Record())))
+    exercise(
+      client,
+      party,
+      templateId,
+      contractId,
+      "Archive",
+      Some(LedgerApi.Value().withRecord(LedgerApi.Record())),
+    )
   }
 
   protected def queryACS(client: LedgerClient, party: String)(implicit

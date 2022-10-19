@@ -10,7 +10,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class FiltersByParty extends TransactionFilter {
+public final class FiltersByParty extends TransactionFilter {
 
   private Map<String, Filter> partyToFilters;
 

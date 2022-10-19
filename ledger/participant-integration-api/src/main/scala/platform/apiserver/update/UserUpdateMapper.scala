@@ -5,8 +5,8 @@ package com.daml.platform.apiserver.update
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.User
-import com.daml.ledger.participant.state.index.v2._
 import com.daml.lf.data.Ref
+import com.daml.platform.localstore.api.{ObjectMetaUpdate, UserUpdate}
 
 object UserUpdateMapper extends UpdateMapperBase {
 

@@ -11,5 +11,11 @@ import com.daml.ledger.javaapi.data.Value;
  * @param <Cmd> The returned type of ledger command.
  */
 public interface Exercises<Cmd> {
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+   * and <em>should not be referenced directly</em>. Applications should call choice-specific {@code
+   * exercise*} methods generated from their Daml code instead.
+   */
   Cmd makeExerciseCmd(String choice, Value choiceArgument);
 }

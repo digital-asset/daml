@@ -34,6 +34,7 @@ object LedgerBridge {
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
       timeProvider: TimeProvider,
+      stageBufferSize: Int,
   )(implicit
       loggingContext: LoggingContext,
       servicesExecutionContext: ExecutionContext,
@@ -45,6 +46,7 @@ object LedgerBridge {
         bridgeMetrics,
         servicesThreadPoolSize,
         timeProvider,
+        stageBufferSize,
       )
     else
       ResourceOwner.forValue(() => new PassThroughLedgerBridge(participantId, timeProvider))
@@ -55,6 +57,7 @@ object LedgerBridge {
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
       timeProvider: TimeProvider,
+      stageBufferSize: Int,
   )(implicit
       loggingContext: LoggingContext,
       servicesExecutionContext: ExecutionContext,
@@ -80,6 +83,7 @@ object LedgerBridge {
       maxDeduplicationDuration = initialLedgerConfiguration
         .map(_.maxDeduplicationDuration)
         .getOrElse(BridgeConfig.DefaultMaximumDeduplicationDuration),
+      stageBufferSize = stageBufferSize,
     )
 
   private[bridge] def packageUploadSuccess(

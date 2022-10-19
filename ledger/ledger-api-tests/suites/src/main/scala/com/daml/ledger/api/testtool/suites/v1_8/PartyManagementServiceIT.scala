@@ -6,7 +6,6 @@ package com.daml.ledger.api.testtool.suites.v1_8
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   AllocatePartyResponse,
@@ -26,12 +25,7 @@ import com.daml.ledger.client.binding.Primitive
 
 import scala.util.Random
 
-final class PartyManagementServiceIT
-    extends LedgerTestSuite
-    with PartyManagementItUtils
-    with PartyManagementServiceUpdateRpcTests
-    with PartyManagementServiceAnnotationsValidationTests
-    with PartyManagementServiceUpdateAnnotationsTests {
+final class PartyManagementServiceIT extends PartyManagementITBase {
 
   test(
     "PMNonEmptyParticipantID",
@@ -142,9 +136,6 @@ final class PartyManagementServiceIT
         .mustFailWith(
           "allocating a party",
           LedgerApiErrors.RequestValidation.InvalidArgument,
-          Some(
-            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: The value of an annotation is empty for key: 'key2'"
-          ),
         )
     } yield ()
   })
@@ -296,9 +287,10 @@ final class PartyManagementServiceIT
     "It should get details for multiple parties, if they exist",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
+    val useMeta = ledger.features.userAndPartyLocalMetadataExtensions
     for {
       party1 <- ledger.allocateParty(
-        partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
+        partyIdHint = Some("PMGetPartiesDetails_" + Random.alphanumeric.take(10).mkString),
         displayName = Some("Alice"),
         localMetadata = Some(
           ObjectMeta(
@@ -307,7 +299,7 @@ final class PartyManagementServiceIT
         ),
       )
       party2 <- ledger.allocateParty(
-        partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
+        partyIdHint = Some("PMGetPartiesDetails_" + Random.alphanumeric.take(10).mkString),
         displayName = Some("Bob"),
         localMetadata = Some(
           ObjectMeta(
@@ -327,13 +319,15 @@ final class PartyManagementServiceIT
             party = Ref.Party.assertFromString(Tag.unwrap(party1)),
             displayName = "Alice",
             isLocal = true,
-            localMetadata = Some(ObjectMeta(annotations = Map("k1" -> "v1"))),
+            localMetadata =
+              if (useMeta) Some(ObjectMeta(annotations = Map("k1" -> "v1"))) else Some(ObjectMeta()),
           ),
           PartyDetails(
             party = Ref.Party.assertFromString(Tag.unwrap(party2)),
             displayName = "Bob",
             isLocal = true,
-            localMetadata = Some(ObjectMeta(annotations = Map("k2" -> "v2"))),
+            localMetadata =
+              if (useMeta) Some(ObjectMeta(annotations = Map("k2" -> "v2"))) else Some(ObjectMeta()),
           ),
         ),
         s"The allocated parties, ${Seq(party1, party2)}, were not retrieved successfully. Instead, got $partyDetails.",
@@ -354,6 +348,7 @@ final class PartyManagementServiceIT
     "It should list all known, previously-allocated parties",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
+    val useMeta = ledger.features.userAndPartyLocalMetadataExtensions
     for {
       party1 <- ledger.allocateParty(
         partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
@@ -387,7 +382,8 @@ final class PartyManagementServiceIT
             party = party1.toString,
             displayName = "",
             isLocal = true,
-            localMetadata = Some(ObjectMeta(annotations = Map("k1" -> "v1"))),
+            localMetadata =
+              if (useMeta) Some(ObjectMeta(annotations = Map("k1" -> "v1"))) else Some(ObjectMeta()),
           ),
           PartyDetails(
             party = party2.toString,
