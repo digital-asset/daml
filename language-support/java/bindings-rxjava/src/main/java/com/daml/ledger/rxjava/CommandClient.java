@@ -6,6 +6,7 @@ package com.daml.ledger.rxjava;
 import com.daml.ledger.javaapi.data.Command;
 import com.daml.ledger.javaapi.data.Transaction;
 import com.daml.ledger.javaapi.data.TransactionTree;
+import com.daml.ledger.javaapi.data.codegen.Update;
 import com.google.protobuf.Empty;
 import io.reactivex.Single;
 import java.time.Duration;
@@ -245,14 +246,14 @@ public interface CommandClient {
       @NonNull List<@NonNull Command> commands,
       @NonNull String accessToken);
 
-  //  <R> Single<R> submitAndWaitForTransaction(
-  //      @NonNull String workflowId,
-  //      @NonNull String applicationId,
-  //      @NonNull String commandId,
-  //      @NonNull List<@NonNull String> actAs,
-  //      @NonNull List<@NonNull String> readAs,
-  //      @NonNull Update<R> update,
-  //      @NonNull String accessToken);
+  <R> Single<R> submitAndWaitForTransaction(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Update<R> update,
+      @NonNull String accessToken);
 
   Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
@@ -330,12 +331,12 @@ public interface CommandClient {
       @NonNull List<@NonNull Command> commands,
       @NonNull String accessToken);
 
-  //  <R> Single<R> submitAndWaitForTransactionTree(
-  //      @NonNull String workflowId,
-  //      @NonNull String applicationId,
-  //      @NonNull String commandId,
-  //      @NonNull List<@NonNull String> actAs,
-  //      @NonNull List<@NonNull String> readAs,
-  //      @NonNull Update<R> update,
-  //      @NonNull String accessToken);
+  <R> Single<R> submitAndWaitForTransactionTree(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Update<R> update,
+      @NonNull String accessToken);
 }

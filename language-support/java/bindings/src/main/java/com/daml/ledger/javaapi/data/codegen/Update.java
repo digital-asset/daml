@@ -4,14 +4,15 @@
 package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.Command;
+import java.util.function.Function;
 
-public final class Update<R> {
+public abstract class Update<R> {
   public Command command;
 
-  public ValueDecoder<R> returnTypeDecoder;
-
-  public Update(Command command, ValueDecoder<R> returnTypeDecoder) {
+  public Update(Command command) {
     this.command = command;
-    this.returnTypeDecoder = returnTypeDecoder;
   }
+
+  public abstract <T> T match(
+      Function<Create<R>, T> created, Function<ExerciseUpdate<R>, T> exercise);
 }

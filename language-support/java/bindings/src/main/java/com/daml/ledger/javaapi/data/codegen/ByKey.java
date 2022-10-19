@@ -23,7 +23,7 @@ public abstract class ByKey implements Exercises<ExerciseByKeyCommand> {
             contractKey,
             choice.name,
             choice.encodeArg.apply(choiceArgument));
-    return new Update<>(command, choice.returnTypeDecoder);
+    return new ExerciseUpdate<>(command, choice.returnTypeDecoder);
   }
 
   /** The origin of the choice, not the template relevant to contractKey. */
@@ -51,7 +51,7 @@ public abstract class ByKey implements Exercises<ExerciseByKeyCommand> {
               contractKey,
               choice.name,
               choice.encodeArg.apply(choiceArgument));
-      return new Update<>(command, choice.returnTypeDecoder);
+      return new ExerciseUpdate<>(command, choice.returnTypeDecoder);
     }
   }
 }

@@ -8,12 +8,7 @@ import ClassGenUtils.{companionFieldName, templateIdFieldName}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.Ref
 import Ref.{ChoiceName, PackageId, QualifiedName}
-import com.daml.ledger.javaapi.data.codegen.{
-  ContractId,
-  ChoiceMetadata,
-  PrimitiveValueDecoders,
-  Update,
-}
+import com.daml.ledger.javaapi.data.codegen.{Create, ChoiceMetadata, ContractId, Update}
 import com.daml.lf.codegen.backend.java.inner.ToValueGenerator.generateToValueConverter
 import com.daml.lf.typesig
 import typesig._
@@ -117,12 +112,18 @@ private[inner] object TemplateClass extends StrictLogging {
       templateType.build()
     }
 
+  private val ctIdClassName = ClassName get classOf[ContractId[_]]
+  private val updateClassName = ClassName get classOf[Update[_]]
+  private val createClassName = ClassName get classOf[Create[_]]
+  private def parameterizedTypeName(raw: ClassName, arg: TypeName) =
+    ParameterizedTypeName.get(raw, arg)
+
   private def generateCreateMethod(name: ClassName): MethodSpec =
     MethodSpec
       .methodBuilder("create")
       .addModifiers(Modifier.PUBLIC)
       .addAnnotation(classOf[Override])
-      .returns(updateContractIdType(name))
+      .returns(parameterizedTypeName(updateClassName, parameterizedTypeName(ctIdClassName, name)))
       .addStatement(
         "var command = new $T($T.$N, this.toValue())",
         classOf[javaapi.data.CreateCommand],
@@ -130,9 +131,8 @@ private[inner] object TemplateClass extends StrictLogging {
         templateIdFieldName,
       )
       .addStatement(
-        "return new $T(command, $T.fromContractId(valueDecoder()))",
-        updateContractIdType(name),
-        classOf[PrimitiveValueDecoders],
+        "return new $T(command, ContractId::new)",
+        parameterizedTypeName(createClassName, parameterizedTypeName(ctIdClassName, name)),
       )
       .build()
 
@@ -142,7 +142,9 @@ private[inner] object TemplateClass extends StrictLogging {
         MethodSpec
           .methodBuilder("create")
           .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-          .returns(updateContractIdType(name))
+          .returns(
+            parameterizedTypeName(updateClassName, parameterizedTypeName(ctIdClassName, name))
+          )
       ) { case (b, FieldInfo(_, _, escapedName, tpe)) =>
         b.addParameter(tpe, escapedName)
       }
@@ -154,14 +156,6 @@ private[inner] object TemplateClass extends StrictLogging {
       .build()
 
   private val byKeyClassName = "ByKey"
-
-  private def updateContractIdType(name: ClassName) = ParameterizedTypeName.get(
-    ClassName get classOf[Update[_]],
-    ParameterizedTypeName.get(
-      ClassName get classOf[ContractId[_]],
-      name,
-    ),
-  )
 
   private[this] def generateByKeyMethod(
       maybeKey: Option[Type],

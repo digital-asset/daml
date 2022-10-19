@@ -56,7 +56,7 @@ public class ContractId<T> implements Exercises<ExerciseCommand> {
             contractId,
             choice.name,
             choice.encodeArg.apply(choiceArgument));
-    return new Update<>(command, choice.returnTypeDecoder);
+    return new ExerciseUpdate<>(command, choice.returnTypeDecoder);
   }
 
   // overridden by every code generator, but decoding abstractly can e.g.

@@ -8,9 +8,12 @@ import static java.util.Arrays.asList;
 import com.daml.ledger.api.v1.CommandServiceGrpc;
 import com.daml.ledger.api.v1.CommandServiceOuterClass;
 import com.daml.ledger.javaapi.data.Command;
+import com.daml.ledger.javaapi.data.CreatedEvent;
+import com.daml.ledger.javaapi.data.ExercisedEvent;
 import com.daml.ledger.javaapi.data.SubmitAndWaitRequest;
 import com.daml.ledger.javaapi.data.Transaction;
 import com.daml.ledger.javaapi.data.TransactionTree;
+import com.daml.ledger.javaapi.data.codegen.Update;
 import com.daml.ledger.rxjava.CommandClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.google.protobuf.Empty;
@@ -18,6 +21,7 @@ import io.grpc.Channel;
 import io.reactivex.Single;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -660,34 +664,48 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
-  //  @Override
-  //  public <R> Single<R> submitAndWaitForTransaction(
-  //      @NonNull String workflowId,
-  //      @NonNull String applicationId,
-  //      @NonNull String commandId,
-  //      @NonNull List<@NonNull String> actAs,
-  //      @NonNull List<@NonNull String> readAs,
-  //      @NonNull Update<R> update,
-  //      @NonNull String accessToken) {
-  //    Single<Transaction> transaction;
-  //    transaction =
-  //        submitAndWaitForTransaction(
-  //            workflowId,
-  //            applicationId,
-  //            commandId,
-  //            actAs,
-  //            readAs,
-  //            Optional.empty(),
-  //            Optional.empty(),
-  //            Optional.empty(),
-  //            List.of(update.command),
-  //            Optional.of(accessToken));
-  //    return transaction.map(
-  //        tx -> {
-  //          //      tx.
-  //          return update.returnTypeDecoder.decode(null);
-  //        });
-  //  }
+  private <T> CreatedEvent singleCreatedEvent(List<T> events) {
+    if (events.size() == 1 && events.get(0) instanceof CreatedEvent)
+      return (CreatedEvent) events.get(0);
+    throw new IllegalArgumentException(
+        "Expected exactly one created event from the transaction, got: " + events);
+  }
+
+  @Override
+  public <R> Single<R> submitAndWaitForTransaction(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Update<R> update,
+      @NonNull String accessToken) {
+    Single<Transaction> transaction;
+    transaction =
+        submitAndWaitForTransaction(
+            workflowId,
+            applicationId,
+            commandId,
+            actAs,
+            readAs,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            List.of(update.command),
+            Optional.of(accessToken));
+    return transaction.map(
+        tx ->
+            update.match(
+                create -> {
+                  var createdEvent = singleCreatedEvent(tx.getEvents());
+                  return create.createdContractId.apply(createdEvent.getContractId());
+                },
+                exerciseUpdate -> {
+                  // TODO CL we cannot get any exercise result from either CreatedEvent or
+                  // ArchivedEvent
+                  throw new IllegalArgumentException("Expect a command for create");
+                }));
+  }
 
   private Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
@@ -899,29 +917,52 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
-  //  @Override
-  //  public <R> Single<R> submitAndWaitForTransactionTree(
-  //      @NonNull String workflowId,
-  //      @NonNull String applicationId,
-  //      @NonNull String commandId,
-  //      @NonNull List<@NonNull String> actAs,
-  //      @NonNull List<@NonNull String> readAs,
-  //      @NonNull Update<R> update,
-  //      @NonNull String accessToken) {
-  //    var transactionTree = submitAndWaitForTransactionTree(
-  //            workflowId,
-  //            applicationId,
-  //            commandId,
-  //            actAs,
-  //            readAs,
-  //            Optional.empty(),
-  //            Optional.empty(),
-  //            Optional.empty(),
-  //            List.of(update.command),
-  //            Optional.of(accessToken));
-  //    );
-  //    transactionTree.map(txTree -> {
-  //      txTree.getEventsById()
-  //    });
-  //  }
+  private ExercisedEvent firstExercisedEvent(TransactionTree txTree) {
+    var maybeExercisedEvent =
+        txTree.getRootEventIds().stream()
+            .map(eventId -> txTree.getEventsById().get(eventId))
+            .filter(e -> e instanceof ExercisedEvent)
+            .map(e -> (ExercisedEvent) e)
+            .findFirst();
+
+    return maybeExercisedEvent.orElseThrow(
+        () ->
+            new IllegalArgumentException("Expect an exercised event but not found. tx: " + txTree));
+  }
+
+  @Override
+  public <R> Single<R> submitAndWaitForTransactionTree(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Update<R> update,
+      @NonNull String accessToken) {
+    var transactionTree =
+        submitAndWaitForTransactionTree(
+            workflowId,
+            applicationId,
+            commandId,
+            actAs,
+            readAs,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            List.of(update.command),
+            Optional.of(accessToken));
+    return transactionTree.map(
+        txTree ->
+            update.match(
+                create -> {
+                  var createdEvent =
+                      singleCreatedEvent(new ArrayList<>(txTree.getEventsById().values()));
+                  return create.createdContractId.apply(createdEvent.getContractId());
+                },
+                exerciseUpdate -> {
+                  var exercisedEvent = firstExercisedEvent(txTree);
+                  return exerciseUpdate.returnTypeDecoder.decode(
+                      exercisedEvent.getExerciseResult());
+                }));
+  }
 }
