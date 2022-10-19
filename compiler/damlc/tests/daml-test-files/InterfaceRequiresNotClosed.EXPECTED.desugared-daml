@@ -35,9 +35,9 @@ instance DA.Internal.Desugar.HasArchive A where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice A DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice _ = GHC.Types.primitive @"EToAnyChoice" ([] : [A])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice A DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice _ = GHC.Types.primitive @"EFromAnyChoice" ([] : [A])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded A DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -105,9 +105,9 @@ instance DA.Internal.Desugar.HasArchive B where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice B DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice _ = GHC.Types.primitive @"EToAnyChoice" ([] : [B])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice B DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice _ = GHC.Types.primitive @"EFromAnyChoice" ([] : [B])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded B DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -175,9 +175,9 @@ instance DA.Internal.Desugar.HasArchive C where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice C DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice _ = GHC.Types.primitive @"EToAnyChoice" ([] : [C])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice C DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice _ = GHC.Types.primitive @"EFromAnyChoice" ([] : [C])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded C DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive

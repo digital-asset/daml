@@ -43,9 +43,9 @@ instance DA.Internal.Desugar.HasArchive I where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice I DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice _ = GHC.Types.primitive @"EToAnyChoice" ([] : [I])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice I DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice _ = GHC.Types.primitive @"EFromAnyChoice" ([] : [I])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded I DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -60,9 +60,9 @@ instance DA.Internal.Desugar.HasExercise I DA.Internal.Desugar.Archive (()) wher
         (DA.Internal.Desugar.toInterfaceContractId @I cid)
         arg
 instance DA.Internal.Desugar.HasToAnyChoice I NonSerializableArgument (()) where
-  _toAnyChoice _ = GHC.Types.primitive @"EToAnyChoice" ([] : [I])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice I NonSerializableArgument (()) where
-  _fromAnyChoice _ = GHC.Types.primitive @"EFromAnyChoice" ([] : [I])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded I NonSerializableArgument (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
