@@ -8,6 +8,24 @@ import com.daml.metrics.MetricHandle.{Histogram, Timer}
 
 import com.codahale.metrics.MetricRegistry
 
+@MetricDoc.GroupTag(
+  representative = "daml.index.db.<operation>.wait"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.index.db.<operation>.exec"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.index.db.<operation>.translation"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.index.db.<operation>.compression"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.index.db.<operation>.commit"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.index.db.<operation>.query"
+)
 class IndexDBMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
     extends MetricHandle.FactoryWithDBMetrics {
 
