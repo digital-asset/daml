@@ -47,9 +47,6 @@ private class PackageService(
       packageStore: PackageStore,
   ) {
 
-    @deprecated("use interfaceIdMap or templateIdMap", since = "2.5.0")
-    lazy val contractTypeIdMap = templateIdMap.widen[ContractTypeId] ++ interfaceIdMap.widen
-
     def append(diff: PackageStore): State = {
       val newPackageStore = appendAndResolveRetroactiveInterfaces(resolveChoicesIn(diff))
       val (tpIdMap, ifaceIdMap) = getTemplateIdInterfaceMaps(newPackageStore)
@@ -155,12 +152,6 @@ private class PackageService(
       val st = state
       (st.templateIdMap, st.interfaceIdMap)
     }
-
-  // Do not reduce it to something like `PackageService.resolveTemplateId(state.templateIdMap)`
-  // `state.templateIdMap` will be cached in this case.
-  @deprecated("use resolveContractTypeId instead", since = "2.5.0")
-  def resolveTemplateId(implicit ec: ExecutionContext): ResolveTemplateId =
-    resolveContractTypeId
 
   private[this] def resolveContractTypeIdFromState(
       latestMaps: () => (TemplateIdMap, InterfaceIdMap)
@@ -288,9 +279,6 @@ object PackageService {
   type ReloadPackageStore =
     Set[String] => Future[PackageService.Error \/ Option[LedgerReader.PackageStore]]
 
-  @deprecated("use ResolveContractTypeId", since = "2.5.0")
-  type ResolveTemplateId = ResolveContractTypeId
-
   sealed abstract class ResolveContractTypeId {
     import ResolveContractTypeId.Overload
     def apply[U, R](jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
@@ -301,9 +289,6 @@ object PackageService {
   }
 
   object ResolveContractTypeId {
-    @deprecated("use ResolveContractTypeId", since = "2.5.0")
-    type AnyKind = ResolveContractTypeId
-
     sealed abstract class Overload[-Unresolved, +Resolved]
 
     import domain.{ContractTypeId => C}
@@ -346,16 +331,6 @@ object PackageService {
       all: Map[RequiredPkg[CtId], ResolvedOf[CtId]],
       unique: Map[NoPkg[CtId], ResolvedOf[CtId]],
   ) {
-    // forms a monoid with Empty
-    // TODO SC #14844 should not need anymore
-    @deprecated("used only for deprecated State member", since = "2.5.0")
-    private[PackageService] def ++(o: ContractTypeIdMap[CtId]): ContractTypeIdMap[CtId] = {
-      ContractTypeIdMap(
-        all ++ o.all,
-        (unique -- o.unique.keySet) ++ (o.unique -- unique.keySet),
-      )
-    }
-
     private[http] def resolve(
         a: ContractTypeId[Option[String]]
     )(implicit makeKey: ContractTypeId.Like[CtId]): Option[ResolvedOf[CtId]] =
@@ -363,10 +338,6 @@ object PackageService {
         case Some(p) => all get makeKey(p, a.moduleName, a.entityName)
         case None => unique get makeKey((), a.moduleName, a.entityName)
       }
-
-    @deprecated("used only for deprecated State member", since = "2.5.0")
-    private[PackageService] def widen[O[T] >: CtId[T] <: ContractTypeId[T]]: ContractTypeIdMap[O] =
-      ContractTypeIdMap(all.toMap, unique.toMap)
   }
 
   type TemplateIdMap = ContractTypeIdMap[ContractTypeId.Template]
