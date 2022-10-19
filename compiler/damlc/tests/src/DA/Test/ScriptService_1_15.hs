@@ -114,12 +114,14 @@ main =
                     , "  Some v <- queryViewContractId p iid"
                     , "  v.info === 142"
 
-                    , "  [] <- queryView @MyInterface p" -- NICK: temp!
-
                     -- NICK: this is what we want to test...
 --                    , "  [(i1,v1)] <- queryView @MyInterface p"
 --                    , "  i1 === iid"
---                    , "  v1.info === 142"
+--                    , "  v1.info === 42"
+
+                    , "  [(s1,v1)] <- queryView @MyInterface p" -- NICK: temp
+                    , "  s1 === \"string-pretending-to-be-a-cid\""
+                    , "  v1.info === 65169"
 
                     , "  pure ()"
                     ]

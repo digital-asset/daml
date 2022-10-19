@@ -279,7 +279,17 @@ object ScriptF {
         list <- Converter.toFuture(
           list
             .to(FrontStack)
-            .traverse(Converter.fromInterfaceView(env.valueTranslator, viewType, _))
+            .traverse { case (pretendCid, view) =>
+              for {
+                view <- Converter.fromInterfaceView(
+                  env.valueTranslator,
+                  viewType,
+                  view,
+                )
+              } yield {
+                Converter.makePair(SText(pretendCid), view)
+              }
+            }
         )
       } yield SEAppAtomic(SEValue(continue), Array(SEValue(SList(list))))
     }

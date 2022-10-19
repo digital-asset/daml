@@ -136,10 +136,12 @@ class IdeLedgerClient(
   override def queryView(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
-  )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[Value]] = {
-    def dummy: Seq[Value] = Seq() // NICK: dummy empty result list
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(String, Value)]] = {
+    val view1 = Value.ValueRecord(None, ImmArray((None, Value.ValueInt64(65169)))) // NICK: nonce
+    val cid1: String = "string-pretending-to-be-a-cid"
+    val dummy: Seq[(String, Value)] = Seq((cid1, view1))
     Future.successful(
-      dummy
+      dummy // NICK: dummy result
     )
   }
 
