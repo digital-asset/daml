@@ -3,7 +3,7 @@
 
 package com.daml.platform.localstore
 
-import com.daml.ledger.api.domain.{ObjectMeta, ParticipantParty}
+import com.daml.ledger.api.domain.{ObjectMeta, PartyRecord}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
@@ -26,8 +26,8 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
   def newPartyRecord(
       name: String = party1,
       annotations: Map[String, String] = Map.empty,
-  ): ParticipantParty.PartyRecord =
-    ParticipantParty.PartyRecord(
+  ): PartyRecord =
+    PartyRecord(
       party = name,
       metadata = ObjectMeta(None, annotations = annotations),
     )
@@ -36,8 +36,8 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
       name: String = party1,
       annotations: Map[String, String] = Map.empty,
       resourceVersion: Long = 0,
-  ): ParticipantParty.PartyRecord =
-    ParticipantParty.PartyRecord(
+  ): PartyRecord =
+    PartyRecord(
       party = name,
       metadata = ObjectMeta(
         resourceVersionO = Some(resourceVersion),
@@ -57,8 +57,8 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
   )
 
   def resetResourceVersion(
-      partyRecord: ParticipantParty.PartyRecord
-  ): ParticipantParty.PartyRecord =
+      partyRecord: PartyRecord
+  ): PartyRecord =
     partyRecord.copy(metadata = partyRecord.metadata.copy(resourceVersionO = None))
 
   "party record store" - {
