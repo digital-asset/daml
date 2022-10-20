@@ -1048,8 +1048,8 @@ vrNoteSetNotification vr note = do
 -- callback of any errors. NOTE: results may contain errors for any
 -- dependent module.
 -- TODO (MK): We should have a non-Daml version of this rule
-ofInterestRule :: Options -> Rules ()
-ofInterestRule opts = do
+ofInterestRule :: Rules ()
+ofInterestRule = do
     -- go through a rule (not just an action), so it shows up in the profile
     action $ useNoFile OfInterest
     defineNoFile $ \OfInterest -> do
@@ -1377,7 +1377,7 @@ damlRule opts = do
     getOpenVirtualResourcesRule
     getDlintSettingsRule (optDlintUsage opts)
     damlGhcSessionRule opts
-    when (optEnableOfInterestRule opts) (ofInterestRule opts)
+    when (optEnableOfInterestRule opts) ofInterestRule
 
 mainRule :: Options -> Rules ()
 mainRule options = do
