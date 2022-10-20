@@ -22,7 +22,7 @@ import com.daml.platform.localstore.api.{UserManagementStore, UserUpdate}
 import com.daml.platform.localstore.utils.LocalAnnotationsUtils
 import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 import com.daml.platform.store.DbSupport
-import com.daml.platform.store.backend.UserManagementStorageBackend
+import com.daml.platform.store.backend.localstore.UserManagementStorageBackend
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -105,7 +105,7 @@ class CmdReferencedCidsSpec extends AnyFreeSpec with Matchers {
             TestData.Exercised(
               ContractId("cid_exercise"),
               Seq.empty[TestData.Event],
-              record,
+              TestData.Choice(choiceArgument = Some(record)),
             ),
           )
         )

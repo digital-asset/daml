@@ -33,7 +33,7 @@ public abstract class ContractTypeCompanion<ContractType, Data> {
    * var c2 = Bar.CHOICE_Transfer;
    * </pre>
    */
-  public final Map<String, ChoiceMetadata<ContractType, ?, ?>> choices;
+  public final Map<String, Choice<ContractType, ?, ?>> choices;
 
   /**
    * <strong>INTERNAL API</strong>: this is meant for use by {@link ContractCompanion} and {@link
@@ -42,9 +42,7 @@ public abstract class ContractTypeCompanion<ContractType, Data> {
    * interface in question instead.
    */
   protected ContractTypeCompanion(
-      Identifier templateId,
-      String templateClassName,
-      List<ChoiceMetadata<ContractType, ?, ?>> choices) {
+      Identifier templateId, String templateClassName, List<Choice<ContractType, ?, ?>> choices) {
     TEMPLATE_ID = templateId;
     TEMPLATE_CLASS_NAME = templateClassName;
     this.choices =

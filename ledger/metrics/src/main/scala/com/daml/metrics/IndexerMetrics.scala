@@ -48,8 +48,8 @@ class IndexerMetrics(override val prefix: MetricName, override val registry: Met
     varGauge(prefix :+ "ledger_end_sequential_id", 0)
 
   @MetricDoc.Tag(
-    summary = """The lag between the record time of a transaction and the wall-clock time
-                |registered at the ingestion phase to the index db (in milliseconds).""",
+    summary =
+      "The lag between the record time of a transaction and the wall-clock time registered at the ingestion phase to the index db (in milliseconds).",
     description = """Depending on the systemic clock skew between different machines, this value
                     |can be negative.""",
     qualification = Debug,

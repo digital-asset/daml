@@ -48,7 +48,7 @@ private[http] final class CreateAndExercise(
           decoder
             .decodeCreateCommand(reqBody, jwt, toLedgerId(jwtPayload.ledgerId))
             .liftErr(InvalidUserInput): ET[
-            domain.CreateCommand[ApiRecord, ContractTypeId.RequiredPkg] // TODO #15098 .Template
+            domain.CreateCommand[ApiRecord, ContractTypeId.Template.RequiredPkg]
           ]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 
@@ -105,7 +105,7 @@ private[http] final class CreateAndExercise(
           decoder
             .decodeCreateAndExerciseCommand(reqBody, jwt, toLedgerId(jwtPayload.ledgerId))
             .liftErr(InvalidUserInput): ET[
-            domain.CreateAndExerciseCommand[ApiRecord, ApiValue, ContractTypeId.RequiredPkg]
+            domain.CreateAndExerciseCommand.LAVResolved
           ]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 

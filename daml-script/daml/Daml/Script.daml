@@ -715,8 +715,9 @@ fromTreeGo (ExercisedIndex index) events =
     fromExercised : TreeEvent -> Optional [TreeEvent]
     fromExercised (CreatedEvent _) = None
     fromExercised (ExercisedEvent exercised)
-      | exercised.contractId.templateId == index.templateId &&
-        exercised.choice == index.choice
+      | AnyChoice _ rep <- exercised.argument
+      , rep == index.templateId
+      , exercised.choice == index.choice
       = Some exercised.childEvents
       | otherwise
       = None

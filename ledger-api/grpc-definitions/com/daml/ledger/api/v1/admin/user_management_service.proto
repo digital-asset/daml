@@ -267,7 +267,7 @@ message GrantUserRightsRequest {
     string user_id = 1;
 
     // The rights to grant.
-    // Required
+    // Optional
     repeated Right rights = 2;
 }
 
@@ -285,7 +285,7 @@ message RevokeUserRightsRequest {
     string user_id = 1;
 
     // The rights to revoke.
-    // Required
+    // Optional
     repeated Right rights = 2;
 }
 

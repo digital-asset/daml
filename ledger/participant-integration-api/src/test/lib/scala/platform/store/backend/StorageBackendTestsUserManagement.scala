@@ -9,6 +9,7 @@ import java.util.UUID
 import com.daml.ledger.api.domain.UserRight
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.lf.data.Ref
+import com.daml.platform.store.backend.localstore.UserManagementStorageBackend
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, OptionValues}

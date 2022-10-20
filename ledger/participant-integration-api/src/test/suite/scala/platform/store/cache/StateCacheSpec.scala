@@ -11,7 +11,6 @@ import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{CacheMetrics, MetricName, Metrics}
 import com.github.benmanes.caffeine.cache.Caffeine
-import io.opentelemetry.api.GlobalOpenTelemetry
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion
 import org.scalatest.concurrent.Eventually
@@ -30,10 +29,7 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
   override implicit def executionContext: ExecutionContext =
     scala.concurrent.ExecutionContext.global
 
-  private val cacheUpdateTimer = new Metrics(
-    new MetricRegistry,
-    GlobalOpenTelemetry.getMeter("test"),
-  ).daml.execution.cache.registerCacheUpdate
+  private val cacheUpdateTimer = Metrics.ForTesting.timer(MetricName("cache-update"))
 
   behavior of s"$className.putAsync"
 

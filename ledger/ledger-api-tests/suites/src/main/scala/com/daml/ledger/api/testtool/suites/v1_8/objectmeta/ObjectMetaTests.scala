@@ -240,9 +240,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
     ).mustFailWith(
       "creating a resource",
       LedgerApiErrors.RequestValidation.InvalidArgument,
-      Some(
-        "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: The value of an annotation is empty for key: 'k2'"
-      ),
+      Some("value of an annotation is empty"),
     )
   })
 
@@ -255,9 +253,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
     ).mustFailWith(
       "creating a resource",
       errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
-      exceptionMessageSubstring = Some(
-        "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Key prefix segment '.aaaa.management.daml' has invalid syntax"
-      ),
+      exceptionMessageSubstring = Some("has invalid syntax"),
     )
   })
 
@@ -269,9 +265,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
       .mustFailWith(
         "total size of annotations exceeds 256kb max limit",
         errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
-        exceptionMessageSubstring = Some(
-          s"INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: annotations from field '${annotationsUpdateRequestFieldPath}' are larger than the limit of 256kb"
-        ),
+        exceptionMessageSubstring = Some("larger than the limit of 256kb"),
       )
   }
 
@@ -353,9 +347,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
         ).mustFailWith(
           "updating the annotations",
           errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
-          exceptionMessageSubstring = Some(
-            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Key prefix segment '.aaaa.management.daml' has invalid syntax"
-          ),
+          exceptionMessageSubstring = Some("has invalid syntax"),
         )
   )
 
@@ -372,9 +364,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
         ).mustFailWith(
           "deleting an annotations' key",
           errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
-          exceptionMessageSubstring = Some(
-            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Key prefix segment '.aaaa.management.daml' has invalid syntax"
-          ),
+          exceptionMessageSubstring = Some("has invalid syntax"),
         )
   )
 
@@ -407,9 +397,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
       .mustFailWith(
         "total size of annotations, in a user update call, is over 256kb",
         errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
-        exceptionMessageSubstring = Some(
-          s"INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: annotations from field '${annotationsUpdateRequestFieldPath}' are larger than the limit of 256kb"
-        ),
+        exceptionMessageSubstring = Some("larger than the limit of 256kb"),
       )
   }
 
