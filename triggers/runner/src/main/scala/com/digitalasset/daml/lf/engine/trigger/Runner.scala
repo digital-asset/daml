@@ -68,12 +68,18 @@ final case class CompletionMsg(c: Completion) extends TriggerMsg
 final case class TransactionMsg(t: Transaction) extends TriggerMsg
 final case class HeartbeatMsg() extends TriggerMsg
 
-final case class TypedExpr(expr: Expr, ty: TypeConApp)
+final case class TriggerDefinition(
+    id: Identifier,
+    ty: TypeConApp,
+    version: Trigger.Version,
+    level: Trigger.Level,
+    expr: Expr,
+) {
+  val triggerIds = TriggerIds(ty.tycon.packageId)
+}
 
 final case class Trigger(
-    expr: TypedExpr,
-    triggerDefinition: Identifier,
-    triggerIds: TriggerIds,
+    defn: TriggerDefinition,
     filters: Filters, // We store Filters rather than
     // TransactionFilter since the latter is
     // party-specific.
@@ -137,10 +143,31 @@ object Trigger extends StrictLogging {
       }
     } yield hasReadAs
 
-  def fromIdentifier(
-      compiledPackages: CompiledPackages,
+  private[trigger] def detectVersion(
+      pkgInterface: PackageInterface,
+      triggerIds: TriggerIds,
+  ): Either[String, Trigger.Version] = {
+    val versionTypeCon = triggerIds.damlTriggerInternal("Version")
+    pkgInterface.lookupDataEnum(versionTypeCon) match {
+      case Left(_) =>
+        Version.fromString(None)
+      case Right(enum) =>
+        enum.dataEnum.constructors match {
+          case ImmArray(versionCons) =>
+            Version.fromString(Some(versionCons))
+          case _ =>
+            Left("can not infer trigger version")
+        }
+    }
+  }
+
+  // Given an identifier to a high- or lowlevel trigger,
+  // return an expression that will run the corresponding trigger
+  // as a low-level trigger (by applying runTrigger) and the type of that expression.
+  private[trigger] def detectTriggerDefinition(
+      pkgInterface: PackageInterface,
       triggerId: Identifier,
-  )(implicit loggingContext: LoggingContextOf[Trigger]): Either[String, Trigger] = {
+  ): Either[String, TriggerDefinition] = {
 
     def error(triggerId: Identifier, ty: Type): Left[String, Nothing] = {
       val triggerIds = TriggerIds(Ref.PackageId.assertFromString("-"))
@@ -155,47 +182,50 @@ object Trigger extends StrictLogging {
       )
     }
 
-    // Given an identifier to a high- or lowlevel trigger,
-    // return an expression that will run the corresponding trigger
-    // as a low-level trigger (by applying runTrigger) and the type of that expression.
-    def detectTriggerType(triggerId: Identifier, ty: Type): Either[String, TypedExpr] = {
-      ty match {
-        case TApp(TTyCon(tyCon), tyArg) =>
-          val triggerIds = TriggerIds(tyCon.packageId)
-          if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
-            logger.debug("Running low-level trigger")
-            val expr = EVal(triggerId)
-            val ty = TypeConApp(tyCon, ImmArray(tyArg))
-            Right(TypedExpr(expr, ty))
-          } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
-            logger.debug("Running high-level trigger")
-            val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
-            val expr = EApp(runTrigger, EVal(triggerId))
-
-            val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
-            val stateTy = TApp(triggerState, tyArg)
-            val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
-            val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
-
-            Right(TypedExpr(expr, ty))
-          } else {
-            error(triggerId, ty)
-          }
-        case _ =>
+    pkgInterface.lookupValue(triggerId) match {
+      case Right(DValueSignature(TApp(ty @ TTyCon(tyCon), tyArg), _, _)) =>
+        val triggerIds = TriggerIds(tyCon.packageId)
+        if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
+          logger.debug("Running low-level trigger")
+          val expr = EVal(triggerId)
+          val ty = TypeConApp(tyCon, ImmArray(tyArg))
+          detectVersion(pkgInterface, triggerIds).map(
+            TriggerDefinition(triggerId, ty, _, Level.Low, expr)
+          )
+        } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
+          logger.debug("Running high-level trigger")
+          val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
+          val expr = EApp(runTrigger, EVal(triggerId))
+          val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
+          val stateTy = TApp(triggerState, tyArg)
+          val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
+          val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
+          detectVersion(pkgInterface, triggerIds).map(
+            TriggerDefinition(triggerId, ty, _, Level.High, expr)
+          )
+        } else {
           error(triggerId, ty)
-      }
+        }
+      case Right(DValueSignature(ty, _, _)) =>
+        error(triggerId, ty)
+      case Left(err) =>
+        Left(err.pretty)
     }
+  }
+
+  def fromIdentifier(
+      compiledPackages: CompiledPackages,
+      triggerId: Identifier,
+  )(implicit loggingContext: LoggingContextOf[Trigger]): Either[String, Trigger] = {
 
     val compiler = compiledPackages.compiler
     for {
-      definition <- compiledPackages.pkgInterface.lookupValue(triggerId).left.map(_.pretty)
-      expr <- detectTriggerType(triggerId, definition.typ)
-      triggerIds = TriggerIds(expr.ty.tycon.packageId)
-      hasReadAs <- detectHasReadAs(compiledPackages.pkgInterface, triggerIds)
-      converter: Converter = new Converter(compiledPackages, triggerIds)
-      filter <- getTriggerFilter(compiledPackages, compiler, converter, expr)
-      heartbeat <- getTriggerHeartbeat(compiledPackages, compiler, converter, expr)
-    } yield Trigger(expr, triggerId, triggerIds, filter, heartbeat, hasReadAs)
+      triggerDef <- detectTriggerDefinition(compiledPackages.pkgInterface, triggerId)
+      hasReadAs <- detectHasReadAs(compiledPackages.pkgInterface, triggerDef.triggerIds)
+      converter = new Converter(compiledPackages, triggerDef.triggerIds)
+      filter <- getTriggerFilter(compiledPackages, compiler, converter, triggerDef)
+      heartbeat <- getTriggerHeartbeat(compiledPackages, compiler, converter, triggerDef)
+    } yield Trigger(triggerDef, filter, heartbeat, hasReadAs)
   }
 
   // Return the heartbeat specified by the user.
@@ -203,10 +233,10 @@ object Trigger extends StrictLogging {
       compiledPackages: CompiledPackages,
       compiler: Compiler,
       converter: Converter,
-      expr: TypedExpr,
+      triggerDef: TriggerDefinition,
   )(implicit loggingContext: LoggingContextOf[Trigger]): Either[String, Option[FiniteDuration]] = {
     val heartbeat = compiler.unsafeCompile(
-      ERecProj(expr.ty, Name.assertFromString("heartbeat"), expr.expr)
+      ERecProj(triggerDef.ty, Name.assertFromString("heartbeat"), triggerDef.expr)
     )
     val machine = Speedy.Machine.fromPureSExpr(compiledPackages, heartbeat)
     Machine.stepToValue(machine) match {
@@ -221,10 +251,10 @@ object Trigger extends StrictLogging {
       compiledPackages: CompiledPackages,
       compiler: Compiler,
       converter: Converter,
-      expr: TypedExpr,
+      triggerDef: TriggerDefinition,
   )(implicit loggingContext: LoggingContextOf[Trigger]): Either[String, Filters] = {
     val registeredTemplates = compiler.unsafeCompile(
-      ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr)
+      ERecProj(triggerDef.ty, Name.assertFromString("registeredTemplates"), triggerDef.expr)
     )
     val machine = Speedy.Machine.fromPureSExpr(compiledPackages, registeredTemplates)
     val packages = compiledPackages.packageIds
@@ -292,6 +322,25 @@ object Trigger extends StrictLogging {
         Left(s"Expected AllInDar or RegisteredTemplates but got $v")
     }
   }
+
+  sealed abstract class Version extends Serializable
+  object Version {
+    case object `2.0` extends Version
+    case object `2.5` extends Version
+
+    def fromString(s: Option[String]): Either[String, Version] =
+      s match {
+        case None => Right(`2.0`)
+        case Some("Version_2_5") => Right(`2.5`)
+        case Some(s) => Left(s"""cannot parse trigger version "$s".""")
+      }
+  }
+
+  sealed abstract class Level extends Serializable
+  object Level {
+    case object Low extends Level
+    case object High extends Level
+  }
 }
 
 class Runner(
@@ -307,7 +356,7 @@ class Runner(
   // Compiles LF expressions into Speedy expressions.
   private val compiler: Compiler = compiledPackages.compiler
   // Converts between various objects and SValues.
-  private val converter: Converter = new Converter(compiledPackages, trigger.triggerIds)
+  private val converter: Converter = new Converter(compiledPackages, trigger.defn.triggerIds)
   // These are the command IDs used on the ledger API to submit commands for
   // this trigger for which we are awaiting either a completion or transaction
   // message, or both.
@@ -478,11 +527,11 @@ class Runner(
     // speedy expressions.
     val update: SExpr =
       compiler.unsafeCompile(
-        ERecProj(trigger.expr.ty, Name.assertFromString("update"), trigger.expr.expr)
+        ERecProj(trigger.defn.ty, Name.assertFromString("update"), trigger.defn.expr)
       )
     val getInitialState: SExpr =
       compiler.unsafeCompile(
-        ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr)
+        ERecProj(trigger.defn.ty, Name.assertFromString("initialState"), trigger.defn.expr)
       )
     // Convert the ACS to a speedy value.
     val createdValue: SValue = converter.fromACS(acs).orConverterException
