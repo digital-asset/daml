@@ -66,6 +66,7 @@ final case class HeartbeatMsg() extends TriggerMsg
 final case class TypedExpr(expr: Expr, ty: TypeConApp)
 
 final case class Trigger(
+    version: Trigger.Version,
     expr: TypedExpr,
     triggerDefinition: Identifier,
     triggerIds: TriggerIds,
@@ -150,10 +151,28 @@ object Trigger extends StrictLogging {
       )
     }
 
+    def detectVersion(triggerIds: TriggerIds): Either[String, Trigger.Version] = {
+      import scalaz.std.either._
+      import scalaz.syntax.traverse._
+
+      val versionId = triggerIds.damlTriggerInternal("version")
+      val versionType = compiledPackages.pkgInterface.lookupValue(versionId).toOption.map(_.typ)
+      for {
+        versionStr <- versionType.traverseU {
+          case TTyCon(versionTypCon @ Identifier(_, QualifiedName(_, name)))
+              if versionTypCon == triggerIds.damlTriggerInternal(name.segments.head) =>
+            Right(name.segments.head)
+          case _ =>
+            Left(s"cannot infer trigger version")
+        }
+        version <- Trigger.Version.fromString(versionStr)
+      } yield version
+    }
+
     // Given an identifier to a high- or lowlevel trigger,
     // return an expression that will run the corresponding trigger
     // as a low-level trigger (by applying runTrigger) and the type of that expression.
-    def detectTriggerType(triggerId: Identifier, ty: Type): Either[String, TypedExpr] = {
+    def detectTriggerType(triggerId: Identifier, ty: Type): Either[String, (Version, TypedExpr)] = {
       ty match {
         case TApp(TTyCon(tyCon), tyArg) =>
           val triggerIds = TriggerIds(tyCon.packageId)
@@ -161,18 +180,16 @@ object Trigger extends StrictLogging {
             logger.debug("Running low-level trigger")
             val expr = EVal(triggerId)
             val ty = TypeConApp(tyCon, ImmArray(tyArg))
-            Right(TypedExpr(expr, ty))
+            detectVersion(triggerIds).map(_ -> TypedExpr(expr, ty))
           } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
             logger.debug("Running high-level trigger")
             val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
             val expr = EApp(runTrigger, EVal(triggerId))
-
             val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
             val stateTy = TApp(triggerState, tyArg)
             val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
             val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
-
-            Right(TypedExpr(expr, ty))
+            detectVersion(triggerIds).map(_ -> TypedExpr(expr, ty))
           } else {
             error(triggerId, ty)
           }
@@ -184,13 +201,14 @@ object Trigger extends StrictLogging {
     val compiler = compiledPackages.compiler
     for {
       definition <- compiledPackages.pkgInterface.lookupValue(triggerId).left.map(_.pretty)
-      expr <- detectTriggerType(triggerId, definition.typ)
+      versionAndExpr <- detectTriggerType(triggerId, definition.typ)
+      (version, expr) = versionAndExpr
       triggerIds = TriggerIds(expr.ty.tycon.packageId)
       hasReadAs <- detectHasReadAs(compiledPackages.pkgInterface, triggerIds)
-      converter: Converter = new Converter(compiledPackages, triggerIds)
+      converter = new Converter(compiledPackages, triggerIds)
       filter <- getTriggerFilter(compiledPackages, compiler, converter, expr)
       heartbeat <- getTriggerHeartbeat(compiledPackages, compiler, converter, expr)
-    } yield Trigger(expr, triggerId, triggerIds, filter, heartbeat, hasReadAs)
+    } yield Trigger(version, expr, triggerId, triggerIds, filter, heartbeat, hasReadAs)
   }
 
   // Return the heartbeat specified by the user.
@@ -243,6 +261,19 @@ object Trigger extends StrictLogging {
         }
       case v => Left(s"Expected AllInDar or RegisteredTemplates but got $v")
     }
+  }
+
+  sealed abstract class Version
+  object Version {
+    case object `2.0` extends Version
+    case object `2.5` extends Version
+
+    def fromString(s: Option[String]): Either[String, Version] =
+      s match {
+        case None => Right(`2.0`)
+        case Some("Version_2_5") => Right(`2.5`)
+        case Some(s) => Left(s"""cannot parse trigger version "$s".""")
+      }
   }
 }
 

@@ -32,6 +32,11 @@ import DA.Optional (fromOptional)
 
 import Daml.Trigger.LowLevel hiding (Trigger)
 
+data Version_2_5
+
+version: Version_2_5
+version = error "version should not be called"
+
 -- public API
 
 -- | HIDE Active contract set, you can use `getContracts` to access the templates of
