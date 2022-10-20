@@ -12,19 +12,8 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.ledger.api.auth.{
-  AuthServiceJWT,
-  AuthServiceNone,
-  AuthServiceStatic,
-  AuthServiceWildcard,
-}
-import com.daml.ledger.api.v1.experimental_features.{
-  CommandDeduplicationFeatures,
-  CommandDeduplicationPeriodSupport,
-  CommandDeduplicationType,
-  ExperimentalContractIds,
-  ExperimentalExplicitDisclosure,
-}
+import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceNone, AuthServiceStatic, AuthServiceWildcard}
+import com.daml.ledger.api.v1.experimental_features.{CommandDeduplicationFeatures, CommandDeduplicationPeriodSupport, CommandDeduplicationType, ExperimentalContractIds, ExperimentalExplicitDisclosure}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.{Update, WriteService}
@@ -42,7 +31,6 @@ import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
 import com.daml.platform.apiserver.ratelimiting.{RateLimitingInterceptor, ThreadpoolCheck}
 import com.daml.platform.apiserver.{LedgerFeatures, TimeServiceBackend}
 import com.daml.platform.config.ParticipantConfig
-import com.daml.platform.metrics.MetricsOwner
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.DbType
 import com.daml.ports.Port
