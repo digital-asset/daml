@@ -77,10 +77,10 @@ final class Converter(compiledPackages: CompiledPackages, triggerIds: TriggerIds
     } yield Identifier(pkgId, QualifiedName(mod, name))
 
   private[this] def toLedgerRecord(v: SValue): Either[String, value.Record] =
-    lfValueToApiRecord(true, v.toUnnormalizedValue)
+    lfValueToApiRecord(verbose = true, v.toUnnormalizedValue)
 
   private[this] def toLedgerValue(v: SValue): Either[String, value.Value] =
-    lfValueToApiValue(true, v.toUnnormalizedValue)
+    lfValueToApiValue(verbose = true, v.toUnnormalizedValue)
 
   private[this] def fromTemplateTypeRep(tyCon: value.Identifier): SValue =
     record(

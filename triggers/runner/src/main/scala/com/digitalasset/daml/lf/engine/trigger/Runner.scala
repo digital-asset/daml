@@ -14,7 +14,12 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction
-import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
+import com.daml.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  InterfaceFilter,
+  TransactionFilter,
+}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement._
 import com.daml.lf.archive.Dar
@@ -222,26 +227,69 @@ object Trigger extends StrictLogging {
       ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr)
     )
     val machine = Speedy.Machine.fromPureSExpr(compiledPackages, registeredTemplates)
-    Machine.stepToValue(machine) match {
-      case SVariant(_, "AllInDar", _, _) => {
-        val packages = compiledPackages.packageIds
-          .map(pkgId => (pkgId, compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.get))
-          .toSeq
-        val templateIds = packages.flatMap({ case (pkgId, pkg) =>
-          pkg.modules.toList.flatMap({ case (modName, module) =>
-            module.templates.keys.map(entityName =>
+    val packages = compiledPackages.packageIds
+      .map(pkgId => (pkgId, compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.get))
+      .toSeq
+    def templateFilter(isRegistered: Identifier => Boolean) =
+      packages.flatMap({ case (pkgId, pkg) =>
+        pkg.modules.toList.flatMap({ case (modName, module) =>
+          module.templates.keys.collect {
+            case entityName
+                if isRegistered(Identifier(pkgId, QualifiedName(modName, entityName))) =>
               toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName)))
-            )
-          })
+          }
         })
-        Right(Filters(Some(InclusiveFilters(templateIds))))
-      }
+      })
+    def interfaceFilter(isRegistered: Identifier => Boolean) =
+      packages.flatMap({ case (pkgId, pkg) =>
+        pkg.modules.toList.flatMap({ case (modName, module) =>
+          module.interfaces.keys.collect {
+            case entityName
+                if isRegistered(Identifier(pkgId, QualifiedName(modName, entityName))) =>
+              InterfaceFilter(
+                interfaceId =
+                  Some(toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName)))),
+                includeInterfaceView = true,
+                includeCreateArgumentsBlob = false,
+              )
+          }
+        })
+      })
+
+    Machine.stepToValue(machine) match {
+      case SVariant(_, "AllInDar", _, _) =>
+        Right(
+          Filters(
+            Some(
+              InclusiveFilters(
+                templateIds = templateFilter(_ => true),
+                interfaceFilters = interfaceFilter(_ => true),
+              )
+            )
+          )
+        )
+
       case SVariant(_, "RegisteredTemplates", _, v) =>
         converter.toRegisteredTemplates(v) match {
-          case Right(tpls) => Right(Filters(Some(InclusiveFilters(tpls.map(toApiIdentifier(_))))))
-          case Left(err) => Left(err)
+          case Right(identifiers) =>
+            val isRegistered: Identifier => Boolean = identifiers.toSet.contains
+            Right(
+              Filters(
+                Some(
+                  InclusiveFilters(
+                    templateIds = templateFilter(isRegistered),
+                    interfaceFilters = interfaceFilter(isRegistered),
+                  )
+                )
+              )
+            )
+
+          case Left(err) =>
+            Left(err)
         }
-      case v => Left(s"Expected AllInDar or RegisteredTemplates but got $v")
+
+      case v =>
+        Left(s"Expected AllInDar or RegisteredTemplates but got $v")
     }
   }
 }
@@ -318,6 +366,7 @@ class Runner(
     @tailrec def go(v: SValue): Termination = {
       val resumed: Termination Either SValue = unrollFree(v) match {
         case Right(Right(vvv @ (variant, vv))) =>
+          // Must be kept in-sync with the DAML code LowLevel#TriggerF
           vvv.match2 {
             case "GetTime" /*(Time -> a)*/ => { case DamlFun(timeA) =>
               Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
@@ -340,6 +389,7 @@ class Runner(
         case Right(Left(newState)) => Left(-\/(newState))
         case Left(e) => throw new ConverterException(e)
       }
+
       resumed match {
         case Left(newState) => newState
         case Right(suspended) => go(suspended)
@@ -379,18 +429,18 @@ class Runner(
         .map { case SingleCommandFailure(commandId, s) =>
           Completion(
             commandId,
-            Some(Status(s.getStatus().getCode().value(), s.getStatus().getDescription())),
+            Some(Status(s.getStatus.getCode.value(), s.getStatus.getDescription)),
           )
         }
 
     // The transaction source (ledger).
     val transactionSource: Source[TriggerMsg, NotUsed] =
       client.transactionClient
-        .getTransactions(offset, None, filter, verbose = false)
+        .getTransactions(offset, None, filter)
         .map(TransactionMsg)
 
     // Command completion source (ledger completion stream +
-    // synchronous sumbmission failures).
+    // synchronous submission failures).
     val completionSource: Flow[SingleCommandFailure, TriggerMsg, NotUsed] =
       submissionFailureQueue
         .merge(
@@ -404,7 +454,7 @@ class Runner(
         )
         .map(CompletionMsg)
 
-    // Hearbeats source (we produce these repetitvely on a timer with
+    // Heartbeats source (we produce these repetitively on a timer with
     // the given delay interval).
     val heartbeatSource: Source[TriggerMsg, NotUsed] = heartbeat match {
       case Some(interval) =>
@@ -586,7 +636,7 @@ class Runner(
         List(ouuid flatMap { uuid =>
           useCommandId(uuid, SeenMsgs.Transaction) option msg
         } getOrElse TransactionMsg(t.copy(commandId = "")))
-      case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
+      case x @ HeartbeatMsg() => List(x) // Heartbeats don't carry any information.
     }
 
   def makeApp(func: SExpr, values: Array[SValue]): SExpr = {

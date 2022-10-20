@@ -332,7 +332,7 @@ abstract class AbstractFuncTests
             runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(3))._2
           )
         } yield {
-          ex.getStatus.getCode() shouldBe Status.Code.RESOURCE_EXHAUSTED
+          ex.getStatus.getCode shouldBe Status.Code.RESOURCE_EXHAUSTED
         }
       }
     }
