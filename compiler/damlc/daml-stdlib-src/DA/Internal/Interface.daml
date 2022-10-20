@@ -11,6 +11,8 @@ module DA.Internal.Interface (
   HasInterfaceTypeRep(..),
   HasToInterface(..),
   HasFromInterface(..),
+  HasToAnyView(..),
+  HasFromAnyView(..),
   Implements,
   interfaceTypeRep,
   toInterface,
@@ -175,3 +177,12 @@ class HasInterfaceView i v | i -> v where
 
 view : forall i v. HasInterfaceView i v => i -> v
 view = _view
+
+class HasFromAnyView i v | i -> v where
+  -- | HIDE
+  _fromAnyView : proxy i -> Any -> Optional v
+
+class HasToAnyView i v | i -> v where
+  -- | HIDE
+  _toAnyView : proxy i -> v -> Any
+

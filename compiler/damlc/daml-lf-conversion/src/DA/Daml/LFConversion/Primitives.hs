@@ -392,7 +392,7 @@ convertPrim _ "EFromAnyContractKey"
     EFromAny key (EVar $ mkVar "any")
 
 convertPrim _ "EFromAnyView"
-    (tProxy :-> TAny :-> view) =
+    (tProxy :-> TAny :-> TOptional view) =
     pure $
     ETmLam (mkVar "_", tProxy) $
     ETmLam (mkVar "any", TAny) $

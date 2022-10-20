@@ -193,8 +193,7 @@ daInternalInterfaceAnyView :: Package
 daInternalInterfaceAnyView = Package
   { packageLfVersion = version1_15
   , packageModules = NM.singleton (emptyModule modName)
-      { moduleDataTypes = NM.empty
-      , moduleValues = NM.empty
+      { moduleDataTypes = datatypes
       }
   , packageMetadata = Just PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Internal-Interface-AnyView"
@@ -203,6 +202,13 @@ daInternalInterfaceAnyView = Package
   }
   where
     modName = mkModName ["DA", "Internal", "Interface", "AnyView"]
+    datatypes = NM.fromList
+      [ DefDataType Nothing (mkTypeCon ["AnyView"]) (IsSerializable False) [] $
+          DataRecord
+            [ (mkField "getAnyView", TAny)
+            , (mkField "getAnyViewTemplateTypeRep", TCon (Qualified PRSelf (mkModName ["DA", "Internal", "Any"]) (mkTypeCon ["TemplateTypeRep"])))
+            ]
+      ]
 
 daTimeTypes :: Package
 daTimeTypes = package version1_6 $ NM.singleton (emptyModule modName)
