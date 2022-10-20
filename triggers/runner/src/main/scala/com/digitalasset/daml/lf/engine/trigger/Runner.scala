@@ -222,7 +222,7 @@ object Trigger extends StrictLogging {
     for {
       triggerDef <- detectTriggerDefinition(compiledPackages.pkgInterface, triggerId)
       hasReadAs <- detectHasReadAs(compiledPackages.pkgInterface, triggerDef.triggerIds)
-      converter = new Converter(compiledPackages, triggerDef.triggerIds)
+      converter = new Converter(compiledPackages, triggerDef)
       filter <- getTriggerFilter(compiledPackages, compiler, converter, triggerDef)
       heartbeat <- getTriggerHeartbeat(compiledPackages, compiler, converter, triggerDef)
     } yield Trigger(triggerDef, filter, heartbeat, hasReadAs)
@@ -356,7 +356,7 @@ class Runner(
   // Compiles LF expressions into Speedy expressions.
   private val compiler: Compiler = compiledPackages.compiler
   // Converts between various objects and SValues.
-  private val converter: Converter = new Converter(compiledPackages, trigger.defn.triggerIds)
+  private val converter: Converter = new Converter(compiledPackages, trigger.defn)
   // These are the command IDs used on the ledger API to submit commands for
   // this trigger for which we are awaiting either a completion or transaction
   // message, or both.

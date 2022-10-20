@@ -6,6 +6,8 @@ package engine
 package trigger
 
 import scalaz.std.either._
+import scalaz.std.list._
+import scalaz.std.option._
 import scalaz.syntax.traverse._
 import com.daml.lf.data.{FrontStack, ImmArray}
 import com.daml.lf.data.Ref._
@@ -21,7 +23,7 @@ import com.daml.ledger.api.v1.commands.{
   ExerciseCommand,
 }
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
+import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, InterfaceView}
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.validation.NoLoggingValueValidator
@@ -36,7 +38,7 @@ import com.daml.platform.participant.util.LfEngineToApi.{
 import scala.concurrent.duration.{FiniteDuration, MICROSECONDS}
 
 // Convert from a Ledger API transaction to an SValue corresponding to a Message from the Daml.Trigger module
-final class Converter(compiledPackages: CompiledPackages, triggerIds: TriggerIds) {
+final class Converter(compiledPackages: CompiledPackages, triggerDef: TriggerDefinition) {
 
   import Converter._
   import com.daml.script.converter.Converter._, Implicits._
@@ -52,7 +54,10 @@ final class Converter(compiledPackages: CompiledPackages, triggerIds: TriggerIds
   private[this] def translateValue(ty: Type, value: Value): Either[String, SValue] =
     valueTranslator.translateValue(ty, value).left.map(res => s"Failure to translate value: $res")
 
+  private[this] val triggerIds: TriggerIds = triggerDef.triggerIds
+
   private[this] val anyTemplateTyCon = DA.Internal.Any.assertIdentifier("AnyTemplate")
+  private[this] val anyViewTyCon = DA.Internal.Any.assertIdentifier("AnyView")
   private[this] val templateTypeRepTyCon = DA.Internal.Any.assertIdentifier("TemplateTypeRep")
 
   private[this] val activeContractsTy = triggerIds.damlTriggerLowLevel("ActiveContracts")
@@ -69,7 +74,19 @@ final class Converter(compiledPackages: CompiledPackages, triggerIds: TriggerIds
   private[this] val transactionIdTy = triggerIds.damlTriggerLowLevel("TransactionId")
   private[this] val transactionTy = triggerIds.damlTriggerLowLevel("Transaction")
 
-  private[this] def fromIdentifier(identifier: value.Identifier) =
+  private[this] def fromRecord(typ: Type, record: value.Record): Either[String, SValue] =
+    for {
+      record <- validateRecord(record)
+      tmplPayload <- translateValue(typ, record)
+    } yield tmplPayload
+
+  private[this] def fromAnyTemplate(typ: Type, value: SValue): SValue =
+    record(anyTemplateTyCon, "getAnyTemplate" -> SAny(typ, value))
+
+  private[this] def fromAnyView(typ: Type, value: SValue): SValue =
+    record(anyViewTyCon, "getAnyView" -> SAny(typ, value))
+
+  private[this] def fromIdentifier(identifier: value.Identifier): Either[String, Identifier] =
     for {
       pkgId <- PackageId.fromString(identifier.packageId)
       mod <- DottedName.fromString(identifier.moduleName)
@@ -123,6 +140,14 @@ final class Converter(compiledPackages: CompiledPackages, triggerIds: TriggerIds
       "contractId" -> SContractId(ContractId.assertFromString(contractId)),
     )
 
+  private def fromInterfaceView(view: InterfaceView): Either[String, SValue] =
+    for {
+      interfaceId <- fromIdentifier(view.getInterfaceId)
+      interfaceDef <- compiledPackages.pkgInterface.lookupInterface(interfaceId).left.map(_.pretty)
+      viewType = interfaceDef.view
+      viewValue <- view.viewValue.traverseU(fromRecord(viewType, _))
+    } yield SOptional(viewValue.map(fromAnyView(viewType, _)))
+
   private def fromArchivedEvent(archived: ArchivedEvent): SValue =
     record(
       archivedTy,
@@ -130,23 +155,44 @@ final class Converter(compiledPackages: CompiledPackages, triggerIds: TriggerIds
       "contractId" -> fromAnyContractId(archived.getTemplateId, archived.contractId),
     )
 
-  private[this] def fromCreatedEvent(
+  private[this] def fromV20CreatedEvent(
       created: CreatedEvent
   ): Either[String, SValue] =
     for {
       tmplId <- fromIdentifier(created.getTemplateId)
-      createArguments <- validateRecord(created.getCreateArguments)
-      tmplPayload <- translateValue(TTyCon(tmplId), createArguments)
+      tmplType = TTyCon(tmplId)
+      tmplPayload <- fromRecord(tmplType, created.getCreateArguments)
     } yield {
       record(
         createdTy,
         "eventId" -> fromEventId(created.eventId),
         "contractId" -> fromAnyContractId(created.getTemplateId, created.contractId),
-        "argument" -> record(
-          anyTemplateTyCon,
-          "getAnyTemplate" -> SAny(TTyCon(tmplId), tmplPayload),
-        ),
+        "argument" -> fromAnyTemplate(tmplType, tmplPayload),
       )
+    }
+
+  private[this] def fromV25CreatedEvent(
+      created: CreatedEvent
+  ): Either[String, SValue] =
+    for {
+      tmplId <- fromIdentifier(created.getTemplateId)
+      tmplType = TTyCon(tmplId)
+      tmplPayload <- created.createArguments.traverseU(fromRecord(tmplType, _))
+      views <- created.interfaceViews.toList.traverseU(fromInterfaceView)
+    } yield {
+      record(
+        createdTy,
+        "eventId" -> fromEventId(created.eventId),
+        "contractId" -> fromAnyContractId(created.getTemplateId, created.contractId),
+        "argument" -> SOptional(tmplPayload.map(fromAnyTemplate(tmplType, _))),
+        "views" -> SList(views.to(FrontStack)),
+      )
+    }
+
+  private[this] val fromCreatedEvent: CreatedEvent => Either[String, SValue] =
+    triggerDef.version match {
+      case Trigger.Version.`2.0` => fromV20CreatedEvent
+      case Trigger.Version.`2.5` => fromV25CreatedEvent
     }
 
   private def fromEvent(ev: Event): Either[String, SValue] =

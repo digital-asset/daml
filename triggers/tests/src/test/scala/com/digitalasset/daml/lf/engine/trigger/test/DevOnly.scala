@@ -13,7 +13,6 @@ import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.lf.engine.trigger.TriggerMsg
-import com.daml.script.converter.ConverterException
 
 class DevOnly
     extends AsyncWordSpec
@@ -107,10 +106,10 @@ class DevOnly
         }
       }
 
-      // TODO: modify Converter so that it may parse interface and view related transaction messages
-      "fail with interface registration and implementing template not registered" in {
+      "succeed with interface registration and implementing template not registered" in {
         val triggerId = QualifiedName.assertFromString("InterfaceTriggers:triggerWithRegistration")
-        val result = for {
+
+        for {
           client <- ledgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
@@ -162,12 +161,14 @@ class DevOnly
 
           // 1 for create of template A
           // 1 for create of template B, via interface I
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
-        } yield fail()
-
-        result.recoverWith { case exn: ConverterException =>
-          exn.getMessage should startWith("Failure to translate value: TypeMismatch")
-        }
+          _ <- runner
+            .runWithACS(
+              acs,
+              offset,
+              msgFlow = Flow[TriggerMsg].map { msg => println(s"DEBUGGY: $msg"); msg }.take(2),
+            )
+            ._2
+        } yield succeed
       }
     }
   }
