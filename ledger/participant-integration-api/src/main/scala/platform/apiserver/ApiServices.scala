@@ -88,6 +88,7 @@ private[daml] object ApiServices {
       apiStreamShutdownTimeout: scala.concurrent.duration.Duration,
       meteringReportKey: MeteringReportKey,
       explicitDisclosureUnsafeEnabled: Boolean,
+      createExternalServices: () => List[BindableService] = () => Nil,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -124,7 +125,7 @@ private[daml] object ApiServices {
           Future(
             createServices(identityService.ledgerId, currentLedgerConfiguration, checkOverloaded)(
               servicesExecutionContext
-            )
+            ) ++ createExternalServices()
           )
         )(services =>
           Future {
