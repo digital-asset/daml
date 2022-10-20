@@ -32,10 +32,8 @@ import DA.Optional (fromOptional)
 
 import Daml.Trigger.LowLevel hiding (Trigger)
 
-data Version_2_5
-
-version: Version_2_5
-version = error "version should not be called"
+-- We use this singleton enumeration to track the version of the API between Daml code and Scala code of the trigger
+data Version = Version_2_5
 
 -- public API
 

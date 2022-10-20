@@ -67,7 +67,7 @@ final case class TriggerDefinition(
     id: Identifier,
     ty: TypeConApp,
     version: Trigger.Version,
-    lowLevel: Trigger.Level,
+    level: Trigger.Level,
     expr: Expr,
 ) {
   val triggerIds = TriggerIds(ty.tycon.packageId)
@@ -142,24 +142,24 @@ object Trigger extends StrictLogging {
       pkgInterface: PackageInterface,
       triggerIds: TriggerIds,
   ): Either[String, Trigger.Version] = {
-    val versionId = triggerIds.damlTriggerInternal("version")
-    val versionType = pkgInterface.lookupValue(versionId).toOption.map(_.typ)
-    for {
-      versionStr <- versionType.fold[Either[String, Option[Name]]](Right(None)) {
-        case TTyCon(versionTypCon @ Identifier(_, QualifiedName(_, name)))
-          if versionTypCon == triggerIds.damlTriggerInternal(name.segments.head) =>
-          Right(Some(name.segments.head))
-        case _ =>
-          Left("can not infer trigger version")
-      }
-      version <- Trigger.Version.fromString(versionStr)
-    } yield version
+    val versionTypeCon = triggerIds.damlTriggerInternal("Version")
+    pkgInterface.lookupDataEnum(versionTypeCon) match {
+      case Left(_) =>
+        Version.fromString(None)
+      case Right(enum) =>
+        enum.dataEnum.constructors match {
+          case ImmArray(versionCons) =>
+            Version.fromString(Some(versionCons))
+          case _ =>
+            Left("can not infer trigger version")
+        }
+    }
   }
 
   // Given an identifier to a high- or lowlevel trigger,
   // return an expression that will run the corresponding trigger
   // as a low-level trigger (by applying runTrigger) and the type of that expression.
-  private[trigger] def detectTriggerType(
+  private[trigger] def detectTriggerDefinition(
       pkgInterface: PackageInterface,
       triggerId: Identifier,
   ): Either[String, TriggerDefinition] = {
@@ -215,7 +215,7 @@ object Trigger extends StrictLogging {
 
     val compiler = compiledPackages.compiler
     for {
-      triggerDef <- detectTriggerType(compiledPackages.pkgInterface, triggerId)
+      triggerDef <- detectTriggerDefinition(compiledPackages.pkgInterface, triggerId)
       hasReadAs <- detectHasReadAs(compiledPackages.pkgInterface, triggerDef.triggerIds)
       converter = new Converter(compiledPackages, triggerDef.triggerIds)
       filter <- getTriggerFilter(compiledPackages, compiler, converter, triggerDef)

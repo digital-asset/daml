@@ -40,11 +40,11 @@ object RunnerMain {
       qualifiedName = QualifiedName(mod.name, defName)
       triggerId = Identifier(mainPkgId, qualifiedName)
     } {
-      Trigger.detectTriggerType(pkgInterface, triggerId).foreach {
-        case TriggerDefinition(_, ty, version, lowLevel, _) =>
+      Trigger.detectTriggerDefinition(pkgInterface, triggerId).foreach {
+        case TriggerDefinition(_, ty, version, level, _) =>
           if (verbose)
             println(
-              s"  $qualifiedName\t(type = ${ty.pretty}, level = $lowLevel, version = $version)"
+              s"  $qualifiedName\t(type = ${ty.pretty}, level = $level, version = $version)"
             )
           else
             println(s"  $qualifiedName")

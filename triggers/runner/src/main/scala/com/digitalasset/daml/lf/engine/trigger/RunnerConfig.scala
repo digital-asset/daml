@@ -19,7 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 case class RunnerConfig(
     darPath: Path,
-    // If true, we will only list the triggers in the DAR and exit.
+    // If defined, we will only list the triggers in the DAR and exit.
     listTriggers: Option[Boolean],
     triggerIdentifier: String,
     ledgerHost: String,
