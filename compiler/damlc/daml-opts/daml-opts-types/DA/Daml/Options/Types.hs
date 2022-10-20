@@ -20,7 +20,6 @@ module DA.Daml.Options.Types
     , ModRenaming(..)
     , PackageArg(..)
     , defaultOptions
-    , defaultDlintOptions
     , getBaseDir
     , damlArtifactDir
     , projectPackageDatabase
@@ -161,12 +160,6 @@ data DlintOptions = DlintOptions
   , dlintHintFiles :: DlintHintFiles
   }
   deriving Show
-
-defaultDlintOptions :: DlintOptions
-defaultDlintOptions = DlintOptions
-  { dlintRulesFile = DefaultDlintRulesFile
-  , dlintHintFiles = ExplicitDlintHintFiles []
-  }
 
 data DlintUsage
   = DlintEnabled DlintOptions

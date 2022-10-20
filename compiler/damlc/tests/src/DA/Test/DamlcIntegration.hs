@@ -204,7 +204,10 @@ getIntegrationTests registerTODO scenarioService = do
           let opts = (defaultOptions (Just version))
                 { optThreads = 0
                 , optCoreLinting = True
-                , optDlintUsage = DlintEnabled defaultDlintOptions
+                , optDlintUsage = DlintEnabled DlintOptions
+                    { dlintRulesFile = DefaultDlintRulesFile
+                    , dlintHintFiles = ExplicitDlintHintFiles []
+                    }
                 , optSkipScenarioValidation = SkipScenarioValidation skipValidation
                 }
               mkIde options = do

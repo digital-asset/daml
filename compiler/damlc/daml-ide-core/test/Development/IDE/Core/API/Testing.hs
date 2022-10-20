@@ -152,7 +152,10 @@ runShakeTest = runShakeTestOpts id
 runShakeTestOpts :: (Daml.Options -> Daml.Options) -> Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
 runShakeTestOpts fOpts mbScenarioService (ShakeTest m) = do
     let options = fOpts (defaultOptions Nothing)
-            { optDlintUsage = DlintEnabled defaultDlintOptions
+            { optDlintUsage = DlintEnabled DlintOptions
+                { dlintRulesFile = DefaultDlintRulesFile
+                , dlintHintFiles = ExplicitDlintHintFiles []
+                }
             , optEnableOfInterestRule = True
             , optEnableScenarios = EnableScenarios True
             }
