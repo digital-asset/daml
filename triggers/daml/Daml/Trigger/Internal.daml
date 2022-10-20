@@ -148,7 +148,8 @@ lookupTpl cid acs = do
 -- | HIDE
 applyEvent : Event -> ACS -> ACS
 applyEvent ev acs = case ev of
-  CreatedEvent (Created _ cid tpl) -> insertTpl cid tpl acs
+  CreatedEvent (Created _ cid (Some tpl) _) -> insertTpl cid tpl acs
+  CreatedEvent _ -> acs
   ArchivedEvent (Archived _ cid) -> deleteTpl cid acs
 
 -- | HIDE

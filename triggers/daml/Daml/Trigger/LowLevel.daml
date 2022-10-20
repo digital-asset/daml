@@ -95,6 +95,15 @@ data Transaction = Transaction
  , events : [Event]
  }
 
+-- TODO: https://github.com/digital-asset/daml/issues/14830
+-- replace by DA.Internal.Any.AnyView.AnyView once it is introduced as stable package
+type AnyView = ()
+
+data InterfaceView = InterfaceView {
+  interfaceTypeRep : TemplateTypeRep,
+  anyView: Optional AnyView
+}
+
 -- | An event in a transaction.
 -- This definition should be kept consistent with the object `EventVariant` defined in
 -- triggers/runner/src/main/scala/com/digitalasset/daml/lf/engine/trigger/Converter.scala
@@ -106,15 +115,17 @@ data Event
 data Created = Created
   { eventId : EventId
   , contractId : AnyContractId
-  , argument : AnyTemplate
+  , argument : Optional AnyTemplate
+  , views : [InterfaceView]
   }
 
 -- | Check if a `Created` event corresponds to the given template.
 fromCreated : Template t => Created -> Optional (EventId, ContractId t, t)
 fromCreated Created {eventId, contractId, argument}
   | Some contractId' <- fromAnyContractId contractId
-  , Some argument' <- fromAnyTemplate argument
-  = Some (eventId, contractId', argument')
+  , Some argument' <- argument
+  , Some argument'' <- fromAnyTemplate argument'
+  = Some (eventId, contractId', argument'')
   | otherwise
   = None
 
