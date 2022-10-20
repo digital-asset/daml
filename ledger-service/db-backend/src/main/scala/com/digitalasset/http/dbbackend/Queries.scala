@@ -5,14 +5,14 @@ package com.daml.http.dbbackend
 
 import com.daml.lf.data.Ref
 import com.daml.nonempty
-import nonempty.{NonEmpty, +-:}
+import nonempty.{+-:, NonEmpty}
 import nonempty.NonEmptyReturningOps._
-
 import doobie._
 import doobie.implicits._
+
 import scala.annotation.nowarn
-import scala.collection.immutable.{Seq => ISeq, SortedMap}
-import scalaz.{@@, Cord, Functor, OneAnd, Tag, \/, -\/, \/-}
+import scala.collection.immutable.{SortedMap, Seq => ISeq}
+import scalaz.{-\/, @@, Cord, Functor, OneAnd, Tag, \/, \/-}
 import scalaz.Digit._0
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
@@ -37,7 +37,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
-  val schemaVersion = 3
+  val schemaVersion = 4
 
   private[http] val surrogateTpIdCache = new SurrogateTemplateIdCache(metrics, tpIdCacheMaxEntries)
 
@@ -69,13 +69,14 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     sql"""
       CREATE TABLE
         $contractTableName
-        (contract_id $contractIdType NOT NULL CONSTRAINT ${tablePrefixFr}contract_k PRIMARY KEY
+        (contract_id $contractIdType NOT NULL
         ,tpid $bigIntType NOT NULL REFERENCES $templateIdTableName (tpid)
         ,${jsonColumn(sql"key")}
         ,key_hash $keyHashColumn
         ,${jsonColumn(contractColumnName)}
         $contractsTableSignatoriesObservers
         ,agreement_text $agreementTextType
+        ,CONSTRAINT ${tablePrefixFr}contract_k PRIMARY KEY (contract_id, tpid)
         )
     """,
   )
@@ -303,8 +304,9 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
   )(implicit log: LogHandler): ConnectionIO[Int]
 
+  // ContractTypeId -> CId[String]
   final def deleteContracts(
-      cids: Set[String]
+      cids: Map[SurrogateTpId, Iterable[String]]
   )(implicit log: LogHandler): ConnectionIO[Int] = {
     import cats.data.NonEmptyVector
     import cats.instances.vector._
@@ -315,6 +317,8 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
         free.connection.pure(0)
       case Some(cids) =>
         val chunks = maxListSize.fold(Vector(cids))(size => cids.grouped(size).toVector)
+//        val chunkss = maxListSize.fold()(size => groupedGroups(size, ))
+//        val chunkss = maxListSize.fold(Vector(cids.))(size => cids.grouped(size).toVector)
         chunks
           .map(chunk =>
             (fr"DELETE FROM $contractTableName WHERE " ++ Fragments
@@ -322,6 +326,11 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
           )
           .foldA
     }
+  }
+
+  // invariant: each element x of result has `x.values.flatten.size <= size`
+  private def groupedGroups[K, V](size: Int, groups: Map[K, Set[V]]): Vector[Map[K, Set[V]]] = {
+    ???
   }
 
   private[http] final def selectContracts(
