@@ -154,7 +154,7 @@ runShakeTestOpts fOpts mbScenarioService (ShakeTest m) = do
     let options = fOpts (defaultOptions Nothing)
             { optDlintUsage = DlintEnabled DlintOptions
                 { dlintRulesFile = DefaultDlintRulesFile
-                , dlintHintFiles = ExplicitDlintHintFiles []
+                , dlintHintFiles = NoDlintHintFiles
                 }
             , optEnableOfInterestRule = True
             , optEnableScenarios = EnableScenarios True

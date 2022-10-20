@@ -272,7 +272,7 @@ dlintHintFilesParser =
                     \'.dlint.yaml' files will be ignored."
           )
     clearDlintHintFiles =
-      flag' (ExplicitDlintHintFiles [])
+      flag' NoDlintHintFiles
         ( long "lint-no-hint-files"
           <> internal
           <> help "Use no hint files for linting. This also ignores any \

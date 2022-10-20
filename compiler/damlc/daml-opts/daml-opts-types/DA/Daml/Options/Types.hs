@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 module DA.Daml.Options.Types
     ( Options(..)
@@ -10,7 +11,7 @@ module DA.Daml.Options.Types
     , AllowLargeTuples(..)
     , SkipScenarioValidation(..)
     , DlintRulesFile(..)
-    , DlintHintFiles(..)
+    , DlintHintFiles(.., NoDlintHintFiles)
     , DlintOptions(..)
     , DlintUsage(..)
     , Haddock(..)
@@ -154,6 +155,9 @@ data DlintHintFiles
     --    * "~/.dlint.yaml"
   | ExplicitDlintHintFiles [FilePath]
   deriving Show
+
+pattern NoDlintHintFiles :: DlintHintFiles
+pattern NoDlintHintFiles = ExplicitDlintHintFiles []
 
 data DlintOptions = DlintOptions
   { dlintRulesFile :: DlintRulesFile

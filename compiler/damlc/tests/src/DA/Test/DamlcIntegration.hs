@@ -206,7 +206,7 @@ getIntegrationTests registerTODO scenarioService = do
                 , optCoreLinting = True
                 , optDlintUsage = DlintEnabled DlintOptions
                     { dlintRulesFile = DefaultDlintRulesFile
-                    , dlintHintFiles = ExplicitDlintHintFiles []
+                    , dlintHintFiles = NoDlintHintFiles
                     }
                 , optSkipScenarioValidation = SkipScenarioValidation skipValidation
                 }
