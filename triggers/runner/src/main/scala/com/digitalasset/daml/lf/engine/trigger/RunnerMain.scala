@@ -4,7 +4,6 @@
 package com.daml.lf.engine.trigger
 
 import java.io.File
-
 import akka.actor.ActorSystem
 import akka.stream._
 import com.daml.auth.TokenHolder
@@ -20,28 +19,35 @@ import com.daml.ledger.client.configuration.{
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.PackageInterface
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 object RunnerMain {
 
-  private def listTriggers(darPath: File, dar: Dar[(PackageId, Package)]): Unit = {
+  private def listTriggers(
+      darPath: File,
+      dar: Dar[(PackageId, Package)],
+      verbose: Boolean,
+  ): Unit = {
     println(s"Listing triggers in $darPath:")
-    for ((modName, mod) <- dar.main._2.modules) {
-      for ((defName, defVal) <- mod.definitions) {
-        defVal match {
-          case DValue(TApp(TTyCon(tcon), _), _, _) => {
-            val triggerIds = TriggerIds(tcon.packageId)
-            if (
-              tcon == triggerIds.damlTrigger("Trigger")
-              || tcon == triggerIds.damlTriggerLowLevel("Trigger")
-            ) {
-              println(s"  $modName:$defName")
-            }
-          }
-          case _ => {}
-        }
+    val pkgInterface = PackageInterface(dar.all.toMap)
+    val (mainPkgId, mainPkg) = dar.main
+    for {
+      mod <- mainPkg.modules.values
+      defName <- mod.definitions.keys
+      qualifiedName = QualifiedName(mod.name, defName)
+      triggerId = Identifier(mainPkgId, qualifiedName)
+    } {
+      Trigger.detectTriggerType(pkgInterface, triggerId).foreach {
+        case TriggerDefinition(_, ty, version, lowLevel, _) =>
+          if (verbose)
+            println(
+              s"  $qualifiedName\t(type = ${ty.pretty}, level = $lowLevel, version = $version)"
+            )
+          else
+            println(s"  $qualifiedName")
       }
     }
   }
@@ -54,8 +60,8 @@ object RunnerMain {
         val dar: Dar[(PackageId, Package)] =
           DarDecoder.assertReadArchiveFromFile(config.darPath.toFile)
 
-        if (config.listTriggers) {
-          listTriggers(config.darPath.toFile, dar)
+        config.listTriggers.foreach { verbose =>
+          listTriggers(config.darPath.toFile, dar, verbose)
           sys.exit(0)
         }
 
