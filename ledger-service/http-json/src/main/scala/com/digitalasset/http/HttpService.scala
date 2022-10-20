@@ -134,7 +134,6 @@ object HttpService {
 
       contractsService = new ContractsService(
         packageService.resolveContractTypeId,
-        packageService.resolveTemplateId,
         packageService.allTemplateIds,
         LedgerClientJwt.getActiveContracts(client),
         LedgerClientJwt.getCreatesAndArchivesSince(client),
@@ -203,7 +202,6 @@ object HttpService {
       websocketService = new WebSocketService(
         contractsService,
         packageService.resolveContractTypeId,
-        packageService.resolveTemplateId,
         decoder,
         LedgerReader.damlLfTypeLookup(() => packageService.packageStore),
         wsConfig,
@@ -292,7 +290,6 @@ object HttpService {
 
     val decoder = new DomainJsonDecoder(
       packageService.resolveContractTypeId,
-      packageService.resolveTemplateId,
       packageService.resolveTemplateRecordType,
       packageService.resolveChoiceArgType,
       packageService.resolveKeyType,

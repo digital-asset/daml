@@ -210,8 +210,7 @@ object WebSocketService {
 
     private[WebSocketService] def predicate(
         request: A,
-        resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
-        resolveTemplateId: PackageService.ResolveTemplateId,
+        resolveContractTypeId: PackageService.ResolveContractTypeId,
         lookupType: ValuePredicate.TypeLookup,
         jwt: Jwt,
         ledgerId: LedgerApiDomain.LedgerId,
@@ -302,8 +301,7 @@ object WebSocketService {
 
       override private[WebSocketService] def predicate(
           request: SearchForeverRequest,
-          resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
-          resolveTemplateId: PackageService.ResolveTemplateId,
+          resolveContractTypeId: PackageService.ResolveContractTypeId,
           lookupType: ValuePredicate.TypeLookup,
           jwt: Jwt,
           ledgerId: LedgerApiDomain.LedgerId,
@@ -534,8 +532,7 @@ object WebSocketService {
 
     override private[WebSocketService] def predicate(
         request: NonEmptyList[CKR[LfV]],
-        resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
-        resolveTemplateId: PackageService.ResolveTemplateId,
+        resolveContractTypeId: PackageService.ResolveContractTypeId,
         lookupType: TypeLookup,
         jwt: Jwt,
         ledgerId: LedgerApiDomain.LedgerId,
@@ -593,7 +590,7 @@ object WebSocketService {
         )
       request.toList
         .traverse { x: CKR[LfV] =>
-          resolveTemplateId(jwt, ledgerId)(x.ekey.templateId)
+          resolveContractTypeId(jwt, ledgerId)(x.ekey.templateId)
             .map(_.toOption.flatten.map((_, x.ekey.key)).toLeft(x.ekey.templateId))
         }
         .map(
@@ -670,8 +667,7 @@ object WebSocketService {
 
 class WebSocketService(
     contractsService: ContractsService,
-    resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
-    resolveTemplateId: PackageService.ResolveTemplateId,
+    resolveContractTypeId: PackageService.ResolveContractTypeId,
     decoder: DomainJsonDecoder,
     lookupType: ValuePredicate.TypeLookup,
     wsConfig: Option[WebsocketConfig],
@@ -872,7 +868,7 @@ class WebSocketService(
       lc: LoggingContextOf[InstanceUUID],
       Q: StreamQuery[A],
   ): Future[StreamPredicate[Q.Positive]] =
-    Q.predicate(request, resolveContractTypeId, resolveTemplateId, lookupType, jwt, ledgerId)
+    Q.predicate(request, resolveContractTypeId, lookupType, jwt, ledgerId)
 
   private def getTransactionSourceForParty[A](
       jwt: Jwt,
