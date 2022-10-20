@@ -144,7 +144,7 @@ trait AbstractTriggerTest
       templateId: LedgerApi.Identifier,
       contractId: String,
       choice: String,
-      choiceArgument: Option[LedgerApi.Value],
+      choiceArgument: LedgerApi.Value,
   )(implicit ec: ExecutionContext): Future[Unit] = {
     val commands = Seq(
       Command().withExercise(
@@ -152,7 +152,7 @@ trait AbstractTriggerTest
           templateId = Some(templateId),
           contractId = contractId,
           choice = choice,
-          choiceArgument = choiceArgument,
+          choiceArgument = Some(choiceArgument),
         )
       )
     )
@@ -184,7 +184,7 @@ trait AbstractTriggerTest
       templateId,
       contractId,
       "Archive",
-      Some(LedgerApi.Value().withRecord(LedgerApi.Record())),
+      LedgerApi.Value().withRecord(LedgerApi.Record()),
     )
   }
 

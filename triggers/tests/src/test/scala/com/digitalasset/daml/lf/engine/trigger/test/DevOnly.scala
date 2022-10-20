@@ -59,7 +59,8 @@ class DevOnly
           runner = getRunner(client, triggerId, party)
 
           // Determine current ledger offset
-          (_, offset) <- runner.queryACS()
+          queryResult <- runner.queryACS()
+          (_, offset) = queryResult
 
           _ <- create(
             client,
@@ -93,7 +94,8 @@ class DevOnly
           )
 
           // Determine ACS for this test run's setup
-          (acs, _) <- runner.queryACS()
+          queryResult <- runner.queryACS()
+          (acs, _) = queryResult
 
           // 1 for create of template A
           // 1 for create of template B
@@ -114,7 +116,8 @@ class DevOnly
           runner = getRunner(client, triggerId, party)
 
           // Determine current ledger offset
-          (_, offset) <- runner.queryACS()
+          queryResult <- runner.queryACS()
+          (_, offset) = queryResult
 
           _ <- create(
             client,
@@ -154,7 +157,8 @@ class DevOnly
           )
 
           // Determine ACS for this test run's setup
-          (acs, _) <- runner.queryACS()
+          queryResult <- runner.queryACS()
+          (acs, _) = queryResult
 
           // 1 for create of template A
           // 1 for create of template B, via interface I
