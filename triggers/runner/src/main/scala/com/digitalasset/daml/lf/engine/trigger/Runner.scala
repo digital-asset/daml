@@ -142,18 +142,15 @@ object Trigger extends StrictLogging {
       pkgInterface: PackageInterface,
       triggerIds: TriggerIds,
   ): Either[String, Trigger.Version] = {
-    import scalaz.std.either._
-    import scalaz.syntax.traverse._
-
     val versionId = triggerIds.damlTriggerInternal("version")
     val versionType = pkgInterface.lookupValue(versionId).toOption.map(_.typ)
     for {
-      versionStr <- versionType.traverseU {
+      versionStr <- versionType.fold[Either[String, Option[Name]]](Right(None)) {
         case TTyCon(versionTypCon @ Identifier(_, QualifiedName(_, name)))
-            if versionTypCon == triggerIds.damlTriggerInternal(name.segments.head) =>
-          Right(name.segments.head)
+          if versionTypCon == triggerIds.damlTriggerInternal(name.segments.head) =>
+          Right(Some(name.segments.head))
         case _ =>
-          Left(s"cannot infer trigger version")
+          Left("can not infer trigger version")
       }
       version <- Trigger.Version.fromString(versionStr)
     } yield version
