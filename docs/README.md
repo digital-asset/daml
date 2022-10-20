@@ -73,6 +73,19 @@ If you want need to add an item that needs to end up on the table of contents, y
 3. follow the instructions on https://github.com/digital-asset/docs.daml.com, in particular with regards to
    [making changes to the next unreleased version](https://github.com/digital-asset/docs.daml.com#making-changes-to-the-next-unreleased-version)
 
+## Linking to pages from the Canton documentation
+
+This repository only includes content for the Daml SDK. However the Daml documentation includes both
+content from this repository and from [Canton's](https://github.com/digital-asset/canton). This means that
+linking to a page in the Canton documentation requires some additional care. In particular, you have to:
+
+1. find the anchor point to which you want to link in the Canton documentation
+2. add the anchor point name in the `//docs/canton-refs.rst` document (unless it's already there)
+3. refer to the anchor point in your page
+
+You can see a small example of this procedure in
+[this commit](https://github.com/digital-asset/daml/commit/30acaaea777b92712fe46c2062361f5f44b260ce).
+
 ## How the docs get built
 
 The final documentation gets built as part of the `assembly`
