@@ -3,12 +3,17 @@
 
 package com.daml.platform.localstore
 
-import com.daml.ledger.api.domain.{ObjectMeta, PartyRecord}
+import com.daml.ledger.api.domain.ObjectMeta
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.api.PartyRecordStore.PartyRecordExistsFatal
-import com.daml.platform.localstore.api.{ObjectMetaUpdate, PartyRecordStore, PartyRecordUpdate}
+import com.daml.platform.localstore.api.{
+  ObjectMetaUpdate,
+  PartyRecord,
+  PartyRecordStore,
+  PartyRecordUpdate,
+}
 import org.scalatest.freespec.AsyncFreeSpec
 
 import scala.concurrent.Future

@@ -8,7 +8,7 @@ package ledgerinteraction
 
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
+import com.daml.ledger.api.domain.{ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
@@ -379,6 +379,7 @@ class IdeLedgerClient(
         party = Ref.Party.assertFromString(name),
         displayName = Some(displayName),
         isLocal = true,
+        metadata = ObjectMeta.empty,
       )
       _ = allocatedParties += (name -> partyDetails)
     } yield partyDetails.party)

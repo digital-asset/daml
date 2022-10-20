@@ -342,28 +342,6 @@ object domain {
     }
   }
 
-  /** Represents a party with additional known information.
-    *
-    * @param party       The stable unique identifier of a Daml party.
-    * @param displayName Human readable name associated with the party. Might not be unique. If defined must be a non-empty string.
-    * @param isLocal     True if party is hosted by the backing participant.
-    */
-  case class PartyDetails(party: Ref.Party, displayName: Option[String], isLocal: Boolean)
-
-  sealed abstract class PartyEntry() extends Product with Serializable
-
-  object PartyEntry {
-    final case class AllocationAccepted(
-        submissionId: Option[String],
-        partyDetails: PartyDetails,
-    ) extends PartyEntry
-
-    final case class AllocationRejected(
-        submissionId: String,
-        reason: String,
-    ) extends PartyEntry
-  }
-
   /** Configuration entry describes a change to the current configuration. */
   sealed abstract class ConfigurationEntry extends Product with Serializable
 
@@ -419,15 +397,10 @@ object domain {
       metadata: ObjectMeta = ObjectMeta.empty,
   )
 
-  case class ParticipantPartyDetails(
+  case class PartyDetails(
       party: Ref.Party,
       displayName: Option[String],
       isLocal: Boolean,
-      metadata: ObjectMeta,
-  )
-
-  final case class PartyRecord(
-      party: Ref.Party,
       metadata: ObjectMeta,
   )
 

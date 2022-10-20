@@ -23,7 +23,7 @@ import com.daml.ledger.api.auth.{
   CustomDamlJWTPayload,
   StandardJWTPayload,
 }
-import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
+import com.daml.ledger.api.domain.{ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
@@ -837,6 +837,7 @@ object JsonLedgerClient {
             id.convertTo[Party],
             optName.map(_.convertTo[String]),
             isLocal.convertTo[Boolean],
+            ObjectMeta.empty,
           )
         case _ => deserializationError(s"Expected PartyDetails but got $v")
       }
