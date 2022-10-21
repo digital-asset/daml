@@ -11,6 +11,7 @@
     <logger name="akka.event.slf4j" level="WARN" />
     <logger name="daml.tracelog" level="DEBUG" />
     <logger name="daml.warnings" level="WARN" />
+    <logger name="com.daml.lf.engine.trigger" level="DEBUG" />
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />
