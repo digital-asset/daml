@@ -896,56 +896,58 @@ public class CommandClientImpl implements CommandClient {
   }
 
   private abstract static class FoldUpdate<Z> {
-    public abstract <CtId> Z created(Update.CreateUpdate<CtId, Z> create, CreatedEvent createdEvent);
-    public abstract <R> Z exercised(Update.ExerciseUpdate<R, Z> exercise, ExercisedEvent exercisedEvent);
+    public abstract <CtId> Z created(
+        Update.CreateUpdate<CtId, Z> create, CreatedEvent createdEvent);
+
+    public abstract <R> Z exercised(
+        Update.ExerciseUpdate<R, Z> exercise, ExercisedEvent exercisedEvent);
   }
 
   private <U> Single<U> foldUpdate(
-          String workflowId,
-          String applicationId,
-          String commandId,
-          List<String> actAs,
-          List<String> readAs,
-          Update<U> update,
-          Optional<String> accessToken,
-          FoldUpdate<U> foldUpdate
-  ) {
+      String workflowId,
+      String applicationId,
+      String commandId,
+      List<String> actAs,
+      List<String> readAs,
+      Update<U> update,
+      Optional<String> accessToken,
+      FoldUpdate<U> foldUpdate) {
     if (update instanceof Update.CreateUpdate) {
       var transaction =
-              submitAndWaitForTransaction(
-                      workflowId,
-                      applicationId,
-                      commandId,
-                      actAs,
-                      readAs,
-                      Optional.empty(),
-                      Optional.empty(),
-                      Optional.empty(),
-                      List.of(update.command),
-                      accessToken);
+          submitAndWaitForTransaction(
+              workflowId,
+              applicationId,
+              commandId,
+              actAs,
+              readAs,
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              List.of(update.command),
+              accessToken);
       return transaction.map(
-              tx -> {
-                var createdEvent = singleCreatedEvent(tx.getEvents());
-                return foldUpdate.created((Update.CreateUpdate<?, U>) update, createdEvent);
-              });
+          tx -> {
+            var createdEvent = singleCreatedEvent(tx.getEvents());
+            return foldUpdate.created((Update.CreateUpdate<?, U>) update, createdEvent);
+          });
     } else if (update instanceof Update.ExerciseUpdate) {
       var transactionTree =
-              submitAndWaitForTransactionTree(
-                      workflowId,
-                      applicationId,
-                      commandId,
-                      actAs,
-                      readAs,
-                      Optional.empty(),
-                      Optional.empty(),
-                      Optional.empty(),
-                      List.of(update.command),
-                      accessToken);
+          submitAndWaitForTransactionTree(
+              workflowId,
+              applicationId,
+              commandId,
+              actAs,
+              readAs,
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              List.of(update.command),
+              accessToken);
       return transactionTree.map(
-              txTree -> {
-                var exercisedEvent = firstExercisedEvent(txTree);
-                return foldUpdate.exercised((Update.ExerciseUpdate<?, U>) update, exercisedEvent);
-              });
+          txTree -> {
+            var exercisedEvent = firstExercisedEvent(txTree);
+            return foldUpdate.exercised((Update.ExerciseUpdate<?, U>) update, exercisedEvent);
+          });
     } else throw new IllegalArgumentException("Unexpected type of Update: " + update);
   }
 
@@ -957,17 +959,27 @@ public class CommandClientImpl implements CommandClient {
       @NonNull List<@NonNull String> readAs,
       @NonNull Update<U> update,
       @NonNull Optional<String> accessToken) {
-    return foldUpdate(workflowId,applicationId,commandId, actAs, readAs, update, accessToken, new FoldUpdate<>() {
-      @Override
-      public <CtId> U created(Update.CreateUpdate<CtId, U> create, CreatedEvent createdEvent) {
-        return create.k.apply(Created.fromEvent(create.createdContractId, createdEvent));
-      }
+    return foldUpdate(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        update,
+        accessToken,
+        new FoldUpdate<>() {
+          @Override
+          public <CtId> U created(Update.CreateUpdate<CtId, U> create, CreatedEvent createdEvent) {
+            return create.k.apply(Created.fromEvent(create.createdContractId, createdEvent));
+          }
 
-      @Override
-      public <R> U exercised(Update.ExerciseUpdate<R, U> exercise, ExercisedEvent exercisedEvent) {
-        return exercise.k.apply(Exercised.fromEvent(exercise.returnTypeDecoder, exercisedEvent));
-      }
-    });
+          @Override
+          public <R> U exercised(
+              Update.ExerciseUpdate<R, U> exercise, ExercisedEvent exercisedEvent) {
+            return exercise.k.apply(
+                Exercised.fromEvent(exercise.returnTypeDecoder, exercisedEvent));
+          }
+        });
   }
 
   @Override
