@@ -3,13 +3,12 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.MetricHandle.{Counter, Timer}
-
 import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.MetricDoc.MetricQualification.Debug
+import com.daml.metrics.MetricHandle.{Counter, DropwizardCounter, DropwizardTimer, Timer}
 
 class LAPIMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.DropwizardFactory {
 
   @MetricDoc.Tag(
     summary = "The time spent serving a ledger api grpc request.",
@@ -18,8 +17,7 @@ class LAPIMetrics(override val prefix: MetricName, override val registry: Metric
                     |time to return the first response.""",
     qualification = Debug,
   )
-  val forMethodForDocs: Timer = Timer(prefix :+ "<service_method>", null)
-
+  val forMethodForDocs: Timer = DropwizardTimer(prefix :+ "<service_method>", null)
   def forMethod(name: String): Timer = timer(prefix :+ name)
 
   object return_status {
@@ -31,7 +29,7 @@ class LAPIMetrics(override val prefix: MetricName, override val registry: Metric
                       |the ledger api.""",
       qualification = Debug,
     )
-    val forCodeForDocs = Counter(prefix :+ "<gRPC_status_code>", null)
+    val forCodeForDocs = DropwizardCounter(prefix :+ "<gRPC_status_code>", null)
 
     def forCode(code: String): Counter = counter(prefix :+ code)
   }

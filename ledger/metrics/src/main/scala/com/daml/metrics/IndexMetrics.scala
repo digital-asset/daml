@@ -3,13 +3,12 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.MetricHandle.{Counter, Timer, VarGauge}
-
 import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.MetricDoc.MetricQualification.Debug
+import com.daml.metrics.MetricHandle.{Counter, Gauge, Timer}
 
 class IndexMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.DropwizardFactory {
 
   @MetricDoc.Tag(
     summary = "The buffer size for transaction trees requests.",
@@ -72,8 +71,8 @@ class IndexMetrics(override val prefix: MetricName, override val registry: Metri
                     |in-memory data set.""",
     qualification = Debug,
   )
-  val ledgerEndSequentialId: VarGauge[Long] =
-    varGauge(prefix :+ "ledger_end_sequential_id", 0)
+  val ledgerEndSequentialId: Gauge[Long] =
+    gauge(prefix :+ "ledger_end_sequential_id", 0)
 
   object lfValue {
     private val prefix = IndexMetrics.this.prefix :+ "lf_value"

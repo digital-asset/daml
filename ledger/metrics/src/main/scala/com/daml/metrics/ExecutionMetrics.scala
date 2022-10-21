@@ -9,7 +9,7 @@ import com.daml.metrics.MetricHandle.{Counter, Histogram, Meter, Timer}
 import com.codahale.metrics.MetricRegistry
 
 class ExecutionMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.DropwizardFactory {
 
   @MetricDoc.Tag(
     summary = "The time to lookup individual active contracts during interpretation.",
@@ -130,7 +130,7 @@ class ExecutionMetrics(override val prefix: MetricName, override val registry: M
   @MetricDoc.GroupTag(
     representative = "daml.execution.cache.<state_cache>.evicted_weight"
   )
-  object cache extends MetricHandle.Factory {
+  object cache extends MetricHandle.DropwizardFactory {
     override val prefix: MetricName = ExecutionMetrics.this.prefix :+ "cache"
     override val registry = ExecutionMetrics.this.registry
 

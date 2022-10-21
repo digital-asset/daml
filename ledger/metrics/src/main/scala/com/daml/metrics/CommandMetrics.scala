@@ -9,7 +9,7 @@ import com.daml.metrics.MetricHandle.{Counter, Meter, Timer}
 import com.codahale.metrics.{MetricRegistry}
 
 class CommandMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.DropwizardFactory {
 
   @MetricDoc.Tag(
     summary = "The time to validate a Daml command.",
