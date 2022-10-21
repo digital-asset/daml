@@ -6,6 +6,7 @@ package com.daml.platform.store.backend
 import java.nio.charset.StandardCharsets
 import java.sql.SQLException
 
+import com.daml.platform.store.backend.localstore.ParticipantMetadataBackend
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.OptionValues
@@ -21,7 +22,7 @@ private[backend] trait ParticipantResourceMetadataTests
     with OptionValues {
   this: AnyFlatSpec =>
 
-  private def tested = com.daml.platform.store.backend.common.ParticipantMetadataBackend
+  private def tested = ParticipantMetadataBackend
 
   def resourceVersionTableName: String
   def resourceAnnotationsTableName: String

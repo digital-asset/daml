@@ -13,6 +13,7 @@ da_scala_library(
         "@maven//:com_chuusai_shapeless",
         "@maven//:com_github_pureconfig_pureconfig_core",
         "@maven//:com_github_pureconfig_pureconfig_generic",
+        "@maven//:com_github_pureconfig_pureconfig_generic_base",
         "@maven//:com_github_scopt_scopt",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_typesafe_akka_akka_stream",

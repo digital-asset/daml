@@ -72,9 +72,9 @@ object WebSocketService {
     final case class Valid[+Positive](
         resolvedQurey: domain.ResolvedQuery,
         unresolved: Set[domain.ContractTypeId.OptionalPkg],
-        fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive],
+        fn: (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Positive],
         dbQuery: (domain.PartySet, dbbackend.ContractDao) => ConnectionIO[
-          _ <: Vector[(domain.ActiveContract[JsValue], Positive)]
+          _ <: Vector[(domain.ActiveContract.ResolvedCtTyId[JsValue], Positive)]
         ],
     ) extends StreamPredicate[Positive]
     final case class AllContractTypeIdsNotResolved(
@@ -106,7 +106,10 @@ object WebSocketService {
 
   private final case class StepAndErrors[+Pos, +LfVT](
       errors: Seq[ServerError],
-      step: ContractStreamStep[domain.ArchivedContract, (domain.ActiveContract[LfVT], Pos)],
+      step: ContractStreamStep[
+        domain.ArchivedContract,
+        (domain.ActiveContract.ResolvedCtTyId[LfVT], Pos),
+      ],
   ) {
     import JsonProtocol._
 
@@ -207,8 +210,7 @@ object WebSocketService {
 
     private[WebSocketService] def predicate(
         request: A,
-        resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
-        resolveTemplateId: PackageService.ResolveTemplateId,
+        resolveContractTypeId: PackageService.ResolveContractTypeId,
         lookupType: ValuePredicate.TypeLookup,
         jwt: Jwt,
         ledgerId: LedgerApiDomain.LedgerId,
@@ -299,8 +301,7 @@ object WebSocketService {
 
       override private[WebSocketService] def predicate(
           request: SearchForeverRequest,
-          resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
-          resolveTemplateId: PackageService.ResolveTemplateId,
+          resolveContractTypeId: PackageService.ResolveContractTypeId,
           lookupType: ValuePredicate.TypeLookup,
           jwt: Jwt,
           ledgerId: LedgerApiDomain.LedgerId,
@@ -329,7 +330,10 @@ object WebSocketService {
             q: Map[domain.ContractTypeId.Resolved, NonEmptyList[
               ((ValuePredicate, LfV => Boolean), (Int, Int))
             ]]
-        )(a: domain.ActiveContract[LfV], o: Option[domain.Offset]): Option[Positive] = {
+        )(
+            a: domain.ActiveContract.ResolvedCtTyId[LfV],
+            o: Option[domain.Offset],
+        ): Option[Positive] = {
           q.get(a.templateId).flatMap { preds =>
             preds.collect(Function unlift { case ((_, p), (ix, pos)) =>
               val matchesPredicate = p(a.payload)
@@ -528,8 +532,7 @@ object WebSocketService {
 
     override private[WebSocketService] def predicate(
         request: NonEmptyList[CKR[LfV]],
-        resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
-        resolveTemplateId: PackageService.ResolveTemplateId,
+        resolveContractTypeId: PackageService.ResolveContractTypeId,
         lookupType: TypeLookup,
         jwt: Jwt,
         ledgerId: LedgerApiDomain.LedgerId,
@@ -542,12 +545,13 @@ object WebSocketService {
         resolvedWithKey.to(HashSet).groupMap(_._1)(_._2)
       def fn(
           q: Map[domain.ContractTypeId.Resolved, HashSet[LfV]]
-      ): (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive] = { (a, _) =>
-        a.key match {
-          case None => None
-          case Some(k) =>
-            if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
-        }
+      ): (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Positive] = {
+        (a, _) =>
+          a.key match {
+            case None => None
+            case Some(k) =>
+              if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
+          }
       }
       def dbQueries[CtId <: domain.ContractTypeId.RequiredPkg](
           q: Map[CtId, HashSet[LfV]]
@@ -586,7 +590,7 @@ object WebSocketService {
         )
       request.toList
         .traverse { x: CKR[LfV] =>
-          resolveTemplateId(jwt, ledgerId)(x.ekey.templateId)
+          resolveContractTypeId(jwt, ledgerId)(x.ekey.templateId)
             .map(_.toOption.flatten.map((_, x.ekey.key)).toLeft(x.ekey.templateId))
         }
         .map(
@@ -663,8 +667,7 @@ object WebSocketService {
 
 class WebSocketService(
     contractsService: ContractsService,
-    resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
-    resolveTemplateId: PackageService.ResolveTemplateId,
+    resolveContractTypeId: PackageService.ResolveContractTypeId,
     decoder: DomainJsonDecoder,
     lookupType: ValuePredicate.TypeLookup,
     wsConfig: Option[WebsocketConfig],
@@ -865,7 +868,7 @@ class WebSocketService(
       lc: LoggingContextOf[InstanceUUID],
       Q: StreamQuery[A],
   ): Future[StreamPredicate[Q.Positive]] =
-    Q.predicate(request, resolveContractTypeId, resolveTemplateId, lookupType, jwt, ledgerId)
+    Q.predicate(request, resolveContractTypeId, lookupType, jwt, ledgerId)
 
   private def getTransactionSourceForParty[A](
       jwt: Jwt,
@@ -938,7 +941,7 @@ class WebSocketService(
     def processResolved(
         resolvedQuery: ResolvedQuery,
         unresolved: Set[OptionalPkg],
-        fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Q.Positive],
+        fn: (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Q.Positive],
     ) =
       acsPred
         .flatMap(
@@ -1091,7 +1094,7 @@ class WebSocketService(
 
   private def convertFilterContracts[Pos](
       resolvedQuery: domain.ResolvedQuery,
-      fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Pos],
+      fn: (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Pos],
   ): Flow[ContractStreamStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
       .fromFunction { step: ContractStreamStep.LAV1 =>
@@ -1108,7 +1111,7 @@ class WebSocketService(
         )(Seq)
         StepAndErrors(
           errors ++ aerrors,
-          dstep mapInserts { inserts: Vector[domain.ActiveContract[LfV]] =>
+          dstep mapInserts { inserts: Vector[domain.ActiveContract.ResolvedCtTyId[LfV]] =>
             inserts.flatMap { ac =>
               fn(ac, dstep.bookmark.flatMap(_.toOption)).map((ac, _)).toList
             }

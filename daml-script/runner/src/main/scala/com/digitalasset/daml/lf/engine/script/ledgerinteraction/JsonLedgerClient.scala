@@ -23,7 +23,7 @@ import com.daml.ledger.api.auth.{
   CustomDamlJWTPayload,
   StandardJWTPayload,
 }
-import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
+import com.daml.ledger.api.domain.{ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
@@ -208,6 +208,13 @@ class JsonLedgerClient(
         ScriptLedgerClient.ActiveContract(templateId, cid, payload)
       })
     }
+  }
+  override def queryViewContractId(
+      parties: OneAnd[Set, Ref.Party],
+      interfaceId: Identifier,
+      cid: ContractId,
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[Option[Value]] = {
+    sys.error("not implemented") // TODO https://github.com/digital-asset/daml/issues/14830
   }
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
@@ -830,6 +837,7 @@ object JsonLedgerClient {
             id.convertTo[Party],
             optName.map(_.convertTo[String]),
             isLocal.convertTo[Boolean],
+            ObjectMeta.empty,
           )
         case _ => deserializationError(s"Expected PartyDetails but got $v")
       }

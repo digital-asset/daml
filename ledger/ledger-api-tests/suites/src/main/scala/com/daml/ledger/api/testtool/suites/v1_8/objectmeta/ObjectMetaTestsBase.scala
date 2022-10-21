@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites.v1_8.objectmeta
 
-import com.daml.ledger.api.testtool.infrastructure.ExpectedErrorDescription
+import com.daml.error.ErrorCode
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 
@@ -69,13 +69,8 @@ trait ObjectMetaTestsBase {
     assert(v.nonEmpty, s"resource version (from $sourceMsg) must be non empty")
   }
 
-  private[objectmeta] def concurrentUserUpdateDetectedErrorDescription(
-      id: ResourceId
-  ): ExpectedErrorDescription
+  private[objectmeta] def concurrentUserUpdateDetectedErrorCode: ErrorCode
 
-  private[objectmeta] def invalidUpdateRequestErrorDescription(
-      id: ResourceId,
-      errorMessageSuffix: String,
-  ): ExpectedErrorDescription
+  private[objectmeta] def invalidUpdateRequestErrorCode: ErrorCode
 
 }

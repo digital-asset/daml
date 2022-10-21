@@ -97,9 +97,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
             updatePaths = Seq(annotationsUpdatePath),
           ).mustFailWith(
             "updating a resource using an outdated resource version",
-            concurrentUserUpdateDetectedErrorDescription(
-              id = getId(resource)
-            ),
+            concurrentUserUpdateDetectedErrorCode,
           )
           // Updating a resource with the concurrent change detection enabled and prlviding the up-to-date resource version
           _ <- update(
@@ -178,10 +176,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
           updatePaths = Seq(annotationsUpdatePath, annotationsUpdatePath),
         ).mustFailWith(
           "updating a resource",
-          invalidUpdateRequestErrorDescription(
-            id = getId(resource),
-            errorMessageSuffix = s"The update path: '$annotationsUpdatePath' is duplicated.",
-          ),
+          invalidUpdateRequestErrorCode,
         )
   )
 
@@ -198,10 +193,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
         )
           .mustFailWith(
             "updating a resource",
-            invalidUpdateRequestErrorDescription(
-              id = getId(resource),
-              errorMessageSuffix = "The update mask contains no entries",
-            ),
+            invalidUpdateRequestErrorCode,
           )
   )
 
@@ -218,10 +210,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
             updatePaths = Seq("unknown_field"),
           ).mustFailWith(
             "fail 1",
-            invalidUpdateRequestErrorDescription(
-              id = getId(resource),
-              errorMessageSuffix = "The update path: 'unknown_field' points to an unknown field.",
-            ),
+            invalidUpdateRequestErrorCode,
           )
           _ <- update(
             id = getId(resource),
@@ -229,10 +218,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
             updatePaths = Seq("aaa!bbb"),
           ).mustFailWith(
             "fail 2",
-            invalidUpdateRequestErrorDescription(
-              id = getId(resource),
-              errorMessageSuffix = "The update path: 'aaa!bbb' points to an unknown field.",
-            ),
+            invalidUpdateRequestErrorCode,
           )
           _ <- update(
             id = getId(resource),
@@ -240,10 +226,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
             updatePaths = Seq(""),
           ).mustFailWith(
             "fail 3",
-            invalidUpdateRequestErrorDescription(
-              id = getId(resource),
-              errorMessageSuffix = "The update path: '' points to an unknown field.",
-            ),
+            invalidUpdateRequestErrorCode,
           )
         } yield ()
   )
@@ -257,9 +240,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
     ).mustFailWith(
       "creating a resource",
       LedgerApiErrors.RequestValidation.InvalidArgument,
-      Some(
-        "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: The value of an annotation is empty for key: 'k2'"
-      ),
+      Some("value of an annotation is empty"),
     )
   })
 
@@ -272,9 +253,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
     ).mustFailWith(
       "creating a resource",
       errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
-      exceptionMessageSubstring = Some(
-        "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Key prefix segment '.aaaa.management.daml' has invalid syntax"
-      ),
+      exceptionMessageSubstring = Some("has invalid syntax"),
     )
   })
 
@@ -286,9 +265,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
       .mustFailWith(
         "total size of annotations exceeds 256kb max limit",
         errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
-        exceptionMessageSubstring = Some(
-          s"INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: annotations from field '${annotationsUpdateRequestFieldPath}' are larger than the limit of 256kb"
-        ),
+        exceptionMessageSubstring = Some("larger than the limit of 256kb"),
       )
   }
 
@@ -370,9 +347,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
         ).mustFailWith(
           "updating the annotations",
           errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
-          exceptionMessageSubstring = Some(
-            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Key prefix segment '.aaaa.management.daml' has invalid syntax"
-          ),
+          exceptionMessageSubstring = Some("has invalid syntax"),
         )
   )
 
@@ -389,9 +364,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
         ).mustFailWith(
           "deleting an annotations' key",
           errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
-          exceptionMessageSubstring = Some(
-            "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Key prefix segment '.aaaa.management.daml' has invalid syntax"
-          ),
+          exceptionMessageSubstring = Some("has invalid syntax"),
         )
   )
 
@@ -424,9 +397,7 @@ trait ObjectMetaTests extends ObjectMetaTestsBase {
       .mustFailWith(
         "total size of annotations, in a user update call, is over 256kb",
         errorCode = LedgerApiErrors.RequestValidation.InvalidArgument,
-        exceptionMessageSubstring = Some(
-          s"INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: annotations from field '${annotationsUpdateRequestFieldPath}' are larger than the limit of 256kb"
-        ),
+        exceptionMessageSubstring = Some("larger than the limit of 256kb"),
       )
   }
 

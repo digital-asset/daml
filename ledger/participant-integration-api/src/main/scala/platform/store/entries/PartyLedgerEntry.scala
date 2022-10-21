@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.entries
 
-import com.daml.ledger.api.domain.PartyDetails
+import com.daml.ledger.participant.state.index.v2.IndexerPartyDetails
 import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.SubmissionId
 
@@ -17,7 +17,7 @@ private[platform] object PartyLedgerEntry {
   final case class AllocationAccepted(
       submissionIdOpt: Option[SubmissionId],
       recordTime: Timestamp,
-      partyDetails: PartyDetails,
+      partyDetails: IndexerPartyDetails,
   ) extends PartyLedgerEntry
 
   final case class AllocationRejected(

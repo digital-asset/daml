@@ -5,8 +5,8 @@ package com.daml.platform.store.dao
 
 import java.util.UUID
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.index.v2.IndexerPartyDetails
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.store.dao.PersistenceResponse
@@ -23,12 +23,12 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
   behavior of "JdbcLedgerDao (parties)"
 
   it should "store and retrieve all parties" in {
-    val alice = PartyDetails(
+    val alice = IndexerPartyDetails(
       party = Ref.Party.assertFromString(s"Alice-${UUID.randomUUID()}"),
       displayName = Some("Alice Arkwright"),
       isLocal = true,
     )
-    val bob = PartyDetails(
+    val bob = IndexerPartyDetails(
       party = Ref.Party.assertFromString(s"Bob-${UUID.randomUUID()}"),
       displayName = Some("Bob Bobertson"),
       isLocal = true,
@@ -48,7 +48,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     val acceptedParty = Ref.Party.assertFromString(s"Accepted-${UUID.randomUUID()}")
     val nonExistentParty = UUID.randomUUID().toString
     val rejectionReason = s"$nonExistentParty is rejected"
-    val accepted = PartyDetails(
+    val accepted = IndexerPartyDetails(
       party = acceptedParty,
       displayName = Some("Accepted Ackbar"),
       isLocal = true,
@@ -101,7 +101,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
   it should "retrieve a single party, if they exist" in {
     val party = Ref.Party.assertFromString(s"Carol-${UUID.randomUUID()}")
     val nonExistentParty = UUID.randomUUID().toString
-    val carol = PartyDetails(
+    val carol = IndexerPartyDetails(
       party = party,
       displayName = Some("Carol Carlisle"),
       isLocal = true,
@@ -121,12 +121,12 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     val danParty = Ref.Party.assertFromString(s"Dan-${UUID.randomUUID()}")
     val eveParty = Ref.Party.assertFromString(s"Eve-${UUID.randomUUID()}")
     val nonExistentParty = UUID.randomUUID().toString
-    val dan = PartyDetails(
+    val dan = IndexerPartyDetails(
       party = danParty,
       displayName = Some("Dangerous Dan"),
       isLocal = true,
     )
-    val eve = PartyDetails(
+    val eve = IndexerPartyDetails(
       party = eveParty,
       displayName = Some("Dangerous Dan"),
       isLocal = true,
@@ -144,7 +144,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
 
   it should "be able to store multiple parties with the same identifier, which was local once, and the last update will be visible as query-ing, except is_local: that stays true" in {
     val danParty = Ref.Party.assertFromString(s"Dan-${UUID.randomUUID()}")
-    val dan = PartyDetails(
+    val dan = IndexerPartyDetails(
       party = danParty,
       displayName = Some("Dangerous Dan"),
       isLocal = true,
@@ -192,7 +192,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
 
   it should "be able to store multiple parties with the same identifier, which was never local once, and the last update will be visible as query-ing, also is_local: false" in {
     val danParty = Ref.Party.assertFromString(s"Dan-${UUID.randomUUID()}")
-    val dan = PartyDetails(
+    val dan = IndexerPartyDetails(
       party = danParty,
       displayName = Some("Dangerous Dan"),
       isLocal = false,
@@ -236,7 +236,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
   }
 
   private def storePartyEntry(
-      partyDetails: PartyDetails,
+      partyDetails: IndexerPartyDetails,
       offset: Offset,
       submissionIdOpt: Option[Ref.SubmissionId] = Some(UUID.randomUUID().toString),
       recordTime: Timestamp = Timestamp.now(),

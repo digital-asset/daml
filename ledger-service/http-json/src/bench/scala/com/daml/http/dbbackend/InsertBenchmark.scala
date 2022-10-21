@@ -29,7 +29,7 @@ trait InsertBenchmark extends ContractDaoBenchmark {
   @Setup(Level.Trial)
   override def setup(): Unit = {
     super.setup()
-    tpid = insertTemplate(ContractTypeId("-pkg-", "M", "T"))
+    tpid = insertTemplate(ContractTypeId.Template("-pkg-", "M", "T"))
     contracts = (1 until numContracts + 1).map { i =>
       // Use negative cids to avoid collisions with other contracts
       contract(-i, "Alice", tpid)

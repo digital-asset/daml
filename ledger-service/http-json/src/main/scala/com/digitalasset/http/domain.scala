@@ -122,7 +122,7 @@ package domain {
     }
   }
 
-  case class Contract[LfV](value: ArchivedContract \/ ActiveContract[LfV])
+  case class Contract[LfV](value: ArchivedContract \/ ActiveContract.ResolvedCtTyId[LfV])
 
   case class ArchivedContract(contractId: ContractId, templateId: ContractTypeId.RequiredPkg)
 
@@ -159,8 +159,7 @@ package domain {
   )
 
   final case class SearchForeverQuery(
-      // TODO #14844 remove .Template for subscriptions
-      templateIds: NonEmpty[Set[ContractTypeId.Template.OptionalPkg]],
+      templateIds: NonEmpty[Set[ContractTypeId.OptionalPkg]],
       query: Map[String, JsValue],
       offset: Option[domain.Offset],
   )
@@ -278,19 +277,19 @@ package domain {
       meta: Option[CommandMeta],
   )
 
-  final case class CreateAndExerciseCommand[+Payload, +Arg, +TmplId](
+  final case class CreateAndExerciseCommand[+Payload, +Arg, +TmplId, +IfceId](
       templateId: TmplId,
       payload: Payload,
       choice: domain.Choice,
       argument: Arg,
       // passing a template ID is allowed; we distinguish internally
-      choiceInterfaceId: Option[TmplId],
+      choiceInterfaceId: Option[IfceId],
       meta: Option[CommandMeta],
   )
 
   final case class CreateCommandResponse[+LfV](
       contractId: ContractId,
-      templateId: ContractTypeId.RequiredPkg, // TODO #15098 use .Template
+      templateId: ContractTypeId.Template.RequiredPkg,
       key: Option[LfV],
       payload: LfV,
       signatories: Seq[Party],
@@ -361,14 +360,16 @@ package domain {
     implicit val covariant: Traverse[Contract] = new Traverse[Contract] {
 
       override def map[A, B](fa: Contract[A])(f: A => B): Contract[B] = {
-        val valueB: ArchivedContract \/ ActiveContract[B] = fa.value.map(a => a.map(f))
+        val valueB: ArchivedContract \/ ActiveContract.ResolvedCtTyId[B] =
+          fa.value.map(a => a.map(f))
         Contract(valueB)
       }
 
       override def traverseImpl[G[_]: Applicative, A, B](
           fa: Contract[A]
       )(f: A => G[B]): G[Contract[B]] = {
-        val valueB: G[ArchivedContract \/ ActiveContract[B]] = fa.value.traverse(a => a.traverse(f))
+        val valueB: G[ArchivedContract \/ ActiveContract.ResolvedCtTyId[B]] =
+          fa.value.traverse(a => a.traverse(f))
         valueB.map(x => Contract[B](x))
       }
     }
@@ -376,22 +377,28 @@ package domain {
 
   private[http] object ActiveContractExtras {
     // only used in integration tests
-    implicit val `AcC hasTemplateId`: HasTemplateId.Compat[ActiveContract] =
-      new HasTemplateId[ActiveContract] {
-        override def templateId(fa: ActiveContract[_]): ContractTypeId.OptionalPkg =
+    implicit val `AcC hasTemplateId`: HasTemplateId.Compat[ActiveContract.ResolvedCtTyId] =
+      new HasTemplateId[ActiveContract.ResolvedCtTyId] {
+        override def templateId(fa: ActiveContract.ResolvedCtTyId[_]): ContractTypeId.OptionalPkg =
           (fa.templateId: ContractTypeId.RequiredPkg).map(Some(_))
 
         type TypeFromCtId = LfType
 
         override def lfType(
-            fa: ActiveContract[_],
+            fa: ActiveContract.ResolvedCtTyId[_],
             templateId: ContractTypeId.Resolved,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
         ): Error \/ LfType =
-          f(templateId)
-            .leftMap(e => Error(Symbol("ActiveContract_hasTemplateId_lfType"), e.shows))
+          templateId match {
+            case tid: ContractTypeId.Template.Resolved =>
+              f(tid: ContractTypeId.Template.Resolved)
+                .leftMap(e => Error(Symbol("ActiveContract_hasTemplateId_lfType"), e.shows))
+            case other =>
+              val errorMsg = s"Expect contract type Id to be template Id, got otherwise: $other"
+              -\/(Error(Symbol("ActiveContract_hasTemplateId_lfType"), errorMsg))
+          }
       }
   }
 
@@ -485,9 +492,16 @@ package domain {
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
-        ): Error \/ LfType =
-          h(templateId)
-            .leftMap(e => Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), e.shows))
+        ): Error \/ LfType = {
+          templateId match {
+            case tid: ContractTypeId.Template.Resolved =>
+              h(tid: ContractTypeId.Template.Resolved)
+                .leftMap(e => Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), e.shows))
+            case other =>
+              val errorMsg = s"Expect contract type Id to be template Id, got otherwise: $other"
+              -\/(Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), errorMsg))
+          }
+        }
       }
   }
 
@@ -599,12 +613,26 @@ package domain {
   }
 
   object CreateAndExerciseCommand {
-    implicit def covariant[P, Ar]: Traverse[CreateAndExerciseCommand[P, Ar, *]] =
-      new Traverse[CreateAndExerciseCommand[P, Ar, *]] {
-        override def traverseImpl[G[_]: Applicative, A, B](
-            fa: CreateAndExerciseCommand[P, Ar, A]
-        )(f: A => G[B]): G[CreateAndExerciseCommand[P, Ar, B]] =
-          ^(f(fa.templateId), fa.choiceInterfaceId traverse f) { (tId, ciId) =>
+    type LAVUnresolved = CreateAndExerciseCommand[
+      lav1.value.Record,
+      lav1.value.Value,
+      domain.ContractTypeId.Template.OptionalPkg,
+      domain.ContractTypeId.OptionalPkg,
+    ]
+
+    type LAVResolved = CreateAndExerciseCommand[
+      lav1.value.Record,
+      lav1.value.Value,
+      domain.ContractTypeId.Template.RequiredPkg,
+      domain.ContractTypeId.RequiredPkg,
+    ]
+
+    implicit def covariant[P, Ar]: Bitraverse[CreateAndExerciseCommand[P, Ar, *, *]] =
+      new Bitraverse[CreateAndExerciseCommand[P, Ar, *, *]] {
+        override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
+            fa: CreateAndExerciseCommand[P, Ar, A, B]
+        )(f: A => G[C], g: B => G[D]): G[CreateAndExerciseCommand[P, Ar, C, D]] =
+          ^(f(fa.templateId), fa.choiceInterfaceId traverse g) { (tId, ciId) =>
             fa.copy(templateId = tId, choiceInterfaceId = ciId)
           }
       }

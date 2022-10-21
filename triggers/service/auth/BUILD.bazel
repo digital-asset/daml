@@ -72,6 +72,7 @@ da_scala_library(
         "@maven//:com_chuusai_shapeless",
         "@maven//:com_github_pureconfig_pureconfig_core",
         "@maven//:com_github_pureconfig_pureconfig_generic",
+        "@maven//:com_github_pureconfig_pureconfig_generic_base",
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
     ],

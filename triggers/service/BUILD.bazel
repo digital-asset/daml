@@ -50,6 +50,7 @@ da_scala_library(
         "@maven//:org_typelevel_cats_kernel",
         "@maven//:com_github_pureconfig_pureconfig_core",
         "@maven//:com_github_pureconfig_pureconfig_generic",
+        "@maven//:com_github_pureconfig_pureconfig_generic_base",
     ],
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",
@@ -198,7 +199,7 @@ da_scala_library(
         "//triggers/service/auth:oauth2-middleware",
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
@@ -251,7 +252,7 @@ da_scala_test_suite(
         "//libs-scala/resources",
         "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-test-server",
-        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
         "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
@@ -294,7 +295,7 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//triggers/service/auth:oauth2-test-server",
-        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

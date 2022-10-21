@@ -138,19 +138,21 @@ trait AbstractTriggerTest
     } yield response.getTransaction.events.head.getCreated.contractId
   }
 
-  protected def archive(
+  protected def exercise(
       client: LedgerClient,
       party: String,
       templateId: LedgerApi.Identifier,
       contractId: String,
+      choice: String,
+      choiceArgument: LedgerApi.Value,
   )(implicit ec: ExecutionContext): Future[Unit] = {
     val commands = Seq(
       Command().withExercise(
         ExerciseCommand(
           templateId = Some(templateId),
           contractId = contractId,
-          choice = "Archive",
-          choiceArgument = Some(LedgerApi.Value().withRecord(LedgerApi.Record())),
+          choice = choice,
+          choiceArgument = Some(choiceArgument),
         )
       )
     )
@@ -168,6 +170,22 @@ trait AbstractTriggerTest
     for {
       _ <- client.commandServiceClient.submitAndWaitForTransaction(request)
     } yield ()
+  }
+
+  protected def archive(
+      client: LedgerClient,
+      party: String,
+      templateId: LedgerApi.Identifier,
+      contractId: String,
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    exercise(
+      client,
+      party,
+      templateId,
+      contractId,
+      "Archive",
+      LedgerApi.Value().withRecord(LedgerApi.Record()),
+    )
   }
 
   protected def queryACS(client: LedgerClient, party: String)(implicit

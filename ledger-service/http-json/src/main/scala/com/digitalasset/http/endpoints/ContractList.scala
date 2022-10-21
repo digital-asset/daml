@@ -72,7 +72,7 @@ private[http] final class ContractList(
           _ <- either(ensureReadAsAllowedByJwt(fr.readAs, jwtPayload))
           ac <- eitherT(
             handleFutureFailure(contractsService.lookup(jwt, jwtPayload, fr))
-          ): ET[Option[domain.ActiveContract[JsValue]]]
+          ): ET[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]]
 
           jsVal <- either(
             ac.cata(x => toJsValue(x), \/-(JsNull))
@@ -93,7 +93,9 @@ private[http] final class ContractList(
       _.map { case (jwt, jwtPayload, _) =>
         parseAndDecodeTimerStop()
         withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
-          val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
+          val result: SearchResult[
+            ContractsService.Error \/ domain.ActiveContract.ResolvedCtTyId[LfValue]
+          ] =
             contractsService.retrieveAll(jwt, jwtPayload)
 
           domain.SyncResponse.covariant.map(result) { source =>
@@ -129,7 +131,7 @@ private[http] final class ContractList(
             .map(
               domain.SyncResponse.covariant.map(_)(
                 _.via(handleSourceFailure)
-                  .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
+                  .map(_.flatMap(toJsValue[domain.ActiveContract.ResolvedCtTyId[JsValue]](_)))
               )
             )
         }
@@ -156,9 +158,9 @@ private[endpoints] object ContractList {
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError.fromMsg)
 
-  private def lfAcToJsValue(a: domain.ActiveContract[LfValue]): Error \/ JsValue = {
+  private def lfAcToJsValue(a: domain.ActiveContract.ResolvedCtTyId[LfValue]): Error \/ JsValue = {
     for {
-      b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract[JsValue]
+      b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract.ResolvedCtTyId[JsValue]
       c <- toJsValue(b)
     } yield c
   }

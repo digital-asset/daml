@@ -10,7 +10,9 @@ script-options:
 - --input-file
 - args.json
 parties:
-- Bank
+- Alice
+- Bob
+- Charlie
 dependencies:
 - daml-stdlib
 - daml-prim
@@ -39,7 +41,7 @@ data-dependencies:
 - deps/daml-script-0.0.0-HASH.dalf
 - deps/daml-stdlib-0.0.0-HASH.dalf
 - deps/daml-stdlib-DA-Set-Types-1.0.0-HASH.dalf
-- deps/export-values-1.0.0-HASH.dalf
+- deps/interface-choices-1.0.0-HASH.dalf
 build-options:
-- --target=1.14
-- --package=export-values-1.0.0
+- --target=1.dev
+- --package=interface-choices-1.0.0

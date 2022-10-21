@@ -101,9 +101,7 @@ class UserManagementServiceUpdateRpcIT extends UserManagementServiceITBase {
           .mustFailWith(
             "update with an unknown update path",
             errorCode = LedgerApiErrors.RequestValidation.MissingField,
-            exceptionMessageSubstring = Some(
-              s"INVALID_ARGUMENT: MISSING_FIELD(8,0): The submitted command is missing a mandatory field: user"
-            ),
+            exceptionMessageSubstring = Some("missing a mandatory field: user"),
           )
   )
 
@@ -125,9 +123,6 @@ class UserManagementServiceUpdateRpcIT extends UserManagementServiceITBase {
         .mustFailWith(
           "updating non-existent party",
           errorCode = LedgerApiErrors.Admin.UserManagement.UserNotFound,
-          exceptionMessageSubstring = Some(
-            s"NOT_FOUND: USER_NOT_FOUND(11,0): updating user failed for unknown user \"$userId1\""
-          ),
         )
     } yield ()
   })
@@ -149,9 +144,6 @@ class UserManagementServiceUpdateRpcIT extends UserManagementServiceITBase {
           .mustFailWith(
             "update with an unknown update path",
             errorCode = LedgerApiErrors.RequestValidation.InvalidField,
-            exceptionMessageSubstring = Some(
-              s"INVALID_ARGUMENT: INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field user.id: User ID \"%%!!!\" does not match regex \"[a-z0-9@^$$.!`\\-#+'~_|:]{1,128}\""
-            ),
           )
   )
 

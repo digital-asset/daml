@@ -10,16 +10,30 @@ import akka.stream.scaladsl.Source
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.ParticipantParty.PartyRecord
-import com.daml.ledger.api.domain.{LedgerOffset, ObjectMeta, ParticipantParty, PartyEntry}
+import com.daml.ledger.api.domain.{LedgerOffset, ObjectMeta, PartyDetails}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
-import com.daml.ledger.api.v1.admin.party_management_service._
-import com.daml.ledger.api.v1.{admin => proto_admin}
+import com.daml.ledger.api.v1.admin.party_management_service.{
+  AllocatePartyRequest,
+  AllocatePartyResponse,
+  GetParticipantIdRequest,
+  GetParticipantIdResponse,
+  GetPartiesRequest,
+  GetPartiesResponse,
+  ListKnownPartiesRequest,
+  ListKnownPartiesResponse,
+  PartyManagementServiceGrpc,
+  UpdatePartyDetailsRequest,
+  UpdatePartyDetailsResponse,
+}
+import com.daml.ledger.api.v1.admin.party_management_service.{PartyDetails => ProtoPartyDetails}
+import com.daml.ledger.api.v1.admin.object_meta.{ObjectMeta => ProtoObjectMeta}
 import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
+  IndexerPartyDetails,
   LedgerEndService,
+  PartyEntry,
 }
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
@@ -31,7 +45,12 @@ import com.daml.platform.apiserver.services.admin.ApiPartyManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.apiserver.update
 import com.daml.platform.apiserver.update.PartyRecordUpdateMapper
-import com.daml.platform.localstore.api.{PartyDetailsUpdate, PartyRecordStore, PartyRecordUpdate}
+import com.daml.platform.localstore.api.{
+  PartyDetailsUpdate,
+  PartyRecord,
+  PartyRecordStore,
+  PartyRecordUpdate,
+}
 import com.daml.platform.server.api.validation.FieldValidations
 import com.daml.platform.server.api.validation.FieldValidations.{
   optionalString,
@@ -87,7 +106,6 @@ private[apiserver] final class ApiPartyManagementService private (
     partyManagementService
       .getParticipantId()
       .map(pid => GetParticipantIdResponse(pid.toString))
-      .andThen(logger.logErrorsOnCall[GetParticipantIdResponse])
   }
 
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
@@ -110,10 +128,7 @@ private[apiserver] final class ApiPartyManagementService private (
             }
           GetPartiesResponse(partyDetails = protoDetails)
         }
-      }.andThen(
-        // TODO um-for-hub: Check if this logging is necessary and doesn't duplicate error interceptor
-        logger.logErrorsOnCall[GetPartiesResponse]
-      )
+      }
     }
 
   override def listKnownParties(
@@ -130,7 +145,7 @@ private[apiserver] final class ApiPartyManagementService private (
         toProtoPartyDetails(partyDetails = details, metadataO = recordO.map(_.metadata))
       }
       ListKnownPartiesResponse(protoDetails)
-    }).andThen(logger.logErrorsOnCall[ListKnownPartiesResponse])
+    })
   }
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
@@ -149,9 +164,7 @@ private[apiserver] final class ApiPartyManagementService private (
           partyIdHintO <- FieldValidations.optionalString(
             request.partyIdHint
           )(FieldValidations.requireParty)
-          metadata = request.localMetadata.getOrElse(
-            com.daml.ledger.api.v1.admin.object_meta.ObjectMeta()
-          )
+          metadata = request.localMetadata.getOrElse(ProtoObjectMeta())
           _ <- requireEmptyString(
             metadata.resourceVersion,
             "party_details.local_metadata.resource_version",
@@ -171,7 +184,7 @@ private[apiserver] final class ApiPartyManagementService private (
           )
           partyRecord <- partyRecordStore
             .createPartyRecord(
-              ParticipantParty.PartyRecord(
+              PartyRecord(
                 party = allocated.partyDetails.party,
                 metadata = domain.ObjectMeta(resourceVersionO = None, annotations = annotations),
               )
@@ -183,7 +196,7 @@ private[apiserver] final class ApiPartyManagementService private (
             metadataO = Some(partyRecord.metadata),
           )
           AllocatePartyResponse(Some(details))
-        }).andThen(logger.logErrorsOnCall[AllocatePartyResponse])
+        })
       }
     }
   }
@@ -205,7 +218,7 @@ private[apiserver] final class ApiPartyManagementService private (
             "party_details",
           )
           party <- requireParty(partyDetails.party)
-          metadata = partyDetails.localMetadata.getOrElse(proto_admin.object_meta.ObjectMeta())
+          metadata = partyDetails.localMetadata.getOrElse(ProtoObjectMeta())
           resourceVersionNumberO <- optionalString(metadata.resourceVersion)(
             FieldValidations.requireResourceVersion(
               _,
@@ -222,7 +235,7 @@ private[apiserver] final class ApiPartyManagementService private (
             "update_mask",
           )
           displayNameO <- FieldValidations.optionalString(partyDetails.displayName)(Right(_))
-          partyRecord = ParticipantParty.PartyDetails(
+          partyRecord = PartyDetails(
             party = party,
             displayName = displayNameO,
             isLocal = partyDetails.isLocal,
@@ -267,12 +280,8 @@ private[apiserver] final class ApiPartyManagementService private (
                   )
                   .asGrpcError
               )
-              // TODO um-for-hub: Investigate why empty sting display name is represented as `""` rather than `None` in com.daml.ledger.api.domain.PartyDetails.displayName: Option[String]
             } else if (
-              partyDetailsUpdate.displayNameUpdate.exists(
-                _ != (if (fetchedPartyDetails.displayName == Some("")) None
-                      else fetchedPartyDetails.displayName)
-              )
+              partyDetailsUpdate.displayNameUpdate.exists(_ != fetchedPartyDetails.displayName)
             ) {
               Future.failed(
                 LedgerApiErrors.Admin.PartyManagement.InvalidUpdatePartyDetailsRequest
@@ -284,6 +293,8 @@ private[apiserver] final class ApiPartyManagementService private (
                   .asGrpcError
               )
             } else {
+              // NOTE: In the current implementation (as of 2022.10.13) a no-op update request
+              // will still cause an update of the resourceVersion's value.
               Future.successful(
                 PartyRecordUpdate(
                   party = partyDetailsUpdate.party,
@@ -294,9 +305,8 @@ private[apiserver] final class ApiPartyManagementService private (
           }
           updatedPartyRecordResult <- partyRecordStore.updatePartyRecord(
             partyRecordUpdate = partyRecordUpdate,
-            ledgerPartyExists = (party: Ref.Party) => {
-              // TODO um-for-hub: Consider changing it to Future.successful(true)
-              partyManagementService.getParties(Seq(party)).map(_.nonEmpty)
+            ledgerPartyExists = (_: Ref.Party) => {
+              Future.successful(fetchedPartyDetailsO.isDefined)
             },
           )
           updatedPartyRecord: PartyRecord <- handlePartyRecordStoreResult(
@@ -315,11 +325,11 @@ private[apiserver] final class ApiPartyManagementService private (
   }
 
   private def fetchPartyRecords(
-      partyDetails: List[domain.PartyDetails]
+      partyDetails: List[IndexerPartyDetails]
   )(implicit errorLogger: DamlContextualizedErrorLogger): Future[List[Option[PartyRecord]]] =
-    // TODO um-for-hub: Consider fetching all party records in a single DB call
+    // Future optimization: Fetch party records from the DB in a batched fashion rather than one-by-one.
     partyDetails.foldLeft(Future.successful(List.empty[Option[PartyRecord]])) {
-      (axF: Future[List[Option[PartyRecord]]], partyDetails: domain.PartyDetails) =>
+      (axF: Future[List[Option[PartyRecord]]], partyDetails: IndexerPartyDetails) =>
         for {
           ax <- axF
           next <- partyRecordStore
@@ -395,10 +405,10 @@ private[apiserver] final class ApiPartyManagementService private (
 private[apiserver] object ApiPartyManagementService {
 
   private def toProtoPartyDetails(
-      partyDetails: domain.PartyDetails,
+      partyDetails: IndexerPartyDetails,
       metadataO: Option[ObjectMeta],
-  ): PartyDetails =
-    PartyDetails(
+  ): ProtoPartyDetails =
+    ProtoPartyDetails(
       party = partyDetails.party,
       displayName = partyDetails.displayName.getOrElse(""),
       isLocal = partyDetails.isLocal,

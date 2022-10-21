@@ -42,7 +42,7 @@ class JsonProtocolTest
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 100)
 
-  "domain.TemplateId.RequiredPkg" - {
+  "domain.ContractTypeId.RequiredPkg" - {
     "can be serialized to JSON" in forAll(genDomainTemplateId) {
       a: domain.ContractTypeId.RequiredPkg =>
         inside(a.toJson) { case JsString(str) =>

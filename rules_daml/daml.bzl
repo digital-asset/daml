@@ -376,6 +376,7 @@ def daml_test(
         deps = [],
         data_deps = [],
         damlc = "//compiler/damlc:damlc",
+        additional_compiler_flags = [],
         target = None,
         **kwargs):
     sh_inline_test(
@@ -410,7 +411,7 @@ $$DAMLC test {damlc_opts} --files {files}
             sdk_version = sdk_version,
             deps = " ".join(["$(rootpaths %s)" % dep for dep in deps]),
             data_deps = " ".join(["$(rootpaths %s)" % dep for dep in data_deps]),
-            damlc_opts = " ".join(default_damlc_opts),
+            damlc_opts = " ".join(default_damlc_opts + additional_compiler_flags),
             cp_srcs = "\n".join([
                 "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
                     src = "$$(canonicalize_rlocation $(rootpath {}))".format(src),

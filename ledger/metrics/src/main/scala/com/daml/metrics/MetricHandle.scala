@@ -217,6 +217,14 @@ object MetricDoc {
     case object Debug extends MetricQualification
   }
 
-  case class Tag(summary: String, description: String, qualification: MetricQualification)
-      extends StaticAnnotation
+  case class Tag(
+      summary: String,
+      description: String,
+      qualification: MetricQualification,
+  ) extends StaticAnnotation
+
+  // The GroupTag can be defined for metrics that share similar names and should be grouped using a
+  // wildcard (the representative).
+  case class GroupTag(representative: String) extends StaticAnnotation
+
 }
