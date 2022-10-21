@@ -19,8 +19,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 case class RunnerConfig(
     darPath: Path,
-    // If true, we will only list the triggers in the DAR and exit.
-    listTriggers: Boolean,
+    // If defined, we will only list the triggers in the DAR and exit.
+    listTriggers: Option[Boolean],
     triggerIdentifier: String,
     ledgerHost: String,
     ledgerPort: Int,
@@ -226,31 +226,36 @@ object RunnerConfig {
     help("help").text("Print this usage text")
 
     cmd("list")
-      .action((_, c) => c.copy(listTriggers = true))
+      .action((_, c) => c.copy(listTriggers = Some(false)))
       .text("List the triggers in the DAR.")
 
+    cmd("verbose-list")
+      .hidden()
+      .action((_, c) => c.copy(listTriggers = Some(true)))
+
     checkConfig(c =>
-      if (c.listTriggers) {
-        // I do not want to break the trigger CLI and require a
-        // "run" command so I can’t make these options required
-        // in general. Therefore, we do this check in checkConfig.
-        success
-      } else {
-        if (c.triggerIdentifier == null) {
-          failure("Missing option --trigger-name")
-        } else if (c.ledgerHost == null) {
-          failure("Missing option --ledger-host")
-        } else if (c.ledgerPort == 0) {
-          failure("Missing option --ledger-port")
-        } else if (c.ledgerClaims == null) {
-          failure("Missing option --ledger-party or --ledger-user")
-        } else {
-          c.ledgerClaims match {
-            case PartySpecification(TriggerParties(actAs, _)) if actAs == Party("") =>
-              failure("Missing option --ledger-party")
-            case _ => success
+      c.listTriggers match {
+        case Some(_) =>
+          // I do not want to break the trigger CLI and require a
+          // "run" command so I can’t make these options required
+          // in general. Therefore, we do this check in checkConfig.
+          success
+        case None =>
+          if (c.triggerIdentifier == null) {
+            failure("Missing option --trigger-name")
+          } else if (c.ledgerHost == null) {
+            failure("Missing option --ledger-host")
+          } else if (c.ledgerPort == 0) {
+            failure("Missing option --ledger-port")
+          } else if (c.ledgerClaims == null) {
+            failure("Missing option --ledger-party or --ledger-user")
+          } else {
+            c.ledgerClaims match {
+              case PartySpecification(TriggerParties(actAs, _)) if actAs == Party("") =>
+                failure("Missing option --ledger-party")
+              case _ => success
+            }
           }
-        }
       }
     )
   }
@@ -275,7 +280,7 @@ object RunnerConfig {
 
   val Empty: RunnerConfig = RunnerConfig(
     darPath = null,
-    listTriggers = false,
+    listTriggers = None,
     triggerIdentifier = null,
     ledgerHost = null,
     ledgerPort = 0,

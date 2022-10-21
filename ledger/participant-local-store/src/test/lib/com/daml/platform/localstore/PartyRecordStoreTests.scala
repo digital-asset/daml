@@ -3,12 +3,17 @@
 
 package com.daml.platform.localstore
 
-import com.daml.ledger.api.domain.{ObjectMeta, ParticipantParty}
+import com.daml.ledger.api.domain.ObjectMeta
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.api.PartyRecordStore.PartyRecordExistsFatal
-import com.daml.platform.localstore.api.{ObjectMetaUpdate, PartyRecordStore, PartyRecordUpdate}
+import com.daml.platform.localstore.api.{
+  ObjectMetaUpdate,
+  PartyRecord,
+  PartyRecordStore,
+  PartyRecordUpdate,
+}
 import org.scalatest.freespec.AsyncFreeSpec
 
 import scala.concurrent.Future
@@ -26,8 +31,8 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
   def newPartyRecord(
       name: String = party1,
       annotations: Map[String, String] = Map.empty,
-  ): ParticipantParty.PartyRecord =
-    ParticipantParty.PartyRecord(
+  ): PartyRecord =
+    PartyRecord(
       party = name,
       metadata = ObjectMeta(None, annotations = annotations),
     )
@@ -36,8 +41,8 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
       name: String = party1,
       annotations: Map[String, String] = Map.empty,
       resourceVersion: Long = 0,
-  ): ParticipantParty.PartyRecord =
-    ParticipantParty.PartyRecord(
+  ): PartyRecord =
+    PartyRecord(
       party = name,
       metadata = ObjectMeta(
         resourceVersionO = Some(resourceVersion),
@@ -57,8 +62,8 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
   )
 
   def resetResourceVersion(
-      partyRecord: ParticipantParty.PartyRecord
-  ): ParticipantParty.PartyRecord =
+      partyRecord: PartyRecord
+  ): PartyRecord =
     partyRecord.copy(metadata = partyRecord.metadata.copy(resourceVersionO = None))
 
   "party record store" - {

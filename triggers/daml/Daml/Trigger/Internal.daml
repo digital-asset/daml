@@ -32,6 +32,9 @@ import DA.Optional (fromOptional)
 
 import Daml.Trigger.LowLevel hiding (Trigger)
 
+-- We use this singleton enumeration to track the version of the API between Daml code and Scala code of the trigger
+data Version = Version_2_5
+
 -- public API
 
 -- | HIDE Active contract set, you can use `getContracts` to access the templates of

@@ -7,7 +7,6 @@ import java.sql.Connection
 
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.ParticipantParty
 import com.daml.platform.localstore.api.PartyRecordStore.{
   ConcurrentPartyUpdate,
   MaxAnnotationsSizeExceeded,
@@ -21,11 +20,16 @@ import com.daml.platform.localstore.PersistentPartyRecordStore.{
   ConcurrentPartyRecordUpdateDetectedRuntimeException,
   MaxAnnotationsSizeExceededException,
 }
-import com.daml.platform.localstore.api.{LedgerPartyExists, PartyRecordStore, PartyRecordUpdate}
+import com.daml.platform.localstore.api.{
+  LedgerPartyExists,
+  PartyRecord,
+  PartyRecordStore,
+  PartyRecordUpdate,
+}
 import com.daml.platform.localstore.utils.LocalAnnotationsUtils
 import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 import com.daml.platform.store.DbSupport
-import com.daml.platform.store.backend.PartyRecordStorageBackend
+import com.daml.platform.store.backend.localstore.PartyRecordStorageBackend
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -52,9 +56,9 @@ class PersistentPartyRecordStore(
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  override def createPartyRecord(partyRecord: domain.ParticipantParty.PartyRecord)(implicit
+  override def createPartyRecord(partyRecord: PartyRecord)(implicit
       loggingContext: LoggingContext
-  ): Future[Result[domain.ParticipantParty.PartyRecord]] = {
+  ): Future[Result[PartyRecord]] = {
     inTransaction(_.createPartyRecord) { implicit connection: Connection =>
       for {
         _ <- withoutPartyRecord(id = partyRecord.party) {
@@ -74,7 +78,7 @@ class PersistentPartyRecordStore(
       ledgerPartyExists: LedgerPartyExists,
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Result[domain.ParticipantParty.PartyRecord]] = {
+  ): Future[Result[PartyRecord]] = {
     val party = partyRecordUpdate.party
     for {
       partyExistsOnLedger <- ledgerPartyExists.exists(party)
@@ -92,7 +96,7 @@ class PersistentPartyRecordStore(
             if (partyExistsOnLedger) {
               for {
                 _ <- withoutPartyRecord(party) {
-                  val newPartyRecord = domain.ParticipantParty.PartyRecord(
+                  val newPartyRecord = PartyRecord(
                     party = party,
                     metadata = domain.ObjectMeta(
                       resourceVersionO = None,
@@ -119,7 +123,7 @@ class PersistentPartyRecordStore(
       party: Party
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Option[ParticipantParty.PartyRecord]]] = {
+  ): Future[Result[Option[PartyRecord]]] = {
     inTransaction(_.getPartyRecord) { implicit connection =>
       doFetchDomainPartyRecordO(party)
     }
@@ -127,7 +131,7 @@ class PersistentPartyRecordStore(
 
   private def doFetchDomainPartyRecord(
       party: Ref.Party
-  )(implicit connection: Connection): Result[ParticipantParty.PartyRecord] = {
+  )(implicit connection: Connection): Result[PartyRecord] = {
     withPartyRecord(id = party) { dbPartyRecord =>
       val annotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
       toDomainPartyRecord(dbPartyRecord.payload, annotations)
@@ -136,7 +140,7 @@ class PersistentPartyRecordStore(
 
   private def doFetchDomainPartyRecordO(
       party: Ref.Party
-  )(implicit connection: Connection): Result[Option[ParticipantParty.PartyRecord]] = {
+  )(implicit connection: Connection): Result[Option[PartyRecord]] = {
     backend.getPartyRecord(party = party)(connection) match {
       case Some(dbPartyRecord) =>
         val annotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
@@ -146,7 +150,7 @@ class PersistentPartyRecordStore(
   }
 
   private def doCreatePartyRecord(
-      partyRecord: ParticipantParty.PartyRecord
+      partyRecord: PartyRecord
   )(connection: Connection): Unit = {
     if (
       !ResourceAnnotationValidation
@@ -182,7 +186,6 @@ class PersistentPartyRecordStore(
     // NOTE: We starts by writing to the 'resource_version' attribute
     //       of 'participant_party_records' to effectively obtain an exclusive lock for
     //       updating this party-record for the rest of the transaction.
-    // TODO um-for-hub: See if we can generalize some of this logic between User and PartyRecord stores
     partyRecordUpdate.metadataUpdate.resourceVersionO match {
       case Some(expectedResourceVersion) =>
         if (
@@ -228,8 +231,8 @@ class PersistentPartyRecordStore(
   private def toDomainPartyRecord(
       payload: PartyRecordStorageBackend.DbPartyRecordPayload,
       annotations: Map[String, String],
-  ): domain.ParticipantParty.PartyRecord = {
-    domain.ParticipantParty.PartyRecord(
+  ): PartyRecord = {
+    PartyRecord(
       party = payload.party,
       metadata = domain.ObjectMeta(
         resourceVersionO = Some(payload.resourceVersion),
@@ -262,7 +265,6 @@ class PersistentPartyRecordStore(
   private def inTransaction[T](
       dbMetric: metrics.daml.partyRecordStore.type => DatabaseMetrics
   )(thunk: Connection => Result[T])(implicit loggingContext: LoggingContext): Future[Result[T]] = {
-    // TODO um-for-hub: Consider making inTransaction fail transaction when thunk returns a Left. Then we would not have to throw exceptions and do the recovery
     dbDispatcher
       .executeSql(dbMetric(metrics.daml.partyRecordStore))(thunk)
       .recover[Result[T]] {

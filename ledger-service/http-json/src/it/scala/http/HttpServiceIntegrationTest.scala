@@ -91,7 +91,7 @@ abstract class HttpServiceIntegrationTest
     import util.ErrorOps._
     import com.daml.jwt.domain.Jwt
 
-    val command0: domain.CreateCommand[v.Record, domain.ContractTypeId.OptionalPkg] =
+    val command0: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] =
       iouCreateCommand(domain.Party("Alice"))
 
     type F[A] = EitherT[Future, JsonError, A]
@@ -140,7 +140,7 @@ abstract class HttpServiceIntegrationTest
 
     def createIouAndExerciseTransfer(
         fixture: UriFixture with EncoderFixture,
-        initialTplId: domain.ContractTypeId.OptionalPkg,
+        initialTplId: domain.ContractTypeId.Template.OptionalPkg,
         exerciseTid: domain.ContractTypeId.OptionalPkg,
         choice: TExercise[_] = tExercise(choiceArgType = echoTextVA)(echoTextSample),
     ) = for {
@@ -310,7 +310,7 @@ abstract class HttpServiceIntegrationTest
         .parseResponse[JsValue]
     } yield inside(exerciseTest) {
       case domain.ErrorResponse(Seq(lookup), None, StatusCodes.BadRequest, _) =>
-        lookup should include regex raw"Cannot resolve Template Key type, given: InterfaceId\([0-9a-f]{64},IIou,IIou\)"
+        lookup should include regex raw"Cannot resolve template ID, given: TemplateId\(None,IIou,IIou\)"
     }
   }
 

@@ -1,0 +1,66 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module InterfaceTriggers where
+
+import Daml.Trigger
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface I where
+  viewtype EmptyInterfaceView
+
+  getOwner: Party
+  getTag: Text
+
+template A
+  with
+    owner: Party
+    tag: Text
+  where
+    signatory owner
+    interface instance I for A where
+      view = EmptyInterfaceView
+
+      getOwner = owner
+      getTag = tag
+
+template B
+  with
+    owner: Party
+    tag: Text
+  where
+    signatory owner
+    interface instance I for B where
+      view = EmptyInterfaceView
+
+      getOwner = owner
+      getTag = tag
+
+globalTrigger: Trigger ()
+globalTrigger = Trigger with
+  initialize = do
+    debug "globalTrigger initialize"
+    pure ()
+  updateState = \_ -> do
+    debug "globalTrigger updateState"
+    pure ()
+  rule = \_ -> do
+    debug "globalTrigger rule"
+    pure ()
+  registeredTemplates = AllInDar
+  heartbeat = None
+
+triggerWithRegistration: Trigger ()
+triggerWithRegistration = Trigger with
+  initialize = do
+    debug "triggerWithRegistration initialize"
+    pure ()
+  updateState = \_ -> do
+    debug "triggerWithRegistration updateState"
+    pure ()
+  rule = \_ -> do
+    debug "triggerWithRegistration rule"
+    pure ()
+  registeredTemplates = RegisteredTemplates [registeredTemplate @A, registeredTemplate @I]
+  heartbeat = None

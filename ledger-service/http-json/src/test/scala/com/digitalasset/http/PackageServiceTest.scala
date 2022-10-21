@@ -103,7 +103,7 @@ class PackageServiceTest
       val uniqueIds = map.unique.values.toSet
       uniqueIds.foreach { id =>
         val unresolvedId: domain.ContractTypeId.Template.OptionalPkg = id.copy(packageId = None)
-        PackageService.resolveTemplateId(map)(unresolvedId) shouldBe Some(id)
+        map resolve unresolvedId shouldBe Some(id)
       }
     }
 
@@ -113,7 +113,7 @@ class PackageServiceTest
         ids.foreach { id =>
           val unresolvedId: domain.ContractTypeId.Template.OptionalPkg =
             id.copy(packageId = Some(id.packageId))
-          PackageService.resolveTemplateId(map)(unresolvedId) shouldBe Some(id)
+          map resolve unresolvedId shouldBe Some(id)
         }
     }
 
@@ -121,7 +121,7 @@ class PackageServiceTest
       Generators.genDomainTemplateIdO: org.scalacheck.Gen[domain.ContractTypeId.OptionalPkg]
     ) { templateId: domain.ContractTypeId.OptionalPkg =>
       val map = TemplateIdMap.Empty[domain.ContractTypeId]
-      PackageService.resolveTemplateId(map)(templateId) shouldBe None
+      map resolve templateId shouldBe None
     }
   }
 

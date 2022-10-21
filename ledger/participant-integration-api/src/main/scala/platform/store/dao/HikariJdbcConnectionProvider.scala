@@ -71,7 +71,7 @@ object DataSourceConnectionProvider {
             } catch {
               case _: SQLTransientConnectionException =>
                 printProblem("transient connection")
-              case _: Throwable =>
+              case NonFatal(_) =>
                 printProblem("unexpected")
             }
           }

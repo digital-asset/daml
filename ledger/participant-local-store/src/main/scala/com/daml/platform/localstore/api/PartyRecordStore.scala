@@ -3,7 +3,6 @@
 
 package com.daml.platform.localstore.api
 
-import com.daml.ledger.api.domain
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.server.api.validation.ResourceAnnotationValidation
@@ -32,18 +31,17 @@ case class PartyRecordUpdate(
 trait PartyRecordStore {
   import PartyRecordStore._
 
-  def createPartyRecord(partyRecord: domain.ParticipantParty.PartyRecord)(implicit
+  def createPartyRecord(partyRecord: PartyRecord)(implicit
       loggingContext: LoggingContext
-  ): Future[Result[domain.ParticipantParty.PartyRecord]]
+  ): Future[Result[PartyRecord]]
 
-  // TODO um-for-hub major: Validate the size of update annotations is within max annotations size
   def updatePartyRecord(partyRecordUpdate: PartyRecordUpdate, ledgerPartyExists: LedgerPartyExists)(
       implicit loggingContext: LoggingContext
-  ): Future[Result[domain.ParticipantParty.PartyRecord]]
+  ): Future[Result[PartyRecord]]
 
   def getPartyRecordO(party: Ref.Party)(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Option[domain.ParticipantParty.PartyRecord]]]
+  ): Future[Result[Option[PartyRecord]]]
 
 }
 

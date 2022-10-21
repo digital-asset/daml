@@ -1,11 +1,9 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.backend.common
+package com.daml.platform.store.backend.localstore
 
 import java.sql.Connection
-
-import com.daml.platform.store.backend.PartyRecordStorageBackend
 
 import anorm.SqlParser.{int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
@@ -13,7 +11,7 @@ import com.daml.lf.data.Ref
 
 import scala.util.Try
 
-class PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
+object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
 
   private val PartyRecordParser: RowParser[(Int, String, Long, Long)] =
     int("internal_id") ~

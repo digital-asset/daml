@@ -22,12 +22,14 @@ def daml_ledger_export_test(
         expected_daml_yaml,
         out_daml,
         out_args_json,
-        out_daml_yaml):
+        out_daml_yaml,
+        dev = False):
     # Disabled on Windows since postgres gets unhappy in client_server_build.
     if not is_windows:
         actual_daml = name + "/" + out_daml
         actual_args_json = name + "/" + out_args_json
         actual_daml_yaml = name + "/" + out_daml_yaml
+        server_dev_args = ["-C ledger.engine.allowed-language-versions=daml-lf-dev-mode-unsafe"] if dev else []
 
         client_server_build(
             name = name,
@@ -47,8 +49,10 @@ def daml_ledger_export_test(
             output_env = "EXPORT_OUT",
             server = "//ledger/sandbox-on-x:sandbox-on-x-ephemeral-postgresql",
             server_args = [
-                "run-legacy-cli-config --participant=participant-id=example,port=0,port-file=%PORT_FILE%",
-            ],
+                "run",
+                "-C ledger.participants.default.api-server.port=0",
+                "-C ledger.participants.default.api-server.port-file=%PORT_FILE%",
+            ] + server_dev_args,
         )
 
         # Compare the generated Daml ledger export to the expected files.

@@ -35,6 +35,7 @@ da_scala_library(
     deps = [
         "//libs-scala/scala-utils",
         "@maven//:io_gatling_gatling_app",
+        "@maven//:io_gatling_gatling_commons_shared",
         "@maven//:io_gatling_gatling_core",
         "@maven//:io_netty_netty_common",
         "@maven//:io_netty_netty_transport",
