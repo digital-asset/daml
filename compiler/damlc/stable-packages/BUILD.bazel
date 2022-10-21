@@ -119,6 +119,7 @@ filegroup(
         "daml-stdlib/DA-Date-Types.dalf",
         "daml-stdlib/DA-Internal-Any.dalf",
         "daml-stdlib/DA-Internal-Down.dalf",
+        "daml-stdlib/DA-Internal-Interface-AnyView.dalf",
         "daml-stdlib/DA-Internal-Template.dalf",
         "daml-stdlib/DA-Logic-Types.dalf",
         "daml-stdlib/DA-Monoid-Types.dalf",
@@ -127,7 +128,6 @@ filegroup(
         "daml-stdlib/DA-Set-Types.dalf",
         "daml-stdlib/DA-Time-Types.dalf",
         "daml-stdlib/DA-Validation-Types.dalf",
-        "daml-stdlib/DA-Internal-Interface-AnyView.dalf",
     ],
     visibility = ["//visibility:public"],
 )
