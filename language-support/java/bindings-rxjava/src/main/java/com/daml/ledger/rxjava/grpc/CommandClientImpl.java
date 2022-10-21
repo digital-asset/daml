@@ -13,6 +13,8 @@ import com.daml.ledger.javaapi.data.ExercisedEvent;
 import com.daml.ledger.javaapi.data.SubmitAndWaitRequest;
 import com.daml.ledger.javaapi.data.Transaction;
 import com.daml.ledger.javaapi.data.TransactionTree;
+import com.daml.ledger.javaapi.data.codegen.Created;
+import com.daml.ledger.javaapi.data.codegen.Exercised;
 import com.daml.ledger.javaapi.data.codegen.Update;
 import com.daml.ledger.rxjava.CommandClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
@@ -21,7 +23,6 @@ import io.grpc.Channel;
 import io.reactivex.Single;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -664,49 +665,6 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
-  private <T> CreatedEvent singleCreatedEvent(List<T> events) {
-    if (events.size() == 1 && events.get(0) instanceof CreatedEvent)
-      return (CreatedEvent) events.get(0);
-    throw new IllegalArgumentException(
-        "Expected exactly one created event from the transaction, got: " + events);
-  }
-
-  @Override
-  public <R> Single<R> submitAndWaitForTransaction(
-      @NonNull String workflowId,
-      @NonNull String applicationId,
-      @NonNull String commandId,
-      @NonNull List<@NonNull String> actAs,
-      @NonNull List<@NonNull String> readAs,
-      @NonNull Update<R> update,
-      @NonNull String accessToken) {
-    Single<Transaction> transaction;
-    transaction =
-        submitAndWaitForTransaction(
-            workflowId,
-            applicationId,
-            commandId,
-            actAs,
-            readAs,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            List.of(update.command),
-            Optional.of(accessToken));
-    return transaction.map(
-        tx ->
-            update.match(
-                create -> {
-                  var createdEvent = singleCreatedEvent(tx.getEvents());
-                  return create.createdContractId.apply(createdEvent.getContractId());
-                },
-                exerciseUpdate -> {
-                  // TODO CL we cannot get any exercise result from either CreatedEvent or
-                  // ArchivedEvent
-                  throw new IllegalArgumentException("Expect a command for create");
-                }));
-  }
-
   private Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -917,6 +875,13 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  private <T> CreatedEvent singleCreatedEvent(List<T> events) {
+    if (events.size() == 1 && events.get(0) instanceof CreatedEvent)
+      return (CreatedEvent) events.get(0);
+    throw new IllegalArgumentException(
+        "Expected exactly one created event from the transaction, got: " + events);
+  }
+
   private ExercisedEvent firstExercisedEvent(TransactionTree txTree) {
     var maybeExercisedEvent =
         txTree.getRootEventIds().stream()
@@ -930,39 +895,98 @@ public class CommandClientImpl implements CommandClient {
             new IllegalArgumentException("Expect an exercised event but not found. tx: " + txTree));
   }
 
-  @Override
-  public <R> Single<R> submitAndWaitForTransactionTree(
+  private abstract static class FoldSingle<Z> {
+    public abstract <CtId> Single<Z> created(Update.CreateUpdate<CtId, Z> create);
+
+    public abstract <R> Single<Z> exercised(Update.ExerciseUpdate<R, Z> exercise);
+  }
+
+  private static <U> Single<U> foldSingle(Update<U> update, FoldSingle<U> foldSingle) {
+    if (update instanceof Update.CreateUpdate)
+      return foldSingle.created((Update.CreateUpdate<?, U>) update);
+    else if (update instanceof Update.ExerciseUpdate)
+      return foldSingle.exercised((Update.ExerciseUpdate<?, U>) update);
+    else throw new IllegalArgumentException("Unexpected type of Update: " + update);
+  }
+
+  private <U> Single<U> submitAndWaitForResult(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
-      @NonNull Update<R> update,
-      @NonNull String accessToken) {
-    var transactionTree =
-        submitAndWaitForTransactionTree(
-            workflowId,
-            applicationId,
-            commandId,
-            actAs,
-            readAs,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            List.of(update.command),
-            Optional.of(accessToken));
-    return transactionTree.map(
-        txTree ->
-            update.match(
-                create -> {
-                  var createdEvent =
-                      singleCreatedEvent(new ArrayList<>(txTree.getEventsById().values()));
-                  return create.createdContractId.apply(createdEvent.getContractId());
-                },
-                exerciseUpdate -> {
+      @NonNull Update<U> update,
+      @NonNull Optional<String> accessToken) {
+    return foldSingle(
+        update,
+        new FoldSingle<U>() {
+          @Override
+          public <CtId> Single<U> created(Update.CreateUpdate<CtId, U> create) {
+            var transaction =
+                submitAndWaitForTransaction(
+                    workflowId,
+                    applicationId,
+                    commandId,
+                    actAs,
+                    readAs,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    List.of(update.command),
+                    accessToken);
+            return transaction.map(
+                tx -> {
+                  var createdEvent = singleCreatedEvent(tx.getEvents());
+                  return create.k.apply(Created.fromEvent(create.createdContractId, createdEvent));
+                });
+          }
+
+          @Override
+          public <R> Single<U> exercised(Update.ExerciseUpdate<R, U> exercise) {
+            var transactionTree =
+                submitAndWaitForTransactionTree(
+                    workflowId,
+                    applicationId,
+                    commandId,
+                    actAs,
+                    readAs,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    List.of(update.command),
+                    accessToken);
+            return transactionTree.map(
+                txTree -> {
                   var exercisedEvent = firstExercisedEvent(txTree);
-                  return exerciseUpdate.returnTypeDecoder.decode(
-                      exercisedEvent.getExerciseResult());
-                }));
+                  return exercise.k.apply(
+                      Exercised.fromEvent(exercise.returnTypeDecoder, exercisedEvent));
+                });
+          }
+        });
+  }
+
+  @Override
+  public <U> Single<U> submitAndWaitForResult(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Update<U> update) {
+    return submitAndWaitForResult(
+        workflowId, applicationId, commandId, actAs, readAs, update, Optional.empty());
+  }
+
+  @Override
+  public <U> Single<U> submitAndWaitForResult(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Update<U> update,
+      @NonNull String accessToken) {
+    return submitAndWaitForResult(
+        workflowId, applicationId, commandId, actAs, readAs, update, Optional.of(accessToken));
   }
 }

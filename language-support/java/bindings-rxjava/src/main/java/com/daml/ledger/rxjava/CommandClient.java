@@ -246,15 +246,6 @@ public interface CommandClient {
       @NonNull List<@NonNull Command> commands,
       @NonNull String accessToken);
 
-  <R> Single<R> submitAndWaitForTransaction(
-      @NonNull String workflowId,
-      @NonNull String applicationId,
-      @NonNull String commandId,
-      @NonNull List<@NonNull String> actAs,
-      @NonNull List<@NonNull String> readAs,
-      @NonNull Update<R> update,
-      @NonNull String accessToken);
-
   Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -331,12 +322,20 @@ public interface CommandClient {
       @NonNull List<@NonNull Command> commands,
       @NonNull String accessToken);
 
-  <R> Single<R> submitAndWaitForTransactionTree(
+  <U> Single<U> submitAndWaitForResult(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
-      @NonNull Update<R> update,
+      @NonNull Update<U> update);
+
+  <U> Single<U> submitAndWaitForResult(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Update<U> update,
       @NonNull String accessToken);
 }

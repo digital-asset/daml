@@ -8,7 +8,7 @@ import ClassGenUtils.{companionFieldName, templateIdFieldName}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.Ref
 import Ref.{ChoiceName, PackageId, QualifiedName}
-import com.daml.ledger.javaapi.data.codegen.{Create, ChoiceMetadata, ContractId, Update}
+import com.daml.ledger.javaapi.data.codegen.{ChoiceMetadata, ContractId, Created, Exercised, Update}
 import com.daml.lf.codegen.backend.java.inner.ToValueGenerator.generateToValueConverter
 import com.daml.lf.typesig
 import typesig._
@@ -114,25 +114,33 @@ private[inner] object TemplateClass extends StrictLogging {
 
   private val ctIdClassName = ClassName get classOf[ContractId[_]]
   private val updateClassName = ClassName get classOf[Update[_]]
-  private val createClassName = ClassName get classOf[Create[_]]
-  private def parameterizedTypeName(raw: ClassName, arg: TypeName) =
-    ParameterizedTypeName.get(raw, arg)
+  private val createUpdateClassName = ClassName get classOf[Update.CreateUpdate[_, _]]
+  private val createdClassName = ClassName get classOf[Created[_]]
+  private val exercisedClassName = ClassName get classOf[Exercised[_]]
+  private def parameterizedTypeName(raw: ClassName, arg: TypeName*) =
+    ParameterizedTypeName.get(raw, arg: _*)
 
   private def generateCreateMethod(name: ClassName): MethodSpec =
     MethodSpec
       .methodBuilder("create")
       .addModifiers(Modifier.PUBLIC)
       .addAnnotation(classOf[Override])
-      .returns(parameterizedTypeName(updateClassName, parameterizedTypeName(ctIdClassName, name)))
+      .returns(
+        parameterizedTypeName(
+          updateClassName,
+          parameterizedTypeName(createdClassName, parameterizedTypeName(ctIdClassName, name)),
+        )
+      )
       .addStatement(
-        "var command = new $T($T.$N, this.toValue())",
+        "return new $T(new $T($T.$N, this.toValue()), x -> x, ContractId::new)",
+        parameterizedTypeName(
+          createUpdateClassName,
+          parameterizedTypeName(ctIdClassName, name),
+          parameterizedTypeName(createdClassName, parameterizedTypeName(ctIdClassName, name)),
+        ),
         classOf[javaapi.data.CreateCommand],
         name,
         templateIdFieldName,
-      )
-      .addStatement(
-        "return new $T(command, ContractId::new)",
-        parameterizedTypeName(createClassName, parameterizedTypeName(ctIdClassName, name)),
       )
       .build()
 
@@ -143,7 +151,10 @@ private[inner] object TemplateClass extends StrictLogging {
           .methodBuilder("create")
           .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
           .returns(
-            parameterizedTypeName(updateClassName, parameterizedTypeName(ctIdClassName, name))
+            parameterizedTypeName(
+              updateClassName,
+              parameterizedTypeName(createdClassName, parameterizedTypeName(ctIdClassName, name)),
+            )
           )
       ) { case (b, FieldInfo(_, _, escapedName, tpe)) =>
         b.addParameter(tpe, escapedName)
@@ -282,9 +293,12 @@ private[inner] object TemplateClass extends StrictLogging {
       .methodBuilder(s"exerciseByKey${choiceName.capitalize}")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
       .returns(
-        ParameterizedTypeName.get(
-          ClassName get classOf[Update[_]],
-          toJavaTypeName(choice.returnType, packagePrefixes),
+        parameterizedTypeName(
+          updateClassName,
+          parameterizedTypeName(
+            exercisedClassName,
+            toJavaTypeName(choice.returnType, packagePrefixes),
+          ),
         )
       )
       .makeDeprecated(
@@ -312,9 +326,12 @@ private[inner] object TemplateClass extends StrictLogging {
       .methodBuilder(methodName)
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
       .returns(
-        ParameterizedTypeName.get(
-          ClassName get classOf[Update[_]],
-          toJavaTypeName(choice.returnType, packagePrefixes),
+        parameterizedTypeName(
+          updateClassName,
+          parameterizedTypeName(
+            exercisedClassName,
+            toJavaTypeName(choice.returnType, packagePrefixes),
+          ),
         )
       )
       .addParameter(toJavaTypeName(key, packagePrefixes), "key")
@@ -444,8 +461,13 @@ private[inner] object TemplateClass extends StrictLogging {
         sinceDaml = "2.3.0",
       )
       .returns(
-        ParameterizedTypeName
-          .get(ClassName get classOf[Update[_]], toJavaTypeName(choice.returnType, packagePrefixes))
+        parameterizedTypeName(
+          updateClassName,
+          parameterizedTypeName(
+            exercisedClassName,
+            toJavaTypeName(choice.returnType, packagePrefixes),
+          ),
+        )
       )
       .addParameter(javaType, "arg")
       .addStatement(
@@ -464,8 +486,13 @@ private[inner] object TemplateClass extends StrictLogging {
   ): MethodSpec =
     ClassGenUtils.generateFlattenedCreateOrExerciseMethod(
       "createAndExercise",
-      ParameterizedTypeName
-        .get(ClassName get classOf[Update[_]], toJavaTypeName(choice.returnType, packagePrefixes)),
+      parameterizedTypeName(
+        updateClassName,
+        parameterizedTypeName(
+          exercisedClassName,
+          toJavaTypeName(choice.returnType, packagePrefixes),
+        ),
+      ),
       choiceName,
       choice,
       fields,

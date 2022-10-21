@@ -11,7 +11,7 @@ import typesig.{TemplateChoice, Type}
 import typesig.PackageSignature.TypeDecl
 import com.squareup.javapoet._
 import ClassGenUtils.companionFieldName
-import com.daml.ledger.javaapi.data.codegen.Update
+import com.daml.ledger.javaapi.data.codegen.{Exercised, Update}
 
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
@@ -90,8 +90,9 @@ object ContractIdClass {
   }
 
   private val updateType: ClassName = ClassName get classOf[Update[_]]
+  private val exercisedType: ClassName = ClassName get classOf[Exercised[_]]
   private def parameterizedUpdateType(returnTypeName: TypeName): TypeName =
-    ParameterizedTypeName.get(updateType, returnTypeName)
+    ParameterizedTypeName.get(updateType, ParameterizedTypeName.get(exercisedType, returnTypeName))
   private val exercisesTypeParam = TypeVariableName get "Cmd"
   private[inner] val exercisesInterface = ClassName bestGuess "Exercises"
 

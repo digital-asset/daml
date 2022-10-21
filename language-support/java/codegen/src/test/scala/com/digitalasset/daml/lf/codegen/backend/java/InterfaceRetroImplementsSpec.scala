@@ -3,7 +3,6 @@
 
 package com.daml.lf.codegen.backend.java
 
-import com.daml.ledger.javaapi.data.codegen.ExerciseUpdate
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import ut.retro.InterfaceRetro
@@ -19,7 +18,6 @@ final class InterfaceRetroImplementsSpec extends AnyWordSpec with Matchers {
       val contractViaInterface: InterfaceRetro.ContractId =
         contractId.toInterface(InterfaceRetro.INTERFACE)
       val update = contractViaInterface.exerciseTransfer("newOwner")
-      update shouldBe a[ExerciseUpdate[_]]
       val cmd = update.command.asExerciseCommand().toScala.get
       cmd.getContractId shouldEqual contractId.contractId
       cmd.getTemplateId shouldEqual InterfaceRetro.TEMPLATE_ID

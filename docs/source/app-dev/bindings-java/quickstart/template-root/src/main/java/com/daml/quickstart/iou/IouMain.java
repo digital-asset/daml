@@ -5,17 +5,16 @@ package com.daml.quickstart.iou;
 
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.codegen.ContractId;
+import com.daml.ledger.javaapi.data.codegen.Created;
 import com.daml.ledger.javaapi.data.codegen.Update;
 import com.daml.ledger.rxjava.ContractUtil;
 import com.daml.ledger.rxjava.DamlLedgerClient;
 import com.daml.ledger.rxjava.LedgerClient;
 import com.daml.quickstart.model.iou.Iou;
-import com.daml.quickstart.model.iou.IouTransfer;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Maps;
 import com.google.gson.Gson;
-import com.google.protobuf.Empty;
 import io.reactivex.disposables.Disposable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -113,9 +112,9 @@ public class IouMain {
         "/iou",
         (req, res) -> {
           Iou iou = g.fromJson(req.body(), Iou.class);
-          Update<ContractId<Iou>> iouCreate = iou.create();
-          submit(client, party, iouCreate);
-          return "Iou creation submitted.";
+          Update<Created<ContractId<Iou>>> iouCreate = iou.create();
+          var createdContractId = submit(client, party, iouCreate);
+          return "Iou creation submitted: " + createdContractId;
         },
         g::toJson);
     Spark.post(
@@ -124,10 +123,9 @@ public class IouMain {
         (req, res) -> {
           Map m = g.fromJson(req.body(), Map.class);
           Iou.ContractId contractId = idMap.get(Long.parseLong(req.params("id")));
-          Update<IouTransfer.ContractId> update =
-              contractId.exerciseIou_Transfer(m.get("newOwner").toString());
-          submit(client, party, update);
-          return "Iou transfer submitted.";
+          var update = contractId.exerciseIou_Transfer(m.get("newOwner").toString());
+          var result = submit(client, party, update);
+          return "Iou transfer submitted with exercise result: " + result;
         },
         g::toJson);
 
@@ -140,22 +138,16 @@ public class IouMain {
       }
   }
 
-  private static Empty submit(LedgerClient client, String party, Update<?> update) {
-    return submit(client, party, update.command);
-  }
-
-  private static Empty submit(LedgerClient client, String party, Command c) {
+  private static <U> U submit(LedgerClient client, String party, Update<U> update) {
     return client
-        .getCommandSubmissionClient()
-        .submit(
+        .getCommandClient()
+        .submitAndWaitForResult(
             UUID.randomUUID().toString(),
             "IouApp",
             UUID.randomUUID().toString(),
-            party,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Collections.singletonList(c))
+            List.of(party),
+            List.of(),
+            update)
         .blockingGet();
   }
 
