@@ -84,3 +84,7 @@ _choice_CArchive
      DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView C EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView C EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
+instance DA.Internal.Desugar.HasToAnyView C EmptyInterfaceView where
+  _toAnyView = GHC.Types.primitive @"EToAnyView"

@@ -111,3 +111,7 @@ _choice_INonSerializableResult
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView I EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView I EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
+instance DA.Internal.Desugar.HasToAnyView I EmptyInterfaceView where
+  _toAnyView = GHC.Types.primitive @"EToAnyView"
