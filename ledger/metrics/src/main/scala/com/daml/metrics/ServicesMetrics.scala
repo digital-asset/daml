@@ -186,7 +186,8 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
                       |exposes the total number of the sumbitted transactions.""",
       qualification = Traffic,
     )
-    val submitOperationForDocs: Timer = Timer(prefix :+ "submit_transaction" :+ "_count", null)
+    val submitOperationForDocs: Timer =
+      DropwizardTimer(prefix :+ "submit_transaction" :+ "count", null)
 
     val submitTransaction: Timer = timer(prefix :+ "submit_transaction")
     val submitTransactionRunning: Meter = meter(prefix :+ "submit_transaction_running")
