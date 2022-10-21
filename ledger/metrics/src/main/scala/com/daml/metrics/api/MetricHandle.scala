@@ -8,7 +8,6 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.metrics.api.MetricHandle.Timer.TimerStop
 
-import scala.annotation.StaticAnnotation
 import scala.concurrent.{ExecutionContext, Future}
 
 trait MetricHandle {
@@ -99,19 +98,4 @@ object MetricHandle {
 
   }
 
-}
-
-object MetricDoc {
-
-  sealed trait MetricQualification
-  object MetricQualification {
-    case object Latency extends MetricQualification
-    case object Traffic extends MetricQualification
-    case object Errors extends MetricQualification
-    case object Saturation extends MetricQualification
-    case object Debug extends MetricQualification
-  }
-
-  case class Tag(summary: String, description: String, qualification: MetricQualification)
-      extends StaticAnnotation
 }
