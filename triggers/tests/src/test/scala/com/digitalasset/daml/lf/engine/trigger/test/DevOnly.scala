@@ -111,18 +111,14 @@ class DevOnly
               acs,
               offset,
               msgFlow = Flow[TriggerMsg]
-                .map { msg => triggerMessages = triggerMessages :+ msg; msg }
+                .wireTap { msg => triggerMessages = triggerMessages :+ msg }
                 .take(4),
             )
             ._2
-          acs <- queryACS(client, party)
         } yield {
           triggerMessages.size shouldBe 4
           triggerMessages(2) shouldHaveCreateArgumentsFor templateA
           triggerMessages(3) shouldHaveCreateArgumentsFor templateB
-
-          acs(templateA) should have length 1
-          acs(templateB) should have length 1
         }
       }
 
@@ -190,13 +186,88 @@ class DevOnly
               acs,
               offset,
               msgFlow = Flow[TriggerMsg]
-                .map { msg => triggerMessages = triggerMessages :+ msg; msg }
+                .wireTap { msg => triggerMessages = triggerMessages :+ msg }
                 .take(4),
             )
             ._2
         } yield {
           triggerMessages.size shouldBe 4
           triggerMessages(2) shouldHaveCreateArgumentsFor templateA
+          triggerMessages(3) shouldHaveNoCreateArgumentsFor templateB
+        }
+      }
+
+      "succeed with interface only registrations" in {
+        val triggerId = QualifiedName.assertFromString("InterfaceTriggers:interfaceOnlyTrigger")
+
+        var triggerMessages = Seq.empty[TriggerMsg]
+
+        for {
+          client <- ledgerClient()
+          party <- allocateParty(client)
+          runner = getRunner(client, triggerId, party)
+
+          // Determine current ledger offset
+          queryResult <- runner.queryACS()
+          (_, offset) = queryResult
+
+          _ <- create(
+            client,
+            party,
+            CreateCommand(
+              templateId = Some(templateA),
+              createArguments = Some(
+                Record(
+                  fields = Seq(
+                    RecordField("owner", Some(Value().withParty(party))),
+                    RecordField(
+                      "tag",
+                      Some(Value().withText("visible via 'registeredTemplate @I'")),
+                    ),
+                  )
+                )
+              ),
+            ),
+          )
+          _ <- create(
+            client,
+            party,
+            CreateCommand(
+              templateId = Some(templateB),
+              createArguments = Some(
+                Record(
+                  fields = Seq(
+                    RecordField("owner", Some(Value().withParty(party))),
+                    RecordField(
+                      "tag",
+                      Some(Value().withText("visible via 'registeredTemplate @I'")),
+                    ),
+                  )
+                )
+              ),
+            ),
+          )
+
+          // Determine ACS for this test run's setup
+          queryResult <- runner.queryACS()
+          (acs, _) = queryResult
+
+          // 1 for ledger create command completion
+          // 1 for ledger create command completion
+          // 1 for transactional create of template A, via interface I
+          // 1 for transactional create of template B, via interface I
+          _ <- runner
+            .runWithACS(
+              acs,
+              offset,
+              msgFlow = Flow[TriggerMsg]
+                .wireTap { msg => triggerMessages = triggerMessages :+ msg }
+                .take(4),
+            )
+            ._2
+        } yield {
+          triggerMessages.size shouldBe 4
+          triggerMessages(2) shouldHaveNoCreateArgumentsFor templateA
           triggerMessages(3) shouldHaveNoCreateArgumentsFor templateB
         }
       }

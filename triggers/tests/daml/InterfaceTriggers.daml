@@ -64,3 +64,17 @@ triggerWithRegistration = Trigger with
     pure ()
   registeredTemplates = RegisteredTemplates [registeredTemplate @A, registeredTemplate @I]
   heartbeat = None
+
+interfaceOnlyTrigger: Trigger ()
+interfaceOnlyTrigger = Trigger with
+  initialize = do
+    debug "interfaceOnlyTrigger initialize"
+    pure ()
+  updateState = \_ -> do
+    debug "interfaceOnlyTrigger updateState"
+    pure ()
+  rule = \_ -> do
+    debug "interfaceOnlyTrigger rule"
+    pure ()
+  registeredTemplates = RegisteredTemplates [registeredTemplate @I]
+  heartbeat = None
