@@ -13,6 +13,12 @@ public abstract class Update<U> {
     this.command = command;
   }
 
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+   * and <em>should not be instantiated directly</em>. Applications should only obtain this {@link
+   * Update} instantiated generated java classes by calling create and exercise methods.
+   */
   public static final class ExerciseUpdate<R, U> extends Update<U> {
     public final Function<Exercised<R>, U> k;
     public final ValueDecoder<R> returnTypeDecoder;
@@ -25,6 +31,12 @@ public abstract class Update<U> {
     }
   }
 
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+   * and <em>should not be instantiated directly</em>. Applications should only obtain this {@link
+   * Update} instantiated generated java classes by calling create and exercise methods.
+   */
   public static final class CreateUpdate<CtId, U> extends Update<U> {
     public final Function<Created<CtId>, U> k;
     public final Function<String, CtId> createdContractId;
