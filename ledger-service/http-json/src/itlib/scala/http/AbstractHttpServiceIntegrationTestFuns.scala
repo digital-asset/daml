@@ -401,11 +401,11 @@ trait AbstractHttpServiceIntegrationTestFuns
   private[this] val (_, iouVA) = {
     import com.daml.lf.data.Numeric.Scale
     val iouT = ShRecord(
-      issuer = VA.party,
-      owner = VA.party,
+      issuer = VAx.partyDomain,
+      owner = VAx.partyDomain,
       currency = VA.text,
       amount = VA.numeric(Scale assertFromInt 10),
-      observers = VA.list(VA.party),
+      observers = VA.list(VAx.partyDomain),
     )
     VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
   }
@@ -446,19 +446,19 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def iouCreateCommand(
-      partyName: domain.Party,
+      party: domain.Party,
       amount: String = "999.9900000000",
       currency: String = "USD",
+      observers: Vector[domain.Party] = Vector.empty,
       meta: Option[domain.CommandMeta] = None,
   ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
-    val party = Ref.Party assertFromString partyName.unwrap
     val arg = argToApi(iouVA)(
       ShRecord(
         issuer = party,
         owner = party,
         currency = currency,
         amount = LfNumeric assertFromString amount,
-        observers = Vector.empty,
+        observers = observers,
       )
     )
 
