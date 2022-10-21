@@ -1,7 +1,7 @@
 {
     "homepage": "http://msys2.github.io",
     "version": "20220118",
-    "url": [
+    "_url": [
         "https://github.com/msys2/msys2-installer/releases/download/2022-01-28/msys2-base-x86_64-20220128.tar.xz",
         "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-jq-1.6-4-any.pkg.tar.zst#/jq.msys2",
         "https://repo.msys2.org/msys/x86_64/gnu-netcat-0.7.1-1-x86_64.pkg.tar.xz#/netcat.msys2",
@@ -22,6 +22,28 @@
         "https://repo.msys2.org/msys/x86_64/gzip-1.11-1-x86_64.pkg.tar.zst#/gzip.msys",
         "https://repo.msys2.org/msys/x86_64/tar-1.34-2-x86_64.pkg.tar.zst#/tar.msys2",
         "https://repo.msys2.org/msys/x86_64/xz-5.2.5-1-x86_64.pkg.tar.xz#/xz.msys2"
+    ],
+    "url": [
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/msys2-base-x86_64-20220128.tar.xz",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/mingw-w64-x86_64-jq-1.6-4-any.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/gnu-netcat-0.7.1-1-x86_64.pkg.tar.xz",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/patch-2.7.6-1-x86_64.pkg.tar.xz",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/mingw-w64-x86_64-openssl-1.1.1.j-1-any.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/mingw-w64-x86_64-python-3.8.8-2-any.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/mingw-w64-x86_64-postgresql-12.4-1-any.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/perl-5.32.1-2-x86_64.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/autoconf2.71-2.71-1-any.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/autoconf-wrapper-15-1-any.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/automake1.16-1.16.3-3-any.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/automake-wrapper-11-4-any.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/diffutils-3.8-2-x86_64.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/git-2.35.1-1-x86_64.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/make-4.3-3-x86_64.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/ncurses-6.2-2-x86_64.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/ncurses-devel-6.2-2-x86_64.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/gzip-1.11-1-x86_64.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/tar-1.34-2-x86_64.pkg.tar.zst",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/xz-5.2.5-1-x86_64.pkg.tar.xz"
     ],
     "hash": [
         "b667a7ec3840c0437c718d6851c93794bd8a6837ba642fd90702e8769febad6a",
