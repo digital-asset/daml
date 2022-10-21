@@ -4,7 +4,7 @@
 package com.daml.platform.localstore
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{ObjectMeta, ParticipantParty}
+import com.daml.ledger.api.domain.ObjectMeta
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -13,7 +13,12 @@ import com.daml.platform.localstore.api.PartyRecordStore.{
   PartyRecordExistsFatal,
   Result,
 }
-import com.daml.platform.localstore.api.{LedgerPartyExists, PartyRecordStore, PartyRecordUpdate}
+import com.daml.platform.localstore.api.{
+  LedgerPartyExists,
+  PartyRecord,
+  PartyRecordStore,
+  PartyRecordUpdate,
+}
 import com.daml.platform.localstore.utils.LocalAnnotationsUtils
 import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 
@@ -27,8 +32,8 @@ object InMemoryPartyRecordStore {
       annotations: Map[String, String],
   )
 
-  def toPartyRecord(info: PartyRecordInfo): ParticipantParty.PartyRecord =
-    ParticipantParty.PartyRecord(
+  def toPartyRecord(info: PartyRecordInfo): PartyRecord =
+    PartyRecord(
       party = info.party,
       metadata = ObjectMeta(
         resourceVersionO = Some(info.resourceVersion),
@@ -38,7 +43,6 @@ object InMemoryPartyRecordStore {
 
 }
 
-// TODO um-for-hub: Consider unifying InMemoryPartyRecordStore and PersistentPartyRecordStore, such that InMemoryPartyRecordStore is obtained by having a in-memory storage backend
 class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends PartyRecordStore {
   import InMemoryPartyRecordStore._
 
@@ -51,7 +55,7 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
       party: Party
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Option[ParticipantParty.PartyRecord]]] = {
+  ): Future[Result[Option[PartyRecord]]] = {
     withState(
       state.get(party) match {
         case Some(info) => Right(Some(toPartyRecord(info)))
@@ -61,8 +65,8 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
   }
 
   override def createPartyRecord(
-      partyRecord: ParticipantParty.PartyRecord
-  )(implicit loggingContext: LoggingContext): Future[Result[ParticipantParty.PartyRecord]] = {
+      partyRecord: PartyRecord
+  )(implicit loggingContext: LoggingContext): Future[Result[PartyRecord]] = {
     withState(withoutPartyRecord(partyRecord.party) {
       for {
         info <- doCreatePartyRecord(partyRecord)
@@ -70,11 +74,10 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
     })
   }
 
-  // TODO um-for-hub: Add a conformance test exercising a race conditions: multiple update on the same non-existing party-record (which exists on the ledger and is indexed by this participant) calls
   override def updatePartyRecord(
       partyRecordUpdate: PartyRecordUpdate,
       ledgerPartyExists: LedgerPartyExists,
-  )(implicit loggingContext: LoggingContext): Future[Result[ParticipantParty.PartyRecord]] = {
+  )(implicit loggingContext: LoggingContext): Future[Result[PartyRecord]] = {
     val party = partyRecordUpdate.party
     for {
       partyExistsOnLedger <- ledgerPartyExists.exists(party)
@@ -90,7 +93,7 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
             } yield toPartyRecord(updatedInfo)
           case None =>
             if (partyExistsOnLedger) {
-              val newPartyRecord = domain.ParticipantParty.PartyRecord(
+              val newPartyRecord = PartyRecord(
                 party = party,
                 metadata = domain.ObjectMeta(
                   resourceVersionO = None,
@@ -151,7 +154,7 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
   }
 
   private def doCreatePartyRecord(
-      partyRecord: ParticipantParty.PartyRecord
+      partyRecord: PartyRecord
   ): Result[PartyRecordInfo] = {
     for {
       _ <- validateAnnotationsSize(partyRecord.metadata.annotations, partyRecord.party)

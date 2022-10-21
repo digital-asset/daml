@@ -5,6 +5,24 @@ package com.daml.metrics
 
 import com.codahale.metrics.{MetricRegistry}
 
+@MetricDoc.GroupTag(
+  representative = "daml.user_management.<operation>.wait"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.user_management.<operation>.exec"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.user_management.<operation>.translation"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.user_management.<operation>.compression"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.user_management.<operation>.commit"
+)
+@MetricDoc.GroupTag(
+  representative = "daml.user_management.<operation>.query"
+)
 class UserManagementMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
     extends MetricHandle.FactoryWithDBMetrics {
 

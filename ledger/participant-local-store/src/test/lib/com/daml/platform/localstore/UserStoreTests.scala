@@ -32,10 +32,15 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
 
   private val userId1 = "user1"
 
-  def newUser(name: String = userId1, annotations: Map[String, String] = Map.empty): User = User(
+  def newUser(
+      name: String = userId1,
+      primaryParty: Option[Ref.Party] = None,
+      isDeactivated: Boolean = false,
+      annotations: Map[String, String] = Map.empty,
+  ): User = User(
     id = name,
-    primaryParty = None,
-    isDeactivated = false,
+    primaryParty = primaryParty,
+    isDeactivated = isDeactivated,
     metadata = ObjectMeta(
       resourceVersionO = None,
       annotations = annotations,
@@ -44,20 +49,21 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
 
   def createdUser(
       name: String = userId1,
+      primaryParty: Option[Ref.Party] = None,
+      isDeactivated: Boolean = false,
       resourceVersion: Long = 0,
       annotations: Map[String, String] = Map.empty,
   ): User =
     User(
       id = name,
-      primaryParty = None,
-      isDeactivated = false,
+      primaryParty = primaryParty,
+      isDeactivated = isDeactivated,
       metadata = ObjectMeta(
         resourceVersionO = Some(resourceVersion),
         annotations = annotations,
       ),
     )
 
-  // TODO um-for-hub: Consider defining a method like this directly on UserUpdate
   def makeUserUpdate(
       id: String = userId1,
       primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
@@ -325,18 +331,17 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
   }
 
   "updating" - {
-    "update an existing user" in {
+    "update an existing user's annotations" in {
       testIt { tested =>
-        val pr1 = newUser("user1")
+        val pr1 = newUser("user1", isDeactivated = true, primaryParty = None)
         for {
           create1 <- tested.createUser(pr1, Set.empty)
-          _ = create1.value shouldBe createdUser("user1")
+          _ = create1.value shouldBe createdUser("user1", isDeactivated = true)
           update1 <- tested.updateUser(
             userUpdate = UserUpdate(
               id = pr1.id,
-              // TODO um-for-hub: Test primaryPartyUpdate and isDeactivatedUpdate
-              primaryPartyUpdateO = None,
-              isDeactivatedUpdateO = None,
+              primaryPartyUpdateO = Some(Some(Ref.Party.assertFromString("party123"))),
+              isDeactivatedUpdateO = Some(false),
               metadataUpdate = ObjectMetaUpdate(
                 resourceVersionO = create1.value.metadata.resourceVersionO,
                 annotationsUpdateO = Some(Map("k1" -> "v1")),
@@ -345,6 +350,8 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           )
           _ = resetResourceVersion(update1.value) shouldBe newUser(
             "user1",
+            primaryParty = Some(Ref.Party.assertFromString("party123")),
+            isDeactivated = false,
             annotations = Map("k1" -> "v1"),
           )
         } yield succeed

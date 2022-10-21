@@ -8,7 +8,7 @@ import ClassGenUtils.{companionFieldName, templateIdFieldName}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.Ref
 import Ref.{ChoiceName, PackageId, QualifiedName}
-import com.daml.ledger.javaapi.data.codegen.{ChoiceMetadata, ContractId, Created, Exercised, Update}
+import com.daml.ledger.javaapi.data.codegen.{Choice, ContractId, Created, Exercised, Update}
 import com.daml.lf.codegen.backend.java.inner.ToValueGenerator.generateToValueConverter
 import com.daml.lf.typesig
 import typesig._
@@ -517,7 +517,7 @@ private[inner] object TemplateClass extends StrictLogging {
       templateChoices: Map[ChoiceName, TemplateChoice.FWT],
   ): Seq[FieldSpec] = {
     templateChoices.map { case (choiceName, choice) =>
-      val fieldClass = classOf[ChoiceMetadata[_, _, _]]
+      val fieldClass = classOf[Choice[_, _, _]]
       FieldSpec
         .builder(
           ParameterizedTypeName.get(

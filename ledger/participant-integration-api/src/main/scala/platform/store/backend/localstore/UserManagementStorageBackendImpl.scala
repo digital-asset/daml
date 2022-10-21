@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.backend.common
+package com.daml.platform.store.backend.localstore
 
 import java.sql.Connection
 
@@ -11,9 +11,9 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.UserRight
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.ledger.api.v1.admin.user_management_service.Right
+import com.daml.platform.store.backend.common.{ComposableQuery, QueryStrategy}
 import com.daml.platform.{Party, UserId}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
-import com.daml.platform.store.backend.UserManagementStorageBackend
 
 import scala.util.Try
 

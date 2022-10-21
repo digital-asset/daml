@@ -311,7 +311,7 @@ object ContractDao {
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
+  ): ConnectionIO[Vector[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     import sjd.q.queries
     for {
       tpId <- surrogateTemplateId(templateId)
@@ -331,7 +331,7 @@ object ContractDao {
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[Vector[(domain.ActiveContract[JsValue], Pos)]] = {
+  ): ConnectionIO[Vector[(domain.ActiveContract.ResolvedCtTyId[JsValue], Pos)]] = {
     import sjd.q.{queries => sjdQueries}, cats.syntax.traverse._, cats.instances.vector._
     predicates.zipWithIndex.toVector
       .traverse { case ((tid, pred), ix) =>
@@ -385,7 +385,7 @@ object ContractDao {
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
+  ): ConnectionIO[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     import sjd.q._
     for {
       tpId <- surrogateTemplateId(templateId)
@@ -405,7 +405,7 @@ object ContractDao {
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
+  ): ConnectionIO[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     import sjd.q._
     for {
       tpId <- surrogateTemplateId(templateId)
@@ -426,7 +426,7 @@ object ContractDao {
 
   private def toDomain(templateId: domain.ContractTypeId.Resolved)(
       a: Queries.DBContract[_, JsValue, JsValue, Vector[String]]
-  ): domain.ActiveContract[JsValue] =
+  ): domain.ActiveContract.ResolvedCtTyId[JsValue] =
     domain.ActiveContract(
       contractId = domain.ContractId(a.contractId),
       templateId = templateId,

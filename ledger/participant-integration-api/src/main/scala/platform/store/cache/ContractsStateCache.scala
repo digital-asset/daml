@@ -18,9 +18,9 @@ object ContractsStateCache {
       initialCacheIndex = initialCacheIndex,
       cache = SizedCache.from[ContractId, ContractStateValue](
         SizedCache.Configuration(cacheSize),
-        metrics.daml.execution.cache.contractState,
+        metrics.daml.execution.cache.contractState.stateCache,
       ),
-      registerUpdateTimer = metrics.daml.execution.cache.registerCacheUpdate,
+      registerUpdateTimer = metrics.daml.execution.cache.contractState.registerCacheUpdate,
     )
 }
 

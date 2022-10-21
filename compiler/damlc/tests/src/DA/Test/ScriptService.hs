@@ -42,7 +42,7 @@ import Test.Tasty.HUnit
 import Text.Regex.TDFA
 
 lfVersion :: LF.Version
-lfVersion = max (LF.featureMinVersion LF.featureExceptions) LF.versionDefault
+lfVersion = LF.versionDefault
 
 main :: IO ()
 main =

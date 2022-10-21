@@ -4,7 +4,7 @@
 package com.daml.lf.engine.trigger
 
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.{Dar, DarReader}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.util.ByteString
@@ -27,6 +27,7 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
 import com.daml.bazeltools.BazelRunfiles.requiredResource
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.command_service._
@@ -38,15 +39,16 @@ import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement
+import com.daml.lf.data.Ref.PackageId
 import com.daml.timer.RetryStrategy
+import com.google.protobuf.empty.Empty
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.time.{Seconds, Span}
 
 import java.nio.file.Files
 import scala.concurrent.duration._
 
-// Tests for all trigger service configurations go here
-trait AbstractTriggerServiceTest
+trait AbstractTriggerServiceTestHelper
     extends AsyncFlatSpec
     with HttpCookies
     with TriggerServiceFixture
@@ -57,13 +59,14 @@ trait AbstractTriggerServiceTest
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(30, Seconds)))
 
-  protected val darPath = requiredResource("triggers/service/test-model.dar")
+  protected val darPath: File = requiredResource("triggers/service/test-model.dar")
 
   // Encoded dar used in service initialization
-  protected val dar = DarReader.assertReadArchiveFromFile(darPath).map(p => p.pkgId -> p.proto)
-  protected val testPkgId = dar.main._1
+  protected lazy val dar: Dar[(PackageId, DamlLf.ArchivePayload)] =
+    DarReader.assertReadArchiveFromFile(darPath).map(p => p.pkgId -> p.proto)
+  protected lazy val testPkgId: PackageId = dar.main._1
 
-  protected def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
+  protected def submitCmd(client: LedgerClient, party: String, cmd: Command): Future[Empty] = {
     val req = SubmitAndWaitRequest(
       Some(
         Commands(
@@ -79,7 +82,7 @@ trait AbstractTriggerServiceTest
   }
 
   def testId: String = this.getClass.getSimpleName
-  protected override def actorSystemName = testId
+  protected override def actorSystemName: String = testId
 
   protected val alice: Party = Tag("Alice")
   protected val bob: Party = Tag("Bob")
@@ -91,7 +94,7 @@ trait AbstractTriggerServiceTest
 
   protected[this] def inClaims(self: ItVerbString, testFn: => Future[Assertion])(implicit
       pos: source.Position
-  ) =
+  ): Unit =
     self in testFn
 
   protected[this] implicit final class `InClaims syntax`(private val self: ItVerbString) {
@@ -100,8 +103,8 @@ trait AbstractTriggerServiceTest
       * to grant claims for the user tokens it manufactures; see
       * https://github.com/digital-asset/daml/issues/13076
       */
-    def inClaims(testFn: => Future[Assertion])(implicit pos: source.Position) =
-      AbstractTriggerServiceTest.this.inClaims(self, testFn)
+    def inClaims(testFn: => Future[Assertion])(implicit pos: source.Position): Unit =
+      AbstractTriggerServiceTestHelper.this.inClaims(self, testFn)
   }
 
   def startTrigger(
@@ -230,6 +233,10 @@ trait AbstractTriggerServiceTest
     eventually {
       pred(getTriggerStatus(triggerInstance).map(_._2))
     }
+}
+
+// Tests for all trigger service configurations go here
+trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
 
   it should "start up and shut down server" in
     withTriggerService(List(dar)) { _ =>
@@ -439,7 +446,7 @@ trait AbstractTriggerServiceTest
         .completionSource(List(aliceAcs.unwrap), LedgerOffset(Boundary(LEDGER_BEGIN)))
         .collect({
           case CompletionStreamElement.CompletionElement(completion, _)
-              if !completion.transactionId.isEmpty =>
+              if completion.transactionId.nonEmpty =>
             completion
         })
         .take(1)
@@ -455,7 +462,7 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Semantics: restart trigger on initialization failure due to failed connection
+  // TEST_EVIDENCE: Availability: restart trigger on initialization failure due to failed connection
   it should "restart trigger on initialization failure due to failed connection" inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
@@ -475,7 +482,7 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Semantics: restart trigger on run-time failure due to dropped connection
+  // TEST_EVIDENCE: Availability: restart trigger on run-time failure due to dropped connection
   it should "restart trigger on run-time failure due to dropped connection" inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
@@ -497,7 +504,7 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Semantics: restart triggers with initialization errors
+  // TEST_EVIDENCE: Availability: restart triggers with initialization errors
   it should "restart triggers with initialization errors" in withTriggerService(List(dar)) {
     uri: Uri =>
       for {
@@ -516,7 +523,7 @@ trait AbstractTriggerServiceTest
       } yield succeed
   }
 
-  // TEST_EVIDENCE: Semantics: restart triggers with update errors
+  // TEST_EVIDENCE: Availability: restart triggers with update errors
   it should "restart triggers with update errors" inClaims withTriggerService(List(dar)) {
     uri: Uri =>
       for {
@@ -535,7 +542,7 @@ trait AbstractTriggerServiceTest
       } yield succeed
   }
 
-  // TEST_EVIDENCE: Input Validation: give a 'not found' response for a stop request with an unparseable UUID in the trigger service
+  // TEST_EVIDENCE: Confidentiality: give a 'not found' response for a stop request with an unparseable UUID in the trigger service
   it should "give a 'not found' response for a stop request with an unparseable UUID" in withTriggerService(
     Nil
   ) { uri: Uri =>
@@ -550,7 +557,7 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Input Validation: give a 'not found' response for a stop request on an unknown UUID in the trigger service
+  // TEST_EVIDENCE: Confidentiality: give a 'not found' response for a stop request on an unknown UUID in the trigger service
   it should "give a 'not found' response for a stop request on an unknown UUID" in withTriggerService(
     Nil
   ) { uri: Uri =>
@@ -595,7 +602,7 @@ trait AbstractTriggerServiceTestWithDatabase extends AbstractTriggerServiceTest 
     }
   } yield succeed)
 
-  // TEST_EVIDENCE: Semantics: restart triggers after shutdown
+  // TEST_EVIDENCE: Availability: restart triggers after shutdown
   it should "restart triggers after shutdown" inClaims (for {
     _ <- withTriggerService(List(dar)) { uri: Uri =>
       for {
@@ -639,7 +646,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
 
   behavior of "authenticated service"
 
-  // TEST_EVIDENCE: Semantics: redirect to the configured callback URI after login
+  // TEST_EVIDENCE: Authentication: redirect to the configured callback URI after login
   it should "redirect to the configured callback URI after login" in withTriggerService(
     Nil,
     authCallback = Some("http://localhost/TRIGGER_CALLBACK"),

@@ -122,7 +122,7 @@ class ErrorListener[ReqT, RespT](delegate: ServerCall.Listener[ReqT], call: Serv
         LogOnUnhandledFailureInClose(call.close(t.getStatus, t.getTrailers))
       case t: StatusRuntimeException =>
         LogOnUnhandledFailureInClose(call.close(t.getStatus, t.getTrailers))
-      case t: Throwable =>
+      case NonFatal(t) =>
         val e = LedgerApiErrors.InternalError
           .UnexpectedOrUnknownException(t = t)(
             new DamlContextualizedErrorLogger(logger, emptyLoggingContext, None)

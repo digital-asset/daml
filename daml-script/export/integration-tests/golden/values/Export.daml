@@ -4,13 +4,13 @@
 {-# LANGUAGE ApplicativeDo #-}
 module Export where
 import Daml.Script
-import qualified DA.Map
 import qualified DA.Date
-import qualified Values
+import qualified DA.Map
 import qualified DA.Stack
-import qualified DA.Traversable
 import qualified DA.TextMap
 import qualified DA.Time
+import qualified DA.Traversable
+import qualified Values
 
 -- | Mapping from party names in the original ledger state
 -- to parties to be used in 'export'.
@@ -65,7 +65,7 @@ testExport = do
 export : Args -> Script ()
 export Args{parties, contracts} = do
   let bank_0 = lookupParty "Bank" parties
-  token_1_0 <- submit bank_0 do
+  (coerceContractId @_ @Values.Token -> token_1_0) <- submit bank_0 do
     createCmd (Values.Token {owner = bank_0})
   _ <- submit bank_0 do
     createCmd (Values.Container {owner = bank_0, unit = (), bool = False,

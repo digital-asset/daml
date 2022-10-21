@@ -68,7 +68,7 @@ private[platform] object InMemoryStateUpdaterFlow {
       .mapAsync(1) { result =>
         Future {
           update(result)
-          metrics.daml.index.ledgerEndSequentialId.metric.updateValue(result.lastEventSequentialId)
+          metrics.daml.index.ledgerEndSequentialId.updateValue(result.lastEventSequentialId)
         }(updateCachesExecutionContext)
       }
 }

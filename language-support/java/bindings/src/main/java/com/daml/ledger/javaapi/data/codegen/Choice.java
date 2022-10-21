@@ -14,7 +14,7 @@ import java.util.function.Function;
  * @param <ArgType> The choice's argument type
  * @param <ResType> The result from exercising the choice
  */
-public final class ChoiceMetadata<Tpl, ArgType, ResType> {
+public final class Choice<Tpl, ArgType, ResType> {
 
   /** The choice name * */
   public final String name;
@@ -24,7 +24,7 @@ public final class ChoiceMetadata<Tpl, ArgType, ResType> {
   final ValueDecoder<ArgType> argTypeDecoder;
   final ValueDecoder<ResType> returnTypeDecoder;
 
-  private ChoiceMetadata(
+  private Choice(
       final String name,
       final Function<ArgType, Value> encodeArg,
       ValueDecoder<ArgType> argTypeDecoder,
@@ -41,11 +41,11 @@ public final class ChoiceMetadata<Tpl, ArgType, ResType> {
    * and <em>should not be referenced directly</em>. Applications should refer to the generated
    * {@code CHOICE_*} fields on templates or interfaces.
    */
-  public static <Tpl, ArgType, ResType> ChoiceMetadata<Tpl, ArgType, ResType> create(
+  public static <Tpl, ArgType, ResType> Choice<Tpl, ArgType, ResType> create(
       final String name,
       final Function<ArgType, Value> encodeArg,
       ValueDecoder<ArgType> argTypeDecoder,
       ValueDecoder<ResType> returnTypeDecoder) {
-    return new ChoiceMetadata<>(name, encodeArg, argTypeDecoder, returnTypeDecoder);
+    return new Choice<>(name, encodeArg, argTypeDecoder, returnTypeDecoder);
   }
 }

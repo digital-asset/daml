@@ -192,7 +192,7 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
         )
       )
 
-      val tpId = ContractTypeId("pkg", "mod", "ent")
+      val tpId = ContractTypeId.Template("pkg", "mod", "ent")
       for {
         storedStpId <- getOrElseInsertTemplate(tpId) // insert the template id into the cache
         cachedStpId <- getOrElseInsertTemplate(tpId) // should trigger a read from cache
@@ -207,7 +207,7 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
       import dbbackend.Queries.DBContract, spray.json.{JsObject, JsNull, JsValue},
       spray.json.DefaultJsonProtocol._
 
-      val tpId = ContractTypeId("pkg", "mod", "UncomCollision")
+      val tpId = ContractTypeId.Template("pkg", "mod", "UncomCollision")
 
       val simulation = instanceUUIDLogCtx { implicit lc =>
         def stid =

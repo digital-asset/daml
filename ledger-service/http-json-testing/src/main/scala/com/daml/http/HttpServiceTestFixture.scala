@@ -431,7 +431,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     postJsonStringRequest(uri, json.prettyPrint, headers)
 
   def postCreateCommand(
-      cmd: domain.CreateCommand[v.Record, domain.ContractTypeId.OptionalPkg],
+      cmd: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
       encoder: DomainJsonEncoder,
       uri: Uri,
       headers: List[HttpHeader],
@@ -499,7 +499,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       owner: domain.Party,
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
-  ): domain.CreateCommand[v.Record, domain.ContractTypeId.OptionalPkg] = {
+  ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
     val templateId = domain.ContractTypeId.Template(None, "Account", "Account")
     val timeValue = v.Value(time)
     val enabledVariantValue =
@@ -519,7 +519,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       owners: Seq[String],
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
-  ): domain.CreateCommand[v.Record, domain.ContractTypeId.OptionalPkg] = {
+  ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
     val templateId = domain.ContractTypeId.Template(None, "Account", "SharedAccount")
     val timeValue = v.Value(time)
     val enabledVariantValue =

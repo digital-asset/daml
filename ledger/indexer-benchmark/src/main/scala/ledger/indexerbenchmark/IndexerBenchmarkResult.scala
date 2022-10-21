@@ -4,7 +4,8 @@
 package com.daml.ledger.indexerbenchmark
 
 import com.codahale.metrics.Snapshot
-import com.daml.metrics.Metrics
+import com.daml.metrics.MetricHandle.{Histogram, Timer}
+import com.daml.metrics.{MetricHandle, Metrics}
 
 class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, stopTime: Long) {
 
@@ -54,26 +55,32 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
        |
        |Other metrics:
        |  inputMapping.batchSize:     ${histogramToString(
-        metrics.daml.parallelIndexer.inputMapping.batchSize.getSnapshot
+        metrics.daml.parallelIndexer.inputMapping.batchSize
       )}
-       |  inputMapping.duration:      ${histogramToString(
-        inputMappingDurationMetric.getSnapshot
+       |  inputMapping.duration:      ${timerToString(
+        inputMappingDurationMetric
       )}
-       |  inputMapping.duration.rate: ${inputMappingDurationMetric.getMeanRate}
-       |  batching.duration:      ${histogramToString(batchingDurationMetric.getSnapshot)}
-       |  batching.duration.rate: ${batchingDurationMetric.getMeanRate}
-       |  seqMapping.duration: ${histogramToString(
-        metrics.daml.parallelIndexer.seqMapping.duration.getSnapshot
+       |  inputMapping.duration.rate: ${timerMeanRate(inputMappingDurationMetric)}
+       |  batching.duration:      ${timerToString(batchingDurationMetric)}
+       |  batching.duration.rate: ${timerMeanRate(batchingDurationMetric)}
+       |  seqMapping.duration: ${timerToString(
+        metrics.daml.parallelIndexer.seqMapping.duration
       )}|
-       |  seqMapping.duration.rate: ${metrics.daml.parallelIndexer.seqMapping.duration.getMeanRate}|
-       |  ingestion.duration:         ${histogramToString(
-        metrics.daml.parallelIndexer.ingestion.executionTimer.getSnapshot
+       |  seqMapping.duration.rate: ${timerMeanRate(
+        metrics.daml.parallelIndexer.seqMapping.duration
+      )}|
+       |  ingestion.duration:         ${timerToString(
+        metrics.daml.parallelIndexer.ingestion.executionTimer
       )}
-       |  ingestion.duration.rate:    ${metrics.daml.parallelIndexer.ingestion.executionTimer.getMeanRate}
-       |  tailIngestion.duration:         ${histogramToString(
-        metrics.daml.parallelIndexer.tailIngestion.executionTimer.getSnapshot
+       |  ingestion.duration.rate:    ${timerMeanRate(
+        metrics.daml.parallelIndexer.ingestion.executionTimer
       )}
-       |  tailIngestion.duration.rate:    ${metrics.daml.parallelIndexer.tailIngestion.executionTimer.getMeanRate}
+       |  tailIngestion.duration:         ${timerToString(
+        metrics.daml.parallelIndexer.tailIngestion.executionTimer
+      )}
+       |  tailIngestion.duration.rate:    ${timerMeanRate(
+        metrics.daml.parallelIndexer.tailIngestion.executionTimer
+      )}
        |
        |Notes:
        |  The above numbers include all ingested updates, including package uploads.
@@ -83,7 +90,31 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
        |--------------------------------------------------------------------------------
        |""".stripMargin
 
-  private[this] def histogramToString(data: Snapshot): String = {
-    s"[min: ${data.getMin}, median: ${data.getMedian}, max: ${data.getMax}]"
+  private[this] def histogramToString(histogram: Histogram): String = {
+    histogram match {
+      case MetricHandle.DropwizardHistogram(_, metric) =>
+        val data = metric.getSnapshot
+        dropwizardSnapshotToString(data)
+    }
+  }
+
+  private[this] def timerToString(timer: Timer): String = {
+    timer match {
+      case MetricHandle.DropwizardTimer(_, metric) =>
+        val data = metric.getSnapshot
+        dropwizardSnapshotToString(data)
+      case MetricHandle.Timer.NoOpTimer(_) => ""
+    }
+  }
+
+  private[this] def timerMeanRate(timer: Timer): Double = {
+    timer match {
+      case MetricHandle.DropwizardTimer(_, metric) =>
+        metric.getMeanRate
+      case MetricHandle.Timer.NoOpTimer(_) => 0
+    }
+  }
+  private def dropwizardSnapshotToString(data: Snapshot) = {
+    s"[min: ${data.getMin}, median: ${data.getMedian}, max: ${data.getMax}"
   }
 }

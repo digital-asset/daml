@@ -9,7 +9,7 @@ import scalaz.syntax.bind._
 import scalaz.std.either._
 import com.daml.lf.data.{ImmArray, Ref}
 import Ref._
-import com.daml.lf.language.{Ast, StablePackage}
+import com.daml.lf.language.Ast
 import com.daml.lf.speedy.{ArrayList, SValue}
 import SValue._
 import com.daml.lf.value.Value.ContractId
@@ -20,9 +20,6 @@ private[daml] object Converter {
   import Implicits._
 
   type ErrorOr[+A] = Either[String, A]
-
-  def daInternalAny(s: String): Identifier =
-    StablePackage.DA.Internal.Any.assertIdentifier(s)
 
   def toContractId(v: SValue): ErrorOr[ContractId] =
     v.expect("ContractId", { case SContractId(cid) => cid })

@@ -52,19 +52,16 @@ trait UserManagementStore {
       loggingContext: LoggingContext
   ): Future[Result[User]]
 
-  // TODO um-for-hub major: Validate the size of update annotations is within max annotations size
   def updateUser(userUpdate: UserUpdate)(implicit
       loggingContext: LoggingContext
   ): Future[Result[User]]
 
   def deleteUser(id: Ref.UserId)(implicit loggingContext: LoggingContext): Future[Result[Unit]]
 
-  // TODO um-for-hub major: Bump resource version number on rights change
   def grantRights(id: Ref.UserId, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]]
 
-  // TODO um-for-hub major: Bump resource version number on rights change
   def revokeRights(id: Ref.UserId, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]]
