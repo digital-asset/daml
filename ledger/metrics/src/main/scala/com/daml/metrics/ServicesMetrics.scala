@@ -179,13 +179,15 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
     val writeOperationForDocs: Timer = DropwizardTimer(prefix :+ "<operation>", null)
 
     @MetricDoc.Tag(
-      summary = "The time to execute a write service operation.",
+      summary = "The number of submitted transactions by the write service.",
       description = """The write service is an internal interface for changing the state through
                       |the synchronization services. The methods in this interface are all methods
                       |that are supported uniformly across all ledger implementations. This metric
-                      |exposes the time needed to execute each operation.""",
+                      |exposes the total number of the sumbitted transactions.""",
       qualification = Traffic,
     )
+    val submitOperationForDocs: Timer = Timer(prefix :+ "submit_transaction" :+ "_count", null)
+
     val submitTransaction: Timer = timer(prefix :+ "submit_transaction")
     val submitTransactionRunning: Meter = meter(prefix :+ "submit_transaction_running")
     val uploadPackages: Timer = timer(prefix :+ "upload_packages")
