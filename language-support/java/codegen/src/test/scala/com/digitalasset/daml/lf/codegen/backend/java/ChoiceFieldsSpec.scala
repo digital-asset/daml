@@ -13,7 +13,7 @@ import ut.da.internal.template.Archive
 
 import scala.jdk.CollectionConverters._
 
-final class ChoiceMetadataFieldsSpec extends AnyWordSpec with Matchers {
+final class ChoiceFieldsSpec extends AnyWordSpec with Matchers {
   "Template" should {
     "have choice fields" in {
       val choice: Choice[Bar, Archive, Unit] = Bar.CHOICE_Archive

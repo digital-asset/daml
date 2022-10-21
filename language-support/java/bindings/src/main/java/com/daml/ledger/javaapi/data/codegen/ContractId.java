@@ -49,7 +49,7 @@ public class ContractId<T> implements Exercises<ExerciseCommand> {
 
   @Override
   public <A, R> Update<Exercised<R>> makeExerciseCmd(
-      ChoiceMetadata<?, ? super A, R> choice, A choiceArgument) {
+      Choice<?, ? super A, R> choice, A choiceArgument) {
     var command =
         new ExerciseCommand(
             getCompanion().TEMPLATE_ID,

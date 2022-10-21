@@ -16,7 +16,7 @@ public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
 
   @Override
   public <A, R> Update<Exercised<R>> makeExerciseCmd(
-      ChoiceMetadata<?, ? super A, R> choice, A choiceArgument) {
+      Choice<?, ? super A, R> choice, A choiceArgument) {
     var command =
         new CreateAndExerciseCommand(
             getCompanion().TEMPLATE_ID,
@@ -43,7 +43,7 @@ public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
 
     @Override
     public final <A, R> Update<Exercised<R>> makeExerciseCmd(
-        ChoiceMetadata<?, ? super A, R> choice, A choiceArgument) {
+        Choice<?, ? super A, R> choice, A choiceArgument) {
       // TODO #14056 use getCompanion().TEMPLATE_ID as the interface ID
       var command =
           new CreateAndExerciseCommand(
