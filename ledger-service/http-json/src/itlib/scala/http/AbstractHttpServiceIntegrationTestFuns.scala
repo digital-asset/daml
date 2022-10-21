@@ -466,15 +466,14 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   private[this] val (_, ciouVA) = {
-    val iouT = ShRecord(issuer = VA.party, owner = VA.party, amount = VA.text)
+    val iouT = ShRecord(issuer = VAx.partyDomain, owner = VAx.partyDomain, amount = VA.text)
     VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
   }
 
   protected def iouCommand(
-      party: domain.Party,
+      issuer: domain.Party,
       templateId: domain.ContractTypeId.Template.OptionalPkg,
   ) = {
-    val issuer = Ref.Party assertFromString domain.Party.unwrap(party)
     val iouT = argToApi(ciouVA)(
       ShRecord(
         issuer = issuer,
