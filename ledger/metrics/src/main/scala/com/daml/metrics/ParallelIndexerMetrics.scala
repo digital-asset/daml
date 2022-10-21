@@ -4,9 +4,9 @@
 package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
+import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Latency, Saturation, Traffic}
 import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Timer}
-import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.dropwizard.{DropwizardFactory, DropwizardTimer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 @MetricDoc.GroupTag(

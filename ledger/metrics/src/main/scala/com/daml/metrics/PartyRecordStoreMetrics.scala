@@ -4,7 +4,7 @@
 package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.api.MetricName
+import com.daml.metrics.api.{MetricDoc, MetricName}
 import com.daml.metrics.api.dropwizard.FactoryWithDBMetrics
 
 @MetricDoc.GroupTag(
