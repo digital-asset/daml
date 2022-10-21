@@ -129,7 +129,11 @@ Data Types
 
     (no fields)
 
+  **instance** `HasFromAnyView <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasfromanyview-19685>`_ `Token <type-interface-token-10651_>`_ `EmptyInterfaceView <type-interface-emptyinterfaceview-28816_>`_
+
   **instance** `HasInterfaceView <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492>`_ `Token <type-interface-token-10651_>`_ `EmptyInterfaceView <type-interface-emptyinterfaceview-28816_>`_
+
+  **instance** `HasToAnyView <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hastoanyview-73434>`_ `Token <type-interface-token-10651_>`_ `EmptyInterfaceView <type-interface-emptyinterfaceview-28816_>`_
 
 Functions
 ^^^^^^^^^

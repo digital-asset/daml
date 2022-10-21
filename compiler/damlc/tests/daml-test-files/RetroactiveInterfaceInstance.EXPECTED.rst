@@ -105,7 +105,11 @@ Data Types
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
          -
 
+  **instance** `HasFromAnyView <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasfromanyview-19685>`_ `Token <type-retroactiveinterfaceinstance-token-49693_>`_ `TokenView <type-retroactiveinterfaceinstance-tokenview-57374_>`_
+
   **instance** `HasInterfaceView <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492>`_ `Token <type-retroactiveinterfaceinstance-token-49693_>`_ `TokenView <type-retroactiveinterfaceinstance-tokenview-57374_>`_
+
+  **instance** `HasToAnyView <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hastoanyview-73434>`_ `Token <type-retroactiveinterfaceinstance-token-49693_>`_ `TokenView <type-retroactiveinterfaceinstance-tokenview-57374_>`_
 
   **instance** `HasField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839>`_ \"amount\" `TokenView <type-retroactiveinterfaceinstance-tokenview-57374_>`_ `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
 

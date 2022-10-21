@@ -76,7 +76,11 @@
 >
 > > (no fields)
 >
+> **instance** [HasFromAnyView](https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasfromanyview-19685) [Token](#type-interface-token-10651) [EmptyInterfaceView](#type-interface-emptyinterfaceview-28816)
+>
 > **instance** [HasInterfaceView](https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492) [Token](#type-interface-token-10651) [EmptyInterfaceView](#type-interface-emptyinterfaceview-28816)
+>
+> **instance** [HasToAnyView](https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hastoanyview-73434) [Token](#type-interface-token-10651) [EmptyInterfaceView](#type-interface-emptyinterfaceview-28816)
 
 ## Functions
 
