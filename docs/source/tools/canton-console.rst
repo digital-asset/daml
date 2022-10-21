@@ -17,7 +17,7 @@ in a production environment.
 
 The purpose of this page is to give a few pointers on how the console can be used to
 interact with a running Sandbox. For an in-depth guide on how to use this tool against a production,
-staging or testing environment, :ref:`consult the main documentation for the Canton console <canton_console>`
+staging or testing environment, :ref:`consult the main documentation for the Canton console <canton_console>`.
 
 Run the Canton Console Against the Sandbox
 ==========================================
