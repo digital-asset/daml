@@ -31,7 +31,7 @@ class DevOnly
     "InterfaceTest" should {
       val triggerId = QualifiedName.assertFromString("Interface:test")
       val tId = LedgerApi.Identifier(packageId, "Interface", "Asset")
-      "1 transfer" ignore {
+      "1 transfer" in {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
