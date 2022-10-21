@@ -368,21 +368,12 @@ convertPrim _ "EFromAnyTemplate"
     ETmLam (mkVar "any", TAny) $
     EFromAny (TCon template) (EVar $ mkVar "any")
 
-convertPrim _ "EFromAnyTemplateChoice"
+convertPrim _ "EFromAnyChoice"
     (tProxy :-> TAny :-> TOptional choice) =
     pure $
     ETmLam (mkVar "_", tProxy) $
     ETmLam (mkVar "any", TAny) $
     EFromAny choice (EVar $ mkVar "any")
-
-convertPrim _ "EFromAnyInterfaceChoice"
-    (tProxy :-> TAny :-> TOptional choice) =
-    pure $
-    ETmLam (mkVar "_", tProxy) $
-    ETmLam (mkVar "any", TAny) $
-    ECase (EFromAny (mkTAnyInterfaceChoice choice) (EVar $ mkVar "any"))
-      [  CaseAlternative (CPSome $ mkVar "x") (ESome choice $ projChoice choice (EVar $ mkVar "x"))
-      ,  CaseAlternative CPDefault (ENone choice) ]
 
 convertPrim _ "EFromAnyContractKey"
     (tProxy@(TApp _ (TCon _)) :-> TAny :-> TOptional key) =
@@ -397,19 +388,12 @@ convertPrim _ "EToAnyTemplate"
     ETmLam (mkVar "template", TCon template) $
     EToAny (TCon template) (EVar $ mkVar "template")
 
-convertPrim _ "EToAnyTemplateChoice"
+convertPrim _ "EToAnyChoice"
     (tProxy :-> choice :-> TAny) =
     pure $
     ETmLam (mkVar "_", tProxy) $
     ETmLam (mkVar "choice", choice) $
     EToAny choice (EVar $ mkVar "choice")
-
-convertPrim _ "EToAnyInterfaceChoice"
-    (tProxy@(TApp _ (TCon typeId)) :-> choice :-> TAny) =
-    pure $
-    ETmLam (mkVar "_", tProxy) $
-    ETmLam (mkVar "choice", choice) $
-    EToAny (mkTAnyInterfaceChoice choice) (mkEAnyInterfaceChoice choice typeId $ EVar $ mkVar "choice")
 
 convertPrim _ "EToAnyContractKey"
     (tProxy@(TApp _ (TCon _)) :-> key :-> TAny) =
@@ -512,19 +496,6 @@ convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
 
 -- Unknown primitive.
 convertPrim _ x ty = conversionError $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
-
-typeRepField, choiceField :: FieldName
-typeRepField = FieldName "choiceInterfaceIdRep"
-choiceField = FieldName "choice"
-
-mkTAnyInterfaceChoice :: Type -> Type
-mkTAnyInterfaceChoice t = TStruct [(typeRepField, TTypeRep), (choiceField, t)]
-
-mkEAnyInterfaceChoice :: Type -> Qualified TypeConName -> Expr -> Expr
-mkEAnyInterfaceChoice _ typeId e = EStructCon [(typeRepField, ETypeRep (TCon typeId)), (choiceField, e)]
-
-projChoice :: Type -> Expr -> Expr
-projChoice _ = EStructProj choiceField
 
 -- | Some builtins are only supported in specific versions of Daml-LF.
 whenRuntimeSupports :: Version -> Feature -> Type -> Expr -> Expr

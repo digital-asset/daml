@@ -7,7 +7,7 @@ package trigger
 
 import scalaz.std.either._
 import scalaz.syntax.traverse._
-import com.daml.lf.data.{FrontStack, ImmArray, Struct}
+import com.daml.lf.data.{FrontStack, ImmArray}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{ArrayList, SValue}
@@ -77,10 +77,10 @@ final class Converter(compiledPackages: CompiledPackages, triggerIds: TriggerIds
     } yield Identifier(pkgId, QualifiedName(mod, name))
 
   private[this] def toLedgerRecord(v: SValue): Either[String, value.Record] =
-    lfValueToApiRecord(true, v.toUnnormalizedValue)
+    lfValueToApiRecord(verbose = true, v.toUnnormalizedValue)
 
   private[this] def toLedgerValue(v: SValue): Either[String, value.Value] =
-    lfValueToApiValue(true, v.toUnnormalizedValue)
+    lfValueToApiValue(verbose = true, v.toUnnormalizedValue)
 
   private[this] def fromTemplateTypeRep(tyCon: value.Identifier): SValue =
     record(
@@ -310,19 +310,7 @@ final class Converter(compiledPackages: CompiledPackages, triggerIds: TriggerIds
   private[this] def toAnyChoice(v: SValue): Either[String, AnyChoice] =
     v match {
       case SRecord(_, _, ArrayList(SAny(TTyCon(choiceCons), choiceVal), _)) =>
-        Right(AnyChoice.Template(choiceArgTypeToChoiceName(choiceCons), choiceVal))
-      case SRecord(
-            _,
-            _,
-            ArrayList(
-              SAny(
-                TStruct(Struct((_, TTyCon(choiceCons)), _)),
-                SStruct(_, ArrayList(choiceVal, STypeRep(TTyCon(ifaceId)))),
-              ),
-              _,
-            ),
-          ) =>
-        Right(AnyChoice.Interface(ifaceId, choiceArgTypeToChoiceName(choiceCons), choiceVal))
+        Right(AnyChoice(choiceArgTypeToChoiceName(choiceCons), choiceVal))
       case _ =>
         Left(s"Expected AnyChoice but got $v")
     }
@@ -353,13 +341,9 @@ final class Converter(compiledPackages: CompiledPackages, triggerIds: TriggerIds
         for {
           anyContractId <- toAnyContractId(sAnyContractId)
           anyChoice <- toAnyChoice(sChoiceVal)
-          choiceTypeId = anyChoice match {
-            case _: AnyChoice.Template => anyContractId.templateId
-            case AnyChoice.Interface(ifaceId, _, _) => ifaceId
-          }
           choiceArg <- toLedgerValue(anyChoice.arg)
         } yield ExerciseCommand(
-          Some(toApiIdentifier(choiceTypeId)),
+          Some(toApiIdentifier(anyContractId.templateId)),
           anyContractId.contractId.coid,
           anyChoice.name,
           Some(choiceArg),
@@ -376,11 +360,6 @@ final class Converter(compiledPackages: CompiledPackages, triggerIds: TriggerIds
           keyVal <- toAnyContractKey(skeyVal)
           keyArg <- toLedgerValue(keyVal.key)
           anyChoice <- toAnyChoice(sChoiceVal)
-          _ <- anyChoice match {
-            case _: AnyChoice.Template => Right(())
-            case _: AnyChoice.Interface =>
-              Left("Cannot run a ExerciseByKey over a interface choice")
-          }
           choiceArg <- toLedgerValue(anyChoice.arg)
         } yield ExerciseByKeyCommand(
           Some(toApiIdentifier(tplId)),
@@ -399,11 +378,6 @@ final class Converter(compiledPackages: CompiledPackages, triggerIds: TriggerIds
           anyTmpl <- toAnyTemplate(sTpl)
           templateArg <- toLedgerRecord(anyTmpl.arg)
           anyChoice <- toAnyChoice(sChoiceVal)
-          _ <- anyChoice match {
-            case _: AnyChoice.Template => Right(())
-            case _: AnyChoice.Interface =>
-              Left("Cannot run a CreateAndExercise over a interface choice")
-          }
           choiceArg <- toLedgerValue(anyChoice.arg)
         } yield CreateAndExerciseCommand(
           Some(toApiIdentifier(anyTmpl.ty)),
@@ -451,17 +425,10 @@ final class Converter(compiledPackages: CompiledPackages, triggerIds: TriggerIds
 
 object Converter {
 
-  private case class AnyContractId(templateId: Identifier, contractId: ContractId)
-  private case class AnyTemplate(ty: Identifier, arg: SValue)
-  sealed abstract class AnyChoice extends Product with Serializable {
-    def name: ChoiceName
-    def arg: SValue
-  }
-  object AnyChoice {
-    final case class Template(name: ChoiceName, arg: SValue) extends AnyChoice
-    final case class Interface(ifaceId: Identifier, name: ChoiceName, arg: SValue) extends AnyChoice
-  }
-  private case class AnyContractKey(key: SValue)
+  private final case class AnyContractId(templateId: Identifier, contractId: ContractId)
+  private final case class AnyTemplate(ty: Identifier, arg: SValue)
+  private final case class AnyChoice(name: ChoiceName, arg: SValue)
+  private final case class AnyContractKey(key: SValue)
 
   object EventVariant {
     // Those values should be kept consistent with type `Event` defined in

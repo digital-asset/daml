@@ -3,12 +3,12 @@
 
 package com.daml.platform.store.backend
 
-import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.{ParticipantMetering, ReportData}
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{IndexerPartyDetails, PackageDetails}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
@@ -180,8 +180,8 @@ trait PartyStorageBackend {
       pageSize: Int,
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, PartyLedgerEntry)]
-  def parties(parties: Seq[Party])(connection: Connection): List[PartyDetails]
-  def knownParties(connection: Connection): List[PartyDetails]
+  def parties(parties: Seq[Party])(connection: Connection): List[IndexerPartyDetails]
+  def knownParties(connection: Connection): List[IndexerPartyDetails]
 }
 
 trait PackageStorageBackend {

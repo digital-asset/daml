@@ -63,8 +63,8 @@ prometheus_version = "0.14.1"
 def install_java_deps():
     maven_install(
         artifacts = version_specific.get(scala_major_version, []) + [
-            "ch.qos.logback:logback-classic:1.4.4",
-            "ch.qos.logback:logback-core:1.4.4",
+            "ch.qos.logback:logback-classic:1.2.11",
+            "ch.qos.logback:logback-core:1.2.11",
             "com.auth0:java-jwt:4.1.0",
             "com.auth0:jwks-rsa:0.21.2",
             "com.chuusai:shapeless_{}:2.3.3".format(scala_major_version),
@@ -104,7 +104,7 @@ def install_java_deps():
             "org.playframework.anorm:anorm_{}:2.7.0".format(scala_major_version),
             "org.playframework.anorm:anorm-akka_{}:2.7.0".format(scala_major_version),
             "com.typesafe.scala-logging:scala-logging_{}:3.9.5".format(scala_major_version),
-            "com.zaxxer:HikariCP:5.0.1",
+            "com.zaxxer:HikariCP:3.4.5",
             "eu.rekawek.toxiproxy:toxiproxy-java:2.1.7",
             "io.circe:circe-core_{}:0.14.3".format(scala_major_version),
             "io.circe:circe-generic_{}:0.14.3".format(scala_major_version),
@@ -210,8 +210,8 @@ def install_java_deps():
             "org.scalaz:scalaz-core_{}:7.2.34".format(scala_major_version),
             "org.scalaz:scalaz-scalacheck-binding_{}:7.2.34-scalacheck-1.15".format(scala_major_version),
             "org.seleniumhq.selenium:selenium-java:4.5.0",
-            "org.slf4j:slf4j-api:2.0.3",
-            "org.slf4j:slf4j-simple:2.0.3",
+            "org.slf4j:slf4j-api:1.7.36",
+            "org.slf4j:slf4j-simple:1.7.36",
             "org.typelevel:cats-core_{}:2.8.0".format(scala_major_version),
             "org.typelevel:cats-kernel_{}:2.8.0".format(scala_major_version),
             "org.typelevel:cats-laws_{}:2.8.0".format(scala_major_version),

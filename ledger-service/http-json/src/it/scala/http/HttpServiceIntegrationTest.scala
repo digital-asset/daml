@@ -310,7 +310,7 @@ abstract class HttpServiceIntegrationTest
         .parseResponse[JsValue]
     } yield inside(exerciseTest) {
       case domain.ErrorResponse(Seq(lookup), None, StatusCodes.BadRequest, _) =>
-        lookup should include regex raw"Expect contract type Id to be template Id, got otherwise: InterfaceId\([0-9a-f]{64},IIou,IIou\)"
+        lookup should include regex raw"Cannot resolve template ID, given: TemplateId\(None,IIou,IIou\)"
     }
   }
 

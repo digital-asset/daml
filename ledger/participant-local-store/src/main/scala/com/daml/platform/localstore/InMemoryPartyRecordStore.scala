@@ -4,7 +4,7 @@
 package com.daml.platform.localstore
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{ObjectMeta, PartyRecord}
+import com.daml.ledger.api.domain.ObjectMeta
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -13,7 +13,12 @@ import com.daml.platform.localstore.api.PartyRecordStore.{
   PartyRecordExistsFatal,
   Result,
 }
-import com.daml.platform.localstore.api.{LedgerPartyExists, PartyRecordStore, PartyRecordUpdate}
+import com.daml.platform.localstore.api.{
+  LedgerPartyExists,
+  PartyRecord,
+  PartyRecordStore,
+  PartyRecordUpdate,
+}
 import com.daml.platform.localstore.utils.LocalAnnotationsUtils
 import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 

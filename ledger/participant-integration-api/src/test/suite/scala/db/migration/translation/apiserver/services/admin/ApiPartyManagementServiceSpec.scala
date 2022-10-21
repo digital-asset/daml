@@ -7,19 +7,20 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
-import com.daml.ledger.api.domain.PartyRecord
-import com.daml.ledger.api.domain.{ObjectMeta, PartyDetails, PartyEntry}
+import com.daml.ledger.api.domain.ObjectMeta
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.admin.party_management_service.AllocatePartyRequest
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
+  IndexerPartyDetails,
+  PartyEntry,
 }
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.admin.ApiPartyManagementServiceSpec._
-import com.daml.platform.localstore.api.PartyRecordStore
+import com.daml.platform.localstore.api.{PartyRecord, PartyRecordStore}
 import com.daml.telemetry.TelemetrySpecBase._
 import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -54,7 +55,7 @@ class ApiPartyManagementServiceSpec
           Source.single(
             PartyEntry.AllocationAccepted(
               Some("aSubmission"),
-              PartyDetails(party, None, isLocal = true),
+              IndexerPartyDetails(party, None, isLocal = true),
             )
           )
         )

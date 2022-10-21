@@ -82,7 +82,7 @@ trait AbstractTriggerServiceTestHelper
   }
 
   def testId: String = this.getClass.getSimpleName
-  protected override def actorSystemName = testId
+  protected override def actorSystemName: String = testId
 
   protected val alice: Party = Tag("Alice")
   protected val bob: Party = Tag("Bob")
@@ -94,7 +94,7 @@ trait AbstractTriggerServiceTestHelper
 
   protected[this] def inClaims(self: ItVerbString, testFn: => Future[Assertion])(implicit
       pos: source.Position
-  ) =
+  ): Unit =
     self in testFn
 
   protected[this] implicit final class `InClaims syntax`(private val self: ItVerbString) {
@@ -103,7 +103,7 @@ trait AbstractTriggerServiceTestHelper
       * to grant claims for the user tokens it manufactures; see
       * https://github.com/digital-asset/daml/issues/13076
       */
-    def inClaims(testFn: => Future[Assertion])(implicit pos: source.Position) =
+    def inClaims(testFn: => Future[Assertion])(implicit pos: source.Position): Unit =
       AbstractTriggerServiceTestHelper.this.inClaims(self, testFn)
   }
 

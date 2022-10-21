@@ -65,14 +65,7 @@ object ScriptIds {
 }
 
 final case class AnyTemplate(ty: Identifier, arg: SValue)
-sealed abstract class AnyChoice extends Product with Serializable {
-  def name: ChoiceName
-  def arg: SValue
-}
-object AnyChoice {
-  final case class Template(name: ChoiceName, arg: SValue) extends AnyChoice
-  final case class Interface(ifaceId: Identifier, name: ChoiceName, arg: SValue) extends AnyChoice
-}
+final case class AnyChoice(name: ChoiceName, arg: SValue)
 final case class AnyContractKey(key: SValue)
 // frames ordered from most-recent to least-recent
 final case class StackTrace(frames: Vector[Location]) {
@@ -198,19 +191,19 @@ object Converter {
   private[this] def toAnyChoice(v: SValue): Either[String, AnyChoice] =
     v match {
       case SRecord(_, _, ArrayList(SAny(TTyCon(choiceCons), choiceVal), _)) =>
-        Right(AnyChoice.Template(choiceArgTypeToChoiceName(choiceCons), choiceVal))
+        Right(AnyChoice(choiceArgTypeToChoiceName(choiceCons), choiceVal))
       case SRecord(
             _,
             _,
             ArrayList(
               SAny(
                 TStruct(Struct((_, TTyCon(choiceCons)), _)),
-                SStruct(_, ArrayList(choiceVal, STypeRep(TTyCon(ifaceId)))),
+                SStruct(_, ArrayList(choiceVal, _)),
               ),
               _,
             ),
           ) =>
-        Right(AnyChoice.Interface(ifaceId, choiceArgTypeToChoiceName(choiceCons), choiceVal))
+        Right(AnyChoice(choiceArgTypeToChoiceName(choiceCons), choiceVal))
       case _ =>
         Left(s"Expected AnyChoice but got $v")
     }
@@ -258,25 +251,15 @@ object Converter {
       // typerep, contract id, choice argument and continuation
       case SRecord(_, _, vals) if vals.size == 4 =>
         for {
-          tplId <- typeRepToIdentifier(vals.get(0))
+          typeId <- typeRepToIdentifier(vals.get(0))
           cid <- toContractId(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
-        } yield anyChoice match {
-          case AnyChoice.Template(name, arg) =>
-            command.ApiCommand.Exercise(
-              typeId = TemplateOrInterface.Template(tplId),
-              contractId = cid,
-              choiceId = name,
-              argument = arg.toUnnormalizedValue,
-            )
-          case AnyChoice.Interface(ifaceId, name, arg) =>
-            command.ApiCommand.Exercise(
-              typeId = TemplateOrInterface.Interface(ifaceId),
-              contractId = cid,
-              choiceId = name,
-              argument = arg.toUnnormalizedValue,
-            )
-        }
+        } yield command.ApiCommand.Exercise(
+          typeId = TemplateOrInterface.Template(typeId),
+          contractId = cid,
+          choiceId = anyChoice.name,
+          argument = anyChoice.arg.toUnnormalizedValue,
+        )
       case _ => Left(s"Expected Exercise but got $v")
     }
 
@@ -285,14 +268,9 @@ object Converter {
       // typerep, contract id, choice argument and continuation
       case SRecord(_, _, vals) if vals.size == 4 =>
         for {
+          typeId <- typeRepToIdentifier(vals.get(0))
           anyKey <- toAnyContractKey(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
-          typeId <- anyChoice match {
-            case _: AnyChoice.Template =>
-              typeRepToIdentifier(vals.get(0))
-            case AnyChoice.Interface(ifaceId, _, _) =>
-              Right(ifaceId)
-          }
         } yield command.ApiCommand.ExerciseByKey(
           templateId = typeId,
           contractKey = anyKey.key.toUnnormalizedValue,
