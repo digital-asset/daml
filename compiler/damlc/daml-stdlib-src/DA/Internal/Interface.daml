@@ -4,6 +4,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE CPP #-}
 
 -- | MOVE Prelude interface functionality
@@ -28,6 +29,7 @@ import DA.Internal.Prelude
 import DA.Internal.Template.Functions
 import DA.Internal.LF
 import DA.Internal.Any
+import DA.Internal.Interface.AnyView (AnyView (..), InterfaceTypeRep (..))
 
 -- | (1.dev only) Exposes the `interfaceTypeRep` function. Available only for interfaces.
 class HasInterfaceTypeRep i where
@@ -185,4 +187,22 @@ class HasFromAnyView i v | i -> v where
 class HasToAnyView i v | i -> v where
   -- | HIDE
   _toAnyView : proxy i -> v -> Any
+
+fromAnyView : forall i v. (HasTemplateTypeRep i, HasFromAnyView i v) => AnyView -> Optional v
+fromAnyView (AnyView any typeRep)
+  | Some c <- _fromAnyView ([] : [i]) any
+  , fromTemplateTypeRep (templateTypeRep @i) == typeRep = Some c
+  | otherwise = None
+
+toAnyView : forall i v. (HasTemplateTypeRep i, HasToAnyView i v) => v -> AnyView
+toAnyView v =
+  AnyView
+    (_toAnyView ([] : [i]) v)
+    (fromTemplateTypeRep (templateTypeRep @i))
+
+deriving instance Eq InterfaceTypeRep
+deriving instance Ord InterfaceTypeRep
+
+fromTemplateTypeRep : TemplateTypeRep -> InterfaceTypeRep
+fromTemplateTypeRep (TemplateTypeRep rep) = InterfaceTypeRep rep
 

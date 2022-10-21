@@ -1,14 +1,15 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module DA.Internal.Interface.AnyView where
+module DA.Internal.Interface.AnyView (InterfaceTypeRep (..), AnyView (..)) where
 
 import DA.Internal.LF
-import DA.Internal.Any
+
+newtype InterfaceTypeRep = InterfaceTypeRep { getInterfaceTypeRep : TypeRep }
 
 -- | Existential contract key type that can wrap an arbitrary contract key.
 data AnyView = AnyView
-  { getAnyContractKey : Any
-  , getAnyContractKeyTemplateTypeRep : TemplateTypeRep
+  { getAnyView : Any
+  , getAnyViewInterfaceTypeRep : InterfaceTypeRep
   }
 

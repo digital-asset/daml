@@ -206,8 +206,10 @@ daInternalInterfaceAnyView = Package
       [ DefDataType Nothing (mkTypeCon ["AnyView"]) (IsSerializable False) [] $
           DataRecord
             [ (mkField "getAnyView", TAny)
-            , (mkField "getAnyViewTemplateTypeRep", TCon (Qualified PRSelf (mkModName ["DA", "Internal", "Any"]) (mkTypeCon ["TemplateTypeRep"])))
+            , (mkField "getAnyViewInterfaceTypeRep", TCon (Qualified PRSelf modName (mkTypeCon ["InterfaceTypeRep"])))
             ]
+      , DefDataType Nothing (mkTypeCon ["InterfaceTypeRep"]) (IsSerializable False) [] $
+          DataRecord [(mkField "getInterfaceTypeRep", TTypeRep)]
       ]
 
 daTimeTypes :: Package
