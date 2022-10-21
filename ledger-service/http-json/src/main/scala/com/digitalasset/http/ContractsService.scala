@@ -48,8 +48,7 @@ import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
 
 class ContractsService(
-    resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
-    resolveTemplateId: PackageService.ResolveTemplateId,
+    resolveContractTypeId: PackageService.ResolveContractTypeId,
     allTemplateIds: PackageService.AllTemplateIds,
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
@@ -84,19 +83,20 @@ class ContractsService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
-  ): Future[Option[domain.ResolvedContractRef[LfValue]]] = {
-    def resolveCt = resolveContractTypeId(jwt, ledgerId)(_)
-    def resolveTp = resolveTemplateId(jwt, ledgerId)(_)
+  ): Future[Option[domain.ResolvedContractRef[LfValue]]] =
     contractLocator match {
       case domain.EnrichedContractKey(templateId, key) =>
-        resolveTp(templateId).map(_.toOption.flatten.map(x => -\/(x -> key)))
+        resolveContractTypeId(jwt, ledgerId)(templateId).map(
+          _.toOption.flatten.map(x => -\/(x -> key))
+        )
       case domain.EnrichedContractId(Some(templateId), contractId) =>
-        resolveCt(templateId).map(_.toOption.flatten.map(x => \/-(x -> contractId)))
+        resolveContractTypeId(jwt, ledgerId)(templateId).map(
+          _.toOption.flatten.map(x => \/-(x -> contractId))
+        )
       case domain.EnrichedContractId(None, contractId) =>
         findByContractId(jwt, parties, None, ledgerId, contractId)
           .map(_.map(a => \/-(a.templateId -> a.contractId)))
     }
-  }
 
   def lookup(
       jwt: Jwt,
@@ -174,7 +174,7 @@ class ContractsService(
       import ctx.{jwt, parties, templateIds => templateId, ledgerId}
       for {
         resolvedTemplateId <- OptionT(
-          resolveTemplateId(jwt, ledgerId)(templateId)
+          resolveContractTypeId(jwt, ledgerId)(templateId)
             .map(
               _.toOption.flatten
             )
@@ -395,7 +395,7 @@ class ContractsService(
         ): Future[Option[domain.ActiveContract.ResolvedCtTyId[LfV]]] = {
           import ctx.{jwt, parties, templateIds => templateId, ledgerId}, com.daml.lf.crypto.Hash
           for {
-            resolved <- resolveTemplateId(jwt, ledgerId)(templateId).map(_.toOption.flatten.get)
+            resolved <- resolveContractTypeId(jwt, ledgerId)(templateId).map(_.toOption.flatten.get)
             found <- unsafeRunAsync {
               import doobie.implicits._, cats.syntax.apply._
               // it is possible for the contract under a given key to have been
