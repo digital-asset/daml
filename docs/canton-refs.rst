@@ -18,3 +18,5 @@ Dummy Canton Refs
 .. _automation-using-bootstrap-scripts:
 
 .. _how-do-i-enable-unsupported-features:
+
+.. _canton_console:
