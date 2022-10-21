@@ -251,6 +251,44 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
       }
     }
+
+    "multi-party, multi-view" in withHttpService { fixture =>
+      val amountsCurrencies = Vector(("42", "USD"), ("84", "CHF"))
+      for {
+        _ <- uploadPackage(fixture)(ciouDar)
+        Seq((alice, aliceHeaders), (bob, _)) <- Future.traverse(Seq("alice", "bob"))(
+          fixture.getUniquePartyAndAuthHeaders
+        )
+        // create all contracts
+        cids <- amountsCurrencies.traverse { case (amount, currency) =>
+          postCreateCommand(
+            iouCreateCommand(alice, amount = amount, currency = currency, observers = Vector(bob)),
+            fixture,
+            aliceHeaders,
+          ) map resultContractId
+        }
+        queryAsBoth <- fixture.headersWithPartyAuth(List(alice.unwrap), List(bob.unwrap))
+        queryAtCtId = { ctid: domain.ContractTypeId.OptionalPkg =>
+          searchExpectOk(
+            List.empty,
+            Map("templateIds" -> List(ctid)).toJson.asJsObject,
+            fixture,
+            queryAsBoth,
+          ) map { resACs =>
+            inside(resACs map (inside(_) {
+              case domain.ActiveContract(cid, _, _, payload, Seq(`alice`), Seq(`bob`), _) =>
+                (cid, payload.asJsObject.fields)
+            })) { case Seq((cid0, payload0), (cid1, payload1)) =>
+              Seq(cid0, cid1) should contain theSameElementsAs cids
+              if (cid0 == cids.head) Seq(payload0, payload1) else Seq(payload1, payload0)
+            }
+          }
+        }
+        _ <- queryAtCtId(TpId.Iou.Iou) // TODO contents
+        // TODO SC query at interface
+        _ <- queryAtCtId(TpId.Iou.Iou)
+      } yield succeed
+    }
   }
 
   "query with unknown Template IDs" - {
