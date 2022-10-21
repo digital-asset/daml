@@ -21,10 +21,10 @@ case class OpenTelemetryMeterOwner(enabled: Boolean, reporter: Option[MetricsRep
   ): Resource[Meter] = {
     val meterProviderBuilder = SdkMeterProvider.builder()
 
-    /** To integrate with prometheus we're using the deprecated [[PrometheusCollector]].
-      * More details about the deprecation here: https://github.com/open-telemetry/opentelemetry-java/issues/4284
-      * This forces us to keep the current opentelemetry version (see ticket for paths forward)
-      */
+    /* To integrate with prometheus we're using the deprecated [[PrometheusCollector]].
+     * More details about the deprecation here: https://github.com/open-telemetry/opentelemetry-java/issues/4284
+     * This forces us to keep the current opentelemetry version (see ticket for paths forward)
+     */
     val meterProvider = if (enabled && reporter.exists(_.isInstanceOf[Prometheus])) {
       meterProviderBuilder.registerMetricReader(PrometheusCollector.create()).build()
     } else meterProviderBuilder.build()
