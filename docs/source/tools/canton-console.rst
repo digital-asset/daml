@@ -17,7 +17,7 @@ in a production environment.
 
 The purpose of this page is to give a few pointers on how the console can be used to
 interact with a running Sandbox. For an in-depth guide on how to use this tool against a production,
-staging or testing environment, consult the main documentation for the Canton console.
+staging or testing environment, :ref:`consult the main documentation for the Canton console <canton_console>`.
 
 Run the Canton Console Against the Sandbox
 ==========================================
@@ -55,6 +55,6 @@ on the Sandbox by running the following command::
   sandbox.dars.list()
 
 Among the various features available as part of the console, you can manage parties and packages,
-check the health of the Sandbox, perform pruning operations and more. Consult the
-built-in documentation mentioned above and the main documentation page for the Canton console to learn about further capabilities.
+check the health of the Sandbox, perform pruning operations and more. Consult the built-in documentation mentioned
+above and :ref:`the main documentation for the Canton console <canton_console>` to learn about further capabilities.
 
