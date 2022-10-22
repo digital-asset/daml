@@ -99,7 +99,7 @@ object TestUtil {
     sendCmd(channel, partyName, updates.map(_.command): _*)
   }
 
-  def sendCmd(channel: Channel, partyName: String, cmds: Command*): Empty = {
+  private def sendCmd(channel: Channel, partyName: String, cmds: Command*): Empty = {
     CommandServiceGrpc
       .newBlockingStub(channel)
       .withDeadlineAfter(40, TimeUnit.SECONDS)

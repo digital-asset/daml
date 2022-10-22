@@ -44,8 +44,7 @@ class Interfaces
             alice,
             child.id
               .toInterface(interfaces.TIf.INTERFACE)
-              .exerciseHam(new interfaces.Ham())
-              .command,
+              .exerciseHam(new interfaces.Ham()),
           )
         }
         readActiveContractsSafe(safeChildCloneFromCreatedEvent)(client, alice)
