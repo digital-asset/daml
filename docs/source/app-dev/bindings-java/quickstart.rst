@@ -614,18 +614,18 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
       :lines: 140-153
       :dedent: 2
 
-   You can find examples of ``Command``s instantiation in the bodies of the ``transfer`` and ``iou`` endpoints, respectively.
+   You can find examples of ``Update``s instantiation in the bodies of the ``transfer`` and ``iou`` endpoints, respectively.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :caption: ExerciseCommand
       :language: java
-      :lines: 123-125
+      :lines: 126-128
       :dedent: 10
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :caption: CreateCommand
       :language: java
-      :lines: 112-114
+      :lines: 115-116
       :dedent: 10
 
 The rest of the application sets up the REST services using `Spark Java <http://sparkjava.com/>`_, and does dynamic package Id detection using the Package Service. The latter is useful during development when package Ids change frequently.
