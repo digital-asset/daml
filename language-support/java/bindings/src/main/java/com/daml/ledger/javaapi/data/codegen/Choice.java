@@ -19,7 +19,7 @@ public final class Choice<Tpl, ArgType, ResType> {
   /** The choice name * */
   public final String name;
 
-  public final Function<ArgType, Value> encodeArg;
+  final Function<ArgType, Value> encodeArg;
 
   final ValueDecoder<ArgType> argTypeDecoder;
   final ValueDecoder<ResType> returnTypeDecoder;
