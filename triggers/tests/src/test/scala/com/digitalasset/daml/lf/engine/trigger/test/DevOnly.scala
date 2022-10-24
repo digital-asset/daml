@@ -54,6 +54,9 @@ class DevOnly
     "trigger runner" should {
       val templateA = Identifier(packageId, "InterfaceTriggers", "A")
       val templateB = Identifier(packageId, "InterfaceTriggers", "B")
+      val visibleViaAllInDar = "visible via 'AllInDar'"
+      val visibleViaInterfaceI = "visible via 'registeredTemplate @I'"
+      val visibleViaTemplateA = "visible via 'registeredTemplate @A'"
 
       "succeed with all templates and interfaces registered" in {
         val triggerId = QualifiedName.assertFromString("InterfaceTriggers:globalTrigger")
@@ -77,7 +80,7 @@ class DevOnly
                 Record(
                   fields = Seq(
                     RecordField("owner", Some(Value().withParty(party))),
-                    RecordField("tag", Some(Value().withText("visible via 'AllInDar'"))),
+                    RecordField("tag", Some(Value().withText(visibleViaAllInDar))),
                   )
                 )
               ),
@@ -92,7 +95,7 @@ class DevOnly
                 Record(
                   fields = Seq(
                     RecordField("owner", Some(Value().withParty(party))),
-                    RecordField("tag", Some(Value().withText("visible via 'AllInDar'"))),
+                    RecordField("tag", Some(Value().withText(visibleViaAllInDar))),
                   )
                 )
               ),
@@ -126,7 +129,9 @@ class DevOnly
           val Seq(templateATransactionId, templateBTransactionId) =
             transactionEvents.keys.toSeq.sortWith(_ < _)
           transactionEvents(templateATransactionId) shouldHaveCreateArgumentsFor templateA
+          transactionEvents(templateATransactionId) shouldHaveViewValues (0, visibleViaAllInDar)
           transactionEvents(templateBTransactionId) shouldHaveCreateArgumentsFor templateB
+          transactionEvents(templateBTransactionId) shouldHaveViewValues (1, visibleViaAllInDar)
         }
       }
 
@@ -154,7 +159,7 @@ class DevOnly
                     RecordField("owner", Some(Value().withParty(party))),
                     RecordField(
                       "tag",
-                      Some(Value().withText("visible via 'registeredTemplate @A'")),
+                      Some(Value().withText(visibleViaTemplateA)),
                     ),
                   )
                 )
@@ -172,7 +177,7 @@ class DevOnly
                     RecordField("owner", Some(Value().withParty(party))),
                     RecordField(
                       "tag",
-                      Some(Value().withText("visible via 'registeredTemplate @I'")),
+                      Some(Value().withText(visibleViaInterfaceI)),
                     ),
                   )
                 )
@@ -207,7 +212,9 @@ class DevOnly
           val Seq(templateATransactionId, templateBTransactionId) =
             transactionEvents.keys.toSeq.sortWith(_ < _)
           transactionEvents(templateATransactionId) shouldHaveCreateArgumentsFor templateA
+          transactionEvents(templateATransactionId) shouldHaveViewValues (0, visibleViaTemplateA)
           transactionEvents(templateBTransactionId) shouldHaveNoCreateArgumentsFor templateB
+          transactionEvents(templateBTransactionId) shouldHaveViewValues (1, visibleViaInterfaceI)
         }
       }
 
@@ -235,7 +242,7 @@ class DevOnly
                     RecordField("owner", Some(Value().withParty(party))),
                     RecordField(
                       "tag",
-                      Some(Value().withText("visible via 'registeredTemplate @I'")),
+                      Some(Value().withText(visibleViaInterfaceI)),
                     ),
                   )
                 )
@@ -253,7 +260,7 @@ class DevOnly
                     RecordField("owner", Some(Value().withParty(party))),
                     RecordField(
                       "tag",
-                      Some(Value().withText("visible via 'registeredTemplate @I'")),
+                      Some(Value().withText(visibleViaInterfaceI)),
                     ),
                   )
                 )
@@ -288,7 +295,9 @@ class DevOnly
           val Seq(templateATransactionId, templateBTransactionId) =
             transactionEvents.keys.toSeq.sortWith(_ < _)
           transactionEvents(templateATransactionId) shouldHaveNoCreateArgumentsFor templateA
+          transactionEvents(templateATransactionId) shouldHaveViewValues (0, visibleViaInterfaceI)
           transactionEvents(templateBTransactionId) shouldHaveNoCreateArgumentsFor templateB
+          transactionEvents(templateBTransactionId) shouldHaveViewValues (1, visibleViaInterfaceI)
         }
       }
     }
@@ -318,6 +327,22 @@ object DevOnly extends Matchers with Inside {
               )
             ) =>
           succeed
+      }
+
+    def shouldHaveViewValues(n: Int, label: String): Assertion =
+      inside(events) {
+        case Seq(
+              Event(
+                Created(
+                  CreatedEvent(_, _, _, _, _, _, Seq(view), _, _, _, _, _)
+                )
+              )
+            ) =>
+          inside(view.getViewValue) {
+            case Record(_, Seq(RecordField(_, Some(actualN)), RecordField(_, Some(actualLabel)))) =>
+              actualN shouldBe Value().withInt64(n.toLong)
+              actualLabel shouldBe Value().withText(label)
+          }
       }
   }
 }

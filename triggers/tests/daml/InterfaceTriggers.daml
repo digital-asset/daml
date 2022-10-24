@@ -5,10 +5,10 @@ module InterfaceTriggers where
 
 import Daml.Trigger
 
-data EmptyInterfaceView = EmptyInterfaceView {}
+data View = View { num: Int, label: Text }
 
 interface I where
-  viewtype EmptyInterfaceView
+  viewtype View
 
   getOwner: Party
   getTag: Text
@@ -20,7 +20,9 @@ template A
   where
     signatory owner
     interface instance I for A where
-      view = EmptyInterfaceView
+      view = View with
+        num = 0
+        label = tag
 
       getOwner = owner
       getTag = tag
@@ -32,7 +34,9 @@ template B
   where
     signatory owner
     interface instance I for B where
-      view = EmptyInterfaceView
+      view = View with
+         num = 1
+         label = tag
 
       getOwner = owner
       getTag = tag
