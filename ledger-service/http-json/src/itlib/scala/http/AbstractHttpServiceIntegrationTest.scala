@@ -51,11 +51,11 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
   import json.JsonProtocol._
 
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
-    jwtForParties(uri)(List("Alice"), List(), testId)
+    jwtForParties(uri)(domain.Party subst List("Alice"), List(), testId)
 
   protected def headersWithPartyAuthLegacyFormat(
-      actAs: List[String],
-      readAs: List[String] = List(),
+      actAs: List[domain.Party],
+      readAs: List[domain.Party] = List(),
   ) =
     HttpServiceTestFixture.headersWithPartyAuth(
       actAs,
@@ -95,7 +95,13 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
     val headers = HttpServiceTestFixture.authorizationHeader(
-      HttpServiceTestFixture.jwtForParties(List("Alice"), List("Bob"), None, false, false)
+      HttpServiceTestFixture.jwtForParties(
+        domain.Party subst List("Alice"),
+        domain.Party subst List("Bob"),
+        None,
+        false,
+        false,
+      )
     )
 
     fixture
