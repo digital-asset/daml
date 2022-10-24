@@ -36,6 +36,7 @@ public abstract class ContractTypeCompanion<ContractType, Data> {
   public final Map<String, Choice<ContractType, ?, ?>> choices;
 
   /**
+   * @hidden
    * <strong>INTERNAL API</strong>: this is meant for use by {@link ContractCompanion} and {@link
    * InterfaceCompanion}, and <em>should not be referenced directly</em>. Applications should refer
    * to code-generated {@code COMPANION} and {@code INTERFACE} fields specific to the template or
