@@ -123,9 +123,10 @@ class DevOnly
             ._2
         } yield {
           transactionEvents.size shouldBe 2
-          val Seq(templateAEvents, templateBEvents) = transactionEvents.keys.toSeq.sortWith(_ < _)
-          transactionEvents(templateAEvents) shouldHaveCreateArgumentsFor templateA
-          transactionEvents(templateBEvents) shouldHaveCreateArgumentsFor templateB
+          val Seq(templateATransactionId, templateBTransactionId) =
+            transactionEvents.keys.toSeq.sortWith(_ < _)
+          transactionEvents(templateATransactionId) shouldHaveCreateArgumentsFor templateA
+          transactionEvents(templateBTransactionId) shouldHaveCreateArgumentsFor templateB
         }
       }
 
@@ -203,9 +204,10 @@ class DevOnly
             ._2
         } yield {
           transactionEvents.size shouldBe 2
-          val Seq(templateAEvents, templateBEvents) = transactionEvents.keys.toSeq.sortWith(_ < _)
-          transactionEvents(templateAEvents) shouldHaveCreateArgumentsFor templateA
-          transactionEvents(templateBEvents) shouldHaveNoCreateArgumentsFor templateB
+          val Seq(templateATransactionId, templateBTransactionId) =
+            transactionEvents.keys.toSeq.sortWith(_ < _)
+          transactionEvents(templateATransactionId) shouldHaveCreateArgumentsFor templateA
+          transactionEvents(templateBTransactionId) shouldHaveNoCreateArgumentsFor templateB
         }
       }
 
@@ -283,9 +285,10 @@ class DevOnly
             ._2
         } yield {
           transactionEvents.size shouldBe 2
-          val Seq(templateAEvents, templateBEvents) = transactionEvents.keys.toSeq.sortWith(_ < _)
-          transactionEvents(templateAEvents) shouldHaveNoCreateArgumentsFor templateA
-          transactionEvents(templateBEvents) shouldHaveNoCreateArgumentsFor templateB
+          val Seq(templateATransactionId, templateBTransactionId) =
+            transactionEvents.keys.toSeq.sortWith(_ < _)
+          transactionEvents(templateATransactionId) shouldHaveNoCreateArgumentsFor templateA
+          transactionEvents(templateBTransactionId) shouldHaveNoCreateArgumentsFor templateB
         }
       }
     }
