@@ -7,7 +7,7 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import com.codahale.{metrics => codahale}
-import com.daml.metrics.api.MetricHandle.Timer.TimerStop
+import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram, Meter, Timer}
 import com.daml.metrics.api.{Gauges, MetricHandle}
 
@@ -17,7 +17,7 @@ case class DropwizardTimer(name: String, metric: codahale.Timer) extends Timer {
 
   def update(duration: Duration): Unit = metric.update(duration)
   override def time[T](call: => T): T = metric.time(() => call)
-  override def startAsync(): TimerStop = {
+  override def startAsync(): TimerHandle = {
     val ctx = metric.time()
     () => {
       ctx.stop()

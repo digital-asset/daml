@@ -453,9 +453,9 @@ class ContractsService(
         ): doobie.ConnectionIO[A] = {
           for {
             _ <- fconn.pure(())
-            timerStop <- fconn.pure(timer.startAsync())
+            timerHandle <- fconn.pure(timer.startAsync())
             res <- it
-            _ <- fconn.pure(timerStop())
+            _ <- fconn.pure(timerHandle.stop())
           } yield res
         }
 
