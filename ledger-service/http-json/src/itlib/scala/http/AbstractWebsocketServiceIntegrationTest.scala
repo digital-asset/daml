@@ -1369,7 +1369,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
       for {
         aliceAndBob @ List(alice, bob) <- List("Alice", "Bob").traverse { p =>
-          fixture.getUniquePartyAndAuthHeaders(p).map(_._1.unwrap)
+          fixture.getUniquePartyAndAuthHeaders(p).map(_._1)
         }
         jwtForAliceAndBob <-
           jwtForParties(uri)(actAs = aliceAndBob, readAs = Nil, ledgerId = testId)
