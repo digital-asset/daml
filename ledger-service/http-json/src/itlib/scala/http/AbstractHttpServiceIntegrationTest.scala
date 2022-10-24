@@ -259,8 +259,6 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         jsObject(
           """{"templateIds": ["Iou:Iou", "UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}"""
         )
-      // TODO VM(#12922) https://github.com/digital-asset/daml/pull/12922#discussion_r815234434
-      logger.info("query returns unknown Template IDs")
       fixture
         .headersWithPartyAuth(List("UnknownParty"))
         .flatMap(headers =>
