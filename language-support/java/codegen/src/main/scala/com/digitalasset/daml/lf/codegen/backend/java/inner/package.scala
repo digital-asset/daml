@@ -23,7 +23,7 @@ package inner {
 package object inner {
 
   private[inner] def generateArgumentList(fields: IndexedSeq[String]): CodeBlock =
-    CodeBlock.join(fields.map(CodeBlock.of("$L", _)).asJava, ", ")
+    CodeBlock.join(fields.map(CodeBlock.of("$L", _)).asJava, ",$W")
 
   private[inner] def newNameGenerator = Iterator.from(0).map(n => s"v$$$n")
 
