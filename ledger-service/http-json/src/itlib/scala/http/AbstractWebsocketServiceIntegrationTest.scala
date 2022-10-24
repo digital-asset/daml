@@ -490,12 +490,15 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
   private def exercisePayload(cid: domain.ContractId, amount: BigDecimal = BigDecimal("42.42")) = {
     import json.JsonProtocol._
-    Map(
-      "templateId" -> "Iou:Iou".toJson,
-      "contractId" -> cid.toJson,
-      "choice" -> "Iou_Split".toJson,
-      "argument" -> Map("splitAmount" -> amount).toJson,
-    ).toJson
+    domain
+      .ExerciseCommand(
+        domain.EnrichedContractId(Some(TpId.Iou.Iou), cid): domain.ContractLocator[JsValue],
+        domain.Choice("Iou_Split"),
+        Map("splitAmount" -> amount).toJson,
+        None,
+        None,
+      )
+      .toJson
   }
 
   "matchedQueries should be correct for multiqueries with per-query offsets" in withHttpService {
