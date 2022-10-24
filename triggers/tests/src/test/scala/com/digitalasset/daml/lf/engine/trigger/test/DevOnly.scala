@@ -16,6 +16,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.lf.engine.trigger.{TransactionMsg, TriggerMsg}
 
+import scala.collection.concurrent.TrieMap
+
 class DevOnly
     extends AsyncWordSpec
     with AbstractTriggerTest
@@ -55,8 +57,7 @@ class DevOnly
 
       "succeed with all templates and interfaces registered" in {
         val triggerId = QualifiedName.assertFromString("InterfaceTriggers:globalTrigger")
-
-        var triggerMessages = Seq.empty[TriggerMsg]
+        val transactionEvents = TrieMap.empty[String, Seq[Event]]
 
         for {
           client <- ledgerClient()
@@ -111,21 +112,26 @@ class DevOnly
               acs,
               offset,
               msgFlow = Flow[TriggerMsg]
-                .wireTap { msg => triggerMessages = triggerMessages :+ msg }
+                .wireTap {
+                  case msg: TransactionMsg =>
+                    transactionEvents.addOne(msg.t.transactionId -> msg.t.events)
+                  case _ =>
+                  // No evidence to collect
+                }
                 .take(4),
             )
             ._2
         } yield {
-          triggerMessages.size shouldBe 4
-          triggerMessages(2) shouldHaveCreateArgumentsFor templateA
-          triggerMessages(3) shouldHaveCreateArgumentsFor templateB
+          transactionEvents.size shouldBe 2
+          val Seq(templateAEvents, templateBEvents) = transactionEvents.keys.toSeq.sortWith(_ < _)
+          transactionEvents(templateAEvents) shouldHaveCreateArgumentsFor templateA
+          transactionEvents(templateBEvents) shouldHaveCreateArgumentsFor templateB
         }
       }
 
       "succeed with interface registration and implementing template not registered" in {
         val triggerId = QualifiedName.assertFromString("InterfaceTriggers:triggerWithRegistration")
-
-        var triggerMessages = Seq.empty[TriggerMsg]
+        val transactionEvents = TrieMap.empty[String, Seq[Event]]
 
         for {
           client <- ledgerClient()
@@ -186,21 +192,26 @@ class DevOnly
               acs,
               offset,
               msgFlow = Flow[TriggerMsg]
-                .wireTap { msg => triggerMessages = triggerMessages :+ msg }
+                .wireTap {
+                  case msg: TransactionMsg =>
+                    transactionEvents.addOne(msg.t.transactionId -> msg.t.events)
+                  case _ =>
+                  // No evidence to collect
+                }
                 .take(4),
             )
             ._2
         } yield {
-          triggerMessages.size shouldBe 4
-          triggerMessages(2) shouldHaveCreateArgumentsFor templateA
-          triggerMessages(3) shouldHaveNoCreateArgumentsFor templateB
+          transactionEvents.size shouldBe 2
+          val Seq(templateAEvents, templateBEvents) = transactionEvents.keys.toSeq.sortWith(_ < _)
+          transactionEvents(templateAEvents) shouldHaveCreateArgumentsFor templateA
+          transactionEvents(templateBEvents) shouldHaveNoCreateArgumentsFor templateB
         }
       }
 
       "succeed with interface only registrations" in {
         val triggerId = QualifiedName.assertFromString("InterfaceTriggers:interfaceOnlyTrigger")
-
-        var triggerMessages = Seq.empty[TriggerMsg]
+        val transactionEvents = TrieMap.empty[String, Seq[Event]]
 
         for {
           client <- ledgerClient()
@@ -261,14 +272,20 @@ class DevOnly
               acs,
               offset,
               msgFlow = Flow[TriggerMsg]
-                .wireTap { msg => triggerMessages = triggerMessages :+ msg }
+                .wireTap {
+                  case msg: TransactionMsg =>
+                    transactionEvents.addOne(msg.t.transactionId -> msg.t.events)
+                  case _ =>
+                  // No evidence to collect
+                }
                 .take(4),
             )
             ._2
         } yield {
-          triggerMessages.size shouldBe 4
-          triggerMessages(2) shouldHaveNoCreateArgumentsFor templateA
-          triggerMessages(3) shouldHaveNoCreateArgumentsFor templateB
+          transactionEvents.size shouldBe 2
+          val Seq(templateAEvents, templateBEvents) = transactionEvents.keys.toSeq.sortWith(_ < _)
+          transactionEvents(templateAEvents) shouldHaveNoCreateArgumentsFor templateA
+          transactionEvents(templateBEvents) shouldHaveNoCreateArgumentsFor templateB
         }
       }
     }
@@ -277,29 +294,27 @@ class DevOnly
 
 object DevOnly extends Matchers with Inside {
 
-  implicit class TriggerMsgTestHelper(msg: TriggerMsg) {
+  implicit class TriggerMsgTestHelper(events: Seq[Event]) {
     def shouldHaveNoCreateArgumentsFor(templateId: Identifier): Assertion =
-      inside(msg) { case TransactionMsg(transaction) =>
-        transaction.events.size shouldBe 1
-        inside(transaction.events.head) {
-          case Event(
+      inside(events) {
+        case Seq(
+              Event(
                 Created(CreatedEvent(_, _, Some(`templateId`), _, None, _, Seq(_), _, _, _, _, _))
-              ) =>
-            succeed
-        }
+              )
+            ) =>
+          succeed
       }
 
     def shouldHaveCreateArgumentsFor(templateId: Identifier): Assertion =
-      inside(msg) { case TransactionMsg(transaction) =>
-        transaction.events.size shouldBe 1
-        inside(transaction.events.head) {
-          case Event(
+      inside(events) {
+        case Seq(
+              Event(
                 Created(
                   CreatedEvent(_, _, Some(`templateId`), _, Some(_), _, Seq(_), _, _, _, _, _)
                 )
-              ) =>
-            succeed
-        }
+              )
+            ) =>
+          succeed
       }
   }
 }
