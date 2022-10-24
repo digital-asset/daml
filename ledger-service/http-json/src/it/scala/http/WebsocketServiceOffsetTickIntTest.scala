@@ -10,7 +10,6 @@ import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.\/-
-import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 
@@ -56,7 +55,7 @@ abstract class WebsocketServiceOffsetTickIntTest
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (party, headers) = aliceHeaders
         _ <- initialIouCreate(uri, party, headers)
-        jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(party), List(), testId)
         msgs <- singleClientQueryStream(jwt, uri, """{"templateIds": ["Iou:Iou"]}""")
           .take(10)
           .runWith(collectResultsAsTextMessage)

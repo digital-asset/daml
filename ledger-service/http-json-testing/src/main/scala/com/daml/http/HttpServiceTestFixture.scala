@@ -516,20 +516,20 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
 
   def sharedAccountCreateCommand(
-      owners: Seq[String],
+      owners: Seq[domain.Party],
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
   ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
     val templateId = domain.ContractTypeId.Template(None, "Account", "SharedAccount")
     val timeValue = v.Value(time)
+    val ownersEnc = v.Value(
+      v.Value.Sum.List(v.List(domain.Party.unsubst(owners).map(o => v.Value(v.Value.Sum.Party(o)))))
+    )
     val enabledVariantValue =
       v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
     val arg = v.Record(
       fields = List(
-        v.RecordField(
-          "owners",
-          Some(v.Value(v.Value.Sum.List(v.List(owners.map(o => v.Value(v.Value.Sum.Party(o))))))),
-        ),
+        v.RecordField("owners", Some(ownersEnc)),
         v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
         v.RecordField("status", Some(enabledVariantValue)),
       )

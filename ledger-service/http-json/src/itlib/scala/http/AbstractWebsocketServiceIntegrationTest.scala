@@ -1336,7 +1336,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
       def test(
           expectedContractId: String,
-          expectedParties: Vector[JsString],
+          expectedParties: Vector[domain.Party],
           killSwitch: UniqueKillSwitch,
       ): Sink[JsValue, Future[ShouldHaveEnded]] = {
         val dslSyntax = Consume.syntax[JsValue]
@@ -1347,10 +1347,12 @@ abstract class AbstractWebsocketServiceIntegrationTest
             _ = sharedAccountId shouldBe expectedContractId
             ContractDelta(Vector(), _, Some(offset)) <- readOne
             _ = inside(sharedAccount) { case JsObject(obj) =>
-              inside((obj get "owners", obj get "number")) {
-                case (Some(JsArray(owners)), Some(JsString(number))) =>
-                  owners should contain theSameElementsAs expectedParties
-                  number shouldBe "4444"
+              import json.JsonProtocol._
+              inside(
+                (obj get "owners" map (SprayJson.decode[Vector[domain.Party]](_)), obj get "number")
+              ) { case (Some(\/-(owners)), Some(JsString(number))) =>
+                owners should contain theSameElementsAs expectedParties
+                number shouldBe "4444"
               }
             }
             ContractDelta(Vector(), _, Some(_)) <- readOne
@@ -1393,7 +1395,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           .preMaterialize()
         result <- source via parseResp runWith test(
           expectedContractId.unwrap,
-          Vector(JsString(alice), JsString(bob)),
+          Vector(alice, bob),
           killSwitch,
         )
       } yield inside(result) { case ShouldHaveEnded(_, 2, _) =>
