@@ -12,7 +12,6 @@ module DA.Internal.Interface (
   HasInterfaceTypeRep(..),
   HasToInterface(..),
   HasFromInterface(..),
-  HasToAnyView(..),
   HasFromAnyView(..),
   Implements,
   interfaceTypeRep,
@@ -184,21 +183,11 @@ class HasFromAnyView i v | i -> v where
   -- | HIDE
   _fromAnyView : proxy i -> Any -> Optional v
 
-class HasToAnyView i v | i -> v where
-  -- | HIDE
-  _toAnyView : proxy i -> v -> Any
-
 fromAnyView : forall i v. (HasTemplateTypeRep i, HasFromAnyView i v) => AnyView -> Optional v
 fromAnyView (AnyView any typeRep)
   | Some c <- _fromAnyView ([] : [i]) any
   , fromTemplateTypeRep (templateTypeRep @i) == typeRep = Some c
   | otherwise = None
-
-toAnyView : forall i v. (HasTemplateTypeRep i, HasToAnyView i v) => v -> AnyView
-toAnyView v =
-  AnyView
-    (_toAnyView ([] : [i]) v)
-    (fromTemplateTypeRep (templateTypeRep @i))
 
 deriving instance Eq InterfaceTypeRep
 deriving instance Ord InterfaceTypeRep
