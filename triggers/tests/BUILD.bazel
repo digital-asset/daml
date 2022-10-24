@@ -154,7 +154,6 @@ da_scala_library(
             "//daml-lf/engine",
             "//daml-lf/interpreter",
             "//daml-lf/language",
-            "//daml-script/converter",
             "//language-support/scala/bindings",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
