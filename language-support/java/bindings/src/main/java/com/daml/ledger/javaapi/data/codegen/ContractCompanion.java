@@ -26,13 +26,9 @@ import java.util.function.Function;
  *     the template, whose instances contain only the payload.
  */
 public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompanion<Data, Data> {
-  /**
-   * @hidden
-   */
+  /** @hidden */
   protected final Function<String, Id> newContractId;
-  /**
-   * @hidden
-   */
+  /** @hidden */
   protected final Function<DamlRecord, Data> fromValue;
 
   /**
@@ -78,10 +74,10 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
   }
 
   /**
-   * @hidden
-   * <strong>INTERNAL API</strong>: this is meant for use by {@link WithoutKey} and {@link WithKey},
-   * and <em>should not be referenced directly</em>. Applications should refer to the {@code
-   * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses instead.
+   * @hidden <strong>INTERNAL API</strong>: this is meant for use by {@link WithoutKey} and {@link
+   *     WithKey}, and <em>should not be referenced directly</em>. Applications should refer to the
+   *     {@code COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template}
+   *     subclasses instead.
    */
   protected ContractCompanion(
       String templateClassName,
@@ -98,12 +94,11 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
     private final NewContract<Ct, Id, Data> newContract;
 
     /**
-     * @hidden
-     * <strong>INTERNAL API</strong>: this is meant for use by <a
-     * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
-     * and <em>should not be referenced directly</em>. Applications should refer to the {@code
-     * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses
-     * instead.
+     * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
+     *     href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code
+     *     generator</a>, and <em>should not be referenced directly</em>. Applications should refer
+     *     to the {@code COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template}
+     *     subclasses instead.
      */
     public WithoutKey(
         String templateClassName,
@@ -154,12 +149,11 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
     private final Function<Value, Key> keyFromValue;
 
     /**
-     * @hidden
-     * <strong>INTERNAL API</strong>: this is meant for use by <a
-     * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
-     * and <em>should not be referenced directly</em>. Applications should refer to the {@code
-     * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses
-     * instead.
+     * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
+     *     href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code
+     *     generator</a>, and <em>should not be referenced directly</em>. Applications should refer
+     *     to the {@code COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template}
+     *     subclasses instead.
      */
     public WithKey(
         String templateClassName,
