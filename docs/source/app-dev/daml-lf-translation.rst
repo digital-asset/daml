@@ -13,7 +13,7 @@ Primitive Types
 
 :ref:`Built-in data types <daml-ref-built-in-types>` in Daml have straightforward mappings to Daml-LF.
 
-This section only covers the serializable types, as these are what client applications can interact with via the generated Daml-LF. (Serializable types are ones whose values can exist on the ledger. So not function types, ``Update`` and ``Scenario`` types, any types built up from those, and several other restrictions.)
+This section only covers the serializable types, as these are what client applications can interact with via the generated Daml-LF. (Serializable types are ones whose values can exist on the ledger. Function types, ``Update`` and ``Scenario`` types and any types built up from these are excluded, and there are several other restrictions.)
 
 Most built-in types have the same name in Daml-LF as in Daml. These are the exact mappings:
 
