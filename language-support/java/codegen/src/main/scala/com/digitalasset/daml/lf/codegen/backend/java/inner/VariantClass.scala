@@ -140,7 +140,7 @@ private[inner] object VariantClass extends StrictLogging {
     val extractors =
       CodeBlock.join(
         variant.typeArguments.asScala.map(t => CodeBlock.of("$L", s"fromValue$t")).asJava,
-        ", ",
+        ",$W",
       )
     switchOnConstructor(
       decodeValueCodeBuilder,
@@ -244,7 +244,7 @@ private[inner] object VariantClass extends StrictLogging {
       typeVariablesExtractorParameters.functionParameterSpecs.map { param =>
         CodeBlock.of("$T.fromFunction($N)", classOf[ValueDecoder[_]], param)
       }.asJava,
-      ", ",
+      ",$W",
     )
 
     val classStaticAccessor = {
@@ -252,7 +252,7 @@ private[inner] object VariantClass extends StrictLogging {
         variant.typeArguments.asScala.map { param =>
           CodeBlock.of("$T", param)
         }.asJava,
-        ", ",
+        ",$W",
       )
       CodeBlock.of("$T.<$L>", variant.rawType, typeParameterList)
     }
