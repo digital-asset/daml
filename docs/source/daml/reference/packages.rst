@@ -178,8 +178,6 @@ When importing packages this way, the Daml compiler will try to reconstruct the 
 
 #. Starting from Daml-LF version 1.8, when possible, typeclass instances will be reconstructed by re-using the typeclass definitions from dependencies, such as the typeclasses exported in ``daml-stdlib``. However, if the typeclass signature has changed, you will get an instance for a reconstructed typeclass instead, which will not interoperate with code from dependencies.
 
-#. Certain advanced type system features cannot be reconstructed. In particular, ``DA.Generics`` and ``DeriveGeneric`` cannot be reconstructed. This may result in certain definitions being unavailable when importing a module that uses these advanced features.
-
 .. TODO (#4932): Add warnings for advanced features that aren't supported, and add a comment on item #4.
 
 Because of their flexibility, data-dependencies are a tool that is recommended for performing Daml model upgrades. See the :ref:`upgrade documentation <upgrade-overview>` for more details.
