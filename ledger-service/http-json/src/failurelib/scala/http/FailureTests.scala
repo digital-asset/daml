@@ -344,7 +344,7 @@ abstract class FailureTests
       Consume.interpret(
         for {
           ContractDelta(Vector((ctId, _)), Vector(), None) <- readOne
-          _ = ctId shouldBe accountCid.unwrap
+          _ = ctId shouldBe accountCid
           ContractDelta(Vector(), Vector(), Some(liveStartOffset)) <- readOne
           _ = offset.success(liveStartOffset)
           _ = proxy.disable()
@@ -363,7 +363,7 @@ abstract class FailureTests
       Consume.interpret(
         for {
           ContractDelta(Vector((ctId, _)), Vector(), Some(newOffset)) <- readOne
-          _ = ctId shouldBe accountCid.unwrap
+          _ = ctId shouldBe accountCid
           _ = newOffset.unwrap should be > offset.unwrap
           _ = stop.shutdown()
           _ <- drain

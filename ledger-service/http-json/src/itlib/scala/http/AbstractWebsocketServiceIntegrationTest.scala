@@ -516,7 +516,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
             for {
               evtsWrapper @ ContractDelta(Vector((ctid, _)), Vector(), None) <- readOne
               _ = {
-                (ctid: String) shouldBe (iouCid.unwrap: String)
+                (ctid: domain.ContractId) shouldBe iouCid
                 inside(evtsWrapper) { case JsObject(obj) =>
                   inside(obj get "events") {
                     case Some(
@@ -589,12 +589,12 @@ abstract class AbstractWebsocketServiceIntegrationTest
           .interpret(
             for {
               ContractDelta(Vector((ctid, _)), Vector(), None) <- readOne
-              _ = (ctid: String) shouldBe (iouCid.unwrap: String)
+              _ = (ctid: domain.ContractId) shouldBe iouCid
               _ <- liftF(
                 getAliceHeaders.flatMap { case (_, headers) =>
                   fixture.postJsonRequest(
                     Uri.Path("/v1/exercise"),
-                    exercisePayload(domain.ContractId(ctid)),
+                    exercisePayload(ctid),
                     headers,
                   ) map { case (statusCode, _) =>
                     statusCode.isSuccess shouldBe true
@@ -829,7 +829,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           Consume.interpret(
             for {
               ContractDelta(Vector((cid, c)), Vector(), None) <- readOne
-              _ = (cid: String) shouldBe (cid1.unwrap: String)
+              _ = (cid: domain.ContractId) shouldBe cid1
               ctid <- liftF(postArchiveCommand(templateId, cid2, fixture, headers).flatMap {
                 case (statusCode, _) =>
                   statusCode.isSuccess shouldBe true
@@ -845,8 +845,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
               ContractDelta(Vector(), Vector(observeArchivedCid), Some(lastSeenOffset)) <- readOne
               (liveStartOffset, msgCount) = {
-                (observeArchivedCid.contractId.unwrap: String) shouldBe (archivedCid: String)
-                (observeArchivedCid.contractId: domain.ContractId) shouldBe (cid1: domain.ContractId)
+                observeArchivedCid.contractId shouldBe archivedCid
+                observeArchivedCid.contractId shouldBe cid1
                 (off, 0)
               }
 
@@ -1069,10 +1069,12 @@ abstract class AbstractWebsocketServiceIntegrationTest
   /** Consume ACS blocks expecting `createCount` contracts.  Fail if there
     * are too many contracts.
     */
-  private[this] def readAcsN(createCount: Int): Consume.FCC[JsValue, Vector[(String, JsValue)]] = {
+  private[this] def readAcsN(
+      createCount: Int
+  ): Consume.FCC[JsValue, Vector[(domain.ContractId, JsValue)]] = {
     val dslSyntax = Consume.syntax[JsValue]
     import dslSyntax._
-    def go(createCount: Int): Consume.FCC[JsValue, Vector[(String, JsValue)]] =
+    def go(createCount: Int): Consume.FCC[JsValue, Vector[(domain.ContractId, JsValue)]] =
       if (createCount <= 0) point(Vector.empty)
       else
         for {
@@ -1088,21 +1090,21 @@ abstract class AbstractWebsocketServiceIntegrationTest
     * The caller is in charge of reading the live marker if that is expected
     */
   private[this] def updateAcs(
-      acs: Map[String, JsValue],
+      acs: Map[domain.ContractId, JsValue],
       events: Int,
-  ): Consume.FCC[JsValue, Map[String, JsValue]] = {
+  ): Consume.FCC[JsValue, Map[domain.ContractId, JsValue]] = {
     val dslSyntax = Consume.syntax[JsValue]
     import dslSyntax._
     def go(
-        acs: Map[String, JsValue],
+        acs: Map[domain.ContractId, JsValue],
         missingEvents: Int,
-    ): Consume.FCC[JsValue, Map[String, JsValue]] =
+    ): Consume.FCC[JsValue, Map[domain.ContractId, JsValue]] =
       if (missingEvents <= 0) {
         point(acs)
       } else {
         for {
           ContractDelta(creates, archives, _) <- readOne
-          newAcs = acs ++ creates -- archives.map(_.contractId.unwrap)
+          newAcs = acs ++ creates -- archives.map(_.contractId)
           events = creates.size + archives.size
           next <- go(newAcs, missingEvents - events)
         } yield next
@@ -1189,7 +1191,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       // wait for the creation's offset
       offsetAfter <- readUntil[In] {
         case ContractDelta(creates, _, off @ Some(_)) =>
-          if (creates.exists(_._1 == cid.unwrap)) off else None
+          if (creates.exists(_._1 == cid)) off else None
         case _ => None
       }
     } yield (cid, offsetAfter)
@@ -1326,7 +1328,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       creates traverse {
         case (cid, JsObject(fields)) =>
           fields get "amount" collect { case JsString(amt) =>
-            (domain.ContractId(cid), BigDecimal(amt))
+            (cid, BigDecimal(amt))
           }
         case _ => None
       } map ((_, archives map (_.contractId))) toRightDisjunction jsv
