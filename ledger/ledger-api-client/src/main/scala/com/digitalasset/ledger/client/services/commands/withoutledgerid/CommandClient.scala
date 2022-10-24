@@ -29,7 +29,7 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionSuccess,
 }
 import com.daml.ledger.client.services.commands.tracker.TrackedCommandKey
-import com.daml.metrics.MetricHandle.Counter
+import com.daml.metrics.MetricHandle.DropwizardCounter
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
@@ -129,8 +129,8 @@ private[daml] final class CommandClient(
       // The counters are ignored on the client
       MaxInFlight(
         config.maxCommandsInFlight,
-        Counter("capacity", new codahale.Counter),
-        Counter("name", new codahale.Counter),
+        DropwizardCounter("capacity", new codahale.Counter),
+        DropwizardCounter("name", new codahale.Counter),
       )
         .joinMat(tracker)(Keep.right)
     }

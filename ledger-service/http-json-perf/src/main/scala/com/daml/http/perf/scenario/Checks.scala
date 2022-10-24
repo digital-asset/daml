@@ -4,16 +4,25 @@
 package com.daml.http.perf.scenario
 
 import io.gatling.commons.validation
+import io.gatling.core.Predef._
 import io.gatling.core.check.{Check, CheckResult}
 
 object Checks {
 
-  /* Useful for debugging */
-  def printResponseCheck[R]: Check[R] = Check.Simple[R](
-    f = (response, _, _) => {
+  def printResponseCheck[R]: Check[R] = new PrintResponseCheck[R]
+
+  /** Useful for debugging.
+    *
+    * @tparam R response type
+    */
+  private class PrintResponseCheck[R] extends Check[R] {
+    override def check(
+        response: R,
+        session: Session,
+        preparedCache: java.util.Map[Any, Any],
+    ): validation.Validation[CheckResult] = {
       println(s"Response: $response")
       validation.Success(CheckResult(None, None))
-    },
-    condition = None,
-  )
+    }
+  }
 }

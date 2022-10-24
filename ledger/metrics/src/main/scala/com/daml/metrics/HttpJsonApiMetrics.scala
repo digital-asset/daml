@@ -8,9 +8,9 @@ import com.daml.metrics.MetricHandle.{Counter, Meter, Timer}
 import com.codahale.metrics.MetricRegistry
 
 class HttpJsonApiMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.DropwizardFactory {
 
-  object Db extends MetricHandle.Factory {
+  object Db extends MetricHandle.DropwizardFactory {
     override val prefix: MetricName = HttpJsonApiMetrics.this.prefix :+ "db"
     override val registry: MetricRegistry = HttpJsonApiMetrics.this.registry
 

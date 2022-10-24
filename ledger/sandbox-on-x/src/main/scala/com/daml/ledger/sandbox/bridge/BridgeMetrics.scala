@@ -7,7 +7,7 @@ import com.daml.metrics.{MetricHandle, MetricName, Metrics}
 import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.MetricHandle.{Counter, Histogram, Timer}
 
-class BridgeMetrics(metrics: Metrics) extends MetricHandle.Factory {
+class BridgeMetrics(metrics: Metrics) extends MetricHandle.DropwizardFactory {
 
   override val registry: MetricRegistry = metrics.registry
 

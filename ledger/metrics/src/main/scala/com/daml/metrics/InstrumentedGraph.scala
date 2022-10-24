@@ -6,14 +6,14 @@ package com.daml.metrics
 import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.{BoundedSourceQueue, Materializer, OverflowStrategy, QueueOfferResult}
 import com.daml.metrics.MetricHandle.{Counter, Timer}
-import com.codahale.{metrics => codahale}
+import com.daml.metrics.MetricHandle.Timer.TimerStop
 
 import scala.util.chaining._
 
 object InstrumentedGraph {
 
   final class InstrumentedBoundedSourceQueue[T](
-      delegate: BoundedSourceQueue[(codahale.Timer.Context, T)],
+      delegate: BoundedSourceQueue[(TimerStop, T)],
       bufferSize: Int,
       capacityCounter: Counter,
       lengthCounter: Counter,
@@ -31,7 +31,7 @@ object InstrumentedGraph {
 
     override def offer(elem: T): QueueOfferResult = {
       val result = delegate.offer(
-        delayTimer.time() -> elem
+        delayTimer.startAsync() -> elem
       )
       result match {
         case QueueOfferResult.Enqueued =>
@@ -70,7 +70,7 @@ object InstrumentedGraph {
       materializer: Materializer
   ): Source[T, BoundedSourceQueue[T]] = {
     val (boundedQueue, source) =
-      Source.queue[(codahale.Timer.Context, T)](bufferSize).preMaterialize()
+      Source.queue[(TimerStop, T)](bufferSize).preMaterialize()
 
     val instrumentedQueue =
       new InstrumentedBoundedSourceQueue[T](
@@ -82,8 +82,8 @@ object InstrumentedGraph {
       )
     capacityCounter.inc(bufferSize.toLong)
 
-    source.mapMaterializedValue(_ => instrumentedQueue).map { case (timingContext, item) =>
-      timingContext.stop()
+    source.mapMaterializedValue(_ => instrumentedQueue).map { case (stopTimer, item) =>
+      stopTimer()
       lengthCounter.dec()
       item
     }

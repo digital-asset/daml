@@ -9,6 +9,8 @@ final class MetricName(private val segments: Vector[String]) extends AnyVal {
   def :+(segment: String): MetricName =
     new MetricName(segments :+ segment)
 
+  def asPrometheus = segments.mkString("_")
+
   override def toString: String =
     segments.mkString(".")
 }

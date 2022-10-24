@@ -3,8 +3,8 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.MetricHandle.{Counter, Histogram, Timer}
+import com.daml.metrics.MetricDoc.MetricQualification.{Debug, Latency, Traffic, Saturation}
+import com.daml.metrics.MetricHandle.{Counter, DropwizardTimer, Histogram, Timer}
 
 import com.codahale.metrics.MetricRegistry
 
@@ -42,7 +42,7 @@ import com.codahale.metrics.MetricRegistry
   representative = "daml.parallel_indexer.<stage>.executor.duration"
 )
 class ParallelIndexerMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.DropwizardFactory {
   val initialization = new DatabaseMetrics(prefix, "initialization", registry)
 
   // Number of state updates persisted to the database
@@ -53,7 +53,7 @@ class ParallelIndexerMetrics(override val prefix: MetricName, override val regis
     description = """The number of the state updates persisted to the database. There are
                     |updates such as accepted transactions, configuration changes, package uloads,
                     |party allocations, rejections, etc.""",
-    qualification = Debug,
+    qualification = Traffic,
   )
   val updates: Counter = counter(prefix :+ "updates")
 
@@ -61,7 +61,7 @@ class ParallelIndexerMetrics(override val prefix: MetricName, override val regis
     summary = "The number of elements in the queue in front of the indexer.",
     description = """The indexer has a queue in order to absorb the back pressure and facilitate
                     |batch formation during the database ingestion.""",
-    qualification = Debug,
+    qualification = Saturation,
   )
   val inputBufferLength: Counter = counter(prefix :+ "input_buffer_length")
 
@@ -114,6 +114,15 @@ class ParallelIndexerMetrics(override val prefix: MetricName, override val regis
     )
     val duration: Timer = timer(prefix :+ "duration")
   }
+
+  @MetricDoc.Tag(
+    summary = "The time needed to run the SQL query and read the result.",
+    description = """This metric encompasses the time measured by `query` and `commit` metrics.
+                    |Additionally it includes the time needed to obtain the DB connection,
+                    |optionally roll it back and close the connection at the end.""",
+    qualification = Latency,
+  )
+  val ingestionExecForDocs: Timer = DropwizardTimer(prefix :+ "ingestion" :+ "exec", null)
 
   // Ingestion stage
   // Parallel ingestion of prepared data into the database

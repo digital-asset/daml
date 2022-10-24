@@ -8,7 +8,13 @@ import java.util.concurrent.atomic.AtomicReference
 import com.codahale.metrics.Gauge
 
 object Gauges {
-  case class VarGauge[T](initial: T) extends Gauge[T] {
+
+  trait GaugeWithUpdate[T] extends Gauge[T] {
+
+    def updateValue(x: T): Unit
+  }
+
+  case class VarGauge[T](initial: T) extends GaugeWithUpdate[T] {
     private val ref = new AtomicReference[T](initial)
     def updateValue(x: T): Unit = ref.set(x)
     def updateValue(up: T => T): Unit = {

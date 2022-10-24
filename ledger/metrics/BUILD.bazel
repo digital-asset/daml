@@ -16,7 +16,6 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_github_scopt_scopt",
-        "@maven//:org_typelevel_cats_core",
     ],
     tags = ["maven_coordinates=com.daml:metrics:__VERSION__"],
     visibility = [

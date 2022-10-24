@@ -12,7 +12,7 @@ class DatabaseMetrics private[metrics] (
     override val prefix: MetricName,
     val name: String,
     override val registry: MetricRegistry,
-) extends MetricHandle.Factory {
+) extends MetricHandle.DropwizardFactory {
   protected val dbPrefix: MetricName = prefix :+ name
 
   @MetricDoc.Tag(

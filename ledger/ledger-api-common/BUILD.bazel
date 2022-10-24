@@ -52,7 +52,6 @@ da_scala_library(
         "//libs-scala/timer-utils",
         "@maven//:commons_codec_commons_codec",
         "@maven//:commons_io_commons_io",
-        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_buffer",
         "@maven//:io_netty_netty_handler",
