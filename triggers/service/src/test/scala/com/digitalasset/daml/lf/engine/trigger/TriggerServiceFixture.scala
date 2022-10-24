@@ -11,6 +11,7 @@ import akka.http.scaladsl.model._
 import com.auth0.jwt.JWT
 import com.auth0.jwt.JWTVerifier.BaseVerification
 import com.auth0.jwt.algorithms.Algorithm
+import com.auth0.jwt.interfaces.{Clock => Auth0Clock}
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.auth.middleware.oauth2.{
   SecretString,
@@ -67,7 +68,7 @@ import scalaz.syntax.show._
 import java.net.InetAddress
 import java.time.{Clock, Instant, LocalDateTime, ZoneId, Duration => JDuration}
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
-import java.util.UUID
+import java.util.{Date, UUID}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent._
 import scala.concurrent.duration._
@@ -204,10 +205,9 @@ trait AuthMiddlewareFixture
     JWT
       .require(Algorithm.HMAC256(authSecret))
       .asInstanceOf[BaseVerification]
-      // We use DeferringClock so that authClock doesn't yet get evaluated.
-      // This is needed, because authVerifier is called before `resource` is
-      // actually fully initialized.
-      .build(new DeferringClock(authClock))
+      .build(new Auth0Clock {
+        override def getToday: Date = Date.from(authClock.instant())
+      })
   )
   private def authMiddleware: ServerBinding = resource.value._3
   private def authMiddlewareUri: Uri =
@@ -288,16 +288,6 @@ trait AuthMiddlewareFixture
 
     super.afterEach()
   }
-}
-
-// This wrapper uses the passed clock by-name to avoid initialization
-// circles above.
-private class DeferringClock(baseClock: => Clock) extends Clock {
-  override def getZone: ZoneId = baseClock.getZone
-
-  override def instant(): Instant = baseClock.instant()
-
-  override def withZone(zone: ZoneId): Clock = new DeferringClock(baseClock.withZone(zone))
 }
 
 trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with AkkaBeforeAndAfterAll {
