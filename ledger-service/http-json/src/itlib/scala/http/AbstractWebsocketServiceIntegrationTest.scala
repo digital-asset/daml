@@ -1252,7 +1252,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           .map(iouSplitResult)
           .filterNot(_ == \/-((Vector(), Vector()))) // liveness marker/heartbeat
           .runWith(
-            Consume.interpret(trialSplitSeq(fixture, splitSample, kill, alice.unwrap, headers))
+            Consume.interpret(trialSplitSeq(fixture, splitSample, kill, alice, headers))
           )
       } yield res
   }
@@ -1261,7 +1261,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       fixture: UriFixture,
       ss: SplitSeq[BigDecimal],
       kill: UniqueKillSwitch,
-      partyName: String,
+      partyName: domain.Party,
       headers: List[HttpHeader],
   ): Consume.FCC[IouSplitResult, Assertion] = {
     val dslSyntax = Consume.syntax[IouSplitResult]
@@ -1297,16 +1297,19 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
     val initialPayload = {
       import json.JsonProtocol._
-      Map(
-        "templateId" -> "Iou:Iou".toJson,
-        "payload" -> Map(
-          "observers" -> List[String]().toJson,
-          "issuer" -> partyName.toJson,
-          "amount" -> ss.x.toJson,
-          "currency" -> "USD".toJson,
-          "owner" -> partyName.toJson,
-        ).toJson,
-      ).toJson
+      domain
+        .CreateCommand(
+          TpId.Iou.Iou,
+          Map(
+            "observers" -> List[String]().toJson,
+            "issuer" -> partyName.toJson,
+            "amount" -> ss.x.toJson,
+            "currency" -> "USD".toJson,
+            "owner" -> partyName.toJson,
+          ).toJson,
+          meta = None,
+        )
+        .toJson
     }
     for {
       (StatusCodes.OK, _) <- liftF(
