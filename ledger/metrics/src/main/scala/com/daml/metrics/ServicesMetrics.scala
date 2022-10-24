@@ -3,15 +3,14 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.MetricHandle.{Counter, Histogram, Meter, Timer}
-
 import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.MetricDoc.MetricQualification.{Debug, Saturation, Traffic}
+import com.daml.metrics.MetricHandle.{Counter, DropwizardTimer, Histogram, Meter, Timer}
 
 class ServicesMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends MetricHandle.DropwizardFactory {
 
-  object index extends MetricHandle.Factory {
+  object index extends MetricHandle.DropwizardFactory {
     override val prefix: MetricName = ServicesMetrics.this.prefix :+ "index"
     override val registry: MetricRegistry = ServicesMetrics.this.registry
 
@@ -23,7 +22,7 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
                       |time statistics of such operations.""",
       qualification = Debug,
     )
-    val operationForDocs: Timer = Timer(prefix :+ "<operation>", null)
+    val operationForDocs: Timer = DropwizardTimer(prefix :+ "<operation>", null)
 
     val listLfPackages: Timer = timer(prefix :+ "list_lf_packages")
     val getLfArchive: Timer = timer(prefix :+ "get_lf_archive")
@@ -52,7 +51,7 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
     val prune: Timer = timer(prefix :+ "prune")
     val getTransactionMetering: Timer = timer(prefix :+ "get_transaction_metering")
 
-    object InMemoryFanoutBuffer extends MetricHandle.Factory {
+    object InMemoryFanoutBuffer extends MetricHandle.DropwizardFactory {
       override val prefix: MetricName = index.prefix :+ "in_memory_fan_out_buffer"
       override val registry: MetricRegistry = index.registry
 
@@ -81,12 +80,12 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
         summary = "The size of the in-memory fan-out buffer.",
         description = """The actual size of the in-memory fan-out buffer. This metric is mostly
                         |targeted for debugging purposes.""",
-        qualification = Debug,
+        qualification = Saturation,
       )
       val bufferSize: Histogram = histogram(prefix :+ "size")
     }
 
-    case class BufferedReader(streamName: String) extends MetricHandle.Factory {
+    case class BufferedReader(streamName: String) extends MetricHandle.DropwizardFactory {
       override val prefix: MetricName = index.prefix :+ s"${streamName}_buffer_reader"
       override val registry: MetricRegistry = index.registry
 
@@ -148,7 +147,7 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
     }
   }
 
-  object read extends MetricHandle.Factory {
+  object read extends MetricHandle.DropwizardFactory {
     override val prefix: MetricName = ServicesMetrics.this.prefix :+ "read"
     override val registry: MetricRegistry = index.registry
 
@@ -159,13 +158,13 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
                       |each operation.""",
       qualification = Debug,
     )
-    val readOperationForDocs: Timer = Timer(prefix :+ "<operation>", null)
+    val readOperationForDocs: Timer = DropwizardTimer(prefix :+ "<operation>", null)
 
     val getLedgerInitialConditions: Timer = timer(prefix :+ "get_ledger_initial_conditions")
     val stateUpdates: Timer = timer(prefix :+ "state_updates")
   }
 
-  object write extends MetricHandle.Factory {
+  object write extends MetricHandle.DropwizardFactory {
     override val prefix: MetricName = ServicesMetrics.this.prefix :+ "write"
     override val registry: MetricRegistry = index.registry
 
@@ -177,7 +176,18 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
                       |exposes the time needed to execute each operation.""",
       qualification = Debug,
     )
-    val writeOperationForDocs: Timer = Timer(prefix :+ "<operation>", null)
+    val writeOperationForDocs: Timer = DropwizardTimer(prefix :+ "<operation>", null)
+
+    @MetricDoc.Tag(
+      summary = "The number of submitted transactions by the write service.",
+      description = """The write service is an internal interface for changing the state through
+                      |the synchronization services. The methods in this interface are all methods
+                      |that are supported uniformly across all ledger implementations. This metric
+                      |exposes the total number of the sumbitted transactions.""",
+      qualification = Traffic,
+    )
+    val submitOperationForDocs: Timer =
+      DropwizardTimer(prefix :+ "submit_transaction" :+ "count", null)
 
     val submitTransaction: Timer = timer(prefix :+ "submit_transaction")
     val submitTransactionRunning: Meter = meter(prefix :+ "submit_transaction_running")

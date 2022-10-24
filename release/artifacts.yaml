@@ -131,6 +131,8 @@
   type: jar-deploy
 - target: //ledger/ledger-api-tests/tool:tool-1.14
   type: jar-deploy
+- target: //ledger/ledger-api-tests/tool:tool-1.15
+  type: jar-deploy
 - target: //ledger/ledger-api-tests/tool:tool-1.dev
   type: jar-deploy
 - target: //ledger/ledger-configuration:ledger-configuration

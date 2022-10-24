@@ -313,7 +313,7 @@ This gives a minimal `X`\ -consistent causality graph.
 
 Definition »Reduction of a consistent causality graph«
   For an `X`\ -consistent causality graph `G`, there exists a unique minimal `X`\ -consistent causality graph `reduce`:sub:`X`\ `(G)` with the same vertices and the edges being a subset of `G`.
-  `reduce`:sub:`X`\ `(G)` is called the `X`\ -**reduction** of `G`.
+  The graph `reduce`:sub:`X`\ `(G)` is called the `X`\ -**reduction** of `G`.
   As before, `X` is omitted if it contains all actions in `G`.
 
 The causality graph for the split `CounterOffer` workflow is minimal and therefore its own reduction.

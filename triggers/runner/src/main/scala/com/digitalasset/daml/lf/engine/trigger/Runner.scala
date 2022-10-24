@@ -354,14 +354,14 @@ class Runner(
   import Runner.{SeenMsgs, alterF}
 
   // Compiles LF expressions into Speedy expressions.
-  private val compiler: Compiler = compiledPackages.compiler
+  private val compiler = compiledPackages.compiler
   // Converts between various objects and SValues.
   private val converter: Converter = new Converter(compiledPackages, trigger.defn)
   // These are the command IDs used on the ledger API to submit commands for
   // this trigger for which we are awaiting either a completion or transaction
   // message, or both.
-  private[this] var pendingCommandIds: Map[UUID, SeenMsgs] = Map.empty
-  private val transactionFilter: TransactionFilter =
+  private[this] var pendingCommandIds = Map.empty[UUID, SeenMsgs]
+  private val transactionFilter =
     TransactionFilter(parties.readers.map(p => (p.unwrap, trigger.filters)).toMap)
 
   private[this] def logger = ContextualizedLogger get getClass

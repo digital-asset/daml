@@ -42,7 +42,6 @@ da_scala_library(
         "//ledger/metrics",
         "//libs-scala/contextualized-logging",
         "//libs-scala/nonempty",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 

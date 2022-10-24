@@ -38,7 +38,10 @@ import com.daml.platform.participant.util.LfEngineToApi.{
 import scala.concurrent.duration.{FiniteDuration, MICROSECONDS}
 
 // Convert from a Ledger API transaction to an SValue corresponding to a Message from the Daml.Trigger module
-final class Converter(compiledPackages: CompiledPackages, triggerDef: TriggerDefinition) {
+final class Converter(
+    compiledPackages: CompiledPackages,
+    triggerDef: TriggerDefinition,
+) {
 
   import Converter._
   import com.daml.script.converter.Converter._, Implicits._
@@ -56,9 +59,11 @@ final class Converter(compiledPackages: CompiledPackages, triggerDef: TriggerDef
 
   private[this] val triggerIds: TriggerIds = triggerDef.triggerIds
 
-  private[this] val anyTemplateTyCon = DA.Internal.Any.assertIdentifier("AnyTemplate")
-  private[this] val anyViewTyCon = DA.Internal.Any.assertIdentifier("AnyView")
   private[this] val templateTypeRepTyCon = DA.Internal.Any.assertIdentifier("TemplateTypeRep")
+  private[this] val anyTemplateTyCon = DA.Internal.Any.assertIdentifier("AnyTemplate")
+  // TODO: https://github.com/digital-asset/daml/issues/14830
+  // replace by DA.Internal.Any.AnyView.AnyView once it is introduced as stable package
+  private[this] val anyViewTyCon = DA.Internal.Any.assertIdentifier("AnyView")
 
   private[this] val activeContractsTy = triggerIds.damlTriggerLowLevel("ActiveContracts")
   private[this] val anyContractIdTy = triggerIds.damlTriggerLowLevel("AnyContractId")
@@ -74,19 +79,7 @@ final class Converter(compiledPackages: CompiledPackages, triggerDef: TriggerDef
   private[this] val transactionIdTy = triggerIds.damlTriggerLowLevel("TransactionId")
   private[this] val transactionTy = triggerIds.damlTriggerLowLevel("Transaction")
 
-  private[this] def fromRecord(typ: Type, record: value.Record): Either[String, SValue] =
-    for {
-      record <- validateRecord(record)
-      tmplPayload <- translateValue(typ, record)
-    } yield tmplPayload
-
-  private[this] def fromAnyTemplate(typ: Type, value: SValue): SValue =
-    record(anyTemplateTyCon, "getAnyTemplate" -> SAny(typ, value))
-
-  private[this] def fromAnyView(typ: Type, value: SValue): SValue =
-    record(anyViewTyCon, "getAnyView" -> SAny(typ, value))
-
-  private[this] def fromIdentifier(identifier: value.Identifier): Either[String, Identifier] =
+  private[this] def fromIdentifier(identifier: value.Identifier) =
     for {
       pkgId <- PackageId.fromString(identifier.packageId)
       mod <- DottedName.fromString(identifier.moduleName)
@@ -140,20 +133,21 @@ final class Converter(compiledPackages: CompiledPackages, triggerDef: TriggerDef
       "contractId" -> SContractId(ContractId.assertFromString(contractId)),
     )
 
-  private def fromInterfaceView(view: InterfaceView): Either[String, SValue] =
-    for {
-      interfaceId <- fromIdentifier(view.getInterfaceId)
-      interfaceDef <- compiledPackages.pkgInterface.lookupInterface(interfaceId).left.map(_.pretty)
-      viewType = interfaceDef.view
-      viewValue <- view.viewValue.traverseU(fromRecord(viewType, _))
-    } yield SOptional(viewValue.map(fromAnyView(viewType, _)))
-
   private def fromArchivedEvent(archived: ArchivedEvent): SValue =
     record(
       archivedTy,
       "eventId" -> fromEventId(archived.eventId),
       "contractId" -> fromAnyContractId(archived.getTemplateId, archived.contractId),
     )
+
+  private[this] def fromRecord(typ: Type, record: value.Record): Either[String, SValue] =
+    for {
+      record <- validateRecord(record)
+      tmplPayload <- translateValue(typ, record)
+    } yield tmplPayload
+
+  private[this] def fromAnyTemplate(typ: Type, value: SValue) =
+    record(anyTemplateTyCon, "getAnyTemplate" -> SAny(typ, value))
 
   private[this] def fromV20CreatedEvent(
       created: CreatedEvent
@@ -170,6 +164,17 @@ final class Converter(compiledPackages: CompiledPackages, triggerDef: TriggerDef
         "argument" -> fromAnyTemplate(tmplType, tmplPayload),
       )
     }
+
+  private[this] def fromAnyView(typ: Type, value: SValue) =
+    record(anyViewTyCon, "getAnyView" -> SAny(typ, value))
+
+  private[this] def fromInterfaceView(view: InterfaceView): Either[String, SOptional] =
+    for {
+      ifaceId <- fromIdentifier(view.getInterfaceId)
+      iface <- compiledPackages.pkgInterface.lookupInterface(ifaceId).left.map(_.pretty)
+      viewType = iface.view
+      viewValue <- view.viewValue.traverseU(fromRecord(viewType, _))
+    } yield SOptional(viewValue.map(fromAnyView(viewType, _)))
 
   private[this] def fromV25CreatedEvent(
       created: CreatedEvent
@@ -473,6 +478,7 @@ object Converter {
 
   private final case class AnyContractId(templateId: Identifier, contractId: ContractId)
   private final case class AnyTemplate(ty: Identifier, arg: SValue)
+
   private final case class AnyChoice(name: ChoiceName, arg: SValue)
   private final case class AnyContractKey(key: SValue)
 

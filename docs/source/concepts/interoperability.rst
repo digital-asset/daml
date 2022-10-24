@@ -50,7 +50,7 @@ The following picture shows such a setup.
    :name: multiple-ledgers
    :alt: A sample topology with two parties, three participant nodes, and two ledgers, described in detail through the remainder of this section.
 
-   Example topology with three interoperable ledgers
+   Example topology with two interoperable ledgers
 
 The components in this diagram are the following:
 
@@ -262,11 +262,11 @@ Definition »Multi-Ledger causal consistency for a contract«
   Let `G` be a multi-ledger causality graph and `X` be a set of actions from `G` on a contract in `c`.
   The graph `G` is **multi-ledger consistent for the contract** `c` on `X` if all of the following hold:
 
-  #. If `X` is not empty, then `X` contains a **Create** or **Enter** action.
-     This action precedes all other actions in `X`.
+  #. If `X` is not empty, then `X` contains a **Create** or at least one **Enter** action.
+     If it contains a create, then this create precedes all other actions in `X`.
+     If it does not, then there exists one **Enter** action that precedes all other actions in `X`.
 
   #. `X` contains at most one **Create** action.
-     If so, this action precedes all other actions in `X`.
 
   #. If `X` contains a consuming **Exercise** action `act`, then `act` follows all other actions in `X` in `G`\ 's action order.
 
