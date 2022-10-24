@@ -125,7 +125,7 @@ object ToValueGenerator {
           generateToValueConverter(param, CodeBlock.of("$L.getValue()", arg), args, packagePrefixes),
         )
         CodeBlock.of(
-          "$L.entrySet().stream().collect($T.toDamlTextMap($T::getKey, $L)) ",
+          "$L.entrySet()$Z.stream()$Z.collect($T.toDamlTextMap($T::getKey, $L))$W",
           accessor,
           apiCollectors,
           classOf[java.util.Map.Entry[_, _]],
@@ -150,7 +150,7 @@ object ToValueGenerator {
           ),
         )
         CodeBlock.of(
-          "$L.entrySet().stream().collect($T.toDamlGenMap($L, $L))",
+          "$L.entrySet()$Z.stream()$Z.collect($T.toDamlGenMap($L, $L))",
           accessor,
           apiCollectors,
           keyExtractor,
