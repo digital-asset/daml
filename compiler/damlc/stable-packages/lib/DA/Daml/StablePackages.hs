@@ -43,7 +43,7 @@ allStablePackages =
     , daExceptionArithmeticError
     , daExceptionAssertionFailed
     , daExceptionPreconditionFailed
-    , daInternalInterfaceAnyView
+    , daInternalInterfaceAnyViewTypes
     ]
 
 allStablePackagesForVersion :: Version -> MS.Map PackageId Package
@@ -189,19 +189,19 @@ daInternalAny = package version1_7 $ NM.singleton (emptyModule modName)
           DataRecord [(mkField "getAnyContractKey", TAny), (mkField "getAnyContractKeyTemplateTypeRep", TCon (Qualified PRSelf modName (mkTypeCon ["TemplateTypeRep"])))]
       ]
 
-daInternalInterfaceAnyView :: Package
-daInternalInterfaceAnyView = Package
+daInternalInterfaceAnyViewTypes :: Package
+daInternalInterfaceAnyViewTypes = Package
   { packageLfVersion = version1_15
   , packageModules = NM.singleton (emptyModule modName)
       { moduleDataTypes = datatypes
       }
   , packageMetadata = Just PackageMetadata
-      { packageName = PackageName "daml-stdlib-DA-Internal-Interface-AnyView"
+      { packageName = PackageName "daml-stdlib-DA-Internal-Interface-AnyView-Types"
       , packageVersion = PackageVersion "1.0.0"
       }
   }
   where
-    modName = mkModName ["DA", "Internal", "Interface", "AnyView"]
+    modName = mkModName ["DA", "Internal", "Interface", "AnyView", "Types"]
     datatypes = NM.fromList
       [ DefDataType Nothing (mkTypeCon ["AnyView"]) (IsSerializable False) [] $
           DataRecord

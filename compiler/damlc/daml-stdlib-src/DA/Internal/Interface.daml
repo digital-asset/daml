@@ -12,7 +12,6 @@ module DA.Internal.Interface (
   HasInterfaceTypeRep(..),
   HasToInterface(..),
   HasFromInterface(..),
-  HasFromAnyView(..),
   Implements,
   interfaceTypeRep,
   toInterface,
@@ -28,7 +27,6 @@ import DA.Internal.Prelude
 import DA.Internal.Template.Functions
 import DA.Internal.LF
 import DA.Internal.Any
-import DA.Internal.Interface.AnyView (AnyView (..), InterfaceTypeRep (..))
 
 -- | (1.dev only) Exposes the `interfaceTypeRep` function. Available only for interfaces.
 class HasInterfaceTypeRep i where
@@ -178,20 +176,4 @@ class HasInterfaceView i v | i -> v where
 
 view : forall i v. HasInterfaceView i v => i -> v
 view = _view
-
-class HasFromAnyView i v | i -> v where
-  -- | HIDE
-  _fromAnyView : proxy i -> Any -> Optional v
-
-fromAnyView : forall i v. (HasTemplateTypeRep i, HasFromAnyView i v) => AnyView -> Optional v
-fromAnyView (AnyView any typeRep)
-  | Some c <- _fromAnyView ([] : [i]) any
-  , fromTemplateTypeRep (templateTypeRep @i) == typeRep = Some c
-  | otherwise = None
-
-deriving instance Eq InterfaceTypeRep
-deriving instance Ord InterfaceTypeRep
-
-fromTemplateTypeRep : TemplateTypeRep -> InterfaceTypeRep
-fromTemplateTypeRep (TemplateTypeRep rep) = InterfaceTypeRep rep
 

@@ -1,19 +1,32 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 
-module DA.Internal.Interface.AnyView (InterfaceTypeRep (..), AnyView (..)) where
+module DA.Internal.Interface.AnyView (
+  module DA.Internal.Interface.AnyView.Types,
+  HasFromAnyView(..),
+  fromAnyView,
+) where
 
 import DA.Internal.LF
+import DA.Internal.Interface.AnyView.Types
 
-newtype InterfaceTypeRep = InterfaceTypeRep { getInterfaceTypeRep : TypeRep }
+class HasFromAnyView i v | i -> v where
+  -- | HIDE
+  _fromAnyView : proxy i -> Any -> Optional v
 
--- | Existential contract key type that can wrap an arbitrary contract key.
-data AnyView = AnyView
-  { getAnyView : Any
-  , getAnyViewInterfaceTypeRep : InterfaceTypeRep
-  }
+fromAnyView : forall i v. (HasTemplateTypeRep i, HasFromAnyView i v) => AnyView -> Optional v
+fromAnyView (AnyView any typeRep)
+  | Some c <- _fromAnyView ([] : [i]) any
+  , fromTemplateTypeRep (templateTypeRep @i) == typeRep = Some c
+  | otherwise = None
 
+deriving instance Eq InterfaceTypeRep
+deriving instance Ord InterfaceTypeRep
+
+fromTemplateTypeRep : TemplateTypeRep -> InterfaceTypeRep
+fromTemplateTypeRep (TemplateTypeRep rep) = InterfaceTypeRep rep
 

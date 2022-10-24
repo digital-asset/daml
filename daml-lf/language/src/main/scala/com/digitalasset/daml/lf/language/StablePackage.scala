@@ -108,12 +108,14 @@ private[daml] object StablePackage {
             "daml-stdlib",
           )
       object Interface {
-        object AnyView
-            extends StablePackage(
-              "DA.Internal.Interface.AnyView",
-              "ede2e58827c399c6b20d25a20a7120a2c57e685055d14d0ba7c0ab775b785369",
-              "daml-stdlib",
-            )
+        object AnyView {
+          object Types
+              extends StablePackage(
+                "DA.Internal.Interface.AnyView.Types",
+                "ede2e58827c399c6b20d25a20a7120a2c57e685055d14d0ba7c0ab775b785369",
+                "daml-stdlib",
+              )
+        }
       }
     }
     object Logic {
