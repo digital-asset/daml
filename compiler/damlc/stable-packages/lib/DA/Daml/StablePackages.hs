@@ -194,6 +194,7 @@ daInternalInterfaceAnyViewTypes = Package
   { packageLfVersion = version1_15
   , packageModules = NM.singleton (emptyModule modName)
       { moduleDataTypes = datatypes
+      , moduleValues = values
       }
   , packageMetadata = Just PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Internal-Interface-AnyView-Types"
@@ -202,14 +203,30 @@ daInternalInterfaceAnyViewTypes = Package
   }
   where
     modName = mkModName ["DA", "Internal", "Interface", "AnyView", "Types"]
+
+    anyViewTyCon = mkTypeCon ["AnyView"]
+    getAnyViewField = mkField "getAnyView"
+    getAnyViewInterfaceTypeRepField = mkField "getAnyViewInterfaceTypeRep"
+    interfaceTypeRepType = TCon (Qualified PRSelf modName (mkTypeCon ["InterfaceTypeRep"]))
+
+    interfaceTypeRepTyCon = mkTypeCon ["InterfaceTypeRep"]
+    getInterfaceTypeRepField = mkField "getInterfaceTypeRep"
+
     datatypes = NM.fromList
-      [ DefDataType Nothing (mkTypeCon ["AnyView"]) (IsSerializable False) [] $
+      [ DefDataType Nothing anyViewTyCon (IsSerializable False) [] $
           DataRecord
-            [ (mkField "getAnyView", TAny)
-            , (mkField "getAnyViewInterfaceTypeRep", TCon (Qualified PRSelf modName (mkTypeCon ["InterfaceTypeRep"])))
+            [ (getAnyViewField, TAny)
+            , (getAnyViewInterfaceTypeRepField, interfaceTypeRepType)
             ]
-      , DefDataType Nothing (mkTypeCon ["InterfaceTypeRep"]) (IsSerializable False) [] $
-          DataRecord [(mkField "getInterfaceTypeRep", TTypeRep)]
+      , DefDataType Nothing interfaceTypeRepTyCon (IsSerializable False) [] $
+          DataRecord [(getInterfaceTypeRepField, TTypeRep)]
+      ]
+    values = NM.fromList
+      [ mkSelectorDef modName anyViewTyCon [] getAnyViewField TAny
+      , mkSelectorDef modName anyViewTyCon [] getAnyViewInterfaceTypeRepField interfaceTypeRepType
+      , mkWorkerDef modName anyViewTyCon [] [(getAnyViewField, TAny), (getAnyViewInterfaceTypeRepField, interfaceTypeRepType)]
+      , mkSelectorDef modName interfaceTypeRepTyCon [] getInterfaceTypeRepField TTypeRep
+      , mkWorkerDef modName interfaceTypeRepTyCon [] [(getInterfaceTypeRepField, TTypeRep)]
       ]
 
 daTimeTypes :: Package
