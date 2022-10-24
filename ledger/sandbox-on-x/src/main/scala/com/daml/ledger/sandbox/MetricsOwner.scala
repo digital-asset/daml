@@ -19,7 +19,7 @@ case class MetricsOwner(meter: Meter, config: MetricsConfig, name: String)
   override def acquire()(implicit
       context: ResourceContext
   ): Resource[Metrics] = {
-    val meterRegistry = config.registryType match {
+    val metricRegistry = config.registryType match {
       case MetricRegistryType.JvmShared =>
         SharedMetricRegistries.getOrCreate(name)
       case MetricRegistryType.New =>
@@ -27,16 +27,16 @@ case class MetricsOwner(meter: Meter, config: MetricsConfig, name: String)
     }
     val reporter = Option.when(config.enabled) {
       val runningReporter = config.reporter
-        .register(meterRegistry)
+        .register(metricRegistry)
       runningReporter.start(config.reportingInterval.toMillis, TimeUnit.MILLISECONDS)
       runningReporter
     }
 
-    meterRegistry.registerAll(new JvmMetricSet)
+    metricRegistry.registerAll(new JvmMetricSet)
     Resource(
       Future(
         new Metrics(
-          meterRegistry,
+          metricRegistry,
           meter,
         )
       )
