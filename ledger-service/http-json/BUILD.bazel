@@ -210,6 +210,16 @@ daml_compile(
     visibility = ["//ledger-service:__subpackages__"],
 )
 
+daml_compile(
+    name = "RIou",
+    srcs = ["src/it/daml/%s.daml" % m for m in [
+        "RIou",
+    ]],
+    data_dependencies = ["//ledger/test-common:model-tests-%s.dar" % lf_version_configuration.get("default")],
+    target = lf_version_configuration.get("dev"),  # TODO(SC #13296) remove when interfaces in default
+    visibility = ["//ledger-service:__subpackages__"],
+)
+
 [
     da_scala_test(
         name = "tests-{}".format(edition),
@@ -426,6 +436,7 @@ alias(
         data = [
             ":Account.dar",
             ":CIou.dar",
+            ":RIou.dar",
             ":User.dar",
             "//docs:quickstart-model.dar",
             "//ledger/test-common:dar-files",

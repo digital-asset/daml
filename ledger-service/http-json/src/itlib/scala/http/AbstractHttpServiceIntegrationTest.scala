@@ -134,7 +134,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   import AbstractHttpServiceIntegrationTestFuns.{VAx, UriFixture, HttpServiceTestFixtureData}
   import HttpServiceTestFixture.{UseTls, accountCreateCommand, archiveCommand}
   import json.JsonProtocol._
-  import AbstractHttpServiceIntegrationTestFuns.ciouDar
+  import AbstractHttpServiceIntegrationTestFuns.{ciouDar, riouDar}
 
   object CIou {
     val CIou: domain.ContractTypeId.Template.OptionalPkg =
@@ -259,9 +259,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     }
 
     "multi-party, multi-view" in withHttpService { fixture =>
-      val amountsCurrencies = Vector(("42", "USD"), ("84", "CHF"))
+      val amountsCurrencies = Vector(("42.0", "USD"), ("84.0", "CHF"))
       for {
-        _ <- uploadPackage(fixture)(ciouDar)
+        _ <- uploadPackage(fixture)(riouDar)
         Seq((alice, aliceHeaders), (bob, _)) <- Future.traverse(Seq("alice", "bob"))(
           fixture.getUniquePartyAndAuthHeaders
         )
@@ -291,7 +291,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           }
         }
         _ <- queryAtCtId(TpId.Iou.Iou) // TODO contents
-        // TODO SC query at interface
+        _ <- queryAtCtId(TpId.RIou.RIou)
         _ <- queryAtCtId(TpId.Iou.Iou)
       } yield succeed
     }

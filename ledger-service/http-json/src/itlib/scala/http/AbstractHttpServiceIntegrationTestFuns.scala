@@ -61,6 +61,8 @@ object AbstractHttpServiceIntegrationTestFuns {
 
   private[http] val ciouDar = requiredResource("ledger-service/http-json/CIou.dar")
 
+  private[http] val riouDar = requiredResource("ledger-service/http-json/RIou.dar")
+
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import com.google.common.io.BaseEncoding
 
@@ -434,6 +436,9 @@ trait AbstractHttpServiceIntegrationTestFuns
     }
     object IIou {
       val IIou: IId = CtId.Interface(None, "IIou", "IIou")
+    }
+    object RIou {
+      val RIou: IId = CtId.Interface(None, "RIou", "RIou")
     }
     object RIIou {
       val RIIou: IId = CtId.Interface(None, "RIIou", "RIIou")
