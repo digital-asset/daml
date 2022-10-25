@@ -147,10 +147,10 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       party: domain.Party
   ): List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]] =
     List(
-      iouCreateCommand(amount = "111.11", currency = "EUR", partyName = party),
-      iouCreateCommand(amount = "222.22", currency = "EUR", partyName = party),
-      iouCreateCommand(amount = "333.33", currency = "GBP", partyName = party),
-      iouCreateCommand(amount = "444.44", currency = "BTC", partyName = party),
+      iouCreateCommand(amount = "111.11", currency = "EUR", party = party),
+      iouCreateCommand(amount = "222.22", currency = "EUR", party = party),
+      iouCreateCommand(amount = "333.33", currency = "GBP", party = party),
+      iouCreateCommand(amount = "444.44", currency = "BTC", party = party),
     )
 
   protected def testLargeQueries = true
@@ -273,7 +273,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             aliceHeaders,
           ) map resultContractId
         }
-        queryAsBoth <- fixture.headersWithPartyAuth(List(alice.unwrap), List(bob.unwrap))
+        queryAsBoth <- fixture.headersWithPartyAuth(List(alice), List(bob))
         queryAtCtId = { ctid: domain.ContractTypeId.OptionalPkg =>
           searchExpectOk(
             List.empty,
@@ -364,7 +364,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           searchExpectOk(
             genSearchDataSet(alice) :+ iouCreateCommand(
               currency = testCurrency,
-              partyName = alice,
+              party = alice,
             ),
             jsObject(
               s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""

@@ -509,12 +509,11 @@ trait AbstractHttpServiceIntegrationTestFuns
     domain.ContractTypeId.Template.OptionalPkg,
     domain.ContractTypeId.OptionalPkg,
   ] = {
-    val originatorParty = Ref.Party assertFromString originator.unwrap
     val targetParty = Ref.Party assertFromString target.unwrap
     val payload = argToApi(iouVA)(
       ShRecord(
-        issuer = originatorParty,
-        owner = originatorParty,
+        issuer = originator,
+        owner = originator,
         currency = currency,
         amount = LfNumeric assertFromString amount,
         observers = Vector.empty,
