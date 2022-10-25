@@ -104,7 +104,7 @@ case class OpentelemetryCounter(name: String, counter: LongUpDownCounter) extend
   override def inc(n: Long): Unit = counter.add(n)
   override def dec(): Unit = counter.add(-1)
   override def dec(n: Long): Unit = counter.add(-n)
-  override def getCount: Long = 0 // Not supported OpenTelemetry
+  override def getCount: Long = 0 // Not supported by OpenTelemetry
 }
 
 case class OpentelemetryHistogram(name: String, histogram: LongHistogram) extends Histogram {
