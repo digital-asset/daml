@@ -3,17 +3,10 @@
 
 package com.daml.ledger.api.benchtool
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig
-import com.daml.ledger.api.benchtool.metrics.{
-  BenchmarkResult,
-  MeteredStreamObserver,
-  MetricsSet,
-  StreamMetrics,
-}
+import com.daml.ledger.api.benchtool.metrics.{BenchmarkResult, MetricsSet, StreamMetrics}
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -25,6 +18,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.timer.Delayed
 import org.slf4j.LoggerFactory
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -41,87 +35,92 @@ object Benchmark {
     Future
       .traverse(streamConfigs) {
         case streamConfig: StreamConfig.TransactionsStreamConfig =>
-          StreamMetrics
-            .observer[GetTransactionsResponse](
-              streamName = streamConfig.name,
-              logInterval = reportingPeriod,
-              metrics = MetricsSet.transactionMetrics(streamConfig.objectives),
-              logger = logger,
-              exposedMetrics = Some(
-                MetricsSet
-                  .transactionExposedMetrics(streamConfig.name, metricRegistry, reportingPeriod)
-              ),
-              itemCountingFunction = MetricsSet.countFlatTransactionsEvents,
-              maxItemCount = streamConfig.maxItemCount,
-            )(system, ec)
-            .flatMap { observer =>
-              streamConfig.timeoutInSecondsO
-                .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
-              apiServices.transactionService.transactions(streamConfig, observer)
-            }
+          for {
+            _ <- delaySubscriptionIfConfigured(streamConfig)(system)
+            observer <- StreamMetrics
+              .observer[GetTransactionsResponse](
+                streamName = streamConfig.name,
+                logInterval = reportingPeriod,
+                metrics = MetricsSet.transactionMetrics(streamConfig.objectives),
+                logger = logger,
+                exposedMetrics = Some(
+                  MetricsSet
+                    .transactionExposedMetrics(streamConfig.name, metricRegistry, reportingPeriod)
+                ),
+                itemCountingFunction = MetricsSet.countFlatTransactionsEvents,
+                maxItemCount = streamConfig.maxItemCount,
+              )(system, ec)
+            _ = streamConfig.timeoutInSecondsO
+              .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
+            result <- apiServices.transactionService.transactions(streamConfig, observer)
+          } yield result
         case streamConfig: StreamConfig.TransactionTreesStreamConfig =>
-          StreamMetrics
-            .observer[GetTransactionTreesResponse](
-              streamName = streamConfig.name,
-              logInterval = reportingPeriod,
-              metrics = MetricsSet.transactionTreesMetrics(streamConfig.objectives),
-              logger = logger,
-              exposedMetrics = Some(
-                MetricsSet.transactionTreesExposedMetrics(
-                  streamConfig.name,
-                  metricRegistry,
-                  reportingPeriod,
-                )
-              ),
-              itemCountingFunction = MetricsSet.countTreeTransactionsEvents,
-              maxItemCount = streamConfig.maxItemCount,
-            )(system, ec)
-            .flatMap { observer =>
-              streamConfig.timeoutInSecondsO
-                .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
-              apiServices.transactionService.transactionTrees(streamConfig, observer)
-            }
+          for {
+            _ <- delaySubscriptionIfConfigured(streamConfig)(system)
+            observer <- StreamMetrics
+              .observer[GetTransactionTreesResponse](
+                streamName = streamConfig.name,
+                logInterval = reportingPeriod,
+                metrics = MetricsSet.transactionTreesMetrics(streamConfig.objectives),
+                logger = logger,
+                exposedMetrics = Some(
+                  MetricsSet.transactionTreesExposedMetrics(
+                    streamConfig.name,
+                    metricRegistry,
+                    reportingPeriod,
+                  )
+                ),
+                itemCountingFunction = MetricsSet.countTreeTransactionsEvents,
+                maxItemCount = streamConfig.maxItemCount,
+              )(system, ec)
+            _ = streamConfig.timeoutInSecondsO
+              .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
+            result <- apiServices.transactionService.transactionTrees(streamConfig, observer)
+          } yield result
         case streamConfig: StreamConfig.ActiveContractsStreamConfig =>
-          StreamMetrics
-            .observer[GetActiveContractsResponse](
-              streamName = streamConfig.name,
-              logInterval = reportingPeriod,
-              metrics = MetricsSet.activeContractsMetrics(streamConfig.objectives),
-              logger = logger,
-              exposedMetrics = Some(
-                MetricsSet.activeContractsExposedMetrics(
-                  streamConfig.name,
-                  metricRegistry,
-                  reportingPeriod,
-                )
-              ),
-              itemCountingFunction = (response) => MetricsSet.countActiveContracts(response).toLong,
-              maxItemCount = streamConfig.maxItemCount,
-            )(system, ec)
-            .flatMap { observer =>
-              streamConfig.timeoutInSecondsO
-                .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
-              apiServices.activeContractsService.getActiveContracts(streamConfig, observer)
-            }
+          for {
+            _ <- delaySubscriptionIfConfigured(streamConfig)(system)
+            observer <- StreamMetrics
+              .observer[GetActiveContractsResponse](
+                streamName = streamConfig.name,
+                logInterval = reportingPeriod,
+                metrics = MetricsSet.activeContractsMetrics(streamConfig.objectives),
+                logger = logger,
+                exposedMetrics = Some(
+                  MetricsSet.activeContractsExposedMetrics(
+                    streamConfig.name,
+                    metricRegistry,
+                    reportingPeriod,
+                  )
+                ),
+                itemCountingFunction =
+                  (response) => MetricsSet.countActiveContracts(response).toLong,
+                maxItemCount = streamConfig.maxItemCount,
+              )(system, ec)
+            _ = streamConfig.timeoutInSecondsO
+              .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
+            result <- apiServices.activeContractsService.getActiveContracts(streamConfig, observer)
+          } yield result
         case streamConfig: StreamConfig.CompletionsStreamConfig =>
-          StreamMetrics
-            .observer[CompletionStreamResponse](
-              streamName = streamConfig.name,
-              logInterval = reportingPeriod,
-              metrics = MetricsSet.completionsMetrics(streamConfig.objectives),
-              logger = logger,
-              exposedMetrics = Some(
-                MetricsSet
-                  .completionsExposedMetrics(streamConfig.name, metricRegistry, reportingPeriod)
-              ),
-              itemCountingFunction = (response) => MetricsSet.countCompletions(response).toLong,
-              maxItemCount = streamConfig.maxItemCount,
-            )(system, ec)
-            .flatMap { observer: MeteredStreamObserver[CompletionStreamResponse] =>
-              streamConfig.timeoutInSecondsO
-                .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
-              apiServices.commandCompletionService.completions(streamConfig, observer)
-            }
+          for {
+            _ <- delaySubscriptionIfConfigured(streamConfig)(system)
+            observer <- StreamMetrics
+              .observer[CompletionStreamResponse](
+                streamName = streamConfig.name,
+                logInterval = reportingPeriod,
+                metrics = MetricsSet.completionsMetrics(streamConfig.objectives),
+                logger = logger,
+                exposedMetrics = Some(
+                  MetricsSet
+                    .completionsExposedMetrics(streamConfig.name, metricRegistry, reportingPeriod)
+                ),
+                itemCountingFunction = (response) => MetricsSet.countCompletions(response).toLong,
+                maxItemCount = streamConfig.maxItemCount,
+              )(system, ec)
+            _ = streamConfig.timeoutInSecondsO
+              .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
+            result <- apiServices.commandCompletionService.completions(streamConfig, observer)
+          } yield result
       }
       .map { results =>
         if (results.contains(BenchmarkResult.ObjectivesViolated))
@@ -136,4 +135,16 @@ object Benchmark {
       observer.cancel()
     )
   }
+
+  private def delaySubscriptionIfConfigured(
+      streamConfig: StreamConfig
+  )(implicit system: ActorSystem[SpawnProtocol.Command]): Future[Unit] =
+    streamConfig.subscriptionDelay match {
+      case Some(delay) =>
+        logger.info(
+          s"Delaying stream subscription with $delay for stream $streamConfig"
+        )
+        akka.pattern.after(delay)(Future.unit)
+      case None => Future.unit
+    }
 }
