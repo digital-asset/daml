@@ -16,4 +16,3 @@ import DA.Internal.Template.Functions as X
 import DA.Internal.Compatible as X
 import DA.Internal.Assert as X
 import DA.Internal.Interface as X
-import DA.Internal.Interface.AnyView.Types as X

@@ -46,6 +46,7 @@ module Daml.Trigger.LowLevel
 import DA.Action.State
 import DA.Action.State.Class
 import DA.Functor ((<&>))
+import DA.Internal.Interface.AnyView.Types
 import DA.Time (RelTime(..))
 import Daml.Script.Free (Free(..), lift, foldFree)
 
