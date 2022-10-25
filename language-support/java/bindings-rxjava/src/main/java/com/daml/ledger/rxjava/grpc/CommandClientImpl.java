@@ -923,7 +923,7 @@ public class CommandClientImpl implements CommandClient {
               Optional.empty(),
               Optional.empty(),
               Optional.empty(),
-              List.of(update.command),
+              update.commands(),
               accessToken);
       return transaction.map(
           tx -> {
@@ -941,7 +941,7 @@ public class CommandClientImpl implements CommandClient {
               Optional.empty(),
               Optional.empty(),
               Optional.empty(),
-              List.of(update.command),
+              update.commands(),
               accessToken);
       return transactionTree.map(
           txTree -> {

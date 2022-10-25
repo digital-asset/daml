@@ -96,7 +96,7 @@ object TestUtil {
   }
 
   def sendCmd(channel: Channel, partyName: String, updates: List[Update[_]]): Empty = {
-    sendCmd(channel, partyName, updates.map(_.command): _*)
+    sendCmd(channel, partyName, updates.flatMap(_.commands().asScala): _*)
   }
 
   private def sendCmd(channel: Channel, partyName: String, cmds: Command*): Empty = {
@@ -138,7 +138,7 @@ object TestUtil {
       readAs: java.util.List[String],
       updates: List[Update[_]],
   ): Empty = {
-    sendCmd(channel, actAs, readAs, updates.map(_.command): _*)
+    sendCmd(channel, actAs, readAs, updates.flatMap(_.commands().asScala): _*)
   }
 
   def sendCmd(

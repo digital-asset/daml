@@ -4,13 +4,19 @@
 package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.Command;
+import java.util.List;
 import java.util.function.Function;
 
-public abstract class Update<U> {
-  public Command command;
+public abstract class Update<U> extends HasCommands {
+  private final Command command;
 
   public Update(Command command) {
     this.command = command;
+  }
+
+  @Override
+  public List<Command> commands() {
+    return List.of(command);
   }
 
   /**

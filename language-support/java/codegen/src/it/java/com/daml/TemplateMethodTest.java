@@ -27,35 +27,59 @@ public class TemplateMethodTest {
   @Test
   void templateHasCreateMethods() {
     var fromStatic = SimpleTemplate.create("Bob");
-    CreateCommand fromInstance = new SimpleTemplate("Bob").create().command.asCreateCommand().get();
+    var fromInstance = new SimpleTemplate("Bob").create();
 
-    assertNotNull(fromStatic, "CreateCommand from static method was null");
-    assertNotNull(fromInstance, "CreateCommand from method was null");
+    assertNotNull(fromStatic, "Update<R> from static method was null");
+    assertNotNull(fromInstance, "Update<R> from method was null");
+    assertEquals(
+        1, fromStatic.commands().size(), "There are not exactly one command from static method");
+    assertEquals(
+        1, fromInstance.commands().size(), "There are not exactly one command from method");
   }
 
   @Test
   void contractIdHasInstanceExerciseMethods() {
     SimpleTemplate.ContractId cid = new SimpleTemplate.ContractId("id");
-    Command fromSplattedInt = cid.exerciseTestTemplate_Int(42L).command;
-    Command fromRecordInt = cid.exerciseTestTemplate_Int(new TestTemplate_Int(42L)).command;
-    Command fromSplattedUnit = cid.exerciseTestTemplate_Unit().command;
+    var fromSplattedInt = cid.exerciseTestTemplate_Int(42L);
+    var fromRecordInt = cid.exerciseTestTemplate_Int(new TestTemplate_Int(42L));
+    var fromSplattedUnit = cid.exerciseTestTemplate_Unit();
 
-    assertNotNull(fromSplattedInt, "ExerciseCommand from splatted choice was null");
-    assertNotNull(fromRecordInt, "ExerciseCommand from record choice was null");
-    assertNotNull(fromSplattedUnit, "ExerciseCommand from splatted unit choice was null");
+    assertNotNull(fromSplattedInt, "Update<R> from splatted choice was null");
+    assertNotNull(fromRecordInt, "Update<R> from record choice was null");
+    assertNotNull(fromSplattedUnit, "Update<R> from splatted unit choice was null");
+
+    assertEquals(
+        1,
+        fromSplattedInt.commands().size(),
+        "There are not exactly one command from Update<R> from splatted choice");
+    assertEquals(
+        1,
+        fromRecordInt.commands().size(),
+        "There are not exactly one command from Update<R> from record choice");
+    assertEquals(
+        1,
+        fromSplattedUnit.commands().size(),
+        "There are not exactly one command from Update<R> from splatted choice");
   }
 
   @Test
   void templateHasCreateAndExerciseMethods() {
     SimpleTemplate simple = new SimpleTemplate("Bob");
-    Command fromSplatted = simple.createAndExerciseTestTemplate_Int(42L).command;
-    Command fromRecord =
-        simple.createAndExerciseTestTemplate_Int(new TestTemplate_Int(42L)).command;
+    var fromSplatted = simple.createAndExerciseTestTemplate_Int(42L);
+    var fromRecord = simple.createAndExerciseTestTemplate_Int(new TestTemplate_Int(42L));
 
-    assertNotNull(fromSplatted, "CreateAndExerciseCommand from splatted choice was null");
-    assertNotNull(fromRecord, "CreateAndExerciseCommand from record choice was null");
+    assertNotNull(fromSplatted, "Update<R> from splatted choice was null");
+    assertNotNull(fromRecord, "Update<R> from record choice was null");
+    assertEquals(fromRecord, fromSplatted, "Update<R> from both methods are not the same");
+
     assertEquals(
-        fromRecord, fromSplatted, "CreateAndExerciseCommands from both methods are not the same");
+        1,
+        fromSplatted.commands().size(),
+        "There are not exactly one command from Update<R> from splatted choice");
+    assertEquals(
+        1,
+        fromRecord.commands().size(),
+        "There are not exactly one command from Update<R> from record choice");
   }
 
   @Test

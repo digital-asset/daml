@@ -5,7 +5,7 @@ package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.ExercisedEvent;
 
-public class Exercised<R> {
+public final class Exercised<R> {
   public final R exerciseResult;
 
   private Exercised(R exerciseResult) {
