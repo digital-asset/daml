@@ -303,13 +303,19 @@ export function assert(b: boolean, m: string): void {
   }
 }
 
+export enum ComparisonOperators {
+  "%lt" = "%lt",
+  "%lte" = "%lte",
+  "%gt" = "%gt",
+  "%gte" = "%gte",
+}
+
 /**
  * `Query<T>` is the type of queries for searching for contracts of template
  * or interface type `T`.
  *
- * `Query<T>` is an object consisting of a subset of the fields of `T`.
- *
- * Comparison queries are not yet supported.
+ * `Query<T>` is an object consisting of a subset of the fields of `T`. An
+ * object with comparisons are also accepted.
  *
  * NB: This type is heavily related to the `DeepPartial` type that can be found
  * in the TypeScript community.
@@ -317,8 +323,11 @@ export function assert(b: boolean, m: string): void {
  * @typeparam T The contract template type.
  *
  */
-export type Query<T> = T extends object ? { [K in keyof T]?: Query<T[K]> } : T;
-// TODO(MH): Support comparison queries.
+export type Query<T> = T extends object
+  ? {
+      [K in keyof T]?: Query<T[K]>;
+    }
+  : T | { [key in ComparisonOperators]: T };
 
 /** @internal
  *
