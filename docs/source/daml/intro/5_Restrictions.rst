@@ -39,7 +39,7 @@ The ``ensure`` keyword takes a single expression of type ``Bool``. If you want t
 
 .. hint::
 
-  The ``T`` here stands for the ``DA.Text`` standard library which has been imported using ``import DA.Text as T``.
+  The ``T`` here stands for the ``DA.Text`` standard library which has been imported using ``import DA.Text as T``:
 
 .. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
@@ -66,7 +66,7 @@ For example, the simple Iou in :ref:`simple_iou` allowed the no-op where the ``o
   :start-after: -- TRANSFER_TEST_BEGIN
   :end-before: -- TRANSFER_TEST_END
 
-Similarly, you can write a ``Redeem`` choice, which allows the ``owner`` to redeem an ``Iou`` during business hours on weekdays. The choice doesn't do anything other than archiving the ``SimpleIou``. (This assumes that actual cash changes hands off-ledger.)
+Similarly, you can write a ``Redeem`` choice, which allows the ``owner`` to redeem an ``Iou`` during business hours on weekdays. The choice doesn't do anything other than archiving the ``SimpleIou``. (This assumes that actual cash changes hands off-ledger:)
 
 .. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
@@ -167,7 +167,7 @@ no dependencies between commands. If you do have dependencies between
 commands, you can always wrap it in a choice in a helper template and
 call that via ``createAndExerciseCmd`` just like we did to call
 ``fetchByKey``. Alternatively, if you do not need them to be part of the
-same transaction, you can make multiple calls to ``submit``.
+same transaction, you can make multiple calls to ``submit``:
 
 .. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
@@ -182,7 +182,7 @@ An action followed by another action, possibly depending on the result of the fi
 - A transaction is a list of actions. So a transaction followed by another transaction is again a transaction.
 - A script is a list of interactions with the ledger (``submit``, ``allocateParty``, ``passTime``, etc). So a script followed by another script is again a script.
 
-This is where ``do`` blocks come in. ``do`` blocks allow you to build complex actions from simple ones, using the results of earlier actions in later ones.
+This is where ``do`` blocks come in. ``do`` blocks allow you to build complex actions from simple ones, using the results of earlier actions in later ones:
 
 .. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
@@ -210,7 +210,7 @@ The last expression in the ``do`` block of the ``Redeem`` choice is a pattern ma
 A Sample Action
 ---------------
 
-If the above didn't make complete sense, here's another example to explain what actions are more generally, by creating a new type that is also an action. ``CoinGame a`` is an ``Action a`` in which a ``Coin`` is flipped. The ``Coin`` is a pseudo-random number generator and each flip has the effect of changing the random number generator's state. Based on the ``Heads`` and ``Tails`` results, a return value of type ``a`` is calculated.
+If the above didn't make complete sense, here's another example to explain what actions are more generally, by creating a new type that is also an action. ``CoinGame a`` is an ``Action a`` in which a ``Coin`` is flipped. The ``Coin`` is a pseudo-random number generator and each flip has the effect of changing the random number generator's state. Based on the ``Heads`` and ``Tails`` results, a return value of type ``a`` is calculated:
 
 .. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
