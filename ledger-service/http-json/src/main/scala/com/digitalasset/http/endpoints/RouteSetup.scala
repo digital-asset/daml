@@ -5,7 +5,13 @@ package com.daml.http
 package endpoints
 
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{Authorization, ModeledCustomHeader, ModeledCustomHeaderCompanion, OAuth2BearerToken, `X-Forwarded-Proto`}
+import akka.http.scaladsl.model.headers.{
+  Authorization,
+  ModeledCustomHeader,
+  ModeledCustomHeaderCompanion,
+  OAuth2BearerToken,
+  `X-Forwarded-Proto`,
+}
 import akka.stream.Materializer
 import Endpoints.ET
 import EndpointsCompanion._
