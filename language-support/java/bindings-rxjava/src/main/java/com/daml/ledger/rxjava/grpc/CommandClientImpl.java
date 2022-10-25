@@ -895,14 +895,6 @@ public class CommandClientImpl implements CommandClient {
             new IllegalArgumentException("Expect an exercised event but not found. tx: " + txTree));
   }
 
-  private abstract static class FoldUpdate<Z> {
-    public abstract <CtId> Z created(
-        Update.CreateUpdate<CtId, Z> create, CreatedEvent createdEvent);
-
-    public abstract <R> Z exercised(
-        Update.ExerciseUpdate<R, Z> exercise, ExercisedEvent exercisedEvent);
-  }
-
   private <U> Single<U> foldUpdate(
       String workflowId,
       String applicationId,
@@ -911,7 +903,7 @@ public class CommandClientImpl implements CommandClient {
       List<String> readAs,
       Update<U> update,
       Optional<String> accessToken,
-      FoldUpdate<U> foldUpdate) {
+      Update.FoldUpdate<U> foldUpdate) {
     if (update instanceof Update.CreateUpdate) {
       var transaction =
           submitAndWaitForTransaction(
@@ -967,7 +959,7 @@ public class CommandClientImpl implements CommandClient {
         readAs,
         update,
         accessToken,
-        new FoldUpdate<>() {
+        new Update.FoldUpdate<>() {
           @Override
           public <CtId> U created(Update.CreateUpdate<CtId, U> create, CreatedEvent createdEvent) {
             return create.k.apply(Created.fromEvent(create.createdContractId, createdEvent));

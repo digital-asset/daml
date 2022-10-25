@@ -4,6 +4,8 @@
 package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.Command;
+import com.daml.ledger.javaapi.data.CreatedEvent;
+import com.daml.ledger.javaapi.data.ExercisedEvent;
 import java.util.List;
 import java.util.function.Function;
 
@@ -53,5 +55,13 @@ public abstract class Update<U> extends HasCommands {
       this.k = k;
       this.createdContractId = createdContractId;
     }
+  }
+
+  public abstract static class FoldUpdate<Z> {
+    public abstract <CtId> Z created(
+        Update.CreateUpdate<CtId, Z> create, CreatedEvent createdEvent);
+
+    public abstract <R> Z exercised(
+        Update.ExerciseUpdate<R, Z> exercise, ExercisedEvent exercisedEvent);
   }
 }
