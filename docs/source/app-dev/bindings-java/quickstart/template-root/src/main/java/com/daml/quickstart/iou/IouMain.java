@@ -50,8 +50,6 @@ public class IouMain {
 
     logger.info("ledger-id: {}", ledgerId);
 
-    TransactionFilter iouFilter = filterFor(Iou.TEMPLATE_ID, party);
-
     AtomicLong idCounter = new AtomicLong(0);
     ConcurrentHashMap<Long, Iou> contracts = new ConcurrentHashMap<>();
     BiMap<Long, Iou.ContractId> idMap = Maps.synchronizedBiMap(HashBiMap.create());
@@ -79,7 +77,8 @@ public class IouMain {
     Disposable ignore =
         client
             .getTransactionsClient()
-            .getTransactions(acsOffset.get(), iouFilter, true)
+            .getTransactions(
+                ContractUtil.of(Iou.COMPANION), acsOffset.get(), Collections.singleton(party), true)
             .forEach(
                 t -> {
                   for (Event event : t.getEvents()) {
@@ -150,11 +149,5 @@ public class IouMain {
             Optional.empty(),
             Collections.singletonList(c))
         .blockingGet();
-  }
-
-  private static TransactionFilter filterFor(Identifier templateId, String party) {
-    InclusiveFilter inclusiveFilter = new InclusiveFilter(Collections.singleton(templateId));
-    Map<String, Filter> filter = Collections.singletonMap(party, inclusiveFilter);
-    return new FiltersByParty(filter);
   }
 }

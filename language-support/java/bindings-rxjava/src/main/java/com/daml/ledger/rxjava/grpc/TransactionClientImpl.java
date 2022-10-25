@@ -75,6 +75,49 @@ public final class TransactionClientImpl implements TransactionsClient {
     return getTransactions(begin, end, filter, verbose, Optional.of(accessToken));
   }
 
+  private Flowable<Transaction> getTransactions(
+      LedgerOffset begin, TransactionFilter filter, boolean verbose, Optional<String> accessToken) {
+    TransactionServiceOuterClass.GetTransactionsRequest request =
+        new GetTransactionsRequest(ledgerId, begin, filter, verbose).toProto();
+    return extractTransactions(request, accessToken);
+  }
+
+  @Override
+  public Flowable<Transaction> getTransactions(
+      LedgerOffset begin, TransactionFilter filter, boolean verbose) {
+    return getTransactions(begin, filter, verbose, Optional.empty());
+  }
+
+  @Override
+  public Flowable<Transaction> getTransactions(
+      LedgerOffset begin, TransactionFilter filter, boolean verbose, String accessToken) {
+    return getTransactions(begin, filter, verbose, Optional.of(accessToken));
+  }
+
+  private Flowable<Transaction> getTransactions(
+      ContractUtil<?> contractUtil,
+      LedgerOffset begin,
+      Set<String> parties,
+      boolean verbose,
+      Optional<String> accessToken) {
+    TransactionFilter filter = contractUtil.transactionFilter(parties);
+    return getTransactions(begin, filter, verbose, accessToken);
+  }
+
+  public Flowable<Transaction> getTransactions(
+      ContractUtil<?> contractUtil,
+      LedgerOffset begin,
+      Set<String> parties,
+      boolean verbose,
+      String accessToken) {
+    return getTransactions(contractUtil, begin, parties, verbose, Optional.of(accessToken));
+  }
+
+  public Flowable<Transaction> getTransactions(
+      ContractUtil<?> contractUtil, LedgerOffset begin, Set<String> parties, boolean verbose) {
+    return getTransactions(contractUtil, begin, parties, verbose, Optional.empty());
+  }
+
   private <Ct> Flowable<Ct> getContracts(
       ContractUtil<Ct> contractUtil,
       LedgerOffset begin,
@@ -107,25 +150,6 @@ public final class TransactionClientImpl implements TransactionsClient {
       boolean verbose,
       String accessToken) {
     return getContracts(contractUtil, begin, parties, verbose, Optional.of(accessToken));
-  }
-
-  private Flowable<Transaction> getTransactions(
-      LedgerOffset begin, TransactionFilter filter, boolean verbose, Optional<String> accessToken) {
-    TransactionServiceOuterClass.GetTransactionsRequest request =
-        new GetTransactionsRequest(ledgerId, begin, filter, verbose).toProto();
-    return extractTransactions(request, accessToken);
-  }
-
-  @Override
-  public Flowable<Transaction> getTransactions(
-      LedgerOffset begin, TransactionFilter filter, boolean verbose) {
-    return getTransactions(begin, filter, verbose, Optional.empty());
-  }
-
-  @Override
-  public Flowable<Transaction> getTransactions(
-      LedgerOffset begin, TransactionFilter filter, boolean verbose, String accessToken) {
-    return getTransactions(begin, filter, verbose, Optional.of(accessToken));
   }
 
   private Flowable<TransactionTree> extractTransactionTrees(
