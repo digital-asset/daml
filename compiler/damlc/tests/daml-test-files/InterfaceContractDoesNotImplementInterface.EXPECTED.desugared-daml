@@ -66,6 +66,8 @@ _choice_IArchive
      DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView I EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView I EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
 data GHC.Types.DamlInterface => J = J GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep J where
   _interfaceTypeRep
@@ -173,6 +175,8 @@ _choice_JJChoice
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView J EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView J EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
 data GHC.Types.DamlTemplate => T
   = T {party : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
