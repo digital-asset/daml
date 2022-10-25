@@ -17,7 +17,7 @@ import io.opentelemetry.api.metrics.{
   Meter => OtelMeter,
 }
 
-trait OpentelemetryFactory extends Factory {
+trait OpenTelemetryFactory extends Factory {
 
   def otelMeter: OtelMeter
   override def timer(
