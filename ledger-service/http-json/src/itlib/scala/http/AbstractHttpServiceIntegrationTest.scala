@@ -258,23 +258,36 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       }
     }
 
-    "multi-party, multi-view" in withHttpService { fixture =>
+    "multi-view" - {
       val amountsCurrencies = Vector(("42.0", "USD"), ("84.0", "CHF"))
       val expectedAmountsCurrencies = amountsCurrencies.map { case (a, c) => (a.toDouble, c) }
-      for {
+
+      def testMultiView[ExParties](
+          fixture: HttpServiceTestFixtureData,
+          allocateParties: Future[ExParties],
+      )(
+          observers: ExParties => Vector[domain.Party],
+          queryHeaders: (domain.Party, List[HttpHeader], ExParties) => Future[List[HttpHeader]],
+      ) = for {
         _ <- uploadPackage(fixture)(riouDar)
-        Seq((alice, aliceHeaders), (bob, _)) <- Future.traverse(Seq("alice", "bob"))(
-          fixture.getUniquePartyAndAuthHeaders
-        )
+        (alice, aliceHeaders) <- fixture.getUniquePartyAndAuthHeaders("alice")
+        exParties <- allocateParties
+
         // create all contracts
+        exObservers = observers(exParties)
         cids <- amountsCurrencies.traverse { case (amount, currency) =>
           postCreateCommand(
-            iouCreateCommand(alice, amount = amount, currency = currency, observers = Vector(bob)),
+            iouCreateCommand(
+              alice,
+              amount = amount,
+              currency = currency,
+              observers = exObservers,
+            ),
             fixture,
             aliceHeaders,
           ) map resultContractId
         }
-        queryAsBoth <- fixture.headersWithPartyAuth(List(alice), List(bob))
+        queryAsBoth <- queryHeaders(alice, aliceHeaders, exParties)
         queryAtCtId = {
           (ctid: domain.ContractTypeId.OptionalPkg, amountKey: String, currencyKey: String) =>
             searchExpectOk(
@@ -284,10 +297,12 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
               queryAsBoth,
             ) map { resACs =>
               inside(resACs map (inside(_) {
-                case domain.ActiveContract(cid, _, _, payload, Seq(`alice`), Seq(`bob`), _) =>
+                case domain.ActiveContract(cid, _, _, payload, Seq(`alice`), `exObservers`, _) =>
+                  // ensure the contract metadata is right, then discard
                   (cid, payload.asJsObject.fields)
               })) { case Seq((cid0, payload0), (cid1, payload1)) =>
                 Seq(cid0, cid1) should contain theSameElementsAs cids
+                // check the actual payloads match the contract IDs from creates
                 val actualAmountsCurrencies = (if (cid0 == cids.head) Seq(payload0, payload1)
                                                else Seq(payload1, payload0))
                   .map(payload =>
@@ -300,10 +315,38 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
               }
             }
         }
+        // run (inserting when query store) on template ID; then interface ID
+        // (thereby duplicating contract IDs)
         _ <- queryAtCtId(TpId.Iou.Iou, "amount", "currency")
         _ <- queryAtCtId(TpId.RIou.RIou, "iamount", "icurrency")
+        // then try template ID again, in case interface ID mangled the results
+        // for template ID by way of stakeholder join or something even odder
         _ <- queryAtCtId(TpId.Iou.Iou, "amount", "currency")
       } yield succeed
+
+      // multi-party and single-party are handled significantly differently
+      // in Oracle, so we check behavior with both varieties
+
+      "multi-party" in withHttpService { fixture =>
+        testMultiView(
+          fixture,
+          fixture.getUniquePartyAndAuthHeaders("bob").map(_._1),
+        )(
+          bob => Vector(bob),
+          (alice, _, bob) => fixture.headersWithPartyAuth(List(alice), List(bob)),
+        )
+      }
+
+      "single party" in withHttpService { fixture =>
+        testMultiView(
+          fixture,
+          Future successful (()),
+        )(
+          _ => Vector.empty,
+          (_, aliceHeaders, _) => Future successful aliceHeaders,
+        )
+      }
+
     }
   }
 
