@@ -20,6 +20,7 @@ import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParti
 import com.daml.platform.store.dao.events.CompressionStrategy
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, DbType}
+import io.opentelemetry.api.GlobalOpenTelemetry
 import org.scalatest.AsyncTestSuite
 
 import scala.concurrent.Await
@@ -55,7 +56,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
     val dbType = DbType.jdbcType(jdbcUrl)
     val storageBackendFactory = StorageBackendFactory.of(dbType)
     DbSupport

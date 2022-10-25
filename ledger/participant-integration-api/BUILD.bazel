@@ -209,6 +209,7 @@ da_scala_library(
         "@maven//:io_netty_netty_common",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_netty_netty_transport",
+        "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

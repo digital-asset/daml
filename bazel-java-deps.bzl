@@ -116,6 +116,8 @@ def install_java_deps():
             "io.dropwizard.metrics:metrics-jvm:{}".format(dropwizard_version),
             "io.opentelemetry:opentelemetry-api:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-context:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-exporter-prometheus:{}-alpha".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-metrics:{}-alpha".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-testing:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-trace:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha",

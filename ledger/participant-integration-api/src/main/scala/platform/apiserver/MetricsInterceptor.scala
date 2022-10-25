@@ -3,8 +3,8 @@
 
 package com.daml.platform.apiserver
 
-import com.daml.metrics.MetricHandle.Timer
-import com.daml.metrics.MetricHandle.Timer.TimerStop
+import com.daml.metrics.api.MetricHandle.Timer
+import com.daml.metrics.api.MetricHandle.Timer.TimerStop
 import com.daml.metrics.Metrics
 import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
 import io.grpc._

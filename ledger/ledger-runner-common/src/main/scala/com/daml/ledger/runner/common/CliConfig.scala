@@ -8,7 +8,6 @@ import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
-import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{AuthServiceConfig, AuthServiceConfigCli}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.config.ParticipantConfig
@@ -23,6 +22,7 @@ import scopt.OParser
 import java.io.File
 import java.time.Duration
 import java.util.UUID
+import com.daml.metrics.api.reporters.MetricsReporter
 
 import scala.jdk.DurationConverters.JavaDurationOps
 

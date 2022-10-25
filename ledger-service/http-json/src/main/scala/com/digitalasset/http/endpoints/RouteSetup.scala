@@ -38,7 +38,7 @@ import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.MetricHandle.Timer.TimerStop
+import com.daml.metrics.api.MetricHandle.Timer.TimerStop
 
 private[http] final class RouteSetup(
     allowNonHttps: Boolean,

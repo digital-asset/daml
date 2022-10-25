@@ -29,7 +29,7 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionSuccess,
 }
 import com.daml.ledger.client.services.commands.tracker.TrackedCommandKey
-import com.daml.metrics.MetricHandle.DropwizardCounter
+import com.daml.metrics.api.dropwizard.DropwizardCounter
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
