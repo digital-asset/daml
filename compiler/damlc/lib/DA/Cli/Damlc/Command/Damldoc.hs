@@ -27,7 +27,11 @@ cmd numProcessors f = command "docs" $
 
 documentation :: Int -> Parser CmdArgs
 documentation numProcessors = Damldoc
-    <$> optionsParser numProcessors (EnableScenarioService False) optPackageName
+    <$> optionsParser
+          numProcessors
+          (EnableScenarioService False)
+          optPackageName
+          disabledDlintUsageParser
     <*> optInputFormat
     <*> optOutputPath
     <*> optOutputFormat
