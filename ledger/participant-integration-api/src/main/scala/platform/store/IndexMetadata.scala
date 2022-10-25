@@ -17,6 +17,7 @@ import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.interning.StringInterningView
+import io.opentelemetry.api.GlobalOpenTelemetry
 import scalaz.Tag
 
 import scala.concurrent.duration._
@@ -56,7 +57,7 @@ object IndexMetadata {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ) = {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("daml"))
     DbSupport
       .owner(
         serverRole = ServerRole.ReadIndexMetadata,

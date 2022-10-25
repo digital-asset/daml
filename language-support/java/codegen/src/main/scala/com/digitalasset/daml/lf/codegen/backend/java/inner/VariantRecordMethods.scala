@@ -105,7 +105,7 @@ private[inner] object VariantRecordMethods extends StrictLogging {
         else
           CodeBlock.of("$T.impossible()", classOf[PrimitiveValueDecoders])
       }.asJava,
-      ", ",
+      ",$W",
     )
 
     val classStaticAccessor = if (className.typeParameters.size > 0) {
@@ -113,7 +113,7 @@ private[inner] object VariantRecordMethods extends StrictLogging {
         className.typeParameters.asScala.map { param =>
           CodeBlock.of("$T", param)
         }.asJava,
-        ", ",
+        ",$W",
       )
       CodeBlock.of("$T.<$L>", variantClassName.rawType, typeParameterList)
     } else CodeBlock.of("")
