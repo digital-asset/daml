@@ -110,8 +110,6 @@ instance DA.Internal.Desugar.HasInterfaceView MyInterface EmptyInterfaceView whe
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView MyInterface EmptyInterfaceView where
   _fromAnyView = GHC.Types.primitive @"EFromAnyView"
-instance DA.Internal.Desugar.HasToAnyView MyInterface EmptyInterfaceView where
-  _toAnyView = GHC.Types.primitive @"EToAnyView"
 data GHC.Types.DamlTemplate => MyTemplate
   = MyTemplate {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)

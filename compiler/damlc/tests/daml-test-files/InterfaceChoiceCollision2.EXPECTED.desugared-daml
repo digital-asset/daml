@@ -118,5 +118,3 @@ instance DA.Internal.Desugar.HasInterfaceView Interface EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView Interface EmptyInterfaceView where
   _fromAnyView = GHC.Types.primitive @"EFromAnyView"
-instance DA.Internal.Desugar.HasToAnyView Interface EmptyInterfaceView where
-  _toAnyView = GHC.Types.primitive @"EToAnyView"

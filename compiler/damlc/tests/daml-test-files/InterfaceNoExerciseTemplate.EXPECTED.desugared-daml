@@ -124,8 +124,6 @@ instance DA.Internal.Desugar.HasInterfaceView Token EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView Token EmptyInterfaceView where
   _fromAnyView = GHC.Types.primitive @"EFromAnyView"
-instance DA.Internal.Desugar.HasToAnyView Token EmptyInterfaceView where
-  _toAnyView = GHC.Types.primitive @"EToAnyView"
 data GHC.Types.DamlTemplate => Asset
   = Asset {issuer : Party, owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)

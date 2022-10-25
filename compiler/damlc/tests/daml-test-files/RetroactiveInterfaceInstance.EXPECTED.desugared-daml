@@ -287,8 +287,6 @@ instance DA.Internal.Desugar.HasInterfaceView Token TokenView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView Token TokenView where
   _fromAnyView = GHC.Types.primitive @"EFromAnyView"
-instance DA.Internal.Desugar.HasToAnyView Token TokenView where
-  _toAnyView = GHC.Types.primitive @"EToAnyView"
 _interface_instance_Token_Token_Asset :
   DA.Internal.Desugar.InterfaceInstance Token Token Asset
 _interface_instance_Token_Token_Asset

@@ -79,8 +79,6 @@ instance DA.Internal.Desugar.HasInterfaceView Token EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView Token EmptyInterfaceView where
   _fromAnyView = GHC.Types.primitive @"EFromAnyView"
-instance DA.Internal.Desugar.HasToAnyView Token EmptyInterfaceView where
-  _toAnyView = GHC.Types.primitive @"EToAnyView"
 data GHC.Types.DamlInterface => SubToken
   = SubToken GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep SubToken where
@@ -156,7 +154,5 @@ instance DA.Internal.Desugar.HasInterfaceView SubToken EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView SubToken EmptyInterfaceView where
   _fromAnyView = GHC.Types.primitive @"EFromAnyView"
-instance DA.Internal.Desugar.HasToAnyView SubToken EmptyInterfaceView where
-  _toAnyView = GHC.Types.primitive @"EToAnyView"
 cannotCall : SubToken -> Token
 cannotCall sub = setAmount sub 1_000_000

@@ -157,8 +157,6 @@ instance DA.Internal.Desugar.HasInterfaceView Bar BarView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView Bar BarView where
   _fromAnyView = GHC.Types.primitive @"EFromAnyView"
-instance DA.Internal.Desugar.HasToAnyView Bar BarView where
-  _toAnyView = GHC.Types.primitive @"EToAnyView"
 _interface_instance_Bar_Bar_Foo :
   DA.Internal.Desugar.InterfaceInstance Bar Bar Foo
 _interface_instance_Bar_Bar_Foo
