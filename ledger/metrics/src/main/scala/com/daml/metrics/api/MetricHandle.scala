@@ -6,7 +6,7 @@ package com.daml.metrics.api
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-import com.daml.metrics.api.MetricHandle.Timer.TimerStop
+import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -48,18 +48,22 @@ object MetricHandle {
 
     def time[T](call: => T): T
 
-    def startAsync(): TimerStop
+    def startAsync(): TimerHandle
 
     def timeFuture[T](call: => Future[T]): Future[T] = {
-      val stop = startAsync()
+      val timer = startAsync()
       val result = call
-      result.onComplete(_ => stop())(ExecutionContext.parasitic)
+      result.onComplete(_ => timer.stop())(ExecutionContext.parasitic)
       result
     }
   }
 
   object Timer {
-    type TimerStop = () => Unit
+
+    trait TimerHandle extends AutoCloseable {
+      def stop(): Unit = close()
+    }
+
   }
 
   trait Gauge[T] extends MetricHandle {

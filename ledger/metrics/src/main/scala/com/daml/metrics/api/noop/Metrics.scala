@@ -7,11 +7,11 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import com.daml.metrics.api.MetricHandle.Timer
-import com.daml.metrics.api.MetricHandle.Timer.TimerStop
+import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 
 sealed case class NoOpTimer(name: String) extends Timer {
   override def update(duration: Long, unit: TimeUnit): Unit = ()
   override def update(duration: Duration): Unit = ()
   override def time[T](call: => T): T = call
-  override def startAsync(): TimerStop = () => ()
+  override def startAsync(): TimerHandle = () => ()
 }
