@@ -7,7 +7,7 @@ import com.daml.caching.Cache
 import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Timed
-import com.daml.metrics.MetricHandle.Timer
+import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.ContractReadThroughNotFound
 import com.daml.platform.store.cache.StateCache.PendingUpdatesState
 import com.daml.scalautil.Statement.discard

@@ -318,8 +318,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   private val noTlsConfig = TlsConfiguration(enabled = false, None, None, None)
 
   def jwtForParties(
-      actAs: List[String],
-      readAs: List[String],
+      actAs: List[domain.Party],
+      readAs: List[domain.Party],
       ledgerId: Option[String] = None,
       withoutNamespace: Boolean = false,
       admin: Boolean = false,
@@ -330,11 +330,11 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         CustomDamlJWTPayload(
           ledgerId = ledgerId,
           applicationId = Some("test"),
-          actAs = actAs,
+          actAs = domain.Party unsubst actAs,
           participantId = None,
           exp = None,
           admin = admin,
-          readAs = readAs,
+          readAs = domain.Party unsubst readAs,
         )
       val payloadJson = customJwtPayload.toJson
       if (withoutNamespace) {
@@ -360,8 +360,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
 
   def headersWithPartyAuth(
-      actAs: List[String],
-      readAs: List[String],
+      actAs: List[domain.Party],
+      readAs: List[domain.Party],
       ledgerId: Option[String],
       withoutNamespace: Boolean = false,
   ): List[Authorization] = {
@@ -516,20 +516,20 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
 
   def sharedAccountCreateCommand(
-      owners: Seq[String],
+      owners: Seq[domain.Party],
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
   ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
     val templateId = domain.ContractTypeId.Template(None, "Account", "SharedAccount")
     val timeValue = v.Value(time)
+    val ownersEnc = v.Value(
+      v.Value.Sum.List(v.List(domain.Party.unsubst(owners).map(o => v.Value(v.Value.Sum.Party(o)))))
+    )
     val enabledVariantValue =
       v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
     val arg = v.Record(
       fields = List(
-        v.RecordField(
-          "owners",
-          Some(v.Value(v.Value.Sum.List(v.List(owners.map(o => v.Value(v.Value.Sum.Party(o))))))),
-        ),
+        v.RecordField("owners", Some(ownersEnc)),
         v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
         v.RecordField("status", Some(enabledVariantValue)),
       )

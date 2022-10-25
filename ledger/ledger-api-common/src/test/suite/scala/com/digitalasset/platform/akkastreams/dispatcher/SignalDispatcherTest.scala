@@ -7,7 +7,7 @@ import akka.stream.scaladsl.Sink
 import akka.stream.testkit.scaladsl.TestSink
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.awaitility.Awaitility.await
-import org.awaitility.Durations
+import org.awaitility.Duration
 import org.scalatest.FutureOutcome
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.matchers.should.Matchers
@@ -58,7 +58,7 @@ class SignalDispatcherTest
       sut.getRunningState should have size 1L
       s.cancel()
       await("Cancellation handling")
-        .atMost(Durations.TEN_SECONDS)
+        .atMost(Duration.TEN_SECONDS)
         .until(() => lang.Boolean.valueOf(sut.getRunningState.isEmpty))
       sut.getRunningState shouldBe empty
     }

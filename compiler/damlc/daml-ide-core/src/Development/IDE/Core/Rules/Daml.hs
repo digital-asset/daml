@@ -613,6 +613,7 @@ generateStablePackages lfVersion fp = do
                     , "DA-Validation-Types.dalf"
                     , "DA-Logic-Types.dalf"
                     , "DA-Internal-Down.dalf"
+                    , "DA-Internal-Interface-AnyView-Types.dalf"
                     ]
                 ]
         forM dalfs $ \dalf -> do
@@ -1048,8 +1049,8 @@ vrNoteSetNotification vr note = do
 -- callback of any errors. NOTE: results may contain errors for any
 -- dependent module.
 -- TODO (MK): We should have a non-Daml version of this rule
-ofInterestRule :: Options -> Rules ()
-ofInterestRule opts = do
+ofInterestRule :: Rules ()
+ofInterestRule = do
     -- go through a rule (not just an action), so it shows up in the profile
     action $ useNoFile OfInterest
     defineNoFile $ \OfInterest -> do
@@ -1092,12 +1093,9 @@ ofInterestRule opts = do
                     vrNoteSetNotification ovr $ LF.fileWScenarioNoLongerCompilesNote $ T.pack $
                         fromNormalizedFilePath file
 
-        let dlintEnabled = case optDlintUsage opts of
-              DlintEnabled _ _ -> True
-              DlintDisabled -> False
         let files = HashSet.toList scenarioFiles
         let dalfActions = [notifyOpenVrsOnGetDalfError f | f <- files]
-        let dlintActions = [use_ GetDlintDiagnostics f | dlintEnabled, f <- files]
+        let dlintActions = [use_ GetDlintDiagnostics f | f <- files]
         let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
         _ <- parallel $ dalfActions <> dlintActions <> runScenarioActions
         return ()
@@ -1218,20 +1216,30 @@ encodeModuleRule options =
 
 -- dlint
 
-dlintSettings :: FilePath -> Bool -> IO ([Classify], Hint)
-dlintSettings dlintDataDir enableOverrides = do
-    curdir <- getCurrentDirectory
-    home <- ((:[]) <$> getHomeDirectory) `catchIOError` (const $ return [])
-    dlintYaml <- if enableOverrides
-        then
-          findM Dir.doesFileExist $
-          map (</> ".dlint.yaml") (ancestors curdir ++ home)
-      else
-        return Nothing
+dlintSettings :: DlintUsage -> IO ([Classify], Hint)
+dlintSettings DlintDisabled = pure ([], mempty @Hint)
+dlintSettings (DlintEnabled DlintOptions {..}) = do
+    dlintRulesFile <- getDlintRulesFile dlintRulesFile
+    hintFiles <- getHintFiles dlintHintFiles
     (_, cs, hs) <- foldMapM parseSettings $
-      (dlintDataDir </> "dlint.yaml") : maybeToList dlintYaml
+      dlintRulesFile : hintFiles
     return (cs, hs)
     where
+      getDlintRulesFile :: DlintRulesFile -> IO FilePath
+      getDlintRulesFile = \case
+        DefaultDlintRulesFile -> locateRunfiles $
+          mainWorkspace </> "compiler" </> "damlc" </> "daml-ide-core" </> "dlint.yaml"
+        ExplicitDlintRulesFile path -> pure path
+
+      getHintFiles :: DlintHintFiles -> IO [FilePath]
+      getHintFiles = \case
+        ImplicitDlintHintFile -> do
+          curdir <- getCurrentDirectory
+          home <- ((:[]) <$> getHomeDirectory) `catchIOError` (const $ return [])
+          fmap maybeToList $ findM Dir.doesFileExist $
+            map (</> ".dlint.yaml") (ancestors curdir ++ home)
+        ExplicitDlintHintFiles files -> pure files
+
       ancestors = init . map joinPath . reverse . inits . splitPath
       -- `findSettings` calls `readFilesConfig` which in turn calls
       -- `readFileConfigYaml` which finally calls `decodeFileEither` from
@@ -1247,9 +1255,7 @@ dlintSettings dlintDataDir enableOverrides = do
 getDlintSettingsRule :: DlintUsage -> Rules ()
 getDlintSettingsRule usage =
     defineNoFile $ \GetDlintSettings ->
-      liftIO $ case usage of
-          DlintEnabled dir enableOverrides -> dlintSettings dir enableOverrides
-          DlintDisabled -> fail "linter configuration unspecified"
+      liftIO $ dlintSettings usage
 
 getDlintDiagnosticsRule :: Rules ()
 getDlintDiagnosticsRule =
@@ -1372,7 +1378,7 @@ damlRule opts = do
     getOpenVirtualResourcesRule
     getDlintSettingsRule (optDlintUsage opts)
     damlGhcSessionRule opts
-    when (optEnableOfInterestRule opts) (ofInterestRule opts)
+    when (optEnableOfInterestRule opts) ofInterestRule
 
 mainRule :: Options -> Rules ()
 mainRule options = do

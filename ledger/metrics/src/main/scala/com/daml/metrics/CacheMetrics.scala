@@ -3,14 +3,14 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.MetricHandle.Counter
-
-import com.codahale.metrics.MetricRegistry.MetricSupplier
 import com.codahale.metrics.{Gauge, MetricRegistry}
+import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
+import com.daml.metrics.api.MetricHandle.Counter
+import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 final class CacheMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends DropwizardFactory {
 
   @MetricDoc.Tag(
     summary = "The number of cache hits.",
@@ -43,12 +43,8 @@ final class CacheMetrics(override val prefix: MetricName, override val registry:
   val evictionWeight: Counter = counter(prefix :+ "evicted_weight")
 
   def registerSizeGauge(sizeGauge: Gauge[Long]): Unit =
-    register(prefix :+ "size", () => sizeGauge)
+    gaugeWithSupplier(prefix :+ "size", () => () => sizeGauge.getValue)
   def registerWeightGauge(weightGauge: Gauge[Long]): Unit =
-    register(prefix :+ "weight", () => weightGauge)
+    gaugeWithSupplier(prefix :+ "weight", () => () => weightGauge.getValue)
 
-  private def register(name: MetricName, gaugeSupplier: MetricSupplier[Gauge[_]]): Unit = {
-    gaugeWithSupplier(name, gaugeSupplier)
-    ()
-  }
 }

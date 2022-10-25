@@ -43,6 +43,7 @@ allStablePackages =
     , daExceptionArithmeticError
     , daExceptionAssertionFailed
     , daExceptionPreconditionFailed
+    , daInternalInterfaceAnyViewTypes
     ]
 
 allStablePackagesForVersion :: Version -> MS.Map PackageId Package
@@ -186,6 +187,46 @@ daInternalAny = package version1_7 $ NM.singleton (emptyModule modName)
           DataRecord [(mkField "getAnyChoice", TAny), (mkField "getAnyChoiceTemplateTypeRep", TCon (Qualified PRSelf modName (mkTypeCon ["TemplateTypeRep"])))]
       , DefDataType Nothing (mkTypeCon ["AnyContractKey"]) (IsSerializable False) [] $
           DataRecord [(mkField "getAnyContractKey", TAny), (mkField "getAnyContractKeyTemplateTypeRep", TCon (Qualified PRSelf modName (mkTypeCon ["TemplateTypeRep"])))]
+      ]
+
+daInternalInterfaceAnyViewTypes :: Package
+daInternalInterfaceAnyViewTypes = Package
+  { packageLfVersion = version1_15
+  , packageModules = NM.singleton (emptyModule modName)
+      { moduleDataTypes = datatypes
+      , moduleValues = values
+      }
+  , packageMetadata = Just PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Internal-Interface-AnyView-Types"
+      , packageVersion = PackageVersion "1.0.0"
+      }
+  }
+  where
+    modName = mkModName ["DA", "Internal", "Interface", "AnyView", "Types"]
+
+    anyViewTyCon = mkTypeCon ["AnyView"]
+    getAnyViewField = mkField "getAnyView"
+    getAnyViewInterfaceTypeRepField = mkField "getAnyViewInterfaceTypeRep"
+    interfaceTypeRepType = TCon (Qualified PRSelf modName (mkTypeCon ["InterfaceTypeRep"]))
+
+    interfaceTypeRepTyCon = mkTypeCon ["InterfaceTypeRep"]
+    getInterfaceTypeRepField = mkField "getInterfaceTypeRep"
+
+    datatypes = NM.fromList
+      [ DefDataType Nothing anyViewTyCon (IsSerializable False) [] $
+          DataRecord
+            [ (getAnyViewField, TAny)
+            , (getAnyViewInterfaceTypeRepField, interfaceTypeRepType)
+            ]
+      , DefDataType Nothing interfaceTypeRepTyCon (IsSerializable False) [] $
+          DataRecord [(getInterfaceTypeRepField, TTypeRep)]
+      ]
+    values = NM.fromList
+      [ mkSelectorDef modName anyViewTyCon [] getAnyViewField TAny
+      , mkSelectorDef modName anyViewTyCon [] getAnyViewInterfaceTypeRepField interfaceTypeRepType
+      , mkWorkerDef modName anyViewTyCon [] [(getAnyViewField, TAny), (getAnyViewInterfaceTypeRepField, interfaceTypeRepType)]
+      , mkSelectorDef modName interfaceTypeRepTyCon [] getInterfaceTypeRepField TTypeRep
+      , mkWorkerDef modName interfaceTypeRepTyCon [] [(getInterfaceTypeRepField, TTypeRep)]
       ]
 
 daTimeTypes :: Package

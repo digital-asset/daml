@@ -148,10 +148,8 @@ expectScriptSuccess xs vr pred = case find ((vr ==) . fst) xs of
       assertFailure $ "Predicate for " <> show vr <> " failed on " <> show r
 
 options :: Options
-options =
-  (defaultOptions (Just lfVersion))
-    { optDlintUsage = DlintDisabled
-    }
+options = defaultOptions (Just lfVersion)
+
 
 runScripts :: SS.Handle -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]
 runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do

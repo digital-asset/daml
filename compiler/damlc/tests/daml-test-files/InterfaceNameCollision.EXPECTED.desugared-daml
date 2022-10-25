@@ -107,3 +107,5 @@ _choice_IfaceFooBar
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView Iface EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView Iface EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"

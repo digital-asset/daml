@@ -15,7 +15,6 @@ import akka.http.scaladsl.model.headers.{
 import akka.stream.Materializer
 import Endpoints.ET
 import EndpointsCompanion._
-import com.codahale.metrics.Timer
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.scalautil.Statement.discard
@@ -29,7 +28,7 @@ import com.daml.ledger.api.{v1 => lav1}
 import lav1.value.{Value => ApiValue}
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
-import scalaz.{-\/, \/, \/-, EitherT, Traverse}
+import scalaz.{-\/, EitherT, Traverse, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
@@ -39,6 +38,7 @@ import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 
 private[http] final class RouteSetup(
     allowNonHttps: Boolean,
@@ -85,7 +85,7 @@ private[http] final class RouteSetup(
           Jwt,
           JwtWritePayload,
           JsValue,
-          Timer.Context,
+          TimerHandle,
       ) => LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => ET[
         T[ApiValue]
       ]
@@ -132,8 +132,8 @@ private[http] final class RouteSetup(
 
   def getParseAndDecodeTimerCtx()(implicit
       metrics: Metrics
-  ): ET[Timer.Context] =
-    EitherT.pure(metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.time())
+  ): ET[TimerHandle] =
+    EitherT.pure(metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.startAsync())
 
   private[endpoints] def input(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]

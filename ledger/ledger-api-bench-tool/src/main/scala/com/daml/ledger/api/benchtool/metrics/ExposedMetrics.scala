@@ -3,15 +3,16 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
+import java.time.{Clock, Duration}
+import java.util.concurrent.TimeUnit
+
 import com.codahale.metrics.{MetricRegistry, SlidingTimeWindowArrayReservoir}
 import com.codahale.{metrics => codahale}
 import com.daml.ledger.api.benchtool.util.TimeUtil
-import com.daml.metrics.MetricHandle.{Counter, Gauge, Histogram, VarGauge}
-import com.daml.metrics.{Gauges, MetricName}
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram}
+import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardGauge, DropwizardHistogram}
+import com.daml.metrics.api.{Gauges, MetricName}
 import com.google.protobuf.timestamp.Timestamp
-
-import java.time.{Clock, Duration}
-import java.util.concurrent.TimeUnit
 
 final class ExposedMetrics[T](
     counterMetric: ExposedMetrics.CounterMetric[T],
@@ -36,7 +37,7 @@ final class ExposedMetrics[T](
       metric
         .recordTimeFunction(elem)
         .lastOption
-        .foreach(recordTime => metric.latestRecordTime.metric.updateValue(recordTime.seconds))
+        .foreach(recordTime => metric.latestRecordTime.updateValue(recordTime.seconds))
     }
   }
 
@@ -49,7 +50,7 @@ object ExposedMetrics {
   case class BytesProcessedMetric[T](bytesProcessed: Counter, sizingFunction: T => Long)
   case class DelayMetric[T](delays: Histogram, recordTimeFunction: T => Seq[Timestamp])
   case class LatestRecordTimeMetric[T](
-      latestRecordTime: VarGauge[Long],
+      latestRecordTime: Gauge[Long],
       recordTimeFunction: T => Seq[Timestamp],
   )
 
@@ -63,12 +64,14 @@ object ExposedMetrics {
       clock: Clock = Clock.systemUTC(),
   ): ExposedMetrics[T] = {
     val counterMetric = CounterMetric[T](
-      counter =
-        Counter(Prefix :+ "count" :+ streamName, registry.counter(Prefix :+ "count" :+ streamName)),
+      counter = DropwizardCounter(
+        Prefix :+ "count" :+ streamName,
+        registry.counter(Prefix :+ "count" :+ streamName),
+      ),
       countingFunction = countingFunction,
     )
     val bytesProcessedMetric = BytesProcessedMetric[T](
-      bytesProcessed = Counter(
+      bytesProcessed = DropwizardCounter(
         Prefix :+ "bytes_read" :+ streamName,
         registry.counter(Prefix :+ "bytes_read" :+ streamName),
       ),
@@ -79,7 +82,7 @@ object ExposedMetrics {
     )
     val delayMetric = recordTimeFunction.map { f =>
       DelayMetric[T](
-        delays = Histogram(
+        delays = DropwizardHistogram(
           Prefix :+ "delay" :+ streamName,
           registry.register(Prefix :+ "delay" :+ streamName, delaysHistogram),
         ),
@@ -88,7 +91,7 @@ object ExposedMetrics {
     }
     val latestRecordTimeMetric = recordTimeFunction.map { f =>
       LatestRecordTimeMetric[T](
-        latestRecordTime = Gauge(
+        latestRecordTime = DropwizardGauge(
           Prefix :+ "latest_record_time" :+ streamName,
           registry
             .register(Prefix :+ "latest_record_time" :+ streamName, new Gauges.VarGauge[Long](0L)),

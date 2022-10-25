@@ -51,11 +51,11 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
   import json.JsonProtocol._
 
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
-    jwtForParties(uri)(List("Alice"), List(), testId)
+    jwtForParties(uri)(domain.Party subst List("Alice"), List(), testId)
 
   protected def headersWithPartyAuthLegacyFormat(
-      actAs: List[String],
-      readAs: List[String] = List(),
+      actAs: List[domain.Party],
+      readAs: List[domain.Party] = List(),
   ) =
     HttpServiceTestFixture.headersWithPartyAuth(
       actAs,
@@ -95,7 +95,13 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
     val headers = HttpServiceTestFixture.authorizationHeader(
-      HttpServiceTestFixture.jwtForParties(List("Alice"), List("Bob"), None, false, false)
+      HttpServiceTestFixture.jwtForParties(
+        domain.Party subst List("Alice"),
+        domain.Party subst List("Bob"),
+        None,
+        false,
+        false,
+      )
     )
 
     fixture
@@ -206,7 +212,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         )
           .map(acl => acl.size shouldBe 1)
         _ <- fixture
-          .headersWithPartyAuth(List(alice.unwrap, bob.unwrap))
+          .headersWithPartyAuth(List(alice, bob))
           .flatMap(headers =>
             searchExpectOk(
               List(),
@@ -297,10 +303,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         jsObject(
           """{"templateIds": ["Iou:Iou", "UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}"""
         )
-      // TODO VM(#12922) https://github.com/digital-asset/daml/pull/12922#discussion_r815234434
-      logger.info("query returns unknown Template IDs")
       fixture
-        .headersWithPartyAuth(List("UnknownParty"))
+        .headersWithPartyAuth(domain.Party subst List("UnknownParty"))
         .flatMap(headers =>
           search(List(), query, fixture, headers).map { response =>
             inside(response) { case domain.OkResponse(acl, warnings, StatusCodes.OK) =>
@@ -752,12 +756,12 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   "should support multi-party command submissions" in withHttpService { fixture =>
     import fixture.{client, encoder}
     val knownParties @ List(alice, bob, charlie, david) =
-      List("Alice", "Bob", "Charlie", "David").map(getUniqueParty).map(_.unwrap)
+      List("Alice", "Bob", "Charlie", "David").map(getUniqueParty)
     val partyManagement = client.partyManagementClient
     for {
       _ <- knownParties
         .traverse { p =>
-          partyManagement.allocateParty(Some(p), Some(s"${p} & Co. LLC"))
+          partyManagement.allocateParty(Some(p.unwrap), Some(s"${p} & Co. LLC"))
         }
       // multi-party actAs on create
       cid <- fixture
@@ -1112,7 +1116,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
         fixture
-          .headersWithPartyAuth(actAs = List(actAs.unwrap))
+          .headersWithPartyAuth(actAs = List(actAs))
           .flatMap(headers =>
             fixture.postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
           )
@@ -1129,7 +1133,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           }""")
 
         fixture
-          .headersWithPartyAuth(actAs = List(fromPerspectiveOfParty.unwrap))
+          .headersWithPartyAuth(actAs = List(fromPerspectiveOfParty))
           .flatMap(headers => fixture.postJsonRequest(Uri.Path("/v1/query"), query, headers))
           .parseResponse[JsValue]
           .map(inside(_) { case domain.OkResponse(_, _, StatusCodes.OK) =>
@@ -1146,7 +1150,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
         users <- commands.traverse { case (party, command) =>
           val fut = fixture
-            .headersWithPartyAuth(actAs = List(party.unwrap))
+            .headersWithPartyAuth(actAs = List(party))
             .flatMap(headers =>
               postCreateCommand(
                 command,
@@ -1220,7 +1224,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
         _ <- fixture.searchAllExpectOk(aliceHeaders).map(cs => cs should have size 1)
         _ <- fixture.searchAllExpectOk(bobHeaders).map(cs => cs should have size 1)
         _ <- fixture
-          .headersWithPartyAuth(List(alice.unwrap, bob.unwrap))
+          .headersWithPartyAuth(List(alice, bob))
           .flatMap(headers => fixture.searchAllExpectOk(headers))
           .map(cs => cs should have size 2)
       } yield succeed
@@ -1264,7 +1268,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
         command = iouCreateCommand(alice)
         input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
         headers <- fixture
-          .headersWithPartyAuth(actAs = List(alice.unwrap), readAs = List("Bob"))
+          .headersWithPartyAuth(actAs = List(alice), readAs = List(domain.Party("Bob")))
         activeContractResponse <- fixture
           .postJsonRequest(
             Uri.Path("/v1/create"),

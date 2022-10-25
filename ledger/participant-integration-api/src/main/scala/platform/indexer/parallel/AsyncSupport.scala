@@ -6,10 +6,10 @@ package com.daml.platform.indexer.parallel
 import com.codahale.metrics.{InstrumentedExecutorService, MetricRegistry}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.MetricName
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import java.util.concurrent.Executors
+import com.daml.metrics.api.MetricName
 import scala.concurrent.{ExecutionContext, Future}
 
 object AsyncSupport {

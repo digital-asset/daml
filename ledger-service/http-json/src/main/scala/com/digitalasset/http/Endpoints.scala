@@ -33,7 +33,7 @@ import akka.http.scaladsl.server.Directives._
 import com.daml.http.endpoints.MeteringReportEndpoint
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
-import com.daml.metrics.MetricHandle.Timer
+import com.daml.metrics.api.MetricHandle.Timer
 
 import scala.util.control.NonFatal
 

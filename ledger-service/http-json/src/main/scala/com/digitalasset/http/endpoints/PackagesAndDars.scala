@@ -36,11 +36,11 @@ class PackagesAndDars(routeSetup: RouteSetup, packageManagementService: PackageM
       metrics: Metrics,
   ): ET[domain.SyncResponse[Unit]] =
     for {
-      parseAndDecodeTimerCtx <- getParseAndDecodeTimerCtx()
+      parseAndDecodeTimer <- getParseAndDecodeTimerCtx()
       _ <- EitherT.pure(metrics.daml.HttpJsonApi.uploadPackagesThroughput.mark())
       t2 <- inputSource(req)
       (jwt, payload, source) = t2
-      _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
+      _ <- EitherT.pure(parseAndDecodeTimer.stop())
 
       _ <- eitherT(
         handleFutureFailure(

@@ -13,10 +13,9 @@ import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.metrics.MetricsReporter
-
 import java.io.File
 import java.nio.file.Paths
+import com.daml.metrics.api.reporters.MetricsReporter
 import scala.concurrent.duration._
 
 object CliSpec {

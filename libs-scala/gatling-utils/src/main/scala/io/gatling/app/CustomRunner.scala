@@ -4,13 +4,12 @@
 package io.gatling.app
 
 import java.nio.file.{FileSystems, Path}
+
 import akka.actor.ActorSystem
 import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
-import io.gatling.app.ConfigOverrides
-import io.gatling.app.Runner
-import io.gatling.commons.util.DefaultClock
 import io.gatling.core.config.GatlingConfiguration
+import io.gatling.core.scenario.Simulation
 import io.netty.channel.EventLoopGroup
 
 import scala.util.Try
@@ -24,7 +23,7 @@ object CustomRunner extends StrictLogging {
       system: ActorSystem,
       eventLoop: EventLoopGroup,
       overrides: ConfigOverrides,
-      mbSimulation: Option[SimulationClass] = None,
+      mbSimulation: Option[Class[Simulation]] = None,
   ): Try[(Int, Path)] = {
     logger.trace("Starting")
 
@@ -35,7 +34,7 @@ object CustomRunner extends StrictLogging {
     logger.trace("Configuration loaded")
 
     val runResult = Try {
-      new Runner(system, eventLoop, new DefaultClock, configuration).run(mbSimulation)
+      Runner(system, eventLoop, configuration).run(mbSimulation)
     }
 
     runResult map { res =>

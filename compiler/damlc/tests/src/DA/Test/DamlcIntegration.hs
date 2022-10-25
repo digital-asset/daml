@@ -196,8 +196,6 @@ getIntegrationTests registerTODO scenarioService = do
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
 
-    dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-
     -- initialise the compiler service
     vfs <- makeVFSHandle
     -- We use a separate service for generated files so that we can test files containing internal imports.
@@ -206,7 +204,10 @@ getIntegrationTests registerTODO scenarioService = do
           let opts = (defaultOptions (Just version))
                 { optThreads = 0
                 , optCoreLinting = True
-                , optDlintUsage = DlintEnabled dlintDataDir False
+                , optDlintUsage = DlintEnabled DlintOptions
+                    { dlintRulesFile = DefaultDlintRulesFile
+                    , dlintHintFiles = NoDlintHintFiles
+                    }
                 , optSkipScenarioValidation = SkipScenarioValidation skipValidation
                 }
               mkIde options = do

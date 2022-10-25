@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.ratelimiting
 
-import com.daml.metrics.{MetricName, Metrics}
+import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.LimitResult.{
   LimitResultCheck,
@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory
 
 import java.lang.management.{ManagementFactory, MemoryMXBean, MemoryPoolMXBean}
 import java.util.concurrent.atomic.AtomicBoolean
+import com.daml.metrics.api.MetricName
 import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.util.Try
 

@@ -26,8 +26,8 @@ trait HttpServiceUserFixture extends AkkaBeforeAndAfterAll { this: Suite =>
     ImplicitPreference[ExecutionContext, this.type](system.dispatcher)
 
   def jwtForParties(uri: Uri)(
-      actAs: List[String],
-      readAs: List[String],
+      actAs: List[domain.Party],
+      readAs: List[domain.Party],
       ledgerId: String,
       withoutNamespace: Boolean = false,
       admin: Boolean = false,
@@ -55,8 +55,8 @@ object HttpServiceUserFixture {
     }
 
     override final def jwtForParties(uri: Uri)(
-        actAs: List[String],
-        readAs: List[String],
+        actAs: List[domain.Party],
+        readAs: List[domain.Party],
         ledgerId: String,
         withoutNamespace: Boolean = false,
         admin: Boolean = false,
@@ -73,8 +73,8 @@ object HttpServiceUserFixture {
     override final def jwtForParties(
         uri: Uri
     )(
-        actAs: List[String],
-        readAs: List[String],
+        actAs: List[domain.Party],
+        readAs: List[domain.Party],
         ledgerId: String = "",
         withoutNamespace: Boolean = true,
         admin: Boolean = false,
@@ -89,8 +89,7 @@ object HttpServiceUserFixture {
           Option
             .when(admin)(domain.ParticipantAdmin)
             .toList ++
-            actAs.map(it => domain.CanActAs(domain.Party(it))) ++
-            readAs.map(it => domain.CanReadAs(domain.Party(it)))
+            actAs.map(domain.CanActAs) ++ readAs.map(domain.CanReadAs)
         ),
       )
       import spray.json._, json.JsonProtocol._

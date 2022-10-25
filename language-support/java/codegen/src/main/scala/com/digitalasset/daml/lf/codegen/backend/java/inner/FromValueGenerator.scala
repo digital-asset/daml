@@ -51,7 +51,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
       converterParams.map { param =>
         CodeBlock.of("$T.fromFunction($N)", classOf[ValueDecoder[_]], param)
       }.asJava,
-      ", ",
+      ",$W",
     )
 
     val classStaticAccessor = if (className.typeParameters.size > 0) {
@@ -59,14 +59,14 @@ private[inner] object FromValueGenerator extends StrictLogging {
         className.typeParameters.asScala.map { param =>
           CodeBlock.of("$T", param)
         }.asJava,
-        ", ",
+        ",$W",
       )
       CodeBlock.of("$T.<$L>", className.rawType, typeParameterList)
     } else CodeBlock.of("")
 
     method
       .addStatement(
-        "return $LvalueDecoder($L).decode($L)",
+        "return $LvalueDecoder($>$Z$L$<$Z)$Z.decode($L)",
         classStaticAccessor,
         fromValueParams,
         "value$",
@@ -372,12 +372,12 @@ private[inner] object FromValueGenerator extends StrictLogging {
             toJavaTypeName(targ, packagePrefixes) -> go(targ)
         }.unzip
 
-        val targsCode = CodeBlock.join(targs.map(CodeBlock.of("$L", _)).asJava, ", ")
+        val targsCode = CodeBlock.join(targs.map(CodeBlock.of("$L", _)).asJava, ",$W")
         Decoder(
           CodeBlock
             .builder()
             .add(CodeBlock.of("$T.<$L>valueDecoder(", javaType.rawType, targsCode))
-            .add(CodeBlock.join(valueDecoders.asJava, ", "))
+            .add(CodeBlock.join(valueDecoders.asJava, ",$W"))
             .add(CodeBlock.of(")"))
             .build()
         )

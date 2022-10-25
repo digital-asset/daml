@@ -77,7 +77,7 @@ da_java_library(
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:javax_annotation_javax_annotation_api",
-        "@maven//:org_checkerframework_checker_qual",
+        "@maven//:org_checkerframework_checker",
     ],
 )
 

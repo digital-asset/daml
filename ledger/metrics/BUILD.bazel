@@ -16,7 +16,6 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_github_scopt_scopt",
-        "@maven//:org_typelevel_cats_core",
     ],
     tags = ["maven_coordinates=com.daml:metrics:__VERSION__"],
     visibility = [
@@ -36,6 +35,8 @@ da_scala_library(
         "@maven//:io_netty_netty_transport",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_opentelemetry_opentelemetry_exporter_prometheus",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:io_prometheus_simpleclient",
         "@maven//:io_prometheus_simpleclient_dropwizard",
         "@maven//:io_prometheus_simpleclient_httpserver",

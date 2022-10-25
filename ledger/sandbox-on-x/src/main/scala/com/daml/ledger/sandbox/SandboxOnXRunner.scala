@@ -3,11 +3,13 @@
 
 package com.daml.ledger.sandbox
 
+import java.util.concurrent.Executors
+
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.codahale.metrics.{InstrumentedExecutorService, MetricRegistry}
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.auth.{
@@ -33,22 +35,19 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{JvmMetricSet, Metrics}
+import com.daml.metrics.{Metrics, OpenTelemetryMeterOwner}
 import com.daml.platform.LedgerApiServer
-import com.daml.platform.apiserver.{LedgerFeatures, TimeServiceBackend}
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
 import com.daml.platform.apiserver.ratelimiting.{RateLimitingInterceptor, ThreadpoolCheck}
-import com.daml.platform.config.MetricsConfig.MetricRegistryType
-import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
+import com.daml.platform.apiserver.{LedgerFeatures, TimeServiceBackend}
+import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.DbType
 import com.daml.ports.Port
 
-import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.Try
-import scala.util.chaining._
 
 object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
@@ -81,12 +80,16 @@ object SandboxOnXRunner {
       // This is necessary because we can't declare them as implicits in a `for` comprehension.
       _ <- ResourceOwner.forActorSystem(() => actorSystem)
       _ <- ResourceOwner.forMaterializer(() => materializer)
+      openTelemetryMeter <- OpenTelemetryMeterOwner(
+        config.metrics.enabled,
+        Some(config.metrics.reporter),
+      )
 
       (participantId, dataSource, participantConfig) <- assertSingleParticipant(config)
+      metrics <- MetricsOwner(openTelemetryMeter, config.metrics, participantId)
       timeServiceBackendO = configAdaptor.timeServiceBackend(participantConfig.apiServer)
       (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
 
-      metrics <- buildMetrics(config.metrics, participantId)
       servicesThreadPoolSize = Runtime.getRuntime.availableProcessors()
       servicesExecutionContext <- buildServicesExecutionContext(metrics, servicesThreadPoolSize)
 
@@ -238,30 +241,6 @@ object SandboxOnXRunner {
         )
       )
       .map(ExecutionContext.fromExecutorService)
-
-  private def buildMetrics(
-      metricsConfig: MetricsConfig,
-      participantId: Ref.ParticipantId,
-  ): ResourceOwner[Metrics] = {
-    val metrics = metricsConfig.registryType match {
-      case MetricRegistryType.JvmShared =>
-        Metrics.fromSharedMetricRegistries(participantId)
-      case MetricRegistryType.New =>
-        new Metrics(new MetricRegistry)
-    }
-
-    metrics
-      .tap(_.registry.registerAll(new JvmMetricSet))
-      .pipe { metrics =>
-        if (metricsConfig.enabled)
-          ResourceOwner
-            .forCloseable(() => metricsConfig.reporter.register(metrics.registry))
-            .map(_.start(metricsConfig.reportingInterval.toMillis, TimeUnit.MILLISECONDS))
-        else
-          ResourceOwner.unit
-      }
-      .map(_ => metrics)
-  }
 
   private def logInitializationHeader(
       config: Config,
