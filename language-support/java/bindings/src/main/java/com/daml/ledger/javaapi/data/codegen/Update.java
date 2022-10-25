@@ -9,7 +9,7 @@ import com.daml.ledger.javaapi.data.ExercisedEvent;
 import java.util.List;
 import java.util.function.Function;
 
-public abstract class Update<U> extends HasCommands {
+public abstract class Update<U> implements HasCommands {
   private final Command command;
 
   public Update(Command command) {

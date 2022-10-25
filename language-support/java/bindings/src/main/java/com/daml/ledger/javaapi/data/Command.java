@@ -8,7 +8,7 @@ import com.daml.ledger.javaapi.data.codegen.HasCommands;
 import java.util.List;
 import java.util.Optional;
 
-public abstract class Command extends HasCommands {
+public abstract class Command implements HasCommands {
 
   abstract Identifier getTemplateId();
 

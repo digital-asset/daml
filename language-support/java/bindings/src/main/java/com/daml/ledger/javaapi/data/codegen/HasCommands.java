@@ -6,6 +6,6 @@ package com.daml.ledger.javaapi.data.codegen;
 import com.daml.ledger.javaapi.data.Command;
 import java.util.List;
 
-public abstract class HasCommands {
-  public abstract List<Command> commands();
+public interface HasCommands {
+  List<Command> commands();
 }
