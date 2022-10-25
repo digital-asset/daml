@@ -218,9 +218,9 @@ trait AbstractHttpServiceIntegrationTestFuns
     def getUniquePartyAndAuthHeaders(
         name: String
     ): Future[(domain.Party, List[HttpHeader])] = {
-      val party @ domain.Party(partyName) = getUniqueParty(name)
+      val party = getUniqueParty(name)
       for {
-        headers <- headersWithPartyAuth(List(partyName), List.empty, "")
+        headers <- headersWithPartyAuth(List(party), List.empty, "")
         request = domain.AllocatePartyRequest(
           Some(party),
           None,
@@ -238,8 +238,8 @@ trait AbstractHttpServiceIntegrationTestFuns
       jwt(uri)(ec).map(authorizationHeader)
 
     def headersWithPartyAuth(
-        actAs: List[String],
-        readAs: List[String] = List.empty,
+        actAs: List[domain.Party],
+        readAs: List[domain.Party] = List.empty,
         ledgerId: String = "",
         withoutNamespace: Boolean = false,
         admin: Boolean = false,
@@ -536,8 +536,8 @@ trait AbstractHttpServiceIntegrationTestFuns
     )
   }
 
-  protected def multiPartyCreateCommand(ps: List[String], value: String) = {
-    val psv = lfToApi(VAx.seq(VAx.partyStr).inj(ps)).sum
+  protected def multiPartyCreateCommand(ps: List[domain.Party], value: String) = {
+    val psv = lfToApi(VAx.seq(VAx.partyDomain).inj(ps)).sum
     val payload = recordFromFields(
       ShRecord(
         parties = psv,
@@ -551,8 +551,8 @@ trait AbstractHttpServiceIntegrationTestFuns
     )
   }
 
-  protected def multiPartyAddSignatories(cid: lar.ContractId, ps: List[String]) = {
-    val psv = lfToApi(VAx.seq(VAx.partyStr).inj(ps)).sum
+  protected def multiPartyAddSignatories(cid: lar.ContractId, ps: List[domain.Party]) = {
+    val psv = lfToApi(VAx.seq(VAx.partyDomain).inj(ps)).sum
     val argument = boxedRecord(recordFromFields(ShRecord(newParties = psv)))
     domain.ExerciseCommand(
       reference = domain.EnrichedContractId(Some(TpId.Test.MultiPartyContract), cid),
@@ -566,14 +566,14 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def multiPartyFetchOther(
       cid: lar.ContractId,
       fetchedCid: lar.ContractId,
-      actors: List[String],
+      actors: List[domain.Party],
   ) = {
     val argument = v.Value(
       v.Value.Sum.Record(
         recordFromFields(
           ShRecord(
             cid = v.Value.Sum.ContractId(fetchedCid.unwrap),
-            actors = lfToApi(VAx.seq(VAx.partyStr).inj(actors)).sum,
+            actors = lfToApi(VAx.seq(VAx.partyDomain).inj(actors)).sum,
           )
         )
       )

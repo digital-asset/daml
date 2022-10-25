@@ -225,7 +225,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, headers) = aliceHeaders
         _ <- initialIouCreate(uri, alice, headers)
-        jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(alice), List(), testId)
         clientMsg <- singleClientQueryStream(
           jwt,
           uri,
@@ -245,7 +245,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, headers) = aliceHeaders
         _ <- initialAccountCreate(fixture, alice, headers)
-        jwt <- jwtForParties(uri)(List(alice.unwrap), Nil, testId)
+        jwt <- jwtForParties(uri)(List(alice), Nil, testId)
         fetchRequest = s"""[{"templateId": "Account:Account", "key": ["$alice", "abc123"]}]"""
         clientMsg <- singleClientFetchStream(jwt, uri, fetchRequest)
           .take(2)
@@ -389,7 +389,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
       for {
         (alice, aliceAuthHeaders) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(alice), List(), testId)
         (kill, source) = singleClientQueryStream(
           jwt,
           uri,
@@ -415,7 +415,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         (alice, headers) = aliceHeaders
         _ <- initialIouCreate(uri, alice, headers)
 
-        clientMsg <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+        clientMsg <- jwtForParties(uri)(List(alice), List(), testId)
           .flatMap(
             singleClientQueryStream(
               _,
@@ -439,7 +439,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         (alice, headers) = aliceHeaders
         _ <- initialAccountCreate(fixture, alice, headers)
 
-        clientMsg <- jwtForParties(uri)(List(alice.unwrap), List(), testId).flatMap(
+        clientMsg <- jwtForParties(uri)(List(alice), List(), testId).flatMap(
           singleClientFetchStream(
             _,
             uri,
@@ -548,7 +548,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         (party, headers) = aliceHeaders
         creation <- initialIouCreate(uri, party, headers)
         iouCid = resultContractId(creation)
-        jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(party), List(), testId)
         (kill, source) = singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)
           .preMaterialize()
@@ -657,7 +657,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         (party, headers) = aliceHeaders
         creation <- initialIouCreate(uri, party, headers)
         iouCid = resultContractId(creation)
-        jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(party), List(), testId)
         (kill, source) = singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)
           .preMaterialize()
@@ -760,7 +760,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         r2 <- f2
         cid2 = resultContractId(r2)
 
-        jwt <- jwtForParties(uri)(List(alice.unwrap, bob.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(alice, bob), List(), testId)
         (kill, source) = singleClientQueryStream(
           jwt,
           uri,
@@ -771,7 +771,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           lastSeen.unwrap should be > liveStart.unwrap
           liveStart
         }
-        rescan <- jwtForParties(uri)(List(alice.unwrap), List(), testId).flatMap(jwt =>
+        rescan <- jwtForParties(uri)(List(alice), List(), testId).flatMap(jwt =>
           (singleClientQueryStream(
             jwt,
             uri,
@@ -865,7 +865,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
         r2 <- f2
         cid2 = resultContractId(r2)
-        jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(alice), List(), testId)
         (kill, source) = singleClientFetchStream(jwt, uri, fetchRequest(None))
           .viaMat(KillSwitches.single)(Keep.right)
           .preMaterialize()
@@ -971,7 +971,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         r2 <- f2
         cid2 = resultContractId(r2)
 
-        jwt <- jwtForParties(uri)(List(alice.unwrap, bob.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(alice, bob), List(), testId)
         (kill, source) = singleClientFetchStream(
           jwt,
           uri,
@@ -1000,7 +1000,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     for {
       aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, headers) = aliceHeaders
-      jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+      jwt <- jwtForParties(uri)(List(alice), List(), testId)
       create = (account: String) =>
         for {
           r <- postCreateCommand(
@@ -1144,7 +1144,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       _ = pruned should ===(PruneGrpc.PruneResponse())
 
       // now query again with a pruned offset
-      jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+      jwt <- jwtForParties(uri)(List(alice), List(), testId)
       query = s"""[{"templateIds": ["Iou:Iou"]}]"""
       streamError <- singleClientQueryStream(jwt, uri, query, Some(offsetBeforeArchive))
         .runWith(Sink.seq)
@@ -1217,7 +1217,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
     val query = """[{"templateIds": ["Iou:Iou"]}]"""
     for {
-      jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
+      jwt <- jwtForParties(uri)(List(party), List(), testId)
       (kill, source) =
         singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)
@@ -1237,7 +1237,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           """[
             {"templateIds": ["Iou:Iou"]}
           ]"""
-        jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(alice), List(), testId)
         (kill, source) =
           singleClientQueryStream(jwt, uri, query)
             .viaMat(KillSwitches.single)(Keep.right)
@@ -1336,7 +1336,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
       def test(
           expectedContractId: String,
-          expectedParties: Vector[JsString],
+          expectedParties: Vector[domain.Party],
           killSwitch: UniqueKillSwitch,
       ): Sink[JsValue, Future[ShouldHaveEnded]] = {
         val dslSyntax = Consume.syntax[JsValue]
@@ -1347,10 +1347,12 @@ abstract class AbstractWebsocketServiceIntegrationTest
             _ = sharedAccountId shouldBe expectedContractId
             ContractDelta(Vector(), _, Some(offset)) <- readOne
             _ = inside(sharedAccount) { case JsObject(obj) =>
-              inside((obj get "owners", obj get "number")) {
-                case (Some(JsArray(owners)), Some(JsString(number))) =>
-                  owners should contain theSameElementsAs expectedParties
-                  number shouldBe "4444"
+              import json.JsonProtocol._
+              inside(
+                (obj get "owners" map (SprayJson.decode[Vector[domain.Party]](_)), obj get "number")
+              ) { case (Some(\/-(owners)), Some(JsString(number))) =>
+                owners should contain theSameElementsAs expectedParties
+                number shouldBe "4444"
               }
             }
             ContractDelta(Vector(), _, Some(_)) <- readOne
@@ -1369,7 +1371,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
       for {
         aliceAndBob @ List(alice, bob) <- List("Alice", "Bob").traverse { p =>
-          fixture.getUniquePartyAndAuthHeaders(p).map(_._1.unwrap)
+          fixture.getUniquePartyAndAuthHeaders(p).map(_._1)
         }
         jwtForAliceAndBob <-
           jwtForParties(uri)(actAs = aliceAndBob, readAs = Nil, ledgerId = testId)
@@ -1393,7 +1395,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           .preMaterialize()
         result <- source via parseResp runWith test(
           expectedContractId.unwrap,
-          Vector(JsString(alice), JsString(bob)),
+          Vector(alice, bob),
           killSwitch,
         )
       } yield inside(result) { case ShouldHaveEnded(_, 2, _) =>
@@ -1408,7 +1410,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     for {
       aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, headers) = aliceHeaders
-      jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+      jwt <- jwtForParties(uri)(List(alice), List(), testId)
       createIouCommand = (currency: String) => s"""{
            |  "templateId": "Iou:Iou",
            |  "payload": {
