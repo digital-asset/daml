@@ -3,16 +3,17 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.MetricHandle.Timer
-
-import com.codahale.metrics.{MetricRegistry}
+import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
+import com.daml.metrics.api.MetricHandle.Timer
+import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class DatabaseMetrics private[metrics] (
     override val prefix: MetricName,
     val name: String,
     override val registry: MetricRegistry,
-) extends MetricHandle.DropwizardFactory {
+) extends DropwizardFactory {
   protected val dbPrefix: MetricName = prefix :+ name
 
   @MetricDoc.Tag(

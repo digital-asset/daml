@@ -4,7 +4,7 @@
 package com.daml.platform.store.dao.events
 
 import com.daml.metrics.Metrics
-import com.daml.metrics.MetricHandle.Histogram
+import com.daml.metrics.api.MetricHandle.Histogram
 
 object CompressionMetrics {
 

@@ -4,11 +4,13 @@
 package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.MetricDoc.MetricQualification.{Debug, Saturation}
-import com.daml.metrics.MetricHandle.{Counter, Gauge, Timer}
+import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation}
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Timer}
+import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class IndexMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.DropwizardFactory {
+    extends DropwizardFactory {
 
   @MetricDoc.Tag(
     summary = "The buffer size for transaction trees requests.",

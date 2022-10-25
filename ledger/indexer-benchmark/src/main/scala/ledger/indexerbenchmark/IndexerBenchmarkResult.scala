@@ -4,8 +4,10 @@
 package com.daml.ledger.indexerbenchmark
 
 import com.codahale.metrics.Snapshot
-import com.daml.metrics.MetricHandle.{Histogram, Timer}
-import com.daml.metrics.{MetricHandle, Metrics}
+import com.daml.metrics.Metrics
+import com.daml.metrics.api.MetricHandle.{Histogram, Timer}
+import com.daml.metrics.api.dropwizard.{DropwizardHistogram, DropwizardTimer}
+import com.daml.metrics.api.noop.NoOpTimer
 
 class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, stopTime: Long) {
 
@@ -92,26 +94,29 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
 
   private[this] def histogramToString(histogram: Histogram): String = {
     histogram match {
-      case MetricHandle.DropwizardHistogram(_, metric) =>
+      case DropwizardHistogram(_, metric) =>
         val data = metric.getSnapshot
         dropwizardSnapshotToString(data)
+      case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
   }
 
   private[this] def timerToString(timer: Timer): String = {
     timer match {
-      case MetricHandle.DropwizardTimer(_, metric) =>
+      case DropwizardTimer(_, metric) =>
         val data = metric.getSnapshot
         dropwizardSnapshotToString(data)
-      case MetricHandle.Timer.NoOpTimer(_) => ""
+      case NoOpTimer(_) => ""
+      case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
   }
 
   private[this] def timerMeanRate(timer: Timer): Double = {
     timer match {
-      case MetricHandle.DropwizardTimer(_, metric) =>
+      case DropwizardTimer(_, metric) =>
         metric.getMeanRate
-      case MetricHandle.Timer.NoOpTimer(_) => 0
+      case NoOpTimer(_) => 0
+      case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
   }
   private def dropwizardSnapshotToString(data: Snapshot) = {

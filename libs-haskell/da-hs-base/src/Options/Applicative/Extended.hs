@@ -10,10 +10,13 @@ module Options.Applicative.Extended
     , optionOnce
     , optionOnce'
     , strOptionOnce
+    , lastOr
     ) where
 
-import Options.Applicative
 import GHC.Exts (IsString (..))
+import Options.Applicative
+
+import qualified Data.List.NonEmpty as NE
 
 -- | A morally boolean value with a default third option (called Auto) to be determined later.
 data YesNoAuto
@@ -76,3 +79,15 @@ optionOnce' errMsg reader options = const <$> actualParser <*> errorIfTwiceParse
 
 strOptionOnce :: IsString a => Mod OptionFields a -> Parser a
 strOptionOnce = optionOnce str
+
+-- | @'lastOr' def one@ returns the value of the last succesful @one@, if any,
+-- otherwise returns @def@.
+--
+-- /Note/: if @one@ always succeeds, @lastOr def one@ will loop forever.
+--
+-- /Note/: @lastOr def one@ will never fail, so it cannot be used with @some@
+-- or @many@ (or @lastOr@ itself)
+lastOr :: Alternative f => b -> f b -> f b
+lastOr def one =
+      NE.last <$> NE.some1 one
+  <|> pure def

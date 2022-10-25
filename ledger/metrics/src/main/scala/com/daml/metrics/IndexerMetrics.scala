@@ -6,11 +6,13 @@ package com.daml.metrics
 import java.time.Instant
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.MetricHandle.{DropwizardGauge, Gauge}
+import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
+import com.daml.metrics.api.MetricHandle.Gauge
+import com.daml.metrics.api.dropwizard.{DropwizardFactory, DropwizardGauge}
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class IndexerMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.DropwizardFactory {
+    extends DropwizardFactory {
 
   @MetricDoc.Tag(
     summary = "The time of the last event ingested by the index db (in milliseconds since EPOCH).",

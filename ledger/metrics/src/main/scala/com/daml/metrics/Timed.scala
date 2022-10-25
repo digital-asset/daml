@@ -8,7 +8,7 @@ import java.util.concurrent.CompletionStage
 import akka.Done
 import akka.stream.scaladsl.{Keep, Source}
 import com.daml.concurrent
-import com.daml.metrics.MetricHandle.{Counter, Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -29,9 +29,9 @@ object Timed {
   }
 
   def completionStage[T](timer: Timer, future: => CompletionStage[T]): CompletionStage[T] = {
-    val stop = timer.startAsync()
+    val timerHandle = timer.startAsync()
     future.whenComplete { (_, _) =>
-      stop()
+      timerHandle.stop()
       ()
     }
   }
@@ -57,9 +57,9 @@ object Timed {
   }
 
   def future[EC, T](timer: Timer, future: => concurrent.Future[EC, T]): concurrent.Future[EC, T] = {
-    val stop = timer.startAsync()
+    val timerHandle = timer.startAsync()
     val result = future
-    result.onComplete(_ => stop())(concurrent.ExecutionContext.parasitic)
+    result.onComplete(_ => timerHandle.stop())(concurrent.ExecutionContext.parasitic)
     result
   }
 
@@ -84,11 +84,11 @@ object Timed {
   /** Be advised that this will time the source when it's created and not when it's actually run.
     */
   def source[Out, Mat](timer: Timer, source: => Source[Out, Mat]): Source[Out, Mat] = {
-    val stop = timer.startAsync()
+    val timerHandle = timer.startAsync()
     source
       .watchTermination()(Keep.both[Mat, Future[Done]])
       .mapMaterializedValue { case (mat, done) =>
-        done.onComplete(_ => stop())(ExecutionContext.parasitic)
+        done.onComplete(_ => timerHandle.stop())(ExecutionContext.parasitic)
         mat
       }
   }

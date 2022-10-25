@@ -4,11 +4,13 @@
 package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.MetricDoc.MetricQualification.{Debug, Errors, Traffic}
-import com.daml.metrics.MetricHandle.{Counter, DropwizardCounter, DropwizardTimer, Timer}
+import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Errors, Traffic}
+import com.daml.metrics.api.MetricHandle.{Counter, Timer}
+import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardFactory, DropwizardTimer}
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class LAPIMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.DropwizardFactory {
+    extends DropwizardFactory {
 
   @MetricDoc.Tag(
     summary = "The time spent serving a ledger api grpc request.",

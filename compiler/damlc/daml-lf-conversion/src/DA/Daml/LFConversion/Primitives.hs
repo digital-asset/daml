@@ -382,6 +382,13 @@ convertPrim _ "EFromAnyContractKey"
     ETmLam (mkVar "any", TAny) $
     EFromAny key (EVar $ mkVar "any")
 
+convertPrim _ "EFromAnyView"
+    (tProxy :-> TAny :-> TOptional view) =
+    pure $
+    ETmLam (mkVar "_", tProxy) $
+    ETmLam (mkVar "any", TAny) $
+    EFromAny view (EVar $ mkVar "any")
+
 convertPrim _ "EToAnyTemplate"
     (TCon template :-> TAny) =
     pure $
@@ -401,6 +408,13 @@ convertPrim _ "EToAnyContractKey"
     ETmLam (mkVar "_", tProxy) $
     ETmLam (mkVar "key", key) $
     EToAny key (EVar $ mkVar "key")
+
+convertPrim _ "EToAnyView"
+    (tProxy :-> view :-> TAny) =
+    pure $
+    ETmLam (mkVar "_", tProxy) $
+    ETmLam (mkVar "view", view) $
+    EToAny view (EVar $ mkVar "view")
 
 convertPrim _ "EInterfaceTemplateTypeRep" (TCon interface :-> TTypeRep) =
     pure $

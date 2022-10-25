@@ -38,7 +38,7 @@ import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.MetricHandle.Timer.TimerStop
+import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 
 private[http] final class RouteSetup(
     allowNonHttps: Boolean,
@@ -85,7 +85,7 @@ private[http] final class RouteSetup(
           Jwt,
           JwtWritePayload,
           JsValue,
-          TimerStop,
+          TimerHandle,
       ) => LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => ET[
         T[ApiValue]
       ]
@@ -132,7 +132,7 @@ private[http] final class RouteSetup(
 
   def getParseAndDecodeTimerCtx()(implicit
       metrics: Metrics
-  ): ET[TimerStop] =
+  ): ET[TimerHandle] =
     EitherT.pure(metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.startAsync())
 
   private[endpoints] def input(req: HttpRequest)(implicit

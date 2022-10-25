@@ -4,7 +4,8 @@
 package com.daml.metrics
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.metrics.MetricsReporter.Prometheus
+import com.daml.metrics.api.reporters.MetricsReporter
+import com.daml.metrics.api.reporters.MetricsReporter.Prometheus
 import io.opentelemetry.api.metrics.Meter
 import io.opentelemetry.exporter.prometheus.PrometheusCollector
 import io.opentelemetry.sdk.metrics.SdkMeterProvider
