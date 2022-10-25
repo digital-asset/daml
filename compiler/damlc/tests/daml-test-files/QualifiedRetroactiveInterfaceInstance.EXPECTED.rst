@@ -105,11 +105,9 @@ Data Types
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
          -
 
-  **instance** `HasFromAnyView <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasfromanyview-19685>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_ `TokenView <type-qualifiedretroactiveinterfaceinstance-tokenview-25557_>`_
+  **instance** `HasFromAnyView <https://docs.daml.com/daml/stdlib/DA-Internal-Interface-AnyView.html#class-da-internal-interface-anyview-hasfromanyview-30108>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_ `TokenView <type-qualifiedretroactiveinterfaceinstance-tokenview-25557_>`_
 
   **instance** `HasInterfaceView <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_ `TokenView <type-qualifiedretroactiveinterfaceinstance-tokenview-25557_>`_
-
-  **instance** `HasToAnyView <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hastoanyview-73434>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_ `TokenView <type-qualifiedretroactiveinterfaceinstance-tokenview-25557_>`_
 
   **instance** `HasField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839>`_ \"amount\" `TokenView <type-qualifiedretroactiveinterfaceinstance-tokenview-25557_>`_ `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
 

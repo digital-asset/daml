@@ -57,11 +57,9 @@
 > > | owner                                                                                   | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > > | amount                                                                                  | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)          |  |
 >
-> **instance** [HasFromAnyView](https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasfromanyview-19685) [Token](#type-qualifiedretroactiveinterfaceinstance-token-43978) [TokenView](#type-qualifiedretroactiveinterfaceinstance-tokenview-25557)
+> **instance** [HasFromAnyView](https://docs.daml.com/daml/stdlib/DA-Internal-Interface-AnyView.html#class-da-internal-interface-anyview-hasfromanyview-30108) [Token](#type-qualifiedretroactiveinterfaceinstance-token-43978) [TokenView](#type-qualifiedretroactiveinterfaceinstance-tokenview-25557)
 >
 > **instance** [HasInterfaceView](https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492) [Token](#type-qualifiedretroactiveinterfaceinstance-token-43978) [TokenView](#type-qualifiedretroactiveinterfaceinstance-tokenview-25557)
->
-> **instance** [HasToAnyView](https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hastoanyview-73434) [Token](#type-qualifiedretroactiveinterfaceinstance-token-43978) [TokenView](#type-qualifiedretroactiveinterfaceinstance-tokenview-25557)
 >
 > **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "amount" [TokenView](#type-qualifiedretroactiveinterfaceinstance-tokenview-25557) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 >
