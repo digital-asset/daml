@@ -260,6 +260,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
     "multi-party, multi-view" in withHttpService { fixture =>
       val amountsCurrencies = Vector(("42.0", "USD"), ("84.0", "CHF"))
+      val expectedAmountsCurrencies = amountsCurrencies.map { case (a, c) => (a.toDouble, c) }
       for {
         _ <- uploadPackage(fixture)(riouDar)
         Seq((alice, aliceHeaders), (bob, _)) <- Future.traverse(Seq("alice", "bob"))(
@@ -274,25 +275,34 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           ) map resultContractId
         }
         queryAsBoth <- fixture.headersWithPartyAuth(List(alice), List(bob))
-        queryAtCtId = { ctid: domain.ContractTypeId.OptionalPkg =>
-          searchExpectOk(
-            List.empty,
-            Map("templateIds" -> List(ctid)).toJson.asJsObject,
-            fixture,
-            queryAsBoth,
-          ) map { resACs =>
-            inside(resACs map (inside(_) {
-              case domain.ActiveContract(cid, _, _, payload, Seq(`alice`), Seq(`bob`), _) =>
-                (cid, payload.asJsObject.fields)
-            })) { case Seq((cid0, payload0), (cid1, payload1)) =>
-              Seq(cid0, cid1) should contain theSameElementsAs cids
-              if (cid0 == cids.head) Seq(payload0, payload1) else Seq(payload1, payload0)
+        queryAtCtId = {
+          (ctid: domain.ContractTypeId.OptionalPkg, amountKey: String, currencyKey: String) =>
+            searchExpectOk(
+              List.empty,
+              Map("templateIds" -> List(ctid)).toJson.asJsObject,
+              fixture,
+              queryAsBoth,
+            ) map { resACs =>
+              inside(resACs map (inside(_) {
+                case domain.ActiveContract(cid, _, _, payload, Seq(`alice`), Seq(`bob`), _) =>
+                  (cid, payload.asJsObject.fields)
+              })) { case Seq((cid0, payload0), (cid1, payload1)) =>
+                Seq(cid0, cid1) should contain theSameElementsAs cids
+                val actualAmountsCurrencies = (if (cid0 == cids.head) Seq(payload0, payload1)
+                                               else Seq(payload1, payload0))
+                  .map(payload =>
+                    inside((payload get amountKey, payload get currencyKey)) {
+                      case (Some(JsString(amount)), Some(JsString(currency))) =>
+                        (amount.toDouble, currency)
+                    }
+                  )
+                actualAmountsCurrencies should ===(expectedAmountsCurrencies)
+              }
             }
-          }
         }
-        _ <- queryAtCtId(TpId.Iou.Iou) // TODO contents
-        _ <- queryAtCtId(TpId.RIou.RIou)
-        _ <- queryAtCtId(TpId.Iou.Iou)
+        _ <- queryAtCtId(TpId.Iou.Iou, "amount", "currency")
+        _ <- queryAtCtId(TpId.RIou.RIou, "iamount", "icurrency")
+        _ <- queryAtCtId(TpId.Iou.Iou, "amount", "currency")
       } yield succeed
     }
   }
