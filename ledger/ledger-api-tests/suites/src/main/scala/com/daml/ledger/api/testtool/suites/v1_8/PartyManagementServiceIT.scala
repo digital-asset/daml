@@ -456,11 +456,11 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     partyAllocation = allocate(SingleParty, NoParties),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta)) =>
     val isDistinctServers = alpha.endpointId != beta.endpointId && alpha.ledgerId != beta.ledgerId
-    for {
-      alphaAliceO <- alpha.getParties(Seq(alice)).map(_.headOption)
-      betaAliceO <- beta.getParties(Seq(alice)).map(_.headOption)
-      _ = {
-        if (isDistinctServers) {
+    if (isDistinctServers) {
+      for {
+        alphaAliceO <- alpha.getParties(Seq(alice)).map(_.headOption)
+        betaAliceO <- beta.getParties(Seq(alice)).map(_.headOption)
+        _ = {
           assertDefined(alphaAliceO, "Party 'alice' on participant 'alpha'")
           assertPartyDetails(
             "Party 'alice' on participant 'alpha'",
@@ -482,39 +482,37 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
             )
           }
         }
-      }
-      _ <-
-        if (betaAliceO.isDefined && isDistinctServers) {
-          // updating a non-local party on participant beta:
-          for {
-            _ <- beta.updatePartyDetails(
-              UpdatePartyDetailsRequest(
-                partyDetails = Some(
-                  PartyDetails(
-                    party = alice.toString,
-                    localMetadata = Some(ObjectMeta(annotations = Map("foo" -> "bar"))),
-                  )
-                ),
-                updateMask = Some(FieldMask(Seq("local_metadata.annotations"))),
+        _ <-
+          if (betaAliceO.isDefined) {
+            // updating a non-local party on participant beta:
+            for {
+              _ <- beta.updatePartyDetails(
+                UpdatePartyDetailsRequest(
+                  partyDetails = Some(
+                    PartyDetails(
+                      party = alice.toString,
+                      localMetadata = Some(ObjectMeta(annotations = Map("foo" -> "bar"))),
+                    )
+                  ),
+                  updateMask = Some(FieldMask(Seq("local_metadata.annotations"))),
+                )
               )
-            )
-            updatedBetaAlice <- beta.getParties(Seq(alice)).map(_.head)
-          } yield {
-            assertPartyDetails(
-              "Party 'alice' after update on 'beta'",
-              actual = updatedBetaAlice,
-              expectedParty = alice.toString,
-              expectedIsLocal = false,
-              expectedAnnotations = Map("foo" -> "bar"),
-              resourceVersionAssertion = resourceVersion => assert(resourceVersion.nonEmpty),
-            )
+              updatedBetaAlice <- beta.getParties(Seq(alice)).map(_.head)
+            } yield {
+              assertPartyDetails(
+                "Party 'alice' after update on 'beta'",
+                actual = updatedBetaAlice,
+                expectedParty = alice.toString,
+                expectedIsLocal = false,
+                expectedAnnotations = Map("foo" -> "bar"),
+                resourceVersionAssertion = resourceVersion => assert(resourceVersion.nonEmpty),
+              )
+            }
+          } else {
+            Future.successful(())
           }
-        } else {
-          Future.successful(())
-        }
-    } yield {
-      ()
-    }
+      } yield ()
+    } else Future.successful(())
   })
 
   /** Checks properties of PartyDetails field by field to help maintain forward compatibility of the test-tool with the Ledger API implementations.
