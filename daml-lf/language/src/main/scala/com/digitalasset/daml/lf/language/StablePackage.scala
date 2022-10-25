@@ -112,7 +112,7 @@ private[daml] object StablePackage {
           object Types
               extends StablePackage(
                 "DA.Internal.Interface.AnyView.Types",
-                "53d31762636d29ce3e3accaf582679fe2f5c9a5d96b3d173148dc8851cfd5be0",
+                "6df2d1fd8ea994ed048a79587b2722e3a887ac7592abf31ecf46fe09ac02d689",
                 "daml-stdlib",
               )
         }
