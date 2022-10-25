@@ -1,13 +1,14 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.metrics
+package com.daml.metrics.api.reporters
 
 import java.net.InetSocketAddress
 import java.util
 import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics._
+import com.daml.metrics.api.dropwizard.ExtendedDropwizardExports
 import io.prometheus.client.CollectorRegistry
 import io.prometheus.client.dropwizard.DropwizardExports
 import io.prometheus.client.exporter.HTTPServer

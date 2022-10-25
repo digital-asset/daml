@@ -11,7 +11,7 @@ import com.codahale.{metrics => codahale}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.metrics.InstrumentedGraph._
 import com.daml.metrics.InstrumentedGraphSpec.SamplingCounter
-import com.daml.metrics.MetricHandle.{DropwizardCounter, DropwizardTimer}
+import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardTimer}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 

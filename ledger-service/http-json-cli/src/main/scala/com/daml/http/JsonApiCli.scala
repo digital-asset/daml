@@ -6,12 +6,11 @@ package com.daml.http
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.metrics.MetricsReporter
-
 import java.io.File
 import java.nio.file.Path
 import scala.concurrent.duration._
 import ch.qos.logback.classic.{Level => LogLevel}
+import com.daml.metrics.api.reporters.MetricsReporter
 import com.typesafe.scalalogging.StrictLogging
 import pureconfig.ConfigSource
 import pureconfig.error.ConfigReaderFailures

@@ -6,13 +6,15 @@ package com.daml.metrics
 import com.codahale.metrics.MetricRegistry
 import io.opentelemetry.api.GlobalOpenTelemetry
 import io.opentelemetry.api.metrics.{Meter => OtelMeter}
+import com.daml.metrics.api.MetricName
+import com.daml.metrics.api.dropwizard.DropwizardFactory
 
 object Metrics {
   lazy val ForTesting = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
 }
 
 final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
-    extends MetricHandle.DropwizardFactory {
+    extends DropwizardFactory {
   override val prefix = MetricName("")
 
   object test {
@@ -21,7 +23,7 @@ final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
     val db: DatabaseMetrics = new DatabaseMetrics(prefix, "db", registry)
   }
 
-  object daml extends MetricHandle.DropwizardFactory {
+  object daml extends DropwizardFactory {
     override val prefix: MetricName = MetricName.Daml
     override val registry = Metrics.this.registry
 

@@ -9,15 +9,9 @@ import java.util.concurrent.TimeUnit
 import com.codahale.metrics.{MetricRegistry, SlidingTimeWindowArrayReservoir}
 import com.codahale.{metrics => codahale}
 import com.daml.ledger.api.benchtool.util.TimeUtil
-import com.daml.metrics.MetricHandle.{
-  Counter,
-  DropwizardCounter,
-  DropwizardGauge,
-  DropwizardHistogram,
-  Gauge,
-  Histogram,
-}
-import com.daml.metrics.{Gauges, MetricName}
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram}
+import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardGauge, DropwizardHistogram}
+import com.daml.metrics.api.{Gauges, MetricName}
 import com.google.protobuf.timestamp.Timestamp
 
 final class ExposedMetrics[T](

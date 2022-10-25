@@ -3,10 +3,11 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.MetricHandle.{Histogram, Timer}
-
 import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
+import com.daml.metrics.api.MetricHandle.{Histogram, Timer}
+import com.daml.metrics.api.dropwizard.FactoryWithDBMetrics
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 @MetricDoc.GroupTag(
   representative = "daml.index.db.<operation>.wait"
@@ -27,7 +28,7 @@ import com.codahale.metrics.MetricRegistry
   representative = "daml.index.db.<operation>.query"
 )
 class IndexDBMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.FactoryWithDBMetrics {
+    extends FactoryWithDBMetrics {
 
   @MetricDoc.Tag(
     summary = "The time spent looking up a contract using its key.",

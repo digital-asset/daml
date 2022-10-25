@@ -4,9 +4,8 @@
 package com.daml.ledger.api.benchtool.config
 
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.metrics.MetricsReporter
-
 import java.io.File
+import com.daml.metrics.api.reporters.MetricsReporter
 import scala.concurrent.duration._
 
 case class Config(

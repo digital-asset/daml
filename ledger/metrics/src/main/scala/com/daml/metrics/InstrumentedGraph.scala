@@ -5,8 +5,8 @@ package com.daml.metrics
 
 import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.{BoundedSourceQueue, Materializer, OverflowStrategy, QueueOfferResult}
-import com.daml.metrics.MetricHandle.{Counter, Timer}
-import com.daml.metrics.MetricHandle.Timer.TimerStop
+import com.daml.metrics.api.MetricHandle.{Counter, Timer}
+import com.daml.metrics.api.MetricHandle.Timer.TimerStop
 
 import scala.util.chaining._
 

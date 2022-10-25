@@ -3,10 +3,11 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.{Debug, Latency, Traffic, Saturation}
-import com.daml.metrics.MetricHandle.{Counter, DropwizardTimer, Histogram, Timer}
-
 import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Latency, Saturation, Traffic}
+import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Timer}
+import com.daml.metrics.api.dropwizard.{DropwizardFactory, DropwizardTimer}
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 @MetricDoc.GroupTag(
   representative = "daml.parallel_indexer.<stage>.wait"
@@ -42,7 +43,7 @@ import com.codahale.metrics.MetricRegistry
   representative = "daml.parallel_indexer.<stage>.executor.duration"
 )
 class ParallelIndexerMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.DropwizardFactory {
+    extends DropwizardFactory {
   val initialization = new DatabaseMetrics(prefix, "initialization", registry)
 
   // Number of state updates persisted to the database
