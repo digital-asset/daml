@@ -7,7 +7,7 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import com.daml.metrics.api.Gauges.VarGauge
-import com.daml.metrics.api.MetricHandle.Timer.TimerStop
+import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Histogram, Meter, Timer}
 import com.daml.metrics.api.{MetricHandle, MetricName}
 import io.opentelemetry.api.metrics.{
@@ -80,7 +80,7 @@ case class OpentelemetryTimer(name: String, histogram: LongHistogram) extends Ti
     histogram.record(TimeUnit.MILLISECONDS.convert(System.nanoTime() - start, TimeUnit.NANOSECONDS))
     result
   }
-  override def startAsync(): TimerStop = {
+  override def startAsync(): TimerHandle = {
     val start = System.nanoTime()
     () =>
       histogram.record(
