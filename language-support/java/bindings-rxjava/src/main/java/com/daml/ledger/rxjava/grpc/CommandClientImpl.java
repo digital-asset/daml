@@ -3,6 +3,8 @@
 
 package com.daml.ledger.rxjava.grpc;
 
+import static com.daml.ledger.javaapi.data.EventUtils.firstExercisedEvent;
+import static com.daml.ledger.javaapi.data.EventUtils.singleCreatedEvent;
 import static com.daml.ledger.javaapi.data.codegen.HasCommands.toCommands;
 import static java.util.Arrays.asList;
 
@@ -870,26 +872,6 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty(),
         commands,
         Optional.of(accessToken));
-  }
-
-  private <T> CreatedEvent singleCreatedEvent(List<T> events) {
-    if (events.size() == 1 && events.get(0) instanceof CreatedEvent)
-      return (CreatedEvent) events.get(0);
-    throw new IllegalArgumentException(
-        "Expected exactly one created event from the transaction, got: " + events);
-  }
-
-  private ExercisedEvent firstExercisedEvent(TransactionTree txTree) {
-    var maybeExercisedEvent =
-        txTree.getRootEventIds().stream()
-            .map(eventId -> txTree.getEventsById().get(eventId))
-            .filter(e -> e instanceof ExercisedEvent)
-            .map(e -> (ExercisedEvent) e)
-            .findFirst();
-
-    return maybeExercisedEvent.orElseThrow(
-        () ->
-            new IllegalArgumentException("Expect an exercised event but not found. tx: " + txTree));
   }
 
   private <U> Single<U> submitAndWaitForResult(
