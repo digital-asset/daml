@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import ClassGenUtils.{companionFieldName, templateIdFieldName}
+import ClassGenUtils.{companionFieldName, templateIdFieldName, generateGetCompanion}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.Ref
 import Ref.{ChoiceName, PackageId, QualifiedName}
@@ -35,6 +35,7 @@ private[inner] object TemplateClass extends StrictLogging {
       val staticCreateMethod = generateStaticCreateMethod(fields, className)
 
       val templateChoices = template.tChoices.directChoices
+      val companion = new Companion(className, template.key, packagePrefixes)
       val templateType = TypeSpec
         .classBuilder(className)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
@@ -96,9 +97,8 @@ private[inner] object TemplateClass extends StrictLogging {
             templateChoices,
           ).asJava
         )
-        .addField(
-          generateCompanion(className, template.key, packagePrefixes, templateChoices.keySet)
-        )
+        .addField(companion.generateField(templateChoices.keySet))
+        .addMethod(companion.generateGetter())
         .addFields(RecordFields(fields).asJava)
         .addMethods(TemplateMethods(fields, className, packagePrefixes).asJava)
       generateByKeyMethod(template.key, packagePrefixes) foreach { byKeyMethod =>
@@ -560,15 +560,15 @@ private[inner] object TemplateClass extends StrictLogging {
     }.toSeq
   }
 
-  private def generateCompanion(
+  private final class Companion(
       templateClassName: ClassName,
       maybeKey: Option[Type],
       packagePrefixes: Map[PackageId, String],
-      choiceNames: Set[ChoiceName],
-  ): FieldSpec = {
+  ) {
     import scala.language.existentials
     import javaapi.data.codegen.ContractCompanion
-    val (fieldClass, keyTypes, keyParams, keyArgs) = maybeKey.cata(
+
+    private val (fieldClass, keyTypes, keyParams, keyArgs) = maybeKey.cata(
       keyType =>
         (
           classOf[ContractCompanion.WithKey[_, _, _, _]],
@@ -581,46 +581,56 @@ private[inner] object TemplateClass extends StrictLogging {
         ),
       (classOf[ContractCompanion.WithoutKey[_, _, _]], Seq.empty, "", Seq.empty),
     )
-    val contractIdName = ClassName bestGuess "ContractId"
-    val contractName = ClassName bestGuess "Contract"
-    val valueDecoderLambdaArgName = "v"
-    FieldSpec
-      .builder(
-        ParameterizedTypeName.get(
-          ClassName get fieldClass,
+
+    private val contractIdName = ClassName bestGuess "ContractId"
+    private val contractName = ClassName bestGuess "Contract"
+    private val companionType = ParameterizedTypeName.get(
+      ClassName get fieldClass,
+      Seq(
+        contractName,
+        contractIdName,
+        templateClassName,
+      ) ++ keyTypes: _*
+    )
+
+    private[TemplateClass] def generateGetter(): MethodSpec =
+      generateGetCompanion(companionType, ClassGenUtils.companionFieldName)
+
+    private[TemplateClass] def generateField(
+        choiceNames: Set[ChoiceName]
+    ): FieldSpec = {
+      val valueDecoderLambdaArgName = "v"
+      FieldSpec
+        .builder(
+          companionType,
+          companionFieldName,
+          Modifier.STATIC,
+          Modifier.FINAL,
+          Modifier.PUBLIC,
+        )
+        .initializer(
+          "$Znew $T<>($>$Z$S,$W$N,$W$T::new,$W$N -> $T.templateValueDecoder().decode($N),$W$T::new,$W$T.of($L)" + keyParams + "$<)",
           Seq(
-            contractName,
-            contractIdName,
+            fieldClass,
             templateClassName,
-          ) ++ keyTypes: _*
-        ),
-        companionFieldName,
-        Modifier.STATIC,
-        Modifier.FINAL,
-        Modifier.PUBLIC,
-      )
-      .initializer(
-        "$Znew $T<>($>$Z$S,$W$N,$W$T::new,$W$N -> $T.templateValueDecoder().decode($N),$W$T::new,$W$T.of($L)" + keyParams + "$<)",
-        Seq(
-          fieldClass,
-          templateClassName,
-          templateIdFieldName,
-          contractIdName,
-          valueDecoderLambdaArgName,
-          templateClassName,
-          valueDecoderLambdaArgName,
-          contractName,
-          classOf[java.util.List[_]],
-          CodeBlock
-            .join(
-              choiceNames
-                .map(choiceName => CodeBlock.of("$N", toChoiceNameField(choiceName)))
-                .asJava,
-              ",$W",
-            ),
-        ) ++ keyArgs: _*
-      )
-      .build()
+            templateIdFieldName,
+            contractIdName,
+            valueDecoderLambdaArgName,
+            templateClassName,
+            valueDecoderLambdaArgName,
+            contractName,
+            classOf[java.util.List[_]],
+            CodeBlock
+              .join(
+                choiceNames
+                  .map(choiceName => CodeBlock.of("$N", toChoiceNameField(choiceName)))
+                  .asJava,
+                ",$W",
+              ),
+          ) ++ keyArgs: _*
+        )
+        .build()
+    }
   }
 
   private implicit final class `MethodSpec extensions`(private val self: MethodSpec.Builder)
