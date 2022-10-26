@@ -134,7 +134,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   import AbstractHttpServiceIntegrationTestFuns.{VAx, UriFixture, HttpServiceTestFixtureData}
   import HttpServiceTestFixture.{UseTls, accountCreateCommand, archiveCommand}
   import json.JsonProtocol._
-  import AbstractHttpServiceIntegrationTestFuns.ciouDar
+  import AbstractHttpServiceIntegrationTestFuns.{ciouDar, riouDar}
 
   object CIou {
     val CIou: domain.ContractTypeId.Template.OptionalPkg =
@@ -147,10 +147,10 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       party: domain.Party
   ): List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]] =
     List(
-      iouCreateCommand(amount = "111.11", currency = "EUR", partyName = party),
-      iouCreateCommand(amount = "222.22", currency = "EUR", partyName = party),
-      iouCreateCommand(amount = "333.33", currency = "GBP", partyName = party),
-      iouCreateCommand(amount = "444.44", currency = "BTC", partyName = party),
+      iouCreateCommand(amount = "111.11", currency = "EUR", party = party),
+      iouCreateCommand(amount = "222.22", currency = "EUR", party = party),
+      iouCreateCommand(amount = "333.33", currency = "GBP", party = party),
+      iouCreateCommand(amount = "444.44", currency = "BTC", party = party),
     )
 
   protected def testLargeQueries = true
@@ -257,6 +257,97 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
       }
     }
+
+    "multi-view" - {
+      val amountsCurrencies = Vector(("42.0", "USD"), ("84.0", "CHF"))
+      val expectedAmountsCurrencies = amountsCurrencies.map { case (a, c) => (a.toDouble, c) }
+
+      def testMultiView[ExParties](
+          fixture: HttpServiceTestFixtureData,
+          allocateParties: Future[ExParties],
+      )(
+          observers: ExParties => Vector[domain.Party],
+          queryHeaders: (domain.Party, List[HttpHeader], ExParties) => Future[List[HttpHeader]],
+      ) = for {
+        _ <- uploadPackage(fixture)(riouDar)
+        (alice, aliceHeaders) <- fixture.getUniquePartyAndAuthHeaders("alice")
+        exParties <- allocateParties
+
+        // create all contracts
+        exObservers = observers(exParties)
+        cids <- amountsCurrencies.traverse { case (amount, currency) =>
+          postCreateCommand(
+            iouCreateCommand(
+              alice,
+              amount = amount,
+              currency = currency,
+              observers = exObservers,
+            ),
+            fixture,
+            aliceHeaders,
+          ) map resultContractId
+        }
+        queryAsBoth <- queryHeaders(alice, aliceHeaders, exParties)
+        queryAtCtId = {
+          (ctid: domain.ContractTypeId.OptionalPkg, amountKey: String, currencyKey: String) =>
+            searchExpectOk(
+              List.empty,
+              Map("templateIds" -> List(ctid)).toJson.asJsObject,
+              fixture,
+              queryAsBoth,
+            ) map { resACs =>
+              inside(resACs map (inside(_) {
+                case domain.ActiveContract(cid, _, _, payload, Seq(`alice`), `exObservers`, _) =>
+                  // ensure the contract metadata is right, then discard
+                  (cid, payload.asJsObject.fields)
+              })) { case Seq((cid0, payload0), (cid1, payload1)) =>
+                Seq(cid0, cid1) should contain theSameElementsAs cids
+                // check the actual payloads match the contract IDs from creates
+                val actualAmountsCurrencies = (if (cid0 == cids.head) Seq(payload0, payload1)
+                                               else Seq(payload1, payload0))
+                  .map(payload =>
+                    inside((payload get amountKey, payload get currencyKey)) {
+                      case (Some(JsString(amount)), Some(JsString(currency))) =>
+                        (amount.toDouble, currency)
+                    }
+                  )
+                actualAmountsCurrencies should ===(expectedAmountsCurrencies)
+              }
+            }
+        }
+        // run (inserting when query store) on template ID; then interface ID
+        // (thereby duplicating contract IDs)
+        _ <- queryAtCtId(TpId.Iou.Iou, "amount", "currency")
+        _ <- queryAtCtId(TpId.RIou.RIou, "iamount", "icurrency")
+        // then try template ID again, in case interface ID mangled the results
+        // for template ID by way of stakeholder join or something even odder
+        _ <- queryAtCtId(TpId.Iou.Iou, "amount", "currency")
+      } yield succeed
+
+      // multi-party and single-party are handled significantly differently
+      // in Oracle, so we check behavior with both varieties
+
+      "multi-party" in withHttpService { fixture =>
+        testMultiView(
+          fixture,
+          fixture.getUniquePartyAndAuthHeaders("bob").map(_._1),
+        )(
+          bob => Vector(bob),
+          (alice, _, bob) => fixture.headersWithPartyAuth(List(alice), List(bob)),
+        )
+      }
+
+      "single party" in withHttpService { fixture =>
+        testMultiView(
+          fixture,
+          Future successful (()),
+        )(
+          _ => Vector.empty,
+          (_, aliceHeaders, _) => Future successful aliceHeaders,
+        )
+      }
+
+    }
   }
 
   "query with unknown Template IDs" - {
@@ -326,7 +417,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           searchExpectOk(
             genSearchDataSet(alice) :+ iouCreateCommand(
               currency = testCurrency,
-              partyName = alice,
+              party = alice,
             ),
             jsObject(
               s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
