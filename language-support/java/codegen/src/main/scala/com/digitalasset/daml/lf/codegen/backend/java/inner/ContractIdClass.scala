@@ -4,15 +4,14 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.typesig
-import typesig.{PrimType, TemplateChoice, Type, TypeCon, TypeNumeric, TypePrim, TypeVar}
+import typesig.{TemplateChoice, Type}
 import typesig.PackageSignature.TypeDecl
 import com.squareup.javapoet._
-
 import ClassGenUtils.companionFieldName
+import com.daml.ledger.javaapi.data.codegen.{Exercised, Update}
 
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
@@ -90,6 +89,10 @@ object ContractIdClass {
     }
   }
 
+  private val updateType: ClassName = ClassName get classOf[Update[_]]
+  private val exercisedType: ClassName = ClassName get classOf[Exercised[_]]
+  private def parameterizedUpdateType(returnTypeName: TypeName): TypeName =
+    ParameterizedTypeName.get(updateType, ParameterizedTypeName.get(exercisedType, returnTypeName))
   private val exercisesTypeParam = TypeVariableName get "Cmd"
   private[inner] val exercisesInterface = ClassName bestGuess "Exercises"
 
@@ -161,7 +164,7 @@ object ContractIdClass {
     ): MethodSpec =
       ClassGenUtils.generateFlattenedCreateOrExerciseMethod(
         "exercise",
-        exercisesTypeParam,
+        parameterizedUpdateType(toJavaTypeName(choice.returnType, packagePrefixes)),
         choiceName,
         choice,
         fields,
@@ -177,33 +180,12 @@ object ContractIdClass {
       val exerciseChoiceBuilder = MethodSpec
         .methodBuilder(methodName)
         .addModifiers(Modifier.DEFAULT, Modifier.PUBLIC)
-        .returns(exercisesTypeParam)
+        .returns(parameterizedUpdateType(toJavaTypeName(choice.returnType, packagePrefixes)))
       val javaType = toJavaTypeName(choice.param, packagePrefixes)
       exerciseChoiceBuilder.addParameter(javaType, "arg")
-      choice.param match {
-        case TypeCon(_, _) =>
-          exerciseChoiceBuilder.addStatement(
-            "$T argValue = arg.toValue()",
-            classOf[javaapi.data.Value],
-          )
-        case TypePrim(PrimType.Unit, ImmArraySeq()) =>
-          exerciseChoiceBuilder
-            .addStatement(
-              "$T argValue = $T.getInstance()",
-              classOf[javaapi.data.Value],
-              classOf[javaapi.data.Unit],
-            )
-        case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) =>
-          exerciseChoiceBuilder
-            .addStatement(
-              "$T argValue = new $T(arg)",
-              classOf[javaapi.data.Value],
-              toAPITypeName(choice.param),
-            )
-      }
       exerciseChoiceBuilder.addStatement(
-        "return makeExerciseCmd($S, argValue)",
-        choiceName,
+        "return makeExerciseCmd($L, arg)",
+        TemplateClass.toChoiceNameField(choiceName),
       )
       exerciseChoiceBuilder.build()
     }

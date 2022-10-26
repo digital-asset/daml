@@ -3,8 +3,6 @@
 
 package com.daml.ledger.javaapi.data.codegen;
 
-import com.daml.ledger.javaapi.data.Value;
-
 /**
  * Root of all generated {@code Exercises} interfaces for templates and Daml interfaces.
  *
@@ -17,5 +15,5 @@ public interface Exercises<Cmd> {
    *     generator</a>, and <em>should not be referenced directly</em>. Applications should call
    *     choice-specific {@code exercise*} methods generated from their Daml code instead.
    */
-  Cmd makeExerciseCmd(String choice, Value choiceArgument);
+  <A, R> Update<Exercised<R>> makeExerciseCmd(Choice<?, ? super A, R> choice, A choiceArgument);
 }

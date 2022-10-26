@@ -15,9 +15,15 @@ public abstract class ByKey implements Exercises<ExerciseByKeyCommand> {
   }
 
   @Override
-  public ExerciseByKeyCommand makeExerciseCmd(String choice, Value choiceArgument) {
-    return new ExerciseByKeyCommand(
-        getCompanion().TEMPLATE_ID, contractKey, choice, choiceArgument);
+  public <A, R> Update<Exercised<R>> makeExerciseCmd(
+      Choice<?, ? super A, R> choice, A choiceArgument) {
+    var command =
+        new ExerciseByKeyCommand(
+            getCompanion().TEMPLATE_ID,
+            contractKey,
+            choice.name,
+            choice.encodeArg.apply(choiceArgument));
+    return new Update.ExerciseUpdate<>(command, x -> x, choice.returnTypeDecoder);
   }
 
   /** The origin of the choice, not the template relevant to contractKey. */
@@ -36,9 +42,16 @@ public abstract class ByKey implements Exercises<ExerciseByKeyCommand> {
     }
 
     @Override
-    public ExerciseByKeyCommand makeExerciseCmd(String choice, Value choiceArgument) {
+    public <A, R> Update<Exercised<R>> makeExerciseCmd(
+        Choice<?, ? super A, R> choice, A choiceArgument) {
       // TODO #14056 use getCompanion().TEMPLATE_ID as the interface ID
-      return new ExerciseByKeyCommand(keySource.TEMPLATE_ID, contractKey, choice, choiceArgument);
+      var command =
+          new ExerciseByKeyCommand(
+              keySource.TEMPLATE_ID,
+              contractKey,
+              choice.name,
+              choice.encodeArg.apply(choiceArgument));
+      return new Update.ExerciseUpdate<>(command, x -> x, choice.returnTypeDecoder);
     }
   }
 }

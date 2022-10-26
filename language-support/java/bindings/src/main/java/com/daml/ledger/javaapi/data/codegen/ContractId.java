@@ -48,8 +48,15 @@ public class ContractId<T> implements Exercises<ExerciseCommand> {
   }
 
   @Override
-  public final ExerciseCommand makeExerciseCmd(String choice, Value choiceArgument) {
-    return new ExerciseCommand(getCompanion().TEMPLATE_ID, contractId, choice, choiceArgument);
+  public <A, R> Update<Exercised<R>> makeExerciseCmd(
+      Choice<?, ? super A, R> choice, A choiceArgument) {
+    var command =
+        new ExerciseCommand(
+            getCompanion().TEMPLATE_ID,
+            contractId,
+            choice.name,
+            choice.encodeArg.apply(choiceArgument));
+    return new Update.ExerciseUpdate<>(command, x -> x, choice.returnTypeDecoder);
   }
 
   // overridden by every code generator, but decoding abstractly can e.g.
