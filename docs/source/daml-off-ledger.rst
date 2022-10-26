@@ -5,16 +5,17 @@ Write Off-Ledger Automation Using Daml
 ======================================
 
 The Daml smart contract language is mostly meant to provide a way to define on-ledger logic, i.e.
-code that defines how a transaction happens on ledger. Daml is not meant to be used as a general purpose language that can interact with your
-file system or network; instead, the templates and choices defined with Daml
-are available to be used by off-ledger logic that interacts with the ledger API. Usually this
-off-ledger logic is written in general-purpose language like Java or JavaScript and the codegen
-allows to interact with Daml types with minimal boilerplate.
+code that defines how a transaction happens on ledger. Daml is not meant to be used as a general
+purpose language that can interact with your file system or network; instead, the templates and
+choices defined with Daml are available to be used by off-ledger logic that interacts with the
+ledger API. Usually this off-ledger logic is written in general-purpose language like Java or
+JavaScript and the codegen allows to interact with models defined in Daml without boilerplate.
 
-However, there are cases in which it would be nice to write your off-ledger logic in Daml. For relatively simple automations that don't require full access to your
-system's capabilities, using Daml means that you don't have to map from your on-ledger Daml types
-and their representation on a separate off-ledger general purpose language (either through the
-codegen or by manipulating the Protobuf representation of Daml types directly).
+However, there are cases in which it would be nice to write your off-ledger logic in Daml. For
+relatively simple automations that don't require full access to your system's capabilities,
+using Daml means that you don't have to map from your on-ledger Daml types and their
+representation on a separate off-ledger general purpose language (either through the codegen
+or by manipulating the Protobuf representation of Daml types directly).
 
 There are two tools that allow you to use Daml as an off-ledger language:
 
