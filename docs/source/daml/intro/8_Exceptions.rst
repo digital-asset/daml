@@ -55,13 +55,17 @@ amount is always positive so ``Transfer`` cannot transfer more money
 than is available.
 
 The shop is represented as a template signed by the owner. It has a
-field to represent the bank accepted by the owner as well as a list of
-observers that can order items:
+field to represent the bank accepted by the owner, a list of
+observers that can order items, and a fixed price for the items that can be
+ordered:
 
 .. literalinclude:: daml/daml-intro-8/daml/Intro/Exceptions.daml
   :language: daml
   :start-after: -- SHOP_BEGIN
   :end-before: -- SHOP_END
+
+.. note:: In a real setting the price of each item for sale might be
+  defined in a separate contract.
 
 The ordering process is then represented by a non-consuming choice on
 this template which calls ``Transfer`` and creates an ``Order``
