@@ -407,7 +407,7 @@ data GetTimePayload a = GetTimePayload
 -- This is primarily useful in tests
 -- where you repeatedly call `query` until a certain state is reached.
 --
--- Note that this will sleep for the same duration in both wallcock and static time mode.
+-- Note that this will sleep for the same duration in both wall clock and static time mode.
 sleep : HasCallStack => RelTime -> Script ()
 sleep duration = lift $ Free $Sleep SleepRec with
   duration = duration
