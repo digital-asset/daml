@@ -190,6 +190,7 @@ object ScenarioLedger {
   final case class LookupOk(
       coid: ContractId,
       coinst: VersionedContractInstance,
+      implements: Set[TypeConName],
       stakeholders: Set[Party],
   ) extends LookupResult
   final case class LookupContractNotFound(coid: ContractId) extends LookupResult
@@ -257,12 +258,13 @@ object ScenarioLedger {
   }
 
   /** The initial ledger */
-  def initialLedger(t0: Time.Timestamp): ScenarioLedger =
+  def apply(
+      pkgSignature: Map[PackageId, language.Ast.GenPackage[_]],
+      currentTime: Time.Timestamp,
+  ): ScenarioLedger =
     ScenarioLedger(
-      currentTime = t0,
-      scenarioStepId = TransactionId(0),
-      scenarioSteps = immutable.IntMap.empty,
-      ledgerData = LedgerData.empty,
+      interfaceInstances = new language.util.PackageInfo(pkgSignature).instanceInterfaces,
+      currentTime = currentTime,
     )
 
   /** Views onto the ledger */
@@ -556,10 +558,11 @@ object ScenarioLedger {
   * @param ledgerData              Cache for the ledger.
   */
 case class ScenarioLedger(
+    interfaceInstances: data.Relation[Identifier, Identifier],
     currentTime: Time.Timestamp,
-    scenarioStepId: ScenarioLedger.TransactionId,
-    scenarioSteps: immutable.IntMap[ScenarioLedger.ScenarioStep],
-    ledgerData: ScenarioLedger.LedgerData,
+    scenarioStepId: ScenarioLedger.TransactionId = ScenarioLedger.TransactionId(0),
+    scenarioSteps: immutable.IntMap[ScenarioLedger.ScenarioStep] = immutable.IntMap.empty,
+    ledgerData: ScenarioLedger.LedgerData = ScenarioLedger.LedgerData.empty,
 ) {
 
   import ScenarioLedger._
@@ -592,7 +595,7 @@ case class ScenarioLedger(
   ): Seq[LookupOk] = {
     ledgerData.activeContracts.toList
       .map(cid => lookupGlobalContract(view, effectiveAt, cid))
-      .collect { case l @ LookupOk(_, _, _) =>
+      .collect { case l @ LookupOk(_, _, _, _) =>
         l
       }
   }
@@ -629,6 +632,7 @@ case class ScenarioLedger(
               LookupOk(
                 coid,
                 create.versionedCoinst,
+                interfaceInstances.getOrElse(create.templateId, Set.empty),
                 create.stakeholders,
               )
 

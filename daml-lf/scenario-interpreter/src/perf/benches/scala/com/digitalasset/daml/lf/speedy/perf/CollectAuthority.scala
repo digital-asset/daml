@@ -6,10 +6,10 @@ package speedy
 package perf
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.archive.UniversalArchiveDecoder
-import com.daml.lf.data.Ref.{Identifier, Location, Party, QualifiedName}
+import com.daml.lf.archive.{Dar, UniversalArchiveDecoder}
+import com.daml.lf.data.Ref.{Identifier, Location, PackageId, Party, QualifiedName}
 import com.daml.lf.data.Time
-import com.daml.lf.language.Ast.EVal
+import com.daml.lf.language.Ast.{EVal, Package}
 import com.daml.lf.speedy.SExpr.{SEValue, SExpr}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
@@ -42,12 +42,13 @@ class CollectAuthorityState {
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   var machine: Machine = null
+  var packages: Dar[(PackageId, Package)] = null
   var the_sexpr: SExpr = null
 
   @Setup(Level.Trial)
   def init(): Unit = {
     val darFile = new File(if (dar.startsWith("//")) rlocation(dar.substring(2)) else dar)
-    val packages = UniversalArchiveDecoder.assertReadFile(darFile)
+    packages = UniversalArchiveDecoder.assertReadFile(darFile)
 
     val compilerConfig =
       Compiler.Config.Default.copy(
@@ -114,7 +115,7 @@ class CollectAuthorityState {
   // interacting with the ledger, so they can be reused during the benchmark runs.
 
   def setup(): Unit = {
-    var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
+    var ledger: ScenarioLedger = ScenarioLedger(packages.all.toMap, Time.Timestamp.Epoch)
     var step = 0
     var finalValue: SValue = null
     while (finalValue == null) {

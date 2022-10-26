@@ -10,10 +10,10 @@ import data.{Ref, Relation}
 private[daml] class PackageInfo(pkgSignature: Map[Ref.PackageId, Ast.GenPackage[_]]) {
 
   /** returns the set of templates defined in `pkgSignature` */
-  def definedTemplates: Set[Ref.Identifier] = templates.map(_._1).toSet
+  def definedTemplates: Set[Ref.TypeConName] = templates.map(_._1).toSet
 
   /** returns the set of interfaces defined in `pkgSignature` */
-  def definedInterfaces: Set[Ref.Identifier] = interfaces.map(_._1).toSet
+  def definedInterfaces: Set[Ref.TypeConName] = interfaces.map(_._1).toSet
 
   /** return the relation between interfaces and all their direct implementation
     * as defined in `pkgSignature`.
@@ -22,7 +22,7 @@ private[daml] class PackageInfo(pkgSignature: Map[Ref.PackageId, Ast.GenPackage[
     * Note that while interfaces may not be defined in `pkgSignature`, all template
     * are.
     */
-  def interfacesDirectImplementations: Relation[Ref.Identifier, Ref.Identifier] =
+  def interfacesDirectImplementations: Relation[Ref.TypeConName, Ref.TypeConName] =
     Relation.from(
       templates.flatMap { case (tmplId, tmpl) => tmpl.implements.keysIterator.map(_ -> tmplId) }
     )
@@ -34,7 +34,7 @@ private[daml] class PackageInfo(pkgSignature: Map[Ref.PackageId, Ast.GenPackage[
     * Note that while all interfaces are defined in `pkgSignature`, template may not
     * be.orm
     */
-  def interfacesRetroactiveInstances: Relation[Ref.Identifier, Ref.Identifier] =
+  def interfacesRetroactiveInstances: Relation[Ref.TypeConName, Ref.TypeConName] =
     Relation.from(
       interfaces.flatMap { case (ifaceId, iface) =>
         iface.coImplements.keysIterator.map(tmplId => ifaceId -> tmplId)
@@ -42,25 +42,28 @@ private[daml] class PackageInfo(pkgSignature: Map[Ref.PackageId, Ast.GenPackage[
     )
 
   /* Union of interfacesDirectImplementations and interfacesRetroactiveInstances */
-  def interfaceInstances: Relation[Ref.Identifier, Ref.Identifier] =
+  def interfaceInstances: Relation[Ref.TypeConName, Ref.TypeConName] =
     Relation.union(interfacesDirectImplementations, interfacesRetroactiveInstances)
+
+  def instanceInterfaces: Relation[Ref.TypeConName, Ref.TypeConName] =
+    Relation.invert(interfaceInstances)
 
   private[this] def withFullId[X](
       pkgId: Ref.PackageId,
       mod: Ast.GenModule[_],
       tuple: (Ref.DottedName, X),
-  ): (Ref.Identifier, X) = tuple match {
+  ): (Ref.TypeConName, X) = tuple match {
     case (name, x) =>
-      Ref.Identifier(pkgId, Ref.QualifiedName(mod.name, name)) -> x
+      Ref.TypeConName(pkgId, Ref.QualifiedName(mod.name, name)) -> x
   }
 
   private[this] def modules: Iterable[(Ref.PackageId, Ast.GenModule[_])] =
     pkgSignature.view.flatMap { case (pkgId, pkg) => pkg.modules.values.map(pkgId -> _) }
 
-  private[this] def templates: Iterable[(Ref.Identifier, Ast.GenTemplate[_])] =
+  private[this] def templates: Iterable[(Ref.TypeConName, Ast.GenTemplate[_])] =
     modules.flatMap { case (pkgId, mod) => mod.templates.map(withFullId(pkgId, mod, _)) }
 
-  private[this] def interfaces: Iterable[(Ref.Identifier, Ast.GenDefInterface[_])] =
+  private[this] def interfaces: Iterable[(Ref.TypeConName, Ast.GenDefInterface[_])] =
     modules.flatMap { case (pkgId, mod) => mod.interfaces.map(withFullId(pkgId, mod, _)) }
 
 }

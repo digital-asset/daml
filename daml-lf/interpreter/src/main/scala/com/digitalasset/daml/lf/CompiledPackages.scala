@@ -34,6 +34,8 @@ private[lf] final class PureCompiledPackages(
     compilerConfig: Compiler.Config,
 ) extends CompiledPackages(compilerConfig) {
   override def getDefinition(dref: SDefinitionRef): Option[SDefinition] = defns.get(dref)
+  def packageSignature: Map[PackageId, PackageSignature] =
+    packageIds.iterator.map(pkgId => pkgId -> pkgInterface.lookupPackage(pkgId).toOption.get).toMap
 }
 
 private[lf] object PureCompiledPackages {

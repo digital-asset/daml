@@ -43,7 +43,7 @@ import scala.util.{Failure, Success}
 
 // Client for the script service.
 class IdeLedgerClient(
-    val compiledPackages: CompiledPackages,
+    val compiledPackages: PureCompiledPackages,
     traceLog: TraceLog,
     warningLog: WarningLog,
 ) extends ScriptLedgerClient {
@@ -64,7 +64,8 @@ class IdeLedgerClient(
       requireV1ContractIdSuffix = false,
     )
 
-  private var _ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
+  private var _ledger: ScenarioLedger =
+    ScenarioLedger(compiledPackages.packageSignature, Time.Timestamp.Epoch)
   def ledger: ScenarioLedger = _ledger
 
   private var allocatedParties: Map[String, PartyDetails] = Map()
@@ -83,6 +84,7 @@ class IdeLedgerClient(
       case ScenarioLedger.LookupOk(
             cid,
             Versioned(_, Value.ContractInstance(tpl, arg, _)),
+            _,
             stakeholders,
           ) if tpl == templateId && parties.any(stakeholders.contains(_)) =>
         (cid, arg)
@@ -105,6 +107,7 @@ class IdeLedgerClient(
       case ScenarioLedger.LookupOk(
             _,
             Versioned(_, contractInstance),
+            _,
             stakeholders,
           ) if parties.any(stakeholders.contains(_)) =>
         Some(contractInstance)

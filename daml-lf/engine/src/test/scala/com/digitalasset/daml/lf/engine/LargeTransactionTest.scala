@@ -32,10 +32,11 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     * a mutable API for eas of use in tests.
     */
   class MutableLedger {
-    import ScenarioLedger.{initialLedger => _, _}
-    private var ledger: ScenarioLedger = initialLedger()
+    import ScenarioLedger._
 
-    private def initialLedger(): ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.now())
+    private def initialLedger() = ScenarioLedger(allPackages, Time.Timestamp.now())
+
+    private var ledger: ScenarioLedger = initialLedger()
 
     def commit(
         submitter: Party,
@@ -68,7 +69,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         effectiveAt,
         id,
       ) match {
-        case LookupOk(_, coinst, _) => Some(coinst)
+        case LookupOk(_, coinst, _, _) => Some(coinst)
         case _: LookupContractNotEffective | _: LookupContractNotActive |
             _: LookupContractNotVisible | _: LookupContractNotFound =>
           None

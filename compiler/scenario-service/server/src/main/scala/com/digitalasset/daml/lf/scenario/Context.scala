@@ -140,11 +140,10 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   private val txSeeding =
     crypto.Hash.hashPrivateKey(s"scenario-service")
 
-  private[this] def buildMachine(defn: SDefinition): Speedy.Machine =
-    Speedy.Machine.fromScenarioSExpr(
-      PureCompiledPackages(allSignatures, defns, compilerConfig),
-      defn.body,
-    )
+  private[this] def buildMachine(defn: SDefinition): (Speedy.Machine, PureCompiledPackages) = {
+    val compiledPackages = PureCompiledPackages(allSignatures, defns, compilerConfig)
+    (Speedy.Machine.fromScenarioSExpr(compiledPackages, defn.body), compiledPackages)
+  }
 
   def interpretScenario(
       pkgId: String,

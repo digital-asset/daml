@@ -26,16 +26,24 @@ import scala.util.{Failure, Success, Try}
 /** Speedy scenario runner that uses the reference ledger.
   *
   * @constructor Creates a runner using an instance of [[Speedy.Machine]].
+  * @param machine the machine use to run the scenario
+  * @param compiledPackages the [[CompiledPackages]] with which the machine was built. It needs to be immutable
+  *                         as the [[ledger]] field is build assume the package never change.
+  * @para initialSeed: initialize the internal [[crypto.Hash]] pseudo random generator.
   */
 final class ScenarioRunner private (
     machine: Speedy.Machine,
+    compiledPackages: PureCompiledPackages,
     initialSeed: crypto.Hash,
 ) {
   import ScenarioRunner._
 
   private[this] val nextSeed: () => crypto.Hash = crypto.Hash.secureRandom(initialSeed)
 
-  var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
+  private var _ledger: ScenarioLedger =
+    ScenarioLedger(compiledPackages.packageSignature, Time.Timestamp.Epoch)
+  def ledger: ScenarioLedger = _ledger
+
   var currentSubmission: Option[CurrentSubmission] = None
 
   private def runUnsafe(implicit loggingContext: LoggingContext): ScenarioSuccess = {
@@ -66,7 +74,7 @@ final class ScenarioRunner private (
 
         case SResultScenarioSubmit(committers, commands, location, mustFail, callback) =>
           val submitResult = submit(
-            machine.compiledPackages,
+            compiledPackages,
             ScenarioLedgerApi(ledger),
             committers,
             Set.empty,
@@ -82,14 +90,14 @@ final class ScenarioRunner private (
                 currentSubmission = Some(CurrentSubmission(location, tx))
                 throw scenario.Error.MustFailSucceeded(result.richTransaction.transaction)
               case _: SubmissionError =>
-                ledger = ledger.insertAssertMustFail(committers, Set.empty, location)
+                _ledger = ledger.insertAssertMustFail(committers, Set.empty, location)
                 callback(SValue.SUnit)
             }
           } else {
             submitResult match {
               case Commit(result, value, _) =>
                 currentSubmission = None
-                ledger = result.newLedger
+                _ledger = result.newLedger
                 callback(value)
               case SubmissionError(err, tx) =>
                 currentSubmission = Some(CurrentSubmission(location, tx))
@@ -119,7 +127,7 @@ final class ScenarioRunner private (
     }
 
   private def passTime(delta: Long, callback: Time.Timestamp => Unit) = {
-    ledger = ledger.passTime(delta)
+    _ledger = ledger.passTime(delta)
     callback(ledger.currentTime)
   }
 }
@@ -127,11 +135,11 @@ final class ScenarioRunner private (
 object ScenarioRunner {
 
   def run(
-      buildMachine: () => Speedy.Machine,
+      buildMachine: () => (Speedy.Machine, PureCompiledPackages),
       initialSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): ScenarioResult = {
-    val machine = buildMachine()
-    val runner = new ScenarioRunner(machine, initialSeed)
+    val (machine, compiledPackages) = buildMachine()
+    val runner = new ScenarioRunner(machine, compiledPackages, initialSeed)
     handleUnsafe(runner.runUnsafe) match {
       case Left(err) =>
         val stackTrace =
@@ -224,7 +232,7 @@ object ScenarioRunner {
         effectiveAt = effectiveAt,
         acoid,
       ) match {
-        case ScenarioLedger.LookupOk(_, coinst, _) =>
+        case ScenarioLedger.LookupOk(_, coinst, _, _) =>
           callback(coinst)
 
         case ScenarioLedger.LookupContractNotFound(coid) =>
@@ -280,7 +288,7 @@ object ScenarioRunner {
             effectiveAt = effectiveAt,
             acoid,
           ) match {
-            case ScenarioLedger.LookupOk(_, _, stakeholders) =>
+            case ScenarioLedger.LookupOk(_, _, _, stakeholders) =>
               if (!readers.intersect(stakeholders).isEmpty)
                 // Note that even with a successful global lookup
                 // the callback can return false. This happens for a fetch-by-key
