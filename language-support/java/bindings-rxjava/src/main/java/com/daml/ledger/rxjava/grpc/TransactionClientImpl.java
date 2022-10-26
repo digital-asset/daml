@@ -118,40 +118,6 @@ public final class TransactionClientImpl implements TransactionsClient {
     return getTransactions(contractUtil, begin, parties, verbose, Optional.empty());
   }
 
-  private <Ct> Flowable<Ct> getContracts(
-      ContractUtil<Ct> contractUtil,
-      LedgerOffset begin,
-      Set<String> parties,
-      boolean verbose,
-      Optional<String> accessToken) {
-    TransactionFilter filter = contractUtil.transactionFilter(parties);
-    Flowable<Transaction> transactions = getTransactions(begin, filter, verbose, accessToken);
-    Flowable<CreatedEvent> createdEvents =
-        transactions.concatMapIterable(
-            tx ->
-                tx.getEvents().stream()
-                    .filter(e -> e instanceof CreatedEvent)
-                    .map(e -> (CreatedEvent) e)
-                    .collect(Collectors.toList()));
-    return createdEvents.map(contractUtil::toContract);
-  }
-
-  @Override
-  public <Ct> Flowable<Ct> getContracts(
-      ContractUtil<Ct> contractUtil, LedgerOffset begin, Set<String> parties, boolean verbose) {
-    return getContracts(contractUtil, begin, parties, verbose, Optional.empty());
-  }
-
-  @Override
-  public <Ct> Flowable<Ct> getContracts(
-      ContractUtil<Ct> contractUtil,
-      LedgerOffset begin,
-      Set<String> parties,
-      boolean verbose,
-      String accessToken) {
-    return getContracts(contractUtil, begin, parties, verbose, Optional.of(accessToken));
-  }
-
   private Flowable<TransactionTree> extractTransactionTrees(
       TransactionServiceOuterClass.GetTransactionsRequest request, Optional<String> accessToken) {
     return ClientPublisherFlowable.create(
