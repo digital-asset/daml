@@ -63,17 +63,14 @@ public class IouMain {
         .getActiveContracts(ContractUtil.of(Iou.COMPANION), Collections.singleton(party), true)
         .blockingForEach(
             activeContracts -> {
-              activeContracts
-                  .getOffset()
-                  .ifPresent(offset -> acsOffset.set(new LedgerOffset.Absolute(offset)));
-              activeContracts
-                  .getContracts()
-                  .forEach(
-                      contract -> {
-                        long id = idCounter.getAndIncrement();
-                        contracts.put(id, contract.data);
-                        idMap.put(id, contract.id);
-                      });
+              activeContracts.offset.ifPresent(
+                  offset -> acsOffset.set(new LedgerOffset.Absolute(offset)));
+              activeContracts.activeContracts.forEach(
+                  contract -> {
+                    long id = idCounter.getAndIncrement();
+                    contracts.put(id, contract.data);
+                    idMap.put(id, contract.id);
+                  });
             });
 
     Disposable ignore =

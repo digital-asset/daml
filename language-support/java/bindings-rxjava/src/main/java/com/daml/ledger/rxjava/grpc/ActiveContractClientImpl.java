@@ -75,7 +75,7 @@ public class ActiveContractClientImpl implements ActiveContractsClient {
                   .map(contractUtil::toContract)
                   .collect(Collectors.toList());
           return new ActiveContracts<>(
-              response.getOffset().orElse(""), activeContracts, response.getWorkflowId());
+              response.getOffset(), activeContracts, response.getWorkflowId());
         });
   }
 

@@ -8,35 +8,21 @@ import java.util.Objects;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public final class ActiveContracts<Ct> implements WorkflowEvent {
+public final class ActiveContracts<Ct> {
 
-  private final String offset;
+  public final Optional<String> offset;
 
-  private final List<Ct> activeContracts;
+  public final List<Ct> activeContracts;
 
-  private final String workflowId;
+  public final String workflowId;
 
   public ActiveContracts(
-      @NonNull String offset, @NonNull List<Ct> activeContracts, String workflowId) {
+      @NonNull Optional<String> offset,
+      @NonNull List<Ct> activeContracts,
+      @NonNull String workflowId) {
     this.offset = offset;
     this.activeContracts = activeContracts;
     this.workflowId = workflowId;
-  }
-
-  @NonNull
-  public Optional<String> getOffset() {
-    // Empty string indicates that the field is not present in the protobuf.
-    return Optional.of(offset).filter(off -> !offset.equals(""));
-  }
-
-  @NonNull
-  public List<@NonNull Ct> getContracts() {
-    return activeContracts;
-  }
-
-  @NonNull
-  public String getWorkflowId() {
-    return workflowId;
   }
 
   @Override
@@ -57,7 +43,7 @@ public final class ActiveContracts<Ct> implements WorkflowEvent {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     ActiveContracts<?> that = (ActiveContracts<?>) o;
-    return Objects.equals(offset, that.offset)
+    return offset.equals(that.offset)
         && Objects.equals(activeContracts, that.activeContracts)
         && Objects.equals(workflowId, that.workflowId);
   }
