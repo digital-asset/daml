@@ -3,7 +3,7 @@
 
 package com.daml.ledger.rxjava.grpc;
 
-import static com.daml.ledger.rxjava.grpc.CommandClientImpl.toCommands;
+import static com.daml.ledger.javaapi.data.codegen.HasCommands.toCommands;
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

@@ -3,6 +3,7 @@
 
 package com.daml.ledger.rxjava.grpc;
 
+import static com.daml.ledger.javaapi.data.codegen.HasCommands.toCommands;
 import static java.util.Arrays.asList;
 
 import com.daml.ledger.api.v1.CommandServiceGrpc;
@@ -21,7 +22,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 public class CommandClientImpl implements CommandClient {
@@ -970,9 +970,5 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String accessToken) {
     return submitAndWaitForResult(
         workflowId, applicationId, commandId, actAs, readAs, update, Optional.of(accessToken));
-  }
-
-  static List<Command> toCommands(@NonNull List<@NonNull ? extends HasCommands> hasCommands) {
-    return hasCommands.stream().flatMap(c -> c.commands().stream()).collect(Collectors.toList());
   }
 }
