@@ -168,7 +168,7 @@ class IdeLedgerClient(
             val view: Value = {
               valueTranslator.translateValue(TTyCon(templateId), arg) match {
                 case Left(_) =>
-                  sys.error("queryViewContractId: translateValue failed")
+                  sys.error("queryView: translateValue failed")
 
                 case Right(argument) =>
                   val compiler: speedy.Compiler = compiledPackages.compiler
@@ -185,10 +185,11 @@ class IdeLedgerClient(
                       val value = svalue.toNormalizedValue(version)
                       value
 
-                    case (_: SResultError | _: SResultNeedPackage | _: SResultNeedContract |
+                    case res @ (_: SResultError | _: SResultNeedPackage | _: SResultNeedContract |
                         _: SResultNeedKey | _: SResultNeedTime | _: SResultScenarioGetParty |
                         _: SResultScenarioPassTime | _: SResultScenarioSubmit) =>
-                      sys.error("queryViewContractId: expected SResultFinal")
+                      // NICK: this error will happen if templateId does not support interfaceId. make it work!
+                      sys.error(s"queryView: expected SResultFinal: $res")
                   }
               }
             }
