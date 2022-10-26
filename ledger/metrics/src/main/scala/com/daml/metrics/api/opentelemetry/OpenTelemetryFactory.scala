@@ -21,6 +21,7 @@ import io.opentelemetry.api.metrics.{
 trait OpenTelemetryFactory extends Factory {
 
   def otelMeter: OtelMeter
+
   override def timer(
       name: MetricName
   )(implicit
@@ -99,6 +100,7 @@ trait OpenTelemetryFactory extends Factory {
       // NoOp as opentelemetry only supports longs and doubles
     }
   }
+
   override def meter(name: MetricName)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): Meter = OpentelemetryMeter(
@@ -106,6 +108,7 @@ trait OpenTelemetryFactory extends Factory {
     otelMeter.counterBuilder(name).build(),
     context,
   )
+
   override def counter(name: MetricName)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Counter = OpentelemetryCounter(
@@ -113,6 +116,7 @@ trait OpenTelemetryFactory extends Factory {
     otelMeter.upDownCounterBuilder(name).build(),
     context,
   )
+
   override def histogram(name: MetricName)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Histogram = OpentelemetryHistogram(
@@ -120,17 +124,18 @@ trait OpenTelemetryFactory extends Factory {
     otelMeter.histogramBuilder(name).ofLongs().build(),
     context,
   )
+
 }
 
-case class OpentelemetryTimer(name: String, histogram: LongHistogram, timerContext: MetricsContext)
-    extends Timer {
+case class OpentelemetryTimer(name: String, histogram: LongHistogram, timerContext: MetricsContext) extends Timer {
 
   override def update(duration: Long, unit: TimeUnit)(implicit
       context: MetricsContext
   ): Unit =
     histogram.record(
       TimeUnit.MILLISECONDS.convert(duration, unit),
-      AttributesHelper.multiContextAsAttributes(context, timerContext),
+
+  AttributesHelper.multiContextAsAttributes(context, timerContext),
     )
   override def time[T](call: => T)(implicit
       context: MetricsContext
@@ -143,6 +148,7 @@ case class OpentelemetryTimer(name: String, histogram: LongHistogram, timerConte
     )
     result
   }
+
   override def startAsync()(implicit
       context: MetricsContext
   ): TimerHandle = {
@@ -153,18 +159,23 @@ case class OpentelemetryTimer(name: String, histogram: LongHistogram, timerConte
         AttributesHelper.multiContextAsAttributes(context, timerContext),
       )
   }
+
   override def update(duration: Duration)(implicit
       context: MetricsContext
   ): Unit = update(duration.toNanos, TimeUnit.NANOSECONDS)
 }
 
 case class OpentelemetryGauge[T](name: String, varGauge: VarGauge[T]) extends Gauge[T] {
+
   override def updateValue(newValue: T): Unit = varGauge.updateValue(newValue)
+
   override def getValue: T = varGauge.getValue
+
 }
 
 case class OpentelemetryMeter(name: String, counter: LongCounter, meterContext: MetricsContext)
     extends Meter {
+
   override def mark(value: Long)(implicit
       context: MetricsContext
   ): Unit = counter.add(value, AttributesHelper.multiContextAsAttributes(meterContext, context))
@@ -175,30 +186,36 @@ case class OpentelemetryCounter(
     counter: LongUpDownCounter,
     counterContext: MetricsContext,
 ) extends Counter {
+
   override def inc()(implicit
       context: MetricsContext
   ): Unit = counter.add(1, AttributesHelper.multiContextAsAttributes(counterContext, context))
+
   override def inc(n: Long)(implicit
       context: MetricsContext
   ): Unit = counter.add(n, AttributesHelper.multiContextAsAttributes(counterContext, context))
+
   override def dec()(implicit
       context: MetricsContext
   ): Unit = counter.add(-1, AttributesHelper.multiContextAsAttributes(counterContext, context))
+
   override def dec(n: Long)(implicit
       context: MetricsContext
   ): Unit = counter.add(-n, AttributesHelper.multiContextAsAttributes(counterContext, context))
   override def getCount: Long = 0 // Not supported by OpenTelemetry
+
 }
 
 case class OpentelemetryHistogram(
     name: String,
     histogram: LongHistogram,
-    histogramContext: MetricsContext,
-) extends Histogram {
+    histogramContext: MetricsContext,) extends Histogram {
+
   override def update(value: Long)(implicit
       context: MetricsContext
   ): Unit =
     histogram.record(value, AttributesHelper.multiContextAsAttributes(histogramContext, context))
+
   override def update(value: Int)(implicit
       context: MetricsContext
   ): Unit = histogram.record(
