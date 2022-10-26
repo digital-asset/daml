@@ -127,7 +127,7 @@ class DevOnly
         } yield {
           transactionEvents.size shouldBe 2
           val Seq(templateATransactionId, templateBTransactionId) =
-            transactionEvents.keys.toSeq.sortWith(_ < _)
+            transactionEvents.keys.toSeq.sorted
           transactionEvents(templateATransactionId) shouldHaveCreateArgumentsFor templateA
           transactionEvents(templateATransactionId) shouldHaveViewValues (0, visibleViaAllInDar)
           transactionEvents(templateBTransactionId) shouldHaveCreateArgumentsFor templateB
@@ -210,7 +210,7 @@ class DevOnly
         } yield {
           transactionEvents.size shouldBe 2
           val Seq(templateATransactionId, templateBTransactionId) =
-            transactionEvents.keys.toSeq.sortWith(_ < _)
+            transactionEvents.keys.toSeq.sorted
           transactionEvents(templateATransactionId) shouldHaveCreateArgumentsFor templateA
           transactionEvents(templateATransactionId) shouldHaveViewValues (0, visibleViaTemplateA)
           transactionEvents(templateBTransactionId) shouldHaveNoCreateArgumentsFor templateB
@@ -293,7 +293,7 @@ class DevOnly
         } yield {
           transactionEvents.size shouldBe 2
           val Seq(templateATransactionId, templateBTransactionId) =
-            transactionEvents.keys.toSeq.sortWith(_ < _)
+            transactionEvents.keys.toSeq.sorted
           transactionEvents(templateATransactionId) shouldHaveNoCreateArgumentsFor templateA
           transactionEvents(templateATransactionId) shouldHaveViewValues (0, visibleViaInterfaceI)
           transactionEvents(templateBTransactionId) shouldHaveNoCreateArgumentsFor templateB

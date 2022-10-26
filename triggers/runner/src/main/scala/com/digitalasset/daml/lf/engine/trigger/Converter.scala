@@ -59,12 +59,9 @@ final class Converter(
 
   private[this] val triggerIds: TriggerIds = triggerDef.triggerIds
 
-  private[this] val templateTypeRepTyCon = DA.Internal.Any.assertIdentifier("TemplateTypeRep")
-  private[this] val anyTemplateTyCon = DA.Internal.Any.assertIdentifier("AnyTemplate")
-  // TODO: https://github.com/digital-asset/daml/issues/14830
-  // replace by DA.Internal.Any.AnyView.AnyView once it is introduced as stable package
-  private[this] val anyViewTyCon = DA.Internal.Any.assertIdentifier("AnyView")
-
+  private[this] val templateTypeRepTyCon = DA.Internal.Any.TemplateTypeRep
+  private[this] val anyTemplateTyCon = DA.Internal.Any.AnyTemplate
+  private[this] val anyViewTyCon = DA.Internal.Interface.AnyView.Types.AnyView
   private[this] val activeContractsTy = triggerIds.damlTriggerLowLevel("ActiveContracts")
   private[this] val anyContractIdTy = triggerIds.damlTriggerLowLevel("AnyContractId")
   private[this] val archivedTy = triggerIds.damlTriggerLowLevel("Archived")

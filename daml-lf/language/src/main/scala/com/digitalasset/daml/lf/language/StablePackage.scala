@@ -114,7 +114,9 @@ private[daml] object StablePackage {
                 "DA.Internal.Interface.AnyView.Types",
                 "6df2d1fd8ea994ed048a79587b2722e3a887ac7592abf31ecf46fe09ac02d689",
                 "daml-stdlib",
-              )
+              ) {
+            val AnyView: TypeConName = assertIdentifier("AnyView")
+          }
         }
       }
     }
