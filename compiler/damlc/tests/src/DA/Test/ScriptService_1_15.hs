@@ -105,6 +105,15 @@ main =
                     , "    interface instance MyInterface for MyTemplate where"
                     , "      view = MyView { info = 100 + v }"
 
+                    , "template SecondTemplate"
+                    , "  with"
+                    , "    p : Party"
+                    , "    v : Int"
+                    , "  where"
+                    , "    signatory p"
+                    , "    interface instance MyInterface for SecondTemplate where"
+                    , "      view = MyView { info = 200 + v }"
+
                     , "template OtherTemplate"
                     , "  with"
                     , "    p : Party"
@@ -118,22 +127,28 @@ main =
 
                     , "  cid1 <- submit p do createCmd (MyTemplate p 42)"
                     , "  cid2 <- submit p do createCmd (MyTemplate p 43)"
-                    -- , "  cid3 <- submit p do createCmd (OtherTemplate p 77)" -- NICK: make it work despite a contract instance for a template which does not support MyInterface
+                    , "  cid3 <- submit p do createCmd (SecondTemplate p 44)"
+                    -- , "  cid4 <- submit p do createCmd (OtherTemplate p 77)" -- NICK: make it work despite a contract instance for a template which does not support MyInterface
 
-                    , "  let iid1 : ContractId MyInterface = toInterfaceContractId @MyInterface cid1"
-                    , "  let iid2 : ContractId MyInterface = toInterfaceContractId @MyInterface cid2"
+                    , "  let iid1 = toInterfaceContractId @MyInterface cid1"
+                    , "  let iid2 = toInterfaceContractId @MyInterface cid2"
+                    , "  let iid3 = toInterfaceContractId @MyInterface cid3"
 
                     , "  Some v <- queryViewContractId p iid1"
                     , "  v.info === 142"
                     , "  Some v <- queryViewContractId p iid2"
                     , "  v.info === 143"
+                    , "  Some v <- queryViewContractId p iid3"
+                    , "  v.info === 244"
 
                     -- NICK: fix test fragility: dont depend on order of returned list
-                    , "  [(i1,v1),(i2,v2)] <- queryView @MyInterface p"
+                    , "  [(i1,v1),(i2,v2),(i3,v3)] <- queryView @MyInterface p"
                     , "  i1 === iid1"
                     , "  i2 === iid2"
+                    , "  i3 === iid3"
                     , "  v1.info === 142"
                     , "  v2.info === 143"
+                    , "  v3.info === 244"
 
                     , "  pure ()"
                     ]
