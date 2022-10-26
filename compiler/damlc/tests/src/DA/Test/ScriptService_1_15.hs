@@ -111,17 +111,13 @@ main =
                     , "  let (Some r) = optR"
                     , "  r === MyTemplate p 42"
                     , "  let iid : ContractId MyInterface = toInterfaceContractId @MyInterface cid"
+
                     , "  Some v <- queryViewContractId p iid"
                     , "  v.info === 142"
 
-                    -- NICK: this is what we want to test...
---                    , "  [(i1,v1)] <- queryView @MyInterface p"
---                    , "  i1 === iid"
---                    , "  v1.info === 42"
-
-                    , "  [(s1,v1)] <- queryView @MyInterface p" -- NICK: temp
-                    , "  s1 === \"string-pretending-to-be-a-cid\""
-                    , "  v1.info === 65169"
+                    , "  [(i1,v1)] <- queryView @MyInterface p"
+                    , "  i1 === iid"
+                    , "  v1.info === 142"
 
                     , "  pure ()"
                     ]

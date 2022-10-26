@@ -229,13 +229,11 @@ data QueryViewPayload a = QueryViewPayload
 
 -- | Query the set of active contracts views for an interface
 -- that are visible to the given party.
---queryView : forall i v p. (TemplateOrInterface i, HasInterfaceView i v, IsParties p) => p -> Script [(ContractId i, v)]
-queryView : forall i v p. (TemplateOrInterface i, HasInterfaceView i v, IsParties p) => p -> Script [(Text,v)] -- NICK: temp
+queryView : forall i v p. (TemplateOrInterface i, HasInterfaceView i v, IsParties p) => p -> Script [(ContractId i, v)]
 queryView p = lift $ Free $ QueryView QueryViewPayload with
   parties = toParties p
   interfaceId = templateTypeRep @i
---  continue = pure . map (fromLedgerValue @(ContractId i, v))
-  continue = pure . map (fromLedgerValue @(Text, v)) -- NICK: temp
+  continue = pure . map (fromLedgerValue @(ContractId i, v))
   locations = getCallStack callStack
 
 data QueryViewContractIdPayload a = QueryViewContractIdPayload

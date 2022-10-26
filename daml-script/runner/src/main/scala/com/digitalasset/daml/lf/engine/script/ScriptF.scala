@@ -286,7 +286,7 @@ object ScriptF {
         list <- Converter.toFuture(
           list
             .to(FrontStack)
-            .traverse { case (pretendCid, view) =>
+            .traverse { case (cid, view) =>
               for {
                 view <- Converter.fromInterfaceView(
                   env.valueTranslator,
@@ -294,7 +294,7 @@ object ScriptF {
                   view,
                 )
               } yield {
-                makePair(SText(pretendCid), view)
+                makePair(SContractId(cid), view)
               }
             }
         )
