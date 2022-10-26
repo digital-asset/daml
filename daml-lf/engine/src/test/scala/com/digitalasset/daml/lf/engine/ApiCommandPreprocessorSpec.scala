@@ -164,8 +164,6 @@ class ApiCommandPreprocessorSpec
         // TEST_EVIDENCE: Integrity: ill-formed exercise API command is rejected
         validExeTemplate.copy(typeId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
-        validExeTemplate.copy(typeId = "Mod:Undefined") ->
-          a[Error.Preprocessing.Lookup],
         validExeTemplate.copy(choiceId = "Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExeTemplate.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
