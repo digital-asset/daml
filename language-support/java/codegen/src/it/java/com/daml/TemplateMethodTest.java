@@ -70,7 +70,10 @@ public class TemplateMethodTest {
 
     assertNotNull(fromSplatted, "Update<R> from splatted choice was null");
     assertNotNull(fromRecord, "Update<R> from record choice was null");
-    assertEquals(fromRecord, fromSplatted, "Update<R> from both methods are not the same");
+    assertEquals(
+        fromRecord.commands(),
+        fromSplatted.commands(),
+        "Update<R> commands from both methods are not the same");
 
     assertEquals(
         1,
