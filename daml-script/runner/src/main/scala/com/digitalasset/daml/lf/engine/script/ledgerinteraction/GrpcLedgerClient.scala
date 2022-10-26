@@ -313,7 +313,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
         } yield Command().withExercise(
           // TODO: https://github.com/digital-asset/daml/issues/14747
           //  Fix once the new field interface_id have been added to the API Exercise Command
-          ExerciseCommand(Some(toApiIdentifier(typeId.merge)), contractId.coid, choice, Some(arg))
+          ExerciseCommand(Some(toApiIdentifier(typeId)), contractId.coid, choice, Some(arg))
         )
       case command.ExerciseByKeyCommand(templateId, key, choice, argument) =>
         for {

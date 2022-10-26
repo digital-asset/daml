@@ -260,9 +260,7 @@ class JsonLedgerClient(
             case command.CreateCommand(tplId, argument) =>
               create(tplId, argument, partySets)
             case command.ExerciseCommand(typeId, cid, choice, argument) =>
-              // TODO: https://github.com/digital-asset/daml/issues/14747
-              //  Fix once Json API distinguish between template and interfaceId within Exercise Command
-              exercise(typeId.merge, cid, choice, argument, partySets)
+              exercise(typeId, cid, choice, argument, partySets)
             case command.ExerciseByKeyCommand(tplId, key, choice, argument) =>
               exerciseByKey(tplId, key, choice, argument, partySets)
             case command.CreateAndExerciseCommand(tplId, template, choice, argument) =>
@@ -283,10 +281,10 @@ class JsonLedgerClient(
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
-    submit(actAs, readAs, commands, optLocation).map({
+    submit(actAs, readAs, commands, optLocation).map {
       case Right(_) => Left(())
       case Left(_) => Right(())
-    })
+    }
   }
 
   override def submitTree(
