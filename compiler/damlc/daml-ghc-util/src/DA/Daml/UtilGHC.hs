@@ -70,8 +70,8 @@ pattern ModuleIn u n <- (\m -> (moduleUnitId m, GHC.moduleNameFS (GHC.moduleName
 -- builtin unit id patterns
 pattern DamlPrim, DamlStdlib :: GHC.UnitId
 pattern DamlPrim <- ((== primUnitId) -> True)
-pattern DamlStdlib <- (T.stripPrefix "daml-stdlib-" . fsToText . unitIdFS -> Just _)
-    -- The unit name for daml-stdlib includes the SDK version.
+pattern DamlStdlib <- (T.stripPrefix "daml-stdlib" . fsToText . unitIdFS -> Just _)
+    -- The unit name for daml-stdlib used to include the SDK version.
     -- This pattern accepts all SDK versions for daml-stdlib.
 
 pattern IgnoreWorkerPrefix :: T.Text -> T.Text

@@ -115,7 +115,7 @@ mvnVersion :: String
 mvnVersion = "{mvn}"
 
 damlStdlib :: UnitId
-damlStdlib = stringToUnitId ("daml-stdlib-" ++ "{ghc}")
+damlStdlib = stringToUnitId "daml-stdlib"
 EOF
     """.format(
         ghc = ghc_version,
