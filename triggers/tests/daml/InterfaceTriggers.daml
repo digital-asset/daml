@@ -5,10 +5,10 @@ module InterfaceTriggers where
 
 import Daml.Trigger
 
-data EmptyInterfaceView = EmptyInterfaceView {}
+data View = View { num: Int, label: Text }
 
 interface I where
-  viewtype EmptyInterfaceView
+  viewtype View
 
   getOwner: Party
   getTag: Text
@@ -20,7 +20,9 @@ template A
   where
     signatory owner
     interface instance I for A where
-      view = EmptyInterfaceView
+      view = View with
+        num = 0
+        label = tag
 
       getOwner = owner
       getTag = tag
@@ -32,7 +34,9 @@ template B
   where
     signatory owner
     interface instance I for B where
-      view = EmptyInterfaceView
+      view = View with
+         num = 1
+         label = tag
 
       getOwner = owner
       getTag = tag
@@ -63,4 +67,18 @@ triggerWithRegistration = Trigger with
     debug "triggerWithRegistration rule"
     pure ()
   registeredTemplates = RegisteredTemplates [registeredTemplate @A, registeredTemplate @I]
+  heartbeat = None
+
+interfaceOnlyTrigger: Trigger ()
+interfaceOnlyTrigger = Trigger with
+  initialize = do
+    debug "interfaceOnlyTrigger initialize"
+    pure ()
+  updateState = \_ -> do
+    debug "interfaceOnlyTrigger updateState"
+    pure ()
+  rule = \_ -> do
+    debug "interfaceOnlyTrigger rule"
+    pure ()
+  registeredTemplates = RegisteredTemplates [registeredTemplate @I]
   heartbeat = None

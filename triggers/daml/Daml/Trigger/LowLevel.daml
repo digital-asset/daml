@@ -46,6 +46,7 @@ module Daml.Trigger.LowLevel
 import DA.Action.State
 import DA.Action.State.Class
 import DA.Functor ((<&>))
+import DA.Internal.Interface.AnyView.Types
 import DA.Time (RelTime(..))
 import Daml.Script.Free (Free(..), lift, foldFree)
 
@@ -94,10 +95,6 @@ data Transaction = Transaction
  , commandId : Optional CommandId
  , events : [Event]
  }
-
--- TODO: https://github.com/digital-asset/daml/issues/14830
--- replace by DA.Internal.Any.AnyView.AnyView once it is introduced as stable package
-type AnyView = ()
 
 data InterfaceView = InterfaceView {
   interfaceTypeRep : TemplateTypeRep,
