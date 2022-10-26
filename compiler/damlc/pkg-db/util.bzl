@@ -55,6 +55,8 @@ def _daml_package_rule_impl(ctx):
         command = """
         if [ "daml-prim" = {pkg_name} ]; then
           echo {pkg_name} > {pkg_name_version_file}
+        elif [ "daml-stdlib" = {pkg_name} ]; then
+          echo {pkg_name} > {pkg_name_version_file}
         else
           echo {pkg_name}-{version} > {pkg_name_version_file}
         fi

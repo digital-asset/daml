@@ -305,7 +305,7 @@ packageMetadataFromFile :: FilePath -> Package -> PackageId -> (PackageName, May
 packageMetadataFromFile file pkg pkgId
     | Just (PackageMetadata name version) <- packageMetadata pkg =
           -- GHC insists on daml-prim not having a version so we filter it out.
-          (name, version <$ guard (name /= PackageName "daml-prim"))
+          (name, version <$ guard (name `notElem` fmap PackageName ["daml-prim", "daml-stdlib"]))
     | otherwise = splitUnitId (unitIdFromFile file pkgId)
 
 -- Get the name of a file and an expeted package id of the package, get the unit id
