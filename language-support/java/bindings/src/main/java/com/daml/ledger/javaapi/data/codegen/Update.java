@@ -4,8 +4,6 @@
 package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.Command;
-import com.daml.ledger.javaapi.data.CreatedEvent;
-import com.daml.ledger.javaapi.data.ExercisedEvent;
 import java.util.List;
 import java.util.function.Function;
 
@@ -22,10 +20,11 @@ public abstract class Update<U> implements HasCommands {
   }
 
   /**
-   * <strong>INTERNAL API</strong>: this is meant for use by <a
-   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
-   * and <em>should not be instantiated directly</em>. Applications should only obtain this {@link
-   * Update} instantiated generated java classes by calling create and exercise methods.
+   * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
+   *     href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code
+   *     generator</a>, and <em>should not be instantiated directly</em>. Applications should only
+   *     obtain this {@link Update} instantiated generated java classes by calling create and
+   *     exercise methods.
    */
   public static final class ExerciseUpdate<R, U> extends Update<U> {
     public final Function<Exercised<R>, U> k;
@@ -40,10 +39,11 @@ public abstract class Update<U> implements HasCommands {
   }
 
   /**
-   * <strong>INTERNAL API</strong>: this is meant for use by <a
-   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
-   * and <em>should not be instantiated directly</em>. Applications should only obtain this {@link
-   * Update} instantiated generated java classes by calling create and exercise methods.
+   * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
+   *     href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code
+   *     generator</a>, and <em>should not be instantiated directly</em>. Applications should only
+   *     obtain this {@link Update} instantiated generated java classes by calling create and
+   *     exercise methods.
    */
   public static final class CreateUpdate<CtId, U> extends Update<U> {
     public final Function<Created<CtId>, U> k;
@@ -57,11 +57,27 @@ public abstract class Update<U> implements HasCommands {
     }
   }
 
-  public abstract static class FoldUpdate<Z> {
-    public abstract <CtId> Z created(
-        Update.CreateUpdate<CtId, Z> create, CreatedEvent createdEvent);
+  /**
+   * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
+   *     href="https://docs.daml.com/app-dev/bindings-java/index.html">the Java Bindings</a>, and
+   *     <em>should not be instantiated directly</em>.
+   */
+  public abstract static class FoldUpdate<U, Z> {
+    public abstract <CtId> Z created(CreateUpdate<CtId, U> create);
 
-    public abstract <R> Z exercised(
-        Update.ExerciseUpdate<R, Z> exercise, ExercisedEvent exercisedEvent);
+    public abstract <R> Z exercised(ExerciseUpdate<R, U> exercise);
+  }
+
+  /**
+   * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
+   *     href="https://docs.daml.com/app-dev/bindings-java/index.html">the Java Bindings</a>, and
+   *     <em>should not be called directly</em>.
+   */
+  public <Z> Z foldUpdate(FoldUpdate<U, Z> foldUpdate) {
+    if (this instanceof CreateUpdate) {
+      return foldUpdate.created((CreateUpdate<?, U>) this);
+    } else if (this instanceof ExerciseUpdate) {
+      return foldUpdate.exercised((ExerciseUpdate<?, U>) this);
+    } else throw new IllegalArgumentException("Unexpected type of Update: " + this);
   }
 }

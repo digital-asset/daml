@@ -892,54 +892,6 @@ public class CommandClientImpl implements CommandClient {
             new IllegalArgumentException("Expect an exercised event but not found. tx: " + txTree));
   }
 
-  private <U> Single<U> foldUpdate(
-      String workflowId,
-      String applicationId,
-      String commandId,
-      List<String> actAs,
-      List<String> readAs,
-      Update<U> update,
-      Optional<String> accessToken,
-      Update.FoldUpdate<U> foldUpdate) {
-    if (update instanceof Update.CreateUpdate) {
-      var transaction =
-          submitAndWaitForTransaction(
-              workflowId,
-              applicationId,
-              commandId,
-              actAs,
-              readAs,
-              Optional.empty(),
-              Optional.empty(),
-              Optional.empty(),
-              update.commands(),
-              accessToken);
-      return transaction.map(
-          tx -> {
-            var createdEvent = singleCreatedEvent(tx.getEvents());
-            return foldUpdate.created((Update.CreateUpdate<?, U>) update, createdEvent);
-          });
-    } else if (update instanceof Update.ExerciseUpdate) {
-      var transactionTree =
-          submitAndWaitForTransactionTree(
-              workflowId,
-              applicationId,
-              commandId,
-              actAs,
-              readAs,
-              Optional.empty(),
-              Optional.empty(),
-              Optional.empty(),
-              update.commands(),
-              accessToken);
-      return transactionTree.map(
-          txTree -> {
-            var exercisedEvent = firstExercisedEvent(txTree);
-            return foldUpdate.exercised((Update.ExerciseUpdate<?, U>) update, exercisedEvent);
-          });
-    } else throw new IllegalArgumentException("Unexpected type of Update: " + update);
-  }
-
   private <U> Single<U> submitAndWaitForResult(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -948,25 +900,49 @@ public class CommandClientImpl implements CommandClient {
       @NonNull List<@NonNull String> readAs,
       @NonNull Update<U> update,
       @NonNull Optional<String> accessToken) {
-    return foldUpdate(
-        workflowId,
-        applicationId,
-        commandId,
-        actAs,
-        readAs,
-        update,
-        accessToken,
+    return update.foldUpdate(
         new Update.FoldUpdate<>() {
           @Override
-          public <CtId> U created(Update.CreateUpdate<CtId, U> create, CreatedEvent createdEvent) {
-            return create.k.apply(Created.fromEvent(create.createdContractId, createdEvent));
+          public <CtId> Single<U> created(Update.CreateUpdate<CtId, U> create) {
+            var transaction =
+                submitAndWaitForTransaction(
+                    workflowId,
+                    applicationId,
+                    commandId,
+                    actAs,
+                    readAs,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    update.commands(),
+                    accessToken);
+            return transaction.map(
+                tx -> {
+                  var createdEvent = singleCreatedEvent(tx.getEvents());
+                  return create.k.apply(Created.fromEvent(create.createdContractId, createdEvent));
+                });
           }
 
           @Override
-          public <R> U exercised(
-              Update.ExerciseUpdate<R, U> exercise, ExercisedEvent exercisedEvent) {
-            return exercise.k.apply(
-                Exercised.fromEvent(exercise.returnTypeDecoder, exercisedEvent));
+          public <R> Single<U> exercised(Update.ExerciseUpdate<R, U> exercise) {
+            var transactionTree =
+                submitAndWaitForTransactionTree(
+                    workflowId,
+                    applicationId,
+                    commandId,
+                    actAs,
+                    readAs,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    update.commands(),
+                    accessToken);
+            return transactionTree.map(
+                txTree -> {
+                  var exercisedEvent = firstExercisedEvent(txTree);
+                  return exercise.k.apply(
+                      Exercised.fromEvent(exercise.returnTypeDecoder, exercisedEvent));
+                });
           }
         });
   }
