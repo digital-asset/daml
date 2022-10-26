@@ -4,6 +4,7 @@
 package com.daml.ledger.rxjava;
 
 import com.daml.ledger.javaapi.data.ActiveContracts;
+import com.daml.ledger.javaapi.data.ContractUtil;
 import com.daml.ledger.javaapi.data.GetActiveContractsResponse;
 import com.daml.ledger.javaapi.data.TransactionFilter;
 import io.reactivex.Flowable;

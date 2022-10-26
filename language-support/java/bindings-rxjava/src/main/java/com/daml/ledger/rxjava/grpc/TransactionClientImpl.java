@@ -7,7 +7,6 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory;
 import com.daml.ledger.api.v1.TransactionServiceGrpc;
 import com.daml.ledger.api.v1.TransactionServiceOuterClass;
 import com.daml.ledger.javaapi.data.*;
-import com.daml.ledger.rxjava.ContractUtil;
 import com.daml.ledger.rxjava.TransactionsClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
@@ -17,7 +16,6 @@ import io.reactivex.Single;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Future;
-import java.util.stream.Collectors;
 
 public final class TransactionClientImpl implements TransactionsClient {
   private final String ledgerId;

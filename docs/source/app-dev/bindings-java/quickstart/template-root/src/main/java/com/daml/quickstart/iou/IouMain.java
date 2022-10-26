@@ -5,7 +5,6 @@ package com.daml.quickstart.iou;
 
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.codegen.Update;
-import com.daml.ledger.rxjava.ContractUtil;
 import com.daml.ledger.rxjava.DamlLedgerClient;
 import com.daml.ledger.rxjava.LedgerClient;
 import com.daml.quickstart.model.iou.Iou;
