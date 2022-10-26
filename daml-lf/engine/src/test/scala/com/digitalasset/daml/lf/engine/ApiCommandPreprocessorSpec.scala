@@ -119,7 +119,7 @@ class ApiCommandPreprocessorSpec
       )
       // TEST_EVIDENCE: Integrity: well formed exercise API command is accepted
       val validExeTemplate = ApiCommand.Exercise(
-        TemplateOrInterface.Template("Mod:Record"),
+        "Mod:Record",
         newCid,
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
@@ -133,7 +133,7 @@ class ApiCommandPreprocessorSpec
       )
       // TEST_EVIDENCE: Integrity: well formed exercise-by-interface command is accepted
       val validExeInterface = ApiCommand.Exercise(
-        TemplateOrInterface.Interface("Mod:Iface"),
+        "Mod:Iface",
         newCid,
         "IfaceChoice",
         ValueUnit,
@@ -162,9 +162,9 @@ class ApiCommandPreprocessorSpec
         validCreate.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
         // TEST_EVIDENCE: Integrity: ill-formed exercise API command is rejected
-        validExeTemplate.copy(typeId = TemplateOrInterface.Template("Mod:Undefined")) ->
+        validExeTemplate.copy(typeId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
-        validExeTemplate.copy(typeId = TemplateOrInterface.Interface("Mod:Undefined")) ->
+        validExeTemplate.copy(typeId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExeTemplate.copy(choiceId = "Undefined") ->
           a[Error.Preprocessing.Lookup],
@@ -217,13 +217,13 @@ class ApiCommandPreprocessorSpec
         ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(culpritCid))),
       ),
       ApiCommand.Exercise(
-        TemplateOrInterface.Template("Mod:RecordRef"),
+        "Mod:RecordRef",
         innocentCid,
         "Change",
         ValueContractId(culpritCid),
       ),
       ApiCommand.Exercise(
-        TemplateOrInterface.Template("Mod:RecordRef"),
+        "Mod:RecordRef",
         culpritCid,
         "Change",
         ValueContractId(innocentCid),

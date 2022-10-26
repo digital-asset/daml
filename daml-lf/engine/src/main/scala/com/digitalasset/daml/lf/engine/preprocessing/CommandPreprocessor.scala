@@ -53,24 +53,17 @@ private[lf] final class CommandPreprocessor(
   }
 
   def unsafePreprocessExercise(
-      typeId: data.TemplateOrInterface[Ref.Identifier, Ref.Identifier],
+      typeId: Ref.Identifier,
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
-  ): speedy.Command = typeId match {
-    // TODO: https://github.com/digital-asset/daml/issues/14747
-    //  In order to split the issue in several PRs, we allow abusing the templateId case as an interface.
-    //  We will change once we have added the interface_id field to the legder API Exercise command
-    case TemplateOrInterface.Template(templateId) =>
-      handleLookup(pkgInterface.lookupTemplateOrInterface(templateId)) match {
-        case TemplateOrInterface.Template(_) =>
-          unsafePreprocessExerciseTemplate(templateId, contractId, choiceId, argument)
-        case TemplateOrInterface.Interface(_) =>
-          unsafePreprocessExerciseInterface(templateId, contractId, choiceId, argument)
-      }
-    case TemplateOrInterface.Interface(ifaceId) =>
-      unsafePreprocessExerciseInterface(ifaceId, contractId, choiceId, argument)
-  }
+  ): speedy.Command =
+    handleLookup(pkgInterface.lookupTemplateOrInterface(typeId)) match {
+      case TemplateOrInterface.Template(_) =>
+        unsafePreprocessExerciseTemplate(typeId, contractId, choiceId, argument)
+      case TemplateOrInterface.Interface(_) =>
+        unsafePreprocessExerciseInterface(typeId, contractId, choiceId, argument)
+    }
 
   def unsafePreprocessExerciseTemplate(
       templateId: Ref.Identifier,
