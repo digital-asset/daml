@@ -508,7 +508,9 @@ setupDamlGHC mbProjectRoot options@Options{..} = do
 --    * thisInstalledUnitId not contained in loaded packages.
 checkDFlags :: Options -> DynFlags -> IO DynFlags
 checkDFlags Options {..} dflags@DynFlags {..}
-    | not optDflagCheck || thisInstalledUnitId == toInstalledUnitId primUnitId =
+    | not optDflagCheck
+    || thisInstalledUnitId == toInstalledUnitId primUnitId
+    || thisInstalledUnitId == toInstalledUnitId damlStdlib =
         pure dflags
     | otherwise = do
         case lookupPackage dflags $
