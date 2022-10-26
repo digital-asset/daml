@@ -775,7 +775,7 @@ tests tools = testGroup "Data Dependencies" $
 
               -- Regression for issue https://github.com/digital-asset/daml/issues/9663
               -- Constraint tuple functions
-              , "constraintTupleFn : (Template t, Show t) => t -> ()"
+              , "constraintTupleFn : (HasSignatory t, Show t) => t -> ()"
               , "constraintTupleFn = const ()"
               , "type BigConstraint a b c = (Show a, Show b, Show c, Additive c)"
               , "bigConstraintFn : BigConstraint a b c => a -> b -> c -> c -> Text"
@@ -854,7 +854,7 @@ tests tools = testGroup "Data Dependencies" $
               , "usesHasFieldEmptyIndirectly : HasField \"\" a b => a -> b"
               , "usesHasFieldEmptyIndirectly = usesHasFieldEmpty"
               -- use constraint tuple fn
-              , "useConstraintTupleFn : (Template t, Show t) => t -> ()"
+              , "useConstraintTupleFn : (HasSignatory t, Show t) => t -> ()"
               , "useConstraintTupleFn x = constraintTupleFn x"
               , "useBigConstraintFn : Text"
               , "useBigConstraintFn = bigConstraintFn True \"Hello\" 10 20"
