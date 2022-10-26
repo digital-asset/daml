@@ -128,7 +128,7 @@ main =
                     , "  cid1 <- submit p do createCmd (MyTemplate p 42)"
                     , "  cid2 <- submit p do createCmd (MyTemplate p 43)"
                     , "  cid3 <- submit p do createCmd (SecondTemplate p 44)"
-                    -- , "  cid4 <- submit p do createCmd (OtherTemplate p 77)" -- NICK: make it work despite a contract instance for a template which does not support MyInterface
+                    , "  cid4 <- submit p do createCmd (OtherTemplate p 77)"
 
                     , "  let iid1 = toInterfaceContractId @MyInterface cid1"
                     , "  let iid2 = toInterfaceContractId @MyInterface cid2"

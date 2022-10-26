@@ -14,6 +14,7 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
+import com.daml.lf.speedy.SBuiltin
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
@@ -138,6 +139,13 @@ class IdeLedgerClient(
       interfaceId: Identifier,
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Value)]] = {
 
+    def implementsInterface(templateId: TypeConName): Boolean = {
+      // NICK: avoid need for machine, and hence need for dummy-expression.
+      val sexpr = speedy.SExpr.SEValue(SValue.SText("dummy-expression"))
+      val machine = Machine.fromPureSExpr(compiledPackages, sexpr)(Script.DummyLoggingContext)
+      SBuiltin.interfaceInstanceExists(machine, interfaceId, templateId)
+    }
+
     // NICK: dedup with query
     val acs: Seq[ScenarioLedger.LookupOk] = ledger.query(
       view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
@@ -146,9 +154,9 @@ class IdeLedgerClient(
     val filtered: Seq[(ContractId, Value.ContractInstance)] = acs.collect {
       case ScenarioLedger.LookupOk(
             cid,
-            Versioned(_, contractInstance),
+            Versioned(_, contractInstance @ Value.ContractInstance(templateId, _, _)),
             stakeholders,
-          ) if parties.any(stakeholders.contains(_)) =>
+          ) if implementsInterface(templateId) && parties.any(stakeholders.contains(_)) =>
         (cid, contractInstance)
     }
 
@@ -172,8 +180,6 @@ class IdeLedgerClient(
 
                 case Right(argument) =>
                   val compiler: speedy.Compiler = compiledPackages.compiler
-
-                  // NICK: check templateId support interfaceId
                   val iview: speedy.InterfaceView =
                     speedy.InterfaceView(templateId, argument, interfaceId, version)
                   val sexpr = compiler.unsafeCompileInterfaceView(iview)
@@ -185,11 +191,10 @@ class IdeLedgerClient(
                       val value = svalue.toNormalizedValue(version)
                       value
 
-                    case res @ (_: SResultError | _: SResultNeedPackage | _: SResultNeedContract |
+                    case (_: SResultError | _: SResultNeedPackage | _: SResultNeedContract |
                         _: SResultNeedKey | _: SResultNeedTime | _: SResultScenarioGetParty |
                         _: SResultScenarioPassTime | _: SResultScenarioSubmit) =>
-                      // NICK: this error will happen if templateId does not support interfaceId. make it work!
-                      sys.error(s"queryView: expected SResultFinal: $res")
+                      sys.error("queryView: expected SResultFinal")
                   }
               }
             }
