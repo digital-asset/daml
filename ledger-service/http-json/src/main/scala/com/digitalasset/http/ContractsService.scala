@@ -14,7 +14,7 @@ import com.daml.http.domain.{ContractTypeId, GetActiveContractsRequest, JwtPaylo
 import ContractTypeId.toLedgerApiValue
 import com.daml.http.json.JsonProtocol.LfValueCodec
 import com.daml.http.query.ValuePredicate
-import com.daml.metrics.MetricHandle.Timer
+import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.fetchcontracts.util.{
   AbsoluteBookmark,
   ContractStreamStep,
@@ -453,9 +453,9 @@ class ContractsService(
         ): doobie.ConnectionIO[A] = {
           for {
             _ <- fconn.pure(())
-            timerStop <- fconn.pure(timer.startAsync())
+            timerHandle <- fconn.pure(timer.startAsync())
             res <- it
-            _ <- fconn.pure(timerStop())
+            _ <- fconn.pure(timerHandle.stop())
           } yield res
         }
 

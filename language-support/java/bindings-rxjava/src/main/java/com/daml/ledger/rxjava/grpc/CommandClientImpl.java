@@ -3,14 +3,18 @@
 
 package com.daml.ledger.rxjava.grpc;
 
+import static com.daml.ledger.javaapi.data.EventUtils.firstExercisedEvent;
+import static com.daml.ledger.javaapi.data.EventUtils.singleCreatedEvent;
+import static com.daml.ledger.javaapi.data.codegen.HasCommands.toCommands;
 import static java.util.Arrays.asList;
 
 import com.daml.ledger.api.v1.CommandServiceGrpc;
 import com.daml.ledger.api.v1.CommandServiceOuterClass;
-import com.daml.ledger.javaapi.data.Command;
-import com.daml.ledger.javaapi.data.SubmitAndWaitRequest;
-import com.daml.ledger.javaapi.data.Transaction;
-import com.daml.ledger.javaapi.data.TransactionTree;
+import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.codegen.Created;
+import com.daml.ledger.javaapi.data.codegen.Exercised;
+import com.daml.ledger.javaapi.data.codegen.HasCommands;
+import com.daml.ledger.javaapi.data.codegen.Update;
 import com.daml.ledger.rxjava.CommandClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.google.protobuf.Empty;
@@ -43,7 +47,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull Optional<String> accessToken) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
         SubmitAndWaitRequest.toProto(
@@ -56,7 +60,7 @@ public class CommandClientImpl implements CommandClient {
             minLedgerTimeAbs,
             minLedgerTimeRel,
             deduplicationTime,
-            commands);
+            toCommands(commands));
     return Single.fromFuture(
         StubHelper.authenticating(this.serviceStub, accessToken).submitAndWait(request));
   }
@@ -70,7 +74,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWait(
         workflowId,
         applicationId,
@@ -94,7 +98,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWait(
         workflowId,
         applicationId,
@@ -117,7 +121,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWait(
         workflowId,
@@ -142,7 +146,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWait(
         workflowId,
@@ -163,7 +167,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String applicationId,
       @NonNull String commandId,
       @NonNull String party,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWait(
         workflowId,
         applicationId,
@@ -184,7 +188,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWait(
         workflowId,
         applicationId,
@@ -204,7 +208,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String applicationId,
       @NonNull String commandId,
       @NonNull String party,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWait(
         workflowId,
@@ -226,7 +230,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWait(
         workflowId,
@@ -250,7 +254,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull Optional<String> accessToken) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
         SubmitAndWaitRequest.toProto(
@@ -263,7 +267,7 @@ public class CommandClientImpl implements CommandClient {
             minLedgerTimeAbs,
             minLedgerTimeRel,
             deduplicationTime,
-            commands);
+            toCommands(commands));
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, accessToken)
                 .submitAndWaitForTransactionId(request))
@@ -279,7 +283,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWaitForTransactionId(
         workflowId,
         applicationId,
@@ -303,7 +307,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWaitForTransactionId(
         workflowId,
         applicationId,
@@ -326,7 +330,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWaitForTransactionId(
         workflowId,
@@ -351,7 +355,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWaitForTransactionId(
         workflowId,
@@ -372,7 +376,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String applicationId,
       @NonNull String commandId,
       @NonNull String party,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWaitForTransactionId(
         workflowId,
         applicationId,
@@ -393,7 +397,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWaitForTransactionId(
         workflowId,
         applicationId,
@@ -413,7 +417,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String applicationId,
       @NonNull String commandId,
       @NonNull String party,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWaitForTransactionId(
         workflowId,
@@ -435,7 +439,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWaitForTransactionId(
         workflowId,
@@ -459,7 +463,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull Optional<String> accessToken) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
         SubmitAndWaitRequest.toProto(
@@ -472,7 +476,7 @@ public class CommandClientImpl implements CommandClient {
             minLedgerTimeAbs,
             minLedgerTimeRel,
             deduplicationTime,
-            commands);
+            toCommands(commands));
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, accessToken)
                 .submitAndWaitForTransaction(request))
@@ -489,7 +493,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWaitForTransaction(
         workflowId,
         applicationId,
@@ -513,7 +517,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWaitForTransaction(
         workflowId,
         applicationId,
@@ -536,7 +540,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWaitForTransaction(
         workflowId,
@@ -561,7 +565,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWaitForTransaction(
         workflowId,
@@ -582,7 +586,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String applicationId,
       @NonNull String commandId,
       @NonNull String party,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWaitForTransaction(
         workflowId,
         applicationId,
@@ -603,7 +607,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWaitForTransaction(
         workflowId,
         applicationId,
@@ -623,7 +627,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String applicationId,
       @NonNull String commandId,
       @NonNull String party,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWaitForTransaction(
         workflowId,
@@ -645,7 +649,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWaitForTransaction(
         workflowId,
@@ -669,7 +673,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull Optional<String> accessToken) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
         SubmitAndWaitRequest.toProto(
@@ -682,7 +686,7 @@ public class CommandClientImpl implements CommandClient {
             minLedgerTimeAbs,
             minLedgerTimeRel,
             deduplicationTime,
-            commands);
+            toCommands(commands));
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, accessToken)
                 .submitAndWaitForTransactionTree(request))
@@ -699,7 +703,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWaitForTransactionTree(
         workflowId,
         applicationId,
@@ -723,7 +727,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWaitForTransactionTree(
         workflowId,
         applicationId,
@@ -746,7 +750,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWaitForTransactionTree(
         workflowId,
@@ -771,7 +775,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWaitForTransactionTree(
         workflowId,
@@ -792,7 +796,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String applicationId,
       @NonNull String commandId,
       @NonNull String party,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWaitForTransactionTree(
         workflowId,
         applicationId,
@@ -813,7 +817,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submitAndWaitForTransactionTree(
         workflowId,
         applicationId,
@@ -833,7 +837,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String applicationId,
       @NonNull String commandId,
       @NonNull String party,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWaitForTransactionTree(
         workflowId,
@@ -855,7 +859,7 @@ public class CommandClientImpl implements CommandClient {
       @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submitAndWaitForTransactionTree(
         workflowId,
@@ -868,5 +872,85 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty(),
         commands,
         Optional.of(accessToken));
+  }
+
+  private <U> Single<U> submitAndWaitForResult(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Update<U> update,
+      @NonNull Optional<String> accessToken) {
+    return update.foldUpdate(
+        new Update.FoldUpdate<>() {
+          @Override
+          public <CtId> Single<U> created(Update.CreateUpdate<CtId, U> create) {
+            var transaction =
+                submitAndWaitForTransaction(
+                    workflowId,
+                    applicationId,
+                    commandId,
+                    actAs,
+                    readAs,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    update.commands(),
+                    accessToken);
+            return transaction.map(
+                tx -> {
+                  var createdEvent = singleCreatedEvent(tx.getEvents());
+                  return create.k.apply(Created.fromEvent(create.createdContractId, createdEvent));
+                });
+          }
+
+          @Override
+          public <R> Single<U> exercised(Update.ExerciseUpdate<R, U> exercise) {
+            var transactionTree =
+                submitAndWaitForTransactionTree(
+                    workflowId,
+                    applicationId,
+                    commandId,
+                    actAs,
+                    readAs,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    update.commands(),
+                    accessToken);
+            return transactionTree.map(
+                txTree -> {
+                  var exercisedEvent = firstExercisedEvent(txTree);
+                  return exercise.k.apply(
+                      Exercised.fromEvent(exercise.returnTypeDecoder, exercisedEvent));
+                });
+          }
+        });
+  }
+
+  @Override
+  public <U> Single<U> submitAndWaitForResult(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Update<U> update) {
+    return submitAndWaitForResult(
+        workflowId, applicationId, commandId, actAs, readAs, update, Optional.empty());
+  }
+
+  @Override
+  public <U> Single<U> submitAndWaitForResult(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Update<U> update,
+      @NonNull String accessToken) {
+    return submitAndWaitForResult(
+        workflowId, applicationId, commandId, actAs, readAs, update, Optional.of(accessToken));
   }
 }

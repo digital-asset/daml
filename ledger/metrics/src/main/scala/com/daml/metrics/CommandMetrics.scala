@@ -3,13 +3,14 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.{Debug, Latency}
-import com.daml.metrics.MetricHandle.{Counter, Meter, Timer}
-
-import com.codahale.metrics.{MetricRegistry}
+import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Latency}
+import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
+import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class CommandMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.DropwizardFactory {
+    extends DropwizardFactory {
 
   @MetricDoc.Tag(
     summary = "The time to validate a Daml command.",

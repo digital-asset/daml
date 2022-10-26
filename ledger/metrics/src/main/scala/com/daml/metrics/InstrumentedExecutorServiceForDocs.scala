@@ -3,15 +3,10 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.MetricHandle.{
-  Counter,
-  DropwizardCounter,
-  DropwizardMeter,
-  DropwizardTimer,
-  Meter,
-  Timer,
-}
+import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
+import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
+import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardMeter, DropwizardTimer}
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class InstrumentedExecutorServiceForDocs(name: MetricName) {
 

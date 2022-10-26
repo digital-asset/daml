@@ -5,15 +5,15 @@ package com.daml.metrics
 
 import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.{BoundedSourceQueue, Materializer, OverflowStrategy, QueueOfferResult}
-import com.daml.metrics.MetricHandle.{Counter, Timer}
-import com.daml.metrics.MetricHandle.Timer.TimerStop
+import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
+import com.daml.metrics.api.MetricHandle.{Counter, Timer}
 
 import scala.util.chaining._
 
 object InstrumentedGraph {
 
   final class InstrumentedBoundedSourceQueue[T](
-      delegate: BoundedSourceQueue[(TimerStop, T)],
+      delegate: BoundedSourceQueue[(TimerHandle, T)],
       bufferSize: Int,
       capacityCounter: Counter,
       lengthCounter: Counter,
@@ -70,7 +70,7 @@ object InstrumentedGraph {
       materializer: Materializer
   ): Source[T, BoundedSourceQueue[T]] = {
     val (boundedQueue, source) =
-      Source.queue[(TimerStop, T)](bufferSize).preMaterialize()
+      Source.queue[(TimerHandle, T)](bufferSize).preMaterialize()
 
     val instrumentedQueue =
       new InstrumentedBoundedSourceQueue[T](
@@ -82,8 +82,8 @@ object InstrumentedGraph {
       )
     capacityCounter.inc(bufferSize.toLong)
 
-    source.mapMaterializedValue(_ => instrumentedQueue).map { case (stopTimer, item) =>
-      stopTimer()
+    source.mapMaterializedValue(_ => instrumentedQueue).map { case (timer, item) =>
+      timer.stop()
       lengthCounter.dec()
       item
     }

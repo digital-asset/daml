@@ -14,6 +14,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.javaapi.data
+import com.daml.ledger.javaapi.data.codegen.Update
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
   ApiServerConfig,
@@ -90,7 +91,15 @@ object TestUtil {
     Map[String, Filter](partyName -> NoFilter.instance).asJava
   )
 
-  def sendCmd(channel: Channel, partyName: String, cmds: Command*): Empty = {
+  def sendCmd(channel: Channel, partyName: String, update: Update[_]): Empty = {
+    sendCmd(channel, partyName, List(update))
+  }
+
+  def sendCmd(channel: Channel, partyName: String, updates: List[Update[_]]): Empty = {
+    sendCmd(channel, partyName, updates.flatMap(_.commands().asScala): _*)
+  }
+
+  private def sendCmd(channel: Channel, partyName: String, cmds: Command*): Empty = {
     CommandServiceGrpc
       .newBlockingStub(channel)
       .withDeadlineAfter(40, TimeUnit.SECONDS)
@@ -112,6 +121,24 @@ object TestUtil {
           )
           .build
       )
+  }
+
+  def sendCmd(
+      channel: Channel,
+      actAs: java.util.List[String],
+      readAs: java.util.List[String],
+      update: Update[_],
+  ): Empty = {
+    sendCmd(channel, actAs, readAs, List(update))
+  }
+
+  def sendCmd(
+      channel: Channel,
+      actAs: java.util.List[String],
+      readAs: java.util.List[String],
+      updates: List[Update[_]],
+  ): Empty = {
+    sendCmd(channel, actAs, readAs, updates.flatMap(_.commands().asScala): _*)
   }
 
   def sendCmd(

@@ -6,6 +6,7 @@ load(
     "client_server_test",
 )
 load("//bazel_tools:versions.bzl", "version_to_name", "versions")
+load("//bazel_tools:testing.bzl", "extra_tags")
 
 def copy_trigger_src(sdk_version):
     # To avoid having to mess with Bazel’s escaping, avoid `$` and backticks.
@@ -229,5 +230,5 @@ chmod +x $(OUTS)
         server_args = server_args,
         server_files = server_files,
         server_files_prefix = server_files_prefix,
-        tags = ["exclusive"],
+        tags = extra_tags(compiler_version, runner_version) + ["exclusive"],
     )

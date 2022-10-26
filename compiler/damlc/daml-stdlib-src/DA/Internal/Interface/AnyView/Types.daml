@@ -1,0 +1,22 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+
+module DA.Internal.Interface.AnyView.Types (
+  InterfaceTypeRep (..),
+  AnyView (..)
+) where
+
+import DA.Internal.LF
+
+newtype InterfaceTypeRep = InterfaceTypeRep { getInterfaceTypeRep : TypeRep }
+
+-- | Existential contract key type that can wrap an arbitrary contract key.
+data AnyView = AnyView
+  { getAnyView : Any
+  , getAnyViewInterfaceTypeRep : InterfaceTypeRep
+  }
+
+

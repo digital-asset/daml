@@ -15,7 +15,7 @@ import com.daml.ledger.resources.TestResourceContext
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.PackageId
-import com.daml.metrics.MetricHandle.DropwizardTimer
+import com.daml.metrics.api.dropwizard.DropwizardTimer
 import com.daml.platform.testing.LogCollector
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers

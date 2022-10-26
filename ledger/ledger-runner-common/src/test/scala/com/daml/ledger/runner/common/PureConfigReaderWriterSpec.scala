@@ -18,7 +18,6 @@ import pureconfig.{ConfigConvert, ConfigReader, ConfigSource, ConfigWriter}
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.ledger.runner.common
 import com.daml.ledger.runner.common.OptConfigValue.{optReaderEnabled, optWriterEnabled}
-import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
@@ -39,6 +38,7 @@ import pureconfig.error.ConfigReaderFailures
 import java.net.InetSocketAddress
 import java.nio.file.Path
 import java.time.Duration
+import com.daml.metrics.api.reporters.MetricsReporter
 
 import scala.reflect.{ClassTag, classTag}
 

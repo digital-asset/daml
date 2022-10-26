@@ -9,7 +9,7 @@ import scala.concurrent.duration.Duration
 import java.util.concurrent.TimeUnit
 import com.codahale.metrics.{MetricRegistry, ScheduledReporter, Slf4jReporter}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.metrics.MetricsReporter
+import com.daml.metrics.api.reporters.MetricsReporter
 
 import scala.concurrent.Future
 

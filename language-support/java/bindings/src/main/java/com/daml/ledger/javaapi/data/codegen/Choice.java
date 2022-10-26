@@ -19,11 +19,20 @@ public final class Choice<Tpl, ArgType, ResType> {
   /** The choice name * */
   public final String name;
 
-  private final Function<ArgType, Value> encodeArg;
+  final Function<ArgType, Value> encodeArg;
 
-  private Choice(final String name, final Function<ArgType, Value> encodeArg) {
+  final ValueDecoder<ArgType> argTypeDecoder;
+  final ValueDecoder<ResType> returnTypeDecoder;
+
+  private Choice(
+      final String name,
+      final Function<ArgType, Value> encodeArg,
+      ValueDecoder<ArgType> argTypeDecoder,
+      ValueDecoder<ResType> returnTypeDecoder) {
     this.name = name;
     this.encodeArg = encodeArg;
+    this.argTypeDecoder = argTypeDecoder;
+    this.returnTypeDecoder = returnTypeDecoder;
   }
 
   /**
@@ -33,7 +42,10 @@ public final class Choice<Tpl, ArgType, ResType> {
    *     the generated {@code CHOICE_*} fields on templates or interfaces.
    */
   public static <Tpl, ArgType, ResType> Choice<Tpl, ArgType, ResType> create(
-      final String name, final Function<ArgType, Value> encodeArg) {
-    return new Choice<>(name, encodeArg);
+      final String name,
+      final Function<ArgType, Value> encodeArg,
+      ValueDecoder<ArgType> argTypeDecoder,
+      ValueDecoder<ResType> returnTypeDecoder) {
+    return new Choice<>(name, encodeArg, argTypeDecoder, returnTypeDecoder);
   }
 }

@@ -5,10 +5,10 @@ package com.daml.ledger.api.benchtool.config
 
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.metrics.MetricsReporter
 import scopt.{OptionDef, OptionParser, Read}
 
 import java.io.File
+import com.daml.metrics.api.reporters.MetricsReporter
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 

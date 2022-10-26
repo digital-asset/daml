@@ -25,8 +25,9 @@ line to the project's ``daml.yaml`` file:
 
   build-options: [--target=1.15]
 
-If using Canton, it needs to run in dev mode, see
-:ref:`Canton: How do I enable unsupported features <how-do-i-enable-unsupported-features>` for instructions.
+If using Canton, it needs to run in dev mode (the protocol version of the domain should
+be `4` or `dev`), see :ref:`Canton: How do I enable unsupported features <how-do-i-enable-unsupported-features>`
+for instructions.
 
 Interface Declaration
 *********************

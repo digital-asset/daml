@@ -175,3 +175,4 @@ class HasInterfaceView i v | i -> v where
 
 view : forall i v. HasInterfaceView i v => i -> v
 view = _view
+

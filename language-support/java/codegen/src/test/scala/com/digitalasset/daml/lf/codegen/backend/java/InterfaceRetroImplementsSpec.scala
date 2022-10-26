@@ -8,6 +8,8 @@ import org.scalatest.wordspec.AnyWordSpec
 import ut.retro.InterfaceRetro
 import ut.retro.TemplateRetro
 
+import scala.jdk.OptionConverters.RichOptional
+
 final class InterfaceRetroImplementsSpec extends AnyWordSpec with Matchers {
 
   "TemplateRetro.ContractId where `TemplateRetro` is implementing `InterfaceRetro` retroactively" should {
@@ -15,7 +17,8 @@ final class InterfaceRetroImplementsSpec extends AnyWordSpec with Matchers {
       val contractId = new TemplateRetro.ContractId("SomeID")
       val contractViaInterface: InterfaceRetro.ContractId =
         contractId.toInterface(InterfaceRetro.INTERFACE)
-      val cmd = contractViaInterface.exerciseTransfer("newOwner")
+      val update = contractViaInterface.exerciseTransfer("newOwner")
+      val cmd = update.commands().get(0).asExerciseCommand().toScala.get
       cmd.getContractId shouldEqual contractId.contractId
       cmd.getTemplateId shouldEqual InterfaceRetro.TEMPLATE_ID
     }
