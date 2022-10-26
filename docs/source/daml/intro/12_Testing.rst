@@ -4,7 +4,7 @@
 Test Daml Contracts
 ===================
 
-This chapter is all about testing and debugging the Daml contracts you've built using the tools from chapters 1-10. You've already met Daml Script as a way of testing your code inside the IDE. In this chapter you'll learn about more ways to test with Daml Script and its other uses, as well as other tools you can use for testing and debugging. You'll also learn about a few error cases that are most likely to crop up only in actual distributed testing, and which need some care to avoid. Specifically we will cover:
+This chapter is all about testing and debugging the Daml contracts you've built using the tools from earlier chapters. You've already met Daml Script as a way of testing your code inside the IDE. In this chapter you'll learn about more ways to test with Daml Script and its other uses, as well as other tools you can use for testing and debugging. You'll also learn about a few error cases that are most likely to crop up only in actual distributed testing, and which need some care to avoid. Specifically we will cover:
 
 - Daml Test tooling - Script, REPL, and Navigator
 - The ``trace`` and ``debug`` functions
@@ -17,7 +17,7 @@ If you no longer have your projects set up, please follow the setup instructions
 Daml Test Tooling
 -----------------
 
-There are three primary tools available in the SDK to test and interact with Daml contracts. It is highly recommended to explore the respective docs. The chapter 9 model lends itself well to being tested using these tools.
+There are three primary tools available in the SDK to test and interact with Daml contracts. It is highly recommended to explore the respective docs. The :doc:`9_Dependencies` model lends itself well to being tested using these tools.
 
 :doc:`Daml Script </daml-script/index>`
 

@@ -43,7 +43,7 @@ template. Users can order items by calling a choice and transfer money
 (in the form of an Iou issued by their bank) from their account to the
 owner in return.
 
-First, we need to setup a template to represent the account of a user.
+First, we need to setup a template to represent the account of a user:
 
 .. literalinclude:: daml/daml-intro-8/daml/Intro/Exceptions.daml
   :language: daml
@@ -56,7 +56,7 @@ than is available.
 
 The shop is represented as a template signed by the owner. It has a
 field to represent the bank accepted by the owner as well as a list of
-observers that can order items.
+observers that can order items:
 
 .. literalinclude:: daml/daml-intro-8/daml/Intro/Exceptions.daml
   :language: daml
@@ -65,7 +65,7 @@ observers that can order items.
 
 The ordering process is then represented by a non-consuming choice on
 this template which calls ``Transfer`` and creates an ``Order``
-contract in return.
+contract in return:
 
 .. literalinclude:: daml/daml-intro-8/daml/Intro/Exceptions.daml
   :language: daml
@@ -100,7 +100,7 @@ trusted users looks as follows:
 
 Let's walk through this code. First, as mentioned, the shop owner is
 the trusting kind, so he wants to start by creating the ``Order``
-matter what. Next, we try to charge the customer for the order. We
+no matter what. Next, he tries to charge the customer for the order. We
 could, at this point, check their balance against the cost of the
 order, but that would amount to duplicating the logic already present
 in ``Account``. This logic is pretty simple in this case, but

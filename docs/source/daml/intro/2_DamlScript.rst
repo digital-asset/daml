@@ -3,10 +3,10 @@
 
 .. _testing-using-script:
 
-Test Templates using Daml Script
+Test Templates Using Daml Script
 ================================
 
-In this section you will test the ``Token`` model from :doc:`1_Token` using the :doc:`Daml Script </daml-script/index>` integration in :ref:`Daml Studio <script-results>`. You'll learn about the basic features of :
+In this section you will test the ``Token`` model from :doc:`1_Token` using the :doc:`Daml Script </daml-script/index>` integration in :ref:`Daml Studio <script-results>`. You'll learn about the basic features of:
 
 - Allocating parties
 - Submitting transactions
@@ -24,9 +24,9 @@ In this section you will test the ``Token`` model from :doc:`1_Token` using the 
 Script Basics
 -------------
 
-A ``Script`` is like a recipe for a test, where you can script different parties submitting a series of transactions, to check that your templates behave as you'd expect. You can also script some external information like party identities, and ledger time.
+A ``Script`` is like a recipe for a test, letting you script different parties submitting a series of transactions to check that your templates behave as you expect. You can also script some external information like party identities, and ledger time.
 
-Below is a basic script that creates a ``Token`` for a party called "Alice".
+Below is a basic script that creates a ``Token`` for a party called "Alice":
 
 .. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
   :language: daml
@@ -94,7 +94,7 @@ To run the same test from the command line, save your module in a file ``Token_T
 Test for Failure
 ----------------
 
-In :doc:`1_Token` you learned that creating a ``Token`` requires the authority of its owner. In other words, it should not be possible for Alice to create a Token for another party and vice versa. A reasonable attempt to test that would be:
+In :doc:`1_Token` you learned that creating a ``Token`` requires the authority of its owner. In other words, it should not be possible for Alice to create a token for another party and vice versa. A reasonable attempt to test that would be:
 
 .. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
   :language: daml
@@ -115,7 +115,7 @@ To test for failing submits and keep the script running thereafter, or fail if t
   :start-after: -- TOKEN_TEST_2_BEGIN
   :end-before: -- TOKEN_TEST_2_END
 
-``submitMustFail`` never has an impact on the ledger so the resulting tabular script view just shows the two Tokens resulting from the successful ``submit`` statements. Note the new column for Bob as well as the visibilities. Alice and Bob cannot see each others' Tokens.
+``submitMustFail`` never has an impact on the ledger so the resulting tabular script view just shows the two tokens resulting from the successful ``submit`` statements. Note the new column for Bob as well as the visibilities. Alice and Bob cannot see each others' tokens.
 
 .. _archiving:
 
@@ -126,9 +126,9 @@ Archiving contracts works just like creating them, but using ``archiveCmd`` inst
 
 References to contracts have the type ``ContractId a``, where ``a`` is a *type parameter* representing the type of contract that the ID refers to. For example, a reference to a ``Token`` would be a ``ContractId Token``.
 
-To ``archiveCmd`` the Token Alice has created, you need to get a handle on its contract ID. In scripts, you do this using ``<-`` notation. That's because the contract ID needs to be retrieved from the ledger. How this works is discussed in :doc:`5_Restrictions`.
+To ``archiveCmd`` the token Alice has created, you need to get a handle on its contract ID. In scripts, you do this using ``<-`` notation. That's because the contract ID needs to be retrieved from the ledger. How this works is discussed in :doc:`5_Restrictions`.
 
-This script first checks that Bob cannot archive Alice's Token and then Alice successfully archives it:
+This script first checks that Bob cannot archive Alice's token. Then Alice successfully archives it:
 
 .. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
   :language: daml
@@ -166,7 +166,7 @@ Exercises
 
 To get a better understanding of script, try the following exercises:
 
-1. Write a template for a second type of Token.
+1. Write a template for a second type of token.
 2. Write a script with two parties and two types of tokens, creating one token of each type for each party and archiving one token for each party, leaving one token of each type in the final ledger view.
 3. In :ref:`archiving` you tested that Bob cannot archive Alice's token. Can you guess why the submit fails? How can you find out why the submit fails?
 

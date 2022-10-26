@@ -55,7 +55,7 @@ You have already encountered a few native Daml types: ``Party`` in :doc:`1_Token
 - ``RelTime``
   Stores a difference in time.
 
-The below script instantiates each one of these types, manipulates it where appropriate, and tests the result.
+The below script instantiates each one of these types, manipulates it where appropriate, and tests the result:
 
 .. literalinclude:: daml/daml-intro-3/daml/Native.daml
   :language: daml
@@ -80,7 +80,7 @@ Despite its simplicity, there are quite a few things to note in this script:
 
   Try putting ``assert False`` somewhere in a script and see what happens to the script result.
 
-With templates and these native types, it's already possible to write a schema akin to a table in a relational database. Below, ``Token`` is extended into a simple ``CashBalance``, administered by a party in the role of an accountant.
+With templates and these native types, it's already possible to write a schema akin to a table in a relational database. Below, ``Token`` is extended into a simple ``CashBalance``, administered by a party in the role of an accountant:
 
 .. literalinclude:: daml/daml-intro-3/daml/Native.daml
   :language: daml
@@ -95,7 +95,7 @@ There's quite a lot of information on the ``CashBalance`` above and it would be 
 Tuples
 ~~~~~~
 
-A common task is to group values in a generic way. Take, for example, a key-value pair with a ``Text`` key and an ``Int`` value. In Daml, you could use a two-tuple of type ``(Text, Int)`` to do so. If you wanted to express a coordinate in three dimensions, you could group three ``Decimal`` values using a three-tuple ``(Decimal, Decimal, Decimal)``.
+A common task is to group values in a generic way. Take, for example, a key-value pair with a ``Text`` key and an ``Int`` value. In Daml, you could use a two-tuple of type ``(Text, Int)`` to do so. If you wanted to express a coordinate in three dimensions, you could group three ``Decimal`` values using a three-tuple ``(Decimal, Decimal, Decimal)``:
 
 .. literalinclude:: daml/daml-intro-3/daml/Tuple.daml
   :language: daml
@@ -128,7 +128,7 @@ Note the type annotation on ``empty : [Int] = []``. It's necessary because ``[]`
 Records
 ~~~~~~~
 
-You can think of records as named tuples with named fields. Declare them using the ``data`` keyword: ``data T = C with``, where ``T`` is the type name and ``C`` is the data constructor. In practice, it's a good idea to always use the same name for type and data constructor.
+You can think of records as named tuples with named fields. Declare them using the ``data`` keyword: ``data T = C with``, where ``T`` is the type name and ``C`` is the data constructor. In practice, it's a good idea to always use the same name for type and data constructor:
 
 .. literalinclude:: daml/daml-intro-3/daml/Record.daml
   :language: daml
@@ -162,7 +162,7 @@ If you look at the resulting script view, you'll see that this still gives rise 
 Variants and Pattern Matching
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Suppose now that you also wanted to keep track of cash in hand. Cash in hand doesn't have a bank, but you can't just leave ``bank`` empty. Daml doesn't have an equivalent to ``null``. Variants can express that cash can either be in hand or at a bank.
+Suppose now that you also wanted to keep track of cash in hand. Cash in hand doesn't have a bank, but you can't just leave ``bank`` empty. Daml doesn't have an equivalent to ``null``. Variants can express that cash can either be in hand or at a bank:
 
 .. literalinclude:: daml/daml-intro-3/daml/Variants.daml
   :language: daml
@@ -228,7 +228,7 @@ The script above uses the ``queryContractId`` function, which retrieves the argu
 
 Note that, for the first time, the party submitting a transaction is doing more than one thing as part of that transaction. To create ``new_account``, the accountant archives the old account and creates a new account, all in one transaction. More on building transactions in :doc:`7_Composing`.
 
-You can define *stable* keys for contracts using the ``key`` and ``maintainer`` keywords. ``key`` defines the primary key of a template, with the ability to look up contracts by key, and a uniqueness constraint in the sense that only one contract of a given template and with a given key value can be active at a time.
+You can define *stable* keys for contracts using the ``key`` and ``maintainer`` keywords. ``key`` defines the primary key of a template, with the ability to look up contracts by key, and a uniqueness constraint in the sense that only one contract of a given template and with a given key value can be active at a time:
 
 .. literalinclude:: daml/daml-intro-3/daml/Keys.daml
   :language: daml
