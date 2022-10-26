@@ -19,7 +19,7 @@ The `@daml/ledger <ts-daml-ledger_>` library contains functions to interact with
 the basic layer of functionality. At this layer, you can easily query for active contracts from the ledger, create new ones or exercise
 choices. This layer is agnostic with regards to any specific framework required to build the frontend.
 
-Finally, if you are a `React.js <https://react.js.org`_ user, you can take advantage of the `@daml/react <ts-daml-react_>`_ library, which
+Finally, if you are a `React.js <https://reactjs.org>`_ user, you can take advantage of the `@daml/react <ts-daml-react_>`_ library, which
 builds on top of ``@daml/ledger`` with extensions specific to React.js. This bridges the gap between the basic functionality and the
 infrastructure required to build a React.js-based frontend application. If you want to start from a ready-made application that uses this
 library you can start running from the following template::
