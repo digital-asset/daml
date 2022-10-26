@@ -12,6 +12,7 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   GetPartiesRequest,
   GetPartiesResponse,
   PartyDetails,
+  UpdatePartyDetailsRequest,
 }
 import com.daml.ledger.client.binding
 import com.daml.ledger.test.model.Test.Dummy
@@ -22,7 +23,9 @@ import java.util.regex.Pattern
 
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.client.binding.Primitive
+import com.google.protobuf.field_mask.FieldMask
 
+import scala.concurrent.Future
 import scala.util.Random
 
 final class PartyManagementServiceIT extends PartyManagementITBase {
@@ -446,4 +449,89 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     }
   })
 
+  test(
+    "UpdateAnnotationsOfNonLocalParty",
+    "Update annotations of a non-local party",
+    enabled = _.userAndPartyLocalMetadataExtensions,
+    partyAllocation = allocate(SingleParty, NoParties),
+  )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta)) =>
+    val isDistinctServers = alpha.endpointId != beta.endpointId && alpha.ledgerId != beta.ledgerId
+    if (isDistinctServers) {
+      for {
+        alphaAliceO <- alpha.getParties(Seq(alice)).map(_.headOption)
+        betaAliceO <- beta.getParties(Seq(alice)).map(_.headOption)
+        _ = {
+          assertDefined(alphaAliceO, "Party 'alice' on participant 'alpha'")
+          assertPartyDetails(
+            "Party 'alice' on participant 'alpha'",
+            alphaAliceO.get,
+            expectedParty = alice.toString,
+            expectedIsLocal = true,
+            expectedAnnotations = Map.empty,
+            resourceVersion => assert(resourceVersion.nonEmpty),
+          )
+
+          // Ledger implementations can choose not to publish a party to participants on which this party would be non-local
+          if (betaAliceO.isDefined) {
+            assertPartyDetails(
+              "Party 'alice' on participant 'beta'",
+              betaAliceO.get,
+              expectedParty = alice.toString,
+              expectedIsLocal = false,
+              expectedAnnotations = Map.empty,
+            )
+          }
+        }
+        _ <-
+          if (betaAliceO.isDefined) {
+            // updating a non-local party on participant beta:
+            for {
+              _ <- beta.updatePartyDetails(
+                UpdatePartyDetailsRequest(
+                  partyDetails = Some(
+                    PartyDetails(
+                      party = alice.toString,
+                      localMetadata = Some(ObjectMeta(annotations = Map("foo" -> "bar"))),
+                    )
+                  ),
+                  updateMask = Some(FieldMask(Seq("local_metadata.annotations"))),
+                )
+              )
+              updatedBetaAlice <- beta.getParties(Seq(alice)).map(_.head)
+            } yield {
+              assertPartyDetails(
+                "Party 'alice' after update on 'beta'",
+                actual = updatedBetaAlice,
+                expectedParty = alice.toString,
+                expectedIsLocal = false,
+                expectedAnnotations = Map("foo" -> "bar"),
+                resourceVersionAssertion = resourceVersion => assert(resourceVersion.nonEmpty),
+              )
+            }
+          } else {
+            Future.successful(())
+          }
+      } yield ()
+    } else Future.successful(())
+  })
+
+  /** Checks properties of PartyDetails field by field to help maintain forward compatibility of the test-tool with the Ledger API implementations.
+    */
+  private def assertPartyDetails(
+      context: String,
+      actual: PartyDetails,
+      expectedParty: String,
+      expectedIsLocal: Boolean,
+      expectedAnnotations: Map[String, String],
+      resourceVersionAssertion: String => Unit = _ => (),
+  ): Unit = {
+    assertEquals(s"$context - party", actual.party, expectedParty)
+    assertEquals(s"$context - isLocal", actual.isLocal, expectedIsLocal)
+    assertEquals(
+      s"$context - annotations",
+      actual.localMetadata.fold(Map.empty[String, String])(_.annotations),
+      expectedAnnotations,
+    )
+    resourceVersionAssertion(actual.localMetadata.fold("")(_.resourceVersion))
+  }
 }
