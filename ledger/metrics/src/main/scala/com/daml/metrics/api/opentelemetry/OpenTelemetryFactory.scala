@@ -27,7 +27,7 @@ trait OpenTelemetryFactory extends Factory {
   )(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Timer =
-    OpentelemetryTimer(
+    OpenTelemetryTimer(
       name,
       otelMeter.histogramBuilder(name).ofLongs().setUnit("ms").build(),
       context,
@@ -42,22 +42,22 @@ trait OpenTelemetryFactory extends Factory {
         otelMeter.gaugeBuilder(name).ofLongs().buildWithCallback { consumer =>
           consumer.record(varGauge.getValue.toLong, attributes)
         }
-        OpentelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
+        OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
       case longInitial: Long =>
         val varGauge = new VarGauge[Long](longInitial)
         otelMeter.gaugeBuilder(name).ofLongs().buildWithCallback { consumer =>
           consumer.record(varGauge.getValue, attributes)
         }
-        OpentelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
+        OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
       case doubleInitial: Double =>
         val varGauge = new VarGauge[Double](doubleInitial)
         otelMeter.gaugeBuilder(name).buildWithCallback { consumer =>
           consumer.record(varGauge.getValue, attributes)
         }
-        OpentelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
+        OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
       case _ =>
         // A NoOp gauge as OpenTelemetry only supports longs and doubles
-        OpentelemetryGauge(name, VarGauge(initial))
+        OpenTelemetryGauge(name, VarGauge(initial))
     }
   }
 
@@ -103,7 +103,7 @@ trait OpenTelemetryFactory extends Factory {
 
   override def meter(name: MetricName)(implicit
       context: MetricsContext = MetricsContext.Empty
-  ): Meter = OpentelemetryMeter(
+  ): Meter = OpenTelemetryMeter(
     name,
     otelMeter.counterBuilder(name).build(),
     context,
@@ -111,7 +111,7 @@ trait OpenTelemetryFactory extends Factory {
 
   override def counter(name: MetricName)(implicit
       context: MetricsContext = MetricsContext.Empty
-  ): MetricHandle.Counter = OpentelemetryCounter(
+  ): MetricHandle.Counter = OpenTelemetryCounter(
     name,
     otelMeter.upDownCounterBuilder(name).build(),
     context,
@@ -119,7 +119,7 @@ trait OpenTelemetryFactory extends Factory {
 
   override def histogram(name: MetricName)(implicit
       context: MetricsContext = MetricsContext.Empty
-  ): MetricHandle.Histogram = OpentelemetryHistogram(
+  ): MetricHandle.Histogram = OpenTelemetryHistogram(
     name,
     otelMeter.histogramBuilder(name).ofLongs().build(),
     context,
@@ -127,15 +127,15 @@ trait OpenTelemetryFactory extends Factory {
 
 }
 
-case class OpentelemetryTimer(name: String, histogram: LongHistogram, timerContext: MetricsContext) extends Timer {
+case class OpenTelemetryTimer(name: String, histogram: LongHistogram, timerContext: MetricsContext)
+    extends Timer {
 
   override def update(duration: Long, unit: TimeUnit)(implicit
       context: MetricsContext
   ): Unit =
     histogram.record(
       TimeUnit.MILLISECONDS.convert(duration, unit),
-
-  AttributesHelper.multiContextAsAttributes(context, timerContext),
+      AttributesHelper.multiContextAsAttributes(context, timerContext),
     )
   override def time[T](call: => T)(implicit
       context: MetricsContext
@@ -165,7 +165,7 @@ case class OpentelemetryTimer(name: String, histogram: LongHistogram, timerConte
   ): Unit = update(duration.toNanos, TimeUnit.NANOSECONDS)
 }
 
-case class OpentelemetryGauge[T](name: String, varGauge: VarGauge[T]) extends Gauge[T] {
+case class OpenTelemetryGauge[T](name: String, varGauge: VarGauge[T]) extends Gauge[T] {
 
   override def updateValue(newValue: T): Unit = varGauge.updateValue(newValue)
 
@@ -173,7 +173,7 @@ case class OpentelemetryGauge[T](name: String, varGauge: VarGauge[T]) extends Ga
 
 }
 
-case class OpentelemetryMeter(name: String, counter: LongCounter, meterContext: MetricsContext)
+case class OpenTelemetryMeter(name: String, counter: LongCounter, meterContext: MetricsContext)
     extends Meter {
 
   override def mark(value: Long)(implicit
@@ -181,7 +181,7 @@ case class OpentelemetryMeter(name: String, counter: LongCounter, meterContext: 
   ): Unit = counter.add(value, AttributesHelper.multiContextAsAttributes(meterContext, context))
 }
 
-case class OpentelemetryCounter(
+case class OpenTelemetryCounter(
     name: String,
     counter: LongUpDownCounter,
     counterContext: MetricsContext,
@@ -206,10 +206,11 @@ case class OpentelemetryCounter(
 
 }
 
-case class OpentelemetryHistogram(
+case class OpenTelemetryHistogram(
     name: String,
     histogram: LongHistogram,
-    histogramContext: MetricsContext,) extends Histogram {
+    histogramContext: MetricsContext,
+) extends Histogram {
 
   override def update(value: Long)(implicit
       context: MetricsContext
