@@ -4,8 +4,6 @@
 package com.daml.quickstart.iou;
 
 import com.daml.ledger.javaapi.data.*;
-import com.daml.ledger.javaapi.data.codegen.ContractId;
-import com.daml.ledger.javaapi.data.codegen.Created;
 import com.daml.ledger.javaapi.data.codegen.Update;
 import com.daml.ledger.rxjava.ContractUtil;
 import com.daml.ledger.rxjava.DamlLedgerClient;
@@ -108,7 +106,7 @@ public class IouMain {
         "/iou",
         (req, res) -> {
           Iou iou = g.fromJson(req.body(), Iou.class);
-          Update<Created<ContractId<Iou>>> iouCreate = iou.create();
+          var iouCreate = iou.create();
           var createdContractId = submit(client, party, iouCreate);
           return "Iou creation submitted: " + createdContractId;
         },
