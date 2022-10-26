@@ -106,18 +106,24 @@ main =
                     , "test : Script ()"
                     , "test = do"
                     , "  p <- allocateParty \"p\""
-                    , "  cid <- submit p do createCmd (MyTemplate p 42)"
-                    , "  optR <- queryContractId p cid"
-                    , "  let (Some r) = optR"
-                    , "  r === MyTemplate p 42"
-                    , "  let iid : ContractId MyInterface = toInterfaceContractId @MyInterface cid"
 
-                    , "  Some v <- queryViewContractId p iid"
+                    , "  cid1 <- submit p do createCmd (MyTemplate p 42)"
+                    , "  cid2 <- submit p do createCmd (MyTemplate p 43)"
+
+                    , "  let iid1 : ContractId MyInterface = toInterfaceContractId @MyInterface cid1"
+                    , "  let iid2 : ContractId MyInterface = toInterfaceContractId @MyInterface cid2"
+
+                    , "  Some v <- queryViewContractId p iid1"
                     , "  v.info === 142"
+                    , "  Some v <- queryViewContractId p iid2"
+                    , "  v.info === 143"
 
-                    , "  [(i1,v1)] <- queryView @MyInterface p"
-                    , "  i1 === iid"
+                    -- NICK: fix test fragility: dont depend on order of returned list
+                    , "  [(i1,v1),(i2,v2)] <- queryView @MyInterface p"
+                    , "  i1 === iid1"
+                    , "  i2 === iid2"
                     , "  v1.info === 142"
+                    , "  v2.info === 143"
 
                     , "  pure ()"
                     ]
