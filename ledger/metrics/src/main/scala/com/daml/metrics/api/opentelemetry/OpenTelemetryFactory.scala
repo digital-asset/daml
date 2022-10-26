@@ -56,7 +56,7 @@ trait OpenTelemetryFactory extends Factory {
         }
         OpentelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
       case _ =>
-        // A NoOp guage as opentelemetry only supports longs and doubles
+        // A NoOp gauge as OpenTelemetry only supports longs and doubles
         OpentelemetryGauge(name, VarGauge(initial))
     }
   }
