@@ -1095,7 +1095,7 @@ private[lf] object SBuiltin {
     }
   }
 
-  private[lf] def interfaceInstanceExists( // NICK: revert to private[this]
+  private[this] def interfaceInstanceExists(
       machine: Machine,
       interfaceId: TypeConName,
       templateId: TypeConName,

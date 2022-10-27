@@ -14,7 +14,7 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
-import com.daml.lf.speedy.SBuiltin
+import com.daml.lf.speedy.SExpr.InterfaceInstanceDefRef
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
@@ -134,17 +134,18 @@ class IdeLedgerClient(
     )
   }
 
+  private[this] def implements(templateId: TypeConName, interfaceId: TypeConName): Boolean = {
+    val ref1 = InterfaceInstanceDefRef(interfaceId, interfaceId, templateId)
+    val ref2 = InterfaceInstanceDefRef(templateId, interfaceId, templateId)
+    val b1 = compiledPackages.getDefinition(ref1).nonEmpty
+    val b2 = compiledPackages.getDefinition(ref2).nonEmpty
+    b1 || b2
+  }
+
   override def queryView(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Value)]] = {
-
-    def implementsInterface(templateId: TypeConName): Boolean = {
-      // NICK: avoid need for machine, and hence need for dummy-expression.
-      val sexpr = speedy.SExpr.SEValue(SValue.SText("dummy-expression"))
-      val machine = Machine.fromPureSExpr(compiledPackages, sexpr)(Script.DummyLoggingContext)
-      SBuiltin.interfaceInstanceExists(machine, interfaceId, templateId)
-    }
 
     // NICK: dedup with query
     val acs: Seq[ScenarioLedger.LookupOk] = ledger.query(
@@ -156,7 +157,7 @@ class IdeLedgerClient(
             cid,
             Versioned(_, contractInstance @ Value.ContractInstance(templateId, _, _)),
             stakeholders,
-          ) if implementsInterface(templateId) && parties.any(stakeholders.contains(_)) =>
+          ) if implements(templateId, interfaceId) && parties.any(stakeholders.contains(_)) =>
         (cid, contractInstance)
     }
 
