@@ -17,4 +17,9 @@ public final class Created<CtId> {
       Function<String, CtId> createdContractId, CreatedEvent createdEvent) {
     return new Created<>(createdContractId.apply(createdEvent.getContractId()));
   }
+
+  @Override
+  public String toString() {
+    return "Created{" + "contractId=" + contractId + '}';
+  }
 }

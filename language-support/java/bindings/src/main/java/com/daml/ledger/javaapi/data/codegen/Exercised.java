@@ -16,4 +16,9 @@ public final class Exercised<R> {
       ValueDecoder<R> returnTypeDecoder, ExercisedEvent exercisedEvent) {
     return new Exercised<>(returnTypeDecoder.decode(exercisedEvent.getExerciseResult()));
   }
+
+  @Override
+  public String toString() {
+    return "Exercised{" + "exerciseResult=" + exerciseResult + '}';
+  }
 }
