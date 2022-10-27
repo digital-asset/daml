@@ -23,6 +23,8 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import com.daml.platform.store.backend.EventStorageBackend.Entry
 
+import com.daml.platform.store.ScalaPbStreamingOptimizations._
+
 // TODO append-only: FIXME: move to the right place
 object EventsTable {
 
@@ -52,7 +54,9 @@ object EventsTable {
     def toGetTransactionsResponse(
         events: Vector[Entry[Event]]
     ): List[GetTransactionsResponse] =
-      flatTransaction(events).toList.map(tx => GetTransactionsResponse(Seq(tx)))
+      flatTransaction(events).toList.map(tx =>
+        GetTransactionsResponse(Seq(tx)).precomputeSerializedSize()
+      )
 
     def toGetFlatTransactionResponse(
         events: Vector[Entry[Event]]
@@ -70,7 +74,7 @@ object EventsTable {
             offset = "", // only the last response will have an offset.
             workflowId = entry.workflowId,
             activeContracts = Seq(entry.event.getCreated),
-          )
+          ).precomputeSerializedSize()
         case entry =>
           throw IndexErrors.DatabaseErrors.ResultSetError
             .Reject(
@@ -134,7 +138,9 @@ object EventsTable {
     def toGetTransactionTreesResponse(
         events: Vector[Entry[TreeEvent]]
     ): List[GetTransactionTreesResponse] =
-      transactionTree(events).toList.map(tx => GetTransactionTreesResponse(Seq(tx)))
+      transactionTree(events).toList.map(tx =>
+        GetTransactionTreesResponse(Seq(tx)).precomputeSerializedSize()
+      )
 
     def toGetTransactionResponse(
         events: Vector[Entry[TreeEvent]]
