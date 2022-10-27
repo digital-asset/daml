@@ -46,9 +46,7 @@ sealed trait SValue {
     )
   }
 
-  private def toValue(
-      normalize: Boolean
-  ): V = {
+  private def toValue(normalize: Boolean): V = {
 
     def maybeEraseTypeInfo[X](x: X): Option[X] =
       if (normalize) {

@@ -139,9 +139,6 @@ class IdeLedgerClient(
       arg: Value,
   ): Value = {
 
-    // TODO https://github.com/digital-asset/daml/issues/14830
-    val version: TransactionVersion = TransactionVersion.VDev // from where?
-
     val valueTranslator = new ValueTranslator(
       pkgInterface = compiledPackages.pkgInterface,
       requireV1ContractIdSuffix = false,
