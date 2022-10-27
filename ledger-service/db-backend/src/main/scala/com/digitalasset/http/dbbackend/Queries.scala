@@ -596,7 +596,6 @@ object Queries {
       groups: NonEmpty[Map[K, NonEmpty[Set[V]]]],
   ): Vector[NonEmpty[Map[K, NonEmpty[Set[V]]]]] = {
     assert(size > 0, s"chunk size must be positive, not $size")
-    import scalaz.syntax.order._, scalaz.Ordering._
     type Groups = NonEmpty[Map[K, NonEmpty[Set[V]]]]
     type Remaining = Map[K, NonEmpty[Set[V]]]
 
@@ -605,14 +604,13 @@ object Queries {
       if (size <= 0 || remaining.isEmpty) (acc, remaining)
       else {
         val (k, sv) = remaining.head
-        sv.size ?|? size match {
-          case LT | EQ =>
-            takeSize(size - sv.size, acc.updated(k, sv), remaining - k)
-          case GT =>
-            // GT proves that both sides of the split are non-empty
-            val NonEmpty(taken) = sv take size
-            val NonEmpty(left) = sv -- taken
-            (acc.updated(k, taken), remaining.updated(k, left))
+        if (sv.size <= size)
+          takeSize(size - sv.size, acc.updated(k, sv), remaining - k)
+        else {
+          // ! <= proves that both sides of the split are non-empty
+          val NonEmpty(taken) = sv take size
+          val NonEmpty(left) = sv -- taken
+          (acc.updated(k, taken), remaining.updated(k, left))
         }
       }
 
@@ -620,13 +618,13 @@ object Queries {
     // to start with an empty acc
     def takeInitSize(remaining: Groups): (Groups, Remaining) = {
       val (k, sv) = remaining.head
-      sv.size ?|? size match {
-        case LT | EQ =>
-          takeSize(size - sv.size, NonEmpty(Map, k -> sv), remaining - k)
-        case GT =>
-          val NonEmpty(taken) = sv take size
-          val NonEmpty(left) = sv -- taken
-          (NonEmpty(Map, k -> taken), remaining.updated(k, left))
+      if (sv.size <= size)
+        takeSize(size - sv.size, NonEmpty(Map, k -> sv), remaining - k)
+      else {
+        // ! <= proves that both sides of the split are non-empty
+        val NonEmpty(taken) = sv take size
+        val NonEmpty(left) = sv -- taken
+        (NonEmpty(Map, k -> taken), remaining.updated(k, left))
       }
     }
 
