@@ -18,6 +18,7 @@ import scalaz.std.vector._
 import scalaz.syntax.foldable._
 
 class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+
   import QueriesSpec._
 
   "projectedIndex" should {
@@ -68,13 +69,14 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
   }
 
   "chunkBySetSize" should {
-    import org.scalacheck.{Arbitrary, Gen}
+    import org.scalacheck.{Arbitrary, Gen, Shrink}
     import Arbitrary.arbitrary
     import ScalaCheckDrivenPropertyChecks.{forAll => scForAll, _}
     import Queries.chunkBySetSize
 
     type Arg = NonEmpty[Map[Int, NonEmpty[Set[Int]]]]
     val sizes: Gen[Int] = Gen.choose(1, 20)
+    implicit val doNotShrinkSize: Shrink[Int] = Shrink.shrinkAny
     val randomArg: Gen[Arg] = Gen
       .nonEmptyMap(
         Gen.zip(
@@ -83,6 +85,13 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
         )
       )
       .map { case NonEmpty(xs) => xs }
+    implicit val shrinkArg: Shrink[Arg] = {
+      implicit val shrinkSet: Shrink[NonEmpty[Set[Int]]] =
+        Shrink { nes => Shrink.shrink(nes.forgetNE).collect { case NonEmpty(s) => s } }
+      Shrink { arg =>
+        Shrink.shrink(arg.forgetNE).collect { case NonEmpty(m) => m }
+      }
+    }
 
     "include all arguments in the result" in scForAll(sizes, randomArg) { (s, r) =>
       chunkBySetSize(s, r).foldMap1Opt(identity) should ===(Some(r))

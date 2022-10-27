@@ -595,10 +595,44 @@ object Queries {
       size: Int,
       groups: NonEmpty[Map[K, NonEmpty[Set[V]]]],
   ): Vector[NonEmpty[Map[K, NonEmpty[Set[V]]]]] = {
-    // TODO #14819 this will break Oracle; write proper tests for this function
-    // and actually do the splitting
-    identity(size) // TODO #14819 remove
-    Vector(groups)
+    assert(size > 0, s"chunk size must be positive, not $size")
+    import scalaz.syntax.order._, scalaz.Ordering._
+    type Groups = NonEmpty[Map[K, NonEmpty[Set[V]]]]
+    type Remaining = Map[K, NonEmpty[Set[V]]]
+
+    @annotation.tailrec
+    def takeSize(size: Int, acc: Groups, remaining: Remaining): (Groups, Remaining) =
+      if (size <= 0 || remaining.isEmpty) (acc, remaining)
+      else {
+        val (k, sv) = remaining.head
+        sv.size ?|? size match {
+          case LT | EQ =>
+            takeSize(size - sv.size, acc.updated(k, sv), remaining - k)
+          case GT =>
+            // GT proves that both sides of the split are non-empty
+            val NonEmpty(taken) = sv take size
+            val NonEmpty(left) = sv -- taken
+            (acc.updated(k, taken), remaining.updated(k, left))
+        }
+      }
+
+    // XXX SC: takeInitSize duplicates some of takeSize, but it's a little tricky
+    // to start with an empty acc
+    def takeInitSize(remaining: Groups): (Groups, Remaining) = {
+      val (k, sv) = remaining.head
+      sv.size ?|? size match {
+        case LT | EQ =>
+          takeSize(size - sv.size, NonEmpty(Map, k -> sv), remaining - k)
+        case GT =>
+          val NonEmpty(taken) = sv take size
+          val NonEmpty(left) = sv -- taken
+          (NonEmpty(Map, k -> taken), remaining.updated(k, left))
+      }
+    }
+
+    Vector.unfold(groups: Remaining) { remaining =>
+      NonEmpty from remaining map takeInitSize
+    }
   }
 
   import doobie.util.invariant.InvalidValue
