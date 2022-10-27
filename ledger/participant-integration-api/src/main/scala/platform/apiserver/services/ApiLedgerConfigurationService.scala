@@ -29,6 +29,9 @@ private[apiserver] final class ApiLedgerConfigurationService private (
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
+  // This optimization targets services with potentially complex protobuf payloads.
+  // Not applicable for this service.
+  protected val optimizeGrpcStreamsThroughput: Boolean = false
 
   override protected def getLedgerConfigurationSource(
       request: GetLedgerConfigurationRequest

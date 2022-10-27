@@ -26,6 +26,7 @@ import scala.concurrent.ExecutionContext
 private[apiserver] final class ApiActiveContractsService private (
     backend: ACSBackend,
     metrics: Metrics,
+    protected val optimizeGrpcStreamsThroughput: Boolean,
 )(implicit
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -64,6 +65,7 @@ private[apiserver] object ApiActiveContractsService {
       ledgerId: LedgerId,
       backend: ACSBackend,
       metrics: Metrics,
+      optimizeGrpcStreamsThroughput: Boolean,
   )(implicit
       mat: Materializer,
       esf: ExecutionSequencerFactory,
@@ -73,6 +75,7 @@ private[apiserver] object ApiActiveContractsService {
     val service = new ApiActiveContractsService(
       backend = backend,
       metrics = metrics,
+      optimizeGrpcStreamsThroughput = optimizeGrpcStreamsThroughput,
     )
     new ActiveContractsServiceValidation(
       service = service,

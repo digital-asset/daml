@@ -41,6 +41,10 @@ class GrpcHealthService(
   private val errorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
+  // This optimization targets services with potentially complex protobuf payloads.
+  // Not applicable for this service.
+  protected val optimizeGrpcStreamsThroughput: Boolean = false
+
   override def bindService(): ServerServiceDefinition =
     HealthGrpc.bindService(this, executionContext)
 

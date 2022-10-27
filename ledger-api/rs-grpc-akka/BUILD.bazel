@@ -9,6 +9,7 @@ da_scala_library(
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime",
     ],
     tags = ["maven_coordinates=com.daml:rs-grpc-akka:__VERSION__"],
     visibility = [

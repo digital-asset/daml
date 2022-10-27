@@ -19,6 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class GrpcCommandCompletionService(
     service: CommandCompletionService,
     validator: CompletionServiceRequestValidator,
+    protected val optimizeGrpcStreamsThroughput: Boolean,
 )(implicit
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -53,5 +54,4 @@ class GrpcCommandCompletionService(
               CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value))))
             ),
       )
-
 }

@@ -89,6 +89,7 @@ private[apiserver] object ApiCommandCompletionService {
       ledgerId: LedgerId,
       completionsService: IndexCompletionsService,
       metrics: Metrics,
+      optimizeGrpcStreamsThroughput: Boolean,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -103,8 +104,9 @@ private[apiserver] object ApiCommandCompletionService {
       new ApiCommandCompletionService(completionsService, validator, metrics)
 
     impl -> new GrpcCommandCompletionService(
-      impl,
-      validator,
+      service = impl,
+      validator = validator,
+      optimizeGrpcStreamsThroughput = optimizeGrpcStreamsThroughput,
     ) with GrpcApiService {
       override def bindService(): ServerServiceDefinition =
         CommandCompletionServiceGrpc.bindService(this, executionContext)

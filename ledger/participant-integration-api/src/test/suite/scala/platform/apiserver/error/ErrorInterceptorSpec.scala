@@ -327,6 +327,8 @@ object ErrorInterceptorSpec {
       with HelloServiceResponding
       with HelloServiceBase {
 
+    protected val optimizeGrpcStreamsThroughput: Boolean = true
+
     override protected def serverStreamingSource(
         request: HelloRequest
     ): Source[HelloResponse, NotUsed] = {
