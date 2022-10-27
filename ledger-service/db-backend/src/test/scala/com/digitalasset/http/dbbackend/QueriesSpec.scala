@@ -11,6 +11,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import scala.collection.immutable.Seq
 import scalaz.\/
+import scalaz.std.anyVal._
 import scalaz.std.map._
 import scalaz.std.set._
 import scalaz.std.vector._
@@ -85,6 +86,10 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
 
     "include all arguments in the result" in scForAll(sizes, randomArg) { (s, r) =>
       chunkBySetSize(s, r).foldMap1Opt(identity) should ===(Some(r))
+    }
+
+    "never exceed size in each chunk" in scForAll(sizes, randomArg) { (s, r) =>
+      all(chunkBySetSize(s, r).map(_.toNEF.foldMap(_.size))) should be <= s
     }
   }
 }
