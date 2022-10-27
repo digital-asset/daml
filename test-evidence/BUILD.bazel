@@ -32,6 +32,7 @@ da_scala_binary(
     runtime_deps = [
         "//ledger-service/jwt:tests-lib",
         "//ledger/sandbox-on-x:sandbox-on-x-it-tests-lib",
+        "//triggers/service/auth:oauth2-middleware-tests-lib",
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
