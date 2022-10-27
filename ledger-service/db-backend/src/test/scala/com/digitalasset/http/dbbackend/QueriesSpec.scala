@@ -97,8 +97,15 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
       chunkBySetSize(s, r).foldMap1Opt(identity) should ===(Some(r))
     }
 
+    def measuredChunkSize[K, V](chunk: NonEmpty[Map[K, NonEmpty[Set[V]]]]) =
+      chunk.toNEF.foldMap(_.size)
+
     "never exceed size in each chunk" in scForAll(sizes, randomArg) { (s, r) =>
-      all(chunkBySetSize(s, r).map(_.toNEF.foldMap(_.size))) should be <= s
+      all(chunkBySetSize(s, r) map measuredChunkSize) should be <= s
+    }
+
+    "make chunks as large as possible" in scForAll(sizes, randomArg) { (s, r) =>
+      all(chunkBySetSize(s, r).init map measuredChunkSize) should ===(s)
     }
   }
 }
