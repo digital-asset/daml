@@ -4,27 +4,28 @@
 package com.daml.metrics
 
 import java.util.concurrent.atomic.AtomicLong
-import akka.stream.scaladsl.{Keep, Sink, Source}
+
 import akka.stream.QueueOfferResult
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.codahale.{metrics => codahale}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.metrics.InstrumentedGraph._
 import com.daml.metrics.InstrumentedGraphSpec.SamplingCounter
+import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardTimer}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import com.daml.metrics.InstrumentedGraph._
-import com.daml.metrics.MetricHandle.{Counter, Timer}
 
-import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{Future, Promise}
 
 final class InstrumentedGraphSpec extends AsyncFlatSpec with Matchers with AkkaBeforeAndAfterAll {
 
   behavior of "InstrumentedSource.queue"
 
   it should "correctly enqueue and measure queue delay" in {
-    val capacityCounter = Counter("test-capacity", new codahale.Counter())
-    val maxBuffered = Counter("test-length", new InstrumentedGraphSpec.MaxValueCounter())
-    val delayTimer = Timer("test-delay", new codahale.Timer())
+    val capacityCounter = DropwizardCounter("test-capacity", new codahale.Counter())
+    val maxBuffered = DropwizardCounter("test-length", new InstrumentedGraphSpec.MaxValueCounter())
+    val delayTimer = DropwizardTimer("test-delay", new codahale.Timer())
     val bufferSize = 2
 
     val (source, sink) =
@@ -43,7 +44,7 @@ final class InstrumentedGraphSpec extends AsyncFlatSpec with Matchers with AkkaB
     sink.map { output =>
       all(result) shouldBe QueueOfferResult.Enqueued
       output shouldEqual input
-      delayTimer.getCount shouldEqual bufferSize
+      delayTimer.metric.getCount shouldEqual bufferSize
       delayTimer.metric.getSnapshot.getMax should be >= 5.millis.toNanos
     }
   }
@@ -60,9 +61,9 @@ final class InstrumentedGraphSpec extends AsyncFlatSpec with Matchers with AkkaB
     val lowAcceptanceThreshold = bufferSize - acceptanceTolerance
     val highAcceptanceThreshold = bufferSize + acceptanceTolerance
 
-    val maxBuffered = Counter("test-length", new InstrumentedGraphSpec.MaxValueCounter())
-    val capacityCounter = Counter("test-capacity", new codahale.Counter())
-    val delayTimer = Timer("test-delay", new codahale.Timer())
+    val maxBuffered = DropwizardCounter("test-length", new InstrumentedGraphSpec.MaxValueCounter())
+    val capacityCounter = DropwizardCounter("test-capacity", new codahale.Counter())
+    val delayTimer = DropwizardTimer("test-delay", new codahale.Timer())
 
     val stop = Promise[Unit]()
 
@@ -108,7 +109,7 @@ final class InstrumentedGraphSpec extends AsyncFlatSpec with Matchers with AkkaB
     val counter = new SamplingCounter(10.millis)
     Source(List.fill(1000)("element"))
       .throttle(producerMaxSpeed, FiniteDuration(10, "millis"))
-      .buffered(Counter("test", counter), 100)
+      .buffered(DropwizardCounter("test", counter), 100)
       .throttle(consumerMaxSpeed, FiniteDuration(10, "millis"))
       .run()
       .map(_ => counter.finishSampling())

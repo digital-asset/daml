@@ -6,6 +6,7 @@ load(
     "client_server_test",
 )
 load("//bazel_tools:versions.bzl", "version_to_name", "versions")
+load("//bazel_tools:testing.bzl", "extra_tags")
 
 def daml_script_dar(sdk_version):
     daml = "@daml-sdk-{sdk_version}//:daml".format(
@@ -146,5 +147,5 @@ chmod +x $(OUTS)
         server_args = server_args,
         server_files = server_files,
         server_files_prefix = server_files_prefix,
-        tags = ["exclusive"],
+        tags = extra_tags(compiler_version, runner_version) + ["exclusive"],
     )

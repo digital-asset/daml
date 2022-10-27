@@ -176,9 +176,7 @@ When importing packages this way, the Daml compiler will try to reconstruct the 
 
 #. Prior to Daml-LF version 1.8, typeclasses could not be reconstructed. This means if you have a package that is compiled with an older version of Daml-LF, typeclasses and typeclass instances will not be carried over via data-dependencies, and you won't be able to call functions that rely on typeclass instances. This includes the template functions, such as ``create``, ``signatory``, and ``exercise``, as these rely on typeclass instances.
 
-#. Starting from Daml-LF version 1.8, when possible, typeclass instances will be reconstructed by re-using the typeclass definitions from dependencies, such as the typeclasses exported in ``daml-stdlib``. However, if the typeclass signature has changed, you will get an instance for a reconstructed typeclass instead, which will not interoperate with code from dependencies. Furthermore, if the typeclass definition uses the ``FunctionalDependencies`` language extension, this may cause additional problems, since the functional dependencies cannot be recovered. So this is something to keep in mind when redefining typeclasses and when using ``FunctionalDependencies``.
-
-#. Certain advanced type system features cannot be reconstructed. In particular, ``DA.Generics`` and ``DeriveGeneric`` cannot be reconstructed. This may result in certain definitions being unavailable when importing a module that uses these advanced features.
+#. Starting from Daml-LF version 1.8, when possible, typeclass instances will be reconstructed by re-using the typeclass definitions from dependencies, such as the typeclasses exported in ``daml-stdlib``. However, if the typeclass signature has changed, you will get an instance for a reconstructed typeclass instead, which will not interoperate with code from dependencies.
 
 .. TODO (#4932): Add warnings for advanced features that aren't supported, and add a comment on item #4.
 

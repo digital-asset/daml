@@ -9,7 +9,8 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.caching.{CaffeineCache, ConcurrentCache, SizedCache}
 import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
-import com.daml.metrics.{CacheMetrics, MetricName, Metrics}
+import com.daml.metrics.api.MetricName
+import com.daml.metrics.{CacheMetrics, Metrics}
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion

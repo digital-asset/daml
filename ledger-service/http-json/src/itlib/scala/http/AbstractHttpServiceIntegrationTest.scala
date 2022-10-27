@@ -51,11 +51,11 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
   import json.JsonProtocol._
 
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
-    jwtForParties(uri)(List("Alice"), List(), testId)
+    jwtForParties(uri)(domain.Party subst List("Alice"), List(), testId)
 
   protected def headersWithPartyAuthLegacyFormat(
-      actAs: List[String],
-      readAs: List[String] = List(),
+      actAs: List[domain.Party],
+      readAs: List[domain.Party] = List(),
   ) =
     HttpServiceTestFixture.headersWithPartyAuth(
       actAs,
@@ -95,7 +95,13 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
     val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
     val headers = HttpServiceTestFixture.authorizationHeader(
-      HttpServiceTestFixture.jwtForParties(List("Alice"), List("Bob"), None, false, false)
+      HttpServiceTestFixture.jwtForParties(
+        domain.Party subst List("Alice"),
+        domain.Party subst List("Bob"),
+        None,
+        false,
+        false,
+      )
     )
 
     fixture
@@ -128,7 +134,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   import AbstractHttpServiceIntegrationTestFuns.{VAx, UriFixture, HttpServiceTestFixtureData}
   import HttpServiceTestFixture.{UseTls, accountCreateCommand, archiveCommand}
   import json.JsonProtocol._
-  import AbstractHttpServiceIntegrationTestFuns.ciouDar
+  import AbstractHttpServiceIntegrationTestFuns.{ciouDar, riouDar}
 
   object CIou {
     val CIou: domain.ContractTypeId.Template.OptionalPkg =
@@ -141,10 +147,10 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       party: domain.Party
   ): List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]] =
     List(
-      iouCreateCommand(amount = "111.11", currency = "EUR", partyName = party),
-      iouCreateCommand(amount = "222.22", currency = "EUR", partyName = party),
-      iouCreateCommand(amount = "333.33", currency = "GBP", partyName = party),
-      iouCreateCommand(amount = "444.44", currency = "BTC", partyName = party),
+      iouCreateCommand(amount = "111.11", currency = "EUR", party = party),
+      iouCreateCommand(amount = "222.22", currency = "EUR", party = party),
+      iouCreateCommand(amount = "333.33", currency = "GBP", party = party),
+      iouCreateCommand(amount = "444.44", currency = "BTC", party = party),
     )
 
   protected def testLargeQueries = true
@@ -206,7 +212,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         )
           .map(acl => acl.size shouldBe 1)
         _ <- fixture
-          .headersWithPartyAuth(List(alice.unwrap, bob.unwrap))
+          .headersWithPartyAuth(List(alice, bob))
           .flatMap(headers =>
             searchExpectOk(
               List(),
@@ -251,6 +257,97 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
       }
     }
+
+    "multi-view" - {
+      val amountsCurrencies = Vector(("42.0", "USD"), ("84.0", "CHF"))
+      val expectedAmountsCurrencies = amountsCurrencies.map { case (a, c) => (a.toDouble, c) }
+
+      def testMultiView[ExParties](
+          fixture: HttpServiceTestFixtureData,
+          allocateParties: Future[ExParties],
+      )(
+          observers: ExParties => Vector[domain.Party],
+          queryHeaders: (domain.Party, List[HttpHeader], ExParties) => Future[List[HttpHeader]],
+      ) = for {
+        _ <- uploadPackage(fixture)(riouDar)
+        (alice, aliceHeaders) <- fixture.getUniquePartyAndAuthHeaders("alice")
+        exParties <- allocateParties
+
+        // create all contracts
+        exObservers = observers(exParties)
+        cids <- amountsCurrencies.traverse { case (amount, currency) =>
+          postCreateCommand(
+            iouCreateCommand(
+              alice,
+              amount = amount,
+              currency = currency,
+              observers = exObservers,
+            ),
+            fixture,
+            aliceHeaders,
+          ) map resultContractId
+        }
+        queryAsBoth <- queryHeaders(alice, aliceHeaders, exParties)
+        queryAtCtId = {
+          (ctid: domain.ContractTypeId.OptionalPkg, amountKey: String, currencyKey: String) =>
+            searchExpectOk(
+              List.empty,
+              Map("templateIds" -> List(ctid)).toJson.asJsObject,
+              fixture,
+              queryAsBoth,
+            ) map { resACs =>
+              inside(resACs map (inside(_) {
+                case domain.ActiveContract(cid, _, _, payload, Seq(`alice`), `exObservers`, _) =>
+                  // ensure the contract metadata is right, then discard
+                  (cid, payload.asJsObject.fields)
+              })) { case Seq((cid0, payload0), (cid1, payload1)) =>
+                Seq(cid0, cid1) should contain theSameElementsAs cids
+                // check the actual payloads match the contract IDs from creates
+                val actualAmountsCurrencies = (if (cid0 == cids.head) Seq(payload0, payload1)
+                                               else Seq(payload1, payload0))
+                  .map(payload =>
+                    inside((payload get amountKey, payload get currencyKey)) {
+                      case (Some(JsString(amount)), Some(JsString(currency))) =>
+                        (amount.toDouble, currency)
+                    }
+                  )
+                actualAmountsCurrencies should ===(expectedAmountsCurrencies)
+              }
+            }
+        }
+        // run (inserting when query store) on template ID; then interface ID
+        // (thereby duplicating contract IDs)
+        _ <- queryAtCtId(TpId.Iou.Iou, "amount", "currency")
+        _ <- queryAtCtId(TpId.RIou.RIou, "iamount", "icurrency")
+        // then try template ID again, in case interface ID mangled the results
+        // for template ID by way of stakeholder join or something even odder
+        _ <- queryAtCtId(TpId.Iou.Iou, "amount", "currency")
+      } yield succeed
+
+      // multi-party and single-party are handled significantly differently
+      // in Oracle, so we check behavior with both varieties
+
+      "multi-party" in withHttpService { fixture =>
+        testMultiView(
+          fixture,
+          fixture.getUniquePartyAndAuthHeaders("bob").map(_._1),
+        )(
+          bob => Vector(bob),
+          (alice, _, bob) => fixture.headersWithPartyAuth(List(alice), List(bob)),
+        )
+      }
+
+      "single party" in withHttpService { fixture =>
+        testMultiView(
+          fixture,
+          Future successful (()),
+        )(
+          _ => Vector.empty,
+          (_, aliceHeaders, _) => Future successful aliceHeaders,
+        )
+      }
+
+    }
   }
 
   "query with unknown Template IDs" - {
@@ -259,10 +356,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         jsObject(
           """{"templateIds": ["Iou:Iou", "UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}"""
         )
-      // TODO VM(#12922) https://github.com/digital-asset/daml/pull/12922#discussion_r815234434
-      logger.info("query returns unknown Template IDs")
       fixture
-        .headersWithPartyAuth(List("UnknownParty"))
+        .headersWithPartyAuth(domain.Party subst List("UnknownParty"))
         .flatMap(headers =>
           search(List(), query, fixture, headers).map { response =>
             inside(response) { case domain.OkResponse(acl, warnings, StatusCodes.OK) =>
@@ -322,7 +417,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           searchExpectOk(
             genSearchDataSet(alice) :+ iouCreateCommand(
               currency = testCurrency,
-              partyName = alice,
+              party = alice,
             ),
             jsObject(
               s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
@@ -714,12 +809,12 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   "should support multi-party command submissions" in withHttpService { fixture =>
     import fixture.{client, encoder}
     val knownParties @ List(alice, bob, charlie, david) =
-      List("Alice", "Bob", "Charlie", "David").map(getUniqueParty).map(_.unwrap)
+      List("Alice", "Bob", "Charlie", "David").map(getUniqueParty)
     val partyManagement = client.partyManagementClient
     for {
       _ <- knownParties
         .traverse { p =>
-          partyManagement.allocateParty(Some(p), Some(s"${p} & Co. LLC"))
+          partyManagement.allocateParty(Some(p.unwrap), Some(s"${p} & Co. LLC"))
         }
       // multi-party actAs on create
       cid <- fixture
@@ -1074,7 +1169,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
         fixture
-          .headersWithPartyAuth(actAs = List(actAs.unwrap))
+          .headersWithPartyAuth(actAs = List(actAs))
           .flatMap(headers =>
             fixture.postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, headers)
           )
@@ -1091,7 +1186,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           }""")
 
         fixture
-          .headersWithPartyAuth(actAs = List(fromPerspectiveOfParty.unwrap))
+          .headersWithPartyAuth(actAs = List(fromPerspectiveOfParty))
           .flatMap(headers => fixture.postJsonRequest(Uri.Path("/v1/query"), query, headers))
           .parseResponse[JsValue]
           .map(inside(_) { case domain.OkResponse(_, _, StatusCodes.OK) =>
@@ -1108,7 +1203,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
         users <- commands.traverse { case (party, command) =>
           val fut = fixture
-            .headersWithPartyAuth(actAs = List(party.unwrap))
+            .headersWithPartyAuth(actAs = List(party))
             .flatMap(headers =>
               postCreateCommand(
                 command,
@@ -1182,7 +1277,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
         _ <- fixture.searchAllExpectOk(aliceHeaders).map(cs => cs should have size 1)
         _ <- fixture.searchAllExpectOk(bobHeaders).map(cs => cs should have size 1)
         _ <- fixture
-          .headersWithPartyAuth(List(alice.unwrap, bob.unwrap))
+          .headersWithPartyAuth(List(alice, bob))
           .flatMap(headers => fixture.searchAllExpectOk(headers))
           .map(cs => cs should have size 2)
       } yield succeed
@@ -1226,7 +1321,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
         command = iouCreateCommand(alice)
         input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
         headers <- fixture
-          .headersWithPartyAuth(actAs = List(alice.unwrap), readAs = List("Bob"))
+          .headersWithPartyAuth(actAs = List(alice), readAs = List(domain.Party("Bob")))
         activeContractResponse <- fixture
           .postJsonRequest(
             Uri.Path("/v1/create"),

@@ -70,7 +70,7 @@ private[codegen] object ObjectMethods extends StrictLogging {
                     .of("$T.equals(this.$L, other.$L)", classOf[Objects], fieldName, fieldName)
                 )
                 .asJava,
-              " && ",
+              " &&$W",
             ),
           )
         )
@@ -90,8 +90,13 @@ private[codegen] object ObjectMethods extends StrictLogging {
   def generateHashCode(fieldNames: IndexedSeq[String]): MethodSpec =
     initHashCodeBuilder()
       .addStatement(
-        s"return $$T.hash(${List.fill(fieldNames.size)("this.$L").mkString(", ")})",
-        IndexedSeq(classOf[java.util.Objects]) ++ fieldNames: _*
+        "return $T.hash($L)",
+        classOf[java.util.Objects],
+        CodeBlock
+          .join(
+            fieldNames.map { fieldName => CodeBlock.of("this.$L", fieldName) }.asJava,
+            ",$W",
+          ),
       )
       .build()
 
@@ -122,11 +127,16 @@ private[codegen] object ObjectMethods extends StrictLogging {
     } else {
       initToStringBuilder()
         .addStatement(
-          s"return $$T.format($$S, ${List.fill(fieldNames.size)("this.$L").mkString(", ")})",
-          IndexedSeq(
-            classOf[java.lang.String],
-            template(className, fieldNames, enclosingClassName),
-          ) ++ fieldNames: _*
+          "return $T.format($S,$W$L)",
+          classOf[java.lang.String],
+          template(className, fieldNames, enclosingClassName),
+          CodeBlock
+            .join(
+              fieldNames.map { fieldName =>
+                CodeBlock.of("this.$L", fieldName)
+              }.asJava,
+              ",$W",
+            ),
         )
         .build()
     }

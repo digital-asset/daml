@@ -3,13 +3,14 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.MetricHandle.{Counter, Meter, Timer}
-
-import com.codahale.metrics.{MetricRegistry}
+import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Latency}
+import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
+import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class CommandMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends DropwizardFactory {
 
   @MetricDoc.Tag(
     summary = "The time to validate a Daml command.",
@@ -23,7 +24,7 @@ class CommandMetrics(override val prefix: MetricName, override val registry: Met
     summary = "The time to fully process a Daml command.",
     description = """The time to validate and interpret a command before it is handed over to the
                     |synchronization services to be finalized (either committed or rejected).""",
-    qualification = Debug,
+    qualification = Latency,
   )
   val submissions: Timer = timer(prefix :+ "submissions")
 

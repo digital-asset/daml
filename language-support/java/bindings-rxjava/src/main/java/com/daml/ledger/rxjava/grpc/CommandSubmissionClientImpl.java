@@ -3,13 +3,14 @@
 
 package com.daml.ledger.rxjava.grpc;
 
+import static com.daml.ledger.javaapi.data.codegen.HasCommands.toCommands;
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.daml.ledger.api.v1.CommandSubmissionServiceGrpc;
 import com.daml.ledger.api.v1.CommandSubmissionServiceOuterClass;
-import com.daml.ledger.javaapi.data.Command;
 import com.daml.ledger.javaapi.data.SubmitRequest;
+import com.daml.ledger.javaapi.data.codegen.HasCommands;
 import com.daml.ledger.rxjava.CommandSubmissionClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.google.protobuf.Empty;
@@ -47,7 +48,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       Optional<String> accessToken) {
     CommandSubmissionServiceOuterClass.SubmitRequest request =
         SubmitRequest.toProto(
@@ -60,7 +61,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
             minLedgerTimeAbs,
             minLedgerTimeRel,
             deduplicationTime,
-            commands);
+            toCommands(commands));
     CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub stubWithTimeout =
         this.timeout
             .map(t -> this.serviceStub.withDeadlineAfter(t.toMillis(), MILLISECONDS))
@@ -77,7 +78,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       Optional<String> accessToken) {
     return this.submit(
         workflowId,
@@ -98,7 +99,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull String applicationId,
       @NonNull String commandId,
       @NonNull String party,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submit(
         workflowId,
         applicationId,
@@ -118,7 +119,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submit(
         workflowId,
         applicationId,
@@ -141,7 +142,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submit(
         workflowId,
@@ -165,7 +166,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submit(
         workflowId,
@@ -189,7 +190,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submit(
         workflowId,
         applicationId,
@@ -212,7 +213,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submit(
         workflowId,
         applicationId,
@@ -232,7 +233,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull String applicationId,
       @NonNull String commandId,
       @NonNull String party,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submit(
         workflowId,
@@ -253,7 +254,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submit(
         workflowId,

@@ -35,43 +35,38 @@ class BufferedTransactionByIdReaderSpec extends AsyncFlatSpec with MockitoSugar 
   private val bufferedTransaction1 = tx(bufferedTransactionId1)
   private val bufferedTransaction2 = tx(bufferedTransactionId2)
 
-  class Fixture {
-    val inMemoryFanout = mock[InMemoryFanoutBuffer]
-    when(inMemoryFanout.lookup(bufferedTransactionId1)).thenReturn(Some(bufferedTransaction1))
-    when(inMemoryFanout.lookup(bufferedTransactionId2)).thenReturn(Some(bufferedTransaction2))
-    when(inMemoryFanout.lookup(notBufferedTransactionId)).thenReturn(None)
-    when(inMemoryFanout.lookup(unknownTransactionId)).thenReturn(None)
+  private val inMemoryFanout = mock[InMemoryFanoutBuffer]
+  when(inMemoryFanout.lookup(bufferedTransactionId1)).thenReturn(Some(bufferedTransaction1))
+  when(inMemoryFanout.lookup(bufferedTransactionId2)).thenReturn(Some(bufferedTransaction2))
+  when(inMemoryFanout.lookup(notBufferedTransactionId)).thenReturn(None)
+  when(inMemoryFanout.lookup(unknownTransactionId)).thenReturn(None)
 
-    val toApiResponse = mock[ToApiResponse[String]]
-    when(toApiResponse.apply(bufferedTransaction1, requestingParties, loggingContext))
-      .thenReturn(Future.successful(Some(bufferedTransactionId1)))
-    when(toApiResponse.apply(bufferedTransaction2, requestingParties, loggingContext))
-      .thenReturn(Future.successful(None))
+  private val toApiResponse = mock[ToApiResponse[String]]
+  when(toApiResponse.apply(bufferedTransaction1, requestingParties, loggingContext))
+    .thenReturn(Future.successful(Some(bufferedTransactionId1)))
+  when(toApiResponse.apply(bufferedTransaction2, requestingParties, loggingContext))
+    .thenReturn(Future.successful(None))
 
-    val fetchFromPersistence = new FetchTransactionByIdFromPersistence[String] {
-      override def apply(
-          transactionId: String,
-          requestingParties: Set[Party],
-          loggingContext: LoggingContext,
-      ): Future[Option[String]] =
-        transactionId match {
-          case `notBufferedTransactionId` => Future.successful(Some(notBufferedTransactionId))
-          case `unknownTransactionId` => Future.successful(None)
-          case other => fail(s"Unexpected $other transactionId")
-        }
-    }
-
-    val bufferedTransactionByIdReader = new BufferedTransactionByIdReader[String](
-      inMemoryFanoutBuffer = inMemoryFanout,
-      fetchFromPersistence = fetchFromPersistence,
-      toApiResponse = toApiResponse,
-    )
+  private val fetchFromPersistence = new FetchTransactionByIdFromPersistence[String] {
+    override def apply(
+        transactionId: String,
+        requestingParties: Set[Party],
+        loggingContext: LoggingContext,
+    ): Future[Option[String]] =
+      transactionId match {
+        case `notBufferedTransactionId` => Future.successful(Some(notBufferedTransactionId))
+        case `unknownTransactionId` => Future.successful(None)
+        case other => fail(s"Unexpected $other transactionId")
+      }
   }
 
-  s"$className.fetch" should "convert to API response and return if transaction buffered" in {
-    val fixture = new Fixture
-    import fixture._
+  private val bufferedTransactionByIdReader = new BufferedTransactionByIdReader[String](
+    inMemoryFanoutBuffer = inMemoryFanout,
+    fetchFromPersistence = fetchFromPersistence,
+    toApiResponse = toApiResponse,
+  )
 
+  s"$className.fetch" should "convert to API response and return if transaction buffered" in {
     for {
       response1 <- bufferedTransactionByIdReader.fetch(bufferedTransactionId1, requestingParties)
       response2 <- bufferedTransactionByIdReader.fetch(bufferedTransactionId2, requestingParties)
@@ -85,9 +80,6 @@ class BufferedTransactionByIdReaderSpec extends AsyncFlatSpec with MockitoSugar 
   }
 
   s"$className.fetch" should "delegate to persistence fetch if transaction not buffered" in {
-    val fixture = new Fixture
-    import fixture._
-
     for {
       response1 <- bufferedTransactionByIdReader.fetch(notBufferedTransactionId, requestingParties)
       response2 <- bufferedTransactionByIdReader.fetch(unknownTransactionId, requestingParties)

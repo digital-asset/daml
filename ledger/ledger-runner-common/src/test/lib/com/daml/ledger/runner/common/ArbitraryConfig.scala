@@ -12,7 +12,6 @@ import com.daml.lf.VersionRange
 import org.scalacheck.Gen
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.daml.lf.data.Ref
-import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
@@ -38,6 +37,7 @@ import java.net.InetSocketAddress
 import java.nio.file.Paths
 import java.time.Duration
 import java.time.temporal.ChronoUnit
+import com.daml.metrics.api.reporters.MetricsReporter
 
 object ArbitraryConfig {
   val duration: Gen[Duration] = for {

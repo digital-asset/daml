@@ -74,7 +74,7 @@ class CodegenLedgerTest
   it should "create correct exercise choice commands" in withUniqueParty {
     (alice, glookofly, sruquito, client) =>
       import java.util.Arrays.asList
-      sendCmd(client, asList(alice), asList[String](), glookofly.create(), sruquito.create())
+      sendCmd(client, asList(alice), asList[String](), List(glookofly.create(), sruquito.create()))
 
       val glookoflyContract :: sruquitoContract :: Nil =
         readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
@@ -83,9 +83,8 @@ class CodegenLedgerTest
       sruquitoContract.data shouldEqual sruquito
 
       val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
-      val reproduceCmd = glookoflyContract.id
-        .exerciseReproduce(sruquitoContract.id, tob)
-      sendCmd(client, alice, reproduceCmd)
+      val reproduceUpdate = glookoflyContract.id.exerciseReproduce(sruquitoContract.id, tob)
+      sendCmd(client, alice, reproduceUpdate)
 
       val wolpertingers = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
       wolpertingers should have length 2
@@ -109,8 +108,8 @@ class CodegenLedgerTest
       glookoflyContract.data shouldEqual glookofly
 
       val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
-      val reproduceCmd = sruquito.createAnd.exerciseReproduce(glookoflyContract.id, tob)
-      sendCmd(client, alice, reproduceCmd)
+      val reproduceUpdate = sruquito.createAnd.exerciseReproduce(glookoflyContract.id, tob)
+      sendCmd(client, alice, reproduceUpdate)
 
       val wolpertingers = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
       wolpertingers should have length 2
@@ -146,16 +145,16 @@ class CodegenLedgerTest
 
   it should "be able to exercise by key" in withUniqueParty {
     (alice, glookofly, sruquito, client) =>
-      sendCmd(client, alice, glookofly.create(), sruquito.create())
+      sendCmd(client, alice, List(glookofly.create(), sruquito.create()))
 
       // We'll exercise by key, no need to get the handles
       val glookoflyContract :: sruquitoContract :: Nil =
         readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
 
       val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
-      val reproduceByKeyCmd =
+      val reproduceByKeyUpdate =
         Wolpertinger.byKey(glookoflyContract.key.get).exerciseReproduce(sruquitoContract.id, tob)
-      sendCmd(client, alice, reproduceByKeyCmd)
+      sendCmd(client, alice, reproduceByKeyUpdate)
 
       val wolpertingers = readActiveContractPayloads(Wolpertinger.COMPANION)(client, alice)
       wolpertingers should have length 2
@@ -217,7 +216,9 @@ class CodegenLedgerTest
           client,
           asList(alice),
           asList(charlie),
-          MultiParty.byKey(new da.types.Tuple2(alice, bob)).exerciseMPFetchOtherByKey(charlie, bob),
+          MultiParty
+            .byKey(new da.types.Tuple2(alice, bob))
+            .exerciseMPFetchOtherByKey(charlie, bob),
         )
       }
     } yield succeed

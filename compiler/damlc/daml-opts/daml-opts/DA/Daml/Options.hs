@@ -304,10 +304,14 @@ dataDependableExtensions = ES.fromList $ xExtensionsSet ++
     -- compatible with data-dependencies since this would spur wrong hopes.
   , Cpp
   , OverloadedRecordUpdate
-  , OverloadedLists
     -- Pure syntactic sugar so no reason to disallow this. Note that
     -- we always turn on RebindableSyntax so this does not rely
     -- on the IsList typeclass which in turn uses a type family.
+  , OverloadedLists
+    -- More syntactic sugar
+  , BinaryLiterals, PostfixOperators
+    -- Relaxed syntax rules
+  , NamedWildCards, EmptyCase, EmptyDataDeriving
   ]
 
 -- | Language settings _disabled_ ($-XNo...$) in the Daml-1.2 compilation

@@ -42,7 +42,7 @@ private[http] final class CreateAndExercise(
       ec: ExecutionContext,
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
-    handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx) => implicit lc =>
+    handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimer) => implicit lc =>
       for {
         cmd <-
           decoder
@@ -50,7 +50,7 @@ private[http] final class CreateAndExercise(
             .liftErr(InvalidUserInput): ET[
             domain.CreateCommand[ApiRecord, ContractTypeId.Template.RequiredPkg]
           ]
-        _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
+        _ <- EitherT.pure(parseAndDecodeTimer.stop())
 
         response <- eitherT(
           Timed.future(
@@ -66,7 +66,7 @@ private[http] final class CreateAndExercise(
       ec: ExecutionContext,
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
-    handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx) => implicit lc =>
+    handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimer) => implicit lc =>
       for {
         cmd <-
           decoder
@@ -74,7 +74,7 @@ private[http] final class CreateAndExercise(
             .liftErr(InvalidUserInput): ET[
             domain.ExerciseCommand[LfValue, domain.ContractLocator[LfValue]]
           ]
-        _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
+        _ <- EitherT.pure(parseAndDecodeTimer.stop())
         resolvedRef <- eitherT(
           resolveReference(jwt, jwtPayload, cmd.meta, cmd.reference)
         ): ET[domain.ResolvedContractRef[ApiValue]]
@@ -99,7 +99,7 @@ private[http] final class CreateAndExercise(
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
-    handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx) => implicit lc =>
+    handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimer) => implicit lc =>
       for {
         cmd <-
           decoder
@@ -107,7 +107,7 @@ private[http] final class CreateAndExercise(
             .liftErr(InvalidUserInput): ET[
             domain.CreateAndExerciseCommand.LAVResolved
           ]
-        _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
+        _ <- EitherT.pure(parseAndDecodeTimer.stop())
 
         resp <- eitherT(
           Timed.future(

@@ -3,11 +3,13 @@
 
 package com.daml.ledger.sandbox.bridge
 
-import com.daml.metrics.{MetricHandle, MetricName, Metrics}
 import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.MetricHandle.{Counter, Histogram, Timer}
+import com.daml.metrics.Metrics
+import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Timer}
+import com.daml.metrics.api.MetricName
+import com.daml.metrics.api.dropwizard.DropwizardFactory
 
-class BridgeMetrics(metrics: Metrics) extends MetricHandle.Factory {
+class BridgeMetrics(metrics: Metrics) extends DropwizardFactory {
 
   override val registry: MetricRegistry = metrics.registry
 

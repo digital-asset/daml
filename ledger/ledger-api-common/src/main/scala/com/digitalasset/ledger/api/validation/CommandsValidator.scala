@@ -158,9 +158,7 @@ final class CommandsValidator(
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
         } yield ApiCommand.Exercise(
-          // TODO: https://github.com/digital-asset/daml/issues/14747
-          //  Fix once the new field interface_id have been added to the API Exercise Command
-          typeId = TemplateOrInterface.Template(validatedTemplateId),
+          typeId = validatedTemplateId,
           contractId = contractId,
           choiceId = choice,
           argument = validatedValue,

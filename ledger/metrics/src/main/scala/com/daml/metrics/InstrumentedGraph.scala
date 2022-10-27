@@ -5,15 +5,16 @@ package com.daml.metrics
 
 import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.{BoundedSourceQueue, Materializer, OverflowStrategy, QueueOfferResult}
-import com.daml.metrics.MetricHandle.{Counter, Timer}
-import com.codahale.{metrics => codahale}
+import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
+import com.daml.metrics.api.MetricHandle.{Counter, Timer}
+import com.daml.metrics.api.MetricsContext
 
 import scala.util.chaining._
 
 object InstrumentedGraph {
 
   final class InstrumentedBoundedSourceQueue[T](
-      delegate: BoundedSourceQueue[(codahale.Timer.Context, T)],
+      delegate: BoundedSourceQueue[(TimerHandle, T)],
       bufferSize: Int,
       capacityCounter: Counter,
       lengthCounter: Counter,
@@ -22,7 +23,7 @@ object InstrumentedGraph {
 
     override def complete(): Unit = {
       delegate.complete()
-      capacityCounter.dec(bufferSize.toLong)
+      capacityCounter.dec(bufferSize.toLong)(MetricsContext.Empty)
     }
 
     override def size(): Int = bufferSize
@@ -31,7 +32,7 @@ object InstrumentedGraph {
 
     override def offer(elem: T): QueueOfferResult = {
       val result = delegate.offer(
-        delayTimer.time() -> elem
+        delayTimer.startAsync() -> elem
       )
       result match {
         case QueueOfferResult.Enqueued =>
@@ -70,7 +71,7 @@ object InstrumentedGraph {
       materializer: Materializer
   ): Source[T, BoundedSourceQueue[T]] = {
     val (boundedQueue, source) =
-      Source.queue[(codahale.Timer.Context, T)](bufferSize).preMaterialize()
+      Source.queue[(TimerHandle, T)](bufferSize).preMaterialize()
 
     val instrumentedQueue =
       new InstrumentedBoundedSourceQueue[T](
@@ -80,10 +81,10 @@ object InstrumentedGraph {
         lengthCounter,
         delayTimer,
       )
-    capacityCounter.inc(bufferSize.toLong)
+    capacityCounter.inc(bufferSize.toLong)(MetricsContext.Empty)
 
-    source.mapMaterializedValue(_ => instrumentedQueue).map { case (timingContext, item) =>
-      timingContext.stop()
+    source.mapMaterializedValue(_ => instrumentedQueue).map { case (timer, item) =>
+      timer.stop()
       lengthCounter.dec()
       item
     }

@@ -4,11 +4,18 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v1.CommandsOuterClass;
+import com.daml.ledger.javaapi.data.codegen.HasCommands;
+import java.util.List;
 import java.util.Optional;
 
-public abstract class Command {
+public abstract class Command implements HasCommands {
 
   abstract Identifier getTemplateId();
+
+  @Override
+  public List<Command> commands() {
+    return List.of(this);
+  }
 
   public static Command fromProtoCommand(CommandsOuterClass.Command command) {
     switch (command.getCommandCase()) {

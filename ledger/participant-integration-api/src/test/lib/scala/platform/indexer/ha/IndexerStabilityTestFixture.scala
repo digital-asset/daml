@@ -4,6 +4,7 @@
 package com.daml.platform.indexer.ha
 
 import java.util.concurrent.Executors
+
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.ReportsHealth
@@ -15,6 +16,7 @@ import com.daml.platform.LedgerApiServer
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerServiceOwner, IndexerStartupMode}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
+import io.opentelemetry.api.GlobalOpenTelemetry
 
 import scala.concurrent.ExecutionContext
 
@@ -96,7 +98,7 @@ object IndexerStabilityTestFixture {
                   // create a new MetricRegistry for each indexer, so they don't step on each other toes:
                   // Gauges can only be registered once. A subsequent attempt results in an exception for the
                   // call MetricRegistry#register or MetricRegistry#registerGauge
-                  metrics = new Metrics(new MetricRegistry)
+                  metrics = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
                   (inMemoryState, inMemoryStateUpdaterFlow) <-
                     LedgerApiServer
                       .createInMemoryStateAndUpdater(

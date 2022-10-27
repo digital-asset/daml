@@ -61,7 +61,7 @@ import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.{Metrics, MetricsReporter}
+import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.AuthServiceConfig.UnsafeJwtHmac256
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.UploadPackageHelper._
@@ -81,6 +81,7 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json._
 import java.io.File
+import com.daml.metrics.api.reporters.MetricsReporter
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}

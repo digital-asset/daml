@@ -1,17 +1,18 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.metrics
+package com.daml.metrics.api.reporters
 
-import scala.concurrent.duration.Duration
 import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.jmx.JmxReporter
 import com.codahale.metrics.{MetricRegistry, Reporter, Slf4jReporter}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.metrics.{JvmMetricSet, Metrics, OpenTelemetryMeterOwner}
 
 import scala.concurrent.Future
+import scala.concurrent.duration.Duration
 
 /** Manages metrics and reporters.
   *
@@ -38,6 +39,7 @@ final class MetricsReporting(
     val registry = new MetricRegistry
     registry.registerAll(new JvmMetricSet)
     for {
+      openTelemetryMeter <- OpenTelemetryMeterOwner(enabled = true, extraMetricsReporter).acquire()
       slf4JReporter <- acquire(newSlf4jReporter(registry))
       _ <- acquire(newJmxReporter(registry))
         .map(_.start())
@@ -49,7 +51,7 @@ final class MetricsReporting(
       _ <- Resource(Future.successful(slf4JReporter))(reporter =>
         Future.successful(reporter.report())
       )
-    } yield new Metrics(registry)
+    } yield new Metrics(registry, openTelemetryMeter)
   }
 
   private def newJmxReporter(registry: MetricRegistry): JmxReporter =

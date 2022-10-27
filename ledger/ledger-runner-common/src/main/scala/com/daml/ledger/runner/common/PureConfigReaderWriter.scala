@@ -12,7 +12,7 @@ import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.lf.{VersionRange, interpretation, language}
-import com.daml.metrics.MetricsReporter
+import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}

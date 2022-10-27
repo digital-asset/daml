@@ -3,7 +3,7 @@
 
 package com.daml.ledger.runner.common
 
-import pureconfig.{ConfigReader, ConfigSource}
+import pureconfig.{ConfigReader, ConfigSource, Derivation}
 import com.typesafe.config.{ConfigFactory, Config => TypesafeConfig}
 import pureconfig.error.ConfigReaderFailures
 
@@ -25,7 +25,7 @@ trait ConfigLoader {
   }
 
   def loadConfig[T](config: TypesafeConfig)(implicit
-      reader: ConfigReader[T]
+      reader: Derivation[ConfigReader[T]]
   ): Either[String, T] =
     ConfigSource.fromConfig(config).load[T].left.map(toError)
 

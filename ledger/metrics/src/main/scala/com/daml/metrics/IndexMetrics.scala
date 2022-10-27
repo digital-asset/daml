@@ -3,13 +3,14 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.MetricHandle.{Counter, Timer, VarGauge}
-
 import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation}
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Timer}
+import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class IndexMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MetricHandle.Factory {
+    extends DropwizardFactory {
 
   @MetricDoc.Tag(
     summary = "The buffer size for transaction trees requests.",
@@ -17,7 +18,7 @@ class IndexMetrics(override val prefix: MetricName, override val registry: Metri
                     |to absorb temporary downstream backpressure (e.g. when the client is
                     |slower than upstream delivery throughput). This metric gauges the
                     |size of the buffer for queries requesting transaction trees.""",
-    qualification = Debug,
+    qualification = Saturation,
   )
   val transactionTreesBufferSize: Counter =
     counter(prefix :+ "transaction_trees_buffer_size")
@@ -29,7 +30,7 @@ class IndexMetrics(override val prefix: MetricName, override val registry: Metri
                     |slower than upstream delivery throughput). This metric gauges the
                     |size of the buffer for queries requesting flat transactions in a specific
                     |period of time that satisfy a given predicate.""",
-    qualification = Debug,
+    qualification = Saturation,
   )
   val flatTransactionsBufferSize: Counter =
     counter(prefix :+ "flat_transactions_buffer_size")
@@ -41,7 +42,7 @@ class IndexMetrics(override val prefix: MetricName, override val registry: Metri
                     |slower than upstream delivery throughput). This metric gauges the
                     |size of the buffer for queries requesting active contracts that transactions
                     |satisfying a given predicate.""",
-    qualification = Debug,
+    qualification = Saturation,
   )
   val activeContractsBufferSize: Counter =
     counter(prefix :+ "active_contracts_buffer_size")
@@ -53,7 +54,7 @@ class IndexMetrics(override val prefix: MetricName, override val registry: Metri
                     |slower than upstream delivery throughput). This metric gauges the
                     |size of the buffer for queries requesting the completed commands in a specific
                     |period of time.""",
-    qualification = Debug,
+    qualification = Saturation,
   )
   val completionsBufferSize: Counter =
     counter(prefix :+ "completions_buffer_size")
@@ -72,8 +73,8 @@ class IndexMetrics(override val prefix: MetricName, override val registry: Metri
                     |in-memory data set.""",
     qualification = Debug,
   )
-  val ledgerEndSequentialId: VarGauge[Long] =
-    varGauge(prefix :+ "ledger_end_sequential_id", 0)
+  val ledgerEndSequentialId: Gauge[Long] =
+    gauge(prefix :+ "ledger_end_sequential_id", 0)
 
   object lfValue {
     private val prefix = IndexMetrics.this.prefix :+ "lf_value"

@@ -255,7 +255,7 @@ object Converter {
           cid <- toContractId(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
         } yield command.ApiCommand.Exercise(
-          typeId = TemplateOrInterface.Template(typeId),
+          typeId = typeId,
           contractId = cid,
           choiceId = anyChoice.name,
           argument = anyChoice.arg.toUnnormalizedValue,

@@ -133,7 +133,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
       |version: 1.2.3""".stripMargin
 
     codegenConf(badConfigStr, Java) shouldBe Left(
-      ConfigParseError("Missing required field: DownField(codegen)")
+      ConfigParseError("Attempt to decode value on failed cursor: DownField(codegen)")
     )
   }
 
@@ -145,7 +145,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
 
     codegenConf(badConfigStr, Java) shouldBe Left(
       ConfigParseError(
-        "Missing required field: DownField(java),DownField(codegen)"
+        "[A]Option[A]: DownField(java),DownField(codegen)"
       )
     )
   }
@@ -231,7 +231,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
       |  a: a""".stripMargin
 
     codegenConf(badConfigStr, Java) shouldBe Left(
-      ConfigParseError("Couldn't decode key.: DownField(a),DownField(module-prefixes)")
+      ConfigParseError("[K, V]Map[K, V]: DownField(a),DownField(module-prefixes)")
     )
   }
 
@@ -248,7 +248,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
                           |  a-: a""".stripMargin
 
     codegenConf(badConfigStr, Java) shouldBe Left(
-      ConfigParseError("Couldn't decode key.: DownField(a-),DownField(module-prefixes)")
+      ConfigParseError("[K, V]Map[K, V]: DownField(a-),DownField(module-prefixes)")
     )
   }
 
@@ -265,7 +265,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
                           |  -1.2.3: a""".stripMargin
 
     codegenConf(badConfigStr, Java) shouldBe Left(
-      ConfigParseError("Couldn't decode key.: DownField(-1.2.3),DownField(module-prefixes)")
+      ConfigParseError("[K, V]Map[K, V]: DownField(-1.2.3),DownField(module-prefixes)")
     )
   }
 
@@ -282,7 +282,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
                           |  -: a""".stripMargin
 
     codegenConf(badConfigStr, Java) shouldBe Left(
-      ConfigParseError("Couldn't decode key.: DownField(-),DownField(module-prefixes)")
+      ConfigParseError("[K, V]Map[K, V]: DownField(-),DownField(module-prefixes)")
     )
   }
 

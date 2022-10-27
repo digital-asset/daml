@@ -21,7 +21,6 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_github_pureconfig_pureconfig_core",
         "@maven//:com_github_pureconfig_pureconfig_generic",
-        "@maven//:com_github_pureconfig_pureconfig_generic_base",
         "@maven//:com_chuusai_shapeless",
         "@maven//:org_typelevel_cats_core",
     ],
@@ -62,6 +61,7 @@ da_scala_library(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_config",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

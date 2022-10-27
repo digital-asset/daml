@@ -4,7 +4,7 @@
 Composing Choices
 =================
 
-It's time to put everything you've learnt so far together into a complete and secure Daml model for asset issuance, management, transfer, and trading. This application will have capabilities similar to the one in :doc:`/app-dev/bindings-java/quickstart`. In the process you will learn about a few more concepts:
+It's time to put everything you've learned so far together into a complete and secure Daml model for asset issuance, management, transfer, and trading. This application will have capabilities similar to the one in :doc:`/app-dev/bindings-java/quickstart`. In the process you will learn about a few more concepts:
 
 - Daml projects, packages and modules
 - Composition of transactions
@@ -25,7 +25,7 @@ Daml is organized in projects, packages and modules. A Daml project is specified
 
 You can start a new project with a skeleton structure using ``daml new project-name`` in the terminal. A minimal project would contain just a ``daml.yaml`` file and an empty directory of source files.
 
- Take a look at the ``daml.yaml`` for the chapter 7 project:
+ Take a look at the ``daml.yaml`` for the this chapter's project:
 
 .. literalinclude:: daml/daml-intro-7/daml.yaml.template
   :language: yaml
@@ -103,7 +103,7 @@ The project both changes and adds to the ``Iou`` model presented in :doc:`6_Part
 Composed Choices and Scripts
 ----------------------------
 
-This project showcases how you can put the ``Update`` and ``Script`` actions you learnt about in :doc:`6_Parties` to good use. For example, the ``Merge`` and ``Split`` choices each perform several actions in their consequences.
+This project showcases how you can put the ``Update`` and ``Script`` actions you learned about in :doc:`6_Parties` to good use. For example, the ``Merge`` and ``Split`` choices each perform several actions in their consequences.
 
 - Two create actions in case of ``Split``
 - One create and one archive action in case of ``Merge``
@@ -200,7 +200,7 @@ Similar to choices, you can see how the scripts in this project are built up fro
 
 In the above, the ``test_issuance`` script in ``Test.Intro.Asset.Role`` uses the output of the ``setupRoles`` script in the same module.
 
-The same line shows a new kind of pattern matching. Rather than writing ``setupResult <- setupRoles`` and then accessing the components of ``setupResult`` using ``_1``, ``_2``, etc., you can give them names. It's equivalent to writing
+The same line shows a new kind of pattern matching. Rather than writing ``setupResult <- setupRoles`` and then accessing the components of ``setupResult`` using ``_1``, ``_2``, etc., you can give them names. It's equivalent to writing:
 
 .. code-block:: daml
 
@@ -253,7 +253,7 @@ Observers
   :start-after: -- ASSET_BEGIN
   :end-before: -- ASSET_END
 
-The ``Asset`` template also gives the ``owner`` a choice to set the observers, and you can see how Alice uses it to show her ``Asset`` to Bob just before proposing the trade. You can try out what happens if she didn't do that by removing that transaction.
+The ``Asset`` template also gives the ``owner`` a choice to set the observers, and you can see how Alice uses it to show her ``Asset`` to Bob just before proposing the trade. You can try out what happens if she didn't do that by removing that transaction:
 
 .. literalinclude:: daml/daml-intro-7/daml/Test/Intro/Asset/Trade.daml
   :language: daml
@@ -286,7 +286,7 @@ A party has a stake in an action if
 
 What does that mean for the ``exercise tradeCid Trade_Settle`` action from ``test_trade``?
 
-Alice is the signatory of ``tradeCid`` and Bob a required authorizer of the ``Trade_Settled`` action, so both of them see it. According to rule 2. above, that means they get to see everything in the transaction.
+Alice is the signatory of ``tradeCid`` and Bob a required authorizer of the ``Trade_Settled`` action, so both of them see it. According to principle 2 above, that means they get to see everything in the transaction.
 
 The consequences contain, next to some ``fetch`` actions, two ``exercise`` actions of the choice ``TransferApproval_Transfer``.
 
@@ -299,7 +299,7 @@ Other implementations, in particular those on public blockchains, may have weake
 Divulgence
 ~~~~~~~~~~
 
-Note that Principle 2 of the privacy model means that sometimes parties see contracts that they are not signatories or observers on. If you look at the final ledger state of the ``test_trade`` script, for example, you may notice that both Alice and Bob now see both assets, as indicated by the Xs in their respective columns:
+Note that principle 2 of the privacy model means that sometimes parties see contracts that they are not signatories or observers on. If you look at the final ledger state of the ``test_trade`` script, for example, you may notice that both Alice and Bob now see both assets, as indicated by the Xs in their respective columns:
 
 .. figure:: images/7_Composing/divulgence.png
    :alt: The table as described above.

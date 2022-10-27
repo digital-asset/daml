@@ -39,11 +39,13 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Second, Span}
 import org.slf4j.LoggerFactory
-
 import java.io.IOException
 import java.lang.management._
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+
+import io.opentelemetry.api.GlobalOpenTelemetry
+
 import scala.concurrent.{Future, Promise}
 
 final class RateLimitingInterceptorSpec
@@ -374,7 +376,7 @@ final class RateLimitingInterceptorSpec
   }
 
   it should "support addition checks" in {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
 
     val apiServices: ThreadpoolCount = new ThreadpoolCount(metrics)(
       "Api Services Threadpool",
@@ -412,7 +414,7 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
   private val healthChecks = new HealthChecks(Map.empty[ComponentName, ReportsHealth])
 
   private def createMetrics = {
-    new Metrics(new MetricRegistry)
+    new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
   }
 
   // For tests that do not involve memory

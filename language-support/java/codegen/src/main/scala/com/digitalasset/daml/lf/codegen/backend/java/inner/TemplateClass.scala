@@ -8,7 +8,7 @@ import ClassGenUtils.{companionFieldName, templateIdFieldName}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.data.Ref
 import Ref.{ChoiceName, PackageId, QualifiedName}
-import com.daml.ledger.javaapi.data.codegen.Choice
+import com.daml.ledger.javaapi.data.codegen.{Choice, ContractId, Created, Exercised, Update}
 import com.daml.lf.codegen.backend.java.inner.ToValueGenerator.generateToValueConverter
 import com.daml.lf.typesig
 import typesig._
@@ -112,14 +112,32 @@ private[inner] object TemplateClass extends StrictLogging {
       templateType.build()
     }
 
+  private val ctIdClassName = ClassName get classOf[ContractId[_]]
+  private val updateClassName = ClassName get classOf[Update[_]]
+  private val createUpdateClassName = ClassName get classOf[Update.CreateUpdate[_, _]]
+  private val createdClassName = ClassName get classOf[Created[_]]
+  private val exercisedClassName = ClassName get classOf[Exercised[_]]
+  private def parameterizedTypeName(raw: ClassName, arg: TypeName*) =
+    ParameterizedTypeName.get(raw, arg: _*)
+
   private def generateCreateMethod(name: ClassName): MethodSpec =
     MethodSpec
       .methodBuilder("create")
       .addModifiers(Modifier.PUBLIC)
       .addAnnotation(classOf[Override])
-      .returns(classOf[javaapi.data.CreateCommand])
+      .returns(
+        parameterizedTypeName(
+          updateClassName,
+          parameterizedTypeName(createdClassName, parameterizedTypeName(ctIdClassName, name)),
+        )
+      )
       .addStatement(
-        "return new $T($T.$N, this.toValue())",
+        "return new $T(new $T($T.$N, this.toValue()), x -> x, ContractId::new)",
+        parameterizedTypeName(
+          createUpdateClassName,
+          parameterizedTypeName(ctIdClassName, name),
+          parameterizedTypeName(createdClassName, parameterizedTypeName(ctIdClassName, name)),
+        ),
         classOf[javaapi.data.CreateCommand],
         name,
         templateIdFieldName,
@@ -132,7 +150,12 @@ private[inner] object TemplateClass extends StrictLogging {
         MethodSpec
           .methodBuilder("create")
           .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-          .returns(classOf[javaapi.data.CreateCommand])
+          .returns(
+            parameterizedTypeName(
+              updateClassName,
+              parameterizedTypeName(createdClassName, parameterizedTypeName(ctIdClassName, name)),
+            )
+          )
       ) { case (b, FieldInfo(_, _, escapedName, tpe)) =>
         b.addParameter(tpe, escapedName)
       }
@@ -248,6 +271,7 @@ private[inner] object TemplateClass extends StrictLogging {
             yield {
               generateDeprecatedFlattenedStaticExerciseByKeyMethod(
                 choiceName,
+                choice,
                 key,
                 getFieldsWithTypes(record.fields, packagePrefixes),
                 packagePrefixes,
@@ -268,7 +292,15 @@ private[inner] object TemplateClass extends StrictLogging {
     MethodSpec
       .methodBuilder(s"exerciseByKey${choiceName.capitalize}")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .returns(classOf[javaapi.data.ExerciseByKeyCommand])
+      .returns(
+        parameterizedTypeName(
+          updateClassName,
+          parameterizedTypeName(
+            exercisedClassName,
+            toJavaTypeName(choice.returnType, packagePrefixes),
+          ),
+        )
+      )
       .makeDeprecated(
         howToFix = s"use {@code byKey(key).exercise${choiceName.capitalize}} instead",
         sinceDaml = "2.3.0",
@@ -284,6 +316,7 @@ private[inner] object TemplateClass extends StrictLogging {
   // TODO #14039 delete
   private def generateDeprecatedFlattenedStaticExerciseByKeyMethod(
       choiceName: ChoiceName,
+      choice: TemplateChoice[Type],
       key: Type,
       fields: Fields,
       packagePrefixes: Map[PackageId, String],
@@ -292,7 +325,15 @@ private[inner] object TemplateClass extends StrictLogging {
     val exerciseByKeyBuilder = MethodSpec
       .methodBuilder(methodName)
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .returns(classOf[javaapi.data.ExerciseByKeyCommand])
+      .returns(
+        parameterizedTypeName(
+          updateClassName,
+          parameterizedTypeName(
+            exercisedClassName,
+            toJavaTypeName(choice.returnType, packagePrefixes),
+          ),
+        )
+      )
       .addParameter(toJavaTypeName(key, packagePrefixes), "key")
     for (FieldInfo(_, _, javaName, javaType) <- fields) {
       exerciseByKeyBuilder.addParameter(javaType, javaName)
@@ -419,7 +460,15 @@ private[inner] object TemplateClass extends StrictLogging {
         howToFix = s"use {@code createAnd().exercise${choiceName.capitalize}} instead",
         sinceDaml = "2.3.0",
       )
-      .returns(classOf[javaapi.data.CreateAndExerciseCommand])
+      .returns(
+        parameterizedTypeName(
+          updateClassName,
+          parameterizedTypeName(
+            exercisedClassName,
+            toJavaTypeName(choice.returnType, packagePrefixes),
+          ),
+        )
+      )
       .addParameter(javaType, "arg")
       .addStatement(
         "return createAnd().exercise$L(arg)",
@@ -437,7 +486,13 @@ private[inner] object TemplateClass extends StrictLogging {
   ): MethodSpec =
     ClassGenUtils.generateFlattenedCreateOrExerciseMethod(
       "createAndExercise",
-      ClassName get classOf[javaapi.data.CreateAndExerciseCommand],
+      parameterizedTypeName(
+        updateClassName,
+        parameterizedTypeName(
+          exercisedClassName,
+          toJavaTypeName(choice.returnType, packagePrefixes),
+        ),
+      ),
       choiceName,
       choice,
       fields,
@@ -477,13 +532,27 @@ private[inner] object TemplateClass extends StrictLogging {
           Modifier.PUBLIC,
         )
         .initializer(
-          "$Z$T.create($S, value$$ -> $L)",
+          "$Z$T.create($>$S, value$$ -> $L,$Wvalue$$ ->$W$L,$Wvalue$$ ->$W$L)$<",
           fieldClass,
           choiceName,
           generateToValueConverter(
             choice.param,
             CodeBlock.of("value$$"),
             Iterator.empty,
+            packagePrefixes,
+          ),
+          FromValueGenerator.extractor(
+            choice.param,
+            "value$",
+            CodeBlock.of("$L", "value$"),
+            newNameGenerator,
+            packagePrefixes,
+          ),
+          FromValueGenerator.extractor(
+            choice.returnType,
+            "value$",
+            CodeBlock.of("$L", "value$"),
+            newNameGenerator,
             packagePrefixes,
           ),
         )
@@ -531,7 +600,7 @@ private[inner] object TemplateClass extends StrictLogging {
         Modifier.PUBLIC,
       )
       .initializer(
-        "$Znew $T<>($>$Z$S,$W$N, $T::new, $N -> $T.templateValueDecoder().decode($N), $T::new, $T.of($L)" + keyParams + "$<)",
+        "$Znew $T<>($>$Z$S,$W$N,$W$T::new,$W$N -> $T.templateValueDecoder().decode($N),$W$T::new,$W$T.of($L)" + keyParams + "$<)",
         Seq(
           fieldClass,
           templateClassName,

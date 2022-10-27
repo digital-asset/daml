@@ -8,7 +8,7 @@ import akka.stream.stage._
 import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import com.codahale.{metrics => codahale}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.metrics.MetricHandle.Counter
+import com.daml.metrics.api.dropwizard.{DropwizardCounter => Counter}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Minute, Span}
 import org.scalatest.matchers.should.Matchers

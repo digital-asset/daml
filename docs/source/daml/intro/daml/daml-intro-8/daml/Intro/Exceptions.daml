@@ -59,10 +59,10 @@ template Shop
     owner : Party
     bank : Party
     observers : [Party]
+    price : Decimal
   where
     signatory owner
     observer observers
-    let price: Decimal = 100.0
 -- SHOP_END
 
 -- ORDER_BEGIN
@@ -146,6 +146,7 @@ test = script do
     owner = shopOwner
     bank = bank
     observers = [alice]
+    price = 100.0
 
   submit alice $ exerciseCmd shop (OrderItemTrusted alice)
   submit alice $ exerciseCmd shop (OrderItemTrusted alice)

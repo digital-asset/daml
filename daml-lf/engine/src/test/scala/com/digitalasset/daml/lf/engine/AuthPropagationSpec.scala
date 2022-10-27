@@ -7,7 +7,7 @@ package engine
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.command.{ApiCommand, ApiCommands}
-import com.daml.lf.data.{Bytes, FrontStack, ImmArray, TemplateOrInterface, Time}
+import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Time}
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId, ParticipantId, Party, QualifiedName}
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.ledger.FailedAuthorization.{
@@ -220,7 +220,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     "ok (Alice signed contract; Bob exercised Choice)" in {
       val command: ApiCommand =
         ApiCommand.Exercise(
-          TemplateOrInterface.Template("T1"),
+          "T1",
           toContractId("t1a"),
           "Choice1",
           ValueRecord(
@@ -242,7 +242,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     "fail: ExerciseMissingAuthorization" in {
       val command: ApiCommand =
         ApiCommand.Exercise(
-          TemplateOrInterface.Template("T1"),
+          "T1",
           toContractId("t1a"),
           "Choice1",
           ValueRecord(
@@ -274,7 +274,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     "fail: CreateMissingAuthorization" in {
       val command: ApiCommand =
         ApiCommand.Exercise(
-          TemplateOrInterface.Template("T1"),
+          "T1",
           toContractId("t1a"),
           "Choice1",
           ValueRecord(
@@ -305,7 +305,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     "ok (Bob signed contract; Alice exercised Choice)" in {
       val command: ApiCommand =
         ApiCommand.Exercise(
-          TemplateOrInterface.Template("T1"),
+          "T1",
           toContractId("t1b"),
           "Choice1",
           ValueRecord(
@@ -333,7 +333,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     "fail (no implicit authority from outer exercise's contract's signatories)" in {
       val command: ApiCommand =
         ApiCommand.Exercise(
-          TemplateOrInterface.Template("X1"),
+          "X1",
           toContractId("x1b"),
           "ChoiceA",
           ValueRecord(
@@ -376,7 +376,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     "ok" in {
       val command: ApiCommand =
         ApiCommand.Exercise(
-          TemplateOrInterface.Template("X1"),
+          "X1",
           toContractId("x1b"),
           "ChoiceA",
           ValueRecord(

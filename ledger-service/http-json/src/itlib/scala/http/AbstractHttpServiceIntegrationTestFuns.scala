@@ -61,6 +61,8 @@ object AbstractHttpServiceIntegrationTestFuns {
 
   private[http] val ciouDar = requiredResource("ledger-service/http-json/CIou.dar")
 
+  private[http] val riouDar = requiredResource("ledger-service/http-json/RIou.dar")
+
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import com.google.common.io.BaseEncoding
 
@@ -218,9 +220,9 @@ trait AbstractHttpServiceIntegrationTestFuns
     def getUniquePartyAndAuthHeaders(
         name: String
     ): Future[(domain.Party, List[HttpHeader])] = {
-      val party @ domain.Party(partyName) = getUniqueParty(name)
+      val party = getUniqueParty(name)
       for {
-        headers <- headersWithPartyAuth(List(partyName), List.empty, "")
+        headers <- headersWithPartyAuth(List(party), List.empty, "")
         request = domain.AllocatePartyRequest(
           Some(party),
           None,
@@ -238,8 +240,8 @@ trait AbstractHttpServiceIntegrationTestFuns
       jwt(uri)(ec).map(authorizationHeader)
 
     def headersWithPartyAuth(
-        actAs: List[String],
-        readAs: List[String] = List.empty,
+        actAs: List[domain.Party],
+        readAs: List[domain.Party] = List.empty,
         ledgerId: String = "",
         withoutNamespace: Boolean = false,
         admin: Boolean = false,
@@ -401,11 +403,11 @@ trait AbstractHttpServiceIntegrationTestFuns
   private[this] val (_, iouVA) = {
     import com.daml.lf.data.Numeric.Scale
     val iouT = ShRecord(
-      issuer = VA.party,
-      owner = VA.party,
+      issuer = VAx.partyDomain,
+      owner = VAx.partyDomain,
       currency = VA.text,
       amount = VA.numeric(Scale assertFromInt 10),
-      observers = VA.list(VA.party),
+      observers = VA.list(VAx.partyDomain),
     )
     VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
   }
@@ -435,6 +437,9 @@ trait AbstractHttpServiceIntegrationTestFuns
     object IIou {
       val IIou: IId = CtId.Interface(None, "IIou", "IIou")
     }
+    object RIou {
+      val RIou: IId = CtId.Interface(None, "RIou", "RIou")
+    }
     object RIIou {
       val RIIou: IId = CtId.Interface(None, "RIIou", "RIIou")
     }
@@ -446,19 +451,19 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def iouCreateCommand(
-      partyName: domain.Party,
+      party: domain.Party,
       amount: String = "999.9900000000",
       currency: String = "USD",
+      observers: Vector[domain.Party] = Vector.empty,
       meta: Option[domain.CommandMeta] = None,
   ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
-    val party = Ref.Party assertFromString partyName.unwrap
     val arg = argToApi(iouVA)(
       ShRecord(
         issuer = party,
         owner = party,
         currency = currency,
         amount = LfNumeric assertFromString amount,
-        observers = Vector.empty,
+        observers = observers,
       )
     )
 
@@ -466,15 +471,14 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   private[this] val (_, ciouVA) = {
-    val iouT = ShRecord(issuer = VA.party, owner = VA.party, amount = VA.text)
+    val iouT = ShRecord(issuer = VAx.partyDomain, owner = VAx.partyDomain, amount = VA.text)
     VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
   }
 
   protected def iouCommand(
-      party: domain.Party,
+      issuer: domain.Party,
       templateId: domain.ContractTypeId.Template.OptionalPkg,
   ) = {
-    val issuer = Ref.Party assertFromString domain.Party.unwrap(party)
     val iouT = argToApi(ciouVA)(
       ShRecord(
         issuer = issuer,
@@ -510,12 +514,11 @@ trait AbstractHttpServiceIntegrationTestFuns
     domain.ContractTypeId.Template.OptionalPkg,
     domain.ContractTypeId.OptionalPkg,
   ] = {
-    val originatorParty = Ref.Party assertFromString originator.unwrap
     val targetParty = Ref.Party assertFromString target.unwrap
     val payload = argToApi(iouVA)(
       ShRecord(
-        issuer = originatorParty,
-        owner = originatorParty,
+        issuer = originator,
+        owner = originator,
         currency = currency,
         amount = LfNumeric assertFromString amount,
         observers = Vector.empty,
@@ -536,8 +539,8 @@ trait AbstractHttpServiceIntegrationTestFuns
     )
   }
 
-  protected def multiPartyCreateCommand(ps: List[String], value: String) = {
-    val psv = lfToApi(VAx.seq(VAx.partyStr).inj(ps)).sum
+  protected def multiPartyCreateCommand(ps: List[domain.Party], value: String) = {
+    val psv = lfToApi(VAx.seq(VAx.partyDomain).inj(ps)).sum
     val payload = recordFromFields(
       ShRecord(
         parties = psv,
@@ -551,8 +554,8 @@ trait AbstractHttpServiceIntegrationTestFuns
     )
   }
 
-  protected def multiPartyAddSignatories(cid: lar.ContractId, ps: List[String]) = {
-    val psv = lfToApi(VAx.seq(VAx.partyStr).inj(ps)).sum
+  protected def multiPartyAddSignatories(cid: lar.ContractId, ps: List[domain.Party]) = {
+    val psv = lfToApi(VAx.seq(VAx.partyDomain).inj(ps)).sum
     val argument = boxedRecord(recordFromFields(ShRecord(newParties = psv)))
     domain.ExerciseCommand(
       reference = domain.EnrichedContractId(Some(TpId.Test.MultiPartyContract), cid),
@@ -566,14 +569,14 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def multiPartyFetchOther(
       cid: lar.ContractId,
       fetchedCid: lar.ContractId,
-      actors: List[String],
+      actors: List[domain.Party],
   ) = {
     val argument = v.Value(
       v.Value.Sum.Record(
         recordFromFields(
           ShRecord(
             cid = v.Value.Sum.ContractId(fetchedCid.unwrap),
-            actors = lfToApi(VAx.seq(VAx.partyStr).inj(actors)).sum,
+            actors = lfToApi(VAx.seq(VAx.partyDomain).inj(actors)).sum,
           )
         )
       )

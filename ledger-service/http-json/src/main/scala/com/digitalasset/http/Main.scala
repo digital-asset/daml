@@ -20,8 +20,7 @@ import com.daml.cliopts.{GlobalLogLevel, Logging}
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-
-import com.daml.metrics.MetricsReporting
+import com.daml.metrics.api.reporters.MetricsReporting
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}

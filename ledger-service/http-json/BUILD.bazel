@@ -80,7 +80,6 @@ hj_scalacopts = lf_scalacopts + [
             "//libs-scala/resources",
             "//libs-scala/scala-utils",
             "//libs-scala/struct-json",
-            "@maven//:io_dropwizard_metrics_metrics_core",
         ],
     )
     for edition in [
@@ -207,6 +206,16 @@ daml_compile(
         "RIIou",
         "Transferrable",
     ]],
+    target = lf_version_configuration.get("dev"),  # TODO(SC #13296) remove when interfaces in default
+    visibility = ["//ledger-service:__subpackages__"],
+)
+
+daml_compile(
+    name = "RIou",
+    srcs = ["src/it/daml/%s.daml" % m for m in [
+        "RIou",
+    ]],
+    data_dependencies = ["//ledger/test-common:model-tests-%s.dar" % lf_version_configuration.get("default")],
     target = lf_version_configuration.get("dev"),  # TODO(SC #13296) remove when interfaces in default
     visibility = ["//ledger-service:__subpackages__"],
 )
@@ -427,6 +436,7 @@ alias(
         data = [
             ":Account.dar",
             ":CIou.dar",
+            ":RIou.dar",
             ":User.dar",
             "//docs:quickstart-model.dar",
             "//ledger/test-common:dar-files",
@@ -556,7 +566,7 @@ test_suite(
             "//libs-scala/resources-grpc",
             "//libs-scala/scala-utils",
             "//libs-scala/timer-utils",
-            "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
+            "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
@@ -628,7 +638,7 @@ test_suite(
             "//libs-scala/resources",
             "//libs-scala/scala-utils",
             "//libs-scala/timer-utils",
-            "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
+            "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
             "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_scalatest_scalatest_compatible",
         ],

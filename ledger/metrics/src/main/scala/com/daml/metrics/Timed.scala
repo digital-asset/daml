@@ -7,25 +7,23 @@ import java.util.concurrent.CompletionStage
 
 import akka.Done
 import akka.stream.scaladsl.{Keep, Source}
-import com.codahale.{metrics => codahale}
-import com.daml.metrics.MetricHandle.{Counter, Meter, Timer}
 import com.daml.concurrent
+import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
+import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object Timed {
 
   def value[T](timer: Timer, value: => T): T =
-    this.value[T](timer.metric, value)
+    timer.time(value)
 
-  def value[T](timer: codahale.Timer, value: => T): T =
-    timer.time(() => value)
-
-  def trackedValue[T](meter: Meter, value: => T): T = {
-    meter.metric.mark(+1)
-    val result = value
-    meter.metric.mark(-1)
-    result
+  def trackedValue[T](meter: Meter, value: => T): T = withEmptyMetricsContext {
+    implicit metricContext =>
+      meter.mark(+1)
+      val result = value
+      meter.mark(-1)
+      result
   }
 
   def timedAndTrackedValue[T](timer: Timer, meter: Meter, value: => T): T = {
@@ -33,20 +31,21 @@ object Timed {
   }
 
   def completionStage[T](timer: Timer, future: => CompletionStage[T]): CompletionStage[T] = {
-    val ctx = timer.time()
+    val timerHandle = timer.startAsync()
     future.whenComplete { (_, _) =>
-      ctx.stop()
+      timerHandle.stop()
       ()
     }
   }
 
-  def trackedCompletionStage[T](meter: Meter, future: => CompletionStage[T]): CompletionStage[T] = {
-    meter.metric.mark(+1)
-    future.whenComplete { (_, _) =>
-      meter.metric.mark(-1)
-      ()
+  def trackedCompletionStage[T](meter: Meter, future: => CompletionStage[T]): CompletionStage[T] =
+    withEmptyMetricsContext { implicit metricsContext =>
+      meter.mark(+1)
+      future.whenComplete { (_, _) =>
+        meter.mark(-1)
+        ()
+      }
     }
-  }
 
   def timedAndTrackedCompletionStage[T](
       timer: Timer,
@@ -57,31 +56,25 @@ object Timed {
   }
 
   def future[T](timer: Timer, future: => Future[T]): Future[T] = {
-    this.future[T](timer.metric, future)
-  }
-
-  def future[T](timer: codahale.Timer, future: => Future[T]): Future[T] = {
-    val ctx = timer.time()
-    val result = future
-    result.onComplete(_ => ctx.stop())(ExecutionContext.parasitic)
-    result
+    timer.timeFuture(future)
   }
 
   def future[EC, T](timer: Timer, future: => concurrent.Future[EC, T]): concurrent.Future[EC, T] = {
-    val ctx = timer.time()
+    val timerHandle = timer.startAsync()
     val result = future
-    result.onComplete(_ => ctx.stop())(concurrent.ExecutionContext.parasitic)
+    result.onComplete(_ => timerHandle.stop())(concurrent.ExecutionContext.parasitic)
     result
   }
 
   def trackedFuture[T](counter: Counter, future: => Future[T]): Future[T] = {
-    counter.metric.inc()
-    future.andThen { case _ => counter.metric.dec() }(ExecutionContext.parasitic)
+    counter.inc()
+    future.andThen { case _ => counter.dec() }(ExecutionContext.parasitic)
   }
 
-  def trackedFuture[T](meter: Meter, future: => Future[T]): Future[T] = {
-    meter.metric.mark(+1)
-    future.andThen { case _ => meter.metric.mark(-1) }(ExecutionContext.parasitic)
+  def trackedFuture[T](meter: Meter, future: => Future[T]): Future[T] = withEmptyMetricsContext {
+    implicit metricsContext =>
+      meter.mark(+1)
+      future.andThen { case _ => meter.mark(-1) }(ExecutionContext.parasitic)
   }
 
   def timedAndTrackedFuture[T](timer: Timer, counter: Counter, future: => Future[T]): Future[T] = {
@@ -92,12 +85,14 @@ object Timed {
     Timed.future(timer, trackedFuture(meter, future))
   }
 
+  /** Be advised that this will time the source when it's created and not when it's actually run.
+    */
   def source[Out, Mat](timer: Timer, source: => Source[Out, Mat]): Source[Out, Mat] = {
-    val ctx = timer.time()
+    val timerHandle = timer.startAsync()
     source
       .watchTermination()(Keep.both[Mat, Future[Done]])
       .mapMaterializedValue { case (mat, done) =>
-        done.onComplete(_ => ctx.stop())(ExecutionContext.parasitic)
+        done.onComplete(_ => timerHandle.stop())(ExecutionContext.parasitic)
         mat
       }
   }
