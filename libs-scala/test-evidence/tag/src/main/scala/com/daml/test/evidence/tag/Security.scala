@@ -100,6 +100,14 @@ object Security {
 
       /** Whether a secure configuration can effectively be enforced */
       case object SecureConfiguration extends Property
+
+      case object Confidentiality extends Property
+
+      case object Authentication extends Property
+
+      case object NonRepudiation extends Property
+
+      case object Resilience extends Property
     }
 
     private def apply(
