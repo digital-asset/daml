@@ -968,7 +968,8 @@ private[lf] object SBuiltin {
     ): Control = {
       val agreement = getSText(args, 0)
       val cached = extractCachedContract(machine, args.get(1))
-      val createArgValue = machine.normValue(cached.templateId, cached.value)
+      val version = machine.tmplId2TxVersion(cached.templateId)
+      val createArgValue = cached.value.toNormalizedValue(version)
       cached.key match {
         case Some(Node.KeyWithMaintainers(key, maintainers)) if maintainers.isEmpty =>
           Control.Error(
@@ -985,7 +986,7 @@ private[lf] object SBuiltin {
               signatories = cached.signatories,
               stakeholders = cached.stakeholders,
               key = cached.key,
-              version = machine.tmplId2TxVersion(cached.templateId),
+              version = version,
             ) match {
             case Right((coid, newPtx)) =>
               onLedger.updateCachedContracts(coid, cached)
@@ -1023,7 +1024,10 @@ private[lf] object SBuiltin {
         machine: Machine,
         onLedger: OnLedger,
     ): Control = {
-      val chosenValue = machine.normValue(templateId, args.get(0))
+      val templateVersion = machine.tmplId2TxVersion(templateId)
+      val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
+      val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
+      val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
       val coid = getSContractId(args, 1)
       val cached =
         onLedger
@@ -1036,9 +1040,6 @@ private[lf] object SBuiltin {
       val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
       onLedger.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
       val mbKey = cached.key
-      val templateVersion = machine.tmplId2TxVersion(templateId)
-      val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
-      val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
 
       onLedger.ptx
         .beginExercises(
@@ -2186,7 +2187,8 @@ private[lf] object SBuiltin {
   ): Node.KeyWithMaintainers =
     v match {
       case SStruct(_, vals) =>
-        val key = machine.normValue(templateId, vals.get(keyIdx))
+        val version = machine.tmplId2TxVersion(templateId)
+        val key = vals.get(keyIdx).toNormalizedValue(version)
         key.foreachCid(_ => throw SErrorDamlException(IE.ContractIdInContractKey(key)))
         Node.KeyWithMaintainers(
           key = key,

@@ -351,9 +351,6 @@ private[lf] object Speedy {
         compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
       )
 
-    def normValue(templateId: TypeConName, svalue: SValue): V =
-      svalue.toNormalizedValue(tmplId2TxVersion(templateId))
-
     /* kont manipulation... */
 
     private[speedy] def clearKontStack(): Unit = kontStack.clear()
