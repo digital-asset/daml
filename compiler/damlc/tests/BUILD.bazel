@@ -459,10 +459,14 @@ da_haskell_test(
         ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
         # Used in regression test for https://github.com/digital-asset/daml/issues/14291
         ":dars/lib-with-script-0.0.1-sdk-2.2.0-lf-1.14.dar",
+        "@damlc-2.3.0",
+        "@damlc-2.3.4",
+        "@damlc-2.4.0",
     ],
     hackage_deps = [
         "base",
         "bytestring",
+        "containers",
         "extra",
         "ghc-lib-parser",
         "filepath",

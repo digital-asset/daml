@@ -1,5 +1,6 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+
 module DA.Test.DataDependencies (main) where
 
 import qualified "zip-archive" Codec.Archive.Zip as Zip
@@ -14,6 +15,8 @@ import DA.Test.Util
 import qualified Data.ByteString.Lazy as BSL
 import Data.List (intercalate, sort, (\\))
 import qualified Data.NameMap as NM
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Module (unitIdString)
 import System.Directory.Extra
 import System.Environment.Blank
@@ -26,6 +29,18 @@ import Test.Tasty.HUnit
 
 import SdkVersion
 
+data DdSdk
+  = DdSdk_2_3_0
+  | DdSdk_2_3_4
+  | DdSdk_2_4_0
+  deriving (Eq, Ord, Enum, Bounded)
+
+renderDdSdk :: DdSdk -> String
+renderDdSdk = \case
+  DdSdk_2_3_0 -> "2.3.0"
+  DdSdk_2_3_4 -> "2.3.4"
+  DdSdk_2_4_0 -> "2.4.0"
+
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "3" True
@@ -34,6 +49,13 @@ main = do
     damlScriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
     oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
     libWithScriptDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "lib-with-script-0.0.1-sdk-2.2.0-lf-1.14.dar")
+    damlcForSdk <-
+      traverse (\name -> locateRunfiles (name </> exe name)) $
+        Map.fromList
+          [ (DdSdk_2_3_0, "damlc-2.3.0")
+          , (DdSdk_2_3_4, "damlc-2.3.4")
+          , (DdSdk_2_4_0, "damlc-2.4.0")
+          ]
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     defaultMain $ tests Tools{..}
 
@@ -44,6 +66,7 @@ data Tools = Tools -- and places
   , damlScriptDar :: FilePath
   , oldProjDar :: FilePath
   , libWithScriptDar :: FilePath
+  , damlcForSdk :: Map DdSdk FilePath
   }
 
 damlcForTarget :: Tools -> LF.Version -> FilePath
@@ -353,6 +376,149 @@ tests tools = testGroup "Data Dependencies" $
             step "Validating DAR"
             validate $ projb </> "projb.dar"
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
+    ] <>
+    [ testCaseSteps ("Cross SDK, cross LF: " <> caseStr) $
+        -- WIP
+        \step -> withTempDir $ \tmpDir -> do
+            let dd = tmpDir </> "dd"
+            let target = tmpDir </> "target"
+
+            step "Build dd"
+            createDirectoryIfMissing True (dd </> "src")
+            writeFileUTF8 (dd </> "src" </> "DD.daml") $ unlines
+                [ "module DD where"
+
+                , "template Item with"
+                , "    owner : Party"
+                , "    name : Text"
+                , "  where"
+                , "    signatory owner"
+
+                , "template Stock with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    nonconsuming choice AddItem : ContractId Item"
+                , "      with name : Text"
+                , "      controller owner"
+                , "      do"
+                , "        create Item with"
+                , "          owner"
+                , "          name"
+                , "    nonconsuming choice AddItems : [ContractId Item]"
+                , "      with names : [Text]"
+                , "      controller owner"
+                , "      do"
+                , "        exerciseMany self (AddItem <$> names)"
+
+                , "exerciseMany : Choice t c r => ContractId t -> [c] -> Update [r]"
+                , "exerciseMany cid choices ="
+                , "  mapA (exercise cid) choices"
+                ]
+            writeFileUTF8 (dd </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> renderDdSdk depSdkVer
+                , "name: dd"
+                , "version: 0.0.1"
+                , "source: src"
+                , "dependencies: [daml-prim, daml-stdlib]"
+                ]
+            callProcessSilent depDamlc
+                ["build"
+                , "--project-root", dd
+                , "--target", LF.renderVersion depLfVer
+                , "-o", dd </> "dd.dar"
+                ]
+
+            step "Build target"
+            createDirectoryIfMissing True (target </> "src")
+            writeFileUTF8 (target </> "src" </> "Target.daml") $ unlines
+                [ "module Target where"
+
+                , "import DD qualified"
+
+                , "template Item with"
+                , "    owner : Party"
+                , "    name : Text"
+                , "  where"
+                , "    signatory owner"
+
+                , "template Stock with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    nonconsuming choice AddItem : ContractId Item"
+                , "      with name : Text"
+                , "      controller owner"
+                , "      do"
+                , "        create Item with"
+                , "          owner"
+                , "          name"
+                , "    nonconsuming choice AddItems : [ContractId Item]"
+                , "      with names : [Text]"
+                , "      controller owner"
+                , "      do"
+                , "        DD.exerciseMany self (AddItem <$> names)"
+
+                , "targetTest = scenario do"
+                , "  alice <- getParty \"alice\""
+                , "  stock <- alice `submit` create Stock with owner = alice"
+                , "  alice `submit` exercise stock (AddItems [\"Radio\", \"TV\"])"
+                , "  alice `submit` DD.exerciseMany stock"
+                , "    [ AddItem \"Car\""
+                , "    , AddItem \"Bicycle\""
+                , "    ]"
+                , "  pure ()"
+
+                , "ddTest = scenario do"
+                , "  alice <- getParty \"alice\""
+                , "  stock <- alice `submit` create DD.Stock with owner = alice"
+                , "  alice `submit` exercise stock (DD.AddItems [\"Radio\", \"TV\"])"
+                , "  alice `submit` DD.exerciseMany stock"
+                , "    [ DD.AddItem \"Car\""
+                , "    , DD.AddItem \"Bicycle\""
+                , "    ]"
+                , "  pure ()"
+                ]
+            writeFileUTF8 (target </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> sdkVersion
+                , "name: target"
+                , "version: 0.0.1"
+                , "source: src"
+                , "dependencies: [daml-prim, daml-stdlib]"
+                , "data-dependencies: "
+                , " - " <> show (dd </> "dd.dar")
+                ]
+            callProcessSilent damlc
+                ["build"
+                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+                , "--project-root", target
+                , "--target", LF.renderVersion targetLfVer
+                , "-o", target </> "target.dar"
+                ]
+
+            step "Running test scenarios"
+            callProcessSilent damlc
+                [ "test"
+                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
+                , "--project-root", target
+                , "--target", LF.renderVersion targetLfVer ]
+
+            step "Validating DAR"
+            validate $ target </> "target.dar"
+    | (depSdkVer, depDamlc) <- Map.assocs damlcForSdk
+    , depLfVer <- [LF.version1_14, LF.version1_15, LF.versionDev]
+    , not (depLfVer == LF.version1_15 && depSdkVer < DdSdk_2_4_0)
+    , targetLfVer <- LF.supportedOutputVersions
+    , depLfVer <= targetLfVer
+    , let caseStr = concat
+            [ "dd@(sdk = "
+            , renderDdSdk depSdkVer
+            , ", lf = "
+            , LF.renderVersion depLfVer
+            , ") -> target@("
+            , LF.renderVersion targetLfVer
+            , ")"
+            ]
     ] <>
     [ testCaseSteps "Mixed dependencies and data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'lib'"
@@ -2718,6 +2884,7 @@ tests tools = testGroup "Data Dependencies" $
       , damlScriptDar
       , oldProjDar
       , libWithScriptDar
+      , damlcForSdk
       } = tools
 
     simpleImportTest :: String -> [String] -> [String] -> TestTree

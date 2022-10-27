@@ -103,6 +103,36 @@ damlc_legacy(
     version = "1.18.0-snapshot.20211117.8399.0.a05a40ae",
 )
 
+damlc_legacy(
+    name = "damlc-2.3.0",
+    sha256 = {
+        "linux": "95e6e0ddab15804707457fa547478ed9ed500ed9642ffdf1ec40a8ddf6801874",
+        "windows": "80b19d95455722c843e594f857c0948c072e5f03206a839a02a56ec4c75de62b",
+        "macos": "4d2dd599ff2cc1365bf6e55312df2d472042a1825510cb870130591a36de9912",
+    },
+    version = "2.3.0",
+)
+
+damlc_legacy(
+    name = "damlc-2.3.4",
+    sha256 = {
+        "linux": "2ff082b20f397fe1d850c93c4e840c4993538594e04907b45123b271ce1cefe0",
+        "windows": "d6dd0389880b24aa36965806ca2c4a24deb2d3d20565fc472dd31e8ee571b841",
+        "macos": "f4afa605fe6aeb806b1767793790b6ef2ab7f09f091db7a9df67a3e624aaa1c7",
+    },
+    version = "2.3.4",
+)
+
+damlc_legacy(
+    name = "damlc-2.4.0",
+    sha256 = {
+        "linux": "0bef7f2247165d37e2b0cc798cec6a4ddd0e39fc6e6d75b523b577579a49a6e7",
+        "windows": "2429dd0cce9c4152178498989c61b8b5590d5cda8ded6d5644bf3464df602385",
+        "macos": "68e32ea1bb777c4db05839923439b65db2ffa9699ebb8ef9504774bbddd66aa4",
+    },
+    version = "2.4.0",
+)
+
 # Use Nix provisioned cc toolchain
 nixpkgs_cc_configure(
     nix_file = "//nix:bazel-cc-toolchain.nix",
