@@ -4,11 +4,17 @@
 package com.daml.http.dbbackend
 
 import doobie.implicits._
+import com.daml.nonempty.NonEmpty
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import scala.collection.immutable.Seq
 import scalaz.\/
+import scalaz.std.map._
+import scalaz.std.set._
+import scalaz.std.vector._
+import scalaz.syntax.foldable._
 
 class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
   import QueriesSpec._
@@ -57,6 +63,28 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
       groupUnsyncedOffsets(Set(0, 1, 2), Vector((0, (1, 2)), (0, (3, 4)))) should ===(
         Map(0 -> Map(1 -> 2, 3 -> 4), 1 -> Map.empty, 2 -> Map.empty)
       )
+    }
+  }
+
+  "chunkBySetSize" should {
+    import org.scalacheck.{Arbitrary, Gen}
+    import Arbitrary.arbitrary
+    import ScalaCheckDrivenPropertyChecks.{forAll => scForAll, _}
+    import Queries.chunkBySetSize
+
+    type Arg = NonEmpty[Map[Int, NonEmpty[Set[Int]]]]
+    val sizes: Gen[Int] = Gen.choose(1, 20)
+    val randomArg: Gen[Arg] = Gen
+      .nonEmptyMap(
+        Gen.zip(
+          arbitrary[Int],
+          Gen.nonEmptyContainerOf[Set, Int](arbitrary[Int]).map { case NonEmpty(xs) => xs },
+        )
+      )
+      .map { case NonEmpty(xs) => xs }
+
+    "include all arguments in the result" in scForAll(sizes, randomArg) { (s, r) =>
+      chunkBySetSize(s, r).foldMap1Opt(identity) should ===(Some(r))
     }
   }
 }
