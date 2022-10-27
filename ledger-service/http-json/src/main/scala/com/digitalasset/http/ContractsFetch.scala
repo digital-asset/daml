@@ -332,7 +332,9 @@ private class ContractsFetch(
         }
 
         val transactInsertsDeletes = Flow
-          .fromFunction(jsonifyInsertDeleteStep(_, templateId))
+          .fromFunction(
+            jsonifyInsertDeleteStep((_: InsertDeleteStep[Any, lav1.event.CreatedEvent]), templateId)
+          )
           .via(conflation)
           .map(insertAndDelete)
 
