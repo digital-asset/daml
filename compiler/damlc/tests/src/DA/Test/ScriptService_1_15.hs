@@ -90,29 +90,104 @@ main =
                     scriptService
                     [ "module Test where"
                     , "import DA.Assert"
+                    , "import DA.List (sortOn)"
                     , "import Daml.Script"
 
-                    , "interface MyInterface where"
-                    , "  viewtype MyView"
-                    , "data MyView = MyView { info : Int }"
-                    , "template MyTemplate"
+                    -- Two interfaces (1,2)...
+                    , "interface MyInterface1 where"
+                    , "  viewtype MyView1"
+                    , "data MyView1 = MyView1 { info : Int } deriving (Eq,Ord)"
+
+                    , "interface MyInterface2 where"
+                    , "  viewtype MyView2"
+                    , "data MyView2 = MyView2 { info : Text } deriving (Eq,Ord)"
+
+                    -- ...which are variously implemented by three templates (A,B,C)
+                    , "template MyTemplateA"
                     , "  with"
                     , "    p : Party"
                     , "    v : Int"
                     , "  where"
                     , "    signatory p"
-                    , "    interface instance MyInterface for MyTemplate where"
-                    , "      view = MyView { info = 100 + v }"
+                    , "    interface instance MyInterface1 for MyTemplateA where"
+                    , "      view = MyView1 { info = 100 + v }"
+
+                    , "template MyTemplateB" -- Note: B implements both interfaces!
+                    , "  with"
+                    , "    p : Party"
+                    , "    v : Int"
+                    , "  where"
+                    , "    signatory p"
+                    , "    interface instance MyInterface1 for MyTemplateB where"
+                    , "      view = MyView1 { info = 200 + v }"
+                    , "    interface instance MyInterface2 for MyTemplateB where"
+                    , "      view = MyView2 { info = \"B:\" <> show v }"
+
+                    , "template MyTemplateC"
+                    , "  with"
+                    , "    p : Party"
+                    , "    text : Text"
+                    , "  where"
+                    , "    signatory p"
+                    , "    interface instance MyInterface2 for MyTemplateC where"
+                    , "      view = MyView2 { info = \"C:\" <> text }"
+
                     , "test : Script ()"
                     , "test = do"
-                    , "  p <- allocateParty \"p\""
-                    , "  cid <- submit p do createCmd (MyTemplate p 42)"
-                    , "  optR <- queryContractId p cid"
-                    , "  let (Some r) = optR"
-                    , "  r === MyTemplate p 42"
-                    , "  let iid : ContractId MyInterface = toInterfaceContractId @MyInterface cid"
-                    , "  Some v <- queryViewContractId p iid"
+                    , "  p <- allocateParty \"p\"" -- primary party in the test script
+                    , "  p2 <- allocateParty \"p2\"" -- other/different party
+
+                    -- Create various contract-instances of A,B,C (for p)
+                    , "  a1 <- submit p do createCmd (MyTemplateA p 42)"
+                    , "  a2 <- submit p do createCmd (MyTemplateA p 43)"
+                    , "  b1 <- submit p do createCmd (MyTemplateB p 44)"
+                    , "  c1 <- submit p do createCmd (MyTemplateC p \"I-am-c1\")"
+
+                    -- Archived contracts wont be visible when querying
+                    , "  a3 <- submit p do createCmd (MyTemplateA p 999)"
+                    , "  submit p do archiveCmd a3"
+
+                    -- Contracts created by another party (p2) wont be visible when querying (by p)
+                    , "  a4 <- submit p2 do createCmd (MyTemplateA p2 911)"
+
+                    -- Refer to p's instances via interface-contract-ids
+                    -- (Note: we can refer to b1 via either Interface 1 or 2)
+                    , "  let i1a1 = toInterfaceContractId @MyInterface1 a1"
+                    , "  let i1a2 = toInterfaceContractId @MyInterface1 a2"
+                    , "  let i1b1 = toInterfaceContractId @MyInterface1 b1"
+                    , "  let i2b1 = toInterfaceContractId @MyInterface2 b1"
+                    , "  let i2c1 = toInterfaceContractId @MyInterface2 c1"
+
+                    -- Test queryViewContractId (Interface1)
+                    , "  Some v <- queryViewContractId p i1a1"
                     , "  v.info === 142"
+                    , "  Some v <- queryViewContractId p i1a2"
+                    , "  v.info === 143"
+                    , "  Some v <- queryViewContractId p i1b1"
+                    , "  v.info === 244"
+
+                    -- Test queryViewContractId (Interface2)
+                    , "  Some v <- queryViewContractId p i2b1"
+                    , "  v.info === \"B:44\""
+                    , "  Some v <- queryViewContractId p i2c1"
+                    , "  v.info === \"C:I-am-c1\""
+
+                    -- Test queryView (Interface1)
+                    , "  [(i1,v1),(i2,v2),(i3,v3)] <- sortOn snd <$> queryView @MyInterface1 p"
+                    , "  i1 === i1a1"
+                    , "  i2 === i1a2"
+                    , "  i3 === i1b1"
+                    , "  v1.info === 142"
+                    , "  v2.info === 143"
+                    , "  v3.info === 244"
+
+                    -- Test queryView (Interface2)
+                    , "  [(i1,v1),(i2,v2)] <- sortOn snd <$> queryView @MyInterface2 p"
+                    , "  i1 === i2b1"
+                    , "  i2 === i2c1"
+                    , "  v1.info === \"B:44\""
+                    , "  v2.info === \"C:I-am-c1\""
+
                     , "  pure ()"
                     ]
 
