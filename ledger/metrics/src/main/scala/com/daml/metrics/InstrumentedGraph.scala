@@ -7,6 +7,7 @@ import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.{BoundedSourceQueue, Materializer, OverflowStrategy, QueueOfferResult}
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.api.MetricHandle.{Counter, Timer}
+import com.daml.metrics.api.MetricsContext
 
 import scala.util.chaining._
 
@@ -22,7 +23,7 @@ object InstrumentedGraph {
 
     override def complete(): Unit = {
       delegate.complete()
-      capacityCounter.dec(bufferSize.toLong)
+      capacityCounter.dec(bufferSize.toLong)(MetricsContext.Empty)
     }
 
     override def size(): Int = bufferSize
@@ -80,7 +81,7 @@ object InstrumentedGraph {
         lengthCounter,
         delayTimer,
       )
-    capacityCounter.inc(bufferSize.toLong)
+    capacityCounter.inc(bufferSize.toLong)(MetricsContext.Empty)
 
     source.mapMaterializedValue(_ => instrumentedQueue).map { case (timer, item) =>
       timer.stop()

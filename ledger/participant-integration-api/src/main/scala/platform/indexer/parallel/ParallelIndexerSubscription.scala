@@ -21,8 +21,10 @@ import com.daml.platform.store.backend._
 import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.interning.{InternizingStringInterningView, StringInterning}
-
 import java.sql.Connection
+
+import com.daml.metrics.api.MetricsContext
+
 import scala.concurrent.Future
 
 private[platform] case class ParallelIndexerSubscription[DB_BATCH](
@@ -132,7 +134,7 @@ object ParallelIndexerSubscription {
   )(implicit
       loggingContext: LoggingContext
   ): Iterable[(Offset, state.Update)] => Batch[Vector[DbDto]] = { input =>
-    metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)
+    metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)(MetricsContext.Empty)
     input.foreach { case (offset, update) =>
       withEnrichedLoggingContext("offset" -> offset, "update" -> update) {
         implicit loggingContext =>
@@ -240,7 +242,7 @@ object ParallelIndexerSubscription {
       withEnrichedLoggingContext("updateOffsets" -> batch.offsetsUpdates.map(_._1)) {
         implicit loggingContext =>
           dbDispatcher.executeSql(metrics.daml.parallelIndexer.ingestion) { connection =>
-            metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
+            metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)(MetricsContext.Empty)
             ingestFunction(connection, batch.batch)
             cleanUnusedBatch(zeroDbBatch)(batch)
           }

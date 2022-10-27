@@ -11,7 +11,7 @@ import com.codahale.{metrics => codahale}
 import com.daml.ledger.api.benchtool.util.TimeUtil
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram}
 import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardGauge, DropwizardHistogram}
-import com.daml.metrics.api.{Gauges, MetricName}
+import com.daml.metrics.api.{Gauges, MetricName, MetricsContext}
 import com.google.protobuf.timestamp.Timestamp
 
 final class ExposedMetrics[T](
@@ -22,8 +22,10 @@ final class ExposedMetrics[T](
     clock: Clock,
 ) {
   def onNext(elem: T): Unit = {
-    counterMetric.counter.inc(counterMetric.countingFunction(elem))
-    bytesProcessedMetric.bytesProcessed.inc(bytesProcessedMetric.sizingFunction(elem))
+    counterMetric.counter.inc(counterMetric.countingFunction(elem))(MetricsContext.Empty)
+    bytesProcessedMetric.bytesProcessed.inc(bytesProcessedMetric.sizingFunction(elem))(
+      MetricsContext.Empty
+    )
     delayMetric.foreach { metric =>
       val now = clock.instant()
       metric
@@ -94,7 +96,10 @@ object ExposedMetrics {
         latestRecordTime = DropwizardGauge(
           Prefix :+ "latest_record_time" :+ streamName,
           registry
-            .register(Prefix :+ "latest_record_time" :+ streamName, new Gauges.VarGauge[Long](0L)),
+            .register(
+              Prefix :+ "latest_record_time" :+ streamName,
+              new Gauges.VarGauge[Long](0L)(MetricsContext.Empty),
+            ),
         ),
         recordTimeFunction = f,
       )
