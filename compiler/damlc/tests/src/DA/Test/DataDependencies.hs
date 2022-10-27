@@ -343,7 +343,7 @@ tests tools = testGroup "Data Dependencies" $
                 , " - " <> show oldProjDar
                 , " - " <> show (proja </> "proja.dar")
                 ]
-            callProcessSilent (damlcForTarget tools depLfVer)
+            callProcessSilent damlc
                 ["build"
                 , "--project-root", projb
                 , "--target", LF.renderVersion targetLfVer
