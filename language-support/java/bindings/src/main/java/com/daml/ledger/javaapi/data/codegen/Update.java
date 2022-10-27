@@ -15,7 +15,7 @@ public abstract class Update<U> implements HasCommands {
   }
 
   @Override
-  public List<Command> commands() {
+  public final List<Command> commands() {
     return List.of(command);
   }
 
