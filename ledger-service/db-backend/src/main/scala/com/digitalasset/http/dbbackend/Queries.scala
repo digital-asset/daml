@@ -5,14 +5,14 @@ package com.daml.http.dbbackend
 
 import com.daml.lf.data.Ref
 import com.daml.nonempty
-import nonempty.{+-:, NonEmpty}
+import nonempty.{NonEmpty, +-:}
 import nonempty.NonEmptyReturningOps._
+
 import doobie._
 import doobie.implicits._
-
 import scala.annotation.nowarn
-import scala.collection.immutable.{SortedMap, Seq => ISeq}
-import scalaz.{-\/, @@, Cord, Functor, OneAnd, Tag, \/, \/-}
+import scala.collection.immutable.{Seq => ISeq, SortedMap}
+import scalaz.{@@, Cord, Functor, OneAnd, Tag, \/, -\/, \/-}
 import scalaz.Digit._0
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
