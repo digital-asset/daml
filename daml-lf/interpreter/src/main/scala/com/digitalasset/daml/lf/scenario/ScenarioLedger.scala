@@ -263,7 +263,7 @@ object ScenarioLedger {
       currentTime: Time.Timestamp,
   ): ScenarioLedger =
     ScenarioLedger(
-      interfaceInstances = new language.util.PackageInfo(pkgSignature).instanceInterfaces,
+      interfaceInstances = new language.util.PackageInfo(pkgSignature).interfaceInstancesByTemplate,
       currentTime = currentTime,
     )
 

@@ -45,7 +45,7 @@ private[daml] class PackageInfo(pkgSignature: Map[Ref.PackageId, Ast.GenPackage[
   def interfaceInstances: Relation[Ref.TypeConName, Ref.TypeConName] =
     Relation.union(interfacesDirectImplementations, interfacesRetroactiveInstances)
 
-  def instanceInterfaces: Relation[Ref.TypeConName, Ref.TypeConName] =
+  def interfaceInstancesByTemplate: Relation[Ref.TypeConName, Ref.TypeConName] =
     Relation.invert(interfaceInstances)
 
   private[this] def withFullId[X](
