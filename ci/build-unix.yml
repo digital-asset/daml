@@ -32,6 +32,18 @@ steps:
     displayName: 'Platform-agnostic lints and checks'
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
+  - bash: |
+      set -euo pipefail
+      eval "$(./dev-env/bin/dade-assist)"
+      timeout --kill-after=30s 35m bazel build //test-evidence:generate-security-test-evidence-files
+    displayName: 'Generate security test evidence CSV'
+
+  - task: PublishBuildArtifacts@1
+    continueOnError: true
+    inputs:
+      pathtoPublish: 'bazel-bin/test-evidence/'
+      artifactName: 'Security Test Evidence'
+
   - bash: ./build.sh "_${{parameters.name}}"
     displayName: 'Build'
     env:
