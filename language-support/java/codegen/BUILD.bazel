@@ -96,6 +96,8 @@ da_scala_test(
         "//daml-lf/data",
         "//language-support/codegen-common",
         "//language-support/java/bindings:bindings-java",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_squareup_javapoet",
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",

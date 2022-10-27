@@ -86,6 +86,11 @@ public class TemplateMethodTest {
   }
 
   @Test
+  void templateHasGetContractTypeId() {
+    assertEquals(new SimpleTemplate("Bob").getContractTypeId(), SimpleTemplate.TEMPLATE_ID);
+  }
+
+  @Test
   void contractHasFromIdAndRecord() {
     SimpleTemplate.Contract emptyAgreement =
         SimpleTemplate.Contract.fromIdAndRecord(
@@ -151,6 +156,12 @@ public class TemplateMethodTest {
     SimpleTemplate.Contract withAgreement = companion.fromCreatedEvent(agreementEvent);
     SimpleTemplate data = withAgreement.data;
     assertEquals(new SimpleTemplate("Bob"), data);
+  }
+
+  @Test
+  void contractHasGetContractTypeId() {
+    var withAgreement = SimpleTemplate.Contract.fromCreatedEvent(agreementEvent);
+    assertEquals(withAgreement.getContractTypeId(), SimpleTemplate.TEMPLATE_ID);
   }
 
   @Test

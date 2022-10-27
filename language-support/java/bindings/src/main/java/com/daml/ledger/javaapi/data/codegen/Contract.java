@@ -3,6 +3,7 @@
 
 package com.daml.ledger.javaapi.data.codegen;
 
+import com.daml.ledger.javaapi.data.Identifier;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -49,7 +50,19 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
     this.observers = observers;
   }
 
+  /** The template or interface ID for this contract or interface view. */
+  public final Identifier getContractTypeId() {
+    return getCompanion().TEMPLATE_ID;
+  }
+
   // concrete 1st type param would need a self-reference type param in Contract
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by {@link Contract}, and <em>should not be
+   * referenced directly</em>. Applications should refer to other methods like {@link
+   * #getContractTypeId} instead.
+   *
+   * @hidden
+   */
   protected abstract ContractTypeCompanion<?, Data> getCompanion();
 
   @Override
