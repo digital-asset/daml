@@ -8,6 +8,7 @@ import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.{KillSwitch, KillSwitches, Materializer}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import io.grpc.stub.StreamObserver
+import scalapb.GeneratedMessage
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
@@ -24,7 +25,7 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable {
     }
   }
 
-  protected def registerStream[RespT](
+  protected def registerStream[RespT <: GeneratedMessage with AnyRef](
       buildSource: () => Source[RespT, NotUsed],
       responseObserver: StreamObserver[RespT],
   )(implicit
@@ -43,11 +44,12 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable {
       // buildSource() step out of the synchronized block
       synchronized {
         ifNotClosed { () =>
-          val (killSwitch, doneF) = source
-            .viaMat(KillSwitches.single)(Keep.right)
-            .watchTermination()(Keep.both)
-            .toMat(sink)(Keep.left)
-            .run()
+          val (killSwitch, doneF) =
+            source.precomputeSerializedSize
+              .viaMat(KillSwitches.single)(Keep.right)
+              .watchTermination()(Keep.both)
+              .toMat(sink)(Keep.left)
+              .run()
 
           _killSwitches += killSwitch -> NotUsed
 
@@ -57,5 +59,41 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable {
         }
       }
     }
+  }
+
+  implicit class ScalaPbOptimizationsFlow[ScalaPbMessage <: GeneratedMessage with AnyRef, Mat](
+      val original: Source[ScalaPbMessage, Mat]
+  ) {
+
+    /** Optimization for gRPC stream throughput.
+      *
+      * gRPC internal logic marshalls the protobuf response payloads sequentially before
+      * sending them over the wire (see io.grpc.ServerCallImpl.sendMessageInternal), imposing as limit
+      * the maximum marshalling throughput of a payload type.
+      *
+      * We've observed empirically that ScalaPB-generated message classes have associated marshallers
+      * with significant latencies when encoding complex payloads (e.g. [[com.daml.ledger.api.v1.transaction_service.GetTransactionTreesResponse]]),
+      * with the gRPC marshalling bottleneck appearing in some performance tests.
+      *
+      * As an alleviation of the problem, we can leverage the fact that ScalaPB message classes have the serializedSize value memoized,
+      * (see [[scalapb.GeneratedMessage.writeTo]]), whose computation is roughly half of the entire marshalling step.
+      *
+      * This optimization method takes advantage of the memoized value and forces the message's serializedSize computation,
+      * roughly doubling the maximum theoretical ScalaPB stream throughput over the gRPC server layer.
+      *
+      * @return A new source with precomputed serializedSize for the [[scalapb.GeneratedMessage]]
+      */
+    def precomputeSerializedSize: Source[ScalaPbMessage, Mat] =
+      original
+        .map { msg =>
+          // Computation of serializedSize is thread-safe but the memoization mechanism
+          // which this optimization is relying on is not.
+          // It's fine to use synchronized on the message, since it's un-contended and the performance
+          // penalty should be minimal.
+          msg.synchronized {
+            val _ = msg.serializedSize
+          }
+          msg
+        }
   }
 }
