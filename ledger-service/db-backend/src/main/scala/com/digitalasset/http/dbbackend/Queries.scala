@@ -306,31 +306,30 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
 
   // ContractTypeId -> CId[String]
   final def deleteContracts(
-      cids: Map[SurrogateTpId, Iterable[String]]
+      cids: Map[SurrogateTpId, Set[String]]
   )(implicit log: LogHandler): ConnectionIO[Int] = {
-    import cats.data.NonEmptyVector
     import cats.instances.vector._
     import cats.instances.int._
     import cats.syntax.foldable._
-    NonEmptyVector.fromVector(cids.toVector) match {
-      case None =>
+    import nonempty.catsinstances._
+    (cids: Iterable[(SurrogateTpId, Set[String])]).view.collect { case (k, NonEmpty(cids)) =>
+      (k, cids)
+    }.toMap match {
+      case NonEmpty(cids) =>
+        val chunks = maxListSize.fold(Vector(cids))(chunkBySetSize(_, cids))
+        chunks.map { chunk =>
+          (fr"DELETE FROM $contractTableName WHERE " ++
+            joinFragment(
+              chunk.toVector.map { case (tpid, cids) =>
+                val inCids = Fragments.in(fr"contract_id", cids.toVector.toNEF)
+                fr"(tpid = $tpid AND $inCids)"
+              }.toOneAnd,
+              fr" OR ",
+            )).update.run
+        }.foldA
+      case _ =>
         free.connection.pure(0)
-      case Some(cids) =>
-        val chunks = maxListSize.fold(Vector(cids))(size => cids.grouped(size).toVector)
-//        val chunkss = maxListSize.fold()(size => groupedGroups(size, ))
-//        val chunkss = maxListSize.fold(Vector(cids.))(size => cids.grouped(size).toVector)
-        chunks
-          .map(chunk =>
-            (fr"DELETE FROM $contractTableName WHERE " ++ Fragments
-              .in(fr"contract_id", chunk)).update.run
-          )
-          .foldA
     }
-  }
-
-  // invariant: each element x of result has `x.values.flatten.size <= size`
-  private def groupedGroups[K, V](size: Int, groups: Map[K, Set[V]]): Vector[Map[K, Set[V]]] = {
-    ???
   }
 
   private[http] final def selectContracts(
@@ -589,6 +588,17 @@ object Queries {
     // lagging offsets still needs to consider the template IDs that weren't
     // returned by the offset table query
     (allTpids diff grouped.keySet).view.map((_, Map.empty[Party, Off])).toMap ++ grouped
+  }
+
+  // invariant: each element x of result has `x.values.flatten.size <= size`
+  private[dbbackend] def chunkBySetSize[K, V](
+      size: Int,
+      groups: NonEmpty[Map[K, NonEmpty[Set[V]]]],
+  ): Vector[NonEmpty[Map[K, NonEmpty[Set[V]]]]] = {
+    // TODO #14819 this will break Oracle; write proper tests for this function
+    // and actually do the splitting
+    identity(size) // TODO #14819 remove
+    Vector(groups)
   }
 
   import doobie.util.invariant.InvalidValue

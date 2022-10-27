@@ -42,6 +42,8 @@ da_scala_library(
         "//ledger/metrics",
         "//libs-scala/contextualized-logging",
         "//libs-scala/nonempty",
+        "//libs-scala/nonempty-cats",
+        "//libs-scala/scala-utils",
     ],
 )
 

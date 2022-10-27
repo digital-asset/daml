@@ -24,6 +24,7 @@ import com.daml.fetchcontracts.util.{
 }
 import com.daml.scalautil.ExceptionOps._
 import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
@@ -37,7 +38,6 @@ import scalaz.syntax.tag._
 import scalaz.syntax.functor._
 import scalaz.syntax.foldable._
 import scalaz.syntax.order._
-import scalaz.syntax.std.map._
 import scalaz.syntax.std.option._
 import scalaz.{~>, \/, NaturalTransformation}
 import spray.json.{JsNull, JsValue}
@@ -405,7 +405,9 @@ private[http] object ContractsFetch {
           ),
         )
 
-      (queries.deleteContracts(step.deletes.groupMap(_._2)(_._1).mapKeys(mapToId)) *>
+      (queries.deleteContracts(step.deletes.groupMap1(_._2)(_._1).map { case (tid, cids) =>
+        (mapToId(tid), cids.toSet)
+      }) *>
         queries.insertContracts(
           step.inserts map (dbc =>
             dbc.copy(
