@@ -774,7 +774,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
       s"""
         INSERT INTO $contractTableNameRaw
         VALUES (?, ?, ?::jsonb, ?, ?::jsonb, ?, ?, ?)
-        ON CONFLICT (contract_id) DO NOTHING
+        ON CONFLICT (contract_id, tpid) DO NOTHING
       """
     ).updateMany(dbcs)
   }
