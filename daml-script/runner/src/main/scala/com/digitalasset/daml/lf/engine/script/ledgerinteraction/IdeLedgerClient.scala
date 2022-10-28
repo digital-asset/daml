@@ -23,7 +23,6 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   Transaction,
-  TransactionVersion,
   Versioned,
 }
 import com.daml.lf.value.Value
@@ -133,6 +132,75 @@ class IdeLedgerClient(
     )
   }
 
+  private[this] def computeView(
+      templateId: TypeConName,
+      interfaceId: TypeConName,
+      arg: Value,
+  ): Value = {
+
+    val valueTranslator = new ValueTranslator(
+      pkgInterface = compiledPackages.pkgInterface,
+      requireV1ContractIdSuffix = false,
+    )
+
+    valueTranslator.translateValue(TTyCon(templateId), arg) match {
+      case Left(_) =>
+        sys.error("computeView: translateValue failed")
+
+      case Right(argument) =>
+        val compiler: speedy.Compiler = compiledPackages.compiler
+        val iview = speedy.InterfaceView(templateId, argument, interfaceId)
+        val sexpr = compiler.unsafeCompileInterfaceView(iview)
+        val machine = Machine.fromPureSExpr(compiledPackages, sexpr)(Script.DummyLoggingContext)
+
+        machine.run() match {
+          case SResultFinal(svalue, _) =>
+            val version = machine.tmplId2TxVersion(templateId)
+            svalue.toNormalizedValue(version)
+
+          case (_: SResultError | _: SResultNeedPackage | _: SResultNeedContract |
+              _: SResultNeedKey | _: SResultNeedTime | _: SResultScenarioGetParty |
+              _: SResultScenarioPassTime | _: SResultScenarioSubmit) =>
+            // TODO https://github.com/digital-asset/daml/issues/14830
+            // support view functions which may error
+            sys.error("computeView: expected SResultFinal")
+        }
+    }
+  }
+
+  private[this] def implements(templateId: TypeConName, interfaceId: TypeConName): Boolean = {
+    compiledPackages.pkgInterface.lookupInterfaceInstance(interfaceId, templateId).isRight
+  }
+
+  override def queryView(
+      parties: OneAnd[Set, Ref.Party],
+      interfaceId: Identifier,
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Value)]] = {
+
+    val acs: Seq[ScenarioLedger.LookupOk] = ledger.query(
+      view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
+      effectiveAt = ledger.currentTime,
+    )
+    val filtered: Seq[(ContractId, Value.ContractInstance)] = acs.collect {
+      case ScenarioLedger.LookupOk(
+            cid,
+            Versioned(_, contractInstance @ Value.ContractInstance(templateId, _, _)),
+            stakeholders,
+          ) if implements(templateId, interfaceId) && parties.any(stakeholders.contains(_)) =>
+        (cid, contractInstance)
+    }
+    val res: Seq[(ContractId, Value)] = {
+      filtered.map { case (cid, contractInstance) =>
+        contractInstance match {
+          case Value.ContractInstance(templateId, arg, _) =>
+            val view = computeView(templateId, interfaceId, arg)
+            (cid, view)
+        }
+      }
+    }
+    Future.successful(res)
+  }
+
   override def queryViewContractId(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
@@ -143,40 +211,10 @@ class IdeLedgerClient(
   ): Future[Option[Value]] = {
 
     lookupContractInstance(parties, cid) match {
-
       case None => Future.successful(None)
-
       case Some(Value.ContractInstance(templateId, arg, _)) =>
-        val valueTranslator = new ValueTranslator(
-          pkgInterface = compiledPackages.pkgInterface,
-          requireV1ContractIdSuffix = false,
-        )
-
-        valueTranslator.translateValue(TTyCon(templateId), arg) match {
-          case Left(_) =>
-            sys.error("queryViewContractId: translateValue failed")
-
-          case Right(argument) =>
-            val compiler: speedy.Compiler = compiledPackages.compiler
-
-            // TODO https://github.com/digital-asset/daml/issues/14830
-            val version: TransactionVersion = TransactionVersion.VDev // from where?
-
-            val view = speedy.InterfaceView(templateId, argument, interfaceId, version)
-            val sexpr = compiler.unsafeCompileInterfaceView(view)
-            val machine = Machine.fromPureSExpr(compiledPackages, sexpr)(Script.DummyLoggingContext)
-
-            machine.run() match {
-              case SResultFinal(svalue, _) =>
-                val value = svalue.toNormalizedValue(version)
-                Future.successful(Some(value))
-
-              case (_: SResultError | _: SResultNeedPackage | _: SResultNeedContract |
-                  _: SResultNeedKey | _: SResultNeedTime | _: SResultScenarioGetParty |
-                  _: SResultScenarioPassTime | _: SResultScenarioSubmit) =>
-                sys.error("queryViewContractId: expected SResultFinal")
-            }
-        }
+        val view = computeView(templateId, interfaceId, arg)
+        Future.successful(Some(view))
     }
   }
 

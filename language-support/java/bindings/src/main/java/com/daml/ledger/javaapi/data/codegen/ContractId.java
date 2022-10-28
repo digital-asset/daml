@@ -61,6 +61,13 @@ public class ContractId<T> implements Exercises<ExerciseCommand> {
 
   // overridden by every code generator, but decoding abstractly can e.g.
   // produce a ContractId<Foo> that is not a Foo.ContractId
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by {@link ContractId} and <em>should not
+   * be referenced directly</em>. Applications should refer to generated {@code exercise} methods
+   * instead.
+   *
+   * @hidden
+   */
   protected ContractTypeCompanion<T, ?> getCompanion() {
     throw new UnsupportedOperationException(
         "Cannot exercise on a contract ID type without code-generated exercise methods");

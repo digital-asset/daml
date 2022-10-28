@@ -11,14 +11,8 @@ import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SExpr.SEMakeClo
 import com.daml.lf.speedy.SValue.{SContractId, SToken}
-import com.daml.lf.speedy.Speedy.CachedContract
-import com.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Node,
-  TransactionVersion,
-  Versioned,
-}
+import com.daml.lf.speedy.Speedy.{CachedContract, SKeyWithMaintainers}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
 import org.scalatest.matchers.{MatchResult, Matcher}
@@ -217,15 +211,6 @@ object ExplicitDisclosureLib {
       withKey: Boolean = true,
       label: String = testKeyName,
   ): CachedContract = {
-    val key = Value.ValueRecord(
-      None,
-      ImmArray(
-        None -> Value.ValueText(label),
-        None -> Value.ValueList(FrontStack.from(ImmArray(Value.ValueParty(maintainer)))),
-      ),
-    )
-    val keyNode: Option[Node.KeyWithMaintainers] =
-      if (withKey) Some(Node.KeyWithMaintainers(key, Set(maintainer))) else None
     val contract = SValue.SRecord(
       templateId,
       ImmArray("label", "maintainers").map(Ref.Name.assertFromString),
@@ -234,13 +219,15 @@ object ExplicitDisclosureLib {
         SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainer)))),
       ),
     )
+    val mbKey =
+      if (withKey) Some(SKeyWithMaintainers(contract, Set(maintainer))) else None
 
     CachedContract(
       templateId,
       contract,
       signatories = Set(signatory),
       observers = Set.empty,
-      key = keyNode,
+      key = mbKey,
     )
   }
 

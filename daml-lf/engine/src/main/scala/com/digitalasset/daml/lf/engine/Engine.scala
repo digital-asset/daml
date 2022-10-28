@@ -370,13 +370,16 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     def detailMsg = Some(
       s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${onLedger.nodesToString}"
     )
-    def versionDisclosedContract(d: speedy.DisclosedContract): Versioned[DisclosedContract] = {
-      val version = machine.tmplId2TxVersion(d.templateId)
-      val arg = machine.normValue(d.templateId, d.argument)
-      val coid = d.contractId.value
-
-      Versioned(version, DisclosedContract(d.templateId, coid, arg, d.metadata))
-    }
+    def versionDisclosedContract(d: speedy.DisclosedContract): Versioned[DisclosedContract] =
+      Versioned(
+        machine.tmplId2TxVersion(d.templateId),
+        DisclosedContract(
+          templateId = d.templateId,
+          contractId = d.contractId.value,
+          argument = d.argument.toNormalizedValue(machine.tmplId2TxVersion(d.templateId)),
+          metadata = d.metadata,
+        ),
+      )
 
     var finished: Boolean = false
     var finalValue: SResultFinal = null
@@ -569,10 +572,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       )
       machine = Machine.fromPureSExpr(compiledPackages, sexpr)
       r <- interpret(machine)
-    } yield
-    // TODO https://github.com/digital-asset/daml/issues/14114
-    // Double check that the interface version is the right thing to use here.
-    Versioned(view.interfaceVersion, r.toNormalizedValue(view.interfaceVersion))
+      version = machine.tmplId2TxVersion(interfaceId)
+    } yield Versioned(version, r.toNormalizedValue(version))
   }
 
 }
