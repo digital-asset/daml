@@ -9,7 +9,6 @@ import com.daml.bazeltools.BazelRunfiles.{rlocation}
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
 import com.daml.logging.LoggingContext
@@ -102,10 +101,7 @@ object PlaySpeedy {
 
     val result: SValue = {
       println("Run...")
-      machine.run() match {
-        case SResultFinal(value, _) => value
-        case res => throw new MachineProblem(s"Unexpected result from machine $res")
-      }
+      machine.runPure().toTry.get
     }
 
     println(s"Final-value: $result")

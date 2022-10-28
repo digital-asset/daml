@@ -10,7 +10,6 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SExpr.LfDefRef
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -26,13 +25,8 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
-  private def runExpr(e: Expr): SValue = {
-    val machine = Speedy.Machine.fromPureExpr(PureCompiledPackages.Empty, e)
-    machine.run() match {
-      case SResultFinal(v, _) => v
-      case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-    }
-  }
+  private def runExpr(e: Expr): SValue =
+    Speedy.Machine.fromPureExpr(PureCompiledPackages.Empty, e).runPure().toTry.get
 
   "evaluator behaves responsibly" should {
     // isolated rendition of the DA.Test.List.concat_test scenario in
@@ -137,12 +131,8 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
       machine = Speedy.Machine.fromPureExpr(PureCompiledPackages.Empty, list)
     }
     "interpret" in {
-      val value = machine.run() match {
-        case SResultFinal(v, _) => v
-        case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
-      }
-      value match {
-        case SValue.SList(lst) =>
+      machine.runPure() match {
+        case Right(SValue.SList(lst)) =>
           lst.length shouldBe 100000
           val arr = lst.toImmArray
           arr(0) shouldBe SValue.SInt64(1)

@@ -603,7 +603,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
         val res = Speedy.Machine
           .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, expr, party), Set(party))
-          .run()
+          .runOnLedger()
         if (description.contains("can be caught"))
           inside(res) { case SResultFinal(SUnit, _) =>
           }
@@ -627,7 +627,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       val pkgs = mkPackagesAtVersion(LanguageVersion.v1_dev)
       val res = Speedy.Machine
         .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
-        .run()
+        .runOnLedger()
       inside(res) { case SResultFinal(SUnit, _) =>
       }
     }
@@ -643,7 +643,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       val pkgs = mkPackagesAtVersion(LanguageVersion.v1_11)
       val res = Speedy.Machine
         .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
-        .run()
+        .runOnLedger()
       res shouldBe SResultError(SErrorDamlException(anException))
     }
 
@@ -694,9 +694,11 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
   private val party = Party.assertFromString("Alice")
 
-  private def runUpdateExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult = {
+  private def runUpdateExpr(
+      pkgs1: PureCompiledPackages
+  )(e: Expr): SResult[Question.OnLedger.Question] = {
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("ExceptionTest.scala")
-    Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, Set(party)).run()
+    Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, Set(party)).runOnLedger()
   }
 
   "rollback of creates (mixed versions)" should {
@@ -835,20 +837,26 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     "create rollback when old contacts are not within try-catch context" in {
       val res =
-        Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party)).run()
+        Speedy.Machine
+          .fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party))
+          .runOnLedger()
       inside(res) { case SResultFinal(SUnit, _) =>
       }
     }
 
     "causes uncatchable exception when an old contract is within a new-exercise within a try-catch" in {
       val res =
-        Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable, Set(party)).run()
+        Speedy.Machine
+          .fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable, Set(party))
+          .runOnLedger()
       res shouldBe SResultError(SErrorDamlException(anException))
     }
 
     "causes uncatchable exception when an old contract is within a new-exercise which aborts" in {
       val res =
-        Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable2, Set(party)).run()
+        Speedy.Machine
+          .fromUpdateSExpr(pkgs, transactionSeed, causeUncatchable2, Set(party))
+          .runOnLedger()
       res shouldBe SResultError(SErrorDamlException(anException))
     }
 

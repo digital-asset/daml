@@ -71,7 +71,7 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
     val example: SExpr = SEApp(se, Array(SParty(party)))
     val machine =
       Speedy.Machine.fromUpdateSExpr(compiledPackages, transactionSeed, example, Set(party))
-    val res = machine.run()
+    val res = machine.runOnLedger()
     res match {
       case SResultFinal(_, Some(_)) =>
         machine.profile.events.asScala.toList.map(ev => (ev.open, ev.rawLabel))

@@ -8,7 +8,6 @@ package explore
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.speedy.SExpr0._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.Speedy._
 import com.daml.logging.LoggingContext
@@ -72,19 +71,19 @@ object PlaySpeedy {
 
     println(s"example name: $name")
 
-    machine.run() match {
-      case SResultFinal(value, _) =>
+    machine.runPure() match {
+      case Right(value) =>
         println(s"final-value: $value")
         value match {
           case SInt64(got) =>
             if (got != expected) {
-              throw new MachineProblem(s"Expected final integer to be $expected, but got $got")
+              throw MachineProblem(s"Expected final integer to be $expected, but got $got")
             }
           case _ =>
-            throw new MachineProblem(s"Expected final-value to be an integer")
+            throw MachineProblem(s"Expected final-value to be an integer")
         }
-      case res =>
-        throw new MachineProblem(s"Unexpected result from machine $res")
+      case Left(err) =>
+        throw MachineProblem(s"Unexpected error from machine $err")
     }
   }
 

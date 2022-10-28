@@ -8,7 +8,7 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError, SValue}
+import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, Question, SError, SValue}
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
@@ -382,55 +382,47 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     var finalValue: SResultFinal = null
 
     while (!finished) {
-      machine.run() match {
+      machine.runOnLedger() match {
+        case SResultQuestion(question) =>
+          question match {
+
+            case Question.OnLedger.NeedContract(contractId, _, callback) =>
+              def continueWithContract = (coinst: VersionedContractInstance) => {
+                callback(coinst.unversioned)
+                interpretLoop(machine, time)
+              }
+              return Result.needContract(contractId, continueWithContract)
+
+            case Question.OnLedger.SResultNeedKey(gk, _, cb) =>
+              def continueWithCoid = (result: Option[ContractId]) => {
+                discard[Boolean](cb(result))
+                interpretLoop(machine, time)
+              }
+              return ResultNeedKey(
+                gk,
+                continueWithCoid,
+              )
+            case Question.OnLedger.NeedPackage(pkgId, context, callback) =>
+              return Result.needPackage(
+                pkgId,
+                context,
+                pkg => {
+                  compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
+                    callback(compiledPackages)
+                    interpretLoop(machine, time)
+                  }
+                },
+              )
+
+            case Question.OnLedger.NeedTime(callback) =>
+              callback(time)
+          }
         case fv: SResultFinal =>
           finished = true
           finalValue = fv
 
-        case SResultNeedTime(callback) =>
-          callback(time)
-
         case SResultError(err) =>
           return handleError(err, detailMsg)
-
-        case SResultNeedPackage(pkgId, context, callback) =>
-          return Result.needPackage(
-            pkgId,
-            context,
-            pkg => {
-              compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
-                callback(compiledPackages)
-                interpretLoop(machine, time)
-              }
-            },
-          )
-
-        case SResultNeedContract(contractId, _, callback) =>
-          def continueWithContract = (coinst: VersionedContractInstance) => {
-            callback(coinst.unversioned)
-            interpretLoop(machine, time)
-          }
-          return Result.needContract(contractId, continueWithContract)
-
-        case SResultNeedKey(gk, _, cb) =>
-          def continueWithCoid = (result: Option[ContractId]) => {
-            discard[Boolean](cb(result))
-            interpretLoop(machine, time)
-          }
-          return ResultNeedKey(
-            gk,
-            continueWithCoid,
-          )
-
-        case err @ (_: SResultScenarioSubmit | _: SResultScenarioPassTime |
-            _: SResultScenarioGetParty) =>
-          return ResultError(
-            Error.Interpretation.Internal(
-              NameOf.qualifiedNameOfCurrentFunc,
-              s"unexpected ${err.getClass.getSimpleName}",
-              None,
-            )
-          )
       }
     }
 
@@ -545,22 +537,11 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       argument: Value,
       interfaceId: Identifier,
   )(implicit loggingContext: LoggingContext): Result[Versioned[Value]] = {
-    def interpret(machine: Machine): Result[SValue] = {
-      machine.run() match {
-        case SResultFinal(v, _) => ResultDone(v)
-        case SResultError(err) => handleError(err, None)
-        case err @ (_: SResultNeedPackage | _: SResultNeedContract | _: SResultNeedKey |
-            _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioPassTime |
-            _: SResultScenarioSubmit) =>
-          ResultError(
-            Error.Interpretation.Internal(
-              NameOf.qualifiedNameOfCurrentFunc,
-              s"unexpected ${err.getClass.getSimpleName}",
-              None,
-            )
-          )
+    def interpret(machine: Machine): Result[SValue] =
+      machine.runPure() match {
+        case Right(v) => ResultDone(v)
+        case Left(err) => handleError(err, None)
       }
-    }
     for {
       view <- preprocessor.preprocessInterfaceView(templateId, argument, interfaceId)
       sexpr <- runCompilerSafely(

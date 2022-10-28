@@ -16,7 +16,7 @@ import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
-import com.daml.lf.speedy.Speedy.{Machine, Control}
+import com.daml.lf.speedy.Speedy.{Control, Machine}
 import com.daml.logging.LoggingContext
 
 import java.io.File
@@ -83,9 +83,12 @@ class CollectAuthorityState {
     var finalValue: SValue = null
     while (finalValue == null) {
       step += 1
-      machine.run() match {
-        case SResultScenarioGetParty(_, callback) => callback(cachedParty(step))
-        case SResultScenarioSubmit(committers, commands, location, mustFail, callback) =>
+      machine.runScenario() match {
+        case SResultQuestion(Question.Scenario.GetParty(_, callback)) =>
+          callback(cachedParty(step))
+        case SResultQuestion(
+              Question.Scenario.Submit(committers, commands, location, mustFail, callback)
+            ) =>
           assert(!mustFail)
           val api = new CannedLedgerApi(step, cachedContract)
           ScenarioRunner.submit(
@@ -102,8 +105,6 @@ class CollectAuthorityState {
               callback(value)
             case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
           }
-        case SResultNeedContract(_, _, _) =>
-          crash("Off-ledger need contract callback")
         case SResultFinal(v, _) => finalValue = v
         case r => crash(s"bench run: unexpected result from speedy: ${r}")
       }
@@ -119,8 +120,8 @@ class CollectAuthorityState {
     var finalValue: SValue = null
     while (finalValue == null) {
       step += 1
-      machine.run() match {
-        case SResultScenarioGetParty(partyText, callback) =>
+      machine.runScenario() match {
+        case SResultQuestion(Question.Scenario.GetParty(partyText, callback)) =>
           Party.fromString(partyText) match {
             case Right(res) =>
               cachedParty = cachedParty + (step -> res)
@@ -128,7 +129,9 @@ class CollectAuthorityState {
             case Left(msg) =>
               crash(s"Party.fromString failed: $msg")
           }
-        case SResultScenarioSubmit(committers, commands, location, mustFail, callback) =>
+        case SResultQuestion(
+              Question.Scenario.Submit(committers, commands, location, mustFail, callback)
+            ) =>
           assert(!mustFail)
           val api = new CachedLedgerApi(step, ledger)
           ScenarioRunner.submit(

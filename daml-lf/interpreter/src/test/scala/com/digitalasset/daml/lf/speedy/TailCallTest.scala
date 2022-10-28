@@ -7,7 +7,6 @@ package speedy
 import java.util
 
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SResult.SResultFinal
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
@@ -127,10 +126,7 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
         machine.pushKont(onlyKont)
     }
     // run the machine
-    machine.run() match {
-      case SResultFinal(v, _) => v
-      case res => crash(s"runExpr, unexpected result $res")
-    }
+    machine.runPure().toTry.get
   }
 
   private case object BoundExceeded extends RuntimeException

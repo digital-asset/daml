@@ -24,7 +24,8 @@ private[speedy] object PhaseOne {
       stacktracing: StackTraceMode,
   )
 
-  private val SEGetTime = SEBuiltin(SBGetTime)
+  private val SUGetTime = SEBuiltin(SBUGetTime)
+  private val SSGetTime = SEBuiltin(SBSGetTime)
 
   private val SBEToTextNumeric = SEAbs(1, SEBuiltin(SBToText))
 
@@ -751,7 +752,7 @@ private[lf] final class PhaseOne(
           }
         }
       case UpdateGetTime =>
-        Return(SEGetTime)
+        Return(SUGetTime)
       case UpdateLookupByKey(RetrieveByKey(templateId, key)) =>
         compileExp(env, key) { key =>
           Return(t.LookupByKeyDefRef(templateId)(key))
@@ -839,7 +840,7 @@ private[lf] final class PhaseOne(
       case ScenarioMustFailAt(partyE, updateE, _retType @ _) =>
         compileCommit(env, partyE, updateE, optLoc, mustFail = true)
       case ScenarioGetTime =>
-        Return(SEGetTime)
+        Return(SSGetTime)
       case ScenarioGetParty(e) =>
         compileGetParty(env, e)
       case ScenarioPass(relTime) =>

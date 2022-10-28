@@ -62,41 +62,41 @@ private[speedy] object SpeedyTestLib {
   ): Either[SError.SError, SResultFinal] = {
     @tailrec
     def loop: Either[SError.SError, SResultFinal] = {
-      machine.run() match {
-        case SResultNeedTime(callback) =>
-          getTime.lift(()) match {
-            case Some(value) =>
-              callback(value)
+      machine.runOnLedger() match {
+        case SResultQuestion(question) =>
+          question match {
+            case Question.OnLedger.NeedTime(callback) =>
+              getTime.lift(()) match {
+                case Some(value) =>
+                  callback(value)
+                  loop
+                case None =>
+                  throw UnexpectedSResultNeedTime
+              }
+            case Question.OnLedger.NeedContract(contractId, _, callback) =>
+              getContract.lift(contractId) match {
+                case Some(value) =>
+                  callback(value.unversioned)
+                  loop
+                case None =>
+                  throw UnknownContract(contractId)
+              }
+            case Question.OnLedger.SResultNeedKey(key, _, callback) =>
+              discard(callback(getKey.lift(key)))
               loop
-            case None =>
-              throw UnexpectedSResultNeedTime
+            case Question.OnLedger.NeedPackage(pkg, _, callback) =>
+              getPkg.lift(pkg) match {
+                case Some(value) =>
+                  callback(value)
+                  loop
+                case None =>
+                  throw UnknownPackage(pkg)
+              }
           }
-        case SResultNeedContract(contractId, _, callback) =>
-          getContract.lift(contractId) match {
-            case Some(value) =>
-              callback(value.unversioned)
-              loop
-            case None =>
-              throw UnknownContract(contractId)
-          }
-        case SResultNeedPackage(pkg, _, callback) =>
-          getPkg.lift(pkg) match {
-            case Some(value) =>
-              callback(value)
-              loop
-            case None =>
-              throw UnknownPackage(pkg)
-          }
-        case SResultNeedKey(key, _, callback) =>
-          discard(callback(getKey.lift(key)))
-          loop
         case fv: SResultFinal =>
           Right(fv)
         case SResultError(err) =>
           Left(err)
-        case _: SResultFinal | _: SResultScenarioGetParty | _: SResultScenarioPassTime |
-            _: SResultScenarioSubmit =>
-          throw UnexpectedSResultScenarioX
       }
     }
 

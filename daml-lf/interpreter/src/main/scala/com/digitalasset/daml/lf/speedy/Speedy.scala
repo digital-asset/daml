@@ -26,7 +26,7 @@ import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.collection.mutable
 
 private[lf] object Speedy {
@@ -497,11 +497,24 @@ private[lf] object Speedy {
       control = x
     }
 
+    @nowarn("msg=not.*?exhaustive")
+    def runPure(): Either[SError, SValue] =
+      run(PartialFunction.empty) match {
+        case SResultFinal(v, _) => Right(v)
+        case SResultError(err) => Left(err)
+      }
+
+    def runOnLedger(): SResult[Question.OnLedger.Question] =
+      run { case Question.OnLedger(question) => question }
+
+    def runScenario(): SResult[Question.Scenario.Question] =
+      run { case Question.Scenario(question) => question }
+
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
-    def run(): SResult = {
+    private[this] def run[Q](mapQuestion: PartialFunction[Question, Q]): SResult[Q] = {
       try {
         @tailrec
-        def loop(): SResult = {
+        def loop(): SResult[Q] = {
           if (enableInstrumentation) {
             Classify.classifyMachine(this, track.classifyCounts)
           }
@@ -521,8 +534,15 @@ private[lf] object Speedy {
               popTempStackToBase()
               setControl(popKont().execute(value))
               loop()
-            case Control.Question(res: SResult) =>
-              res
+            case Control.Question(q) =>
+              mapQuestion.lift(q) match {
+                case Some(q) =>
+                  SResultQuestion(q)
+                case None =>
+                  SResultError(
+                    SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"unexpected question $q")
+                  )
+              }
             case Control.Complete(value: SValue) =>
               if (enableInstrumentation) track.print()
               ledgerMode match {
@@ -569,15 +589,17 @@ private[lf] object Speedy {
                 )
               else
                 Control.Question(
-                  SResultNeedPackage(
-                    ref.packageId,
-                    language.Reference.Package(ref.packageId),
-                    callback = { packages =>
-                      this.compiledPackages = packages
-                      // To avoid infinite loop in case the packages are not updated properly by the caller
-                      assert(compiledPackages.packageIds.contains(ref.packageId))
-                      setControl(Control.Expression(eval))
-                    },
+                  Question.OnLedger(
+                    Question.OnLedger.NeedPackage(
+                      ref.packageId,
+                      language.Reference.Package(ref.packageId),
+                      callback = { packages =>
+                        this.compiledPackages = packages
+                        // To avoid infinite loop in case the packages are not updated properly by the caller
+                        assert(compiledPackages.packageIds.contains(ref.packageId))
+                        setControl(Control.Expression(eval))
+                      },
+                    )
                   )
                 )
           }
@@ -1078,7 +1100,7 @@ private[lf] object Speedy {
     final case object WeAreUnset extends Control
     final case class Expression(e: SExpr) extends Control
     final case class Value(v: SValue) extends Control
-    final case class Question(res: SResult) extends Control
+    final case class Question(question: speedy.Question) extends Control
     final case class Complete(res: SValue) extends Control
     final case class Error(err: interpretation.Error) extends Control
   }

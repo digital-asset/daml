@@ -15,7 +15,6 @@ import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.SExpr.InterfaceInstanceDefRef
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
 import com.daml.lf.transaction.{
@@ -157,18 +156,7 @@ class IdeLedgerClient(
         val iview = speedy.InterfaceView(templateId, argument, interfaceId, version)
         val sexpr = compiler.unsafeCompileInterfaceView(iview)
         val machine = Machine.fromPureSExpr(compiledPackages, sexpr)(Script.DummyLoggingContext)
-
-        machine.run() match {
-          case SResultFinal(svalue, _) =>
-            svalue.toNormalizedValue(version)
-
-          case (_: SResultError | _: SResultNeedPackage | _: SResultNeedContract |
-              _: SResultNeedKey | _: SResultNeedTime | _: SResultScenarioGetParty |
-              _: SResultScenarioPassTime | _: SResultScenarioSubmit) =>
-            // TODO https://github.com/digital-asset/daml/issues/14830
-            // support view functions which may error
-            sys.error("computeView: expected SResultFinal")
-        }
+        machine.runPure().toTry.get.toNormalizedValue(version)
     }
   }
 

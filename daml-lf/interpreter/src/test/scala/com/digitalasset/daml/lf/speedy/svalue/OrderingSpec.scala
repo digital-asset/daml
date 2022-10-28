@@ -6,7 +6,6 @@ package svalue
 
 import com.daml.lf.crypto
 import com.daml.lf.data.{Bytes, FrontStack, Ref}
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SExpr.{SELet1, SEImportValue, SELocS, SELocF, SEMakeClo}
 import com.daml.lf.value.Value
@@ -194,9 +193,6 @@ class OrderingSpec
       committers = committers,
     )
 
-    machine.run() match {
-      case SResultFinal(value, _) => value
-      case _ => throw new Error(s"error while translating value $v")
-    }
+    machine.runPure().toTry.get
   }
 }

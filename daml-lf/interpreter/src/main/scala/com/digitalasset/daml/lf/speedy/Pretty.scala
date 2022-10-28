@@ -528,7 +528,8 @@ private[lf] object Pretty {
               )
             case SBUCreate => text("$create")
             case SBFetchAny => text("$fetchAny")
-            case SBGetTime => text("$getTime")
+            case SBUGetTime => text("$getTime")
+            case SBSGetTime => text("$getTime")
             case _ => str(x)
           }
         case SEAppOnlyFunIsAtomic(fun, args) =>

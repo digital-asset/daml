@@ -33,7 +33,6 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{Compiler, Pretty, SValue, Speedy}
 import com.daml.lf.{CompiledPackages, PureCompiledPackages}
@@ -91,20 +90,13 @@ final case class Trigger(
 // Utilities for interacting with the speedy machine.
 object Machine extends StrictLogging {
   // Run speedy until we arrive at a value.
-  def stepToValue(machine: Speedy.Machine): SValue = {
-    machine.run() match {
-      case SResultFinal(v, _) => v
-      case SResultError(err) => {
+  def stepToValue(machine: Speedy.Machine): SValue =
+    machine.runPure() match {
+      case Right(v) => v
+      case Left(err) =>
         logger.error(Pretty.prettyError(err).render(80))
         throw err
-      }
-      case res => {
-        val errMsg = s"Unexpected speedy result: $res"
-        logger.error(errMsg)
-        throw new RuntimeException(errMsg)
-      }
     }
-  }
 }
 
 object Trigger extends StrictLogging {

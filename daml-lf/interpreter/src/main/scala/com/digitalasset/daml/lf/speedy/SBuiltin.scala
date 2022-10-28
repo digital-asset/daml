@@ -14,7 +14,6 @@ import com.daml.lf.language.Ast
 import com.daml.lf.speedy.ArrayList.Implicits._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.{SExpr0 => compileTime}
 import com.daml.lf.speedy.{SExpr => runTime}
@@ -1162,13 +1161,15 @@ private[lf] object SBuiltin {
           }
 
           Control.Question(
-            SResultNeedContract(
-              coid,
-              onLedger.committers,
-              callback = { res =>
-                val control = continue(res)
-                machine.setControl(control)
-              },
+            Question.OnLedger(
+              Question.OnLedger.NeedContract(
+                coid,
+                onLedger.committers,
+                callback = { res =>
+                  val control = continue(res)
+                  machine.setControl(control)
+                },
+              )
             )
           )
       }
@@ -1632,14 +1633,16 @@ private[lf] object SBuiltin {
 
               case None =>
                 Control.Question(
-                  SResultNeedKey(
-                    GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
-                    onLedger.committers,
-                    callback = { res =>
-                      val (control, bool) = continue(res)
-                      machine.setControl(control)
-                      bool
-                    },
+                  Question.OnLedger(
+                    Question.OnLedger.SResultNeedKey(
+                      GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
+                      onLedger.committers,
+                      callback = { res =>
+                        val (control, bool) = continue(res)
+                        machine.setControl(control)
+                        bool
+                      },
+                    )
                   )
                 )
             }
@@ -1662,23 +1665,48 @@ private[lf] object SBuiltin {
   final case class SBULookupKey(templateId: TypeConName)
       extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId))
 
-  /** $getTime :: Token -> Timestamp */
-  final case object SBGetTime extends SBuiltin(1) {
+  /** $ugetTime :: Token -> Timestamp */
+  final case object SBUGetTime extends OnLedgerBuiltin(1) {
+
+    /** On ledger builtins may reference the Speedy machine's ledger state.
+      *
+      * @param args     arguments for executing the builtin
+      * @param machine  the Speedy machine (machine state may be modified by the builtin)
+      * @param onLedger a reference to the Speedy machine's ledger state (which may be modified by the builtin)
+      * @return the builtin execution's resulting control value
+      */
+    override protected def executeWithLedger(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+        onLedger: OnLedger,
+    ): Control = {
+      checkToken(args, 0)
+      onLedger.setDependsOnTime()
+      // $ugettime :: Token -> Timestamp
+      Control.Question(
+        Question.OnLedger(
+          Question.OnLedger.NeedTime(timestamp =>
+            machine.setControl(Control.Value(STimestamp(timestamp)))
+          )
+        )
+      )
+    }
+  }
+
+  /** $sgetTime :: Token -> Timestamp */
+  final case object SBSGetTime extends SBuiltin(1) {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Control = {
       checkToken(args, 0)
-      // $ugettime :: Token -> Timestamp
-      machine.ledgerMode match {
-        case onLedger: OnLedger =>
-          onLedger.setDependsOnTime()
-        case OffLedger =>
-      }
+      // $sgettime :: Token -> Timestamp
       Control.Question(
-        SResultNeedTime { timestamp =>
-          machine.setControl(Control.Value(STimestamp(timestamp)))
-        }
+        Question.Scenario(
+          Question.Scenario.GetTime(timestamp =>
+            machine.setControl(Control.Value(STimestamp(timestamp)))
+          )
+        )
       )
     }
   }
@@ -1690,14 +1718,14 @@ private[lf] object SBuiltin {
     ): Control = {
       checkToken(args, 2)
       Control.Question(
-        SResultScenarioSubmit(
-          committers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(0)),
-          commands = args.get(1),
-          location = optLocation,
-          mustFail = mustFail,
-          callback = { newValue =>
-            machine.setControl(Control.Value(newValue))
-          },
+        Question.Scenario(
+          Question.Scenario.Submit(
+            committers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(0)),
+            commands = args.get(1),
+            location = optLocation,
+            mustFail = mustFail,
+            callback = (newValue => machine.setControl(Control.Value(newValue))),
+          )
         )
       )
     }
@@ -1723,11 +1751,11 @@ private[lf] object SBuiltin {
       checkToken(args, 1)
       val relTime = getSInt64(args, 0)
       Control.Question(
-        SResultScenarioPassTime(
-          relTime,
-          callback = { timestamp =>
-            machine.setControl(Control.Value(STimestamp(timestamp)))
-          },
+        Question.Scenario(
+          Question.Scenario.PassTime(
+            relTime,
+            callback = (timestamp => machine.setControl(Control.Value(STimestamp(timestamp)))),
+          )
         )
       )
     }
@@ -1742,11 +1770,11 @@ private[lf] object SBuiltin {
       checkToken(args, 1)
       val name = getSText(args, 0)
       Control.Question(
-        SResultScenarioGetParty(
-          name,
-          callback = { party =>
-            machine.setControl(Control.Value(SParty(party)))
-          },
+        Question.Scenario(
+          Question.Scenario.GetParty(
+            name,
+            callback = (party => machine.setControl(Control.Value(SParty(party)))),
+          )
         )
       )
     }

@@ -35,7 +35,6 @@ import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.speedy.SBuiltin.SBToAny
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{
   ArrayList,
@@ -435,14 +434,7 @@ private[lf] class Runner(
       )(Script.DummyLoggingContext)
 
     def stepToValue(): Either[RuntimeException, SValue] =
-      machine.run() match {
-        case SResultFinal(v, _) =>
-          Right(v)
-        case SResultError(err) =>
-          Left(Runner.InterpretationError(err))
-        case res =>
-          Left(new IllegalStateException(s"Internal error: Unexpected speedy result $res"))
-      }
+      machine.runPure().left.map(Runner.InterpretationError)
 
     val env = new ScriptF.Env(
       script.scriptIds,
