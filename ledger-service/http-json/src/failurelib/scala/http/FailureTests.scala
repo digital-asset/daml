@@ -52,52 +52,53 @@ abstract class FailureTests
   val availabilitySecurity: SecurityTest =
     SecurityTest(property = Availability, asset = "Ledger Service HTTP JSON")
 
-  "Command submission succeeds after reconnect" taggedAs availabilitySecurity in withHttpService[Assertion] {
-    (uri, encoder, _, client) =>
-      for {
-        p <- allocateParty(client, "Alice")
-        (status, _) <- headersWithParties(List(p)).flatMap(
-          postCreateCommand(
-            accountCreateCommand(p, "23"),
-            encoder,
-            uri,
-            _,
-          )
+  "Command submission succeeds after reconnect" taggedAs availabilitySecurity in withHttpService[
+    Assertion
+  ] { (uri, encoder, _, client) =>
+    for {
+      p <- allocateParty(client, "Alice")
+      (status, _) <- headersWithParties(List(p)).flatMap(
+        postCreateCommand(
+          accountCreateCommand(p, "23"),
+          encoder,
+          uri,
+          _,
         )
-        _ = status shouldBe StatusCodes.OK
-        _ = proxy.disable()
-        (status, output) <- headersWithParties(List(p))
-          .flatMap(postCreateCommand(accountCreateCommand(p, "24"), encoder, uri, _))
-        _ = status shouldBe StatusCodes.ServiceUnavailable
-        (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
-        _ = status shouldBe StatusCodes.ServiceUnavailable
-        _ = out shouldBe
-          """[-] ledger failed (io.grpc.StatusRuntimeException: UNAVAILABLE: io exception)
+      )
+      _ = status shouldBe StatusCodes.OK
+      _ = proxy.disable()
+      (status, output) <- headersWithParties(List(p))
+        .flatMap(postCreateCommand(accountCreateCommand(p, "24"), encoder, uri, _))
+      _ = status shouldBe StatusCodes.ServiceUnavailable
+      (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
+      _ = status shouldBe StatusCodes.ServiceUnavailable
+      _ = out shouldBe
+        """[-] ledger failed (io.grpc.StatusRuntimeException: UNAVAILABLE: io exception)
             |[+] database ok
             |readyz check failed
             |""".stripMargin.replace("\r\n", "\n")
-        _ <- inside(output) { case JsObject(fields) =>
-          inside(fields.get("status")) { case Some(JsNumber(code)) =>
-            code shouldBe 503
-          }
+      _ <- inside(output) { case JsObject(fields) =>
+        inside(fields.get("status")) { case Some(JsNumber(code)) =>
+          code shouldBe 503
         }
-        _ = proxy.enable()
-        // eventually doesn’t handle Futures in the version of scalatest we’re using.
-        _ <- RetryStrategy.constant(5, 2.seconds)((_, _) =>
-          for {
-            (status, _) <- headersWithParties(List(p)).flatMap(
-              postCreateCommand(
-                accountCreateCommand(p, "25"),
-                encoder,
-                uri,
-                _,
-              )
+      }
+      _ = proxy.enable()
+      // eventually doesn’t handle Futures in the version of scalatest we’re using.
+      _ <- RetryStrategy.constant(5, 2.seconds)((_, _) =>
+        for {
+          (status, _) <- headersWithParties(List(p)).flatMap(
+            postCreateCommand(
+              accountCreateCommand(p, "25"),
+              encoder,
+              uri,
+              _,
             )
-          } yield status shouldBe StatusCodes.OK
-        )
-        (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
-        _ = status shouldBe StatusCodes.OK
-      } yield succeed
+          )
+        } yield status shouldBe StatusCodes.OK
+      )
+      (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
+      _ = status shouldBe StatusCodes.OK
+    } yield succeed
   }
 
   // TEST_EVIDENCE: Availability: command submission timeout is applied
@@ -487,6 +488,6 @@ abstract class FailureTests
 // for a while (rather than deprecating/deleting custom token) might be worth
 // splitting into a suite and consequently librifying the above in bazel
 
-//final class FailureTestsCustomToken extends FailureTests with HttpServiceUserFixture.CustomToken
+final class FailureTestsCustomToken extends FailureTests with HttpServiceUserFixture.CustomToken
 
-//final class FailureTestsUserToken extends FailureTests with HttpServiceUserFixture.UserToken
+final class FailureTestsUserToken extends FailureTests with HttpServiceUserFixture.UserToken
