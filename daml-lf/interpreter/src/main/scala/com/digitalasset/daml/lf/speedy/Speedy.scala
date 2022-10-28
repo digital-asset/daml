@@ -102,12 +102,19 @@ private[lf] object Speedy {
 
   private[lf] sealed trait LedgerMode
 
+  private[lf] case class SKeyWithMaintainers(key: SValue, maintainers: Set[Party]) {
+    def toNormalizedKeyWithMaintainers(version: TransactionVersion) =
+      Node.KeyWithMaintainers(key.toNormalizedValue(version), maintainers)
+    val unnormalizedKeyValue = key.toUnnormalizedValue
+    val unnormalizedKeyWithMaintainers = Node.KeyWithMaintainers(unnormalizedKeyValue, maintainers)
+  }
+
   private[lf] final case class CachedContract(
       templateId: Ref.TypeConName,
       value: SValue,
       signatories: Set[Party],
       observers: Set[Party],
-      key: Option[Node.KeyWithMaintainers],
+      key: Option[SKeyWithMaintainers],
   ) {
     private[lf] val stakeholders: Set[Party] = signatories union observers
     private[speedy] val any = SValue.SAny(TTyCon(templateId), value)
@@ -350,9 +357,6 @@ private[lf] object Speedy {
       TransactionVersion.assignNodeVersion(
         compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
       )
-
-    def normValue(templateId: TypeConName, svalue: SValue): V =
-      svalue.toNormalizedValue(tmplId2TxVersion(templateId))
 
     /* kont manipulation... */
 
@@ -1430,7 +1434,7 @@ private[lf] object Speedy {
 
     def execute(sv: SValue): Control = {
       machine.withOnLedger("KCacheContract") { onLedger =>
-        val cached = SBuiltin.extractCachedContract(machine, sv)
+        val cached = SBuiltin.extractCachedContract(sv)
         machine.checkContractVisibility(onLedger, cid, cached)
         onLedger.addGlobalContract(cid, cached)
         Control.Value(cached.any)

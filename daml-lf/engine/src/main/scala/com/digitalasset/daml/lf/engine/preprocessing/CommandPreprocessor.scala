@@ -8,7 +8,6 @@ package preprocessing
 import com.daml.lf.data._
 import com.daml.lf.engine.Error.Preprocessing.DuplicateDisclosedContractId
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 
@@ -243,12 +242,8 @@ private[lf] final class CommandPreprocessor(
     discard(handleLookup(pkgInterface.lookupInterface(interfaceId)))
     discard(handleLookup(pkgInterface.lookupInterfaceInstance(interfaceId, templateId)))
 
-    val version =
-      TransactionVersion.assignNodeVersion(
-        pkgInterface.packageLanguageVersion(interfaceId.packageId)
-      )
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
 
-    speedy.InterfaceView(templateId, arg, interfaceId, version)
+    speedy.InterfaceView(templateId, arg, interfaceId)
   }
 }
