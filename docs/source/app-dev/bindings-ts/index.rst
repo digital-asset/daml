@@ -8,8 +8,8 @@ Using JavaScript Client Libraries with Daml
 
 The JavaScript client libraries allow you to easily build frontend applications that interact with the :ref:`HTTP JSON API service <json-api>`.
 
-To quickly build a prototype or an application with relatively simple requirements, these libraries can dramatically reduce the time
-necessary to develop a full-stack application by abstracting away implementation details.
+These libraries can dramatically reduce the time
+necessary to develop a full-stack application by abstracting away implementation details, particularly when building a prototype or an application with relatively simple requirements.
 
 The `@daml/types <ts-daml-types_>`_ library contains the TypeScript data types corresponding to primitive Daml data type, such as ``Party`` or ``Text``.
 Apart from its usefulness for TypeScript developers, the library can also be pulled in as a development-type dependency for JavaScript projects
