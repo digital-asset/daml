@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.benchtool
 
+import java.sql.DriverManager
 import java.util.concurrent._
 
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
@@ -136,13 +137,23 @@ class LedgerApiBenchTool(
                 },
               )
             case Some(submissionConfig) =>
-              submissionStep(
+              val allocatedPartiesF = submissionStep(
                 regularUserServices = regularUserServices,
                 adminServices = adminServices,
                 submissionConfig = submissionConfig,
                 metricRegistry = metricRegistry,
                 partyAllocating = partyAllocating,
               )
+              allocatedPartiesF.map { v =>
+                // Issuing a VACUUM at the end of the submission step (if IndexDB is on Postgresql)
+                // so that queries run by a Ledger API Server can run faster
+                config.ledger.indexDbJdbcUrlO.foreach { indexDbJdbcUrl: String =>
+                  if (indexDbJdbcUrl.startsWith("jdbc:postgresql:")) {
+                    invokePostgresVacuum(indexDbJdbcUrl)
+                  }
+                }
+                v
+              }
           }
         }
 
@@ -174,6 +185,24 @@ class LedgerApiBenchTool(
             )
           }
       } yield benchmarkResult
+    }
+  }
+
+  private def invokePostgresVacuum(indexDbJdbcUrl: String): Unit = {
+    val connection = DriverManager.getConnection(indexDbJdbcUrl)
+    try {
+      val stmt = connection.createStatement()
+      try {
+        logger.info(
+          s"Executing 'VACUUM' on the IndexDB identified by JDBC URL: '${indexDbJdbcUrl}' ..."
+        )
+        stmt.executeUpdate("VACUUM")
+        logger.info("Executed 'VACUUM'")
+      } finally {
+        stmt.close()
+      }
+    } finally {
+      connection.close()
     }
   }
 

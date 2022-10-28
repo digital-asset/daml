@@ -28,6 +28,11 @@ object Cli {
         config.copy(ledger = config.ledger.copy(hostname = hostname, port = port))
       }
 
+    opt[String]("indexdb-jdbc-url")
+      .text("JDBC url to the IndexDB instance")
+      .optional()
+      .action { case (url, config) => config.withLedgerConfig(_.copy(indexDbJdbcUrlO = Some(url))) }
+
     opt[WorkflowConfig.StreamConfig]("consume-stream")
       .abbr("s")
       .optional()
