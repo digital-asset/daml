@@ -352,7 +352,7 @@ class Runner(
     applicationId: ApplicationId,
     parties: TriggerParties,
 )(implicit loggingContext: LoggingContextOf[Trigger]) {
-  import Runner.{SeenMsgs, alterF}
+  import Runner.SeenMsgs
 
   // Compiles LF expressions into Speedy expressions.
   private val compiler = compiledPackages.compiler
@@ -369,8 +369,20 @@ class Runner(
 
   // return whether uuid *was* present in pendingCommandIds
   private[this] def useCommandId(uuid: UUID, seeOne: SeenMsgs.One): Boolean = {
+    def alterF[K, V](m: TrieMap[K, V], k: K)(
+        f: Option[V] => Option[Option[V]]
+    ): Option[TrieMap[K, V]] = {
+      val ov = m get k
+      f(ov) map { r =>
+        (ov, r) match {
+          case (_, Some(v)) => m.addOne(k -> v)
+          case (None, None) => m
+          case (Some(_), None) => m - k
+        }
+      }
+    }
+
     val newMap = alterF(pendingCommandIds, uuid)(_ map (_ see seeOne))
-    newMap foreach { pendingCommandIds = _ }
     newMap.isDefined
   }
 
@@ -821,19 +833,6 @@ object Runner extends StrictLogging {
           )
         )
     Flow[A].mapAsync(parallelism)(trial(initialTries, _))
-  }
-
-  private def alterF[K, V, F[a] >: Option[a]: Functor](m: Map[K, V], k: K)(
-      f: Option[V] => F[Option[V]]
-  ): F[Map[K, V]] = {
-    val ov = m get k
-    f(ov) map {
-      (ov, _) match {
-        case (_, Some(v)) => m.updated(k, v)
-        case (None, None) => m
-        case (Some(_), None) => m - k
-      }
-    }
   }
 
   private final case class SingleCommandFailure(commandId: String, s: StatusRuntimeException)
