@@ -23,6 +23,7 @@ import akka.http.scaladsl.model.{
 }
 import com.daml.metrics.akkahttp.AkkaUtils._
 
+import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Timer}
 
@@ -153,6 +154,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
   )
 
   private def routeWithGoldenSignalMetrics(route: Route, metrics: TestMetrics): Route = {
+    implicit val mc: MetricsContext = MetricsContext.Empty
     AkkaHttpMetrics.goldenSignalsMetrics(
       metrics.httpRequestsTotal,
       metrics.httpErrorsTotal,

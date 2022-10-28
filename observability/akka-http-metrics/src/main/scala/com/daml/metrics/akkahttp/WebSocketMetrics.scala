@@ -9,6 +9,7 @@ import akka.util.ByteString
 import akka.stream.scaladsl.{Flow, Sink}
 import akka.http.scaladsl.model.ws.{Message, TextMessage, BinaryMessage}
 
+import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricHandle.{Counter, Histogram}
 
 /** Support to capture metrics on websockets on akka http
@@ -27,7 +28,7 @@ object WebSocketMetrics {
       wsSentTotal: Counter,
       wsSentSizeByte: Histogram,
       flow: Flow[Message, Message, M],
-  ): Flow[Message, Message, M] = {
+  )(implicit mc: MetricsContext): Flow[Message, Message, M] = {
     Flow[Message]
       .map(messageCountAndSizeReportMetric(_, wsReceivedTotal, wsReceivedSizeByte))
       .viaMat(flow)((_, mat2) => mat2)
@@ -40,7 +41,7 @@ object WebSocketMetrics {
       message: Message,
       totalMetric: Counter,
       sizeByteMetric: Histogram,
-  ): Message = {
+  )(implicit mc: MetricsContext): Message = {
     totalMetric.inc()
     message match {
       case m: BinaryMessage.Strict =>

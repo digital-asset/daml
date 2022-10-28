@@ -22,6 +22,7 @@ import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
+import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.akkahttp.WebSocketMetrics
 
 import scala.collection.immutable.Seq
@@ -163,7 +164,7 @@ class WebsocketEndpoints(
         metrics.daml.HttpJsonApi.wsSentTotal,
         metrics.daml.HttpJsonApi.wsSentSizeByte,
         webSocketService.transactionMessageHandler[A](jwt, jwtPayload),
-      )
+      )(MetricsContext.Empty)
     req.handleMessages(handler, Some(protocol))
   }
 }

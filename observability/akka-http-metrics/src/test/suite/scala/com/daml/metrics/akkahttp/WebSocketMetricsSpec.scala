@@ -16,6 +16,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.Assertion
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 
+import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.MetricHandle.{Counter, Histogram}
 
@@ -79,7 +80,7 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
       metrics.messagesSentTotal,
       metrics.messagesSentSizeByte,
       Flow[Message].mapAsync(1)(duplicateMessage).mapConcat(identity),
-    )
+    )(MetricsContext.Empty)
     f(duplicatingFlowWithMetrics, metrics)
   }
 
