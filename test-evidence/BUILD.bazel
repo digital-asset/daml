@@ -31,6 +31,8 @@ da_scala_binary(
     main_class = "com.daml.test.evidence.generator.Main",
     runtime_deps = [
         "//ledger-service/jwt:tests-lib",
+        "//ledger-service/http-json:integration-tests-lib",
+        #"//ledger-service/http-json:failure-tests-lib",
         "//ledger/sandbox-on-x:sandbox-on-x-it-tests-lib",
         "@maven//:ch_qos_logback_logback_classic",
     ],
