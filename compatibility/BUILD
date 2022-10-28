@@ -5,8 +5,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:testing.bzl", "create_daml_app_codegen", "create_daml_app_dar", "daml_lf_compatible", "sdk_platform_test")
 load(
     "//bazel_tools/daml_script:daml_script.bzl",
-    "daml_script_dar",
-    "daml_script_test",
+    "daml_script_example_dar",
+    "daml_script_example_test",
 )
 load(
     "//bazel_tools/daml_trigger:daml_trigger.bzl",
@@ -85,12 +85,12 @@ head = "0.0.0"
 ]
 
 [
-    daml_script_dar(sdk_version)
+    daml_script_example_dar(sdk_version)
     for sdk_version in sdk_versions
 ]
 
 [
-    daml_script_test(
+    daml_script_example_test(
         compiler_version = sdk_version,
         runner_version = platform_version,
     )
