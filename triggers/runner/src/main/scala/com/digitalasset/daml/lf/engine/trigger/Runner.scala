@@ -41,6 +41,7 @@ import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.scalautil.Statement.discard
 import com.daml.script.converter.Converter.Implicits._
 import com.daml.script.converter.Converter.{DamlAnyModuleRecord, DamlTuple2, unrollFree}
 import com.daml.script.converter.ConverterException
@@ -367,26 +368,19 @@ class Runner(
 
   // return whether uuid *was* present in pendingCommandIds
   private[this] def useCommandId(uuid: UUID, seeOne: SeenMsgs.One): Boolean = {
-    def alterF(
-        f: Option[SeenMsgs] => Option[Option[SeenMsgs]]
-    ): Option[TrieMap[UUID, SeenMsgs]] = {
-      val ov = pendingCommandIds.get(uuid)
-      f(ov) map { r =>
-        (ov, r) match {
-          case (_, Some(v)) => pendingCommandIds.addOne(uuid -> v)
-          case (None, None) => pendingCommandIds
-          case (Some(_), None) => pendingCommandIds - uuid
-        }
-      }
-    }
-
-    val newMap = alterF {
+    pendingCommandIds.get(uuid) match {
       case None =>
-        None
-      case Some(x) =>
-        Some(x.see(seeOne))
+        false
+
+      case Some(seenOne) =>
+        seenOne.see(seeOne) match {
+          case Some(v) =>
+            discard(pendingCommandIds.addOne(uuid -> v))
+          case None =>
+            discard(pendingCommandIds.remove(uuid))
+        }
+        true
     }
-    newMap.isDefined
   }
 
   import Runner.{
@@ -401,7 +395,7 @@ class Runner(
   @throws[RuntimeException]
   private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
     val commandUUID = UUID.randomUUID
-    pendingCommandIds += (commandUUID -> SeenMsgs.Neither)
+    discard(pendingCommandIds.addOne(commandUUID -> SeenMsgs.Neither))
     val commandsArg = Commands(
       ledgerId = client.ledgerId.unwrap,
       applicationId = applicationId.unwrap,
