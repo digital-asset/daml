@@ -92,7 +92,7 @@ message Transaction {
   google.protobuf.Timestamp effective_at = 4;
 
   // The collection of events.
-  // Only contains ``CreatedEvent`` or ``ArchivedEvent``.
+  // Only contains ``CreatedEvent``, ``TransferredIn``, ``ArchivedEvent`` or ``TransferredOut``.
   // Required
   repeated Event events = 5;
 

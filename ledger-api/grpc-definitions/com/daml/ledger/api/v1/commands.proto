@@ -29,6 +29,15 @@ message Commands {
   // Optional
   string workflow_id = 2;
 
+  // Domain id for the submission. If not set, Canton will choose the domain among the
+  // admissible ones.
+  // Must be a valid DomainId.
+  // Optional
+  string domain_id = 18;
+
+  // Whether auto-transferring contracts as part of the submission is enabled
+  boolean enable_auto_transfer = 19;
+
   // Uniquely identifies the application or participant user that issued the command.
   // Must be a valid ApplicationIdString (as described in ``value.proto``).
   // Required unless authentication is used with a user token or a custom token specifying an application-id.
@@ -146,6 +155,42 @@ message CreateCommand {
   // The arguments required for creating a contract from this template.
   // Required
   Record create_arguments = 2;
+}
+
+// Transfer-out a contract
+message TransferOutCommand {
+  // The ID of the contract the client wants to transfer-out.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string contract_id = 1;
+
+  // The ID of the source domain
+  // Must be a valid domain ID
+  // Optional
+  string source = 2;
+
+  // The ID of the target domain
+  // Must be a valid domain ID
+  // Required
+  string target = 3;
+}
+
+// Transfer-in a contract
+message TransferInCommand {
+  // The ID of the contract the client wants to transfer-out.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string contract_id = 1;
+
+  // The ID of the source domain
+  // Must be a valid domain ID
+  // Required
+  string source = 2;
+
+  // The ID of the target domain
+  // Must be a valid domain ID
+  // Optional
+  string target = 3;
 }
 
 // Exercise a choice on an existing contract.
