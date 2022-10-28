@@ -16,6 +16,7 @@ load(
 load(
     "//bazel_tools/data_dependencies:data_dependencies.bzl",
     "data_dependencies_coins",
+    "data_dependencies_daml_script_test",
     "data_dependencies_upgrade_test",
 )
 load("//bazel_tools:versions.bzl", "versions")
@@ -173,4 +174,16 @@ migration_test(
     # Tests that we can build a package with a newer SDK version that has
     # data-dependencies on packages built with an older SDK version.
     if versions.is_at_least(old_sdk_version, new_sdk_version)
+]
+
+[
+    data_dependencies_daml_script_test(
+        old_sdk_version = old_sdk_version,
+    )
+    for old_sdk_version in sdk_versions
+    # Tests that we can run a daml script from a package built with an older
+    # SDK version even when exposed through an import in a package built with
+    # the latest SDK version.
+    # (regression test for https://github.com/digital-asset/daml/issues/14291)
+    if old_sdk_version != "0.0.0"
 ]

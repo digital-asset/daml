@@ -1,7 +1,7 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:versions.bzl", "version_to_name")
+load("//bazel_tools/daml_script:daml_script.bzl", "daml_script_test")
 
 def _build_dar(
         name,
@@ -128,4 +128,57 @@ def data_dependencies_upgrade_test(old_sdk_version, new_sdk_version):
         ),
         dar_name = dar_name,
         sdk_version = new_sdk_version,
+    )
+
+# regression test for https://github.com/digital-asset/daml/issues/14291
+def data_dependencies_daml_script_test(old_sdk_version):
+    data_dep_name = "data-dependencies-script1-{old_sdk_version}".format(
+        old_sdk_version = old_sdk_version,
+    )
+    main_name = "data-dependencies-script2-from-{old_sdk_version}".format(
+        old_sdk_version = old_sdk_version,
+    )
+
+    _build_dar(
+        name = data_dep_name,
+        package_name = "data-dependencies-script1",
+        srcs = ["//bazel_tools/data_dependencies:daml_script_test/Dep.daml"],
+        sdk_version = old_sdk_version,
+        data_dependencies = [],
+    )
+
+    _build_dar(
+        name = main_name,
+        package_name = "data-dependencies-script2",
+        srcs = ["//bazel_tools/data_dependencies:daml_script_test/Main.daml"],
+        data_dependencies = [
+            data_dep_name,
+        ],
+        sdk_version = "0.0.0",
+    )
+
+    _validate_dar(
+        name = main_name + "-validate",
+        dar_name = main_name,
+        sdk_version = "0.0.0",
+    )
+
+    daml_script_test(
+        name = "data-dependencies-daml-script-from-{old_sdk_version}-test-1".format(
+            old_sdk_version = old_sdk_version,
+        ),
+        runner_version = "0.0.0",
+        compiler_version = "0.0.0",
+        compiled_dar = main_name,
+        script_name = "Main:run1",
+    )
+
+    daml_script_test(
+        name = "data-dependencies-daml-script-from-{old_sdk_version}-test-2".format(
+            old_sdk_version = old_sdk_version,
+        ),
+        runner_version = "0.0.0",
+        compiler_version = "0.0.0",
+        compiled_dar = main_name,
+        script_name = "Main:run2",
     )
