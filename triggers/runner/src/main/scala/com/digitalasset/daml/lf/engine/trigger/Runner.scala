@@ -377,7 +377,7 @@ class Runner(
       case Some(seenOne) =>
         seenOne.see(seeOne) match {
           case Some(v) =>
-            discard(pendingCommandIds.addOne(uuid -> v))
+            pendingCommandIds.update(uuid, v)
           case None =>
             discard(pendingCommandIds.remove(uuid))
         }
@@ -397,7 +397,7 @@ class Runner(
   @throws[RuntimeException]
   private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
     val commandUUID = UUID.randomUUID
-    discard(pendingCommandIds.addOne(commandUUID -> SeenMsgs.Neither))
+    pendingCommandIds.update(commandUUID, SeenMsgs.Neither)
     val commandsArg = Commands(
       ledgerId = client.ledgerId.unwrap,
       applicationId = applicationId.unwrap,
@@ -841,9 +841,7 @@ object Runner extends StrictLogging {
 
     def see(msg: S.One): Option[SeenMsgs] = {
       (this, msg) match {
-        case (S.Completion, S.Transaction) =>
-          None
-        case (S.Transaction, S.Completion) =>
+        case (S.Completion, S.Transaction) | (S.Transaction, S.Completion) =>
           None
         case (S.Neither, _) =>
           Some(msg)
