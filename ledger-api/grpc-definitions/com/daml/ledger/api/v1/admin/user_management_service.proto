@@ -96,6 +96,11 @@ message User {
     // Optional,
     // Modifiable
     ObjectMeta metadata = 4;
+
+    // The id of the ``Identity Provider``
+    // If not provided, it would be assumed a default identity provider.
+    // Optional
+    string identity_provider_id = 5;
 }
 
 
@@ -114,6 +119,9 @@ message Right {
         string party = 1;
     }
 
+    // The right to administrate the identity provider.
+    message IdentityProviderAdmin {}
+
     // Required
     oneof kind {
         // The user can administrate the participant node.
@@ -122,6 +130,8 @@ message Right {
         CanActAs can_act_as = 2;
         // The user can read ledger data visible to a specific party.
         CanReadAs can_read_as = 3;
+        // The user can administrate the identity provider.
+        IdentityProviderAdmin identity_provider_admin = 4;
     }
 }
 
