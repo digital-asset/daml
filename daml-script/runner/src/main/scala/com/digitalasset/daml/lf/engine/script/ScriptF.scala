@@ -253,7 +253,7 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getPartyParticipant(parties.head))
+        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryContractId(parties, tplId, cid)
         optR <- Converter.toFuture(optR.traverse(Converter.fromContract(env.valueTranslator, _)))
       } yield SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(optR))))
@@ -281,7 +281,7 @@ object ScriptF {
 
       for {
         viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
-        client <- Converter.toFuture(env.clients.getPartyParticipant(parties.head))
+        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
         list <- client.queryView(parties, interfaceId)
         list <- Converter.toFuture(
           list
@@ -318,7 +318,7 @@ object ScriptF {
     ): Future[SExpr] = {
       for {
         viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
-        client <- Converter.toFuture(env.clients.getPartyParticipant(parties.head))
+        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryViewContractId(parties, interfaceId, cid)
         optR <- Converter.toFuture(
           optR.traverse(Converter.fromInterfaceView(env.valueTranslator, viewType, _))
