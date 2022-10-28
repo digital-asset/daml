@@ -376,11 +376,9 @@ class ContractsService(
             resolved <- OptionT(
               resolveContractTypeId(jwt, ledgerId)(templateId).map(_.toOption.flatten)
             )
-            res <- domain.ResolvedQuery(resolved) match {
-              case domain.ResolvedQuery.ByInterfaceId(_) => doSearchInMemory
-              case _ => doSearchInDb(resolved)
-            }
+            res <- doSearchInDb(resolved)
           } yield res
+
           dbQueried.orElse {
             doSearchInMemory
           }.run
@@ -428,20 +426,11 @@ class ContractsService(
             lc: LoggingContextOf[InstanceUUID with RequestID],
             metrics: Metrics,
         ): Source[Error \/ domain.ActiveContract.ResolvedCtTyId[LfV], NotUsed] = {
-          import ctx.{jwt, ledgerId, parties, templateIds => query}
-          query match {
-            case rq: domain.ResolvedQuery.ByInterfaceId =>
-              import com.daml.http.json.JsonProtocol._
-              // TODO query store support for interface query/fetch #14819
-              searchInMemory(jwt, ledgerId, parties, rq, InMemoryQuery.Params(queryParams))
-                .map(_.map(_.map(LfValueCodec.apiValueToJsValue)))
-            case _ =>
-              // TODO use `stream` when materializing DBContracts, so we could stream ActiveContracts
-              val fv: Future[Vector[domain.ActiveContract.ResolvedCtTyId[JsValue]]] =
-                unsafeRunAsync(searchDb_(fetch)(ctx, queryParams))
+          // TODO use `stream` when materializing DBContracts, so we could stream ActiveContracts
+          val fv: Future[Vector[domain.ActiveContract.ResolvedCtTyId[JsValue]]] =
+            unsafeRunAsync(searchDb_(fetch)(ctx, queryParams))
 
-              Source.future(fv).mapConcat(identity).map(\/.right)
-          }
+          Source.future(fv).mapConcat(identity).map(\/.right)
         }
 
         private[this] def unsafeRunAsync[A](cio: doobie.ConnectionIO[A]) =

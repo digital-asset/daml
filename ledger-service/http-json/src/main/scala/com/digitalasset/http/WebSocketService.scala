@@ -802,15 +802,7 @@ class WebSocketService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
   ): Future[Source[StepAndErrors[Positive, JsValue], NotUsed]] = {
-    // TODO query store support for interface query/fetch #14819
-    val daoAndFetch = predicate.resolvedQurey match {
-      case domain.ResolvedQuery.ByInterfaceId(_) =>
-        None
-      case _ =>
-        contractsService.daoAndFetch
-    }
-
-    daoAndFetch.cata(
+    contractsService.daoAndFetch.cata(
       { case (dao, fetch) =>
         val tx: ConnectionIO[Source[StepAndErrors[Positive, JsValue], NotUsed]] =
           fetch.fetchAndPersistBracket(
