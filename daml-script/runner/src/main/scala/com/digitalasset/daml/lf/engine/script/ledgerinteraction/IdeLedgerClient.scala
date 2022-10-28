@@ -14,7 +14,6 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
-import com.daml.lf.speedy.SExpr.InterfaceInstanceDefRef
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
@@ -170,11 +169,7 @@ class IdeLedgerClient(
   }
 
   private[this] def implements(templateId: TypeConName, interfaceId: TypeConName): Boolean = {
-    val ref1 = InterfaceInstanceDefRef(interfaceId, interfaceId, templateId)
-    val ref2 = InterfaceInstanceDefRef(templateId, interfaceId, templateId)
-    val b1 = compiledPackages.getDefinition(ref1).nonEmpty
-    val b2 = compiledPackages.getDefinition(ref2).nonEmpty
-    b1 || b2
+    compiledPackages.pkgInterface.lookupInterfaceInstance(interfaceId, templateId).isRight
   }
 
   override def queryView(
