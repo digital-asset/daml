@@ -5,11 +5,11 @@ package com.daml.ledger.api.benchtool.config
 
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.metrics.api.reporters.MetricsReporter
 import scopt.{OptionDef, OptionParser, Read}
 
 import java.io.File
-import com.daml.metrics.api.reporters.MetricsReporter
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.{Failure, Success, Try}
 
 object Cli {
@@ -190,6 +190,17 @@ object Cli {
         def optionalDoubleField(fieldName: String): Either[String, Option[Double]] =
           optionalField[Double](fieldName, _.toDouble)
 
+        def optionalScalaDurationField(fieldName: String): Either[String, Option[FiniteDuration]] =
+          optionalField[String](fieldName, identity).flatMap {
+            case Some(value) =>
+              Duration(value) match {
+                case infinite: Duration.Infinite =>
+                  Left(s"Subscription delay duration must be finite, but got $infinite")
+                case finiteDuration: FiniteDuration => Right(Some(finiteDuration))
+              }
+            case None => Right(None)
+          }
+
         def optionalField[T](fieldName: String, f: String => T): Either[String, Option[T]] = {
           Try(m.get(fieldName).map(f)) match {
             case Success(value) => Right(value)
@@ -240,6 +251,7 @@ object Cli {
           maxItemRate <- optionalDoubleField("max-item-rate")
           maxItemCount <- optionalLongField("max-item-count")
           timeoutInSecondsO <- optionalLongField("timeout")
+          subscriptionDelayO <- optionalScalaDurationField("subscription-delay")
         } yield WorkflowConfig.StreamConfig.TransactionsStreamConfig(
           name = name,
           filters = filters,
@@ -251,6 +263,7 @@ object Cli {
           maxItemCount = maxItemCount,
           // NOTE: Unsupported on CLI
           partyNamePrefixFilterO = None,
+          subscriptionDelay = subscriptionDelayO,
         )
 
         def transactionTreesConfig
@@ -266,6 +279,7 @@ object Cli {
             maxItemRate <- optionalDoubleField("max-item-rate")
             maxItemCount <- optionalLongField("max-item-count")
             timeoutInSecondsO <- optionalLongField("timeout")
+            subscriptionDelayO <- optionalScalaDurationField("subscription-delay")
           } yield WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
             name = name,
             filters = filters,
@@ -277,6 +291,7 @@ object Cli {
             maxItemCount = maxItemCount,
             // NOTE: Unsupported on CLI
             partyNamePrefixFilterO = None,
+            subscriptionDelay = subscriptionDelayO,
           )
 
         def rateObjectives(
@@ -304,6 +319,7 @@ object Cli {
           maxItemRate <- optionalDoubleField("max-item-rate")
           maxItemCount <- optionalLongField("max-item-count")
           timeoutInSecondsO <- optionalLongField("timeout")
+          subscriptionDelayO <- optionalScalaDurationField("subscription-delay")
         } yield WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
           name = name,
           filters = filters,
@@ -312,6 +328,7 @@ object Cli {
           maxItemCount = maxItemCount,
           // NOTE: Unsupported on CLI
           partyNamePrefixFilterO = None,
+          subscriptionDelay = subscriptionDelayO,
         )
 
         def completionsConfig: Either[String, WorkflowConfig.StreamConfig.CompletionsStreamConfig] =
@@ -324,6 +341,7 @@ object Cli {
             maxItemRate <- optionalDoubleField("max-item-rate")
             timeoutInSecondsO <- optionalLongField("timeout")
             maxItemCount <- optionalLongField("max-item-count")
+            subscriptionDelayO <- optionalScalaDurationField("subscription-delay")
           } yield WorkflowConfig.StreamConfig.CompletionsStreamConfig(
             name = name,
             parties = parties,
@@ -332,6 +350,7 @@ object Cli {
             objectives = rateObjectives(minItemRate, maxItemRate),
             timeoutInSecondsO = timeoutInSecondsO,
             maxItemCount = maxItemCount,
+            subscriptionDelay = subscriptionDelayO,
           )
 
         val config = stringField("stream-type").flatMap[String, WorkflowConfig.StreamConfig] {

@@ -3,16 +3,18 @@
 
 package com.daml.ledger.api.benchtool.config
 
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import io.circe.{Decoder, HCursor}
-import io.circe.yaml.parser
 import cats.syntax.functor._
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import io.circe.yaml.parser
+import io.circe.{Decoder, HCursor}
 
 import java.io.Reader
+import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.util.{Failure, Success, Try}
 
 object WorkflowConfigParser {
-  import WorkflowConfig._
   import Decoders._
+  import WorkflowConfig._
 
   def parse(reader: Reader): Either[ParserError, WorkflowConfig] =
     parser
@@ -74,47 +76,64 @@ object WorkflowConfigParser {
         )
       }
 
+    implicit val scalaDurationDecoder: Decoder[FiniteDuration] =
+      Decoder.decodeString.emapTry(strDuration =>
+        Try(Duration(strDuration)).flatMap {
+          case infinite: Duration.Infinite =>
+            Failure(
+              new IllegalArgumentException(
+                s"Subscription delay duration must be finite, but got $infinite"
+              )
+            )
+          case duration: FiniteDuration => Success(duration)
+        }
+      )
+
     implicit val transactionStreamDecoder: Decoder[StreamConfig.TransactionsStreamConfig] =
-      Decoder.forProduct8(
+      Decoder.forProduct9(
         "name",
         "filters",
         "filter_by_party_set",
         "begin_offset",
         "end_offset",
         "objectives",
+        "subscription_delay",
         "max_item_count",
         "timeout_in_seconds",
       )(StreamConfig.TransactionsStreamConfig.apply)
 
     implicit val transactionTreesStreamDecoder: Decoder[StreamConfig.TransactionTreesStreamConfig] =
-      Decoder.forProduct8(
+      Decoder.forProduct9(
         "name",
         "filters",
         "filter_by_party_set",
         "begin_offset",
         "end_offset",
         "objectives",
+        "subscription_delay",
         "max_item_count",
         "timeout_in_seconds",
       )(StreamConfig.TransactionTreesStreamConfig.apply)
 
     implicit val activeContractsStreamDecoder: Decoder[StreamConfig.ActiveContractsStreamConfig] =
-      Decoder.forProduct6(
+      Decoder.forProduct7(
         "name",
         "filters",
         "filter_by_party_set",
         "objectives",
+        "subscription_delay",
         "max_item_count",
         "timeout_in_seconds",
       )(StreamConfig.ActiveContractsStreamConfig.apply)
 
     implicit val completionsStreamDecoder: Decoder[StreamConfig.CompletionsStreamConfig] =
-      Decoder.forProduct7(
+      Decoder.forProduct8(
         "name",
         "parties",
         "application_id",
         "begin_offset",
         "objectives",
+        "subscription_delay",
         "max_item_count",
         "timeout_in_seconds",
       )(StreamConfig.CompletionsStreamConfig.apply)

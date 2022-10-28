@@ -14,6 +14,9 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.syntax.tag._
 
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.Duration
+
 class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
 
   it should "expand party-set filter into a sequence of party filters" in {
@@ -67,6 +70,7 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
             templates = templates,
           )
         ),
+        subscriptionDelay = Some(Duration(1337, TimeUnit.SECONDS)),
       )
     ) shouldBe TransactionsStreamConfig(
       name = "flat",
@@ -98,6 +102,7 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
         ),
       ),
       partyNamePrefixFilterO = None,
+      subscriptionDelay = Some(Duration(1337, TimeUnit.SECONDS)),
     )
   }
 }
