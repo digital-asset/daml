@@ -6,10 +6,10 @@ package com.daml.http.dbbackend
 import doobie.implicits._
 import com.daml.nonempty.NonEmpty
 import org.scalatest.matchers.should.Matchers
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatestplus.scalacheck.{ScalaCheckDrivenPropertyChecks => STSC}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
-import scala.collection.immutable.Seq
+import scala.collection.{immutable => imm}
 import scalaz.\/
 import scalaz.std.anyVal._
 import scalaz.std.map._
@@ -71,7 +71,7 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
   "chunkBySetSize" should {
     import org.scalacheck.{Arbitrary, Gen, Shrink}
     import Arbitrary.arbitrary
-    import ScalaCheckDrivenPropertyChecks.{forAll => scForAll, _}
+    import STSC.{forAll => scForAll}
     import Queries.chunkBySetSize
 
     type Arg = NonEmpty[Map[Int, NonEmpty[Set[Int]]]]
@@ -85,13 +85,12 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
         )
       )
       .map { case NonEmpty(xs) => xs }
-    implicit val shrinkArg: Shrink[Arg] = {
-      implicit val shrinkSet: Shrink[NonEmpty[Set[Int]]] =
-        Shrink { nes => Shrink.shrink(nes.forgetNE).collect { case NonEmpty(s) => s } }
-      Shrink { arg =>
-        Shrink.shrink(arg.forgetNE).collect { case NonEmpty(m) => m }
-      }
-    }
+    implicit def shrinkNE[Self <: imm.Iterable[Any]: Shrink]: Shrink[NonEmpty[Self]] =
+      Shrink { nes => Shrink shrink nes.forgetNE collect { case NonEmpty(s) => s } }
+
+    // at 1k each test takes ~500ms; at 10k each ~5s
+    implicit val generatorDrivenConfig: STSC.PropertyCheckConfiguration =
+      STSC.generatorDrivenConfig.copy(minSuccessful = 1000)
 
     "include all arguments in the result" in scForAll(sizes, randomArg) { (s, r) =>
       chunkBySetSize(s, r).foldMap1Opt(identity) should ===(Some(r))
