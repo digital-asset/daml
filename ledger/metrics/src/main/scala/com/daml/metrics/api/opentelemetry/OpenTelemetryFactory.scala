@@ -211,8 +211,8 @@ private object AttributesHelper {
 
   def multiContextAsAttributes(context: MetricsContext*): Attributes = {
     context
-      .foldLeft(Attributes.builder()) { case (builder, context) =>
-        context.labels.foreach { case (key, value) =>
+      .foldLeft(Attributes.builder()) { (builder, context) =>
+        context.labels.foreachEntry { (key, value) =>
           builder.put(key, value)
         }
         builder
