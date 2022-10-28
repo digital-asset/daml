@@ -17,6 +17,9 @@ import com.daml.http.util.FutureUtil
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.metrics.Metrics
 import com.daml.timer.RetryStrategy
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Availability
+import com.daml.test.evidence.tag.Security.SecurityTest
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import eu.rekawek.toxiproxy.model.ToxicDirection
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
@@ -46,8 +49,10 @@ abstract class FailureTests
   private def headersWithParties(actAs: List[domain.Party]) =
     Future successful headersWithPartyAuth(actAs, List(), Some(ledgerId().unwrap))
 
-  // TEST_EVIDENCE: Availability: Command submission succeeds after reconnect
-  "Command submission succeeds after reconnect" in withHttpService[Assertion] {
+  val availabilitySecurity: SecurityTest =
+    SecurityTest(property = Availability, asset = "Ledger Service HTTP JSON")
+
+  "Command submission succeeds after reconnect" taggedAs availabilitySecurity in withHttpService[Assertion] {
     (uri, encoder, _, client) =>
       for {
         p <- allocateParty(client, "Alice")
@@ -482,6 +487,6 @@ abstract class FailureTests
 // for a while (rather than deprecating/deleting custom token) might be worth
 // splitting into a suite and consequently librifying the above in bazel
 
-final class FailureTestsCustomToken extends FailureTests with HttpServiceUserFixture.CustomToken
+//final class FailureTestsCustomToken extends FailureTests with HttpServiceUserFixture.CustomToken
 
-final class FailureTestsUserToken extends FailureTests with HttpServiceUserFixture.UserToken
+//final class FailureTestsUserToken extends FailureTests with HttpServiceUserFixture.UserToken
