@@ -186,4 +186,7 @@ migration_test(
     # the latest SDK version.
     # (regression test for https://github.com/digital-asset/daml/issues/14291)
     if old_sdk_version != "0.0.0"
+    # These tests use data-dependency reexports (#11147), so the earliest
+    # supported SDK is 1.18.0
+    if versions.is_at_least("1.18.0", old_sdk_version)
 ]
