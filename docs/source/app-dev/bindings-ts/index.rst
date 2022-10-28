@@ -11,7 +11,7 @@ The JavaScript client libraries allow you to easily build frontend applications 
 These libraries can dramatically reduce the time
 necessary to develop a full-stack application by abstracting away implementation details, particularly when building a prototype or an application with relatively simple requirements.
 
-The `@daml/types <ts-daml-types_>`_ library contains the TypeScript data types corresponding to primitive Daml data type, such as ``Party`` or ``Text``.
+The `@daml/types <ts-daml-types_>`_ library contains the TypeScript data types corresponding to primitive Daml data types, such as ``Party`` or ``Text``.
 Apart from its usefulness for TypeScript developers, the library can also be pulled in as a development-type dependency for JavaScript projects
 to take advantage of tooling integration with the TypeScript ecosystem, such as the availability of autocompletion on Visual Studio Code.
 
