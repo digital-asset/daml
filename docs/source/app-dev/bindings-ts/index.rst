@@ -6,7 +6,7 @@ Using JavaScript Client Libraries with Daml
 
 .. _typescript:
 
-The JavaScript client libraries allow to easily build frontend applications that interact with the :ref:`HTTP JSON API service <json-api>`.
+The JavaScript client libraries allow you to easily build frontend applications that interact with the :ref:`HTTP JSON API service <json-api>`.
 
 To quickly build a prototype or an application with relatively simple requirements, these libraries can dramatically reduce the time
 necessary to develop a full-stack application by abstracting away implementation details.
