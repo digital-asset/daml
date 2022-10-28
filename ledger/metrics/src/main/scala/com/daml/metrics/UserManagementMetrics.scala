@@ -8,22 +8,8 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
 import com.daml.metrics.api.dropwizard.FactoryWithDBMetrics
 
 @MetricDoc.GroupTag(
-  representative = "daml.user_management.<operation>.wait"
-)
-@MetricDoc.GroupTag(
-  representative = "daml.user_management.<operation>.exec"
-)
-@MetricDoc.GroupTag(
-  representative = "daml.user_management.<operation>.translation"
-)
-@MetricDoc.GroupTag(
-  representative = "daml.user_management.<operation>.compression"
-)
-@MetricDoc.GroupTag(
-  representative = "daml.user_management.<operation>.commit"
-)
-@MetricDoc.GroupTag(
-  representative = "daml.user_management.<operation>.query"
+  representative = "daml.user_management.<operation>.",
+  groupableClass = classOf[DatabaseMetrics],
 )
 class UserManagementMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
     extends FactoryWithDBMetrics {

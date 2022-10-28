@@ -120,16 +120,8 @@ class ExecutionMetrics(override val prefix: MetricName, override val registry: M
   val engineRunning: Meter = meter(prefix :+ "engine_running")
 
   @MetricDoc.GroupTag(
-    representative = "daml.execution.cache.<state_cache>.hits"
-  )
-  @MetricDoc.GroupTag(
-    representative = "daml.execution.cache.<state_cache>.misses"
-  )
-  @MetricDoc.GroupTag(
-    representative = "daml.execution.cache.<state_cache>.evictions"
-  )
-  @MetricDoc.GroupTag(
-    representative = "daml.execution.cache.<state_cache>.evicted_weight"
+    representative = "daml.execution.cache.<state_cache>.",
+    groupableClass = classOf[CacheMetrics],
   )
   object cache extends DropwizardFactory {
     override val prefix: MetricName = ExecutionMetrics.this.prefix :+ "cache"
