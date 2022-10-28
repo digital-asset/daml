@@ -511,57 +511,54 @@ private[lf] object Speedy {
       run { case Question.Scenario(question) => question }
 
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
-    private[this] def run[Q](mapQuestion: PartialFunction[Question, Q]): SResult[Q] = {
-      try {
-        @tailrec
-        def loop(): SResult[Q] = {
-          if (enableInstrumentation) {
-            Classify.classifyMachine(this, track.classifyCounts)
-          }
-          if (enableLightweightStepTracing) {
-            steps += 1
-            println(s"$steps: ${PrettyLightweight.ppMachine(this)}")
-          }
-          val thisControl = control
-          setControl(Control.WeAreUnset)
-          thisControl match {
-            case Control.WeAreUnset =>
-              sys.error("**attempt to run a machine with unset control")
-            case Control.Expression(exp) =>
-              setControl(exp.execute(this))
-              loop()
-            case Control.Value(value) =>
-              popTempStackToBase()
-              setControl(popKont().execute(value))
-              loop()
-            case Control.Question(q) =>
-              mapQuestion.lift(q) match {
-                case Some(q) =>
-                  SResultQuestion(q)
-                case None =>
-                  SResultError(
-                    SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"unexpected question $q")
-                  )
-              }
-            case Control.Complete(value: SValue) =>
-              if (enableInstrumentation) track.print()
-              ledgerMode match {
-                case OffLedger => SResultFinal(value, None)
-                case onLedger: OnLedger =>
-                  val ctx = onLedger.ptx.finish
-                  SResultFinal(value, Some(ctx))
-              }
-            case Control.Error(ie) =>
-              SResultError(SErrorDamlException(ie))
-          }
+    private[this] def run[Q](collectQuestion: PartialFunction[Question, Q]): SResult[Q] = try {
+      @tailrec
+      def loop(): SResult[Q] = {
+        if (enableInstrumentation) {
+          Classify.classifyMachine(this, track.classifyCounts)
         }
-        loop()
-      } catch {
-        case serr: SError => // TODO: prefer Control over throw for SError
-          SResultError(serr)
-        case ex: RuntimeException =>
-          SResultError(SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"exception: $ex")) // stop
+        if (enableLightweightStepTracing) {
+          steps += 1
+          println(s"$steps: ${PrettyLightweight.ppMachine(this)}")
+        }
+        val thisControl = control
+        setControl(Control.WeAreUnset)
+        thisControl match {
+          case Control.WeAreUnset =>
+            sys.error("**attempt to run a machine with unset control")
+          case Control.Expression(exp) =>
+            setControl(exp.execute(this))
+            loop()
+          case Control.Value(value) =>
+            popTempStackToBase()
+            setControl(popKont().execute(value))
+            loop()
+          case Control.Question(q) =>
+            q match {
+              case `collectQuestion`(q) => SResultQuestion(q)
+              case _ =>
+                SResultError(
+                  SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"unexpected question $q")
+                )
+            }
+          case Control.Complete(value: SValue) =>
+            if (enableInstrumentation) track.print()
+            ledgerMode match {
+              case OffLedger => SResultFinal(value, None)
+              case onLedger: OnLedger =>
+                val ctx = onLedger.ptx.finish
+                SResultFinal(value, Some(ctx))
+            }
+          case Control.Error(ie) =>
+            SResultError(SErrorDamlException(ie))
+        }
       }
+      loop()
+    } catch {
+      case serr: SError => // TODO: prefer Control over throw for SError
+        SResultError(serr)
+      case ex: RuntimeException =>
+        SResultError(SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"exception: $ex")) // stop
     }
 
     def lookupVal(eval: SEVal): Control = {
