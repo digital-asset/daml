@@ -90,7 +90,7 @@ trait ScriptLedgerClient {
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Seq[(ContractId, Value)]]
+  ): Future[Seq[(ContractId, Option[Value])]]
 
   def queryViewContractId(
       parties: OneAnd[Set, Ref.Party],

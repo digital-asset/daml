@@ -127,10 +127,11 @@ main =
                     , "  with"
                     , "    p : Party"
                     , "    text : Text"
+                    , "    isError : Bool"
                     , "  where"
                     , "    signatory p"
                     , "    interface instance MyInterface2 for MyTemplateC where"
-                    , "      view = MyView2 { info = \"C:\" <> text }"
+                    , "      view = (if isError then error else MyView2) (\"C:\" <> text)"
 
                     , "test : Script ()"
                     , "test = do"
@@ -141,7 +142,8 @@ main =
                     , "  a1 <- submit p do createCmd (MyTemplateA p 42)"
                     , "  a2 <- submit p do createCmd (MyTemplateA p 43)"
                     , "  b1 <- submit p do createCmd (MyTemplateB p 44)"
-                    , "  c1 <- submit p do createCmd (MyTemplateC p \"I-am-c1\")"
+                    , "  c1 <- submit p do createCmd (MyTemplateC p \"I-am-c1\" False)"
+                    , "  c2 <- submit p do createCmd (MyTemplateC p \"I-am-c2\" True)"
 
                     -- Archived contracts wont be visible when querying
                     , "  a3 <- submit p do createCmd (MyTemplateA p 999)"
@@ -154,9 +156,12 @@ main =
                     -- (Note: we can refer to b1 via either Interface 1 or 2)
                     , "  let i1a1 = toInterfaceContractId @MyInterface1 a1"
                     , "  let i1a2 = toInterfaceContractId @MyInterface1 a2"
+                    , "  let i1a3 = toInterfaceContractId @MyInterface1 a3"
+                    , "  let i1a4 = toInterfaceContractId @MyInterface1 a4"
                     , "  let i1b1 = toInterfaceContractId @MyInterface1 b1"
                     , "  let i2b1 = toInterfaceContractId @MyInterface2 b1"
                     , "  let i2c1 = toInterfaceContractId @MyInterface2 c1"
+                    , "  let i2c2 = toInterfaceContractId @MyInterface2 c2"
 
                     -- Test queryViewContractId (Interface1)
                     , "  Some v <- queryViewContractId p i1a1"
@@ -165,15 +170,18 @@ main =
                     , "  v.info === 143"
                     , "  Some v <- queryViewContractId p i1b1"
                     , "  v.info === 244"
+                    , "  None <- queryViewContractId p i1a3" -- contract is archived
+                    , "  None <- queryViewContractId p i1a4" -- not a stakeholder
 
                     -- Test queryViewContractId (Interface2)
                     , "  Some v <- queryViewContractId p i2b1"
                     , "  v.info === \"B:44\""
                     , "  Some v <- queryViewContractId p i2c1"
                     , "  v.info === \"C:I-am-c1\""
+                    , "  None <- queryViewContractId p i2c2" -- view function failed
 
                     -- Test queryView (Interface1)
-                    , "  [(i1,v1),(i2,v2),(i3,v3)] <- sortOn snd <$> queryView @MyInterface1 p"
+                    , "  [(i1,Some v1),(i2,Some v2),(i3,Some v3)] <- sortOn snd <$> queryView @MyInterface1 p"
                     , "  i1 === i1a1"
                     , "  i2 === i1a2"
                     , "  i3 === i1b1"
@@ -182,11 +190,12 @@ main =
                     , "  v3.info === 244"
 
                     -- Test queryView (Interface2)
-                    , "  [(i1,v1),(i2,v2)] <- sortOn snd <$> queryView @MyInterface2 p"
-                    , "  i1 === i2b1"
-                    , "  i2 === i2c1"
-                    , "  v1.info === \"B:44\""
-                    , "  v2.info === \"C:I-am-c1\""
+                    , "  [(i1,None),(i2,Some v2),(i3,Some v3)] <- sortOn snd <$> queryView @MyInterface2 p"
+                    , "  i1 === i2c2" -- view function failed, so no info
+                    , "  i2 === i2b1"
+                    , "  i3 === i2c1"
+                    , "  v2.info === \"B:44\""
+                    , "  v3.info === \"C:I-am-c1\""
 
                     , "  pure ()"
                     ]

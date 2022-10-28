@@ -137,7 +137,7 @@ class IdeLedgerClient(
       templateId: TypeConName,
       interfaceId: TypeConName,
       arg: Value,
-  ): Value = {
+  ): Option[Value] = {
 
     val valueTranslator = new ValueTranslator(
       pkgInterface = compiledPackages.pkgInterface,
@@ -157,14 +157,15 @@ class IdeLedgerClient(
         machine.run() match {
           case SResultFinal(svalue, _) =>
             val version = machine.tmplId2TxVersion(templateId)
-            svalue.toNormalizedValue(version)
+            Some(svalue.toNormalizedValue(version))
 
-          case (_: SResultError | _: SResultNeedPackage | _: SResultNeedContract |
-              _: SResultNeedKey | _: SResultNeedTime | _: SResultScenarioGetParty |
-              _: SResultScenarioPassTime | _: SResultScenarioSubmit) =>
-            // TODO https://github.com/digital-asset/daml/issues/14830
-            // support view functions which may error
-            sys.error("computeView: expected SResultFinal")
+          case _: SResultError =>
+            None
+
+          case res @ (_: SResultNeedPackage | _: SResultNeedContract | _: SResultNeedKey |
+              _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioPassTime |
+              _: SResultScenarioSubmit) =>
+            sys.error(s"computeView: expected SResultFinal, got: $res")
         }
     }
   }
@@ -180,7 +181,7 @@ class IdeLedgerClient(
   override def queryView(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
-  )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Value)]] = {
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Option[Value])]] = {
 
     val acs: Seq[ScenarioLedger.LookupOk] = ledger.query(
       view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
@@ -194,12 +195,12 @@ class IdeLedgerClient(
           ) if implements(templateId, interfaceId) && parties.any(stakeholders.contains(_)) =>
         (cid, contractInstance)
     }
-    val res: Seq[(ContractId, Value)] = {
+    val res: Seq[(ContractId, Option[Value])] = {
       filtered.map { case (cid, contractInstance) =>
         contractInstance match {
           case Value.ContractInstance(templateId, arg, _) =>
-            val view = computeView(templateId, interfaceId, arg)
-            (cid, view)
+            val viewOpt = computeView(templateId, interfaceId, arg)
+            (cid, viewOpt)
         }
       }
     }
@@ -218,8 +219,8 @@ class IdeLedgerClient(
     lookupContractInstance(parties, cid) match {
       case None => Future.successful(None)
       case Some(Value.ContractInstance(templateId, arg, _)) =>
-        val view = computeView(templateId, interfaceId, arg)
-        Future.successful(Some(view))
+        val viewOpt = computeView(templateId, interfaceId, arg)
+        Future.successful(viewOpt)
     }
   }
 

@@ -286,15 +286,20 @@ object ScriptF {
         list <- Converter.toFuture(
           list
             .to(FrontStack)
-            .traverse { case (cid, view) =>
-              for {
-                view <- Converter.fromInterfaceView(
-                  env.valueTranslator,
-                  viewType,
-                  view,
-                )
-              } yield {
-                makePair(SContractId(cid), view)
+            .traverse { case (cid, optView) =>
+              optView match {
+                case None =>
+                  Right(makePair(SContractId(cid), SOptional(None)))
+                case Some(view) =>
+                  for {
+                    view <- Converter.fromInterfaceView(
+                      env.valueTranslator,
+                      viewType,
+                      view,
+                    )
+                  } yield {
+                    makePair(SContractId(cid), SOptional(Some(view)))
+                  }
               }
             }
         )
