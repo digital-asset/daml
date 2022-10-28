@@ -42,15 +42,15 @@ $(rlocation damlc_legacy/damlc/damlc.exe) $@
 load("@os_info//:os_info.bzl", "is_windows")
 package(default_visibility = ["//visibility:public"])
 sh_binary(
-  name = "damlc_legacy",
+  name = "{name}",
   srcs = [":damlc/damlc"],
 ) if not is_windows else sh_binary(
-  name = "damlc_legacy",
+  name = "{name}",
   srcs = [":damlc.sh"],
   deps = ["@bazel_tools//tools/bash/runfiles"],
   data = ["damlc/damlc.exe"],
 )
-""".format(version = ctx.attr.version),
+""".format(name = ctx.attr.name),
     )
     return None
 
