@@ -49,13 +49,11 @@ import com.google.rpc.status.Status
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
-import scalaz.std.option._
 import scalaz.syntax.bifunctor._
-import scalaz.syntax.functor._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
-import scalaz.{-\/, Functor, Tag, \/, \/-}
+import scalaz.{-\/, Tag, \/, \/-}
 
 import java.time.Instant
 import java.util.UUID
@@ -369,20 +367,25 @@ class Runner(
 
   // return whether uuid *was* present in pendingCommandIds
   private[this] def useCommandId(uuid: UUID, seeOne: SeenMsgs.One): Boolean = {
-    def alterF[K, V](m: TrieMap[K, V], k: K)(
-        f: Option[V] => Option[Option[V]]
-    ): Option[TrieMap[K, V]] = {
-      val ov = m get k
+    def alterF(
+        f: Option[SeenMsgs] => Option[Option[SeenMsgs]]
+    ): Option[TrieMap[UUID, SeenMsgs]] = {
+      val ov = pendingCommandIds.get(uuid)
       f(ov) map { r =>
         (ov, r) match {
-          case (_, Some(v)) => m.addOne(k -> v)
-          case (None, None) => m
-          case (Some(_), None) => m - k
+          case (_, Some(v)) => pendingCommandIds.addOne(uuid -> v)
+          case (None, None) => pendingCommandIds
+          case (Some(_), None) => pendingCommandIds - uuid
         }
       }
     }
 
-    val newMap = alterF(pendingCommandIds, uuid)(_ map (_ see seeOne))
+    val newMap = alterF {
+      case None =>
+        None
+      case Some(x) =>
+        Some(x.see(seeOne))
+    }
     newMap.isDefined
   }
 
@@ -839,12 +842,19 @@ object Runner extends StrictLogging {
 
   private sealed abstract class SeenMsgs {
     import Runner.{SeenMsgs => S}
-    def see(msg: S.One): Option[SeenMsgs] =
-      (this, msg).match2 {
-        case S.Completion => { case S.Transaction => None }
-        case S.Transaction => { case S.Completion => None }
-        case S.Neither => { case one => Some(one: SeenMsgs) }
-      }(fallback = Some(this))
+
+    def see(msg: S.One): Option[SeenMsgs] = {
+      (this, msg) match {
+        case (S.Completion, S.Transaction) =>
+          None
+        case (S.Transaction, S.Completion) =>
+          None
+        case (S.Neither, _) =>
+          Some(msg)
+        case _ =>
+          Some(this)
+      }
+    }
   }
 
   private object SeenMsgs {
