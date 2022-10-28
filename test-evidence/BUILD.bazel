@@ -30,6 +30,7 @@ da_scala_binary(
     name = "generator",
     main_class = "com.daml.test.evidence.generator.Main",
     runtime_deps = [
+        "//ledger-service/http-json:integration-tests-lib",
         "//ledger-service/jwt:tests-lib",
         "//ledger/sandbox-on-x:sandbox-on-x-it-tests-lib",
         "//triggers/service/auth:oauth2-middleware-tests-lib",
