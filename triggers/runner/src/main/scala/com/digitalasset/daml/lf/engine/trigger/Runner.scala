@@ -60,6 +60,7 @@ import scalaz.{-\/, Functor, Tag, \/, \/-}
 import java.time.Instant
 import java.util.UUID
 import scala.annotation.tailrec
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -360,7 +361,7 @@ class Runner(
   // These are the command IDs used on the ledger API to submit commands for
   // this trigger for which we are awaiting either a completion or transaction
   // message, or both.
-  private[this] var pendingCommandIds = Map.empty[UUID, SeenMsgs]
+  private[this] val pendingCommandIds = TrieMap.empty[UUID, SeenMsgs]
   private val transactionFilter =
     TransactionFilter(parties.readers.map(p => (p.unwrap, trigger.filters)).toMap)
 
@@ -385,7 +386,7 @@ class Runner(
   @throws[RuntimeException]
   private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
     val commandUUID = UUID.randomUUID
-    pendingCommandIds += ((commandUUID, SeenMsgs.Neither))
+    pendingCommandIds += (commandUUID -> SeenMsgs.Neither)
     val commandsArg = Commands(
       ledgerId = client.ledgerId.unwrap,
       applicationId = applicationId.unwrap,
