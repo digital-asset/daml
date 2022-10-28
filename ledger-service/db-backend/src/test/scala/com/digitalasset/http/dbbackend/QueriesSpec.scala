@@ -5,8 +5,10 @@ package com.daml.http.dbbackend
 
 import doobie.implicits._
 import com.daml.nonempty.NonEmpty
+import org.scalatest.Inspectors.{forAll => cForAll}
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.{ScalaCheckDrivenPropertyChecks => STSC}
+import STSC.{forAll => scForAll}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import scala.collection.{immutable => imm}
@@ -16,6 +18,7 @@ import scalaz.std.map._
 import scalaz.std.set._
 import scalaz.std.vector._
 import scalaz.syntax.foldable._
+import scalaz.syntax.std.map._
 
 class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
@@ -71,7 +74,6 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
   "chunkBySetSize" should {
     import org.scalacheck.{Arbitrary, Gen, Shrink}
     import Arbitrary.arbitrary
-    import STSC.{forAll => scForAll}
     import Queries.chunkBySetSize
 
     type Arg = NonEmpty[Map[Int, NonEmpty[Set[Int]]]]
@@ -105,6 +107,14 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
 
     "make chunks as large as possible" in scForAll(sizes, randomArg) { (s, r) =>
       all(chunkBySetSize(s, r).init map measuredChunkSize) should ===(s)
+    }
+
+    "make chunks that do not intersect" in scForAll(sizes, randomArg) { (s, r) =>
+      cForAll(chunkBySetSize(s, r).sliding(2, 1).toSeq) {
+        case Seq(a, b) => all(a.forgetNE.intersectWith(b)(_ intersect _).values) shouldBe empty
+        case Seq(_) => succeed
+        case _ => fail("impossible sliding or empty output")
+      }
     }
   }
 }
