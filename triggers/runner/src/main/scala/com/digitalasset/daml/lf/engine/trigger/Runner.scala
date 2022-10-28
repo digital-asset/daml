@@ -360,6 +360,8 @@ class Runner(
   // These are the command IDs used on the ledger API to submit commands for
   // this trigger for which we are awaiting either a completion or transaction
   // message, or both.
+  // This is a data structure that is shared across (potentially) multiple async contexts
+  // - hence why we use a scala.concurrent.TrieMap here.
   private[this] val pendingCommandIds = TrieMap.empty[UUID, SeenMsgs]
   private val transactionFilter =
     TransactionFilter(parties.readers.map(p => (p.unwrap, trigger.filters)).toMap)
