@@ -17,6 +17,9 @@ import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.FutureUtil
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.timer.RetryStrategy
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Availability
+import com.daml.test.evidence.tag.Security.SecurityTest
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import eu.rekawek.toxiproxy.model.ToxicDirection
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
@@ -46,53 +49,56 @@ abstract class FailureTests
   private def headersWithParties(actAs: List[domain.Party]) =
     Future successful headersWithPartyAuth(actAs, List(), Some(ledgerId().unwrap))
 
-  // TEST_EVIDENCE: Availability: Command submission succeeds after reconnect
-  "Command submission succeeds after reconnect" in withHttpService[Assertion] {
-    (uri, encoder, _, client) =>
-      for {
-        p <- allocateParty(client, "Alice")
-        (status, _) <- headersWithParties(List(p)).flatMap(
-          postCreateCommand(
-            accountCreateCommand(p, "23"),
-            encoder,
-            uri,
-            _,
-          )
+  val availabilitySecurity: SecurityTest =
+    SecurityTest(property = Availability, asset = "Ledger Service HTTP JSON")
+
+  "Command submission succeeds after reconnect" taggedAs availabilitySecurity in withHttpService[
+    Assertion
+  ] { (uri, encoder, _, client) =>
+    for {
+      p <- allocateParty(client, "Alice")
+      (status, _) <- headersWithParties(List(p)).flatMap(
+        postCreateCommand(
+          accountCreateCommand(p, "23"),
+          encoder,
+          uri,
+          _,
         )
-        _ = status shouldBe StatusCodes.OK
-        _ = proxy.disable()
-        (status, output) <- headersWithParties(List(p))
-          .flatMap(postCreateCommand(accountCreateCommand(p, "24"), encoder, uri, _))
-        _ = status shouldBe StatusCodes.ServiceUnavailable
-        (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
-        _ = status shouldBe StatusCodes.ServiceUnavailable
-        _ = out shouldBe
-          """[-] ledger failed (io.grpc.StatusRuntimeException: UNAVAILABLE: io exception)
+      )
+      _ = status shouldBe StatusCodes.OK
+      _ = proxy.disable()
+      (status, output) <- headersWithParties(List(p))
+        .flatMap(postCreateCommand(accountCreateCommand(p, "24"), encoder, uri, _))
+      _ = status shouldBe StatusCodes.ServiceUnavailable
+      (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
+      _ = status shouldBe StatusCodes.ServiceUnavailable
+      _ = out shouldBe
+        """[-] ledger failed (io.grpc.StatusRuntimeException: UNAVAILABLE: io exception)
             |[+] database ok
             |readyz check failed
             |""".stripMargin.replace("\r\n", "\n")
-        _ <- inside(output) { case JsObject(fields) =>
-          inside(fields.get("status")) { case Some(JsNumber(code)) =>
-            code shouldBe 503
-          }
+      _ <- inside(output) { case JsObject(fields) =>
+        inside(fields.get("status")) { case Some(JsNumber(code)) =>
+          code shouldBe 503
         }
-        _ = proxy.enable()
-        // eventually doesn’t handle Futures in the version of scalatest we’re using.
-        _ <- RetryStrategy.constant(5, 2.seconds)((_, _) =>
-          for {
-            (status, _) <- headersWithParties(List(p)).flatMap(
-              postCreateCommand(
-                accountCreateCommand(p, "25"),
-                encoder,
-                uri,
-                _,
-              )
+      }
+      _ = proxy.enable()
+      // eventually doesn’t handle Futures in the version of scalatest we’re using.
+      _ <- RetryStrategy.constant(5, 2.seconds)((_, _) =>
+        for {
+          (status, _) <- headersWithParties(List(p)).flatMap(
+            postCreateCommand(
+              accountCreateCommand(p, "25"),
+              encoder,
+              uri,
+              _,
             )
-          } yield status shouldBe StatusCodes.OK
-        )
-        (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
-        _ = status shouldBe StatusCodes.OK
-      } yield succeed
+          )
+        } yield status shouldBe StatusCodes.OK
+      )
+      (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
+      _ = status shouldBe StatusCodes.OK
+    } yield succeed
   }
 
   // TEST_EVIDENCE: Availability: command submission timeout is applied
