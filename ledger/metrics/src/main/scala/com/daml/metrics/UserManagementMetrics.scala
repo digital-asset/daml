@@ -8,7 +8,7 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
 import com.daml.metrics.api.dropwizard.FactoryWithDBMetrics
 
 @MetricDoc.GroupTag(
-  representative = "daml.user_management.<operation>.",
+  representative = "daml.user_management.<operation>",
   groupableClass = classOf[DatabaseMetrics],
 )
 class UserManagementMetrics(override val prefix: MetricName, override val registry: MetricRegistry)

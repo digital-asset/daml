@@ -8,7 +8,7 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
 import com.daml.metrics.api.dropwizard.FactoryWithDBMetrics
 
 @MetricDoc.GroupTag(
-  representative = "daml.party_record_store.<operation>.",
+  representative = "daml.party_record_store.<operation>",
   groupableClass = classOf[DatabaseMetrics],
 )
 class PartyRecordStoreMetrics(

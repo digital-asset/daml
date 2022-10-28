@@ -14,7 +14,7 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
   groupableClass = classOf[InstrumentedExecutorServiceForDocs],
 )
 @MetricDoc.GroupTag(
-  representative = "daml.parallel_indexer.<stage>.",
+  representative = "daml.parallel_indexer.<stage>",
   groupableClass = classOf[DatabaseMetrics],
 )
 class ParallelIndexerMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
