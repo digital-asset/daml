@@ -10,6 +10,7 @@ import com.daml.metrics.api.Gauges.VarGauge
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Histogram, Meter, Timer}
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
+import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.metrics.{
   LongCounter,
   LongHistogram,
@@ -22,31 +23,35 @@ trait OpenTelemetryFactory extends Factory {
   def otelMeter: OtelMeter
   override def timer(
       name: MetricName
+  )(implicit
+      context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Timer =
-    OpentelemetryTimer(name, otelMeter.histogramBuilder(name).ofLongs().setUnit("ms").build())
+    OpentelemetryTimer(
+      name,
+      otelMeter.histogramBuilder(name).ofLongs().setUnit("ms").build(),
+      context,
+    )
   override def gauge[T](name: MetricName, initial: T)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Gauge[T] = {
+    val attributes = context.asAttributes
     initial match {
       case longInitial: Int =>
         val varGauge = new VarGauge[Int](longInitial)
         otelMeter.gaugeBuilder(name).ofLongs().buildWithCallback { consumer =>
-          val (value, context) = varGauge.getValueAndContext
-          consumer.record(value.toLong, context.asAttributes)
+          consumer.record(varGauge.getValue.toLong, attributes)
         }
         OpentelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
       case longInitial: Long =>
         val varGauge = new VarGauge[Long](longInitial)
         otelMeter.gaugeBuilder(name).ofLongs().buildWithCallback { consumer =>
-          val (value, context) = varGauge.getValueAndContext
-          consumer.record(value, context.asAttributes)
+          consumer.record(varGauge.getValue, attributes)
         }
         OpentelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
       case doubleInitial: Double =>
         val varGauge = new VarGauge[Double](doubleInitial)
         otelMeter.gaugeBuilder(name).buildWithCallback { consumer =>
-          val (value, context) = varGauge.getValueAndContext
-          consumer.record(value, context.asAttributes)
+          consumer.record(varGauge.getValue, attributes)
         }
         OpentelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
       case _ =>
@@ -57,17 +62,20 @@ trait OpenTelemetryFactory extends Factory {
 
   override def gaugeWithSupplier[T](
       name: MetricName,
-      gaugeSupplier: () => () => (T, MetricsContext),
+      valueSupplier: () => T,
+  )(implicit
+      context: MetricsContext = MetricsContext.Empty
   ): Unit = {
-    val valueSupplier = gaugeSupplier()
-    valueSupplier()._1 match {
+    val value = valueSupplier()
+    val attributes = context.asAttributes
+    value match {
       case _: Int =>
         otelMeter
           .gaugeBuilder(name)
           .ofLongs()
           .buildWithCallback { consumer =>
-            val (value, context) = valueSupplier()
-            consumer.record(value.asInstanceOf[Int].toLong, context.asAttributes)
+            val value = valueSupplier()
+            consumer.record(value.asInstanceOf[Int].toLong, attributes)
           }
         ()
       case _: Long =>
@@ -75,44 +83,54 @@ trait OpenTelemetryFactory extends Factory {
           .gaugeBuilder(name)
           .ofLongs()
           .buildWithCallback { consumer =>
-            val (value, context) = valueSupplier()
-            consumer.record(value.asInstanceOf[Long], context.asAttributes)
+            val value = valueSupplier()
+            consumer.record(value.asInstanceOf[Long], attributes)
           }
         ()
       case _: Double =>
         otelMeter
           .gaugeBuilder(name)
           .buildWithCallback { consumer =>
-            val (value, context) = valueSupplier()
-            consumer.record(value.asInstanceOf[Double], context.asAttributes)
+            val value = valueSupplier()
+            consumer.record(value.asInstanceOf[Double], attributes)
           }
         ()
       case _ =>
       // NoOp as opentelemetry only supports longs and doubles
     }
   }
-  override def meter(name: MetricName): Meter = OpentelemetryMeter(
+  override def meter(name: MetricName)(implicit
+      context: MetricsContext = MetricsContext.Empty
+  ): Meter = OpentelemetryMeter(
     name,
     otelMeter.counterBuilder(name).build(),
+    context,
   )
-  override def counter(name: MetricName): MetricHandle.Counter = OpentelemetryCounter(
+  override def counter(name: MetricName)(implicit
+      context: MetricsContext = MetricsContext.Empty
+  ): MetricHandle.Counter = OpentelemetryCounter(
     name,
     otelMeter.upDownCounterBuilder(name).build(),
+    context,
   )
-  override def histogram(name: MetricName): MetricHandle.Histogram = OpentelemetryHistogram(
+  override def histogram(name: MetricName)(implicit
+      context: MetricsContext = MetricsContext.Empty
+  ): MetricHandle.Histogram = OpentelemetryHistogram(
     name,
     otelMeter.histogramBuilder(name).ofLongs().build(),
+    context,
   )
 }
 
-case class OpentelemetryTimer(name: String, histogram: LongHistogram) extends Timer {
+case class OpentelemetryTimer(name: String, histogram: LongHistogram, timerContext: MetricsContext)
+    extends Timer {
 
   override def update(duration: Long, unit: TimeUnit)(implicit
       context: MetricsContext
   ): Unit =
     histogram.record(
       TimeUnit.MILLISECONDS.convert(duration, unit),
-      context.asAttributes,
+      AttributesHelper.multiContextAsAttributes(context, timerContext),
     )
   override def time[T](call: => T)(implicit
       context: MetricsContext
@@ -121,7 +139,7 @@ case class OpentelemetryTimer(name: String, histogram: LongHistogram) extends Ti
     val result = call
     histogram.record(
       TimeUnit.MILLISECONDS.convert(System.nanoTime() - start, TimeUnit.NANOSECONDS),
-      context.asAttributes,
+      AttributesHelper.multiContextAsAttributes(context, timerContext),
     )
     result
   }
@@ -132,7 +150,7 @@ case class OpentelemetryTimer(name: String, histogram: LongHistogram) extends Ti
     () =>
       histogram.record(
         TimeUnit.MILLISECONDS.convert(System.nanoTime() - start, TimeUnit.NANOSECONDS),
-        context.asAttributes,
+        AttributesHelper.multiContextAsAttributes(context, timerContext),
       )
   }
   override def update(duration: Duration)(implicit
@@ -141,39 +159,64 @@ case class OpentelemetryTimer(name: String, histogram: LongHistogram) extends Ti
 }
 
 case class OpentelemetryGauge[T](name: String, varGauge: VarGauge[T]) extends Gauge[T] {
-  override def updateValue(newValue: T)(implicit
-      context: MetricsContext
-  ): Unit = varGauge.updateValue(newValue)
+  override def updateValue(newValue: T): Unit = varGauge.updateValue(newValue)
   override def getValue: T = varGauge.getValue
 }
 
-case class OpentelemetryMeter(name: String, counter: LongCounter) extends Meter {
+case class OpentelemetryMeter(name: String, counter: LongCounter, meterContext: MetricsContext)
+    extends Meter {
   override def mark(value: Long)(implicit
       context: MetricsContext
-  ): Unit = counter.add(value, context.asAttributes)
+  ): Unit = counter.add(value, AttributesHelper.multiContextAsAttributes(meterContext, context))
 }
 
-case class OpentelemetryCounter(name: String, counter: LongUpDownCounter) extends Counter {
+case class OpentelemetryCounter(
+    name: String,
+    counter: LongUpDownCounter,
+    counterContext: MetricsContext,
+) extends Counter {
   override def inc()(implicit
       context: MetricsContext
-  ): Unit = counter.add(1, context.asAttributes)
+  ): Unit = counter.add(1, AttributesHelper.multiContextAsAttributes(counterContext, context))
   override def inc(n: Long)(implicit
       context: MetricsContext
-  ): Unit = counter.add(n, context.asAttributes)
+  ): Unit = counter.add(n, AttributesHelper.multiContextAsAttributes(counterContext, context))
   override def dec()(implicit
       context: MetricsContext
-  ): Unit = counter.add(-1, context.asAttributes)
+  ): Unit = counter.add(-1, AttributesHelper.multiContextAsAttributes(counterContext, context))
   override def dec(n: Long)(implicit
       context: MetricsContext
-  ): Unit = counter.add(-n, context.asAttributes)
+  ): Unit = counter.add(-n, AttributesHelper.multiContextAsAttributes(counterContext, context))
   override def getCount: Long = 0 // Not supported by OpenTelemetry
 }
 
-case class OpentelemetryHistogram(name: String, histogram: LongHistogram) extends Histogram {
+case class OpentelemetryHistogram(
+    name: String,
+    histogram: LongHistogram,
+    histogramContext: MetricsContext,
+) extends Histogram {
   override def update(value: Long)(implicit
       context: MetricsContext
-  ): Unit = histogram.record(value, context.asAttributes)
+  ): Unit =
+    histogram.record(value, AttributesHelper.multiContextAsAttributes(histogramContext, context))
   override def update(value: Int)(implicit
       context: MetricsContext
-  ): Unit = histogram.record(value.toLong, context.asAttributes)
+  ): Unit = histogram.record(
+    value.toLong,
+    AttributesHelper.multiContextAsAttributes(histogramContext, context),
+  )
+}
+
+private object AttributesHelper {
+
+  def multiContextAsAttributes(context: MetricsContext*): Attributes = {
+    context
+      .foldLeft(Attributes.builder()) { case (builder, context) =>
+        context.labels.foreach { case (key, value) =>
+          builder.put(key, value)
+        }
+        builder
+      }
+      .build()
+  }
 }

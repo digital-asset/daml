@@ -9,7 +9,7 @@ import com.daml.metrics.api.MetricHandle.Counter
 import com.daml.metrics.api.dropwizard.DropwizardFactory
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
-final class CacheMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
+final class CacheMetrics(val prefix: MetricName, override val registry: MetricRegistry)
     extends DropwizardFactory {
 
   @MetricDoc.Tag(
