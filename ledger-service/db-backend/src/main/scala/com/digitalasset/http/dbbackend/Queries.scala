@@ -970,7 +970,8 @@ private final class OracleQueries(
           sql"""SELECT c.contract_id contract_id, $tpid template_id, key, key_hash, payload,
                        signatories, observers, agreement_text ${rownum getOrElse fr""}
                 FROM $contractTableName c
-                     JOIN $contractStakeholdersViewName cst ON (c.contract_id = cst.contract_id)
+                     JOIN $contractStakeholdersViewName cst
+                     ON (c.contract_id = cst.contract_id AND c.tpid = cst.tpid)
                 WHERE (${Fragments.in(fr"cst.stakeholder", parties.toNEF)})
                       AND ($queriesCondition)"""
         rownum.fold(dupQ)(_ => sql"SELECT $outerSelectList FROM ($dupQ) WHERE rownumber = 1")
