@@ -71,7 +71,7 @@
 - /v1/query POST succeeds after reconnect to DB: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L259)
 - /v1/stream/query can reconnect: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L332)
 - Command submission succeeds after reconnect: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L49)
-- Tail call optimization: Tail recursion does not blow the scala JVM stack.: [TailCallTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/TailCallTest.scala#L16)
+- Tail call optimization: Tail recursion does not blow the scala JVM stack.: [TailCallTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/TailCallTest.scala#L15)
 - archiving a large number of contracts should succeed: [AbstractHttpServiceIntegrationTest.scala](ledger-service/http-json/src/itlib/scala/http/AbstractHttpServiceIntegrationTest.scala#L1041)
 - command submission timeout is applied: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L98)
 - creating and listing 20K users should be possible: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L555)
