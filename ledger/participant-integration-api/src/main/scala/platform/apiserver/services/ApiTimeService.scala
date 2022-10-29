@@ -47,6 +47,7 @@ private[apiserver] final class ApiTimeService private (
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val dispatcher = SignalDispatcher[Instant]()
+  protected val optimizeGrpcStreamsThroughput: Boolean = false
 
   import FieldValidations._
 

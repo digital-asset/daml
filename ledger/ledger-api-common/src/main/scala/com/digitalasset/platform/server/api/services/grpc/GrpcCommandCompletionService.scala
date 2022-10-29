@@ -25,7 +25,7 @@ class GrpcCommandCompletionService(
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
 ) extends CommandCompletionServiceAkkaGrpc {
-
+  protected val optimizeGrpcStreamsThroughput: Boolean = false
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
@@ -53,5 +53,4 @@ class GrpcCommandCompletionService(
               CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value))))
             ),
       )
-
 }

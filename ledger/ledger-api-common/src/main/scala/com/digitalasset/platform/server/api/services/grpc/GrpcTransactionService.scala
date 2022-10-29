@@ -25,6 +25,7 @@ final class GrpcTransactionService(
     protected val service: TransactionService,
     val ledgerId: LedgerId,
     partyNameChecker: PartyNameChecker,
+    protected val optimizeGrpcStreamsThroughput: Boolean,
 )(implicit
     protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,

@@ -121,6 +121,7 @@ object ApiServiceOwner {
         meteringReportKey = meteringReportKey,
         explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
         createExternalServices = createExternalServices,
+        optimizeGrpcStreamsThroughput = config.optimizeGrpcStreamsThroughput,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(

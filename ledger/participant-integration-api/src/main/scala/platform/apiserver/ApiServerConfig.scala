@@ -31,6 +31,7 @@ case class ApiServerConfig(
     timeProviderType: TimeProviderType = ApiServerConfig.DefaultTimeProviderType,
     tls: Option[TlsConfiguration] = ApiServerConfig.DefaultTls,
     userManagement: UserManagementConfig = ApiServerConfig.DefaultUserManagement,
+    optimizeGrpcStreamsThroughput: Boolean = ApiServerConfig.DefaultOptimizeGrpcStreamsThroughput,
 )
 
 object ApiServerConfig {
@@ -50,4 +51,5 @@ object ApiServerConfig {
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
   val DefaultApiStreamShutdownTimeout: FiniteDuration = FiniteDuration(5, "seconds")
   val DefaultRateLimitingConfig: Option[RateLimitingConfig] = Some(RateLimitingConfig.Default)
+  val DefaultOptimizeGrpcStreamsThroughput: Boolean = false
 }

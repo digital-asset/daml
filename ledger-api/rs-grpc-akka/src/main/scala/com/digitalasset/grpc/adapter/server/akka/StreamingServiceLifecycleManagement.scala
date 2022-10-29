@@ -16,6 +16,7 @@ import scala.concurrent.ExecutionContext
 trait StreamingServiceLifecycleManagement extends AutoCloseable {
   @volatile private var _closed = false
   private val _killSwitches = TrieMap.empty[KillSwitch, Object]
+  protected def optimizeGrpcStreamsThroughput: Boolean
 
   def close(): Unit = synchronized {
     if (!_closed) {
@@ -39,13 +40,16 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable {
     ifNotClosed { () =>
       val sink = ServerAdapter.toSink(responseObserver)
       val source = buildSource()
+      val sourceWithPotentialOptimization =
+        if (optimizeGrpcStreamsThroughput) source.precomputeSerializedSize
+        else source
 
       // Double-checked locking to keep the (potentially expensive)
       // buildSource() step out of the synchronized block
       synchronized {
         ifNotClosed { () =>
           val (killSwitch, doneF) =
-            source.precomputeSerializedSize
+            sourceWithPotentialOptimization
               .viaMat(KillSwitches.single)(Keep.right)
               .watchTermination()(Keep.both)
               .toMat(sink)(Keep.left)
@@ -84,16 +88,15 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable {
       * @return A new source with precomputed serializedSize for the [[scalapb.GeneratedMessage]]
       */
     def precomputeSerializedSize: Source[ScalaPbMessage, Mat] =
-      original
-        .map { msg =>
-          // Computation of serializedSize is thread-safe but the memoization mechanism
-          // which this optimization is relying on is not.
-          // It's fine to use synchronized on the message, since it's un-contended and the performance
-          // penalty should be minimal.
-          msg.synchronized {
-            val _ = msg.serializedSize
-          }
-          msg
+      original.map { msg =>
+        // Computation of serializedSize is thread-safe but the memoization mechanism
+        // which this optimization is relying on is not.
+        // It's fine to use synchronized on the message, since it's un-contended and the performance
+        // penalty should be minimal.
+        msg.synchronized {
+          val _ = msg.serializedSize
         }
+        msg
+      }.async
   }
 }

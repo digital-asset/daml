@@ -29,6 +29,7 @@ private[apiserver] final class ApiLedgerConfigurationService private (
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
+  protected val optimizeGrpcStreamsThroughput: Boolean = false
 
   override protected def getLedgerConfigurationSource(
       request: GetLedgerConfigurationRequest

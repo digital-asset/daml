@@ -37,6 +37,7 @@ class GrpcHealthService(
 ) extends HealthAkkaGrpc
     with GrpcApiService {
 
+  protected val optimizeGrpcStreamsThroughput: Boolean = false
   private val logger = ContextualizedLogger.get(getClass)
   private val errorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
