@@ -85,6 +85,7 @@ da_scala_test_suite(
     ],
     deps = [
         ":rs-grpc-akka-tests-lib",
+        "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/sample-service",
         "//ledger-api/testing-utils",
