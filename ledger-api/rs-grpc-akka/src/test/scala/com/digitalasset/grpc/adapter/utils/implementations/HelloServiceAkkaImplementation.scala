@@ -3,27 +3,27 @@
 
 package com.daml.grpc.adapter.utils.implementations
 
-import java.util.concurrent.atomic.AtomicInteger
-
+import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.server.akka.ServerAdapter
 import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
-import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
-import io.grpc.stub.StreamObserver
+import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceAkkaGrpc, HelloServiceGrpc}
 import io.grpc.{BindableService, ServerServiceDefinition}
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class HelloServiceAkkaImplementation(implicit
-    executionSequencerFactory: ExecutionSequencerFactory,
-    materializer: Materializer,
+    val esf: ExecutionSequencerFactory,
+    val mat: Materializer,
 ) extends HelloService
     with HelloServiceResponding
+    with HelloServiceAkkaGrpc
     with BindableService {
 
+  override protected def optimizeGrpcStreamsThroughput: Boolean = false
   private val serverStreamingCalls = new AtomicInteger()
 
   def getServerStreamingCalls: Int = serverStreamingCalls.get()
@@ -31,14 +31,14 @@ class HelloServiceAkkaImplementation(implicit
   override def bindService(): ServerServiceDefinition =
     HelloServiceGrpc.bindService(this, global)
 
-  override def serverStreaming(
-      request: HelloRequest,
-      responseObserver: StreamObserver[HelloResponse],
-  ): Unit =
+  override protected def serverStreamingSource(
+      request: HelloRequest
+  ): Source[HelloResponse, NotUsed] =
     Source
       .single(request)
       .via(Flow[HelloRequest].mapConcat(responses))
-      .runWith(ServerAdapter.toSink(responseObserver))
-      .onComplete(_ => serverStreamingCalls.incrementAndGet())
-
+      .watchTermination() { (mat, doneF) =>
+        doneF.onComplete(_ => serverStreamingCalls.incrementAndGet())
+        mat
+      }
 }
