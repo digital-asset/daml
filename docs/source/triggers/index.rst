@@ -148,19 +148,16 @@ to only receive events for the ``Message`` template, one would write:
    registeredTemplates = RegisteredTemplates [registeredTemplate @Message],
    ...
 
-and to specify events for both the ``Message`` template and (say) an interface called ``Identity`` (which
-here we will imagine as being implemented by the template ``Alias``), one would write:
-
-.. code-block:: daml
-
-   ...
-   registeredTemplates = RegisteredTemplates [registeredTemplate @Message, registeredTemplate @Identity],
-   ...
-
 This is mainly useful for performance reasons if your DAR contains many templates and interfaces that are not relevant
 for your trigger.
 Note that providing an explicit list of templates and interfaces also filters the result of querying the ACS using
 the Trigger API: contracts of the excluded templates and interfaces cannot be queried.
+
+.. note::
+    In these examples we used templates. Note that interfaces can be passed as well
+    wherever a template is passed, using the same `RegisteredTemplates` type. You are
+    free to pass multiple templates and interfaces and possibly mix the two freely in
+    a single request.
 
 Finally, you can specify an optional heartbeat interval at which the trigger
 will be sent a ``MHeartbeat`` message. This is useful if you want to ensure
