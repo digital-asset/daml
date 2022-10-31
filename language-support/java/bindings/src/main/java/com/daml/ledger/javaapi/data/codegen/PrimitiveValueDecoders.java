@@ -112,6 +112,19 @@ public final class PrimitiveValueDecoders {
    *
    * @hidden
    */
+  public static List<com.daml.ledger.javaapi.data.DamlRecord.Field> recordCheck(int expectedFields, Value maybeRecord) {
+    var record = maybeRecord.asRecord().orElseThrow(() -> new IllegalArgumentException("Contracts must be constructed from Records"));
+    var fields = record.getFields();
+    var numberOfFields = fields.size();
+    if (numberOfFields != expectedFields)
+      throw new IllegalArgumentException("Expected " + expectedFields + " arguments, got " + numberOfFields);
+    return fields;
+  }
+
+  /**
+   *
+   * @hidden
+   */
   public static Value variantCheck(String expectedConstructor, Value variantMaybe) {
     var variant = variantMaybe.asVariant().orElseThrow(() -> new IllegalArgumentException("Expected: Variant. Actual: " + variantMaybe.getClass().getName()));
     if (!expectedConstructor.equals(variant.getConstructor()))
