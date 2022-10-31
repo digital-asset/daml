@@ -78,7 +78,7 @@ message IdentityProviderConfig {
   bool is_deactivated = 2;
 
   // Specifies the issuer of the JWT token that should be used in the "iss" claim of a JWT token to instruct the
-  // participant node to use this authentication domain to authenticate the token.
+  // participant node to use this identity provider to authenticate the token.
   // The issuer value is a case sensitive URL using the https scheme that contains scheme, host,
   // and optionally, port number and path components and no query or fragment components.
   // Required
