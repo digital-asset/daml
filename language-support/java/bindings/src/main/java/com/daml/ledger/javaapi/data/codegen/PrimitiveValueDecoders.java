@@ -107,7 +107,14 @@ public final class PrimitiveValueDecoders {
     return new IllegalArgumentException(String.format("Expected field to be of type %s", typeName));
   }
 
-  /** @hidden */
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+   * and <em>should not be referenced directly</em>. Applications should use a code-generated {@code
+   * valueDecoder} method instead.
+   *
+   * @hidden
+   */
   public static List<com.daml.ledger.javaapi.data.DamlRecord.Field> recordCheck(
       int expectedFields, Value maybeRecord) {
     var record =
@@ -123,7 +130,14 @@ public final class PrimitiveValueDecoders {
     return fields;
   }
 
-  /** @hidden */
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+   * and <em>should not be referenced directly</em>. Applications should use a code-generated {@code
+   * valueDecoder} method instead.
+   *
+   * @hidden
+   */
   public static Value variantCheck(String expectedConstructor, Value variantMaybe) {
     var variant =
         variantMaybe
