@@ -165,19 +165,13 @@ private[inner] object FromValueGenerator extends StrictLogging {
     CodeBlock
       .builder()
       .addStatement(
-        "$T variant$$ = $L.asVariant().orElseThrow(() -> new IllegalArgumentException($S + $L.getClass().getName()))",
-        classOf[javaapi.data.Variant],
-        inputVar,
-        s"Expected: Variant. Actual: ",
-        inputVar,
-      )
-      .addStatement(
-        "if (!$S.equals(variant$$.getConstructor())) throw new $T($S + variant$$.getConstructor())",
+        "$T $L =$W$T.variantCheck($S,$W$L)",
+        classOf[javaapi.data.Value],
+        outputVar,
+        classOf[PrimitiveValueDecoders],
         constructorName,
-        classOf[IllegalArgumentException],
-        s"Invalid constructor. Expected: $constructorName. Actual: ",
+        inputVar,
       )
-      .addStatement("$T $L = variant$$.getValue()", classOf[javaapi.data.Value], outputVar)
       .build()
   }
 
