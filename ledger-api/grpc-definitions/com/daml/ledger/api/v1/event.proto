@@ -16,27 +16,6 @@ option java_outer_classname = "EventOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
-// An event in the flat transaction stream can either be the creation
-// or the archiving of a contract.
-//
-// In the transaction service the events are restricted to the events
-// visible for the parties specified in the transaction filter. Each
-// event message type below contains a ``witness_parties`` field which
-// indicates the subset of the requested parties that can see the event
-// in question. In the flat transaction stream you'll only receive events
-// that have witnesses.
-message Event {
-  oneof event {
-    CreatedEvent created = 1;
-    ArchivedEvent archived = 3;
-    TransferredOut transffered_out = 4;
-    TransferredIn transffered_in = 5;
-  }
-  // see https://github.com/digital-asset/daml/issues/960
-  reserved 2;
-  reserved "exercised";
-}
-
 // Records that a contract has been created, and choices may now be exercised on it.
 message CreatedEvent {
 
@@ -69,20 +48,6 @@ message CreatedEvent {
   //     or with an ``InclusiveFilters`` with empty ``template_ids`` and empty ``interface_filters``).
   // Optional
   Record create_arguments = 4;
-
-  // Opaque representation of contract payload intended for forwarding
-  // to an API server as a contract disclosed as part of a command
-  // submission.
-  // Optional
-  google.protobuf.Any create_arguments_blob = 12;
-
-  // Interface views specified in the transaction filter.
-  // Includes an ``InterfaceView`` for each interface for which there is a ``InterfaceFilter`` with
-  //   - its party in the ``witness_parties`` of this event,
-  //   - and which is implemented by the template of this event,
-  //   - and which has ``include_interface_view`` set.
-  // Optional
-  repeated InterfaceView interface_views = 11;
 
   // The parties that are notified of this event. When a ``CreatedEvent``
   // is returned as part of a transaction tree, this will include all
@@ -118,10 +83,10 @@ message CreatedEvent {
 // Records that a contract has been transferred, and it becomes unusable on the source domain
 message TransferredOutEvent {
 
-  // The ID of this particular event.
-  // TBD: format
+  // The ID of the transfer out event. This needs to be used as an input for a transfer in TransferCommand.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string event_id = 1;
+  string transfer_out_id = 1;
 
   // The ID of the created contract.
   // Must be a valid LedgerString (as described in ``value.proto``).
@@ -147,79 +112,26 @@ message TransferredOutEvent {
 // Records that a contract has been transferred, and it becomes unusable on the source domain
 message TransferredInEvent {
 
-  // The ID of this particular event.
-  // TBD: format
-  // Required
-  string event_id = 1;
-
   // The ID of the created contract.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string contract_id = 2;
+  string contract_id = 1;
 
   // The ID of the source domain
   // Must be a valid domain ID
   // Required
-  string source = 3;
+  string source = 2;
 
   // The ID of the target domain
   // Must be a valid domain ID
   // Required
-  string target = 4;
+  string target = 3;
 
   // The ID of the transfer-out event
   // For correlation capabilities
-  // Required
-  string transfer_out_id = 5;
-}
-
-// View of a create event matched by an interface filter.
-message InterfaceView {
-
-  // The interface implemented by the matched event.
-  // Required
-  Identifier interface_id = 1;
-
-  // Whether the view was successfully computed, and if not,
-  // the reason for the error. The error is reported using the same rules
-  // for error codes and messages as the errors returned for API requests.
-  // Required
-  google.rpc.Status view_status = 2;
-
-  // The value of the interface's view method on this event.
-  // Set if it was requested in the ``InterfaceFilter`` and it could be
-  // sucessfully computed.
-  // Optional
-  Record view_value = 3;
-
-}
-
-// Records that a contract has been archived, and choices may no longer be exercised on it.
-message ArchivedEvent {
-
-  // The ID of this particular event.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string event_id = 1;
-
-  // The ID of the archived contract.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
-  string contract_id = 2;
-
-  // The template of the archived contract.
-  // Required
-  Identifier template_id = 3;
-
-  // The parties that are notified of this event. For an ``ArchivedEvent``,
-  // these are the intersection of the stakeholders of the contract in
-  // question and the parties specified in the ``TransactionFilter``. The
-  // stakeholders are the union of the signatories and the observers of
-  // the contract.
-  // Each one of its elements must be a valid PartyIdString (as described
-  // in ``value.proto``).
-  // Required
-  repeated string witness_parties = 4;
+  string transfer_out_id = 4;
 }
 
 // Records that a choice has been exercised on a target contract.

@@ -71,6 +71,10 @@ message CompletionStreamRequest {
   // This offset is exclusive: the response will only contain commands whose offset is strictly greater than this.
   // Optional, if not set the ledger uses the current ledger end offset instead.
   LedgerOffset offset = 4;
+
+  // Must be a valid domain ID
+  // Required
+  string domain_id = 5;
 }
 
 message CompletionStreamResponse {
@@ -106,6 +110,10 @@ message CompletionEndRequest {
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
   string ledger_id = 1;
+
+  // Must be a valid domain ID
+  // Required
+  string domain_id = 2;
 }
 
 message CompletionEndResponse {

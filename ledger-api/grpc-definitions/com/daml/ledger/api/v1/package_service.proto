@@ -9,6 +9,8 @@ option java_outer_classname = "PackageServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
+// TODO this needs to be also multi-domain
+
 // Allows clients to query the Daml-LF packages that are supported by the server.
 service PackageService {
 

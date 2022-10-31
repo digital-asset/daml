@@ -29,7 +29,7 @@ message LedgerOffset {
 
   oneof value {
     // The format of this string is specific to the ledger and opaque to the client.
-    string absolute = 1;
+    int64 absolute = 1;
     LedgerBoundary boundary = 2;
   }
 

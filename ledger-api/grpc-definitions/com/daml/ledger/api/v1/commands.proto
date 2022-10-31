@@ -29,15 +29,6 @@ message Commands {
   // Optional
   string workflow_id = 2;
 
-  // Domain id for the submission. If not set, Canton will choose the domain among the
-  // admissible ones.
-  // Must be a valid DomainId.
-  // Optional
-  string domain_id = 18;
-
-  // Whether auto-transferring contracts as part of the submission is enabled
-  boolean enable_auto_transfer = 19;
-
   // Uniquely identifies the application or participant user that issued the command.
   // Must be a valid ApplicationIdString (as described in ``value.proto``).
   // Required unless authentication is used with a user token or a custom token specifying an application-id.
