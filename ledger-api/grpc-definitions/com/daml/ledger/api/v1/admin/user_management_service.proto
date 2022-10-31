@@ -97,10 +97,10 @@ message User {
     // Modifiable
     ObjectMeta metadata = 4;
 
-    // The id of the ``Identity Provider``
-    // If not provided, it would be assumed a default identity provider.
+    // The id of the ``Identity Provider Config``
+    // If not provided, it would be assumed a default identity provider config.
     // Optional
-    string identity_provider_id = 5;
+    string identity_provider_config_id = 5;
 }
 
 

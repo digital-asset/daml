@@ -7,31 +7,36 @@ package com.daml.ledger.api.v1.admin;
 
 import "google/protobuf/field_mask.proto";
 
-option java_outer_classname = "IdentityProviderServiceOuterClass";
+option java_outer_classname = "IdentityProviderConfigServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+
+// Service to manage identity provider configuration to make it possible for participant node administrators
+// to setup additional identity providers in the runtime.
 
 // The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
 // (1) ``Optional`` denoting the client may leave the field unset when sending a request.
 // (2) ``Required`` denoting the client must set the field to a non-default value when sending a request.
 //
 // An identity provider resource, once it has been created, can be modified.
-// In order to update the properties represented by the ``IdentityProvider`` message use the ``UpdateIdentityProvider`` RPC.
+// In order to update the properties represented by the ``IdentityProviderConfig`` message use the ``UpdateIdentityProviderConfig`` RPC.
 // The only fields that can be modified are those marked as ``Modifiable``.
-service IdentityProviderService {
-  rpc CreateIdentityProvider (CreateIdentityProviderRequest) returns (CreateIdentityProviderResponse);
+service IdentityProviderConfigService {
 
-  rpc GetIdentityProvider (GetIdentityProviderRequest) returns (GetIdentityProviderResponse);
+  rpc CreateIdentityProviderConfig (CreateIdentityProviderConfigRequest) returns (CreateIdentityProviderConfigResponse);
 
-  rpc ListIdentityProviders (ListIdentityProvidersRequest) returns (ListIdentityProvidersResponse);
+  rpc GetIdentityProviderConfig (GetIdentityProviderConfigRequest) returns (GetIdentityProviderConfigResponse);
 
-  rpc UpdateIdentityProvider (UpdateIdentityProviderRequest) returns (UpdateIdentityProviderResponse);
+  rpc ListIdentityProviderConfigs (ListIdentityProviderConfigsRequest) returns (ListIdentityProviderConfigsResponse);
 
-  rpc DeleteIdentityProvider (DeleteIdentityProviderRequest) returns (DeleteIdentityProviderResponse);
+  rpc UpdateIdentityProviderConfig (UpdateIdentityProviderConfigRequest) returns (UpdateIdentityProviderConfigResponse);
+
+  rpc DeleteIdentityProviderConfig (DeleteIdentityProviderConfigRequest) returns (DeleteIdentityProviderConfigResponse);
+
 }
 
-message IdentityProvider {
-  // The identity provider identifier, which must be a non-empty string of at most 128
+message IdentityProviderConfig {
+  // The identity provider config identifier, which must be a non-empty string of at most 128
   // characters that are either lowercase alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
   // Required
   string id = 1;
@@ -59,23 +64,25 @@ message IdentityProvider {
 }
 
 
-message CreateIdentityProviderRequest {
-  IdentityProvider identity_provider = 1;
+message CreateIdentityProviderConfigRequest {
+  // Required
+  IdentityProviderConfig identity_provider_config = 1;
 }
 
-message CreateIdentityProviderResponse {
-  IdentityProvider identity_provider = 1;
+message CreateIdentityProviderConfigResponse {
+  IdentityProviderConfig identity_provider_config = 1;
 }
 
-message GetIdentityProviderRequest {
-  string identity_provider_id = 1;
+message GetIdentityProviderConfigRequest {
+  // Required
+  string identity_provider_config_id = 1;
 }
 
-message GetIdentityProviderResponse {
-  IdentityProvider identity_provider = 1;
+message GetIdentityProviderConfigResponse {
+  IdentityProviderConfig identity_provider_config = 1;
 }
 
-message ListIdentityProvidersRequest {
+message ListIdentityProviderConfigsRequest {
   // Pagination token to determine the specific page to fetch.
   // Leave empty to fetch the first page.
   // Optional
@@ -87,23 +94,23 @@ message ListIdentityProvidersRequest {
   int32 page_size = 2;
 }
 
-message ListIdentityProvidersResponse {
-  repeated IdentityProvider identity_providers = 1;
+message ListIdentityProviderConfigsResponse {
+  repeated IdentityProviderConfig identity_provider_configs = 1;
 
   // Pagination token to retrieve the next page.
   // Empty, if there are no further results.
   string next_page_token = 2;
 }
 
-message UpdateIdentityProviderRequest {
-  // The identity provider to update.
+message UpdateIdentityProviderConfigRequest {
+  // The identity provider config to update.
   // Required,
   // Modifiable
-  IdentityProvider identity_provider = 1;
+  IdentityProviderConfig identity_provider_config = 1;
 
-  // An update mask specifies how and which properties of the ``IdentityProvider`` message are to be updated.
+  // An update mask specifies how and which properties of the ``IdentityProviderConfig`` message are to be updated.
   // An update mask consists of a set of update paths.
-  // A valid update path points to a field or a subfield relative to the ``IdentityProvider`` message.
+  // A valid update path points to a field or a subfield relative to the ``IdentityProviderConfig`` message.
   // A valid update mask must:
   // (1) contain at least one update path,
   // (2) contain only valid update paths.
@@ -117,18 +124,18 @@ message UpdateIdentityProviderRequest {
   google.protobuf.FieldMask update_mask = 2;
 }
 
-message UpdateIdentityProviderResponse {
-  // Updated identity provider
-  IdentityProvider user = 1;
+message UpdateIdentityProviderConfigResponse {
+  // Updated identity provider config
+  IdentityProviderConfig user = 1;
 }
 
-message DeleteIdentityProviderRequest {
-  // The identity provider to delete.
+message DeleteIdentityProviderConfigRequest {
+  // The identity provider config to delete.
   // Required
-  string identity_provider_id = 1;
+  string identity_provider_config_id = 1;
 }
 
 // Does not (yet) contain any data.
-message DeleteIdentityProviderResponse {
+message DeleteIdentityProviderConfigResponse {
 
 }
