@@ -66,10 +66,10 @@ service IdentityProviderConfigService {
 }
 
 message IdentityProviderConfig {
-  // The identity provider config identifier
+  // The identity provider identifier
   // Must be a valid LedgerString (as describe in ``value.proto``).
   // Required
-  string id = 1;
+  string identity_provider_id = 1;
 
   // When set, then the user identified by the identity provider is denied all access to the Ledger API.
   // Otherwise, the user identified by the identity provider has access to the Ledger API as per the user's record.
@@ -105,7 +105,7 @@ message CreateIdentityProviderConfigResponse {
 
 message GetIdentityProviderConfigRequest {
   // Required
-  string identity_provider_config_id = 1;
+  string identity_provider_id = 1;
 }
 
 message GetIdentityProviderConfigResponse {
@@ -133,10 +133,6 @@ message UpdateIdentityProviderConfigRequest {
   // (1) contain at least one update path,
   // (2) contain only valid update paths.
   // Fields that can be updated are marked as ``Modifiable``.
-  // An update path can also point to a non-``Modifiable`` fields such as 'id' and 'metadata.resource_version'
-  // because they are used:
-  // (1) to identify the user resource subject to the update,
-  // (2) for concurrent change control.
   // For additional information see the documentation for standard protobuf3's ``google.protobuf.FieldMask``.
   // Required
   google.protobuf.FieldMask update_mask = 2;
@@ -150,7 +146,7 @@ message UpdateIdentityProviderConfigResponse {
 message DeleteIdentityProviderConfigRequest {
   // The identity provider config to delete.
   // Required
-  string identity_provider_config_id = 1;
+  string identity_provider_id = 1;
 }
 
 // Does not (yet) contain any data.
