@@ -9,7 +9,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 
 /**
  * {@link ValueDecoder}s for Daml types that are not code-generated.
@@ -108,27 +107,37 @@ public final class PrimitiveValueDecoders {
     return new IllegalArgumentException(String.format("Expected field to be of type %s", typeName));
   }
 
-  /**
-   *
-   * @hidden
-   */
-  public static List<com.daml.ledger.javaapi.data.DamlRecord.Field> recordCheck(int expectedFields, Value maybeRecord) {
-    var record = maybeRecord.asRecord().orElseThrow(() -> new IllegalArgumentException("Contracts must be constructed from Records"));
+  /** @hidden */
+  public static List<com.daml.ledger.javaapi.data.DamlRecord.Field> recordCheck(
+      int expectedFields, Value maybeRecord) {
+    var record =
+        maybeRecord
+            .asRecord()
+            .orElseThrow(
+                () -> new IllegalArgumentException("Contracts must be constructed from Records"));
     var fields = record.getFields();
     var numberOfFields = fields.size();
     if (numberOfFields != expectedFields)
-      throw new IllegalArgumentException("Expected " + expectedFields + " arguments, got " + numberOfFields);
+      throw new IllegalArgumentException(
+          "Expected " + expectedFields + " arguments, got " + numberOfFields);
     return fields;
   }
 
-  /**
-   *
-   * @hidden
-   */
+  /** @hidden */
   public static Value variantCheck(String expectedConstructor, Value variantMaybe) {
-    var variant = variantMaybe.asVariant().orElseThrow(() -> new IllegalArgumentException("Expected: Variant. Actual: " + variantMaybe.getClass().getName()));
+    var variant =
+        variantMaybe
+            .asVariant()
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        "Expected: Variant. Actual: " + variantMaybe.getClass().getName()));
     if (!expectedConstructor.equals(variant.getConstructor()))
-      throw new IllegalArgumentException("Invalid constructor. Expected: " + expectedConstructor +  ". Actual: " + variant.getConstructor());
+      throw new IllegalArgumentException(
+          "Invalid constructor. Expected: "
+              + expectedConstructor
+              + ". Actual: "
+              + variant.getConstructor());
     return variant.getValue();
   }
 }
