@@ -1,4 +1,3 @@
-
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -186,8 +185,4 @@ message PartyDetails {
   // Modifiable
   ObjectMeta local_metadata = 4;
 
-  // The id of the ``Identity Provider Config``
-  // If not provided, it would be assumed a default identity provider config.
-  // Optional
-  string identity_provider_config_id = 5;
 }
