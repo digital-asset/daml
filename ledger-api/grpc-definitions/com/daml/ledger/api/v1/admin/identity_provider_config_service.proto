@@ -12,7 +12,7 @@ option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
 // Service to manage identity provider configuration to make it possible for participant node administrators
-// to setup additional identity providers in the runtime.
+// to setup additional identity providers at runtime.
 
 // The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
 // (1) ``Optional`` denoting the client may leave the field unset when sending a request.
@@ -23,21 +23,51 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // The only fields that can be modified are those marked as ``Modifiable``.
 service IdentityProviderConfigService {
 
+  // Create a new identity provider configuration.
+  // Errors:
+  // - ``ALREADY_EXISTS``: if the identity provider configuration already exists
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   rpc CreateIdentityProviderConfig (CreateIdentityProviderConfigRequest) returns (CreateIdentityProviderConfigResponse);
 
+  // Get the identity provider configuration data by id.
+  // Errors:
+  // - ``NOT_FOUND``: if the identity provider configuration doesn't exist
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   rpc GetIdentityProviderConfig (GetIdentityProviderConfigRequest) returns (GetIdentityProviderConfigResponse);
 
-  rpc ListIdentityProviderConfigs (ListIdentityProviderConfigsRequest) returns (ListIdentityProviderConfigsResponse);
-
+  // Update selected modifiable attribute of a identity provider config resource described
+  // by the ``IdentityProviderConfig`` message.
+  // Errors:
+  // - ``NOT_FOUND``: if the identity provider configuration doesn't exist
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   rpc UpdateIdentityProviderConfig (UpdateIdentityProviderConfigRequest) returns (UpdateIdentityProviderConfigResponse);
 
+  // List all existing identity provider configurations.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
+  rpc ListIdentityProviderConfigs (ListIdentityProviderConfigsRequest) returns (ListIdentityProviderConfigsResponse);
+
+  // Delete an existing identity provider configuration.
+  // Errors:
+  // - ``NOT_FOUND``: if the identity provider configuration doesn't exist
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   rpc DeleteIdentityProviderConfig (DeleteIdentityProviderConfigRequest) returns (DeleteIdentityProviderConfigResponse);
 
 }
 
 message IdentityProviderConfig {
-  // The identity provider config identifier, which must be a non-empty string of at most 128
-  // characters that are either lowercase alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
+  // The identity provider config identifier
+  // Must be a valid LedgerString (as describe in ``value.proto``).
   // Required
   string id = 1;
 
@@ -83,23 +113,11 @@ message GetIdentityProviderConfigResponse {
 }
 
 message ListIdentityProviderConfigsRequest {
-  // Pagination token to determine the specific page to fetch.
-  // Leave empty to fetch the first page.
-  // Optional
-  string page_token = 1;
 
-  // Maximum number of results to be returned by the server. The server will return no more than that many results, but it might return fewer.
-  // If 0, the server will decide the number of results to be returned.
-  // Optional
-  int32 page_size = 2;
 }
 
 message ListIdentityProviderConfigsResponse {
   repeated IdentityProviderConfig identity_provider_configs = 1;
-
-  // Pagination token to retrieve the next page.
-  // Empty, if there are no further results.
-  string next_page_token = 2;
 }
 
 message UpdateIdentityProviderConfigRequest {
@@ -126,7 +144,7 @@ message UpdateIdentityProviderConfigRequest {
 
 message UpdateIdentityProviderConfigResponse {
   // Updated identity provider config
-  IdentityProviderConfig user = 1;
+  IdentityProviderConfig identity_provider_config = 1;
 }
 
 message DeleteIdentityProviderConfigRequest {
