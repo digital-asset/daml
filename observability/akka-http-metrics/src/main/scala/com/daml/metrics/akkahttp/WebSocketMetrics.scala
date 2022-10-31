@@ -10,7 +10,7 @@ import akka.stream.scaladsl.{Flow, Sink}
 import akka.http.scaladsl.model.ws.{Message, TextMessage, BinaryMessage}
 
 import com.daml.metrics.api.MetricsContext
-import com.daml.metrics.api.MetricHandle.{Counter, Histogram}
+import com.daml.metrics.api.MetricHandle.Counter
 
 /** Support to capture metrics on websockets on akka http
   */
@@ -24,15 +24,15 @@ object WebSocketMetrics {
     */
   def withGoldenSignalsMetrics[M](
       wsReceivedTotal: Counter,
-      wsReceivedSizeByte: Histogram,
+      wsReceivedBytesTotal: Counter,
       wsSentTotal: Counter,
-      wsSentSizeByte: Histogram,
+      wsSentBytesTotal: Counter,
       flow: Flow[Message, Message, M],
   )(implicit mc: MetricsContext): Flow[Message, Message, M] = {
     Flow[Message]
-      .map(messageCountAndSizeReportMetric(_, wsReceivedTotal, wsReceivedSizeByte))
+      .map(messageCountAndSizeReportMetric(_, wsReceivedTotal, wsReceivedBytesTotal))
       .viaMat(flow)((_, mat2) => mat2)
-      .map(messageCountAndSizeReportMetric(_, wsSentTotal, wsSentSizeByte))
+      .map(messageCountAndSizeReportMetric(_, wsSentTotal, wsSentBytesTotal))
   }
 
   // support for message counting, and computation and report of the size of a message
@@ -40,28 +40,28 @@ object WebSocketMetrics {
   private def messageCountAndSizeReportMetric(
       message: Message,
       totalMetric: Counter,
-      sizeByteMetric: Histogram,
+      bytesTotalMetric: Counter,
   )(implicit mc: MetricsContext): Message = {
     totalMetric.inc()
     message match {
       case m: BinaryMessage.Strict =>
-        sizeByteMetric.update(m.data.length)
+        bytesTotalMetric.inc(m.data.length.toLong)
         m
       case m: BinaryMessage.Streamed =>
         val newStream = m.dataStream.alsoTo(
           Flow[ByteString]
-            .fold(0)((acc, d) => acc + d.length)
-            .to(Sink.foreach(sizeByteMetric.update(_)))
+            .fold(0L)((acc, d) => acc + d.length)
+            .to(Sink.foreach(bytesTotalMetric.inc(_)))
         )
         BinaryMessage.Streamed(newStream)
       case m: TextMessage.Strict =>
-        sizeByteMetric.update(Utf8.encodedLength(m.text))
+        bytesTotalMetric.inc(Utf8.encodedLength(m.text).toLong)
         m
       case m: TextMessage.Streamed =>
         val newStream = m.textStream.alsoTo(
           Flow[String]
-            .fold(0)((acc, t) => acc + Utf8.encodedLength(t))
-            .to(Sink.foreach { sizeByteMetric.update(_) })
+            .fold(0L)((acc, t) => acc + Utf8.encodedLength(t))
+            .to(Sink.foreach { bytesTotalMetric.inc(_) })
         )
         TextMessage.Streamed(newStream)
     }

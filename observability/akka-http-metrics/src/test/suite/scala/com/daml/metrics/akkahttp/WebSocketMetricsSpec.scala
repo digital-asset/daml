@@ -18,7 +18,7 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.MetricHandle.{Counter, Histogram}
+import com.daml.metrics.api.MetricHandle.Counter
 
 class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with Matchers {
 
@@ -33,17 +33,17 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
     */
   case class TestMetrics(
       messagesReceivedTotal: Counter,
-      messagesReceivedSizeByte: Histogram,
+      messagesReceivedBytesTotal: Counter,
       messagesSentTotal: Counter,
-      messagesSentSizeByte: Histogram,
+      messagesSentBytesTotal: Counter,
   ) {
 
     import TestMetrics._
 
     def messagesReceivedTotalValue: Long = getCounterValue(messagesReceivedTotal)
-    def messagesReceivedSizeByteValue: HistogramData = getHistogramValues(messagesReceivedSizeByte)
+    def messagesReceivedBytesTotalValue: Long = getCounterValue(messagesReceivedBytesTotal)
     def messagesSentTotalValue: Long = getCounterValue(messagesSentTotal)
-    def messagesSentSizeByteValue: HistogramData = getHistogramValues(messagesSentSizeByte)
+    def messagesSentBytesTotalValue: Long = getCounterValue(messagesSentBytesTotal)
 
   }
 
@@ -56,16 +56,16 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
       val baseName = MetricName(s"test-$testNumber")
 
       val receivedTotalName = baseName :+ "messages_received_total"
-      val receivedSizeByteName = baseName :+ "messages_received_size_bytes"
+      val receivedBytesTotalName = baseName :+ "messages_received_bytes_total"
       val sentTotalName = baseName :+ "messages_sent_total"
-      val sentSizeByteName = baseName :+ "messages_sent_size_bytes"
+      val sentBytesTotalName = baseName :+ "messages_sent_bytes_total"
 
       val receivedTotal = metricFactory.counter(receivedTotalName)
-      val receivedSizeByte = metricFactory.histogram(receivedSizeByteName)
+      val receivedBytesTotal = metricFactory.counter(receivedBytesTotalName)
       val sentTotal = metricFactory.counter(sentTotalName)
-      val sentSizeByte = metricFactory.histogram(sentSizeByteName)
+      val sentBytesTotal = metricFactory.counter(sentBytesTotalName)
 
-      TestMetrics(receivedTotal, receivedSizeByte, sentTotal, sentSizeByte)
+      TestMetrics(receivedTotal, receivedBytesTotal, sentTotal, sentBytesTotal)
     }
   }
 
@@ -76,9 +76,9 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
     val metrics = TestMetrics()
     val duplicatingFlowWithMetrics = WebSocketMetrics.withGoldenSignalsMetrics(
       metrics.messagesReceivedTotal,
-      metrics.messagesReceivedSizeByte,
+      metrics.messagesReceivedBytesTotal,
       metrics.messagesSentTotal,
-      metrics.messagesSentSizeByte,
+      metrics.messagesSentBytesTotal,
       Flow[Message].mapAsync(1)(duplicateMessage).mapConcat(identity),
     )(MetricsContext.Empty)
     f(duplicatingFlowWithMetrics, metrics)
@@ -124,13 +124,19 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
   private val getMessagesSentTotalValue: TestMetrics => Long = (metrics: TestMetrics) =>
     metrics.messagesSentTotalValue
 
+  private val getMessagesReceivedBytesTotalValue: TestMetrics => Long =
+    (metrics: TestMetrics) => metrics.messagesReceivedBytesTotalValue
+
+  private val getMessagesSentBytesTotalValue: TestMetrics => Long = (metrics: TestMetrics) =>
+    metrics.messagesSentBytesTotalValue
+
   private def checkCountThroughFlow(
       messages: List[Message],
       metricExtractor: (TestMetrics) => Long,
       expected: Long,
   ): Future[Assertion] = {
     withDuplicatingFlowAndMetrics { (flow, metrics) =>
-      val done = Source(messages).via(flow).run()
+      val done = Source(messages).via(flow).runWith(drainStreamedMessages)
       done.map { _ =>
         metricExtractor(metrics) should be(expected)
       }
@@ -207,123 +213,96 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
     }
   }
 
-  private val getMessagesReceivedSizeByteValue: TestMetrics => HistogramData =
-    (metrics: TestMetrics) => metrics.messagesReceivedSizeByteValue
-
-  private val getMessagesSentSizeByteValue: TestMetrics => HistogramData = (metrics: TestMetrics) =>
-    metrics.messagesSentSizeByteValue
-
-  private def checkSizeByteThroughFlow(
-      messages: List[Message],
-      metricExtractor: TestMetrics => HistogramData,
-      expected: HistogramData,
-  ): Future[Assertion] = {
-    withDuplicatingFlowAndMetrics { (flow, metrics) =>
-      val done = Source(messages).via(flow).runWith(drainStreamedMessages)
-      done.map { _ =>
-        metricExtractor(metrics) should be(expected)
-      }
-    }
-  }
-
-  private def checkSizeByteThroughFlow(
-      message: Message,
-      metricExtractor: TestMetrics => HistogramData,
-      expected: HistogramData,
-  ): Future[Assertion] = {
-    checkSizeByteThroughFlow(List(message), metricExtractor, expected)
-  }
-
-  "websocket_message_received_size_bytes" should {
+  "websocket_message_received_bytes_total" should {
     "count size of passing strict text messages" in {
-      checkSizeByteThroughFlow(
+      checkCountThroughFlow(
         strictTextMessage,
-        getMessagesReceivedSizeByteValue,
-        HistogramData(6L),
+        getMessagesReceivedBytesTotalValue,
+        6L,
       )
     }
 
     "count size of passing streamed text messages" in {
-      checkSizeByteThroughFlow(
+      checkCountThroughFlow(
         streamedTextMessage,
-        getMessagesReceivedSizeByteValue,
-        HistogramData(10L),
+        getMessagesReceivedBytesTotalValue,
+        10L,
       )
     }
 
     "count size of passing strict binary messages" in {
-      checkSizeByteThroughFlow(
+      checkCountThroughFlow(
         strictBinaryMessage,
-        getMessagesReceivedSizeByteValue,
-        HistogramData(7L),
+        getMessagesReceivedBytesTotalValue,
+        7L,
       )
     }
 
     "count size of passing streamed binary messages" in {
-      checkSizeByteThroughFlow(
+      checkCountThroughFlow(
         streamedBinaryMessage,
-        getMessagesReceivedSizeByteValue,
-        HistogramData(5L),
+        getMessagesReceivedBytesTotalValue,
+        5L,
       )
     }
 
     "count the size of a set of passing messages" in {
-      checkSizeByteThroughFlow(
+      checkCountThroughFlow(
         List[Message](
           strictTextMessage,
           streamedTextMessage,
           strictBinaryMessage,
           streamedBinaryMessage,
         ),
-        getMessagesReceivedSizeByteValue,
-        HistogramData(List(5L, 6L, 7L, 10L)),
+        getMessagesReceivedBytesTotalValue,
+        5L + 6L + 7L + 10L,
       )
     }
   }
 
-  "websocket_message_sent_size_bytes" should {
+  "websocket_message_sent_bytes_total" should {
     "count size of passing strict text messages" in {
-      checkSizeByteThroughFlow(
+      checkCountThroughFlow(
         strictTextMessage,
-        getMessagesSentSizeByteValue,
-        HistogramData(List(6L, 6L)),
+        getMessagesSentBytesTotalValue,
+        6L + 6L,
       )
     }
 
     "count size of passing streamed text messages" in {
-      checkSizeByteThroughFlow(
+      checkCountThroughFlow(
         streamedTextMessage,
-        getMessagesSentSizeByteValue,
-        HistogramData(List(10L, 10L)),
+        getMessagesSentBytesTotalValue,
+        10L + 10L,
       )
     }
 
     "count size of passing strict binary messages" in {
-      checkSizeByteThroughFlow(
+      checkCountThroughFlow(
         strictBinaryMessage,
-        getMessagesSentSizeByteValue,
-        HistogramData(List(7L, 7L)),
+        getMessagesSentBytesTotalValue,
+        7L + 7L,
       )
     }
 
     "count size of passing streamed binary messages" in {
-      checkSizeByteThroughFlow(
+      checkCountThroughFlow(
         streamedBinaryMessage,
-        getMessagesSentSizeByteValue,
-        HistogramData(List(5L, 5L)),
+        getMessagesSentBytesTotalValue,
+        5L + 5L,
       )
     }
 
     "count the size of a set of passing messages" in {
-      checkSizeByteThroughFlow(
+      checkCountThroughFlow(
         List[Message](
           strictTextMessage,
           streamedTextMessage,
           strictBinaryMessage,
           streamedBinaryMessage,
         ),
-        getMessagesSentSizeByteValue,
-        HistogramData(List(5L, 5L, 6L, 6L, 7L, 7L, 10L, 10L)),
+        getMessagesSentBytesTotalValue,
+        5L + 5L + 6L + 6L + 7L + 7L + 10L + 10L,
       )
     }
   }

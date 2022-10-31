@@ -25,7 +25,7 @@ import com.daml.metrics.akkahttp.AkkaUtils._
 
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, Timer}
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -43,8 +43,8 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
       httpRequestsTotal: Counter,
       httpErrorsTotal: Counter,
       httpLatency: Timer,
-      httpRequestsSizeByte: Histogram,
-      httpResponsesSizeByte: Histogram,
+      httpRequestsBytesTotal: Counter,
+      httpResponsesBytesTotal: Counter,
   ) {
 
     import TestMetrics._
@@ -52,8 +52,8 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
     def httpRequestsTotalValue: Long = getCounterValue(httpRequestsTotal)
     def httpErrorsTotalValue: Long = getCounterValue(httpErrorsTotal)
     def httpLatencyValue: HistogramData = getHistogramValues(httpLatency)
-    def httpRequestsSizeByteValue: HistogramData = getHistogramValues(httpRequestsSizeByte)
-    def httpResponsesSizeByteValue: HistogramData = getHistogramValues(httpResponsesSizeByte)
+    def httpRequestsBytesTotalValue: Long = getCounterValue(httpRequestsBytesTotal)
+    def httpResponsesBytesTotalValue: Long = getCounterValue(httpResponsesBytesTotal)
 
   }
 
@@ -68,21 +68,21 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
       val httpRequestsTotalName = baseName :+ "requests_total"
       val httpErrorsTotalName = baseName :+ "errors_total"
       val httpLatencyName = baseName :+ "requests_duration_seconds"
-      val httpRequestsSizeByteName = baseName :+ "requests_size_bytes"
-      val httpResponsesSizeByteName = baseName :+ "responses_size_bytes"
+      val httpRequestsBytesTotalName = baseName :+ "requests_bytes_total"
+      val httpResponsesBytesTotalName = baseName :+ "responses_bytes_total"
 
       val httpRequestsTotal = metricFactory.counter(httpRequestsTotalName)
       val httpErrorsTotal = metricFactory.counter(httpErrorsTotalName)
       val httpLatency = metricFactory.timer(httpLatencyName)
-      val httpRequestsSizeByte = metricFactory.histogram(httpRequestsSizeByteName)
-      val httpResponsesSizeByte = metricFactory.histogram(httpResponsesSizeByteName)
+      val httpRequestsBytesTotal = metricFactory.counter(httpRequestsBytesTotalName)
+      val httpResponsesBytesTotal = metricFactory.counter(httpResponsesBytesTotalName)
 
       TestMetrics(
         httpRequestsTotal,
         httpErrorsTotal,
         httpLatency,
-        httpRequestsSizeByte,
-        httpResponsesSizeByte,
+        httpRequestsBytesTotal,
+        httpResponsesBytesTotal,
       )
     }
   }
@@ -159,8 +159,8 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
       metrics.httpRequestsTotal,
       metrics.httpErrorsTotal,
       metrics.httpLatency,
-      metrics.httpRequestsSizeByte,
-      metrics.httpResponsesSizeByte,
+      metrics.httpRequestsBytesTotal,
+      metrics.httpResponsesBytesTotal,
     ) apply route
   }
 
@@ -265,11 +265,11 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
 
   }
 
-  "requests_size_bytes" should {
+  "requests_bytes_total" should {
     "record successful request without payload" in {
       withRouteAndMetrics { (route, metrics) =>
         Get("/a/bit/deeper") ~> route ~> check {
-          metrics.httpRequestsSizeByteValue should be(HistogramData(0L))
+          metrics.httpRequestsBytesTotalValue should be(0L)
         }
       }
     }
@@ -280,7 +280,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           "/mirror/200",
           HttpEntity.Strict(ContentTypes.`text/plain(UTF-8)`, ByteString("hello")),
         ) ~> route ~> check {
-          metrics.httpRequestsSizeByteValue should be(HistogramData(5L))
+          metrics.httpRequestsBytesTotalValue should be(5L)
         }
       }
     }
@@ -291,7 +291,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           "/mirror/200",
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, ByteString(byteArray1)),
         ) ~> route ~> check {
-          metrics.httpRequestsSizeByteValue should be(HistogramData(6L))
+          metrics.httpRequestsBytesTotalValue should be(6L)
         }
       }
     }
@@ -306,7 +306,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
             Source.single(ByteString(byteArray1)),
           ),
         ) ~> route ~> check {
-          metrics.httpRequestsSizeByteValue should be(HistogramData(6L))
+          metrics.httpRequestsBytesTotalValue should be(6L)
         }
       }
     }
@@ -320,7 +320,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
             Source(List(ByteString(byteArray1), ByteString(byteArray2))),
           ),
         ) ~> route ~> check {
-          metrics.httpRequestsSizeByteValue should be(HistogramData(15L))
+          metrics.httpRequestsBytesTotalValue should be(15L)
         }
       }
     }
@@ -331,7 +331,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           "/undefined",
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, ByteString(byteArray1)),
         ) ~> route ~> check {
-          metrics.httpRequestsSizeByteValue should be(HistogramData(6L))
+          metrics.httpRequestsBytesTotalValue should be(6L)
         }
       }
     }
@@ -342,7 +342,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           "/unauthorized",
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, ByteString(byteArray1)),
         ) ~> route ~> check {
-          metrics.httpRequestsSizeByteValue should be(HistogramData(6L))
+          metrics.httpRequestsBytesTotalValue should be(6L)
         }
       }
     }
@@ -353,7 +353,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           "/badrequest",
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, ByteString(byteArray1)),
         ) ~> route ~> check {
-          metrics.httpRequestsSizeByteValue should be(HistogramData(6L))
+          metrics.httpRequestsBytesTotalValue should be(6L)
         }
       }
     }
@@ -364,7 +364,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           "/exception",
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, ByteString(byteArray1)),
         ) ~> route ~> check {
-          metrics.httpRequestsSizeByteValue should be(HistogramData(6L))
+          metrics.httpRequestsBytesTotalValue should be(6L)
         }
       }
     }
@@ -383,26 +383,20 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           "/exception",
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, ByteString(byteArray1)),
         ) ~> route ~> check {
-          metrics.httpRequestsSizeByteValue should be(
-            HistogramData(
-              List(
-                5L,
-                15L,
-                6L,
-              )
-            )
+          metrics.httpRequestsBytesTotalValue should be(
+            5L + 15L + 6L
           )
         }
       }
     }
   }
 
-  "responses_size_bytes" should {
+  "responses_bytes_total" should {
     "record successful response without payload" in {
       withRouteAndMetrics { (route, metrics) =>
         Get("/mirror/200") ~> route ~> check {
           responseAs[String] // force processing the response
-          metrics.httpResponsesSizeByteValue should be(HistogramData(0L))
+          metrics.httpResponsesBytesTotalValue should be(0L)
         }
       }
     }
@@ -414,7 +408,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           HttpEntity.Strict(ContentTypes.`text/plain(UTF-8)`, ByteString("hello")),
         ) ~> route ~> check {
           responseAs[String] // force processing the response
-          metrics.httpResponsesSizeByteValue should be(HistogramData(5L))
+          metrics.httpResponsesBytesTotalValue should be(5L)
         }
       }
     }
@@ -426,7 +420,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, ByteString(byteArray1)),
         ) ~> route ~> check {
           responseAs[String] // force processing the response
-          metrics.httpResponsesSizeByteValue should be(HistogramData(6L))
+          metrics.httpResponsesBytesTotalValue should be(6L)
         }
       }
     }
@@ -442,7 +436,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           ),
         ) ~> route ~> check {
           responseAs[String] // force processing the response
-          metrics.httpResponsesSizeByteValue should be(HistogramData(6L))
+          metrics.httpResponsesBytesTotalValue should be(6L)
         }
       }
     }
@@ -457,7 +451,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           ),
         ) ~> route ~> check {
           responseAs[String] // force processing the response
-          metrics.httpResponsesSizeByteValue should be(HistogramData(15L))
+          metrics.httpResponsesBytesTotalValue should be(15L)
         }
       }
     }
@@ -469,8 +463,8 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, ByteString(byteArray1)),
         ) ~> route ~> check {
           val response = responseAs[String]
-          metrics.httpResponsesSizeByteValue should be(
-            HistogramData(response.length.toLong)
+          metrics.httpResponsesBytesTotalValue should be(
+            response.length.toLong
           )
         }
       }
@@ -483,8 +477,8 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, ByteString(byteArray1)),
         ) ~> route ~> check {
           val response = responseAs[String]
-          metrics.httpResponsesSizeByteValue should be(
-            HistogramData(response.length.toLong)
+          metrics.httpResponsesBytesTotalValue should be(
+            response.length.toLong
           )
         }
       }
@@ -497,8 +491,8 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, ByteString(byteArray1)),
         ) ~> route ~> check {
           val response = responseAs[String]
-          metrics.httpResponsesSizeByteValue should be(
-            HistogramData(response.length.toLong)
+          metrics.httpResponsesBytesTotalValue should be(
+            response.length.toLong
           )
         }
       }
@@ -511,8 +505,8 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, ByteString(byteArray1)),
         ) ~> route ~> check {
           val response = responseAs[String]
-          metrics.httpResponsesSizeByteValue should be(
-            HistogramData(response.length.toLong)
+          metrics.httpResponsesBytesTotalValue should be(
+            response.length.toLong
           )
         }
       }
@@ -540,15 +534,15 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, ByteString(byteArray1)),
         ) ~> route ~> check {
           val response = responseAs[String]
-          metrics.httpResponsesSizeByteValue should be(
-            HistogramData(List(4L, 15L, response.length.toLong))
+          metrics.httpResponsesBytesTotalValue should be(
+            4L + 15L + response.length.toLong
           )
         }
       }
     }
   }
 
-  "request_size_byte and responses_size_bytes support" should {
+  "request_bytes_total and responses_bytes_total support" should {
     "not alter string data" in {
       withRouteAndMetrics { (route, _) =>
         Get(

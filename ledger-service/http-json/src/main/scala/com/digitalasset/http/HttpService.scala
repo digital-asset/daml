@@ -221,8 +221,8 @@ object HttpService {
         metrics.daml.HttpJsonApi.httpRequestsTotal,
         metrics.daml.HttpJsonApi.httpErrorsTotal,
         metrics.daml.HttpJsonApi.httpLatency,
-        metrics.daml.HttpJsonApi.httpRequestsSizeByte,
-        metrics.daml.HttpJsonApi.httpResponsesSizeByte,
+        metrics.daml.HttpJsonApi.httpRequestsBytesTotal,
+        metrics.daml.HttpJsonApi.httpResponsesBytesTotal,
       )
 
       defaultEndpoints =

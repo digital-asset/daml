@@ -160,9 +160,9 @@ class WebsocketEndpoints(
     val handler: Flow[Message, Message, _] =
       WebSocketMetrics.withGoldenSignalsMetrics(
         metrics.daml.HttpJsonApi.wsReceivedTotal,
-        metrics.daml.HttpJsonApi.wsReceivedSizeByte,
+        metrics.daml.HttpJsonApi.wsReceivedBytesTotal,
         metrics.daml.HttpJsonApi.wsSentTotal,
-        metrics.daml.HttpJsonApi.wsSentSizeByte,
+        metrics.daml.HttpJsonApi.wsSentBytesTotal,
         webSocketService.transactionMessageHandler[A](jwt, jwtPayload),
       )(MetricsContext.Empty)
     req.handleMessages(handler, Some(protocol))

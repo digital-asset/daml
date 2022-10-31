@@ -13,7 +13,7 @@ import akka.http.scaladsl.server.RouteResult._
 
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
-import com.daml.metrics.api.MetricHandle.{Counter, Timer, Histogram}
+import com.daml.metrics.api.MetricHandle.{Counter, Timer}
 
 /** Support to capture metrics on akka http
   */
@@ -30,14 +30,14 @@ object AkkaHttpMetrics {
       requestsTotal: Counter,
       errorsTotal: Counter,
       latency: Timer,
-      requestSize: Histogram,
-      responseSize: Histogram,
+      requestBytesTotal: Counter,
+      responseBytesTotal: Counter,
   )(implicit ec: ExecutionContext, mc: MetricsContext) =
     Directive { (fn: Unit => Route) => ctx =>
       // process the query, using a copy of the httpRequest, with size metric computation
       val newCtx = ctx.withRequest(
         ctx.request.withEntity(
-          requestEntityContentLenghtReportMetric(ctx.request.entity, requestSize)
+          requestEntityContentLenghtReportMetric(ctx.request.entity, requestBytesTotal)
         )
       )
       val result = Timed.future(latency, fn(())(newCtx))
@@ -54,7 +54,7 @@ object AkkaHttpMetrics {
             scala.util.Success(
               Complete(
                 httpResponse.withEntity(
-                  responseEntityContentLenghtReportMetric(httpResponse.entity, responseSize)
+                  responseEntityContentLenghtReportMetric(httpResponse.entity, responseBytesTotal)
                 )
               )
             )
@@ -72,13 +72,13 @@ object AkkaHttpMetrics {
   // for streaming content, creates a copy of the requestEntity, with embedded support
   private def requestEntityContentLenghtReportMetric(
       requestEntity: RequestEntity,
-      metric: Histogram,
+      metric: Counter,
   )(implicit mc: MetricsContext): RequestEntity =
     requestEntity match {
       case e: HttpEntity.Default =>
         e.copy(data = byteStringSourceLenghtReportMetric(e.data, metric))
       case e: HttpEntity.Strict =>
-        metric.update(e.data.length)
+        metric.inc(e.data.length.toLong)
         e
       case e: HttpEntity.Chunked =>
         e.copy(chunks = chunkStreamPartSourceLengthReportMetric(e.chunks, metric))
@@ -89,13 +89,13 @@ object AkkaHttpMetrics {
   // for streaming content, creates a copy of the responseEntity, with embedded support
   private def responseEntityContentLenghtReportMetric(
       responseEntity: ResponseEntity,
-      metric: Histogram,
+      metric: Counter,
   )(implicit mc: MetricsContext): ResponseEntity =
     responseEntity match {
       case e: HttpEntity.Default =>
         e.copy(data = byteStringSourceLenghtReportMetric(e.data, metric))
       case e: HttpEntity.Strict =>
-        metric.update(e.data.length)
+        metric.inc(e.data.length.toLong)
         e
       case e: HttpEntity.Chunked =>
         e.copy(chunks = chunkStreamPartSourceLengthReportMetric(e.chunks, metric))
@@ -106,21 +106,21 @@ object AkkaHttpMetrics {
   // adds a side flow to the source, to compute and report the total size of the ByteString elements
   private def byteStringSourceLenghtReportMetric[Mat](
       source: Source[ByteString, Mat],
-      metric: Histogram,
+      metric: Counter,
   )(implicit mc: MetricsContext): Source[ByteString, Mat] =
     source.alsoTo(
-      Flow[ByteString].fold(0)((acc, d) => acc + d.length).to(Sink.foreach(metric.update(_)))
+      Flow[ByteString].fold(0L)((acc, d) => acc + d.length).to(Sink.foreach(metric.inc(_)))
     )
 
   // adds a side flow to the source, to compute and report the total size of the ChunckStreamPart elements
   private def chunkStreamPartSourceLengthReportMetric[Mat](
       source: Source[HttpEntity.ChunkStreamPart, Mat],
-      metric: Histogram,
+      metric: Counter,
   )(implicit mc: MetricsContext): Source[HttpEntity.ChunkStreamPart, Mat] =
     source.alsoTo(
       Flow[HttpEntity.ChunkStreamPart]
-        .fold(0)((acc, c) => acc + c.data.length)
-        .to(Sink.foreach(metric.update(_)))
+        .fold(0L)((acc, c) => acc + c.data.length)
+        .to(Sink.foreach(metric.inc(_)))
     )
 
 }

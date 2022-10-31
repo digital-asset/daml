@@ -4,7 +4,7 @@
 package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer, Histogram}
+import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.dropwizard.DropwizardFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
@@ -89,17 +89,17 @@ class HttpJsonApiMetrics(
   val httpRequestsTotal: Counter = OpenTelemetryMetrics.counter(prefix :+ "requests_total")
   val httpErrorsTotal: Counter = OpenTelemetryMetrics.counter(prefix :+ "errors_total")
   val httpLatency: Timer = OpenTelemetryMetrics.timer(prefix :+ "requests_duration_seconds")
-  val httpRequestsSizeByte: Histogram =
-    OpenTelemetryMetrics.histogram(prefix :+ "requests_size_bytes")
-  val httpResponsesSizeByte: Histogram =
-    OpenTelemetryMetrics.histogram(prefix :+ "responses_size_bytes")
+  val httpRequestsBytesTotal: Counter =
+    OpenTelemetryMetrics.counter(prefix :+ "requests_bytes_total")
+  val httpResponsesBytesTotal: Counter =
+    OpenTelemetryMetrics.counter(prefix :+ "responses_bytes_total")
 
   // websocket metrics
   val wsReceivedTotal: Counter =
     OpenTelemetryMetrics.counter(prefix :+ "websocket_messages_received_total")
-  val wsReceivedSizeByte: Histogram =
-    OpenTelemetryMetrics.histogram(prefix :+ "websocket_messages_received_size_bytes")
+  val wsReceivedBytesTotal: Counter =
+    OpenTelemetryMetrics.counter(prefix :+ "websocket_messages_received_bytes_total")
   val wsSentTotal: Counter = OpenTelemetryMetrics.counter(prefix :+ "websocket_messages_sent_total")
-  val wsSentSizeByte: Histogram =
-    OpenTelemetryMetrics.histogram(prefix :+ "websocket_messages_sent_size_bytes")
+  val wsSentBytesTotal: Counter =
+    OpenTelemetryMetrics.counter(prefix :+ "websocket_messages_sent_bytes_total")
 }
