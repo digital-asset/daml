@@ -3,8 +3,9 @@
 
 package com.daml.platform.apiserver.ratelimiting
 
+import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
-import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
+import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.api.health.HealthChecks.ComponentName
 import com.daml.ledger.api.health.{HealthChecks, ReportsHealth}
@@ -39,11 +40,11 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Second, Span}
 import org.slf4j.LoggerFactory
+
 import java.io.IOException
 import java.lang.management._
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
 import io.opentelemetry.api.GlobalOpenTelemetry
 
 import scala.concurrent.{Future, Promise}
@@ -67,7 +68,7 @@ final class RateLimitingInterceptorSpec
 
   it should "limit calls when apiServices DB thread pool executor service is over limit" in {
     val metrics = createMetrics
-    withChannel(metrics, new HelloServiceAkkaImplementation, config).use { channel: Channel =>
+    withChannel(metrics, new HelloServiceReferenceImplementation, config).use { channel: Channel =>
       val helloService = HelloServiceGrpc.stub(channel)
       val submitted = metrics.registry.meter(
         MetricRegistry.name(
@@ -188,7 +189,7 @@ final class RateLimitingInterceptorSpec
 
     val pool = List(nonCollectableBean, nonHeapBean, memoryPoolBean)
 
-    withChannel(metrics, new HelloServiceAkkaImplementation, config, pool, memoryBean).use {
+    withChannel(metrics, new HelloServiceReferenceImplementation, config, pool, memoryBean).use {
       channel: Channel =>
         val helloService = HelloServiceGrpc.stub(channel)
         for {
@@ -350,7 +351,7 @@ final class RateLimitingInterceptorSpec
 
     val pool = List(memoryPoolBean)
 
-    withChannel(metrics, new HelloServiceAkkaImplementation, config, pool, memoryBean).use {
+    withChannel(metrics, new HelloServiceReferenceImplementation, config, pool, memoryBean).use {
       channel: Channel =>
         val helloService = HelloServiceGrpc.stub(channel)
         for {
@@ -386,7 +387,7 @@ final class RateLimitingInterceptorSpec
 
     withChannel(
       metrics,
-      new HelloServiceAkkaImplementation,
+      new HelloServiceReferenceImplementation,
       config,
       additionalChecks = List(apiServicesCheck),
     ).use { channel: Channel =>
@@ -466,7 +467,10 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
     * the server side on every request.  For stream based rate limiting we want to explicitly hold open
     * the stream such that we know for sure how many streams are open.
     */
-  class WaitService extends HelloServiceReferenceImplementation {
+  class WaitService(
+      protected override implicit val esf: ExecutionSequencerFactory,
+      protected override implicit val mat: Materializer,
+  ) extends HelloServiceReferenceImplementation {
 
     private val observers = new LinkedBlockingQueue[StreamObserver[HelloResponse]]()
     private val requests = new LinkedBlockingQueue[Promise[HelloResponse]]()

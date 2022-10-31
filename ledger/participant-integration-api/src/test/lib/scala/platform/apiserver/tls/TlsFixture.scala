@@ -3,6 +3,9 @@
 
 package com.daml.platform.apiserver.tls
 
+import akka.stream.Materializer
+import com.daml.grpc.adapter.{ExecutionSequencerFactory, TestExecutionSequencerFactory}
+
 import java.io.File
 import java.util.concurrent.Executors
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
@@ -30,7 +33,9 @@ case class TlsFixture(
     clientKey: Option[File],
     clientAuth: ClientAuth = ClientAuth.REQUIRE,
     certRevocationChecking: Boolean = false,
-)(implicit rc: ResourceContext) {
+)(implicit rc: ResourceContext, mat: Materializer) {
+
+  private implicit val esf: ExecutionSequencerFactory = TestExecutionSequencerFactory.instance
 
   def makeARequest(): Future[HelloResponse] =
     resources().use { channel =>
@@ -50,7 +55,7 @@ case class TlsFixture(
 
   private final class EmptyApiServices extends ApiServices {
     override val services: Iterable[BindableService] = List(
-      new HelloServiceReferenceImplementation
+      new HelloServiceReferenceImplementation()
     )
     override def withServices(otherServices: immutable.Seq[BindableService]): ApiServices = this
   }

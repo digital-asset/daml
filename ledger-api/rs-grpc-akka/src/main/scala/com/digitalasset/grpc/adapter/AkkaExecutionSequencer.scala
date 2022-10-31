@@ -29,12 +29,11 @@ class AkkaExecutionSequencer private (private val actorRef: ActorRef)(implicit
   /** Completes Future when all scheduled Runnables that were sequenced so far have been completed,
     * and the Actor was ordered to terminate.
     */
-  def closeAsync(implicit ec: ExecutionContext): Future[Done] = {
+  def closeAsync(implicit ec: ExecutionContext): Future[Done] =
     (actorRef ? ShutdownRequest).mapTo[Done].recover {
       case askTimeoutException: AskTimeoutException if actorIsTerminated(askTimeoutException) =>
         Done
     }
-  }
 
   private def actorIsTerminated(askTimeoutException: AskTimeoutException) = {
     AkkaExecutionSequencer.actorTerminatedRegex.findFirstIn(askTimeoutException.getMessage).nonEmpty
