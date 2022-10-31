@@ -66,7 +66,10 @@ class PartySetsITSpec
     for {
       (apiServices, names, submitter) <- benchtoolFixture()
       allocatedParties <- submitter.prepare(submissionConfig)
-      configDesugaring = new ConfigEnricher(allocatedParties)
+      configDesugaring = new ConfigEnricher(
+        allocatedParties,
+        BenchtoolTestsPackageInfo.StaticDefault,
+      )
       tested = new FooSubmission(
         submitter = submitter,
         maxInFlightCommands = 1,

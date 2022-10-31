@@ -117,36 +117,34 @@ class LedgerApiBenchTool(
       )
       for {
         _ <- regularUserSetupStep(adminServices)
-        allocatedParties <- {
+        (allocatedParties, benchtoolTestsPackageInfo) <- {
           config.workflow.submission match {
             case None =>
-              logger.info(s"No submission defined. Skipping.")
+              logger.info("No submission config found; skipping the command submission step")
               for {
-                existingParties <- partyAllocating.lookupExistingParties()
-              } yield AllocatedParties.forExistingParties(
-                parties = existingParties.toList,
-                partySetPrefixO = {
-                  val partySetPrefixes =
-                    config.workflow.streams.flatMap(_.partySetPrefix.iterator).distinct
-                  require(
-                    partySetPrefixes.size <= 1,
-                    s"Found more than one observer party set! ${partySetPrefixes}",
-                  )
-                  partySetPrefixes.headOption
-                },
-              )
+                allocatedParties <- SubmittedDataAnalyzing.determineAllocatedParties(
+                  config.workflow,
+                  partyAllocating,
+                )
+                benchtoolDamlPackageInfo <- SubmittedDataAnalyzing.determineBenchtoolTestsPackageId(
+                  regularUserServices.packageService
+                )
+              } yield {
+                (allocatedParties, benchtoolDamlPackageInfo)
+              }
             case Some(submissionConfig) =>
+              logger.info("Submission config found; command submission will be performed")
               submissionStep(
                 regularUserServices = regularUserServices,
                 adminServices = adminServices,
                 submissionConfig = submissionConfig,
                 metricRegistry = metricRegistry,
                 partyAllocating = partyAllocating,
-              )
+              ).map(_ -> BenchtoolTestsPackageInfo.StaticDefault)
           }
         }
 
-        configEnricher = new ConfigEnricher(allocatedParties)
+        configEnricher = new ConfigEnricher(allocatedParties, benchtoolTestsPackageInfo)
         updatedStreamConfigs = config.workflow.streams.map(streamsConfig =>
           configEnricher.enrichStreamConfig(streamsConfig)
         )
