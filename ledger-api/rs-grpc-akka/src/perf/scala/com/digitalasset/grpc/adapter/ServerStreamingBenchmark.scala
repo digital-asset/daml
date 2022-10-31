@@ -6,39 +6,35 @@ package com.daml.grpc.adapter
 import akka.Done
 import akka.stream.scaladsl.Sink
 import com.daml.grpc.adapter.client.akka.ClientAdapter
-import com.daml.grpc.adapter.operation.AkkaServiceFixture
+import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.api.perf.util.AkkaStreamPerformanceTest
-import com.daml.ledger.api.testing.utils.Resource
-import com.daml.platform.hello.{
-  HelloRequest,
-  HelloRequestHeavy,
-  HelloServiceGrpc,
-  NestedMap,
-  NestedMapNode,
-}
+import com.daml.ledger.api.testing.utils.{AkkaStreamGrpcServerResource, Resource}
+import com.daml.platform.hello._
 import io.grpc.ManagedChannel
 import org.scalameter.api.Gen
 import org.scalameter.picklers.noPickler._
 
-import scala.concurrent.Future
 import java.net.InetSocketAddress
 import java.util.concurrent.TimeUnit
+import scala.concurrent.Future
 import scala.util.Random
 
 object ServerStreamingBenchmark extends AkkaStreamPerformanceTest {
-
+  private implicit val esf: ExecutionSequencerFactory = TestExecutionSequencerFactory.instance
   override type ResourceType = () => ManagedChannel
 
   @transient override protected lazy val resource: Resource[() => ManagedChannel] =
-    AkkaServiceFixture.getResource(Some(new InetSocketAddress(0))).map(_._2.channel)
+    AkkaStreamGrpcServerResource(
+      implicit m => List(new HelloServiceReferenceImplementation()),
+      "server",
+      Some(new InetSocketAddress(0)),
+    ).map(_._2.channel)
 
   private val sizesSimpleRequest = for {
     totalElements <- Gen.enumeration("numResponses")(10000, 50000)
     clients <- Gen.enumeration("numClients")(1, 10)
     callsPerClient <- Gen.enumeration("numCals")(1, 10)
   } yield (totalElements, clients, callsPerClient)
-
-  locally { val _ = sizesSimpleRequest }
 
   private val sizesHeavyRequest = for {
     depth <- Gen.enumeration("nestingLevel")(4)
@@ -55,7 +51,7 @@ object ServerStreamingBenchmark extends AkkaStreamPerformanceTest {
             Future
               .sequence(
                 1 to callsPerClient map (_ =>
-                  serverStreamingCall(totalElements / clients / callsPerClient, channel)(pool)
+                  serverStreamingCall(totalElements / clients / callsPerClient, channel, pool)
                 )
               )
               .map(_ => channel -> pool)
@@ -114,14 +110,16 @@ object ServerStreamingBenchmark extends AkkaStreamPerformanceTest {
     )
   }
 
-  def serverStreamingCall(streamedElements: Int, managedChannel: ManagedChannel)(implicit
-      executionSequencerFactory: ExecutionSequencerFactory
+  def serverStreamingCall(
+      streamedElements: Int,
+      managedChannel: ManagedChannel,
+      executionSequencerFactory: ExecutionSequencerFactory,
   ): Future[Done] = {
     ClientAdapter
       .serverStreaming(
         HelloRequest(streamedElements),
         HelloServiceGrpc.stub(managedChannel).serverStreaming,
-      )
+      )(executionSequencerFactory)
       .runWith(Sink.ignore)(materializer)
   }
 }

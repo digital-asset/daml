@@ -3,44 +3,34 @@
 
 package com.daml.grpc.sampleservice.implementations
 
+import akka.NotUsed
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Flow, Source}
+import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.sampleservice.HelloServiceResponding
-import com.daml.platform.hello.HelloServiceGrpc.HelloService
-import com.daml.platform.hello.{
-  HelloRequest,
-  HelloRequestHeavy,
-  HelloResponse,
-  HelloResponseHeavy,
-  HelloServiceGrpc,
-}
-import io.grpc.stub.StreamObserver
+import com.daml.platform.hello._
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.ExecutionContext
 
-class HelloServiceReferenceImplementation
-    extends HelloService
+class HelloServiceReferenceImplementation(
+    protected implicit val esf: ExecutionSequencerFactory,
+    protected implicit val mat: Materializer,
+    protected val optimizeGrpcStreamsThroughput: Boolean = true,
+) extends HelloServiceAkkaGrpc
     with HelloServiceResponding
     with BindableService
     with AutoCloseable {
+
+  private val serverStreamingCalls = new AtomicInteger()
 
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
     HelloServiceGrpc.bindService(this, ExecutionContext.global)
 
-  override def serverStreaming(
-      request: HelloRequest,
-      responseObserver: StreamObserver[HelloResponse],
-  ): Unit = {
-    validateRequest(request)
-    for (i <- 1.to(request.reqInt)) responseObserver.onNext(HelloResponse(i))
-    responseObserver.onCompleted()
-  }
-
-  override def serverStreamingHeavy(
-      request: HelloRequestHeavy,
-      responseObserver: StreamObserver[HelloResponseHeavy],
-  ): Unit = ???
+  def getServerStreamingCalls: Int = serverStreamingCalls.get()
 
   private def validateRequest(request: HelloRequest): Unit =
     if (request.reqInt < 0)
@@ -48,4 +38,21 @@ class HelloServiceReferenceImplementation
         .withDescription("request cannot be negative")
         .asRuntimeException()
 
+  override protected def serverStreamingSource(
+      request: HelloRequest
+  ): Source[HelloResponse, NotUsed] = {
+    validateRequest(request)
+    Source
+      .single(request)
+      .via(Flow[HelloRequest].mapConcat(responses))
+      .watchTermination() { (mat, doneF) =>
+        doneF.onComplete(_ => serverStreamingCalls.incrementAndGet())(ExecutionContext.parasitic)
+        mat
+      }
+  }
+
+  override protected def serverStreamingHeavySource(
+      request: HelloRequestHeavy
+  ): Source[HelloResponseHeavy, NotUsed] =
+    Source(request.responses).map(r => HelloResponseHeavy(Some(r)))
 }

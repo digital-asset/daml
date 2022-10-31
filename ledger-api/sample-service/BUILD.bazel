@@ -68,6 +68,8 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_akka_akka_actor",
     ],
     visibility = [
         "//visibility:public",
@@ -77,6 +79,8 @@ da_scala_library(
     ],
     deps = [
         ":sample-service-scalapb",
+        "//ledger-api/rs-grpc-akka",
+        "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",

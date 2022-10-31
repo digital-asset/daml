@@ -3,34 +3,30 @@
 
 package com.daml.platform.apiserver
 
-import java.net.{InetAddress, InetSocketAddress}
-
+import akka.NotUsed
 import akka.pattern.after
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Source}
+import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.server.akka.ServerAdapter
-import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
-import com.daml.grpc.sampleservice.HelloServiceResponding
+import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.MetricsInterceptorSpec._
 import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.platform.testing.StreamConsumer
 import com.daml.ports.Port
 import io.grpc.netty.NettyServerBuilder
-import io.grpc.stub.StreamObserver
-import io.grpc.{BindableService, Channel, Server, ServerInterceptor, ServerServiceDefinition}
+import io.grpc._
 import io.opentelemetry.api.GlobalOpenTelemetry
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Second, Span}
 
+import java.net.{InetAddress, InetSocketAddress}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -48,7 +44,7 @@ final class MetricsInterceptorSpec
 
   it should "count the number of calls to a given endpoint" in {
     val metrics = createMetrics
-    serverWithMetrics(metrics, new HelloServiceAkkaImplementation).use { channel: Channel =>
+    serverWithMetrics(metrics, new HelloServiceReferenceImplementation).use { channel: Channel =>
       for {
         _ <- Future.sequence(
           (1 to 3).map(reqInt => HelloServiceGrpc.stub(channel).single(HelloRequest(reqInt)))
@@ -63,7 +59,7 @@ final class MetricsInterceptorSpec
 
   it should "count the gRPC return status" in {
     val metrics = createMetrics
-    serverWithMetrics(metrics, new HelloServiceAkkaImplementation).use { channel: Channel =>
+    serverWithMetrics(metrics, new HelloServiceReferenceImplementation).use { channel: Channel =>
       for {
         _ <- HelloServiceGrpc.stub(channel).single(HelloRequest(0))
         _ <- HelloServiceGrpc.stub(channel).fails(HelloRequest(1)).failed
@@ -151,9 +147,7 @@ object MetricsInterceptorSpec {
   private final class DelayedHelloService(delay: FiniteDuration)(implicit
       executionSequencerFactory: ExecutionSequencerFactory,
       materializer: Materializer,
-  ) extends HelloService
-      with HelloServiceResponding
-      with BindableService {
+  ) extends HelloServiceReferenceImplementation {
     private implicit val executionContext: ExecutionContext = materializer.executionContext
 
     override def bindService(): ServerServiceDefinition =
@@ -162,19 +156,13 @@ object MetricsInterceptorSpec {
     override def single(request: HelloRequest): Future[HelloResponse] =
       after(delay, materializer.system.scheduler)(Future.successful(response(request)))
 
-    override def serverStreaming(
-        request: HelloRequest,
-        responseObserver: StreamObserver[HelloResponse],
-    ): Unit = {
-      Source
-        .single(request)
-        .via(Flow[HelloRequest].mapConcat(responses))
+    override protected def serverStreamingSource(
+        request: HelloRequest
+    ): Source[HelloResponse, NotUsed] =
+      super
+        .serverStreamingSource(request)
         .mapAsync(1)(response =>
           after(delay, materializer.system.scheduler)(Future.successful(response))
         )
-        .runWith(ServerAdapter.toSink(responseObserver))
-      ()
-    }
   }
-
 }

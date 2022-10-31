@@ -4,7 +4,11 @@
 package com.daml.grpc.adapter.operation
 
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
-import com.daml.ledger.api.testing.utils.{GrpcServiceFixture, SuiteResourceManagementAroundAll}
+import com.daml.ledger.api.testing.utils.{
+  AkkaBeforeAndAfterAll,
+  GrpcServiceFixture,
+  SuiteResourceManagementAroundAll,
+}
 import com.daml.platform.hello.HelloServiceGrpc
 import com.daml.platform.hello.HelloServiceGrpc.HelloServiceStub
 
@@ -12,7 +16,8 @@ import java.util.concurrent.TimeUnit
 
 trait ReferenceServiceFixture
     extends GrpcServiceFixture[HelloServiceStub]
-    with SuiteResourceManagementAroundAll {
+    with SuiteResourceManagementAroundAll
+    with AkkaBeforeAndAfterAll {
 
   protected lazy val channel = suiteResource.value.channel()
   protected lazy val clientStub = HelloServiceGrpc.stub(channel)
