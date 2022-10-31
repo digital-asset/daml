@@ -18,7 +18,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // (1) ``Optional`` denoting the client may leave the field unset when sending a request.
 // (2) ``Required`` denoting the client must set the field to a non-default value when sending a request.
 //
-// An identity provider resource, once it has been created, can be modified.
+// An identity provider config resource, once it has been created, can be modified.
 // In order to update the properties represented by the ``IdentityProviderConfig`` message use the ``UpdateIdentityProviderConfig`` RPC.
 // The only fields that can be modified are those marked as ``Modifiable``.
 service IdentityProviderConfigService {
