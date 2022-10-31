@@ -139,7 +139,7 @@ message Right {
 // RPC requests and responses
 /////////////////////////////
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
 message CreateUserRequest {
     // The user to create.
     // Required
@@ -156,7 +156,7 @@ message CreateUserResponse {
     User user = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedUser(user_id)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin) OR IsAuthenticatedUser(user_id)``
 message GetUserRequest {
     // The user whose data to retrieve.
     // If set to empty string (the default), then the data for the authenticated user will be retrieved.
@@ -169,7 +169,7 @@ message GetUserResponse {
     User user = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
 message UpdateUserRequest {
     // The user to update.
     // Required,
@@ -199,7 +199,7 @@ message UpdateUserResponse {
     User user = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
 message DeleteUserRequest {
     // The user to delete.
     // Required
@@ -210,7 +210,7 @@ message DeleteUserRequest {
 message DeleteUserResponse {
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
 message ListUsersRequest {
 
     // Pagination token to determine the specific page to fetch.
@@ -236,7 +236,7 @@ message ListUsersResponse {
 
 // Add the rights to the set of rights granted to the user.
 //
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
 message GrantUserRightsRequest {
     // The user to whom to grant rights.
     // Required
@@ -254,7 +254,7 @@ message GrantUserRightsResponse {
 
 // Remove the rights from the set of rights granted to the user.
 //
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
 message RevokeUserRightsRequest {
     // The user from whom to revoke rights.
     // Required
@@ -270,7 +270,7 @@ message RevokeUserRightsResponse {
     repeated Right newly_revoked_rights = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedUser(user_id)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin) OR IsAuthenticatedUser(user_id)``
 message ListUserRightsRequest {
     // The user for which to list the rights.
     // If set to empty string (the default), then the rights for the authenticated user will be listed.
