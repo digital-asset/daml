@@ -72,7 +72,7 @@ message IdentityProviderConfig {
   string id = 1;
 
   // When set, then the user identified by the identity provider is denied all access to the Ledger API.
-  // Otherwise, the user identified by the identity provider has access to the Ledger API as per the user's rights.
+  // Otherwise, the user identified by the identity provider has access to the Ledger API as per the user's record.
   // Optional,
   // Modifiable
   bool is_deactivated = 2;
