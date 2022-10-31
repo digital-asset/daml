@@ -140,7 +140,7 @@ the trigger will receive events for all template and interface types defined in 
 DAR.
 
 It is also possible to specify an explicit list of templates and interfaces. For example,
-to specify just the ``Message`` template, one would write:
+to only receive events for the ``Message`` template, one would write:
 
 .. code-block:: daml
 
@@ -148,7 +148,7 @@ to specify just the ``Message`` template, one would write:
    registeredTemplates = RegisteredTemplates [registeredTemplate @Message],
    ...
 
-and to specify both the ``Message`` template and (say) an interface ``Identity`` (which
+and to specify events for both the ``Message`` template and (say) an interface called ``Identity`` (which
 here we will imagine as being implemented by the template ``Alias``), one would write:
 
 .. code-block:: daml
