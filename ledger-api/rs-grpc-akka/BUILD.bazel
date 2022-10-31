@@ -101,6 +101,7 @@ da_scala_binary(
     name = "rs-grpc-akka-perf",
     srcs = glob(["src/perf/**/*.scala"]),
     main_class = "com.daml.grpc.adapter.ServerStreamingBenchmark",
+    resources = [":src/perf/resources/logback-test.xml"],
     scala_deps = [
         "@maven//:com_storm_enroute_scalameter",
         "@maven//:com_storm_enroute_scalameter_core",

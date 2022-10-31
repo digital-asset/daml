@@ -23,6 +23,7 @@ object ServerWithChannelProvider {
     val serverBuilder = address.fold[ServerBuilder[_ <: ServerBuilder[_]]](
       services.foldLeft(InProcessServerBuilder.forName(serverName))(_ addService _)
     )(a => services.foldLeft(NettyServerBuilder.forAddress(a))(_ addService _))
+    serverBuilder.maxInboundMessageSize(100000000)
     val server = serverBuilder
       .build()
 

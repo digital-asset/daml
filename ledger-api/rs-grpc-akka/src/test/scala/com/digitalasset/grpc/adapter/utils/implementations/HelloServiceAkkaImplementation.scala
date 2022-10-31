@@ -9,7 +9,14 @@ import akka.stream.scaladsl.{Flow, Source}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
-import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceAkkaGrpc, HelloServiceGrpc}
+import com.daml.platform.hello.{
+  HelloRequest,
+  HelloRequestHeavy,
+  HelloResponse,
+  HelloResponseHeavy,
+  HelloServiceAkkaGrpc,
+  HelloServiceGrpc,
+}
 import io.grpc.{BindableService, ServerServiceDefinition}
 
 import java.util.concurrent.atomic.AtomicInteger
@@ -23,7 +30,7 @@ class HelloServiceAkkaImplementation(implicit
     with HelloServiceAkkaGrpc
     with BindableService {
 
-  override protected def optimizeGrpcStreamsThroughput: Boolean = false
+  override protected def optimizeGrpcStreamsThroughput: Boolean = true
   private val serverStreamingCalls = new AtomicInteger()
 
   def getServerStreamingCalls: Int = serverStreamingCalls.get()
@@ -41,4 +48,10 @@ class HelloServiceAkkaImplementation(implicit
         doneF.onComplete(_ => serverStreamingCalls.incrementAndGet())
         mat
       }
+
+  override protected def serverStreamingHeavySource(
+      request: HelloRequestHeavy
+  ): Source[HelloResponseHeavy, NotUsed] =
+    Source(request.responses).map(r => HelloResponseHeavy(Some(r)))
+
 }
