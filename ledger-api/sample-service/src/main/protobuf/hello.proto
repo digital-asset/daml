@@ -9,17 +9,37 @@ option java_package = "com.daml.platform";
 
 
 message HelloRequest {
-    int32 reqInt = 1;
-    bytes payload = 2;
+  int32 reqInt = 1;
+  bytes payload = 2;
 }
 
 message HelloResponse {
-    int32 respInt = 1;
-    bytes payload = 2;
+  int32 respInt = 1;
+  bytes payload = 2;
+}
+
+message HelloRequestHeavy {
+  repeated NestedMapNode responses = 1;
+}
+
+message HelloResponseHeavy {
+  NestedMapNode nestedMap = 1;
+}
+
+message NestedMap {
+  map<string, NestedMapNode> nestedMap = 1;
+}
+
+message NestedMapNode {
+  oneof kind {
+    string leaf = 1;
+    NestedMap node = 2;
+  }
 }
 
 service HelloService {
   rpc Single (HelloRequest) returns (HelloResponse);
   rpc ServerStreaming (HelloRequest) returns (stream HelloResponse);
+  rpc ServerStreamingHeavy (HelloRequestHeavy) returns (stream HelloResponseHeavy);
   rpc Fails (HelloRequest) returns (HelloResponse);
 }

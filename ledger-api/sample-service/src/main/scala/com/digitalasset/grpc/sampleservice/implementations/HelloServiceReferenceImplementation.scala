@@ -5,7 +5,13 @@ package com.daml.grpc.sampleservice.implementations
 
 import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
-import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
+import com.daml.platform.hello.{
+  HelloRequest,
+  HelloRequestHeavy,
+  HelloResponse,
+  HelloResponseHeavy,
+  HelloServiceGrpc,
+}
 import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 
@@ -30,6 +36,11 @@ class HelloServiceReferenceImplementation
     for (i <- 1.to(request.reqInt)) responseObserver.onNext(HelloResponse(i))
     responseObserver.onCompleted()
   }
+
+  override def serverStreamingHeavy(
+      request: HelloRequestHeavy,
+      responseObserver: StreamObserver[HelloResponseHeavy],
+  ): Unit = ???
 
   private def validateRequest(request: HelloRequest): Unit =
     if (request.reqInt < 0)
