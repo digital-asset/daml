@@ -16,7 +16,7 @@ This means:
 
 Daml lets us implement these guarantees in a direct and intuitive way.
 
-Creating a feature involves four steps:
+Creating a feature involves three steps:
 
     1. Adding the necessary changes to the Daml model
     2. Making the corresponding changes in the UI
