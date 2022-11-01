@@ -4,7 +4,7 @@
 package com.daml.ledger.rxjava;
 
 import com.daml.ledger.javaapi.data.ActiveContracts;
-import com.daml.ledger.javaapi.data.ContractUtil;
+import com.daml.ledger.javaapi.data.ContractFilter;
 import com.daml.ledger.javaapi.data.GetActiveContractsResponse;
 import com.daml.ledger.javaapi.data.TransactionFilter;
 import io.reactivex.Flowable;
@@ -22,7 +22,7 @@ public interface ActiveContractsClient {
   /**
    * Get active Contracts
    *
-   * @param contractUtil Utilities for specified type of contract. It can be instantiated with
+   * @param contractFilter Utilities for specified type of contract. It can be instantiated with
    *     <code>ContractTypeCompanion</code>
    * @param parties Set of parties to be included in the transaction filter.
    * @param verbose If enabled, values served over the API will contain more information than
@@ -30,12 +30,12 @@ public interface ActiveContractsClient {
    * @return Flowable of active contracts of type <code>Ct</code>
    */
   <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
-      ContractUtil<Ct> contractUtil, Set<String> parties, boolean verbose);
+      ContractFilter<Ct> contractFilter, Set<String> parties, boolean verbose);
 
   /**
    * Get active Contracts
    *
-   * @param contractUtil Utilities for specified type of contract. It can be instantiated with
+   * @param contractFilter Utilities for specified type of contract. It can be instantiated with
    *     <code>ContractTypeCompanion</code>
    * @param parties Set of parties to be included in the transaction filter.
    * @param verbose If enabled, values served over the API will contain more information than
@@ -44,5 +44,5 @@ public interface ActiveContractsClient {
    * @return Active contracts of type <code>Ct</code>
    */
   <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
-      ContractUtil<Ct> contractUtil, Set<String> parties, boolean verbose, String accessToken);
+      ContractFilter<Ct> contractFilter, Set<String> parties, boolean verbose, String accessToken);
 }

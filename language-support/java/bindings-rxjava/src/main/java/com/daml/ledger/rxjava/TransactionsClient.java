@@ -28,10 +28,10 @@ public interface TransactionsClient {
       LedgerOffset begin, TransactionFilter filter, boolean verbose, String accessToken);
 
   Flowable<Transaction> getTransactions(
-      ContractUtil<?> contractUtil, LedgerOffset begin, Set<String> parties, boolean verbose);
+      ContractFilter<?> contractFilter, LedgerOffset begin, Set<String> parties, boolean verbose);
 
   Flowable<Transaction> getTransactions(
-      ContractUtil<?> contractUtil,
+      ContractFilter<?> contractFilter,
       LedgerOffset begin,
       Set<String> parties,
       boolean verbose,

@@ -3,7 +3,8 @@
 
 package com.daml.lf.codegen.backend.java.inner
 
-import com.daml.ledger.javaapi.data.codegen.InterfaceCompanion
+import com.daml.ledger.javaapi.data.ContractFilter
+import com.daml.ledger.javaapi.data.codegen.{Contract, InterfaceCompanion}
 import com.daml.lf.codegen.backend.java.inner.TemplateClass.toChoiceNameField
 import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.typesig
@@ -41,6 +42,7 @@ object InterfaceClass extends StrictLogging {
             )
             .asJava
         )
+        .addMethod(generateContractFilterMethod(interfaceViewTypeName))
         .addField(generateInterfaceCompanionField())
         .addType(
           ContractIdClass
@@ -152,4 +154,21 @@ object InterfaceClass extends StrictLogging {
       name.module.toString,
       name.name.toString,
     )
+
+  private def generateContractFilterMethod(interfaceViewTypeName: ClassName): MethodSpec =
+    MethodSpec
+      .methodBuilder("contractFilter")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(
+        ParameterizedTypeName.get(
+          ClassName.get(classOf[ContractFilter[_]]),
+          ParameterizedTypeName.get(
+            ClassName.get(classOf[Contract[_, _]]),
+            ClassName.bestGuess("ContractId"),
+            interfaceViewTypeName,
+          ),
+        )
+      )
+      .addStatement("return $T.of(INTERFACE)", classOf[ContractFilter[_]])
+      .build()
 }

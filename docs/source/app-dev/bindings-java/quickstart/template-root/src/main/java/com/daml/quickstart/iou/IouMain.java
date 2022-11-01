@@ -57,7 +57,7 @@ public class IouMain {
 
     client
         .getActiveContractSetClient()
-        .getActiveContracts(ContractUtil.of(Iou.COMPANION), Collections.singleton(party), true)
+        .getActiveContracts(Iou.contractFilter(), Collections.singleton(party), true)
         .blockingForEach(
             activeContracts -> {
               activeContracts.offset.ifPresent(
@@ -74,7 +74,7 @@ public class IouMain {
         client
             .getTransactionsClient()
             .getTransactions(
-                ContractUtil.of(Iou.COMPANION), acsOffset.get(), Collections.singleton(party), true)
+                Iou.contractFilter(), acsOffset.get(), Collections.singleton(party), true)
             .forEach(
                 t -> {
                   for (Event event : t.getEvents()) {

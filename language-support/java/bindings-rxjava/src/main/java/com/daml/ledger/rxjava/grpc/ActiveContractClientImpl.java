@@ -7,7 +7,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory;
 import com.daml.ledger.api.v1.ActiveContractsServiceGrpc;
 import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass;
 import com.daml.ledger.javaapi.data.ActiveContracts;
-import com.daml.ledger.javaapi.data.ContractUtil;
+import com.daml.ledger.javaapi.data.ContractFilter;
 import com.daml.ledger.javaapi.data.GetActiveContractsRequest;
 import com.daml.ledger.javaapi.data.GetActiveContractsResponse;
 import com.daml.ledger.javaapi.data.TransactionFilter;
@@ -63,11 +63,11 @@ public class ActiveContractClientImpl implements ActiveContractsClient {
   }
 
   private <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
-      ContractUtil<Ct> contractUtil,
+      ContractFilter<Ct> contractFilter,
       Set<String> parties,
       boolean verbose,
       Optional<String> accessToken) {
-    TransactionFilter filter = contractUtil.transactionFilter(parties);
+    TransactionFilter filter = contractFilter.transactionFilter(parties);
 
     Flowable<GetActiveContractsResponse> responses =
         getActiveContracts(filter, verbose, accessToken);
@@ -75,7 +75,7 @@ public class ActiveContractClientImpl implements ActiveContractsClient {
         response -> {
           List<Ct> activeContracts =
               response.getCreatedEvents().stream()
-                  .map(contractUtil::toContract)
+                  .map(contractFilter::toContract)
                   .collect(Collectors.toList());
           return new ActiveContracts<>(
               response.getOffset(), activeContracts, response.getWorkflowId());
@@ -84,13 +84,13 @@ public class ActiveContractClientImpl implements ActiveContractsClient {
 
   @Override
   public <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
-      ContractUtil<Ct> contractUtil, Set<String> parties, boolean verbose) {
-    return getActiveContracts(contractUtil, parties, verbose, Optional.empty());
+      ContractFilter<Ct> contractFilter, Set<String> parties, boolean verbose) {
+    return getActiveContracts(contractFilter, parties, verbose, Optional.empty());
   }
 
   @Override
   public <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
-      ContractUtil<Ct> contractUtil, Set<String> parties, boolean verbose, String accessToken) {
-    return getActiveContracts(contractUtil, parties, verbose, Optional.of(accessToken));
+      ContractFilter<Ct> contractFilter, Set<String> parties, boolean verbose, String accessToken) {
+    return getActiveContracts(contractFilter, parties, verbose, Optional.of(accessToken));
   }
 }
