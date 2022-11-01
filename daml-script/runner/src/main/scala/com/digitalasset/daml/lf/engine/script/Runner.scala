@@ -81,7 +81,7 @@ case class Participants[+T](
     participants: Map[Participant, T],
     party_participants: Map[Party, Participant],
 ) {
-  def getPartyParticipant(party: Party): Either[String, T] =
+  private def getPartyParticipant(party: Party): Either[String, T] =
     party_participants.get(party) match {
       case None =>
         default_participant.toRight(s"No participant for party $party and no default participant")
