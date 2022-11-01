@@ -100,10 +100,10 @@ A few invalid examples::
 Output
 ======
 
-If encodeDecimalAsString is set, decimals are encoded as strings, using
-the format ``-?[0-9]{1,28}(\.[0-9]{1,10})?``. If encodeDecimalAsString
-is not set, they are encoded as JSON numbers, also using the format
-``-?[0-9]{1,28}(\.[0-9]{1,10})?``.
+If encodeDecimalAsString is set, decimals are encoded as string and if
+not set, they are encoded as JSON numbers. The output is expressed as
+a number in base 10 with a maximum of 38 digits where the decimal point
+can be anywhere within the digits except the start.
 
 Note that the flag encodeDecimalAsString is useful because it lets
 JavaScript consumers consume Decimals safely with the standard
