@@ -3,36 +3,32 @@
 
 package com.daml.metrics.akkahttp
 
+import akka.http.scaladsl.model.ws.{Message, TextMessage, BinaryMessage}
+import akka.stream.scaladsl.{Flow, Sink}
+import akka.util.ByteString
+import com.daml.metrics.api.MetricHandle.Counter
+import com.daml.metrics.api.MetricsContext
 import com.google.common.base.Utf8
 
-import akka.util.ByteString
-import akka.stream.scaladsl.{Flow, Sink}
-import akka.http.scaladsl.model.ws.{Message, TextMessage, BinaryMessage}
-
-import com.daml.metrics.api.MetricsContext
-import com.daml.metrics.api.MetricHandle.Counter
-
-/** Support to capture metrics on websockets on akka http
-  */
+// Support to capture metrics on websockets on akka http
 object WebSocketMetrics {
 
-  /** Wraps the given flow, to capture in the given metrics, the following signals:
-    * - total number of received messages
-    * - size of the received messages
-    * - total number of sent messages
-    * - size of the sent messages
-    */
+  // Wraps the given flow, to capture in the given metrics, the following signals:
+  //  - total number of received messages
+  //  - size of the received messages
+  //  - total number of sent messages
+  //  - size of the sent messages
   def withGoldenSignalsMetrics[M](
-      wsReceivedTotal: Counter,
-      wsReceivedBytesTotal: Counter,
-      wsSentTotal: Counter,
-      wsSentBytesTotal: Counter,
+      receivedTotal: Counter,
+      receivedBytesTotal: Counter,
+      sentTotal: Counter,
+      sentBytesTotal: Counter,
       flow: Flow[Message, Message, M],
   )(implicit mc: MetricsContext): Flow[Message, Message, M] = {
     Flow[Message]
-      .map(messageCountAndSizeReportMetric(_, wsReceivedTotal, wsReceivedBytesTotal))
+      .map(messageCountAndSizeReportMetric(_, receivedTotal, receivedBytesTotal))
       .viaMat(flow)((_, mat2) => mat2)
-      .map(messageCountAndSizeReportMetric(_, wsSentTotal, wsSentBytesTotal))
+      .map(messageCountAndSizeReportMetric(_, sentTotal, sentBytesTotal))
   }
 
   // support for message counting, and computation and report of the size of a message

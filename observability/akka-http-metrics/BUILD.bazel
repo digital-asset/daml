@@ -24,7 +24,6 @@ da_scala_library(
     runtime_deps = [],
     deps = [
         "//ledger/metrics",
-        "//libs-scala/concurrent",
         "@maven//:com_google_guava_guava",
     ],
 )

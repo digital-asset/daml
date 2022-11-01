@@ -30,76 +30,80 @@ class HttpJsonApiMetrics(
 
   val surrogateTemplateIdCache = new CacheMetrics(prefix :+ "surrogate_tpid_cache", registry)
 
-  object DropWizardMetrics extends DropwizardFactory {
+  object DropWizardMetricsFactory extends DropwizardFactory {
     override val prefix: MetricName = HttpJsonApiMetrics.this.prefix
     override val registry: MetricRegistry = HttpJsonApiMetrics.this.registry
   }
 
   // Meters how long processing of a command submission request takes
-  val commandSubmissionTimer: Timer = DropWizardMetrics.timer(prefix :+ "command_submission_timing")
+  val commandSubmissionTimer: Timer =
+    DropWizardMetricsFactory.timer(prefix :+ "command_submission_timing")
   // Meters how long processing of a query GET request takes
-  val queryAllTimer: Timer = DropWizardMetrics.timer(prefix :+ "query_all_timing")
+  val queryAllTimer: Timer = DropWizardMetricsFactory.timer(prefix :+ "query_all_timing")
   // Meters how long processing of a query POST request takes
-  val queryMatchingTimer: Timer = DropWizardMetrics.timer(prefix :+ "query_matching_timing")
+  val queryMatchingTimer: Timer = DropWizardMetricsFactory.timer(prefix :+ "query_matching_timing")
   // Meters how long processing of a fetch request takes
-  val fetchTimer: Timer = DropWizardMetrics.timer(prefix :+ "fetch_timing")
+  val fetchTimer: Timer = DropWizardMetricsFactory.timer(prefix :+ "fetch_timing")
   // Meters how long processing of a get party/parties request takes
-  val getPartyTimer: Timer = DropWizardMetrics.timer(prefix :+ "get_party_timing")
+  val getPartyTimer: Timer = DropWizardMetricsFactory.timer(prefix :+ "get_party_timing")
   // Meters how long processing of a party management request takes
-  val allocatePartyTimer: Timer = DropWizardMetrics.timer(prefix :+ "allocate_party_timing")
+  val allocatePartyTimer: Timer = DropWizardMetricsFactory.timer(prefix :+ "allocate_party_timing")
   // Meters how long processing of a package download request takes
-  val downloadPackageTimer: Timer = DropWizardMetrics.timer(prefix :+ "download_package_timing")
+  val downloadPackageTimer: Timer =
+    DropWizardMetricsFactory.timer(prefix :+ "download_package_timing")
   // Meters how long processing of a package upload request takes
-  val uploadPackageTimer: Timer = DropWizardMetrics.timer(prefix :+ "upload_package_timing")
+  val uploadPackageTimer: Timer = DropWizardMetricsFactory.timer(prefix :+ "upload_package_timing")
   // Meters how long parsing and decoding of an incoming json payload takes
   val incomingJsonParsingAndValidationTimer: Timer =
-    DropWizardMetrics.timer(prefix :+ "incoming_json_parsing_and_validation_timing")
+    DropWizardMetricsFactory.timer(prefix :+ "incoming_json_parsing_and_validation_timing")
   // Meters how long the construction of the response json payload takes
-  val responseCreationTimer: Timer = DropWizardMetrics.timer(prefix :+ "response_creation_timing")
+  val responseCreationTimer: Timer =
+    DropWizardMetricsFactory.timer(prefix :+ "response_creation_timing")
   // Meters how long a find by contract key database operation takes
   val dbFindByContractKey: Timer =
-    DropWizardMetrics.timer(prefix :+ "db_find_by_contract_key_timing")
+    DropWizardMetricsFactory.timer(prefix :+ "db_find_by_contract_key_timing")
   // Meters how long a find by contract id database operation takes
-  val dbFindByContractId: Timer = DropWizardMetrics.timer(prefix :+ "db_find_by_contract_id_timing")
+  val dbFindByContractId: Timer =
+    DropWizardMetricsFactory.timer(prefix :+ "db_find_by_contract_id_timing")
   // Meters how long processing of the command submission request takes on the ledger
   val commandSubmissionLedgerTimer: Timer =
-    DropWizardMetrics.timer(prefix :+ "command_submission_ledger_timing")
+    DropWizardMetricsFactory.timer(prefix :+ "command_submission_ledger_timing")
   // Meters http requests throughput
-  val httpRequestThroughput: Meter = DropWizardMetrics.meter(prefix :+ "http_request_throughput")
+  val httpRequestThroughput: Meter =
+    DropWizardMetricsFactory.meter(prefix :+ "http_request_throughput")
   // Meters how many websocket connections are currently active
   val websocketRequestCounter: Counter =
-    DropWizardMetrics.counter(prefix :+ "websocket_request_count")
+    DropWizardMetricsFactory.counter(prefix :+ "websocket_request_count")
   // Meters command submissions throughput
   val commandSubmissionThroughput: Meter =
-    DropWizardMetrics.meter(prefix :+ "command_submission_throughput")
+    DropWizardMetricsFactory.meter(prefix :+ "command_submission_throughput")
   // Meters package uploads throughput
   val uploadPackagesThroughput: Meter =
-    DropWizardMetrics.meter(prefix :+ "upload_packages_throughput")
+    DropWizardMetricsFactory.meter(prefix :+ "upload_packages_throughput")
   // Meters party allocation throughput
   val allocatePartyThroughput: Meter =
-    DropWizardMetrics.meter(prefix :+ "allocation_party_throughput")
+    DropWizardMetricsFactory.meter(prefix :+ "allocation_party_throughput")
 
-  object OpenTelemetryMetrics extends OpenTelemetryFactory {
+  object OpenTelemetryMetricsFactory extends OpenTelemetryFactory {
     override val prefix: MetricName = HttpJsonApiMetrics.this.prefix
     override val otelMeter: OtelMeter = HttpJsonApiMetrics.this.otelMeter
   }
 
   // golden signals
-  // http metrics
-  val httpRequestsTotal: Counter = OpenTelemetryMetrics.counter(prefix :+ "requests_total")
-  val httpErrorsTotal: Counter = OpenTelemetryMetrics.counter(prefix :+ "errors_total")
-  val httpLatency: Timer = OpenTelemetryMetrics.timer(prefix :+ "requests_duration_seconds")
+  val httpRequestsTotal: Counter = OpenTelemetryMetricsFactory.counter(prefix :+ "requests_total")
+  val httpErrorsTotal: Counter = OpenTelemetryMetricsFactory.counter(prefix :+ "errors_total")
+  val httpLatency: Timer = OpenTelemetryMetricsFactory.timer(prefix :+ "requests_duration_seconds")
   val httpRequestsBytesTotal: Counter =
-    OpenTelemetryMetrics.counter(prefix :+ "requests_bytes_total")
+    OpenTelemetryMetricsFactory.counter(prefix :+ "requests_bytes_total")
   val httpResponsesBytesTotal: Counter =
-    OpenTelemetryMetrics.counter(prefix :+ "responses_bytes_total")
+    OpenTelemetryMetricsFactory.counter(prefix :+ "responses_bytes_total")
 
-  // websocket metrics
-  val wsReceivedTotal: Counter =
-    OpenTelemetryMetrics.counter(prefix :+ "websocket_messages_received_total")
-  val wsReceivedBytesTotal: Counter =
-    OpenTelemetryMetrics.counter(prefix :+ "websocket_messages_received_bytes_total")
-  val wsSentTotal: Counter = OpenTelemetryMetrics.counter(prefix :+ "websocket_messages_sent_total")
-  val wsSentBytesTotal: Counter =
-    OpenTelemetryMetrics.counter(prefix :+ "websocket_messages_sent_bytes_total")
+  val websocketReceivedTotal: Counter =
+    OpenTelemetryMetricsFactory.counter(prefix :+ "websocket_messages_received_total")
+  val websocketReceivedBytesTotal: Counter =
+    OpenTelemetryMetricsFactory.counter(prefix :+ "websocket_messages_received_bytes_total")
+  val websocketSentTotal: Counter =
+    OpenTelemetryMetricsFactory.counter(prefix :+ "websocket_messages_sent_total")
+  val websocketSentBytesTotal: Counter =
+    OpenTelemetryMetricsFactory.counter(prefix :+ "websocket_messages_sent_bytes_total")
 }

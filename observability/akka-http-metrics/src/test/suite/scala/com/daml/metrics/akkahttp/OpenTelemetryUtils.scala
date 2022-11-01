@@ -5,21 +5,16 @@ package com.daml.metrics.akkahttp
 
 import scala.annotation.tailrec
 
-import java.util.concurrent.atomic.AtomicInteger
-
-import io.opentelemetry.sdk.testing.time.TestClock
-import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader
-
-import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
-
-import io.opentelemetry.sdk.metrics.SdkMeterProvider
-import io.opentelemetry.api.metrics.{Meter => OtelMeter}
-import io.opentelemetry.sdk.metrics.data.MetricData
-
-import java.time.Duration
-
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.MetricHandle
+import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
+import io.opentelemetry.api.metrics.{Meter => OtelMeter}
+import io.opentelemetry.sdk.metrics.SdkMeterProvider
+import io.opentelemetry.sdk.metrics.data.MetricData
+import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader
+import io.opentelemetry.sdk.testing.time.TestClock
+import java.time.Duration
+import java.util.concurrent.atomic.AtomicInteger
 
 /** Data structure used to compare the content of histogram metrics
   * The exact recorded values are not accessible, using the other attributes to check that
@@ -91,7 +86,7 @@ object HistogramData {
   * @see WebSocketMetricsSpec.TestMetrics
   */
 abstract class TestMetricsBase {
-  final val SECOND_NANOS = 1_000_000_000L;
+  final val SecondNanos = 1_000_000_000L;
 
   final val testNumbers = new AtomicInteger()
 
@@ -105,7 +100,8 @@ abstract class TestMetricsBase {
   }
 
   private def metricData(metric: MetricHandle): MetricData = {
-    testClock.advance(Duration.ofNanos(SECOND_NANOS));
+    // required to force the in memory reader to report the recent updates
+    testClock.advance(Duration.ofNanos(SecondNanos))
     import scala.jdk.CollectionConverters._
     metricReader.collectAllMetrics.asScala.filter(_.getName == metric.name).head
   }

@@ -3,71 +3,47 @@
 
 package com.daml.metrics.akkahttp
 
-import akka.util.ByteString
-
-import scala.concurrent.Future
 import akka.stream.scaladsl.{Source, Flow, Sink}
 import akka.http.scaladsl.model.ws.{Message, TextMessage, BinaryMessage}
-
+import akka.util.ByteString
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.metrics.api.{MetricsContext, MetricName}
+import com.daml.metrics.api.MetricHandle.Counter
 import com.daml.metrics.akkahttp.AkkaUtils._
-
+import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-import org.scalatest.Assertion
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-
-import com.daml.metrics.api.MetricsContext
-import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.MetricHandle.Counter
+import scala.concurrent.Future
 
 class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with Matchers {
 
-  val strictTextMessage = TextMessage.Strict("test01")
-  val streamedTextMessage = TextMessage.Streamed(Source(List("test", "02", "test")))
-  val strictBinaryMessage = BinaryMessage.Strict(ByteString(Array[Byte](3, 2, 1, 0, -1, -2, -3)))
-  val streamedBinaryMessage = BinaryMessage.Streamed(
-    Source(List(ByteString(Array[Byte](24, -3, 56)), ByteString(Array[Byte](127, -128))))
+  import AkkaHttpMetricsSpec._
+
+  // test data
+  private val strictTextMessageData = "test01"
+  private val strictTextMessage = TextMessage.Strict(strictTextMessageData)
+  private val strictTextMessageSize = strictTextMessageData.getBytes().length.toLong
+
+  private val streamedTextMessageData = List("test", "02", "test")
+  private val streamedTextMessage = TextMessage.Streamed(Source(streamedTextMessageData))
+  private val streamedTextMessageSize =
+    streamedTextMessageData.foldLeft(0L)((acc, s) => acc + s.getBytes.length)
+
+  private val strictBinaryMessageData = ByteString(Array[Byte](3, 2, 1, 0, -1, -2, -3))
+  private val strictBinaryMessage = BinaryMessage.Strict(strictBinaryMessageData)
+  private val strictBinaryMessageSize = strictBinaryMessageData.length.toLong
+
+  private val streamedBinaryMessageData =
+    List(ByteString(Array[Byte](24, -3, 56)), ByteString(Array[Byte](127, -128)))
+  private val streamedBinaryMessage = BinaryMessage.Streamed(
+    Source(streamedBinaryMessageData)
   )
+  private val streamedBinaryMessageSize =
+    streamedBinaryMessageData.foldLeft(0L)((acc, bs) => acc + bs.length)
 
-  /** The metrics being tested
-    */
-  case class TestMetrics(
-      messagesReceivedTotal: Counter,
-      messagesReceivedBytesTotal: Counter,
-      messagesSentTotal: Counter,
-      messagesSentBytesTotal: Counter,
-  ) {
-
-    import TestMetrics._
-
-    def messagesReceivedTotalValue: Long = getCounterValue(messagesReceivedTotal)
-    def messagesReceivedBytesTotalValue: Long = getCounterValue(messagesReceivedBytesTotal)
-    def messagesSentTotalValue: Long = getCounterValue(messagesSentTotal)
-    def messagesSentBytesTotalValue: Long = getCounterValue(messagesSentBytesTotal)
-
-  }
-
-  object TestMetrics extends TestMetricsBase {
-
-    /** Creates a new set of metrics, for a test
-      */
-    def apply(): TestMetrics = {
-      val testNumber = testNumbers.getAndIncrement()
-      val baseName = MetricName(s"test-$testNumber")
-
-      val receivedTotalName = baseName :+ "messages_received_total"
-      val receivedBytesTotalName = baseName :+ "messages_received_bytes_total"
-      val sentTotalName = baseName :+ "messages_sent_total"
-      val sentBytesTotalName = baseName :+ "messages_sent_bytes_total"
-
-      val receivedTotal = metricFactory.counter(receivedTotalName)
-      val receivedBytesTotal = metricFactory.counter(receivedBytesTotalName)
-      val sentTotal = metricFactory.counter(sentTotalName)
-      val sentBytesTotal = metricFactory.counter(sentBytesTotalName)
-
-      TestMetrics(receivedTotal, receivedBytesTotal, sentTotal, sentBytesTotal)
-    }
-  }
+  // Test flow.
+  // Creates 2 deep copies of each passing message
+  private val testFlow = Flow[Message].mapAsync(1)(duplicateMessage).mapConcat(identity)
 
   // provides an enviroment to perform the tests
   private def withDuplicatingFlowAndMetrics[T](
@@ -79,75 +55,9 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
       metrics.messagesReceivedBytesTotal,
       metrics.messagesSentTotal,
       metrics.messagesSentBytesTotal,
-      Flow[Message].mapAsync(1)(duplicateMessage).mapConcat(identity),
+      testFlow,
     )(MetricsContext.Empty)
     f(duplicatingFlowWithMetrics, metrics)
-  }
-
-  // create a deep copy of the Message
-  private def duplicateMessage(m: Message): Future[List[Message]] = {
-    m match {
-      case TextMessage.Strict(text) =>
-        Future(List(TextMessage.Strict(text), TextMessage.Strict(text)))
-      case TextMessage.Streamed(textStream) =>
-        duplicateSource(textStream, identity[String]).map { newSource =>
-          List(TextMessage.Streamed(newSource), TextMessage.Streamed(newSource))
-        }
-      case BinaryMessage.Strict(data) =>
-        Future(List(BinaryMessage.Strict(data), BinaryMessage.Strict(data)))
-      case BinaryMessage.Streamed(dataStream) =>
-        duplicateSource(dataStream, duplicate).map { newSource =>
-          List(BinaryMessage.Streamed(newSource), BinaryMessage.Streamed(newSource))
-        }
-    }
-  }
-
-  // drain a source, and return the content of each message
-  private val drainStreamedMessages: Sink[Message, Future[List[List[ByteString]]]] =
-    Flow[Message]
-      .flatMapConcat {
-        case TextMessage.Strict(text) =>
-          Source.single(List(ByteString(text)))
-        case TextMessage.Streamed(textStream) =>
-          textStream.fold(List[ByteString]())((acc, c) => acc :+ ByteString(c))
-        case BinaryMessage.Strict(data) =>
-          Source.single(List(data))
-        case BinaryMessage.Streamed(dataStream) =>
-          dataStream.fold(List[ByteString]())((acc, c) => acc :+ c)
-      }
-      .toMat(Sink.fold(List[List[ByteString]]())((acc, s) => acc :+ s))((_, mat2) => mat2)
-
-  private val getMessagesReceivedTotalValue: TestMetrics => Long = (metrics: TestMetrics) =>
-    metrics.messagesReceivedTotalValue
-
-  private val getMessagesSentTotalValue: TestMetrics => Long = (metrics: TestMetrics) =>
-    metrics.messagesSentTotalValue
-
-  private val getMessagesReceivedBytesTotalValue: TestMetrics => Long =
-    (metrics: TestMetrics) => metrics.messagesReceivedBytesTotalValue
-
-  private val getMessagesSentBytesTotalValue: TestMetrics => Long = (metrics: TestMetrics) =>
-    metrics.messagesSentBytesTotalValue
-
-  private def checkCountThroughFlow(
-      messages: List[Message],
-      metricExtractor: (TestMetrics) => Long,
-      expected: Long,
-  ): Future[Assertion] = {
-    withDuplicatingFlowAndMetrics { (flow, metrics) =>
-      val done = Source(messages).via(flow).runWith(drainStreamedMessages)
-      done.map { _ =>
-        metricExtractor(metrics) should be(expected)
-      }
-    }
-  }
-
-  private def checkCountThroughFlow(
-      message: Message,
-      metricExtractor: TestMetrics => Long,
-      expected: Long,
-  ): Future[Assertion] = {
-    checkCountThroughFlow(List(message), metricExtractor, expected)
   }
 
   "websocket_message_received_total" should {
@@ -182,6 +92,9 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
   }
 
   "websocket_message_sent_total" should {
+    // The test flow duplicate the messages, so the number of sent messages is twice the number
+    // of messages given as test data.
+
     "count passing strict text messages" in {
       checkCountThroughFlow(strictTextMessage, getMessagesSentTotalValue, 2)
     }
@@ -217,7 +130,7 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
       checkCountThroughFlow(
         strictTextMessage,
         getMessagesReceivedBytesTotalValue,
-        6L,
+        strictTextMessageSize,
       )
     }
 
@@ -225,7 +138,7 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
       checkCountThroughFlow(
         streamedTextMessage,
         getMessagesReceivedBytesTotalValue,
-        10L,
+        streamedTextMessageSize,
       )
     }
 
@@ -233,7 +146,7 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
       checkCountThroughFlow(
         strictBinaryMessage,
         getMessagesReceivedBytesTotalValue,
-        7L,
+        strictBinaryMessageSize,
       )
     }
 
@@ -241,7 +154,7 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
       checkCountThroughFlow(
         streamedBinaryMessage,
         getMessagesReceivedBytesTotalValue,
-        5L,
+        streamedBinaryMessageSize,
       )
     }
 
@@ -254,17 +167,20 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
           streamedBinaryMessage,
         ),
         getMessagesReceivedBytesTotalValue,
-        5L + 6L + 7L + 10L,
+        strictTextMessageSize + streamedTextMessageSize + strictBinaryMessageSize + streamedBinaryMessageSize,
       )
     }
   }
 
   "websocket_message_sent_bytes_total" should {
+    // The test flow duplicate the messages, so the size of sent messages is twice the size
+    // of the messages given as test data.
+
     "count size of passing strict text messages" in {
       checkCountThroughFlow(
         strictTextMessage,
         getMessagesSentBytesTotalValue,
-        6L + 6L,
+        strictTextMessageSize * 2,
       )
     }
 
@@ -272,7 +188,7 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
       checkCountThroughFlow(
         streamedTextMessage,
         getMessagesSentBytesTotalValue,
-        10L + 10L,
+        streamedTextMessageSize * 2,
       )
     }
 
@@ -280,7 +196,7 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
       checkCountThroughFlow(
         strictBinaryMessage,
         getMessagesSentBytesTotalValue,
-        7L + 7L,
+        strictBinaryMessageSize * 2,
       )
     }
 
@@ -288,7 +204,7 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
       checkCountThroughFlow(
         streamedBinaryMessage,
         getMessagesSentBytesTotalValue,
-        5L + 5L,
+        streamedBinaryMessageSize * 2,
       )
     }
 
@@ -301,24 +217,10 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
           streamedBinaryMessage,
         ),
         getMessagesSentBytesTotalValue,
-        5L + 5L + 6L + 6L + 7L + 7L + 10L + 10L,
+        (strictTextMessageSize + streamedTextMessageSize + strictBinaryMessageSize + streamedBinaryMessageSize) * 2,
       )
     }
   }
-
-  private def checkMessageContentThroughFlow(m: Message) =
-    withDuplicatingFlowAndMetrics { (flow, _) =>
-      val messagesContent =
-        Source.single(m).via(flow).runWith(drainStreamedMessages)
-      val expectedContent =
-        Source(List(m, m)).runWith(drainStreamedMessages)
-      for {
-        m <- messagesContent
-        e <- expectedContent
-      } yield {
-        m should be(e)
-      }
-    }
 
   "websocket metrics" should {
     "not impact passing strict text message" in {
@@ -335,6 +237,127 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
 
     "not impact passing streamed binary message" in {
       checkMessageContentThroughFlow(streamedBinaryMessage)
+    }
+  }
+
+  private val getMessagesReceivedTotalValue: TestMetrics => Long = (metrics: TestMetrics) =>
+    metrics.messagesReceivedTotalValue
+
+  private val getMessagesSentTotalValue: TestMetrics => Long = (metrics: TestMetrics) =>
+    metrics.messagesSentTotalValue
+
+  private val getMessagesReceivedBytesTotalValue: TestMetrics => Long =
+    (metrics: TestMetrics) => metrics.messagesReceivedBytesTotalValue
+
+  private val getMessagesSentBytesTotalValue: TestMetrics => Long = (metrics: TestMetrics) =>
+    metrics.messagesSentBytesTotalValue
+
+  private def checkCountThroughFlow(
+      messages: List[Message],
+      metricExtractor: (TestMetrics) => Long,
+      expected: Long,
+  ): Future[Assertion] = {
+    withDuplicatingFlowAndMetrics { (flow, metrics) =>
+      val done = Source(messages).via(flow).runWith(drainStreamedMessages)
+      done.map { _ =>
+        metricExtractor(metrics) should be(expected)
+      }
+    }
+  }
+
+  private def checkCountThroughFlow(
+      message: Message,
+      metricExtractor: TestMetrics => Long,
+      expected: Long,
+  ): Future[Assertion] = {
+    checkCountThroughFlow(List(message), metricExtractor, expected)
+  }
+
+  private def checkMessageContentThroughFlow(testMessage: Message) =
+    withDuplicatingFlowAndMetrics { (flow, _) =>
+      val messagesContent =
+        Source.single(testMessage).via(flow).runWith(drainStreamedMessages)
+      val expectedContent =
+        Source(List(testMessage, testMessage)).runWith(drainStreamedMessages)
+      for {
+        actualMessageContent <- messagesContent
+        expectedMessageContent <- expectedContent
+      } yield {
+        actualMessageContent should be(expectedMessageContent)
+      }
+    }
+
+  // creates a deep copy of the message
+  private def duplicateMessage(message: Message): Future[List[Message]] =
+    message match {
+      case TextMessage.Strict(text) =>
+        Future(List(TextMessage.Strict(text), TextMessage.Strict(text)))
+      case TextMessage.Streamed(textStream) =>
+        duplicateSource(textStream, identity[String]).map { newSource =>
+          List(TextMessage.Streamed(newSource), TextMessage.Streamed(newSource))
+        }
+      case BinaryMessage.Strict(data) =>
+        Future(List(BinaryMessage.Strict(data), BinaryMessage.Strict(data)))
+      case BinaryMessage.Streamed(dataStream) =>
+        duplicateSource(dataStream, duplicate).map { newSource =>
+          List(BinaryMessage.Streamed(newSource), BinaryMessage.Streamed(newSource))
+        }
+    }
+
+  // drains a source, and return the content of each message
+  private val drainStreamedMessages: Sink[Message, Future[List[List[ByteString]]]] =
+    Flow[Message]
+      .flatMapConcat {
+        case TextMessage.Strict(text) =>
+          Source.single(List(ByteString(text)))
+        case TextMessage.Streamed(textStream) =>
+          textStream.fold(List[ByteString]())((acc, c) => acc :+ ByteString(c))
+        case BinaryMessage.Strict(data) =>
+          Source.single(List(data))
+        case BinaryMessage.Streamed(dataStream) =>
+          dataStream.fold(List[ByteString]())((acc, c) => acc :+ c)
+      }
+      .toMat(Sink.fold(List[List[ByteString]]())((acc, s) => acc :+ s))((_, mat2) => mat2)
+
+}
+
+object AkkaHttpMetricsSpec {
+
+  // The metrics being tested
+  case class TestMetrics(
+      messagesReceivedTotal: Counter,
+      messagesReceivedBytesTotal: Counter,
+      messagesSentTotal: Counter,
+      messagesSentBytesTotal: Counter,
+  ) {
+
+    import TestMetrics._
+
+    def messagesReceivedTotalValue: Long = getCounterValue(messagesReceivedTotal)
+    def messagesReceivedBytesTotalValue: Long = getCounterValue(messagesReceivedBytesTotal)
+    def messagesSentTotalValue: Long = getCounterValue(messagesSentTotal)
+    def messagesSentBytesTotalValue: Long = getCounterValue(messagesSentBytesTotal)
+
+  }
+
+  object TestMetrics extends TestMetricsBase {
+
+    // Creates a new set of metrics, for one test
+    def apply(): TestMetrics = {
+      val testNumber = testNumbers.getAndIncrement()
+      val baseName = MetricName(s"test-$testNumber")
+
+      val receivedTotalName = baseName :+ "messages_received_total"
+      val receivedBytesTotalName = baseName :+ "messages_received_bytes_total"
+      val sentTotalName = baseName :+ "messages_sent_total"
+      val sentBytesTotalName = baseName :+ "messages_sent_bytes_total"
+
+      val receivedTotal = metricFactory.counter(receivedTotalName)
+      val receivedBytesTotal = metricFactory.counter(receivedBytesTotalName)
+      val sentTotal = metricFactory.counter(sentTotalName)
+      val sentBytesTotal = metricFactory.counter(sentBytesTotalName)
+
+      TestMetrics(receivedTotal, receivedBytesTotal, sentTotal, sentBytesTotal)
     }
   }
 
