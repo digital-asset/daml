@@ -21,8 +21,8 @@ complicating concerns including, but not limited to:
 - asynchronous submit/completion workflows,
 - temporal queries (e.g. active contracts *as of a certain time*), and
 
-For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>`
-instead.
+For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>` instead.
+The JSON API is a "proxy", after a fashion, for that API; *there is literally nothing that JSON API can do that your own application cannot do via gRPC*.
 
 If you are using this API from JavaScript or TypeScript, we strongly recommend using :doc:`the JavaScript bindings and code generator </app-dev/bindings-ts/index>` rather than invoking these endpoints directly.
 This will both simplify access to the endpoints described here and (with TypeScript) help to provide the correct JavaScript value format for each of your contracts, choice arguments, and choice results.
