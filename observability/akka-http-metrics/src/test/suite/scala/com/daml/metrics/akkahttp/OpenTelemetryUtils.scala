@@ -36,7 +36,7 @@ object HistogramData {
     List(5L, 10L, 25L, 50L, 75L, 100L, 250L, 500L, 750L, 1000L, 2500L, 5000L, 7500L, 10000L)
   final val bucketCountsZero = List.fill(15)(0L)
 
-  /** Generates an HistogramData instance, from the given value, to compare with the data
+  /** Generates a HistogramData instance, from the given value, to compare with the data
     * extracted from a metric.
     */
   def apply(value: Long): HistogramData = {

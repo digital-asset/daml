@@ -19,7 +19,7 @@ import com.daml.metrics.api.MetricHandle.{Counter, Timer}
   */
 object AkkaHttpMetrics {
 
-  /** Provides an akka http directive which capture in the given metrics, the following signals:
+  /** Provides an akka http directive which captures via the passed metrics the following signals:
     *  - total number of requests
     *  - total number of requests resulting in errors
     *  - latency of the requests
@@ -82,7 +82,6 @@ object AkkaHttpMetrics {
         e
       case e: HttpEntity.Chunked =>
         e.copy(chunks = chunkStreamPartSourceLengthReportMetric(e.chunks, metric))
-
     }
 
   // support for computation and report of the size of a responseEntity
@@ -112,7 +111,7 @@ object AkkaHttpMetrics {
       Flow[ByteString].fold(0L)((acc, d) => acc + d.length).to(Sink.foreach(metric.inc(_)))
     )
 
-  // adds a side flow to the source, to compute and report the total size of the ChunckStreamPart elements
+  // Adds a side flow to the source, to compute and report the total size of the ChunkStreamPart elements.
   private def chunkStreamPartSourceLengthReportMetric[Mat](
       source: Source[HttpEntity.ChunkStreamPart, Mat],
       metric: Counter,

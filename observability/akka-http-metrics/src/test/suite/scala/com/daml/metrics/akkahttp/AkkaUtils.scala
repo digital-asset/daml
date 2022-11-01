@@ -20,10 +20,9 @@ object AkkaUtils {
   def duplicateSource[T](
       source: Source[T, Any],
       duplicateElement: T => T,
-  )(implicit ec: ExecutionContext, mat: Materializer): Future[Source[T, Any]] = {
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[Source[T, Any]] =
     source
       .runFold(Vector[T]())((acc, bs) => acc.appended(bs))
       .map(acc => Source(acc.map(duplicateElement)))
-  }
 
 }

@@ -113,7 +113,6 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
         case BinaryMessage.Strict(data) =>
           Source.single(List(data))
         case BinaryMessage.Streamed(dataStream) =>
-          // dataStream.map(_ => 1)
           dataStream.fold(List[ByteString]())((acc, c) => acc :+ c)
       }
       .toMat(Sink.fold(List[List[ByteString]]())((acc, s) => acc :+ s))((_, mat2) => mat2)

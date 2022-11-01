@@ -61,7 +61,7 @@ object WebSocketMetrics {
         val newStream = m.textStream.alsoTo(
           Flow[String]
             .fold(0L)((acc, t) => acc + Utf8.encodedLength(t))
-            .to(Sink.foreach { bytesTotalMetric.inc(_) })
+            .to(Sink.foreach(bytesTotalMetric.inc(_)))
         )
         TextMessage.Streamed(newStream)
     }
