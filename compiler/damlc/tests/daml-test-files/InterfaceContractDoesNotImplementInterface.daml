@@ -25,10 +25,18 @@ template T
       view = EmptyInterfaceView
 
 -- @ENABLE-SCENARIOS
--- @ERROR range=29:1-29:5; Attempt to use a contract via an interface that the contract does not implement
-main = do
+-- @ERROR range=29:1-29:11; Attempt to use a contract via an interface that the contract does not implement
+testFromTo = do
   alice <- getParty "alice"
   cidT <- alice `submit` create T with party = alice
   let cidI = toInterfaceContractId @I cidT
       cidJ = fromInterfaceContractId @J cidI
+  alice `submit` exercise cidJ JChoice
+
+-- @ERROR range=37:1-37:11; Attempt to use a contract via an interface that the contract does not implement
+testCoerce = do
+  alice <- getParty "alice"
+  cidT <- alice `submit` create T with party = alice
+  let cidI = toInterfaceContractId @I cidT
+      cidJ = coerceInterfaceContractId @J cidI
   alice `submit` exercise cidJ JChoice
