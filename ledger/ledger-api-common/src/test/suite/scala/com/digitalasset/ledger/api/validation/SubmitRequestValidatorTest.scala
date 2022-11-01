@@ -5,7 +5,6 @@ package com.daml.ledger.api.validation
 
 import java.time.{Instant, Duration => JDuration}
 import com.daml.api.util.{DurationConversion, TimestampConversion}
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.DomainMocks.{applicationId, commandId, submissionId, workflowId}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
@@ -14,15 +13,11 @@ import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
 import com.daml.ledger.api.{DeduplicationPeriod, DomainMocks}
-import com.daml.lf.command.{
-  ContractMetadata,
-  DisclosedContract,
-  ApiCommand => LfCommand,
-  ApiCommands => LfCommands,
-}
+import com.daml.lf.command.{ContractMetadata, DisclosedContract, ApiCommand => LfCommand, ApiCommands => LfCommands}
 import com.daml.lf.data._
 import com.daml.lf.value.Value.ValueRecord
 import com.daml.lf.value.{Value => Lf}
+import com.daml.platform.error.definitions.LedgerApiErrors
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.{INVALID_ARGUMENT, NOT_FOUND}

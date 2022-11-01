@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver.services
 
 import com.daml.api.util.TimeProvider
-import com.daml.error.definitions.ErrorCause
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.daml.ledger.api.domain.{CommandId, Commands}
@@ -30,6 +29,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
+import com.daml.platform.error.ErrorCause
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.google.rpc.status.{Status => RpcStatus}

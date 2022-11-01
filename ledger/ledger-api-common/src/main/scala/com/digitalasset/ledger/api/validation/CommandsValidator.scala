@@ -4,19 +4,11 @@
 package com.daml.ledger.api.validation
 
 import java.time.{Duration, Instant}
-
 import com.daml.api.util.{DurationConversion, TimestampConversion}
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.{LedgerId, optionalLedgerId}
 import com.daml.ledger.api.v1.commands
-import com.daml.ledger.api.v1.commands.Command.Command.{
-  Create => ProtoCreate,
-  CreateAndExercise => ProtoCreateAndExercise,
-  Empty => ProtoEmpty,
-  Exercise => ProtoExercise,
-  ExerciseByKey => ProtoExerciseByKey,
-}
+import com.daml.ledger.api.v1.commands.Command.Command.{Create => ProtoCreate, CreateAndExercise => ProtoCreateAndExercise, Empty => ProtoEmpty, Exercise => ProtoExercise, ExerciseByKey => ProtoExerciseByKey}
 import com.daml.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
 import com.daml.ledger.api.validation.CommandsValidator.{Submitters, effectiveSubmitters}
 import com.daml.ledger.api.{DeduplicationPeriod, domain}
@@ -24,6 +16,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.value.{Value => Lf}
+import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, FieldValidations}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._

@@ -4,9 +4,7 @@
 package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.time
-
 import com.daml.error.ErrorCode
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
@@ -14,10 +12,7 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.FutureAssertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
-import com.daml.ledger.api.testtool.infrastructure.assertions.CommandDeduplicationAssertions.{
-  assertDeduplicationDuration,
-  assertDeduplicationOffset,
-}
+import com.daml.ledger.api.testtool.infrastructure.assertions.CommandDeduplicationAssertions.{assertDeduplicationDuration, assertDeduplicationOffset}
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.CompletionResponse
 import com.daml.ledger.api.testtool.infrastructure.time.{DelayMechanism, Durations}
@@ -25,9 +20,7 @@ import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
-import com.daml.ledger.api.v1.completion.Completion.{
-  DeduplicationPeriod => CompletionDeduplicationPeriod
-}
+import com.daml.ledger.api.v1.completion.Completion.{DeduplicationPeriod => CompletionDeduplicationPeriod}
 import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationPeriodSupport.OffsetSupport
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.binding.Primitive.Party
@@ -36,6 +29,7 @@ import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, Tex
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{LedgerString, SubmissionId}
 import com.daml.logging.LoggingContext
+import com.daml.platform.error.definitions.LedgerApiErrors
 import io.grpc.Status.Code
 import org.slf4j.{Logger, LoggerFactory}
 

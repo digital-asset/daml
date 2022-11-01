@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.testtool.suites.v1_8
 
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -18,17 +17,8 @@ import com.daml.ledger.client.binding.Template
 import com.daml.ledger.test.model.Test.Divulgence2._
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test.Witnesses._
-import com.daml.ledger.test.model.Test.{
-  Divulgence1,
-  Divulgence2,
-  Dummy,
-  DummyFactory,
-  DummyWithParam,
-  TriAgreement,
-  TriProposal,
-  WithObservers,
-  Witnesses => TestWitnesses,
-}
+import com.daml.ledger.test.model.Test.{Divulgence1, Divulgence2, Dummy, DummyFactory, DummyWithParam, TriAgreement, TriProposal, WithObservers, Witnesses => TestWitnesses}
+import com.daml.platform.error.definitions.LedgerApiErrors
 import scalaz.syntax.tag._
 
 import scala.collection.immutable.Seq

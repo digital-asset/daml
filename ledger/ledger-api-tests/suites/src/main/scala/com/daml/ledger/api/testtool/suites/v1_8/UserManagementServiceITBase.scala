@@ -3,26 +3,14 @@
 
 package com.daml.ledger.api.testtool.suites.v1_8
 
-import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.testtool.infrastructure.Allocation.{
-  NoParties,
-  Participant,
-  Participants,
-  allocate,
-}
+import com.daml.ledger.api.testtool.infrastructure.Allocation.{NoParties, Participant, Participants, allocate}
 import com.daml.ledger.api.testtool.infrastructure.participant.{Features, ParticipantTestContext}
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
-import com.daml.ledger.api.v1.admin.user_management_service.{
-  CreateUserRequest,
-  CreateUserResponse,
-  GetUserResponse,
-  UpdateUserRequest,
-  UpdateUserResponse,
-  User,
-}
+import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserRequest, CreateUserResponse, GetUserResponse, UpdateUserRequest, UpdateUserResponse, User}
 import com.google.protobuf.field_mask.FieldMask
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.platform.error.definitions.LedgerApiErrors
 
 import scala.concurrent.{ExecutionContext, Future}
 

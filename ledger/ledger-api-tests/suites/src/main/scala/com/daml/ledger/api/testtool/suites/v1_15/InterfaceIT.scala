@@ -3,13 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites.v1_15
 
-import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.testtool.infrastructure.Allocation.{
-  Participant,
-  Participants,
-  SingleParty,
-  allocate,
-}
+import com.daml.ledger.api.testtool.infrastructure.Allocation.{Participant, Participants, SingleParty, allocate}
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
@@ -17,6 +11,7 @@ import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.semantic.Interface._
 import com.daml.ledger.test.semantic.{Interface1, Interface2, Interface3}
+import com.daml.platform.error.definitions.LedgerApiErrors
 import scalaz.Tag
 
 class InterfaceIT extends LedgerTestSuite {

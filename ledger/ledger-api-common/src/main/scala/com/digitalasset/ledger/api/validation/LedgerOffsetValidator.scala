@@ -4,10 +4,10 @@
 package com.daml.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
+import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.platform.server.api.validation.FieldValidations
 import io.grpc.StatusRuntimeException
 

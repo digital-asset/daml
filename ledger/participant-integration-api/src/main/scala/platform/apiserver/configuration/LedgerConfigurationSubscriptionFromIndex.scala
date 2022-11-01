@@ -8,7 +8,6 @@ import akka.actor.{Cancellable, Scheduler}
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
 import akka.{Done, NotUsed}
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.configuration.Configuration
@@ -16,6 +15,7 @@ import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscriptionFromIndex._
+import com.daml.platform.error.definitions.LedgerApiErrors
 
 import scala.concurrent.duration.{Duration, DurationInt, DurationLong}
 import scala.concurrent.{ExecutionContext, Future, Promise}

@@ -1,11 +1,8 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
-package com.daml.error.definitions
+package com.daml.errors
 
 import com.daml.error.ErrorCode.LoggedApiException
+import com.daml.error.ErrorGroups.ParticipantErrorGroup.IndexErrorGroup
 import com.daml.error._
-import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.IndexErrorGroup
 
 @Explanation("Errors raised by the Participant Index persistence layer.")
 object IndexErrors extends IndexErrorGroup {
@@ -63,10 +60,10 @@ object IndexErrors extends IndexErrorGroup {
     }
   }
 
-  // Decorator that returns a specialized StatusRuntimeException (IndexDbException)
-  // that can be used for precise matching of persistence exceptions (e.g. for index initialization failures that need retrying).
-  // Without this specialization, internal errors just appear as StatusRuntimeExceptions (see INDEX_DB_SQL_NON_TRANSIENT_ERROR)
-  // without any marker, impeding us to assert whether they are emitted by the persistence layer or not.
+// Decorator that returns a specialized StatusRuntimeException (IndexDbException)
+// that can be used for precise matching of persistence exceptions (e.g. for index initialization failures that need retrying).
+// Without this specialization, internal errors just appear as StatusRuntimeExceptions (see INDEX_DB_SQL_NON_TRANSIENT_ERROR)
+// without any marker, impeding us to assert whether they are emitted by the persistence layer or not.
   abstract class DbError(
       override val cause: String,
       override val throwableO: Option[Throwable] = None,

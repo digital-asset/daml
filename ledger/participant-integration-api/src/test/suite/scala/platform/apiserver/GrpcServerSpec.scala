@@ -5,7 +5,6 @@ package com.daml.platform.apiserver
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.client.GrpcChannel
 import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
@@ -24,6 +23,8 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.concurrent.Executors
 import com.daml.metrics.api.MetricName
+import com.daml.platform.error.definitions.LedgerApiErrors
+
 import scala.concurrent.Future
 
 final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResourceContext {

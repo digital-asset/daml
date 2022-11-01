@@ -7,26 +7,12 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
-import com.daml.ledger.api.domain.{
-  Filters,
-  InclusiveFilters,
-  LedgerId,
-  LedgerOffset,
-  PackageEntry,
-  TransactionFilter,
-  TransactionId,
-}
+import com.daml.ledger.api.domain.{Filters, InclusiveFilters, LedgerId, LedgerOffset, PackageEntry, TransactionFilter, TransactionId}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.api.v1.transaction_service.{
-  GetFlatTransactionResponse,
-  GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsResponse,
-}
+import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
 import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
@@ -45,21 +31,13 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.daml.platform.index.IndexServiceImpl.{
-  memoizedTransactionFilterProjection,
-  transactionFilterProjection,
-  withValidatedFilter,
-}
-import com.daml.platform.store.dao.{
-  EventProjectionProperties,
-  LedgerDaoCommandCompletionsReader,
-  LedgerDaoTransactionsReader,
-  LedgerReadDao,
-}
+import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.platform.index.IndexServiceImpl.{memoizedTransactionFilterProjection, transactionFilterProjection, withValidatedFilter}
+import com.daml.platform.store.dao.{EventProjectionProperties, LedgerDaoCommandCompletionsReader, LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
-import com.daml.platform.{ApiOffset, TemplatePartiesFilter, PruneBuffers}
+import com.daml.platform.{ApiOffset, PruneBuffers, TemplatePartiesFilter}
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.ToTagOps

@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver.execution
 
-import com.daml.error.definitions.ErrorCause
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
@@ -23,6 +22,7 @@ import com.daml.lf.engine.{
 import com.daml.lf.transaction.{Node, SubmittedTransaction, Transaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.error.ErrorCause
 import com.daml.platform.packages.DeduplicatingPackageLoader
 import scalaz.syntax.tag._
 

@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.testtool.suites.v1_dev
 
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
@@ -30,13 +29,9 @@ import com.google.protobuf.timestamp.Timestamp
 import scalaz.syntax.tag._
 import com.daml.ledger.api.v1.commands.{DisclosedContract => ProtoDisclosedContract}
 import ProtoDisclosedContract.{Arguments => ProtoArguments}
-import com.daml.ledger.api.v1.transaction_filter.{
-  Filters,
-  InclusiveFilters,
-  InterfaceFilter,
-  TransactionFilter,
-}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, InterfaceFilter, TransactionFilter}
 import com.daml.ledger.test.modelext.TestExtension.IDelegated
+import com.daml.platform.error.definitions.LedgerApiErrors
 
 import java.time.temporal.ChronoUnit
 import java.util.regex.Pattern

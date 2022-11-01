@@ -7,12 +7,13 @@ package ledger.sandbox.domain
 import com.daml.ledger.participant.state.v2.{ChangeId, CompletionInfo, Update}
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import error.ContextualizedErrorLogger
-import error.definitions.LedgerApiErrors
 import ledger.configuration.LedgerTimeModel
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
+import com.daml.platform.error.definitions.LedgerApiErrors
 import com.google.rpc.status.Status
+
 import java.time.Duration
 
 private[sandbox] sealed trait Rejection extends Product with Serializable {

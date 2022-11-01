@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver.ratelimiting
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.error.definitions.LedgerApiErrors.ThreadpoolOverloaded
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.metrics.Metrics
 import com.daml.metrics.api.MetricName

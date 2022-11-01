@@ -4,13 +4,13 @@
 package com.daml.platform
 
 import akka.stream.scaladsl.Source
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.{Dispatcher, SubSource}
+import com.daml.platform.error.definitions.LedgerApiErrors
 import io.grpc.StatusRuntimeException
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion

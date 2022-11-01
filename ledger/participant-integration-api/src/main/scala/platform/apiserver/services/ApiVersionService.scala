@@ -3,26 +3,14 @@
 
 package com.daml.platform.apiserver.services
 
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.ledger.api.v1.experimental_features.{
-  ExperimentalFeatures,
-  ExperimentalOptionalLedgerId,
-  ExperimentalSelfServiceErrorCodes,
-  ExperimentalStaticTime,
-  ExperimentalUserAndPartyLocalMetadataExtensions,
-}
+import com.daml.ledger.api.v1.experimental_features.{ExperimentalFeatures, ExperimentalOptionalLedgerId, ExperimentalSelfServiceErrorCodes, ExperimentalStaticTime, ExperimentalUserAndPartyLocalMetadataExtensions}
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
-import com.daml.ledger.api.v1.version_service.{
-  FeaturesDescriptor,
-  GetLedgerApiVersionRequest,
-  GetLedgerApiVersionResponse,
-  UserManagementFeature,
-  VersionServiceGrpc,
-}
+import com.daml.ledger.api.v1.version_service.{FeaturesDescriptor, GetLedgerApiVersionRequest, GetLedgerApiVersionResponse, UserManagementFeature, VersionServiceGrpc}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.LedgerFeatures
+import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.platform.localstore.UserManagementConfig
 import io.grpc.ServerServiceDefinition
 

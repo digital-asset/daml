@@ -5,7 +5,6 @@ package com.daml.platform.apiserver.services
 
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode.LoggedApiException
-import com.daml.error.definitions.{ErrorCause, LedgerApiErrors, RejectionGenerators}
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.{LedgerId, SubmissionId, Commands => ApiCommands}
@@ -20,6 +19,8 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.SeedService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
+import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.platform.error.{ErrorCause, RejectionGenerators}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.services.time.TimeProviderType

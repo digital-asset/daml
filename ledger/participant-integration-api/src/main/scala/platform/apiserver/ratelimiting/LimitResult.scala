@@ -3,8 +3,7 @@
 
 package com.daml.platform.apiserver.ratelimiting
 
-import com.daml.error.definitions.DamlError
-
+import com.daml.error.DamlError
 import scala.annotation.tailrec
 
 sealed trait LimitResult {
