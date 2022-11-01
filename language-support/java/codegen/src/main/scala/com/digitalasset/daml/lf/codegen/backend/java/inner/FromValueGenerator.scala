@@ -93,23 +93,12 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .builder()
       .add(recordValueExtractor("value$", "recordValue$"))
       .addStatement(
-        "$T record$$ = recordValue$$.asRecord().orElseThrow(() -> new IllegalArgumentException($S))",
-        classOf[javaapi.data.DamlRecord],
-        "Contracts must be constructed from Records",
-      )
-      .addStatement(
-        "$T fields$$ = record$$.getFields()",
+        "$T fields$$ = $T.recordCheck($L,$WrecordValue$$)",
         ParameterizedTypeName
           .get(classOf[java.util.List[_]], classOf[javaapi.data.DamlRecord.Field]),
+        classOf[PrimitiveValueDecoders],
+        fields.size,
       )
-      .addStatement("int numberOfFields = fields$$.size()")
-      .beginControlFlow(s"if (numberOfFields != ${fields.size})")
-      .addStatement(
-        "throw new $T($S + numberOfFields)",
-        classOf[IllegalArgumentException],
-        s"Expected ${fields.size} arguments, got ",
-      )
-      .endControlFlow()
 
     fields.iterator.zip(accessors).foreach { case (FieldInfo(_, damlType, javaName, _), accessor) =>
       fromValueCode.addStatement(
@@ -165,19 +154,13 @@ private[inner] object FromValueGenerator extends StrictLogging {
     CodeBlock
       .builder()
       .addStatement(
-        "$T variant$$ = $L.asVariant().orElseThrow(() -> new IllegalArgumentException($S + $L.getClass().getName()))",
-        classOf[javaapi.data.Variant],
-        inputVar,
-        s"Expected: Variant. Actual: ",
-        inputVar,
-      )
-      .addStatement(
-        "if (!$S.equals(variant$$.getConstructor())) throw new $T($S + variant$$.getConstructor())",
+        "$T $L =$W$T.variantCheck($S,$W$L)",
+        classOf[javaapi.data.Value],
+        outputVar,
+        classOf[PrimitiveValueDecoders],
         constructorName,
-        classOf[IllegalArgumentException],
-        s"Invalid constructor. Expected: $constructorName. Actual: ",
+        inputVar,
       )
-      .addStatement("$T $L = variant$$.getValue()", classOf[javaapi.data.Value], outputVar)
       .build()
   }
 
