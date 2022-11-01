@@ -8,7 +8,7 @@ load(
 load("//bazel_tools:versions.bzl", "version_to_name", "versions")
 load("//bazel_tools:testing.bzl", "extra_tags")
 
-def daml_script_dar(sdk_version):
+def daml_script_example_dar(sdk_version):
     daml = "@daml-sdk-{sdk_version}//:daml".format(
         sdk_version = sdk_version,
     )
@@ -51,14 +51,12 @@ $(location {daml}) build --project-root=$$TMP_DIR -o $$PWD/$(OUTS)
         ),
     )
 
-def daml_script_test(compiler_version, runner_version):
-    name = "daml-script-test-compiler-{compiler_version}-runner-{runner_version}".format(
-        compiler_version = version_to_name(compiler_version),
-        runner_version = version_to_name(runner_version),
-    )
-    compiled_dar = "//:script-example-dar-{version}".format(
-        version = version_to_name(compiler_version),
-    )
+def daml_script_test(
+        name,
+        compiler_version,
+        runner_version,
+        compiled_dar,
+        script_name):
     daml_runner = "@daml-sdk-{version}//:daml".format(
         version = runner_version,
     )
@@ -111,12 +109,13 @@ $$runner script \\
   --ledger-port 6865 \\
   --wall-clock-time \\
   --dar $$(canonicalize_rlocation $(rootpath {dar})) \\
-  --script-name ScriptExample:test
+  --script-name {script_name}
 EOF
 chmod +x $(OUTS)
 """.format(
             dar = compiled_dar,
             runner = daml_runner,
+            script_name = script_name,
             upload_dar = "1" if use_sandbox_on_x else "0",
         ),
         exec_tools = [
@@ -148,4 +147,18 @@ chmod +x $(OUTS)
         server_files = server_files,
         server_files_prefix = server_files_prefix,
         tags = extra_tags(compiler_version, runner_version) + ["exclusive"],
+    )
+
+def daml_script_example_test(compiler_version, runner_version):
+    daml_script_test(
+        name = "daml-script-test-compiler-{compiler_version}-runner-{runner_version}".format(
+            compiler_version = version_to_name(compiler_version),
+            runner_version = version_to_name(runner_version),
+        ),
+        compiler_version = compiler_version,
+        runner_version = runner_version,
+        compiled_dar = "//:script-example-dar-{version}".format(
+            version = version_to_name(compiler_version),
+        ),
+        script_name = "ScriptExample:test",
     )
