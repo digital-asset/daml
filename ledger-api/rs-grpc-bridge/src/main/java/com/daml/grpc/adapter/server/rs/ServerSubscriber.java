@@ -94,7 +94,10 @@ public class ServerSubscriber<Resp> implements Subscriber<Resp> {
     executionSequencer.sequence(
         () -> {
           if (!responseObserver.isCancelled()) {
-            responseObserver.onNext(response);
+            synchronized (response) {
+              // Ensure memory visibility of precomputation of message's serializedSize
+              responseObserver.onNext(response);
+            }
             if (responseObserver.isReady()) {
               onReadyHandler.run();
             } else {
