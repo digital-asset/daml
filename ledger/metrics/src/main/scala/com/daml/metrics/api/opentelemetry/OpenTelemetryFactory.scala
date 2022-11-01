@@ -209,7 +209,11 @@ case class OpentelemetryHistogram(
 
 private object AttributesHelper {
 
-  def multiContextAsAttributes(context: MetricsContext*): Attributes = {
+  /** Merges multiple [[MetricsContext]] into a single [[Attributes]] object.
+    * The labels from all the contexts are added as attributes.
+    * If the same label key is defined in multiple contexts, the value from the last metric context will be used.
+    */
+  private[opentelemetry] def multiContextAsAttributes(context: MetricsContext*): Attributes = {
     context
       .foldLeft(Attributes.builder()) { (builder, context) =>
         context.labels.foreachEntry { (key, value) =>
