@@ -15,7 +15,6 @@ object Metrics {
 
 final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
     extends DropwizardFactory {
-  override val prefix = MetricName("")
 
   object test {
     private val prefix: MetricName = MetricName("test")
@@ -24,7 +23,7 @@ final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
   }
 
   object daml extends DropwizardFactory {
-    override val prefix: MetricName = MetricName.Daml
+    val prefix: MetricName = MetricName.Daml
     override val registry = Metrics.this.registry
 
     object commands extends CommandMetrics(prefix :+ "commands", registry)

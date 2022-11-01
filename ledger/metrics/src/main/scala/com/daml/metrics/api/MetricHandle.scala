@@ -19,9 +19,9 @@ object MetricHandle {
 
   trait Factory {
 
-    def prefix: MetricName
-
-    def timer(name: MetricName): Timer
+    def timer(name: MetricName)(implicit
+        context: MetricsContext = MetricsContext.Empty
+    ): Timer
 
     def gauge[T](name: MetricName, initial: T)(implicit
         context: MetricsContext
@@ -29,14 +29,22 @@ object MetricHandle {
 
     def gaugeWithSupplier[T](
         name: MetricName,
-        gaugeSupplier: () => () => (T, MetricsContext),
+        gaugeSupplier: () => T,
+    )(implicit
+        context: MetricsContext = MetricsContext.Empty
     ): Unit
 
-    def meter(name: MetricName): Meter
+    def meter(name: MetricName)(implicit
+        context: MetricsContext = MetricsContext.Empty
+    ): Meter
 
-    def counter(name: MetricName): Counter
+    def counter(name: MetricName)(implicit
+        context: MetricsContext = MetricsContext.Empty
+    ): Counter
 
-    def histogram(name: MetricName): Histogram
+    def histogram(name: MetricName)(implicit
+        context: MetricsContext = MetricsContext.Empty
+    ): Histogram
 
   }
 
@@ -81,13 +89,9 @@ object MetricHandle {
   trait Gauge[T] extends MetricHandle {
     def metricType: String = "Gauge"
 
-    def updateValue(newValue: T)(implicit
-        context: MetricsContext = MetricsContext.Empty
-    ): Unit
+    def updateValue(newValue: T): Unit
 
-    def updateValue(f: T => T)(implicit
-        context: MetricsContext
-    ): Unit = updateValue(f(getValue))
+    def updateValue(f: T => T): Unit = updateValue(f(getValue))
 
     def getValue: T
   }

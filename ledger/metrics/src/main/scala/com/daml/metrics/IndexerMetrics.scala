@@ -11,7 +11,7 @@ import com.daml.metrics.api.MetricHandle.Gauge
 import com.daml.metrics.api.dropwizard.{DropwizardFactory, DropwizardGauge}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
-class IndexerMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
+class IndexerMetrics(val prefix: MetricName, override val registry: MetricRegistry)
     extends DropwizardFactory {
 
   @MetricDoc.Tag(

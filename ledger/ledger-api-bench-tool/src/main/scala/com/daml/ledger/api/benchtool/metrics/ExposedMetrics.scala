@@ -98,7 +98,7 @@ object ExposedMetrics {
           registry
             .register(
               Prefix :+ "latest_record_time" :+ streamName,
-              new Gauges.VarGauge[Long](0L)(MetricsContext.Empty),
+              new Gauges.VarGauge[Long](0L),
             ),
         ),
         recordTimeFunction = f,

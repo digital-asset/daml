@@ -8,11 +8,11 @@ import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.dropwizard.DropwizardFactory
 
-class HttpJsonApiMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
+class HttpJsonApiMetrics(val prefix: MetricName, override val registry: MetricRegistry)
     extends DropwizardFactory {
 
   object Db extends DropwizardFactory {
-    override val prefix: MetricName = HttpJsonApiMetrics.this.prefix :+ "db"
+    val prefix: MetricName = HttpJsonApiMetrics.this.prefix :+ "db"
     override val registry: MetricRegistry = HttpJsonApiMetrics.this.registry
 
     val fetchByIdFetch: Timer = timer(prefix :+ "fetch_by_id_fetch")

@@ -9,7 +9,7 @@ import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
 import com.daml.metrics.api.dropwizard.DropwizardFactory
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class CommandMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
+class CommandMetrics(val prefix: MetricName, override val registry: MetricRegistry)
     extends DropwizardFactory {
 
   @MetricDoc.Tag(

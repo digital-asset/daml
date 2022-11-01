@@ -42,7 +42,7 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
 @MetricDoc.GroupTag(
   representative = "daml.parallel_indexer.<stage>.executor.duration"
 )
-class ParallelIndexerMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
+class ParallelIndexerMetrics(val prefix: MetricName, override val registry: MetricRegistry)
     extends DropwizardFactory {
   val initialization = new DatabaseMetrics(prefix, "initialization", registry)
 

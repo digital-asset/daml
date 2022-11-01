@@ -9,7 +9,7 @@ import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Meter, Timer}
 import com.daml.metrics.api.dropwizard.DropwizardFactory
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class ExecutionMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
+class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegistry)
     extends DropwizardFactory {
 
   @MetricDoc.Tag(
@@ -132,7 +132,7 @@ class ExecutionMetrics(override val prefix: MetricName, override val registry: M
     representative = "daml.execution.cache.<state_cache>.evicted_weight"
   )
   object cache extends DropwizardFactory {
-    override val prefix: MetricName = ExecutionMetrics.this.prefix :+ "cache"
+    val prefix: MetricName = ExecutionMetrics.this.prefix :+ "cache"
     override val registry = ExecutionMetrics.this.registry
 
     object keyState {
