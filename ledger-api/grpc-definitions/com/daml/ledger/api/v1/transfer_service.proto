@@ -83,7 +83,7 @@ message TransferOutCommand {
 
 // Transfer-in a contract
 message TransferInCommand {
-  // The ID of the transfer out event. This needs to be used as an input for a transfer in TransferCommand.
+  // The ID of the transfer-out event. This needs to be used as an input for a transfer in TransferCommand.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string transfer_out_id = 1;

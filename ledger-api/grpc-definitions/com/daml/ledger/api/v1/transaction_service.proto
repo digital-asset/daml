@@ -55,6 +55,7 @@ message GetTransactionsRequest {
   LedgerOffset end = 3;
 
   // Required
+  // For the multi-domain, this currently replace the usual TransactionFilter
   string party = 4;
 
   // Must be a valid domain ID
