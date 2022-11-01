@@ -6,6 +6,7 @@ package com.daml.metrics.api.opentelemetry
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
+import com.daml.buildinfo.BuildInfo
 import com.daml.metrics.api.Gauges.VarGauge
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Histogram, Meter, Timer}
@@ -20,7 +21,12 @@ import io.opentelemetry.api.metrics.{
 
 trait OpenTelemetryFactory extends Factory {
 
+  val globalMetricsContext: MetricsContext = MetricsContext(
+    Map("daml_version" -> BuildInfo.Version)
+  )
+
   def otelMeter: OtelMeter
+
   override def timer(
       name: MetricName
   )(implicit
@@ -29,12 +35,12 @@ trait OpenTelemetryFactory extends Factory {
     OpentelemetryTimer(
       name,
       otelMeter.histogramBuilder(name).ofLongs().setUnit("ms").build(),
-      context,
+      globalMetricsContext.merge(context),
     )
   override def gauge[T](name: MetricName, initial: T)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Gauge[T] = {
-    val attributes = context.asAttributes
+    val attributes = globalMetricsContext.merge(context).asAttributes
     initial match {
       case longInitial: Int =>
         val varGauge = new VarGauge[Int](longInitial)
@@ -67,7 +73,7 @@ trait OpenTelemetryFactory extends Factory {
       context: MetricsContext = MetricsContext.Empty
   ): Unit = {
     val value = valueSupplier()
-    val attributes = context.asAttributes
+    val attributes = globalMetricsContext.merge(context).asAttributes
     value match {
       case _: Int =>
         otelMeter
@@ -104,21 +110,21 @@ trait OpenTelemetryFactory extends Factory {
   ): Meter = OpentelemetryMeter(
     name,
     otelMeter.counterBuilder(name).build(),
-    context,
+    globalMetricsContext.merge(context),
   )
   override def counter(name: MetricName)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Counter = OpentelemetryCounter(
     name,
     otelMeter.upDownCounterBuilder(name).build(),
-    context,
+    globalMetricsContext.merge(context),
   )
   override def histogram(name: MetricName)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Histogram = OpentelemetryHistogram(
     name,
     otelMeter.histogramBuilder(name).ofLongs().build(),
-    context,
+    globalMetricsContext.merge(context),
   )
 }
 
