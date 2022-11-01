@@ -7,7 +7,11 @@ import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.DispatcherState.{DispatcherNotRunning, DispatcherRunning, DispatcherStateShutdown}
+import com.daml.platform.DispatcherState.{
+  DispatcherNotRunning,
+  DispatcherRunning,
+  DispatcherStateShutdown,
+}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.timer.Timeout._

@@ -10,7 +10,12 @@ import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.auth.ClaimSet.Claims
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.domain._
-import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserResponse, GetUserResponse, UpdateUserRequest, UpdateUserResponse}
+import com.daml.ledger.api.v1.admin.user_management_service.{
+  CreateUserResponse,
+  GetUserResponse,
+  UpdateUserRequest,
+  UpdateUserResponse,
+}
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext

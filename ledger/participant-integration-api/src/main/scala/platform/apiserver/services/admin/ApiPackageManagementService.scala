@@ -11,7 +11,11 @@ import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger,
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service._
-import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService, LedgerEndService}
+import com.daml.ledger.participant.state.index.v2.{
+  IndexPackagesService,
+  IndexTransactionsService,
+  LedgerEndService,
+}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
 import com.daml.lf.data.Ref

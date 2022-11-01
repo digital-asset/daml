@@ -5,8 +5,14 @@ package com.daml.platform.apiserver.services
 
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.{LedgerIdentityService => GrpcLedgerIdentityService}
-import com.daml.ledger.api.v1.ledger_identity_service.{GetLedgerIdentityRequest, GetLedgerIdentityResponse, LedgerIdentityServiceGrpc}
+import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.{
+  LedgerIdentityService => GrpcLedgerIdentityService
+}
+import com.daml.ledger.api.v1.ledger_identity_service.{
+  GetLedgerIdentityRequest,
+  GetLedgerIdentityResponse,
+  LedgerIdentityServiceGrpc,
+}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.error.definitions.LedgerApiErrors

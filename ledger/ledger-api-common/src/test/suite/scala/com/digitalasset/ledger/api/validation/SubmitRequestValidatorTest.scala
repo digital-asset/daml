@@ -13,7 +13,12 @@ import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
 import com.daml.ledger.api.{DeduplicationPeriod, DomainMocks}
-import com.daml.lf.command.{ContractMetadata, DisclosedContract, ApiCommand => LfCommand, ApiCommands => LfCommands}
+import com.daml.lf.command.{
+  ContractMetadata,
+  DisclosedContract,
+  ApiCommand => LfCommand,
+  ApiCommands => LfCommands,
+}
 import com.daml.lf.data._
 import com.daml.lf.value.Value.ValueRecord
 import com.daml.lf.value.{Value => Lf}

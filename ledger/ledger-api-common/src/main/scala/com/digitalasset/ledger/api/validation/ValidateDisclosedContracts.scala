@@ -4,8 +4,14 @@
 package com.daml.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.commands.{Commands => ProtoCommands, DisclosedContract => ProtoDisclosedContract}
-import com.daml.ledger.api.validation.ValueValidator.{validateOptionalIdentifier, validateRecordFields}
+import com.daml.ledger.api.v1.commands.{
+  Commands => ProtoCommands,
+  DisclosedContract => ProtoDisclosedContract,
+}
+import com.daml.ledger.api.validation.ValueValidator.{
+  validateOptionalIdentifier,
+  validateRecordFields,
+}
 import com.daml.lf.command.{ContractMetadata, DisclosedContract}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.value.Value.ValueRecord

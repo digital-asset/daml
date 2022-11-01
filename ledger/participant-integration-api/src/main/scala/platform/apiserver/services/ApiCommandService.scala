@@ -16,11 +16,23 @@ import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionByIdRequest, GetTransactionResponse}
+import com.daml.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionByIdRequest,
+  GetTransactionResponse,
+}
 import com.daml.ledger.api.validation.{CommandsValidator, LedgerOffsetValidator}
-import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{CompletionFailure, CompletionSuccess, TrackedCompletionFailure}
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
+  TrackedCompletionFailure,
+}
 import com.daml.ledger.client.services.commands.tracker.{CompletionResponse, TrackedCommandKey}
-import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandSubmission, CommandTrackerFlow}
+import com.daml.ledger.client.services.commands.{
+  CommandCompletionSource,
+  CommandSubmission,
+  CommandTrackerFlow,
+}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}

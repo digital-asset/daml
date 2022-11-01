@@ -3,7 +3,12 @@
 
 package com.daml.ledger.api.testtool.suites.v1_15
 
-import com.daml.ledger.api.testtool.infrastructure.Allocation.{Participant, Participants, SingleParty, allocate}
+import com.daml.ledger.api.testtool.infrastructure.Allocation.{
+  Participant,
+  Participants,
+  SingleParty,
+  allocate,
+}
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._

@@ -5,7 +5,13 @@ package com.daml.ledger.api.benchtool.services
 
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.benchtool.AuthorizationHelper
-import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserRequest, GrantUserRightsRequest, User, UserManagementServiceGrpc, Right => UserRight}
+import com.daml.ledger.api.v1.admin.user_management_service.{
+  CreateUserRequest,
+  GrantUserRightsRequest,
+  User,
+  UserManagementServiceGrpc,
+  Right => UserRight,
+}
 import com.daml.platform.error.definitions.LedgerApiErrors
 import io.grpc.{Channel, StatusRuntimeException}
 import org.slf4j.{Logger, LoggerFactory}

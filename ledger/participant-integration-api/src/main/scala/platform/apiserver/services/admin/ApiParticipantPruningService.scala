@@ -5,7 +5,11 @@ package com.daml.platform.apiserver.services.admin
 
 import java.util.UUID
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.ledger.api.v1.admin.participant_pruning_service.{ParticipantPruningServiceGrpc, PruneRequest, PruneResponse}
+import com.daml.ledger.api.v1.admin.participant_pruning_service.{
+  ParticipantPruningServiceGrpc,
+  PruneRequest,
+  PruneResponse,
+}
 import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{IndexParticipantPruningService, LedgerEndService}

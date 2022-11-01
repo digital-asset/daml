@@ -7,7 +7,11 @@ import com.daml.error.ErrorCode
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.suites.v1_8.PartyManagementITBase
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
-import com.daml.ledger.api.v1.admin.party_management_service.{AllocatePartyRequest, GetPartiesRequest, PartyDetails}
+import com.daml.ledger.api.v1.admin.party_management_service.{
+  AllocatePartyRequest,
+  GetPartiesRequest,
+  PartyDetails,
+}
 import com.daml.platform.error.definitions.LedgerApiErrors
 
 import scala.concurrent.{ExecutionContext, Future}
