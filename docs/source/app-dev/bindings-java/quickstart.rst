@@ -594,7 +594,7 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
-      :lines: 58-71
+      :lines: 58-70
       :dedent: 4
 
    ``blockingForEach`` is used to ensure that the contract store is consistent with the ledger state at the latest offset observed by the client.
@@ -604,14 +604,14 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
-      :lines: 74-95
+      :lines: 73-94
       :dedent: 4
 
 #. Commands are submitted via the Command Submission Service.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
-      :lines: 135-144
+      :lines: 134-143
       :dedent: 2
 
    You can find examples of ``Update`` instantiations for creating contract and exercising a choice in the bodies of the ``transfer`` and ``iou`` endpoints, respectively.
@@ -619,13 +619,13 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :caption: Exercise a choice
       :language: java
-      :lines: 119-121
+      :lines: 118-120
       :dedent: 10
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :caption: Create a contract
       :language: java
-      :lines: 108-110
+      :lines: 107-109
       :dedent: 10
 
 The rest of the application sets up the REST services using `Spark Java <http://sparkjava.com/>`_, and does dynamic package Id detection using the Package Service. The latter is useful during development when package Ids change frequently.
