@@ -16,6 +16,7 @@ module DA.Internal.Interface (
   toInterface,
   toInterfaceContractId,
   fromInterfaceContractId,
+  coerceInterfaceContractId,
   fetchFromInterface,
   _exerciseInterfaceGuard,
   HasInterfaceView(..),
@@ -116,6 +117,26 @@ toInterfaceContractId = coerceContractId
 -- In all other cases, consider using `fetchFromInterface` instead.
 fromInterfaceContractId : forall t i. HasFromInterface t i => ContractId i -> ContractId t
 fromInterfaceContractId = coerceContractId
+
+-- | (Daml-LF >= 1.15) Convert an interface contract id into a contract id of a
+-- different interface. For example, given two interfaces `Source` and `Target`,
+-- and `cid : ContractId Source`,
+-- `coerceInterfaceContractId @Target @Source cid : ContractId Target`.
+--
+-- This function does not verify that the contract id
+-- actually points to a contract that implements either interface. This means
+-- that a subsequent `fetch`, `exercise`, or `archive` may fail, if,
+-- for example, the contract id points to a contract of template `A` but it was
+-- coerced into a `ContractId B` where `B` is an interface and there's no
+-- interface instance B for A.
+--
+-- Therefore, you should only use `coerceInterfaceContractId` in situations
+-- where you already know that the contract id points to a contract of the right
+-- type. You can also use it in situations where you will fetch, exercise, or
+-- archive the contract right away, when a transaction failure is the
+-- appropriate response to the contract having the wrong type.
+coerceInterfaceContractId : forall j i. (HasInterfaceTypeRep i, HasInterfaceTypeRep j) => ContractId i -> ContractId j
+coerceInterfaceContractId = coerceContractId
 
 -- | (Daml-LF >= 1.15) Fetch an interface and convert it to a specific
 -- template type. If conversion is succesful, this function returns
