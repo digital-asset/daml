@@ -204,51 +204,16 @@ using.
 With Query Store
 ----------------
 
-In production setups, you should configure the JSON API to use a
-PostgreSQL backend as a cache. The in-memory backend will call the
+In production setups, you should configure the JSON API to use a PostgreSQL backend as a :doc:`production-setup/query-store`.
+The in-memory backend will call the
 ledger to fetch the entire active contract set for the templates in
 your query every time so it is generally not recommended to rely on
-this in production. Note that the PostgreSQL backend acts purely as a
-cache. It is safe to reinitialize the database at any time.
+this in production.
+Note that the query store is a redundant copy of on-ledger data.
+It is safe to reinitialize the database at any time.
 
-To enable the PostgreSQL backend you can add the ``query-store`` config block in your application config file
+To enable the PostgreSQL backend you can add the ``query-store`` config block :doc:`as described <production-setup/query-store>`.
 
-.. code-block:: none
-
-    query-store {
-      base-config {
-        user = "postgres"
-        password = "password"
-        driver = "org.postgresql.Driver"
-        url = "jdbc:postgresql://localhost:5432/test?&ssl=true"
-
-        // prefix for table names to avoid collisions, empty by default
-        table-prefix = "foo"
-
-        // max pool size for the database connection pool
-        pool-size = 12
-        //specifies the min idle connections for database connection pool.
-        min-idle = 4
-        //specifies the idle timeout for the database connection pool.
-        idle-timeout = 12s
-        //specifies the connection timeout for database connection pool.
-        connection-timeout = 90s
-      }
-      // option setting how the schema should be handled.
-      // Valid options are start-only, create-only, create-if-needed-and-start and create-and-start
-      start-mode = "create-if-needed-and-start"
-    }
-
-.. note:: When you use the Query Store you'll want to use ``start-mode=create-if-needed-and-start`` so that all the necessary tables are created if they don't exist.
-
-you can also use the ``--query-store-jdbc-config`` CLI flag (deprecated), an example of which is below.
-
-.. code-block:: shell
-
-    daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 \
-    --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,start-mode=create-if-needed-and-start"
-
-.. note:: The JSON API provides many other useful configuration flags, run ``daml json-api --help`` to see all of them.
 
 .. _json-api-access-tokens:
 
