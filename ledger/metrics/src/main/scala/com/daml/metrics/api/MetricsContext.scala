@@ -15,6 +15,8 @@ case class MetricsContext(labels: Map[String, String]) {
       .build()
   }
 
+  def merge(context: MetricsContext): MetricsContext = this.copy(labels = labels ++ context.labels)
+
 }
 
 object MetricsContext {
