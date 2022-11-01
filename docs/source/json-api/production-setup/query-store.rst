@@ -89,12 +89,8 @@ the data it contains is a subset of what can safely be recovered from the ledger
 As such, the query store does not provide data continuity guarantees across versions
 and furthermore doesn't guarantee that a query store initialized with a previous
 version of the *HTTP JSON API* will work with a newer version.
-
-However, the *HTTP JSON API* is able to tolerate working with query stores initialized
-by a previous version of the software so long as the underlying schema did not change.
-
-The query store keeps track of the schema version under which it was initialized and
-refuses to start if a new schema is detected when it's run with a newer version.
+However, the query store keeps track of the schema version under which it was initialized and
+JSON API refuses to start if an old schema is detected when it's run with a newer version.
 
 To evolve, the operator of the *HTTP JSON API* query store needs to drop the database
 used to hold the *HTTP JSON API* query store, create a new one (consult your database
