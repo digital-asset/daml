@@ -150,7 +150,7 @@ private[http] final class RouteSetup(
   private[this] def data(entity: RequestEntity): Future[String] =
     entity.toStrict(maxTimeToCollectRequest).map(_.data.utf8String)
 
-  private[this] def inputJsVal(req: HttpRequest)(implicit
+  private[http] def inputJsVal(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[(Jwt, JsValue)] =
     for {
@@ -181,7 +181,7 @@ private[http] final class RouteSetup(
     }
 }
 
-private[endpoints] object RouteSetup {
+private[http] object RouteSetup {
   import Endpoints.IntoEndpointsError
 
   private val logger = ContextualizedLogger.get(getClass)
@@ -205,7 +205,7 @@ private[endpoints] object RouteSetup {
   ): Future[Error \/ A] =
     fa.map(a => \/-(a)).recover(Error.fromThrowable andThen (-\/(_)))
 
-  private[endpoints] def handleFutureEitherFailure[A, B](fa: Future[A \/ B])(implicit
+  private[http] def handleFutureEitherFailure[A, B](fa: Future[A \/ B])(implicit
       ec: ExecutionContext,
       A: IntoEndpointsError[A],
   ): Future[Error \/ B] =

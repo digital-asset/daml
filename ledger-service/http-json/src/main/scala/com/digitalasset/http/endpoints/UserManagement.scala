@@ -47,6 +47,16 @@ private[http] final class UserManagement(
       ): domain.SyncResponse[domain.UserDetails]
     }(req)
 
+  def getUser2(jwt: Jwt, req: domain.GetUserRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[domain.UserDetails]] =
+    for {
+      userId <- parseUserId(req.userId)
+      user <- EitherT.rightT(userManagementClient.getUser(userId, Some(jwt.value)))
+    } yield domain.OkResponse(
+      domain.UserDetails(user.id, user.primaryParty)
+    ): domain.SyncResponse[domain.UserDetails]
+
   def createUser(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[spray.json.JsObject]] =

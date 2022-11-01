@@ -30,10 +30,13 @@ import scala.concurrent.{ExecutionContext, Future}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
-import com.daml.http.endpoints.MeteringReportEndpoint
+import com.daml.http.endpoints.{MeteringReportEndpoint, RouteSetup}
+import com.daml.jwt.domain.Jwt
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.metrics.api.MetricHandle.Timer
+import com.daml.scalautil.Statement.discard
+import scalaz.EitherT.eitherT
 
 import scala.util.control.NonFatal
 
@@ -107,6 +110,21 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Route =
     responseToRoute(httpResponse(res))
+
+  private def toRoute2[A: JsonReader, R: JsonWriter](
+      req: HttpRequest,
+      fn: (Jwt, A) => ET[domain.SyncResponse[R]],
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
+  ): Route = {
+    val res = for {
+      (jwt, reqBody) <- routeSetup.inputJsVal(req): ET[(Jwt, JsValue)]
+      a <- either(SprayJson.decode[A](reqBody).liftErr(InvalidUserInput)): ET[A]
+      r <- eitherT(RouteSetup.handleFutureEitherFailure(fn(jwt, a).run)): ET[domain.SyncResponse[R]]
+    } yield r
+    responseToRoute(httpResponse(res))
+  }
 
   private def mkRequestLogMsg(request: HttpRequest, remoteAddress: RemoteAddress) =
     s"Incoming ${request.method.value} request on ${request.uri} from $remoteAddress"
@@ -264,7 +282,7 @@ class Endpoints(
           ),
           path("query") & withTimer(queryMatchingTimer) apply toRoute(query(req)),
           path("fetch") & withFetchTimer apply toRoute(fetch(req)),
-          path("user") apply toRoute(getUser(req)),
+          path("user") apply toRoute2(req, getUser2),
           path("user" / "create") apply toRoute(createUser(req)),
           path("user" / "delete") apply toRoute(deleteUser(req)),
           path("user" / "rights") apply toRoute(listUserRights(req)),
