@@ -17,6 +17,9 @@ The query store is built by saving the state of the ACS up to the current ledger
 offset. This allows the *HTTP JSON API* to only request the delta on subsequent queries,
 making it much faster than requesting the entire ACS every time.
 
+Configuring
+***********
+
 For example, to enable the PostgreSQL backend you can add the ``query-store`` config block in your application config file:
 
 .. code-block:: none
@@ -45,6 +48,8 @@ For example, to enable the PostgreSQL backend you can add the ``query-store`` co
       start-mode = "start-only"
     }
 
+Consult your database vendor's JDBC driver documentation to learn how to specify a JDBC connection URL that suits your needs.
+
 You can also use the ``--query-store-jdbc-config`` CLI flag (deprecated), as shown below.
 
 .. code-block:: shell
@@ -52,24 +57,25 @@ You can also use the ``--query-store-jdbc-config`` CLI flag (deprecated), as sho
     daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 \
     --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,start-mode=start-only"
 
-Consult your database vendor's JDBC driver documentation to learn how to specify a JDBC connection string that suits your needs.
 
-The ``start-mode`` is a custom parameter, defined by the query store configuration itself, which allows one to deal
-with the initialization and usage of the database backing the query store.
+Managing DB permissions with ``start-mode``
+*******************************************
 
-Depending on how you prefer to operate it, you can either choose to:
+The ``start-mode`` is a custom parameter to specify the initialization and usage of the database backing the query store.
 
-* run the *HTTP JSON API* server with ``start-mode=create-only`` with a user
+Depending on how you prefer to operate it, you can
+
+* run with ``start-mode=create-only`` with a user
   that has exclusive table-creating rights that are required for the query store
   to operate, and then start it once more with ``start-mode=start-only`` with a user
   that can use the aforementioned tables, but that cannot apply schema changes
-* run the *HTTP JSON API* server with a user that can both create and use
+* run with a user that can both create and use
   the query store tables by passing ``start-mode=create-and-start``
+* run with a user that can drop, create and use
+  the query store tables by passing ``start-mode=create-if-needed-and-start``
 
 When restarting the *HTTP JSON API* server after a schema has already been
 created, it's safe practice to always use ``start-mode=start-only``.
-
-.. note:: You can see the full list of query store configuration flags supported by running ``daml json-api --help``.
 
 Data Continuity
 ***************
