@@ -939,7 +939,7 @@ private final class OracleQueries(
     import spray.json.DefaultJsonProtocol._
     Update[DBContract[SurrogateTpId, DBContractKey, JsValue, JsValue]](
       s"""
-        INSERT /*+ ignore_row_on_dupkey_index($contractTableNameRaw(contract_id)) */
+        INSERT /*+ ignore_row_on_dupkey_index($contractTableNameRaw(contract_id, tpid)) */
         INTO $contractTableNameRaw (contract_id, tpid, key, key_hash, payload, signatories, observers, agreement_text)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       """
