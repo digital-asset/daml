@@ -37,7 +37,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
-  val schemaVersion = 3
+  val schemaVersion = 4
 
   private[http] val surrogateTpIdCache = new SurrogateTemplateIdCache(metrics, tpIdCacheMaxEntries)
 
@@ -69,13 +69,14 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     sql"""
       CREATE TABLE
         $contractTableName
-        (contract_id $contractIdType NOT NULL CONSTRAINT ${tablePrefixFr}contract_k PRIMARY KEY
+        (contract_id $contractIdType NOT NULL
         ,tpid $bigIntType NOT NULL REFERENCES $templateIdTableName (tpid)
         ,${jsonColumn(sql"key")}
         ,key_hash $keyHashColumn
         ,${jsonColumn(contractColumnName)}
         $contractsTableSignatoriesObservers
         ,agreement_text $agreementTextType
+        ,CONSTRAINT ${tablePrefixFr}contract_k PRIMARY KEY (contract_id, tpid)
         )
     """,
   )
@@ -303,24 +304,31 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
   )(implicit log: LogHandler): ConnectionIO[Int]
 
+  // ContractTypeId -> CId[String]
   final def deleteContracts(
-      cids: Set[String]
+      cids: Map[SurrogateTpId, Set[String]]
   )(implicit log: LogHandler): ConnectionIO[Int] = {
-    import cats.data.NonEmptyVector
     import cats.instances.vector._
     import cats.instances.int._
     import cats.syntax.foldable._
-    NonEmptyVector.fromVector(cids.toVector) match {
-      case None =>
+    import nonempty.catsinstances._
+    (cids: Iterable[(SurrogateTpId, Set[String])]).view.collect { case (k, NonEmpty(cids)) =>
+      (k, cids)
+    }.toMap match {
+      case NonEmpty(cids) =>
+        val chunks = maxListSize.fold(Vector(cids))(chunkBySetSize(_, cids))
+        chunks.map { chunk =>
+          (fr"DELETE FROM $contractTableName WHERE " ++
+            joinFragment(
+              chunk.toVector.map { case (tpid, cids) =>
+                val inCids = Fragments.in(fr"contract_id", cids.toVector.toNEF)
+                fr"(tpid = $tpid AND $inCids)"
+              }.toOneAnd,
+              fr" OR ",
+            )).update.run
+        }.foldA
+      case _ =>
         free.connection.pure(0)
-      case Some(cids) =>
-        val chunks = maxListSize.fold(Vector(cids))(size => cids.grouped(size).toVector)
-        chunks
-          .map(chunk =>
-            (fr"DELETE FROM $contractTableName WHERE " ++ Fragments
-              .in(fr"contract_id", chunk)).update.run
-          )
-          .foldA
     }
   }
 
@@ -582,6 +590,49 @@ object Queries {
     (allTpids diff grouped.keySet).view.map((_, Map.empty[Party, Off])).toMap ++ grouped
   }
 
+  // invariant: each element x of result has `x.values.flatten.size <= size`
+  private[dbbackend] def chunkBySetSize[K, V](
+      size: Int,
+      groups: NonEmpty[Map[K, NonEmpty[Set[V]]]],
+  ): Vector[NonEmpty[Map[K, NonEmpty[Set[V]]]]] = {
+    assert(size > 0, s"chunk size must be positive, not $size")
+    type Groups = NonEmpty[Map[K, NonEmpty[Set[V]]]]
+    type Remaining = Map[K, NonEmpty[Set[V]]]
+
+    @annotation.tailrec
+    def takeSize(size: Int, acc: Groups, remaining: Remaining): (Groups, Remaining) =
+      if (size <= 0 || remaining.isEmpty) (acc, remaining)
+      else {
+        val (k, sv) = remaining.head
+        if (sv.size <= size)
+          takeSize(size - sv.size, acc.updated(k, sv), remaining - k)
+        else {
+          // ! <= proves that both sides of the split are non-empty
+          val NonEmpty(taken) = sv take size
+          val NonEmpty(left) = sv -- taken
+          (acc.updated(k, taken), remaining.updated(k, left))
+        }
+      }
+
+    // XXX SC: takeInitSize duplicates some of takeSize, but it's a little tricky
+    // to start with an empty acc
+    def takeInitSize(remaining: Groups): (Groups, Remaining) = {
+      val (k, sv) = remaining.head
+      if (sv.size <= size)
+        takeSize(size - sv.size, NonEmpty(Map, k -> sv), remaining - k)
+      else {
+        // ! <= proves that both sides of the split are non-empty
+        val NonEmpty(taken) = sv take size
+        val NonEmpty(left) = sv -- taken
+        (NonEmpty(Map, k -> taken), remaining.updated(k, left))
+      }
+    }
+
+    Vector.unfold(groups: Remaining) { remaining =>
+      NonEmpty from remaining map takeInitSize
+    }
+  }
+
   import doobie.util.invariant.InvalidValue
 
   @throws[InvalidValue[_, _]]
@@ -723,7 +774,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
       s"""
         INSERT INTO $contractTableNameRaw
         VALUES (?, ?, ?::jsonb, ?, ?::jsonb, ?, ?, ?)
-        ON CONFLICT (contract_id) DO NOTHING
+        ON CONFLICT (contract_id, tpid) DO NOTHING
       """
     ).updateMany(dbcs)
   }
@@ -888,7 +939,7 @@ private final class OracleQueries(
     import spray.json.DefaultJsonProtocol._
     Update[DBContract[SurrogateTpId, DBContractKey, JsValue, JsValue]](
       s"""
-        INSERT /*+ ignore_row_on_dupkey_index($contractTableNameRaw(contract_id)) */
+        INSERT /*+ ignore_row_on_dupkey_index($contractTableNameRaw(contract_id, tpid)) */
         INTO $contractTableNameRaw (contract_id, tpid, key, key_hash, payload, signatories, observers, agreement_text)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       """
@@ -919,7 +970,8 @@ private final class OracleQueries(
           sql"""SELECT c.contract_id contract_id, $tpid template_id, key, key_hash, payload,
                        signatories, observers, agreement_text ${rownum getOrElse fr""}
                 FROM $contractTableName c
-                     JOIN $contractStakeholdersViewName cst ON (c.contract_id = cst.contract_id)
+                     JOIN $contractStakeholdersViewName cst
+                     ON (c.contract_id = cst.contract_id AND c.tpid = cst.tpid)
                 WHERE (${Fragments.in(fr"cst.stakeholder", parties.toNEF)})
                       AND ($queriesCondition)"""
         rownum.fold(dupQ)(_ => sql"SELECT $outerSelectList FROM ($dupQ) WHERE rownumber = 1")

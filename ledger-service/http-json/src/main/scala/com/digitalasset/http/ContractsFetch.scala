@@ -24,6 +24,7 @@ import com.daml.fetchcontracts.util.{
 }
 import com.daml.scalautil.ExceptionOps._
 import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
@@ -243,16 +244,16 @@ private class ContractsFetch(
   }
 
   private def prepareCreatedEventStorage(
-      ce: lav1.event.CreatedEvent
+      ce: lav1.event.CreatedEvent,
+      d: ContractTypeId.Resolved,
   ): Exception \/ PreInsertContract = {
     import scalaz.syntax.traverse._
     import scalaz.std.option._
     import com.daml.lf.crypto.Hash
     for {
-      // TODO #14819 IgnoreInterface is wrong in interface DB update case
       ac <-
-        domain.ActiveContract fromLedgerApi (domain.ActiveContract.IgnoreInterface, ce) leftMap (
-          de => new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"): Exception
+        domain.ActiveContract fromLedgerApi (domain.ResolvedQuery(d), ce) leftMap (de =>
+          new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"): Exception
         )
       lfKey <- ac.key.traverse(apiValueToLfValue).leftMap(_.cause: Exception)
       lfArg <- apiValueToLfValue(ac.payload) leftMap (_.cause: Exception)
@@ -272,11 +273,12 @@ private class ContractsFetch(
     )
   }
 
-  private def jsonifyInsertDeleteStep(
-      a: InsertDeleteStep[Any, lav1.event.CreatedEvent]
-  ): InsertDeleteStep[Unit, PreInsertContract] =
-    a.leftMap(_ => ())
-      .mapPreservingIds(prepareCreatedEventStorage(_) valueOr (e => throw e))
+  private def jsonifyInsertDeleteStep[D <: ContractTypeId.Resolved](
+      a: InsertDeleteStep[Any, lav1.event.CreatedEvent],
+      d: D,
+  ): InsertDeleteStep[D, PreInsertContract] =
+    a.leftMap(_ => d)
+      .mapPreservingIds(prepareCreatedEventStorage(_, d) valueOr (e => throw e))
 
   private def contractsFromOffsetIo(
       fetchContext: FetchContext,
@@ -330,7 +332,9 @@ private class ContractsFetch(
         }
 
         val transactInsertsDeletes = Flow
-          .fromFunction(jsonifyInsertDeleteStep)
+          .fromFunction(
+            jsonifyInsertDeleteStep((_: InsertDeleteStep[Any, lav1.event.CreatedEvent]), templateId)
+          )
           .via(conflation)
           .map(insertAndDelete)
 
@@ -380,27 +384,36 @@ private[http] object ContractsFetch {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def insertAndDelete(
-      step: InsertDeleteStep[Any, PreInsertContract]
+      step: InsertDeleteStep[ContractTypeId.Resolved, PreInsertContract]
   )(implicit
       log: doobie.LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[Unit] = {
     import doobie.implicits._, cats.syntax.functor._
-    surrogateTemplateIds(step.inserts.iterator.map(_.templateId).toSet).flatMap { stidMap =>
+    surrogateTemplateIds(
+      (step.inserts.iterator.map(_.templateId) ++ step.deletes.valuesIterator).toSet
+    ).flatMap { stidMap =>
       import cats.syntax.apply._, cats.instances.vector._
       import json.JsonProtocol._
       import sjd.q.queries
-      (queries.deleteContracts(step.deletes.keySet) *>
+      // cid -> ctid
+      // we want ctid
+      def mapToId(a: ContractTypeId.RequiredPkg) =
+        stidMap.getOrElse(
+          a,
+          throw new IllegalStateException(
+            "template ID missing from prior retrieval; impossible"
+          ),
+        )
+
+      (queries.deleteContracts(step.deletes.groupMap1(_._2)(_._1).map { case (tid, cids) =>
+        (mapToId(tid), cids.toSet)
+      }) *>
         queries.insertContracts(
           step.inserts map (dbc =>
             dbc.copy(
-              templateId = stidMap.getOrElse(
-                dbc.templateId,
-                throw new IllegalStateException(
-                  "template ID missing from prior retrieval; impossible"
-                ),
-              ),
+              templateId = mapToId(dbc.templateId),
               signatories = domain.Party.unsubst(dbc.signatories),
               observers = domain.Party.unsubst(dbc.observers),
             )
