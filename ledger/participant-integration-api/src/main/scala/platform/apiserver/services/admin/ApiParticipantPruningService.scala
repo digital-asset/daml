@@ -20,7 +20,7 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.logging
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.server.api.{ApiException, ValidationLogger}
 import io.grpc.protobuf.StatusProto
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}

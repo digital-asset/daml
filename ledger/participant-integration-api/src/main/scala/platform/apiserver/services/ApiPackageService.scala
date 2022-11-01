@@ -14,7 +14,7 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.PackageServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}

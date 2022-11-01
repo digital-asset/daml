@@ -41,7 +41,7 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.services.ApiCommandService._
 import com.daml.platform.apiserver.services.tracking.{QueueBackedTracker, Tracker, TrackerMap}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandService
 import com.daml.util.Ctx

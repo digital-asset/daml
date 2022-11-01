@@ -15,7 +15,7 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import io.grpc.{BindableService, ServerServiceDefinition}
 import scalaz.syntax.tag._
 

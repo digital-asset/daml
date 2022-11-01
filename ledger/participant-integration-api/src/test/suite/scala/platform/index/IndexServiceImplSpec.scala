@@ -8,7 +8,7 @@ import com.daml.ledger.api.domain.{Filters, InclusiveFilters, InterfaceFilter, T
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Identifier
 import com.daml.platform.TemplatePartiesFilter
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.index.IndexServiceImpl.{
   checkUnknownTemplatesOrInterfaces,
   memoizedTransactionFilterProjection,

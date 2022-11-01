@@ -35,7 +35,7 @@ import com.daml.ledger.test.{
   carbonv3,
 }
 import com.daml.logging.LoggingContext
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import scalaz.Tag
 
 import java.util.regex.Pattern

@@ -36,7 +36,7 @@ import com.daml.ledger.api.v1.transaction_filter.{
   TransactionFilter,
 }
 import com.daml.ledger.test.modelext.TestExtension.IDelegated
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 
 import java.time.temporal.ChronoUnit
 import java.util.regex.Pattern

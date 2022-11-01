@@ -5,7 +5,7 @@ package com.daml.platform.apiserver.error
 
 import com.daml.error.{BaseError, DamlContextualizedErrorLogger}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
 import io.grpc.{
   ForwardingServerCallListener,

@@ -9,7 +9,7 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test._
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 
 class TransactionServiceQueryIT extends LedgerTestSuite {
   test(

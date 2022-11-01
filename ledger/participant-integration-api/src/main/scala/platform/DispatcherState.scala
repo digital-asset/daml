@@ -13,7 +13,7 @@ import com.daml.platform.DispatcherState.{
   DispatcherStateShutdown,
 }
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.timer.Timeout._
 import io.grpc.StatusRuntimeException
 

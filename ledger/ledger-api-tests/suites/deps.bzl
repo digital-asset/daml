@@ -17,6 +17,7 @@ def deps(lf_version):
         "//language-support/scala/bindings",
         "//ledger/error",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-errors",
         "//ledger/ledger-api-tests/infrastructure:infrastructure-%s" % lf_version,
         "//ledger/ledger-resources",
         "//ledger/participant-state-kv-errors",

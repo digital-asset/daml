@@ -15,8 +15,9 @@ import com.daml.error.{
   ErrorAssertionsWithLogCollectorAssertions,
   ErrorCode,
 }
+import com.daml.ledger.errors.groups.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
+import com.daml.ledger.errors.{IndexErrors, LedgerApiErrors}
 import com.daml.lf.data.Ref
-import com.daml.platform.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.platform.testing.LogCollector.ExpectedLogEntry
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
 import com.google.rpc._

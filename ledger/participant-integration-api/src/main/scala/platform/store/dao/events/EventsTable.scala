@@ -20,7 +20,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
-import com.daml.platform.error.definitions.IndexErrors
+import com.daml.ledger.errors.IndexErrors
 import com.daml.platform.store.backend.EventStorageBackend.Entry
 
 // TODO append-only: FIXME: move to the right place

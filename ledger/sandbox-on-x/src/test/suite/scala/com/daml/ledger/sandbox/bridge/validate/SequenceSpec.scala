@@ -28,7 +28,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.google.rpc.status.Status.toJavaProto
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.flatspec.AnyFlatSpec

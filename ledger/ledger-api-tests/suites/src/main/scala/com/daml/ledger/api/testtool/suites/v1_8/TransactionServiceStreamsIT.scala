@@ -8,7 +8,7 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.test.model.Test._
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import scalaz.Tag
 
 import scala.collection.immutable.Seq

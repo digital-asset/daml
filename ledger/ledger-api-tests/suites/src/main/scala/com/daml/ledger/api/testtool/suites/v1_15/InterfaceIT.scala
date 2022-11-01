@@ -16,7 +16,7 @@ import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.semantic.Interface._
 import com.daml.ledger.test.semantic.{Interface1, Interface2, Interface3}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import scalaz.Tag
 
 class InterfaceIT extends LedgerTestSuite {

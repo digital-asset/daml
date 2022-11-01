@@ -22,7 +22,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.value.{Value => Lf}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.server.api.validation.{DeduplicationPeriodValidator, FieldValidations}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._

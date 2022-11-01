@@ -34,7 +34,7 @@ import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, Tex
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{LedgerString, SubmissionId}
 import com.daml.logging.LoggingContext
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import io.grpc.Status.Code
 import org.slf4j.{Logger, LoggerFactory}
 

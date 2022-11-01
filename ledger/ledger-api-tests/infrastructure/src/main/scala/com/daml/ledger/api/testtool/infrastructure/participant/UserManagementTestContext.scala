@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   DeleteUserResponse,
   User,
 }
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 
 import scala.concurrent.{ExecutionContext, Future}
 

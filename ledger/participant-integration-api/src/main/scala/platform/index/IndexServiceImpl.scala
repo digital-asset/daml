@@ -44,7 +44,7 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.index.IndexServiceImpl.{
   memoizedTransactionFilterProjection,
   transactionFilterProjection,

@@ -4,7 +4,7 @@
 package com.daml.platform.store.dao
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.platform.error.definitions.IndexErrors
+import com.daml.ledger.errors.IndexErrors
 import io.grpc.StatusRuntimeException
 import org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException
 import org.postgresql.util.PSQLException

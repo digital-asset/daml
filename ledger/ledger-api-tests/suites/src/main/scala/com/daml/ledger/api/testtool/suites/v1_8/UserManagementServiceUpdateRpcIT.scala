@@ -9,7 +9,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   User,
 }
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.google.protobuf.field_mask.FieldMask
 
 class UserManagementServiceUpdateRpcIT extends UserManagementServiceITBase {

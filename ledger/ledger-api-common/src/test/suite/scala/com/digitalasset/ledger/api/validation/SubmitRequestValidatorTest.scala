@@ -22,7 +22,7 @@ import com.daml.lf.command.{
 import com.daml.lf.data._
 import com.daml.lf.value.Value.ValueRecord
 import com.daml.lf.value.{Value => Lf}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.{INVALID_ARGUMENT, NOT_FOUND}

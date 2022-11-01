@@ -11,7 +11,7 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.localstore.api.UserManagementStore
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}

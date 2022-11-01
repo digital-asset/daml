@@ -22,7 +22,7 @@ import scalaz.syntax.tag.ToTagOps
 import java.util.regex.Pattern
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.client.binding.Primitive
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.google.protobuf.field_mask.FieldMask
 
 import scala.concurrent.Future

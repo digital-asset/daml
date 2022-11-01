@@ -22,7 +22,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.{ApplicationId, PackageId, Party, SubmissionId, TransactionId, WorkflowId}
 import com.daml.platform.store._
 import com.daml.platform.store.dao.events._

@@ -12,7 +12,7 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   GetPartiesRequest,
   PartyDetails,
 }
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 
 import scala.concurrent.{ExecutionContext, Future}
 

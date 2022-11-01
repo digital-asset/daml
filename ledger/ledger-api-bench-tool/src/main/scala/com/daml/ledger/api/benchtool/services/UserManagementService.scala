@@ -12,7 +12,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   UserManagementServiceGrpc,
   Right => UserRight,
 }
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import io.grpc.{Channel, StatusRuntimeException}
 import org.slf4j.{Logger, LoggerFactory}
 

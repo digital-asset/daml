@@ -16,7 +16,7 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   UpdatePartyDetailsRequest,
   UpdatePartyDetailsResponse,
 }
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.google.protobuf.field_mask.FieldMask
 
 class PartyManagementServiceUpdateRpcIT extends PartyManagementITBase {

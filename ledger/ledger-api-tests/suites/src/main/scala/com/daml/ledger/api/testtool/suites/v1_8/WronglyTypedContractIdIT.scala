@@ -10,7 +10,7 @@ import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.Delegation._
 import com.daml.ledger.test.model.Test.DummyWithParam._
 import com.daml.ledger.test.model.Test.{Delegated, Delegation, Dummy, DummyWithParam}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 
 final class WronglyTypedContractIdIT extends LedgerTestSuite {
   test("WTExerciseFails", "Exercising on a wrong type fails", allocate(SingleParty))(

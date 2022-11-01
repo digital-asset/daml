@@ -32,7 +32,7 @@ import com.daml.logging.entries.{LoggingEntries, LoggingValue}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
 import io.grpc._

@@ -43,7 +43,7 @@ import com.daml.platform.apiserver.services.admin.ApiPartyManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.apiserver.update
 import com.daml.platform.apiserver.update.PartyRecordUpdateMapper
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.localstore.api.{
   PartyDetailsUpdate,
   PartyRecord,

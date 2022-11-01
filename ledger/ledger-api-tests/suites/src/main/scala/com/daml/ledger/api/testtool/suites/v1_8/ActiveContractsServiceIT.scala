@@ -28,7 +28,7 @@ import com.daml.ledger.test.model.Test.{
   WithObservers,
   Witnesses => TestWitnesses,
 }
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import scalaz.syntax.tag._
 
 import scala.collection.immutable.Seq

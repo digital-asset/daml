@@ -11,7 +11,7 @@ import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.localstore.api.UserManagementStore
 import io.grpc._
 

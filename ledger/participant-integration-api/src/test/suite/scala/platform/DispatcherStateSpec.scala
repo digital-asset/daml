@@ -10,7 +10,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.{Dispatcher, SubSource}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import io.grpc.StatusRuntimeException
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion

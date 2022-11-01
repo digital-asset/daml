@@ -24,7 +24,7 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.page_tokens.ListUsersPageTokenPayload
 import com.daml.platform.apiserver.update
 import com.daml.platform.apiserver.update.UserUpdateMapper
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.localstore.api.UserManagementStore
 import com.daml.platform.server.api.validation.FieldValidations
 import com.google.protobuf.InvalidProtocolBufferException

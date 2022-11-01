@@ -17,7 +17,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.value.Value.ValueRecord
 import com.daml.lf.value.ValueOuterClass.VersionedValue
 import com.daml.lf.value.{Value, ValueCoder}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.server.api.validation.FieldValidations._
 import com.google.protobuf.any.Any.toJavaProto
 import io.grpc.StatusRuntimeException

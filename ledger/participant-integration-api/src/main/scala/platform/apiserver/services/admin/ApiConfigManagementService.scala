@@ -21,7 +21,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiConfigManagementService._
 import com.daml.platform.apiserver.services.logging
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.FieldValidations
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
