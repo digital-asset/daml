@@ -134,11 +134,13 @@ as well as retrieve the commands in flight with ``getCommandsInFlight``.
 Like ``Scenario`` or ``Update``, you can use ``do`` notation and
 ``getTime`` with ``TriggerA``.
 
-We can specify the templates that our trigger will operate
+We can specify the templates and interfaces that our trigger will operate
 on. In our case, we will simply specify ``AllInDar`` which means that
-the trigger will receive events for all template types defined in the
-DAR. It is also possible to specify an explicit list of templates. For example,
-to specify just the ``Message`` template, one would write:
+the trigger will receive events for all template and interface types defined in the
+DAR.
+
+It is also possible to specify an explicit list of templates and interfaces. For example,
+to only receive events for the ``Message`` template, one would write:
 
 .. code-block:: daml
 
@@ -146,9 +148,16 @@ to specify just the ``Message`` template, one would write:
    registeredTemplates = RegisteredTemplates [registeredTemplate @Message],
    ...
 
-This is mainly useful for performance reasons if your DAR contains many templates that are not relevant for your trigger.
-Note that providing an explicit list of templates also filters the result of querying the ACS using the Trigger API:
-contracts of the excluded templates cannot be queried.
+This is mainly useful for performance reasons if your DAR contains many templates and interfaces that are not relevant
+for your trigger.
+Note that providing an explicit list of templates and interfaces also filters the result of querying the ACS using
+the Trigger API: contracts of the excluded templates and interfaces cannot be queried.
+
+.. note::
+    In these examples we used templates. Note that interfaces can be passed as well
+    wherever a template is passed, using the same `RegisteredTemplates` type. You are
+    free to pass multiple templates and interfaces and possibly mix the two freely in
+    a single request.
 
 Finally, you can specify an optional heartbeat interval at which the trigger
 will be sent a ``MHeartbeat`` message. This is useful if you want to ensure
