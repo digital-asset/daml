@@ -6,23 +6,11 @@ package com.daml.platform.apiserver.services.transaction
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{
-  Filters,
-  LedgerId,
-  LedgerOffset,
-  TransactionFilter,
-  TransactionId,
-}
+import com.daml.ledger.api.domain.{Filters, LedgerId, LedgerOffset, TransactionFilter, TransactionId}
 import com.daml.ledger.api.messages.transaction._
-import com.daml.ledger.api.v1.transaction_service.{
-  GetFlatTransactionResponse,
-  GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsResponse,
-}
+import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
@@ -33,6 +21,7 @@ import com.daml.logging.entries.{LoggingEntries, LoggingValue}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
+import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
 import io.grpc._

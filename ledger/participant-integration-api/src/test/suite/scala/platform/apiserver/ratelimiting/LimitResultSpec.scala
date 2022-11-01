@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver.ratelimiting
 
 import com.daml.error.NoLogging
-import com.daml.error.definitions.LedgerApiErrors.MaximumNumberOfStreams
 import com.daml.platform.apiserver.ratelimiting.LimitResult.{OverLimit, UnderLimit}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

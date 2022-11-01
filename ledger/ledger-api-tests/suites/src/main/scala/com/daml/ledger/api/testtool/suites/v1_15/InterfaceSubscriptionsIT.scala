@@ -3,15 +3,8 @@
 
 package com.daml.ledger.api.testtool.suites.v1_15
 
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
-import com.daml.ledger.api.testtool.infrastructure.Allocation.{
-  Participant,
-  Participants,
-  Parties,
-  SingleParty,
-  allocate,
-}
+import com.daml.ledger.api.testtool.infrastructure.Allocation.{Participant, Participants, Parties, SingleParty, allocate}
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{Dars, LedgerTestSuite}
 import com.daml.ledger.api.testtool.infrastructure.FutureAssertions._
@@ -19,23 +12,12 @@ import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.v1.event.Event.Event
 import com.daml.ledger.api.v1.event.{CreatedEvent, InterfaceView}
 import com.daml.ledger.api.v1.transaction.Transaction
-import com.daml.ledger.api.v1.transaction_filter.{
-  Filters,
-  InclusiveFilters,
-  InterfaceFilter,
-  TransactionFilter,
-}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, InterfaceFilter, TransactionFilter}
 import com.daml.ledger.api.v1.value.{Identifier, Record}
 import com.daml.ledger.test.semantic.InterfaceViews._
-import com.daml.ledger.test.{
-  Carbonv1TestDar,
-  Carbonv2TestDar,
-  Carbonv3TestDar,
-  carbonv1,
-  carbonv2,
-  carbonv3,
-}
+import com.daml.ledger.test.{Carbonv1TestDar, Carbonv2TestDar, Carbonv3TestDar, carbonv1, carbonv2, carbonv3}
 import com.daml.logging.LoggingContext
+import com.daml.platform.error.definitions.LedgerApiErrors
 import scalaz.Tag
 
 import java.util.regex.Pattern

@@ -4,9 +4,8 @@
 package com.daml.ledger.api.testtool.suites.v1_8.objectmeta
 
 import java.nio.charset.StandardCharsets
-
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.platform.error.definitions.LedgerApiErrors
 
 import scala.concurrent.Future
 

@@ -3,15 +3,7 @@
 
 package com.daml.ledger.error.definitions.kv
 
-import com.daml.error.definitions.{DamlErrorWithDefiniteAnswer, ErrorGroups}
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  ErrorCategory,
-  ErrorCode,
-  ErrorGroup,
-  Explanation,
-  Resolution,
-}
+import com.daml.error.{ContextualizedErrorLogger, DamlErrorWithDefiniteAnswer, ErrorCategory, ErrorCode, ErrorGroup, ErrorGroups, Explanation, Resolution}
 import java.time.Instant
 
 @Explanation(

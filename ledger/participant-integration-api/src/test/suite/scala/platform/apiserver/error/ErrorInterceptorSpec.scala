@@ -7,7 +7,6 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import ch.qos.logback.classic.Level
-import com.daml.error.definitions.{DamlError, LedgerApiErrors}
 import com.daml.error.utils.ErrorDetails
 import com.daml.error._
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -15,6 +14,7 @@ import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.daml.platform.apiserver.services.GrpcClientResource
+import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceAkkaGrpc, HelloServiceGrpc}
 import com.daml.platform.testing.LogCollector.ThrowableEntry

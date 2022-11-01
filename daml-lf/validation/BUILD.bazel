@@ -22,7 +22,7 @@ da_scala_library(
     visibility = [
         "//compiler/scenario-service:__subpackages__",
         "//daml-lf:__subpackages__",
-        "//ledger/error:__subpackages__",
+        "//ledger/participant-integration-api:__subpackages__",
     ],
     deps = [
         "//daml-lf/data",

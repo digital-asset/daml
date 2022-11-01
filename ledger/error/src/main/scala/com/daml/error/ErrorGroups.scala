@@ -1,9 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.error.definitions
-
-import com.daml.error.{ErrorClass, ErrorGroup}
+package com.daml.error
 
 object ErrorGroups {
   val rootErrorClass: ErrorClass = ErrorClass.root()

@@ -4,7 +4,6 @@
 package com.daml.error
 
 import com.daml.error.ErrorCode.MaxCauseLogLength
-import com.daml.error.definitions.DamlError
 import com.daml.error.utils.ErrorDetails
 import com.google.rpc.Status
 import io.grpc.Status.Code

@@ -3,18 +3,13 @@
 
 package com.daml.platform.index
 
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.domain.{Filters, InclusiveFilters, InterfaceFilter, TransactionFilter}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Identifier
 import com.daml.platform.TemplatePartiesFilter
-import com.daml.platform.index.IndexServiceImpl.{
-  checkUnknownTemplatesOrInterfaces,
-  memoizedTransactionFilterProjection,
-  templateFilter,
-  wildcardFilter,
-}
+import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.platform.index.IndexServiceImpl.{checkUnknownTemplatesOrInterfaces, memoizedTransactionFilterProjection, templateFilter, wildcardFilter}
 import com.daml.platform.index.IndexServiceImplSpec.Scope
 import com.daml.platform.store.dao.EventProjectionProperties
 import com.daml.platform.store.dao.EventProjectionProperties.InterfaceViewFilter

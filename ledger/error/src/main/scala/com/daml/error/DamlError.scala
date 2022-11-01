@@ -1,9 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.error.definitions
-
-import com.daml.error.{ContextualizedError, ContextualizedErrorLogger, ErrorCode}
+package com.daml.error
 
 import scala.jdk.CollectionConverters._
 

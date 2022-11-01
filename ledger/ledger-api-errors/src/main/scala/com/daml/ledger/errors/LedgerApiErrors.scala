@@ -1,25 +1,25 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
+package com.daml.errors
 
-package com.daml.error.definitions
-
+import com.daml.error.ErrorGroups.ParticipantErrorGroup.LedgerApiErrorGroup
 import com.daml.error._
-import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.LedgerApiErrorGroup
-import com.daml.lf.engine.Error.Validation.ReplayMismatch
-import com.daml.lf.engine.{Error => LfError}
+import com.daml.lf.archive.{Error => LfArchiveError}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.engine.Error
+import com.daml.lf.{VersionRange, language, validation}
+import com.daml.platform.error.definitions.groups
 import org.slf4j.event.Level
 
 @Explanation(
   "Errors raised by or forwarded by the Ledger API."
 )
 object LedgerApiErrors extends LedgerApiErrorGroup {
-
-  val Admin: groups.AdminServices.type = groups.AdminServices
-  val CommandExecution: groups.CommandExecution.type = groups.CommandExecution
-  val AuthorizationChecks: groups.AuthorizationChecks.type = groups.AuthorizationChecks
-  val ConsistencyErrors: groups.ConsistencyErrors.type = groups.ConsistencyErrors
-  val RequestValidation: groups.RequestValidation.type = groups.RequestValidation
-  val WriteServiceRejections: groups.WriteServiceRejections.type = groups.WriteServiceRejections
+  val Admin = groups.AdminServices
+  val CommandExecution = groups.CommandExecution
+  val AuthorizationChecks = groups.AuthorizationChecks
+  val ConsistencyErrors = groups.ConsistencyErrors
+  val RequestValidation = groups.RequestValidation
+  val WriteServiceRejections = groups.WriteServiceRejections
 
   val EarliestOffsetMetadataKey = "earliest_offset"
 

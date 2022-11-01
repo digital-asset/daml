@@ -4,14 +4,13 @@
 package com.daml.ledger.api.auth
 
 import java.time.{Clock, Duration, Instant, ZoneId}
-
 import akka.actor.{Cancellable, Scheduler}
 import com.daml.clock.AdjustableClock
 import com.daml.error.ErrorsAssertions
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.api.auth.AuthorizationError.Expired
 import com.daml.logging.LoggingContext
+import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.platform.localstore.api.UserManagementStore
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver

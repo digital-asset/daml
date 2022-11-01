@@ -6,13 +6,13 @@ package com.daml.platform.apiserver.services.admin
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.services.admin.SynchronousResponse.{Accepted, Rejected}
+import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.telemetry.TelemetryContext
 import io.grpc.StatusRuntimeException
 

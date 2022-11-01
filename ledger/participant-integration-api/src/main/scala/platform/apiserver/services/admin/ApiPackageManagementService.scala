@@ -7,17 +7,11 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.definitions.PackageServiceError.Validation
-import com.daml.error.definitions.{DamlError, LedgerApiErrors}
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, DamlError}
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service._
-import com.daml.ledger.participant.state.index.v2.{
-  IndexPackagesService,
-  IndexTransactionsService,
-  LedgerEndService,
-}
+import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService, LedgerEndService}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
 import com.daml.lf.data.Ref
@@ -27,6 +21,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPackageManagementService._
 import com.daml.platform.apiserver.services.logging
+import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import com.google.protobuf.ByteString
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}

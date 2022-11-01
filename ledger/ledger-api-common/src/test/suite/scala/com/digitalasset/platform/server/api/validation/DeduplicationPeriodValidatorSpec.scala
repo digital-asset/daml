@@ -6,7 +6,6 @@ package com.daml.platform.server.api.validation
 import java.time
 import java.time.Duration
 
-import com.daml.error.definitions.LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.daml.ledger.api.validation.ValidatorTestUtils

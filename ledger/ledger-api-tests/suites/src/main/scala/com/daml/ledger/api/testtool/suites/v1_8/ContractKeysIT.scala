@@ -4,8 +4,6 @@
 package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.util.regex.Pattern
-
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
@@ -17,6 +15,7 @@ import com.daml.ledger.client.binding.Primitive.ContractId
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test
 import com.daml.ledger.test.model.Test.CallablePayout
+import com.daml.platform.error.definitions.LedgerApiErrors
 import scalaz.Tag
 
 final class ContractKeysIT extends LedgerTestSuite {

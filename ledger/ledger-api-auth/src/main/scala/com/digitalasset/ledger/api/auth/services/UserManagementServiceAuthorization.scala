@@ -4,11 +4,11 @@
 package com.daml.ledger.api.auth.services
 
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.auth._
 import com.daml.ledger.api.v1.admin.user_management_service._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 

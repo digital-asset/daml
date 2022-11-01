@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.v1.admin.metering_report_service.MeteringReportServiceGrpc.MeteringReportService
 import com.daml.ledger.api.v1.admin.metering_report_service._
@@ -17,6 +16,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.meteringreport.{MeteringReportGenerator, MeteringReportKey}
 import com.daml.platform.apiserver.services.admin.ApiMeteringReportService._
+import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.platform.server.api.ValidationLogger
 import com.google.protobuf.timestamp.{Timestamp => ProtoTimestamp}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}

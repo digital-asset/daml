@@ -3,8 +3,7 @@
 
 package com.daml.ledger.error.definitions.kv
 
-import com.daml.error.definitions.DamlErrorWithDefiniteAnswer
-import com.daml.error.{ContextualizedErrorLogger, ErrorCode}
+import com.daml.error.{ContextualizedErrorLogger, DamlErrorWithDefiniteAnswer, ErrorCode}
 import com.google.rpc.status.Status
 
 class KVLoggingTransactionErrorImpl(
