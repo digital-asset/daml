@@ -6,10 +6,13 @@ Query Store
 
 .. note:: Daml Open Source only supports PostgreSQL backends for the *HTTP JSON API* server, but Daml Enterprise also supports Oracle backends.
 
-The *HTTP JSON API* server is a JVM application that by default uses an in-memory backend.
-This in-memory backend setup is inefficient for larger datasets as every query ends up fetching the entire active contract set for all the templates the query references. For this reason, for production setups, we recommend, at a minimum, that one use a database as a query store. This will allow for a more efficient caching of data and will improve query performance. Details for enabling a query store are highlighted below.
+The *HTTP JSON API* server is a JVM application that uses an in-memory backend by default.
+This in-memory backend setup is inefficient for larger datasets as every query ends up fetching the entire active contract set for all the templates the query references.
+For production setups we therefore recommend, at a minimum, that one use a database as a query store.
+This allows for more efficient data caching and improves query performance.
+Details for enabling a query store are given below.
 
-The query store is a cached search index and is useful for use cases
+The query store is a cached search index and is useful in cases
 where the application needs to query large active contract sets (ACS). The *HTTP JSON API* server can be
 configured with PostgreSQL/Oracle (Daml Enterprise only) as the query store backend.
 
@@ -85,7 +88,7 @@ the data it contains is a subset of what can safely be recovered from the ledger
 
 As such, the query store does not provide data continuity guarantees across versions
 and furthermore doesn't guarantee that a query store initialized with a previous
-version of the *HTTP JSON API* will be able to work with a newer version.
+version of the *HTTP JSON API* will work with a newer version.
 
 However, the *HTTP JSON API* is able to tolerate working with query stores initialized
 by a previous version of the software so long as the underlying schema did not change.
@@ -94,8 +97,8 @@ The query store keeps track of the schema version under which it was initialized
 refuses to start if a new schema is detected when it's run with a newer version.
 
 To evolve, the operator of the *HTTP JSON API* query store needs to drop the database
-used to hold the *HTTP JSON API* query store, needs to create a new one (consult your database
-vendor's documentation as to how this should be done), and then, depending on the operator's preferred production setup, should proceed to create and
+used to hold the *HTTP JSON API* query store, create a new one (consult your database
+vendor's documentation for instructions), and then (depending on the operator's preferred production setup) should proceed to create and
 start the server using either ``start-mode=create-only`` & ``start-mode=start-only``
 or only with ``start-mode=create-and-start`` as described above.
 
