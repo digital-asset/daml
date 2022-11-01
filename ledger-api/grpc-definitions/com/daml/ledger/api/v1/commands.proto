@@ -148,42 +148,6 @@ message CreateCommand {
   Record create_arguments = 2;
 }
 
-// Transfer-out a contract
-message TransferOutCommand {
-  // The ID of the contract the client wants to transfer-out.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
-  string contract_id = 1;
-
-  // The ID of the source domain
-  // Must be a valid domain ID
-  // Optional
-  string source = 2;
-
-  // The ID of the target domain
-  // Must be a valid domain ID
-  // Required
-  string target = 3;
-}
-
-// Transfer-in a contract
-message TransferInCommand {
-  // The ID of the contract the client wants to transfer-out.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
-  string contract_id = 1;
-
-  // The ID of the source domain
-  // Must be a valid domain ID
-  // Required
-  string source = 2;
-
-  // The ID of the target domain
-  // Must be a valid domain ID
-  // Optional
-  string target = 3;
-}
-
 // Exercise a choice on an existing contract.
 message ExerciseCommand {
   // The template of contract the client wants to exercise.
