@@ -59,10 +59,10 @@ public class IouMain {
         .getActiveContractSetClient()
         .getActiveContracts(Iou.contractFilter(), Collections.singleton(party), true)
         .blockingForEach(
-            activeContracts -> {
-              activeContracts.offset.ifPresent(
+            response -> {
+                response.offset.ifPresent(
                   offset -> acsOffset.set(new LedgerOffset.Absolute(offset)));
-              activeContracts.activeContracts.forEach(
+                response.activeContracts.forEach(
                   contract -> {
                     long id = idCounter.getAndIncrement();
                     contracts.put(id, contract.data);
