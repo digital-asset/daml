@@ -27,16 +27,16 @@ import DA.Internal.Template.Functions
 import DA.Internal.LF
 import DA.Internal.Any
 
--- | (1.dev only) Exposes the `interfaceTypeRep` function. Available only for interfaces.
+-- | (Daml-LF >= 1.15) Exposes the `interfaceTypeRep` function. Available only for interfaces.
 class HasInterfaceTypeRep i where
   -- | HIDE
   _interfaceTypeRep : i -> TypeRep
 
--- | (1.dev only) Obtain the `TemplateTypeRep` for the template given in the interface value.
+-- | (Daml-LF >= 1.15) Obtain the `TemplateTypeRep` for the template given in the interface value.
 interfaceTypeRep : HasInterfaceTypeRep i => i -> TemplateTypeRep
 interfaceTypeRep x = TemplateTypeRep (_interfaceTypeRep x)
 
--- | (1.dev only) Exposes the `toInterface` and `toInterfaceContractId` functions.
+-- | (Daml-LF >= 1.15) Exposes the `toInterface` and `toInterfaceContractId` functions.
 class HasToInterface t i where
   -- | HIDE
   _toInterface : t -> i
@@ -59,16 +59,16 @@ class HasToInterface t i where
 -- @
 --
 
--- | (1.dev only) Convert a template value into an interface value.
+-- | (Daml-LF >= 1.15) Convert a template value into an interface value.
 -- For example `toInterface @MyInterface value` converts a template
 -- `value` into a `MyInterface` type.
 toInterface : forall i t. HasToInterface t i => t -> i
 toInterface = _toInterface
 
--- | (1.dev only) Exposes `fromInterface` and `fromInterfaceContractId`
+-- | (Daml-LF >= 1.15) Exposes `fromInterface` and `fromInterfaceContractId`
 -- functions.
 class HasFromInterface t i where
-  -- | (1.dev only) Attempt to convert an interface value back into a
+  -- | (Daml-LF >= 1.15) Attempt to convert an interface value back into a
   -- template value. A `None` indicates that the expected template
   -- type doesn't match the underyling template type for the
   -- interface value.
@@ -82,19 +82,19 @@ class HasFromInterface t i where
   -- underlying template type of the interface value doesn't match the desired type.
   unsafeFromInterface : ContractId i -> i -> t
 
--- | (1.dev only) Constraint that indicates that a template implements an interface.
+-- | (Daml-LF >= 1.15) Constraint that indicates that a template implements an interface.
 type Implements t i =
   ( HasInterfaceTypeRep i
   , HasToInterface t i
   , HasFromInterface t i
   )
 
--- | (1.dev only) Convert a template contract id into an interface
+-- | (Daml-LF >= 1.15) Convert a template contract id into an interface
 -- contract id. For example, `toInterfaceContractId @MyInterface cid`.
 toInterfaceContractId : forall i t. HasToInterface t i => ContractId t -> ContractId i
 toInterfaceContractId = coerceContractId
 
--- | (1.dev only) Convert an interface contract id into a template
+-- | (Daml-LF >= 1.15) Convert an interface contract id into a template
 -- contract id. For example, `fromInterfaceContractId @MyTemplate cid`.
 --
 -- Can also be used to convert an interface contract id into a contract id of
@@ -117,7 +117,7 @@ toInterfaceContractId = coerceContractId
 fromInterfaceContractId : forall t i. HasFromInterface t i => ContractId i -> ContractId t
 fromInterfaceContractId = coerceContractId
 
--- | (1.dev only) Fetch an interface and convert it to a specific
+-- | (Daml-LF >= 1.15) Fetch an interface and convert it to a specific
 -- template type. If conversion is succesful, this function returns
 -- the converted contract and its converted contract id. Otherwise,
 -- this function returns `None`.
