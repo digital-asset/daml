@@ -7,7 +7,6 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory;
 import com.daml.ledger.api.v1.TransactionServiceGrpc;
 import com.daml.ledger.api.v1.TransactionServiceOuterClass;
 import com.daml.ledger.javaapi.data.*;
-import com.daml.ledger.rxjava.ContractUtil;
 import com.daml.ledger.rxjava.TransactionsClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
@@ -17,7 +16,6 @@ import io.reactivex.Single;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Future;
-import java.util.stream.Collectors;
 
 public final class TransactionClientImpl implements TransactionsClient {
   private final String ledgerId;
@@ -75,40 +73,6 @@ public final class TransactionClientImpl implements TransactionsClient {
     return getTransactions(begin, end, filter, verbose, Optional.of(accessToken));
   }
 
-  private <Ct> Flowable<Ct> getContracts(
-      ContractUtil<Ct> contractUtil,
-      LedgerOffset begin,
-      Set<String> parties,
-      boolean verbose,
-      Optional<String> accessToken) {
-    TransactionFilter filter = contractUtil.transactionFilter(parties);
-    Flowable<Transaction> transactions = getTransactions(begin, filter, verbose, accessToken);
-    Flowable<CreatedEvent> createdEvents =
-        transactions.concatMapIterable(
-            tx ->
-                tx.getEvents().stream()
-                    .filter(e -> e instanceof CreatedEvent)
-                    .map(e -> (CreatedEvent) e)
-                    .collect(Collectors.toList()));
-    return createdEvents.map(contractUtil::toContract);
-  }
-
-  @Override
-  public <Ct> Flowable<Ct> getContracts(
-      ContractUtil<Ct> contractUtil, LedgerOffset begin, Set<String> parties, boolean verbose) {
-    return getContracts(contractUtil, begin, parties, verbose, Optional.empty());
-  }
-
-  @Override
-  public <Ct> Flowable<Ct> getContracts(
-      ContractUtil<Ct> contractUtil,
-      LedgerOffset begin,
-      Set<String> parties,
-      boolean verbose,
-      String accessToken) {
-    return getContracts(contractUtil, begin, parties, verbose, Optional.of(accessToken));
-  }
-
   private Flowable<Transaction> getTransactions(
       LedgerOffset begin, TransactionFilter filter, boolean verbose, Optional<String> accessToken) {
     TransactionServiceOuterClass.GetTransactionsRequest request =
@@ -126,6 +90,30 @@ public final class TransactionClientImpl implements TransactionsClient {
   public Flowable<Transaction> getTransactions(
       LedgerOffset begin, TransactionFilter filter, boolean verbose, String accessToken) {
     return getTransactions(begin, filter, verbose, Optional.of(accessToken));
+  }
+
+  private Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter,
+      LedgerOffset begin,
+      Set<String> parties,
+      boolean verbose,
+      Optional<String> accessToken) {
+    TransactionFilter filter = contractFilter.transactionFilter(parties);
+    return getTransactions(begin, filter, verbose, accessToken);
+  }
+
+  public Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter,
+      LedgerOffset begin,
+      Set<String> parties,
+      boolean verbose,
+      String accessToken) {
+    return getTransactions(contractFilter, begin, parties, verbose, Optional.of(accessToken));
+  }
+
+  public Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter, LedgerOffset begin, Set<String> parties, boolean verbose) {
+    return getTransactions(contractFilter, begin, parties, verbose, Optional.empty());
   }
 
   private Flowable<TransactionTree> extractTransactionTrees(
