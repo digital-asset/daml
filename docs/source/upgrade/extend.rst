@@ -7,12 +7,6 @@ Extending Daml Applications
 .. toctree::
    :hidden:
 
-
-**Note:** Cross-SDK extensions require Daml-LF 1.8 or newer.
-This is the default starting from SDK 1.0. For older releases add
-``build-options: ["--target=1.8"]`` to your ``daml.yaml`` to select
-Daml-LF 1.8.
-
 Consider the following simple Daml model for carbon certificates:
 
 .. literalinclude:: example/carbon-1.0.0/daml/CarbonV1.daml

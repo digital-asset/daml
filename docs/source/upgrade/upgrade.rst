@@ -9,11 +9,6 @@ Upgrading Daml Applications
 .. toctree::
    :hidden:
 
-**Note:** Cross-SDK upgrades require Daml-LF 1.8 or newer.
-This is the default starting from SDK 1.0. For older releases add
-``build-options: ["--target=1.8"]`` to your ``daml.yaml`` to select
-Daml-LF 1.8.
-
 In applications backed by a centralized database controlled by a
 single operator, it is possible to upgrade an application in a single
 step that migrates all existing data to a new data model.
