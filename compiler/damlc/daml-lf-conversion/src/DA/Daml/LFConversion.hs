@@ -128,9 +128,6 @@ import qualified "ghc-lib-parser" BooleanFormula as BF
 import           Safe.Exact (zipExact, zipExactMay)
 import           SdkVersion
 
---showPprUnsafe :: Outputable a => a -> String
---showPprUnsafe = showSDocUnsafe . ppr
-
 ---------------------------------------------------------------------
 -- FUNCTIONS ON THE ENVIRONMENT
 
@@ -1725,18 +1722,10 @@ convertExpr env0 e = do
     go env (VarIn GHC_Types "I#") args = pure (mkIdentity TInt64, args)
         -- we pretend Int and Int# are the same thing
 
-    --go env (VarIn DA_Internal_Desugar "userWrittenTuple") (LType _ : LExpr head : rest)
-    --    = let env' = env { envUserWrittenTuple = True }
-    --       in go env' head rest
     go env (VarIn GHC_Types "magic") (LType (isStrLitTy -> Just "userWrittenTuple") : LType _ : LExpr head : rest)
-        = do
-          varName <- freshTmVar
-          let env' = env { envUserWrittenTuple = True }
-          (head', args) <- go env' head rest
-          --headType' <- convertType env' inp
-          -- _ <- error $ showPprUnsafe inp ++ "\n" ++ showPprUnsafe head
-          --pure (ETmLam (varName, headType') (EVar varName) `ETmApp` head', args)
-          pure (head', args)
+        = let env' = env { envUserWrittenTuple = True }
+          in
+          go env' head rest
 
     go env (Var x) args
         | Just internals <- lookupUFM internalFunctions modName
