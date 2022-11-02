@@ -31,7 +31,6 @@ class HttpJsonApiMetrics(
   val surrogateTemplateIdCache = new CacheMetrics(prefix :+ "surrogate_tpid_cache", registry)
 
   object DropWizardMetricsFactory extends DropwizardFactory {
-    override val prefix: MetricName = HttpJsonApiMetrics.this.prefix
     override val registry: MetricRegistry = HttpJsonApiMetrics.this.registry
   }
 
@@ -85,7 +84,6 @@ class HttpJsonApiMetrics(
     DropWizardMetricsFactory.meter(prefix :+ "allocation_party_throughput")
 
   object OpenTelemetryMetricsFactory extends OpenTelemetryFactory {
-    override val prefix: MetricName = HttpJsonApiMetrics.this.prefix
     override val otelMeter: OtelMeter = HttpJsonApiMetrics.this.otelMeter
   }
 

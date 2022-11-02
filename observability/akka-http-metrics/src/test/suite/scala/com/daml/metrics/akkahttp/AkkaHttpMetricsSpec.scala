@@ -101,7 +101,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
     ) apply route
   }
 
-  // provides an enviroment to perform the tests
+  // Provides an environment to perform the tests.
   private def withRouteAndMetrics[T](f: (Route, TestMetrics) => T): T = {
     val metrics = TestMetrics()
     val routeWithMetrics = routeWithGoldenSignalMetrics(Route.seal(testRoute), metrics)
@@ -555,7 +555,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
     }
   }
 
-  // creates a response entity from the give request, with copied data
+  // Creates a response entity from the given request, with copied data.
   private def mirrorRequestEntity(request: RequestEntity): Future[ResponseEntity] =
     request match {
       case HttpEntity.Default(contentType, contentLength, data) =>

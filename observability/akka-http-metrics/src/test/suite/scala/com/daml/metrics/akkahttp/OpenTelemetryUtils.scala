@@ -5,7 +5,6 @@ package com.daml.metrics.akkahttp
 
 import scala.annotation.tailrec
 
-import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.MetricHandle
 import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 import io.opentelemetry.api.metrics.{Meter => OtelMeter}
@@ -95,7 +94,6 @@ abstract class TestMetricsBase {
   val sdkMeterProvider: SdkMeterProvider =
     SdkMeterProvider.builder().setClock(testClock).registerMetricReader(metricReader).build();
   val metricFactory = new OpenTelemetryFactory {
-    override val prefix: MetricName = MetricName("test")
     override val otelMeter: OtelMeter = sdkMeterProvider.get("test")
   }
 
