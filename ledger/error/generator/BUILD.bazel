@@ -65,7 +65,7 @@ da_scala_library(
     runtime_deps = [
         # Add the error definition targets to the classpath so they can be picked up by the generator
         "//ledger/participant-state-kv-errors",
-        "//ledger/ledger-api-errors",
+        "//ledger/error-definitions",
     ],
     deps = [
         "//ledger/error",

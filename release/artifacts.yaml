@@ -277,5 +277,5 @@
   type: jar-scala
 - target: //ledger/error/generator:lib
   type: jar-scala
-- target: //ledger/ledger-api-errors:ledger-api-errors
+- target: //ledger/error-definitions:error-definitions
   type: jar-scala
