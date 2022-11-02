@@ -75,7 +75,7 @@ object SubmittedDataAnalyzing {
         packageName -> packageId
       }
       val candidatesPackageIds =
-        packageNamesToPackageIds.filter(_._1 == BenchtoolTestsPackageName).map(_._2)
+        packageNamesToPackageIds.collect { case (BenchtoolTestsPackageName, pkgId) => pkgId }
       if (candidatesPackageIds.size > 1) {
         logger.warn(s"Found more than one Daml package with name '$BenchtoolTestsPackageName'")
       }
