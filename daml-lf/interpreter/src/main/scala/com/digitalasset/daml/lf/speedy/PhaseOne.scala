@@ -19,7 +19,7 @@ import scala.annotation.tailrec
 
 private[speedy] object PhaseOne {
 
-  case class Config(
+  final case class Config(
       profiling: ProfilingMode,
       stacktracing: StackTraceMode,
   )
@@ -37,7 +37,7 @@ private[speedy] object PhaseOne {
   // corresponds to Daml-LF type variable.
   private[this] case class TVarRef(name: TypeVarName) extends VarRef
 
-  case class Position(idx: Int)
+  final case class Position(idx: Int)
 
   private[speedy] object Env {
     val Empty = Env(0, Map.empty)

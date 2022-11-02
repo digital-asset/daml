@@ -102,7 +102,7 @@ private[lf] object Speedy {
 
   sealed abstract class LedgerMode extends Product with Serializable
 
-  case class SKeyWithMaintainers(key: SValue, maintainers: Set[Party]) {
+  final case class SKeyWithMaintainers(key: SValue, maintainers: Set[Party]) {
     def toNormalizedKeyWithMaintainers(version: TransactionVersion) =
       Node.KeyWithMaintainers(key.toNormalizedValue(version), maintainers)
     val unnormalizedKeyValue = key.toUnnormalizedValue

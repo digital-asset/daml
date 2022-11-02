@@ -22,7 +22,11 @@ private[speedy] object ClosureConversion {
 
   private[speedy] def closureConvert(source0: source.SExpr): target.SExpr = {
 
-    case class Env(sourceDepth: Int, mapping: Map[SEVarLevel, target.SELoc], targetDepth: Int) {
+    final case class Env(
+        sourceDepth: Int,
+        mapping: Map[SEVarLevel, target.SELoc],
+        targetDepth: Int,
+    ) {
 
       def lookup(v: SEVarLevel): target.SELoc = {
         mapping.get(v) match {
