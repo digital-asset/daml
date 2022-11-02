@@ -868,18 +868,18 @@ private[lf] object Speedy {
         onLedger: OnLedger,
         gkey: GlobalKey,
         coid: V.ContractId,
-        handleKeyFound: (Machine, V.ContractId) => Control,
-    ): Control = {
+        handleKeyFound: V.ContractId => Control.Value,
+    ): Control.Value = {
       // For disclosed contract keys, we do not perform visibility checking
       if (onLedger.isDisclosedContractKey(coid, gkey)) {
-        handleKeyFound(this, coid)
+        handleKeyFound(coid)
       } else {
         onLedger.getCachedContract(coid) match {
           case Some(cachedContract) =>
             val stakeholders = cachedContract.signatories union cachedContract.observers
             onLedger.visibleToStakeholders(stakeholders) match {
               case SVisibleToStakeholders.Visible =>
-                handleKeyFound(this, coid)
+                handleKeyFound(coid)
 
               case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
                 throw SErrorDamlException(
@@ -1446,7 +1446,7 @@ private[lf] object Speedy {
       machine: Machine,
       gKey: GlobalKey,
       cid: V.ContractId,
-      handleKeyFound: (Machine, V.ContractId) => Control,
+      handleKeyFound: V.ContractId => Control.Value,
   ) extends Kont {
 
     def execute(sv: SValue): Control = {
