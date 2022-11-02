@@ -317,6 +317,27 @@ Interface Functions
        is the desired behavior in case of mismatch.
        In all other cases, consider using ``fetchFromInterface`` instead.
 
+``coerceInterfaceContractId``
+-----------------------------
+
+.. list-table::
+
+   * - Type
+     - | ``forall j i.``
+       | ``(HasInterfaceTypeRep i, HasInterfaceTypeRep j) =>``
+       | ``ContractId i -> ContractId j``
+   * - Instantiated Type
+     - ``ContractId SourceInterface -> ContractId TargetInterface``
+   * - Notes
+     - Converts an interface contract id into a contract id of a different interface.
+       This function does not verify that the given contract id actually points
+       to a contract of the resulting type; if that is not the case, a
+       subsequent ``fetch``, ``exercise`` or ``archive`` will fail.
+       Therefore, this should only be used when the underlying contract is known
+       to be of the resulting type, or when the result is immediately used by a
+       ``fetch``, ``exercise`` or ``archive`` action and a transaction failure
+       is the desired behavior in case of mismatch.
+
 ``fetchFromInterface``
 ----------------------
 
