@@ -90,7 +90,7 @@ private[lf] object NormalizeRollbacks {
 
   //   rule #2/#3 overlap: ROLL [ ROLL [ xs… ] ] -> ROLL [ xs… ]
 
-  private def makeRoll[R](
+  private[this] def makeRoll[R](
       norms: Vector[Norm]
   )(k: Vector[Norm] => Trampoline[R]): Trampoline[R] = {
     caseNorms(norms) match {
@@ -122,7 +122,7 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private def pushIntoRoll(a1: Norm.Act, xs2: Vector[Norm], t: Norm.Roll): Norm.Roll = {
+  private[this] def pushIntoRoll(a1: Norm.Act, xs2: Vector[Norm], t: Norm.Roll): Norm.Roll = {
     t match {
       case Norm.Roll1(a3) => Norm.Roll2(a1, xs2, a3)
       case Norm.Roll2(a3, xs4, a5) => Norm.Roll2(a1, xs2 ++ Vector(a3) ++ xs4, a5)
