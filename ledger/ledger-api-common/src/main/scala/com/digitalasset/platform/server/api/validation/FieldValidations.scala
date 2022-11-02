@@ -5,6 +5,7 @@ package com.daml.platform.server.api.validation
 
 import com.daml.api.util.TimestampConversion
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.value.Identifier
@@ -13,8 +14,11 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
-import com.daml.platform.error.definitions.LedgerApiErrors
-import com.daml.platform.server.api.validation.ResourceAnnotationValidation.{AnnotationsSizeExceededError, EmptyAnnotationsValueError, InvalidAnnotationsKeyError}
+import com.daml.platform.server.api.validation.ResourceAnnotationValidation.{
+  AnnotationsSizeExceededError,
+  EmptyAnnotationsValueError,
+  InvalidAnnotationsKeyError,
+}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.StatusRuntimeException

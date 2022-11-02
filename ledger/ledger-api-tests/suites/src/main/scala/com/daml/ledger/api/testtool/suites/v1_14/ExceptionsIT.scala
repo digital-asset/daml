@@ -3,14 +3,13 @@
 
 package com.daml.ledger.api.testtool.suites.v1_14
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.test.semantic.Exceptions._
-import com.daml.platform.error.definitions.LedgerApiErrors
-
 import java.util.regex.Pattern
 
 final class ExceptionsIT extends LedgerTestSuite {

@@ -4,17 +4,37 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.util.UUID
+
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerOffset, ObjectMeta, PartyDetails}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
-import com.daml.ledger.api.v1.admin.party_management_service.{AllocatePartyRequest, AllocatePartyResponse, GetParticipantIdRequest, GetParticipantIdResponse, GetPartiesRequest, GetPartiesResponse, ListKnownPartiesRequest, ListKnownPartiesResponse, PartyManagementServiceGrpc, UpdatePartyDetailsRequest, UpdatePartyDetailsResponse}
+import com.daml.ledger.api.v1.admin.party_management_service.{
+  AllocatePartyRequest,
+  AllocatePartyResponse,
+  GetParticipantIdRequest,
+  GetParticipantIdResponse,
+  GetPartiesRequest,
+  GetPartiesResponse,
+  ListKnownPartiesRequest,
+  ListKnownPartiesResponse,
+  PartyManagementServiceGrpc,
+  UpdatePartyDetailsRequest,
+  UpdatePartyDetailsResponse,
+}
 import com.daml.ledger.api.v1.admin.party_management_service.{PartyDetails => ProtoPartyDetails}
 import com.daml.ledger.api.v1.admin.object_meta.{ObjectMeta => ProtoObjectMeta}
 import com.daml.ledger.api.validation.ValidationErrors
-import com.daml.ledger.participant.state.index.v2.{IndexPartyManagementService, IndexTransactionsService, IndexerPartyDetails, LedgerEndService, PartyEntry}
+import com.daml.ledger.participant.state.index.v2.{
+  IndexPartyManagementService,
+  IndexTransactionsService,
+  IndexerPartyDetails,
+  LedgerEndService,
+  PartyEntry,
+}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
@@ -25,10 +45,20 @@ import com.daml.platform.apiserver.services.admin.ApiPartyManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.apiserver.update
 import com.daml.platform.apiserver.update.PartyRecordUpdateMapper
-import com.daml.platform.error.definitions.LedgerApiErrors
-import com.daml.platform.localstore.api.{PartyDetailsUpdate, PartyRecord, PartyRecordStore, PartyRecordUpdate}
+import com.daml.platform.localstore.api.{
+  PartyDetailsUpdate,
+  PartyRecord,
+  PartyRecordStore,
+  PartyRecordUpdate,
+}
 import com.daml.platform.server.api.validation.FieldValidations
-import com.daml.platform.server.api.validation.FieldValidations.{optionalString, requireEmptyString, requireParty, requirePresence, verifyMetadataAnnotations}
+import com.daml.platform.server.api.validation.FieldValidations.{
+  optionalString,
+  requireEmptyString,
+  requireParty,
+  requirePresence,
+  verifyMetadataAnnotations,
+}
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 

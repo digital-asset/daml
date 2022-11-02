@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites.v1_8
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -10,7 +11,6 @@ import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.admin.config_management_service.{SetTimeModelRequest, TimeModel}
 import com.daml.ledger.error.definitions.kv.KvErrors
-import com.daml.platform.error.definitions.LedgerApiErrors
 import com.google.protobuf.duration.Duration
 
 import scala.concurrent.{ExecutionContext, Future}

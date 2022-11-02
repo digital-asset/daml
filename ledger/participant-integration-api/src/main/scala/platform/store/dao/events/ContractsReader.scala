@@ -4,11 +4,11 @@
 package com.daml.platform.store.dao.events
 
 import com.daml.metrics.api.MetricHandle.Timer
+import com.daml.error.definitions.IndexErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.error.definitions.IndexErrors
 import com.daml.platform.{Contract, ContractId, Identifier, Key, Party, Value}
 import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.dao.events.ContractsReader._

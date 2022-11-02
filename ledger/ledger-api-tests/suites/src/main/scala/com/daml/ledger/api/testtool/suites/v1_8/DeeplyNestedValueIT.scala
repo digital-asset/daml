@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.suites.v1_8
 
 import com.daml.error.ErrorCode
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
@@ -11,7 +12,6 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.semantic.DeeplyNestedValue._
-import com.daml.platform.error.definitions.LedgerApiErrors
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}

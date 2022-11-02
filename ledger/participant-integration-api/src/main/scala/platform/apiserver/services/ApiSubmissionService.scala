@@ -19,7 +19,7 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.SeedService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.platform.error.{ErrorCause, RejectionGenerators}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService

@@ -4,8 +4,8 @@
 package com.daml.error.utils
 
 import com.daml.error.ErrorCategory.BackgroundProcessDegradationWarning
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorClass, ErrorCode}
-import com.daml.platform.error.definitions.LedgerApiErrors
 import com.google.protobuf
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.flatspec.AnyFlatSpec

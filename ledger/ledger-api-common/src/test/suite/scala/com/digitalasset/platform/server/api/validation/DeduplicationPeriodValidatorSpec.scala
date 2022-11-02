@@ -5,10 +5,10 @@ package com.daml.platform.server.api.validation
 
 import java.time
 import java.time.Duration
-
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.daml.ledger.api.validation.ValidatorTestUtils
+import com.daml.error.definitions.groups.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
 import io.grpc.Status.Code.FAILED_PRECONDITION
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks

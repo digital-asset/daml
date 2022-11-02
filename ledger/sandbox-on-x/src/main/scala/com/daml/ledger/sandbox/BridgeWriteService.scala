@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Sink
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
@@ -25,7 +26,6 @@ import com.daml.telemetry.TelemetryContext
 import java.time.Duration
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import com.daml.lf.value.Value
-import com.daml.platform.error.definitions.LedgerApiErrors
 
 class BridgeWriteService(
     feedSink: Sink[(Offset, Update), NotUsed],

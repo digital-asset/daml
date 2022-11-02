@@ -4,8 +4,10 @@
 package com.daml.ledger.sandbox.bridge.validate
 
 import java.time.Duration
+
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -28,7 +30,6 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.error.definitions.LedgerApiErrors
 import com.google.rpc.status.Status.toJavaProto
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.flatspec.AnyFlatSpec

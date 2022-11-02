@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites.v1_8
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
@@ -15,7 +16,6 @@ import com.daml.ledger.test.model.Test.CreateAndFetch._
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test.DummyFactory._
 import com.daml.ledger.test.model.Test._
-import com.daml.platform.error.definitions.LedgerApiErrors
 import scalaz.Tag
 
 class TransactionServiceExerciseIT extends LedgerTestSuite {

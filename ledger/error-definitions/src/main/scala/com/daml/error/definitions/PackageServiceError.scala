@@ -1,7 +1,9 @@
-package com.daml.errors
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.error.definitions
 
 import com.daml.error._
-import com.daml.lf.archive.{Error => LfArchiveError}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.Error
@@ -144,28 +146,6 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
   }
 
   object Validation {
-    def handleLfArchiveError(
-        lfArchiveError: LfArchiveError
-    )(implicit
-        contextualizedErrorLogger: ContextualizedErrorLogger
-    ): DamlError =
-      lfArchiveError match {
-        case LfArchiveError.InvalidDar(entries, cause) =>
-          PackageServiceError.Reading.InvalidDar
-            .Error(entries.entries.keys.toSeq, cause)
-        case LfArchiveError.InvalidZipEntry(name, entries) =>
-          PackageServiceError.Reading.InvalidZipEntry
-            .Error(name, entries.entries.keys.toSeq)
-        case LfArchiveError.InvalidLegacyDar(entries) =>
-          PackageServiceError.Reading.InvalidLegacyDar.Error(entries.entries.keys.toSeq)
-        case LfArchiveError.ZipBomb =>
-          PackageServiceError.Reading.ZipBomb.Error(LfArchiveError.ZipBomb.getMessage)
-        case e: LfArchiveError =>
-          PackageServiceError.Reading.ParseError.Error(e.msg)
-        case e =>
-          PackageServiceError.InternalError.Unhandled(e)
-      }
-
     def handleLfEnginePackageError(err: Error.Package.Error)(implicit
         loggingContext: ContextualizedErrorLogger
     ): DamlError = err match {

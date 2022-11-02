@@ -1,18 +1,16 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.error.definitions.groups
+package com.daml.error.definitions.groups
 
-import com.daml.error.{ContextualizedErrorLogger, DamlErrorWithDefiniteAnswer, ErrorCategory, ErrorCode, Explanation, Resolution}
-import com.daml.error.definitions.{groups}
+import com.daml.error._
+import com.daml.error.definitions.LedgerApiErrors
 
 @Explanation("Errors raised by Ledger API admin services.")
 object AdminServices extends LedgerApiErrors.AdminServicesErrorGroup {
 
-  val UserManagement: UserManagementServiceErrorGroup.type =
-    UserManagementServiceErrorGroup
-  val PartyManagement: PartyManagementServiceErrorGroup.type =
-    PartyManagementServiceErrorGroup
+  val UserManagement = UserManagementServiceErrorGroup
+  val PartyManagement = PartyManagementServiceErrorGroup
 
   @Explanation("This rejection is given when a new configuration is rejected.")
   @Resolution("Fetch newest configuration and/or retry.")

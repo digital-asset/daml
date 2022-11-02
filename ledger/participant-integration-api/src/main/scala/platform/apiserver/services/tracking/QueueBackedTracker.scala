@@ -8,13 +8,13 @@ import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import akka.{Done, NotUsed}
 import com.daml.metrics.api.MetricHandle.{Counter, Timer}
 import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.InstrumentedGraph
 import com.daml.platform.apiserver.services.tracking.QueueBackedTracker._
-import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.util.Ctx
 import com.google.rpc.Status
 

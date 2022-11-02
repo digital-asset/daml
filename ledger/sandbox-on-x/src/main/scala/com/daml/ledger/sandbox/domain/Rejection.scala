@@ -11,7 +11,7 @@ import ledger.configuration.LedgerTimeModel
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.LedgerApiErrors
 import com.google.rpc.status.Status
 
 import java.time.Duration

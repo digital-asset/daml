@@ -8,9 +8,16 @@ import java.time.Duration
 import java.util.regex.Pattern
 import ch.qos.logback.classic.Level
 import com.daml.error.utils.ErrorDetails
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, DamlError, ErrorAssertionsWithLogCollectorAssertions, ErrorCode}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  DamlError,
+  ErrorAssertionsWithLogCollectorAssertions,
+  ErrorCode,
+}
+import com.daml.error.definitions.groups.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
+import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.lf.data.Ref
-import com.daml.platform.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.platform.testing.LogCollector.ExpectedLogEntry
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}
 import com.google.rpc._

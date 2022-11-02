@@ -24,6 +24,7 @@ load(
             "//language-support/scala/bindings",
             "//ledger-api/grpc-definitions:ledger_api_proto_scala",
             "//ledger/error",
+            "//ledger/error-definitions",
             "//ledger/ledger-api-common",
             "//libs-scala/test-evidence/tag:test-evidence-tag",
             "//ledger/test-common:dar-files-%s-lib" % lf_version,

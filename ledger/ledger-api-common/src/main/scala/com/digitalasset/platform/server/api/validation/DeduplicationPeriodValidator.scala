@@ -4,10 +4,11 @@
 package com.daml.platform.server.api.validation
 
 import java.time.Duration
+
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.validation.ValidationErrors
-import com.daml.platform.error.definitions.LedgerApiErrors
 import io.grpc.StatusRuntimeException
 
 object DeduplicationPeriodValidator {

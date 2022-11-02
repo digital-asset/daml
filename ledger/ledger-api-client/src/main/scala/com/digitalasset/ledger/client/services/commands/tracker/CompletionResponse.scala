@@ -4,11 +4,11 @@
 package com.daml.ledger.client.services.commands.tracker
 
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.grpc.GrpcStatuses
-import com.daml.platform.error.definitions.LedgerApiErrors
 import com.google.rpc.status.{Status => StatusProto}
 import com.google.rpc.{Status => StatusJavaProto}
 import io.grpc.Status.Code

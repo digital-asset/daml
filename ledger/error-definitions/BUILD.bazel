@@ -1,3 +1,6 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
@@ -8,24 +11,20 @@ load(
 da_scala_library(
     name = "error-definitions",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml:error-definitions:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-        "//ledger/ledger-grpc",
+        "//ledger/error",
         "//ledger/participant-integration-api:participant-integration-api-proto_scala",
         "//ledger/participant-state",
-        "//libs-scala/contextualized-logging",
-        "//libs-scala/logging-entries",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
-        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_protobuf",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

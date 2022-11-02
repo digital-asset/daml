@@ -7,11 +7,15 @@
 package com.daml.ledger.api.testtool.suites.v1_8.objectmeta
 
 import com.daml.error.ErrorCode
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.suites.v1_8.UserManagementServiceITBase
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
-import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserRequest, GetUserRequest, User}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.api.v1.admin.user_management_service.{
+  CreateUserRequest,
+  GetUserRequest,
+  User,
+}
 
 import scala.concurrent.{ExecutionContext, Future}
 

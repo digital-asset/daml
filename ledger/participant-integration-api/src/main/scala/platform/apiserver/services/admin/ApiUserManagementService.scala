@@ -5,12 +5,19 @@ package com.daml.platform.apiserver.services.admin
 
 import java.nio.charset.StandardCharsets
 import java.util.Base64
+
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.auth.ClaimSet.Claims
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.domain._
-import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserResponse, GetUserResponse, UpdateUserRequest, UpdateUserResponse}
+import com.daml.ledger.api.v1.admin.user_management_service.{
+  CreateUserResponse,
+  GetUserResponse,
+  UpdateUserRequest,
+  UpdateUserResponse,
+}
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -19,7 +26,6 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.page_tokens.ListUsersPageTokenPayload
 import com.daml.platform.apiserver.update
 import com.daml.platform.apiserver.update.UserUpdateMapper
-import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.platform.localstore.api.UserManagementStore
 import com.daml.platform.server.api.validation.FieldValidations
 import com.google.protobuf.InvalidProtocolBufferException

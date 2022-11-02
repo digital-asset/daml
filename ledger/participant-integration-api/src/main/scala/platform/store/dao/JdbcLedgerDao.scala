@@ -6,6 +6,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.configuration.Configuration
@@ -22,7 +23,6 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.platform.{ApplicationId, PackageId, Party, SubmissionId, TransactionId, WorkflowId}
 import com.daml.platform.store._
 import com.daml.platform.store.dao.events._

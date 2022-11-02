@@ -3,6 +3,7 @@
 
 package com.daml.platform.apiserver.ratelimiting
 
+import com.daml.error.definitions.LedgerApiErrors.MaximumNumberOfStreams
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.metrics.api.MetricHandle.Counter
 import com.daml.metrics.api.MetricName

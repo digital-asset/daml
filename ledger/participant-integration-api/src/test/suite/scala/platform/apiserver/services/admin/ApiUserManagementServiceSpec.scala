@@ -5,10 +5,11 @@ package com.daml.platform.apiserver.services.admin
 
 import java.nio.charset.StandardCharsets
 import java.util.Base64
+
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorsAssertions}
 import com.daml.platform.apiserver.page_tokens.ListUsersPageTokenPayload
 import com.daml.lf.data.Ref
-import com.daml.platform.error.definitions.LedgerApiErrors
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

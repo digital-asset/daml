@@ -85,6 +85,7 @@ da_scala_test_suite(
         ":error",
         ":error-test-lib",
         ":error-test-utils",
+        "//ledger/error-definitions",  # TODO error: Remove
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",

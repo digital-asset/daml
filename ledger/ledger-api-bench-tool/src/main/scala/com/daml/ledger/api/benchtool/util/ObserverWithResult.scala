@@ -3,8 +3,8 @@
 
 package com.daml.ledger.api.benchtool.util
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.utils.ErrorDetails
-import com.daml.platform.error.definitions.LedgerApiErrors
 import io.grpc.stub.{ClientCallStreamObserver, ClientResponseObserver}
 import org.slf4j.Logger
 

@@ -7,7 +7,7 @@ import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.LedgerApiErrors
 
 sealed abstract class ErrorCause extends Product with Serializable
 

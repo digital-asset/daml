@@ -1,9 +1,19 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.error.definitions.groups
+package com.daml.error.definitions.groups
 
-import com.daml.error.{ContextualizedErrorLogger, DamlErrorWithDefiniteAnswer, ErrorCategory, ErrorCode, ErrorGroup, ErrorResource, Explanation, Resolution}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlErrorWithDefiniteAnswer,
+  ErrorCategory,
+  ErrorCode,
+  ErrorGroup,
+  ErrorResource,
+  Explanation,
+  Resolution,
+}
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.lf.transaction.GlobalKey
 
 @Explanation(

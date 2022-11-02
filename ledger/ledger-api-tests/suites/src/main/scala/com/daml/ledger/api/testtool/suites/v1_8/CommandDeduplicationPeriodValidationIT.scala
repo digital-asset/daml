@@ -5,8 +5,10 @@ package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.time.Duration
 import java.util.regex.Pattern
+
 import com.daml.api.util.DurationConversion
 import com.daml.error.ErrorCode
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
@@ -17,7 +19,6 @@ import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.error.definitions.LedgerApiErrors
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._

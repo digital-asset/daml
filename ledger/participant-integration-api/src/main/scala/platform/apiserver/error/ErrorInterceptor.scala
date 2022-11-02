@@ -4,10 +4,19 @@
 package com.daml.platform.apiserver.error
 
 import com.daml.error.{BaseError, DamlContextualizedErrorLogger}
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.error.definitions.LedgerApiErrors
 import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
-import io.grpc.{ForwardingServerCallListener, Metadata, ServerCall, ServerCallHandler, ServerInterceptor, Status, StatusException, StatusRuntimeException}
+import io.grpc.{
+  ForwardingServerCallListener,
+  Metadata,
+  ServerCall,
+  ServerCallHandler,
+  ServerInterceptor,
+  Status,
+  StatusException,
+  StatusRuntimeException,
+}
 
 import scala.util.control.NonFatal
 

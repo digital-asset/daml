@@ -5,11 +5,12 @@ package com.daml.ledger.api.auth
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
+
 import akka.actor.Scheduler
 import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.platform.localstore.api.UserManagementStore
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver

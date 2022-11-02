@@ -51,6 +51,7 @@ da_scala_library(
         "//ledger-service/cli-opts",
         "//ledger-service/jwt",
         "//ledger/error",
+        "//ledger/error-definitions",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-auth-client",
         "//ledger/ledger-api-common",

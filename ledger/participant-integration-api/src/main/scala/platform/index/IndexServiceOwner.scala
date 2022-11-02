@@ -4,6 +4,7 @@
 package com.daml.platform.index
 
 import com.codahale.metrics.InstrumentedExecutorService
+import com.daml.error.definitions.IndexErrors.IndexDbException
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}

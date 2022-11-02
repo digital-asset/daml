@@ -4,7 +4,7 @@
 package com.daml.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.LedgerApiErrors
 import io.grpc.StatusRuntimeException
 
 object ValidationErrors {

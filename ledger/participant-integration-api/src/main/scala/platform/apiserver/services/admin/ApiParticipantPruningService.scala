@@ -4,8 +4,14 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.util.UUID
+
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.ledger.api.v1.admin.participant_pruning_service.{ParticipantPruningServiceGrpc, PruneRequest, PruneResponse}
+import com.daml.ledger.api.v1.admin.participant_pruning_service.{
+  ParticipantPruningServiceGrpc,
+  PruneRequest,
+  PruneResponse,
+}
 import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{IndexParticipantPruningService, LedgerEndService}
@@ -16,7 +22,6 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.logging
-import com.daml.platform.error.definitions.LedgerApiErrors
 import com.daml.platform.server.api.{ApiException, ValidationLogger}
 import io.grpc.protobuf.StatusProto
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}

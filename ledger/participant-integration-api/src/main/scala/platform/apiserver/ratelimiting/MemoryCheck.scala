@@ -3,6 +3,7 @@
 
 package com.daml.platform.apiserver.ratelimiting
 
+import com.daml.error.definitions.LedgerApiErrors.HeapMemoryOverLimit
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.LimitResult.{
