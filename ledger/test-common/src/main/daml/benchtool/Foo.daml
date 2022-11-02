@@ -157,3 +157,9 @@ template Foo5
     signatory : Party
    where
     signatory signatory
+
+template Foo6
+  with
+    signatory : Party
+   where
+    signatory signatory
