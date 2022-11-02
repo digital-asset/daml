@@ -149,7 +149,7 @@ class WebsocketEndpoints(
       )
   }
 
-  def handleWebsocketRequest[A: WebSocketService.StreamQueryReader](
+  def handleWebsocketRequest[A: WebSocketService.StreamRequestParser](
       jwt: Jwt,
       jwtPayload: domain.JwtPayload,
       req: WebSocketUpgrade,

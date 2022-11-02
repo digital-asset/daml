@@ -158,14 +158,14 @@ package domain {
       readAs: Option[NonEmptyList[Party]],
   )
 
+  final case class SearchForeverRequest(
+      queriesWithPos: NonEmptyList[(SearchForeverQuery, Int)]
+  )
+
   final case class SearchForeverQuery(
       templateIds: NonEmpty[Set[ContractTypeId.OptionalPkg]],
       query: Map[String, JsValue],
       offset: Option[domain.Offset],
-  )
-
-  final case class SearchForeverRequest(
-      queriesWithPos: NonEmptyList[(SearchForeverQuery, Int)]
   )
 
   final case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
