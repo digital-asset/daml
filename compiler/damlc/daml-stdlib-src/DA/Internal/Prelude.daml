@@ -32,7 +32,7 @@ import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, DamlEnum,
 #endif
   )
 -- Not reexported
-import GHC.Types (primitive)
+import GHC.Types (primitive, magic)
 
 import DA.Internal.Down
 

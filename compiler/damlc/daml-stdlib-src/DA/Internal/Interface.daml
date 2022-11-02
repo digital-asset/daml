@@ -26,6 +26,7 @@ import DA.Internal.Prelude
 import DA.Internal.Template.Functions
 import DA.Internal.LF
 import DA.Internal.Any
+import GHC.Types (magic)
 
 -- | (1.dev only) Exposes the `interfaceTypeRep` function. Available only for interfaces.
 class HasInterfaceTypeRep i where
