@@ -100,7 +100,7 @@ private[lf] object Anf {
     */
 
   /** `DepthE` tracks the stack-depth of the original expression being traversed */
-  private[this] sealed trait DepthETag
+  private[this] sealed abstract class DepthETag
   private[this] type DepthE = Int @@ DepthETag
   private[this] val DepthE = Tag.of[DepthETag]
   private[this] implicit class OpsDepthE[T](val x: DepthE) extends AnyVal {
@@ -109,7 +109,7 @@ private[lf] object Anf {
   }
 
   /** `DepthA` tracks the stack-depth of the ANF expression being constructed */
-  private[this] sealed trait DepthATag
+  private[this] sealed abstract class DepthATag
   private[this] type DepthA = Int @@ DepthATag
   private[this] val DepthA = Tag.of[DepthATag]
   private[this] implicit class OpsDepthA[T](val x: DepthA) extends AnyVal {

@@ -197,7 +197,7 @@ object Profile {
 
   final case class CreateAndExerciseLabel(tplId: Ref.DefinitionRef, choiceId: Ref.ChoiceName)
 
-  sealed trait ScenarioLabel
+  sealed abstract class ScenarioLabel
 
   final case object SubmitLabel extends ScenarioLabel
   final case object SubmitMustFailLabel extends ScenarioLabel

@@ -238,25 +238,25 @@ private[lf] object NormalizeRollbacks {
   private object Canonical {
 
     // A properly normalized Tx/node
-    sealed trait Norm
+    sealed abstract class Norm
     object Norm {
 
       // A non-rollback tx/node
-      sealed trait Act extends Norm
+      sealed abstract class Act extends Norm
       final case class Leaf(node: Node.LeafOnlyAction) extends Act
       final case class Exe(node: Node.Exercise, children: List[Norm]) extends Act
 
       // A *normalized* rollback tx/node. 2 cases:
       // - rollback containing a single non-rollback tx/node.
       // - rollback of 2 or more tx/nodes, such that first and last are not rollbacks.
-      sealed trait Roll extends Norm
+      sealed abstract class Roll extends Norm
       final case class Roll1(act: Act) extends Roll
       final case class Roll2(head: Act, middle: Vector[Norm], tail: Act) extends Roll
     }
 
     // Case analysis on a list of Norms, distinuishing: Empty, Single and Multi forms
     // The Multi form separes the head and tail element for the middle-list.
-    sealed trait Case
+    sealed abstract class Case
     object Case {
       final case object Empty extends Case
       final case class Single(n: Norm) extends Case

@@ -100,7 +100,7 @@ private[lf] object Speedy {
 
   private type Actuals = util.ArrayList[SValue]
 
-  private[lf] sealed trait LedgerMode
+  private[lf] sealed abstract class LedgerMode
 
   private[lf] case class SKeyWithMaintainers(key: SValue, maintainers: Set[Party]) {
     def toNormalizedKeyWithMaintainers(version: TransactionVersion) =
@@ -1090,7 +1090,7 @@ private[lf] object Speedy {
   /** Kont, or continuation. Describes the next step for the machine
     * after an expression has been evaluated into a 'SValue'.
     */
-  private[speedy] sealed trait Kont {
+  private[speedy] sealed abstract class Kont {
 
     /** Execute the continuation. */
     def execute(v: SValue): Control

@@ -36,7 +36,7 @@ object ScenarioLedger {
   /** Errors */
   case class LedgerException(err: Error) extends RuntimeException(err.toString, null, true, false)
 
-  sealed trait Error
+  sealed abstract class Error
   final case class ErrorLedgerCrash(reason: String) extends Error
 
   def crash(reason: String) =
@@ -106,7 +106,7 @@ object ScenarioLedger {
   }
 
   /** Scenario step representing the actions executed in a scenario. */
-  sealed trait ScenarioStep
+  sealed abstract class ScenarioStep
 
   final case class Commit(
       txId: TransactionId,
@@ -185,7 +185,7 @@ object ScenarioLedger {
    * Result from lookupGlobalContract. We provide detailed information why a lookup
    * could fail in order to construct good error messages.
    */
-  sealed trait LookupResult
+  sealed abstract class LookupResult
 
   final case class LookupOk(
       coid: ContractId,
@@ -211,7 +211,7 @@ object ScenarioLedger {
       stakeholders: Set[Party],
   ) extends LookupResult
 
-  sealed trait CommitError
+  sealed abstract class CommitError
   object CommitError {
     final case class UniqueKeyViolation(
         error: ScenarioLedger.UniqueKeyViolation
@@ -266,7 +266,7 @@ object ScenarioLedger {
     )
 
   /** Views onto the ledger */
-  sealed trait View
+  sealed abstract class View
 
   /** The view of the ledger at the operator, i.e., the view containing
     * all transaction nodes.

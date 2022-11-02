@@ -353,7 +353,7 @@ object SExpr {
   }
 
   /** Case patterns */
-  sealed trait SCasePat {
+  sealed abstract class SCasePat {
 
     private[speedy] def numArgs: Int = this match {
       case _: SCPEnum | _: SCPPrimCon | SCPNil | SCPDefault | SCPNone => 0
