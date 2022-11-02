@@ -7,18 +7,10 @@ import java.util.concurrent._
 
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.api.benchtool.config.WorkflowConfig.{
-  FibonacciSubmissionConfig,
-  FooSubmissionConfig,
-}
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.{FibonacciSubmissionConfig, FooSubmissionConfig}
 import com.daml.ledger.api.benchtool.config.{Config, ConfigMaker, WorkflowConfig}
 import com.daml.ledger.api.benchtool.metrics.MetricsManager.NoOpMetricsManager
-import com.daml.ledger.api.benchtool.metrics.{
-  BenchmarkResult,
-  LatencyMetric,
-  MetricRegistryOwner,
-  MetricsManager,
-}
+import com.daml.ledger.api.benchtool.metrics.{BenchmarkResult, LatencyMetric, MetricRegistryOwner, MetricsManager}
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.benchtool.submission._
 import com.daml.ledger.api.benchtool.submission.foo.RandomPartySelecting
@@ -29,10 +21,12 @@ import com.daml.platform.localstore.api.UserManagementStore
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.{Logger, LoggerFactory}
+import com.daml.ledger.test.benchtool.Foo.Foo1
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
+import scalaz.syntax.tag._
 
 /** Runs a submission step followed by a benchmark step.
   * Either step is optional.
@@ -47,6 +41,7 @@ object LedgerApiBenchTool {
 
   def main(args: Array[String]): Unit = {
     import scala.concurrent.ExecutionContext.Implicits.global
+    logger.error(s"ALA123: Baseline, Foo1 packageId: ${Foo1.id.unwrap.packageId}")
     ConfigMaker.make(args) match {
       case Left(error) =>
         logger.error(s"Configuration error: ${error.details}")
