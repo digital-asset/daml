@@ -28,7 +28,7 @@ import scala.annotation.tailrec
 
 private[lf] object PartialTransaction {
 
-  sealed trait KeyConflict extends Product with Serializable
+  sealed abstract class KeyConflict extends Product with Serializable
   object KeyConflict {
     final case object None extends KeyConflict
     final case object Duplicate extends KeyConflict
@@ -289,7 +289,7 @@ private[speedy] case class PartialTransaction(
     }.toMap
   }
 
-  private def normByKey(version: TxVersion, byKey: Boolean): Boolean = {
+  private[this] def normByKey(version: TxVersion, byKey: Boolean): Boolean = {
     if (version < TxVersion.minByKey) {
       false
     } else {
