@@ -145,15 +145,3 @@ template Foo3
       controller signatory
       do
           return ()
-
-template Foo4
-  with
-    signatory : Party
-   where
-    signatory signatory
-
-template Foo5
-  with
-    signatory : Party
-   where
-    signatory signatory

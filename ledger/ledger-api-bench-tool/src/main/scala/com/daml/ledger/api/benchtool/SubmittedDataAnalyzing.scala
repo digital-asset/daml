@@ -21,9 +21,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** Contains utilities for retrieving useful facts
   * from data already submitted to a Ledger API server.
-  *
-  * Especially useful for benchmarks that do not do perform the submission step on their own
-  * and for that reason cannot statically or otherwise determine these facts.
+  * (The motivating use case are the benchmarks that do not perform a submission step on their own
+  * and for that reason cannot statically determine these facts.)
   */
 object SubmittedDataAnalyzing {
 
