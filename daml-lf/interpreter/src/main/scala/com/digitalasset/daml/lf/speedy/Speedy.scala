@@ -32,8 +32,8 @@ import scala.collection.mutable
 private[lf] object Speedy {
 
   // These have zero cost when not enabled. But they are not switchable at runtime.
-  private[this] val enableInstrumentation: Boolean = false
-  private[this] val enableLightweightStepTracing: Boolean = false
+  private val enableInstrumentation: Boolean = false
+  private val enableLightweightStepTracing: Boolean = false
 
   /** Instrumentation counters. */
   final class Instrumentation() {
@@ -96,9 +96,9 @@ private[lf] object Speedy {
    continuation to reset the envBase (calling restoreBase) when it is executed.
    */
 
-  private[this] type Frame = Array[SValue]
+  private type Frame = Array[SValue]
 
-  private[this] type Actuals = util.ArrayList[SValue]
+  private type Actuals = util.ArrayList[SValue]
 
   sealed abstract class LedgerMode
 

@@ -11,7 +11,7 @@ import com.daml.lf.data.Trampoline.{Bounce, Land, Trampoline}
 
 private[lf] object NormalizeRollbacks {
 
-  private[this] type TX = Transaction
+  private type TX = Transaction
 
   // Normalize a transaction so rollback nodes satisfy the normalization rules.
   // see `makeRoll` below
@@ -90,7 +90,7 @@ private[lf] object NormalizeRollbacks {
 
   //   rule #2/#3 overlap: ROLL [ ROLL [ xs… ] ] -> ROLL [ xs… ]
 
-  private[this] def makeRoll[R](
+  private def makeRoll[R](
       norms: Vector[Norm]
   )(k: Vector[Norm] => Trampoline[R]): Trampoline[R] = {
     caseNorms(norms) match {
@@ -122,7 +122,7 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private[this] def pushIntoRoll(a1: Norm.Act, xs2: Vector[Norm], t: Norm.Roll): Norm.Roll = {
+  private def pushIntoRoll(a1: Norm.Act, xs2: Vector[Norm], t: Norm.Roll): Norm.Roll = {
     t match {
       case Norm.Roll1(a3) => Norm.Roll2(a1, xs2, a3)
       case Norm.Roll2(a3, xs4, a5) => Norm.Roll2(a1, xs2 ++ Vector(a3) ++ xs4, a5)
@@ -134,7 +134,7 @@ private[lf] object NormalizeRollbacks {
 
   // There is no connection between the ids in the original and normalized transaction.
 
-  private[this] case class State(
+  private case class State(
       index: Int,
       nodeMap: Map[NodeId, Node],
       seedIds: BackStack[NodeId],
@@ -156,9 +156,9 @@ private[lf] object NormalizeRollbacks {
   // - The final tx has increasing node-ids when nodes are listed in pre-order.
   // - The root node-id is 0 (we have tests that rely on this)
 
-  private[this] val initialState = State(0, Map.empty, BackStack.empty)
+  private val initialState = State(0, Map.empty, BackStack.empty)
 
-  private[this] def pushAct[R](s: State, x: Norm.Act)(
+  private def pushAct[R](s: State, x: Norm.Act)(
       k: (State, NodeId) => Trampoline[R]
   ): Trampoline[R] = {
     Bounce { () =>
@@ -185,7 +185,7 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private[this] def pushRoll[R](s: State, x: Norm.Roll)(
+  private def pushRoll[R](s: State, x: Norm.Roll)(
       k: (State, NodeId) => Trampoline[R]
   ): Trampoline[R] = {
     s.next { (s, me) =>
@@ -209,7 +209,7 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private[this] def pushNorm[R](s: State, x: Norm)(
+  private def pushNorm[R](s: State, x: Norm)(
       k: (State, NodeId) => Trampoline[R]
   ): Trampoline[R] = {
     x match {
@@ -218,7 +218,7 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private[this] def pushNorms[R](s: State, xs: List[Norm])(
+  private def pushNorms[R](s: State, xs: List[Norm])(
       k: (State, List[NodeId]) => Trampoline[R]
   ): Trampoline[R] = {
     Bounce { () =>
@@ -237,7 +237,7 @@ private[lf] object NormalizeRollbacks {
   }
 
   // Types which ensure we can only represent the properly normalized cases.
-  private[this] object Canonical {
+  private object Canonical {
 
     // A properly normalized Tx/node
     sealed abstract class Norm

@@ -26,7 +26,7 @@ private[speedy] object SValueIterable {
     case _: SValue.SPrimLit => Iterator.empty
   }
 
-  private[this] def iterator(p: SValue.Prim): Iterator[SValue] = p match {
+  private def iterator(p: SValue.Prim): Iterator[SValue] = p match {
     case SValue.PBuiltin(_) => Iterator.empty
     case SValue.PClosure(_, _, frame) => frame.iterator.flatMap(that.iterator(_))
   }

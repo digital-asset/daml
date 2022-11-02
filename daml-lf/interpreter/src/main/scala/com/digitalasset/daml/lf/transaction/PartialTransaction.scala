@@ -187,7 +187,7 @@ private[lf] object PartialTransaction {
   )
 
   @throws[SError.SErrorDamlException]
-  private[this] def assertRightKey[X](either: Either[Tx.InconsistentContractKey, X]): X =
+  private def assertRightKey[X](either: Either[Tx.InconsistentContractKey, X]): X =
     either match {
       case Right(value) =>
         value
@@ -283,7 +283,7 @@ private[speedy] case class PartialTransaction(
       sb.toString
     }
 
-  private[this] def locationInfo(): Map[NodeId, Location] = {
+  private def locationInfo(): Map[NodeId, Location] = {
     this.actionNodeLocations.toImmArray.toSeq.zipWithIndex.collect { case (Some(loc), n) =>
       (NodeId(n), loc)
     }.toMap

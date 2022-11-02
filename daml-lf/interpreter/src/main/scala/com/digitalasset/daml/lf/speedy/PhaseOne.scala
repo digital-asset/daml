@@ -24,11 +24,11 @@ private[speedy] object PhaseOne {
       stacktracing: StackTraceMode,
   )
 
-  private[this] val SEGetTime = SEBuiltin(SBGetTime)
+  private val SEGetTime = SEBuiltin(SBGetTime)
 
-  private[this] val SBEToTextNumeric = SEAbs(1, SEBuiltin(SBToText))
+  private val SBEToTextNumeric = SEAbs(1, SEBuiltin(SBToText))
 
-  private[this] val SENat: Numeric.Scale => Some[SEValue] =
+  private val SENat: Numeric.Scale => Some[SEValue] =
     Numeric.Scale.values.map(n => Some(SEValue(STNat(n))))
 
   private[speedy] abstract class VarRef { def name: Name }

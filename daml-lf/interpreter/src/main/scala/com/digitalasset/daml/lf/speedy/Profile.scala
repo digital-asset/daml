@@ -40,7 +40,7 @@ import scala.jdk.CollectionConverters._
   */
 final class Profile {
   import Profile._
-  private[this] val start: Long = System.nanoTime()
+  private val start: Long = System.nanoTime()
   private[lf] val events: util.ArrayList[Event] = ArrayList.empty
   var name: String = "Daml Engine profile"
 
@@ -112,7 +112,7 @@ object Profile {
     * https://www.speedscope.app/. For a description of the format, see
     * https://github.com/jlfwong/speedscope/wiki/Importing-from-custom-sources#speedscopes-file-format
     */
-  private[this] object SpeedscopeJson {
+  private object SpeedscopeJson {
     import spray.json._
 
     val schemaURI = "https://www.speedscope.app/file-format-schema.json"
@@ -231,7 +231,7 @@ object Profile {
     @nowarn("msg=parameter value evidence.* is never used")
     implicit def fromAllowed[T: Allowed](t: T with AnyRef): Label = Module(t)
 
-    final class Allowed[-T] private[this] ()
+    final class Allowed[-T] private ()
     object Allowed {
       import com.daml.lf.speedy.SExpr._
       private[this] val allowAll = new Allowed[Any]

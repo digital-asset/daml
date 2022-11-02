@@ -38,7 +38,7 @@ private[lf] final class RingBufferTraceLog(logger: ContextualizedLogger, capacit
     new RingIterator(if (size < capacity) 0 else pos, size, buffer)
 }
 
-private[this] final class RingIterator[A](ringStart: Int, ringSize: Int, buffer: Array[A])
+private final class RingIterator[A](ringStart: Int, ringSize: Int, buffer: Array[A])
     extends Iterator[A] {
   private[this] var pos: Int = ringStart
   private[this] var first = true
