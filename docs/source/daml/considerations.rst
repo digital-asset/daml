@@ -42,7 +42,7 @@ Most components of Daml store state, so deployment techniques that follow statel
 The diagram below shows the components often used in a Daml deployment. High availability is achieved via either active-active (HTTP JSON API Service, sequencer) or active-passive (participant node, mediator) clustering. Node scaling is achieved via horizontal scaling with participant nodes requiring sharding across participants.
 
 .. image:: ./create-apps-intro.png
-   :alt: Common components of a Daml deployment. Starting at top left: The application is connected to the participant node and the JSON API server. The trigger service is connected to the JSON API server, the participant node, and OAuth 2.0 service. The participant node is additionally connected directly to the JSON API server and the sequencer; the sequencer is further connected to the mediator, topology manager, and Postgres HA for Synchronoization layer.
+   :alt: Common components of a Daml deployment. Starting at top left: The application is connected to the participant node and the HTTP JSON API service. The trigger service is connected to the HTTP JSON API service, the participant node, and OAuth 2.0 Auth Middleware. The participant node is additionally connected directly to the HTTP JSON API service and the sequencer; the sequencer is further connected to the mediator, topology manager, and Postgres HA for Synchronoization layer.
 
 Next Steps 
 **********
