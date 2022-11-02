@@ -305,27 +305,31 @@ private[speedy] case class PartialTransaction(
     * - an error in case the transaction cannot be serialized using
     *   the `outputTransactionVersions`.
     */
-  private[speedy] def finish: PartialTransaction.Result =
+  private[speedy] def finish: Either[SError.SErrorCrash, PartialTransaction.Result] =
     context.info match {
       case _: RootContextInfo =>
         val roots = context.children.toImmArray
         val tx0 = Tx(nodes, roots)
         val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
         val txResult = SubmittedTransaction(TxVersion.asVersionedTransaction(tx))
-        Result(
-          txResult,
-          locationInfo(),
-          seeds.zip(actionNodeSeeds.toImmArray),
-          contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
-          disclosedContracts.filter(disclosedContract =>
-            txResult.inputContracts.contains(disclosedContract.contractId.value)
-          ),
+        Right(
+          Result(
+            txResult,
+            locationInfo(),
+            seeds.zip(actionNodeSeeds.toImmArray),
+            contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
+            disclosedContracts.filter(disclosedContract =>
+              txResult.inputContracts.contains(disclosedContract.contractId.value)
+            ),
+          )
         )
 
       case _ =>
-        InternalError.runtimeException(
-          NameOf.qualifiedNameOfCurrentFunc,
-          "ptx.finish: expected RootContextInfo",
+        Left(
+          SError.SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            "ptx.finish: expected RootContextInfo",
+          )
         )
     }
 

@@ -30,13 +30,12 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
   )
 
   private[this] def contractIdsInOrder(ptx: PartialTransaction): Seq[Value.ContractId] = {
-    ptx.finish match {
-      case PartialTransaction.Result(tx, _, _, _, _) =>
-        tx.fold(Vector.empty[Value.ContractId]) {
-          case (acc, (_, create: Node.Create)) => acc :+ create.coid
-          case (acc, _) => acc
-        }
-    }
+    ptx.finish.toOption.get.tx
+      .fold(List.empty[Value.ContractId]) {
+        case (acc, (_, create: Node.Create)) => acc :+ create.coid
+        case (acc, _) => acc
+      }
+      .reverse
   }
 
   private[this] implicit class PartialTransactionExtra(val ptx: PartialTransaction) {

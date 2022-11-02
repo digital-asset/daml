@@ -247,6 +247,8 @@ private[lf] object Speedy {
         IError.Limit.ChoiceObservers(cid, templateId, choiceName, arg, observers, _),
       )
 
+    def finish = ptx.finish
+
   }
 
   final case object OffLedger extends LedgerMode
@@ -529,12 +531,7 @@ private[lf] object Speedy {
               res
             case Control.Complete(value: SValue) =>
               if (enableInstrumentation) track.print()
-              ledgerMode match {
-                case OffLedger => SResultFinal(value, None)
-                case onLedger: OnLedger =>
-                  val ctx = onLedger.ptx.finish
-                  SResultFinal(value, Some(ctx))
-              }
+              SResultFinal(value)
             case Control.Error(ie) =>
               SResultError(SErrorDamlException(ie))
           }
