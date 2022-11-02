@@ -448,7 +448,11 @@ main
               fetchPair2 <- fetchFromInterface @B cidt2a
               assertMsg
                 "fetchPair1 != Some (cidt1b, t1b)"
-                (fetchPair1 == Some (cidt1b, t1b))
+                (fetchPair1
+                   ==
+                     Some
+                         GHC.Types.magic @"userWrittenTuple" : forall x. x -> x
+                         (cidt1b, t1b))
               assertMsg "fetchPair2 != None" (isNone fetchPair2)
               exercise cidt1a ChoiceA
               exercise cidt1b ChoiceB

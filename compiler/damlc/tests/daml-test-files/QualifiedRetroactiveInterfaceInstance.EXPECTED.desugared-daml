@@ -320,8 +320,9 @@ _method_Token_Token_Asset:Asset_splitImpl
                     cid1 <- create this {amount = splitAmount}
                     cid2 <- create this {amount = amount - splitAmount}
                     pure
-                      (toInterfaceContractId @Token cid1, 
-                       toInterfaceContractId @Token cid2)
+                        GHC.Types.magic @"userWrittenTuple" : forall x. x -> x
+                        (toInterfaceContractId @Token cid1, 
+                         toInterfaceContractId @Token cid2)
            in splitImpl
 _method_Token_Token_Asset:Asset_transferImpl :
   DA.Internal.Desugar.Method Token Token Asset.Asset "transferImpl"
