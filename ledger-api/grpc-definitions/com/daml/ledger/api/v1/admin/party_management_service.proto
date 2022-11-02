@@ -185,4 +185,8 @@ message PartyDetails {
   // Modifiable
   ObjectMeta local_metadata = 4;
 
+  // The id of the ``Identity Provider``
+  // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
+  // Optional
+  string identity_provider_id = 5;
 }
