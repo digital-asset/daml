@@ -26,7 +26,7 @@ import scala.collection.immutable
 /** An in-memory representation of a ledger for scenarios */
 object ScenarioLedger {
 
-  case class TransactionId(index: Int) extends Ordered[TransactionId] {
+  final case class TransactionId(index: Int) extends Ordered[TransactionId] {
     def next: TransactionId = TransactionId(index + 1)
     // The resulting LedgerString is at most 11 chars long
     val id: LedgerString = LedgerString.fromLong(index.toLong)
@@ -34,9 +34,10 @@ object ScenarioLedger {
   }
 
   /** Errors */
-  case class LedgerException(err: Error) extends RuntimeException(err.toString, null, true, false)
+  final case class LedgerException(err: Error)
+      extends RuntimeException(err.toString, null, true, false)
 
-  sealed abstract class Error
+  sealed abstract class Error extends Product with Serializable
   final case class ErrorLedgerCrash(reason: String) extends Error
 
   def crash(reason: String) =
@@ -106,7 +107,7 @@ object ScenarioLedger {
   }
 
   /** Scenario step representing the actions executed in a scenario. */
-  sealed abstract class ScenarioStep
+  sealed abstract class ScenarioStep extends Product with Serializable
 
   final case class Commit(
       txId: TransactionId,
@@ -185,7 +186,7 @@ object ScenarioLedger {
    * Result from lookupGlobalContract. We provide detailed information why a lookup
    * could fail in order to construct good error messages.
    */
-  sealed abstract class LookupResult
+  sealed abstract class LookupResult extends Product with Serializable
 
   final case class LookupOk(
       coid: ContractId,
@@ -211,7 +212,7 @@ object ScenarioLedger {
       stakeholders: Set[Party],
   ) extends LookupResult
 
-  sealed abstract class CommitError
+  sealed abstract class CommitError extends Product with Serializable
   object CommitError {
     final case class UniqueKeyViolation(
         error: ScenarioLedger.UniqueKeyViolation
@@ -266,7 +267,7 @@ object ScenarioLedger {
     )
 
   /** Views onto the ledger */
-  sealed abstract class View
+  sealed abstract class View extends Product with Serializable
 
   /** The view of the ledger at the operator, i.e., the view containing
     * all transaction nodes.
@@ -365,7 +366,7 @@ object ScenarioLedger {
 
   }
 
-  case class UniqueKeyViolation(gk: GlobalKey)
+  final case class UniqueKeyViolation(gk: GlobalKey)
 
   /** Functions for updating the ledger with new transactional information.
     *
@@ -555,7 +556,7 @@ object ScenarioLedger {
   * @param scenarioSteps      Scenario steps that were executed.
   * @param ledgerData              Cache for the ledger.
   */
-case class ScenarioLedger(
+final case class ScenarioLedger(
     currentTime: Time.Timestamp,
     scenarioStepId: ScenarioLedger.TransactionId,
     scenarioSteps: immutable.IntMap[ScenarioLedger.ScenarioStep],

@@ -134,7 +134,7 @@ private[lf] object NormalizeRollbacks {
 
   // There is no connection between the ids in the original and normalized transaction.
 
-  private case class State(
+  private final case class State(
       index: Int,
       nodeMap: Map[NodeId, Node],
       seedIds: BackStack[NodeId],
@@ -209,7 +209,7 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private def pushNorm[R](s: State, x: Norm)(
+  private[this] def pushNorm[R](s: State, x: Norm)(
       k: (State, NodeId) => Trampoline[R]
   ): Trampoline[R] = {
     x match {
@@ -218,7 +218,7 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private def pushNorms[R](s: State, xs: List[Norm])(
+  private[this] def pushNorms[R](s: State, xs: List[Norm])(
       k: (State, List[NodeId]) => Trampoline[R]
   ): Trampoline[R] = {
     Bounce { () =>
@@ -240,7 +240,7 @@ private[lf] object NormalizeRollbacks {
   private object Canonical {
 
     // A properly normalized Tx/node
-    sealed abstract class Norm
+    sealed abstract class Norm extends Product with Serializable
     object Norm {
 
       // A non-rollback tx/node
@@ -258,7 +258,7 @@ private[lf] object NormalizeRollbacks {
 
     // Case analysis on a list of Norms, distinuishing: Empty, Single and Multi forms
     // The Multi form separes the head and tail element for the middle-list.
-    sealed abstract class Case
+    sealed abstract class Case extends Product with Serializable
     object Case {
       final case object Empty extends Case
       final case class Single(n: Norm) extends Case

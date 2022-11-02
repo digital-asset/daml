@@ -100,7 +100,7 @@ private[lf] object Speedy {
 
   private type Actuals = util.ArrayList[SValue]
 
-  sealed abstract class LedgerMode
+  sealed abstract class LedgerMode extends Product with Serializable
 
   case class SKeyWithMaintainers(key: SValue, maintainers: Set[Party]) {
     def toNormalizedKeyWithMaintainers(version: TransactionVersion) =

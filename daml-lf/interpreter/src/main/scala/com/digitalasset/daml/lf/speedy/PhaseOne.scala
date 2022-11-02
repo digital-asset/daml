@@ -92,7 +92,7 @@ private[speedy] object PhaseOne {
   }
 
   // A type to represent a step of compilation Work
-  sealed abstract class Work
+  sealed abstract class Work extends Product with Serializable
   object Work {
     final case class Return(result: SExpr) extends Work
     final case class CompileExp(env: Env, exp: Expr, cont: SExpr => Work) extends Work

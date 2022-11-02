@@ -197,7 +197,7 @@ object Profile {
 
   final case class CreateAndExerciseLabel(tplId: Ref.DefinitionRef, choiceId: Ref.ChoiceName)
 
-  sealed abstract class ScenarioLabel
+  sealed abstract class ScenarioLabel extends Product with Serializable
 
   final case object SubmitLabel extends ScenarioLabel
   final case object SubmitMustFailLabel extends ScenarioLabel

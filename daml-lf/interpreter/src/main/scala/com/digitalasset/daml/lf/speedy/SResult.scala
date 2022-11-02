@@ -78,7 +78,7 @@ object SResult {
       callback: Option[ContractId] => Boolean,
   ) extends SResult
 
-  sealed abstract class SVisibleToStakeholders
+  sealed abstract class SVisibleToStakeholders extends Product with Serializable
   object SVisibleToStakeholders {
     // actAs and readAs are only included for better error messages.
     final case class NotVisible(
