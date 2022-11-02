@@ -8,7 +8,7 @@ import java.util.Base64
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorsAssertions}
 import com.daml.platform.apiserver.page_tokens.ListUsersPageTokenPayload
 import com.daml.lf.data.Ref
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

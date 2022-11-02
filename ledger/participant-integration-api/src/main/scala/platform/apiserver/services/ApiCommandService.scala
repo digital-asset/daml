@@ -16,11 +16,23 @@ import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionByIdRequest, GetTransactionResponse}
+import com.daml.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionByIdRequest,
+  GetTransactionResponse,
+}
 import com.daml.ledger.api.validation.{CommandsValidator, LedgerOffsetValidator}
-import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{CompletionFailure, CompletionSuccess, TrackedCompletionFailure}
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
+  TrackedCompletionFailure,
+}
 import com.daml.ledger.client.services.commands.tracker.{CompletionResponse, TrackedCommandKey}
-import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandSubmission, CommandTrackerFlow}
+import com.daml.ledger.client.services.commands.{
+  CommandCompletionSource,
+  CommandSubmission,
+  CommandTrackerFlow,
+}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -29,7 +41,7 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.services.ApiCommandService._
 import com.daml.platform.apiserver.services.tracking.{QueueBackedTracker, Tracker, TrackerMap}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandService
 import com.daml.util.Ctx

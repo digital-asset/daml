@@ -17,8 +17,18 @@ import com.daml.ledger.client.binding.Template
 import com.daml.ledger.test.model.Test.Divulgence2._
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test.Witnesses._
-import com.daml.ledger.test.model.Test.{Divulgence1, Divulgence2, Dummy, DummyFactory, DummyWithParam, TriAgreement, TriProposal, WithObservers, Witnesses => TestWitnesses}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.test.model.Test.{
+  Divulgence1,
+  Divulgence2,
+  Dummy,
+  DummyFactory,
+  DummyWithParam,
+  TriAgreement,
+  TriProposal,
+  WithObservers,
+  Witnesses => TestWitnesses,
+}
+import com.daml.ledger.errors.LedgerApiErrors
 import scalaz.syntax.tag._
 
 import scala.collection.immutable.Seq

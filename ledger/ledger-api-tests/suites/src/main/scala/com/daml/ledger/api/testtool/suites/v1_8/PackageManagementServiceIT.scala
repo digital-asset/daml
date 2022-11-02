@@ -10,7 +10,7 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.test.PackageManagementTestDar
 import com.daml.ledger.test.package_management.PackageManagementTest.PackageManagementTestTemplate
 import com.daml.ledger.test.package_management.PackageManagementTest.PackageManagementTestTemplate._
-import com.daml.platform.error.definitions.PackageServiceError
+import com.daml.ledger.errors.PackageServiceError
 import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}

@@ -12,7 +12,7 @@ import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestCo
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.client.binding.Primitive.{Party, List => PList}
 import com.daml.ledger.test.model.Test._
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -15,7 +15,7 @@ import com.daml.ledger.test.model.Test.CreateAndFetch._
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test.DummyFactory._
 import com.daml.ledger.test.model.Test._
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import scalaz.Tag
 
 class TransactionServiceExerciseIT extends LedgerTestSuite {

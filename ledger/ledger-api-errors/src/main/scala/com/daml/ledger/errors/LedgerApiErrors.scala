@@ -1,13 +1,12 @@
-package com.daml.errors
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.ledger.errors
 
 import com.daml.error.ErrorGroups.ParticipantErrorGroup.LedgerApiErrorGroup
 import com.daml.error._
-import com.daml.lf.archive.{Error => LfArchiveError}
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.engine.Error
-import com.daml.lf.{VersionRange, language, validation}
-import com.daml.platform.error.definitions.groups
+import com.daml.lf.engine.Error.Validation.ReplayMismatch
+import com.daml.lf.engine.{Error => LfError}
 import org.slf4j.event.Level
 
 @Explanation(

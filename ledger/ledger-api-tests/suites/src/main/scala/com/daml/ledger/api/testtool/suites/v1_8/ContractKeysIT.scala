@@ -15,7 +15,7 @@ import com.daml.ledger.client.binding.Primitive.ContractId
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test
 import com.daml.ledger.test.model.Test.CallablePayout
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import scalaz.Tag
 
 final class ContractKeysIT extends LedgerTestSuite {

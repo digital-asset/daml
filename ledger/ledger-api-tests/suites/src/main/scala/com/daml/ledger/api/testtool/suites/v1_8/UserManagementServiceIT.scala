@@ -9,9 +9,26 @@ import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
-import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserRequest, CreateUserResponse, DeleteUserRequest, DeleteUserResponse, GetUserRequest, GetUserResponse, GrantUserRightsRequest, GrantUserRightsResponse, ListUserRightsRequest, ListUserRightsResponse, ListUsersRequest, ListUsersResponse, RevokeUserRightsRequest, RevokeUserRightsResponse, User, Right => Permission}
+import com.daml.ledger.api.v1.admin.user_management_service.{
+  CreateUserRequest,
+  CreateUserResponse,
+  DeleteUserRequest,
+  DeleteUserResponse,
+  GetUserRequest,
+  GetUserResponse,
+  GrantUserRightsRequest,
+  GrantUserRightsResponse,
+  ListUserRightsRequest,
+  ListUserRightsResponse,
+  ListUsersRequest,
+  ListUsersResponse,
+  RevokeUserRightsRequest,
+  RevokeUserRightsResponse,
+  User,
+  Right => Permission,
+}
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
-import com.daml.platform.error.definitions.{IndexErrors, LedgerApiErrors}
+import com.daml.ledger.errors.{IndexErrors, LedgerApiErrors}
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success}

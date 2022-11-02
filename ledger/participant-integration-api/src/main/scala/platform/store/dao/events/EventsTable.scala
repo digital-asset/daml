@@ -7,11 +7,20 @@ import com.daml.api.util.TimestampConversion
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.Event
-import com.daml.ledger.api.v1.transaction.{TreeEvent, Transaction => ApiTransaction, TransactionTree => ApiTransactionTree}
-import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
+import com.daml.ledger.api.v1.transaction.{
+  TreeEvent,
+  Transaction => ApiTransaction,
+  TransactionTree => ApiTransactionTree,
+}
+import com.daml.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse,
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
+}
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
-import com.daml.platform.error.definitions.IndexErrors
+import com.daml.ledger.errors.IndexErrors
 import com.daml.platform.store.backend.EventStorageBackend.Entry
 
 // TODO append-only: FIXME: move to the right place

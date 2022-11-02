@@ -16,7 +16,7 @@ import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.ledger.test.semantic.DivulgenceTests._
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 
 import scala.concurrent.{ExecutionContext, Future}
 

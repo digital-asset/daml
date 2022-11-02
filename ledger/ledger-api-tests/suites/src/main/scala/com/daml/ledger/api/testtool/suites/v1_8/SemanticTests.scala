@@ -21,7 +21,7 @@ import com.daml.ledger.test.semantic.SemanticTests.PaintCounterOffer._
 import com.daml.ledger.test.semantic.SemanticTests.PaintOffer._
 import com.daml.ledger.test.semantic.SemanticTests.SharedContract._
 import com.daml.ledger.test.semantic.SemanticTests._
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import scalaz.Tag
 
 import scala.concurrent.{ExecutionContext, Future}

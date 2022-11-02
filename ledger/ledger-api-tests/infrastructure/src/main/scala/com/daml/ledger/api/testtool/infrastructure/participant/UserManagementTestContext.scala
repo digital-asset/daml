@@ -7,8 +7,14 @@ import java.util.concurrent.ConcurrentHashMap
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testtool.infrastructure.LedgerServices
 import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementService
-import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserRequest, CreateUserResponse, DeleteUserRequest, DeleteUserResponse, User}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.api.v1.admin.user_management_service.{
+  CreateUserRequest,
+  CreateUserResponse,
+  DeleteUserRequest,
+  DeleteUserResponse,
+  User,
+}
+import com.daml.ledger.errors.LedgerApiErrors
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -9,7 +9,7 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.client.binding
 import com.daml.ledger.test.semantic.SemanticTests.{Amount, Iou}
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 
 class ClosedWorldIT extends LedgerTestSuite {
 

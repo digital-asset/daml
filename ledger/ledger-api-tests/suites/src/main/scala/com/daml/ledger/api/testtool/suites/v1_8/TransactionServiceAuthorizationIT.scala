@@ -12,7 +12,7 @@ import com.daml.ledger.test.model.Test.Agreement._
 import com.daml.ledger.test.model.Test.AgreementFactory._
 import com.daml.ledger.test.model.Test.TriProposal._
 import com.daml.ledger.test.model.Test._
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 
 class TransactionServiceAuthorizationIT extends LedgerTestSuite {
   test(

@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.suites.v1_8
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 
 class LedgerConfigurationServiceIT extends LedgerTestSuite {
   test("ConfigSucceeds", "Return a valid configuration for a valid request", allocate(NoParties))(

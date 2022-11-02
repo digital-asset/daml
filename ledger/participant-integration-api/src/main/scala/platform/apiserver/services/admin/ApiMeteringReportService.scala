@@ -16,7 +16,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.meteringreport.{MeteringReportGenerator, MeteringReportKey}
 import com.daml.platform.apiserver.services.admin.ApiMeteringReportService._
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.server.api.ValidationLogger
 import com.google.protobuf.timestamp.{Timestamp => ProtoTimestamp}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}

@@ -7,7 +7,7 @@ import akka.stream.scaladsl.Sink
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.rs.ServerSubscriber
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import io.grpc.{StatusException, StatusRuntimeException}
 

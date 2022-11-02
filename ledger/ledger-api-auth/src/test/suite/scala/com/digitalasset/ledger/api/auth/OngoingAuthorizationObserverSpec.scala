@@ -10,7 +10,7 @@ import com.daml.error.ErrorsAssertions
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.api.auth.AuthorizationError.Expired
 import com.daml.logging.LoggingContext
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.platform.localstore.api.UserManagementStore
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver

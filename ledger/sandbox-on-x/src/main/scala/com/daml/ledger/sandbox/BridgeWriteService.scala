@@ -25,7 +25,7 @@ import com.daml.telemetry.TelemetryContext
 import java.time.Duration
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import com.daml.lf.value.Value
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 
 class BridgeWriteService(
     feedSink: Sink[(Offset, Update), NotUsed],

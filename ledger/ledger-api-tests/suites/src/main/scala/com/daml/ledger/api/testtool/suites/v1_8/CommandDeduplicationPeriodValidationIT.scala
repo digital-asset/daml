@@ -17,7 +17,7 @@ import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._

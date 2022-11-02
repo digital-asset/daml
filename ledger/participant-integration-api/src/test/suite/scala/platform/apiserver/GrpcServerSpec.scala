@@ -23,7 +23,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.concurrent.Executors
 import com.daml.metrics.api.MetricName
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 
 import scala.concurrent.Future
 

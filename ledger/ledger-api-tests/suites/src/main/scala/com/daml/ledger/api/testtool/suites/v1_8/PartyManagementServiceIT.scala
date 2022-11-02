@@ -5,7 +5,14 @@ package com.daml.ledger.api.testtool.suites.v1_8
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.v1.admin.party_management_service.{AllocatePartyRequest, AllocatePartyResponse, GetPartiesRequest, GetPartiesResponse, PartyDetails, UpdatePartyDetailsRequest}
+import com.daml.ledger.api.v1.admin.party_management_service.{
+  AllocatePartyRequest,
+  AllocatePartyResponse,
+  GetPartiesRequest,
+  GetPartiesResponse,
+  PartyDetails,
+  UpdatePartyDetailsRequest,
+}
 import com.daml.ledger.client.binding
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
@@ -15,7 +22,7 @@ import scalaz.syntax.tag.ToTagOps
 import java.util.regex.Pattern
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.client.binding.Primitive
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.LedgerApiErrors
 import com.google.protobuf.field_mask.FieldMask
 
 import scala.concurrent.Future

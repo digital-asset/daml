@@ -13,8 +13,12 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
-import com.daml.platform.error.definitions.LedgerApiErrors
-import com.daml.platform.server.api.validation.ResourceAnnotationValidation.{AnnotationsSizeExceededError, EmptyAnnotationsValueError, InvalidAnnotationsKeyError}
+import com.daml.ledger.errors.LedgerApiErrors
+import com.daml.platform.server.api.validation.ResourceAnnotationValidation.{
+  AnnotationsSizeExceededError,
+  EmptyAnnotationsValueError,
+  InvalidAnnotationsKeyError,
+}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.StatusRuntimeException

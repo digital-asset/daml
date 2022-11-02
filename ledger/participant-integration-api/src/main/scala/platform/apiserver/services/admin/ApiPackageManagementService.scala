@@ -11,7 +11,11 @@ import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger,
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service._
-import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService, LedgerEndService}
+import com.daml.ledger.participant.state.index.v2.{
+  IndexPackagesService,
+  IndexTransactionsService,
+  LedgerEndService,
+}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
 import com.daml.lf.data.Ref
@@ -21,7 +25,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPackageManagementService._
 import com.daml.platform.apiserver.services.logging
-import com.daml.platform.error.definitions.LedgerApiErrors
+import com.daml.ledger.errors.{LedgerApiErrors, PackageServiceError}
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import com.google.protobuf.ByteString
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
@@ -35,6 +39,13 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.CompletionStageOps
 import scala.util.Try
+import com.daml.ledger.errors.PackageServiceError.Validation.{
+  AllowedLanguageMismatchError,
+  SelfConsistency,
+  ValidationError,
+}
+import com.daml.lf.archive.{Error => LfArchiveError}
+import com.daml.lf.engine.Error
 
 private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
@@ -97,13 +108,13 @@ private[apiserver] final class ApiPackageManagementService private (
       darArchive <- Using(new ZipInputStream(darFile.newInput())) { stream =>
         darReader.readArchive("package-upload", stream)
       }
-      dar <- darArchive.handleError(Validation.handleLfArchiveError)
+      dar <- darArchive.handleError(handleLfArchiveError)
       packages <- dar.all
         .traverse(Decode.decodeArchive(_))
-        .handleError(Validation.handleLfArchiveError)
+        .handleError(handleLfArchiveError)
       _ <- engine
         .validatePackages(packages.toMap)
-        .handleError(Validation.handleLfEnginePackageError)
+        .handleError(handleLfEnginePackageError)
     } yield dar
     Future.fromTry(result)
   }
@@ -141,6 +152,48 @@ private[apiserver] final class ApiPackageManagementService private (
       result.left.map { err =>
         toSelfServiceErrorCode(err).asGrpcError
       }.toTry
+  }
+
+  def handleLfArchiveError(
+      lfArchiveError: LfArchiveError
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): DamlError =
+    lfArchiveError match {
+      case LfArchiveError.InvalidDar(entries, cause) =>
+        PackageServiceError.Reading.InvalidDar
+          .Error(entries.entries.keys.toSeq, cause)
+      case LfArchiveError.InvalidZipEntry(name, entries) =>
+        PackageServiceError.Reading.InvalidZipEntry
+          .Error(name, entries.entries.keys.toSeq)
+      case LfArchiveError.InvalidLegacyDar(entries) =>
+        PackageServiceError.Reading.InvalidLegacyDar.Error(entries.entries.keys.toSeq)
+      case LfArchiveError.ZipBomb =>
+        PackageServiceError.Reading.ZipBomb.Error(LfArchiveError.ZipBomb.getMessage)
+      case e: LfArchiveError =>
+        PackageServiceError.Reading.ParseError.Error(e.msg)
+      case e =>
+        PackageServiceError.InternalError.Unhandled(e)
+    }
+
+  def handleLfEnginePackageError(err: Error.Package.Error)(implicit
+      loggingContext: ContextualizedErrorLogger
+  ): DamlError = err match {
+    case Error.Package.Internal(nameOfFunc, msg, _) =>
+      PackageServiceError.InternalError.Validation(nameOfFunc, msg)
+    case Error.Package.Validation(validationError) =>
+      ValidationError.Error(validationError)
+    case Error.Package.MissingPackage(packageId, _) =>
+      PackageServiceError.InternalError.Error(Set(packageId))
+    case Error.Package
+          .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions) =>
+      AllowedLanguageMismatchError(
+        packageId,
+        languageVersion,
+        allowedLanguageVersions,
+      )
+    case Error.Package.SelfConsistency(packageIds, missingDependencies) =>
+      SelfConsistency.Error(packageIds, missingDependencies)
   }
 }
 
