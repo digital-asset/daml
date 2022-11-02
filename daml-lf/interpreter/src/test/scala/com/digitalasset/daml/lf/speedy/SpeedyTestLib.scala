@@ -151,7 +151,6 @@ private[speedy] object SpeedyTestLib {
           loggingContext = machine.loggingContext,
           compiledPackages = machine.compiledPackages,
           profile = machine.profile,
-          submissionTime = machine.submissionTime,
           ledgerMode = machine.ledgerMode,
         )
       }

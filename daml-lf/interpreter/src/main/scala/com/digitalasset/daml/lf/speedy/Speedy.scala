@@ -126,6 +126,7 @@ private[lf] object Speedy {
 
   final case class OnLedger(
       validating: Boolean,
+      submissionTime: Time.Timestamp,
       contractKeyUniqueness: ContractKeyUniquenessMode,
       /* The current partial transaction */
       private[speedy] var ptx: PartialTransaction,
@@ -300,7 +301,6 @@ private[lf] object Speedy {
       var compiledPackages: CompiledPackages,
       /* Profile of the run when the packages haven been compiled with profiling enabled. */
       val profile: Profile = new Profile(),
-      val submissionTime: Time.Timestamp,
       /* True if we are running on ledger building transactions, false if we
          are running off-ledger code, e.g., Daml Script or
          Triggers. It is safe to use on ledger for off ledger code but
@@ -927,9 +927,9 @@ private[lf] object Speedy {
 
       new Machine(
         sexpr = exprWithDisclosures,
-        submissionTime = submissionTime,
         ledgerMode = OnLedger(
           validating = validating,
+          submissionTime = submissionTime,
           ptx = PartialTransaction
             .initial(
               contractKeyUniqueness,
@@ -1034,7 +1034,6 @@ private[lf] object Speedy {
     )(implicit loggingContext: LoggingContext): Machine = {
       new Machine(
         sexpr = expr,
-        submissionTime = Time.Timestamp.Epoch,
         ledgerMode = OffLedger,
         traceLog = traceLog,
         warningLog = warningLog,

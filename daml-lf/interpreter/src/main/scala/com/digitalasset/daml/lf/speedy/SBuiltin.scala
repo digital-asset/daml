@@ -981,7 +981,7 @@ private[lf] object SBuiltin {
         case _ =>
           onLedger.ptx
             .insertCreate(
-              submissionTime = machine.submissionTime,
+              submissionTime = onLedger.submissionTime,
               templateId = cached.templateId,
               arg = createArgValue,
               agreementText = agreement,
