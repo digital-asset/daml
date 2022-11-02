@@ -23,7 +23,7 @@ Application design must understand the sources of contention; this allows you to
 - Bundling or batching business logic to increase business transaction throughput - the marginal cost of extra business logic within a transaction is often small, so bundling or batching business logic cleverly can allow for throughput an order of magnitude higher.
 - Maximizing parallelism with techniques like sharding, ensuring there is no contention between shards. (Avoid large sets of observers, which can negatively impact parallelism.) 
 
-When designing blockchain applications: 
+When designing Daml applications: 
 
 * Understand where contention occurs
 * Split contracts across natural lines to reduce single high contention contracts (e.g., don't represent asset holdings for all owners and types as a dictionary on a single contract, but as individual contracts)
