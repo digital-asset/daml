@@ -38,7 +38,7 @@ final class GenReader[X] private[archive] (
   def fromFile(file: java.io.File): Either[Error, X] =
     fromFile(file.toPath)
 
-  def andThen[Y](f: X => Either[Error, Y]): GenReader[Y] =
+  private[archive] def andThen[Y](f: X => Either[Error, Y]): GenReader[Y] =
     new GenReader(fromCodedInputStream(_).flatMap(f))
 
 }

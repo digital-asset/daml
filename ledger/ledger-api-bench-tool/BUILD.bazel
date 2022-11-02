@@ -47,7 +47,6 @@ da_scala_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/language",
         "//language-support/scala/bindings",

@@ -12,7 +12,6 @@ import com.daml.ledger.api.benchtool.submission.{
   PartyAllocating,
 }
 import com.daml.ledger.api.v1.package_service.GetPackageResponse
-import com.daml.lf.archive.{ArchivePayloadParser, Decode, Reader}
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
 import org.slf4j.{Logger, LoggerFactory}
@@ -87,9 +86,8 @@ object SubmittedDataAnalyzing {
   }
 
   private def decodePackageName(archivePayloadBytes: Array[Byte], pkgId: Ref.PackageId): String = {
-    val pkg: Ast.Package = ArchivePayloadParser
-      .andThen(Reader.readArchivePayload(pkgId, _))
-      .andThen(Decode.decodeArchivePayload(_))
+    val pkg: Ast.Package = com.daml.lf.archive
+      .archivePayloadDecoder(pkgId, onlySerializableDataDefs = false)
       .assertFromByteArray(archivePayloadBytes)
       ._2
     pkg.metadata.fold[String]("")(_.name)
