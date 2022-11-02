@@ -30,7 +30,11 @@ object TestEntryLookup {
       testEntry: (String, String, TT, Boolean, Option[TS]) => TE
   ): List[TE] = {
     val runpathList: List[String] = loadClasspath()
-      .map(_.split(":").toList)
+      .map(
+        _.split(":").toList
+          // skip maven artefacts, as some of these can cause trouble when on the runpath
+          .filterNot(_.contains("/maven/v1/https/"))
+      )
       .getOrElse(List.empty)
 
     val ledgerApiTests = List()
