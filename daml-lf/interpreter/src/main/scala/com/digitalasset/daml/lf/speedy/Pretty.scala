@@ -207,7 +207,7 @@ private[lf] object Pretty {
           })
     }
 
-  private def prettyFailedAuthorization(id: NodeId, failure: FailedAuthorization): String = {
+  private[this] def prettyFailedAuthorization(id: NodeId, failure: FailedAuthorization): String = {
     failure match {
       case nc: FailedAuthorization.NoControllers =>
         s"node $id (${nc.templateId}) has no controllers"

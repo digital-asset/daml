@@ -502,7 +502,7 @@ object ScenarioLedger {
     * @param ledgerData ledger recording all historical transaction that have been processed
     * @return updated ledger with new transaction information
     */
-  private def processTransaction(
+  private[this] def processTransaction(
       trId: TransactionId,
       richTr: RichTransaction,
       locationInfo: Map[NodeId, Location],

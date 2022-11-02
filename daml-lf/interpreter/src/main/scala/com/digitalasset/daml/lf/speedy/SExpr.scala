@@ -66,7 +66,7 @@ object SExpr {
     // `setCached`) is done atomically.
     // This is similar how hashcode evaluation is cached in String
     // http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/tip/src/share/classes/java/lang/String.java
-    private var _cached: Option[SValue] = None
+    private[this] var _cached: Option[SValue] = None
 
     def cached: Option[SValue] = _cached
 
@@ -463,7 +463,7 @@ object SExpr {
 
   final case object AnonymousClosure
 
-  private def prettyPrint(x: Any): String =
+  private[this] def prettyPrint(x: Any): String =
     x match {
       case i: Array[Any] => i.mkString("[", ",", "]")
       case i: Array[Int] => i.mkString("[", ",", "]")

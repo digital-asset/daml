@@ -46,7 +46,7 @@ sealed abstract class SValue {
     )
   }
 
-  private def toValue(normalize: Boolean): V = {
+  private[this] def toValue(normalize: Boolean): V = {
 
     def maybeEraseTypeInfo[X](x: X): Option[X] =
       if (normalize) {
@@ -170,8 +170,8 @@ object SValue {
 
   final case class SList(list: FrontStack[SValue]) extends SValue
 
-  // We make the constructor private to ensure entries are sorted using `SMap Ordering`
-  final case class SMap private (isTextMap: Boolean, entries: TreeMap[SValue, SValue])
+  // We make the constructor private[this] to ensure entries are sorted using `SMap Ordering`
+  final case class SMap private[this] (isTextMap: Boolean, entries: TreeMap[SValue, SValue])
       extends SValue
       with NoCopy {
 
@@ -324,7 +324,7 @@ object SValue {
           overflowUnderflow
       }
   }
-  final class SBigNumeric private (val value: java.math.BigDecimal) extends SPrimLit {
+  final class SBigNumeric private[this] (val value: java.math.BigDecimal) extends SPrimLit {
     override def canEqual(that: Any): Boolean = that match {
       case _: SBigNumeric => true
       case _ => false
@@ -404,7 +404,7 @@ object SValue {
     def bool(b: Boolean) = if (b) True else False
   }
 
-  private val entryFields = Struct.assertFromNameSeq(List(keyFieldName, valueFieldName))
+  private[this] val entryFields = Struct.assertFromNameSeq(List(keyFieldName, valueFieldName))
 
   // we verify the fields are ordered as the `entry` method expects it.
   assert(entryFields.indexOf(keyFieldName) == 0)

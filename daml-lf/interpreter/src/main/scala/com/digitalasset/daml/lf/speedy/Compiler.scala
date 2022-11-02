@@ -261,14 +261,14 @@ private[lf] final class Compiler(
   )(body: s.SExpr): (SDefRef, SDefinition) =
     ref -> SDefinition(pipeline(withLabelS(ref, body)))
 
-  private val Pos1 = Env.Empty.nextPosition
-  private val Env1 = Env.Empty.pushVar
-  private val Pos2 = Env1.nextPosition
-  private val Env2 = Env1.pushVar
-  private val Pos3 = Env2.nextPosition
-  private val Env3 = Env2.pushVar
-  private val Pos4 = Env3.nextPosition
-  private val Env4 = Env3.pushVar
+  private[this] val Pos1 = Env.Empty.nextPosition
+  private[this] val Env1 = Env.Empty.pushVar
+  private[this] val Pos2 = Env1.nextPosition
+  private[this] val Env2 = Env1.pushVar
+  private[this] val Pos3 = Env2.nextPosition
+  private[this] val Env3 = Env2.pushVar
+  private[this] val Pos4 = Env3.nextPosition
+  private[this] val Env4 = Env3.pushVar
 
   private[this] def fun1(body: (Position, Env) => s.SExpr): s.SExpr =
     s.SEAbs(1, body(Pos1, Env1))
@@ -429,7 +429,7 @@ private[lf] final class Compiler(
     *
     * @throws ValidationError if the package does not pass validations.
     */
-  private def compilePackage(
+  private[this] def compilePackage(
       pkgId: PackageId,
       pkg: Package,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
@@ -1021,7 +1021,7 @@ private[lf] final class Compiler(
       t.LookupByKeyDefRef(templateId)(s.SEValue(contractKey))
   }
 
-  private val SEUpdatePureUnit = unaryFunction(Env.Empty)((_, _) => s.SEValue.Unit)
+  private[this] val SEUpdatePureUnit = unaryFunction(Env.Empty)((_, _) => s.SEValue.Unit)
 
   private[this] val handleEverything: s.SExpr = SBSome(SEUpdatePureUnit)
 

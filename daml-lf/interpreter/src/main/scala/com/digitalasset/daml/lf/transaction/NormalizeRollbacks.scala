@@ -122,7 +122,7 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private def pushIntoRoll(a1: Norm.Act, xs2: Vector[Norm], t: Norm.Roll): Norm.Roll = {
+  private[this] def pushIntoRoll(a1: Norm.Act, xs2: Vector[Norm], t: Norm.Roll): Norm.Roll = {
     t match {
       case Norm.Roll1(a3) => Norm.Roll2(a1, xs2, a3)
       case Norm.Roll2(a3, xs4, a5) => Norm.Roll2(a1, xs2 ++ Vector(a3) ++ xs4, a5)
@@ -156,9 +156,9 @@ private[lf] object NormalizeRollbacks {
   // - The final tx has increasing node-ids when nodes are listed in pre-order.
   // - The root node-id is 0 (we have tests that rely on this)
 
-  private val initialState = State(0, Map.empty, BackStack.empty)
+  private[this] val initialState = State(0, Map.empty, BackStack.empty)
 
-  private def pushAct[R](s: State, x: Norm.Act)(
+  private[this] def pushAct[R](s: State, x: Norm.Act)(
       k: (State, NodeId) => Trampoline[R]
   ): Trampoline[R] = {
     Bounce { () =>
@@ -185,7 +185,7 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private def pushRoll[R](s: State, x: Norm.Roll)(
+  private[this] def pushRoll[R](s: State, x: Norm.Roll)(
       k: (State, NodeId) => Trampoline[R]
   ): Trampoline[R] = {
     s.next { (s, me) =>
@@ -209,14 +209,16 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private def pushNorm[R](s: State, x: Norm)(k: (State, NodeId) => Trampoline[R]): Trampoline[R] = {
+  private[this] def pushNorm[R](s: State, x: Norm)(
+      k: (State, NodeId) => Trampoline[R]
+  ): Trampoline[R] = {
     x match {
       case act: Norm.Act => pushAct(s, act)(k)
       case roll: Norm.Roll => pushRoll(s, roll)(k)
     }
   }
 
-  private def pushNorms[R](s: State, xs: List[Norm])(
+  private[this] def pushNorms[R](s: State, xs: List[Norm])(
       k: (State, List[NodeId]) => Trampoline[R]
   ): Trampoline[R] = {
     Bounce { () =>
@@ -235,7 +237,7 @@ private[lf] object NormalizeRollbacks {
   }
 
   // Types which ensure we can only represent the properly normalized cases.
-  private object Canonical {
+  private[this] object Canonical {
 
     // A properly normalized Tx/node
     sealed abstract class Norm

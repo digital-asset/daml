@@ -49,7 +49,7 @@ private[lf] object Anf {
   }
 
   @throws[CompilationError]
-  private def flattenToAnfInternal(exp: source.SExpr): target.SExpr = {
+  private[this] def flattenToAnfInternal(exp: source.SExpr): target.SExpr = {
     val depth = DepthA(0)
     val env = initEnv
     flattenExp(depth, env, exp) { exp =>

@@ -32,8 +32,8 @@ import scala.collection.mutable
 private[lf] object Speedy {
 
   // These have zero cost when not enabled. But they are not switchable at runtime.
-  private val enableInstrumentation: Boolean = false
-  private val enableLightweightStepTracing: Boolean = false
+  private[this] val enableInstrumentation: Boolean = false
+  private[this] val enableLightweightStepTracing: Boolean = false
 
   /** Instrumentation counters. */
   final class Instrumentation() {
@@ -96,27 +96,27 @@ private[lf] object Speedy {
    continuation to reset the envBase (calling restoreBase) when it is executed.
    */
 
-  private type Frame = Array[SValue]
+  private[this] type Frame = Array[SValue]
 
-  private type Actuals = util.ArrayList[SValue]
+  private[this] type Actuals = util.ArrayList[SValue]
 
-  private[lf] sealed abstract class LedgerMode
+  sealed abstract class LedgerMode
 
-  private[lf] case class SKeyWithMaintainers(key: SValue, maintainers: Set[Party]) {
+  case class SKeyWithMaintainers(key: SValue, maintainers: Set[Party]) {
     def toNormalizedKeyWithMaintainers(version: TransactionVersion) =
       Node.KeyWithMaintainers(key.toNormalizedValue(version), maintainers)
     val unnormalizedKeyValue = key.toUnnormalizedValue
     val unnormalizedKeyWithMaintainers = Node.KeyWithMaintainers(unnormalizedKeyValue, maintainers)
   }
 
-  private[lf] final case class CachedContract(
+  final case class CachedContract(
       templateId: Ref.TypeConName,
       value: SValue,
       signatories: Set[Party],
       observers: Set[Party],
       key: Option[SKeyWithMaintainers],
   ) {
-    private[lf] val stakeholders: Set[Party] = signatories union observers
+    val stakeholders: Set[Party] = signatories union observers
     private[speedy] val any = SValue.SAny(TTyCon(templateId), value)
   }
 
@@ -124,7 +124,7 @@ private[lf] object Speedy {
     if (actual > limit)
       throw SError.SErrorDamlException(IError.Limit(error(limit)))
 
-  private[lf] final case class OnLedger(
+  final case class OnLedger(
       validating: Boolean,
       contractKeyUniqueness: ContractKeyUniquenessMode,
       /* The current partial transaction */
@@ -148,7 +148,7 @@ private[lf] object Speedy {
     private[speedy] def setDependsOnTime(): Unit =
       dependsOnTime = true
 
-    private[lf] def getDependsOnTime: Boolean =
+    def getDependsOnTime: Boolean =
       dependsOnTime
 
     private[speedy] def getCachedContracts: Map[V.ContractId, CachedContract] =
@@ -160,14 +160,14 @@ private[lf] object Speedy {
     private[speedy] def hasCachedContract(contractId: V.ContractId): Boolean =
       cachedContracts.contains(contractId)
 
-    private[lf] val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
+    val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
       if (validating) { _ => SVisibleToStakeholders.Visible }
       else {
         SVisibleToStakeholders.fromSubmitters(committers, readAs)
       }
 
-    private[lf] def incompleteTransaction: IncompleteTransaction = ptx.finishIncomplete
-    private[lf] def nodesToString: String = ptx.nodesToString
+    def incompleteTransaction: IncompleteTransaction = ptx.finishIncomplete
+    def nodesToString: String = ptx.nodesToString
 
     private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
       ptx.disclosedContractIds.contains(contractId)
@@ -248,7 +248,7 @@ private[lf] object Speedy {
 
   }
 
-  private[lf] final case object OffLedger extends LedgerMode
+  final case object OffLedger extends LedgerMode
 
   private[speedy] class DisclosedContractKeyTable {
 
@@ -346,7 +346,7 @@ private[lf] object Speedy {
 
     private[speedy] def currentKontStack: util.ArrayList[Kont] = kontStack
 
-    private[lf] def getLastLocation: Option[Location] = lastLocation
+    def getLastLocation: Option[Location] = lastLocation
 
     private[speedy] def clearEnv(): Unit = {
       env.clear()
@@ -365,7 +365,7 @@ private[lf] object Speedy {
     @inline
     private[speedy] def kontDepth(): Int = kontStack.size()
 
-    private[lf] def withOnLedger[T](location: String)(f: OnLedger => T): T =
+    def withOnLedger[T](location: String)(f: OnLedger => T): T =
       ledgerMode match {
         case onLedger: OnLedger => f(onLedger)
         case OffLedger => throw SErrorCrash(location, "unexpected off-ledger machine")

@@ -506,7 +506,7 @@ private[lf] object SBuiltin {
   }
 
   final case object SBTextToInt64 extends SBuiltinPure(1) {
-    private val pattern = """[+-]?\d+""".r.pattern
+    private[this] val pattern = """[+-]?\d+""".r.pattern
 
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
       val s = getSText(args, 0)
@@ -527,7 +527,7 @@ private[lf] object SBuiltin {
   // leading and trailing '0's as long as the corresponding number fits a Numeric without loss of
   // precision. We should take care not calling String to BigDecimal conversion on huge strings.
   final case object SBTextToNumeric extends SBuiltinPure(2) {
-    private val validFormat =
+    private[this] val validFormat =
       """([+-]?)0*(\d+)(\.(\d*[1-9]|0)0*)?""".r
 
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
@@ -2006,7 +2006,7 @@ private[lf] object SBuiltin {
   /** EQUAL_LIST :: (a -> a -> Bool) -> [a] -> [a] -> Bool */
   final case object SBEqualList extends SBuiltin(3) {
 
-    private val equalListBody: SExpr =
+    private[this] val equalListBody: SExpr =
       SECaseAtomic( // case xs of
         SELocA(1),
         Array(
@@ -2061,7 +2061,7 @@ private[lf] object SBuiltin {
         ),
       )
 
-    private val closure: SValue = {
+    private[this] val closure: SValue = {
       val frame = Array.ofDim[SValue](0) // no free vars
       val arity = 3
       SPAP(PClosure(Profile.LabelUnset, equalListBody, frame), ArrayList.empty, arity)
@@ -2084,7 +2084,7 @@ private[lf] object SBuiltin {
 
   object SBExperimental {
 
-    private object SBExperimentalAnswer extends SBuiltin(1) {
+    private[this] object SBExperimentalAnswer extends SBuiltin(1) {
       override private[speedy] def execute(
           args: util.ArrayList[SValue],
           machine: Machine,
@@ -2094,7 +2094,7 @@ private[lf] object SBuiltin {
     }
 
     // TODO: move this into the speedy compiler code
-    private val mapping: Map[String, compileTime.SExpr] =
+    private[this] val mapping: Map[String, compileTime.SExpr] =
       List(
         "ANSWER" -> SBExperimentalAnswer
       ).view.map { case (name, builtin) => name -> compileTime.SEBuiltin(builtin) }.toMap

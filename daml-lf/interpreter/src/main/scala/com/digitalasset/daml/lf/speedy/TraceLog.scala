@@ -17,9 +17,9 @@ private[lf] trait TraceLog {
 private[lf] final class RingBufferTraceLog(logger: ContextualizedLogger, capacity: Int)
     extends TraceLog {
 
-  private val buffer = Array.ofDim[(String, Option[Location])](capacity)
-  private var pos: Int = 0
-  private var size: Int = 0
+  private[this] val buffer = Array.ofDim[(String, Option[Location])](capacity)
+  private[this] var pos: Int = 0
+  private[this] var size: Int = 0
 
   def add(message: String, optLocation: Option[Location])(implicit
       loggingContext: LoggingContext
@@ -38,11 +38,11 @@ private[lf] final class RingBufferTraceLog(logger: ContextualizedLogger, capacit
     new RingIterator(if (size < capacity) 0 else pos, size, buffer)
 }
 
-private final class RingIterator[A](ringStart: Int, ringSize: Int, buffer: Array[A])
+private[this] final class RingIterator[A](ringStart: Int, ringSize: Int, buffer: Array[A])
     extends Iterator[A] {
-  private var pos: Int = ringStart
-  private var first = true
-  private def nextPos: Int = (pos + 1) % ringSize
+  private[this] var pos: Int = ringStart
+  private[this] var first = true
+  private[this] def nextPos: Int = (pos + 1) % ringSize
   def hasNext: Boolean = ringSize != 0 && (first || pos != ringStart)
   def next(): A = {
     val x = buffer(pos)

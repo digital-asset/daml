@@ -14,12 +14,12 @@ import com.daml.nameof.NameOf
 
 object BlindingTransaction {
 
-  private object BlindState {
+  private[this] object BlindState {
     val Empty = BlindState(Relation.empty, Relation.empty)
   }
 
   /** State to use while computing blindingInfo. */
-  private final case class BlindState(
+  private[this] final case class BlindState(
       disclosures: Relation[NodeId, Party],
       divulgences: Relation[ContractId, Party],
   ) {
