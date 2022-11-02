@@ -1524,39 +1524,38 @@ private[lf] object SBuiltin {
     val templateId: TypeConName
 
     // Callback from the engine returned NotFound
-    def handleKeyFound(machine: Machine, cid: V.ContractId): Control
+    def handleKeyFound(cid: V.ContractId): Control.Value
     // We already saw this key, but it was undefined or was archived
-    def handleKeyNotFound(machine: Machine, gkey: GlobalKey): (Control, Boolean)
+    def handleKeyNotFound(gkey: GlobalKey): (Control, Boolean)
 
     final def handleKnownInputKey(
-        machine: Machine,
         gkey: GlobalKey,
         keyMapping: ContractStateMachine.KeyMapping,
     ): Control =
       keyMapping match {
         case ContractStateMachine.KeyActive(cid) =>
-          handleKeyFound(machine, cid)
+          handleKeyFound(cid)
         case ContractStateMachine.KeyInactive =>
-          val (control, _) = handleKeyNotFound(machine, gkey)
+          val (control, _) = handleKeyNotFound(gkey)
           control
       }
   }
 
   private[this] object KeyOperation {
     final class Fetch(override val templateId: TypeConName) extends KeyOperation {
-      override def handleKeyFound(machine: Machine, cid: V.ContractId): Control = {
+      override def handleKeyFound(cid: V.ContractId): Control.Value = {
         Control.Value(SContractId(cid))
       }
-      override def handleKeyNotFound(machine: Machine, gkey: GlobalKey): (Control, Boolean) = {
+      override def handleKeyNotFound(gkey: GlobalKey): (Control, Boolean) = {
         (Control.Error(IE.ContractKeyNotFound(gkey)), false)
       }
     }
 
     final class Lookup(override val templateId: TypeConName) extends KeyOperation {
-      override def handleKeyFound(machine: Machine, cid: V.ContractId): Control = {
+      override def handleKeyFound(cid: V.ContractId): Control.Value = {
         Control.Value(SOptional(Some(SContractId(cid))))
       }
-      override def handleKeyNotFound(machine: Machine, key: GlobalKey): (Control, Boolean) = {
+      override def handleKeyNotFound(key: GlobalKey): (Control, Boolean) = {
         (Control.Value(SValue.SValue.None), true)
       }
     }
@@ -1592,7 +1591,7 @@ private[lf] object SBuiltin {
                 machine.checkKeyVisibility(onLedger, gkey, coid, operation.handleKeyFound)
 
               case ContractStateMachine.KeyInactive =>
-                operation.handleKnownInputKey(machine, gkey, keyMapping)
+                operation.handleKnownInputKey(gkey, keyMapping)
             }
 
           case Left(handle) =>
@@ -1618,9 +1617,9 @@ private[lf] object SBuiltin {
                   }
 
                 case ContractStateMachine.KeyInactive =>
-                  operation.handleKeyNotFound(machine, gkey)
+                  operation.handleKeyNotFound(gkey)
               }
-            }: Option[V.ContractId] => (Control, Boolean)
+            }
 
             onLedger.disclosureKeyTable.contractIdByKey(gkey.hash) match {
               case Some(coid) =>
