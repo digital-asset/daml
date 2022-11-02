@@ -4,9 +4,6 @@
 package com.daml.ledger.errors
 
 import com.daml.error._
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.{VersionRange, language, validation}
 
 @Explanation(
   "Errors raised by the Package Management Service on package uploads."
@@ -123,7 +120,8 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
             "detailMsg" -> detailMsg,
           ),
         )
-    final case class Error(missing: Set[PackageId])(implicit
+    final case class Error(missing: Set[String])(
+        implicit // PackageId
         val loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
           cause = "Failed to resolve package ids locally.",
@@ -152,7 +150,8 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
           id = "DAR_VALIDATION_ERROR",
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
-      final case class Error(validationError: validation.ValidationError)(implicit
+      final case class Error(validationError: String)(
+          implicit // validation.ValidationError
           val loggingContext: ContextualizedErrorLogger
       ) extends DamlError(
             cause = "Package validation failed.",
@@ -161,18 +160,21 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
     }
 
     final case class AllowedLanguageMismatchError(
-        packageId: Ref.PackageId,
-        languageVersion: language.LanguageVersion,
-        allowedLanguageVersions: VersionRange[language.LanguageVersion],
+//        packageId: Ref.PackageId,
+//        languageVersion: language.LanguageVersion,
+//        allowedLanguageVersions: VersionRange[language.LanguageVersion],
+        override val cause: String,
+        packageId: String,
+        languageVersion: String,
+        allowedLanguageVersions: String,
     )(implicit
         val loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
-          cause = LedgerApiErrors.CommandExecution.Package.AllowedLanguageVersions
-            .buildCause(packageId, languageVersion, allowedLanguageVersions),
+          cause = cause,
           extraContext = Map(
             "packageId" -> packageId,
-            "languageVersion" -> languageVersion.toString,
-            "allowedLanguageVersions" -> allowedLanguageVersions.toString,
+            "languageVersion" -> languageVersion,
+            "allowedLanguageVersions" -> allowedLanguageVersions,
           ),
         )(
           LedgerApiErrors.CommandExecution.Package.AllowedLanguageVersions,
@@ -189,8 +191,10 @@ object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(
-          packageIds: Set[Ref.PackageId],
-          missingDependencies: Set[Ref.PackageId],
+//          packageIds: Set[Ref.PackageId],
+//          missingDependencies: Set[Ref.PackageId],
+          packageIds: Set[String],
+          missingDependencies: Set[String],
       )(implicit
           val loggingContext: ContextualizedErrorLogger
       ) extends DamlError(

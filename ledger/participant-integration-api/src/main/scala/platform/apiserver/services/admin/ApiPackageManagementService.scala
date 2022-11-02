@@ -182,18 +182,21 @@ private[apiserver] final class ApiPackageManagementService private (
     case Error.Package.Internal(nameOfFunc, msg, _) =>
       PackageServiceError.InternalError.Validation(nameOfFunc, msg)
     case Error.Package.Validation(validationError) =>
-      ValidationError.Error(validationError)
+      ValidationError.Error(validationError.pretty)
     case Error.Package.MissingPackage(packageId, _) =>
       PackageServiceError.InternalError.Error(Set(packageId))
     case Error.Package
           .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions) =>
       AllowedLanguageMismatchError(
-        packageId,
-        languageVersion,
-        allowedLanguageVersions,
+        cause = Error.Package
+          .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions)
+          .message,
+        packageId = packageId,
+        languageVersion = languageVersion.pretty,
+        allowedLanguageVersions = allowedLanguageVersions.toString,
       )
     case Error.Package.SelfConsistency(packageIds, missingDependencies) =>
-      SelfConsistency.Error(packageIds, missingDependencies)
+      SelfConsistency.Error(packageIds.map(_.toString), missingDependencies.map(_.toString))
   }
 }
 

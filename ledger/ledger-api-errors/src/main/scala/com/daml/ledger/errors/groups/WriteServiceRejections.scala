@@ -14,7 +14,6 @@ import com.daml.error.{
   Resolution,
 }
 import com.daml.ledger.errors.LedgerApiErrors
-import com.daml.lf.transaction.GlobalKey
 
 @Explanation(
   "Generic submission rejection errors returned by the backing ledger's write service."
@@ -138,11 +137,11 @@ object WriteServiceRejections extends LedgerApiErrors.WriteServiceRejections {
           id = "INTERNALLY_INCONSISTENT_KEYS",
           ErrorCategory.SystemInternalAssumptionViolated, // Should have been caught by the participant
         ) {
-      case class Reject(override val cause: String, keyO: Option[GlobalKey] = None)(implicit
+      case class Reject(override val cause: String, keyO: Option[String] = None)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {
         override def resources: Seq[(ErrorResource, String)] =
-          super.resources ++ keyO.map(key => ErrorResource.ContractKey -> key.toString).toList
+          super.resources ++ keyO.map(key => ErrorResource.ContractKey -> key).toList
       }
     }
 
@@ -156,11 +155,11 @@ object WriteServiceRejections extends LedgerApiErrors.WriteServiceRejections {
           id = "INTERNALLY_DUPLICATE_KEYS",
           ErrorCategory.SystemInternalAssumptionViolated, // Should have been caught by the participant
         ) {
-      case class Reject(override val cause: String, keyO: Option[GlobalKey] = None)(implicit
+      case class Reject(override val cause: String, keyO: Option[String] = None)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {
         override def resources: Seq[(ErrorResource, String)] =
-          super.resources ++ keyO.map(key => ErrorResource.ContractKey -> key.toString).toList
+          super.resources ++ keyO.map(key => ErrorResource.ContractKey -> key).toList
       }
     }
   }

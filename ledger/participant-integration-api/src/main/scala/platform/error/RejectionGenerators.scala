@@ -8,6 +8,7 @@ import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validat
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import com.daml.ledger.errors.LedgerApiErrors
+import com.daml.lf.language.LookupError
 
 sealed abstract class ErrorCause extends Product with Serializable
 
@@ -23,31 +24,31 @@ object RejectionGenerators {
   ): DamlError = {
 
     def processPackageError(err: LfError.Package.Error): DamlError = err match {
-      case e: Package.Internal => LedgerApiErrors.InternalError.PackageInternal(e)
+      case e: Package.Internal => LedgerApiErrors.InternalError.PackageInternal(e.message)
       case Package.Validation(validationError) =>
         LedgerApiErrors.CommandExecution.Package.PackageValidationFailed
           .Reject(validationError.pretty)
       case Package.MissingPackage(packageId, context) =>
         LedgerApiErrors.RequestValidation.NotFound.Package
-          .InterpretationReject(packageId, context)
+          .InterpretationReject(LookupError.MissingPackage.pretty(packageId, context))
       case Package.AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions) =>
         LedgerApiErrors.CommandExecution.Package.AllowedLanguageVersions.Error(
-          packageId,
-          languageVersion,
-          allowedLanguageVersions,
+          LfError.Package
+            .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions)
+            .message
         )
       case e: Package.SelfConsistency =>
-        LedgerApiErrors.InternalError.PackageSelfConsistency(e)
+        LedgerApiErrors.InternalError.PackageSelfConsistency(e.message)
     }
 
     def processPreprocessingError(err: LfError.Preprocessing.Error): DamlError = err match {
-      case e: Preprocessing.Internal => LedgerApiErrors.InternalError.Preprocessing(e)
-      case e => LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed.Reject(e)
+      case e: Preprocessing.Internal => LedgerApiErrors.InternalError.Preprocessing(e.message)
+      case e => LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed.Reject(e.message)
     }
 
     def processValidationError(err: LfError.Validation.Error): DamlError = err match {
       // we shouldn't see such errors during submission
-      case e: Validation.ReplayMismatch => LedgerApiErrors.InternalError.Validation(e)
+      case e: Validation.ReplayMismatch => LedgerApiErrors.InternalError.Validation(e.message)
     }
 
     def processDamlException(
@@ -60,16 +61,16 @@ object RejectionGenerators {
       err match {
         case LfInterpretationError.ContractNotFound(cid) =>
           LedgerApiErrors.ConsistencyErrors.ContractNotFound
-            .Reject(renderedMessage, cid)
+            .Reject(renderedMessage, cid.coid)
         case LfInterpretationError.ContractKeyNotFound(key) =>
           LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound
-            .Reject(renderedMessage, key)
+            .Reject(renderedMessage, key.toString)
         case _: LfInterpretationError.FailedAuthorization =>
           LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError
             .Reject(renderedMessage)
         case e: LfInterpretationError.ContractNotActive =>
           LedgerApiErrors.CommandExecution.Interpreter.ContractNotActive
-            .Reject(renderedMessage, e)
+            .Reject(renderedMessage, e.coid.coid)
         case _: LfInterpretationError.DisclosedContractKeyHashingError =>
           LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError
             .Error(renderedMessage)
@@ -78,10 +79,10 @@ object RejectionGenerators {
             .Error(renderedMessage)
         case LfInterpretationError.DuplicateContractKey(key) =>
           LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
-            .RejectWithContractKeyArg(renderedMessage, key)
+            .RejectWithContractKeyArg(renderedMessage, key.toString)
         case LfInterpretationError.InconsistentContractKey(key) =>
           LedgerApiErrors.ConsistencyErrors.InconsistentContractKey
-            .RejectWithContractKeyArg(renderedMessage, key)
+            .RejectWithContractKeyArg(renderedMessage, key.toString)
         case _: LfInterpretationError.UnhandledException =>
           LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError.Error(
             renderedMessage + detailMessage.fold("")(x => ". Details: " + x)

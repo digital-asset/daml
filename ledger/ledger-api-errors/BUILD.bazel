@@ -14,11 +14,6 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:ledger-api-errors:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-lf/data",
-        "//daml-lf/engine",
-        "//daml-lf/language",
-        "//daml-lf/transaction",
-        "//daml-lf/validation",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/error",
         "//ledger/participant-integration-api:participant-integration-api-proto_scala",

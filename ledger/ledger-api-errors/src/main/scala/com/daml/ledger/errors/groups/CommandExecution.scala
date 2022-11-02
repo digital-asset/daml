@@ -14,13 +14,6 @@ import com.daml.error.{
   Resolution,
 }
 import com.daml.ledger.errors.LedgerApiErrors
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.engine.{Error => LfError}
-import com.daml.lf.interpretation.{Error => LfInterpretationError}
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.{VersionRange, language}
 
 @Explanation(
   "Errors raised during the command execution phase of the command submission evaluation."
@@ -59,24 +52,9 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
 
-      def buildCause(
-          packageId: PackageId,
-          languageVersion: LanguageVersion,
-          allowedLanguageVersions: VersionRange[LanguageVersion],
-      ): String =
-        LfError.Package
-          .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions)
-          .message
-
-      case class Error(
-          packageId: Ref.PackageId,
-          languageVersion: language.LanguageVersion,
-          allowedLanguageVersions: VersionRange[language.LanguageVersion],
-      )(implicit
+      case class Error(message: String)(implicit
           val loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = buildCause(packageId, languageVersion, allowedLanguageVersions)
-          )
+      ) extends DamlErrorWithDefiniteAnswer(cause = message)
     }
 
     @Explanation(
@@ -108,11 +86,12 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       case class Reject(
-          err: LfError.Preprocessing.Error
+//          err: LfError.Preprocessing.Error.message
+          err: String
       )(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
-            cause = err.message
+            cause = err
           )
     }
   }
@@ -166,14 +145,15 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
 
       case class Reject(
           override val cause: String,
-          err: LfInterpretationError.ContractNotActive,
+//          err: LfInterpretationError.ContractNotActive,
+          contractId: String,
       )(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
             cause = cause
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
-          (ErrorResource.ContractId, err.coid.coid)
+          (ErrorResource.ContractId, contractId)
         )
       }
 
@@ -195,14 +175,15 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
 
         case class Reject(
             override val cause: String,
-            key: GlobalKey,
+//            key: GlobalKey,
+            keyString: String,
         )(implicit
             loggingContext: ContextualizedErrorLogger
         ) extends DamlErrorWithDefiniteAnswer(
               cause = cause
             ) {
           override def resources: Seq[(ErrorResource, String)] = Seq(
-            (ErrorResource.ContractKey, key.toString())
+            (ErrorResource.ContractKey, keyString)
           )
         }
       }

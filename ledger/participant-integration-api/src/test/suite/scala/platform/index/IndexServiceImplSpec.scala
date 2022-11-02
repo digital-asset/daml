@@ -319,7 +319,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "combine a message containing invalid interfaces and templates together" in new Scope {
     LedgerApiErrors.RequestValidation.NotFound.TemplateOrInterfaceIdsNotFound
       .Reject(
-        List(Right(iface2), Left(template2), Left(template3))
+        List(Right(iface2.toString), Left(template2.toString), Left(template3.toString))
       )
       .cause shouldBe "Templates do not exist: [PackageName:ModuleName:template2, PackageName:ModuleName:template3]. Interfaces do not exist: [PackageName:ModuleName:iface2]."
   }
@@ -327,7 +327,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "provide a message for invalid templates" in new Scope {
     LedgerApiErrors.RequestValidation.NotFound.TemplateOrInterfaceIdsNotFound
       .Reject(
-        List(Left(template2), Left(template3))
+        List(Left(template2.toString), Left(template3.toString))
       )
       .cause shouldBe "Templates do not exist: [PackageName:ModuleName:template2, PackageName:ModuleName:template3]."
   }
@@ -335,7 +335,7 @@ class IndexServiceImplSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   it should "provide a message for invalid interfaces" in new Scope {
     LedgerApiErrors.RequestValidation.NotFound.TemplateOrInterfaceIdsNotFound
       .Reject(
-        List(Right(iface1), Right(iface2))
+        List(Right(iface1.toString), Right(iface2.toString))
       )
       .cause shouldBe "Interfaces do not exist: [PackageName:ModuleName:iface1, PackageName:ModuleName:iface2]."
   }

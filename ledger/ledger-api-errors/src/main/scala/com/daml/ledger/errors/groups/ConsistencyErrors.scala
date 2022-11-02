@@ -15,8 +15,6 @@ import com.daml.error.{
 }
 import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.ledger.participant.state.v2.ChangeId
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value
 
 @Explanation(
   "Potential consistency errors raised due to race conditions during command submission or returned as submission rejections by the backing ledger."
@@ -117,14 +115,14 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
 
     case class Reject(
         override val cause: String,
-        cid: Value.ContractId,
+        cid: String,
     )(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause = cause
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
-        (ErrorResource.ContractId, cid.coid)
+        (ErrorResource.ContractId, cid)
       )
     }
 
@@ -142,7 +140,7 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
 
     case class RejectWithContractKeyArg(
         override val cause: String,
-        key: GlobalKey,
+        key: String,
     )(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
@@ -151,7 +149,7 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         // TODO error codes: Reconsider the transport format for the contract key.
         //                   If the key is big, it can force chunking other resources.
-        (ErrorResource.ContractKey, key.toString())
+        (ErrorResource.ContractKey, key)
       )
     }
 
@@ -172,13 +170,13 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
 
-    case class Reject(cid: Value.ContractId)(implicit
+    case class Reject(cid: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"Invalid disclosed contract: ${cid.coid}"
+          cause = s"Invalid disclosed contract: $cid"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
-        (ErrorResource.ContractId, cid.coid)
+        (ErrorResource.ContractId, cid)
       )
     }
   }
@@ -195,7 +193,7 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
 
     case class RejectWithContractKeyArg(
         override val cause: String,
-        key: GlobalKey,
+        key: String,
     )(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
@@ -204,7 +202,7 @@ object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         // TODO error codes: Reconsider the transport format for the contract key.
         //                   If the key is big, it can force chunking other resources.
-        (ErrorResource.ContractKey, key.toString())
+        (ErrorResource.ContractKey, key)
       )
     }
 

@@ -36,7 +36,10 @@ private[sandbox] object Rejection {
   ) extends Rejection {
     override def toStatus: Status =
       LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
-        .RejectWithContractKeyArg(cause = "DuplicateKey: contract key is not unique", key = key)
+        .RejectWithContractKeyArg(
+          cause = "DuplicateKey: contract key is not unique",
+          key = key.toString,
+        )
         .rpcStatus()
   }
 
@@ -80,7 +83,7 @@ private[sandbox] object Rejection {
       LedgerApiErrors.WriteServiceRejections.Internal.InternallyInconsistentKeys
         .Reject(
           cause = "The transaction references a contract key inconsistently",
-          keyO = Some(key),
+          keyO = Some(key.toString),
         )
         .rpcStatus()
   }
@@ -95,7 +98,7 @@ private[sandbox] object Rejection {
       LedgerApiErrors.WriteServiceRejections.Internal.InternallyDuplicateKeys
         .Reject(
           cause = "The transaction attempts to create two contracts with the same contract key",
-          keyO = Some(key),
+          keyO = Some(key.toString),
         )
         .rpcStatus()
   }
@@ -208,7 +211,7 @@ private[sandbox] object Rejection {
   ) extends Rejection {
     override def toStatus: Status =
       LedgerApiErrors.ConsistencyErrors.DisclosedContractInvalid
-        .Reject(contractId)
+        .Reject(contractId.coid)
         .rpcStatus()
   }
 }

@@ -507,7 +507,7 @@ object IndexServiceImpl {
     if (unknownTemplatesOrInterfaces.nonEmpty) {
       Source.failed(
         LedgerApiErrors.RequestValidation.NotFound.TemplateOrInterfaceIdsNotFound
-          .Reject(unknownTemplatesOrInterfaces)
+          .Reject(unknownTemplatesOrInterfaces.map(_.map(_.toString).left.map(_.toString)))
           .asGrpcError
       )
     } else

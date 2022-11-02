@@ -17,8 +17,6 @@ import com.daml.error.{
 }
 import com.daml.ledger.errors.LedgerApiErrors
 import com.daml.ledger.errors.LedgerApiErrors.EarliestOffsetMetadataKey
-import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.language.{LookupError, Reference}
 
 @Explanation(
   "Validation errors raised when evaluating requests in the Ledger API."
@@ -46,13 +44,10 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
       }
 
       case class InterpretationReject(
-          packageId: PackageId,
-          reference: Reference,
+          override val cause: String
       )(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = LookupError.MissingPackage.pretty(packageId, reference)
-          )
+      ) extends DamlErrorWithDefiniteAnswer(cause = cause)
     }
 
     @Explanation(
@@ -112,12 +107,12 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
         ) {
 
       private def buildCause(
-          unknownTemplatesOrInterfaces: Seq[Either[Identifier, Identifier]]
+          unknownTemplatesOrInterfaces: Seq[Either[String, String]]
       ): String = {
         val unknownTemplateIds =
-          unknownTemplatesOrInterfaces.collect { case Left(id) => id.toString }
+          unknownTemplatesOrInterfaces.collect { case Left(id) => id }
         val unknownInterfaceIds =
-          unknownTemplatesOrInterfaces.collect { case Right(id) => id.toString }
+          unknownTemplatesOrInterfaces.collect { case Right(id) => id }
 
         val templatesMessage = if (unknownTemplateIds.nonEmpty) {
           s"Templates do not exist: [${unknownTemplateIds.mkString(", ")}]. "
@@ -129,7 +124,7 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
         (templatesMessage + interfacesMessage).trim
       }
 
-      case class Reject(unknownTemplatesOrInterfaces: Seq[Either[Identifier, Identifier]])(implicit
+      case class Reject(unknownTemplatesOrInterfaces: Seq[Either[String, String]])(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(cause = buildCause(unknownTemplatesOrInterfaces)) {
         override def resources: Seq[(ErrorResource, String)] =

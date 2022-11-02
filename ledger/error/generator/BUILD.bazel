@@ -63,8 +63,9 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:error-generator-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     runtime_deps = [
-        # Add the KV errors to the classpath so they can be picked up by the generator
+        # Add the targets containing the error definitions to the classpath
         "//ledger/participant-state-kv-errors",
+        "//ledger/ledger-api-errors",
     ],
     deps = [
         "//ledger/error",
