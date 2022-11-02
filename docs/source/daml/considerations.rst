@@ -32,7 +32,7 @@ When designing Daml applications:
 
 The Daml language follows functional programming principles. To build safe, secure smart contracts with Daml, we recommended that the developers embrace functional programming. Using functional programming often helps to reduce contention.
 
-The Daml SDK contains tools and libraries that simplify multi-party application development, including defining the application’s Daml schema and implementing application code that utilizes Canton (Daml) APIs.
+The Daml SDK contains tools and libraries that simplify multi-party application development, including defining the application’s schema and implementing off-ledger code that leverages the Canton APIs.
 
 Operational Considerations
 **************************
