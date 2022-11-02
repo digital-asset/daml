@@ -46,7 +46,7 @@ object SExpr {
   sealed abstract class SExprAtomic extends SExpr {
     def lookupValue(machine: Machine): SValue
 
-    final def execute(machine: Machine): Control = {
+    final override def execute(machine: Machine): Control = {
       Control.Value(lookupValue(machine))
     }
   }
@@ -72,14 +72,14 @@ object SExpr {
 
     def setCached(sValue: SValue): Unit = _cached = Some(sValue)
 
-    def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = {
       machine.lookupVal(this)
     }
   }
 
   /** Reference to a builtin function */
   final case class SEBuiltin(b: SBuiltin) extends SExprAtomic {
-    def lookupValue(machine: Machine): SValue = {
+    override def lookupValue(machine: Machine): SValue = {
       /* special case for nullary record constructors */
       b match {
         case SBRecCon(id, fields) if b.arity == 0 =>
@@ -92,7 +92,7 @@ object SExpr {
 
   /** A pre-computed value, usually primitive literal, e.g. integer, text, boolean etc. */
   final case class SEValue(v: SValue) extends SExprAtomic {
-    def lookupValue(machine: Machine): SValue = {
+    override def lookupValue(machine: Machine): SValue = {
       v
     }
   }
@@ -109,7 +109,7 @@ object SExpr {
   final case class SEAppOnlyFunIsAtomic(fun: SExprAtomic, args: Array[SExpr])
       extends SExpr
       with SomeArrayEquals {
-    def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = {
       val vfun = fun.lookupValue(machine)
       machine.executeApplication(vfun, args)
     }
@@ -126,7 +126,7 @@ object SExpr {
   final case class SEAppAtomicGeneral(fun: SExprAtomic, args: Array[SExprAtomic])
       extends SExpr
       with SomeArrayEquals {
-    def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = {
       val vfun = fun.lookupValue(machine)
       machine.enterApplication(vfun, args)
     }
@@ -138,7 +138,7 @@ object SExpr {
   final case class SEAppAtomicSaturatedBuiltin(builtin: SBuiltin, args: Array[SExprAtomic])
       extends SExpr
       with SomeArrayEquals {
-    def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = {
       val arity = builtin.arity
       val actuals = new util.ArrayList[SValue](arity)
       var i = 0
@@ -171,7 +171,7 @@ object SExpr {
       extends SExpr
       with SomeArrayEquals {
 
-    def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = {
       val sValues = Array.ofDim[SValue](fvs.length)
       var i = 0
       while (i < fvs.length) {
@@ -192,21 +192,21 @@ object SExpr {
 
   // SELocS -- variable is located on the stack (SELet & binding forms of SECasePat)
   final case class SELocS(n: Int) extends SELoc {
-    def lookupValue(machine: Machine): SValue = {
+    override def lookupValue(machine: Machine): SValue = {
       machine.getEnvStack(n)
     }
   }
 
   // SELocA -- variable is located in the args array of the application
   final case class SELocA(n: Int) extends SELoc {
-    def lookupValue(machine: Machine): SValue = {
+    override def lookupValue(machine: Machine): SValue = {
       machine.getEnvArg(n)
     }
   }
 
   // SELocF -- variable is located in the free-vars array of the closure being applied
   final case class SELocF(n: Int) extends SELoc {
-    def lookupValue(machine: Machine): SValue = {
+    override def lookupValue(machine: Machine): SValue = {
       machine.getEnvFree(n)
     }
   }
@@ -215,7 +215,7 @@ object SExpr {
   final case class SECaseAtomic(scrut: SExprAtomic, alts: Array[SCaseAlt])
       extends SExpr
       with SomeArrayEquals {
-    def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = {
       val vscrut = scrut.lookupValue(machine)
       executeMatchAlts(machine, alts, vscrut)
     }
@@ -223,7 +223,7 @@ object SExpr {
 
   /** A let-expression with a single RHS */
   final case class SELet1General(rhs: SExpr, body: SExpr) extends SExpr with SomeArrayEquals {
-    def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = {
       machine.pushKont(KPushTo(machine, machine.currentEnv, body))
       Control.Expression(rhs)
     }
@@ -233,7 +233,7 @@ object SExpr {
   final case class SELet1Builtin(builtin: SBuiltinPure, args: Array[SExprAtomic], body: SExpr)
       extends SExpr
       with SomeArrayEquals {
-    def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = {
       val arity = builtin.arity
       val actuals = new util.ArrayList[SValue](arity)
       var i = 0
@@ -256,7 +256,7 @@ object SExpr {
       body: SExpr,
   ) extends SExpr
       with SomeArrayEquals {
-    def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = {
       val arity = builtin.arity
       val actuals = new util.ArrayList[SValue](arity)
       var i = 0
@@ -293,7 +293,7 @@ object SExpr {
     * variable of the machine. When commit is begun the location is stored in 'commitLocation'.
     */
   final case class SELocation(loc: Location, expr: SExpr) extends SExpr {
-    def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = {
       machine.pushLocation(loc)
       Control.Expression(expr)
     }
@@ -309,7 +309,7 @@ object SExpr {
     * [[AnyRef]] for the label.
     */
   final case class SELabelClosure(label: Profile.Label, expr: SExpr) extends SExpr {
-    def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = {
       machine.pushKont(KLabelClosure(machine, label))
       Control.Expression(expr)
     }
@@ -321,14 +321,14 @@ object SExpr {
     * loaded in `machine`.
     */
   final case class SEImportValue(typ: Ast.Type, value: V) extends SExpr {
-    def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = {
       machine.importValue(typ, value)
     }
   }
 
   /** Exception handler */
   final case class SETryCatch(body: SExpr, handler: SExpr) extends SExpr {
-    def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = {
       machine.pushKont(KTryCatchHandler(machine, handler))
       machine.withOnLedger("SETryCatch") { onLedger =>
         onLedger.ptx = onLedger.ptx.beginTry
@@ -339,14 +339,14 @@ object SExpr {
 
   /** Exercise scope (begin..end) */
   final case class SEScopeExercise(body: SExpr) extends SExpr {
-    def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = {
       machine.pushKont(KCloseExercise(machine))
       Control.Expression(body)
     }
   }
 
   final case class SEPreventCatch(body: SExpr) extends SExpr {
-    def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = {
       machine.pushKont(KPreventException(machine))
       Control.Expression(body)
     }
