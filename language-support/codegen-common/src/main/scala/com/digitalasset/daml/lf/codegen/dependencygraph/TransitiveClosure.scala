@@ -23,6 +23,9 @@ final case class TransitiveClosure(
 object TransitiveClosure {
 
   def from(orderedDependencies: OrderedDependencies[Identifier, NodeType]): TransitiveClosure = {
+    orderedDependencies.deps.foreach { case (id, node) =>
+      println(s"$id -> $node")
+    }
     val (serializableTypes, interfaces) = orderedDependencies.deps.partitionMap {
       case (id, Node(NodeType.Internal(defDataType), _)) =>
         Left(id -> TypeDecl.Normal(defDataType))
