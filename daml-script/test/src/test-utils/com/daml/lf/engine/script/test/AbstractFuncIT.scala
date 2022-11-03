@@ -328,6 +328,20 @@ abstract class AbstractFuncIT
         }
       }
     }
+    "Interface:test_queryView" should {
+      "succeed" in {
+        for {
+          clients <- participantClients()
+          v <- run(
+            clients,
+            QualifiedName.assertFromString("TestInterfaces:test_queryView"),
+            dar = devDar,
+          )
+        } yield {
+          v shouldBe (SUnit)
+        }
+      }
+    }
     "Interface:test" should {
       "succeed" in {
         for {
