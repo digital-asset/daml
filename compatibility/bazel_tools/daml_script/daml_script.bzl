@@ -104,6 +104,9 @@ if [ {upload_dar} -eq 1 ] ; then
     --port 6865 \\
     $$(canonicalize_rlocation $(rootpath {dar}))
 fi
+
+sleep 2
+
 $$runner script \\
   --ledger-host localhost \\
   --ledger-port 6865 \\
