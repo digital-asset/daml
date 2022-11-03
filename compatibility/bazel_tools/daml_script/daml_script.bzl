@@ -98,12 +98,15 @@ runner=$$(canonicalize_rlocation $(rootpath {runner}))
 # Cleanup the trigger runner process but maintain the script runner exit code.
 trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
 
+sleep 2
+
 if [ {upload_dar} -eq 1 ] ; then
   $$runner ledger upload-dar \\
     --host localhost \\
     --port 6865 \\
     $$(canonicalize_rlocation $(rootpath {dar}))
 fi
+
 $$runner script \\
   --ledger-host localhost \\
   --ledger-port 6865 \\
