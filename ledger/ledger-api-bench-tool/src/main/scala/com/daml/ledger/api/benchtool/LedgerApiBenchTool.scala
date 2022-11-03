@@ -193,11 +193,12 @@ class LedgerApiBenchTool(
     try {
       val stmt = connection.createStatement()
       try {
-        logger.info(
-          s"Executing 'VACUUM' on the IndexDB identified by JDBC URL: '${indexDbJdbcUrl}' ..."
-        )
-        stmt.executeUpdate("VACUUM")
-        logger.info("Executed 'VACUUM'")
+        logger.info("NO VACUUM")
+//        logger.info(
+//          s"Executing 'VACUUM' on the IndexDB identified by JDBC URL: '${indexDbJdbcUrl}' ..."
+//        )
+//        stmt.executeUpdate("VACUUM")
+//        logger.info("Executed 'VACUUM'")
       } finally {
         stmt.close()
       }
