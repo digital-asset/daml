@@ -36,6 +36,7 @@ steps:
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
       timeout --kill-after=30s 35m bazel build //test-evidence:generate-security-test-evidence-files
+      diff -u0 daml-security-test-evidence.csv bazel-bin/test-evidence/daml-security-test-evidence.csv || true
     displayName: 'Generate security test evidence CSV'
 
   - task: PublishBuildArtifacts@1
