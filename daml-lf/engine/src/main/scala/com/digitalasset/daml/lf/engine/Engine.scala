@@ -8,7 +8,7 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError, SValue}
+import com.daml.lf.speedy.{InitialSeeding, Pretty, SError, SValue}
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.Speedy.{Machine, OnLedger}
 import com.daml.lf.speedy.SResult._
@@ -440,15 +440,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     machine.ledgerMode match {
       case onLedger: OnLedger =>
         onLedger.finish match {
-          case Right(
-                PartialTransaction.Result(
-                  tx,
-                  _,
-                  nodeSeeds,
-                  globalKeyMapping,
-                  disclosedContracts,
-                )
-              ) =>
+          case Right(OnLedger.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedContracts)) =>
             deps(tx).flatMap { deps =>
               val meta = Tx.Metadata(
                 submissionSeed = None,

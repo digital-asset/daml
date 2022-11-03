@@ -11,15 +11,19 @@ import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LookupError, Util => AstUtil}
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
+import com.daml.lf.speedy.PartialTransaction.NodeSeeds
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
+import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
   GlobalKey,
-  IncompleteTransaction,
   Node,
-  TransactionVersion,
+  NodeId,
+  SubmittedTransaction,
+  IncompleteTransaction => IncompleteTx,
+  TransactionVersion => TxVersion,
 }
 import com.daml.lf.value.{Value => V}
 import com.daml.nameof.NameOf
@@ -103,7 +107,7 @@ private[lf] object Speedy {
   sealed abstract class LedgerMode extends Product with Serializable
 
   final case class SKeyWithMaintainers(key: SValue, maintainers: Set[Party]) {
-    def toNormalizedKeyWithMaintainers(version: TransactionVersion) =
+    def toNormalizedKeyWithMaintainers(version: TxVersion) =
       Node.KeyWithMaintainers(key.toNormalizedValue(version), maintainers)
     val unnormalizedKeyValue = key.toUnnormalizedValue
     val unnormalizedKeyWithMaintainers = Node.KeyWithMaintainers(unnormalizedKeyValue, maintainers)
@@ -167,7 +171,7 @@ private[lf] object Speedy {
         SVisibleToStakeholders.fromSubmitters(committers, readAs)
       }
 
-    def incompleteTransaction: IncompleteTransaction = ptx.finishIncomplete
+    def incompleteTransaction: IncompleteTx = ptx.finishIncomplete
     def nodesToString: String = ptx.nodesToString
 
     private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
@@ -247,8 +251,29 @@ private[lf] object Speedy {
         IError.Limit.ChoiceObservers(cid, templateId, choiceName, arg, observers, _),
       )
 
-    def finish = ptx.finish
+    def finish: Either[SErrorCrash, OnLedger.Result] = ptx.finish.map { case (tx, seeds) =>
+      val inputContracts = tx.inputContracts
+      OnLedger.Result(
+        tx,
+        ptx.locationInfo(),
+        seeds zip ptx.actionNodeSeeds.toImmArray,
+        ptx.contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
+        ptx.disclosedContracts.filter(disclosedContract =>
+          inputContracts(disclosedContract.contractId.value)
+        ),
+      )
+    }
+  }
 
+  object OnLedger {
+
+    private[lf] final case class Result(
+        tx: SubmittedTransaction,
+        locationInfo: Map[NodeId, Location],
+        seeds: NodeSeeds,
+        globalKeyMapping: Map[GlobalKey, KeyMapping],
+        disclosedContracts: ImmArray[DisclosedContract],
+    )
   }
 
   final case object OffLedger extends LedgerMode
@@ -355,8 +380,8 @@ private[lf] object Speedy {
       envBase = 0
     }
 
-    def tmplId2TxVersion(tmplId: TypeConName): TransactionVersion =
-      TransactionVersion.assignNodeVersion(
+    def tmplId2TxVersion(tmplId: TypeConName): TxVersion =
+      TxVersion.assignNodeVersion(
         compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
       )
 

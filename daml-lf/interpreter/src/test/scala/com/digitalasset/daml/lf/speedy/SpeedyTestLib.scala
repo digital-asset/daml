@@ -114,7 +114,7 @@ private[speedy] object SpeedyTestLib {
   ): Either[SError.SError, SubmittedTransaction] =
     runTx(machine, getPkg, getContract, getKey, getTime) match {
       case Right(SResultFinal(_)) =>
-        machine.withOnLedger("buildTransaction")(onLedger => onLedger.ptx.finish.map(_.tx))
+        machine.withOnLedger("buildTransaction")(onLedger => onLedger.finish.map(_.tx))
       case Left(err) =>
         Left(err)
     }

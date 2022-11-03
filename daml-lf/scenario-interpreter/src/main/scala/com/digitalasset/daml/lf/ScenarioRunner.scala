@@ -14,6 +14,7 @@ import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.lf.speedy._
 import com.daml.lf.speedy.SExpr.{SExpr, SEValue, SEApp}
 import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.Speedy.OnLedger
 import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
@@ -415,7 +416,7 @@ object ScenarioRunner {
           ledgerMachine.ledgerMode match {
             case onLedger: Speedy.OnLedger =>
               onLedger.finish match {
-                case Right(PartialTransaction.Result(tx, locationInfo, _, _, _)) =>
+                case Right(OnLedger.Result(tx, locationInfo, _, _, _)) =>
                   ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
                     case Left(err) =>
                       SubmissionError(err, enrich(onLedger.incompleteTransaction))
