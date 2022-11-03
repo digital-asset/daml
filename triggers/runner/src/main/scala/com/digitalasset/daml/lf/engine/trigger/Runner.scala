@@ -29,7 +29,6 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.trigger.Runner.maxInFlightCommands
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
