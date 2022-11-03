@@ -4,6 +4,7 @@
 package com.daml.platform.store
 
 import scalapb.GeneratedMessage
+import scala.util.chaining._
 
 object ScalaPbStreamingOptimizations {
   implicit class ScalaPbMessageWithPrecomputedSerializedSize[
@@ -28,9 +29,7 @@ object ScalaPbStreamingOptimizations {
       *
       * @return A new message [[scalapb.GeneratedMessage]] with precomputed serializedSize.
       */
-    def precomputeSerializedSize(): ScalaPbMsg = {
-      val _ = scalaPbMsg.serializedSize
-      scalaPbMsg
-    }
+    def precomputeSerializedSize(): ScalaPbMsg =
+      scalaPbMsg.tap(_.serializedSize)
   }
 }
