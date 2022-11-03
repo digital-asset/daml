@@ -29,6 +29,11 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.trigger.Runner.{
+  maxInFlightCommands,
+  maxSubmitRequests,
+  maxSubmitRequestsDuration,
+}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -49,6 +54,7 @@ import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.Status.Code
+import io.grpc.Status.UNAVAILABLE
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
@@ -726,7 +732,10 @@ class Runner(
   private[this] def submitOrFail(implicit
       ec: ExecutionContext
   ): Flow[SubmitRequest, SingleCommandFailure, NotUsed] = {
-    def submit(req: SubmitRequest) = {
+    import io.grpc.Status.Code
+    import Code.RESOURCE_EXHAUSTED
+
+    def submit(req: SubmitRequest): Future[Option[SingleCommandFailure]] = {
       val f: Future[Empty] = client.commandClient
         .submitSingleCommand(req)
       f.map(_ => None).recover {
@@ -737,23 +746,62 @@ class Runner(
         // any other error will cause the trigger's stream to fail
       }
     }
-    import io.grpc.Status.Code
-    import Code.RESOURCE_EXHAUSTED
-    def retryableSubmit(req: SubmitRequest) =
+
+    def retryableSubmit(req: SubmitRequest): Future[Option[Option[SingleCommandFailure]]] =
       submit(req).map {
         case Some(SingleCommandFailure(_, s))
             if (s.getStatus.getCode: Code) == (RESOURCE_EXHAUSTED: Code) =>
           None
         case z => Some(z)
       }
-    retrying(
-      initialTries = maxTriesWhenOverloaded,
-      backoff = overloadedRetryDelay,
-      parallelism = maxParallelSubmissionsPerTrigger,
-      retryableSubmit,
-      submit,
-    )
-      .collect { case Some(err) => err }
+
+    val throttleFlow: Flow[SubmitRequest, SubmitRequest, NotUsed] =
+      Flow[SubmitRequest]
+        .throttle(maxSubmitRequests, maxSubmitRequestsDuration)
+    val submitFlow: Flow[SubmitRequest, SingleCommandFailure, NotUsed] =
+      Flow[SubmitRequest]
+        .filter { _ =>
+          pendingCommandIds.count(_._2 == SeenMsgs.Neither) <= maxInFlightCommands
+        }
+        .via(
+          retrying(
+            initialTries = maxTriesWhenOverloaded,
+            backoff = overloadedRetryDelay,
+            parallelism = maxParallelSubmissionsPerTrigger,
+            retryableSubmit,
+            submit,
+          )
+            .collect { case Some(err) => err }
+        )
+    val failureFlow: Flow[SubmitRequest, SingleCommandFailure, NotUsed] =
+      Flow[SubmitRequest]
+        .filter { _ =>
+          pendingCommandIds.count(_._2 == SeenMsgs.Neither) > maxInFlightCommands
+        }
+        .map { request =>
+          SingleCommandFailure(
+            request.getCommands.commandId,
+            new StatusRuntimeException(UNAVAILABLE),
+          )
+        }
+    val graph = GraphDSL.create() { implicit gb =>
+      import GraphDSL.Implicits._
+
+      val broadcast = gb.add(Broadcast[SubmitRequest](2))
+      val merge = gb.add(Merge[SingleCommandFailure](2))
+      val throttle = gb.add(throttleFlow)
+      val submit = gb.add(submitFlow)
+      val failure = gb.add(failureFlow)
+
+      // format: off
+      throttle ~> broadcast ~> submit  ~> merge
+                  broadcast ~> failure ~> merge
+      // format: on
+
+      FlowShape(throttle.in, merge.out)
+    }
+
+    Flow.fromGraph(graph)
   }
 
   // Run the trigger given the state of the ACS. The msgFlow argument
@@ -789,6 +837,15 @@ object Runner extends StrictLogging {
     */
   val maxParallelSubmissionsPerTrigger = 8
   val maxTriesWhenOverloaded = 6
+
+  /** Maximum number of in-flight commands that we shall allow *before* the ledger
+    *  client automatically fails submit requests
+    */
+  val maxInFlightCommands = 42
+
+  /** Used to control rate at which we throttle ledger client submission requests */
+  val maxSubmitRequests = 100
+  val maxSubmitRequestsDuration: FiniteDuration = 1.second
 
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
     (250 * (1 << (afterTries - 1))).milliseconds
