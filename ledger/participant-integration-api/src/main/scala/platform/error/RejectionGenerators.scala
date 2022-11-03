@@ -23,7 +23,7 @@ object RejectionGenerators {
   ): DamlError = {
 
     def processPackageError(err: LfError.Package.Error): DamlError = err match {
-      case e: Package.Internal => LedgerApiErrors.InternalError.PackageInternal(e)
+      case e: Package.Internal => LedgerApiErrors.InternalError.Package(e.message)
       case Package.Validation(validationError) =>
         LedgerApiErrors.CommandExecution.Package.PackageValidationFailed
           .Reject(validationError.pretty)
@@ -37,17 +37,17 @@ object RejectionGenerators {
           allowedLanguageVersions,
         )
       case e: Package.SelfConsistency =>
-        LedgerApiErrors.InternalError.PackageSelfConsistency(e)
+        LedgerApiErrors.InternalError.Package(e.message)
     }
 
     def processPreprocessingError(err: LfError.Preprocessing.Error): DamlError = err match {
-      case e: Preprocessing.Internal => LedgerApiErrors.InternalError.Preprocessing(e)
+      case e: Preprocessing.Internal => LedgerApiErrors.InternalError.Package(e.message)
       case e => LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed.Reject(e)
     }
 
     def processValidationError(err: LfError.Validation.Error): DamlError = err match {
       // we shouldn't see such errors during submission
-      case e: Validation.ReplayMismatch => LedgerApiErrors.InternalError.Validation(e)
+      case e: Validation.ReplayMismatch => LedgerApiErrors.InternalError.Validation(e.message)
     }
 
     def processDamlException(

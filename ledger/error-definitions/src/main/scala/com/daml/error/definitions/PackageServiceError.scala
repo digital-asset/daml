@@ -4,10 +4,6 @@
 package com.daml.error.definitions
 
 import com.daml.error._
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.engine.Error
-import com.daml.lf.{VersionRange, language, validation}
 
 @Explanation(
   "Errors raised by the Package Management Service on package uploads."

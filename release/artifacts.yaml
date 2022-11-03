@@ -279,3 +279,5 @@
   type: jar-scala
 - target: //ledger/error-definitions:error-definitions
   type: jar-scala
+- target: //ledger/error-definitions/error-definitions-lf:error-definitions-lf
+  type: jar-scala

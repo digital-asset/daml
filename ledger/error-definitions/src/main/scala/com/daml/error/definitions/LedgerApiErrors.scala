@@ -5,8 +5,6 @@ package com.daml.error.definitions
 
 import com.daml.error.ErrorGroups.ParticipantErrorGroup.LedgerApiErrorGroup
 import com.daml.error._
-import com.daml.lf.engine.Error.Validation.ReplayMismatch
-import com.daml.lf.engine.{Error => LfError}
 import org.slf4j.event.Level
 
 @Explanation(
@@ -235,29 +233,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           extraContext = Map("throwableO" -> throwableO.toString),
         )
 
-    case class PackageSelfConsistency(
-        err: LfError.Package.SelfConsistency
-    )(implicit
+    case class Package(override val cause: String)(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = err.message
-        )
+    ) extends DamlErrorWithDefiniteAnswer(cause = cause)
 
-    case class PackageInternal(
-        err: LfError.Package.Internal
-    )(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = err.message
-        )
-
-    case class Preprocessing(
-        err: LfError.Preprocessing.Internal
-    )(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(cause = err.message)
-
-    case class Validation(reason: ReplayMismatch)(implicit
+    case class Validation(reason: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"Observed un-expected replay mismatch: $reason"

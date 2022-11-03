@@ -1,15 +1,12 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
 )
 
 da_scala_library(
-    name = "error-definitions",
+    name = "error-definitions-lf",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.daml:error-definitions:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:error-definitions-lf:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/data",
