@@ -32,6 +32,7 @@ class LedgerApiServices(
     )
   val packageManagementService =
     new PackageManagementService(channel, authorizationToken = authorizationToken)
+  val packageService = new PackageService(channel, authorizationToken = authorizationToken)
   val partyManagementService =
     new PartyManagementService(channel, authorizationToken = authorizationToken)
   val transactionService =
