@@ -6,14 +6,13 @@ Scaling and Redundancy
 
 .. note:: This section of the document only talks about scaling and redundancy setup for the *HTTP JSON API* server. In all recommendations suggested below we assume that the JSON API is always interacting with a single participant on the ledger.
 
-We advise that the *HTTP JSON API* server and query store components have dedicated
-computation and memory resources available to them. This can be achieved via
-containerization or by setting them up on independent physical servers. Please ensure that the two
+We recommend dedicating computation and memory resources to the *HTTP JSON API* server and query store components. This can be achieved via
+containerization or by setting these components up on independent physical servers. Make sure that the two
 components are **physically co-located** to reduce network latency for
-communication. The scaling and availability aspects heavily rely on the interactions between
+communication. Scaling and availability heavily rely on the interactions between
 the core components listed above.
 
-With respect to scaling we recommend one follow general practice: Try to
+The general principles of scaling apply here: Try to
 understand the bottlenecks and see if adding additional processing power/memory helps.
 
 The *HTTP JSON API* can be scaled independently of its query store.
@@ -35,18 +34,18 @@ Users may consider running PostgreSQL backend in a `high availability configurat
 The benefits of this are use-case dependent as this may be more expensive for
 smaller active contract datasets, where re-initializing the cache is cheap and fast.
 
-Finally we recommend using orchestration systems or load balancers which monitor the health of
+Finally, we recommend using orchestration systems or load balancers which monitor the health of
 the service and perform subsequent operations to ensure availability. These systems can use the
 `healthcheck endpoints <https://docs.daml.com/json-api/index.html#healthcheck-endpoints>`__
 provided by the *HTTP JSON API* server. This can also be tied into supporting an arbitrary
 autoscaling implementation in order to ensure a minimum number of *HTTP JSON API* servers on
 failures.
 
-Set up the HTTP JSON API Service to work with Highly Available Participants
+Set Up the HTTP JSON API Service To Work With Highly Available Participants
 ***************************************************************************
 
-In case the participant node itself is configured to be highly available, depending on the setup you may want
-to choose different approaches to connect to the participant nodes. In most setups, including those based on Canton,
+If the participant node itself is configured to be highly available, depending on the setup you may want
+to choose different approaches to connect to the passive participant node(s). In most setups, including those based on Canton,
 you'll likely have an active participant node whose role can be taken over by a passive node in case the currently
 active one drops. Just as for the *HTTP JSON API* itself, you can use orchestration systems or load balancers to
 monitor the status of the participant nodes and have those point your (possibly highly-available) *HTTP JSON API*

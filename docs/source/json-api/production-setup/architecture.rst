@@ -7,13 +7,13 @@ Architecture
 Components
 **********
 
-A production setup of the *HTTP JSON API* will involve the following components:
+A production setup of the *HTTP JSON API* involves the following components:
 
 - the *HTTP JSON API* server
 - the query store backend database server
 - the ledger
 
-The *HTTP JSON API* server exposes an API to interact with the Ledger and it uses JDBC to interact
+The *HTTP JSON API* server exposes an API to interact with the Ledger. It uses JDBC to interact
 with its underlying query store in order to cache and serve data efficiently.
 
 The *HTTP JSON API* server releases are regularly tested with OpenJDK 11 on a x86_64 architecture,

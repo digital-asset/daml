@@ -4,7 +4,7 @@
 Logging
 #######
 
-The *HTTP JSON API* server uses the industry-standard Logback for logging. You can
+The *HTTP JSON API* server uses the industry-standard logback for logging. You can
 read more about it in the `Logback documentation <http://logback.qos.ch/>`__.
 
 The logging infrastructure leverages structured logging as implemented by the
