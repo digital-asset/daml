@@ -53,7 +53,6 @@ import com.daml.script.converter.ConverterException
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
 import com.typesafe.scalalogging.StrictLogging
-import io.grpc.Status.Code
 import io.grpc.Status.UNAVAILABLE
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.bifunctor._
@@ -784,6 +783,7 @@ class Runner(
             new StatusRuntimeException(UNAVAILABLE),
           )
         }
+    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
     val graph = GraphDSL.create() { implicit gb =>
       import GraphDSL.Implicits._
 
