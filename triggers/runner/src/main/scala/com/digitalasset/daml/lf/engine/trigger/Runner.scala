@@ -29,6 +29,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.trigger.Runner.maxInFlightCommands
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -580,16 +581,27 @@ class Runner(
   }
 
   private[this] def encodeMsgs: Flow[TriggerMsg, SValue, NotUsed] =
-    Flow fromFunction {
+    Flow[TriggerMsg].flatMapConcat {
       case TransactionMsg(transaction) =>
-        converter.fromTransaction(transaction).orConverterException
+        converter
+          .fromTransaction(transaction)
+          .fold(
+            error => {
+              logger.warn(s"Failed to encode transaction: $error")
+              Source.empty
+            },
+            Source.single,
+          )
+
       case CompletionMsg(completion) =>
         val status = completion.getStatus
         if (status.code != 0) {
           logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
         }
-        converter.fromCompletion(completion).orConverterException
-      case HeartbeatMsg() => converter.fromHeartbeat
+        Source.single(converter.fromCompletion(completion).orConverterException)
+
+      case HeartbeatMsg() =>
+        Source.single(converter.fromHeartbeat)
     }
 
   // A flow for trigger messages representing a process for the
