@@ -453,8 +453,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
               )
               config.profileDir.foreach { dir =>
                 val desc = Engine.profileDesc(tx)
-                machine.profile.name = s"${meta.submissionTime}-$desc"
                 val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
+                machine.profile.name = s"${meta.submissionTime}-$desc"
                 machine.profile.writeSpeedscopeJson(profileFile)
               }
               ResultDone((tx, meta))
