@@ -42,6 +42,9 @@ object Main {
 
       writeEvidenceToCsvFile(csvFileName, csvEntries)
       writeEvidenceToJsonFile(jsonFileName, securityTestEntries)
+
+      // explicitly stop here, since some suites have started non-daemon threads that prevent JVM shutdown
+      sys.exit(0)
     } else {
       throw new IllegalArgumentException(
         s"Invalid number of arguments, was ${args.length}, should be 2"
