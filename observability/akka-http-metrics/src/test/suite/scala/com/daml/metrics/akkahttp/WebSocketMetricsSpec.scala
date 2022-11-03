@@ -43,6 +43,8 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
   private val streamedBinaryMessageSize =
     streamedBinaryMessageData.foldLeft(0L)((acc, bs) => acc + bs.length)
 
+  private val labels = List(("label1", "abc"), ("other", "label2"))
+
   // Test flow.
   // Creates 2 deep copies of each passing message
   private val testFlow = Flow[Message].mapAsync(1)(duplicateMessage).mapConcat(identity)
@@ -58,7 +60,7 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
       metrics.messagesSentTotal,
       metrics.messagesSentBytesTotal,
       testFlow,
-    )(MetricsContext.Empty)
+    )(MetricsContext(labels.toMap))
     f(duplicatingFlowWithMetrics, metrics)
   }
 
@@ -89,6 +91,15 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
         ),
         getMessagesReceivedTotalValue,
         4,
+      )
+    }
+
+    "contains the configured labels" in {
+      checkCountThroughFlowForLabels(
+        List(strictTextMessage),
+        getMessagesReceivedTotalValue,
+        1,
+        labels: _*
       )
     }
   }
@@ -123,6 +134,15 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
         ),
         getMessagesSentTotalValue,
         8,
+      )
+    }
+
+    "contains the configured labels" in {
+      checkCountThroughFlowForLabels(
+        List(strictTextMessage),
+        getMessagesSentTotalValue,
+        2,
+        labels: _*
       )
     }
   }
@@ -170,6 +190,15 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
         ),
         getMessagesReceivedBytesTotalValue,
         strictTextMessageSize + streamedTextMessageSize + strictBinaryMessageSize + streamedBinaryMessageSize,
+      )
+    }
+
+    "contains the configured labels" in {
+      checkCountThroughFlowForLabels(
+        List(strictTextMessage),
+        getMessagesReceivedBytesTotalValue,
+        strictTextMessageSize,
+        labels: _*
       )
     }
   }
@@ -222,6 +251,15 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
         (strictTextMessageSize + streamedTextMessageSize + strictBinaryMessageSize + streamedBinaryMessageSize) * 2,
       )
     }
+
+    "contains the configured labels" in {
+      checkCountThroughFlowForLabels(
+        List(strictTextMessage),
+        getMessagesSentBytesTotalValue,
+        strictTextMessageSize * 2,
+        labels: _*
+      )
+    }
   }
 
   "websocket metrics" should {
@@ -242,34 +280,51 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
     }
   }
 
-  private def getMessagesReceivedTotalValue(metrics: TestMetrics): Long =
-    metrics.messagesReceivedTotalValue
+  // TODO def
+  private val getMessagesReceivedTotalValue: (TestMetrics, Seq[(String, String)]) => Long =
+    (metrics: TestMetrics, labels: Seq[(String, String)]) =>
+      metrics.messagesReceivedTotalValue(labels: _*)
 
-  private def getMessagesSentTotalValue(metrics: TestMetrics): Long =
-    metrics.messagesSentTotalValue
+  // TODO def
+  private val getMessagesSentTotalValue: (TestMetrics, Seq[(String, String)]) => Long =
+    (metrics: TestMetrics, labels: Seq[(String, String)]) =>
+      metrics.messagesSentTotalValue(labels: _*)
 
-  private def getMessagesReceivedBytesTotalValue(metrics: TestMetrics): Long =
-    metrics.messagesReceivedBytesTotalValue
+  // TODO def
+  private val getMessagesReceivedBytesTotalValue: (TestMetrics, Seq[(String, String)]) => Long =
+    (metrics: TestMetrics, labels: Seq[(String, String)]) =>
+      metrics.messagesReceivedBytesTotalValue(labels: _*)
 
-  private def getMessagesSentBytesTotalValue(metrics: TestMetrics): Long =
-    metrics.messagesSentBytesTotalValue
+  // TODO def
+  private val getMessagesSentBytesTotalValue: (TestMetrics, Seq[(String, String)]) => Long =
+    (metrics: TestMetrics, labels: Seq[(String, String)]) =>
+      metrics.messagesSentBytesTotalValue(labels: _*)
 
-  private def checkCountThroughFlow(
+  private def checkCountThroughFlowForLabels(
       messages: List[Message],
-      metricExtractor: TestMetrics => Long,
+      metricExtractor: (TestMetrics, Seq[(String, String)]) => Long,
       expected: Long,
+      labels: (String, String)*
   ): Future[Assertion] = {
     withDuplicatingFlowAndMetrics { (flow, metrics) =>
       val done = Source(messages).via(flow).runWith(drainStreamedMessages)
       done.map { _ =>
-        metricExtractor(metrics) should be(expected)
+        metricExtractor(metrics, labels) should be(expected)
       }
     }
   }
 
   private def checkCountThroughFlow(
+      messages: List[Message],
+      metricExtractor: (TestMetrics, Seq[(String, String)]) => Long,
+      expected: Long,
+  ): Future[Assertion] = {
+    checkCountThroughFlowForLabels(messages, metricExtractor, expected)
+  }
+
+  private def checkCountThroughFlow(
       message: Message,
-      metricExtractor: TestMetrics => Long,
+      metricExtractor: (TestMetrics, Seq[(String, String)]) => Long,
       expected: Long,
   ): Future[Assertion] = {
     checkCountThroughFlow(List(message), metricExtractor, expected)
@@ -334,10 +389,16 @@ object WebSocketMetricsSpec extends MetricValues {
       messagesSentBytesTotal: Meter,
   ) {
 
-    def messagesReceivedTotalValue: Long = messagesReceivedTotal.value
-    def messagesReceivedBytesTotalValue: Long = messagesReceivedBytesTotal.value
-    def messagesSentTotalValue: Long = messagesSentTotal.value
-    def messagesSentBytesTotalValue: Long = messagesSentBytesTotal.value
+    import TestMetrics._
+
+    def messagesReceivedTotalValue(labels: (String, String)*): Long =
+      getCurrentValue(messagesReceivedTotal, labels: _*)
+    def messagesReceivedBytesTotalValue(labels: (String, String)*): Long =
+      getCurrentValue(messagesReceivedBytesTotal, labels: _*)
+    def messagesSentTotalValue(labels: (String, String)*): Long =
+      getCurrentValue(messagesSentTotal, labels: _*)
+    def messagesSentBytesTotalValue(labels: (String, String)*): Long =
+      getCurrentValue(messagesSentBytesTotal, labels: _*)
 
   }
 

@@ -5,13 +5,14 @@ package com.daml.metrics.akkahttp
 
 import akka.stream.scaladsl.{Source, Flow, Sink}
 import akka.util.ByteString
-import akka.http.scaladsl.model.{RequestEntity, ResponseEntity, HttpEntity}
-import akka.http.scaladsl.server.{Directive, Route}
+import akka.http.scaladsl.model.{RequestEntity, ResponseEntity, HttpEntity, HttpResponse}
+import akka.http.scaladsl.server.{Directive, Route, RouteResult}
 import akka.http.scaladsl.server.RouteResult._
 import com.daml.metrics.api.MetricHandle.{Meter, Timer}
 import com.daml.metrics.api.MetricsContext
 import scala.concurrent.ExecutionContext
 import scala.util.Success
+import scala.util.Try
 
 // Support to capture metrics on akka http
 object AkkaHttpMetrics {
@@ -28,8 +29,21 @@ object AkkaHttpMetrics {
       latency: Timer,
       requestsPayloadBytesTotal: Meter,
       responsesPayloadBytesTotal: Meter,
-  )(implicit ec: ExecutionContext, mc: MetricsContext) =
+  )(implicit ec: ExecutionContext) =
     Directive { (fn: Unit => Route) => ctx =>
+      // Creates MetricsContext.
+      val baseLabels = Map[String, String](
+        ("http_verb", ctx.request.method.name),
+        ("path", ctx.request.uri.path.toString),
+      )
+      val host = ctx.request.uri.authority.host
+      val labelsWithHost =
+        if (host.isEmpty)
+          baseLabels
+        else
+          baseLabels + (("host", host.address))
+      implicit val baseMetricsContext: MetricsContext = MetricsContext(labelsWithHost)
+
       // process the query, using a copy of the httpRequest, with size metric computation
       val newCtx = ctx.withRequest(
         ctx.request.withEntity(
@@ -41,21 +55,12 @@ object AkkaHttpMetrics {
       result.transform { result =>
         result match {
           case Success(Complete(httpResponse)) =>
-            // record request
-            requestsTotal.mark()
-            if (httpResponse.status.isFailure)
-              // record failure
-              errorsTotal.mark()
-            // return a copy of the httpResponse, with size metric computation
-            Success(
-              Complete(
-                httpResponse.withEntity(
-                  responseEntityContentLengthReportMetric(
-                    httpResponse.entity,
-                    responsesPayloadBytesTotal,
-                  )
-                )
-              )
+            metricsWithHttpResponse(
+              requestsTotal,
+              errorsTotal,
+              responsesPayloadBytesTotal,
+              httpResponse,
+              labelsWithHost,
             )
           case _ =>
             // record request and failure
@@ -66,6 +71,32 @@ object AkkaHttpMetrics {
       }
 
     }
+
+  // Split method needed to be able to define a new implicit MetricsContext value.
+  private def metricsWithHttpResponse(
+      requestsTotal: Meter,
+      errorsTotal: Meter,
+      responsesPayloadBytesTotal: Meter,
+      httpResponse: HttpResponse,
+      labelsWithHost: Map[String, String],
+  ): Try[RouteResult] = {
+    implicit val metricsContextWithHttpStatus: MetricsContext = MetricsContext(
+      labelsWithHost + (("http_status", httpResponse.status.intValue.toString))
+    )
+    // record request
+    requestsTotal.mark()
+    if (httpResponse.status.isFailure)
+      // record failure
+      errorsTotal.mark()
+    // return a copy of the httpResponse, with size metric computation
+    Success(
+      Complete(
+        httpResponse.withEntity(
+          responseEntityContentLengthReportMetric(httpResponse.entity, responsesPayloadBytesTotal)
+        )
+      )
+    )
+  }
 
   // Support for computation and reporting of the size of a requestEntity.
   // For non-strict content, creates a copy of the requestEntity, with embedded support.
