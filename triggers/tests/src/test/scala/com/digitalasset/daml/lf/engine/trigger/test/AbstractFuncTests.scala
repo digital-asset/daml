@@ -260,13 +260,7 @@ abstract class AbstractFuncTests
           // 3 failed completion for exercises
           // 1 for create of Done
           // 1 for corresponding completion
-          _ <- runner
-            .runWithACS(
-              acs,
-              offset,
-              msgFlow = Flow[TriggerMsg].take(7),
-            )
-            ._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(7))._2
           acs <- queryACS(client, party)
         } yield {
           acs(tId) should have length 1
