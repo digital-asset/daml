@@ -46,6 +46,9 @@ da_scala_library(
         "@maven//:org_typelevel_cats_core",
     ],
     visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:org_postgresql_postgresql",
+    ],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/language",
