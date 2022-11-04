@@ -29,7 +29,10 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.trigger.Runner.submissionRestartSettings
+import com.daml.lf.engine.trigger.Runner.{
+  StatusRuntimeExceptionWithCommandId,
+  submissionRestartSettings,
+}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -51,7 +54,6 @@ import com.typesafe.scalalogging.StrictLogging
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
-import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.{-\/, Tag, \/, \/-}
 
@@ -715,16 +717,18 @@ class Runner(
     } yield (acsResponses.flatMap(x => x.activeContracts), offset)
   }
 
-  private final case class StatusRuntimeExceptionWithCommandId(
-      commandId: String,
-      failure: StatusRuntimeException,
-  ) extends Throwable
-
   private[this] def submitOrFail(implicit
       ec: ExecutionContext
   ): Flow[SubmitRequest, SingleCommandFailure, NotUsed] = {
     import io.grpc.Status.Code
 
+    @SuppressWarnings(
+      Array(
+        "org.wartremover.warts.JavaSerializable",
+        "org.wartremover.warts.Serializable",
+        "org.wartremover.warts.Product",
+      )
+    )
     def submit(request: SubmitRequest): Future[Option[SingleCommandFailure]] =
       client.commandClient
         .submitSingleCommand(request)
@@ -814,6 +818,11 @@ object Runner extends StrictLogging {
   private val submissionRestartSettings =
     RestartSettings(minTriesBackoff, maxTriesBackoff, jitterTries)
       .withMaxRestarts(maxTriesWhenOverloaded, withinTriesBackoff)
+
+  private final case class StatusRuntimeExceptionWithCommandId(
+      commandId: String,
+      failure: StatusRuntimeException,
+  ) extends Throwable
 
   // Return the time provider for a given time provider type.
   def getTimeProvider(ty: TimeProviderType): TimeProvider = {

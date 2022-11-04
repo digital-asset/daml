@@ -130,7 +130,6 @@ da_scala_library(
                 "FuncTestsWallClock",
                 "Jwt",
                 "Tls",
-                "RunnerSpec",
                 "UnfoldStateSpec",
                 "ConfigSpec",
             ] + (["DevOnly"] if lf_version else [])
