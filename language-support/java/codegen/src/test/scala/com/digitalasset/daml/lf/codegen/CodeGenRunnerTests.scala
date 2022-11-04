@@ -4,13 +4,13 @@
 package com.daml.lf.codegen
 
 import java.nio.file.Path
-
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref._
 import com.daml.lf.typesig._
 import com.daml.lf.codegen.conf.PackageReference
+import com.daml.lf.language.Reference
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
@@ -42,6 +42,20 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     assert(scope.toBeGenerated === Set.empty)
   }
 
+  // Test case reproducing #15341
+  it should "read interfaces from 2 DAR files with same dependencies but one with different daml compiler version" in {
+
+    val scope =
+      CodeGenRunner.configureCodeGenScope(
+        Map(testDar -> None, testDarWithSameDependenciesButDifferentTargetVersion -> None),
+        Map.empty,
+      )
+
+    assert(scope.signatures.length === 28)
+    assert(scope.packagePrefixes === Map.empty)
+    assert(scope.toBeGenerated === Set.empty)
+  }
+
   it should "read interfaces from a single DAR file with a prefix" in {
 
     val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> Some("PREFIX")), Map.empty)
@@ -54,38 +68,75 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   behavior of "detectModuleCollisions"
 
+  private def moduleIdSet(signatures: Seq[PackageSignature]): Set[Reference.Module] = {
+    (for {
+      s <- signatures
+      module <- s.typeDecls.keySet.map(_.module)
+    } yield Reference.Module(s.packageId, module)).toSet
+  }
+
   it should "succeed if there are no collisions" in {
+    val signatures = Seq(interface("pkg1", "A", "A.B"), interface("pkg2", "B", "A.B.C"))
     assert(
       CodeGenRunner.detectModuleCollisions(
         Map.empty,
-        Seq(interface("pkg1", "A", "A.B"), interface("pkg2", "B", "A.B.C")),
+        signatures,
+        moduleIdSet(signatures),
       ) === ()
     )
   }
 
   it should "fail if there is a collision" in {
+    val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
     assertThrows[IllegalArgumentException] {
       CodeGenRunner.detectModuleCollisions(
         Map.empty,
-        Seq(interface("pkg1", "A"), interface("pkg2", "A")),
+        signatures,
+        moduleIdSet(signatures),
       )
     }
   }
 
   it should "fail if there is a collision caused by prefixing" in {
+    val signatures = Seq(interface("pkg1", "A.B"), interface("pkg2", "B"))
     assertThrows[IllegalArgumentException] {
       CodeGenRunner.detectModuleCollisions(
         Map(PackageId.assertFromString("pkg2") -> "A"),
         Seq(interface("pkg1", "A.B"), interface("pkg2", "B")),
+        moduleIdSet(signatures),
       )
     }
   }
 
   it should "succeed if collision is resolved by prefixing" in {
+    val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
     assert(
       CodeGenRunner.detectModuleCollisions(
         Map(PackageId.assertFromString("pkg2") -> "Pkg2"),
-        Seq(interface("pkg1", "A"), interface("pkg2", "A")),
+        signatures,
+        moduleIdSet(signatures),
+      ) === ()
+    )
+  }
+
+  it should "succeed if there is a collisions on modules which are not to be generated" in {
+    val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
+    assert(
+      CodeGenRunner.detectModuleCollisions(
+        Map.empty,
+        signatures,
+        Set.empty,
+      ) === ()
+    )
+  }
+
+  it should "succeed if same module name between a module not to be generated and a module to be generated " in {
+    val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
+    assert(
+      CodeGenRunner.detectModuleCollisions(
+        Map.empty,
+        signatures,
+        Set(Reference.Module(PackageId.assertFromString("pkg1"), ModuleName.assertFromString("A"))),
       ) === ()
     )
   }
@@ -112,6 +163,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
         pkgPrefixes,
         modulePrefixes,
         Seq(interface1, interface2, interface3),
+        moduleIdSet(Seq(interface1, interface2, interface3)),
       ) ===
         Map(pkg1 -> "com.pkg1", pkg2 -> "com.pkg2.a.b", pkg3 -> "c.d")
     )
@@ -122,7 +174,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     val modulePrefixes =
       Map[PackageReference, String](PackageReference.NameVersion(name2, version) -> "A.B")
     assertThrows[IllegalArgumentException] {
-      CodeGenRunner.resolvePackagePrefixes(Map.empty, modulePrefixes, Seq.empty)
+      CodeGenRunner.resolvePackagePrefixes(Map.empty, modulePrefixes, Seq.empty, Set.empty)
     }
   }
 }
@@ -132,9 +184,13 @@ object CodeGenRunnerTests {
   private[this] val testDarPath = "language-support/java/codegen/test-daml.dar"
   private[this] val testDarWithSameDependenciesPath =
     "language-support/java/codegen/test-daml-with-same-dependencies.dar"
+  private[this] val testDarWithSameDependenciesButDifferentTargetVersionPath =
+    "language-support/java/codegen/test-daml-with-same-dependencies-but-different-target-version.dar"
   private val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
   private val testDarWithSameDependencies =
     Path.of(BazelRunfiles.rlocation(testDarWithSameDependenciesPath))
+  private val testDarWithSameDependenciesButDifferentTargetVersion =
+    Path.of(BazelRunfiles.rlocation(testDarWithSameDependenciesButDifferentTargetVersionPath))
   private val dar = DarReader.assertReadArchiveFromFile(testDar.toFile)
 
   private def interface(pkgId: String, modNames: String*): PackageSignature =
