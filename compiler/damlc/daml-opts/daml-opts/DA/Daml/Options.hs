@@ -457,8 +457,13 @@ locateGhcVersionHeader = GhcVersionHeader <$> locateResource Resource
 
 locateCppPath :: IO (Maybe FilePath)
 locateCppPath = do
-    resourcesDir <- locateRunfiles $ "stackage" </> "hpp-0.6.4" </> "_install" </> "bin"
-    let path  = resourcesDir </> exe "hpp"
+    path <- locateResource Resource
+      { runfilesPath = "stackage" </> "hpp-0.6.4" </> "_install" </> "bin" </> exe "hpp"
+      , resourcesPath = exe "hpp"
+        -- In a packaged application, the executable is stored directly underneath
+        -- the resources directory because //compiler/damlc:hpp-dist produces a
+        -- tarball which has the executable directly under the top directory.
+      }
     exists <- doesFileExist path
     pure (guard exists >> Just path)
 
