@@ -3,8 +3,6 @@
 
 package com.daml.platform.apiserver
 
-import java.net.{InetAddress, InetSocketAddress}
-
 import akka.pattern.after
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
@@ -13,18 +11,15 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.akka.ServerAdapter
 import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
 import com.daml.grpc.sampleservice.HelloServiceResponding
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
+import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingServerInterceptors}
+import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.MetricsInterceptorSpec._
-import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.platform.testing.StreamConsumer
-import com.daml.ports.Port
-import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
-import io.grpc.{BindableService, Channel, Server, ServerInterceptor, ServerServiceDefinition}
+import io.grpc.{BindableService, Channel, ServerServiceDefinition}
 import io.opentelemetry.api.GlobalOpenTelemetry
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -124,29 +119,8 @@ final class MetricsInterceptorSpec
 object MetricsInterceptorSpec {
 
   def serverWithMetrics(metrics: Metrics, service: BindableService): ResourceOwner[Channel] =
-    for {
-      server <- serverOwner(new MetricsInterceptor(metrics), service)
-      channel <- GrpcClientResource.owner(Port(server.getPort))
-    } yield channel
-
-  private def serverOwner(
-      interceptor: ServerInterceptor,
-      service: BindableService,
-  ): ResourceOwner[Server] =
-    new ResourceOwner[Server] {
-      def acquire()(implicit context: ResourceContext): Resource[Server] =
-        Resource(Future {
-          val server =
-            NettyServerBuilder
-              .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0))
-              .directExecutor()
-              .intercept(interceptor)
-              .addService(service)
-              .build()
-          server.start()
-          server
-        })(server => Future(server.shutdown().awaitTermination()))
-    }
+    TestingServerInterceptors
+      .channelOwner(new MetricsInterceptor(metrics), service)
 
   private final class DelayedHelloService(delay: FiniteDuration)(implicit
       executionSequencerFactory: ExecutionSequencerFactory,

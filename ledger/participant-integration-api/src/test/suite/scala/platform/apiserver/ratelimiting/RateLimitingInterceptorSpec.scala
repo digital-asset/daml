@@ -3,29 +3,31 @@
 
 package com.daml.platform.apiserver.ratelimiting
 
+import java.io.IOException
+import java.lang.management._
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+
 import com.codahale.metrics.MetricRegistry
 import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.api.health.HealthChecks.ComponentName
 import com.daml.ledger.api.health.{HealthChecks, ReportsHealth}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
+import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.LimitResult.LimitResultCheck
 import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
-import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.platform.server.api.services.grpc.GrpcHealthService
-import com.daml.ports.Port
+import com.daml.ledger.api.testing.utils.TestingServerInterceptors.channelOwner
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf.ByteString
 import io.grpc.Status.Code
 import io.grpc._
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
-import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.grpc.reflection.v1alpha.{
   ServerReflectionGrpc,
@@ -33,18 +35,13 @@ import io.grpc.reflection.v1alpha.{
   ServerReflectionResponse,
 }
 import io.grpc.stub.StreamObserver
+import io.opentelemetry.api.GlobalOpenTelemetry
 import org.mockito.MockitoSugar
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Second, Span}
 import org.slf4j.LoggerFactory
-import java.io.IOException
-import java.lang.management._
-import java.net.{InetAddress, InetSocketAddress}
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
-
-import io.opentelemetry.api.GlobalOpenTelemetry
 
 import scala.concurrent.{Future, Promise}
 
@@ -435,32 +432,10 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
       memoryBean: MemoryMXBean = ManagementFactory.getMemoryMXBean,
       additionalChecks: List[LimitResultCheck] = List.empty,
   ): ResourceOwner[Channel] =
-    for {
-      server <- serverOwner(
-        RateLimitingInterceptor(metrics, config, pool, memoryBean, additionalChecks),
-        service,
-      )
-      channel <- GrpcClientResource.owner(Port(server.getPort))
-    } yield channel
-
-  def serverOwner(
-      interceptor: ServerInterceptor,
-      service: BindableService,
-  ): ResourceOwner[Server] =
-    new ResourceOwner[Server] {
-      def acquire()(implicit context: ResourceContext): Resource[Server] =
-        Resource(Future {
-          val server =
-            NettyServerBuilder
-              .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0))
-              .directExecutor()
-              .intercept(interceptor)
-              .addService(service)
-              .build()
-          server.start()
-          server
-        })(server => Future(server.shutdown().awaitTermination()))
-    }
+    channelOwner(
+      RateLimitingInterceptor(metrics, config, pool, memoryBean, additionalChecks),
+      service,
+    )
 
   /** By default [[HelloServiceReferenceImplementation]] will return all elements and complete the stream on
     * the server side on every request.  For stream based rate limiting we want to explicitly hold open
