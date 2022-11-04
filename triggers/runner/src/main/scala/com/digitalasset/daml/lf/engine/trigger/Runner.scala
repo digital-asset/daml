@@ -736,14 +736,14 @@ class Runner(
           Source.future {
             client.commandClient
               .submitSingleCommand(request)
-              // Ensure all StatusRuntimeException's have the request's command ID recorded for post-restart flow transformation
+              // Ensure all StatusRuntimeException's have the request's command ID recorded for post-submission flow transformation
               .transform(
                 _ => None,
                 { case failure: StatusRuntimeException =>
                   StatusRuntimeExceptionWithCommandId(request.getCommands.commandId, failure)
                 },
               )
-              // Ensure the following StatusRuntimeException's are emitted and do not cause the Flow to restart
+              // Ensure the following StatusRuntimeException's are emitted and do not cause the outer source to restart
               .recover {
                 case StatusRuntimeExceptionWithCommandId(_, s)
                     if s.getStatus.getCode == Code.RESOURCE_EXHAUSTED =>
