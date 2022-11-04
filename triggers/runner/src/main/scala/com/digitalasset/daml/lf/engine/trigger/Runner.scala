@@ -802,6 +802,7 @@ object Runner extends StrictLogging {
   val maxTriesWhenOverloaded = 6
   val minTriesBackoff: FiniteDuration = 250.milliseconds
   val maxTriesBackoff: FiniteDuration = 8.seconds
+  val withinTriesBackoff: FiniteDuration = 15750.milliseconds
 
   /** Percentage jitter (expressed as a value in the unit interval [0, 1]) to add to
     * each backoff duration
@@ -810,7 +811,7 @@ object Runner extends StrictLogging {
 
   private val submissionRestartSettings =
     RestartSettings(minTriesBackoff, maxTriesBackoff, jitterTries)
-      .withMaxRestarts(maxTriesWhenOverloaded, maxTriesBackoff)
+      .withMaxRestarts(maxTriesWhenOverloaded, withinTriesBackoff)
 
   // Return the time provider for a given time provider type.
   def getTimeProvider(ty: TimeProviderType): TimeProvider = {
