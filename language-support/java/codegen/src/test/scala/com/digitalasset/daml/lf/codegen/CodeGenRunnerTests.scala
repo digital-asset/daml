@@ -50,7 +50,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
         Map.empty,
       )
 
-    assert(scope.signatures.length === 26)
+    assert(scope.signatures.length === 28)
     assert(scope.packagePrefixes === Map.empty)
     assert(scope.toBeGenerated === Set.empty)
   }
@@ -67,12 +67,12 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   behavior of "detectModuleCollisions"
 
-//  private def moduleIdSet(signatures: Seq[PackageSignature]) = {
-//    for {
-//      s <- signatures
-//      module <- s.typeDecls.keySet.map(_.module)
-//    } yield (s.packageId, module)
-//  }
+  private def moduleIdSet(signatures: Seq[PackageSignature]) = {
+    (for {
+      s <- signatures
+      module <- s.typeDecls.keySet.map(_.module)
+    } yield ModuleId(s.packageId, module)).toSet
+  }
 
   it should "succeed if there are no collisions" in {
     val signatures = Seq(interface("pkg1", "A", "A.B"), interface("pkg2", "B", "A.B.C"))
@@ -80,7 +80,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       CodeGenRunner.detectModuleCollisions(
         Map.empty,
         signatures,
-        // moduleIdSet(signatures),
+        moduleIdSet(signatures),
       ) === ()
     )
   }
@@ -91,18 +91,18 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       CodeGenRunner.detectModuleCollisions(
         Map.empty,
         signatures,
-        // moduleIdSet(signatures),
+        moduleIdSet(signatures),
       )
     }
   }
 
   it should "fail if there is a collision caused by prefixing" in {
-//    val signatures = Seq(interface("pkg1", "A.B"), interface("pkg2", "B"))
+    val signatures = Seq(interface("pkg1", "A.B"), interface("pkg2", "B"))
     assertThrows[IllegalArgumentException] {
       CodeGenRunner.detectModuleCollisions(
         Map(PackageId.assertFromString("pkg2") -> "A"),
         Seq(interface("pkg1", "A.B"), interface("pkg2", "B")),
-        // moduleIdSet(signatures),
+        moduleIdSet(signatures),
       )
     }
   }
@@ -113,7 +113,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       CodeGenRunner.detectModuleCollisions(
         Map(PackageId.assertFromString("pkg2") -> "Pkg2"),
         signatures,
-        // moduleIdSet(signatures),
+        moduleIdSet(signatures),
       ) === ()
     )
   }
@@ -124,7 +124,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       CodeGenRunner.detectModuleCollisions(
         Map.empty,
         signatures,
-        // Set.empty,
+        Set.empty,
       ) === ()
     )
   }
@@ -135,7 +135,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       CodeGenRunner.detectModuleCollisions(
         Map.empty,
         signatures,
-        // Set(ModuleId(PackageId.assertFromString("pkg1"), ModuleName.assertFromString("A")))
+        Set(ModuleId(PackageId.assertFromString("pkg1"), ModuleName.assertFromString("A"))),
       ) === ()
     )
   }
@@ -162,6 +162,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
         pkgPrefixes,
         modulePrefixes,
         Seq(interface1, interface2, interface3),
+        moduleIdSet(Seq(interface1, interface2, interface3)),
       ) ===
         Map(pkg1 -> "com.pkg1", pkg2 -> "com.pkg2.a.b", pkg3 -> "c.d")
     )
@@ -172,7 +173,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     val modulePrefixes =
       Map[PackageReference, String](PackageReference.NameVersion(name2, version) -> "A.B")
     assertThrows[IllegalArgumentException] {
-      CodeGenRunner.resolvePackagePrefixes(Map.empty, modulePrefixes, Seq.empty)
+      CodeGenRunner.resolvePackagePrefixes(Map.empty, modulePrefixes, Seq.empty, Set.empty)
     }
   }
 }

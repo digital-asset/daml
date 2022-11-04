@@ -10,7 +10,7 @@ import com.daml.lf.archive.DarParser
 import com.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass, fullyQualifiedName}
 import com.daml.lf.codegen.conf.{Conf, PackageReference}
 import com.daml.lf.codegen.dependencygraph.DependencyGraph
-import com.daml.lf.data.Ref.{Identifier, ModuleId, ModuleName, PackageId}
+import com.daml.lf.data.Ref.{Identifier, ModuleId, PackageId}
 import com.daml.lf.typesig.reader.{Errors, SignatureReader}
 import com.daml.lf.typesig.{EnvironmentSignature, PackageSignature}
 import PackageSignature.TypeDecl
@@ -167,7 +167,9 @@ object CodeGenRunner extends StrictLogging {
     val generatedModuleIds: Set[ModuleId] = (
       transitiveClosure.serializableTypes.map(_._1) ++
         transitiveClosure.interfaces.map(_._1)
-    ).toSet.map(id => ModuleId(id.packageId, id.qualifiedName.module))
+    ).toSet.map { id: Identifier =>
+      ModuleId(id.packageId, id.qualifiedName.module)
+    }
 
     val resolvedSignatures = resolveRetroInterfaces(signatures)
 
