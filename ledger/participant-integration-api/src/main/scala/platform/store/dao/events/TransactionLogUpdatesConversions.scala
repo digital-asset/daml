@@ -80,7 +80,7 @@ private[events] object TransactionLogUpdatesConversions {
         eventProjectionProperties,
         lfValueTranslation,
       )
-        .map(transaction => GetTransactionsResponse(Seq(transaction)).precomputeSerializedSize())
+        .map(transaction => GetTransactionsResponse(Seq(transaction)).withPrecomputedSerializedSize())
 
     def toGetFlatTransactionResponse(
         transactionLogUpdate: TransactionLogUpdate,
@@ -249,7 +249,7 @@ private[events] object TransactionLogUpdatesConversions {
         executionContext: ExecutionContext,
     ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionTreesResponse] =
       toTransactionTree(_, requestingParties, eventProjectionProperties, lfValueTranslation)
-        .map(txTree => GetTransactionTreesResponse(Seq(txTree)).precomputeSerializedSize())
+        .map(txTree => GetTransactionTreesResponse(Seq(txTree)).withPrecomputedSerializedSize())
 
     private def toTransactionTree(
         transactionAccepted: TransactionLogUpdate.TransactionAccepted,

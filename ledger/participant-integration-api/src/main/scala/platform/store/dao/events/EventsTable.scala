@@ -55,7 +55,7 @@ object EventsTable {
         events: Vector[Entry[Event]]
     ): List[GetTransactionsResponse] =
       flatTransaction(events).toList.map(tx =>
-        GetTransactionsResponse(Seq(tx)).precomputeSerializedSize()
+        GetTransactionsResponse(Seq(tx)).withPrecomputedSerializedSize()
       )
 
     def toGetFlatTransactionResponse(
@@ -74,7 +74,7 @@ object EventsTable {
             offset = "", // only the last response will have an offset.
             workflowId = entry.workflowId,
             activeContracts = Seq(entry.event.getCreated),
-          ).precomputeSerializedSize()
+          ).withPrecomputedSerializedSize()
         case entry =>
           throw IndexErrors.DatabaseErrors.ResultSetError
             .Reject(
@@ -139,7 +139,7 @@ object EventsTable {
         events: Vector[Entry[TreeEvent]]
     ): List[GetTransactionTreesResponse] =
       transactionTree(events).toList.map(tx =>
-        GetTransactionTreesResponse(Seq(tx)).precomputeSerializedSize()
+        GetTransactionTreesResponse(Seq(tx)).withPrecomputedSerializedSize()
       )
 
     def toGetTransactionResponse(

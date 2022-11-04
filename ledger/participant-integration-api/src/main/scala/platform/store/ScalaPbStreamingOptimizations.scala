@@ -29,7 +29,7 @@ object ScalaPbStreamingOptimizations {
       *
       * @return A new message [[scalapb.GeneratedMessage]] with precomputed serializedSize.
       */
-    def precomputeSerializedSize(): ScalaPbMsg =
+    def withPrecomputedSerializedSize(): ScalaPbMsg =
       scalaPbMsg.tap(_.serializedSize)
   }
 }
