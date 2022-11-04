@@ -29,6 +29,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.trigger.Runner.submissionRestartSettings
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -48,7 +49,7 @@ import com.daml.script.converter.ConverterException
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
 import com.typesafe.scalalogging.StrictLogging
-import io.grpc.Status.Code
+import io.grpc.Status.UNAVAILABLE
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
@@ -385,14 +386,7 @@ class Runner(
     }
   }
 
-  import Runner.{
-    DamlFun,
-    SingleCommandFailure,
-    maxParallelSubmissionsPerTrigger,
-    maxTriesWhenOverloaded,
-    overloadedRetryDelay,
-    retrying,
-  }
+  import Runner.{DamlFun, SingleCommandFailure, maxParallelSubmissionsPerTrigger}
 
   @throws[RuntimeException]
   private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
@@ -726,7 +720,10 @@ class Runner(
   private[this] def submitOrFail(implicit
       ec: ExecutionContext
   ): Flow[SubmitRequest, SingleCommandFailure, NotUsed] = {
-    def submit(req: SubmitRequest) = {
+    import io.grpc.Status.Code
+    import Code.RESOURCE_EXHAUSTED
+
+    def submit(req: SubmitRequest): Future[Option[SingleCommandFailure]] = {
       val f: Future[Empty] = client.commandClient
         .submitSingleCommand(req)
       f.map(_ => None).recover {
@@ -737,23 +734,20 @@ class Runner(
         // any other error will cause the trigger's stream to fail
       }
     }
-    import io.grpc.Status.Code
-    import Code.RESOURCE_EXHAUSTED
-    def retryableSubmit(req: SubmitRequest) =
-      submit(req).map {
-        case Some(SingleCommandFailure(_, s))
-            if (s.getStatus.getCode: Code) == (RESOURCE_EXHAUSTED: Code) =>
-          None
-        case z => Some(z)
-      }
-    retrying(
-      initialTries = maxTriesWhenOverloaded,
-      backoff = overloadedRetryDelay,
-      parallelism = maxParallelSubmissionsPerTrigger,
-      retryableSubmit,
-      submit,
-    )
-      .collect { case Some(err) => err }
+
+//    def retryableSubmit(req: SubmitRequest): Future[Option[Option[SingleCommandFailure]]] =
+//      submit(req).map {
+//        case Some(SingleCommandFailure(_, s))
+//            if (s.getStatus.getCode: Code) == (RESOURCE_EXHAUSTED: Code) =>
+//          None
+//        case z => Some(z)
+//      }
+
+    RestartFlow.onFailuresWithBackoff(submissionRestartSettings) { () =>
+      Flow[SubmitRequest]
+        .mapAsync(maxParallelSubmissionsPerTrigger)(submit)
+        .collect { case Some(error) => error }
+    }
   }
 
   // Run the trigger given the state of the ACS. The msgFlow argument
@@ -789,9 +783,17 @@ object Runner extends StrictLogging {
     */
   val maxParallelSubmissionsPerTrigger = 8
   val maxTriesWhenOverloaded = 6
+  val minTriesBackoff: FiniteDuration = 250.milliseconds
+  val maxTriesBackoff: FiniteDuration = 8.seconds
 
-  private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
-    (250 * (1 << (afterTries - 1))).milliseconds
+  /** Percentage jitter (expressed as a value in the unit interval [0, 1]) to add to
+    * each backoff duration
+    */
+  val jitterTries = 0.2
+
+  private val submissionRestartSettings =
+    RestartSettings(minTriesBackoff, maxTriesBackoff, jitterTries)
+      .withMaxRestarts(maxTriesWhenOverloaded, maxTriesBackoff)
 
   // Return the time provider for a given time provider type.
   def getTimeProvider(ty: TimeProviderType): TimeProvider = {
@@ -804,34 +806,6 @@ object Runner extends StrictLogging {
 
   private object DamlFun {
     def unapply(v: SPAP): Some[SPAP] = Some(v)
-  }
-
-  /** Like `CommandRetryFlow` but with no notion of ledger time, and with
-    * delay support.  Note that only the future succeeding with `None`
-    * indicates that a retry should be attempted; a failed future propagates
-    * to the stream.
-    */
-  private[trigger] def retrying[A, B](
-      initialTries: Int,
-      backoff: Int => FiniteDuration,
-      parallelism: Int,
-      retryable: A => Future[Option[B]],
-      notRetryable: A => Future[B],
-  )(implicit ec: ExecutionContext): Flow[A, B, NotUsed] = {
-    def trial(tries: Int, value: A): Future[B] =
-      if (tries <= 1) notRetryable(value)
-      else
-        retryable(value).flatMap(
-          _.cata(
-            Future.successful, {
-              Future {
-                try Thread.sleep(backoff(initialTries - tries + 1).toMillis)
-                catch { case _: InterruptedException => }
-              }.flatMap(_ => trial(tries - 1, value))
-            },
-          )
-        )
-    Flow[A].mapAsync(parallelism)(trial(initialTries, _))
   }
 
   private final case class SingleCommandFailure(commandId: String, s: StatusRuntimeException)
