@@ -21,7 +21,6 @@ module DA.Daml.Options.Types
     , ModRenaming(..)
     , PackageArg(..)
     , defaultOptions
-    , getBaseDir
     , damlArtifactDir
     , projectPackageDatabase
     , projectDependenciesDatabase
@@ -257,9 +256,6 @@ defaultOptions mbVersion =
         , optAccessTokenPath = Nothing
         , optAllowLargeTuples = AllowLargeTuples False
         }
-
-getBaseDir :: IO FilePath
-getBaseDir = locateRunfiles (mainWorkspace </> "compiler/damlc")
 
 pkgNameVersion :: LF.PackageName -> Maybe LF.PackageVersion -> UnitId
 pkgNameVersion (LF.PackageName n) mbV =
