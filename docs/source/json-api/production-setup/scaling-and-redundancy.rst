@@ -15,7 +15,33 @@ the core components listed above.
 The general principles of scaling apply here: Try to
 understand the bottlenecks and see if adding additional processing power/memory helps.
 
-The *HTTP JSON API* can be scaled independently of its query store.
+
+Scaling creates and exercises
+*****************************
+
+The JSON API provides simple, synchronous endpoints for carrying out creates and exercises on the ledger.
+It does not support the complex multi-command asynchronous submission protocols supported by the ledger API.
+
+For performing large numbers of creates and exercises at once, while you can perform many HTTP requests at once to carry out this task, it may be simpler and more concurrent-safe to shift more of this logic into a Daml choice that can be exercised.
+
+The pattern looks like this:
+
+1. Have a contract with a key and one or more choices on the ledger.
+2. Such a choice can carry out as many creates and exercises as desired; all of these will take place in a single transaction.
+3. Use the JSON API to exercise this choice by key.
+
+It's possible to go too far in the other direction: any error will usually cause the whole transaction to roll back, so an excessively large amount of work done by a single choice can also cause needless retrying.
+You can solve this by batching requests, or using :doc:`/daml/intro/8_Exceptions` to collect and return failed cases to the JSON API client for retrying, allowing successful parts of the batch to proceed.
+
+
+Scaling queries
+***************
+
+The :doc:`query-store` is a key factor of efficient queries.
+However, it behaves very differently depending on the characteristics of the underlying ledger, Daml application, and client query patterns.
+:doc:`Understanding how it works <query-store>` is a major prerequisite to understanding how the JSON API will interact with your application's performance profile.
+
+Additionally, the *HTTP JSON API* can be scaled independently of its query store.
 You can have any number of *HTTP JSON API* instances talking to the same query store
 (if, for example, your monitoring indicates that the *HTTP JSON API* processing time is the bottleneck),
 or have each HTTP JSON API instance talk to its own independent query store
