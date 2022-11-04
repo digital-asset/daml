@@ -121,9 +121,13 @@ instance NFData Error where
     rnf = rwhnf
 
 findServerJar :: IO FilePath
-findServerJar = do
-  runfilesDir <- locateRunfiles (mainWorkspace </> "compiler/scenario-service/server")
-  pure (runfilesDir </> "scenario-service.jar")
+findServerJar = locateResource Resource
+  { runfilesPath = mainWorkspace </> "compiler" </> "scenario-service" </> "server" </> "scenario-service.jar"
+  , resourcesPath = "scenario-service.jar"
+    -- In a packaged application, //compiler/scenario-service/server:scenario_service_jar
+    -- is stored directly underneath the resources directory because it's a single file.
+    -- See @bazel_tools/packaging/packaging.bzl@.
+  }
 
 -- | Return the 'CreateProcess' for running java.
 -- Uses 'java' from JAVA_HOME if set, otherwise calls java via
