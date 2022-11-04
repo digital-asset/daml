@@ -158,7 +158,7 @@ class WebsocketEndpoints(
       protocol: String,
   )(implicit lc: LoggingContextOf[InstanceUUID with RequestID], metrics: Metrics): HttpResponse = {
     val handler: Flow[Message, Message, _] =
-      WebSocketMetrics.withGoldenSignalsMetrics(
+      WebSocketMetrics.withRateSizeMetrics(
         metrics.daml.HttpJsonApi.websocketReceivedTotal,
         metrics.daml.HttpJsonApi.websocketReceivedBytesTotal,
         metrics.daml.HttpJsonApi.websocketSentTotal,

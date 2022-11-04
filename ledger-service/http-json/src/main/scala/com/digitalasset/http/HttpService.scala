@@ -217,16 +217,16 @@ object HttpService {
         client.identityClient,
       )
 
-      goldenSignalsMetrics = AkkaHttpMetrics.goldenSignalsMetrics(
+      rateDurationSizeMetrics = AkkaHttpMetrics.rateDurationSizeMetrics(
         metrics.daml.HttpJsonApi.httpRequestsTotal,
         metrics.daml.HttpJsonApi.httpErrorsTotal,
         metrics.daml.HttpJsonApi.httpLatency,
-        metrics.daml.HttpJsonApi.httpRequestsBytesTotal,
-        metrics.daml.HttpJsonApi.httpResponsesBytesTotal,
+        metrics.daml.HttpJsonApi.httpRequestsPayloadBytesTotal,
+        metrics.daml.HttpJsonApi.httpResponsesPayloadBytesTotal,
       )
 
       defaultEndpoints =
-        goldenSignalsMetrics apply concat(
+        rateDurationSizeMetrics apply concat(
           jsonEndpoints.all: Route,
           websocketEndpoints.transactionWebSocket,
         )

@@ -90,9 +90,9 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
     },
   )
 
-  private def routeWithGoldenSignalMetrics(route: Route, metrics: TestMetrics): Route = {
+  private def routeWithRateDurationSizeMetrics(route: Route, metrics: TestMetrics): Route = {
     implicit val mc: MetricsContext = MetricsContext.Empty
-    AkkaHttpMetrics.goldenSignalsMetrics(
+    AkkaHttpMetrics.rateDurationSizeMetrics(
       metrics.httpRequestsTotal,
       metrics.httpErrorsTotal,
       metrics.httpLatency,
@@ -104,7 +104,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
   // Provides an environment to perform the tests.
   private def withRouteAndMetrics[T](f: (Route, TestMetrics) => T): T = {
     val metrics = TestMetrics()
-    val routeWithMetrics = routeWithGoldenSignalMetrics(Route.seal(testRoute), metrics)
+    val routeWithMetrics = routeWithRateDurationSizeMetrics(Route.seal(testRoute), metrics)
     f(routeWithMetrics, metrics)
   }
 

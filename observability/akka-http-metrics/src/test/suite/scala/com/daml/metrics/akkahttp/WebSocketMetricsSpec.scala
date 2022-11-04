@@ -50,7 +50,7 @@ class AkkaHttpMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with 
       f: (Flow[Message, Message, _], TestMetrics) => T
   ): T = {
     val metrics = TestMetrics()
-    val duplicatingFlowWithMetrics = WebSocketMetrics.withGoldenSignalsMetrics(
+    val duplicatingFlowWithMetrics = WebSocketMetrics.withRateSizeMetrics(
       metrics.messagesReceivedTotal,
       metrics.messagesReceivedBytesTotal,
       metrics.messagesSentTotal,

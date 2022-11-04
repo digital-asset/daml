@@ -22,18 +22,18 @@ object AkkaHttpMetrics {
   //  - latency of the requests
   //  - size of the request payloads
   //  - size of the response payloads
-  def goldenSignalsMetrics(
+  def rateDurationSizeMetrics(
       requestsTotal: Counter,
       errorsTotal: Counter,
       latency: Timer,
-      requestBytesTotal: Counter,
-      responseBytesTotal: Counter,
+      requestsPayloadBytesTotal: Counter,
+      responsesPayloadBytesTotal: Counter,
   )(implicit ec: ExecutionContext, mc: MetricsContext) =
     Directive { (fn: Unit => Route) => ctx =>
       // process the query, using a copy of the httpRequest, with size metric computation
       val newCtx = ctx.withRequest(
         ctx.request.withEntity(
-          requestEntityContentLengthReportMetric(ctx.request.entity, requestBytesTotal)
+          requestEntityContentLengthReportMetric(ctx.request.entity, requestsPayloadBytesTotal)
         )
       )
       val result = latency.timeFuture(fn(())(newCtx))
@@ -50,7 +50,10 @@ object AkkaHttpMetrics {
             Success(
               Complete(
                 httpResponse.withEntity(
-                  responseEntityContentLengthReportMetric(httpResponse.entity, responseBytesTotal)
+                  responseEntityContentLengthReportMetric(
+                    httpResponse.entity,
+                    responsesPayloadBytesTotal,
+                  )
                 )
               )
             )

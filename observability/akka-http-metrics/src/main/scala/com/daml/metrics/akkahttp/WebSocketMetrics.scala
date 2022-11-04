@@ -18,7 +18,7 @@ object WebSocketMetrics {
   //  - size of the received messages
   //  - total number of sent messages
   //  - size of the sent messages
-  def withGoldenSignalsMetrics[M](
+  def withRateSizeMetrics[M](
       receivedTotal: Counter,
       receivedBytesTotal: Counter,
       sentTotal: Counter,
