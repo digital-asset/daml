@@ -1227,8 +1227,13 @@ dlintSettings (DlintEnabled DlintOptions {..}) = do
     where
       getDlintRulesFile :: DlintRulesFile -> IO FilePath
       getDlintRulesFile = \case
-        DefaultDlintRulesFile -> locateRunfiles $
-          mainWorkspace </> "compiler" </> "damlc" </> "daml-ide-core" </> "dlint.yaml"
+        DefaultDlintRulesFile -> locateResource Resource
+          { runfilesPath = mainWorkspace </> "compiler" </> "damlc" </> "daml-ide-core" </> "dlint.yaml"
+          , resourcesPath = "dlint.yaml"
+            -- In a packaged application, //compiler/damlc/daml-ide-core:dlint.yaml
+            -- is stored directly underneath the resources directory because it's a single file.
+            -- See @bazel_tools/packaging/packaging.bzl@.
+          }
         ExplicitDlintRulesFile path -> pure path
 
       getHintFiles :: DlintHintFiles -> IO [FilePath]
