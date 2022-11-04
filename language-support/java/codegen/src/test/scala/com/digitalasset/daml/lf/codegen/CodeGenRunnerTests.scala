@@ -54,38 +54,75 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   behavior of "detectModuleCollisions"
 
+//  private def moduleIdSet(signatures: Seq[PackageSignature]) = {
+//    for {
+//      s <- signatures
+//      module <- s.typeDecls.keySet.map(_.module)
+//    } yield (s.packageId, module)
+//  }
+
   it should "succeed if there are no collisions" in {
+    val signatures = Seq(interface("pkg1", "A", "A.B"), interface("pkg2", "B", "A.B.C"))
     assert(
       CodeGenRunner.detectModuleCollisions(
         Map.empty,
-        Seq(interface("pkg1", "A", "A.B"), interface("pkg2", "B", "A.B.C")),
+        signatures,
+        // moduleIdSet(signatures),
       ) === ()
     )
   }
 
   it should "fail if there is a collision" in {
+    val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
     assertThrows[IllegalArgumentException] {
       CodeGenRunner.detectModuleCollisions(
         Map.empty,
-        Seq(interface("pkg1", "A"), interface("pkg2", "A")),
+        signatures,
+        // moduleIdSet(signatures),
       )
     }
   }
 
   it should "fail if there is a collision caused by prefixing" in {
+//    val signatures = Seq(interface("pkg1", "A.B"), interface("pkg2", "B"))
     assertThrows[IllegalArgumentException] {
       CodeGenRunner.detectModuleCollisions(
         Map(PackageId.assertFromString("pkg2") -> "A"),
         Seq(interface("pkg1", "A.B"), interface("pkg2", "B")),
+        // moduleIdSet(signatures),
       )
     }
   }
 
   it should "succeed if collision is resolved by prefixing" in {
+    val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
     assert(
       CodeGenRunner.detectModuleCollisions(
         Map(PackageId.assertFromString("pkg2") -> "Pkg2"),
-        Seq(interface("pkg1", "A"), interface("pkg2", "A")),
+        signatures,
+        // moduleIdSet(signatures),
+      ) === ()
+    )
+  }
+
+  it should "succeed if there is a collisions on both modules which are not to be generated" in {
+    val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
+    assert(
+      CodeGenRunner.detectModuleCollisions(
+        Map.empty,
+        signatures,
+        // Set.empty,
+      ) === ()
+    )
+  }
+
+  it should "succeed if there is a collisions on one of modules which are not to be generated" in {
+    val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
+    assert(
+      CodeGenRunner.detectModuleCollisions(
+        Map.empty,
+        signatures,
+        // Set(ModuleId(PackageId.assertFromString("pkg1"), ModuleName.assertFromString("A")))
       ) === ()
     )
   }
