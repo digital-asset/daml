@@ -5,7 +5,7 @@ package com.daml.grpc.adapter.server.akka
 
 import akka.stream.scaladsl.Sink
 import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.CommonErrors
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.rs.ServerSubscriber
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
@@ -33,7 +33,7 @@ object ServerAdapter {
             case t: StatusException => t
             case t: StatusRuntimeException => t
             case _ =>
-              LedgerApiErrors.InternalError
+              CommonErrors.InternalError
                 .UnexpectedOrUnknownException(throwable)(errorLogger)
                 .asGrpcError
           }
@@ -55,5 +55,5 @@ object ServerAdapter {
 
   /** Used in [[com.daml.protoc.plugins.akka.AkkaGrpcServicePrinter]] */
   def closingError(): StatusRuntimeException =
-    LedgerApiErrors.ServerIsShuttingDown.Reject()(errorLogger).asGrpcError
+    CommonErrors.ServerIsShuttingDown.Reject()(errorLogger).asGrpcError
 }

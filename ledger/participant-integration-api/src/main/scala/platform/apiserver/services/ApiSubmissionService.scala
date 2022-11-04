@@ -5,7 +5,7 @@ package com.daml.platform.apiserver.services
 
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode.LoggedApiException
-import com.daml.error.definitions.{ErrorCause, LedgerApiErrors, RejectionGenerators}
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.{LedgerId, SubmissionId, Commands => ApiCommands}

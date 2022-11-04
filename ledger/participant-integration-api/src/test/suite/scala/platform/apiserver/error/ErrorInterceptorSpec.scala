@@ -7,9 +7,9 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import ch.qos.logback.classic.Level
-import com.daml.error.definitions.{DamlError, LedgerApiErrors}
-import com.daml.error.utils.ErrorDetails
 import com.daml.error._
+import com.daml.error.definitions.{CommonErrors, DamlError}
+import com.daml.error.utils.ErrorDetails
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -20,8 +20,8 @@ import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceAkkaGrp
 import com.daml.platform.testing.LogCollector.ThrowableEntry
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions, StreamConsumer}
 import com.daml.ports.Port
-import io.grpc.netty.NettyServerBuilder
 import io.grpc._
+import io.grpc.netty.NettyServerBuilder
 import org.scalatest.concurrent.Eventually
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -111,7 +111,7 @@ final class ErrorInterceptorSpec
         service.close()
         exerciseStreamingAkkaEndpoint(service)
           .map { t: StatusRuntimeException =>
-            assertMatchesErrorCode(t, LedgerApiErrors.ServerIsShuttingDown)
+            assertMatchesErrorCode(t, CommonErrors.ServerIsShuttingDown)
           }
       }
 

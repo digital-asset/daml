@@ -56,6 +56,7 @@ da_scala_library(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-auth-client",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-errors",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-local-store",

@@ -22,7 +22,12 @@ da_scala_library(
     visibility = [
         "//compiler/scenario-service:__subpackages__",
         "//daml-lf:__subpackages__",
-        "//ledger/error:__subpackages__",
+        # TODO https://github.com/digital-asset/daml/issues/15453
+        #      Extract the error types in separate package
+        #      in order to decouple the error definitions and participant-integration-api
+        #      from unnecessary daml-lf/validation dependencies
+        "//ledger/ledger-api-errors:__subpackages__",
+        "//ledger/participant-integration-api:__subpackages__",
     ],
     deps = [
         "//daml-lf/data",
