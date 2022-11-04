@@ -255,7 +255,7 @@ commandParser = subparser $ fold
                 (progDesc "List parties known to ledger")
             , command "allocate-parties" $ info
                 (ledgerAllocatePartiesCmd <**> helper)
-                (progDesc "Allocate parties on ledger")
+                (progDesc "Allocate parties on ledger if they don't exist")
             , command "upload-dar" $ info
                 (ledgerUploadDarCmd <**> helper)
                 (progDesc "Upload DAR file to ledger")
@@ -269,7 +269,7 @@ commandParser = subparser $ fold
         , subparser $ internal <> fold -- hidden subcommands
             [ command "allocate-party" $ info
                 (ledgerAllocatePartyCmd <**> helper)
-                (progDesc "Allocate a single party on ledger")
+                (progDesc "Allocate a single party on ledger if it doesn't exist")
             , command "reset" $ info
                 (ledgerResetCmd <**> helper)
                 (progDesc "Archive all currently active contracts.")
@@ -309,12 +309,12 @@ commandParser = subparser $ fold
 
     ledgerAllocatePartiesCmd = LedgerAllocateParties
         <$> ledgerFlags (ShowJsonApi True)
-        <*> many (argument str (metavar "PARTY" <> help "Parties to be allocated on the ledger (defaults to project parties if empty)"))
+        <*> many (argument str (metavar "PARTY" <> help "Parties to be allocated on the ledger if they don't exist (defaults to project parties if empty)"))
 
     -- same as allocate-parties but requires a single party.
     ledgerAllocatePartyCmd = LedgerAllocateParties
         <$> ledgerFlags (ShowJsonApi True)
-        <*> fmap (:[]) (argument str (metavar "PARTY" <> help "Party to be allocated on the ledger"))
+        <*> fmap (:[]) (argument str (metavar "PARTY" <> help "Party to be allocated on the ledger if it doesn't exist"))
 
     ledgerUploadDarCmd = LedgerUploadDar
         <$> ledgerFlags (ShowJsonApi True)
