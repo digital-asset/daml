@@ -27,6 +27,7 @@ import DA.Internal.Prelude
 import DA.Internal.Template.Functions
 import DA.Internal.LF
 import DA.Internal.Any
+import GHC.Types (magic)
 
 -- | (Daml-LF >= 1.15) Exposes the `interfaceTypeRep` function. Available only for interfaces.
 class HasInterfaceTypeRep i where

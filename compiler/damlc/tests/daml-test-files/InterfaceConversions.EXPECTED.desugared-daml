@@ -428,10 +428,18 @@ main
                 x2 <- fetchFromInterface @Template2 ifaceCid1
                 x3 <- fetchFromInterface @Template1 ifaceCid2
                 x4 <- fetchFromInterface @Template2 ifaceCid2
-                x1 === Some (templateCid1, template1)
+                x1
+                  ===
+                    Some
+                        GHC.Types.magic @"userWrittenTuple" : forall x. x -> x
+                        (templateCid1, template1)
                 x2 === None
                 x3 === None
-                x4 === Some (templateCid2, template2)
+                x4
+                  ===
+                    Some
+                        GHC.Types.magic @"userWrittenTuple" : forall x. x -> x
+                        (templateCid2, template2)
          let useAction : (ContractId Template2 -> Update ()) -> Update ()
              useAction action
                = do cid <- create (toInterface @Iface (Template1 p 10))
