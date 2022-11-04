@@ -285,5 +285,4 @@ object Ref {
   type TypeSynName = Identifier
   val TypeSynName = Identifier
 
-  case class ModuleId(packageId: PackageId, moduleName: ModuleName)
 }

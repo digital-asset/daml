@@ -6,21 +6,22 @@ package com.daml.lf.codegen
 import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory}
+
 import com.daml.lf.archive.DarParser
 import com.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass, fullyQualifiedName}
 import com.daml.lf.codegen.conf.{Conf, PackageReference}
 import com.daml.lf.codegen.dependencygraph.DependencyGraph
-import com.daml.lf.data.Ref.{Identifier, ModuleId, ModuleName, PackageId}
-import com.daml.lf.typesig.reader.{Errors, SignatureReader}
+import com.daml.lf.data.Ref.{PackageId, Identifier}
+import com.daml.lf.typesig.reader.{SignatureReader, Errors}
 import com.daml.lf.typesig.{EnvironmentSignature, PackageSignature}
 import PackageSignature.TypeDecl
-import com.squareup.javapoet.{ClassName, JavaFile}
+import com.squareup.javapoet.{JavaFile, ClassName}
 import com.typesafe.scalalogging.StrictLogging
-import org.slf4j.{Logger, LoggerFactory, MDC}
+import org.slf4j.{LoggerFactory, Logger, MDC}
 
 import scala.collection.immutable.Map
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
+import scala.concurrent.{ExecutionContextExecutorService, Await, ExecutionContext, Future}
 
 private final class CodeGenRunner(
     scope: CodeGenRunner.Scope,
@@ -164,20 +165,10 @@ object CodeGenRunner extends StrictLogging {
       logger.error(error.msg)
     }
 
-    val generatedModuleIds: Set[ModuleId] = (
-      transitiveClosure.serializableTypes.map(_._1) ++
-        transitiveClosure.interfaces.map(_._1)
-    ).toSet.map(id => ModuleId(id.packageId, id.qualifiedName.module))
-
     val resolvedSignatures = resolveRetroInterfaces(signatures)
 
     val resolvedPrefixes =
-      resolvePackagePrefixes(
-        packagePrefixes,
-        modulePrefixes,
-        resolvedSignatures,
-        generatedModuleIds,
-      )
+      resolvePackagePrefixes(packagePrefixes, modulePrefixes, resolvedSignatures)
 
     new CodeGenRunner.Scope(
       resolvedSignatures,
@@ -225,7 +216,6 @@ object CodeGenRunner extends StrictLogging {
       packagePrefixes: Map[PackageId, String],
       modulePrefixes: Map[PackageReference, String],
       signatures: Seq[PackageSignature],
-      toBeGeneratedModule: Set[ModuleId],
   ): Map[PackageId, String] = {
     val metadata: Map[PackageReference.NameVersion, PackageId] = signatures.view
       .flatMap(iface =>
@@ -260,7 +250,7 @@ object CodeGenRunner extends StrictLogging {
         }
         k -> prefix
       }.toMap
-    detectModuleCollisions(resolvedPackagePrefixes, signatures, toBeGeneratedModule)
+    detectModuleCollisions(resolvedPackagePrefixes, signatures)
     resolvedPackagePrefixes
   }
 
@@ -270,7 +260,6 @@ object CodeGenRunner extends StrictLogging {
   private[codegen] def detectModuleCollisions(
       pkgPrefixes: Map[PackageId, String],
       interfaces: Seq[PackageSignature],
-      toBeGeneratedModule: Set[ModuleId],
   ): Unit = {
     val allModules: Seq[(String, PackageId)] =
       for {
@@ -279,7 +268,6 @@ object CodeGenRunner extends StrictLogging {
         module <- modules
         maybePrefix = pkgPrefixes.get(interface.packageId)
         prefixedName = maybePrefix.fold(module.toString)(prefix => s"$prefix.$module")
-        if toBeGeneratedModule.contains(ModuleId(interface.packageId, module))
       } yield prefixedName -> interface.packageId
     allModules.groupBy(_._1).foreach { case (m, grouped) =>
       if (grouped.length > 1) {
