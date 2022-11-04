@@ -451,9 +451,9 @@ copyFiles from srcs to = do
 recachePkgDb :: FilePath -> IO ()
 recachePkgDb dbPath = do
     T.writeFileUtf8 (dbPath </> "settings") $ T.pack $ show settings
-    ghcPkgPath <- getGhcPkgPath
+    ghcPkgExe <- getGhcPkgExe
     callProcess
-        (ghcPkgPath </> exe "ghc-pkg")
+        ghcPkgExe
         [ "recache"
         -- ghc-pkg insists on using a global package db and will try
         -- to find one automatically if we don’t specify it here.
@@ -529,11 +529,18 @@ writeSrc (fp, content) = do
     writeFileUTF8 path content
 
 -- | Locate ghc-pkg
-getGhcPkgPath :: IO FilePath
-getGhcPkgPath =
-    if isWindows
-        then locateRunfiles "rules_haskell_ghc_windows_amd64/bin"
-        else locateRunfiles "ghc_nix/lib/ghc-9.0.2/bin"
+getGhcPkgExe :: IO FilePath
+getGhcPkgExe = locateResource Resource
+  { runfilesPath = if isWindows
+      then "rules_haskell_ghc_windows_amd64" </> "bin" </> exe "ghc-pkg"
+      else "ghc_nix" </> "lib" </> "ghc-9.0.2" </> "bin" </> exe "ghc-pkg"
+      -- see @compiler/damlc/util.bzl@
+  , resourcesPath = exe "ghc-pkg"
+    -- In a packaged application, the executable is stored directly underneath
+    -- the resources directory because //compiler/damlc:ghc-pkg-dist produces
+    -- a tarball which has the executable directly under the top directory.
+    -- See @bazel_tools/packaging/packaging.bzl@.
+  }
 
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a
