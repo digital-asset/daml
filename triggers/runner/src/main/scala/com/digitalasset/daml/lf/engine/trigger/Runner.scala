@@ -754,6 +754,8 @@ class Runner(
         case Some(SingleCommandFailure(_, error))
             if error.getStatus.getCode == Code.UNAUTHENTICATED =>
           Future.failed(error)
+        case value =>
+          Future.successful(value)
       }
       // The following SingleCommandFailure emissions need to be emitted by the flow
       .collect {
