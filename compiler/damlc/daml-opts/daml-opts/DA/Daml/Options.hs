@@ -447,12 +447,13 @@ setImports :: [FilePath] -> DynFlags -> DynFlags
 setImports paths dflags = dflags { importPaths = paths }
 
 locateGhcVersionHeader :: IO GhcVersionHeader
-locateGhcVersionHeader = GhcVersionHeader <$> do
-    resourcesDir <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
-    isDirectory <- doesDirectoryExist resourcesDir
-    let path | isDirectory = resourcesDir </> "ghcversion.h"
-             | otherwise = resourcesDir
-    pure path
+locateGhcVersionHeader = GhcVersionHeader <$> locateResource Resource
+  { runfilesPath = mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h"
+  , resourcesPath = "ghcversion.h"
+    -- In a packaged application, //compiler/damlc:ghcversion is stored
+    -- directly underneath the resources directory because it's a single file.
+    -- See @bazel_tools/packaging/packaging.bzl@.
+  }
 
 locateCppPath :: IO (Maybe FilePath)
 locateCppPath = do
