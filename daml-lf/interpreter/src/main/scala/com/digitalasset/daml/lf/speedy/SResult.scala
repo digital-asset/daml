@@ -23,7 +23,7 @@ object SResult {
   /** The speedy machine has completed evaluation to reach a final value.
     * And, if the evaluation was on-ledger, a completed transaction.
     */
-  final case class SResultFinal(v: SValue, tx: Option[PartialTransaction.Result]) extends SResult
+  final case class SResultFinal(v: SValue) extends SResult
 
   /** Update or scenario interpretation requires the current
     * ledger time.
