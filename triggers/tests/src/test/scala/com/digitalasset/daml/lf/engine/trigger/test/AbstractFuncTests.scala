@@ -264,7 +264,7 @@ abstract class AbstractFuncTests
             .runWithACS(
               acs,
               offset,
-              msgFlow = Flow[TriggerMsg].wireTap(msg => println(s"DEBUGGY: $msg")).take(7),
+              msgFlow = Flow[TriggerMsg].take(7),
             )
             ._2
           _ = println("DEBUGGY: here")

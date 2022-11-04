@@ -718,7 +718,8 @@ class Runner(
   }
 
   private[this] def submitOrFail(implicit
-      ec: ExecutionContext
+      materializer: Materializer,
+      executionContext: ExecutionContext,
   ): Flow[SubmitRequest, SingleCommandFailure, NotUsed] = {
     import io.grpc.Status.Code
 
@@ -730,40 +731,42 @@ class Runner(
       )
     )
     def submit(request: SubmitRequest): Future[Option[SingleCommandFailure]] =
-      client.commandClient
-        .submitSingleCommand(request)
-        // Ensure all StatusRuntimeException's have the request's command ID recorded for post-restart flow transformation
-        .transform(
-          _ => None,
-          { case failure: StatusRuntimeException =>
-            StatusRuntimeExceptionWithCommandId(request.getCommands.commandId, failure)
-          },
-        )
-        // Ensure the following StatusRuntimeException's are emitted and do not cause the Flow to restart
-        .recover {
-          case StatusRuntimeExceptionWithCommandId(_, s)
-              if s.getStatus.getCode == Code.RESOURCE_EXHAUSTED =>
-            Some(SingleCommandFailure(request.getCommands.commandId, s))
+      RestartSource
+        .onFailuresWithBackoff(submissionRestartSettings) { () =>
+          Source.future {
+            client.commandClient
+              .submitSingleCommand(request)
+              // Ensure all StatusRuntimeException's have the request's command ID recorded for post-restart flow transformation
+              .transform(
+                _ => None,
+                { case failure: StatusRuntimeException =>
+                  StatusRuntimeExceptionWithCommandId(request.getCommands.commandId, failure)
+                },
+              )
+              // Ensure the following StatusRuntimeException's are emitted and do not cause the Flow to restart
+              .recover {
+                case StatusRuntimeExceptionWithCommandId(_, s)
+                    if s.getStatus.getCode == Code.RESOURCE_EXHAUSTED =>
+                  Some(SingleCommandFailure(request.getCommands.commandId, s))
 
-          case StatusRuntimeExceptionWithCommandId(_, s)
-              if s.getStatus.getCode == Code.UNAUTHENTICATED =>
-            Some(SingleCommandFailure(request.getCommands.commandId, s))
+                case StatusRuntimeExceptionWithCommandId(_, s)
+                    if s.getStatus.getCode == Code.UNAUTHENTICATED =>
+                  Some(SingleCommandFailure(request.getCommands.commandId, s))
+              }
+          }
         }
+        // The following SingleCommandFailure emissions should fail this source
+        .mapAsync(1) {
+          case Some(SingleCommandFailure(_, error))
+              if error.getStatus.getCode == Code.UNAUTHENTICATED =>
+            Future.failed(error)
+          case value =>
+            Future.successful(value)
+        }
+        .runWith(Sink.head)
 
-    // FIXME: restarting flow will lose the SubmitRequest that was being handled!
-    RestartFlow
-      .onFailuresWithBackoff(submissionRestartSettings) { () =>
-        Flow[SubmitRequest]
-          .mapAsync(maxParallelSubmissionsPerTrigger)(submit)
-      }
-      // The following SingleCommandFailure emissions should fail the flow
-      .mapAsync(1) {
-        case Some(SingleCommandFailure(_, error))
-            if error.getStatus.getCode == Code.UNAUTHENTICATED =>
-          Future.failed(error)
-        case value =>
-          Future.successful(value)
-      }
+    Flow[SubmitRequest]
+      .mapAsync(maxParallelSubmissionsPerTrigger)(submit)
       // The following SingleCommandFailure emissions need to be emitted by the flow
       .collect {
         case Some(failure @ SingleCommandFailure(_, s))
@@ -820,7 +823,7 @@ object Runner extends StrictLogging {
 
   private val submissionRestartSettings =
     RestartSettings(minTriesBackoff, maxTriesBackoff, jitterTries)
-      .withMaxRestarts(maxTriesWhenOverloaded, withinTriesBackoff)
+      .withMaxRestarts(maxTriesWhenOverloaded - 1, withinTriesBackoff)
 
   // Return the time provider for a given time provider type.
   def getTimeProvider(ty: TimeProviderType): TimeProvider = {
