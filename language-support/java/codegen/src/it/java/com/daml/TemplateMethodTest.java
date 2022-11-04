@@ -29,8 +29,6 @@ public class TemplateMethodTest {
     var fromStatic = SimpleTemplate.create("Bob");
     var fromInstance = new SimpleTemplate("Bob").create();
 
-    assertNotNull(fromStatic, "Update<R> from static method was null");
-    assertNotNull(fromInstance, "Update<R> from method was null");
     assertEquals(
         1, fromStatic.commands().size(), "There are not exactly one command from static method");
     assertEquals(
@@ -43,10 +41,6 @@ public class TemplateMethodTest {
     var fromSplattedInt = cid.exerciseTestTemplate_Int(42L);
     var fromRecordInt = cid.exerciseTestTemplate_Int(new TestTemplate_Int(42L));
     var fromSplattedUnit = cid.exerciseTestTemplate_Unit();
-
-    assertNotNull(fromSplattedInt, "Update<R> from splatted choice was null");
-    assertNotNull(fromRecordInt, "Update<R> from record choice was null");
-    assertNotNull(fromSplattedUnit, "Update<R> from splatted unit choice was null");
 
     assertEquals(
         1,

@@ -7,13 +7,17 @@ import java.util.List;
 
 public class EventUtils {
 
-  public static <T> CreatedEvent singleCreatedEvent(List<T> events) {
+  private EventUtils() {}
+
+  /** @hidden */
+  public static CreatedEvent singleCreatedEvent(List<? extends Event> events) {
     if (events.size() == 1 && events.get(0) instanceof CreatedEvent)
       return (CreatedEvent) events.get(0);
     throw new IllegalArgumentException(
         "Expected exactly one created event from the transaction, got: " + events);
   }
 
+  /** @hidden */
   public static ExercisedEvent firstExercisedEvent(TransactionTree txTree) {
     var maybeExercisedEvent =
         txTree.getRootEventIds().stream()

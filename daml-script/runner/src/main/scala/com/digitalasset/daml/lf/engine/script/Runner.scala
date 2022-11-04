@@ -436,7 +436,7 @@ private[lf] class Runner(
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {
-        case SResultFinal(v, _) =>
+        case SResultFinal(v) =>
           Right(v)
         case SResultError(err) =>
           Left(Runner.InterpretationError(err))

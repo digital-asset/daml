@@ -8,9 +8,9 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError, SValue}
+import com.daml.lf.speedy.{InitialSeeding, Pretty, SError, SValue}
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
-import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.speedy.Speedy.{Machine, OnLedger}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{
   Node,
@@ -352,7 +352,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     ResultDone(deps)
   }
 
-  private def handleError(err: SError.SError, detailMsg: Option[String]): ResultError = {
+  private def handleError(err: SError.SError, detailMsg: Option[String] = None): ResultError = {
     err match {
       case SError.SErrorDamlException(error) =>
         ResultError(Error.Interpretation.DamlException(error), detailMsg)
@@ -437,46 +437,40 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       }
     }
 
-    finalValue match {
-      case SResultFinal(
-            _,
-            Some(
-              PartialTransaction.Result(
-                tx,
-                _,
-                nodeSeeds,
-                globalKeyMapping,
-                disclosedContracts,
+    machine.ledgerMode match {
+      case onLedger: OnLedger =>
+        onLedger.finish match {
+          case Right(OnLedger.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedContracts)) =>
+            deps(tx).flatMap { deps =>
+              val meta = Tx.Metadata(
+                submissionSeed = None,
+                submissionTime = onLedger.submissionTime,
+                usedPackages = deps,
+                dependsOnTime = onLedger.getDependsOnTime,
+                nodeSeeds = nodeSeeds,
+                globalKeyMapping = globalKeyMapping,
+                disclosures = disclosedContracts.map(versionDisclosedContract),
               )
-            ),
-          ) =>
-        deps(tx).flatMap { deps =>
-          val meta = Tx.Metadata(
-            submissionSeed = None,
-            submissionTime = machine.submissionTime,
-            usedPackages = deps,
-            dependsOnTime = onLedger.getDependsOnTime,
-            nodeSeeds = nodeSeeds,
-            globalKeyMapping = globalKeyMapping,
-            disclosures = disclosedContracts.map(versionDisclosedContract),
-          )
-          config.profileDir.foreach { dir =>
-            val desc = Engine.profileDesc(tx)
-            machine.profile.name = s"${meta.submissionTime}-$desc"
-            val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
-            machine.profile.writeSpeedscopeJson(profileFile)
-          }
-          ResultDone((tx, meta))
+              config.profileDir.foreach { dir =>
+                val desc = Engine.profileDesc(tx)
+                val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
+                machine.profile.name = s"${meta.submissionTime}-$desc"
+                machine.profile.writeSpeedscopeJson(profileFile)
+              }
+              ResultDone((tx, meta))
+            }
+          case Left(err) =>
+            handleError(err)
         }
-
-      case SResultFinal(_, None) =>
+      case _ =>
         ResultError(
           Error.Interpretation.Internal(
             NameOf.qualifiedNameOfCurrentFunc,
-            "Interpretation error: completed transaction expected",
+            "unexpected off-ledger machine",
             None,
           )
         )
+
     }
   }
 
@@ -550,7 +544,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   )(implicit loggingContext: LoggingContext): Result[Versioned[Value]] = {
     def interpret(machine: Machine): Result[SValue] = {
       machine.run() match {
-        case SResultFinal(v, _) => ResultDone(v)
+        case SResultFinal(v) => ResultDone(v)
         case SResultError(err) => handleError(err, None)
         case err @ (_: SResultNeedPackage | _: SResultNeedContract | _: SResultNeedKey |
             _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioPassTime |

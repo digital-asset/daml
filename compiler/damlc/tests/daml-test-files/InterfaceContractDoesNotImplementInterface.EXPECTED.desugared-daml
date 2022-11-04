@@ -255,9 +255,15 @@ instance DA.Internal.Desugar.HasToInterface T I where
 instance DA.Internal.Desugar.HasFromInterface T I where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
-main
+testFromTo
   = do alice <- getParty "alice"
        cidT <- alice `submit` create T {party = alice}
        let cidI = toInterfaceContractId @I cidT
        let cidJ = fromInterfaceContractId @J cidI
+       alice `submit` exercise cidJ JChoice
+testCoerce
+  = do alice <- getParty "alice"
+       cidT <- alice `submit` create T {party = alice}
+       let cidI = toInterfaceContractId @I cidT
+       let cidJ = coerceInterfaceContractId @J cidI
        alice `submit` exercise cidJ JChoice

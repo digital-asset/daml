@@ -58,7 +58,10 @@ class InterfaceSubscriptionITSpec
     for {
       (apiServices, names, submitter) <- benchtoolFixture()
       allocatedParties <- submitter.prepare(config)
-      configDesugaring = new ConfigEnricher(allocatedParties)
+      configDesugaring = new ConfigEnricher(
+        allocatedParties,
+        BenchtoolTestsPackageInfo.StaticDefault,
+      )
       tested = new FooSubmission(
         submitter = submitter,
         maxInFlightCommands = 1,

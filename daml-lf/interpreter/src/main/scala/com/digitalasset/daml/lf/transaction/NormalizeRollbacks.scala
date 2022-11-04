@@ -11,7 +11,7 @@ import com.daml.lf.data.Trampoline.{Bounce, Land, Trampoline}
 
 private[lf] object NormalizeRollbacks {
 
-  private[this] type TX = Transaction
+  private type TX = Transaction
 
   // Normalize a transaction so rollback nodes satisfy the normalization rules.
   // see `makeRoll` below
@@ -122,7 +122,7 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private def pushIntoRoll(a1: Norm.Act, xs2: Vector[Norm], t: Norm.Roll): Norm.Roll = {
+  private[this] def pushIntoRoll(a1: Norm.Act, xs2: Vector[Norm], t: Norm.Roll): Norm.Roll = {
     t match {
       case Norm.Roll1(a3) => Norm.Roll2(a1, xs2, a3)
       case Norm.Roll2(a3, xs4, a5) => Norm.Roll2(a1, xs2 ++ Vector(a3) ++ xs4, a5)
@@ -134,7 +134,7 @@ private[lf] object NormalizeRollbacks {
 
   // There is no connection between the ids in the original and normalized transaction.
 
-  private[this] case class State(
+  private final case class State(
       index: Int,
       nodeMap: Map[NodeId, Node],
       seedIds: BackStack[NodeId],
@@ -209,14 +209,16 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private def pushNorm[R](s: State, x: Norm)(k: (State, NodeId) => Trampoline[R]): Trampoline[R] = {
+  private[this] def pushNorm[R](s: State, x: Norm)(
+      k: (State, NodeId) => Trampoline[R]
+  ): Trampoline[R] = {
     x match {
       case act: Norm.Act => pushAct(s, act)(k)
       case roll: Norm.Roll => pushRoll(s, roll)(k)
     }
   }
 
-  private def pushNorms[R](s: State, xs: List[Norm])(
+  private[this] def pushNorms[R](s: State, xs: List[Norm])(
       k: (State, List[NodeId]) => Trampoline[R]
   ): Trampoline[R] = {
     Bounce { () =>
@@ -238,25 +240,25 @@ private[lf] object NormalizeRollbacks {
   private object Canonical {
 
     // A properly normalized Tx/node
-    sealed trait Norm
+    sealed abstract class Norm extends Product with Serializable
     object Norm {
 
       // A non-rollback tx/node
-      sealed trait Act extends Norm
+      sealed abstract class Act extends Norm
       final case class Leaf(node: Node.LeafOnlyAction) extends Act
       final case class Exe(node: Node.Exercise, children: List[Norm]) extends Act
 
       // A *normalized* rollback tx/node. 2 cases:
       // - rollback containing a single non-rollback tx/node.
       // - rollback of 2 or more tx/nodes, such that first and last are not rollbacks.
-      sealed trait Roll extends Norm
+      sealed abstract class Roll extends Norm
       final case class Roll1(act: Act) extends Roll
       final case class Roll2(head: Act, middle: Vector[Norm], tail: Act) extends Roll
     }
 
     // Case analysis on a list of Norms, distinuishing: Empty, Single and Multi forms
     // The Multi form separes the head and tail element for the middle-list.
-    sealed trait Case
+    sealed abstract class Case extends Product with Serializable
     object Case {
       final case object Empty extends Case
       final case class Single(n: Norm) extends Case

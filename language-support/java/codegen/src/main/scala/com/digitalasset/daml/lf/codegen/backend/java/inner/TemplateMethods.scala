@@ -4,9 +4,12 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
+import com.daml.ledger.javaapi.data.ContractFilter
 import com.daml.lf.codegen.backend.java.ObjectMethods
 import com.daml.lf.data.Ref.PackageId
 import com.squareup.javapoet._
+
+import javax.lang.model.element.Modifier
 
 private[inner] object TemplateMethods {
 
@@ -51,8 +54,19 @@ private[inner] object TemplateMethods {
       )
       List(deprecatedFromValue, valueDecoder, toValue, privateGetValueDecoder)
     }
+    val contractFilterMethod = MethodSpec
+      .methodBuilder("contractFilter")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(
+        ParameterizedTypeName.get(
+          ClassName.get(classOf[ContractFilter[_]]),
+          ClassName.bestGuess("Contract"),
+        )
+      )
+      .addStatement("return $T.of(COMPANION)", classOf[ContractFilter[_]])
+      .build()
 
-    Vector(constructor) ++ conversionMethods ++
+    Vector(constructor) ++ conversionMethods ++ Vector(contractFilterMethod) ++
       ObjectMethods(className, IndexedSeq.empty[String], fields.map(_.javaName))
   }
 }

@@ -489,11 +489,9 @@ we set `$VERSION` to be `2.4.0-snapshot.20220830.10494.0.4622de48`.
    release has failed.
 
 1. Announce the release on `#product-daml` on Slack. For a stable release,
-   direct people to the release blog post; for a prerelease, you can include
-   the raw output of the `unreleased.sh` script in a thread after the
-   announcement. If there were any errors during testing, but we decided to keep
-   the release anyway, report those on the PR and include a link to the PR in the
-   announcement.
+   direct people to the release blog post. If there were any errors during testing,
+   but we decided to keep the release anyway, report those on the PR and include a
+   link to the PR in the announcement.
 
 For a stable release, you need to additionally:
 

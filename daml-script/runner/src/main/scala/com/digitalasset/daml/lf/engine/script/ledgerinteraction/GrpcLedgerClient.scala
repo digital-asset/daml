@@ -12,12 +12,19 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.akka.ClientAdapter
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
+import com.daml.ledger.api.v1.event.{CreatedEvent, InterfaceView}
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
 import com.daml.ledger.api.v1.transaction.TreeEvent
-import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
+import com.daml.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  InterfaceFilter,
+  TransactionFilter,
+}
 import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.command
@@ -51,15 +58,31 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ) = {
+  ): Future[Vector[ScriptLedgerClient.ActiveContract]] = {
     queryWithKey(parties, templateId).map(_.map(_._1))
   }
 
-  private def transactionFilter(
+  private def templateFilter(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
   ): TransactionFilter = {
     val filters = Filters(Some(InclusiveFilters(Seq(toApiIdentifier(templateId)))))
+    TransactionFilter(parties.toList.map(p => (p, filters)).toMap)
+  }
+
+  private def interfaceFilter(
+      parties: OneAnd[Set, Ref.Party],
+      interfaceId: Identifier,
+  ): TransactionFilter = {
+    val filters =
+      Filters(
+        Some(
+          InclusiveFilters(
+            List(),
+            List(InterfaceFilter(Some(toApiIdentifier(interfaceId)), true)),
+          )
+        )
+      )
     TransactionFilter(parties.toList.map(p => (p, filters)).toMap)
   }
 
@@ -68,7 +91,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value])]] = {
-    val filter = transactionFilter(parties, templateId)
+    val filter = templateFilter(parties, templateId)
     val acsResponses =
       grpcClient.activeContractSetClient
         .getActiveContracts(filter, verbose = false)
@@ -116,11 +139,38 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     }
   }
 
-  override def queryView(
-      parties: OneAnd[Set, Ref.Party],
-      interfaceId: Identifier,
-  )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Option[Value])]] = {
-    sys.error("not implemented") // TODO https://github.com/digital-asset/daml/issues/14830
+  override def queryView(parties: OneAnd[Set, Ref.Party], interfaceId: Identifier)(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Seq[(ContractId, Option[Value])]] = {
+    val filter = interfaceFilter(parties, interfaceId)
+    val acsResponses =
+      grpcClient.activeContractSetClient
+        .getActiveContracts(filter, verbose = false)
+        .runWith(Sink.seq)
+    acsResponses.map { acsPages: Seq[GetActiveContractsResponse] =>
+      acsPages.toVector.flatMap { page: GetActiveContractsResponse =>
+        page.activeContracts.toVector.flatMap { createdEvent: CreatedEvent =>
+          val cid =
+            ContractId
+              .fromString(createdEvent.contractId)
+              .fold(
+                err => throw new ConverterException(err),
+                identity,
+              )
+          createdEvent.interfaceViews.map { iv: InterfaceView =>
+            val viewValue: Value.ValueRecord =
+              NoLoggingValueValidator.validateRecord(iv.getViewValue) match {
+                case Left(err) => throw new ConverterException(err.toString)
+                case Right(argument) => argument
+              }
+            // Because we filter for a specific interfaceId,
+            // we will get at most one view for a given cid.
+            (cid, if (viewValue.fields.isEmpty) None else Some(viewValue))
+          }
+        }
+      }
+    }
   }
 
   override def queryViewContractId(
@@ -131,7 +181,13 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[Value]] = {
-    sys.error("not implemented") // TODO https://github.com/digital-asset/daml/issues/14830
+    for {
+      activeViews <- queryView(parties, interfaceId)
+    } yield {
+      activeViews.collectFirst {
+        case (k, Some(v)) if (k == cid) => v
+      }
+    }
   }
 
   // TODO (MK) https://github.com/digital-asset/daml/issues/11737

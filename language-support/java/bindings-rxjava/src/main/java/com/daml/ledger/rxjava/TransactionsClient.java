@@ -27,34 +27,11 @@ public interface TransactionsClient {
   Flowable<Transaction> getTransactions(
       LedgerOffset begin, TransactionFilter filter, boolean verbose, String accessToken);
 
-  /**
-   * Get contracts
-   *
-   * @param contractUtil Utilities for specified type of contract. It can be instantiated with
-   *     <code>ContractTypeCompanion</code>
-   * @param begin begin offset.
-   * @param parties Set of parties to be included in the transaction filter.
-   * @param verbose If enabled, values served over the API will contain more information than
-   *     strictly necessary to interpret the data.
-   * @return Flowable of contract type <code>Ct</code>
-   */
-  <Ct> Flowable<Ct> getContracts(
-      ContractUtil<Ct> contractUtil, LedgerOffset begin, Set<String> parties, boolean verbose);
+  Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter, LedgerOffset begin, Set<String> parties, boolean verbose);
 
-  /**
-   * Get contracts
-   *
-   * @param contractUtil Utilities for specified type of contract. It can be instantiated with
-   *     <code>ContractTypeCompanion</code>
-   * @param begin begin offset.
-   * @param parties Set of parties to be included in the transaction filter.
-   * @param verbose If enabled, values served over the API will contain more information than
-   *     strictly necessary to interpret the data.
-   * @param accessToken Access token for authentication.
-   * @return Flowable of contract type <code>Ct</code>
-   */
-  <Ct> Flowable<Ct> getContracts(
-      ContractUtil<Ct> contractUtil,
+  Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter,
       LedgerOffset begin,
       Set<String> parties,
       boolean verbose,

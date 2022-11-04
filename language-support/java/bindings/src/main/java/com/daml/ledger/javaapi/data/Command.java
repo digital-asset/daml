@@ -13,7 +13,7 @@ public abstract class Command implements HasCommands {
   abstract Identifier getTemplateId();
 
   @Override
-  public List<Command> commands() {
+  public final List<Command> commands() {
     return List.of(this);
   }
 
