@@ -118,7 +118,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     )
   }
 
-  it should "succeed if there is a collisions on both modules which are not to be generated" in {
+  it should "succeed if there is a collisions on modules which are not to be generated" in {
     val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
     assert(
       CodeGenRunner.detectModuleCollisions(
@@ -129,7 +129,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     )
   }
 
-  it should "succeed if there is a collisions on one of modules which are not to be generated" in {
+  it should "succeed if same module name between a module not to be generated and a module to be generated " in {
     val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
     assert(
       CodeGenRunner.detectModuleCollisions(
