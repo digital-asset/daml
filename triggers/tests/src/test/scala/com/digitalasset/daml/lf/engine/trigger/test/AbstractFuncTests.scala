@@ -267,8 +267,6 @@ abstract class AbstractFuncTests
               msgFlow = Flow[TriggerMsg].take(7),
             )
             ._2
-          _ = println("DEBUGGY: here")
-          _ = Thread.sleep(5000)
           acs <- queryACS(client, party)
         } yield {
           acs(tId) should have length 1
