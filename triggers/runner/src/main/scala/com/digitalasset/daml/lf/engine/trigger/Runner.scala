@@ -755,7 +755,7 @@ class Runner(
             if error.getStatus.getCode == Code.UNAUTHENTICATED =>
           Future.failed(error)
       }
-      // The following SingleCommandFailure's emissions need to be emitted by the flow
+      // The following SingleCommandFailure emissions need to be emitted by the flow
       .collect {
         case Some(failure @ SingleCommandFailure(_, s))
             if s.getStatus.getCode == Code.RESOURCE_EXHAUSTED =>
