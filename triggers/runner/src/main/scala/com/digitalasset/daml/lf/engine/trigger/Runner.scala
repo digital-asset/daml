@@ -732,22 +732,25 @@ class Runner(
     def submit(request: SubmitRequest): Future[Option[SingleCommandFailure]] =
       client.commandClient
         .submitSingleCommand(request)
-        // Ensure the following StatusRuntimeException's are emitted and do not cause the Flow to restart
-        .recover {
-          case s: StatusRuntimeException if s.getStatus.getCode == Code.RESOURCE_EXHAUSTED =>
-            Some(SingleCommandFailure(request.getCommands.commandId, s))
-
-          case s: StatusRuntimeException if s.getStatus.getCode == Code.UNAUTHENTICATED =>
-            Some(SingleCommandFailure(request.getCommands.commandId, s))
-        }
-        // Ensure all remaining StatusRuntimeException's have the request's command ID recorded for post-restart transformation
+        // Ensure all StatusRuntimeException's have the request's command ID recorded for post-restart flow transformation
         .transform(
           _ => None,
           { case failure: StatusRuntimeException =>
             StatusRuntimeExceptionWithCommandId(request.getCommands.commandId, failure)
           },
         )
+        // Ensure the following StatusRuntimeException's are emitted and do not cause the Flow to restart
+        .recover {
+          case StatusRuntimeExceptionWithCommandId(_, s)
+              if s.getStatus.getCode == Code.RESOURCE_EXHAUSTED =>
+            Some(SingleCommandFailure(request.getCommands.commandId, s))
 
+          case StatusRuntimeExceptionWithCommandId(_, s)
+              if s.getStatus.getCode == Code.UNAUTHENTICATED =>
+            Some(SingleCommandFailure(request.getCommands.commandId, s))
+        }
+
+    // FIXME: restarting flow will lose the SubmitRequest that was being handled!
     RestartFlow
       .onFailuresWithBackoff(submissionRestartSettings) { () =>
         Flow[SubmitRequest]
@@ -819,11 +822,6 @@ object Runner extends StrictLogging {
     RestartSettings(minTriesBackoff, maxTriesBackoff, jitterTries)
       .withMaxRestarts(maxTriesWhenOverloaded, withinTriesBackoff)
 
-  private final case class StatusRuntimeExceptionWithCommandId(
-      commandId: String,
-      failure: StatusRuntimeException,
-  ) extends Throwable
-
   // Return the time provider for a given time provider type.
   def getTimeProvider(ty: TimeProviderType): TimeProvider = {
     ty match {
@@ -838,6 +836,11 @@ object Runner extends StrictLogging {
   }
 
   private final case class SingleCommandFailure(commandId: String, s: StatusRuntimeException)
+
+  private final case class StatusRuntimeExceptionWithCommandId(
+      commandId: String,
+      failure: StatusRuntimeException,
+  ) extends Throwable
 
   private sealed abstract class SeenMsgs {
     import Runner.{SeenMsgs => S}
