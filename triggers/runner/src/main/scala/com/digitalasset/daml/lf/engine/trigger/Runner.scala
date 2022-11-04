@@ -46,10 +46,8 @@ import com.daml.scalautil.Statement.discard
 import com.daml.script.converter.Converter.Implicits._
 import com.daml.script.converter.Converter.{DamlAnyModuleRecord, DamlTuple2, unrollFree}
 import com.daml.script.converter.ConverterException
-import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
 import com.typesafe.scalalogging.StrictLogging
-import io.grpc.Status.UNAVAILABLE
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
@@ -717,37 +715,56 @@ class Runner(
     } yield (acsResponses.flatMap(x => x.activeContracts), offset)
   }
 
+  private final case class StatusRuntimeExceptionWithCommandId(
+      commandId: String,
+      failure: StatusRuntimeException,
+  ) extends Throwable
+
   private[this] def submitOrFail(implicit
       ec: ExecutionContext
   ): Flow[SubmitRequest, SingleCommandFailure, NotUsed] = {
     import io.grpc.Status.Code
-    import Code.RESOURCE_EXHAUSTED
 
-    def submit(req: SubmitRequest): Future[Option[SingleCommandFailure]] = {
-      val f: Future[Empty] = client.commandClient
-        .submitSingleCommand(req)
-      f.map(_ => None).recover {
-        case s: StatusRuntimeException if s.getStatus.getCode != Code.UNAUTHENTICATED =>
-          // Do not capture UNAUTHENTICATED errors.
-          // The access token may be expired, let the trigger runner handle token refresh.
-          Some(SingleCommandFailure(req.getCommands.commandId, s))
-        // any other error will cause the trigger's stream to fail
+    def submit(request: SubmitRequest): Future[Option[SingleCommandFailure]] =
+      client.commandClient
+        .submitSingleCommand(request)
+        // Ensure the following StatusRuntimeException's are emitted and do not cause the Flow to restart
+        .recover {
+          case s: StatusRuntimeException if s.getStatus.getCode == Code.RESOURCE_EXHAUSTED =>
+            Some(SingleCommandFailure(request.getCommands.commandId, s))
+
+          case s: StatusRuntimeException if s.getStatus.getCode == Code.UNAUTHENTICATED =>
+            Some(SingleCommandFailure(request.getCommands.commandId, s))
+        }
+        // Ensure all remaining StatusRuntimeException's have the request's command ID recorded for post-restart transformation
+        .transform(
+          _ => None,
+          { case failure: StatusRuntimeException =>
+            StatusRuntimeExceptionWithCommandId(request.getCommands.commandId, failure)
+          },
+        )
+
+    RestartFlow
+      .onFailuresWithBackoff(submissionRestartSettings) { () =>
+        Flow[SubmitRequest]
+          .mapAsync(maxParallelSubmissionsPerTrigger)(submit)
       }
-    }
-
-//    def retryableSubmit(req: SubmitRequest): Future[Option[Option[SingleCommandFailure]]] =
-//      submit(req).map {
-//        case Some(SingleCommandFailure(_, s))
-//            if (s.getStatus.getCode: Code) == (RESOURCE_EXHAUSTED: Code) =>
-//          None
-//        case z => Some(z)
-//      }
-
-    RestartFlow.onFailuresWithBackoff(submissionRestartSettings) { () =>
-      Flow[SubmitRequest]
-        .mapAsync(maxParallelSubmissionsPerTrigger)(submit)
-        .collect { case Some(error) => error }
-    }
+      // The following SingleCommandFailure emissions should fail the flow
+      .mapAsync(1) {
+        case Some(SingleCommandFailure(_, error))
+            if error.getStatus.getCode == Code.UNAUTHENTICATED =>
+          Future.failed(error)
+      }
+      // The following SingleCommandFailure's emissions need to be emitted by the flow
+      .collect {
+        case Some(failure @ SingleCommandFailure(_, s))
+            if s.getStatus.getCode == Code.RESOURCE_EXHAUSTED =>
+          failure
+      }
+      // All StatusRuntimeExceptionWithCommandId instances need to be emitted by the flow
+      .recover { case StatusRuntimeExceptionWithCommandId(commandId, s) =>
+        SingleCommandFailure(commandId, s)
+      }
   }
 
   // Run the trigger given the state of the ACS. The msgFlow argument
