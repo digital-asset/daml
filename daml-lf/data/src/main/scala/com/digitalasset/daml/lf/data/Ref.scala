@@ -284,6 +284,4 @@ object Ref {
   /** Reference to a type synonym. */
   type TypeSynName = Identifier
   val TypeSynName = Identifier
-
-  case class ModuleId(packageId: PackageId, moduleName: ModuleName)
 }

@@ -10,10 +10,11 @@ import com.daml.lf.archive.DarParser
 import com.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass, fullyQualifiedName}
 import com.daml.lf.codegen.conf.{Conf, PackageReference}
 import com.daml.lf.codegen.dependencygraph.DependencyGraph
-import com.daml.lf.data.Ref.{Identifier, ModuleId, PackageId}
+import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.typesig.reader.{Errors, SignatureReader}
 import com.daml.lf.typesig.{EnvironmentSignature, PackageSignature}
 import PackageSignature.TypeDecl
+import com.daml.lf.language.Reference
 import com.squareup.javapoet.{ClassName, JavaFile}
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory, MDC}
@@ -164,11 +165,11 @@ object CodeGenRunner extends StrictLogging {
       logger.error(error.msg)
     }
 
-    val generatedModuleIds: Set[ModuleId] = (
+    val generatedModuleIds: Set[Reference.Module] = (
       transitiveClosure.serializableTypes.map(_._1) ++
         transitiveClosure.interfaces.map(_._1)
     ).toSet.map { id: Identifier =>
-      ModuleId(id.packageId, id.qualifiedName.module)
+      Reference.Module(id.packageId, id.qualifiedName.module)
     }
 
     val resolvedSignatures = resolveRetroInterfaces(signatures)
@@ -227,7 +228,7 @@ object CodeGenRunner extends StrictLogging {
       packagePrefixes: Map[PackageId, String],
       modulePrefixes: Map[PackageReference, String],
       signatures: Seq[PackageSignature],
-      toBeGeneratedModule: Set[ModuleId],
+      toBeGeneratedModule: Set[Reference.Module],
   ): Map[PackageId, String] = {
     val metadata: Map[PackageReference.NameVersion, PackageId] = signatures.view
       .flatMap(iface =>
@@ -272,7 +273,7 @@ object CodeGenRunner extends StrictLogging {
   private[codegen] def detectModuleCollisions(
       pkgPrefixes: Map[PackageId, String],
       interfaces: Seq[PackageSignature],
-      toBeGeneratedModule: Set[ModuleId],
+      toBeGeneratedModule: Set[Reference.Module],
   ): Unit = {
     val allModules: Seq[(String, PackageId)] =
       for {
@@ -281,7 +282,7 @@ object CodeGenRunner extends StrictLogging {
         module <- modules
         maybePrefix = pkgPrefixes.get(interface.packageId)
         prefixedName = maybePrefix.fold(module.toString)(prefix => s"$prefix.$module")
-        if toBeGeneratedModule.contains(ModuleId(interface.packageId, module))
+        if toBeGeneratedModule.contains(Reference.Module(interface.packageId, module))
       } yield prefixedName -> interface.packageId
     allModules.groupBy(_._1).foreach { case (m, grouped) =>
       if (grouped.length > 1) {
