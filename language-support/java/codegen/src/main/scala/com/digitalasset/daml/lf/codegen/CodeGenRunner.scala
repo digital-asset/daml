@@ -228,7 +228,7 @@ object CodeGenRunner extends StrictLogging {
       packagePrefixes: Map[PackageId, String],
       modulePrefixes: Map[PackageReference, String],
       signatures: Seq[PackageSignature],
-      toBeGeneratedModule: Set[Reference.Module],
+      generatedModules: Set[Reference.Module],
   ): Map[PackageId, String] = {
     val metadata: Map[PackageReference.NameVersion, PackageId] = signatures.view
       .flatMap(iface =>
@@ -263,7 +263,7 @@ object CodeGenRunner extends StrictLogging {
         }
         k -> prefix
       }.toMap
-    detectModuleCollisions(resolvedPackagePrefixes, signatures, toBeGeneratedModule)
+    detectModuleCollisions(resolvedPackagePrefixes, signatures, generatedModules)
     resolvedPackagePrefixes
   }
 
@@ -273,7 +273,7 @@ object CodeGenRunner extends StrictLogging {
   private[codegen] def detectModuleCollisions(
       pkgPrefixes: Map[PackageId, String],
       interfaces: Seq[PackageSignature],
-      toBeGeneratedModule: Set[Reference.Module],
+      generatedModules: Set[Reference.Module],
   ): Unit = {
     val allModules: Seq[(String, PackageId)] =
       for {
@@ -282,7 +282,7 @@ object CodeGenRunner extends StrictLogging {
         module <- modules
         maybePrefix = pkgPrefixes.get(interface.packageId)
         prefixedName = maybePrefix.fold(module.toString)(prefix => s"$prefix.$module")
-        if toBeGeneratedModule.contains(Reference.Module(interface.packageId, module))
+        if generatedModules.contains(Reference.Module(interface.packageId, module))
       } yield prefixedName -> interface.packageId
     allModules.groupBy(_._1).foreach { case (m, grouped) =>
       if (grouped.length > 1) {
