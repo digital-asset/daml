@@ -80,7 +80,9 @@ private[events] object TransactionLogUpdatesConversions {
         eventProjectionProperties,
         lfValueTranslation,
       )
-        .map(transaction => GetTransactionsResponse(Seq(transaction)).withPrecomputedSerializedSize())
+        .map(transaction =>
+          GetTransactionsResponse(Seq(transaction)).withPrecomputedSerializedSize()
+        )
 
     def toGetFlatTransactionResponse(
         transactionLogUpdate: TransactionLogUpdate,
