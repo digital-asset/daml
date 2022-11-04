@@ -31,13 +31,6 @@ We welcome feedback about the JSON API on
 `our issue tracker <https://github.com/digital-asset/daml/issues/new/choose>`_, or
 `on our forum <https://discuss.daml.com>`_.
 
-.. toctree::
-   :hidden:
-   :maxdepth: 3
-
-   lf-value-specification
-   search-query-language
-   production-setup
 
 Run the JSON API
 ****************
