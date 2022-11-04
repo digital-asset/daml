@@ -75,6 +75,7 @@ da_scala_test(
     data = [
         ":test-daml.dar",
         ":test-daml-with-same-dependencies.dar",
+        ":test-daml-with-same-dependencies-but-different-target-version.dar",
     ],
     resource_strip_prefix = "language-support/java/codegen/src/test/resources/",
     resources = glob(["src/test/resources/**/*"]),
@@ -112,6 +113,12 @@ daml_compile(
 daml_compile(
     name = "test-daml-with-same-dependencies",
     srcs = ["src/test/daml/Foo2.daml"],
+)
+
+daml_compile(
+    name = "test-daml-with-same-dependencies-but-different-target-version",
+    srcs = ["src/test/daml/Foo2.daml"],
+    target = "1.13",
 )
 
 daml_compile(

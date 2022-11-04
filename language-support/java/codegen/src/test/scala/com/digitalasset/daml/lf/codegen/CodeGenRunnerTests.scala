@@ -42,6 +42,19 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     assert(scope.toBeGenerated === Set.empty)
   }
 
+  it should "read interfaces from 2 DAR files with same dependencies but one with different daml compiler version" in {
+
+    val scope =
+      CodeGenRunner.configureCodeGenScope(
+        Map(testDar -> None, testDarWithSameDependenciesButDifferentTargetVersion -> None),
+        Map.empty,
+      )
+
+    assert(scope.signatures.length === 26)
+    assert(scope.packagePrefixes === Map.empty)
+    assert(scope.toBeGenerated === Set.empty)
+  }
+
   it should "read interfaces from a single DAR file with a prefix" in {
 
     val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> Some("PREFIX")), Map.empty)
@@ -169,9 +182,13 @@ object CodeGenRunnerTests {
   private[this] val testDarPath = "language-support/java/codegen/test-daml.dar"
   private[this] val testDarWithSameDependenciesPath =
     "language-support/java/codegen/test-daml-with-same-dependencies.dar"
+  private[this] val testDarWithSameDependenciesButDifferentTargetVersionPath =
+    "language-support/java/codegen/test-daml-with-same-dependencies-but-different-target-version.dar"
   private val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
   private val testDarWithSameDependencies =
     Path.of(BazelRunfiles.rlocation(testDarWithSameDependenciesPath))
+  private val testDarWithSameDependenciesButDifferentTargetVersion =
+    Path.of(BazelRunfiles.rlocation(testDarWithSameDependenciesButDifferentTargetVersionPath))
   private val dar = DarReader.assertReadArchiveFromFile(testDar.toFile)
 
   private def interface(pkgId: String, modNames: String*): PackageSignature =
