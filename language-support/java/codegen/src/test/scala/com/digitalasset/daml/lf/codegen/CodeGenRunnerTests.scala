@@ -42,6 +42,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     assert(scope.toBeGenerated === Set.empty)
   }
 
+  // Test case reproducing #15341
   it should "read interfaces from 2 DAR files with same dependencies but one with different daml compiler version" in {
 
     val scope =
