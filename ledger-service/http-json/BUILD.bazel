@@ -221,17 +221,91 @@ daml_compile(
 )
 
 [
+    da_scala_library(
+        name = "tests-lib-{}".format(edition),
+        srcs = glob(["src/test/scala/**/*.scala"]),
+        plugins = [
+            kind_projector_plugin,
+        ],
+        scala_deps = [
+            "@maven//:org_scalatest_scalatest_flatspec",
+            "@maven//:com_lihaoyi_sourcecode",
+            "@maven//:com_chuusai_shapeless",
+            "@maven//:com_typesafe_akka_akka_http_core",
+            "@maven//:com_typesafe_akka_akka_stream",
+            "@maven//:io_spray_spray_json",
+            "@maven//:org_scalacheck_scalacheck",
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalatest_scalatest_matchers_core",
+            "@maven//:org_scalatest_scalatest_shouldmatchers",
+            "@maven//:org_scalatest_scalatest_wordspec",
+            "@maven//:org_scalatestplus_scalacheck_1_15",
+            "@maven//:org_scalaz_scalaz_core",
+            "@maven//:org_scalaz_scalaz_scalacheck_binding",
+            "@maven//:org_tpolecat_doobie_core",
+            "@maven//:org_tpolecat_doobie_free",
+            "@maven//:org_typelevel_cats_core",
+            "@maven//:org_scalatest_scalatest_freespec",
+            "@maven//:org_typelevel_cats_effect",
+            "@maven//:org_typelevel_cats_free",
+            "@maven//:org_typelevel_cats_kernel",
+            "@maven//:org_scalactic_scalactic",
+        ],
+        scalacopts = hj_scalacopts + [
+            "-Xmaxerrs",
+            "10",
+            "-Xmaxwarns",
+            "10",
+        ],
+        deps = [
+            ":http-json-{}".format(edition),
+            "//bazel_tools/runfiles:scala_runfiles",
+            "//daml-lf/api-type-signature",
+            "//daml-lf/data",
+            "//daml-lf/transaction",
+            "//daml-lf/transaction-test-lib",
+            "//language-support/scala/bindings-akka",
+            "//ledger-service/db-backend",
+            "//ledger-service/fetch-contracts",
+            "//ledger/metrics",
+            "//ledger-service/http-json-cli:{}".format(edition),
+            "//ledger-service/http-json-testing:{}".format(edition),
+            "//ledger-service/cli-opts",
+            "//ledger-service/jwt",
+            "//ledger-service/lf-value-json",
+            "//ledger-service/utils",
+            "//ledger/ledger-api-common",
+            "//libs-scala/contextualized-logging",
+            "//libs-scala/db-utils",
+            "//libs-scala/logging-entries",
+            "//libs-scala/nonempty",
+            "//libs-scala/scala-utils",
+            "//libs-scala/scalatest-utils",
+            "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+            "//libs-scala/test-evidence/tag:test-evidence-tag",
+            "@maven//:org_scalatest_scalatest_compatible",
+        ],
+    )
+    for edition in [
+        "ce",
+        "ee",
+    ]
+]
+
+alias(
+    name = "tests-lib",
+    actual = "tests-lib-ce",
+    visibility = ["//test-evidence:__pkg__"],
+)
+
+[
     da_scala_test(
         name = "tests-{}".format(edition),
         size = "medium",
-        srcs = glob(["src/test/scala/**/*.scala"]),
         data = [
             ":src/test/resources/http-json-api.conf",
             ":src/test/resources/http-json-api-minimal.conf",
             "//ledger/test-common/test-certificates",
-        ],
-        plugins = [
-            kind_projector_plugin,
         ],
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
@@ -255,6 +329,7 @@ daml_compile(
         scalacopts = hj_scalacopts,
         deps = [
             ":http-json-{}".format(edition),
+            ":tests-lib-{}".format(edition),
             "//bazel_tools/runfiles:scala_runfiles",
             "//daml-lf/api-type-signature",
             "//daml-lf/data",
