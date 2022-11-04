@@ -21,7 +21,7 @@ object ScalaPbStreamingOptimizations {
       * with significant latencies when encoding complex payloads (e.g. [[com.daml.ledger.api.v1.transaction_service.GetTransactionTreesResponse]]),
       * with the gRPC marshalling bottleneck appearing in some performance tests.
       *
-      * As an alleviation of the problem, we can leverage the fact that ScalaPB message classes have the serializedSize value memoized,
+      * To alleviate the problem, we can leverage the fact that ScalaPB message classes have the serializedSize value memoized,
       * (see [[scalapb.GeneratedMessage.writeTo]]), whose computation is roughly half of the entire marshalling step.
       *
       * This optimization method takes advantage of the memoized value and forces the message's serializedSize computation,
