@@ -20,11 +20,10 @@ import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.LimitResult.LimitResultCheck
 import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
-import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.platform.server.api.services.grpc.GrpcHealthService
-import com.daml.ports.Port
+import com.daml.ledger.api.testing.utils.TestingServerInterceptors.channelOwner
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf.ByteString
 import io.grpc.Status.Code
