@@ -27,7 +27,8 @@ module DA.Internal.Desugar (
     Method,
     mkMethod,
     InterfaceView,
-    mkInterfaceView
+    mkInterfaceView,
+    userWrittenTuple
 ) where
 
 import DA.Internal.Prelude
@@ -42,6 +43,7 @@ import DA.Internal.Exception ()
 import DA.Internal.Exception
 #endif
 import GHC.Types (magic, Symbol)
+import GHC.Tuple.Check (userWrittenTuple)
 
 -- These are only used as markers by desugaring, we do not translate them to LF.
 data NonConsuming t = NonConsuming {}

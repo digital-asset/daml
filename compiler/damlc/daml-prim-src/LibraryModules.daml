@@ -27,6 +27,7 @@ import GHC.Show
 import GHC.Stack.Types
 import GHC.Tuple
 import GHC.Types
+import GHC.Tuple.Check
 
 #ifdef DAML_EXCEPTIONS
 import DA.Exception.GeneralError

@@ -600,6 +600,7 @@ generateStablePackages lfVersion fp = do
                     , "DA-Types.dalf"
                     , "GHC-Prim.dalf"
                     , "GHC-Tuple.dalf"
+                    , "GHC-Tuple-Check.dalf"
                     , "GHC-Types.dalf"]
                 , map ("daml-stdlib" </>)
                     [ "DA-Internal-Any.dalf"

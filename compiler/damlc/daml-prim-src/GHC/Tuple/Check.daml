@@ -1,0 +1,14 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE DamlSyntax #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+
+module GHC.Tuple.Check where
+
+import GHC.Types
+
+userWrittenTuple : a -> a
+userWrittenTuple = magic @"userWrittenTuple"
