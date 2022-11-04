@@ -69,7 +69,6 @@ import "ghc-lib" GHC hiding (Succeeded, typecheckModule)
 import "ghc-lib-parser" Module (DefUnitId(..), UnitId(..), stringToUnitId)
 import Safe
 import System.Directory.Extra as Dir
-import System.Environment
 import System.FilePath
 import qualified System.FilePath.Posix as FPP
 import System.IO
@@ -632,16 +631,13 @@ generateStablePackages lfVersion fp = do
 
 -- | Find the directory containing the stable packages if it exists.
 locateStablePackages :: IO FilePath
-locateStablePackages = do
-    -- On Windows, looking up mainWorkspace/compiler/damlc and then appeanding stable-packages doesn’t work.
-    -- On the other hand, looking up the full path directly breaks our resources logic for dist tarballs.
-    -- Therefore we first try stable-packages and then fall back to resources if that does not exist
-    execPath <- getExecutablePath
-    let jarResources = takeDirectory execPath </> "resources"
-    hasJarResources <- Dir.doesDirectoryExist jarResources
-    if hasJarResources
-        then pure (jarResources </> "stable-packages")
-        else locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "stable-packages")
+locateStablePackages = locateResource Resource
+  { runfilesPath = mainWorkspace </> "compiler" </> "damlc" </> "stable-packages"
+  , resourcesPath = "stable-packages"
+    -- In a packaged application, the directory structure of //compiler/damlc/stable-packages
+    -- is preserved underneath the resources directory because it includes multiple files.
+    -- See @bazel_tools/packaging/packaging.bzl@.
+  }
 
 generateStablePackagesRule :: Options -> Rules ()
 generateStablePackagesRule opts =
