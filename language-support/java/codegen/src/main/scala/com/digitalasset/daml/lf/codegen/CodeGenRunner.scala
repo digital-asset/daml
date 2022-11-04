@@ -145,13 +145,13 @@ object CodeGenRunner extends StrictLogging {
         (path, packagePrefix) <- darFiles.view
         interface <- decodeDarAt(path)
       } yield (interface, packagePrefix)
-    val (signatureMap, packagePrefixes) =
+    val (signatureMap, packageIdPrefixes) =
       signaturesAndPackagePrefixes.foldLeft(
-        (Map.empty[PackageId, PackageSignature], Map.empty[PackageId, String])
+        (Map.empty[PackageId, PackageSignature], List.empty[(PackageId, String)])
       ) { case ((signatures, prefixes), (signature, prefix)) =>
         val updatedSignatures = signatures.updated(signature.packageId, signature)
-        val updatedPrefixes = prefix.fold(prefixes)(prefixes.updated(signature.packageId, _))
-        (updatedSignatures, updatedPrefixes)
+        val updatedPackageIdPrefixes = prefix.fold(prefixes)((signature.packageId, _) :: prefixes)
+        (updatedSignatures, updatedPackageIdPrefixes)
       }
 
     val signatures = signatureMap.values.toSeq
@@ -175,7 +175,7 @@ object CodeGenRunner extends StrictLogging {
 
     val resolvedPrefixes =
       resolvePackagePrefixes(
-        packagePrefixes,
+        packagePrefixes(packageIdPrefixes, generatedModuleIds),
         modulePrefixes,
         resolvedSignatures,
         generatedModuleIds,
@@ -186,6 +186,30 @@ object CodeGenRunner extends StrictLogging {
       resolvedPrefixes,
       transitiveClosure.serializableTypes,
     )
+  }
+
+  private def packagePrefixes(
+      packageIdPrefix: List[(PackageId, String)],
+      generatedModules: Set[Reference.Module],
+  ): Map[PackageId, String] = {
+    val generatedPackageId = generatedModules.map(_.packageId)
+    val generatedPackageIdPrefix = packageIdPrefix.filter(p => generatedPackageId.contains(p._1))
+    detectPrefixCollisions(generatedPackageIdPrefix)
+
+    generatedPackageIdPrefix.toMap
+  }
+
+  private def detectPrefixCollisions(
+      packageIdPrefix: List[(PackageId, String)]
+  ): Unit = {
+    packageIdPrefix.groupBy(_._1).foreach { case (packageId, grouped) =>
+      if (grouped.length > 1) {
+        val prefixes = grouped.map(_._2).mkString(", ")
+        throw new IllegalArgumentException(
+          s"""Ambiguous prefixes $prefixes configured on package id $packageId."""
+        )
+      }
+    }
   }
 
   private def createExecutionContext(): ExecutionContextExecutorService =
