@@ -1982,9 +1982,8 @@ convertDataCon env m con args
     , envUserWrittenTuple env
     , IsTuple arity <- con
     = do
-        if arity > 5
-          then conversionWarning "Used tuple of size > 5! Daml only has Show, Eq, Ord instances for tuples of size <= 5."
-          else pure ()
+        when (arity > 5) $
+          conversionWarning "Used tuple of size > 5! Daml only has Show, Eq, Ord instances for tuples of size <= 5."
         let env' = env { envUserWrittenTuple = False }
         convertDataCon env' m con args
     -- Fully applied
