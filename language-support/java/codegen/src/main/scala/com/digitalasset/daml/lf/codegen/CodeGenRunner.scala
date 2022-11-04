@@ -164,7 +164,6 @@ object CodeGenRunner extends StrictLogging {
     for (error <- transitiveClosure.errors) {
       logger.error(error.msg)
     }
-
     val generatedModuleIds: Set[Reference.Module] = (
       transitiveClosure.serializableTypes.map(_._1) ++
         transitiveClosure.interfaces.map(_._1)
