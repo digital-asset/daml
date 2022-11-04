@@ -140,7 +140,18 @@ class LedgerApiBenchTool(
                 submissionConfig = submissionConfig,
                 metricRegistry = metricRegistry,
                 partyAllocating = partyAllocating,
-              ).map(_ -> BenchtoolTestsPackageInfo.StaticDefault)
+              )
+                .map(_ -> BenchtoolTestsPackageInfo.StaticDefault)
+                .map { v =>
+                  // We manually execute a 'VACUUM ANALYZE' at the end of the submission step (if IndexDB is on Postgresql),
+                  // to make sure query planner statistics, visibility map, etc.. are all up-to-date.
+                  config.ledger.indexDbJdbcUrlO.foreach { indexDbJdbcUrl =>
+                    if (indexDbJdbcUrl.startsWith("jdbc:postgresql:")) {
+                      PostgresUtils.invokeVacuumAnalyze(indexDbJdbcUrl)
+                    }
+                  }
+                  v
+                }
           }
         }
 
