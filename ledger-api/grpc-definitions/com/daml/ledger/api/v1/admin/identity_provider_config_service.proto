@@ -24,43 +24,19 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 service IdentityProviderConfigService {
 
   // Create a new identity provider configuration.
-  // Errors:
-  // - ``ALREADY_EXISTS``: if the identity provider configuration already exists
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   rpc CreateIdentityProviderConfig (CreateIdentityProviderConfigRequest) returns (CreateIdentityProviderConfigResponse);
 
   // Get the identity provider configuration data by id.
-  // Errors:
-  // - ``NOT_FOUND``: if the identity provider configuration doesn't exist
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   rpc GetIdentityProviderConfig (GetIdentityProviderConfigRequest) returns (GetIdentityProviderConfigResponse);
 
   // Update selected modifiable attribute of a identity provider config resource described
   // by the ``IdentityProviderConfig`` message.
-  // Errors:
-  // - ``NOT_FOUND``: if the identity provider configuration doesn't exist
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   rpc UpdateIdentityProviderConfig (UpdateIdentityProviderConfigRequest) returns (UpdateIdentityProviderConfigResponse);
 
   // List all existing identity provider configurations.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   rpc ListIdentityProviderConfigs (ListIdentityProviderConfigsRequest) returns (ListIdentityProviderConfigsResponse);
 
   // Delete an existing identity provider configuration.
-  // Errors:
-  // - ``NOT_FOUND``: if the identity provider configuration doesn't exist
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   rpc DeleteIdentityProviderConfig (DeleteIdentityProviderConfigRequest) returns (DeleteIdentityProviderConfigResponse);
 
 }
@@ -90,7 +66,7 @@ message IdentityProviderConfig {
   // key loaded from the given URL.
   // Required
   // Modifiable
-  string jwks_uri = 4;
+  string jwks_url = 4;
 }
 
 
