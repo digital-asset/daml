@@ -63,9 +63,7 @@ class ApiIdentityProviderConfigService(
           identityProviderAwareAuthService.addService(config)
           config
         }
-        .map(config =>
-          proto.CreateIdentityProviderConfigResponse(Some(toProto(config)))
-        )
+        .map(config => proto.CreateIdentityProviderConfigResponse(Some(toProto(config))))
     }
 
   override def getIdentityProviderConfig(
@@ -91,9 +89,7 @@ class ApiIdentityProviderConfigService(
     identityProviderStore
       .listIdentityProviderConfigs()
       .flatMap(handleResult("listing identity_provider_configs"))
-      .map(result =>
-        proto.ListIdentityProviderConfigsResponse(result.map(toProto).toSeq)
-      )
+      .map(result => proto.ListIdentityProviderConfigsResponse(result.map(toProto).toSeq))
 
   override def deleteIdentityProviderConfig(
       request: proto.DeleteIdentityProviderConfigRequest

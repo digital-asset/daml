@@ -125,8 +125,7 @@ final class AuthorizationInterceptor(
     user.identityProviderId match {
       case Some(identityProviderId) =>
         identityProviderStore.getIdentityProviderConfig(identityProviderId).flatMap {
-          case Right(identityProviderConfig)
-              if issuer0.contains(identityProviderConfig.issuer) =>
+          case Right(identityProviderConfig) if issuer0.contains(identityProviderConfig.issuer) =>
             Future.unit
           case _ =>
             Future.failed(
