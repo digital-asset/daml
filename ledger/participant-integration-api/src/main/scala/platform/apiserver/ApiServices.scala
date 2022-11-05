@@ -211,11 +211,12 @@ private[daml] object ApiServices {
               maxUsersPageSize = userManagementConfig.maxUsersPageSize,
               submissionIdGenerator = SubmissionIdGenerator.Random,
             )
-          val authorized =
-            new UserManagementServiceAuthorization(apiUserManagementService, authorizer)
           val identityProvider =
             new ApiIdentityProviderConfigService(authService, identityProviderStore)
-          List(authorized, identityProvider)
+          List(
+            new UserManagementServiceAuthorization(apiUserManagementService, authorizer),
+            new IdentityProviderConfigServiceAuthorization(identityProvider, authorizer),
+          )
         } else {
           List.empty
         }
