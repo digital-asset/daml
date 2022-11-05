@@ -6,12 +6,9 @@ package com.daml.platform.localstore.api
 import com.daml.ledger.api.domain.IdentityProviderConfig
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.localstore.api.IdentityProviderStore.{
-  IdentityProviderConfigByIssuerNotFound,
-  Result,
-}
+import com.daml.platform.localstore.api.IdentityProviderStore.Result
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 trait IdentityProviderStore {
 
