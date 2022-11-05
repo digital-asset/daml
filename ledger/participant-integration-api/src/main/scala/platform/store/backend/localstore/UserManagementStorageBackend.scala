@@ -60,6 +60,7 @@ object UserManagementStorageBackend {
   case class DbUserPayload(
       id: Ref.UserId,
       primaryPartyO: Option[Ref.Party],
+      identityProviderId: Option[Ref.IdentityProviderId],
       isDeactivated: Boolean,
       resourceVersion: Long,
       createdAt: Long,

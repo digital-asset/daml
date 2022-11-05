@@ -89,6 +89,9 @@ object JwksVerifier {
   def apply(url: String, jwtTimestampLeeway: Option[JwtTimestampLeeway] = None) =
     new JwksVerifier(new URI(url).toURL, jwtTimestampLeeway = jwtTimestampLeeway)
 
+  def apply(url: URL, jwtTimestampLeeway: Option[JwtTimestampLeeway]) =
+    new JwksVerifier(url, jwtTimestampLeeway = jwtTimestampLeeway)
+
   final case class Error(what: Symbol, message: String)
 
   object Error {

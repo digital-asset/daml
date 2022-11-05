@@ -23,6 +23,7 @@ import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.StatusRuntimeException
 
+import java.net.URL
 import scala.util.{Failure, Success, Try}
 
 object FieldValidations {
@@ -99,6 +100,20 @@ object FieldValidations {
     }
   }
 
+  def requireURL(raw: String, fieldName: String)(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, URL] = {
+    Try {
+      new URL(raw)
+    } match {
+      case Success(url) => Right(url)
+      case Failure(e) =>
+        Left(
+          invalidField(fieldName = fieldName, message = s"Malformed URL: ${e.getMessage}")
+        )
+    }
+  }
+
   def requireParties(parties: Set[String])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Set[Party]] =
@@ -133,6 +148,13 @@ object FieldValidations {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.LedgerString] =
     requireNonEmptyParsedId(Ref.LedgerString.fromString)(s, fieldName)
+  def requireIdentityProviderId(
+      s: String,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Ref.IdentityProviderId] =
+    requireNonEmptyParsedId(Ref.IdentityProviderId.fromString)(s, fieldName)
 
   def requireLedgerString(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

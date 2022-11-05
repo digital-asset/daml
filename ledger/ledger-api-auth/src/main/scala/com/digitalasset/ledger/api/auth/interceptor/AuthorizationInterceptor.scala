@@ -7,12 +7,12 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.auth._
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.UserRight
+import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.localstore.api.UserManagementStore
+import com.daml.platform.localstore.api.{IdentityProviderStore, UserManagementStore}
 import io.grpc._
 
 import scala.jdk.FutureConverters.CompletionStageOps
@@ -27,6 +27,7 @@ import scala.util.{Failure, Success, Try}
 final class AuthorizationInterceptor(
     authService: AuthService,
     userManagementStoreO: Option[UserManagementStore],
+    identityProviderStore0: Option[IdentityProviderStore],
     implicit val ec: ExecutionContext,
 )(implicit loggingContext: LoggingContext)
     extends ServerInterceptor {
@@ -81,11 +82,13 @@ final class AuthorizationInterceptor(
 
   private[this] def resolveAuthenticatedUserRights(claimSet: ClaimSet): Future[ClaimSet] =
     claimSet match {
-      case ClaimSet.AuthenticatedUser(userIdStr, participantId, expiration) =>
+      case ClaimSet.AuthenticatedUser(issuer, userIdStr, participantId, expiration) =>
         for {
           userManagementStore <- getUserManagementStore(userManagementStoreO)
+          identityProviderStore <- getIdentityProviderStore(identityProviderStore0)
           userId <- getUserId(userIdStr)
-          _ <- verifyUserIsActive(userManagementStore, userId)
+          user <- verifyUserIsActive(userManagementStore, userId)
+          _ <- verifyUserIssuer(issuer, user, identityProviderStore)
           userRightsResult <- userManagementStore.listUserRights(userId)
           claimsSet <- userRightsResult match {
             case Left(msg) =>
@@ -114,13 +117,44 @@ final class AuthorizationInterceptor(
       case _ => Future.successful(claimSet)
     }
 
+  private def verifyUserIssuer(
+      issuer0: Option[String],
+      user: User,
+      identityProviderStore: IdentityProviderStore,
+  ): Future[Unit] =
+    user.identityProviderId match {
+      case Some(identityProviderId) =>
+        identityProviderStore.getIdentityProviderConfig(identityProviderId).flatMap {
+          case Right(identityProviderConfig)
+              if issuer0.contains(identityProviderConfig.issuer) =>
+            Future.unit
+          case _ =>
+            Future.failed(
+              LedgerApiErrors.AuthorizationChecks.PermissionDenied
+                .Reject(
+                  s"User is assigned to another identity provider"
+                )(errorLogger)
+                .asGrpcError
+            )
+        }
+      case None if issuer0.isDefined =>
+        Future.failed(
+          LedgerApiErrors.AuthorizationChecks.PermissionDenied
+            .Reject(
+              s"User is assigned to another identity provider"
+            )(errorLogger)
+            .asGrpcError
+        )
+      case _ => Future.unit
+    }
+
   private def verifyUserIsActive(
       userManagementStore: UserManagementStore,
       userId: UserId,
-  ): Future[Unit] =
+  ): Future[User] =
     for {
       userResult <- userManagementStore.getUser(id = userId)
-      _ <- userResult match {
+      value <- userResult match {
         case Left(msg) =>
           Future.failed(
             LedgerApiErrors.AuthorizationChecks.PermissionDenied
@@ -139,10 +173,10 @@ final class AuthorizationInterceptor(
                 .asGrpcError
             )
           } else {
-            Future.successful(())
+            Future.successful(user)
           }
       }
-    } yield ()
+    } yield value
 
   private[this] def getUserManagementStore(
       userManagementStoreO: Option[UserManagementStore]
@@ -156,6 +190,20 @@ final class AuthorizationInterceptor(
         )
       case Some(userManagementStore) =>
         Future.successful(userManagementStore)
+    }
+
+  private[this] def getIdentityProviderStore(
+      identityProviderStoreO: Option[IdentityProviderStore]
+  ): Future[IdentityProviderStore] =
+    identityProviderStoreO match {
+      case None =>
+        Future.failed(
+          LedgerApiErrors.AuthorizationChecks.Unauthenticated
+            .UserBasedAuthenticationIsDisabled()(errorLogger)
+            .asGrpcError
+        )
+      case Some(identityProviderStore) =>
+        Future.successful(identityProviderStore)
     }
 
   private[this] def getUserId(userIdStr: String): Future[Ref.UserId] =
@@ -189,10 +237,11 @@ object AuthorizationInterceptor {
   def apply(
       authService: AuthService,
       userManagementStoreO: Option[UserManagementStore],
+      identityProviderStore0: Option[IdentityProviderStore],
       ec: ExecutionContext,
   ): AuthorizationInterceptor =
     LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
-      new AuthorizationInterceptor(authService, userManagementStoreO, ec)
+      new AuthorizationInterceptor(authService, userManagementStoreO, identityProviderStore0, ec)
     }
 
   def convertUserRightsToClaims(userRights: Set[UserRight]): Seq[Claim] = {
@@ -202,6 +251,7 @@ object AuthorizationInterceptor {
   private[this] def userRightToClaim(r: UserRight): Claim = r match {
     case UserRight.CanActAs(p) => ClaimActAsParty(Ref.Party.assertFromString(p))
     case UserRight.CanReadAs(p) => ClaimReadAsParty(Ref.Party.assertFromString(p))
+    case UserRight.IdentityProviderAdmin => ClaimIdentityProviderAdmin
     case UserRight.ParticipantAdmin => ClaimAdmin
   }
 }

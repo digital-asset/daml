@@ -127,6 +127,7 @@ class PersistentUserManagementStore(
         val dbUser = UserManagementStorageBackend.DbUserPayload(
           id = user.id,
           primaryPartyO = user.primaryParty,
+          identityProviderId = user.identityProviderId,
           isDeactivated = user.isDeactivated,
           resourceVersion = 0,
           createdAt = now,

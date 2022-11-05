@@ -14,6 +14,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, OptionValues}
 
+//TODO DPP-1299 Include IdentityProviderConfig tests
 private[backend] trait StorageBackendTestsUserManagement
     extends Matchers
     with Inside
@@ -377,6 +378,7 @@ private[backend] trait StorageBackendTestsUserManagement
       userId: String = "",
       isDeactivated: Boolean = false,
       primaryPartyOverride: Option[Option[Ref.Party]] = None,
+      identityProviderId: Option[Ref.IdentityProviderId] = None,
       resourceVersion: Long = 0,
       createdAt: Long = zeroMicros,
   ): UserManagementStorageBackend.DbUserPayload = {
@@ -390,6 +392,7 @@ private[backend] trait StorageBackendTestsUserManagement
       primaryPartyO = primaryParty,
       isDeactivated = isDeactivated,
       resourceVersion = resourceVersion,
+      identityProviderId = identityProviderId,
       createdAt = createdAt,
     )
   }

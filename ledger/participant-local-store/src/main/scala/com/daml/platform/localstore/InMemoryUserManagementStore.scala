@@ -15,6 +15,7 @@ import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 import scala.collection.mutable
 import scala.concurrent.Future
 
+//TODO DPP-1299 Include IdentityProviderAdmin
 class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManagementStore {
   import InMemoryUserManagementStore._
 
@@ -46,6 +47,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
             isDeactivated = user.isDeactivated,
             resourceVersion = 0,
             annotations = user.metadata.annotations,
+            identityProviderId = user.identityProviderId,
           )
         }
         state.update(user.id, InMemUserInfo(userWithResourceVersion, rights))
@@ -207,6 +209,7 @@ object InMemoryUserManagementStore {
       isDeactivated: Boolean = false,
       resourceVersion: Long,
       annotations: Map[String, String],
+      identityProviderId: Option[Ref.IdentityProviderId],
   )
   case class InMemUserInfo(user: InMemUser, rights: Set[UserRight])
 
@@ -236,6 +239,7 @@ object InMemoryUserManagementStore {
       isDeactivated = false,
       resourceVersion = 0,
       annotations = Map.empty,
+      identityProviderId = None,
     ),
     rights = Set(UserRight.ParticipantAdmin),
   )

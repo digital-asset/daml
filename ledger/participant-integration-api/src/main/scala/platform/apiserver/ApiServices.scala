@@ -19,6 +19,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.IdentityProviderAwareAuthService
 import com.daml.platform.apiserver.configuration.{
   LedgerConfigurationInitializer,
   LedgerConfigurationSubscription,
@@ -35,7 +36,11 @@ import com.daml.platform.apiserver.services.admin._
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
 import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
 import com.daml.platform.localstore.UserManagementConfig
-import com.daml.platform.localstore.api.{PartyRecordStore, UserManagementStore}
+import com.daml.platform.localstore.api.{
+  IdentityProviderStore,
+  PartyRecordStore,
+  UserManagementStore,
+}
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.{GrpcHealthService, GrpcTransactionService}
 import com.daml.platform.services.time.TimeProviderType
@@ -69,6 +74,7 @@ private[daml] object ApiServices {
       optWriteService: Option[state.WriteService],
       indexService: IndexService,
       userManagementStore: UserManagementStore,
+      identityProviderStore: IdentityProviderStore,
       partyRecordStore: PartyRecordStore,
       authorizer: Authorizer,
       engine: Engine,
@@ -85,6 +91,7 @@ private[daml] object ApiServices {
       managementServiceTimeout: FiniteDuration,
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
       ledgerFeatures: LedgerFeatures,
+      authService: IdentityProviderAwareAuthService,
       userManagementConfig: UserManagementConfig,
       apiStreamShutdownTimeout: scala.concurrent.duration.Duration,
       meteringReportKey: MeteringReportKey,
@@ -196,7 +203,7 @@ private[daml] object ApiServices {
 
       val apiHealthService = new GrpcHealthService(healthChecks)
 
-      val maybeApiUserManagementService: Option[UserManagementServiceAuthorization] =
+      val userManagementServices: List[BindableService] =
         if (userManagementConfig.enabled) {
           val apiUserManagementService =
             new ApiUserManagementService(
@@ -206,9 +213,11 @@ private[daml] object ApiServices {
             )
           val authorized =
             new UserManagementServiceAuthorization(apiUserManagementService, authorizer)
-          Some(authorized)
+          val identityProvider =
+            new ApiIdentityProviderConfigService(authService, identityProviderStore)
+          List(authorized, identityProvider)
         } else {
-          None
+          List.empty
         }
 
       val apiMeteringReportService =
@@ -227,7 +236,7 @@ private[daml] object ApiServices {
           apiHealthService,
           apiVersionService,
           new MeteringReportServiceAuthorization(apiMeteringReportService, authorizer),
-        ) ::: maybeApiUserManagementService.toList
+        ) ::: userManagementServices
     }
 
     private def intitializeWriteServiceBackedApiServices(

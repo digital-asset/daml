@@ -9,10 +9,15 @@ import anorm.SqlParser.{bool, int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.UserRight
-import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
+import com.daml.ledger.api.domain.UserRight.{
+  CanActAs,
+  CanReadAs,
+  ParticipantAdmin,
+  IdentityProviderAdmin,
+}
 import com.daml.ledger.api.v1.admin.user_management_service.Right
 import com.daml.platform.store.backend.common.{ComposableQuery, QueryStrategy}
-import com.daml.platform.{Party, UserId}
+import com.daml.platform.{Party, UserId, LedgerString}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 
 import scala.util.Try
@@ -20,16 +25,25 @@ import scala.util.Try
 object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
 
   private val ParticipantUserParser
-      : RowParser[(Int, String, Option[String], Boolean, Long, Long)] = {
+      : RowParser[(Int, String, Option[String], Option[String], Boolean, Long, Long)] = {
     import com.daml.platform.store.backend.Conversions.bigDecimalColumnToBoolean
     int("internal_id") ~
       str("user_id") ~
       str("primary_party").? ~
+      str("identity_provider_id").? ~
       bool("is_deactivated") ~
       long("resource_version") ~
       long("created_at") map {
-        case internalId ~ userId ~ primaryParty ~ isDeactivated ~ resourceVersion ~ createdAt =>
-          (internalId, userId, primaryParty, isDeactivated, resourceVersion, createdAt)
+        case internalId ~ userId ~ primaryParty ~ identityProviderId ~ isDeactivated ~ resourceVersion ~ createdAt =>
+          (
+            internalId,
+            userId,
+            primaryParty,
+            identityProviderId,
+            isDeactivated,
+            resourceVersion,
+            createdAt,
+          )
       }
   }
 
@@ -47,13 +61,14 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   )(connection: Connection): Int = {
     val id = user.id: String
     val primaryParty = user.primaryPartyO: Option[String]
+    val identityProviderId = user.identityProviderId: Option[String]
     val isDeactivated = user.isDeactivated
     val resourceVersion = user.resourceVersion
     val createdAt = user.createdAt
     val internalId: Try[Int] =
       SQL"""
-         INSERT INTO participant_users (user_id, primary_party, is_deactivated, resource_version, created_at)
-         VALUES ($id, $primaryParty, $isDeactivated, $resourceVersion, $createdAt)
+         INSERT INTO participant_users (user_id, primary_party, identity_provider_id, is_deactivated, resource_version, created_at)
+         VALUES ($id, $primaryParty, $identityProviderId, $isDeactivated, $resourceVersion, $createdAt)
        """.executeInsert1("internal_id")(SqlParser.scalar[Int].single)(connection)
     internalId.get
   }
@@ -101,18 +116,27 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       id: UserId
   )(connection: Connection): Option[UserManagementStorageBackend.DbUserWithId] = {
     SQL"""
-       SELECT internal_id, user_id, primary_party, is_deactivated, resource_version, created_at
+       SELECT internal_id, user_id, primary_party, is_deactivated, identity_provider_id, resource_version, created_at
        FROM participant_users
        WHERE user_id = ${id: String}
        """
       .as(ParticipantUserParser.singleOpt)(connection)
       .map {
-        case (internalId, userId, primaryPartyRaw, isDeactivated, resourceVersion, createdAt) =>
+        case (
+              internalId,
+              userId,
+              primaryPartyRaw,
+              identityProviderId,
+              isDeactivated,
+              resourceVersion,
+              createdAt,
+            ) =>
           UserManagementStorageBackend.DbUserWithId(
             internalId = internalId,
             payload = UserManagementStorageBackend.DbUserPayload(
               id = UserId.assertFromString(userId),
               primaryPartyO = dbStringToPartyString(primaryPartyRaw),
+              identityProviderId = dbStringToLedgerString(identityProviderId),
               isDeactivated = isDeactivated,
               resourceVersion = resourceVersion,
               createdAt = createdAt,
@@ -129,19 +153,28 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       case None => cSQL""
       case Some(id: String) => cSQL"WHERE user_id > ${id}"
     }
-    SQL"""SELECT internal_id, user_id, primary_party, is_deactivated, resource_version, created_at
+    SQL"""SELECT internal_id, user_id, primary_party, identity_provider_id, is_deactivated, resource_version, created_at
           FROM participant_users
           $whereClause
           ORDER BY user_id
           ${QueryStrategy.limitClause(Some(maxResults))}"""
       .asVectorOf(ParticipantUserParser)(connection)
       .map {
-        case (internalId, userId, primaryPartyRaw, isDeactivated, resourceVersion, createdAt) =>
+        case (
+              internalId,
+              userId,
+              primaryPartyRaw,
+              identityProviderId,
+              isDeactivated,
+              resourceVersion,
+              createdAt,
+            ) =>
           UserManagementStorageBackend.DbUserWithId(
             internalId = internalId,
             payload = UserManagementStorageBackend.DbUserPayload(
               id = UserId.assertFromString(userId),
               primaryPartyO = dbStringToPartyString(primaryPartyRaw),
+              identityProviderId = dbStringToLedgerString(identityProviderId),
               isDeactivated = isDeactivated,
               resourceVersion = resourceVersion,
               createdAt = createdAt,
@@ -251,6 +284,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   private def fromUserRight(right: UserRight): (Int, Option[Party]) = {
     right match {
       case ParticipantAdmin => (Right.PARTICIPANT_ADMIN_FIELD_NUMBER, None)
+      case IdentityProviderAdmin => (Right.IDENTITY_PROVIDER_ADMIN_FIELD_NUMBER, None)
       case CanActAs(party) => (Right.CAN_ACT_AS_FIELD_NUMBER, Some(party))
       case CanReadAs(party) => (Right.CAN_READ_AS_FIELD_NUMBER, Some(party))
       case _ =>
@@ -260,6 +294,10 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
 
   private def dbStringToPartyString(raw: Option[String]): Option[Party] = {
     raw.map(Party.assertFromString)
+  }
+
+  private def dbStringToLedgerString(raw: Option[String]): Option[LedgerString] = {
+    raw.map(LedgerString.assertFromString)
   }
 
   private def isForPartyPredicate(forParty: Option[Party]): ComposableQuery.CompositeSql = {

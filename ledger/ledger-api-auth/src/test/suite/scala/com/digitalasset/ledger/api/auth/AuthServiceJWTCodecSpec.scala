@@ -12,6 +12,7 @@ import spray.json._
 import java.time.Instant
 import scala.util.{Failure, Success, Try}
 
+//TODO DPP-1299 Additional tests for iss claim
 class AuthServiceJWTCodecSpec
     extends AnyWordSpec
     with Matchers
@@ -185,6 +186,7 @@ class AuthServiceJWTCodecSpec
             |}
           """.stripMargin
         val expected = StandardJWTPayload(
+          issuer = None,
           participantId = Some("someParticipantId"),
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
@@ -203,6 +205,7 @@ class AuthServiceJWTCodecSpec
             |}
           """.stripMargin
         val expected = StandardJWTPayload(
+          issuer = None,
           participantId = Some("someParticipantId"),
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
@@ -235,6 +238,7 @@ class AuthServiceJWTCodecSpec
             |}
           """.stripMargin
         val expected = StandardJWTPayload(
+          issuer = None,
           participantId = Some("someParticipantId"),
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
@@ -253,6 +257,7 @@ class AuthServiceJWTCodecSpec
           """.stripMargin
         parse(prefixed) shouldBe Success(
           StandardJWTPayload(
+            issuer = None,
             participantId = Some("someParticipantId"),
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
@@ -270,6 +275,7 @@ class AuthServiceJWTCodecSpec
           """.stripMargin
         parse(standard) shouldBe Success(
           StandardJWTPayload(
+            issuer = None,
             participantId = Some("someParticipantId"),
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
@@ -288,6 +294,7 @@ class AuthServiceJWTCodecSpec
             |}
           """.stripMargin
         val expected = StandardJWTPayload(
+          issuer = None,
           participantId = Some("someParticipantId"),
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),

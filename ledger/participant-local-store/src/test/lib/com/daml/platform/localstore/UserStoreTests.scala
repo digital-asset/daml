@@ -20,6 +20,7 @@ import scala.language.implicitConversions
 
 /** Common tests for implementations of [[UserManagementStore]]
   */
+//TODO DPP-1299 Include IdentityProviderAdmin
 trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
 
   implicit val lc: LoggingContext = LoggingContext.ForTesting

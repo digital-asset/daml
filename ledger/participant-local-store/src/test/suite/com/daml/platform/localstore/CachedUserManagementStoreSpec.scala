@@ -12,6 +12,7 @@ import com.daml.platform.localstore.api.{ObjectMetaUpdate, UserUpdate}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.freespec.AsyncFreeSpec
 
+//TODO DPP-1299 Include IdentityProviderAdmin
 class CachedUserManagementStoreSpec
     extends AsyncFreeSpec
     with UserStoreTests

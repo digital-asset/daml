@@ -26,6 +26,7 @@ import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.index.{InMemoryStateUpdater, IndexServiceOwner}
 import com.daml.platform.indexer.IndexerServiceOwner
 import com.daml.platform.localstore.{
+  InMemoryIdentityProviderStore,
   PersistentPartyRecordStore,
   PersistentUserManagementStore,
   UserManagementConfig,
@@ -164,6 +165,7 @@ class LedgerApiServer(
         maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
         timeProvider = TimeProvider.UTC,
       )(servicesExecutionContext, loggingContext),
+      identityProviderStore = new InMemoryIdentityProviderStore,
       partyRecordStore = new PersistentPartyRecordStore(
         dbSupport = dbSupport,
         metrics = metrics,
@@ -172,7 +174,8 @@ class LedgerApiServer(
       ),
       ledgerFeatures = ledgerFeatures,
       participantId = participantId,
-      authService = authService,
+      authService =
+        new IdentityProviderAwareAuthService(authService, participantConfig.jwtTimestampLeeway),
       jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
       explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
     )

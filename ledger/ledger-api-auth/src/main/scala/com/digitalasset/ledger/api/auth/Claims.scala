@@ -14,12 +14,18 @@ import java.time.{Duration, Instant}
   * The existing cases should be treated as immutable in order to guarantee backwards compatibility for
   * [[AuthService]] implementations.
   */
+//TODO DPP-1299 Include Additional claim for admin IdentityProviderConfig
 sealed abstract class Claim
 
 /** Authorized to use all admin services.
   * Does not authorize to use non-admin services.
   */
 case object ClaimAdmin extends Claim
+
+/** Authorized to use admin services for the configured identity provider.
+  * Does not authorize to use non-admin services.
+  */
+case object ClaimIdentityProviderAdmin extends Claim
 
 /** Authorized to use all "public" services, i.e.,
   * those that do not require admin rights and do not depend on any Daml party.
@@ -147,6 +153,7 @@ object ClaimSet {
 
   /** The representation of a user that was authenticated, but whose [[Claims]] have not yet been resolved. */
   final case class AuthenticatedUser(
+      issuer: Option[String],
       userId: String,
       participantId: Option[String],
       expiration: Option[Instant],

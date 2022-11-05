@@ -81,6 +81,7 @@ object StandardJWTTokenFormat {
   * @param exp            If set, the token is only valid before the given instant.
   */
 final case class StandardJWTPayload(
+    issuer: Option[String],
     userId: String,
     participantId: Option[String],
     exp: Option[Instant],
@@ -190,6 +191,7 @@ object AuthServiceJWTCodec {
         audienceValue.map(_.substring(audPrefix.length)).filter(_.nonEmpty) match {
           case Some(participantId) =>
             StandardJWTPayload(
+              issuer = readOptionalString("iss", fields),
               participantId = Some(participantId),
               userId = readOptionalString("sub", fields).get, // guarded by if-clause above
               exp = readInstant("exp", fields),
@@ -204,6 +206,7 @@ object AuthServiceJWTCodec {
       } else if (scopes.contains(scopeLedgerApiFull)) {
         // We support the tokens with scope containing `daml_ledger_api`, there is no restriction of `aud` field.
         StandardJWTPayload(
+          issuer = readOptionalString("iss", fields),
           participantId = audienceValue,
           userId = readOptionalString("sub", fields).get, // guarded by if-clause above
           exp = readInstant("exp", fields),

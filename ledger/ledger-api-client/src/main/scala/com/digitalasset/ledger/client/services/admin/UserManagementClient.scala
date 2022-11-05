@@ -141,6 +141,8 @@ object UserManagementClient {
   private val toProtoRight: domain.UserRight => proto.Right = {
     case domain.UserRight.ParticipantAdmin =>
       proto.Right(proto.Right.Kind.ParticipantAdmin(proto.Right.ParticipantAdmin()))
+    case domain.UserRight.IdentityProviderAdmin =>
+      proto.Right(proto.Right.Kind.IdentityProviderAdmin(proto.Right.IdentityProviderAdmin()))
     case domain.UserRight.CanActAs(party) =>
       proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs(party)))
     case domain.UserRight.CanReadAs(party) =>
@@ -150,6 +152,8 @@ object UserManagementClient {
   private val fromProtoRight: proto.Right => Option[domain.UserRight] = {
     case proto.Right(_: proto.Right.Kind.ParticipantAdmin) =>
       Some(domain.UserRight.ParticipantAdmin)
+    case proto.Right(_: proto.Right.Kind.IdentityProviderAdmin) =>
+      Some(domain.UserRight.IdentityProviderAdmin)
     case proto.Right(proto.Right.Kind.CanActAs(x)) =>
       // Note: assertFromString is OK here, as the server should deliver valid party identifiers.
       Some(domain.UserRight.CanActAs(Ref.Party.assertFromString(x.party)))

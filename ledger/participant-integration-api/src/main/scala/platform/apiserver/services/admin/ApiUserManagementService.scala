@@ -80,6 +80,9 @@ private[apiserver] final class ApiUserManagementService(
           )
           pOptPrimaryParty <- optionalString(pUser.primaryParty)(requireParty)
           pRights <- fromProtoRights(request.rights)
+          identityProviderId <- optionalString(pUser.identityProviderId)(
+            requireIdentityProviderId(_, "identity_provider_id")
+          )
         } yield (
           User(
             id = pUserId,
@@ -89,6 +92,7 @@ private[apiserver] final class ApiUserManagementService(
               resourceVersionO = None,
               annotations = pAnnotations,
             ),
+            identityProviderId = identityProviderId,
           ),
           pRights,
         )
@@ -116,6 +120,9 @@ private[apiserver] final class ApiUserManagementService(
           )
           pFieldMask <- requirePresence(request.updateMask, "update_mask")
           pOptPrimaryParty <- optionalString(pUser.primaryParty)(requireParty)
+          identityProviderId <- optionalString(pUser.identityProviderId)(
+            requireIdentityProviderId(_, "identity_provider_id")
+          )
           pResourceVersion <- optionalString(pMetadata.resourceVersion)(
             FieldValidations.requireResourceVersion(_, "user.metadata.resource_version")
           )
@@ -133,6 +140,7 @@ private[apiserver] final class ApiUserManagementService(
               resourceVersionO = pResourceVersion,
               annotations = pAnnotations,
             ),
+            identityProviderId = identityProviderId,
           ),
           pFieldMask,
         )
@@ -359,6 +367,9 @@ private[apiserver] final class ApiUserManagementService(
     case proto.Right(_: proto.Right.Kind.ParticipantAdmin) =>
       Right(UserRight.ParticipantAdmin)
 
+    case proto.Right(_: proto.Right.Kind.IdentityProviderAdmin) =>
+      Right(UserRight.IdentityProviderAdmin)
+
     case proto.Right(proto.Right.Kind.CanActAs(r)) =>
       requireParty(r.party).map(UserRight.CanActAs(_))
 
@@ -393,11 +404,14 @@ object ApiUserManagementService {
       primaryParty = user.primaryParty.getOrElse(""),
       isDeactivated = user.isDeactivated,
       metadata = Some(Utils.toProtoObjectMeta(user.metadata)),
+      identityProviderId = user.identityProviderId.getOrElse(""),
     )
 
   private val toProtoRight: UserRight => proto.Right = {
     case UserRight.ParticipantAdmin =>
       proto.Right(proto.Right.Kind.ParticipantAdmin(proto.Right.ParticipantAdmin()))
+    case UserRight.IdentityProviderAdmin =>
+      proto.Right(proto.Right.Kind.IdentityProviderAdmin(proto.Right.IdentityProviderAdmin()))
     case UserRight.CanActAs(party) =>
       proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs(party)))
     case UserRight.CanReadAs(party) =>

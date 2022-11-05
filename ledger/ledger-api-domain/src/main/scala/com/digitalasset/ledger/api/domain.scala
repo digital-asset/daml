@@ -18,6 +18,7 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import scalaz.syntax.tag._
 import scalaz.{@@, Tag}
 
+import java.net.URL
 import scala.collection.immutable
 
 object domain {
@@ -395,6 +396,7 @@ object domain {
       primaryParty: Option[Ref.Party],
       isDeactivated: Boolean = false,
       metadata: ObjectMeta = ObjectMeta.empty,
+      identityProviderId: Option[Ref.IdentityProviderId] = None,
   )
 
   case class PartyDetails(
@@ -407,6 +409,7 @@ object domain {
   sealed abstract class UserRight extends Product with Serializable
   object UserRight {
     final case object ParticipantAdmin extends UserRight
+    final case object IdentityProviderAdmin extends UserRight
     final case class CanActAs(party: Ref.Party) extends UserRight
     final case class CanReadAs(party: Ref.Party) extends UserRight
   }
@@ -415,4 +418,11 @@ object domain {
   object Feature {
     case object UserManagement extends Feature
   }
+
+  final case class IdentityProviderConfig(
+      identityProviderId: Ref.IdentityProviderId,
+      isDeactivated: Boolean = false,
+      jwksURL: URL,
+      issuer: String,
+  )
 }
