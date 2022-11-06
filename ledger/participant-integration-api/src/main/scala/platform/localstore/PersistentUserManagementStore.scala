@@ -354,6 +354,7 @@ class PersistentUserManagementStore(
       id = payload.id,
       primaryParty = payload.primaryPartyO,
       isDeactivated = payload.isDeactivated,
+      identityProviderId = payload.identityProviderId,
       metadata = domain.ObjectMeta(
         resourceVersionO = Some(payload.resourceVersion),
         annotations = annotations,

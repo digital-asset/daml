@@ -30,6 +30,7 @@ trait PartyRecordStorageBackend extends ResourceVersionOps {
 object PartyRecordStorageBackend {
   case class DbPartyRecordPayload(
       party: Ref.Party,
+      identityProviderId: Option[Ref.IdentityProviderId],
       resourceVersion: Long,
       createdAt: Long,
   )

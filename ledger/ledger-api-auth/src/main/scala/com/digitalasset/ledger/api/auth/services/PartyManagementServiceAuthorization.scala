@@ -23,23 +23,23 @@ private[daml] final class PartyManagementServiceAuthorization(
   override def getParticipantId(
       request: GetParticipantIdRequest
   ): Future[GetParticipantIdResponse] =
-    authorizer.requireAdminClaims(service.getParticipantId)(request)
+    authorizer.requireAdminOrIDPAdminClaims(service.getParticipantId)(request)
 
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
-    authorizer.requireAdminClaims(service.getParties)(request)
+    authorizer.requireAdminOrIDPAdminClaims(service.getParties)(request)
 
   override def listKnownParties(
       request: ListKnownPartiesRequest
   ): Future[ListKnownPartiesResponse] =
-    authorizer.requireAdminClaims(service.listKnownParties)(request)
+    authorizer.requireAdminOrIDPAdminClaims(service.listKnownParties)(request)
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
-    authorizer.requireAdminClaims(service.allocateParty)(request)
+    authorizer.requireAdminOrIDPAdminClaims(service.allocateParty)(request)
 
   override def updatePartyDetails(
       request: UpdatePartyDetailsRequest
   ): Future[UpdatePartyDetailsResponse] =
-    authorizer.requireAdminClaims(service.updatePartyDetails)(request)
+    authorizer.requireAdminOrIDPAdminClaims(service.updatePartyDetails)(request)
 
   override def bindService(): ServerServiceDefinition =
     PartyManagementServiceGrpc.bindService(this, executionContext)

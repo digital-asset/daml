@@ -17,7 +17,7 @@ import com.daml.ledger.api.domain.UserRight.{
 }
 import com.daml.ledger.api.v1.admin.user_management_service.Right
 import com.daml.platform.store.backend.common.{ComposableQuery, QueryStrategy}
-import com.daml.platform.{Party, UserId, LedgerString}
+import com.daml.platform.{Party, UserId, IdentityProviderId}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 
 import scala.util.Try
@@ -136,7 +136,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
             payload = UserManagementStorageBackend.DbUserPayload(
               id = UserId.assertFromString(userId),
               primaryPartyO = dbStringToPartyString(primaryPartyRaw),
-              identityProviderId = dbStringToLedgerString(identityProviderId),
+              identityProviderId = dbStringToIdentityProviderId(identityProviderId),
               isDeactivated = isDeactivated,
               resourceVersion = resourceVersion,
               createdAt = createdAt,
@@ -174,7 +174,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
             payload = UserManagementStorageBackend.DbUserPayload(
               id = UserId.assertFromString(userId),
               primaryPartyO = dbStringToPartyString(primaryPartyRaw),
-              identityProviderId = dbStringToLedgerString(identityProviderId),
+              identityProviderId = dbStringToIdentityProviderId(identityProviderId),
               isDeactivated = isDeactivated,
               resourceVersion = resourceVersion,
               createdAt = createdAt,
@@ -276,6 +276,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       case (Right.PARTICIPANT_ADMIN_FIELD_NUMBER, None) => ParticipantAdmin
       case (Right.CAN_ACT_AS_FIELD_NUMBER, Some(party)) => CanActAs(party)
       case (Right.CAN_READ_AS_FIELD_NUMBER, Some(party)) => CanReadAs(party)
+      case (Right.IDENTITY_PROVIDER_ADMIN_FIELD_NUMBER, None) => IdentityProviderAdmin
       case _ =>
         throw new RuntimeException(s"Could not convert ${(value, partyO)} to a user right.")
     }
@@ -296,8 +297,8 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     raw.map(Party.assertFromString)
   }
 
-  private def dbStringToLedgerString(raw: Option[String]): Option[LedgerString] = {
-    raw.map(LedgerString.assertFromString)
+  private def dbStringToIdentityProviderId(raw: Option[String]): Option[IdentityProviderId] = {
+    raw.map(IdentityProviderId.assertFromString)
   }
 
   private def isForPartyPredicate(forParty: Option[Party]): ComposableQuery.CompositeSql = {

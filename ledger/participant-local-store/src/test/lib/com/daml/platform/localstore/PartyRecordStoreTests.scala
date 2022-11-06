@@ -31,16 +31,19 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
   def newPartyRecord(
       name: String = party1,
       annotations: Map[String, String] = Map.empty,
+      identityProviderId: Option[Ref.IdentityProviderId] = None,
   ): PartyRecord =
     PartyRecord(
       party = name,
       metadata = ObjectMeta(None, annotations = annotations),
+      identityProviderId = identityProviderId,
     )
 
   def createdPartyRecord(
       name: String = party1,
       annotations: Map[String, String] = Map.empty,
       resourceVersion: Long = 0,
+      identityProviderId: Option[Ref.IdentityProviderId] = None,
   ): PartyRecord =
     PartyRecord(
       party = name,
@@ -48,6 +51,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
         resourceVersionO = Some(resourceVersion),
         annotations = annotations,
       ),
+      identityProviderId = identityProviderId,
     )
 
   def makePartRecordUpdate(

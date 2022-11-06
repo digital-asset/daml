@@ -27,6 +27,8 @@ package object platform {
   import com.daml.lf.{data => lfdata}
   private[platform] type Party = lfdata.Ref.Party
   private[platform] val Party = lfdata.Ref.Party
+  private[platform] type IdentityProviderId = lfdata.Ref.IdentityProviderId
+  private[platform] val IdentityProviderId = lfdata.Ref.IdentityProviderId
   private[platform] type Identifier = lfdata.Ref.Identifier
   private[platform] val Identifier = lfdata.Ref.Identifier
   private[platform] type QualifiedName = lfdata.Ref.QualifiedName

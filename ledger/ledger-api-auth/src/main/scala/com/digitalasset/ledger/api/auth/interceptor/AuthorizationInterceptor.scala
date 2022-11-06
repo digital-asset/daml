@@ -88,7 +88,7 @@ final class AuthorizationInterceptor(
           identityProviderStore <- getIdentityProviderStore(identityProviderStore0)
           userId <- getUserId(userIdStr)
           user <- verifyUserIsActive(userManagementStore, userId)
-          _ <- verifyUserIssuer(issuer, user, identityProviderStore)
+          identityProviderId <- verifyIdentityProviderConfig(issuer, user, identityProviderStore)
           userRightsResult <- userManagementStore.listUserRights(userId)
           claimsSet <- userRightsResult match {
             case Left(msg) =>
@@ -108,6 +108,7 @@ final class AuthorizationInterceptor(
                   applicationId = Some(userId),
                   expiration = expiration,
                   resolvedFromUser = true,
+                  identityProviderId = identityProviderId,
                 )
               )
           }
@@ -117,11 +118,11 @@ final class AuthorizationInterceptor(
       case _ => Future.successful(claimSet)
     }
 
-  private def verifyUserIssuer(
+  private def verifyIdentityProviderConfig(
       tokenIssuer: Option[String],
       user: User,
       identityProviderStore: IdentityProviderStore,
-  ): Future[Unit] =
+  ): Future[Option[Ref.IdentityProviderId]] =
     user.identityProviderId match {
       case Some(_) if tokenIssuer.isEmpty =>
         Future.failed(
@@ -135,7 +136,7 @@ final class AuthorizationInterceptor(
         identityProviderStore.getIdentityProviderConfig(identityProviderId).flatMap {
           case Right(identityProviderConfig)
               if tokenIssuer.contains(identityProviderConfig.issuer) && tokenIssuer.isDefined =>
-            Future.unit
+            Future.successful(Some(identityProviderId))
           case _ =>
             Future.failed(
               LedgerApiErrors.AuthorizationChecks.PermissionDenied
@@ -147,7 +148,7 @@ final class AuthorizationInterceptor(
         }
       case None =>
         // User is assigned to default IDP, "iss" claim of the token does not matter for this case
-        Future.unit
+        Future.successful(None)
     }
 
   private def verifyUserIsActive(

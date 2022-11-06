@@ -29,38 +29,38 @@ private[daml] final class UserManagementServiceAuthorization(
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   override def createUser(request: CreateUserRequest): Future[CreateUserResponse] =
-    authorizer.requireAdminClaims(service.createUser)(request)
+    authorizer.requireAdminOrIDPAdminClaims(service.createUser)(request)
 
   override def getUser(request: GetUserRequest): Future[GetUserResponse] =
     defaultToAuthenticatedUser(request.userId) match {
       case Failure(ex) => Future.failed(ex)
       case Success(Some(userId)) => service.getUser(request.copy(userId = userId))
-      case Success(None) => authorizer.requireAdminClaims(service.getUser)(request)
+      case Success(None) => authorizer.requireAdminOrIDPAdminClaims(service.getUser)(request)
     }
 
   override def deleteUser(request: DeleteUserRequest): Future[DeleteUserResponse] =
-    authorizer.requireAdminClaims(service.deleteUser)(request)
+    authorizer.requireAdminOrIDPAdminClaims(service.deleteUser)(request)
 
   override def listUsers(request: ListUsersRequest): Future[ListUsersResponse] =
-    authorizer.requireAdminClaims(service.listUsers)(request)
+    authorizer.requireAdminOrIDPAdminClaims(service.listUsers)(request)
 
   override def grantUserRights(request: GrantUserRightsRequest): Future[GrantUserRightsResponse] =
-    authorizer.requireAdminClaims(service.grantUserRights)(request)
+    authorizer.requireAdminOrIDPAdminClaims(service.grantUserRights)(request)
 
   override def revokeUserRights(
       request: RevokeUserRightsRequest
   ): Future[RevokeUserRightsResponse] =
-    authorizer.requireAdminClaims(service.revokeUserRights)(request)
+    authorizer.requireAdminOrIDPAdminClaims(service.revokeUserRights)(request)
 
   override def listUserRights(request: ListUserRightsRequest): Future[ListUserRightsResponse] =
     defaultToAuthenticatedUser(request.userId) match {
       case Failure(ex) => Future.failed(ex)
       case Success(Some(userId)) => service.listUserRights(request.copy(userId = userId))
-      case Success(None) => authorizer.requireAdminClaims(service.listUserRights)(request)
+      case Success(None) => authorizer.requireAdminOrIDPAdminClaims(service.listUserRights)(request)
     }
 
   override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] = {
-    authorizer.requireAdminClaims(service.updateUser)(request)
+    authorizer.requireAdminOrIDPAdminClaims(service.updateUser)(request)
   }
 
   override def bindService(): ServerServiceDefinition =

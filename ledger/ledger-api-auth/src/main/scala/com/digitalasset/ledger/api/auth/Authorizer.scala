@@ -82,6 +82,16 @@ final class Authorizer(
       }
     }
 
+  def requireAdminOrIDPAdminClaims[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
+    authorize(call) { claims =>
+      for {
+        _ <- valid(claims)
+        _ <- claims.isAdminOrIDPAdmin
+      } yield {
+        ()
+      }
+    }
+
   private[this] def requireForAll[T](
       xs: IterableOnce[T],
       f: T => Either[AuthorizationError, Unit],

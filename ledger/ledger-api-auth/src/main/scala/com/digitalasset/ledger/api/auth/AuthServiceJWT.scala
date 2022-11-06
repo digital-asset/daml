@@ -89,6 +89,7 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
         applicationId = payload.applicationId,
         expiration = payload.exp,
         resolvedFromUser = false,
+        identityProviderId = None,
       )
 
     case payload: StandardJWTPayload =>

@@ -4,11 +4,12 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.util.UUID
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.ledger.api.auth.ClaimSet.Claims
+import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerOffset, ObjectMeta, PartyDetails}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
@@ -124,7 +125,11 @@ private[apiserver] final class ApiPartyManagementService private (
         } yield {
           val protoDetails =
             partyDetailsSeq.zip(partyRecordOptions).map { case (details, recordO) =>
-              toProtoPartyDetails(partyDetails = details, metadataO = recordO.map(_.metadata))
+              toProtoPartyDetails(
+                partyDetails = details,
+                metadataO = recordO.map(_.metadata),
+                identityProviderId = recordO.flatMap(_.identityProviderId),
+              )
             }
           GetPartiesResponse(partyDetails = protoDetails)
         }
@@ -142,7 +147,11 @@ private[apiserver] final class ApiPartyManagementService private (
       partyRecords <- fetchPartyRecords(partyDetailsSeq)
     } yield {
       val protoDetails = partyDetailsSeq.zip(partyRecords).map { case (details, recordO) =>
-        toProtoPartyDetails(partyDetails = details, metadataO = recordO.map(_.metadata))
+        toProtoPartyDetails(
+          partyDetails = details,
+          metadataO = recordO.map(_.metadata),
+          recordO.flatMap(_.identityProviderId),
+        )
       }
       ListKnownPartiesResponse(protoDetails)
     })
@@ -159,6 +168,8 @@ private[apiserver] final class ApiPartyManagementService private (
         DefaultTelemetry.contextFromGrpcThreadLocalContext()
       implicit val errorLogger: DamlContextualizedErrorLogger =
         new DamlContextualizedErrorLogger(logger, loggingContext, None)
+      // Retrieving the authenticated user from the context
+      val identityProviderF0: Future[Option[Ref.IdentityProviderId]] = resolveIdentityProviderId()
       withValidation {
         for {
           partyIdHintO <- FieldValidations.optionalString(
@@ -182,11 +193,13 @@ private[apiserver] final class ApiPartyManagementService private (
             submissionId,
             (partyIdHintO, displayNameO),
           )
+          identityProviderId <- identityProviderF0
           partyRecord <- partyRecordStore
             .createPartyRecord(
               PartyRecord(
                 party = allocated.partyDetails.party,
                 metadata = domain.ObjectMeta(resourceVersionO = None, annotations = annotations),
+                identityProviderId = identityProviderId,
               )
             )
             .flatMap(handlePartyRecordStoreResult("creating a party record")(_))
@@ -194,6 +207,7 @@ private[apiserver] final class ApiPartyManagementService private (
           val details = toProtoPartyDetails(
             partyDetails = allocated.partyDetails,
             metadataO = Some(partyRecord.metadata),
+            identityProviderId = identityProviderId,
           )
           AllocatePartyResponse(Some(details))
         })
@@ -317,6 +331,7 @@ private[apiserver] final class ApiPartyManagementService private (
             toProtoPartyDetails(
               partyDetails = fetchedPartyDetails,
               metadataO = Some(updatedPartyRecord.metadata),
+              identityProviderId = updatedPartyRecord.identityProviderId,
             )
           )
         )
@@ -400,6 +415,34 @@ private[apiserver] final class ApiPartyManagementService private (
         Future.successful(t)
     }
 
+  private def resolveIdentityProviderId()(implicit
+      contextualizedErrorLogger: DamlContextualizedErrorLogger
+  ): Future[Option[Ref.IdentityProviderId]] = {
+    AuthorizationInterceptor
+      .extractClaimSetFromContext()
+      .fold(
+        fa = error =>
+          Future.failed(
+            LedgerApiErrors.InternalError
+              .Generic("Could not extract a claim set from the context", throwableO = Some(error))
+              .asGrpcError
+          ),
+        fb = {
+          case claims: Claims if claims.resolvedFromUser =>
+            Future.successful(claims.identityProviderId)
+          case claims: Claims if !claims.resolvedFromUser => Future.successful(None)
+          case claimsSet =>
+            Future.failed(
+              LedgerApiErrors.InternalError
+                .Generic(
+                  s"Unexpected claims when trying to resolve the authenticated user: $claimsSet"
+                )
+                .asGrpcError
+            )
+        },
+      )
+  }
+
 }
 
 private[apiserver] object ApiPartyManagementService {
@@ -407,12 +450,14 @@ private[apiserver] object ApiPartyManagementService {
   private def toProtoPartyDetails(
       partyDetails: IndexerPartyDetails,
       metadataO: Option[ObjectMeta],
+      identityProviderId: Option[Ref.IdentityProviderId],
   ): ProtoPartyDetails =
     ProtoPartyDetails(
       party = partyDetails.party,
       displayName = partyDetails.displayName.getOrElse(""),
       isLocal = partyDetails.isLocal,
       localMetadata = Some(Utils.toProtoObjectMeta(metadataO.getOrElse(ObjectMeta.empty))),
+      identityProviderId = identityProviderId.getOrElse(""),
     )
 
   def createApiService(

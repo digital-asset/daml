@@ -427,10 +427,11 @@ INSERT INTO participant_user_rights(user_internal_id, user_right, for_party, gra
 -- Participant local store: party records
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_party_records (
-    internal_id         INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    party               VARCHAR(512)        NOT NULL UNIQUE,
-    resource_version    BIGINT              NOT NULL,
-    created_at          BIGINT              NOT NULL
+    internal_id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    party                VARCHAR(512) NOT NULL UNIQUE,
+    identity_provider_id VARCHAR,
+    resource_version     BIGINT       NOT NULL,
+    created_at           BIGINT       NOT NULL
 );
 CREATE TABLE participant_party_record_annotations (
     internal_id         INTEGER             NOT NULL REFERENCES participant_party_records (internal_id) ON DELETE CASCADE,

@@ -42,6 +42,7 @@ trait PersistentPartyRecordStoreTests
     PartyRecordStorageBackendImpl.createPartyRecord(
       PartyRecordStorageBackend.DbPartyRecordPayload(
         party = id,
+        identityProviderId = None,
         resourceVersion = initialResourceVersion,
         createdAt = 0,
       )

@@ -72,6 +72,7 @@ object ClaimSet {
     * @param applicationId  If set, the claims will only be valid on the given application identifier.
     * @param expiration     If set, the claims will cease to be valid at the given time.
     * @param resolvedFromUser  If set, then the claims were resolved from a user in the user management service.
+    * @param identityProviderId  If set, the claims will only be valid on the given Identity Provider configuration.
     */
   final case class Claims(
       claims: Seq[Claim],
@@ -79,6 +80,7 @@ object ClaimSet {
       participantId: Option[String],
       applicationId: Option[String],
       expiration: Option[Instant],
+      identityProviderId: Option[Ref.IdentityProviderId],
       resolvedFromUser: Boolean,
   ) extends ClaimSet {
     def validForLedger(id: String): Either[AuthorizationError, Unit] =
@@ -118,6 +120,14 @@ object ClaimSet {
     /** Returns true if the set of claims authorizes the user to use admin services, unless the claims expired */
     def isAdmin: Either[AuthorizationError, Unit] =
       Either.cond(claims.contains(ClaimAdmin), (), AuthorizationError.MissingAdminClaim)
+
+    /** Returns true if the set of claims authorizes the user to use admin services or Identity Provider admin services, unless the claims expired */
+    def isAdminOrIDPAdmin: Either[AuthorizationError, Unit] =
+      Either.cond(
+        claims.contains(ClaimIdentityProviderAdmin) || claims.contains(ClaimAdmin),
+        (),
+        AuthorizationError.MissingAdminClaim,
+      )
 
     /** Returns true if the set of claims authorizes the user to use public services, unless the claims expired */
     def isPublic: Either[AuthorizationError, Unit] =
@@ -169,6 +179,7 @@ object ClaimSet {
       applicationId = None,
       expiration = None,
       resolvedFromUser = false,
+      identityProviderId = None,
     )
 
     /** A set of [[Claims]] that has all possible authorizations */
