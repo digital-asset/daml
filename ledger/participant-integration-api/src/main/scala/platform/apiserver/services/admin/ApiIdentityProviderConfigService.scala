@@ -112,14 +112,8 @@ class ApiIdentityProviderConfigService(
   ): Future[T] = result match {
     case Left(IdentityProviderStore.IdentityProviderConfigNotFound(id)) =>
       Future.failed(
-        LedgerApiErrors.Admin.UserManagement.UserNotFound // TODO
-          .Reject(operation, id.toString)
-          .asGrpcError
-      )
-    case Left(IdentityProviderStore.IdentityProviderConfigByIssuerNotFound(id)) =>
-      Future.failed(
-        LedgerApiErrors.Admin.UserManagement.UserNotFound // TODO
-          .Reject(operation, id.toString)
+        LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigNotFound
+          .Reject(operation, id)
           .asGrpcError
       )
     case scala.util.Right(t) =>

@@ -118,14 +118,23 @@ final class AuthorizationInterceptor(
     }
 
   private def verifyUserIssuer(
-      issuer0: Option[String],
+      tokenIssuer: Option[String],
       user: User,
       identityProviderStore: IdentityProviderStore,
   ): Future[Unit] =
     user.identityProviderId match {
+      case Some(_) if tokenIssuer.isEmpty =>
+        Future.failed(
+          LedgerApiErrors.AuthorizationChecks.PermissionDenied
+            .Reject(
+              s"User is assigned to an identity provider, but token does not have issuer defined"
+            )(errorLogger)
+            .asGrpcError
+        )
       case Some(identityProviderId) =>
         identityProviderStore.getIdentityProviderConfig(identityProviderId).flatMap {
-          case Right(identityProviderConfig) if issuer0.contains(identityProviderConfig.issuer) =>
+          case Right(identityProviderConfig)
+              if tokenIssuer.contains(identityProviderConfig.issuer) && tokenIssuer.isDefined =>
             Future.unit
           case _ =>
             Future.failed(
@@ -136,15 +145,9 @@ final class AuthorizationInterceptor(
                 .asGrpcError
             )
         }
-      case None if issuer0.isDefined =>
-        Future.failed(
-          LedgerApiErrors.AuthorizationChecks.PermissionDenied
-            .Reject(
-              s"User is assigned to another identity provider"
-            )(errorLogger)
-            .asGrpcError
-        )
-      case _ => Future.unit
+      case None =>
+        // User is assigned to default IDP, "iss" claim of the token does not matter for this case
+        Future.unit
     }
 
   private def verifyUserIsActive(

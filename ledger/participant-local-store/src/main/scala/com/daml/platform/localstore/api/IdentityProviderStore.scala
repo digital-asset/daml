@@ -35,6 +35,5 @@ object IdentityProviderStore {
   sealed trait Error
   final case class IdentityProviderConfigNotFound(identityProviderId: Ref.IdentityProviderId)
       extends Error
-  final case class IdentityProviderConfigByIssuerNotFound(issuer: String) extends Error
 
 }
