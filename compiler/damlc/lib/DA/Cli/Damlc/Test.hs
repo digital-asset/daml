@@ -1,6 +1,8 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 -- | Main entry-point of the Daml compiler
 module DA.Cli.Damlc.Test (
@@ -8,6 +10,7 @@ module DA.Cli.Damlc.Test (
     , UseColor(..)
     , ShowCoverage(..)
     , RunAllTests(..)
+    -- , Summarize(..)
     ) where
 
 import Control.Monad.Except
@@ -23,6 +26,7 @@ import Data.Either
 import qualified Data.HashSet as HashSet
 import Data.List.Extra
 import qualified Data.Map.Strict as M
+-- import qualified Data.Map.Merge.Strict as M
 import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Set as S
@@ -175,18 +179,41 @@ data TemplateIdentifier = TemplateIdentifier
     }
     deriving (Eq, Ord, Show)
 
-data ChoiceIdentifier = ChoiceIdentifier
+data InterfaceIdentifier = InterfaceIdentifier
+    { package :: Maybe T.Text -- `package == Nothing` means local package
+    , qualifiedInterface :: T.Text
+    }
+    deriving (Eq, Ord, Show)
+
+--data ContractIdentifier = ContractIdentifier
+--    { package :: Maybe T.Text -- `package == Nothing` means local package
+--    , qualifiedTemplate :: T.Text
+--    }
+--    deriving (Eq, Ord, Show)
+--
+--data ChoiceIdentifier' = ChoiceIdentifier'
+--    { choice :: T.Text
+--    }
+--    deriving (Eq, Ord, Show)
+
+data TemplateChoiceIdentifier = TemplateChoiceIdentifier
     { packageTemplate :: TemplateIdentifier
+    , choice :: T.Text
+    }
+    deriving (Eq, Ord, Show)
+
+data InterfaceChoiceIdentifier = InterfaceChoiceIdentifier
+    { packageInterface :: InterfaceIdentifier
     , choice :: T.Text
     }
     deriving (Eq, Ord, Show)
 
 data Report = Report
     { groupName :: String
-    , definedChoicesInside :: S.Set ChoiceIdentifier
-    , internalExercisedAnywhere :: S.Set ChoiceIdentifier
-    , internalExercisedInternal :: S.Set ChoiceIdentifier
-    , externalExercisedInternal :: S.Set ChoiceIdentifier
+    , definedChoicesInside :: S.Set TemplateChoiceIdentifier
+    , internalExercisedAnywhere :: S.Set TemplateChoiceIdentifier
+    , internalExercisedInternal :: S.Set TemplateChoiceIdentifier
+    , externalExercisedInternal :: S.Set TemplateChoiceIdentifier
     , definedTemplatesInside :: S.Set TemplateIdentifier
     , internalCreatedAnywhere :: S.Set TemplateIdentifier
     , internalCreatedInternal :: S.Set TemplateIdentifier
@@ -194,12 +221,133 @@ data Report = Report
     }
     deriving (Show, Eq, Ord)
 
+-- templatesCreatedLocally :: S.Set TemplateIdentifier
+-- templatesCreatedExternally :: S.Set TemplateIdentifier
+-- templateChoicesExercisedLocally :: S.Set TemplateChoiceIdentifier
+-- templateChoicesExercisedExternally :: S.Set TemplateChoiceIdentifier
+-- interfaceChoices
+
+    {-
+newtype Created = Created LocalOrExternal deriving (Show, Eq)
+newtype Exercised = Exercised LocalOrExternal deriving (Show, Eq)
+
+mergeMapWithMonoid :: (Ord k, Monoid m) => M.Map k m -> M.Map k m -> M.Map k m
+mergeMapWithMonoid = M.merge M.preserveMissing M.preserveMissing (M.zipWithMatched (const (<>)))
+
+instance Semigroup ContractSummary where
+    (<>) (ContractSummary a0 b0) (ContractSummary a1 b1) =
+        ContractSummary (a0 <> a1) (mergeMapWithMonoid b0 b1)
+instance Monoid ContractSummary where
+    mempty = ContractSummary [] M.empty
+
+data ContractSummary = ContractSummary
+    { created :: ![Created]
+    , choices :: !(M.Map ChoiceIdentifier' [Exercised])
+    }
+
+instance Semigroup Summary where
+    (<>) (Summary a0 b0) (Summary a1 b1) =
+        Summary (mergeMapWithMonoid a0 a1) (mergeMapWithMonoid b0 b1)
+instance Monoid Summary where
+    mempty = Summary M.empty M.empty
+
+data Summary = Summary
+    { templates :: !(M.Map ContractIdentifier ContractSummary)
+    , interfaces :: !(M.Map (ContractIdentifier, TemplateIdentifier) ContractSummary)
+    }
+
+class Summarize a where
+    summarize :: a -> Summary
+
+instance Summary LocalOrExternal where
+    summarize = foldMap (summarize . uncurry (flip ($))) . loeGetModules
+instance Summary (LF.Qualified LF.Module) where
+    summarize =
+        foldMap summarize . traverse (NM.elems . moduleTemplates)
+        <> foldMap summarize . traverse (NM.elems . moduleInterfaces)
+instance Summary (LF.Qualified LF.Template) where
+    summarize qualTemplate =
+        let tid = lfTemplateIdentifier qualTemplate
+        in
+        Summary
+            { interfaces = M.empty
+            , templates =
+                M.singleton tid
+                  (qualObject )
+            }
+    -}
+
+lfTemplateIdentifier :: LF.Qualified LF.Template -> TemplateIdentifier
+lfTemplateIdentifier LF.Qualified { qualPackage, qualModule, qualObject } =
+    let package =
+            case qualPackage of
+              LF.PRSelf -> Nothing
+              LF.PRImport (LF.PackageId pid) -> Just pid
+        qualifiedTemplate =
+            LF.moduleNameString qualModule
+                <> ":"
+                <> T.concat (LF.unTypeConName (LF.tplTypeCon qualObject))
+    in
+    TemplateIdentifier { package, qualifiedTemplate }
+
+lfInterfaceIdentifier :: LF.Qualified LF.DefInterface -> InterfaceIdentifier
+lfInterfaceIdentifier LF.Qualified { qualPackage, qualModule, qualObject } =
+    let package =
+            case qualPackage of
+              LF.PRSelf -> Nothing
+              LF.PRImport (LF.PackageId pid) -> Just pid
+        qualifiedInterface =
+            LF.moduleNameString qualModule
+                <> ":"
+                <> T.concat (LF.unTypeConName (LF.intName qualObject))
+    in
+    InterfaceIdentifier { package, qualifiedInterface }
+
+lfTemplateNameIdentifier :: LF.Qualified LF.TypeConName -> TemplateIdentifier
+lfTemplateNameIdentifier LF.Qualified { qualPackage, qualModule, qualObject } =
+    let package =
+            case qualPackage of
+              LF.PRSelf -> Nothing
+              LF.PRImport (LF.PackageId pid) -> Just pid
+        qualifiedTemplate =
+            LF.moduleNameString qualModule
+                <> ":"
+                <> T.concat (LF.unTypeConName qualObject)
+    in
+    TemplateIdentifier { package, qualifiedTemplate }
+
+lfInterfaceNameIdentifier :: LF.Qualified LF.TypeConName -> InterfaceIdentifier
+lfInterfaceNameIdentifier LF.Qualified { qualPackage, qualModule, qualObject } =
+    let package =
+            case qualPackage of
+              LF.PRSelf -> Nothing
+              LF.PRImport (LF.PackageId pid) -> Just pid
+        qualifiedInterface =
+            LF.moduleNameString qualModule
+                <> ":"
+                <> T.concat (LF.unTypeConName qualObject)
+    in
+    InterfaceIdentifier { package, qualifiedInterface }
+
+ssIdentifierToIdentifier :: SS.Identifier -> TemplateIdentifier
+ssIdentifierToIdentifier SS.Identifier {SS.identifierPackage, SS.identifierName} =
+    let package = do
+            pIdSumM <- identifierPackage
+            pIdSum <- SS.packageIdentifierSum pIdSumM
+            case pIdSum of
+                SS.PackageIdentifierSumSelf _ -> Nothing
+                SS.PackageIdentifierSumPackageId pId -> Just $ TL.toStrict pId
+        qualifiedTemplate = TL.toStrict identifierName
+    in
+    TemplateIdentifier { package, qualifiedTemplate }
+
 printTestCoverage ::
     ShowCoverage
     -> [LocalOrExternal]
     -> [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
     -> IO ()
 printTestCoverage ShowCoverage {getShowCoverage} allPackages results
+  -- | undefined (summarize <$> allPackages) = undefined
   | any (isLeft . snd) $ concatMap snd results = pure ()
   | otherwise = do
       printReport $ report "defined in local modules" isLocal
@@ -211,7 +359,7 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
         let allMatchingPackages = filter pred allPackages
             allMatchingResults = map snd $ filter (pred . fst) results
             definedTemplatesInside = M.keysSet $ templatesDefinedIn allMatchingPackages
-            definedChoicesInside = M.keysSet $ choicesDefinedIn allMatchingPackages
+            definedChoicesInside = M.keysSet $ templateChoicesDefinedIn allMatchingPackages
             exercisedInside = foldMap exercisedChoices allMatchingResults
             createdInside = foldMap createdTemplates allMatchingResults
             internalExercisedAnywhere = allExercisedChoices `S.intersection` definedChoicesInside
@@ -264,31 +412,6 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
         in
         putStrLn msg
 
-    lfTemplateIdentifier :: LF.Qualified LF.Template -> TemplateIdentifier
-    lfTemplateIdentifier LF.Qualified { qualPackage, qualModule, qualObject } =
-        let package =
-                case qualPackage of
-                  LF.PRSelf -> Nothing
-                  LF.PRImport (LF.PackageId pid) -> Just pid
-            qualifiedTemplate =
-                LF.moduleNameString qualModule
-                    <> ":"
-                    <> T.concat (LF.unTypeConName (LF.tplTypeCon qualObject))
-        in
-        TemplateIdentifier { package, qualifiedTemplate }
-
-    ssIdentifierToIdentifier :: SS.Identifier -> TemplateIdentifier
-    ssIdentifierToIdentifier SS.Identifier {SS.identifierPackage, SS.identifierName} =
-        let package = do
-                pIdSumM <- identifierPackage
-                pIdSum <- SS.packageIdentifierSum pIdSumM
-                case pIdSum of
-                    SS.PackageIdentifierSumSelf _ -> Nothing
-                    SS.PackageIdentifierSumPackageId pId -> Just $ TL.toStrict pId
-            qualifiedTemplate = TL.toStrict identifierName
-        in
-        TemplateIdentifier { package, qualifiedTemplate }
-
     templatesDefinedIn :: [LocalOrExternal] -> M.Map TemplateIdentifier (LF.Qualified LF.Template)
     templatesDefinedIn localOrExternals = M.fromList
         [ (lfTemplateIdentifier templateInfo, templateInfo)
@@ -298,18 +421,48 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
         , let templateInfo = qualifier template
         ]
 
-    choicesDefinedIn :: [LocalOrExternal] -> M.Map ChoiceIdentifier (LF.Qualified LF.Template, LF.TemplateChoice)
-    choicesDefinedIn localOrExternals = M.fromList
-        [ (ChoiceIdentifier templateIdentifier name, (templateInfo, choice))
+    interfacesDefinedIn :: [LocalOrExternal] -> M.Map InterfaceIdentifier (LF.Qualified LF.DefInterface)
+    interfacesDefinedIn localOrExternals = M.fromList
+        [ (lfInterfaceIdentifier interfaceInfo, interfaceInfo)
+        | localOrExternal <- localOrExternals
+        , (module_, qualifier) <- loeGetModules localOrExternal
+        , interface <- NM.toList $ LF.moduleInterfaces module_
+        , let interfaceInfo = qualifier interface
+        ]
+
+    templateChoicesDefinedIn :: [LocalOrExternal] -> M.Map TemplateChoiceIdentifier (LF.Qualified LF.Template, LF.TemplateChoice)
+    templateChoicesDefinedIn localOrExternals = M.fromList
+        [ (TemplateChoiceIdentifier templateIdentifier name, (templateInfo, choice))
         | (templateIdentifier, templateInfo) <- M.toList $ templatesDefinedIn localOrExternals
         , choice <- NM.toList $ LF.tplChoices $ LF.qualObject templateInfo
         , let name = LF.unChoiceName $ LF.chcName choice
         ]
 
+    interfaceChoicesDefinedIn :: [LocalOrExternal] -> M.Map InterfaceChoiceIdentifier (LF.Qualified LF.DefInterface, LF.TemplateChoice)
+    interfaceChoicesDefinedIn localOrExternals = M.fromList
+        [ (InterfaceChoiceIdentifier interfaceIdentifier name, (interfaceInfo, choice))
+        | (interfaceIdentifier, interfaceInfo) <- M.toList $ interfacesDefinedIn localOrExternals
+        , choice <- NM.toList $ LF.intChoices $ LF.qualObject interfaceInfo
+        , let name = LF.unChoiceName $ LF.chcName choice
+        ]
+
+    interfaceImplementations :: [LocalOrExternal] -> M.Map (InterfaceIdentifier, TemplateIdentifier) LF.InterfaceInstanceBody
+    interfaceImplementations localOrExternals = M.fromList $
+        [ ((lfInterfaceNameIdentifier tpiInterface, templateIdentifier), tpiBody)
+        | (templateIdentifier, templateInfo) <- M.toList $ templatesDefinedIn localOrExternals
+        , LF.TemplateImplements { tpiInterface, tpiBody }
+            <- NM.toList $ LF.tplImplements $ LF.qualObject templateInfo
+        ] ++
+        [ ((interfaceIdentifier, lfTemplateNameIdentifier iciTemplate), iciBody)
+        | (interfaceIdentifier, interfaceInfo) <- M.toList $ interfacesDefinedIn localOrExternals
+        , LF.InterfaceCoImplements { iciTemplate, iciBody }
+            <- NM.toList $ LF.intCoImplements $ LF.qualObject interfaceInfo
+        ]
+
     allCreatedTemplates :: S.Set TemplateIdentifier
     allCreatedTemplates = foldMap (createdTemplates . snd) results
 
-    allExercisedChoices :: S.Set ChoiceIdentifier
+    allExercisedChoices :: S.Set TemplateChoiceIdentifier
     allExercisedChoices = foldMap (exercisedChoices . snd) results
 
     createdTemplates :: [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> S.Set TemplateIdentifier
@@ -323,10 +476,10 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
         , Just identifier <- [SS.contractInstanceTemplateId contractInstance]
         ]
 
-    exercisedChoices :: [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> S.Set ChoiceIdentifier
+    exercisedChoices :: [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> S.Set TemplateChoiceIdentifier
     exercisedChoices results =
         S.fromList $
-        [ ChoiceIdentifier (ssIdentifierToIdentifier identifier) (TL.toStrict node_ExerciseChoiceId)
+        [ TemplateChoiceIdentifier (ssIdentifierToIdentifier identifier) (TL.toStrict node_ExerciseChoiceId)
         | n <- scenarioNodes results
         , Just (SS.NodeNodeExercise SS.Node_Exercise { SS.node_ExerciseTemplateId
                                                      , SS.node_ExerciseChoiceId
@@ -362,8 +515,8 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
             (\pId -> pkgIdToPkgName pId <> ":" <> qualifiedTemplate)
             package
 
-    printChoiceIdentifier :: ChoiceIdentifier -> String
-    printChoiceIdentifier ChoiceIdentifier { packageTemplate, choice } =
+    printChoiceIdentifier :: TemplateChoiceIdentifier -> String
+    printChoiceIdentifier TemplateChoiceIdentifier { packageTemplate, choice } =
         printTemplateIdentifier packageTemplate <> ":" <> T.unpack choice
 
 printScenarioResults :: UseColor -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> IO ()
