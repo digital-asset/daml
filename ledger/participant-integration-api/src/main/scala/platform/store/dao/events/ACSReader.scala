@@ -16,6 +16,7 @@ import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.utils.{ConcurrencyLimiter, QueueBasedConcurrencyLimiter}
 
 import scala.annotation.tailrec
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining._
 
@@ -39,7 +40,7 @@ class FilterTableACSReader(
     idFetchingParallelism: Int,
     acsFetchingparallelism: Int,
     metrics: Metrics,
-    querylimiter: ConcurrencyLimiter,
+    acsEventFetchingQueryLimiter: ConcurrencyLimiter,
     executionContext: ExecutionContext,
 ) extends ACSReader {
   import FilterTableACSReader._
@@ -54,12 +55,7 @@ class FilterTableACSReader(
   ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed] = {
     val allFilterParties = filter.allFilterParties
 
-    val wildcardFilters = filter.wildcardParties.map { party =>
-      Filter(party, None)
-    }
-    val filters = filter.relation.iterator.flatMap { case (templateId, parties) =>
-      parties.iterator.map(party => Filter(party, Some(templateId)))
-    }.toVector ++ wildcardFilters
+    val filters: Vector[Filter] = makeSimpleFilters(filter).toVector
 
     val idQueryLimiter =
       new QueueBasedConcurrencyLimiter(idFetchingParallelism, executionContext)
@@ -78,7 +74,7 @@ class FilterTableACSReader(
       )(idQuery =>
         idQueryLimiter.execute {
           dispatcher.executeSql(metrics.daml.index.db.getActiveContractIds) { connection =>
-            val result = eventStorageBackend.activeContractEventIds(
+            val result = eventStorageBackend.fetchIds_create_stakeholders(
               partyFilter = filter.party,
               templateIdFilter = filter.templateId,
               startExclusive = idQuery.fromExclusiveEventSeqId,
@@ -96,7 +92,7 @@ class FilterTableACSReader(
       )
 
     def fetchAcs(ids: Iterable[Long]): Future[Vector[EventStorageBackend.Entry[Raw.FlatEvent]]] =
-      querylimiter.execute(
+      acsEventFetchingQueryLimiter.execute(
         dispatcher.executeSql(metrics.daml.index.db.getActiveContractBatch) { connection =>
           val result = queryNonPruned.executeSql(
             eventStorageBackend.activeContractEventBatch(
@@ -117,7 +113,7 @@ class FilterTableACSReader(
         }
       )
 
-    filters
+    val x: Source[ArrayBuffer[Long], NotUsed] = filters
       .map(toIdSource)
       .pipe(mergeSort[Long])
       .statefulMapConcat(statefulDeduplicate)
@@ -131,14 +127,25 @@ class FilterTableACSReader(
       .addAttributes(
         Attributes.inputBuffer(initial = acsFetchingparallelism, max = acsFetchingparallelism)
       )
-      .mapAsync(acsFetchingparallelism)(fetchAcs)
+    x.mapAsync(acsFetchingparallelism)(fetchAcs)
   }
+
 }
 
-private[events] object FilterTableACSReader {
+object FilterTableACSReader {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   case class Filter(party: Party, templateId: Option[Identifier])
+
+  def makeSimpleFilters(filter: TemplatePartiesFilter): Seq[Filter] = {
+    val wildcardFilters = filter.wildcardParties.map { party =>
+      Filter(party, None)
+    }
+    val filters = filter.relation.iterator.flatMap { case (templateId, parties) =>
+      parties.iterator.map(party => Filter(party, Some(templateId)))
+    }.toVector ++ wildcardFilters
+    filters
+  }
 
   case class IdQuery(fromExclusiveEventSeqId: Long, pageSize: Int)
 
@@ -200,6 +207,7 @@ private[events] object FilterTableACSReader {
       pageBufferSize: Int,
   )(getPage: IdQuery => Future[Array[Long]]): Source[Long, NotUsed] = {
     assert(pageBufferSize > 0)
+    // com.daml.platform.store.dao.PaginatingAsyncStream.streamFromSeekPagination
     Source
       .unfoldAsync(
         IdQuery(0L, idQueryConfiguration.minPageSize)

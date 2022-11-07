@@ -13,18 +13,9 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
-import com.daml.platform.{
-  ApplicationId,
-  ContractId,
-  Identifier,
-  Key,
-  PackageId,
-  Party,
-  TransactionId,
-}
+import com.daml.platform.{ApplicationId, ContractId, Identifier, Key, PackageId, Party}
 import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.dao.events.Raw
-import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
@@ -33,6 +24,8 @@ import com.daml.platform.store.interning.StringInterning
 import com.daml.scalautil.NeverEqualsOverride
 import java.sql.Connection
 import javax.sql.DataSource
+
+import com.daml.lf.data.Ref
 
 import scala.annotation.unused
 
@@ -203,7 +196,8 @@ trait CompletionStorageBackend {
       endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Party],
-  )(connection: Connection): List[CompletionStreamResponse]
+      limit: Int,
+  )(connection: Connection): Vector[CompletionStreamResponse]
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
@@ -272,33 +266,103 @@ trait EventStorageBackend {
       pruneAllDivulgedContracts: Boolean,
       connection: Connection,
   ): Boolean
-  def transactionEvents(
-      rangeParams: RangeParams,
-      filterParams: FilterParams,
+
+  /** @param allFilterParties - needed only for the result raw row parsing
+    */
+  def fetchFlatConsumingEvents(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-  def activeContractEventIds(
+
+  /** @param allFilterParties - needed only for the result raw row parsing
+    */
+  def fetchTreeConsumingEvents(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
+
+  /** @param allFilterParties - needed only for the result raw row parsing
+    */
+  def fetchFlatCreateEvents(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
+
+  def fetchTreeCreateEvents(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
+
+  def fetchTreeNonConsumingEvents(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
+
+  def fetchIds_create_stakeholders(
       partyFilter: Party,
       templateIdFilter: Option[Identifier],
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
   )(connection: Connection): Vector[Long]
+
+  def fetchIds_create_nonStakeholderInformees(
+      partyFilter: Party,
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long]
+
+  /** @return at most `limit` event sequential ids from the given range
+    *         that match the specified party and template filters,
+    *         and which are retrieved from the stakeholders filter table
+    *         for consuming events.
+    *         (A party is present in the stakeholders filter table for consuming events
+    *         if and only if there is a consuming exercise on the corresponding contract
+    *         on which this party is a stakeholder.)
+    */
+  def fetchIds_consuming_stakeholders(
+      partyFilter: Party,
+      templateIdFilter: Option[Identifier],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long]
+
+  def fetchIds_consuming_nonStakeholderInformees(
+      partyFilter: Party,
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long]
+
+  def fetchIds_nonConsuming_informees(
+      partyFilter: Party,
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long]
+
   def activeContractEventBatch(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Party],
       endInclusive: Long,
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-  def flatTransaction(
-      transactionId: TransactionId,
-      filterParams: FilterParams,
+
+  def fetchIdsFromTransactionMeta(
+      transactionId: Ref.TransactionId
+  )(connection: Connection): Option[(Long, Long)]
+
+  def fetchFlatTransaction(
+      firstEventSequentialId: Long,
+      lastEventSequentialId: Long,
+      requestingParties: Set[Party],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-  def transactionTreeEvents(
-      rangeParams: RangeParams,
-      filterParams: FilterParams,
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
-  def transactionTree(
-      transactionId: TransactionId,
-      filterParams: FilterParams,
+
+  def fetchTreeTransaction(
+      firstEventSequentialId: Long,
+      lastEventSequentialId: Long,
+      requestingParties: Set[Party],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
 
   /** Max event sequential id of observable (create, consuming and nonconsuming exercise) events. */

@@ -141,13 +141,24 @@ object UpdateToDbDto {
           )
           .reverse
 
+//        var min_event_sequential_id = Long.MaxValue
+//        var max_event_sequential_id = Long.MaxValue
+        val transactionMeta = DbDto.TransactionMeta(
+          transaction_id = u.transactionId,
+          event_offset = offset.toHexString,
+          event_sequential_id_from = 0, // this is filled later
+          event_sequential_id_to = 0, // this is filled later
+        )
         val events: Iterator[DbDto] = preorderTraversal.iterator
           .flatMap {
             case (nodeId, create: Create) =>
               val eventId = EventId(u.transactionId, nodeId)
               val templateId = create.templateId.toString
-              val stakeholders = create.stakeholders.map(_.toString)
+              val stakeholders: Set[String] = create.stakeholders.map(_.toString)
               val (createArgument, createKeyValue) = translation.serialize(eventId, create)
+              val informees: Set[String] =
+                blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
+              val nonStakeholderInformees: Set[String] = informees.diff(stakeholders)
               Iterator(
                 DbDto.EventCreate(
                   event_offset = Some(offset.toHexString),
@@ -162,8 +173,7 @@ object UpdateToDbDto {
                   contract_id = create.coid.coid,
                   template_id = Some(templateId),
                   flat_event_witnesses = stakeholders,
-                  tree_event_witnesses =
-                    blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
+                  tree_event_witnesses = informees,
                   create_argument = Some(createArgument)
                     .map(compressionStrategy.createArgumentCompression.compress),
                   create_signatories = Some(create.signatories.map(_.toString)),
@@ -186,9 +196,15 @@ object UpdateToDbDto {
                     u.contractMetadata.get(create.coid).map(_.toByteArray),
                 )
               ) ++ stakeholders.iterator.map(
-                DbDto.CreateFilter(
+                // TODO pbatko: NOTE: com.daml.platform.store.backend.UpdateToDbDtoSpec depends on a specific order of `CreateFilter_...` `ConsumingFilter_...`, `NonconsumingFilter..`
+                DbDto.CreateFilter_Stakeholder(
                   event_sequential_id = 0, // this is filled later
                   template_id = templateId,
+                  _,
+                )
+              ) ++ nonStakeholderInformees.iterator.map(
+                DbDto.CreateFilter_NonStakeholderInformee(
+                  event_sequential_id = 0, // this is filled later
                   _,
                 )
               )
@@ -197,6 +213,12 @@ object UpdateToDbDto {
               val eventId = EventId(u.transactionId, nodeId)
               val (exerciseArgument, exerciseResult, createKeyValue) =
                 translation.serialize(eventId, exercise)
+              val stakeholders: Set[String] = exercise.stakeholders.map(_.toString)
+              val informees: Set[String] =
+                blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
+              val flatWitnesses = if (exercise.consuming) stakeholders else Set.empty[String]
+              val nonStakeholderInformees: Set[String] = informees.diff(stakeholders)
+              val templateId = exercise.templateId.toString
               Iterator(
                 DbDto.EventExercise(
                   consuming = exercise.consuming,
@@ -210,11 +232,9 @@ object UpdateToDbDto {
                   node_index = Some(nodeId.index),
                   event_id = Some(EventId(u.transactionId, nodeId).toLedgerString),
                   contract_id = exercise.targetCoid.coid,
-                  template_id = Some(exercise.templateId.toString),
-                  flat_event_witnesses =
-                    if (exercise.consuming) exercise.stakeholders.map(_.toString) else Set.empty,
-                  tree_event_witnesses =
-                    blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
+                  template_id = Some(templateId),
+                  flat_event_witnesses = flatWitnesses,
+                  tree_event_witnesses = informees,
                   create_key_value = createKeyValue
                     .map(compressionStrategy.createKeyValueCompression.compress),
                   exercise_choice = Some(
@@ -236,8 +256,29 @@ object UpdateToDbDto {
                   exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
                   event_sequential_id = 0, // this is filled later
                 )
-              )
-
+              ) ++ {
+                if (exercise.consuming) {
+                  stakeholders.iterator.map(stakeholder =>
+                    DbDto.ConsumingFilter_Stakeholder(
+                      event_sequential_id = 0, // this is filled later
+                      template_id = templateId,
+                      party_id = stakeholder,
+                    )
+                  ) ++ nonStakeholderInformees.iterator.map(stakeholder =>
+                    DbDto.ConsumingFilter_NonStakeholderInformee(
+                      event_sequential_id = 0, // this is filled later
+                      party_id = stakeholder,
+                    )
+                  )
+                } else {
+                  informees.iterator.map(stakeholder =>
+                    DbDto.NonConsumingFilter_Informee(
+                      event_sequential_id = 0, // this is filled later
+                      party_id = stakeholder,
+                    )
+                  )
+                }
+              }
             case _ =>
               Iterator.empty // It is okay to collect: blinding info is already there, we are free at hand to filter out the fetch and lookup nodes here already
           }
@@ -271,8 +312,8 @@ object UpdateToDbDto {
           u.optCompletionInfo.iterator.map(
             commandCompletion(offset, u.recordTime, Some(u.transactionId), _)
           )
-
-        events ++ divulgences ++ completions
+        // NOTE: transactionMeta always comes last
+        events ++ divulgences ++ completions ++ Seq(transactionMeta)
     }
   }
 

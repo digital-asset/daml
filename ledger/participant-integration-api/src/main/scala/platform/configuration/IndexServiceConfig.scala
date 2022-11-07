@@ -25,6 +25,7 @@ final case class IndexServiceConfig(
     inMemoryFanOutThreadPoolSize: Int = IndexServiceConfig.DefaultInMemoryFanOutThreadPoolSize,
     preparePackageMetadataTimeOutWarning: FiniteDuration =
       IndexServiceConfig.PreparePackageMetadataTimeOutWarning,
+    completionsPageSize: Int = IndexServiceConfig.DefaultCompletionsPageSize,
 )
 
 object IndexServiceConfig {
@@ -34,6 +35,7 @@ object IndexServiceConfig {
   val DefaultAcsIdPageSize: Int = 20000
   val DefaultAcsIdPageBufferSize: Int = 1
   val DefaultAcsIdPageWorkingMemoryBytes: Int = 100 * 1024 * 1024
+  // TODO pbatko: Must be power of 2
   val DefaultAcsIdFetchingParallelism: Int = 2
   val DefaultAcsContractFetchingParallelism: Int = 2
   val DefaultAcsGlobalParallelism: Int = 10
@@ -44,4 +46,5 @@ object IndexServiceConfig {
   val DefaultInMemoryStateUpdaterParallelism: Int = 2
   val DefaultInMemoryFanOutThreadPoolSize: Int = 16
   val PreparePackageMetadataTimeOutWarning: FiniteDuration = FiniteDuration(1, "second")
+  val DefaultCompletionsPageSize: Int = 1000
 }

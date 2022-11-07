@@ -528,6 +528,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         acsIdFetchingParallelism = 2,
         acsContractFetchingParallelism = 2,
         acsGlobalParallelism = 10,
+        completionsPageSize = 2,
       ).use(
         _.transactionsReader
           .getFlatTransactions(
@@ -670,6 +671,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
+      completionsPageSize: Int,
   ) =
     LoggingContext.newLoggingContext { implicit loggingContext =>
       daoOwner(
@@ -679,6 +681,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         acsIdFetchingParallelism = acsIdFetchingParallelism,
         acsContractFetchingParallelism = acsContractFetchingParallelism,
         acsGlobalParallelism = acsGlobalParallelism,
+        completionsPageSize = completionsPageSize,
       )
     }
 

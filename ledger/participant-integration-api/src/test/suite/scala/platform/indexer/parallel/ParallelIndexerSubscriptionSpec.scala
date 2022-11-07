@@ -262,12 +262,12 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
   behavior of "seqMapper"
 
   it should "assign sequence ids correctly, and populate string-interning entries correctly in happy path case" in {
-    val result = ParallelIndexerSubscription.seqMapper(
-      _.zipWithIndex.map(x => x._2 -> x._2.toString).take(2),
+    val result: Batch[Vector[DbDto]] = ParallelIndexerSubscription.seqMapper(
+      internize = _.zipWithIndex.map(x => x._2 -> x._2.toString).take(2),
       metrics,
     )(
-      ParallelIndexerSubscription.seqMapperZero(15, 26),
-      Batch(
+      previous = ParallelIndexerSubscription.seqMapperZero(15, 26),
+      current = Batch(
         lastOffset = offset("02"),
         lastSeqEventId = 0,
         lastStringInterningId = 0,
@@ -277,27 +277,53 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
           someEventDivulgence,
           someParty,
           someEventCreated,
-          DbDto.CreateFilter(0L, "", ""),
-          DbDto.CreateFilter(0L, "", ""),
+          DbDto.CreateFilter_Stakeholder(0L, "", ""),
+          DbDto.CreateFilter_NonStakeholderInformee(0L, ""),
+          DbDto.ConsumingFilter_Stakeholder(0L, "", ""),
+          DbDto.ConsumingFilter_NonStakeholderInformee(0L, ""),
+          DbDto.NonConsumingFilter_Informee(0L, ""),
+          someEventCreated,
+          someEventCreated,
+          DbDto.TransactionMeta("", "", 0L, 0L),
           someParty,
           someEventExercise,
+          DbDto.TransactionMeta("", "", 0L, 0L),
           someParty,
         ),
         batchSize = 3,
         offsetsUpdates = offsetsAndUpdates,
       ),
     )
-    result.lastSeqEventId shouldBe 18
+    import scala.util.chaining._
+
+    result.lastSeqEventId shouldBe 20
     result.lastStringInterningId shouldBe 1
     result.batch(1).asInstanceOf[DbDto.EventDivulgence].event_sequential_id shouldBe 16
     result.batch(3).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 17
-    result.batch(4).asInstanceOf[DbDto.CreateFilter].event_sequential_id shouldBe 17
-    result.batch(5).asInstanceOf[DbDto.CreateFilter].event_sequential_id shouldBe 17
-    result.batch(7).asInstanceOf[DbDto.EventExercise].event_sequential_id shouldBe 18
-    result.batch(9).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 0
-    result.batch(9).asInstanceOf[DbDto.StringInterningDto].externalString shouldBe "0"
-    result.batch(10).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 1
-    result.batch(10).asInstanceOf[DbDto.StringInterningDto].externalString shouldBe "1"
+    result.batch(4).asInstanceOf[DbDto.CreateFilter_Stakeholder].event_sequential_id shouldBe 17
+    result
+      .batch(5)
+      .asInstanceOf[DbDto.CreateFilter_NonStakeholderInformee]
+      .event_sequential_id shouldBe 17
+    result.batch(6).asInstanceOf[DbDto.ConsumingFilter_Stakeholder].event_sequential_id shouldBe 17
+    result
+      .batch(7)
+      .asInstanceOf[DbDto.ConsumingFilter_NonStakeholderInformee]
+      .event_sequential_id shouldBe 17
+    result.batch(8).asInstanceOf[DbDto.NonConsumingFilter_Informee].event_sequential_id shouldBe 17
+    result.batch(11).asInstanceOf[DbDto.TransactionMeta].tap { transactionMeta =>
+      transactionMeta.event_sequential_id_from shouldBe 16L
+      transactionMeta.event_sequential_id_to shouldBe 19L
+    }
+    result.batch(13).asInstanceOf[DbDto.EventExercise].event_sequential_id shouldBe 20
+    result.batch(14).asInstanceOf[DbDto.TransactionMeta].tap { transactionMeta =>
+      transactionMeta.event_sequential_id_from shouldBe 20L
+      transactionMeta.event_sequential_id_to shouldBe 20L
+    }
+    result.batch(16).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 0
+    result.batch(16).asInstanceOf[DbDto.StringInterningDto].externalString shouldBe "0"
+    result.batch(17).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 1
+    result.batch(17).asInstanceOf[DbDto.StringInterningDto].externalString shouldBe "1"
   }
 
   it should "preserve sequence id if nothing to assign" in {

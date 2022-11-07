@@ -108,7 +108,10 @@ object ParallelIndexerSubscription {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
+  // TODO pbatko: For TransactionAccepted does it contain exactly all and only the events of that transaction?
   /** Batch wraps around a T-typed batch, enriching it with processing relevant information.
+    * Contains events from one or more transactions.
+    * NOTE: We guarantee that event's of a transaction cannot span multiple batches.
     *
     * @param lastOffset The latest offset available in the batch. Needed for tail ingestion.
     * @param lastSeqEventId The latest sequential-event-id in the batch, or if none present there, then the latest from before. Needed for tail ingestion.
@@ -176,6 +179,8 @@ object ParallelIndexerSubscription {
       offsetsUpdates = Vector.empty,
     )
 
+  /** Assigns sequential ids to events.
+    */
   def seqMapper(
       internize: Iterable[DbDto] => Iterable[(Int, String)],
       metrics: Metrics,
@@ -186,6 +191,7 @@ object ParallelIndexerSubscription {
     Timed.value(
       metrics.daml.parallelIndexer.seqMapping.duration, {
         var eventSeqId = previous.lastSeqEventId
+        var lastTransactionMetaLastEventId = eventSeqId
         val batchWithSeqIds = current.batch.map {
           case dbDto: DbDto.EventCreate =>
             eventSeqId += 1
@@ -199,10 +205,26 @@ object ParallelIndexerSubscription {
             eventSeqId += 1
             dbDto.copy(event_sequential_id = eventSeqId)
 
-          case dbDto: DbDto.CreateFilter =>
+          case dbDto: DbDto.CreateFilter_Stakeholder =>
             // we do not increase the event_seq_id here, because all the CreateFilter DbDto-s must have the same eventSeqId as the preceding EventCreate
             dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.CreateFilter_NonStakeholderInformee =>
+            dbDto.copy(event_sequential_id = eventSeqId)
 
+          case dbDto: DbDto.ConsumingFilter_Stakeholder =>
+            dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.ConsumingFilter_NonStakeholderInformee =>
+            dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.NonConsumingFilter_Informee =>
+            dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.TransactionMeta =>
+            val x = dbDto.copy(
+              event_sequential_id_from = lastTransactionMetaLastEventId + 1,
+              event_sequential_id_to = eventSeqId,
+            )
+            lastTransactionMetaLastEventId = eventSeqId
+            x
+          // TODO pbatko: This should be an explicit exhaustive check
           case unChanged => unChanged
         }
 

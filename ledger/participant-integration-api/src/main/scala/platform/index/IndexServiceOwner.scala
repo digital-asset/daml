@@ -179,6 +179,7 @@ final class IndexServiceOwner(
       participantId = participantId,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
+      completionsPageSize = config.completionsPageSize,
     )
 
   private def buildInMemoryFanOutExecutionContext(

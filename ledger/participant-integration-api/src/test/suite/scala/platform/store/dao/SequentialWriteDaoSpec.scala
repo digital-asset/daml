@@ -52,8 +52,14 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     storageBackendCaptor.captured(0) shouldBe someParty
     storageBackendCaptor.captured(1) shouldBe LedgerEnd(offset("01"), 5, 1)
     storageBackendCaptor.captured(2).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 6
-    storageBackendCaptor.captured(3).asInstanceOf[DbDto.CreateFilter].event_sequential_id shouldBe 6
-    storageBackendCaptor.captured(4).asInstanceOf[DbDto.CreateFilter].event_sequential_id shouldBe 6
+    storageBackendCaptor
+      .captured(3)
+      .asInstanceOf[DbDto.CreateFilter_Stakeholder]
+      .event_sequential_id shouldBe 6
+    storageBackendCaptor
+      .captured(4)
+      .asInstanceOf[DbDto.CreateFilter_Stakeholder]
+      .event_sequential_id shouldBe 6
     storageBackendCaptor
       .captured(5)
       .asInstanceOf[DbDto.EventExercise]
@@ -271,8 +277,8 @@ object SequentialWriteDaoSpec {
     partyAndCreateFixture.get.rejectionReason -> List(someParty, someEventCreated),
     allEventsFixture.get.rejectionReason -> List(
       someEventCreated,
-      DbDto.CreateFilter(0L, "", ""),
-      DbDto.CreateFilter(0L, "", ""),
+      DbDto.CreateFilter_Stakeholder(0L, "", ""),
+      DbDto.CreateFilter_Stakeholder(0L, "", ""),
       someEventExercise,
       someEventDivulgence,
     ),

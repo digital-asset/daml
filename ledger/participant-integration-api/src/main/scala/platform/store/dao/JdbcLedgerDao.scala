@@ -47,6 +47,7 @@ private class JdbcLedgerDao(
     acsIdFetchingParallelism: Int,
     acsContractFetchingParallelism: Int,
     acsGlobalParallelism: Int,
+    completionsPageSize: Int,
     metrics: Metrics,
     engine: Option[Engine],
     sequentialIndexer: SequentialWriteDao,
@@ -454,6 +455,20 @@ private class JdbcLedgerDao(
 
   private val queryNonPruned = QueryNonPrunedImpl(parameterStorageBackend)
 
+  // Applicable for id fetching for transaction streams (flat and tree)
+  // TODO pbatko: Applicable to ACS id fetching as well?
+  // TODO pbatko: Make it configurable
+  // TODO pbatko: What is the suitable execution context?
+  private val idFetchingGlobalLimiter = new QueueBasedConcurrencyLimiter(
+    parallelism = 20,
+    executionContext = servicesExecutionContext,
+  )
+  // TODO pbatko: Make it configurable
+  private val eventFetchingGlobalLimiter = new QueueBasedConcurrencyLimiter(
+    parallelism = 10,
+    executionContext = servicesExecutionContext,
+  )
+
   override val transactionsReader: TransactionsReader =
     new TransactionsReader(
       dispatcher = dbDispatcher,
@@ -474,10 +489,12 @@ private class JdbcLedgerDao(
         idFetchingParallelism = acsIdFetchingParallelism,
         acsFetchingparallelism = acsContractFetchingParallelism,
         metrics = metrics,
-        querylimiter =
+        acsEventFetchingQueryLimiter =
           new QueueBasedConcurrencyLimiter(acsGlobalParallelism, servicesExecutionContext),
         executionContext = servicesExecutionContext,
       ),
+      idFetchingGlobalLimiter = idFetchingGlobalLimiter,
+      eventFetchingGlobalLimiter = eventFetchingGlobalLimiter,
     )(
       servicesExecutionContext
     )
@@ -493,6 +510,7 @@ private class JdbcLedgerDao(
       readStorageBackend.completionStorageBackend,
       queryNonPruned,
       metrics,
+      pageSize = completionsPageSize,
     )
 
   /** This is a combined store transaction method to support sandbox-classic and tests
@@ -572,6 +590,7 @@ private[platform] object JdbcLedgerDao {
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
+      completionsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       engine: Option[Engine],
@@ -590,6 +609,7 @@ private[platform] object JdbcLedgerDao {
       acsIdFetchingParallelism,
       acsContractFetchingParallelism,
       acsGlobalParallelism,
+      completionsPageSize,
       metrics,
       engine,
       SequentialWriteDao.noop,
@@ -609,6 +629,7 @@ private[platform] object JdbcLedgerDao {
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
+      completionsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       engine: Option[Engine],
@@ -627,6 +648,7 @@ private[platform] object JdbcLedgerDao {
       acsIdFetchingParallelism,
       acsContractFetchingParallelism,
       acsGlobalParallelism,
+      completionsPageSize,
       metrics,
       engine,
       sequentialWriteDao,

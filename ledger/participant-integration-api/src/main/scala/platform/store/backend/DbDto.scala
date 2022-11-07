@@ -144,10 +144,38 @@ object DbDto {
       StringInterningDto(entry._1, entry._2)
   }
 
-  final case class CreateFilter(
+  final case class CreateFilter_Stakeholder(
       event_sequential_id: Long,
       template_id: String,
       party_id: String,
+  ) extends DbDto
+
+  final case class CreateFilter_NonStakeholderInformee(
+      event_sequential_id: Long,
+      party_id: String,
+  ) extends DbDto
+
+  final case class ConsumingFilter_Stakeholder(
+      event_sequential_id: Long,
+      template_id: String,
+      party_id: String,
+  ) extends DbDto
+
+  final case class ConsumingFilter_NonStakeholderInformee(
+      event_sequential_id: Long,
+      party_id: String,
+  ) extends DbDto
+
+  final case class NonConsumingFilter_Informee(
+      event_sequential_id: Long,
+      party_id: String,
+  ) extends DbDto
+
+  final case class TransactionMeta(
+      transaction_id: String,
+      event_offset: String,
+      event_sequential_id_from: Long,
+      event_sequential_id_to: Long,
   ) extends DbDto
 
   final case class TransactionMetering(
