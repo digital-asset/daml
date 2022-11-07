@@ -211,46 +211,19 @@ data Report = Report
     deriving (Show, Eq, Ord)
 
 lfTemplateIdentifier :: LF.Qualified LF.Template -> TemplateIdentifier
-lfTemplateIdentifier LF.Qualified { qualPackage, qualModule, qualObject } =
-    let package =
-            case qualPackage of
-              LF.PRSelf -> Nothing
-              LF.PRImport (LF.PackageId pid) -> Just pid
-        qualifiedTemplate =
-            LF.moduleNameString qualModule
-                <> ":"
-                <> T.concat (LF.unTypeConName (LF.tplTypeCon qualObject))
-    in
-    TemplateIdentifier { package, qualifiedTemplate }
+lfTemplateIdentifier = lfTemplateNameIdentifier . fmap LF.tplTypeCon
 
 lfInterfaceIdentifier :: LF.Qualified LF.DefInterface -> InterfaceIdentifier
-lfInterfaceIdentifier LF.Qualified { qualPackage, qualModule, qualObject } =
-    let package =
-            case qualPackage of
-              LF.PRSelf -> Nothing
-              LF.PRImport (LF.PackageId pid) -> Just pid
-        qualifiedInterface =
-            LF.moduleNameString qualModule
-                <> ":"
-                <> T.concat (LF.unTypeConName (LF.intName qualObject))
-    in
-    InterfaceIdentifier { package, qualifiedInterface }
+lfInterfaceIdentifier = lfInterfaceNameIdentifier . fmap LF.intName
 
 lfTemplateNameIdentifier :: LF.Qualified LF.TypeConName -> TemplateIdentifier
-lfTemplateNameIdentifier LF.Qualified { qualPackage, qualModule, qualObject } =
-    let package =
-            case qualPackage of
-              LF.PRSelf -> Nothing
-              LF.PRImport (LF.PackageId pid) -> Just pid
-        qualifiedTemplate =
-            LF.moduleNameString qualModule
-                <> ":"
-                <> T.concat (LF.unTypeConName qualObject)
-    in
-    TemplateIdentifier { package, qualifiedTemplate }
+lfTemplateNameIdentifier = lfMkNameIdentifier TemplateIdentifier
 
 lfInterfaceNameIdentifier :: LF.Qualified LF.TypeConName -> InterfaceIdentifier
-lfInterfaceNameIdentifier LF.Qualified { qualPackage, qualModule, qualObject } =
+lfInterfaceNameIdentifier = lfMkNameIdentifier InterfaceIdentifier
+
+lfMkNameIdentifier :: (Maybe T.Text -> T.Text -> a) -> LF.Qualified LF.TypeConName -> a
+lfMkNameIdentifier handler LF.Qualified { qualPackage, qualModule, qualObject } =
     let package =
             case qualPackage of
               LF.PRSelf -> Nothing
@@ -260,7 +233,7 @@ lfInterfaceNameIdentifier LF.Qualified { qualPackage, qualModule, qualObject } =
                 <> ":"
                 <> T.concat (LF.unTypeConName qualObject)
     in
-    InterfaceIdentifier { package, qualifiedInterface }
+    handler package qualifiedInterface
 
 ssIdentifierToIdentifier :: SS.Identifier -> TemplateIdentifier
 ssIdentifierToIdentifier SS.Identifier {SS.identifierPackage, SS.identifierName} =
