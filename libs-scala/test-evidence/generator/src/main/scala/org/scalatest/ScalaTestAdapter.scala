@@ -3,8 +3,9 @@
 
 package org.scalatest.daml
 
-import org.scalatest.Suite
+import org.scalatest.{DeferredAbortedSuite, Suite}
 import org.scalatest.tools.{DiscoverySuite, Runner, SuiteDiscoveryHelper}
+//import scala.collection.
 
 /*
  * This adapter is required to expose internal package-protected Scala Test library
@@ -17,9 +18,17 @@ object ScalaTestAdapter {
   def loadTestSuites(runpathList: List[String]): List[Suite] = {
     val loader = Runner.getRunpathClassLoader(runpathList)
     val testSuiteNames = SuiteDiscoveryHelper.discoverSuiteNames(runpathList, loader, None)
-    for {
+    val suites = for {
       testSuiteName <- testSuiteNames.toList
     } yield DiscoverySuite.getSuiteInstance(testSuiteName, loader)
+
+    suites.tapEach {
+      case DeferredAbortedSuite(suiteClassName, throwable) =>
+        Console.err.println(
+          s"warning: Could not load suite $suiteClassName.\n   ${throwable.getCause}\n"
+        )
+      case _ =>
+    }
   }
 
 }
