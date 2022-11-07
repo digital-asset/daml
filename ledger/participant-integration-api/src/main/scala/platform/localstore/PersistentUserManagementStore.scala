@@ -312,7 +312,8 @@ class PersistentUserManagementStore(
     inTransaction(_.listUsers) { connection =>
       val dbUsers = fromExcl match {
         case None => backend.getUsersOrderedById(None, maxResults, identityProviderId)(connection)
-        case Some(fromExcl) => backend.getUsersOrderedById(Some(fromExcl), maxResults, identityProviderId)(connection)
+        case Some(fromExcl) =>
+          backend.getUsersOrderedById(Some(fromExcl), maxResults, identityProviderId)(connection)
       }
       val users = dbUsers.map { dbUser =>
         val annotations = backend.getUserAnnotations(dbUser.internalId)(connection)

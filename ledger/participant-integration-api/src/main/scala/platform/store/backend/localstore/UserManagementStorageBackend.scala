@@ -25,7 +25,11 @@ trait UserManagementStorageBackend extends ResourceVersionOps {
 
   def getUser(id: UserId)(connection: Connection): Option[UserManagementStorageBackend.DbUserWithId]
 
-  def getUsersOrderedById(fromExcl: Option[UserId] = None, maxResults: Int, identityProviderId: Option[Ref.IdentityProviderId])(
+  def getUsersOrderedById(
+      fromExcl: Option[UserId] = None,
+      maxResults: Int,
+      identityProviderId: Option[Ref.IdentityProviderId],
+  )(
       connection: Connection
   ): Vector[UserManagementStorageBackend.DbUserWithId]
 

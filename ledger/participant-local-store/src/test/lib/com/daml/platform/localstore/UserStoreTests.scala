@@ -196,7 +196,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           list2 <- tested.listUsers(
             fromExcl = list1.getOrElse(fail("Expecting a Right()")).lastUserIdOption,
             maxResults = 4,
-            identityProviderId = None
+            identityProviderId = None,
           )
           _ = list2 shouldBe Right(UsersPage(Seq(createdUser("user4"))))
         } yield {
