@@ -76,10 +76,12 @@ public abstract class ContractTypeCompanion<Ct, Id, ContractType, Data> {
   public abstract Ct fromCreatedEvent(CreatedEvent event) throws IllegalArgumentException;
 
   /**
-   * TODO
-   *
-   * @param parameterizedContractId
-   * @return
+   * Convert from a generic {@link ContractId} to the specific contract ID subclass generated as
+   * part of this companion's template or interface. Most applications should not need this
+   * function, but if your Daml data types include types like {@code ContractId t} where {@code t}
+   * is any type parameter, that is likely to result in code-generated types like {@code
+   * ContractId<t>} that need to be passed to this function before e.g. {@code exercise*} methods
+   * can be used.
    */
   public final Id toContractId(ContractId<Data> parameterizedContractId) {
     return newContractId.apply(parameterizedContractId.contractId);
