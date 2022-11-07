@@ -43,40 +43,38 @@ private[http] final class UserManagement(
       domain.UserDetails(user.id, user.primaryParty)
     ): domain.SyncResponse[domain.UserDetails]
 
-  def createUser(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[spray.json.JsObject]] =
-    proxyWithCommand { (jwt, createUserRequest: domain.CreateUserRequest) =>
-      {
-        import scalaz.std.option._
-        import scalaz.syntax.traverse._
-        import scalaz.syntax.std.either._
-        import com.daml.lf.data.Ref
-        val input =
-          for {
-            username <- UserId.fromString(createUserRequest.userId).disjunction
-            primaryParty <- createUserRequest.primaryParty.traverse(it =>
-              Ref.Party.fromString(it).disjunction
-            )
-            rights <- domain.UserRights.toLedgerUserRights(
-              createUserRequest.rights.getOrElse(List.empty)
-            )
-          } yield (username, primaryParty, rights)
-        for {
-          info <- EitherT.either(input.leftMap(InvalidUserInput)): ET[
-            (UserId, Option[Ref.Party], List[UserRight])
-          ]
-          (username, primaryParty, initialRights) = info
-          _ <- EitherT.rightT(
-            userManagementClient.createUser(
-              User(username, primaryParty),
-              initialRights,
-              Some(jwt.value),
-            )
-          )
-        } yield emptyObjectResponse
-      }.run
-    }(req)
+  def createUser(
+      jwt: Jwt,
+      createUserRequest: domain.CreateUserRequest,
+  ): ET[domain.SyncResponse[spray.json.JsObject]] = {
+    import scalaz.std.option._
+    import scalaz.syntax.traverse._
+    import scalaz.syntax.std.either._
+    import com.daml.lf.data.Ref
+    val input =
+      for {
+        username <- UserId.fromString(createUserRequest.userId).disjunction
+        primaryParty <- createUserRequest.primaryParty.traverse(it =>
+          Ref.Party.fromString(it).disjunction
+        )
+        rights <- domain.UserRights.toLedgerUserRights(
+          createUserRequest.rights.getOrElse(List.empty)
+        )
+      } yield (username, primaryParty, rights)
+    for {
+      info <- EitherT.either(input.leftMap(InvalidUserInput)): ET[
+        (UserId, Option[Ref.Party], List[UserRight])
+      ]
+      (username, primaryParty, initialRights) = info
+      _ <- EitherT.rightT(
+        userManagementClient.createUser(
+          User(username, primaryParty),
+          initialRights,
+          Some(jwt.value),
+        )
+      )
+    } yield emptyObjectResponse
+  }
 
   def deleteUser(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
