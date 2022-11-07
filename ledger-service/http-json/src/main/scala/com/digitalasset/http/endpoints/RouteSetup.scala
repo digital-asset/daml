@@ -135,7 +135,7 @@ private[http] final class RouteSetup(
   ): ET[TimerHandle] =
     EitherT.pure(metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.startAsync())
 
-  private[endpoints] def input(req: HttpRequest)(implicit
+  private[http] def input(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ (Jwt, String)] = {
     findJwt(req) match {

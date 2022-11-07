@@ -110,7 +110,7 @@ class Endpoints(
   ): Route =
     responseToRoute(httpResponse(res))
 
-  private def toRoute2[Req: JsonReader, Res: JsonWriter](
+  private def toPostRoute[Req: JsonReader, Res: JsonWriter](
       httpRequest: HttpRequest,
       fn: (Jwt, Req) => ET[domain.SyncResponse[Res]],
   )(implicit
@@ -122,6 +122,24 @@ class Endpoints(
       (jwt, reqBody) = t
       req <- either(SprayJson.decode[Req](reqBody).liftErr(InvalidUserInput)): ET[Req]
       res <- eitherT(RouteSetup.handleFutureEitherFailure(fn(jwt, req).run)): ET[
+        domain.SyncResponse[Res]
+      ]
+    } yield res
+    responseToRoute(httpResponse(res))
+  }
+
+  private def toGetRoute[Res](
+      httpRequest: HttpRequest,
+      fn: (Jwt, String) => ET[domain.SyncResponse[Res]],
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
+      mkHttpResponse: MkHttpResponse[ET[domain.SyncResponse[Res]]],
+  ): Route = {
+    val res = for {
+      t <- eitherT(routeSetup.input(httpRequest)): ET[(Jwt, String)]
+      (jwt, parameter) = t
+      res <- eitherT(RouteSetup.handleFutureEitherFailure(fn(jwt, parameter).run)): ET[
         domain.SyncResponse[Res]
       ]
     } yield res
@@ -284,12 +302,12 @@ class Endpoints(
           ),
           path("query") & withTimer(queryMatchingTimer) apply toRoute(query(req)),
           path("fetch") & withFetchTimer apply toRoute(fetch(req)),
-          path("user") apply toRoute2(req, getUser),
-          path("user" / "create") apply toRoute2(req, createUser),
-          path("user" / "delete") apply toRoute2(req, deleteUser),
-          path("user" / "rights") apply toRoute2(req, listUserRights),
-          path("user" / "rights" / "grant") apply toRoute2(req, grantUserRights),
-          path("user" / "rights" / "revoke") apply toRoute2(req, revokeUserRights),
+          path("user") apply toPostRoute(req, getUser),
+          path("user" / "create") apply toPostRoute(req, createUser),
+          path("user" / "delete") apply toPostRoute(req, deleteUser),
+          path("user" / "rights") apply toPostRoute(req, listUserRights),
+          path("user" / "rights" / "grant") apply toPostRoute(req, grantUserRights),
+          path("user" / "rights" / "revoke") apply toPostRoute(req, revokeUserRights),
           path("parties") & withFetchTimer apply toRoute(parties(req)),
           path("parties" / "allocate") & withTimer(
             allocatePartyTimer
@@ -300,9 +318,10 @@ class Endpoints(
         get apply concat(
           path("query") & withTimer(queryAllTimer) apply
             toRoute(retrieveAll(req)),
-          path("user") apply toRoute(getAuthenticatedUser(req)),
-          path("user" / "rights") apply toRoute(
-            listAuthenticatedUserRights(req)
+          path("user") apply toGetRoute(req, (jwt, _) => getAuthenticatedUser(jwt)),
+          path("user" / "rights") apply toGetRoute(
+            req,
+            (jwt, _) => listAuthenticatedUserRights(jwt),
           ),
           path("users") apply toRoute(listUsers(req)),
           path("parties") & withTimer(getPartyTimer) apply

@@ -134,20 +134,14 @@ private[http] final class UserManagement(
     ): domain.SyncResponse[List[domain.UserRight]]
   }
 
-  def getAuthenticatedUser(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[domain.UserDetails]] =
+  def getAuthenticatedUser(jwt: Jwt): ET[domain.SyncResponse[domain.UserDetails]] =
     for {
-      jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
       userId <- getUserIdFromToken(jwt)
       user <- EitherT.rightT(userManagementClient.getUser(userId, Some(jwt.value)))
     } yield domain.OkResponse(domain.UserDetails(user.id, user.primaryParty))
 
-  def listAuthenticatedUserRights(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
+  def listAuthenticatedUserRights(jwt: Jwt): ET[domain.SyncResponse[List[domain.UserRight]]] = {
     for {
-      jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
       userId <- getUserIdFromToken(jwt)
       rights <- EitherT.rightT(
         userManagementClient.listUserRights(userId, Some(jwt.value))
@@ -156,6 +150,7 @@ private[http] final class UserManagement(
       .OkResponse(domain.UserRights.fromLedgerUserRights(rights)): domain.SyncResponse[List[
       domain.UserRight
     ]]
+  }
 
   def listUsers(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -164,6 +159,14 @@ private[http] final class UserManagement(
       jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
       users = aggregateListUserPages(Some(jwt.value))
     } yield domain.OkResponse(users.map(_ map domain.UserDetails.fromUser))
+
+  def listUsers2(
+      jwt: Jwt
+  ): ET[domain.SyncResponse[Source[Error \/ domain.UserDetails, NotUsed]]] = {
+    val users = aggregateListUserPages(Some(jwt.value))
+    val userDetails = users.map(_ map domain.UserDetails.fromUser)
+    EitherT.rightT(Future.successful(domain.OkResponse(userDetails)))
+  }
 
   private def aggregateListUserPages(
       token: Option[String],
