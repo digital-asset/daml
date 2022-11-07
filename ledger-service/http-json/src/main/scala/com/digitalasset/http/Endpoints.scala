@@ -285,7 +285,7 @@ class Endpoints(
           path("query") & withTimer(queryMatchingTimer) apply toRoute(query(req)),
           path("fetch") & withFetchTimer apply toRoute(fetch(req)),
           path("user") apply toRoute(req, getUser),
-          path("user" / "create") apply toRoute(req, createUser2),
+          path("user" / "create") apply toRoute(req, createUser),
           path("user" / "delete") apply toRoute(deleteUser(req)),
           path("user" / "rights") apply toRoute(listUserRights(req)),
           path("user" / "rights" / "grant") apply toRoute(grantUserRights(req)),
