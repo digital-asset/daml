@@ -37,7 +37,7 @@ trait BazelRunfiles {
   def requiredResource(name: String): java.io.File = {
     val file = new java.io.File(rlocation(name))
     if (file.exists()) file
-    else throw new IllegalStateException(s"File doest not exist: ${file.getAbsolutePath}")
+    else throw new IllegalStateException(s"File does not exist: ${file.getAbsolutePath}")
   }
 }
 
