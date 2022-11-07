@@ -820,14 +820,26 @@ class Runner(
 
 object Runner extends StrictLogging {
 
-  private final case class RunnerSubmissionConfig(maxRequests: Int, maxDuration: FiniteDuration)
+  private final case class RunnerSubmissionConfig(maxRequests: Int, maxDuration: FiniteDuration) {
+    require(
+      maxRequests > 0,
+      s"trigger.submission.max-requests should be positive - found: $maxRequests",
+    )
+  }
 
   private final case class RunnerConfig(
       parallelism: Int,
       maxRetries: Int,
       maxInflightCommands: Int,
       submission: RunnerSubmissionConfig,
-  )
+  ) {
+    require(parallelism > 0, s"trigger.parallelism should be positive - found: $parallelism")
+    require(maxRetries > 0, s"trigger.max-retries should be positive - found $maxRetries")
+    require(
+      maxInflightCommands > 0,
+      s"trigger.max-inflight-commands should be positive - found $maxInflightCommands",
+    )
+  }
 
   private val config: RunnerConfig =
     ConfigSource.resources("trigger-config.conf").at("trigger").loadOrThrow[RunnerConfig]
