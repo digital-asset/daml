@@ -1,0 +1,103 @@
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+import "com/daml/ledger/api/v1/event.proto";
+import "google/protobuf/timestamp.proto";
+
+option java_outer_classname = "TransactionOuterClass";
+option java_package = "com.daml.ledger.api.v1";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+
+// Complete view of an on-ledger transfer.
+message Transfer {
+
+  // Assigned by the server. Useful for correlating logs.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string transaction_id = 1;
+
+  // TODO this field (whether it is populated) can signal whether it is originates from the same participant or not (
+  //  so additional retry etc procedures are in order or not), on the other hand with multi-hosted parties this is not
+  //  so obvious.
+  // The ID of the command which resulted in this transaction. Missing for everyone except the submitting party.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string command_id = 2;
+
+  // The workflow ID used in command submission. Only set if the ``workflow_id`` for the command was set.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string workflow_id = 3;
+
+  // Ledger effective time.
+  // Required
+  google.protobuf.Timestamp effective_at = 4;
+
+  // The absolute offset. The format of this field is described in ``ledger_offset.proto``.
+  // Required
+  string offset = 5;
+
+  oneof event {
+    TransferredOutEvent transfer_out_event = 6;
+    TransferredInEvent transfer_in_event = 7;
+  }
+}
+
+// Records that a contract has been transferred-out, and it becomes unusable on the source domain
+message TransferredOutEvent {
+
+  // The ID of the transfer out event. This needs to be used as an input for a transfer-in TransferCommand.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string transfer_out_id = 1;
+
+  // The ID of the created contract.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string contract_id = 2;
+
+  // The ID of the source domain
+  // Must be a valid domain ID
+  // Required
+  string source = 3;
+
+  // The ID of the target domain
+  // Must be a valid domain ID
+  // Required
+  string target = 4;
+
+  // Transfer-in exclusivity
+  // Before this time, only the initiator of the transfer-out can initiate the transfer-in
+  // Required
+  google.protobuf.Timestamp transfer_in_exclusivity = 5;
+}
+
+// Records that a contract has been transferred-in, and it becomes usable on the target domain
+message TransferredInEvent {
+
+  // The ID of the created contract.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string contract_id = 1;
+
+  // The ID of the source domain
+  // Must be a valid domain ID
+  // Required
+  string source = 2;
+
+  // The ID of the target domain
+  // Must be a valid domain ID
+  // Required
+  string target = 3;
+
+  // The ID of the transfer-out event
+  // For correlation capabilities
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string transfer_out_id = 4;
+}
+

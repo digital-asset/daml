@@ -12,6 +12,7 @@ option java_outer_classname = "ActiveContractsServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
+// TODO clarification how activeness and in-transfer relate
 // Allows clients to initialize themselves according to a fairly recent state of the ledger without reading through all transactions that were committed since the ledger's creation.
 service ActiveContractsService {
 

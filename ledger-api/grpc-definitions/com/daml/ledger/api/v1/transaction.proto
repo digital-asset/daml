@@ -38,7 +38,7 @@ message TransactionTree {
 
   // The absolute offset. The format of this field is described in ``ledger_offset.proto``.
   // Required
-  int64 offset = 6;
+  string offset = 6;
 
   // Changes to the ledger that were caused by this transaction. Nodes of the transaction tree.
   // Each key be a valid LedgerString (as describe in ``value.proto``).
@@ -65,7 +65,39 @@ message TreeEvent {
     oneof kind {
         CreatedEvent created = 1;
         ExercisedEvent exercised = 2;
-        TransferredOut transffered_out = 3;
-        TransferredIn transffered_in = 4;
     }
+}
+
+// Filtered view of an on-ledger transaction's create and archive events.
+message Transaction {
+
+  // Assigned by the server. Useful for correlating logs.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string transaction_id = 1;
+
+  // The ID of the command which resulted in this transaction. Missing for everyone except the submitting party.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string command_id = 2;
+
+  // The workflow ID used in command submission.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string workflow_id = 3;
+
+  // Ledger effective time.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  google.protobuf.Timestamp effective_at = 4;
+
+  // The collection of events.
+  // Only contains ``CreatedEvent`` or ``ArchivedEvent``.
+  // Required
+  repeated Event events = 5;
+
+  // The absolute offset. The format of this field is described in ``ledger_offset.proto``.
+  // Required
+  string offset = 6;
+
 }

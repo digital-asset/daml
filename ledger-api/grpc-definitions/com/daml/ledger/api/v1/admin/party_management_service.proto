@@ -13,6 +13,7 @@ option java_outer_classname = "PartyManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
+// TODO how will this look like in 3.0?
 // This service allows inspecting the party management state of the ledger known to the participant
 // and managing the participant-local party metadata.
 //

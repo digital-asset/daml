@@ -59,6 +59,10 @@ message PruneRequest {
   //   1. no application using this participant node relies on divulgence OR
   //   2. divulged contracts on which applications rely have been re-divulged after the `prune_up_to` offset.
   bool prune_all_divulged_contracts = 3;
+
+  // Must be a valid domain ID
+  // Required
+  string domain_id = 4;
 }
 
 message PruneResponse {

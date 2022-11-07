@@ -49,6 +49,9 @@ message SubmitRequest {
 
   // The commands to be submitted in a single transaction.
   // Required
-  Commands commands = 1;
+  oneof submission {
+    Commands commands = 1;
+    TransferCommand transfer_command = 2;
+  }
 
 }
