@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.function.Function;
 
 public abstract class Update<U> implements HasCommands {
-  private final Command command;
+  final Command command;
 
   public Update(Command command) {
     this.command = command;
@@ -18,6 +18,17 @@ public abstract class Update<U> implements HasCommands {
   public final List<Command> commands() {
     return List.of(command);
   }
+
+  /**
+   * Map the result type.
+   *
+   * <pre>
+   *   // follows the functor laws
+   *   u = u.map(a -> a)
+   *   u.map(g.andThen(f)) = u.map(g).map(f)
+   * </pre>
+   */
+  public abstract <V> Update<V> map(Function<? super U, ? extends V> f);
 
   /**
    * <strong>INTERNAL API</strong>: this is meant for use by <a
@@ -36,6 +47,11 @@ public abstract class Update<U> implements HasCommands {
       super(command);
       this.k = k;
       this.returnTypeDecoder = returnTypeDecoder;
+    }
+
+    @Override
+    public <V> ExerciseUpdate<R, V> map(Function<? super U, ? extends V> f) {
+      return new ExerciseUpdate<>(command, k.andThen(f), returnTypeDecoder);
     }
   }
 
@@ -56,6 +72,11 @@ public abstract class Update<U> implements HasCommands {
       super(command);
       this.k = k;
       this.createdContractId = createdContractId;
+    }
+
+    @Override
+    public <V> CreateUpdate<CtId, V> map(Function<? super U, ? extends V> f) {
+      return new CreateUpdate<>(command, k.andThen(f), createdContractId);
     }
   }
 
