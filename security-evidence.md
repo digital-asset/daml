@@ -1,8 +1,5 @@
 # Security tests, by category
 
-## Authentication:
-- redirect to the configured callback URI after login: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L649)
-
 ## Authorization:
 - auth and auth-* should not be set together for the trigger service: [CliConfigTest.scala](triggers/service/src/test-suite/scala/com/daml/lf/engine/trigger/CliConfigTest.scala#L40)
 - badly-authorized create is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L60)
@@ -17,13 +14,6 @@
 - error on specifying both authCommonUri and authInternalUri/authExternalUri for the trigger service: [AuthorizationConfigTest.scala](triggers/service/src/test-suite/scala/com/daml/lf/engine/trigger/AuthorizationConfigTest.scala#L24)
 - error on specifying only authInternalUri and no authExternalUri for the trigger service: [AuthorizationConfigTest.scala](triggers/service/src/test-suite/scala/com/daml/lf/engine/trigger/AuthorizationConfigTest.scala#L52)
 - exercise with no controllers is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L148)
-- forbid a non-authorized party to check the status of a trigger: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L688)
-- forbid a non-authorized party to list triggers: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L678)
-- forbid a non-authorized party to start a trigger: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L667)
-- forbid a non-authorized party to stop a trigger: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L704)
-- forbid a non-authorized user to upload a DAR: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L720)
-- refresh a token after expiry on the server side: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L745)
-- request a fresh token after expiry on user request: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L730)
 - well-authorized create is accepted: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L43)
 - well-authorized exercise is accepted: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L141)
 - well-authorized exercise/create is accepted: [AuthPropagationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthPropagationSpec.scala#L219)
@@ -33,11 +23,6 @@
 
 ## Availability:
 - Tail call optimization: Tail recursion does not blow the scala JVM stack.: [TailCallTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/TailCallTest.scala#L16)
-- restart trigger on initialization failure due to failed connection: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L465)
-- restart trigger on run-time failure due to dropped connection: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L485)
-- restart triggers after shutdown: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L605)
-- restart triggers with initialization errors: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L507)
-- restart triggers with update errors: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L526)
 
 ## Confidentiality:
 - ensure correct privacy for create node: [BlindingSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/BlindingSpec.scala#L32)
@@ -48,8 +33,6 @@
 - ensure correct privacy for lookup-by-key node (found): [BlindingSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/BlindingSpec.scala#L94)
 - ensure correct privacy for lookup-by-key node (not-found): [BlindingSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/BlindingSpec.scala#L115)
 - ensure correct privacy for rollback subtree: [BlindingSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/BlindingSpec.scala#L199)
-- give a 'not found' response for a stop request on an unknown UUID in the trigger service: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L560)
-- give a 'not found' response for a stop request with an unparseable UUID in the trigger service: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L545)
 
 ## Integrity:
 - Evaluation order of create with authorization failure: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L556)
