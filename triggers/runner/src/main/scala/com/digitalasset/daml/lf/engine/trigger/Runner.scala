@@ -830,7 +830,7 @@ object Runner extends StrictLogging {
   )
 
   private val config: RunnerConfig =
-    ConfigSource.resources("trigger-config.conf").loadOrThrow[RunnerConfig]
+    ConfigSource.resources("trigger-config.conf").at("trigger").loadOrThrow[RunnerConfig]
 
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
     (250 * (1 << (afterTries - 1))).milliseconds
