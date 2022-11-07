@@ -823,7 +823,7 @@ object Runner extends StrictLogging {
   private final case class RunnerSubmissionConfig(maxRequests: Int, maxDuration: FiniteDuration) {
     require(
       maxRequests > 0,
-      s"trigger.submission.max-requests should be positive - found: $maxRequests",
+      s"trigger.runner.submission.max-requests should be positive - found: $maxRequests",
     )
   }
 
@@ -833,16 +833,16 @@ object Runner extends StrictLogging {
       maxInflightCommands: Int,
       submission: RunnerSubmissionConfig,
   ) {
-    require(parallelism > 0, s"trigger.parallelism should be positive - found: $parallelism")
-    require(maxRetries > 0, s"trigger.max-retries should be positive - found $maxRetries")
+    require(parallelism > 0, s"trigger.runner.parallelism should be positive - found: $parallelism")
+    require(maxRetries > 0, s"trigger.runner.max-retries should be positive - found $maxRetries")
     require(
       maxInflightCommands > 0,
-      s"trigger.max-inflight-commands should be positive - found $maxInflightCommands",
+      s"trigger.runner.max-inflight-commands should be positive - found $maxInflightCommands",
     )
   }
 
   private val config: RunnerConfig =
-    ConfigSource.resources("trigger-config.conf").at("trigger").loadOrThrow[RunnerConfig]
+    ConfigSource.resources("trigger-config.conf").at("trigger.runner").loadOrThrow[RunnerConfig]
 
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
     (250 * (1 << (afterTries - 1))).milliseconds
