@@ -37,6 +37,7 @@ class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInt
       "grpc_server_type" -> serverType,
     ) { implicit mc =>
       val timerHandle = metrics.callTimer.startAsync()
+      metrics.callsStarted.mark()
       val metricsServerCall = new MetricsCall(
         serverCall,
         timerHandle,
@@ -49,7 +50,6 @@ class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInt
         serverCallHandler.startCall(metricsServerCall, metadata),
         metrics.messagesReceived,
         metrics.messagesReceivedSize,
-        metrics.callsStarted,
       )
     }
   }
@@ -58,7 +58,6 @@ class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInt
       val delegate: Listener[T],
       messagesReceived: Meter,
       messagesReceivedSize: Histogram,
-      callsStarted: Meter,
   )(implicit
       metricsContext: MetricsContext
   ) extends ForwardingServerCallListener[T] {
@@ -70,7 +69,6 @@ class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInt
     }
     override def onReady(): Unit = {
       super.onReady()
-      callsStarted.mark()
     }
   }
 
@@ -97,7 +95,7 @@ class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInt
 
     override def close(status: Status, trailers: Metadata): Unit = {
       super.close(status, trailers)
-      withExtraMetricLabels("code" -> status.getCode.toString) { implicit metricsContext =>
+      withExtraMetricLabels("grpc_code" -> status.getCode.toString) { implicit metricsContext =>
         callsClosed.mark()
         timer.stop()
       }

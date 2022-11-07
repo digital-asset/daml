@@ -34,7 +34,7 @@ class GrpcMetricsServerInterceptorSpec
   private val labelsForSimpleRequestWithStatusCode = labelsForSimpleRequest.merge(
     MetricsContext(
       Map(
-        "code" -> "0"
+        "grpc_code" -> "OK"
       )
     )
   )
