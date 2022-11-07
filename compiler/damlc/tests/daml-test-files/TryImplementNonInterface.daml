@@ -1,0 +1,18 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ERROR range=18:7-18:20; Tried to get an interface view of type ‘MyUnit’ from type ‘Bool’
+-- @ERROR range=18:7-18:20; No instance for (HasInterfaceTypeRep Bool)
+
+-- | Check that an error is thrown if implementing a non-interface
+module TryImplementNonInterface where
+
+data MyUnit = MyUnit {}
+
+template T with
+  p : Party
+    where
+    signatory p
+    interface instance Bool for T where
+      view = MyUnit
