@@ -515,6 +515,7 @@ alias(
             kind_projector_plugin,
         ],
         scala_deps = [
+            "@maven//:com_lihaoyi_sourcecode",
             "@maven//:com_chuusai_shapeless",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:com_typesafe_scala_logging_scala_logging",
@@ -565,6 +566,8 @@ alias(
             "//libs-scala/postgresql-testing",
             "//libs-scala/resources",
             "//libs-scala/scala-utils",
+            "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+            "//libs-scala/test-evidence/tag:test-evidence-tag",
             "//runtime-components/non-repudiation",
             "//runtime-components/non-repudiation-postgresql",
             "@maven//:org_scalatest_scalatest_compatible",
