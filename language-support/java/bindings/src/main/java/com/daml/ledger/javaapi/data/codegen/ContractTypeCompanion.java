@@ -3,6 +3,7 @@
 
 package com.daml.ledger.javaapi.data.codegen;
 
+import com.daml.ledger.javaapi.data.CreatedEvent;
 import com.daml.ledger.javaapi.data.Identifier;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,8 @@ public abstract class ContractTypeCompanion<Ct, Id, ContractType, Data> {
 
   final String TEMPLATE_CLASS_NAME;
 
+  final Function<String, Id> newContractId;
+
   /**
    * The provides a mapping of choice name to Choice.
    *
@@ -48,10 +51,37 @@ public abstract class ContractTypeCompanion<Ct, Id, ContractType, Data> {
    * @hidden
    */
   protected ContractTypeCompanion(
-      Identifier templateId, String templateClassName, List<Choice<ContractType, ?, ?>> choices) {
+      Identifier templateId,
+      String templateClassName,
+      Function<String, Id> newContractId,
+      List<Choice<ContractType, ?, ?>> choices) {
     TEMPLATE_ID = templateId;
     TEMPLATE_CLASS_NAME = templateClassName;
+    this.newContractId = newContractId;
     this.choices =
         choices.stream().collect(Collectors.toMap(choice -> choice.name, Function.identity()));
+  }
+
+  /**
+   * Tries to parse a contract from an event expected to create a {@code Ct} contract. This is
+   * either the {@link CreatedEvent#getArguments} for {@link ContractCompanion}, or one of {@link
+   * CreatedEvent#getInterfaceViews} for an {@link InterfaceCompanion}.
+   *
+   * @param event the event to try to parse a contract from
+   * @throws IllegalArgumentException when the {@link CreatedEvent} payload cannot be parsed as
+   *     {@code Data}, or the {@link CreatedEvent#getContractKey} cannot be parsed as a contract
+   *     key.
+   * @return The parsed contract, with payload and metadata, if present.
+   */
+  public abstract Ct fromCreatedEvent(CreatedEvent event) throws IllegalArgumentException;
+
+  /**
+   * TODO
+   *
+   * @param parameterizedContractId
+   * @return
+   */
+  public final Id toContractId(ContractId<Data> parameterizedContractId) {
+    return newContractId.apply(parameterizedContractId.contractId);
   }
 }

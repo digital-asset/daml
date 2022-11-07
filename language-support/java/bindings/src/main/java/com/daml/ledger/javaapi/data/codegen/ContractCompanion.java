@@ -63,20 +63,6 @@ public abstract class ContractCompanion<Ct, Id, Data>
   }
 
   /**
-   * Tries to parse a contract from an event expected to create a {@code Ct} contract.
-   *
-   * @param event the event to try to parse a contract from
-   * @throws IllegalArgumentException when the {@link CreatedEvent#arguments} cannot be parsed as
-   *     {@code Data}, or the {@link CreatedEvent#contractKey} cannot be parsed as {@code Key}.
-   * @return The parsed contract, with payload and metadata, if present.
-   */
-  public abstract Ct fromCreatedEvent(CreatedEvent event);
-
-  public Id toContractId(ContractId<Data> parameterizedContractId) {
-    return newContractId.apply(parameterizedContractId.contractId);
-  }
-
-  /**
    * <strong>INTERNAL API</strong>: this is meant for use by {@link WithoutKey} and {@link WithKey},
    * and <em>should not be referenced directly</em>. Applications should refer to the {@code
    * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses instead.
@@ -89,8 +75,7 @@ public abstract class ContractCompanion<Ct, Id, Data>
       Function<String, Id> newContractId,
       Function<DamlRecord, Data> fromValue,
       List<Choice<Data, ?, ?>> choices) {
-    super(templateId, templateClassName, choices);
-    this.newContractId = newContractId;
+    super(templateId, templateClassName, newContractId, choices);
     this.fromValue = fromValue;
   }
 

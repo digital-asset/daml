@@ -39,8 +39,7 @@ public abstract class InterfaceCompanion<I, Id, View>
       Function<String, Id> newContractId,
       ValueDecoder<View> valueDecoder,
       List<Choice<I, ?, ?>> choices) {
-    super(templateId, templateClassName, choices);
-    this.newContractId = newContractId;
+    super(templateId, templateClassName, newContractId, choices);
     this.valueDecoder = valueDecoder;
   }
 
@@ -75,6 +74,7 @@ public abstract class InterfaceCompanion<I, Id, View>
                                 "interface view of " + TEMPLATE_ID + " not found.")));
   }
 
+  @Override
   public final Contract<Id, View> fromCreatedEvent(CreatedEvent event)
       throws IllegalArgumentException {
     return fromIdAndRecord(
