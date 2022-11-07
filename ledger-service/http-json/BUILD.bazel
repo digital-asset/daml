@@ -377,6 +377,7 @@ alias(
         srcs = glob(["src/itlib/scala/**/*.scala"]),
         resources = glob(["src/itlib/resources/**/*"]),
         scala_deps = [
+            "@maven//:com_lihaoyi_sourcecode",
             "@maven//:com_chuusai_shapeless",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:com_typesafe_scala_logging_scala_logging",
@@ -411,6 +412,8 @@ alias(
             "//ledger/ledger-resources",
             "//ledger/ledger-runner-common",
             "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
+            "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+            "//libs-scala/test-evidence/tag:test-evidence-tag",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),
             "//ledger-service/db-backend",
@@ -507,13 +510,87 @@ alias(
 ]
 
 [
-    da_scala_test_suite(
-        name = "integration-tests-{}".format(edition),
-        size = "large",
+    da_scala_library(
+        name = "integration-tests-lib-pkg-{}".format(edition),
         srcs = glob([
             "src/it/scala/**/*.scala",
             "src/it/edition/{}/**/*.scala".format(edition),
         ]),
+        plugins = [
+            kind_projector_plugin,
+        ],
+        scala_deps = [
+            "@maven//:com_chuusai_shapeless",
+            "@maven//:com_typesafe_akka_akka_http_core",
+            "@maven//:com_typesafe_scala_logging_scala_logging",
+            "@maven//:io_spray_spray_json",
+            "@maven//:org_scalacheck_scalacheck",
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalatest_scalatest_flatspec",
+            "@maven//:org_scalatest_scalatest_freespec",
+            "@maven//:org_scalatest_scalatest_matchers_core",
+            "@maven//:org_scalatest_scalatest_shouldmatchers",
+            "@maven//:org_scalaz_scalaz_core",
+            "@maven//:org_tpolecat_doobie_core",
+            "@maven//:org_tpolecat_doobie_free",
+            "@maven//:org_tpolecat_doobie_postgres",
+            "@maven//:org_typelevel_cats_core",
+            "@maven//:org_typelevel_cats_effect",
+            "@maven//:org_typelevel_cats_free",
+            "@maven//:org_typelevel_cats_kernel",
+            "@maven//:org_scalactic_scalactic",
+        ],
+        scalacopts = hj_scalacopts,
+        deps = [
+            ":http-json-{}".format(edition),
+            ":integration-tests-lib-{}".format(edition),
+            ":integration-tests-lib-postgres-{}".format(edition),
+            "//daml-lf/api-type-signature",
+            "//daml-lf/data",
+            "//daml-lf/transaction",
+            "//daml-lf/transaction-test-lib",
+            "//language-support/scala/bindings-akka",
+            "//ledger-api/rs-grpc-bridge",
+            "//ledger-api/testing-utils",
+            "//ledger-service/db-backend",
+            "//ledger-service/fetch-contracts",
+            "//ledger/ledger-api-auth",
+            "//ledger/ledger-resources",
+            "//ledger/ledger-runner-common",
+            "//ledger/metrics",
+            "//ledger/sandbox-on-x",
+            "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
+            "//ledger-service/http-json-cli:{}".format(edition),
+            "//ledger-service/http-json-testing:{}".format(edition),
+            "//ledger-service/jwt",
+            "//ledger-service/utils",
+            "//libs-scala/contextualized-logging",
+            "//libs-scala/db-utils",
+            "//libs-scala/ports",
+            "//libs-scala/postgresql-testing",
+            "//libs-scala/resources",
+            "//libs-scala/scala-utils",
+            "//runtime-components/non-repudiation",
+            "//runtime-components/non-repudiation-postgresql",
+            "@maven//:org_scalatest_scalatest_compatible",
+        ],
+    )
+    for edition in [
+        "ce",
+        "ee",
+    ]
+]
+
+alias(
+    name = "integration-tests-lib-pkg",
+    actual = "integration-tests-lib-pkg-ce",
+    visibility = ["//test-evidence:__pkg__"],
+)
+
+[
+    da_scala_test_suite(
+        name = "integration-tests-{}".format(edition),
+        size = "large",
         data = [
             ":Account.dar",
             ":CIou.dar",
@@ -525,9 +602,6 @@ alias(
         ],
         # TODO https://github.com/digital-asset/daml/issues/11585
         flaky = True,
-        plugins = [
-            kind_projector_plugin,
-        ],
         resources = glob(["src/it/resources/**/*"]),
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
@@ -553,6 +627,7 @@ alias(
         deps = [
             ":http-json-{}".format(edition),
             ":integration-tests-lib-{}".format(edition),
+            ":integration-tests-lib-pkg-{}".format(edition),
             ":integration-tests-lib-postgres-{}".format(edition),
             "//bazel_tools/runfiles:scala_runfiles",
             "//daml-lf/api-type-signature",
