@@ -709,9 +709,8 @@ object WebSocketService {
   private[WebSocketService] final class InitialEnrichedContractKeyWithStreamQuery private ()(
       implicit ec: ExecutionContext
   ) extends EnrichedContractKeyWithStreamQuery[Unit] {
-    override def removePhantomArchives(request: ResolvedContractKeyStreamRequest[Unit, LfV]) = Some(
-      Set.empty
-    )
+    override def removePhantomArchives(request: ResolvedContractKeyStreamRequest[Unit, LfV]) =
+      Some(Set.empty)
   }
 
   object InitialEnrichedContractKeyWithStreamQuery {
