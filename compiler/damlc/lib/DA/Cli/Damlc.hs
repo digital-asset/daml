@@ -767,11 +767,12 @@ execRepl dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInbou
                 }
             logger <- getLogger opts "repl"
             jar <- locateResource Resource
-                { runfilesPath = mainWorkspace </> "compiler" </> "repl-service" </> "server" </> "repl-service.jar"
-                , resourcesPath = "repl-service.jar"
-                  -- In a packaged application, //compiler/repl-service/server:repl_service_jar is stored
-                  -- directly underneath the resources directory because it's a single file.
+                -- //compiler/repl-service/server:repl_service_jar
+                { resourcesPath = "repl-service.jar"
+                  -- In a packaged application, this is stored directly underneath
+                  -- the resources directory because it's the target's only output.
                   -- See @bazel_tools/packaging/packaging.bzl@.
+                , runfilesPathPrefix = mainWorkspace </> "compiler" </> "repl-service" </> "server"
                 }
             ReplClient.withReplClient (ReplClient.Options jar mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInboundMessageSize timeMode Inherit) $ \replHandle ->
                 withTempDir $ \dir ->

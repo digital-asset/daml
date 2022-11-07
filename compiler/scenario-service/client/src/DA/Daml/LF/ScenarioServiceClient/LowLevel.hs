@@ -122,11 +122,12 @@ instance NFData Error where
 
 findServerJar :: IO FilePath
 findServerJar = locateResource Resource
-  { runfilesPath = mainWorkspace </> "compiler" </> "scenario-service" </> "server" </> "scenario-service.jar"
-  , resourcesPath = "scenario-service.jar"
-    -- In a packaged application, //compiler/scenario-service/server:scenario_service_jar
-    -- is stored directly underneath the resources directory because it's a single file.
+  -- //compiler/scenario-service/server:scenario_service_jar
+  { resourcesPath = "scenario-service.jar"
+    -- In a packaged application, this is stored directly underneath the
+    -- resources directory because it's the targets only output.
     -- See @bazel_tools/packaging/packaging.bzl@.
+  , runfilesPathPrefix = mainWorkspace </> "compiler" </> "scenario-service" </> "server"
   }
 
 -- | Return the 'CreateProcess' for running java.

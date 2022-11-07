@@ -632,11 +632,13 @@ generateStablePackages lfVersion fp = do
 -- | Find the directory containing the stable packages if it exists.
 locateStablePackages :: IO FilePath
 locateStablePackages = locateResource Resource
-  { runfilesPath = mainWorkspace </> "compiler" </> "damlc" </> "stable-packages"
-  , resourcesPath = "stable-packages"
-    -- In a packaged application, the directory structure of //compiler/damlc/stable-packages
-    -- is preserved underneath the resources directory because it includes multiple files.
+  -- //compiler/damlc/stable-packages
+  { resourcesPath = "stable-packages"
+    -- In a packaged application, the directory "stable-packages" is preserved
+    -- underneath the resources directory because the bazel target includes
+    -- multiple files.
     -- See @bazel_tools/packaging/packaging.bzl@.
+  , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc"
   }
 
 generateStablePackagesRule :: Options -> Rules ()
@@ -1224,11 +1226,12 @@ dlintSettings (DlintEnabled DlintOptions {..}) = do
       getDlintRulesFile :: DlintRulesFile -> IO FilePath
       getDlintRulesFile = \case
         DefaultDlintRulesFile -> locateResource Resource
-          { runfilesPath = mainWorkspace </> "compiler" </> "damlc" </> "daml-ide-core" </> "dlint.yaml"
-          , resourcesPath = "dlint.yaml"
-            -- In a packaged application, //compiler/damlc/daml-ide-core:dlint.yaml
-            -- is stored directly underneath the resources directory because it's a single file.
+          -- //compiler/damlc/daml-ide-core:dlint.yaml
+          { resourcesPath = "dlint.yaml"
+            -- In a packaged application, this is stored directly underneath
+            -- the resources directory because it's a single file.
             -- See @bazel_tools/packaging/packaging.bzl@.
+          , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc" </> "daml-ide-core"
           }
         ExplicitDlintRulesFile path -> pure path
 

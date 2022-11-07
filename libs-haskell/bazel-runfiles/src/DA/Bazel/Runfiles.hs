@@ -29,17 +29,28 @@ exe :: FilePath -> FilePath
 exe | os == "mingw32" = (<.> "exe")
     | otherwise       = id
 
+-- | Identifies a runtime resource.
 data Resource = Resource
-  { runfilesPath :: FilePath
-  , resourcesPath :: FilePath
+  { resourcesPath :: FilePath
+    -- ^ Path of the resource relative to the @"resources"@ directory of the
+    -- packaged application where it's used.
+  , runfilesPathPrefix :: FilePath
+    -- ^ Prefix which must be prepended to @resourcesPath@ in order to find the
+    -- same resource in the @"runfiles"@ directory when the application is used
+    -- as a Bazel target.
   }
   deriving (Eq, Ord, Show)
+
+-- | The runfiles path of a Resource is simply its 'resourcesPath' prepended
+-- with its 'runfilesPathPrefix'.
+runfilesPath :: Resource -> FilePath
+runfilesPath res = runfilesPathPrefix res </> resourcesPath res
 
 -- | Return the path for the given resource dependency.
 --
 -- In a packaged application, using @bazel_tools/packaging/packaging.bzl@,
 --
--- > locateResource Resource { runfilesPath, resourcesPath }
+-- > locateResource Resource { resourcesPath, runfilesPathPrefix }
 --
 -- returns the path
 --
@@ -50,13 +61,13 @@ data Resource = Resource
 --
 -- In a @bazel run@ or @bazel test@ target, the same expression returns
 --
--- > topLevelResourceDir </> runfilesPath
+-- > topLevelRunfilesDir </> runfilesPathPrefix </> resourcesPath
 --
--- where @topLevelResourceDir@ is the top level @runfiles@ directory assigned
+-- where @topLevelRunfilesDir@ is the top level @runfiles@ directory assigned
 -- by Bazel.
 --
 locateResource :: HasCallStack => Resource -> IO FilePath
-locateResource Resource { runfilesPath, resourcesPath } = do
+locateResource res = do
   -- If the current executable was packaged using @package_app@, then
   -- data files are stored underneath the resources directory.
   -- See @bazel_tools/packaging/packaging.bzl@.
@@ -65,10 +76,10 @@ locateResource Resource { runfilesPath, resourcesPath } = do
   let jarResources = takeDirectory execPath </> "resources"
   hasJarResources <- doesDirectoryExist jarResources
   if hasJarResources
-      then pure (jarResources </> resourcesPath)
+      then pure (jarResources </> resourcesPath res)
       else do
           runfiles <- Bazel.Runfiles.create
-          pure $! Bazel.Runfiles.rlocation runfiles runfilesPath
+          pure $! Bazel.Runfiles.rlocation runfiles (runfilesPath res)
 
 -- | Return the resources directory for the given runfiles dependency.
 --
@@ -87,8 +98,8 @@ locateResource Resource { runfilesPath, resourcesPath } = do
 locateRunfiles :: HasCallStack => FilePath -> IO FilePath
 locateRunfiles runfilesPath =
   locateResource Resource
-    { runfilesPath
-    , resourcesPath = ""
+    { resourcesPath = ""
+    , runfilesPathPrefix = runfilesPath
     }
 
 -- | Store the detected runfiles in the environment.

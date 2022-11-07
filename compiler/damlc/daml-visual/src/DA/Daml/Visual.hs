@@ -395,16 +395,18 @@ execVisualHtml darFilePath webFilePath oBrowser = do
     dalfs <- either fail pure $
                 readDalfs $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
     d3js <- readFile =<< locateResource Resource
-      { runfilesPath = "static_asset_d3plus" </> "js" </> "d3.min.js"
-      , resourcesPath = "d3.min.js"
-        -- In a packaged application, @static_asset_d3plus//:js/d3.min.js is stored
-        -- directly underneath the resources directory because it's a single file.
+      -- @static_asset_d3plus//:js/d3.min.js
+      { resourcesPath = "d3.min.js"
+        -- In a packaged application, this is stored directly underneath the
+        -- resources directory because it's a single file.
         -- See @bazel_tools/packaging/packaging.bzl@.
+      , runfilesPathPrefix = "static_asset_d3plus" </> "js"
       }
     d3plusjs <- readFile =<< locateResource Resource
-      { runfilesPath = "static_asset_d3plus" </> "js" </> "d3plus.min.js"
-      , resourcesPath = "d3plus.min.js"
-        -- as above but for @static_asset_d3plus//:js/d3plus.min.js
+      -- @static_asset_d3plus//:js/d3plus.min.js
+      { resourcesPath = "d3plus.min.js"
+        -- as above
+      , runfilesPathPrefix = "static_asset_d3plus" </> "js"
       }
     let world = darToWorld dalfs
         graph = graphFromWorld world
