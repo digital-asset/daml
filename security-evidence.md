@@ -5,8 +5,6 @@
 - redirect to the configured callback URI after login: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L649)
 
 ## Authorization:
-- Updating the package service fails with insufficient authorization: [AuthorizationTest.scala](ledger-service/http-json/src/it/scala/http/AuthorizationTest.scala#L77)
-- Updating the package service succeeds with sufficient authorization: [AuthorizationTest.scala](ledger-service/http-json/src/it/scala/http/AuthorizationTest.scala#L85)
 - auth and auth-* should not be set together for the trigger service: [CliConfigTest.scala](triggers/service/src/test-suite/scala/com/daml/lf/engine/trigger/CliConfigTest.scala#L40)
 - badly-authorized create is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L60)
 - badly-authorized exercise is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L158)
