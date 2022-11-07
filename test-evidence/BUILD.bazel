@@ -36,6 +36,8 @@ da_scala_binary(
         "//ledger-service/utils",
         "//ledger/sandbox-on-x:sandbox-on-x-it-tests-lib",
         "//libs-scala/jwt:tests-lib",
+        "//triggers/service:test-lib",
+        "//triggers/service:trigger-service-tests",
         "//triggers/service/auth:oauth2-middleware-tests-lib",
         "@maven//:ch_qos_logback_logback_classic",
     ],
