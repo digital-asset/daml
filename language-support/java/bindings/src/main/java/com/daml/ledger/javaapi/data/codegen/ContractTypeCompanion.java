@@ -83,7 +83,7 @@ public abstract class ContractTypeCompanion<Ct, Id, ContractType, Data> {
    * ContractId<t>} that need to be passed to this function before e.g. {@code exercise*} methods
    * can be used.
    */
-  public final Id toContractId(ContractId<Data> parameterizedContractId) {
+  public final Id toContractId(ContractId<ContractType> parameterizedContractId) {
     return newContractId.apply(parameterizedContractId.contractId);
   }
 }
