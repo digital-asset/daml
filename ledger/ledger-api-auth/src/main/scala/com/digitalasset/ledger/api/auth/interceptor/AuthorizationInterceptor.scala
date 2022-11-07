@@ -5,6 +5,7 @@ package com.daml.ledger.api.auth.interceptor
 
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.ledger.api.auth.ClaimSet.Claims
 import com.daml.ledger.api.auth._
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{User, UserRight}
@@ -224,6 +225,34 @@ final class AuthorizationInterceptor(
 object AuthorizationInterceptor {
 
   private[auth] val contextKeyClaimSet = Context.key[ClaimSet]("AuthServiceDecodedClaim")
+
+  def resolveIdentityProviderId()(implicit
+      contextualizedErrorLogger: DamlContextualizedErrorLogger
+  ): Future[Option[Ref.IdentityProviderId]] = {
+    AuthorizationInterceptor
+      .extractClaimSetFromContext()
+      .fold(
+        fa = error =>
+          Future.failed(
+            LedgerApiErrors.InternalError
+              .Generic("Could not extract a claim set from the context", throwableO = Some(error))
+              .asGrpcError
+          ),
+        fb = {
+          case claims: Claims if claims.resolvedFromUser =>
+            Future.successful(claims.identityProviderId)
+          case claims: Claims if !claims.resolvedFromUser => Future.successful(None)
+          case claimsSet =>
+            Future.failed(
+              LedgerApiErrors.InternalError
+                .Generic(
+                  s"Unexpected claims when trying to resolve the authenticated user: $claimsSet"
+                )
+                .asGrpcError
+            )
+        },
+      )
+  }
 
   def extractClaimSetFromContext(): Try[ClaimSet] = {
     val claimSet = contextKeyClaimSet.get()

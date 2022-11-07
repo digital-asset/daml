@@ -142,6 +142,7 @@ object AuthServiceJWTCodec {
       )
     case v: StandardJWTPayload if v.format == StandardJWTTokenFormat.Scope =>
       JsObject(
+        "iss" -> writeOptionalString(v.issuer),
         propAud -> writeOptionalString(v.participantId),
         "sub" -> JsString(v.userId),
         "exp" -> writeOptionalInstant(v.exp),
@@ -149,6 +150,7 @@ object AuthServiceJWTCodec {
       )
     case v: StandardJWTPayload =>
       JsObject(
+        "iss" -> writeOptionalString(v.issuer),
         propAud -> JsString(audPrefix + v.participantId.getOrElse("")),
         "sub" -> JsString(v.userId),
         "exp" -> writeOptionalInstant(v.exp),

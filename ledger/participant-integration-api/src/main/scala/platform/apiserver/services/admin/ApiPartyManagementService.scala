@@ -8,7 +8,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.ledger.api.auth.ClaimSet.Claims
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerOffset, ObjectMeta, PartyDetails}
@@ -169,7 +168,8 @@ private[apiserver] final class ApiPartyManagementService private (
       implicit val errorLogger: DamlContextualizedErrorLogger =
         new DamlContextualizedErrorLogger(logger, loggingContext, None)
       // Retrieving the authenticated user from the context
-      val identityProviderF0: Future[Option[Ref.IdentityProviderId]] = resolveIdentityProviderId()
+      val identityProviderF0: Future[Option[Ref.IdentityProviderId]] =
+        AuthorizationInterceptor.resolveIdentityProviderId()
       withValidation {
         for {
           partyIdHintO <- FieldValidations.optionalString(
@@ -414,34 +414,6 @@ private[apiserver] final class ApiPartyManagementService private (
       case Right(t) =>
         Future.successful(t)
     }
-
-  private def resolveIdentityProviderId()(implicit
-      contextualizedErrorLogger: DamlContextualizedErrorLogger
-  ): Future[Option[Ref.IdentityProviderId]] = {
-    AuthorizationInterceptor
-      .extractClaimSetFromContext()
-      .fold(
-        fa = error =>
-          Future.failed(
-            LedgerApiErrors.InternalError
-              .Generic("Could not extract a claim set from the context", throwableO = Some(error))
-              .asGrpcError
-          ),
-        fb = {
-          case claims: Claims if claims.resolvedFromUser =>
-            Future.successful(claims.identityProviderId)
-          case claims: Claims if !claims.resolvedFromUser => Future.successful(None)
-          case claimsSet =>
-            Future.failed(
-              LedgerApiErrors.InternalError
-                .Generic(
-                  s"Unexpected claims when trying to resolve the authenticated user: $claimsSet"
-                )
-                .asGrpcError
-            )
-        },
-      )
-  }
 
 }
 
