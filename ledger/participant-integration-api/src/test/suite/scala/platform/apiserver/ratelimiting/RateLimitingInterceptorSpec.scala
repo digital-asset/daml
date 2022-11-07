@@ -13,16 +13,18 @@ import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplemen
 import com.daml.ledger.api.health.HealthChecks.ComponentName
 import com.daml.ledger.api.health.{HealthChecks, ReportsHealth}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.TestingServerInterceptors.serverOwner
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.LimitResult.LimitResultCheck
 import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
+import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.platform.server.api.services.grpc.GrpcHealthService
-import com.daml.ledger.api.testing.utils.TestingServerInterceptors.channelOwner
+import com.daml.ports.Port
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf.ByteString
 import io.grpc.Status.Code
@@ -432,10 +434,13 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
       memoryBean: MemoryMXBean = ManagementFactory.getMemoryMXBean,
       additionalChecks: List[LimitResultCheck] = List.empty,
   ): ResourceOwner[Channel] =
-    channelOwner(
-      RateLimitingInterceptor(metrics, config, pool, memoryBean, additionalChecks),
-      service,
-    )
+    for {
+      server <- serverOwner(
+        RateLimitingInterceptor(metrics, config, pool, memoryBean, additionalChecks),
+        service,
+      )
+      channel <- GrpcClientResource.owner(Port(server.getPort))
+    } yield channel
 
   /** By default [[HelloServiceReferenceImplementation]] will return all elements and complete the stream on
     * the server side on every request.  For stream based rate limiting we want to explicitly hold open
