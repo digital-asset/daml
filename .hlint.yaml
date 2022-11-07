@@ -65,7 +65,9 @@
     rhs: locateResources
     note: |-
       When used from a packaged application (bazel_tools/packaging/packaging.bzl#package_app),
-      'locateRunfiles' ignores its argument and simply returns the "resources" directory.
+      the bazel "runfiles" directory is not available, so 'locateRunfiles' simply
+      crashes at runtime.
+
       This is probably not what you want in a packaged application. For that
       use case, prefer instead 'locateResources', which allows you to specify
       the path to the resource in a packaged application, and the prefix to be
