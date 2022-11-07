@@ -107,10 +107,10 @@ final class Authorizer(
   ): Either[AuthorizationError, String] = {
     val requestIdentityProviderId = Option(identityProviderId).filter(_.nonEmpty)
     if (claims.claims.contains(ClaimAdmin)) {
-      // admin does not have any check, just idpId from the request is used
+      // admin should not need check - letting it through as is
       Right(identityProviderId)
     } else if (!claims.resolvedFromUser) {
-      // admin should always provide identityProviderId
+      // token is not being resolved from the user - letting it through as is
       Right(identityProviderId)
     } else if (
       claims.resolvedFromUser && requestIdentityProviderId.isDefined && requestIdentityProviderId == claims.identityProviderId

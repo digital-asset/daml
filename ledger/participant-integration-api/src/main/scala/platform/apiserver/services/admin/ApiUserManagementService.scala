@@ -233,15 +233,18 @@ private[apiserver] final class ApiUserManagementService(
             .Reject("Max page size must be non-negative")
             .asGrpcError,
         )
+        identityProviderId <- optionalString(request.identityProviderId)(
+          requireIdentityProviderId(_, "identity_provider_id")
+        )
         pageSize =
           if (rawPageSize == 0) maxUsersPageSize
           else Math.min(request.pageSize, maxUsersPageSize)
       } yield {
-        (fromExcl, pageSize)
+        (fromExcl, pageSize, identityProviderId)
       }
-    ) { case (fromExcl, pageSize) =>
+    ) { case (fromExcl, pageSize, identityProviderId) =>
       userManagementStore
-        .listUsers(fromExcl, pageSize)
+        .listUsers(fromExcl, pageSize, identityProviderId)
         .flatMap(handleResult("listing users"))
         .map { page: UserManagementStore.UsersPage =>
           val protoUsers = page.users.map(toProtoUser)

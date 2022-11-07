@@ -4,7 +4,6 @@
 package com.daml.platform.store.backend.localstore
 
 import java.sql.Connection
-
 import anorm.SqlParser.{bool, int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain
@@ -12,12 +11,13 @@ import com.daml.ledger.api.domain.UserRight
 import com.daml.ledger.api.domain.UserRight.{
   CanActAs,
   CanReadAs,
-  ParticipantAdmin,
   IdentityProviderAdmin,
+  ParticipantAdmin,
 }
 import com.daml.ledger.api.v1.admin.user_management_service.Right
+import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.common.{ComposableQuery, QueryStrategy}
-import com.daml.platform.{Party, UserId, IdentityProviderId}
+import com.daml.platform.{IdentityProviderId, Party, UserId}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 
 import scala.util.Try
@@ -145,13 +145,20 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       }
   }
 
-  override def getUsersOrderedById(fromExcl: Option[UserId], maxResults: Int)(
+  override def getUsersOrderedById(
+      fromExcl: Option[UserId],
+      maxResults: Int,
+      identityProviderId: Option[Ref.IdentityProviderId],
+  )(
       connection: Connection
   ): Vector[UserManagementStorageBackend.DbUserWithId] = {
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-    val whereClause = fromExcl match {
-      case None => cSQL""
-      case Some(id: String) => cSQL"WHERE user_id > ${id}"
+    val whereClause = (fromExcl, identityProviderId) match {
+      case (None, None) => cSQL""
+      case (Some(id: String), Some(idpId: String)) =>
+        cSQL"WHERE user_id > ${id} AND identity_provider_id=${idpId}"
+      case (Some(id: String), None) => cSQL"WHERE user_id > ${id}"
+      case (None, Some(idpId: String)) => cSQL"WHERE identity_provider_id=${idpId}"
     }
     SQL"""SELECT internal_id, user_id, primary_party, identity_provider_id, is_deactivated, resource_version, created_at
           FROM participant_users

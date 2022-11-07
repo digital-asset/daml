@@ -42,7 +42,11 @@ trait UserManagementStore {
   /** Always returns `maxResults` if possible, i.e. if a call to this method
     * returned fewer than `maxResults` users, then the next page (as of calling this method) was empty.
     */
-  def listUsers(fromExcl: Option[Ref.UserId], maxResults: Int)(implicit
+  def listUsers(
+      fromExcl: Option[Ref.UserId],
+      maxResults: Int,
+      identityProviderId: Option[Ref.IdentityProviderId],
+  )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]]
 

@@ -135,6 +135,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
+      identityProviderId: Option[Ref.IdentityProviderId],
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]] = {
@@ -146,6 +147,9 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       val users: Seq[User] = iter
         .take(maxResults)
         .map(info => toDomainUser(info.user))
+        .filter { item =>
+          identityProviderId.nonEmpty && item.identityProviderId == identityProviderId || identityProviderId.isEmpty
+        }
         .toSeq
       Right(UsersPage(users = users))
     }

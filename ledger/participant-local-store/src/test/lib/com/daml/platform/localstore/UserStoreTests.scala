@@ -183,7 +183,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           _ <- tested.createUser(newUser("user2"), Set.empty)
           _ <- tested.createUser(newUser("user3"), Set.empty)
           _ <- tested.createUser(newUser("user4"), Set.empty)
-          list1 <- tested.listUsers(fromExcl = None, maxResults = 3)
+          list1 <- tested.listUsers(fromExcl = None, maxResults = 3, identityProviderId = None)
           _ = list1 shouldBe Right(
             UsersPage(
               Seq(
@@ -196,6 +196,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           list2 <- tested.listUsers(
             fromExcl = list1.getOrElse(fail("Expecting a Right()")).lastUserIdOption,
             maxResults = 4,
+            identityProviderId = None
           )
           _ = list2 shouldBe Right(UsersPage(Seq(createdUser("user4"))))
         } yield {
@@ -208,9 +209,9 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
         for {
           res1 <- tested.createUser(newUser("user1"), Set.empty)
           res2 <- tested.createUser(newUser("user2"), Set.empty)
-          users1 <- tested.listUsers(fromExcl = None, maxResults = 10000)
+          users1 <- tested.listUsers(fromExcl = None, maxResults = 10000, identityProviderId = None)
           res3 <- tested.deleteUser("user1")
-          users2 <- tested.listUsers(fromExcl = None, maxResults = 10000)
+          users2 <- tested.listUsers(fromExcl = None, maxResults = 10000, identityProviderId = None)
         } yield {
           res1 shouldBe Right(createdUser("user1"))
           res2 shouldBe Right(createdUser("user2"))
