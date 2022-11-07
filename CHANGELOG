@@ -1,4 +1,2 @@
-Please have a look at https://daml.com/release-notes
+Please have a look at https://blog.digitalasset.com/developers/release-notes
 
-You can see unreleased changes via the `./unreleased.sh` script, e.g., `./unreleased.sh v1.14.2..`
-to see all changes since the 1.14.2 release.

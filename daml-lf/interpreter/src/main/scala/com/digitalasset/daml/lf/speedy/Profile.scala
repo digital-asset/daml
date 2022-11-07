@@ -125,8 +125,8 @@ object Profile {
       implicit val fileFormat = jsonFormat6(FileJson.apply)
     }
 
-    case class EventJson(`type`: String, at: Long, frame: Int)
-    case class ProfileJson(
+    final case class EventJson(`type`: String, at: Long, frame: Int)
+    final case class ProfileJson(
         `type`: String,
         name: String,
         unit: String,
@@ -134,9 +134,9 @@ object Profile {
         endValue: Long,
         events: List[EventJson],
     )
-    case class FrameJson(name: String)
-    case class SharedJson(frames: List[FrameJson])
-    case class FileJson(
+    final case class FrameJson(name: String)
+    final case class SharedJson(frames: List[FrameJson])
+    final case class FileJson(
         `$schema`: String,
         profiles: List[ProfileJson],
         shared: SharedJson,
@@ -197,7 +197,7 @@ object Profile {
 
   final case class CreateAndExerciseLabel(tplId: Ref.DefinitionRef, choiceId: Ref.ChoiceName)
 
-  sealed trait ScenarioLabel
+  sealed abstract class ScenarioLabel extends Product with Serializable
 
   final case object SubmitLabel extends ScenarioLabel
   final case object SubmitMustFailLabel extends ScenarioLabel

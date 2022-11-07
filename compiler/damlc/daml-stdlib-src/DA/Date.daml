@@ -27,6 +27,7 @@ import DA.Text (implode)
 import DA.Date.Types
 import DA.Internal.Date
 import DA.Internal.Time
+import GHC.Types (magic)
 
 deriving instance Eq DayOfWeek
 deriving instance Ord DayOfWeek

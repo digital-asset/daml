@@ -35,13 +35,14 @@ import scala.annotation.nowarn
   */
 private[lf] object Compiler {
 
-  case class CompilationError(error: String) extends RuntimeException(error, null, true, false)
-  case class LanguageVersionError(
+  final case class CompilationError(error: String)
+      extends RuntimeException(error, null, true, false)
+  final case class LanguageVersionError(
       packageId: Ref.PackageId,
       languageVersion: language.LanguageVersion,
       allowedLanguageVersions: VersionRange[language.LanguageVersion],
   ) extends RuntimeException(s"Disallowed language version $languageVersion", null, true, false)
-  case class PackageNotFound(pkgId: PackageId, context: language.Reference)
+  final case class PackageNotFound(pkgId: PackageId, context: language.Reference)
       extends RuntimeException(
         language.LookupError.MissingPackage.pretty(pkgId, context),
         null,
@@ -64,7 +65,7 @@ private[lf] object Compiler {
   case object NoPackageValidation extends PackageValidationMode
   case object FullPackageValidation extends PackageValidationMode
 
-  case class Config(
+  final case class Config(
       allowedLanguageVersions: VersionRange[LanguageVersion],
       packageValidation: PackageValidationMode,
       profiling: ProfilingMode,

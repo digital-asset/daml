@@ -117,25 +117,23 @@ class LedgerApiBenchTool(
       )
       for {
         _ <- regularUserSetupStep(adminServices)
-        allocatedParties <- {
+        (allocatedParties, benchtoolTestsPackageInfo) <- {
           config.workflow.submission match {
             case None =>
-              logger.info(s"No submission defined. Skipping.")
+              logger.info("No submission config found; skipping the command submission step")
               for {
-                existingParties <- partyAllocating.lookupExistingParties()
-              } yield AllocatedParties.forExistingParties(
-                parties = existingParties.toList,
-                partySetPrefixO = {
-                  val partySetPrefixes =
-                    config.workflow.streams.flatMap(_.partySetPrefix.iterator).distinct
-                  require(
-                    partySetPrefixes.size <= 1,
-                    s"Found more than one observer party set! ${partySetPrefixes}",
-                  )
-                  partySetPrefixes.headOption
-                },
-              )
+                allocatedParties <- SubmittedDataAnalyzing.determineAllocatedParties(
+                  config.workflow,
+                  partyAllocating,
+                )
+                benchtoolDamlPackageInfo <- SubmittedDataAnalyzing.determineBenchtoolTestsPackageId(
+                  regularUserServices.packageService
+                )
+              } yield {
+                (allocatedParties, benchtoolDamlPackageInfo)
+              }
             case Some(submissionConfig) =>
+              logger.info("Submission config found; command submission will be performed")
               submissionStep(
                 regularUserServices = regularUserServices,
                 adminServices = adminServices,
@@ -143,10 +141,21 @@ class LedgerApiBenchTool(
                 metricRegistry = metricRegistry,
                 partyAllocating = partyAllocating,
               )
+                .map(_ -> BenchtoolTestsPackageInfo.StaticDefault)
+                .map { v =>
+                  // We manually execute a 'VACUUM ANALYZE' at the end of the submission step (if IndexDB is on Postgresql),
+                  // to make sure query planner statistics, visibility map, etc.. are all up-to-date.
+                  config.ledger.indexDbJdbcUrlO.foreach { indexDbJdbcUrl =>
+                    if (indexDbJdbcUrl.startsWith("jdbc:postgresql:")) {
+                      PostgresUtils.invokeVacuumAnalyze(indexDbJdbcUrl)
+                    }
+                  }
+                  v
+                }
           }
         }
 
-        configEnricher = new ConfigEnricher(allocatedParties)
+        configEnricher = new ConfigEnricher(allocatedParties, benchtoolTestsPackageInfo)
         updatedStreamConfigs = config.workflow.streams.map(streamsConfig =>
           configEnricher.enrichStreamConfig(streamsConfig)
         )

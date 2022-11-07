@@ -143,6 +143,7 @@ renderDocTestModule DocTestModule{..} = rendered
             , ""
             , "import " <> dtModuleName
             , "import DA.Assert"
+            , "import GHC.Types"
             , ""
             ] <>
             intercalate [""] (map (uncurry renderDocTest) testsWithIds)

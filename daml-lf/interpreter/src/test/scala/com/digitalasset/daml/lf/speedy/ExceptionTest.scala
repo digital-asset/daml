@@ -127,7 +127,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, num: Long) =>
       s"eval[$exp] --> $num" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v, _) =>
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
           v shouldBe SValue.SInt64(num)
         }
       }
@@ -164,7 +164,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, num: Long) =>
       s"eval[$exp] --> $num" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v, _) =>
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
           v shouldBe SValue.SInt64(num)
         }
       }
@@ -247,7 +247,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, num: Long) =>
       s"eval[$exp] --> $num" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v, _) =>
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
           v shouldBe SValue.SInt64(num)
         }
       }
@@ -316,7 +316,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, num: Long) =>
       s"eval[$exp] --> $num" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v, _) =>
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
           v shouldBe SValue.SInt64(num)
         }
       }
@@ -388,7 +388,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, num: Long) =>
       s"eval[$exp] --> $num" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v, _) =>
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
           v shouldBe SValue.SInt64(num)
         }
       }
@@ -469,7 +469,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, str: String) =>
       s"eval[$exp] --> $str" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v, _) =>
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
           v shouldBe SValue.SText(str)
         }
       }
@@ -605,7 +605,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
           .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, expr, party), Set(party))
           .run()
         if (description.contains("can be caught"))
-          inside(res) { case SResultFinal(SUnit, _) =>
+          inside(res) { case SResultFinal(SUnit) =>
           }
         else if (description.contains("cannot be caught"))
           inside(res) { case SResultError(SErrorDamlException(err)) =>
@@ -628,7 +628,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       val res = Speedy.Machine
         .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
         .run()
-      inside(res) { case SResultFinal(SUnit, _) =>
+      inside(res) { case SResultFinal(SUnit) =>
       }
     }
 
@@ -836,7 +836,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
     "create rollback when old contacts are not within try-catch context" in {
       val res =
         Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party)).run()
-      inside(res) { case SResultFinal(SUnit, _) =>
+      inside(res) { case SResultFinal(SUnit) =>
       }
     }
 

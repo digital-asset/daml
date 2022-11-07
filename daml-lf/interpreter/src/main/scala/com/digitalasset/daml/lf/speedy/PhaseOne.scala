@@ -19,7 +19,7 @@ import scala.annotation.tailrec
 
 private[speedy] object PhaseOne {
 
-  case class Config(
+  final case class Config(
       profiling: ProfilingMode,
       stacktracing: StackTraceMode,
   )
@@ -37,7 +37,7 @@ private[speedy] object PhaseOne {
   // corresponds to Daml-LF type variable.
   private[this] case class TVarRef(name: TypeVarName) extends VarRef
 
-  case class Position(idx: Int)
+  final case class Position(idx: Int)
 
   private[speedy] object Env {
     val Empty = Env(0, Map.empty)
@@ -92,7 +92,7 @@ private[speedy] object PhaseOne {
   }
 
   // A type to represent a step of compilation Work
-  sealed abstract class Work
+  sealed abstract class Work extends Product with Serializable
   object Work {
     final case class Return(result: SExpr) extends Work
     final case class CompileExp(env: Env, exp: Expr, cont: SExpr => Work) extends Work
@@ -551,7 +551,7 @@ private[lf] final class PhaseOne(
     go(exp, List.empty, List.empty)
   }
 
-  private def noArgs = ArrayList.empty[SValue]
+  private[this] def noArgs = ArrayList.empty[SValue]
 
   private[this] def compileERecCon(
       env: Env,

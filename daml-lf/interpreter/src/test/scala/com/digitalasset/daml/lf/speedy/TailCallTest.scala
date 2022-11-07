@@ -128,7 +128,7 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
     }
     // run the machine
     machine.run() match {
-      case SResultFinal(v, _) => v
+      case SResultFinal(v) => v
       case res => crash(s"runExpr, unexpected result $res")
     }
   }

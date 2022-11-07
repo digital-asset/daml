@@ -13,11 +13,10 @@ import com.daml.lf.transaction.{
   GlobalKey,
   Node,
   NodeId,
-  SubmittedTransaction,
+  SubmittedTransaction => SubmittedTx,
   Transaction => Tx,
   TransactionVersion => TxVersion,
 }
-import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
@@ -28,7 +27,7 @@ import scala.annotation.tailrec
 
 private[lf] object PartialTransaction {
 
-  sealed trait KeyConflict extends Product with Serializable
+  sealed abstract class KeyConflict extends Product with Serializable
   object KeyConflict {
     final case object None extends KeyConflict
     final case object Duplicate extends KeyConflict
@@ -196,14 +195,6 @@ private[lf] object PartialTransaction {
     }
 
   type NodeSeeds = ImmArray[(NodeId, crypto.Hash)]
-
-  private[lf] final case class Result(
-      tx: SubmittedTransaction,
-      locationInfo: Map[NodeId, Location],
-      seeds: NodeSeeds,
-      globalKeyMapping: Map[GlobalKey, KeyMapping],
-      disclosedContracts: ImmArray[DisclosedContract],
-  )
 }
 
 /** A transaction under construction
@@ -283,13 +274,13 @@ private[speedy] case class PartialTransaction(
       sb.toString
     }
 
-  private def locationInfo(): Map[NodeId, Location] = {
-    this.actionNodeLocations.toImmArray.toSeq.zipWithIndex.collect { case (Some(loc), n) =>
+  private[speedy] def locationInfo(): Map[NodeId, Location] = {
+    this.actionNodeLocations.toImmArray.toSeq.view.zipWithIndex.collect { case (Some(loc), n) =>
       (NodeId(n), loc)
     }.toMap
   }
 
-  private def normByKey(version: TxVersion, byKey: Boolean): Boolean = {
+  private[this] def normByKey(version: TxVersion, byKey: Boolean): Boolean = {
     if (version < TxVersion.minByKey) {
       false
     } else {
@@ -305,27 +296,21 @@ private[speedy] case class PartialTransaction(
     * - an error in case the transaction cannot be serialized using
     *   the `outputTransactionVersions`.
     */
-  private[speedy] def finish: PartialTransaction.Result =
+  private[speedy] def finish: Either[SError.SErrorCrash, (SubmittedTx, ImmArray[NodeId])] =
     context.info match {
       case _: RootContextInfo =>
         val roots = context.children.toImmArray
         val tx0 = Tx(nodes, roots)
         val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
-        val txResult = SubmittedTransaction(TxVersion.asVersionedTransaction(tx))
-        Result(
-          txResult,
-          locationInfo(),
-          seeds.zip(actionNodeSeeds.toImmArray),
-          contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
-          disclosedContracts.filter(disclosedContract =>
-            txResult.inputContracts.contains(disclosedContract.contractId.value)
-          ),
-        )
+        val txResult = SubmittedTx(TxVersion.asVersionedTransaction(tx))
+        Right((txResult, seeds))
 
       case _ =>
-        InternalError.runtimeException(
-          NameOf.qualifiedNameOfCurrentFunc,
-          "ptx.finish: expected RootContextInfo",
+        Left(
+          SError.SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            "ptx.finish: expected RootContextInfo",
+          )
         )
     }
 

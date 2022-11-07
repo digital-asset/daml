@@ -47,7 +47,7 @@ private[speedy] object SpeedyTestLib {
   ): Either[SError.SError, SValue] = {
     runTx(machine, getPkg, getContract, getKey, getTime) match {
       case Left(e) => Left(e)
-      case Right(SResultFinal(v, _)) => Right(v)
+      case Right(SResultFinal(v)) => Right(v)
     }
   }
 
@@ -113,13 +113,8 @@ private[speedy] object SpeedyTestLib {
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SubmittedTransaction] =
     runTx(machine, getPkg, getContract, getKey, getTime) match {
-      case Right(SResultFinal(_, None)) =>
-        throw SError.SErrorCrash("buildTransaction", "unexpected missing transaction")
-      case Right(SResultFinal(_, Some(ctx))) =>
-        ctx match {
-          case PartialTransaction.Result(tx, _, _, _, _) =>
-            Right(tx)
-        }
+      case Right(SResultFinal(_)) =>
+        machine.withOnLedger("buildTransaction")(onLedger => onLedger.finish.map(_.tx))
       case Left(err) =>
         Left(err)
     }
@@ -151,7 +146,6 @@ private[speedy] object SpeedyTestLib {
           loggingContext = machine.loggingContext,
           compiledPackages = machine.compiledPackages,
           profile = machine.profile,
-          submissionTime = machine.submissionTime,
           ledgerMode = machine.ledgerMode,
         )
       }

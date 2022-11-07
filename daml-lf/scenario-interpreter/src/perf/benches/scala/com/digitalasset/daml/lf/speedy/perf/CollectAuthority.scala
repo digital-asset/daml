@@ -104,7 +104,7 @@ class CollectAuthorityState {
           }
         case SResultNeedContract(_, _, _) =>
           crash("Off-ledger need contract callback")
-        case SResultFinal(v, _) => finalValue = v
+        case SResultFinal(v) => finalValue = v
         case r => crash(s"bench run: unexpected result from speedy: ${r}")
       }
     }
@@ -148,7 +148,7 @@ class CollectAuthorityState {
               cachedContract ++= api.cachedContract
               step = api.step
           }
-        case SResultFinal(v, _) =>
+        case SResultFinal(v) =>
           finalValue = v
         case r =>
           crash(s"setup run: unexpected result from speedy: ${r}")

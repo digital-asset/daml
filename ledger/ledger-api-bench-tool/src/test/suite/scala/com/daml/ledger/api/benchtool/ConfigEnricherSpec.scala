@@ -8,7 +8,11 @@ import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.{
   PartyNamePrefixFilter,
   TransactionsStreamConfig,
 }
-import com.daml.ledger.api.benchtool.submission.{AllocatedParties, AllocatedPartySet}
+import com.daml.ledger.api.benchtool.submission.{
+  AllocatedParties,
+  AllocatedPartySet,
+  BenchtoolTestsPackageInfo,
+}
 import com.daml.ledger.client.binding.Primitive
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -37,7 +41,8 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
             List("MyParty-0", "MyParty-1").map(makeParty),
           )
         ),
-      )
+      ),
+      BenchtoolTestsPackageInfo.StaticDefault,
     )
     val templates: List[String] = List("otherTemplate", "Foo1")
     val foo1Id = com.daml.ledger.test.benchtool.Foo.Foo1.id.unwrap

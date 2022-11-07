@@ -24,7 +24,7 @@ import scala.util.hashing.MurmurHash3
   * machine. In addition to the usual types present in the LF value,
   * this also contains partially applied functions (SPAP).
   */
-sealed trait SValue {
+sealed abstract class SValue {
 
   import SValue.{SValue => _, _}
 
@@ -46,7 +46,7 @@ sealed trait SValue {
     )
   }
 
-  private def toValue(normalize: Boolean): V = {
+  private[this] def toValue(normalize: Boolean): V = {
 
     def maybeEraseTypeInfo[X](x: X): Option[X] =
       if (normalize) {
@@ -117,7 +117,7 @@ sealed trait SValue {
 object SValue {
 
   /** "Primitives" that can be applied. */
-  sealed trait Prim
+  sealed abstract class Prim
   final case class PBuiltin(b: SBuiltin) extends Prim
 
   /** A closure consisting of an expression together with the values the
@@ -312,7 +312,7 @@ object SValue {
 
   // NOTE(JM): We are redefining PrimLit here so it can be unified
   // with SValue and we can remove one layer of indirection.
-  sealed trait SPrimLit extends SValue with Equals
+  sealed abstract class SPrimLit extends SValue with Equals
   final case class SInt64(value: Long) extends SPrimLit
   final case class SNumeric(value: Numeric) extends SPrimLit
   object SNumeric {

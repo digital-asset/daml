@@ -162,6 +162,8 @@ runner=$$(canonicalize_rlocation $(rootpath {runner}))
 # Cleanup the trigger runner process but maintain the script runner exit code.
 trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
 
+sleep 2
+
 SCRIPTOUTPUT=$$(mktemp -d)
 if [ {upload_dar} -eq 1 ] ; then
   $$runner ledger upload-dar \\

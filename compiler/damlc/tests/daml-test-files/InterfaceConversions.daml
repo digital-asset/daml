@@ -18,6 +18,13 @@ interface Iface where
         controller getOwner this
         do pure ()
 
+interface Iface2 where
+    viewtype EmptyInterfaceView
+    getOwner2 : Party
+    choice MyChoice2 : ()
+        controller getOwner2 this
+        do pure ()
+
 template Template1
     with
         owner1: Party
@@ -77,6 +84,18 @@ main = scenario do
             cid <- create (toInterface @Iface (Template1 p 10))
             action (fromInterfaceContractId @Template2 cid)
     submit p do useAction $ \_cid -> pure ()
+    submitMustFail p do useAction $ \cid -> void (fetch cid)
+    submitMustFail p do useAction $ \cid -> archive cid
+
+    -- Test that using coerceInterfaceContractId incorrectly will result
+    -- in failed fetch/exercise/archives. I.e. using an Iface contract
+    -- id as if it were a Iface2 contract id will always fail.
+    let useAction : (ContractId Iface2 -> Update ()) -> Update ()
+        useAction action = do
+            cid <- create (toInterface @Iface (Template1 p 10))
+            action (coerceInterfaceContractId @Iface2 cid)
+    submit p do useAction $ \_cid -> pure ()
+    submitMustFail p do useAction $ \cid -> exercise cid MyChoice2
     submitMustFail p do useAction $ \cid -> void (fetch cid)
     submitMustFail p do useAction $ \cid -> archive cid
 

@@ -146,6 +146,7 @@ data Env = Env
     ,envLfVersion :: LF.Version
     ,envEnableScenarios :: EnableScenarios
     ,envAllowLargeTuples :: AllowLargeTuples
+    ,envUserWrittenTuple :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
         -- ^ Maps GHC type variables in scope to their LF type variable names
     ,envTypeVarNames :: !(S.Set TypeVarName)
@@ -169,6 +170,7 @@ mkEnv envLfVersion envEnableScenarios envAllowLargeTuples envPkgMap envStablePac
     envAliases = MS.empty
     envTypeVars = MS.empty
     envTypeVarNames = S.empty
+    envUserWrittenTuple = False
   Env {..}
 
 -- v is an alias for x
@@ -1441,7 +1443,7 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         [ "mkInterfaceInstance"
         , "mkMethod"
         , "mkInterfaceView"
-        , "codeGenAllowLargeTuples"
+        , "userWrittenTuple"
         ])
     ]
 
@@ -1720,9 +1722,10 @@ convertExpr env0 e = do
     go env (VarIn GHC_Types "I#") args = pure (mkIdentity TInt64, args)
         -- we pretend Int and Int# are the same thing
 
-    go env (VarIn DA_Internal_Desugar "codeGenAllowLargeTuples") (LType _ : LExpr head : rest)
-        = let env' = env { envAllowLargeTuples = AllowLargeTuples True }
-           in go env' head rest
+    go env (VarIn GHC_Types "magic") (LType (isStrLitTy -> Just "userWrittenTuple") : LType _ : LExpr head : rest)
+        = let env' = env { envUserWrittenTuple = True }
+          in
+          go env' head rest
 
     go env (Var x) args
         | Just internals <- lookupUFM internalFunctions modName
@@ -1976,10 +1979,12 @@ splitConArgs_maybe con args = do
 convertDataCon :: Env -> GHC.Module -> DataCon -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])
 convertDataCon env m con args
     | AllowLargeTuples False <- envAllowLargeTuples env
-    , IsTuple arity <- con, arity > 5
+    , envUserWrittenTuple env
+    , IsTuple arity <- con
     = do
-        conversionWarning "Used tuple of size > 5! Daml only has Show, Eq, Ord instances for tuples of size <= 5."
-        let env' = env { envAllowLargeTuples = AllowLargeTuples True }
+        when (arity > 5) $
+          conversionWarning "Used tuple of size > 5! Daml only has Show, Eq, Ord instances for tuples of size <= 5."
+        let env' = env { envUserWrittenTuple = False }
         convertDataCon env' m con args
     -- Fully applied
     | Just (tyArgs, tmArgs) <- splitConArgs_maybe con args = do

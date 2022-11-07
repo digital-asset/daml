@@ -154,7 +154,7 @@ class IdeLedgerClient(
         val machine = Machine.fromPureSExpr(compiledPackages, sexpr)(Script.DummyLoggingContext)
 
         machine.run() match {
-          case SResultFinal(svalue, _) =>
+          case SResultFinal(svalue) =>
             val version = machine.tmplId2TxVersion(templateId)
             Some(svalue.toNormalizedValue(version))
 
