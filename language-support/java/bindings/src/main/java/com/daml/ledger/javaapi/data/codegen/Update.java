@@ -60,9 +60,11 @@ public abstract class Update<U> implements HasCommands {
   }
 
   /**
-   * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
-   *     href="https://docs.daml.com/app-dev/bindings-java/index.html">the Java Bindings</a>, and
-   *     <em>should not be instantiated directly</em>.
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/index.html">the Java Bindings</a>, and
+   * <em>should not be instantiated directly</em>.
+   *
+   * @hidden
    */
   public abstract static class FoldUpdate<U, Z> {
     public abstract <CtId> Z created(CreateUpdate<CtId, U> create);
@@ -71,9 +73,11 @@ public abstract class Update<U> implements HasCommands {
   }
 
   /**
-   * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
-   *     href="https://docs.daml.com/app-dev/bindings-java/index.html">the Java Bindings</a>, and
-   *     <em>should not be called directly</em>.
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/index.html">the Java Bindings</a>, and
+   * <em>should not be called directly</em>.
+   *
+   * @hidden
    */
   public <Z> Z foldUpdate(FoldUpdate<U, Z> foldUpdate) {
     if (this instanceof CreateUpdate) {

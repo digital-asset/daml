@@ -74,10 +74,11 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
   }
 
   /**
-   * @hidden <strong>INTERNAL API</strong>: this is meant for use by {@link WithoutKey} and {@link
-   *     WithKey}, and <em>should not be referenced directly</em>. Applications should refer to the
-   *     {@code COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template}
-   *     subclasses instead.
+   * <strong>INTERNAL API</strong>: this is meant for use by {@link WithoutKey} and {@link WithKey},
+   * and <em>should not be referenced directly</em>. Applications should refer to the {@code
+   * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses instead.
+   *
+   * @hidden
    */
   protected ContractCompanion(
       String templateClassName,
@@ -94,11 +95,13 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
     private final NewContract<Ct, Id, Data> newContract;
 
     /**
-     * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
-     *     href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code
-     *     generator</a>, and <em>should not be referenced directly</em>. Applications should refer
-     *     to the {@code COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template}
-     *     subclasses instead.
+     * <strong>INTERNAL API</strong>: this is meant for use by <a
+     * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+     * and <em>should not be referenced directly</em>. Applications should refer to the {@code
+     * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses
+     * instead.
+     *
+     * @hidden
      */
     public WithoutKey(
         String templateClassName,
@@ -149,11 +152,13 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
     private final Function<Value, Key> keyFromValue;
 
     /**
-     * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
-     *     href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code
-     *     generator</a>, and <em>should not be referenced directly</em>. Applications should refer
-     *     to the {@code COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template}
-     *     subclasses instead.
+     * <strong>INTERNAL API</strong>: this is meant for use by <a
+     * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+     * and <em>should not be referenced directly</em>. Applications should refer to the {@code
+     * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses
+     * instead.
+     *
+     * @hidden
      */
     public WithKey(
         String templateClassName,
