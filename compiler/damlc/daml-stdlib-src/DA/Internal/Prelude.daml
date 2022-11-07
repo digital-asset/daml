@@ -620,6 +620,10 @@ null : [a] -> Bool
 null [] = True
 null _ = False
 
+-- | Inverse of `null`, to avoid brackets when checking for a non-empty list
+notNull : [a] -> Bool
+notNull = not . null
+
 -- | Filters the list using the function: keep only the elements where the predicate holds.
 filter : (a -> Bool) -> [a] -> [a]
 filter p = foldr (\x xs -> if p x then x :: xs else xs) []

@@ -74,6 +74,7 @@ module DA.List
   , unzip
   , unzip3
   , null
+  , notNull
   , filter
 
   , head
