@@ -66,7 +66,8 @@ object CommonErrors extends CommonErrorGroup {
         )
   }
 
-  // TODO move this error definition to //ledger/ledger-api-errors once its usage
+  // TODO Once this issue (https://github.com/digital-asset/daml/issues/15453) is addressed,
+  //      move this error definition to //ledger/ledger-api-errors once its usage
   //      does not concern client libraries (i.e. used in //ledger-api/rs-grpc-akka)
   @Explanation("This rejection is given when the participant server is shutting down.")
   @Resolution("Contact the participant operator.")
@@ -84,7 +85,7 @@ object CommonErrors extends CommonErrorGroup {
 
   @Explanation("""This error occurs if one of the services encountered an unexpected exception.""")
   @Resolution("Contact support.")
-  object InternalError
+  object ServiceInternalError
       extends ErrorCode(
         id = "SERVICE_INTERNAL_ERROR",
         ErrorCategory.SystemInternalAssumptionViolated,

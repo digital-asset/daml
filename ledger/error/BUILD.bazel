@@ -85,7 +85,6 @@ da_scala_test_suite(
         ":error",
         ":error-test-lib",
         ":error-test-utils",
-        "//ledger/ledger-api-errors",
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",

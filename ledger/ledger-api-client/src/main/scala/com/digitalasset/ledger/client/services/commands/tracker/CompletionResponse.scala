@@ -124,7 +124,7 @@ object CompletionResponse {
           )
           .asGrpcStatus
       case CompletionResponse.NoStatusInResponse(_, _) =>
-        CommonErrors.InternalError
+        CommonErrors.ServiceInternalError
           .Generic(
             "Missing status in completion response.",
             throwableO = None,

@@ -33,7 +33,7 @@ object ServerAdapter {
             case t: StatusException => t
             case t: StatusRuntimeException => t
             case _ =>
-              CommonErrors.InternalError
+              CommonErrors.ServiceInternalError
                 .UnexpectedOrUnknownException(throwable)(errorLogger)
                 .asGrpcError
           }
