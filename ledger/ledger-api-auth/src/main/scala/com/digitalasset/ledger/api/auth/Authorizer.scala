@@ -92,6 +92,35 @@ final class Authorizer(
       }
     }
 
+  def requireIDPContext[Req, Res](
+      identityProviderId: String,
+      call: Req => Future[Res],
+  )(addIdentityProvider: (String, Req) => Req): Req => Future[Res] =
+    authorizeWithReq(call) { (claims, req) =>
+      val potentiallyResolvedId = resolve(identityProviderId, claims)
+      authorizationErrorAsGrpc(potentiallyResolvedId).map(id => addIdentityProvider(id, req))
+    }
+
+  private def resolve(
+      identityProviderId: String,
+      claims: ClaimSet.Claims,
+  ): Either[AuthorizationError, String] = {
+    val requestIdentityProviderId = Option(identityProviderId).filter(_.nonEmpty)
+    claims match {
+      case claims: ClaimSet.Claims
+          if claims.resolvedFromUser && requestIdentityProviderId.isEmpty =>
+        Right(claims.identityProviderId.getOrElse(""))
+      case claims: ClaimSet.Claims
+          if claims.resolvedFromUser && requestIdentityProviderId.isDefined && requestIdentityProviderId == claims.identityProviderId =>
+        Right(claims.identityProviderId.getOrElse(""))
+      case claims: ClaimSet.Claims if !claims.resolvedFromUser => Right("")
+      case _ =>
+        Left(
+          AuthorizationError.MissingAdminClaim
+        ) // TODO DPP-1299 Is it really admin claim here? or what?
+    }
+  }
+
   private[this] def requireForAll[T](
       xs: IterableOnce[T],
       f: T => Either[AuthorizationError, Unit],

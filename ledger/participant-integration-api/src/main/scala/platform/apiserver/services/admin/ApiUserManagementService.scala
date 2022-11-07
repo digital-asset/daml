@@ -60,8 +60,7 @@ private[apiserver] final class ApiUserManagementService(
   override def bindService(): ServerServiceDefinition =
     proto.UserManagementServiceGrpc.bindService(this, executionContext)
 
-  override def createUser(request: proto.CreateUserRequest): Future[CreateUserResponse] = {
-    val contextIdentityProviderIdF0 = AuthorizationInterceptor.resolveIdentityProviderId()
+  override def createUser(request: proto.CreateUserRequest): Future[CreateUserResponse] =
     withSubmissionId { implicit loggingContext =>
       withValidation {
         for {
@@ -98,39 +97,17 @@ private[apiserver] final class ApiUserManagementService(
           pRights,
         )
       } { case (user, pRights) =>
-        for {
-          contextIdentityProviderId <- contextIdentityProviderIdF0
-          _ <- handleAuth(contextIdentityProviderId, user.identityProviderId)
-          result <- userManagementStore
-            .createUser(
-              user = user,
-              rights = pRights,
-            )
-          createdUser <- handleResult("creating user")(result)
-        } yield CreateUserResponse(Some(toProtoUser(createdUser)))
+        userManagementStore
+          .createUser(
+            user = user,
+            rights = pRights,
+          )
+          .flatMap(handleResult("creating user"))
+          .map(createdUser => CreateUserResponse(Some(toProtoUser(createdUser))))
       }
     }
-  }
-
-  private def handleAuth(
-      contextIdentityProviderId: Option[Ref.IdentityProviderId],
-      entryIdentityProviderId: Option[Ref.IdentityProviderId],
-  ): Future[Unit] = {
-    contextIdentityProviderId match {
-      case None => Future.unit
-      case Some(id) if entryIdentityProviderId.contains(id) =>
-        Future.unit
-      case _ =>
-        Future.failed(
-          LedgerApiErrors.AuthorizationChecks.PermissionDenied
-            .Reject("An attempt made to access another identity provider user")
-            .asGrpcError
-        )
-    }
-  }
 
   override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] = {
-    val contextIdentityProviderIdF0 = AuthorizationInterceptor.resolveIdentityProviderId()
     withSubmissionId { implicit loggingContext =>
       // Retrieving the authenticated user from the context
       val authorizedUserIdFO: Future[Option[String]] = resolveAuthenticatedUser()
@@ -169,8 +146,6 @@ private[apiserver] final class ApiUserManagementService(
         )
       } { case (user, fieldMask) =>
         for {
-          contextIdentityProviderId <- contextIdentityProviderIdF0
-          _ <- handleAuth(contextIdentityProviderId, user.identityProviderId)
           userUpdate <- handleUpdatePathResult(user.id, UserUpdateMapper.toUpdate(user, fieldMask))
           authorizedUserIdO <- authorizedUserIdFO
           _ <-

@@ -14,6 +14,10 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.localstore.api.{IdentityProviderStore, UserManagementStore}
+import com.daml.platform.server.api.validation.FieldValidations.{
+  optionalString,
+  requireIdentityProviderId,
+}
 import io.grpc._
 
 import scala.jdk.FutureConverters.CompletionStageOps
@@ -226,30 +230,44 @@ object AuthorizationInterceptor {
 
   private[auth] val contextKeyClaimSet = Context.key[ClaimSet]("AuthServiceDecodedClaim")
 
-  def resolveIdentityProviderId()(implicit
+  def resolveIdentityProviderId(requestIdentityProviderId: String)(implicit
       contextualizedErrorLogger: DamlContextualizedErrorLogger
-  ): Future[Option[Ref.IdentityProviderId]] = {
-    AuthorizationInterceptor
+  ): Try[String] = {
+    val claims = AuthorizationInterceptor
       .extractClaimSetFromContext()
+    for {
+      identityProviderId <- optionalString(requestIdentityProviderId)(
+        requireIdentityProviderId("identity_provider_id", _)
+      ).toTry
+      resolvedIdentityProviderId <- resolveIdentityProviderId(claims, identityProviderId)
+    } yield resolvedIdentityProviderId
+  }
+
+  private def resolveIdentityProviderId(
+      claims: Try[ClaimSet],
+      requestIdentityProviderId: Option[Ref.IdentityProviderId],
+  )(implicit
+      contextualizedErrorLogger: DamlContextualizedErrorLogger
+  ): Try[String] = {
+    claims
       .fold(
         fa = error =>
-          Future.failed(
-            LedgerApiErrors.InternalError
-              .Generic("Could not extract a claim set from the context", throwableO = Some(error))
-              .asGrpcError
-          ),
+          throw LedgerApiErrors.InternalError
+            .Generic("Could not extract a claim set from the context", throwableO = Some(error))
+            .asGrpcError,
         fb = {
-          case claims: Claims if claims.resolvedFromUser =>
-            Future.successful(claims.identityProviderId)
-          case claims: Claims if !claims.resolvedFromUser => Future.successful(None)
+          case claims: Claims if claims.resolvedFromUser && requestIdentityProviderId.isEmpty =>
+            Success(claims.identityProviderId.getOrElse(""))
+          case claims: Claims
+              if claims.resolvedFromUser && requestIdentityProviderId.isDefined && requestIdentityProviderId == claims.identityProviderId =>
+            Success(claims.identityProviderId.getOrElse(""))
+          case claims: Claims if !claims.resolvedFromUser => Success("")
           case claimsSet =>
-            Future.failed(
-              LedgerApiErrors.InternalError
-                .Generic(
-                  s"Unexpected claims when trying to resolve the authenticated user: $claimsSet"
-                )
-                .asGrpcError
-            )
+            throw LedgerApiErrors.InternalError
+              .Generic(
+                s"Unexpected claims when trying to resolve the authenticated user: $claimsSet"
+              )
+              .asGrpcError
         },
       )
   }

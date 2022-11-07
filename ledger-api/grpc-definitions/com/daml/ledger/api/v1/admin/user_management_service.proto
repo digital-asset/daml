@@ -162,6 +162,10 @@ message GetUserRequest {
     // If set to empty string (the default), then the data for the authenticated user will be retrieved.
     // Required
     string user_id = 1;
+    // The id of the ``Identity Provider``
+    // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
+    // Optional
+    string identity_provider_id = 2;
 }
 
 message GetUserResponse {
@@ -204,6 +208,10 @@ message DeleteUserRequest {
     // The user to delete.
     // Required
     string user_id = 1;
+    // The id of the ``Identity Provider``
+    // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
+    // Optional
+    string identity_provider_id = 2;
 }
 
 // Does not (yet) contain any data.
@@ -222,6 +230,11 @@ message ListUsersRequest {
     // If 0, the server will decide the number of results to be returned.
     // Optional
     int32 page_size = 3;
+
+    // The id of the ``Identity Provider``
+    // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
+    // Optional
+    string identity_provider_id = 4;
 
 }
 
@@ -245,6 +258,11 @@ message GrantUserRightsRequest {
     // The rights to grant.
     // Optional
     repeated Right rights = 2;
+
+    // The id of the ``Identity Provider``
+    // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
+    // Optional
+    string identity_provider_id = 3;
 }
 
 message GrantUserRightsResponse {
@@ -263,6 +281,11 @@ message RevokeUserRightsRequest {
     // The rights to revoke.
     // Optional
     repeated Right rights = 2;
+
+    // The id of the ``Identity Provider``
+    // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
+    // Optional
+    string identity_provider_id = 3;
 }
 
 message RevokeUserRightsResponse {
@@ -278,6 +301,11 @@ message ListUserRightsRequest {
     string user_id = 1;
 
     // TODO (i12052): add pagination following https://cloud.google.com/apis/design/design_patterns#list_pagination
+
+    // The id of the ``Identity Provider``
+    // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
+    // Optional
+    string identity_provider_id = 2;
 }
 
 message ListUserRightsResponse {

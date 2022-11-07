@@ -31,32 +31,79 @@ private[daml] final class UserManagementServiceAuthorization(
   override def createUser(request: CreateUserRequest): Future[CreateUserResponse] =
     authorizer.requireAdminOrIDPAdminClaims(service.createUser)(request)
 
-  override def getUser(request: GetUserRequest): Future[GetUserResponse] =
+  override def getUser(request: GetUserRequest): Future[GetUserResponse] = {
     defaultToAuthenticatedUser(request.userId) match {
       case Failure(ex) => Future.failed(ex)
-      case Success(Some(userId)) => service.getUser(request.copy(userId = userId))
-      case Success(None) => authorizer.requireAdminOrIDPAdminClaims(service.getUser)(request)
+      case Success(Some(userId)) =>
+        authorizer.requireIDPContext(
+          request.identityProviderId,
+          { request: GetUserRequest => service.getUser(request.copy(userId = userId)) },
+        )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+          request
+        )
+      case Success(None) =>
+        authorizer.requireIDPContext(
+          request.identityProviderId,
+          authorizer.requireAdminOrIDPAdminClaims(service.getUser),
+        )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+          request
+        )
     }
+  }
 
   override def deleteUser(request: DeleteUserRequest): Future[DeleteUserResponse] =
-    authorizer.requireAdminOrIDPAdminClaims(service.deleteUser)(request)
+    authorizer.requireIDPContext(
+      request.identityProviderId,
+      authorizer.requireAdminOrIDPAdminClaims(service.deleteUser),
+    )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+      request
+    )
 
   override def listUsers(request: ListUsersRequest): Future[ListUsersResponse] =
-    authorizer.requireAdminOrIDPAdminClaims(service.listUsers)(request)
+    authorizer.requireIDPContext(
+      request.identityProviderId,
+      authorizer.requireAdminOrIDPAdminClaims(service.listUsers),
+    )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+      request
+    )
 
   override def grantUserRights(request: GrantUserRightsRequest): Future[GrantUserRightsResponse] =
-    authorizer.requireAdminOrIDPAdminClaims(service.grantUserRights)(request)
+    authorizer.requireIDPContext(
+      request.identityProviderId,
+      authorizer.requireAdminOrIDPAdminClaims(service.grantUserRights),
+    )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+      request
+    )
 
   override def revokeUserRights(
       request: RevokeUserRightsRequest
   ): Future[RevokeUserRightsResponse] =
-    authorizer.requireAdminOrIDPAdminClaims(service.revokeUserRights)(request)
+    authorizer.requireIDPContext(
+      request.identityProviderId,
+      authorizer.requireAdminOrIDPAdminClaims(service.revokeUserRights),
+    )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+      request
+    )
 
   override def listUserRights(request: ListUserRightsRequest): Future[ListUserRightsResponse] =
     defaultToAuthenticatedUser(request.userId) match {
       case Failure(ex) => Future.failed(ex)
-      case Success(Some(userId)) => service.listUserRights(request.copy(userId = userId))
-      case Success(None) => authorizer.requireAdminOrIDPAdminClaims(service.listUserRights)(request)
+      case Success(Some(userId)) =>
+        authorizer.requireIDPContext(
+          request.identityProviderId,
+          { request: ListUserRightsRequest =>
+            service.listUserRights(request.copy(userId = userId))
+          },
+        )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+          request
+        )
+      case Success(None) =>
+        authorizer.requireIDPContext(
+          request.identityProviderId,
+          authorizer.requireAdminOrIDPAdminClaims(service.listUserRights),
+        )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+          request
+        )
     }
 
   override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] = {

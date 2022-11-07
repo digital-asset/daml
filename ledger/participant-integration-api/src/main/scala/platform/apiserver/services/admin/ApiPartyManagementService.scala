@@ -8,7 +8,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerOffset, ObjectMeta, PartyDetails}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
@@ -51,13 +50,14 @@ import com.daml.platform.localstore.api.{
   PartyRecordStore,
   PartyRecordUpdate,
 }
-import com.daml.platform.server.api.validation.FieldValidations
 import com.daml.platform.server.api.validation.FieldValidations.{
   optionalString,
   requireEmptyString,
   requireParty,
   requirePresence,
   verifyMetadataAnnotations,
+  requireIdentityProviderId,
+  requireResourceVersion,
 }
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
@@ -115,7 +115,7 @@ private[apiserver] final class ApiPartyManagementService private (
       logger.info("Getting parties")
       withValidation {
         for {
-          parties <- request.parties.toList.traverse(FieldValidations.requireParty)
+          parties <- request.parties.toList.traverse(requireParty)
         } yield parties
       } { parties: Seq[Party] =>
         for {
@@ -167,14 +167,12 @@ private[apiserver] final class ApiPartyManagementService private (
         DefaultTelemetry.contextFromGrpcThreadLocalContext()
       implicit val errorLogger: DamlContextualizedErrorLogger =
         new DamlContextualizedErrorLogger(logger, loggingContext, None)
-      // Retrieving the authenticated user from the context
-      val identityProviderF0: Future[Option[Ref.IdentityProviderId]] =
-        AuthorizationInterceptor.resolveIdentityProviderId()
+
       withValidation {
         for {
-          partyIdHintO <- FieldValidations.optionalString(
+          partyIdHintO <- optionalString(
             request.partyIdHint
-          )(FieldValidations.requireParty)
+          )(requireParty)
           metadata = request.localMetadata.getOrElse(ProtoObjectMeta())
           _ <- requireEmptyString(
             metadata.resourceVersion,
@@ -185,15 +183,17 @@ private[apiserver] final class ApiPartyManagementService private (
             allowEmptyValues = false,
             "party_details.local_metadata.annotations",
           )
-          displayNameO <- FieldValidations.optionalString(request.displayName)(Right(_))
-        } yield (partyIdHintO, displayNameO, annotations)
-      } { case (partyIdHintO, displayNameO, annotations) =>
+          displayNameO <- optionalString(request.displayName)(Right(_))
+          identityProviderId <- optionalString(request.identityProviderId)(
+            requireIdentityProviderId("identity_provider_id", _)
+          )
+        } yield (partyIdHintO, displayNameO, annotations, identityProviderId)
+      } { case (partyIdHintO, displayNameO, annotations, identityProviderId) =>
         (for {
           allocated <- synchronousResponse.submitAndWait(
             submissionId,
             (partyIdHintO, displayNameO),
           )
-          identityProviderId <- identityProviderF0
           partyRecord <- partyRecordStore
             .createPartyRecord(
               PartyRecord(
@@ -234,7 +234,7 @@ private[apiserver] final class ApiPartyManagementService private (
           party <- requireParty(partyDetails.party)
           metadata = partyDetails.localMetadata.getOrElse(ProtoObjectMeta())
           resourceVersionNumberO <- optionalString(metadata.resourceVersion)(
-            FieldValidations.requireResourceVersion(
+            requireResourceVersion(
               _,
               "party_details.local_metadata",
             )
@@ -248,7 +248,7 @@ private[apiserver] final class ApiPartyManagementService private (
             request.updateMask,
             "update_mask",
           )
-          displayNameO <- FieldValidations.optionalString(partyDetails.displayName)(Right(_))
+          displayNameO <- optionalString(partyDetails.displayName)(Right(_))
           partyRecord = PartyDetails(
             party = party,
             displayName = displayNameO,

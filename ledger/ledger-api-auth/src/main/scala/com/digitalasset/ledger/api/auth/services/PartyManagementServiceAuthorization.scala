@@ -26,15 +26,30 @@ private[daml] final class PartyManagementServiceAuthorization(
     authorizer.requireAdminOrIDPAdminClaims(service.getParticipantId)(request)
 
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
-    authorizer.requireAdminOrIDPAdminClaims(service.getParties)(request)
+    authorizer.requireIDPContext(
+      request.identityProviderId,
+      authorizer.requireAdminOrIDPAdminClaims(service.getParties),
+    )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+      request
+    )
 
   override def listKnownParties(
       request: ListKnownPartiesRequest
   ): Future[ListKnownPartiesResponse] =
-    authorizer.requireAdminOrIDPAdminClaims(service.listKnownParties)(request)
+    authorizer.requireIDPContext(
+      request.identityProviderId,
+      authorizer.requireAdminOrIDPAdminClaims(service.listKnownParties),
+    )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+      request
+    )
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
-    authorizer.requireAdminOrIDPAdminClaims(service.allocateParty)(request)
+    authorizer.requireIDPContext(
+      request.identityProviderId,
+      authorizer.requireAdminOrIDPAdminClaims(service.allocateParty),
+    )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+      request
+    )
 
   override def updatePartyDetails(
       request: UpdatePartyDetailsRequest
