@@ -1,7 +1,6 @@
 # Security tests, by category
 
 ## Authentication:
-- connect normally with tls on: [TlsTest.scala](ledger-service/http-json/src/it/scala/http/TlsTest.scala#L31)
 - redirect to the configured callback URI after login: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L649)
 
 ## Authorization:
