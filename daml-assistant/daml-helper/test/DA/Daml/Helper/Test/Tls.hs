@@ -3,6 +3,8 @@
 
 module DA.Daml.Helper.Test.Tls (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import DA.Bazel.Runfiles
 import DA.Test.Sandbox
 import DA.Test.Util

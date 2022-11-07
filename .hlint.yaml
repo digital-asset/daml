@@ -58,6 +58,25 @@
 - warn: {lhs: System.Environment.setEnv, rhs: System.Environment.Blank.setEnv}
 - warn: {lhs: toNormalizedFilePath, rhs: "toNormalizedFilePath'"}
 
+## DA+Bazel specific hints
+- warn:
+    name: locateRunfiles/package_app
+    lhs: DA.Bazel.Runfiles.locateRunfiles
+    rhs: locateResources
+    note: |-
+      When used from a packaged application (bazel_tools/packaging/packaging.bzl#package_app),
+      'locateRunfiles' ignores its argument and simply returns the "resources" directory.
+      This is probably not what you want in a packaged application. For that
+      use case, prefer instead 'locateResources', which allows you to specify
+      the path to the resource in a packaged application, and the prefix to be
+      prepended to it to obtain the runfiles path.
+
+      When only used from a 'bazel run' or 'bazel test' target this is fine and
+      the warning can be selectively disabled by adding the following comment
+      near the top of the relevant module:
+
+        {- HLINT ignore "locateRunfiles/package_app" -}
+
 # Hints that do not always make sense
 - ignore: {name: "Use if", within: [DA.Daml.LF.Proto3.EncodeV1, DA.Daml.LF.Ast.Pretty]}
 

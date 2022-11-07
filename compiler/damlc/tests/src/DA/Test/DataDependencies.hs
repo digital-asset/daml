@@ -2,6 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Test.DataDependencies (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
