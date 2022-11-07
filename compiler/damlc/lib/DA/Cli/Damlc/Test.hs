@@ -185,17 +185,6 @@ data InterfaceIdentifier = InterfaceIdentifier
     }
     deriving (Eq, Ord, Show)
 
---data ContractIdentifier = ContractIdentifier
---    { package :: Maybe T.Text -- `package == Nothing` means local package
---    , qualifiedTemplate :: T.Text
---    }
---    deriving (Eq, Ord, Show)
---
---data ChoiceIdentifier' = ChoiceIdentifier'
---    { choice :: T.Text
---    }
---    deriving (Eq, Ord, Show)
-
 data TemplateChoiceIdentifier = TemplateChoiceIdentifier
     { packageTemplate :: TemplateIdentifier
     , choice :: T.Text
@@ -220,62 +209,6 @@ data Report = Report
     , externalCreatedInternal :: S.Set TemplateIdentifier
     }
     deriving (Show, Eq, Ord)
-
--- templatesCreatedLocally :: S.Set TemplateIdentifier
--- templatesCreatedExternally :: S.Set TemplateIdentifier
--- templateChoicesExercisedLocally :: S.Set TemplateChoiceIdentifier
--- templateChoicesExercisedExternally :: S.Set TemplateChoiceIdentifier
--- interfaceChoices
-
-    {-
-newtype Created = Created LocalOrExternal deriving (Show, Eq)
-newtype Exercised = Exercised LocalOrExternal deriving (Show, Eq)
-
-mergeMapWithMonoid :: (Ord k, Monoid m) => M.Map k m -> M.Map k m -> M.Map k m
-mergeMapWithMonoid = M.merge M.preserveMissing M.preserveMissing (M.zipWithMatched (const (<>)))
-
-instance Semigroup ContractSummary where
-    (<>) (ContractSummary a0 b0) (ContractSummary a1 b1) =
-        ContractSummary (a0 <> a1) (mergeMapWithMonoid b0 b1)
-instance Monoid ContractSummary where
-    mempty = ContractSummary [] M.empty
-
-data ContractSummary = ContractSummary
-    { created :: ![Created]
-    , choices :: !(M.Map ChoiceIdentifier' [Exercised])
-    }
-
-instance Semigroup Summary where
-    (<>) (Summary a0 b0) (Summary a1 b1) =
-        Summary (mergeMapWithMonoid a0 a1) (mergeMapWithMonoid b0 b1)
-instance Monoid Summary where
-    mempty = Summary M.empty M.empty
-
-data Summary = Summary
-    { templates :: !(M.Map ContractIdentifier ContractSummary)
-    , interfaces :: !(M.Map (ContractIdentifier, TemplateIdentifier) ContractSummary)
-    }
-
-class Summarize a where
-    summarize :: a -> Summary
-
-instance Summary LocalOrExternal where
-    summarize = foldMap (summarize . uncurry (flip ($))) . loeGetModules
-instance Summary (LF.Qualified LF.Module) where
-    summarize =
-        foldMap summarize . traverse (NM.elems . moduleTemplates)
-        <> foldMap summarize . traverse (NM.elems . moduleInterfaces)
-instance Summary (LF.Qualified LF.Template) where
-    summarize qualTemplate =
-        let tid = lfTemplateIdentifier qualTemplate
-        in
-        Summary
-            { interfaces = M.empty
-            , templates =
-                M.singleton tid
-                  (qualObject )
-            }
-    -}
 
 lfTemplateIdentifier :: LF.Qualified LF.Template -> TemplateIdentifier
 lfTemplateIdentifier LF.Qualified { qualPackage, qualModule, qualObject } =
