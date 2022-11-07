@@ -21,7 +21,7 @@ import akka.stream.scaladsl.Source
 import com.daml.metrics.akkahttp.AkkaUtils._
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.MetricHandle.{Counter, Timer}
+import com.daml.metrics.api.MetricHandle.{Meter, Timer}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import scala.concurrent.Future
@@ -575,20 +575,20 @@ object AkkaHttpMetricsSpec {
 
   // The metrics being tested
   case class TestMetrics(
-      httpRequestsTotal: Counter,
-      httpErrorsTotal: Counter,
+      httpRequestsTotal: Meter,
+      httpErrorsTotal: Meter,
       httpLatency: Timer,
-      httpRequestsBytesTotal: Counter,
-      httpResponsesBytesTotal: Counter,
+      httpRequestsBytesTotal: Meter,
+      httpResponsesBytesTotal: Meter,
   ) {
 
     import TestMetrics._
 
-    def httpRequestsTotalValue: Long = getCounterValue(httpRequestsTotal)
-    def httpErrorsTotalValue: Long = getCounterValue(httpErrorsTotal)
+    def httpRequestsTotalValue: Long = getCurrentValue(httpRequestsTotal)
+    def httpErrorsTotalValue: Long = getCurrentValue(httpErrorsTotal)
     def httpLatencyValue: HistogramData = getHistogramValues(httpLatency)
-    def httpRequestsBytesTotalValue: Long = getCounterValue(httpRequestsBytesTotal)
-    def httpResponsesBytesTotalValue: Long = getCounterValue(httpResponsesBytesTotal)
+    def httpRequestsBytesTotalValue: Long = getCurrentValue(httpRequestsBytesTotal)
+    def httpResponsesBytesTotalValue: Long = getCurrentValue(httpResponsesBytesTotal)
 
   }
 
@@ -605,11 +605,11 @@ object AkkaHttpMetricsSpec {
       val httpRequestsBytesTotalName = baseName :+ "requests_bytes_total"
       val httpResponsesBytesTotalName = baseName :+ "responses_bytes_total"
 
-      val httpRequestsTotal = metricFactory.counter(httpRequestsTotalName)
-      val httpErrorsTotal = metricFactory.counter(httpErrorsTotalName)
+      val httpRequestsTotal = metricFactory.meter(httpRequestsTotalName)
+      val httpErrorsTotal = metricFactory.meter(httpErrorsTotalName)
       val httpLatency = metricFactory.timer(httpLatencyName)
-      val httpRequestsBytesTotal = metricFactory.counter(httpRequestsBytesTotalName)
-      val httpResponsesBytesTotal = metricFactory.counter(httpResponsesBytesTotalName)
+      val httpRequestsBytesTotal = metricFactory.meter(httpRequestsBytesTotalName)
+      val httpResponsesBytesTotal = metricFactory.meter(httpResponsesBytesTotalName)
 
       TestMetrics(
         httpRequestsTotal,

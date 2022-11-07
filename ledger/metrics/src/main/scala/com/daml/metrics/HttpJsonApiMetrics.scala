@@ -88,20 +88,20 @@ class HttpJsonApiMetrics(
   }
 
   // golden signals
-  val httpRequestsTotal: Counter = openTelemetryFactory.counter(prefix :+ "requests_total")
-  val httpErrorsTotal: Counter = openTelemetryFactory.counter(prefix :+ "errors_total")
+  val httpRequestsTotal: Meter = openTelemetryFactory.meter(prefix :+ "requests_total")
+  val httpErrorsTotal: Meter = openTelemetryFactory.meter(prefix :+ "errors_total")
   val httpLatency: Timer = openTelemetryFactory.timer(prefix :+ "requests_duration_seconds")
-  val httpRequestsPayloadBytesTotal: Counter =
-    openTelemetryFactory.counter(prefix :+ "requests_payload_bytes_total")
-  val httpResponsesPayloadBytesTotal: Counter =
-    openTelemetryFactory.counter(prefix :+ "responses_payload_bytes_total")
+  val httpRequestsPayloadBytesTotal: Meter =
+    openTelemetryFactory.meter(prefix :+ "requests_payload_bytes_total")
+  val httpResponsesPayloadBytesTotal: Meter =
+    openTelemetryFactory.meter(prefix :+ "responses_payload_bytes_total")
 
-  val websocketReceivedTotal: Counter =
-    openTelemetryFactory.counter(prefix :+ "websocket_messages_received_total")
-  val websocketReceivedBytesTotal: Counter =
-    openTelemetryFactory.counter(prefix :+ "websocket_messages_received_bytes_total")
-  val websocketSentTotal: Counter =
-    openTelemetryFactory.counter(prefix :+ "websocket_messages_sent_total")
-  val websocketSentBytesTotal: Counter =
-    openTelemetryFactory.counter(prefix :+ "websocket_messages_sent_bytes_total")
+  val websocketReceivedTotal: Meter =
+    openTelemetryFactory.meter(prefix :+ "websocket_messages_received_total")
+  val websocketReceivedBytesTotal: Meter =
+    openTelemetryFactory.meter(prefix :+ "websocket_messages_received_bytes_total")
+  val websocketSentTotal: Meter =
+    openTelemetryFactory.meter(prefix :+ "websocket_messages_sent_total")
+  val websocketSentBytesTotal: Meter =
+    openTelemetryFactory.meter(prefix :+ "websocket_messages_sent_bytes_total")
 }

@@ -81,7 +81,7 @@ object HistogramData {
 
 /** Base class to manage metrics in a test.
   * Use the metric factory to create the metrics.
-  * Use the getCounterValue and getHistogramValues to extract the current data from a metric.
+  * Use the getCurrentValue and getHistogramValues to extract the current data from a metric.
   * @see WebSocketMetricsSpec.TestMetrics
   */
 abstract class TestMetricsBase {
@@ -104,7 +104,7 @@ abstract class TestMetricsBase {
     metricReader.collectAllMetrics.asScala.filter(_.getName == metric.name).head
   }
 
-  def getCounterValue(metric: MetricHandle): Long = {
+  def getCurrentValue(metric: MetricHandle): Long = {
     import scala.jdk.CollectionConverters._
     metricData(metric).getLongSumData().getPoints().asScala.headOption.map(_.getValue).getOrElse(0L)
   }

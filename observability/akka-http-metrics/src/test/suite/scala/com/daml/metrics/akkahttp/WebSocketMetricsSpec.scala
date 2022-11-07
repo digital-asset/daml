@@ -8,7 +8,7 @@ import akka.http.scaladsl.model.ws.{Message, TextMessage, BinaryMessage}
 import akka.util.ByteString
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.metrics.api.{MetricsContext, MetricName}
-import com.daml.metrics.api.MetricHandle.Counter
+import com.daml.metrics.api.MetricHandle.Meter
 import com.daml.metrics.akkahttp.AkkaUtils._
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
@@ -325,18 +325,18 @@ object AkkaHttpMetricsSpec {
 
   // The metrics being tested
   case class TestMetrics(
-      messagesReceivedTotal: Counter,
-      messagesReceivedBytesTotal: Counter,
-      messagesSentTotal: Counter,
-      messagesSentBytesTotal: Counter,
+      messagesReceivedTotal: Meter,
+      messagesReceivedBytesTotal: Meter,
+      messagesSentTotal: Meter,
+      messagesSentBytesTotal: Meter,
   ) {
 
     import TestMetrics._
 
-    def messagesReceivedTotalValue: Long = getCounterValue(messagesReceivedTotal)
-    def messagesReceivedBytesTotalValue: Long = getCounterValue(messagesReceivedBytesTotal)
-    def messagesSentTotalValue: Long = getCounterValue(messagesSentTotal)
-    def messagesSentBytesTotalValue: Long = getCounterValue(messagesSentBytesTotal)
+    def messagesReceivedTotalValue: Long = getCurrentValue(messagesReceivedTotal)
+    def messagesReceivedBytesTotalValue: Long = getCurrentValue(messagesReceivedBytesTotal)
+    def messagesSentTotalValue: Long = getCurrentValue(messagesSentTotal)
+    def messagesSentBytesTotalValue: Long = getCurrentValue(messagesSentBytesTotal)
 
   }
 
@@ -352,10 +352,10 @@ object AkkaHttpMetricsSpec {
       val sentTotalName = baseName :+ "messages_sent_total"
       val sentBytesTotalName = baseName :+ "messages_sent_bytes_total"
 
-      val receivedTotal = metricFactory.counter(receivedTotalName)
-      val receivedBytesTotal = metricFactory.counter(receivedBytesTotalName)
-      val sentTotal = metricFactory.counter(sentTotalName)
-      val sentBytesTotal = metricFactory.counter(sentBytesTotalName)
+      val receivedTotal = metricFactory.meter(receivedTotalName)
+      val receivedBytesTotal = metricFactory.meter(receivedBytesTotalName)
+      val sentTotal = metricFactory.meter(sentTotalName)
+      val sentBytesTotal = metricFactory.meter(sentBytesTotalName)
 
       TestMetrics(receivedTotal, receivedBytesTotal, sentTotal, sentBytesTotal)
     }
