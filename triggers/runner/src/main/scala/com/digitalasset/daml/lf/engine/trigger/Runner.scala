@@ -371,8 +371,8 @@ class Runner(
     // This is a data structure that is shared across (potentially) multiple async contexts
     // - hence why we use a scala.concurrent.TrieMap here.
     private[this] val pendingIds = TrieMap.empty[UUID, SeenMsgs]
-    // Due to concurrency, inFlight counts are approximate. In practice count errors are expected to be small
-    // and should not be significant as they only control submissions to the ledger.
+    // Due to concurrency, inFlight counts are eventually consistent (with pendingIds) and so only
+    // approximate the actual commands that are in-flight.
     private[this] val inFlight: AtomicLong = new AtomicLong(0)
 
     def get(uuid: UUID): Option[SeenMsgs] = {
