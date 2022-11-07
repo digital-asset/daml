@@ -20,7 +20,7 @@ import io.grpc.{
 }
 import scalapb.{GeneratedMessage => ScalapbGeneratedMessage}
 
-class GrpcServerInterceptor(metrics: GrpcServerMetrics) extends ServerInterceptor {
+class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInterceptor {
 
   override def interceptCall[ReqT, RespT](
       serverCall: ServerCall[ReqT, RespT],
@@ -97,7 +97,7 @@ class GrpcServerInterceptor(metrics: GrpcServerMetrics) extends ServerIntercepto
 
     override def close(status: Status, trailers: Metadata): Unit = {
       super.close(status, trailers)
-      withExtraMetricLabels("code" -> status.getCode.value().toString) { implicit metricsContext =>
+      withExtraMetricLabels("code" -> status.getCode.toString) { implicit metricsContext =>
         callsClosed.mark()
         timer.stop()
       }

@@ -8,14 +8,14 @@ import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingServerIn
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.metrics.api.testing.{MetricValues, TestingInMemoryMetricsFactory}
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
-import com.daml.metrics.grpc.GrpcServerInterceptorSpec.TestingGrpcMetrics
+import com.daml.metrics.grpc.GrpcMetricsServerInterceptorSpec.TestingGrpcMetrics
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.platform.testing.StreamConsumer
 import com.google.protobuf.ByteString
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-class GrpcServerInterceptorSpec
+class GrpcMetricsServerInterceptorSpec
     extends AsyncFlatSpec
     with Matchers
     with AkkaBeforeAndAfterAll
@@ -118,7 +118,7 @@ class GrpcServerInterceptorSpec
   private def withService(metrics: TestingGrpcMetrics) = {
     TestingServerInterceptors
       .channelOwner(
-        new GrpcServerInterceptor(metrics),
+        new GrpcMetricsServerInterceptor(metrics),
         new HelloServiceAkkaImplementation,
       )
       .map(HelloServiceGrpc.stub)
@@ -126,7 +126,7 @@ class GrpcServerInterceptorSpec
 
 }
 
-object GrpcServerInterceptorSpec {
+object GrpcMetricsServerInterceptorSpec {
 
   private val metricName: MetricName = MetricName("test")
 
