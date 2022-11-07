@@ -35,7 +35,6 @@ import com.daml.jwt.domain.Jwt
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.metrics.api.MetricHandle.Timer
-import com.daml.scalautil.Statement.discard
 import scalaz.EitherT.eitherT
 
 import scala.util.control.NonFatal
@@ -111,18 +110,21 @@ class Endpoints(
   ): Route =
     responseToRoute(httpResponse(res))
 
-  private def toRoute2[A: JsonReader, R: JsonWriter](
-      req: HttpRequest,
-      fn: (Jwt, A) => ET[domain.SyncResponse[R]],
+  private def toRoute2[Req: JsonReader, Res: JsonWriter](
+      httpRequest: HttpRequest,
+      fn: (Jwt, Req) => ET[domain.SyncResponse[Res]],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
   ): Route = {
     val res = for {
-      (jwt, reqBody) <- routeSetup.inputJsVal(req): ET[(Jwt, JsValue)]
-      a <- either(SprayJson.decode[A](reqBody).liftErr(InvalidUserInput)): ET[A]
-      r <- eitherT(RouteSetup.handleFutureEitherFailure(fn(jwt, a).run)): ET[domain.SyncResponse[R]]
-    } yield r
+      t <- routeSetup.inputJsVal(httpRequest): ET[(Jwt, JsValue)]
+      (jwt, reqBody) = t
+      req <- either(SprayJson.decode[Req](reqBody).liftErr(InvalidUserInput)): ET[Req]
+      res <- eitherT(RouteSetup.handleFutureEitherFailure(fn(jwt, req).run)): ET[
+        domain.SyncResponse[Res]
+      ]
+    } yield res
     responseToRoute(httpResponse(res))
   }
 
