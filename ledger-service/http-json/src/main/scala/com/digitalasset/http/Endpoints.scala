@@ -110,7 +110,7 @@ class Endpoints(
   ): Route =
     responseToRoute(httpResponse(res))
 
-  private def toRoute[Req: JsonReader, Res: JsonWriter](
+  private def toRoute2[Req: JsonReader, Res: JsonWriter](
       httpRequest: HttpRequest,
       fn: (Jwt, Req) => ET[domain.SyncResponse[Res]],
   )(implicit
@@ -284,12 +284,12 @@ class Endpoints(
           ),
           path("query") & withTimer(queryMatchingTimer) apply toRoute(query(req)),
           path("fetch") & withFetchTimer apply toRoute(fetch(req)),
-          path("user") apply toRoute(req, getUser),
-          path("user" / "create") apply toRoute(req, createUser),
-          path("user" / "delete") apply toRoute(deleteUser(req)),
-          path("user" / "rights") apply toRoute(listUserRights(req)),
-          path("user" / "rights" / "grant") apply toRoute(grantUserRights(req)),
-          path("user" / "rights" / "revoke") apply toRoute(revokeUserRights(req)),
+          path("user") apply toRoute2(req, getUser),
+          path("user" / "create") apply toRoute2(req, createUser),
+          path("user" / "delete") apply toRoute2(req, deleteUser),
+          path("user" / "rights") apply toRoute2(req, listUserRights),
+          path("user" / "rights" / "grant") apply toRoute2(req, grantUserRights),
+          path("user" / "rights" / "revoke") apply toRoute2(req, revokeUserRights),
           path("parties") & withFetchTimer apply toRoute(parties(req)),
           path("parties" / "allocate") & withTimer(
             allocatePartyTimer
