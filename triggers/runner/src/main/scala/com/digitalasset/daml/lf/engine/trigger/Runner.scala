@@ -371,7 +371,8 @@ class Runner(
     // This is a data structure that is shared across (potentially) multiple async contexts
     // - hence why we use a scala.concurrent.TrieMap here.
     private[this] val pendingIds = TrieMap.empty[UUID, SeenMsgs]
-    // Due to concurrency, inFlight counts are approximate. In practice count errors are expected to be small.
+    // Due to concurrency, inFlight counts are approximate. In practice count errors are expected to be small
+    // and should not be significant as they only control submissions to the ledger.
     private[this] val inFlight: AtomicLong = new AtomicLong(0)
 
     def get(uuid: UUID): Option[SeenMsgs] = {
@@ -383,13 +384,32 @@ class Runner(
     }
 
     def update(uuid: UUID, seeOne: SeenMsgs): Unit = {
-      pendingIds.update(uuid, seeOne)
-      discard(inFlight.incrementAndGet())
+      val inFlightState = pendingIds.put(uuid, seeOne)
+
+      (inFlightState, seeOne) match {
+        case (None, SeenMsgs.Neither) =>
+          discard(inFlight.incrementAndGet())
+
+        case (None, _) | (Some(SeenMsgs.Neither), SeenMsgs.Neither) =>
+        // no work required
+
+        case (Some(SeenMsgs.Neither), _) =>
+          discard(inFlight.decrementAndGet())
+
+        case (Some(_), SeenMsgs.Neither) =>
+          discard(inFlight.incrementAndGet())
+
+        case (Some(_), _) =>
+        // no work required
+      }
     }
 
     def remove(uuid: UUID): Unit = {
-      discard(pendingIds.remove(uuid))
-      discard(inFlight.decrementAndGet())
+      val inFlightState = pendingIds.remove(uuid)
+
+      if (inFlightState.contains(SeenMsgs.Neither)) {
+        discard(inFlight.decrementAndGet())
+      }
     }
   }
 
