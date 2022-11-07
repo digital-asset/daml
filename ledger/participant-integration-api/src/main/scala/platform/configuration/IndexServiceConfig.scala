@@ -31,7 +31,7 @@ object IndexServiceConfig {
   val DefaultEventsPageSize: Int = 1000
   val DefaultEventsProcessingParallelism: Int = 8
   val DefaultBufferedStreamsPageSize: Int = 100
-  val DefaultAcsIdPageSize: Int = 20000
+  val DefaultAcsIdPageSize: Int = 20000 // counted as the number of ids per id page
   val DefaultAcsIdPageBufferSize: Int = 1
   val DefaultAcsIdPageWorkingMemoryBytes: Int = 100 * 1024 * 1024
   val DefaultAcsIdFetchingParallelism: Int = 2

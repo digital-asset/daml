@@ -12,7 +12,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import FilterTableACSReader._
+import ACSReader._
 import com.daml.logging.LoggingContext
 
 class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
@@ -29,125 +29,125 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
   behavior of "IdQueryConfiguration"
 
   it should "compute correct parameters for a realistic case" in {
-    def realisticConfigForFilterSize(filterSize: Int) = IdQueryConfiguration(
-      maxIdPageSize = 10000,
-      idPageWorkingMemoryBytes = 100 * 1024 * 1024,
-      filterSize = filterSize,
-      idPageBufferSize = 1,
+    def realisticConfigForFilterSize(filterSize: Int) = IdQueryPageSizing.calculateFrom(
+      maxNumberOfIdsPerIdPage = 10000,
+      maxTotalWorkingMemoryInBytesForIdPages = 100 * 1024 * 1024,
+      maxNumberOfDecomposedFilters = filterSize,
+      maxNumberOfPagesPerIdPageBuffer = 1,
     )
     // progression: 200 800 3200 10000 10000...
-    realisticConfigForFilterSize(1) shouldBe IdQueryConfiguration(200, 10000)
-    realisticConfigForFilterSize(10) shouldBe IdQueryConfiguration(200, 10000)
-    realisticConfigForFilterSize(100) shouldBe IdQueryConfiguration(200, 10000)
+    realisticConfigForFilterSize(1) shouldBe IdQueryPageSizing(200, 10000)
+    realisticConfigForFilterSize(10) shouldBe IdQueryPageSizing(200, 10000)
+    realisticConfigForFilterSize(100) shouldBe IdQueryPageSizing(200, 10000)
     // 200 800 3200 6553 6553...
-    realisticConfigForFilterSize(1000) shouldBe IdQueryConfiguration(200, 6553)
+    realisticConfigForFilterSize(1000) shouldBe IdQueryPageSizing(200, 6553)
     // 200 655 655...
-    realisticConfigForFilterSize(10000) shouldBe IdQueryConfiguration(200, 655)
-    realisticConfigForFilterSize(100000) shouldBe IdQueryConfiguration(65, 65)
-    realisticConfigForFilterSize(1000000) shouldBe IdQueryConfiguration(10, 10)
-    realisticConfigForFilterSize(10000000) shouldBe IdQueryConfiguration(10, 10)
+    realisticConfigForFilterSize(10000) shouldBe IdQueryPageSizing(200, 655)
+    realisticConfigForFilterSize(100000) shouldBe IdQueryPageSizing(65, 65)
+    realisticConfigForFilterSize(1000000) shouldBe IdQueryPageSizing(10, 10)
+    realisticConfigForFilterSize(10000000) shouldBe IdQueryPageSizing(10, 10)
   }
 
   it should "compute correct parameters, if maxIdPageSize is lower than recommended (200), then maxIdPageSize is preferred" in {
-    def configWith(filterSize: Int) = IdQueryConfiguration(
-      maxIdPageSize = 150,
-      idPageWorkingMemoryBytes = 100 * 1024 * 1024,
-      filterSize = filterSize,
-      idPageBufferSize = 1,
+    def configWith(filterSize: Int) = IdQueryPageSizing.calculateFrom(
+      maxNumberOfIdsPerIdPage = 150,
+      maxTotalWorkingMemoryInBytesForIdPages = 100 * 1024 * 1024,
+      maxNumberOfDecomposedFilters = filterSize,
+      maxNumberOfPagesPerIdPageBuffer = 1,
     )
-    configWith(1) shouldBe IdQueryConfiguration(150, 150)
-    configWith(10) shouldBe IdQueryConfiguration(150, 150)
-    configWith(100) shouldBe IdQueryConfiguration(150, 150)
-    configWith(1000) shouldBe IdQueryConfiguration(150, 150)
-    configWith(10000) shouldBe IdQueryConfiguration(150, 150)
-    configWith(100000) shouldBe IdQueryConfiguration(65, 65)
-    configWith(1000000) shouldBe IdQueryConfiguration(10, 10)
-    configWith(10000000) shouldBe IdQueryConfiguration(10, 10)
+    configWith(1) shouldBe IdQueryPageSizing(150, 150)
+    configWith(10) shouldBe IdQueryPageSizing(150, 150)
+    configWith(100) shouldBe IdQueryPageSizing(150, 150)
+    configWith(1000) shouldBe IdQueryPageSizing(150, 150)
+    configWith(10000) shouldBe IdQueryPageSizing(150, 150)
+    configWith(100000) shouldBe IdQueryPageSizing(65, 65)
+    configWith(1000000) shouldBe IdQueryPageSizing(10, 10)
+    configWith(10000000) shouldBe IdQueryPageSizing(10, 10)
   }
 
   it should "compute correct parameters, if maxIdPageSize is lower than minimum (10), then maxIdPageSize is preferred" in {
-    def configWith(filterSize: Int) = IdQueryConfiguration(
-      maxIdPageSize = 4,
-      idPageWorkingMemoryBytes = 100 * 1024 * 1024,
-      filterSize = filterSize,
-      idPageBufferSize = 1,
+    def configWith(filterSize: Int) = IdQueryPageSizing.calculateFrom(
+      maxNumberOfIdsPerIdPage = 4,
+      maxTotalWorkingMemoryInBytesForIdPages = 100 * 1024 * 1024,
+      maxNumberOfDecomposedFilters = filterSize,
+      maxNumberOfPagesPerIdPageBuffer = 1,
     )
-    configWith(1) shouldBe IdQueryConfiguration(4, 4)
-    configWith(10) shouldBe IdQueryConfiguration(4, 4)
-    configWith(100) shouldBe IdQueryConfiguration(4, 4)
-    configWith(1000) shouldBe IdQueryConfiguration(4, 4)
-    configWith(10000) shouldBe IdQueryConfiguration(4, 4)
-    configWith(100000) shouldBe IdQueryConfiguration(4, 4)
-    configWith(1000000) shouldBe IdQueryConfiguration(4, 4)
-    configWith(10000000) shouldBe IdQueryConfiguration(4, 4)
+    configWith(1) shouldBe IdQueryPageSizing(4, 4)
+    configWith(10) shouldBe IdQueryPageSizing(4, 4)
+    configWith(100) shouldBe IdQueryPageSizing(4, 4)
+    configWith(1000) shouldBe IdQueryPageSizing(4, 4)
+    configWith(10000) shouldBe IdQueryPageSizing(4, 4)
+    configWith(100000) shouldBe IdQueryPageSizing(4, 4)
+    configWith(1000000) shouldBe IdQueryPageSizing(4, 4)
+    configWith(10000000) shouldBe IdQueryPageSizing(4, 4)
   }
 
   behavior of "idSource"
 
   it should "stream data exponentially" in {
     testIdSource(
-      IdQueryConfiguration(
-        minPageSize = 1,
-        maxPageSize = 20,
+      IdQueryPageSizing(
+        minNumberOfIdsPerPage = 1,
+        maxNumberOfIdsPerPage = 20,
       ),
       Range(1, 70).map(_.toLong).toVector,
     ).map(
       _ shouldBe Vector(
-        IdQuery(0, 1),
-        IdQuery(1, 4),
-        IdQuery(5, 16),
-        IdQuery(21, 20),
-        IdQuery(41, 20),
-        IdQuery(61, 20),
-        IdQuery(69, 20),
+        IdQueryParams(0, 1),
+        IdQueryParams(1, 4),
+        IdQueryParams(5, 16),
+        IdQueryParams(21, 20),
+        IdQueryParams(41, 20),
+        IdQueryParams(61, 20),
+        IdQueryParams(69, 20),
       )
     )
   }
 
   it should "stream data constantly" in {
     testIdSource(
-      IdQueryConfiguration(
-        minPageSize = 20,
-        maxPageSize = 20,
+      IdQueryPageSizing(
+        minNumberOfIdsPerPage = 20,
+        maxNumberOfIdsPerPage = 20,
       ),
       Range(1, 70).map(_.toLong).toVector,
     ).map(
       _ shouldBe Vector(
-        IdQuery(0, 20),
-        IdQuery(20, 20),
-        IdQuery(40, 20),
-        IdQuery(60, 20),
-        IdQuery(69, 20),
+        IdQueryParams(0, 20),
+        IdQueryParams(20, 20),
+        IdQueryParams(40, 20),
+        IdQueryParams(60, 20),
+        IdQueryParams(69, 20),
       )
     )
   }
 
   it should "stream data exponentially, if maxPageSize never reached" in {
     testIdSource(
-      IdQueryConfiguration(
-        minPageSize = 1,
-        maxPageSize = 20,
+      IdQueryPageSizing(
+        minNumberOfIdsPerPage = 1,
+        maxNumberOfIdsPerPage = 20,
       ),
       Range(1, 6).map(_.toLong).toVector,
     ).map(
       _ shouldBe Vector(
-        IdQuery(0, 1),
-        IdQuery(1, 4),
-        IdQuery(5, 16),
+        IdQueryParams(0, 1),
+        IdQueryParams(1, 4),
+        IdQueryParams(5, 16),
       )
     )
   }
 
   it should "stream empty data" in {
     testIdSource(
-      IdQueryConfiguration(
-        minPageSize = 1,
-        maxPageSize = 20,
+      IdQueryPageSizing(
+        minNumberOfIdsPerPage = 1,
+        maxNumberOfIdsPerPage = 20,
       ),
       Vector.empty,
     ).map(
       _ shouldBe Vector(
-        IdQuery(0, 1)
+        IdQueryParams(0, 1)
       )
     )
   }
@@ -247,7 +247,7 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
 
   private def testMergeSort(in: => Vector[Vector[Int]], times: Int = 5): Future[Assertion] = {
     val testInput = in
-    FilterTableACSReader
+    ACSReader
       .mergeSort[Int](
         sources = testInput.map(Source.apply)
       )
@@ -260,16 +260,16 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
   }
 
   private def testIdSource(
-      idQueryConfiguration: IdQueryConfiguration,
+      idQueryConfiguration: IdQueryPageSizing,
       ids: Vector[Long],
-  ): Future[Vector[IdQuery]] = {
-    val queries = Vector.newBuilder[IdQuery]
-    idSource(idQueryConfiguration, 1) { idQuery =>
+  ): Future[Vector[IdQueryParams]] = {
+    val queries = Vector.newBuilder[IdQueryParams]
+    streamIdsFromSeekPagination(idQueryConfiguration, 1) { idQuery =>
       queries.addOne(idQuery)
       Future.successful(
         ids
           .dropWhile(_ <= idQuery.fromExclusiveEventSeqId)
-          .take(idQuery.pageSize)
+          .take(idQuery.numberOfIdsToFetch)
           .toArray
       )
     }.runWith(Sink.seq[Long]).map { result =>

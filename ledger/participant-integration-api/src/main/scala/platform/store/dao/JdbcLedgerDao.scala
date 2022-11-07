@@ -41,12 +41,12 @@ private class JdbcLedgerDao(
     servicesExecutionContext: ExecutionContext,
     eventsPageSize: Int,
     eventsProcessingParallelism: Int,
-    acsIdPageSize: Int,
-    acsIdPageBufferSize: Int,
-    acsIdPageWorkingMemoryBytes: Int,
-    acsIdFetchingParallelism: Int,
-    acsContractFetchingParallelism: Int,
-    acsGlobalParallelism: Int,
+    acsMaxNumberOfIdsPerIdPage: Int,
+    acsMaxNumberOfPagesPerIdPagesBuffer: Int,
+    acsMaxWorkingMemoryInBytesForIdPages: Int,
+    acsMaxNumberOfParallelIdFetchingQueries: Int,
+    acsMaxNumberOfParallelPayloadFetchingQueries: Int,
+    acsGlobalMaxNumberOfParallelPayloadQueries: Int,
     metrics: Metrics,
     engine: Option[Engine],
     sequentialIndexer: SequentialWriteDao,
@@ -454,6 +454,24 @@ private class JdbcLedgerDao(
 
   private val queryNonPruned = QueryNonPrunedImpl(parameterStorageBackend)
 
+  private val acsReader = new ACSReader(
+    dbDispatcher = dbDispatcher,
+    queryNonPruned = queryNonPruned,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    maxNumberOfPayloadsPerPayloadPage = eventsPageSize,
+    maxNumberOfIdsPerIdPage = acsMaxNumberOfIdsPerIdPage,
+    maxNumberOfPagesPerIdPagesBuffer = acsMaxNumberOfPagesPerIdPagesBuffer,
+    maxWorkingMemoryInBytesForIdPages = acsMaxWorkingMemoryInBytesForIdPages,
+    maxNumberOfParallelIdFetchingQueries = acsMaxNumberOfParallelIdFetchingQueries,
+    maxNumberOfParallelPayloadFetchingQueries = acsMaxNumberOfParallelPayloadFetchingQueries,
+    globalMaxNumberOfParallelPayloadQueriesLimiter = new QueueBasedConcurrencyLimiter(
+      acsGlobalMaxNumberOfParallelPayloadQueries,
+      servicesExecutionContext,
+    ),
+    metrics = metrics,
+    executionContext = servicesExecutionContext,
+  )
+
   override val transactionsReader: TransactionsReader =
     new TransactionsReader(
       dispatcher = dbDispatcher,
@@ -463,24 +481,8 @@ private class JdbcLedgerDao(
       eventProcessingParallelism = eventsProcessingParallelism,
       metrics = metrics,
       lfValueTranslation = translation,
-      acsReader = new FilterTableACSReader(
-        dispatcher = dbDispatcher,
-        queryNonPruned = queryNonPruned,
-        eventStorageBackend = readStorageBackend.eventStorageBackend,
-        pageSize = eventsPageSize,
-        idPageSize = acsIdPageSize,
-        idPageBufferSize = acsIdPageBufferSize,
-        idPageWorkingMemoryBytes = acsIdPageWorkingMemoryBytes,
-        idFetchingParallelism = acsIdFetchingParallelism,
-        acsFetchingparallelism = acsContractFetchingParallelism,
-        metrics = metrics,
-        querylimiter =
-          new QueueBasedConcurrencyLimiter(acsGlobalParallelism, servicesExecutionContext),
-        executionContext = servicesExecutionContext,
-      ),
-    )(
-      servicesExecutionContext
-    )
+      acsReader = acsReader,
+    )(servicesExecutionContext)
 
   override val contractsReader: ContractsReader =
     ContractsReader(dbDispatcher, metrics, readStorageBackend.contractStorageBackend)(
@@ -566,12 +568,12 @@ private[platform] object JdbcLedgerDao {
       dbSupport: DbSupport,
       eventsPageSize: Int,
       eventsProcessingParallelism: Int,
-      acsIdPageSize: Int,
-      acsIdPageBufferSize: Int,
-      acsIdPageWorkingMemoryBytes: Int,
-      acsIdFetchingParallelism: Int,
-      acsContractFetchingParallelism: Int,
-      acsGlobalParallelism: Int,
+      acsMaxNumberOfIdsPerIdPage: Int,
+      acsMaxNumberOfPagesPerIdPagesBuffer: Int,
+      acsMaxWorkingMemoryInBytesForIdPages: Int,
+      acsMaxNumberOfParallelIdFetchingQueries: Int,
+      acsMaxNumberOfParallelPayloadFetchingQueries: Int,
+      acsGlobalMaxNumberOfParallelPayloadQueries: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       engine: Option[Engine],
@@ -580,22 +582,23 @@ private[platform] object JdbcLedgerDao {
       stringInterning: StringInterning,
   ): LedgerReadDao =
     new JdbcLedgerDao(
-      dbSupport.dbDispatcher,
-      servicesExecutionContext,
-      eventsPageSize,
-      eventsProcessingParallelism,
-      acsIdPageSize,
-      acsIdPageBufferSize,
-      acsIdPageWorkingMemoryBytes,
-      acsIdFetchingParallelism,
-      acsContractFetchingParallelism,
-      acsGlobalParallelism,
-      metrics,
-      engine,
-      SequentialWriteDao.noop,
-      participantId,
-      dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
-      dbSupport.storageBackendFactory.createParameterStorageBackend,
+      dbDispatcher = dbSupport.dbDispatcher,
+      servicesExecutionContext = servicesExecutionContext,
+      eventsPageSize = eventsPageSize,
+      eventsProcessingParallelism = eventsProcessingParallelism,
+      acsMaxNumberOfIdsPerIdPage = acsMaxNumberOfIdsPerIdPage,
+      acsMaxNumberOfPagesPerIdPagesBuffer = acsMaxNumberOfPagesPerIdPagesBuffer,
+      acsMaxWorkingMemoryInBytesForIdPages = acsMaxWorkingMemoryInBytesForIdPages,
+      acsMaxNumberOfParallelIdFetchingQueries = acsMaxNumberOfParallelIdFetchingQueries,
+      acsMaxNumberOfParallelPayloadFetchingQueries = acsMaxNumberOfParallelPayloadFetchingQueries,
+      acsGlobalMaxNumberOfParallelPayloadQueries = acsGlobalMaxNumberOfParallelPayloadQueries,
+      metrics = metrics,
+      engine = engine,
+      sequentialIndexer = SequentialWriteDao.noop,
+      participantId = participantId,
+      readStorageBackend =
+        dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+      parameterStorageBackend = dbSupport.storageBackendFactory.createParameterStorageBackend,
     )
 
   def write(
@@ -603,12 +606,12 @@ private[platform] object JdbcLedgerDao {
       sequentialWriteDao: SequentialWriteDao,
       eventsPageSize: Int,
       eventsProcessingParallelism: Int,
-      acsIdPageSize: Int,
-      acsIdPageBufferSize: Int,
-      acsIdPageWorkingMemoryBytes: Int,
-      acsIdFetchingParallelism: Int,
-      acsContractFetchingParallelism: Int,
-      acsGlobalParallelism: Int,
+      acsMaxNumberOfIdsPerIdPage: Int,
+      acsMaxNumberOfPagesPerIdPagesBuffer: Int,
+      acsMaxWorkingMemoryInBytesForIdPages: Int,
+      acsMaxNumberOfParallelIdFetchingQueries: Int,
+      acsMaxNumberOfParallelPayloadFetchingQueries: Int,
+      acsGlobalMaxNumberOfParallelPayloadFetchingQueries: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       engine: Option[Engine],
@@ -617,22 +620,24 @@ private[platform] object JdbcLedgerDao {
       stringInterning: StringInterning,
   ): LedgerDao =
     new JdbcLedgerDao(
-      dbSupport.dbDispatcher,
-      servicesExecutionContext,
-      eventsPageSize,
-      eventsProcessingParallelism,
-      acsIdPageSize,
-      acsIdPageBufferSize,
-      acsIdPageWorkingMemoryBytes,
-      acsIdFetchingParallelism,
-      acsContractFetchingParallelism,
-      acsGlobalParallelism,
-      metrics,
-      engine,
-      sequentialWriteDao,
-      participantId,
-      dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
-      dbSupport.storageBackendFactory.createParameterStorageBackend,
+      dbDispatcher = dbSupport.dbDispatcher,
+      servicesExecutionContext = servicesExecutionContext,
+      eventsPageSize = eventsPageSize,
+      eventsProcessingParallelism = eventsProcessingParallelism,
+      acsMaxNumberOfIdsPerIdPage = acsMaxNumberOfIdsPerIdPage,
+      acsMaxNumberOfPagesPerIdPagesBuffer = acsMaxNumberOfPagesPerIdPagesBuffer,
+      acsMaxWorkingMemoryInBytesForIdPages = acsMaxWorkingMemoryInBytesForIdPages,
+      acsMaxNumberOfParallelIdFetchingQueries = acsMaxNumberOfParallelIdFetchingQueries,
+      acsMaxNumberOfParallelPayloadFetchingQueries = acsMaxNumberOfParallelPayloadFetchingQueries,
+      acsGlobalMaxNumberOfParallelPayloadQueries =
+        acsGlobalMaxNumberOfParallelPayloadFetchingQueries,
+      metrics = metrics,
+      engine = engine,
+      sequentialIndexer = sequentialWriteDao,
+      participantId = participantId,
+      readStorageBackend =
+        dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+      parameterStorageBackend = dbSupport.storageBackendFactory.createParameterStorageBackend,
     )
 
   val acceptType = "accept"
