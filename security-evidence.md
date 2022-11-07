@@ -12,9 +12,6 @@
 - badly-authorized exercise/exercise (no implicit authority from outer exercise) is rejected: [AuthPropagationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthPropagationSpec.scala#L332)
 - badly-authorized fetch is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L95)
 - badly-authorized lookup is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L117)
-- create IOU should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L131)
-- create IOU should fail if user has no permission: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L105)
-- create IOU should work with correct user rights: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L80)
 - create with no signatories is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L50)
 - create with non-signatory maintainers is rejected: [AuthorizationSpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/AuthorizationSpec.scala#L72)
 - error on specifying both authCommonUri and authInternalUri/authExternalUri for the trigger service: [AuthorizationConfigTest.scala](triggers/service/src/test-suite/scala/com/daml/lf/engine/trigger/AuthorizationConfigTest.scala#L24)
@@ -36,7 +33,6 @@
 
 ## Availability:
 - Tail call optimization: Tail recursion does not blow the scala JVM stack.: [TailCallTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/TailCallTest.scala#L16)
-- creating and listing 20K users should be possible: [HttpServiceIntegrationTestUserManagement.scala](ledger-service/http-json/src/it/scala/http/HttpServiceIntegrationTestUserManagement.scala#L555)
 - restart trigger on initialization failure due to failed connection: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L465)
 - restart trigger on run-time failure due to dropped connection: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L485)
 - restart triggers after shutdown: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L605)
