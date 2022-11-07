@@ -106,19 +106,23 @@ final class Authorizer(
       claims: ClaimSet.Claims,
   ): Either[AuthorizationError, String] = {
     val requestIdentityProviderId = Option(identityProviderId).filter(_.nonEmpty)
-    claims match {
-      case claims: ClaimSet.Claims
-          if claims.resolvedFromUser && requestIdentityProviderId.isEmpty =>
-        Right(claims.identityProviderId.getOrElse(""))
-      case claims: ClaimSet.Claims
-          if claims.resolvedFromUser && requestIdentityProviderId.isDefined && requestIdentityProviderId == claims.identityProviderId =>
-        Right(claims.identityProviderId.getOrElse(""))
-      case claims: ClaimSet.Claims if !claims.resolvedFromUser => Right("")
-      case _ =>
-        Left(
-          AuthorizationError.MissingAdminClaim
-        ) // TODO DPP-1299 Is it really admin claim here? or what?
-    }
+    if (claims.claims.contains(ClaimAdmin)) {
+      // admin does not have any check, just idpId from the request is used
+      Right(identityProviderId)
+    } else if (!claims.resolvedFromUser) {
+      // admin should always provide identityProviderId
+      Right(identityProviderId)
+    } else if (
+      claims.resolvedFromUser && requestIdentityProviderId.isDefined && requestIdentityProviderId == claims.identityProviderId
+    ) {
+      // the user has provided idp_id, and it matches his issuer in the token
+      Right(identityProviderId)
+    } else if (claims.resolvedFromUser && requestIdentityProviderId.isEmpty)
+      Right(claims.identityProviderId.getOrElse(""))
+    else
+      Left(
+        AuthorizationError.MissingAdminClaim
+      ) // TODO DPP-1299 Is it really admin claim here? or what?
   }
 
   private[this] def requireForAll[T](

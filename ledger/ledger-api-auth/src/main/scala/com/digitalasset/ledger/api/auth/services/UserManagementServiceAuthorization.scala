@@ -29,7 +29,14 @@ private[daml] final class UserManagementServiceAuthorization(
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   override def createUser(request: CreateUserRequest): Future[CreateUserResponse] =
-    authorizer.requireAdminOrIDPAdminClaims(service.createUser)(request)
+    authorizer.requireIDPContext(
+      request.user.map(_.identityProviderId).getOrElse(""),
+      authorizer.requireAdminOrIDPAdminClaims(service.createUser),
+    )((identityProviderId, request) =>
+      request.copy(user = request.user.map(_.copy(identityProviderId = identityProviderId)))
+    )(
+      request
+    )
 
   override def getUser(request: GetUserRequest): Future[GetUserResponse] = {
     defaultToAuthenticatedUser(request.userId) match {

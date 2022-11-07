@@ -185,7 +185,7 @@ private[apiserver] final class ApiPartyManagementService private (
           )
           displayNameO <- optionalString(request.displayName)(Right(_))
           identityProviderId <- optionalString(request.identityProviderId)(
-            requireIdentityProviderId("identity_provider_id", _)
+            requireIdentityProviderId(_, "identity_provider_id")
           )
         } yield (partyIdHintO, displayNameO, annotations, identityProviderId)
       } { case (partyIdHintO, displayNameO, annotations, identityProviderId) =>
