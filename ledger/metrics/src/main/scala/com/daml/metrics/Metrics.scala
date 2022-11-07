@@ -75,5 +75,34 @@ final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMe
       )
     }
 
+    object grpc extends OpenTelemetryFactory with GrpcServerMetrics {
+
+      private val grpcServerMetricsPrefix = prefix :+ "grpc" :+ "server"
+
+      override def otelMeter: OtelMeter = Metrics.this.meter
+      override val callTimer: MetricHandle.Timer = timer(grpcServerMetricsPrefix)
+      override val messagesSent: MetricHandle.Meter = meter(
+        grpcServerMetricsPrefix :+ "messages" :+ "sent"
+      )
+      override val messagesReceived: MetricHandle.Meter = meter(
+        grpcServerMetricsPrefix :+ "messages" :+ "received"
+      )
+      override val messagesRequested: MetricHandle.Meter = meter(
+        grpcServerMetricsPrefix :+ "messages" :+ "requested"
+      )
+      override val messagesSentSize: MetricHandle.Histogram = histogram(
+        grpcServerMetricsPrefix :+ "messages" :+ "sent" :+ "bytes"
+      )
+      override val messagesReceivedSize: MetricHandle.Histogram = histogram(
+        grpcServerMetricsPrefix :+ "messages" :+ "received" :+ "bytes"
+      )
+      override val callsStarted: MetricHandle.Meter = meter(
+        grpcServerMetricsPrefix :+ "calls" :+ "started"
+      )
+      override val callsFinished: MetricHandle.Meter = meter(
+        grpcServerMetricsPrefix :+ "calls" :+ "finished"
+      )
+    }
+
   }
 }
