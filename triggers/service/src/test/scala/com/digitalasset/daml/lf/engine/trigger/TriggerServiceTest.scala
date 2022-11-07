@@ -41,6 +41,14 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement
 import com.daml.lf.data.Ref.PackageId
 import com.daml.timer.RetryStrategy
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.{
+  Authorization,
+  Authentication,
+  Availability,
+  Confidentiality,
+}
+import com.daml.test.evidence.tag.Security.SecurityTest
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import com.google.protobuf.empty.Empty
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.time.{Seconds, Span}
@@ -59,7 +67,19 @@ trait AbstractTriggerServiceTestHelper
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(30, Seconds)))
 
-  protected val darPath: File = requiredResource("triggers/service/test-model.dar")
+  val authorizationSecurity: SecurityTest =
+    SecurityTest(property = Authorization, asset = "TBD")
+
+  val authenticationSecurity: SecurityTest =
+    SecurityTest(property = Authentication, asset = "TBD")
+
+  val availabilitySecurity: SecurityTest =
+    SecurityTest(property = Availability, asset = "TBD")
+
+  val confidentialitySecurity: SecurityTest =
+    SecurityTest(property = Confidentiality, asset = "TBD")
+
+  lazy protected val darPath: File = requiredResource("triggers/service/test-model.dar")
 
   // Encoded dar used in service initialization
   protected lazy val dar: Dar[(PackageId, DamlLf.ArchivePayload)] =
@@ -98,6 +118,21 @@ trait AbstractTriggerServiceTestHelper
     self in testFn
 
   protected[this] implicit final class `InClaims syntax`(private val self: ItVerbString) {
+
+    /** Like `in`, but disables tests that would require the oauth test server
+      * to grant claims for the user tokens it manufactures; see
+      * https://github.com/digital-asset/daml/issues/13076
+      */
+    def inClaims(testFn: => Future[Assertion])(implicit pos: source.Position): Unit =
+      AbstractTriggerServiceTestHelper.this.inClaims(self, testFn)
+  }
+
+  protected[this] def inClaims(self: ItVerbStringTaggedAs, testFn: => Future[Assertion])(implicit
+      pos: source.Position
+  ): Unit =
+    self in testFn
+
+  protected[this] implicit final class `InClaims2 syntax`(private val self: ItVerbStringTaggedAs) {
 
     /** Like `in`, but disables tests that would require the oauth test server
       * to grant claims for the user tokens it manufactures; see
@@ -462,8 +497,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Availability: restart trigger on initialization failure due to failed connection
-  it should "restart trigger on initialization failure due to failed connection" inClaims withTriggerService(
+  it should "restart trigger on initialization failure due to failed connection" taggedAs availabilitySecurity inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     for {
@@ -482,8 +516,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Availability: restart trigger on run-time failure due to dropped connection
-  it should "restart trigger on run-time failure due to dropped connection" inClaims withTriggerService(
+  it should "restart trigger on run-time failure due to dropped connection" taggedAs availabilitySecurity inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     // Simulate the ledger being briefly unavailable due to network connectivity loss.
@@ -504,46 +537,45 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Availability: restart triggers with initialization errors
-  it should "restart triggers with initialization errors" in withTriggerService(List(dar)) {
-    uri: Uri =>
-      for {
-        resp <- startTrigger(uri, s"$testPkgId:ErrorTrigger:trigger", alice)
-        aliceTrigger <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
-        // We will attempt to restart the trigger indefinitely.
-        // Just check that we see a few failures and restart attempts.
-        // This relies on a small minimum restart interval as the interval doubles after each
-        // failure.
-        _ <- assertTriggerStatus(aliceTrigger, stats => atLeast(3, stats) should ===("starting"))
-        _ <- assertTriggerStatus(
-          aliceTrigger,
-          stats => atLeast(3, stats) should ===("stopped: initialization failure"),
-        )
-      } yield succeed
+  it should "restart triggers with initialization errors" taggedAs availabilitySecurity in withTriggerService(
+    List(dar)
+  ) { uri: Uri =>
+    for {
+      resp <- startTrigger(uri, s"$testPkgId:ErrorTrigger:trigger", alice)
+      aliceTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
+      // We will attempt to restart the trigger indefinitely.
+      // Just check that we see a few failures and restart attempts.
+      // This relies on a small minimum restart interval as the interval doubles after each
+      // failure.
+      _ <- assertTriggerStatus(aliceTrigger, stats => atLeast(3, stats) should ===("starting"))
+      _ <- assertTriggerStatus(
+        aliceTrigger,
+        stats => atLeast(3, stats) should ===("stopped: initialization failure"),
+      )
+    } yield succeed
   }
 
-  // TEST_EVIDENCE: Availability: restart triggers with update errors
-  it should "restart triggers with update errors" inClaims withTriggerService(List(dar)) {
-    uri: Uri =>
-      for {
-        resp <- startTrigger(uri, s"$testPkgId:LowLevelErrorTrigger:trigger", alice)
-        aliceTrigger <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
-        // We will attempt to restart the trigger indefinitely.
-        // Just check that we see a few failures and restart attempts.
-        // This relies on a small minimum restart interval as the interval doubles after each
-        // failure.
-        _ <- assertTriggerStatus(aliceTrigger, _.count(_ == "starting") should be > 2)
-        _ <- assertTriggerStatus(
-          aliceTrigger,
-          _.count(_ == "stopped: runtime failure") should be > 2,
-        )
-      } yield succeed
+  it should "restart triggers with update errors" taggedAs availabilitySecurity inClaims withTriggerService(
+    List(dar)
+  ) { uri: Uri =>
+    for {
+      resp <- startTrigger(uri, s"$testPkgId:LowLevelErrorTrigger:trigger", alice)
+      aliceTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
+      // We will attempt to restart the trigger indefinitely.
+      // Just check that we see a few failures and restart attempts.
+      // This relies on a small minimum restart interval as the interval doubles after each
+      // failure.
+      _ <- assertTriggerStatus(aliceTrigger, _.count(_ == "starting") should be > 2)
+      _ <- assertTriggerStatus(
+        aliceTrigger,
+        _.count(_ == "stopped: runtime failure") should be > 2,
+      )
+    } yield succeed
   }
 
-  // TEST_EVIDENCE: Confidentiality: give a 'not found' response for a stop request with an unparseable UUID in the trigger service
-  it should "give a 'not found' response for a stop request with an unparseable UUID" in withTriggerService(
+  it should "give a 'not found' response for a stop request with an unparseable UUID" taggedAs confidentialitySecurity in withTriggerService(
     Nil
   ) { uri: Uri =>
     val uuid: String = "No More Mr Nice Guy"
@@ -557,8 +589,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Confidentiality: give a 'not found' response for a stop request on an unknown UUID in the trigger service
-  it should "give a 'not found' response for a stop request on an unknown UUID" in withTriggerService(
+  it should "give a 'not found' response for a stop request on an unknown UUID" taggedAs confidentialitySecurity in withTriggerService(
     Nil
   ) { uri: Uri =>
     val uuid = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
@@ -602,8 +633,7 @@ trait AbstractTriggerServiceTestWithDatabase extends AbstractTriggerServiceTest 
     }
   } yield succeed)
 
-  // TEST_EVIDENCE: Availability: restart triggers after shutdown
-  it should "restart triggers after shutdown" inClaims (for {
+  it should "restart triggers after shutdown" taggedAs availabilitySecurity inClaims (for {
     _ <- withTriggerService(List(dar)) { uri: Uri =>
       for {
         // Start a trigger in the first run of the service.
@@ -646,8 +676,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
 
   behavior of "authenticated service"
 
-  // TEST_EVIDENCE: Authentication: redirect to the configured callback URI after login
-  it should "redirect to the configured callback URI after login" in withTriggerService(
+  it should "redirect to the configured callback URI after login" taggedAs authenticationSecurity in withTriggerService(
     Nil,
     authCallback = Some("http://localhost/TRIGGER_CALLBACK"),
   ) { uri: Uri =>
@@ -664,8 +693,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Authorization: forbid a non-authorized party to start a trigger
-  it should "forbid a non-authorized party to start a trigger" inClaims withTriggerService(
+  it should "forbid a non-authorized party to start a trigger" taggedAs authorizationSecurity inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     authServer.revokeParty(eve)
@@ -675,18 +703,17 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Authorization: forbid a non-authorized party to list triggers
-  it should "forbid a non-authorized party to list triggers" inClaims withTriggerService(Nil) {
-    uri: Uri =>
-      authServer.revokeParty(eve)
-      for {
-        resp <- listTriggers(uri, eve)
-        _ <- resp.status shouldBe StatusCodes.Forbidden
-      } yield succeed
+  it should "forbid a non-authorized party to list triggers" taggedAs authorizationSecurity inClaims withTriggerService(
+    Nil
+  ) { uri: Uri =>
+    authServer.revokeParty(eve)
+    for {
+      resp <- listTriggers(uri, eve)
+      _ <- resp.status shouldBe StatusCodes.Forbidden
+    } yield succeed
   }
 
-  // TEST_EVIDENCE: Authorization: forbid a non-authorized party to check the status of a trigger
-  it should "forbid a non-authorized party to check the status of a trigger" inClaims withTriggerService(
+  it should "forbid a non-authorized party to check the status of a trigger" taggedAs authorizationSecurity inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     for {
@@ -701,8 +728,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Authorization: forbid a non-authorized party to stop a trigger
-  it should "forbid a non-authorized party to stop a trigger" inClaims withTriggerService(
+  it should "forbid a non-authorized party to stop a trigger" taggedAs authorizationSecurity inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     for {
@@ -717,33 +743,32 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
-  // TEST_EVIDENCE: Authorization: forbid a non-authorized user to upload a DAR
-  it should "forbid a non-authorized user to upload a DAR" inClaims withTriggerService(Nil) {
-    uri: Uri =>
-      authServer.revokeAdmin()
-      for {
-        resp <- uploadDar(uri, darPath) // same dar as in initialization
-        _ <- resp.status shouldBe StatusCodes.Forbidden
-      } yield succeed
+  it should "forbid a non-authorized user to upload a DAR" taggedAs authorizationSecurity inClaims withTriggerService(
+    Nil
+  ) { uri: Uri =>
+    authServer.revokeAdmin()
+    for {
+      resp <- uploadDar(uri, darPath) // same dar as in initialization
+      _ <- resp.status shouldBe StatusCodes.Forbidden
+    } yield succeed
   }
 
-  // TEST_EVIDENCE: Authorization: request a fresh token after expiry on user request
-  it should "request a fresh token after expiry on user request" in withTriggerService(Nil) {
-    uri: Uri =>
-      for {
-        resp <- listTriggers(uri, alice)
-        _ <- resp.status shouldBe StatusCodes.OK
-        // Expire old token and test the trigger service transparently requests a new token.
-        _ = authClock.fastForward(
-          JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1)
-        )
-        resp <- listTriggers(uri, alice)
-        _ <- resp.status shouldBe StatusCodes.OK
-      } yield succeed
+  it should "request a fresh token after expiry on user request" taggedAs authorizationSecurity in withTriggerService(
+    Nil
+  ) { uri: Uri =>
+    for {
+      resp <- listTriggers(uri, alice)
+      _ <- resp.status shouldBe StatusCodes.OK
+      // Expire old token and test the trigger service transparently requests a new token.
+      _ = authClock.fastForward(
+        JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1)
+      )
+      resp <- listTriggers(uri, alice)
+      _ <- resp.status shouldBe StatusCodes.OK
+    } yield succeed
   }
 
-  // TEST_EVIDENCE: Authorization: refresh a token after expiry on the server side
-  it should "refresh a token after expiry on the server side" inClaims withTriggerService(
+  it should "refresh a token after expiry on the server side" taggedAs authorizationSecurity inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     for {
