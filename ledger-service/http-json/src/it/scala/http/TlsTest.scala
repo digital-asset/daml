@@ -5,6 +5,9 @@ package com.daml.http
 
 import HttpServiceTestFixture.UseTls
 import akka.http.scaladsl.model.{StatusCodes, Uri}
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authentication
+import com.daml.test.evidence.tag.Security.SecurityTest
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import org.scalatest.{Assertion, Inside}
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -20,6 +23,8 @@ abstract class TlsTest
     with AbstractHttpServiceIntegrationTestFuns {
   import json.JsonProtocol._
 
+  val authenticationSecurity: SecurityTest = SecurityTest(property = Authentication, asset = "TBD")
+
   override def jdbcConfig = None
 
   override def staticContentConfig = None
@@ -28,8 +33,7 @@ abstract class TlsTest
 
   override def wsConfig: Option[WebsocketConfig] = None
 
-  // TEST_EVIDENCE: Authentication: connect normally with tls on
-  "connect normally with tls on" in withHttpService { fixture =>
+  "connect normally with tls on" taggedAs authenticationSecurity in withHttpService { fixture =>
     fixture
       .getRequestWithMinimumAuth[Vector[JsValue]](Uri.Path("/v1/query"))
       .map(inside(_) { case domain.OkResponse(vector, None, StatusCodes.OK) =>
