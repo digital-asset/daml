@@ -140,10 +140,10 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def testId: String = this.getClass.getSimpleName
 
-  protected val metadata2: MetadataReader.LfMetadata =
+  lazy protected val metadata2: MetadataReader.LfMetadata =
     MetadataReader.readFromDar(dar2).valueOr(e => fail(s"Cannot read dar2 metadata: $e"))
 
-  protected val metadataUser: MetadataReader.LfMetadata =
+  lazy protected val metadataUser: MetadataReader.LfMetadata =
     MetadataReader.readFromDar(userDar).valueOr(e => fail(s"Cannot read userDar metadata: $e"))
 
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt]
