@@ -33,7 +33,6 @@ private[http] final class UserManagement(
 ) {
   import UserManagement._
   import routeSetup._
-  import json.JsonProtocol._
 
   def getUser(jwt: Jwt, req: domain.GetUserRequest): ET[domain.SyncResponse[domain.UserDetails]] =
     for {
