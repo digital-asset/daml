@@ -611,7 +611,9 @@ object WebSocketService {
             .map(_.toOption.flatten.map((_, x.ekey.key)).toLeft(x.ekey.templateId))
         }
         .map { resolveTries =>
-          val (resolvedWithKey, unresolved) = resolveTries.toSet[Either[(domain.ContractTypeId.Resolved, LfV), OptionalPkg]].partitionMap(identity)
+          val (resolvedWithKey, unresolved) = resolveTries
+            .toSet[Either[(domain.ContractTypeId.Resolved, LfV), OptionalPkg]]
+            .partitionMap(identity)
           val q = getQ(resolvedWithKey)
           domain
             .ResolvedQuery(q.keySet)
