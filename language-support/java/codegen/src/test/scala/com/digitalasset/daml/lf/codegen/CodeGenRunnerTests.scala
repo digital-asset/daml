@@ -65,7 +65,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     assert(scope.toBeGenerated === Set.empty)
   }
 
-  it should "failed to read interfaces from 2 DAR files contains same packages configured with different prefixes" in {
+  it should "fail to read interfaces from 2 DAR files containing the same packages configured with different prefixes" in {
     assertThrows[IllegalArgumentException] {
       CodeGenRunner.configureCodeGenScope(
         Map(testTemplateDar -> Some("PREFIX1"), testTemplate2Dar -> Some("PREFIX2")),
