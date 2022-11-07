@@ -20,14 +20,17 @@ import java.util.function.Function;
  * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses. All
  * {@code protected} members herein are considered part of the <strong>INTERNAL API</strong>.
  *
+ * <p>Every instance is either a {@link WithKey} or {@link WithoutKey}, depending on whether the
+ * template defined a {@code key} type. {@link WithKey} defines extra utilities for working with
+ * contract keys.
+ *
  * @param <Ct> The {@link Contract} subclass generated within the template class.
  * @param <Id> The {@link ContractId} subclass generated within the template class.
  * @param <Data> The generated {@link com.daml.ledger.javaapi.data.Template} subclass named after
  *     the template, whose instances contain only the payload.
  */
-public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompanion<Data, Data> {
-  /** @hidden */
-  protected final Function<String, Id> newContractId;
+public abstract class ContractCompanion<Ct, Id, Data>
+    extends ContractTypeCompanion<Ct, Id, Data, Data> {
   /** @hidden */
   protected final Function<DamlRecord, Data> fromValue;
 

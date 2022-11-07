@@ -20,9 +20,8 @@ import java.util.function.Function;
  * @param <View> The {@link DamlRecord} subclass representing the interface view, as may be
  *     retrieved from the ACS or transaction stream.
  */
-public abstract class InterfaceCompanion<I, Id, View> extends ContractTypeCompanion<I, View> {
-
-  private final Function<String, Id> newContractId;
+public abstract class InterfaceCompanion<I, Id, View>
+    extends ContractTypeCompanion<Contract<Id, View>, Id, I, View> {
 
   public final ValueDecoder<View> valueDecoder;
 

@@ -56,7 +56,7 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
     return getCompanion().TEMPLATE_ID;
   }
 
-  // concrete 1st type param would need a self-reference type param in Contract
+  // concrete 3rd type param would need a self-reference type param in Contract
   /**
    * <strong>INTERNAL API</strong>: this is meant for use by {@link Contract}, and <em>should not be
    * referenced directly</em>. Applications should refer to other methods like {@link
@@ -64,7 +64,7 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
    *
    * @hidden
    */
-  protected abstract ContractTypeCompanion<?, Data> getCompanion();
+  protected abstract ContractTypeCompanion<? extends Contract<?, Data>, Id, ?, Data> getCompanion();
 
   @Override
   public boolean equals(Object object) {

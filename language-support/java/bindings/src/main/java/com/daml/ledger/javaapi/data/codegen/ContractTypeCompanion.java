@@ -12,12 +12,16 @@ import java.util.stream.Collectors;
 /**
  * The commonality between {@link ContractCompanion} and {@link InterfaceCompanion}.
  *
+ * @param <Ct> The specific type of {@link Contract} representing contracts from the ledger. Always
+ *     a subtype of {@code Contract<Id, Data>}.
+ * @param <Id> The code-generated class of {@link ContractId}s specific to this template or
+ *     interface. Always a subtype of {@code ContractId<ContractType>}.
  * @param <ContractType> The type argument to {@link ContractId}s of this contract type. This is the
  *     same as {@code Data} for templates, but is a pure marker type for interfaces.
  * @param <Data> The "payload" data model for a contract. This is the template payload for
  *     templates, and the view type for interfaces.
  */
-public abstract class ContractTypeCompanion<ContractType, Data> {
+public abstract class ContractTypeCompanion<Ct, Id, ContractType, Data> {
   /** The full template ID of the template or interface that defined this companion. */
   public final Identifier TEMPLATE_ID;
 
