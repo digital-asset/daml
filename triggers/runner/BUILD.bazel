@@ -14,9 +14,7 @@ tsvc_main_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wa
 da_scala_library(
     name = "trigger-runner-lib",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    resources = ["src/main/resources/trigger-config.conf"],
     scala_deps = [
-        "@maven//:com_github_pureconfig_pureconfig_generic",
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalaz_scalaz_core",

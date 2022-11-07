@@ -29,6 +29,11 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.trigger.Runner.{
+  maxInFlightCommands,
+  maxSubmitRequests,
+  maxSubmitRequestsDuration,
+}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -50,8 +55,6 @@ import com.google.rpc.status.Status
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.Status.UNAVAILABLE
 import io.grpc.StatusRuntimeException
-import pureconfig._
-import pureconfig.generic.auto._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
@@ -60,6 +63,7 @@ import scalaz.{-\/, Tag, \/, \/-}
 
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -359,12 +363,38 @@ class Runner(
   private val compiler = compiledPackages.compiler
   // Converts between various objects and SValues.
   private val converter: Converter = new Converter(compiledPackages, trigger.defn)
-  // These are the command IDs used on the ledger API to submit commands for
-  // this trigger for which we are awaiting either a completion or transaction
-  // message, or both.
-  // This is a data structure that is shared across (potentially) multiple async contexts
-  // - hence why we use a scala.concurrent.TrieMap here.
-  private[this] val pendingCommandIds = TrieMap.empty[UUID, SeenMsgs]
+
+  private class InFlightCommands {
+    // These are the command IDs used on the ledger API to submit commands for
+    // this trigger for which we are awaiting either a completion or transaction
+    // message, or both.
+    // This is a data structure that is shared across (potentially) multiple async contexts
+    // - hence why we use a scala.concurrent.TrieMap here.
+    private[this] val pendingIds = TrieMap.empty[UUID, SeenMsgs]
+    // Due to concurrency, inFlight counts are approximate. In practice count errors are expected to be small.
+    private[this] val inFlight: AtomicLong = new AtomicLong(0)
+
+    def get(uuid: UUID): Option[SeenMsgs] = {
+      pendingIds.get(uuid)
+    }
+
+    def count: Int = {
+      inFlight.intValue()
+    }
+
+    def update(uuid: UUID, seeOne: SeenMsgs): Unit = {
+      pendingIds.update(uuid, seeOne)
+      discard(inFlight.incrementAndGet())
+    }
+
+    def remove(uuid: UUID): Unit = {
+      discard(pendingIds.remove(uuid))
+      discard(inFlight.decrementAndGet())
+    }
+  }
+
+  private[this] val inFlightCommands = new InFlightCommands
+
   private val transactionFilter =
     TransactionFilter(parties.readers.map(p => (p.unwrap, trigger.filters)).toMap)
 
@@ -372,27 +402,34 @@ class Runner(
 
   // return whether uuid *was* present in pendingCommandIds
   private[this] def useCommandId(uuid: UUID, seeOne: SeenMsgs.One): Boolean = {
-    pendingCommandIds.get(uuid) match {
+    inFlightCommands.get(uuid) match {
       case None =>
         false
 
       case Some(seenOne) =>
         seenOne.see(seeOne) match {
           case Some(v) =>
-            pendingCommandIds.update(uuid, v)
+            inFlightCommands.update(uuid, v)
           case None =>
-            discard(pendingCommandIds.remove(uuid))
+            inFlightCommands.remove(uuid)
         }
         true
     }
   }
 
-  import Runner.{DamlFun, SingleCommandFailure, config, overloadedRetryDelay, retrying}
+  import Runner.{
+    DamlFun,
+    SingleCommandFailure,
+    maxParallelSubmissionsPerTrigger,
+    maxTriesWhenOverloaded,
+    overloadedRetryDelay,
+    retrying,
+  }
 
   @throws[RuntimeException]
   private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
     val commandUUID = UUID.randomUUID
-    pendingCommandIds.update(commandUUID, SeenMsgs.Neither)
+    inFlightCommands.update(commandUUID, SeenMsgs.Neither)
     val commandsArg = Commands(
       ledgerId = client.ledgerId.unwrap,
       applicationId = applicationId.unwrap,
@@ -481,7 +518,7 @@ class Runner(
         // `fail`, on the other hand?  It far better fits the trigger model to go
         //   tabula rasa and notice the still-unhandled contract in the ACS again
         //   on init, as we expect triggers to be able to do anyhow.
-        .buffer(256 + config.parallelism, OverflowStrategy.fail)
+        .buffer(256 + maxParallelSubmissionsPerTrigger, OverflowStrategy.fail)
         .map { case SingleCommandFailure(commandId, s) =>
           Completion(
             commandId,
@@ -746,17 +783,17 @@ class Runner(
 
     val throttleFlow: Flow[SubmitRequest, SubmitRequest, NotUsed] =
       Flow[SubmitRequest]
-        .throttle(config.submission.maxRequests, config.submission.maxDuration)
+        .throttle(maxSubmitRequests, maxSubmitRequestsDuration)
     val submitFlow: Flow[SubmitRequest, SingleCommandFailure, NotUsed] =
       Flow[SubmitRequest]
         .filter { _ =>
-          pendingCommandIds.count(_._2 == SeenMsgs.Neither) <= config.maxInflightCommands
+          inFlightCommands.count <= maxInFlightCommands
         }
         .via(
           retrying(
-            initialTries = config.maxRetries,
+            initialTries = maxTriesWhenOverloaded,
             backoff = overloadedRetryDelay,
-            parallelism = config.parallelism,
+            parallelism = maxParallelSubmissionsPerTrigger,
             retryableSubmit,
             submit,
           )
@@ -764,8 +801,8 @@ class Runner(
         )
     val failureFlow: Flow[SubmitRequest, SingleCommandFailure, NotUsed] =
       Flow[SubmitRequest]
-        .filter { _ =>
-          pendingCommandIds.count(_._2 == SeenMsgs.Neither) > config.maxInflightCommands
+        .filterNot { _ =>
+          inFlightCommands.count <= maxInFlightCommands
         }
         .map { request =>
           SingleCommandFailure(
@@ -820,29 +857,22 @@ class Runner(
 
 object Runner extends StrictLogging {
 
-  private final case class RunnerSubmissionConfig(maxRequests: Int, maxDuration: FiniteDuration) {
-    require(
-      maxRequests > 0,
-      s"trigger.runner.submission.max-requests should be positive - found: $maxRequests",
-    )
-  }
+  /** The number of submitSingleCommand invocations each trigger will
+    * attempt to execute in parallel.  Note that this does not in any
+    * way bound the number of already-submitted, but not completed,
+    * commands that may be pending.
+    */
+  val maxParallelSubmissionsPerTrigger = 8
+  val maxTriesWhenOverloaded = 6
 
-  private final case class RunnerConfig(
-      parallelism: Int,
-      maxRetries: Int,
-      maxInflightCommands: Int,
-      submission: RunnerSubmissionConfig,
-  ) {
-    require(parallelism > 0, s"trigger.runner.parallelism should be positive - found: $parallelism")
-    require(maxRetries > 0, s"trigger.runner.max-retries should be positive - found $maxRetries")
-    require(
-      maxInflightCommands > 0,
-      s"trigger.runner.max-inflight-commands should be positive - found $maxInflightCommands",
-    )
-  }
+  /** Maximum number of in-flight commands that we shall allow *before* the ledger
+    *  client automatically fails submit requests
+    */
+  val maxInFlightCommands = 50
 
-  private val config: RunnerConfig =
-    ConfigSource.resources("trigger-config.conf").at("trigger.runner").loadOrThrow[RunnerConfig]
+  /** Used to control rate at which we throttle ledger client submission requests */
+  val maxSubmitRequests = 100
+  val maxSubmitRequestsDuration: FiniteDuration = 5.second
 
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
     (250 * (1 << (afterTries - 1))).milliseconds
