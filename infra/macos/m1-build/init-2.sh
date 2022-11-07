@@ -135,8 +135,8 @@ su -l vsts <<'END'
 cd $(mktemp -d)
 git clone https://github.com/digital-asset/daml.git
 cd daml
-#./ci/dev-env-install.sh
-#./build.sh "_$(uname)"
+./ci/dev-env-install.sh
+./build.sh "_$(uname)"
 cd ..
 rm -rf daml
 exit 0
@@ -145,4 +145,4 @@ END
 echo "Done initializing nix store & Bazel cache."
 echo "Machine setup complete; shutting down."
 
-shutdown -h now
+#shutdown -h now

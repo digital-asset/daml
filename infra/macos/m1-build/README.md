@@ -23,6 +23,14 @@ tart run monterey-base
 ```
 Follow steps under create from Scratch: https://github.com/cirruslabs/tart
 
+- Enable Auto-Login. Users & Groups -> Login Options -> Automatic login -> admin.
+- Allow SSH. Sharing -> Remote Login
+- Disable Lock Screen. Preferences -> Lock Screen -> disable "Require Password" after 5.
+- Disable Screen Saver
+- Switch off sleep when monitor goes to sleep -> Energy Settings
+- Run sudo visudo in Terminal, find %admin ALL=(ALL) ALL add admin ALL=(ALL) NOPASSWD: ALL to allow sudo without a password.
+- Disable Indexing -> in Terminal, "mdutil -a -i off"
+
 ## Build Node using Packer
 
 ```
