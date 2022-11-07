@@ -29,11 +29,6 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.trigger.Runner.{
-  maxInFlightCommands,
-  maxSubmitRequests,
-  maxSubmitRequestsDuration,
-}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -55,6 +50,8 @@ import com.google.rpc.status.Status
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.Status.UNAVAILABLE
 import io.grpc.StatusRuntimeException
+import pureconfig._
+import pureconfig.generic.auto._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
@@ -390,14 +387,7 @@ class Runner(
     }
   }
 
-  import Runner.{
-    DamlFun,
-    SingleCommandFailure,
-    maxParallelSubmissionsPerTrigger,
-    maxTriesWhenOverloaded,
-    overloadedRetryDelay,
-    retrying,
-  }
+  import Runner.{DamlFun, SingleCommandFailure, config, overloadedRetryDelay, retrying}
 
   @throws[RuntimeException]
   private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
@@ -491,7 +481,7 @@ class Runner(
         // `fail`, on the other hand?  It far better fits the trigger model to go
         //   tabula rasa and notice the still-unhandled contract in the ACS again
         //   on init, as we expect triggers to be able to do anyhow.
-        .buffer(256 + maxParallelSubmissionsPerTrigger, OverflowStrategy.fail)
+        .buffer(256 + config.parallelism, OverflowStrategy.fail)
         .map { case SingleCommandFailure(commandId, s) =>
           Completion(
             commandId,
@@ -756,17 +746,17 @@ class Runner(
 
     val throttleFlow: Flow[SubmitRequest, SubmitRequest, NotUsed] =
       Flow[SubmitRequest]
-        .throttle(maxSubmitRequests, maxSubmitRequestsDuration)
+        .throttle(config.submission.maxRequests, config.submission.maxDuration)
     val submitFlow: Flow[SubmitRequest, SingleCommandFailure, NotUsed] =
       Flow[SubmitRequest]
         .filter { _ =>
-          pendingCommandIds.count(_._2 == SeenMsgs.Neither) <= maxInFlightCommands
+          pendingCommandIds.count(_._2 == SeenMsgs.Neither) <= config.maxInflightCommands
         }
         .via(
           retrying(
-            initialTries = maxTriesWhenOverloaded,
+            initialTries = config.maxRetries,
             backoff = overloadedRetryDelay,
-            parallelism = maxParallelSubmissionsPerTrigger,
+            parallelism = config.parallelism,
             retryableSubmit,
             submit,
           )
@@ -775,7 +765,7 @@ class Runner(
     val failureFlow: Flow[SubmitRequest, SingleCommandFailure, NotUsed] =
       Flow[SubmitRequest]
         .filter { _ =>
-          pendingCommandIds.count(_._2 == SeenMsgs.Neither) > maxInFlightCommands
+          pendingCommandIds.count(_._2 == SeenMsgs.Neither) > config.maxInflightCommands
         }
         .map { request =>
           SingleCommandFailure(
@@ -830,22 +820,17 @@ class Runner(
 
 object Runner extends StrictLogging {
 
-  /** The number of submitSingleCommand invocations each trigger will
-    * attempt to execute in parallel.  Note that this does not in any
-    * way bound the number of already-submitted, but not completed,
-    * commands that may be pending.
-    */
-  val maxParallelSubmissionsPerTrigger = 8
-  val maxTriesWhenOverloaded = 6
+  private final case class RunnerSubmissionConfig(maxRequests: Int, maxDuration: FiniteDuration)
 
-  /** Maximum number of in-flight commands that we shall allow *before* the ledger
-    *  client automatically fails submit requests
-    */
-  val maxInFlightCommands = 42
+  private final case class RunnerConfig(
+      parallelism: Int,
+      maxRetries: Int,
+      maxInflightCommands: Int,
+      submission: RunnerSubmissionConfig,
+  )
 
-  /** Used to control rate at which we throttle ledger client submission requests */
-  val maxSubmitRequests = 100
-  val maxSubmitRequestsDuration: FiniteDuration = 1.second
+  private val config: RunnerConfig =
+    ConfigSource.resources("trigger-config.conf").loadOrThrow[RunnerConfig]
 
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
     (250 * (1 << (afterTries - 1))).milliseconds
