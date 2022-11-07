@@ -42,6 +42,7 @@ public abstract class Update<U> implements HasCommands {
     public final Function<Exercised<R>, U> k;
     public final ValueDecoder<R> returnTypeDecoder;
 
+    /** @hidden */
     public ExerciseUpdate(
         Command command, Function<Exercised<R>, U> k, ValueDecoder<R> returnTypeDecoder) {
       super(command);
@@ -67,6 +68,7 @@ public abstract class Update<U> implements HasCommands {
     public final Function<Created<CtId>, U> k;
     public final Function<String, CtId> createdContractId;
 
+    /** @hidden */
     public CreateUpdate(
         Command command, Function<Created<CtId>, U> k, Function<String, CtId> createdContractId) {
       super(command);
