@@ -29,11 +29,6 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.trigger.Runner.{
-  maxInFlightCommands,
-  maxSubmitRequests,
-  maxSubmitRequestsDuration,
-}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -352,6 +347,7 @@ object Trigger extends StrictLogging {
 class Runner(
     compiledPackages: CompiledPackages,
     trigger: Trigger,
+    triggerConfig: TriggerRunnerConfig,
     client: LedgerClient,
     timeProviderType: TimeProviderType,
     applicationId: ApplicationId,
@@ -437,14 +433,7 @@ class Runner(
     }
   }
 
-  import Runner.{
-    DamlFun,
-    SingleCommandFailure,
-    maxParallelSubmissionsPerTrigger,
-    maxTriesWhenOverloaded,
-    overloadedRetryDelay,
-    retrying,
-  }
+  import Runner.{DamlFun, SingleCommandFailure, overloadedRetryDelay, retrying}
 
   @throws[RuntimeException]
   private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
@@ -525,7 +514,6 @@ class Runner(
     // A queue for command submission failures.
     val submissionFailureQueue: Flow[SingleCommandFailure, Completion, NotUsed] =
       Flow[SingleCommandFailure]
-        // 256 comes from the default ExecutionContext.
         // Why `fail`?  Consider the most obvious alternatives.
         //
         // `backpressure`?  This feeds into the Free interpreter flow, which may produce
@@ -538,7 +526,7 @@ class Runner(
         // `fail`, on the other hand?  It far better fits the trigger model to go
         //   tabula rasa and notice the still-unhandled contract in the ACS again
         //   on init, as we expect triggers to be able to do anyhow.
-        .buffer(256 + maxParallelSubmissionsPerTrigger, OverflowStrategy.fail)
+        .buffer(triggerConfig.submissionFailureQueueSize, OverflowStrategy.fail)
         .map { case SingleCommandFailure(commandId, s) =>
           Completion(
             commandId,
@@ -803,17 +791,17 @@ class Runner(
 
     val throttleFlow: Flow[SubmitRequest, SubmitRequest, NotUsed] =
       Flow[SubmitRequest]
-        .throttle(maxSubmitRequests, maxSubmitRequestsDuration)
+        .throttle(triggerConfig.maxSubmissionRequests, triggerConfig.maxSubmissionDuration)
     val submitFlow: Flow[SubmitRequest, SingleCommandFailure, NotUsed] =
       Flow[SubmitRequest]
         .filter { _ =>
-          inFlightCommands.count <= maxInFlightCommands
+          inFlightCommands.count <= triggerConfig.maxInFlightCommands
         }
         .via(
           retrying(
-            initialTries = maxTriesWhenOverloaded,
+            initialTries = triggerConfig.maxRetries,
             backoff = overloadedRetryDelay,
-            parallelism = maxParallelSubmissionsPerTrigger,
+            parallelism = triggerConfig.parallelism,
             retryableSubmit,
             submit,
           )
@@ -822,7 +810,7 @@ class Runner(
     val failureFlow: Flow[SubmitRequest, SingleCommandFailure, NotUsed] =
       Flow[SubmitRequest]
         .filterNot { _ =>
-          inFlightCommands.count <= maxInFlightCommands
+          inFlightCommands.count <= triggerConfig.maxInFlightCommands
         }
         .map { request =>
           SingleCommandFailure(
@@ -876,23 +864,6 @@ class Runner(
 }
 
 object Runner extends StrictLogging {
-
-  /** The number of submitSingleCommand invocations each trigger will
-    * attempt to execute in parallel.  Note that this does not in any
-    * way bound the number of already-submitted, but not completed,
-    * commands that may be pending.
-    */
-  val maxParallelSubmissionsPerTrigger = 8
-  val maxTriesWhenOverloaded = 6
-
-  /** Maximum number of in-flight commands that we shall allow *before* the ledger
-    *  client automatically fails submit requests
-    */
-  val maxInFlightCommands = 50
-
-  /** Used to control rate at which we throttle ledger client submission requests */
-  val maxSubmitRequests = 100
-  val maxSubmitRequestsDuration: FiniteDuration = 5.second
 
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
     (250 * (1 << (afterTries - 1))).milliseconds
@@ -971,6 +942,7 @@ object Runner extends StrictLogging {
       applicationId: ApplicationId,
       parties: TriggerParties,
       config: Compiler.Config,
+      triggerConfig: TriggerRunnerConfig,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] =
     Trigger.newLoggingContext(triggerId, parties.actAs, parties.readAs) { implicit lc =>
       val darMap = dar.all.toMap
@@ -983,7 +955,15 @@ object Runner extends StrictLogging {
         case Right(trigger) => trigger
       }
       val runner =
-        new Runner(compiledPackages, trigger, client, timeProviderType, applicationId, parties)
+        new Runner(
+          compiledPackages,
+          trigger,
+          triggerConfig,
+          client,
+          timeProviderType,
+          applicationId,
+          parties,
+        )
       for {
         (acs, offset) <- runner.queryACS()
         finalState <- runner.runWithACS(acs, offset)._2

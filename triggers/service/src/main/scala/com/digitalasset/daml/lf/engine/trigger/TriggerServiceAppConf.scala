@@ -9,6 +9,7 @@ import com.daml.lf.speedy.Compiler
 import com.daml.platform.services.time.TimeProviderType
 import pureconfig.{ConfigReader, ConvertHelpers}
 import com.daml.auth.middleware.api.{Client => AuthClient}
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerConfig
 import com.daml.pureconfigutils.LedgerApiConfig
 import com.daml.pureconfigutils.SharedConfigReaders._
 import pureconfig.error.FailureReason
@@ -64,6 +65,9 @@ private[trigger] object TriggerServiceAppConf {
 
   implicit val serviceCfgReader: ConfigReader[TriggerServiceAppConf] =
     deriveReader[TriggerServiceAppConf]
+
+  implicit val triggerConfigReader: ConfigReader[TriggerRunnerConfig] =
+    deriveReader[TriggerRunnerConfig]
 }
 
 /* An intermediate config representation allowing us to define our HOCON config in a more modular fashion,
@@ -87,6 +91,7 @@ private[trigger] final case class TriggerServiceAppConf(
     triggerStore: Option[JdbcConfig] = None,
     allowExistingSchema: Boolean = false,
     compilerConfig: Compiler.Config = Compiler.Config.Default,
+    triggerConfig: TriggerRunnerConfig = DefaultTriggerConfig,
 ) {
   def toServiceConfig: ServiceConfig = {
     ServiceConfig(
@@ -115,6 +120,7 @@ private[trigger] final case class TriggerServiceAppConf(
       portFile = portFile,
       allowExistingSchema = allowExistingSchema,
       compilerConfig = compilerConfig,
+      triggerConfig = triggerConfig,
     )
   }
 }

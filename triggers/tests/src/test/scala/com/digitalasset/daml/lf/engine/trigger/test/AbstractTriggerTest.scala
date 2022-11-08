@@ -25,6 +25,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref._
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerConfig
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
@@ -32,6 +33,7 @@ import com.daml.platform.sandbox.services.TestCommands
 import org.scalatest._
 import scalaz.syntax.tag._
 import com.daml.platform.sandbox.fixture.SandboxFixture
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -104,6 +106,7 @@ trait AbstractTriggerTest
         new Runner(
           compiledPackages,
           trigger,
+          DefaultTriggerConfig,
           client,
           config.participants(ParticipantId).apiServer.timeProviderType,
           applicationId,

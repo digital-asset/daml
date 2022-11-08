@@ -39,6 +39,7 @@ object TriggerRunnerImpl {
       refreshToken: Option[RefreshToken],
       compiledPackages: CompiledPackages,
       trigger: Trigger,
+      triggerConfig: TriggerRunnerConfig,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
       readAs: Set[Party],
@@ -190,6 +191,7 @@ object TriggerRunnerImpl {
         runner = new Runner(
           config.compiledPackages,
           config.trigger,
+          config.triggerConfig,
           client,
           config.ledgerConfig.timeProvider,
           config.applicationId,

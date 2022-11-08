@@ -15,6 +15,7 @@ import com.daml.cliopts
 import scala.concurrent.duration.FiniteDuration
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.dbutils.{DBConfig, JdbcConfig}
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerConfig
 import com.typesafe.scalalogging.StrictLogging
 import pureconfig.ConfigSource
 import pureconfig.error.ConfigReaderFailures
@@ -50,6 +51,7 @@ private[trigger] final case class Cli(
     portFile: Option[Path],
     allowExistingSchema: Boolean,
     compilerConfig: Compiler.Config,
+    triggerConfig: TriggerRunnerConfig,
 ) extends StrictLogging {
 
   def loadFromConfigFile: Option[Either[ConfigReaderFailures, TriggerServiceAppConf]] =
@@ -81,6 +83,7 @@ private[trigger] final case class Cli(
       portFile = portFile,
       allowExistingSchema = allowExistingSchema,
       compilerConfig = compilerConfig,
+      triggerConfig = triggerConfig,
     )
   }
 
@@ -90,7 +93,7 @@ private[trigger] final case class Cli(
         case Right(cfg) => Some(cfg.toServiceConfig)
         case Left(ex) =>
           logger.error(
-            s"Error loading trigger service config from file ${configFile}",
+            s"Error loading trigger service config from file $configFile",
             ex.prettyPrint(),
           )
           None
@@ -152,6 +155,7 @@ private[trigger] object Cli {
     portFile = None,
     allowExistingSchema = false,
     compilerConfig = DefaultCompilerConfig,
+    triggerConfig = DefaultTriggerConfig,
   )
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
