@@ -98,12 +98,13 @@ class GrpcMetricsServerInterceptorSpec
     val metrics = new TestingGrpcMetrics
     withService(metrics).use { helloService =>
       val payload = ByteString.copyFromUtf8("test message")
-      helloService.single(new HelloRequest(payload = payload)).map { _ =>
+      val request = new HelloRequest(payload = payload)
+      helloService.single(request).map { response =>
         metrics.messagesSentSize.valuesWithContext should contain theSameElementsAs Map(
-          labelsForSimpleRequest -> Seq(14)
+          labelsForSimpleRequest -> Seq(request.serializedSize)
         )
         metrics.messagesReceivedSize.valuesWithContext should contain theSameElementsAs Map(
-          labelsForSimpleRequest -> Seq(14)
+          labelsForSimpleRequest -> Seq(response.serializedSize)
         )
       }
     }
