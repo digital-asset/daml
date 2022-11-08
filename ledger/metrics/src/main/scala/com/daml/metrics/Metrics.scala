@@ -4,12 +4,12 @@
 package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
-import io.opentelemetry.api.GlobalOpenTelemetry
-import io.opentelemetry.api.metrics.{Meter => OtelMeter}
-import com.daml.metrics.api.{MetricHandle, MetricName}
+import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.dropwizard.DropwizardFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
-import com.daml.metrics.grpc.GrpcServerMetrics
+import com.daml.metrics.grpc.DamlGrpcServerMetrics
+import io.opentelemetry.api.GlobalOpenTelemetry
+import io.opentelemetry.api.metrics.{Meter => OtelMeter}
 
 object Metrics {
   lazy val ForTesting = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
@@ -17,6 +17,10 @@ object Metrics {
 
 final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMeter)
     extends DropwizardFactory {
+
+  val openTelemetryFactory: OpenTelemetryFactory = new OpenTelemetryFactory {
+    override def otelMeter: OtelMeter = Metrics.this.meter
+  }
 
   object test {
     private val prefix: MetricName = MetricName("test")
@@ -75,34 +79,7 @@ final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMe
       )
     }
 
-    object grpc extends OpenTelemetryFactory with GrpcServerMetrics {
-
-      private val grpcServerMetricsPrefix = prefix :+ "grpc" :+ "server"
-
-      override def otelMeter: OtelMeter = Metrics.this.meter
-      override val callTimer: MetricHandle.Timer = timer(grpcServerMetricsPrefix)
-      override val messagesSent: MetricHandle.Meter = meter(
-        grpcServerMetricsPrefix :+ "messages" :+ "sent"
-      )
-      override val messagesReceived: MetricHandle.Meter = meter(
-        grpcServerMetricsPrefix :+ "messages" :+ "received"
-      )
-      override val messagesRequested: MetricHandle.Meter = meter(
-        grpcServerMetricsPrefix :+ "messages" :+ "requested"
-      )
-      override val messagesSentSize: MetricHandle.Histogram = histogram(
-        grpcServerMetricsPrefix :+ "messages" :+ "sent" :+ "bytes"
-      )
-      override val messagesReceivedSize: MetricHandle.Histogram = histogram(
-        grpcServerMetricsPrefix :+ "messages" :+ "received" :+ "bytes"
-      )
-      override val callsStarted: MetricHandle.Meter = meter(
-        grpcServerMetricsPrefix :+ "calls" :+ "started"
-      )
-      override val callsFinished: MetricHandle.Meter = meter(
-        grpcServerMetricsPrefix :+ "calls" :+ "finished"
-      )
-    }
+    object grpc extends DamlGrpcServerMetrics(openTelemetryFactory)
 
   }
 }
