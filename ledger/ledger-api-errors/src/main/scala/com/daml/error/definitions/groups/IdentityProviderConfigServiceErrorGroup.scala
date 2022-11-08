@@ -14,22 +14,22 @@ import com.daml.error.{
 }
 
 object IdentityProviderConfigServiceErrorGroup
-  extends AdminServices.IdentityProviderConfigServiceErrorGroup {
+    extends AdminServices.IdentityProviderConfigServiceErrorGroup {
 
   @Explanation("The identity provider config referred to by the request was not found.")
   @Resolution(
     "Check that you are connecting to the right participant node and the identity provider config is spelled correctly, or create the configuration."
   )
   object IdentityProviderConfigNotFound
-    extends ErrorCode(
-      id = "IDP_CONFIG_NOT_FOUND",
-      ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-    ) {
+      extends ErrorCode(
+        id = "IDP_CONFIG_NOT_FOUND",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      ) {
     case class Reject(operation: String, identityProviderId: String)(implicit
-                                                                     loggingContext: ContextualizedErrorLogger
+        loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-      cause = s"${operation} failed for unknown identity provider id=\"${identityProviderId}\""
-    ) {
+          cause = s"${operation} failed for unknown identity provider id=\"${identityProviderId}\""
+        ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.IdentityProviderConfig -> identityProviderId
       )
