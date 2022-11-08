@@ -58,6 +58,7 @@ import scala.concurrent.duration._
 
 trait AbstractTriggerServiceTestHelper
     extends AsyncFlatSpec
+    with BeforeAndAfterAll
     with HttpCookies
     with TriggerServiceFixture
     with Matchers
@@ -80,6 +81,13 @@ trait AbstractTriggerServiceTestHelper
     SecurityTest(property = Confidentiality, asset = "TBD")
 
   lazy protected val darPath: File = requiredResource("triggers/service/test-model.dar")
+
+  abstract override protected def beforeAll(): Unit = {
+    super.beforeAll()
+
+    // ensure required resource is initialized before starting the tests
+    val _ = darPath
+  }
 
   // Encoded dar used in service initialization
   protected lazy val dar: Dar[(PackageId, DamlLf.ArchivePayload)] =
