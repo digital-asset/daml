@@ -23,9 +23,10 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.{ApplicationId, PackageId, Party, SubmissionId, TransactionId, WorkflowId}
 import com.daml.platform.store._
-import com.daml.platform.store.dao.events._
+import com.daml.platform.store.dao.events.{TransactionsFlatReader, _}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{ParameterStorageBackend, ReadStorageBackend}
 import com.daml.platform.store.cache.LedgerEndCache
@@ -39,8 +40,8 @@ import scala.util.{Failure, Success}
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher with ReportsHealth,
     servicesExecutionContext: ExecutionContext,
-    eventsPageSize: Int,
-    eventsProcessingParallelism: Int,
+    txMaxPayloadsPerPayloadsPage: Int,
+    payloadProcessingParallelism: Int,
     acsIdPageSize: Int,
     acsIdPageBufferSize: Int,
     acsIdPageWorkingMemoryBytes: Int,
@@ -459,42 +460,97 @@ private class JdbcLedgerDao(
   // TODO pbatko: Applicable to ACS id fetching as well?
   // TODO pbatko: Make it configurable
   // TODO pbatko: What is the suitable execution context?
-  private val idFetchingGlobalLimiter = new QueueBasedConcurrencyLimiter(
+  private val globalMaxParallelIdQueriesLimiter = new QueueBasedConcurrencyLimiter(
     parallelism = 20,
     executionContext = servicesExecutionContext,
   )
   // TODO pbatko: Make it configurable
-  private val eventFetchingGlobalLimiter = new QueueBasedConcurrencyLimiter(
+  private val globalMaxParallelPayloadQueriesLimiter = new QueueBasedConcurrencyLimiter(
     parallelism = 10,
     executionContext = servicesExecutionContext,
   )
 
+  private val acsEventFetchingQueryLimiter =
+    new QueueBasedConcurrencyLimiter(acsGlobalParallelism, servicesExecutionContext)
+
+  private val acsReader = new FilterTableACSReader(
+    dispatcher = dbDispatcher,
+    queryNonPruned = queryNonPruned,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    pageSize = txMaxPayloadsPerPayloadsPage,
+    idPageSize = acsIdPageSize,
+    idPageBufferSize = acsIdPageBufferSize,
+    idPageWorkingMemoryBytes = acsIdPageWorkingMemoryBytes,
+    idFetchingParallelism = acsIdFetchingParallelism,
+    acsFetchingparallelism = acsContractFetchingParallelism,
+    metrics = metrics,
+    acsEventFetchingQueryLimiter = acsEventFetchingQueryLimiter,
+    executionContext = servicesExecutionContext,
+  )
+
+  // TODO etq: Get from dedicated tx configuration
+  private val txMaxIdsPerIdPage: Int = IndexServiceConfig.DefaultAcsIdPageSize
+  private val txMaxPagesPerPagesBuffer: Int = IndexServiceConfig.DefaultAcsIdPageBufferSize
+  private val txMaxWorkingMemoryInBytesForIdPages: Int =
+    IndexServiceConfig.DefaultAcsIdPageWorkingMemoryBytes
+
+  private val flatTransactionsReader: TransactionsFlatReader = new TransactionsFlatReader(
+    maxPayloadsPerPayloadsPage = txMaxPayloadsPerPayloadsPage,
+    payloadProcessingParallelism = payloadProcessingParallelism,
+    maxIdsPerIdPage = txMaxIdsPerIdPage,
+    maxPagesPerPagesBuffer = txMaxPagesPerPagesBuffer,
+    maxWorkingMemoryInBytesForIdPages = txMaxWorkingMemoryInBytesForIdPages,
+    globalMaxParallelIdQueriesLimiter = globalMaxParallelIdQueriesLimiter,
+    globalMaxParallelPayloadQueriesLimiter = globalMaxParallelPayloadQueriesLimiter,
+    dbDispatcher = dbDispatcher,
+    queryNonPruned = queryNonPruned,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    lfValueTranslation = translation,
+    metrics = metrics,
+  )(servicesExecutionContext)
+
+  private val treeTransactionsReader: TransactionsTreeReader = new TransactionsTreeReader(
+    maxPayloadsPerPayloadsPage = txMaxPayloadsPerPayloadsPage,
+    payloadProcessingParallelism = payloadProcessingParallelism,
+    maxIdsPerIdPage = txMaxIdsPerIdPage,
+    maxPagesPerPagesBuffer = txMaxPagesPerPagesBuffer,
+    maxWorkingMemoryInBytesForIdPages = txMaxWorkingMemoryInBytesForIdPages,
+    globalMaxParallelIdQueriesLimiter = globalMaxParallelIdQueriesLimiter,
+    globalMaxParallelPayloadQueriesLimiter = globalMaxParallelPayloadQueriesLimiter,
+    dbDispatcher = dbDispatcher,
+    queryNonPruned = queryNonPruned,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    lfValueTranslation = translation,
+    metrics = metrics,
+  )(servicesExecutionContext)
+
+  private val flatTransactionFetching: FlatTransactionFetching = new FlatTransactionFetching(
+    dbDispatcher = dbDispatcher,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    metrics = metrics,
+    lfValueTranslation = translation,
+  )(servicesExecutionContext)
+
+  private val treeTransactionFetching: TreeTransactionFetching = new TreeTransactionFetching(
+    dbDispatcher = dbDispatcher,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    metrics = metrics,
+    lfValueTranslation = translation,
+  )(servicesExecutionContext)
+
   override val transactionsReader: TransactionsReader =
     new TransactionsReader(
-      dispatcher = dbDispatcher,
+      dbDispatcher = dbDispatcher,
       queryNonPruned = queryNonPruned,
       eventStorageBackend = readStorageBackend.eventStorageBackend,
-      pageSize = eventsPageSize,
-      eventProcessingParallelism = eventsProcessingParallelism,
+      payloadProcessingParallelism = payloadProcessingParallelism,
       metrics = metrics,
       lfValueTranslation = translation,
-      acsReader = new FilterTableACSReader(
-        dispatcher = dbDispatcher,
-        queryNonPruned = queryNonPruned,
-        eventStorageBackend = readStorageBackend.eventStorageBackend,
-        pageSize = eventsPageSize,
-        idPageSize = acsIdPageSize,
-        idPageBufferSize = acsIdPageBufferSize,
-        idPageWorkingMemoryBytes = acsIdPageWorkingMemoryBytes,
-        idFetchingParallelism = acsIdFetchingParallelism,
-        acsFetchingparallelism = acsContractFetchingParallelism,
-        metrics = metrics,
-        acsEventFetchingQueryLimiter =
-          new QueueBasedConcurrencyLimiter(acsGlobalParallelism, servicesExecutionContext),
-        executionContext = servicesExecutionContext,
-      ),
-      idFetchingGlobalLimiter = idFetchingGlobalLimiter,
-      eventFetchingGlobalLimiter = eventFetchingGlobalLimiter,
+      flatTransactionsReader = flatTransactionsReader,
+      treeTransactionsReader = treeTransactionsReader,
+      flatTransactionFetching = flatTransactionFetching,
+      treeTransactionFetching = treeTransactionFetching,
+      acsReader = acsReader,
     )(
       servicesExecutionContext
     )

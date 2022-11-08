@@ -253,6 +253,30 @@ object ContractStorageBackend {
   )
 }
 
+sealed trait EventIdFetchingForStakeholdersTarget
+object EventIdFetchingForStakeholdersTarget {
+  object CreateStakeholder extends EventIdFetchingForStakeholdersTarget
+  object ConsumingStakeholder extends EventIdFetchingForStakeholdersTarget
+}
+sealed trait EventIdFetchingForInformeesTarget
+object EventIdFetchingForInformeesTarget {
+  object CreateStakeholder extends EventIdFetchingForInformeesTarget
+  object CreateNonStakeholderInformee extends EventIdFetchingForInformeesTarget
+  object ConsumingStakeholder extends EventIdFetchingForInformeesTarget
+  object ConsumingNonStakeholderInformee extends EventIdFetchingForInformeesTarget
+  object NonConsumingInformee extends EventIdFetchingForInformeesTarget
+}
+sealed trait PayloadFetchingForFlatTxTarget
+object PayloadFetchingForFlatTxTarget {
+  object CreateEventPayloads extends PayloadFetchingForFlatTxTarget
+  object ConsumingEventPayloads extends PayloadFetchingForFlatTxTarget
+}
+sealed trait PayloadFetchingForTreeTxTarget
+object PayloadFetchingForTreeTxTarget {
+  object CreateEventPayloads extends PayloadFetchingForTreeTxTarget
+  object ConsumingEventPayloads extends PayloadFetchingForTreeTxTarget
+  object NonConsumingEventPayloads extends PayloadFetchingForTreeTxTarget
+}
 trait EventStorageBackend {
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
@@ -297,6 +321,88 @@ trait EventStorageBackend {
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Ref.Party],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
+
+  final def fetchEventPayloadsFlat(target: PayloadFetchingForFlatTxTarget)(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
+    target match {
+      // TODO pbatko: Inline queries?
+      case PayloadFetchingForFlatTxTarget.ConsumingEventPayloads =>
+        fetchFlatConsumingEvents(eventSequentialIds, allFilterParties)(connection)
+      case PayloadFetchingForFlatTxTarget.CreateEventPayloads =>
+        fetchFlatCreateEvents(eventSequentialIds, allFilterParties)(connection)
+    }
+  }
+
+  final def fetchEventPayloadsTree(target: PayloadFetchingForTreeTxTarget)(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
+    target match {
+      // TODO pbatko: Inline queries?
+      case PayloadFetchingForTreeTxTarget.ConsumingEventPayloads =>
+        fetchTreeConsumingEvents(eventSequentialIds, allFilterParties)(connection)
+      case PayloadFetchingForTreeTxTarget.CreateEventPayloads =>
+        fetchTreeCreateEvents(eventSequentialIds, allFilterParties)(connection)
+      case PayloadFetchingForTreeTxTarget.NonConsumingEventPayloads =>
+        fetchTreeNonConsumingEvents(eventSequentialIds, allFilterParties)(connection)
+    }
+  }
+
+  final def fetchEventIdsForStakeholder(target: EventIdFetchingForStakeholdersTarget)(
+      partyFilter: Party,
+      templateIdFilter: Option[Identifier],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long] = target match {
+    // TODO pbatko: Inline queries?
+    case EventIdFetchingForStakeholdersTarget.ConsumingStakeholder =>
+      fetchIds_consuming_stakeholders(
+        partyFilter,
+        templateIdFilter,
+        startExclusive,
+        endInclusive,
+        limit,
+      )(connection)
+    case EventIdFetchingForStakeholdersTarget.CreateStakeholder =>
+      fetchIds_create_stakeholders(
+        partyFilter,
+        templateIdFilter,
+        startExclusive,
+        endInclusive,
+        limit,
+      )(connection)
+  }
+
+  final def fetchEventIdsForInformees(target: EventIdFetchingForInformeesTarget)(
+      partyFilter: Party,
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long] = target match {
+    // TODO pbatko: Inline queries?
+    case EventIdFetchingForInformeesTarget.ConsumingStakeholder =>
+      fetchIds_consuming_stakeholders(partyFilter, None, startExclusive, endInclusive, limit)(
+        connection
+      )
+    case EventIdFetchingForInformeesTarget.ConsumingNonStakeholderInformee =>
+      fetchIds_consuming_nonStakeholderInformees(partyFilter, startExclusive, endInclusive, limit)(
+        connection
+      )
+    case EventIdFetchingForInformeesTarget.CreateStakeholder =>
+      fetchIds_create_stakeholders(partyFilter, None, startExclusive, endInclusive, limit)(
+        connection
+      )
+    case EventIdFetchingForInformeesTarget.CreateNonStakeholderInformee =>
+      fetchIds_create_nonStakeholderInformees(partyFilter, startExclusive, endInclusive, limit)(
+        connection
+      )
+    case EventIdFetchingForInformeesTarget.NonConsumingInformee =>
+      fetchIds_nonConsuming_informees(partyFilter, startExclusive, endInclusive, limit)(connection)
+
+  }
 
   def fetchIds_create_stakeholders(
       partyFilter: Party,
