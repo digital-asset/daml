@@ -253,7 +253,6 @@ printTestCoverage ::
     -> [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
     -> IO ()
 printTestCoverage ShowCoverage {getShowCoverage} allPackages results
-  -- | undefined (summarize <$> allPackages) = undefined
   | any (isLeft . snd) $ concatMap snd results = pure ()
   | otherwise = do
       printReport $ report "defined in local modules" isLocal
