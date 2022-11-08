@@ -6,8 +6,7 @@
 -- is caught prior due to missing Eq and Show instances.
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ERROR range=20:7-20:16; No instance for (HasInterfaceTypeRep Bool)
--- @ERROR range=20:7-20:16; Tried to get an interface view of type ‘()’ from type ‘Bool’
+-- @ERROR range=19:7-19:16; Tried to get an interface view of type ‘()’ from type ‘Bool’
 
 module ImplementsNonInterface where
 

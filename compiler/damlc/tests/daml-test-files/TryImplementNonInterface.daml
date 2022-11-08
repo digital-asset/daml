@@ -2,8 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ERROR range=18:7-18:20; Tried to get an interface view of type ‘MyUnit’ from type ‘Bool’
--- @ERROR range=18:7-18:20; No instance for (HasInterfaceTypeRep Bool)
+-- @ERROR range=17:7-17:20; Tried to get an interface view of type ‘MyUnit’ from type ‘Bool’
 
 -- | Check that an error is thrown if implementing a non-interface
 module TryImplementNonInterface where
