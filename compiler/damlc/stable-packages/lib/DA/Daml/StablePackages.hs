@@ -24,7 +24,6 @@ allStablePackages =
     [ ghcTypes
     , ghcPrim
     , ghcTuple
-    , ghcTupleCheck
     , daTypes
     , daInternalTemplate
     , daInternalAny
@@ -161,23 +160,6 @@ ghcTuple = package version1_6 $ NM.singleton (emptyModule modName)
     values = NM.fromList
       [ mkWorkerDef modName unitTyCon tyVars [(mkIndexedField 1, TVar tyVar)]
       ]
-
-ghcTupleCheck :: Package
-ghcTupleCheck = Package
-  { packageLfVersion = version1_15
-  , packageModules = NM.singleton (emptyModule modName)
-      { moduleDataTypes = datatypes
-      , moduleValues = values
-      }
-  , packageMetadata = Just PackageMetadata
-      { packageName = PackageName "daml-prim-GHC-Tuple-Check"
-      , packageVersion = PackageVersion "1.0.0"
-      }
-  }
-  where
-    modName = mkModName ["GHC", "Tuple", "Check"]
-    datatypes = NM.fromList []
-    values = NM.fromList []
 
 daInternalTemplate :: Package
 daInternalTemplate = package version1_6 $ NM.singleton (emptyModule modName)
