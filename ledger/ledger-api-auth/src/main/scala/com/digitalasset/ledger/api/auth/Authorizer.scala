@@ -120,10 +120,9 @@ final class Authorizer(
       Right(identityProviderId)
     } else if (claims.resolvedFromUser && requestIdentityProviderId.isEmpty)
       Right(claims.identityProviderId.getOrElse(""))
-    else
-      Left(
-        AuthorizationError.MissingAdminClaim
-      ) // TODO DPP-1299 Is it really admin claim here? or what?
+    else {
+      Left(AuthorizationError.InvalidIdentityProviderId(claims.identityProviderId))
+    }
   }
 
   private[this] def requireForAll[T](

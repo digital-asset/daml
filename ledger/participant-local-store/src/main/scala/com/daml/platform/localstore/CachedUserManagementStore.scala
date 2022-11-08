@@ -42,7 +42,7 @@ class CachedUserManagementStore(
                 executor: Executor,
             ): CompletableFuture[Result[UserInfo]] = {
               val cf = new CompletableFuture[Result[UserInfo]]
-              delegate.getUserInfo(key).onComplete {
+              delegate.getUserInfo(key, None).onComplete {
                 case Success(value) => cf.complete(value)
                 case Failure(e) => cf.completeExceptionally(e)
               }
@@ -53,10 +53,18 @@ class CachedUserManagementStore(
       metrics.daml.userManagement.cache,
     )
 
-  override def getUserInfo(id: UserId)(implicit
+  override def getUserInfo(id: UserId, identityProviderId: Option[Ref.IdentityProviderId])(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserManagementStore.UserInfo]] = {
-    cache.get(id)
+    cache
+      .get(id)
+      .map(_.flatMap {
+        case user if identityProviderId.isEmpty => Right(user)
+        case user if identityProviderId == user.user.identityProviderId =>
+          Right(user)
+        case _ =>
+          Left(UserManagementStore.UserNotFound(id))
+      })
   }
 
   override def createUser(user: User, rights: Set[domain.UserRight])(implicit
@@ -75,28 +83,31 @@ class CachedUserManagementStore(
   }
 
   override def deleteUser(
-      id: UserId
+      id: UserId,
+      identityProviderId: Option[Ref.IdentityProviderId],
   )(implicit loggingContext: LoggingContext): Future[Result[Unit]] = {
     delegate
-      .deleteUser(id)
+      .deleteUser(id, identityProviderId)
       .andThen(invalidateOnSuccess(id))
   }
 
   override def grantRights(
       id: UserId,
       rights: Set[domain.UserRight],
+      identityProviderId: Option[Ref.IdentityProviderId],
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     delegate
-      .grantRights(id, rights)
+      .grantRights(id, rights, identityProviderId)
       .andThen(invalidateOnSuccess(id))
   }
 
   override def revokeRights(
       id: UserId,
       rights: Set[domain.UserRight],
+      identityProviderId: Option[Ref.IdentityProviderId],
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     delegate
-      .revokeRights(id, rights)
+      .revokeRights(id, rights, identityProviderId)
       .andThen(invalidateOnSuccess(id))
   }
 

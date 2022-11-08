@@ -98,11 +98,11 @@ class PersistentUserManagementStore(
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  override def getUserInfo(id: UserId)(implicit
+  override def getUserInfo(id: UserId, identityProviderId: Option[Ref.IdentityProviderId])(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserInfo]] = {
     inTransaction(_.getUserInfo) { implicit connection =>
-      withUser(id) { dbUser =>
+      withUser(id, identityProviderId) { dbUser =>
         val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
         val annotations = backend.getUserAnnotations(internalId = dbUser.internalId)(connection)
         val domainUser = toDomainUser(dbUser, annotations)
@@ -166,7 +166,7 @@ class PersistentUserManagementStore(
   )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
     inTransaction(_.updateUser) { implicit connection =>
       for {
-        _ <- withUser(id = userUpdate.id) { dbUser =>
+        _ <- withUser(id = userUpdate.id, None) { dbUser => // todo provide identityProviderId
           val now = epochMicroseconds()
           // Step 1: Update resource version
           // NOTE: We starts by writing to the 'resource_version' attribute
@@ -228,17 +228,19 @@ class PersistentUserManagementStore(
             )(connection)
           }
         }
-        domainUser <- withUser(id = userUpdate.id) { dbUserAfterUpdates =>
-          val annotations =
-            backend.getUserAnnotations(internalId = dbUserAfterUpdates.internalId)(connection)
-          toDomainUser(dbUser = dbUserAfterUpdates, annotations = annotations)
+        domainUser <- withUser(id = userUpdate.id, None) {
+          dbUserAfterUpdates => // todo provide identityProviderId
+            val annotations =
+              backend.getUserAnnotations(internalId = dbUserAfterUpdates.internalId)(connection)
+            toDomainUser(dbUser = dbUserAfterUpdates, annotations = annotations)
         }
       } yield domainUser
     }
   }
 
   override def deleteUser(
-      id: UserId
+      id: UserId,
+      identityProviderId: Option[Ref.IdentityProviderId],
   )(implicit loggingContext: LoggingContext): Future[Result[Unit]] = {
     inTransaction(_.deleteUser) { implicit connection =>
       if (!backend.deleteUser(id = id)(connection)) {
@@ -254,9 +256,10 @@ class PersistentUserManagementStore(
   override def grantRights(
       id: UserId,
       rights: Set[domain.UserRight],
+      identityProviderId: Option[Ref.IdentityProviderId],
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     inTransaction(_.grantRights) { implicit connection =>
-      withUser(id = id) { user =>
+      withUser(id, identityProviderId) { user =>
         val now = epochMicroseconds()
         val addedRights = rights.filter { right =>
           if (!backend.userRightExists(internalId = user.internalId, right = right)(connection)) {
@@ -286,9 +289,10 @@ class PersistentUserManagementStore(
   override def revokeRights(
       id: UserId,
       rights: Set[domain.UserRight],
+      identityProviderId: Option[Ref.IdentityProviderId],
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     inTransaction(_.revokeRights) { implicit connection =>
-      withUser(id = id) { user =>
+      withUser(id, identityProviderId) { user =>
         val revokedRights = rights.filter { right =>
           backend.deleteUserRight(internalId = user.internalId, right = right)(connection)
         }
@@ -365,13 +369,15 @@ class PersistentUserManagementStore(
   }
 
   private def withUser[T](
-      id: Ref.UserId
+      id: Ref.UserId,
+      identityProviderId: Option[Ref.IdentityProviderId],
   )(
       f: UserManagementStorageBackend.DbUserWithId => T
   )(implicit connection: Connection): Result[T] = {
     backend.getUser(id = id)(connection) match {
-      case Some(user) => Right(f(user))
-      case None => Left(UserNotFound(userId = id))
+      case Some(user) if identityProviderId.isEmpty => Right(f(user))
+      case Some(user) if identityProviderId == user.payload.identityProviderId => Right(f(user))
+      case _ => Left(UserNotFound(userId = id))
     }
   }
 

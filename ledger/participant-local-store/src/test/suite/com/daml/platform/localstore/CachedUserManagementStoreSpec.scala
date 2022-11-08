@@ -48,14 +48,15 @@ class CachedUserManagementStoreSpec
   private val rights = Set(right1, right2)
   private val userInfo = UserInfo(user, rights)
   private val createdUserInfo = UserInfo(createdUser1, rights)
+  private val identityProviderId: Option[Ref.IdentityProviderId] = None
 
   "test user-not-found cache result gets invalidated after user creation" in {
     val delegate = spy(new InMemoryUserManagementStore())
     val tested = createTested(delegate)
     for {
-      getYetNonExistent <- tested.getUserInfo(userInfo.user.id)
+      getYetNonExistent <- tested.getUserInfo(userInfo.user.id, identityProviderId)
       _ <- tested.createUser(userInfo.user, userInfo.rights)
-      get <- tested.getUserInfo(user.id)
+      get <- tested.getUserInfo(user.id, identityProviderId)
     } yield {
       getYetNonExistent shouldBe Left(UserNotFound(createdUserInfo.user.id))
       get shouldBe Right(createdUserInfo)
@@ -68,13 +69,13 @@ class CachedUserManagementStoreSpec
 
     for {
       _ <- tested.createUser(userInfo.user, userInfo.rights)
-      get1 <- tested.getUserInfo(user.id)
-      get2 <- tested.getUserInfo(user.id)
-      getUser <- tested.getUser(user.id)
-      listRights <- tested.listUserRights(user.id)
+      get1 <- tested.getUserInfo(user.id, identityProviderId)
+      get2 <- tested.getUserInfo(user.id, identityProviderId)
+      getUser <- tested.getUser(user.id, identityProviderId)
+      listRights <- tested.listUserRights(user.id, identityProviderId)
     } yield {
       verify(delegate, times(1)).createUser(userInfo.user, userInfo.rights)
-      verify(delegate, times(1)).getUserInfo(userInfo.user.id)
+      verify(delegate, times(1)).getUserInfo(userInfo.user.id, identityProviderId)
       verifyNoMoreInteractions(delegate)
       get1 shouldBe Right(createdUserInfo)
       get2 shouldBe Right(createdUserInfo)
@@ -91,11 +92,11 @@ class CachedUserManagementStoreSpec
 
     for {
       _ <- tested.createUser(userInfo.user, userInfo.rights)
-      get1 <- tested.getUserInfo(user.id)
-      _ <- tested.grantRights(user.id, Set(right1))
-      get2 <- tested.getUserInfo(user.id)
-      _ <- tested.revokeRights(user.id, Set(right3))
-      get3 <- tested.getUserInfo(user.id)
+      get1 <- tested.getUserInfo(user.id, identityProviderId)
+      _ <- tested.grantRights(user.id, Set(right1), identityProviderId)
+      get2 <- tested.getUserInfo(user.id, identityProviderId)
+      _ <- tested.revokeRights(user.id, Set(right3), identityProviderId)
+      get3 <- tested.getUserInfo(user.id, identityProviderId)
       _ <- tested.updateUser(
         UserUpdate(
           id = user.id,
@@ -103,26 +104,26 @@ class CachedUserManagementStoreSpec
           metadataUpdate = ObjectMetaUpdate.empty,
         )
       )
-      get4 <- tested.getUserInfo(user.id)
-      _ <- tested.deleteUser(user.id)
-      get5 <- tested.getUserInfo(user.id)
+      get4 <- tested.getUserInfo(user.id, identityProviderId)
+      _ <- tested.deleteUser(user.id, identityProviderId)
+      get5 <- tested.getUserInfo(user.id, identityProviderId)
 
     } yield {
       val order = inOrder(delegate)
       order.verify(delegate, times(1)).createUser(user, userInfo.rights)
-      order.verify(delegate, times(1)).getUserInfo(user.id)
+      order.verify(delegate, times(1)).getUserInfo(user.id, identityProviderId)
       order
         .verify(delegate, times(1))
-        .grantRights(eqTo(user.id), any[Set[UserRight]])(any[LoggingContext])
-      order.verify(delegate, times(1)).getUserInfo(userInfo.user.id)
+        .grantRights(eqTo(user.id), any[Set[UserRight]], identityProviderId)(any[LoggingContext])
+      order.verify(delegate, times(1)).getUserInfo(userInfo.user.id, identityProviderId)
       order
         .verify(delegate, times(1))
-        .revokeRights(eqTo(user.id), any[Set[UserRight]])(any[LoggingContext])
-      order.verify(delegate, times(1)).getUserInfo(userInfo.user.id)
+        .revokeRights(eqTo(user.id), any[Set[UserRight]], identityProviderId)(any[LoggingContext])
+      order.verify(delegate, times(1)).getUserInfo(userInfo.user.id, identityProviderId)
       order.verify(delegate, times(1)).updateUser(any[UserUpdate])(any[LoggingContext])
-      order.verify(delegate, times(1)).getUserInfo(userInfo.user.id)
-      order.verify(delegate, times(1)).deleteUser(userInfo.user.id)
-      order.verify(delegate, times(1)).getUserInfo(userInfo.user.id)
+      order.verify(delegate, times(1)).getUserInfo(userInfo.user.id, identityProviderId)
+      order.verify(delegate, times(1)).deleteUser(userInfo.user.id, identityProviderId)
+      order.verify(delegate, times(1)).getUserInfo(userInfo.user.id, identityProviderId)
       order.verifyNoMoreInteractions()
       get1 shouldBe Right(createdUserInfo)
       get2 shouldBe Right(createdUserInfo)
@@ -159,17 +160,19 @@ class CachedUserManagementStoreSpec
 
     for {
       create1 <- tested.createUser(user, rights)
-      get1 <- tested.getUserInfo(user.id)
-      get2 <- tested.getUserInfo(user.id)
+      get1 <- tested.getUserInfo(user.id, identityProviderId)
+      get2 <- tested.getUserInfo(user.id, identityProviderId)
       get3 <- {
-        Thread.sleep(2000); tested.getUserInfo(user.id)
+        Thread.sleep(2000); tested.getUserInfo(user.id, identityProviderId)
       }
     } yield {
       val order = inOrder(delegate)
       order
         .verify(delegate, times(1))
         .createUser(any[User], any[Set[UserRight]])(any[LoggingContext])
-      order.verify(delegate, times(2)).getUserInfo(any[Ref.UserId])(any[LoggingContext])
+      order
+        .verify(delegate, times(2))
+        .getUserInfo(any[Ref.UserId], identityProviderId)(any[LoggingContext])
       order.verifyNoMoreInteractions()
       create1 shouldBe Right(createdUser1)
       get1 shouldBe Right(createdUserInfo)

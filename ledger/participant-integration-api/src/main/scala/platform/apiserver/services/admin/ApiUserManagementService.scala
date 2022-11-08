@@ -201,25 +201,35 @@ private[apiserver] final class ApiUserManagementService(
   }
 
   override def getUser(request: proto.GetUserRequest): Future[GetUserResponse] =
-    withValidation(
-      requireUserId(request.userId, "user_id")
-    )(userId =>
+    withValidation {
+      for {
+        userId <- requireUserId(request.userId, "user_id")
+        identityProviderId <- optionalString(request.identityProviderId)(
+          requireIdentityProviderId(_, "identity_provider_id")
+        )
+      } yield (userId, identityProviderId)
+    } { case (userId, identityProviderId) =>
       userManagementStore
-        .getUser(userId)
+        .getUser(userId, identityProviderId)
         .flatMap(handleResult("getting user"))
         .map(u => GetUserResponse(Some(toProtoUser(u))))
-    )
+    }
 
   override def deleteUser(request: proto.DeleteUserRequest): Future[proto.DeleteUserResponse] =
     withSubmissionId { implicit loggingContext =>
-      withValidation(
-        requireUserId(request.userId, "user_id")
-      )(userId =>
+      withValidation {
+        for {
+          userId <- requireUserId(request.userId, "user_id")
+          identityProviderId <- optionalString(request.identityProviderId)(
+            requireIdentityProviderId(_, "identity_provider_id")
+          )
+        } yield (userId, identityProviderId)
+      } { case (userId, identityProviderId) =>
         userManagementStore
-          .deleteUser(userId)
+          .deleteUser(userId, identityProviderId)
           .flatMap(handleResult("deleting user"))
           .map(_ => proto.DeleteUserResponse())
-      )
+      }
     }
 
   override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] = {
@@ -263,12 +273,16 @@ private[apiserver] final class ApiUserManagementService(
       for {
         userId <- requireUserId(request.userId, "user_id")
         rights <- fromProtoRights(request.rights)
-      } yield (userId, rights)
-    ) { case (userId, rights) =>
+        identityProviderId <- optionalString(request.identityProviderId)(
+          requireIdentityProviderId(_, "identity_provider_id")
+        )
+      } yield (userId, rights, identityProviderId)
+    ) { case (userId, rights, identityProviderId) =>
       userManagementStore
         .grantRights(
           id = userId,
           rights = rights,
+          identityProviderId = identityProviderId,
         )
         .flatMap(handleResult("grant user rights"))
         .map(_.view.map(toProtoRight).toList)
@@ -283,12 +297,16 @@ private[apiserver] final class ApiUserManagementService(
       for {
         userId <- FieldValidations.requireUserId(request.userId, "user_id")
         rights <- fromProtoRights(request.rights)
-      } yield (userId, rights)
-    ) { case (userId, rights) =>
+        identityProviderId <- optionalString(request.identityProviderId)(
+          requireIdentityProviderId(_, "identity_provider_id")
+        )
+      } yield (userId, rights, identityProviderId)
+    ) { case (userId, rights, identityProviderId) =>
       userManagementStore
         .revokeRights(
           id = userId,
           rights = rights,
+          identityProviderId = identityProviderId,
         )
         .flatMap(handleResult("revoke user rights"))
         .map(_.view.map(toProtoRight).toList)
@@ -299,15 +317,20 @@ private[apiserver] final class ApiUserManagementService(
   override def listUserRights(
       request: proto.ListUserRightsRequest
   ): Future[proto.ListUserRightsResponse] =
-    withValidation(
-      requireUserId(request.userId, "user_id")
-    )(userId =>
+    withValidation {
+      for {
+        userId <- requireUserId(request.userId, "user_id")
+        identityProviderId <- optionalString(request.identityProviderId)(
+          requireIdentityProviderId(_, "identity_provider_id")
+        )
+      } yield (userId, identityProviderId)
+    } { case (userId, identityProviderId) =>
       userManagementStore
-        .listUserRights(userId)
+        .listUserRights(userId, identityProviderId)
         .flatMap(handleResult("list user rights"))
         .map(_.view.map(toProtoRight).toList)
         .map(proto.ListUserRightsResponse(_))
-    )
+    }
 
   private def handleUpdatePathResult[T](userId: Ref.UserId, result: update.Result[T]): Future[T] =
     result match {

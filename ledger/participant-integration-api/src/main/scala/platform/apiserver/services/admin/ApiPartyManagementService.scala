@@ -115,9 +115,12 @@ private[apiserver] final class ApiPartyManagementService private (
       logger.info("Getting parties")
       withValidation {
         for {
+          identityProviderId <- optionalString(request.identityProviderId)(
+            requireIdentityProviderId(_, "identity_provider_id")
+          )
           parties <- request.parties.toList.traverse(requireParty)
-        } yield parties
-      } { parties: Seq[Party] =>
+        } yield (parties, identityProviderId)
+      } { case (parties: Seq[Party], identityProviderId) =>
         for {
           partyDetailsSeq <- partyManagementService.getParties(parties)
           partyRecordOptions <- fetchPartyRecords(partyDetailsSeq)
@@ -130,7 +133,12 @@ private[apiserver] final class ApiPartyManagementService private (
                 identityProviderId = recordO.flatMap(_.identityProviderId),
               )
             }
-          GetPartiesResponse(partyDetails = protoDetails)
+          identityProviderId match {
+            case Some(id) =>
+              GetPartiesResponse(partyDetails = protoDetails.filter(_.identityProviderId == id))
+            case None =>
+              GetPartiesResponse(partyDetails = protoDetails)
+          }
         }
       }
     }

@@ -50,8 +50,8 @@ private[auth] final class UserRightsChangeAsyncChecker(
         val userState
             : Future[Either[UserManagementStore.Error, (domain.User, Set[domain.UserRight])]] =
           for {
-            userRightsResult <- userManagementStore.listUserRights(userId)
-            userResult <- userManagementStore.getUser(userId)
+            userRightsResult <- userManagementStore.listUserRights(userId, None)
+            userResult <- userManagementStore.getUser(userId, None)
           } yield {
             for {
               userRights <- userRightsResult
