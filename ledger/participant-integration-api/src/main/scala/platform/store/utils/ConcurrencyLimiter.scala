@@ -14,11 +14,13 @@ class NoConcurrencyLimiter extends ConcurrencyLimiter {
   override def execute[T](task: => Future[T]): Future[T] = task
 }
 
-/** @param parentO - used to define a hierarchy (a tree) of concurrency limiters such that we can
+/** @param executionContext - needed to run limiter's internal book-keeping. Does not run the submitted tasks.
+  * @param parentO - used to define a hierarchy (a tree) of concurrency limiters such that we can
   *               express constraints like: for 5 local limiters each running at most 3 concurrent tasks
   *               set a global limit of at most 10 concurrent in total.
   *                If a parent is defined, then tasks will run on parent's execution context.
   */
+// TODO etq: Separate 1) concurrency limiting from 2) composition of limiters
 class QueueBasedConcurrencyLimiter(
     parallelism: Int,
     executionContext: ExecutionContext,

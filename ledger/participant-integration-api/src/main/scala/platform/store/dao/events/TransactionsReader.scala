@@ -155,7 +155,11 @@ private[dao] final class TransactionsReader(
 
     val idPageConfig = IdQueryConfiguration(
       maxIdPageSize = idPageSize,
-      idPageWorkingMemoryBytes = idPageWorkingMemoryBytes,
+      // We fetch identifier for flat transactions from two sources:
+      // - the source of identifiers for consuming events,
+      // - the source of identifiers for create events;
+      // and thus we assign each of these source half of the total working memory designated for identifier pages.
+      idPageWorkingMemoryBytes = idPageWorkingMemoryBytes / 2,
       filterSize = filters.size,
       idPageBufferSize = idPageBufferSize,
     )
@@ -310,14 +314,7 @@ private[dao] final class TransactionsReader(
 
     val allFlatEvents: Source[EventStorageBackend.Entry[Raw.FlatEvent], NotUsed] =
       consumingStream.mergeSorted(createStream)(
-        ord = new Ordering[EventStorageBackend.Entry[Raw.FlatEvent]] {
-          override def compare(
-              x: EventStorageBackend.Entry[Raw.FlatEvent],
-              y: EventStorageBackend.Entry[Raw.FlatEvent],
-          ): Int = {
-            implicitly[Ordering[Long]].compare(x.eventSequentialId, y.eventSequentialId)
-          }
-        }
+        ord = Ordering.by[EventStorageBackend.Entry[Raw.FlatEvent], Long](_.eventSequentialId)
       )
 
     TransactionsReader
@@ -574,7 +571,7 @@ private[dao] final class TransactionsReader(
 
     val idPageConfig = IdQueryConfiguration(
       maxIdPageSize = idPageSize,
-      idPageWorkingMemoryBytes = idPageWorkingMemoryBytes,
+      idPageWorkingMemoryBytes = idPageWorkingMemoryBytes / 3,
       filterSize = filters.size,
       idPageBufferSize = idPageBufferSize,
     )
@@ -826,27 +823,8 @@ private[dao] final class TransactionsReader(
       .mapAsync(eventsFetchingAndDecodingParallelism_mapAsync)(fetchNonConsumingEvents)
       .mapConcat(identity)
 
-    // TODO pbatko: MAIN
-//    val events: Source[EventStorageBackend.Entry[TreeEvent], NotUsed] =
-//      Source
-//        .futureSource(requestedRangeF.map { requestedRange =>
-//          streamEvents(
-//            eventProjectionProperties,
-//            dbMetrics.getTransactionTrees,
-//            query,
-//            nextPageRange[TreeEvent](requestedRange.endInclusive),
-//          )(requestedRange)
-//        })
-//        .mapMaterializedValue(_ => NotUsed)
-//
-    val ordering = new Ordering[EventStorageBackend.Entry[Raw.TreeEvent]] {
-      override def compare(
-          x: EventStorageBackend.Entry[Raw.TreeEvent],
-          y: EventStorageBackend.Entry[Raw.TreeEvent],
-      ): Int = {
-        implicitly[Ordering[Long]].compare(x.eventSequentialId, y.eventSequentialId)
-      }
-    }
+    val ordering = Ordering.by[EventStorageBackend.Entry[Raw.TreeEvent], Long](_.eventSequentialId)
+
     val allEvents: Source[EventStorageBackend.Entry[Raw.TreeEvent], NotUsed] =
       consumingStream
         .mergeSorted(createStream)(ord = ordering)
@@ -870,37 +848,6 @@ private[dao] final class TransactionsReader(
       })
       .watchTermination()(endSpanOnTermination(span))
   }
-
-//  // TODO pbatko: Main, already deleted on POC branch
-//  override def lookupTransactionTreeById(
-//      transactionId: Ref.TransactionId,
-//      requestingParties: Set[Party],
-//  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
-//    dispatcher
-//      .executeSql(dbMetrics.lookupTransactionTreeById)(
-//        eventStorageBackend.transactionTree(
-//          transactionId,
-//          FilterParams(
-//            wildCardParties = requestingParties,
-//            partiesAndTemplates = Set.empty,
-//          ),
-//        )
-//      )
-//      .flatMap(rawEvents =>
-//        Timed.value(
-//          timer = dbMetrics.lookupTransactionTreeById.translationTimer,
-//          value = Future.traverse(rawEvents)(
-//            deserializeEntry(
-//              EventProjectionProperties(
-//                verbose = true,
-//                witnessTemplateIdFilter =
-//                  requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
-//              )
-//            )
-//          ),
-//        )
-//      )
-//      .map(TransactionConversions.toGetTransactionResponse)
 
   override def getActiveContracts(
       activeAt: Offset,
