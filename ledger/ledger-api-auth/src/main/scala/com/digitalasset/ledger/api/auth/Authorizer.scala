@@ -97,11 +97,12 @@ final class Authorizer(
       call: Req => Future[Res],
   )(addIdentityProvider: (String, Req) => Req): Req => Future[Res] =
     authorizeWithReq(call) { (claims, req) =>
-      val potentiallyResolvedId = resolve(identityProviderId, claims)
-      authorizationErrorAsGrpc(potentiallyResolvedId).map(id => addIdentityProvider(id, req))
+      val validatedIdentityProviderId = validateIdentityProviderId(identityProviderId, claims)
+      authorizationErrorAsGrpc(validatedIdentityProviderId)
+        .map(id => addIdentityProvider(id, req))
     }
 
-  private def resolve(
+  private def validateIdentityProviderId(
       identityProviderId: String,
       claims: ClaimSet.Claims,
   ): Either[AuthorizationError, String] = {
