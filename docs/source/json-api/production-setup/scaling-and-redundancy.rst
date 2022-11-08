@@ -67,6 +67,21 @@ provided by the *HTTP JSON API* server. This can also be tied into supporting an
 autoscaling implementation in order to ensure a minimum number of *HTTP JSON API* servers on
 failures.
 
+
+Hitting a scaling bottleneck
+****************************
+
+As JSON API and its query store are optimized for rapid application development and ease of developer onboarding, you may reach a point where your application's performance demands exceed what the JSON API can offer.
+The more demanding your application is, the less likely it is to be well-matched with the simplifications and generalizations that the JSON API makes for developer simplicity.
+
+In this case, it's important to remember that *the JSON API can only do whatever an ordinary ledger API client application could do, including your own*.
+
+For example, for a JVM application, interacting with JSON is probably simpler than gRPC directly, but using :doc:`/app-dev/bindings-java/index` :doc:`codegen </app-dev/bindings-java/codegen>` are much simpler than either.
+
+There is no way to make :doc:`query-store` more suited to high-performance queries for your Daml application than a custom data store implemented as your own server on gRPC would be.
+So an application that *must* interact over JSON, but requires very high-performance or very high-load query throughput, would usually be better served by a custom server.
+
+
 Set Up the HTTP JSON API Service To Work With Highly Available Participants
 ***************************************************************************
 
