@@ -474,7 +474,7 @@ class ContractsService(
               case AbsoluteBookmark(_) =>
                 timed(
                   metrics.daml.HttpJsonApi.Db.searchQuery,
-                  templateIds.resolved.toVector
+                  templateIds.resolved.forgetNE.toVector
                     .traverse(tpId => searchDbOneTpId_(parties, tpId, queryParams)),
                 )
             }

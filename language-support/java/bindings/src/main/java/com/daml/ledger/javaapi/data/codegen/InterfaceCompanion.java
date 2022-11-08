@@ -20,17 +20,18 @@ import java.util.function.Function;
  * @param <View> The {@link DamlRecord} subclass representing the interface view, as may be
  *     retrieved from the ACS or transaction stream.
  */
-public abstract class InterfaceCompanion<I, Id, View> extends ContractTypeCompanion<I, View> {
-
-  private final Function<String, Id> newContractId;
+public abstract class InterfaceCompanion<I, Id, View>
+    extends ContractTypeCompanion<Contract<Id, View>, Id, I, View> {
 
   public final ValueDecoder<View> valueDecoder;
 
   /**
-   * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
-   *     href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code
-   *     generator</a>, and <em>should not be referenced directly</em>. Applications should refer to
-   *     the {@code INTERFACE} field on generated code for Daml interfaces instead.
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+   * and <em>should not be referenced directly</em>. Applications should refer to the {@code
+   * INTERFACE} field on generated code for Daml interfaces instead.
+   *
+   * @hidden
    */
   protected InterfaceCompanion(
       String templateClassName,
@@ -38,8 +39,7 @@ public abstract class InterfaceCompanion<I, Id, View> extends ContractTypeCompan
       Function<String, Id> newContractId,
       ValueDecoder<View> valueDecoder,
       List<Choice<I, ?, ?>> choices) {
-    super(templateId, templateClassName, choices);
-    this.newContractId = newContractId;
+    super(templateId, templateClassName, newContractId, choices);
     this.valueDecoder = valueDecoder;
   }
 
@@ -74,6 +74,7 @@ public abstract class InterfaceCompanion<I, Id, View> extends ContractTypeCompan
                                 "interface view of " + TEMPLATE_ID + " not found.")));
   }
 
+  @Override
   public final Contract<Id, View> fromCreatedEvent(CreatedEvent event)
       throws IllegalArgumentException {
     return fromIdAndRecord(

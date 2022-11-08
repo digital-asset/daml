@@ -1,9 +1,10 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.error.definitions
+package com.daml.platform.apiserver.services
 
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.{DamlError, LedgerApiErrors}
 import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}

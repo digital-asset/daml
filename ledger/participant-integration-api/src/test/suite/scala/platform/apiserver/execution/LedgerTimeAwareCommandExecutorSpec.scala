@@ -3,8 +3,7 @@
 
 package com.daml.platform.apiserver.execution
 
-import com.daml.error.definitions.ErrorCause
-import com.daml.error.definitions.ErrorCause.LedgerTime
+import com.daml.platform.apiserver.services.ErrorCause.LedgerTime
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
@@ -21,6 +20,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.services.ErrorCause
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers

@@ -5,6 +5,7 @@ package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.javaapi.data.codegen.Contract;
 import com.daml.ledger.javaapi.data.codegen.ContractCompanion;
+import com.daml.ledger.javaapi.data.codegen.ContractTypeCompanion;
 import com.daml.ledger.javaapi.data.codegen.InterfaceCompanion;
 import java.util.Collections;
 import java.util.Map;
@@ -18,19 +19,19 @@ import java.util.stream.Collectors;
  * ContractCompanion</code>
  */
 public final class ContractFilter<Ct> {
-  private final FromCreatedEventFunc<CreatedEvent, Ct> fromCreatedEvent;
+  private final ContractTypeCompanion<Ct, ?, ?, ?> companion;
 
   private final Filter filter;
 
-  private ContractFilter(FromCreatedEventFunc<CreatedEvent, Ct> fromCreatedEvent, Filter filter) {
-    this.fromCreatedEvent = fromCreatedEvent;
+  private ContractFilter(ContractTypeCompanion<Ct, ?, ?, ?> companion, Filter filter) {
+    this.companion = companion;
     this.filter = filter;
   }
 
   public static <Ct> ContractFilter<Ct> of(ContractCompanion<Ct, ?, ?> companion) {
     Filter filter =
         new InclusiveFilter(Collections.singleton(companion.TEMPLATE_ID), Collections.emptyMap());
-    return new ContractFilter<>(companion::fromCreatedEvent, filter);
+    return new ContractFilter<>(companion, filter);
   }
 
   public static <Cid, View> ContractFilter<Contract<Cid, View>> of(
@@ -39,11 +40,11 @@ public final class ContractFilter<Ct> {
         new InclusiveFilter(
             Collections.emptySet(),
             Collections.singletonMap(companion.TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW));
-    return new ContractFilter<>(companion::fromCreatedEvent, filter);
+    return new ContractFilter<>(companion, filter);
   }
 
   public Ct toContract(CreatedEvent createdEvent) throws IllegalArgumentException {
-    return fromCreatedEvent.apply(createdEvent);
+    return companion.fromCreatedEvent(createdEvent);
   }
 
   public TransactionFilter transactionFilter(Set<String> parties) {
@@ -54,10 +55,5 @@ public final class ContractFilter<Ct> {
     Map<String, Filter> partyToFilters =
         parties.stream().collect(Collectors.toMap(Function.identity(), x -> filter));
     return new FiltersByParty(partyToFilters);
-  }
-
-  @FunctionalInterface
-  private interface FromCreatedEventFunc<T, R> {
-    R apply(T t) throws IllegalArgumentException;
   }
 }

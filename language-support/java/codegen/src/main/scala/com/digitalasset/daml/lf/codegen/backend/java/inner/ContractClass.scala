@@ -106,12 +106,14 @@ object ContractClass {
     }
 
     private[this] val contractIdClassName = ClassName bestGuess "ContractId"
+    private[this] val contractClassName = ClassName bestGuess "Contract"
 
     private[this] def generateGetCompanion(templateClassName: ClassName): MethodSpec = {
       ClassGenUtils.generateGetCompanion(
         ParameterizedTypeName.get(
-          ClassName get classOf[javaapi.data.codegen.ContractTypeCompanion[_, _]],
-          templateClassName,
+          ClassName get classOf[javaapi.data.codegen.ContractCompanion[_, _, _]],
+          contractClassName,
+          contractIdClassName,
           templateClassName,
         ),
         companionFieldName,
@@ -169,7 +171,6 @@ object ContractClass {
 
       classBuilder.addMethod(constructor)
 
-      val contractClassName = ClassName.bestGuess("Contract")
       classBuilder
         .addMethod(generateGetCompanion(templateClassName))
       new Builder(
