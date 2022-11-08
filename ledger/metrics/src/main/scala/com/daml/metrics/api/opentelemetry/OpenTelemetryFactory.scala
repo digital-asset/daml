@@ -31,12 +31,14 @@ trait OpenTelemetryFactory extends Factory {
       name: MetricName
   )(implicit
       context: MetricsContext = MetricsContext.Empty
-  ): MetricHandle.Timer =
+  ): MetricHandle.Timer = {
+    val nameWithSuffix = name :+ "duration" :+ "ms"
     OpenTelemetryTimer(
-      name,
-      otelMeter.histogramBuilder(name).ofLongs().setUnit("ms").build(),
+      nameWithSuffix,
+      otelMeter.histogramBuilder(nameWithSuffix).ofLongs().setUnit("ms").build(),
       globalMetricsContext.merge(context),
     )
+  }
   override def gauge[T](name: MetricName, initial: T)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Gauge[T] = {
