@@ -125,7 +125,7 @@ findServerJar = locateResource Resource
   -- //compiler/scenario-service/server:scenario_service_jar
   { resourcesPath = "scenario-service.jar"
     -- In a packaged application, this is stored directly underneath the
-    -- resources directory because it's the targets only output.
+    -- resources directory because it's the target's only output.
     -- See @bazel_tools/packaging/packaging.bzl@.
   , runfilesPathPrefix = mainWorkspace </> "compiler" </> "scenario-service" </> "server"
   }
