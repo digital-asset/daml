@@ -67,9 +67,6 @@ class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInt
       updateHistogramWithSerializedSize(messagesReceivedSize, message)
       messagesReceived.mark()
     }
-    override def onReady(): Unit = {
-      super.onReady()
-    }
   }
 
   private final class MetricsCall[ReqT, RespT](
