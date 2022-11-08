@@ -16,11 +16,8 @@ A production setup of the *HTTP JSON API* involves the following components:
 The *HTTP JSON API* server exposes an API to interact with the Ledger. It uses JDBC to interact
 with its underlying query store in order to cache and serve data efficiently.
 
-The *HTTP JSON API* server releases are regularly tested with OpenJDK 11 on a x86_64 architecture,
-with Ubuntu 20.04, macOS 11.5.2, and Windows Server 2016.
+The *HTTP JSON API* server releases are regularly tested with the tools described under :doc:`/ops/requirements`.
 
 In production, we recommend running on a x86_64 architecture in a Linux
-environment. This environment should have a Java SE Runtime Environment such
-as OpenJDK JRE and must be compatible with OpenJDK version 11.0.11 or later.
-We recommend using PostgreSQL server as query-store. Most of our tests have
-been done with servers running version > 10.
+environment. This environment should have a Java SE Runtime Environment with minimum version as mentioned at :doc:`/ops/requirements`.
+We recommend using PostgreSQL server as query-store, again with minimum version as mentioned at :doc:`/ops/requirements`.
