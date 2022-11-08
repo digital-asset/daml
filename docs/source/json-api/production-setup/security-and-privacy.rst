@@ -11,7 +11,7 @@ regulations and confidentiality expectations.
 We recommend using the tools documented by PostgreSQL to protect data at
 rest, and using a secure communication channel between the *HTTP JSON API* server and the PostgreSQL server.
 
- The *HTTP JSON API* server provides
+The *HTTP JSON API* server provides
 TLS support to protect data in transit and over untrusted networks. To enable TLS you must specify both the private key for your server and the
 certificate chain via the below config block that specifies the ``cert-chain-file``, ``private-key-file``. You can also set
 a custom root CA certificate that will be used to validate client certificates via the ``trust-collection-file`` parameter:
