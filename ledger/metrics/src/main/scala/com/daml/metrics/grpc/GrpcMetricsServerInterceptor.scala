@@ -7,6 +7,15 @@ import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.api.MetricHandle.{Histogram, Meter, Timer}
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.{withExtraMetricLabels, withMetricLabels}
+import com.daml.metrics.grpc.GrpcMetricsServerInterceptor.{
+  MetricsGrpcClientType,
+  MetricsGrpcMethodName,
+  MetricsGrpcResponseCode,
+  MetricsGrpcServerType,
+  MetricsGrpcServiceName,
+  MetricsRequestTypeStreaming,
+  MetricsRequestTypeUnary,
+}
 import com.google.protobuf.{GeneratedMessage => JavaGeneratedMessage}
 import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
 import io.grpc.ServerCall.Listener
@@ -28,13 +37,17 @@ class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInt
       serverCallHandler: ServerCallHandler[ReqT, RespT],
   ): ServerCall.Listener[ReqT] = {
     val methodDescriptor = serverCall.getMethodDescriptor
-    val clientType = if (methodDescriptor.getType.clientSendsOneMessage()) "unary" else "streaming"
-    val serverType = if (methodDescriptor.getType.serverSendsOneMessage()) "unary" else "streaming"
+    val clientType =
+      if (methodDescriptor.getType.clientSendsOneMessage()) MetricsRequestTypeUnary
+      else MetricsRequestTypeStreaming
+    val serverType =
+      if (methodDescriptor.getType.serverSendsOneMessage()) MetricsRequestTypeUnary
+      else MetricsRequestTypeStreaming
     withMetricLabels(
-      "grpc_service_name" -> methodDescriptor.getServiceName,
-      "grpc_method_name" -> methodDescriptor.getBareMethodName,
-      "grpc_client_type" -> clientType,
-      "grpc_server_type" -> serverType,
+      MetricsGrpcServiceName -> methodDescriptor.getServiceName,
+      MetricsGrpcMethodName -> methodDescriptor.getBareMethodName,
+      MetricsGrpcClientType -> clientType,
+      MetricsGrpcServerType -> serverType,
     ) { implicit mc =>
       val timerHandle = metrics.callTimer.startAsync()
       metrics.callsStarted.mark()
@@ -92,9 +105,10 @@ class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInt
 
     override def close(status: Status, trailers: Metadata): Unit = {
       super.close(status, trailers)
-      withExtraMetricLabels("grpc_code" -> status.getCode.toString) { implicit metricsContext =>
-        callsClosed.mark()
-        timer.stop()
+      withExtraMetricLabels(MetricsGrpcResponseCode -> status.getCode.toString) {
+        implicit metricsContext =>
+          callsClosed.mark()
+          timer.stop()
       }
     }
   }
@@ -111,6 +125,17 @@ class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInt
       case _ =>
     }
   }
+}
+object GrpcMetricsServerInterceptor {
+
+  val MetricsGrpcServiceName = "grpc_service_name"
+  val MetricsGrpcMethodName = "grpc_method_name"
+  val MetricsGrpcClientType = "grpc_client_type"
+  val MetricsGrpcServerType = "grpc_server_type"
+  val MetricsRequestTypeUnary = "unary"
+  val MetricsRequestTypeStreaming = "streaming"
+  val MetricsGrpcResponseCode = "grpc_code"
+
 }
 
 trait GrpcServerMetrics {

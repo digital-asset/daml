@@ -24,17 +24,17 @@ class GrpcMetricsServerInterceptorSpec
 
   private val labelsForSimpleRequest = MetricsContext(
     Map(
-      "grpc_client_type" -> "unary",
-      "grpc_service_name" -> "com.daml.platform.HelloService",
-      "grpc_method_name" -> "Single",
-      "grpc_server_type" -> "unary",
+      GrpcMetricsServerInterceptor.MetricsGrpcClientType -> GrpcMetricsServerInterceptor.MetricsRequestTypeUnary,
+      GrpcMetricsServerInterceptor.MetricsGrpcServiceName -> "com.daml.platform.HelloService",
+      GrpcMetricsServerInterceptor.MetricsGrpcMethodName -> "Single",
+      GrpcMetricsServerInterceptor.MetricsGrpcServerType -> GrpcMetricsServerInterceptor.MetricsRequestTypeUnary,
     )
   )
 
   private val labelsForSimpleRequestWithStatusCode = labelsForSimpleRequest.merge(
     MetricsContext(
       Map(
-        "grpc_code" -> "OK"
+        GrpcMetricsServerInterceptor.MetricsGrpcResponseCode -> "OK"
       )
     )
   )
@@ -112,7 +112,10 @@ class GrpcMetricsServerInterceptorSpec
 
   private def withStreamingLabels(context: MetricsContext) = context.merge(
     MetricsContext(
-      Map("grpc_server_type" -> "streaming", "grpc_method_name" -> "ServerStreaming")
+      Map(
+        GrpcMetricsServerInterceptor.MetricsGrpcServerType -> GrpcMetricsServerInterceptor.MetricsRequestTypeStreaming,
+        GrpcMetricsServerInterceptor.MetricsGrpcMethodName -> "ServerStreaming",
+      )
     )
   )
 
