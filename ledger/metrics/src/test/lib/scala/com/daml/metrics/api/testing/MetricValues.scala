@@ -12,6 +12,11 @@ import com.daml.metrics.api.dropwizard.{
   DropwizardMeter,
   DropwizardTimer,
 }
+import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
+  InMemoryHistogram,
+  InMemoryMeter,
+  InMemoryTimer,
+}
 
 trait MetricValues {
 
@@ -53,7 +58,7 @@ trait MetricValues {
     }
 
     def valueWithContext: Map[MetricsContext, Long] = meter match {
-      case meter: TestingMetrics.TestingInMemoryMeter =>
+      case meter: InMemoryMeter =>
         meter.markers.view.mapValues(_.get()).toMap
       case other =>
         throw new IllegalArgumentException(s"Value not supported by $other")
@@ -70,7 +75,7 @@ trait MetricValues {
     }
 
     def valuesWithContext: Map[MetricsContext, Seq[Long]] = histogram match {
-      case histogram: TestingMetrics.TestingInMemoryHistogram =>
+      case histogram: InMemoryHistogram =>
         histogram.values.toMap
       case other =>
         throw new IllegalArgumentException(s"Values not supported for $other")
@@ -93,7 +98,7 @@ trait MetricValues {
     }
 
     def getCounts: Map[MetricsContext, Long] = timer match {
-      case timer: TestingMetrics.TestingInMemoryTimer =>
+      case timer: InMemoryTimer =>
         timer.runTimers.toMap.view.mapValues(_.get().toLong).toMap
       case other =>
         throw new IllegalArgumentException(s"Counts not supported for $other")

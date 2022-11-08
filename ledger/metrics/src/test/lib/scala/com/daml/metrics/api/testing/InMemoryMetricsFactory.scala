@@ -8,27 +8,27 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong, AtomicReference}
 
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Histogram, Meter, Timer}
-import com.daml.metrics.api.testing.TestingMetrics.{
-  TestingInMemoryCounter,
-  TestingInMemoryGauge,
-  TestingInMemoryHistogram,
-  TestingInMemoryMeter,
-  TestingInMemoryTimer,
+import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
+  InMemoryCounter,
+  InMemoryGauge,
+  InMemoryHistogram,
+  InMemoryMeter,
+  InMemoryTimer,
 }
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.concurrent.{TrieMap, Map => ConcurrentMap}
 
-trait TestingInMemoryMetricsFactory extends Factory {
+trait InMemoryMetricsFactory extends Factory {
 
   override def timer(name: MetricName)(implicit
       context: MetricsContext
-  ): MetricHandle.Timer = TestingInMemoryTimer(context)
+  ): MetricHandle.Timer = InMemoryTimer(context)
 
   override def gauge[T](name: MetricName, initial: T)(implicit
       context: MetricsContext
-  ): MetricHandle.Gauge[T] = TestingInMemoryGauge(context)
+  ): MetricHandle.Gauge[T] = InMemoryGauge(context)
 
   override def gaugeWithSupplier[T](
       name: MetricName,
@@ -37,23 +37,34 @@ trait TestingInMemoryMetricsFactory extends Factory {
 
   override def meter(name: MetricName)(implicit
       context: MetricsContext
-  ): MetricHandle.Meter = TestingInMemoryMeter(context)
+  ): MetricHandle.Meter = InMemoryMeter(context)
 
   override def counter(name: MetricName)(implicit
       context: MetricsContext
-  ): MetricHandle.Counter = TestingInMemoryCounter(context)
+  ): MetricHandle.Counter = InMemoryCounter(context)
 
   override def histogram(name: MetricName)(implicit
       context: MetricsContext
-  ): MetricHandle.Histogram = TestingInMemoryHistogram(context)
+  ): MetricHandle.Histogram = InMemoryHistogram(context)
 
 }
 
-object TestingInMemoryMetricsFactory extends TestingInMemoryMetricsFactory
+object InMemoryMetricsFactory extends InMemoryMetricsFactory {
 
-object TestingMetrics {
+  private def addToContext[T](
+      markers: ConcurrentMap[MetricsContext, AtomicLong],
+      context: MetricsContext,
+      value: Long,
+  ): Unit = discard {
+    markers.updateWith(context) {
+      case None => Some(new AtomicLong(value))
+      case existingValue @ Some(existing) =>
+        existing.addAndGet(value)
+        existingValue
+    }
+  }
 
-  case class TestingInMemoryTimer(initialContext: MetricsContext) extends Timer {
+  case class InMemoryTimer(initialContext: MetricsContext) extends Timer {
     val runTimers: collection.concurrent.Map[MetricsContext, AtomicInteger] = TrieMap()
 
     override def name: String = "test"
@@ -86,7 +97,7 @@ object TestingMetrics {
 
   }
 
-  case class TestingInMemoryGauge[T](context: MetricsContext) extends Gauge[T] {
+  case class InMemoryGauge[T](context: MetricsContext) extends Gauge[T] {
     val value = new AtomicReference[T]()
 
     override def name: String = "test"
@@ -97,7 +108,7 @@ object TestingMetrics {
     override def getValue: T = value.get()
   }
 
-  case class TestingInMemoryMeter(initialContext: MetricsContext) extends Meter {
+  case class InMemoryMeter(initialContext: MetricsContext) extends Meter {
 
     val markers: collection.concurrent.Map[MetricsContext, AtomicLong] = TrieMap()
 
@@ -108,7 +119,7 @@ object TestingMetrics {
     ): Unit = addToContext(markers, initialContext.merge(context), value)
   }
 
-  case class TestingInMemoryCounter(initialContext: MetricsContext) extends Counter {
+  case class InMemoryCounter(initialContext: MetricsContext) extends Counter {
 
     val markers: collection.concurrent.Map[MetricsContext, AtomicLong] = TrieMap()
 
@@ -124,7 +135,7 @@ object TestingMetrics {
 
   }
 
-  case class TestingInMemoryHistogram(initialContext: MetricsContext) extends Histogram {
+  case class InMemoryHistogram(initialContext: MetricsContext) extends Histogram {
 
     val values: collection.concurrent.Map[MetricsContext, Seq[Long]] = TrieMap()
 
@@ -145,18 +156,5 @@ object TestingMetrics {
     override def update(value: Int)(implicit
         context: MetricsContext
     ): Unit = update(value.toLong)
-  }
-
-  private def addToContext[T](
-      markers: ConcurrentMap[MetricsContext, AtomicLong],
-      context: MetricsContext,
-      value: Long,
-  ): Unit = discard {
-    markers.updateWith(context) {
-      case None => Some(new AtomicLong(value))
-      case existingValue @ Some(existing) =>
-        existing.addAndGet(value)
-        existingValue
-    }
   }
 }

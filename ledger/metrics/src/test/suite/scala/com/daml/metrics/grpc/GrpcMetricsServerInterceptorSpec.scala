@@ -6,7 +6,7 @@ package com.daml.metrics.grpc
 import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingServerInterceptors}
 import com.daml.ledger.resources.TestResourceContext
-import com.daml.metrics.api.testing.{MetricValues, TestingInMemoryMetricsFactory}
+import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 import com.daml.metrics.grpc.GrpcMetricsServerInterceptorSpec.TestingGrpcMetrics
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
@@ -135,17 +135,19 @@ object GrpcMetricsServerInterceptorSpec {
   private val metricName: MetricName = MetricName("test")
 
   class TestingGrpcMetrics extends GrpcServerMetrics {
-    override val callTimer: MetricHandle.Timer = TestingInMemoryMetricsFactory.timer(metricName)
-    override val messagesSent: MetricHandle.Meter = TestingInMemoryMetricsFactory.meter(metricName)
+    override val callTimer: MetricHandle.Timer =
+      InMemoryMetricsFactory
+        .timer(metricName)
+    override val messagesSent: MetricHandle.Meter = InMemoryMetricsFactory.meter(metricName)
     override val messagesSentSize: MetricHandle.Histogram =
-      TestingInMemoryMetricsFactory.histogram(metricName)
+      InMemoryMetricsFactory.histogram(metricName)
     override val messagesReceived: MetricHandle.Meter =
-      TestingInMemoryMetricsFactory.meter(metricName)
+      InMemoryMetricsFactory.meter(metricName)
     override val messagesReceivedSize: MetricHandle.Histogram =
-      TestingInMemoryMetricsFactory.histogram(metricName)
-    override val callsStarted: MetricHandle.Meter = TestingInMemoryMetricsFactory.meter(metricName)
-    override val callsFinished: MetricHandle.Meter = TestingInMemoryMetricsFactory.meter(metricName)
+      InMemoryMetricsFactory.histogram(metricName)
+    override val callsStarted: MetricHandle.Meter = InMemoryMetricsFactory.meter(metricName)
+    override val callsFinished: MetricHandle.Meter = InMemoryMetricsFactory.meter(metricName)
     override val messagesRequested: MetricHandle.Meter =
-      TestingInMemoryMetricsFactory.meter(metricName)
+      InMemoryMetricsFactory.meter(metricName)
   }
 }
