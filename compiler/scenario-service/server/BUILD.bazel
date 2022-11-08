@@ -21,7 +21,7 @@ da_scala_binary(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_github_scopt_scopt",
     ],
-    scalacopts =  lf_scalacopts_stricter,
+    scalacopts = lf_scalacopts_stricter,
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],

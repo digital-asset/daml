@@ -7,7 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
     "lf_scalacopts",
-            "lf_scalacopts_stricter",
+    "lf_scalacopts_stricter",
 )
 load(
     "//daml-lf/language:daml-lf.bzl",

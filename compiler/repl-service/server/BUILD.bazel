@@ -4,7 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
-    "lf_scalacopts_stricter"
+    "lf_scalacopts_stricter",
 )
 
 genrule(
@@ -25,7 +25,7 @@ da_scala_binary(
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts =  lf_scalacopts_stricter,
+    scalacopts = lf_scalacopts_stricter,
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
