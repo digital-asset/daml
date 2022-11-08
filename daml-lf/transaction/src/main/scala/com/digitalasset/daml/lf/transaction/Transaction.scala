@@ -650,14 +650,14 @@ sealed abstract class HasTxNodes {
   }
 
   final def guessSubmitter: Either[String, Party] =
-    (rootNodes.map(_.requiredAuthorizers): @nowarn("msg=match may not be exhaustive")) match {
-      case ImmArray() =>
+    rootNodes.map(_.requiredAuthorizers).toFrontStack.pop match {
+      case None =>
         Left(s"Empty transaction")
-      case ImmArrayCons(head, _) if head.size != 1 =>
+      case Some((head, _)) if head.size != 1 =>
         Left(s"Transaction's roots do not have exactly one authorizer: $this")
-      case ImmArrayCons(head, tail) if tail.toSeq.exists(_ != head) =>
+      case Some((head, tail)) if tail.iterator.exists(_ != head) =>
         Left(s"Transaction's roots have different authorizers: $this")
-      case ImmArrayCons(head, _) =>
+      case Some((head, _)) =>
         Right(head.head)
     }
 
