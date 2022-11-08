@@ -166,19 +166,19 @@ class AkkaHttpMetricsSpec
         Post("/badrequest") ~> route ~> check {
           TestMetrics.getCurrentValue(
             metrics.httpRequestsTotal,
-            ("daml_version", "0.0.0"),
-            ("host", "example.com"),
-            ("http_status", "200"),
-            ("http_verb", "GET"),
-            ("path", "/simple"),
+            LabelKeyValue("daml_version", "0.0.0"),
+            LabelKeyValue("host", "example.com"),
+            LabelKeyValue("http_status", "200"),
+            LabelKeyValue("http_verb", "GET"),
+            LabelKeyValue("path", "/simple"),
           ) should be(1)
           TestMetrics.getCurrentValue(
             metrics.httpRequestsTotal,
-            ("daml_version", "0.0.0"),
-            ("host", "example.com"),
-            ("http_status", "400"),
-            ("http_verb", "POST"),
-            ("path", "/badrequest"),
+            LabelKeyValue("daml_version", "0.0.0"),
+            LabelKeyValue("host", "example.com"),
+            LabelKeyValue("http_status", "400"),
+            LabelKeyValue("http_verb", "POST"),
+            LabelKeyValue("path", "/badrequest"),
           ) should be(1)
         }
       }
@@ -239,19 +239,19 @@ class AkkaHttpMetricsSpec
         Post("/badrequest") ~> route ~> check {
           TestMetrics.getCurrentValue(
             metrics.httpErrorsTotal,
-            ("daml_version", "0.0.0"),
-            ("host", "example.com"),
-            ("http_status", "500"),
-            ("http_verb", "GET"),
-            ("path", "/exception"),
+            LabelKeyValue("daml_version", "0.0.0"),
+            LabelKeyValue("host", "example.com"),
+            LabelKeyValue("http_status", "500"),
+            LabelKeyValue("http_verb", "GET"),
+            LabelKeyValue("path", "/exception"),
           ) should be(1)
           TestMetrics.getCurrentValue(
             metrics.httpErrorsTotal,
-            ("daml_version", "0.0.0"),
-            ("host", "example.com"),
-            ("http_status", "400"),
-            ("http_verb", "POST"),
-            ("path", "/badrequest"),
+            LabelKeyValue("daml_version", "0.0.0"),
+            LabelKeyValue("host", "example.com"),
+            LabelKeyValue("http_status", "400"),
+            LabelKeyValue("http_verb", "POST"),
+            LabelKeyValue("path", "/badrequest"),
           ) should be(1)
         }
       }
@@ -400,17 +400,17 @@ class AkkaHttpMetricsSpec
         ) ~> route ~> check {
           TestMetrics.getCurrentValue(
             metrics.httpRequestsBytesTotal,
-            ("daml_version", "0.0.0"),
-            ("host", "example.com"),
-            ("http_verb", "GET"),
-            ("path", "/simple"),
+            LabelKeyValue("daml_version", "0.0.0"),
+            LabelKeyValue("host", "example.com"),
+            LabelKeyValue("http_verb", "GET"),
+            LabelKeyValue("path", "/simple"),
           ) should be(byteString1Size)
           TestMetrics.getCurrentValue(
             metrics.httpRequestsBytesTotal,
-            ("daml_version", "0.0.0"),
-            ("host", "example.com"),
-            ("http_verb", "POST"),
-            ("path", "/badrequest"),
+            LabelKeyValue("daml_version", "0.0.0"),
+            LabelKeyValue("host", "example.com"),
+            LabelKeyValue("http_verb", "POST"),
+            LabelKeyValue("path", "/badrequest"),
           ) should be(byteString2Size)
         }
       }
@@ -585,19 +585,19 @@ class AkkaHttpMetricsSpec
 
           TestMetrics.getCurrentValue(
             metrics.httpResponsesBytesTotal,
-            ("daml_version", "0.0.0"),
-            ("host", "example.com"),
-            ("http_status", "200"),
-            ("http_verb", "GET"),
-            ("path", "/mirror/200"),
+            LabelKeyValue("daml_version", "0.0.0"),
+            LabelKeyValue("host", "example.com"),
+            LabelKeyValue("http_status", "200"),
+            LabelKeyValue("http_verb", "GET"),
+            LabelKeyValue("path", "/mirror/200"),
           ) should be(byteString1Size)
           TestMetrics.getCurrentValue(
             metrics.httpResponsesBytesTotal,
-            ("daml_version", "0.0.0"),
-            ("host", "example.com"),
-            ("http_status", "400"),
-            ("http_verb", "POST"),
-            ("path", "/badrequest"),
+            LabelKeyValue("daml_version", "0.0.0"),
+            LabelKeyValue("host", "example.com"),
+            LabelKeyValue("http_status", "400"),
+            LabelKeyValue("http_verb", "POST"),
+            LabelKeyValue("path", "/badrequest"),
           ) should be(response.length.toLong)
         }
       }
@@ -689,10 +689,10 @@ class AkkaHttpMetricsSpec
         TestMetrics
           .getHistogramValues(
             metrics.httpLatency,
-            ("daml_version", "0.0.0"),
-            ("host", "example.com"),
-            ("http_verb", "GET"),
-            ("path", "/delay/300"),
+            LabelKeyValue("daml_version", "0.0.0"),
+            LabelKeyValue("host", "example.com"),
+            LabelKeyValue("http_verb", "GET"),
+            LabelKeyValue("path", "/delay/300"),
           )
           .count should be(1L)
       }
@@ -751,14 +751,14 @@ object AkkaHttpMetricsSpec extends MetricValues {
         method: String,
         path: String,
     ): Long =
-      getCurrentValue(metric, ("http_verb", method), ("path", path))
+      getCurrentValue(metric, LabelKeyValue("http_verb", method), LabelKeyValue("path", path))
 
     private def getHistogramValuesWithLabels(
         metric: MetricHandle,
         method: String,
         path: String,
     ): HistogramData =
-      getHistogramValues(metric, ("http_verb", method), ("path", path))
+      getHistogramValues(metric, LabelKeyValue("http_verb", method), LabelKeyValue("path", path))
 
   }
 

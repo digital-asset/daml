@@ -23,7 +23,7 @@ import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.api.MetricsContext
-import com.daml.metrics.akkahttp.WebSocketMetrics
+import com.daml.metrics.akkahttp.{LabelExtractor, WebSocketMetrics}
 
 import scala.collection.immutable.Seq
 import scalaz.std.scalaFuture._
@@ -62,20 +62,6 @@ object WebsocketEndpoints {
         ledgerIdentityClient,
       ).leftMap(it => it: Error)
     } yield payload
-
-  private def metricsContextFromRequest(request: HttpRequest): MetricsContext = {
-    val baseLabels = Map[String, String](
-      ("path", request.uri.path.toString)
-    )
-    val host = request.uri.authority.host
-    val labelsWithHost =
-      if (host.isEmpty)
-        baseLabels
-      else
-        baseLabels + (("host", host.address))
-    MetricsContext(labelsWithHost)
-  }
-
 }
 
 class WebsocketEndpoints(
@@ -116,7 +102,7 @@ class WebsocketEndpoints(
                 )
                 (jwt, jwtPayload) = payload
               } yield {
-                implicit val mc: MetricsContext = metricsContextFromRequest(req)
+                implicit val mc: MetricsContext = LabelExtractor.labelsFromRequest(req)
                 handleWebsocketRequest[domain.SearchForeverRequest](
                   jwt,
                   jwtPayload,
@@ -145,7 +131,7 @@ class WebsocketEndpoints(
                 )
                 (jwt, jwtPayload) = payload
               } yield {
-                implicit val mc: MetricsContext = metricsContextFromRequest(req)
+                implicit val mc: MetricsContext = LabelExtractor.labelsFromRequest(req)
                 handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
                   jwt,
                   jwtPayload,

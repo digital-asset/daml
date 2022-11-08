@@ -31,18 +31,7 @@ object AkkaHttpMetrics {
       responsesPayloadBytesTotal: Meter,
   )(implicit ec: ExecutionContext) =
     Directive { (fn: Unit => Route) => ctx =>
-      // Creates MetricsContext.
-      val baseLabels = Map[String, String](
-        ("http_verb", ctx.request.method.name),
-        ("path", ctx.request.uri.path.toString),
-      )
-      val host = ctx.request.uri.authority.host
-      val labelsWithHost =
-        if (host.isEmpty)
-          baseLabels
-        else
-          baseLabels + (("host", host.address))
-      implicit val baseMetricsContext: MetricsContext = MetricsContext(labelsWithHost)
+      implicit val metricsContext: MetricsContext = LabelExtractor.labelsFromRequest(ctx.request)
 
       // process the query, using a copy of the httpRequest, with size metric computation
       val newCtx = ctx.withRequest(
@@ -60,7 +49,7 @@ object AkkaHttpMetrics {
               errorsTotal,
               responsesPayloadBytesTotal,
               httpResponse,
-              labelsWithHost,
+              metricsContext,
             )
           case _ =>
             // record request and failure
@@ -78,11 +67,11 @@ object AkkaHttpMetrics {
       errorsTotal: Meter,
       responsesPayloadBytesTotal: Meter,
       httpResponse: HttpResponse,
-      labelsWithHost: Map[String, String],
+      requestMetricsContext: MetricsContext,
   ): Try[RouteResult] = {
-    implicit val metricsContextWithHttpStatus: MetricsContext = MetricsContext(
-      labelsWithHost + (("http_status", httpResponse.status.intValue.toString))
-    )
+    implicit val metricsContext: MetricsContext =
+      LabelExtractor.addLabelsFromResponse(requestMetricsContext, httpResponse)
+
     // record request
     requestsTotal.mark()
     if (httpResponse.status.isFailure)
