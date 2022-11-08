@@ -293,127 +293,21 @@ trait EventStorageBackend {
 
   /** @param allFilterParties - needed only for the result raw row parsing
     */
-  def fetchFlatConsumingEvents(
+  def fetchEventPayloadsFlat(target: PayloadFetchingForFlatTxTarget)(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Ref.Party],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
 
   /** @param allFilterParties - needed only for the result raw row parsing
     */
-  def fetchTreeConsumingEvents(
+  def fetchEventPayloadsTree(target: PayloadFetchingForTreeTxTarget)(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Ref.Party],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
 
-  /** @param allFilterParties - needed only for the result raw row parsing
-    */
-  def fetchFlatCreateEvents(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Ref.Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-
-  def fetchTreeCreateEvents(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Ref.Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
-
-  def fetchTreeNonConsumingEvents(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Ref.Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
-
-  final def fetchEventPayloadsFlat(target: PayloadFetchingForFlatTxTarget)(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Ref.Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
-    target match {
-      // TODO pbatko: Inline queries?
-      case PayloadFetchingForFlatTxTarget.ConsumingEventPayloads =>
-        fetchFlatConsumingEvents(eventSequentialIds, allFilterParties)(connection)
-      case PayloadFetchingForFlatTxTarget.CreateEventPayloads =>
-        fetchFlatCreateEvents(eventSequentialIds, allFilterParties)(connection)
-    }
-  }
-
-  final def fetchEventPayloadsTree(target: PayloadFetchingForTreeTxTarget)(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Ref.Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
-    target match {
-      // TODO pbatko: Inline queries?
-      case PayloadFetchingForTreeTxTarget.ConsumingEventPayloads =>
-        fetchTreeConsumingEvents(eventSequentialIds, allFilterParties)(connection)
-      case PayloadFetchingForTreeTxTarget.CreateEventPayloads =>
-        fetchTreeCreateEvents(eventSequentialIds, allFilterParties)(connection)
-      case PayloadFetchingForTreeTxTarget.NonConsumingEventPayloads =>
-        fetchTreeNonConsumingEvents(eventSequentialIds, allFilterParties)(connection)
-    }
-  }
-
-  final def fetchEventIdsForStakeholder(target: EventIdFetchingForStakeholdersTarget)(
-      partyFilter: Party,
-      templateIdFilter: Option[Identifier],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long] = target match {
-    // TODO pbatko: Inline queries?
-    case EventIdFetchingForStakeholdersTarget.ConsumingStakeholder =>
-      fetchIds_consuming_stakeholders(
-        partyFilter,
-        templateIdFilter,
-        startExclusive,
-        endInclusive,
-        limit,
-      )(connection)
-    case EventIdFetchingForStakeholdersTarget.CreateStakeholder =>
-      fetchIds_create_stakeholders(
-        partyFilter,
-        templateIdFilter,
-        startExclusive,
-        endInclusive,
-        limit,
-      )(connection)
-  }
-
-  final def fetchEventIdsForInformees(target: EventIdFetchingForInformeesTarget)(
-      partyFilter: Party,
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long] = target match {
-    // TODO pbatko: Inline queries?
-    case EventIdFetchingForInformeesTarget.ConsumingStakeholder =>
-      fetchIds_consuming_stakeholders(partyFilter, None, startExclusive, endInclusive, limit)(
-        connection
-      )
-    case EventIdFetchingForInformeesTarget.ConsumingNonStakeholderInformee =>
-      fetchIds_consuming_nonStakeholderInformees(partyFilter, startExclusive, endInclusive, limit)(
-        connection
-      )
-    case EventIdFetchingForInformeesTarget.CreateStakeholder =>
-      fetchIds_create_stakeholders(partyFilter, None, startExclusive, endInclusive, limit)(
-        connection
-      )
-    case EventIdFetchingForInformeesTarget.CreateNonStakeholderInformee =>
-      fetchIds_create_nonStakeholderInformees(partyFilter, startExclusive, endInclusive, limit)(
-        connection
-      )
-    case EventIdFetchingForInformeesTarget.NonConsumingInformee =>
-      fetchIds_nonConsuming_informees(partyFilter, startExclusive, endInclusive, limit)(connection)
-
-  }
-
-  def fetchIds_create_stakeholders(
-      partyFilter: Party,
-      templateIdFilter: Option[Identifier],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long]
-
-  def fetchIds_create_nonStakeholderInformees(
-      partyFilter: Party,
+  def fetchEventIdsForStakeholder(target: EventIdFetchingForStakeholdersTarget)(
+      stakeholder: Party,
+      templateIdO: Option[Identifier],
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
@@ -427,23 +321,16 @@ trait EventStorageBackend {
     *         if and only if there is a consuming exercise on the corresponding contract
     *         on which this party is a stakeholder.)
     */
-  def fetchIds_consuming_stakeholders(
+  def fetchEventIdsForInformees(target: EventIdFetchingForInformeesTarget)(
+      partyFilter: Party,
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long]
+
+  def fetchIds_create_stakeholders(
       partyFilter: Party,
       templateIdFilter: Option[Identifier],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long]
-
-  def fetchIds_consuming_nonStakeholderInformees(
-      partyFilter: Party,
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long]
-
-  def fetchIds_nonConsuming_informees(
-      partyFilter: Party,
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,

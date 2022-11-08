@@ -16,7 +16,11 @@ import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.Party
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.indexer.parallel.BatchN
-import com.daml.platform.store.backend.EventStorageBackend
+import com.daml.platform.store.backend.{
+  EventIdFetchingForInformeesTarget,
+  EventStorageBackend,
+  PayloadFetchingForTreeTxTarget,
+}
 import com.daml.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.daml.platform.store.dao.events.EventsTable.TransactionConversions
 import com.daml.platform.store.dao.events.FilterTableACSReader.{
@@ -91,6 +95,7 @@ class TransactionsTreeReader(
       parentO = Some(globalMaxParallelPayloadQueriesLimiter),
     )
 
+    // TODO etq: Use dedicated filter type for TreeTransactions (only parties)
     val filters: Vector[Filter] =
       requestingParties.iterator.map(party => Filter(party, None)).toVector
     val allFilterParties = requestingParties
@@ -112,9 +117,10 @@ class TransactionsTreeReader(
           idFetchingLimiter_consuming.execute {
             dbDispatcher.executeSql(metrics.daml.index.db.getConsumingIds_stakeholdersFilter) {
               connection =>
-                eventStorageBackend.fetchIds_consuming_stakeholders(
+                eventStorageBackend.fetchEventIdsForInformees(
+                  target = EventIdFetchingForInformeesTarget.ConsumingStakeholder
+                )(
                   partyFilter = filter.party,
-                  templateIdFilter = filter.templateId,
                   startExclusive = state.startOffset,
                   endInclusive = lastEventSequentialId,
                   limit = state.pageSize,
@@ -136,7 +142,9 @@ class TransactionsTreeReader(
             dbDispatcher.executeSql(
               metrics.daml.index.db.getConsumingIds_nonStakeholderInformeesFilter
             ) { connection =>
-              eventStorageBackend.fetchIds_consuming_nonStakeholderInformees(
+              eventStorageBackend.fetchEventIdsForInformees(
+                target = EventIdFetchingForInformeesTarget.ConsumingNonStakeholderInformee
+              )(
                 partyFilter = filter.party,
                 startExclusive = state.startOffset,
                 endInclusive = lastEventSequentialId,
@@ -182,7 +190,9 @@ class TransactionsTreeReader(
             dbDispatcher.executeSql(
               metrics.daml.index.db.getCreateEventIds_nonStakeholderInformeesFilter
             ) { connection =>
-              eventStorageBackend.fetchIds_create_nonStakeholderInformees(
+              eventStorageBackend.fetchEventIdsForInformees(
+                target = EventIdFetchingForInformeesTarget.CreateNonStakeholderInformee
+              )(
                 partyFilter = filter.party,
                 startExclusive = state.startOffset,
                 endInclusive = lastEventSequentialId,
@@ -204,7 +214,9 @@ class TransactionsTreeReader(
           idFetchingLimiter_nonConsuming.execute {
             dbDispatcher.executeSql(metrics.daml.index.db.getNonConsumingEventIds_informeesFilter) {
               connection =>
-                eventStorageBackend.fetchIds_nonConsuming_informees(
+                eventStorageBackend.fetchEventIdsForInformees(
+                  target = EventIdFetchingForInformeesTarget.NonConsumingInformee
+                )(
                   partyFilter = filter.party,
                   startExclusive = state.startOffset,
                   endInclusive = lastEventSequentialId,
@@ -234,7 +246,9 @@ class TransactionsTreeReader(
         .execute(
           dbDispatcher.executeSql(metrics.daml.index.db.getTransactionTrees) { implicit connection =>
             queryNonPruned.executeSql(
-              query = eventStorageBackend.fetchTreeConsumingEvents(
+              query = eventStorageBackend.fetchEventPayloadsTree(
+                target = PayloadFetchingForTreeTxTarget.ConsumingEventPayloads
+              )(
                 eventSequentialIds = ids,
                 allFilterParties = allFilterParties,
               )(connection),
@@ -253,7 +267,9 @@ class TransactionsTreeReader(
         .execute(
           dbDispatcher.executeSql(metrics.daml.index.db.getTransactionTrees) { implicit connection =>
             queryNonPruned.executeSql(
-              query = eventStorageBackend.fetchTreeCreateEvents(
+              query = eventStorageBackend.fetchEventPayloadsTree(
+                target = PayloadFetchingForTreeTxTarget.CreateEventPayloads
+              )(
                 eventSequentialIds = ids,
                 allFilterParties = allFilterParties,
               )(connection),
@@ -272,10 +288,13 @@ class TransactionsTreeReader(
         .execute(
           dbDispatcher.executeSql(metrics.daml.index.db.getTransactionTrees) { implicit connection =>
             queryNonPruned.executeSql(
-              query = eventStorageBackend.fetchTreeNonConsumingEvents(
+              query = eventStorageBackend.fetchEventPayloadsTree(
+                target = PayloadFetchingForTreeTxTarget.NonConsumingEventPayloads
+              )(
                 eventSequentialIds = ids,
                 allFilterParties = allFilterParties,
               )(connection),
+              // TODO etq: Consider rolling out event-seq-id based queryNonPruned
               minOffsetExclusive = firstOffset,
               error = (prunedOffset: Offset) =>
                 s"Transactions request from ${firstOffset.toHexString} to ${lastOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",

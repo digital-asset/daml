@@ -12,7 +12,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.Party
+import com.daml.platform.{Identifier, Party}
 import com.daml.platform.store.ChoiceCoder
 import com.daml.platform.store.backend.Conversions.{
   contractId,
@@ -23,7 +23,13 @@ import com.daml.platform.store.backend.Conversions.{
 }
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.dao.events.Raw
-import com.daml.platform.store.backend.EventStorageBackend
+import com.daml.platform.store.backend.{
+  EventIdFetchingForInformeesTarget,
+  EventIdFetchingForStakeholdersTarget,
+  EventStorageBackend,
+  PayloadFetchingForFlatTxTarget,
+  PayloadFetchingForTreeTxTarget,
+}
 import com.daml.platform.store.backend.EventStorageBackend.RawTransactionEvent
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.cache.LedgerEndCache
@@ -396,66 +402,160 @@ abstract class EventStorageBackendTemplate(
     "submitters",
   ).mkString(", ")
 
-  /** @param allFilterParties - needed only for result raw row parsing
-    */
-  override def fetchTreeConsumingEvents(
+  override def fetchEventIdsForStakeholder(target: EventIdFetchingForStakeholdersTarget)(
+      stakeholder: Party,
+      templateIdO: Option[Identifier],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long] = target match {
+    case EventIdFetchingForStakeholdersTarget.ConsumingStakeholder =>
+      fetchIds_consuming_stakeholders(
+        stakeholder,
+        templateIdO,
+        startExclusive,
+        endInclusive,
+        limit,
+      )(connection)
+    case EventIdFetchingForStakeholdersTarget.CreateStakeholder =>
+      fetchIds_create_stakeholders(
+        stakeholder,
+        templateIdO,
+        startExclusive,
+        endInclusive,
+        limit,
+      )(connection)
+  }
+
+  override def fetchEventIdsForInformees(target: EventIdFetchingForInformeesTarget)(
+      informee: Party,
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long] = target match {
+    case EventIdFetchingForInformeesTarget.ConsumingStakeholder =>
+      fetchIds_consuming_stakeholders(informee, None, startExclusive, endInclusive, limit)(
+        connection
+      )
+    case EventIdFetchingForInformeesTarget.ConsumingNonStakeholderInformee =>
+      fetchEventIds(
+        tableName = "pe_consuming_exercise_filter_nonstakeholder_informees",
+        witness = informee,
+        templateIdO = None,
+        startExclusive = startExclusive,
+        endInclusive = endInclusive,
+        limit = limit,
+      )(connection)
+    case EventIdFetchingForInformeesTarget.CreateStakeholder =>
+      fetchIds_create_stakeholders(informee, None, startExclusive, endInclusive, limit)(
+        connection
+      )
+    case EventIdFetchingForInformeesTarget.CreateNonStakeholderInformee =>
+      fetchEventIds(
+        tableName = "pe_create_filter_nonstakeholder_informees",
+        witness = informee,
+        templateIdO = None,
+        startExclusive = startExclusive,
+        endInclusive = endInclusive,
+        limit = limit,
+      )(connection)
+    case EventIdFetchingForInformeesTarget.NonConsumingInformee =>
+      fetchEventIds(
+        tableName = "pe_non_consuming_exercise_filter_informees",
+        witness = informee,
+        templateIdO = None,
+        startExclusive = startExclusive,
+        endInclusive = endInclusive,
+        limit = limit,
+      )(connection)
+
+  }
+
+  override def fetchEventPayloadsFlat(target: PayloadFetchingForFlatTxTarget)(
       eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Party],
+      allFilterParties: Set[Ref.Party],
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
+    target match {
+      case PayloadFetchingForFlatTxTarget.ConsumingEventPayloads =>
+        fetchFlatEvents(
+          tableName = "participant_events_consuming_exercise",
+          selectColumns = selectColumnsForFlatTransactionsExercise,
+          eventSequentialIds = eventSequentialIds,
+          allFilterParties = allFilterParties,
+        )(connection)
+      case PayloadFetchingForFlatTxTarget.CreateEventPayloads =>
+        fetchFlatEvents(
+          tableName = "participant_events_create",
+          selectColumns = selectColumnsForFlatTransactionsCreate,
+          eventSequentialIds = eventSequentialIds,
+          allFilterParties = allFilterParties,
+        )(connection)
+    }
+  }
+
+  override def fetchEventPayloadsTree(target: PayloadFetchingForTreeTxTarget)(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
-    fetchTreeEvents(
-      tableName = "participant_events_consuming_exercise",
-      selectColumns =
-        s"$selectColumnsForTransactionTreeExercise, ${queryStrategy.constBooleanSelect(true)} as exercise_consuming",
-      eventSequentialIds = eventSequentialIds,
-      allFilterParties = allFilterParties,
+    target match {
+      case PayloadFetchingForTreeTxTarget.ConsumingEventPayloads =>
+        fetchTreeEvents(
+          tableName = "participant_events_consuming_exercise",
+          selectColumns =
+            s"$selectColumnsForTransactionTreeExercise, ${queryStrategy.constBooleanSelect(true)} as exercise_consuming",
+          eventSequentialIds = eventSequentialIds,
+          allFilterParties = allFilterParties,
+        )(connection)
+      case PayloadFetchingForTreeTxTarget.CreateEventPayloads =>
+        fetchTreeEvents(
+          tableName = "participant_events_create",
+          selectColumns =
+            s"$selectColumnsForTransactionTreeCreate, ${queryStrategy.constBooleanSelect(false)} as exercise_consuming",
+          eventSequentialIds = eventSequentialIds,
+          allFilterParties = allFilterParties,
+        )(connection)
+      case PayloadFetchingForTreeTxTarget.NonConsumingEventPayloads =>
+        fetchTreeEvents(
+          tableName = "participant_events_non_consuming_exercise",
+          selectColumns =
+            s"$selectColumnsForTransactionTreeExercise, ${queryStrategy.constBooleanSelect(false)} as exercise_consuming",
+          eventSequentialIds = eventSequentialIds,
+          allFilterParties = allFilterParties,
+        )(connection)
+    }
+  }
+
+  override def fetchIds_create_stakeholders(
+      partyFilter: Ref.Party,
+      templateIdFilter: Option[Ref.Identifier],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long] = {
+    fetchEventIds(
+      tableName = "participant_events_create_filter",
+      witness = partyFilter,
+      templateIdO = templateIdFilter,
+      startExclusive = startExclusive,
+      endInclusive = endInclusive,
+      limit = limit,
     )(connection)
   }
 
-  override def fetchTreeCreateEvents(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] =
-    fetchTreeEvents(
-      tableName = "participant_events_create",
-      selectColumns =
-        s"$selectColumnsForTransactionTreeCreate, ${queryStrategy.constBooleanSelect(false)} as exercise_consuming",
-      eventSequentialIds = eventSequentialIds,
-      allFilterParties = allFilterParties,
-    )(connection)
-
-  override def fetchTreeNonConsumingEvents(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] =
-    fetchTreeEvents(
-      tableName = "participant_events_non_consuming_exercise",
-      selectColumns =
-        s"$selectColumnsForTransactionTreeExercise, ${queryStrategy.constBooleanSelect(false)} as exercise_consuming",
-      eventSequentialIds = eventSequentialIds,
-      allFilterParties = allFilterParties,
-    )(connection)
-
-  override def fetchFlatConsumingEvents(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Ref.Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
-    fetchFlatEvents(
-      tableName = "participant_events_consuming_exercise",
-      selectColumns = selectColumnsForFlatTransactionsExercise,
-      eventSequentialIds = eventSequentialIds,
-      allFilterParties = allFilterParties,
-    )(connection)
-  }
-
-  override def fetchFlatCreateEvents(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Ref.Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
-    fetchFlatEvents(
-      tableName = "participant_events_create",
-      selectColumns = selectColumnsForFlatTransactionsCreate,
-      eventSequentialIds = eventSequentialIds,
-      allFilterParties = allFilterParties,
+  private def fetchIds_consuming_stakeholders(
+      partyFilter: Ref.Party,
+      templateIdFilter: Option[Ref.Identifier],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long] = {
+    fetchEventIds(
+      tableName = "pe_consuming_exercise_filter_stakeholders",
+      witness = partyFilter,
+      templateIdO = templateIdFilter,
+      startExclusive = startExclusive,
+      endInclusive = endInclusive,
+      limit = limit,
     )(connection)
   }
 
@@ -511,102 +611,20 @@ abstract class EventStorageBackendTemplate(
       .asVectorOf(rawFlatEventParser(internedAllParties))(connection)
   }
 
-  override def fetchIds_nonConsuming_informees(
-      partyFilter: Party,
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long] = {
-    fetchEventIds(
-      tableName = "pe_non_consuming_exercise_filter_informees",
-      partyFilter = partyFilter,
-      templateIdFilterO = None,
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      limit = limit,
-    )(connection)
-  }
-
-  override def fetchIds_consuming_nonStakeholderInformees(
-      partyFilter: Party,
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long] = {
-    fetchEventIds(
-      tableName = "pe_consuming_exercise_filter_nonstakeholder_informees",
-      partyFilter = partyFilter,
-      templateIdFilterO = None,
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      limit = limit,
-    )(connection)
-  }
-
-  override def fetchIds_consuming_stakeholders(
-      partyFilter: Ref.Party,
-      templateIdFilter: Option[Ref.Identifier],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long] = {
-    fetchEventIds(
-      tableName = "pe_consuming_exercise_filter_stakeholders",
-      partyFilter = partyFilter,
-      templateIdFilterO = templateIdFilter,
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      limit = limit,
-    )(connection)
-  }
-
-  override def fetchIds_create_nonStakeholderInformees(
-      partyFilter: Party,
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long] = {
-    fetchEventIds(
-      tableName = "pe_create_filter_nonstakeholder_informees",
-      partyFilter = partyFilter,
-      templateIdFilterO = None,
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      limit = limit,
-    )(connection)
-  }
-
-  override def fetchIds_create_stakeholders(
-      partyFilter: Ref.Party,
-      templateIdFilter: Option[Ref.Identifier],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long] = {
-    fetchEventIds(
-      tableName = "participant_events_create_filter",
-      partyFilter = partyFilter,
-      templateIdFilterO = templateIdFilter,
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      limit = limit,
-    )(connection)
-  }
-
   /** @param tableName one of filter tables for create, consuming or non-consuming events
-    * @param templateIdFilterO NOTE: this parameter is not applicable for tree tx stream only oriented filters
+    * @param templateIdO NOTE: this parameter is not applicable for tree tx stream only oriented filters
     */
   private def fetchEventIds(
       tableName: String,
-      partyFilter: Ref.Party,
-      templateIdFilterO: Option[Ref.Identifier],
+      witness: Ref.Party,
+      templateIdO: Option[Ref.Identifier],
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
   )(connection: Connection): Vector[Long] = {
     (
-      stringInterning.party.tryInternalize(partyFilter),
-      templateIdFilterO.map(stringInterning.templateId.tryInternalize),
+      stringInterning.party.tryInternalize(witness),
+      templateIdO.map(stringInterning.templateId.tryInternalize),
     ) match {
       case (None, _) => Vector.empty // partyFilter never seen
       case (_, Some(None)) => Vector.empty // templateIdFilter never seen

@@ -146,7 +146,9 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     )
     val before1 = executeSql(
       backend.event
-        .fetchFlatCreateEvents(eventSequentialIds = before1_ids, allFilterParties = Set(someParty))
+        .fetchEventPayloadsFlat(
+          target = PayloadFetchingForFlatTxTarget.CreateEventPayloads
+        )(eventSequentialIds = before1_ids, allFilterParties = Set(someParty))
     )
     val before3a: Option[(Long, Long)] =
       executeSql(backend.event.fetchIdsFromTransactionMeta(createTransactionId))
@@ -158,7 +160,9 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       )
     )
     val before4_ids = executeSql(
-      backend.event.fetchIds_create_nonStakeholderInformees(
+      backend.event.fetchEventIdsForInformees(
+        target = EventIdFetchingForInformeesTarget.CreateNonStakeholderInformee
+      )(
         partyFilter = someParty,
         startExclusive = 0,
         endInclusive = 2L,
@@ -166,7 +170,9 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       )
     )
     val before4 = executeSql(
-      backend.event.fetchTreeCreateEvents(
+      backend.event.fetchEventPayloadsFlat(
+        target = PayloadFetchingForFlatTxTarget.CreateEventPayloads
+      )(
         eventSequentialIds = before1_ids ++ before4_ids,
         allFilterParties = Set(someParty),
       )
@@ -210,7 +216,9 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     )
     val after1 = executeSql(
       backend.event
-        .fetchFlatCreateEvents(eventSequentialIds = before1_ids, allFilterParties = Set(someParty))
+        .fetchEventPayloadsFlat(
+          target = PayloadFetchingForFlatTxTarget.CreateEventPayloads
+        )(eventSequentialIds = before1_ids, allFilterParties = Set(someParty))
     )
     val after3a: Option[(Long, Long)] =
       executeSql(backend.event.fetchIdsFromTransactionMeta(createTransactionId))
@@ -222,7 +230,9 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       )
     )
     val after4_ids = executeSql(
-      backend.event.fetchIds_create_nonStakeholderInformees(
+      backend.event.fetchEventIdsForInformees(
+        target = EventIdFetchingForInformeesTarget.CreateNonStakeholderInformee
+      )(
         partyFilter = someParty,
         startExclusive = 0,
         endInclusive = 2L,
@@ -230,7 +240,9 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       )
     )
     val after4 = executeSql(
-      backend.event.fetchTreeCreateEvents(
+      backend.event.fetchEventPayloadsFlat(
+        target = PayloadFetchingForFlatTxTarget.CreateEventPayloads
+      )(
         eventSequentialIds = before1_ids ++ before4_ids,
         allFilterParties = Set(someParty),
       )
