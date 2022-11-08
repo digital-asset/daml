@@ -842,6 +842,7 @@ object JsonLedgerClient {
             optName.map(_.convertTo[String]),
             isLocal.convertTo[Boolean],
             ObjectMeta.empty,
+            None,
           )
         case _ => deserializationError(s"Expected PartyDetails but got $v")
       }

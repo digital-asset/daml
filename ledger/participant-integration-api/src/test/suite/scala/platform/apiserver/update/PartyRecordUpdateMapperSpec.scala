@@ -21,6 +21,7 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       isLocal: Boolean = false,
       displayNameO: Option[String] = None,
       annotations: Map[String, String] = Map.empty,
+      identityProviderId: Option[Ref.IdentityProviderId] = None,
   ): PartyDetails = PartyDetails(
     party = party,
     displayName = displayNameO,
@@ -29,6 +30,7 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       resourceVersionO = None,
       annotations = annotations,
     ),
+    identityProviderId = identityProviderId,
   )
 
   def makePartyDetailsUpdate(

@@ -141,19 +141,30 @@ private[apiserver] final class ApiPartyManagementService private (
     logger.info("Listing known parties")
     implicit val errorLogger: DamlContextualizedErrorLogger =
       new DamlContextualizedErrorLogger(logger, loggingContext, None)
-    (for {
-      partyDetailsSeq <- partyManagementService.listKnownParties()
-      partyRecords <- fetchPartyRecords(partyDetailsSeq)
-    } yield {
-      val protoDetails = partyDetailsSeq.zip(partyRecords).map { case (details, recordO) =>
-        toProtoPartyDetails(
-          partyDetails = details,
-          metadataO = recordO.map(_.metadata),
-          recordO.flatMap(_.identityProviderId),
-        )
+    withValidation {
+      optionalString(request.identityProviderId)(
+        requireIdentityProviderId(_, "identity_provider_id")
+      )
+    } { identityProviderId =>
+      for {
+        partyDetailsSeq <- partyManagementService.listKnownParties()
+        partyRecords <- fetchPartyRecords(partyDetailsSeq)
+      } yield {
+        val protoDetails = partyDetailsSeq.zip(partyRecords).map { case (details, recordO) =>
+          toProtoPartyDetails(
+            partyDetails = details,
+            metadataO = recordO.map(_.metadata),
+            recordO.flatMap(_.identityProviderId),
+          )
+        }
+        identityProviderId match {
+          case Some(id) =>
+            ListKnownPartiesResponse(protoDetails.filter(_.identityProviderId == id))
+          case None =>
+            ListKnownPartiesResponse(protoDetails)
+        }
       }
-      ListKnownPartiesResponse(protoDetails)
-    })
+    }
   }
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
@@ -249,6 +260,9 @@ private[apiserver] final class ApiPartyManagementService private (
             "update_mask",
           )
           displayNameO <- optionalString(partyDetails.displayName)(Right(_))
+          identityProviderId <- optionalString(partyDetails.identityProviderId)(
+            requireIdentityProviderId(_, "identity_provider_id")
+          )
           partyRecord = PartyDetails(
             party = party,
             displayName = displayNameO,
@@ -257,6 +271,7 @@ private[apiserver] final class ApiPartyManagementService private (
               resourceVersionO = resourceVersionNumberO,
               annotations = annotations,
             ),
+            identityProviderId = identityProviderId,
           )
         } yield (partyRecord, updateMask)
       } { case (partyRecord, updateMask) =>

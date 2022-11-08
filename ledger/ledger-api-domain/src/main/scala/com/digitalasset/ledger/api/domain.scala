@@ -404,6 +404,7 @@ object domain {
       displayName: Option[String],
       isLocal: Boolean,
       metadata: ObjectMeta,
+      identityProviderId: Option[Ref.IdentityProviderId],
   )
 
   sealed abstract class UserRight extends Product with Serializable

@@ -419,6 +419,7 @@ class IdeLedgerClient(
         displayName = Some(displayName),
         isLocal = true,
         metadata = ObjectMeta.empty,
+        identityProviderId = None,
       )
       _ = allocatedParties += (name -> partyDetails)
     } yield partyDetails.party)
