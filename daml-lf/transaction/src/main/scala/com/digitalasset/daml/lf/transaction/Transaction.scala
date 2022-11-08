@@ -12,7 +12,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.lf.command.DisclosedContract
 import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 
 final case class VersionedTransaction private[lf] (
