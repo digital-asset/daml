@@ -340,7 +340,7 @@ object AkkaHttpMetricsSpec {
 
   }
 
-  object TestMetrics extends TestMetricsBase {
+  object TestMetrics extends OpenTelemetryTestMetrics {
 
     // Creates a new set of metrics, for one test
     def apply(): TestMetrics = {

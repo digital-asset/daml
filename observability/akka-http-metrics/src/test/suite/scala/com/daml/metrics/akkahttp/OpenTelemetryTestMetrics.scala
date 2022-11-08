@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger
   * Use the getCurrentValue and getHistogramValues to extract the current data from a metric.
   * @see WebSocketMetricsSpec.TestMetrics
   */
-abstract class TestMetricsBase {
+abstract class OpenTelemetryTestMetrics {
   final val SecondNanos = 1_000_000_000L;
 
   final val testNumbers = new AtomicInteger()
