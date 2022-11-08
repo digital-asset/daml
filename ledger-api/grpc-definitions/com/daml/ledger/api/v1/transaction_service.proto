@@ -147,7 +147,9 @@ message GetTransactionByEventIdRequest {
   // Required
   repeated string requesting_parties = 3;
 
-  // TODO do we need here domain_id as well?
+  // Must be a valid domain ID
+  // Required
+  string domain_id = 4;
 }
 
 message GetTransactionByIdRequest {
@@ -167,7 +169,9 @@ message GetTransactionByIdRequest {
   // Required
   repeated string requesting_parties = 3;
 
-  // TODO do we need here domain_id as well?
+  // Must be a valid domain ID
+  // Required
+  string domain_id = 4;
 }
 
 message GetTransactionResponse {

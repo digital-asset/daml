@@ -50,7 +50,7 @@ message Transfer {
 // Records that a contract has been transferred-out, and it becomes unusable on the source domain
 message TransferredOutEvent {
 
-  // The ID of the transfer out event. This needs to be used as an input for a transfer-in TransferCommand.
+  // The ID of the transfer-out event. This needs to be used as an input for a transfer-in TransferCommand.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string transfer_out_id = 1;
@@ -71,7 +71,7 @@ message TransferredOutEvent {
   string target = 4;
 
   // Transfer-in exclusivity
-  // Before this time, only the initiator of the transfer-out can initiate the transfer-in
+  // Before this time (measured on the target domain), only the initiator of the transfer-out can initiate the transfer-in
   // Required
   google.protobuf.Timestamp transfer_in_exclusivity = 5;
 }

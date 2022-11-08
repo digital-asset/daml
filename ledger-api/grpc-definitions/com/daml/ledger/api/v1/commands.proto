@@ -126,7 +126,7 @@ message Commands {
   // Optional
   repeated DisclosedContract disclosed_contracts = 17;
 
-  // TODO this might be optional for auto-transfers. Do we need auto-transfers for 3.0?
+  // TODO this might be optional if auto-transfers are enabled. Do we need auto-transfers for 3.0?
   // Must be a valid domain ID
   // Required
   string domain_id = 18;
