@@ -17,6 +17,7 @@ import scala.collection.mutable
 import scala.language.implicitConversions
 
 // Important: do not use this in production code. It is designed for testing only.
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 private[daml] class EncodeV1(minor: LV.Minor) {
 
   import EncodeV1._
@@ -989,6 +990,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
 
 }
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 object EncodeV1 {
 
   private sealed abstract class LeftRecMatcher[L, R] {

@@ -1,7 +1,7 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:scala.bzl", "da_scala_binary")
+load("//bazel_tools:scala.bzl", "da_scala_binary", "lf_scalacopts_stricter")
 
 genrule(
     name = "scenario_service_jar",
@@ -21,6 +21,7 @@ da_scala_binary(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_github_scopt_scopt",
     ],
+    scalacopts =  lf_scalacopts_stricter,
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
