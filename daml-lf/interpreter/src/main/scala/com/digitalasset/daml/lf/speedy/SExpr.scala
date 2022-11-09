@@ -34,16 +34,16 @@ import com.daml.scalautil.Statement.discard
   */
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-object SExpr {
+private[lf] object SExpr {
 
-  sealed abstract class SExpr extends Product with Serializable {
+  private[lf] sealed abstract class SExpr extends Product with Serializable {
     def execute(machine: Machine): Control
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override def toString: String =
       productPrefix + productIterator.map(prettyPrint).mkString("(", ",", ")")
   }
 
-  sealed abstract class SExprAtomic extends SExpr {
+  private[lf] sealed abstract class SExprAtomic extends SExpr {
     def lookupValue(machine: Machine): SValue
 
     final override def execute(machine: Machine): Control = {
@@ -271,7 +271,7 @@ object SExpr {
           machine.pushEnv(value) // use pushEnv not env.add so instrumentation is updated
           Control.Expression(body)
         case None =>
-          unwindToHandler(machine, builtin.buildException(actuals))
+          machine.handleException(builtin.buildException(actuals))
       }
     }
   }
@@ -328,11 +328,9 @@ object SExpr {
 
   /** Exception handler */
   final case class SETryCatch(body: SExpr, handler: SExpr) extends SExpr {
-    override def execute(machine: Machine): Control = {
+    override def execute(machine: Machine): Control = machine.asOnLedger(productPrefix) { machine =>
       machine.pushKont(KTryCatchHandler(machine, handler))
-      machine.withOnLedger("SETryCatch") { onLedger =>
-        onLedger.ptx = onLedger.ptx.beginTry
-      }
+      machine.ptx = machine.ptx.beginTry
       Control.Expression(body)
     }
   }

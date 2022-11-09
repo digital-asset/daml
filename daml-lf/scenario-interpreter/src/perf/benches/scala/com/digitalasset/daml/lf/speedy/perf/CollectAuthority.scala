@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 
 import org.openjdk.jmh.annotations._
 
-class CollectAuthority {
+private[lf] class CollectAuthority {
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
   def bench(state: CollectAuthorityState): Unit = {
     state.run()
@@ -32,7 +32,7 @@ class CollectAuthority {
 }
 
 @State(Scope.Benchmark)
-class CollectAuthorityState {
+private[lf] class CollectAuthorityState {
 
   @Param(Array("//daml-lf/scenario-interpreter/CollectAuthority.dar"))
   private[perf] var dar: String = _
@@ -162,7 +162,7 @@ class CollectAuthorityState {
 
 }
 
-class CachedLedgerApi(initStep: Int, ledger: ScenarioLedger)
+private[lf] class CachedLedgerApi(initStep: Int, ledger: ScenarioLedger)
     extends ScenarioRunner.ScenarioLedgerApi(ledger) {
   var step = initStep
   var cachedContract: Map[Int, Value.VersionedContractInstance] = Map()
@@ -182,7 +182,7 @@ class CachedLedgerApi(initStep: Int, ledger: ScenarioLedger)
   }
 }
 
-class CannedLedgerApi(
+private[lf] class CannedLedgerApi(
     initStep: Int,
     cachedContract: Map[Int, Value.VersionedContractInstance],
 ) extends ScenarioRunner.LedgerApi[Unit] {

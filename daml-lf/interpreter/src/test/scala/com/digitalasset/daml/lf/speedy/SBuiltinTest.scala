@@ -20,7 +20,12 @@ import com.daml.lf.speedy.SBuiltin.{
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
-import com.daml.lf.speedy.Speedy.{CachedContract, OnLedger, SKeyWithMaintainers}
+import com.daml.lf.speedy.Speedy.{
+  CachedContract,
+  OnLedgerMachine,
+  OffLedgerMachine,
+  SKeyWithMaintainers,
+}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value
@@ -1874,11 +1879,10 @@ object SBuiltinTest {
       }
 
     SpeedyTestLib.run(machine, getContract = getContract).map { value =>
-      machine.ledgerMode match {
-        case onLedger: OnLedger =>
-          (value, onLedger.getCachedContracts, onLedger.disclosureKeyTable.toMap)
-
-        case _ =>
+      machine match {
+        case machine: OnLedgerMachine =>
+          (value, machine.getCachedContracts, machine.disclosureKeyTable.toMap)
+        case _: OffLedgerMachine =>
           (value, Map.empty, Map.empty)
       }
     }
