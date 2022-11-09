@@ -98,7 +98,7 @@ class PersistentUserManagementStore(
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  override def getUserInfo(id: UserId, identityProviderId: Option[Ref.IdentityProviderId])(implicit
+  override def getUserInfo(id: UserId, identityProviderId: Ref.IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserInfo]] = {
     inTransaction(_.getUserInfo) { implicit connection =>
@@ -127,7 +127,7 @@ class PersistentUserManagementStore(
         val dbUser = UserManagementStorageBackend.DbUserPayload(
           id = user.id,
           primaryPartyO = user.primaryParty,
-          identityProviderId = user.identityProviderId,
+          identityProviderId = user.identityProviderId.toDb,
           isDeactivated = user.isDeactivated,
           resourceVersion = 0,
           createdAt = now,
@@ -166,7 +166,7 @@ class PersistentUserManagementStore(
   )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
     inTransaction(_.updateUser) { implicit connection =>
       for {
-        _ <- withUser(id = userUpdate.id, None) { dbUser => // todo provide identityProviderId
+        _ <- withUser(id = userUpdate.id, Ref.IdentityProviderId.Default) { dbUser => // todo provide identityProviderId
           val now = epochMicroseconds()
           // Step 1: Update resource version
           // NOTE: We starts by writing to the 'resource_version' attribute
@@ -228,7 +228,7 @@ class PersistentUserManagementStore(
             )(connection)
           }
         }
-        domainUser <- withUser(id = userUpdate.id, None) {
+        domainUser <- withUser(id = userUpdate.id, Ref.IdentityProviderId.Default) {
           dbUserAfterUpdates => // todo provide identityProviderId
             val annotations =
               backend.getUserAnnotations(internalId = dbUserAfterUpdates.internalId)(connection)
@@ -240,7 +240,7 @@ class PersistentUserManagementStore(
 
   override def deleteUser(
       id: UserId,
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Unit]] = {
     inTransaction(_.deleteUser) { implicit connection =>
       if (!backend.deleteUser(id = id)(connection)) {
@@ -256,7 +256,7 @@ class PersistentUserManagementStore(
   override def grantRights(
       id: UserId,
       rights: Set[domain.UserRight],
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     inTransaction(_.grantRights) { implicit connection =>
       withUser(id, identityProviderId) { user =>
@@ -289,7 +289,7 @@ class PersistentUserManagementStore(
   override def revokeRights(
       id: UserId,
       rights: Set[domain.UserRight],
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     inTransaction(_.revokeRights) { implicit connection =>
       withUser(id, identityProviderId) { user =>
@@ -309,7 +309,7 @@ class PersistentUserManagementStore(
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]] = {
@@ -360,7 +360,7 @@ class PersistentUserManagementStore(
       id = payload.id,
       primaryParty = payload.primaryPartyO,
       isDeactivated = payload.isDeactivated,
-      identityProviderId = payload.identityProviderId,
+      identityProviderId = Ref.IdentityProviderId.fromDb(payload.identityProviderId),
       metadata = domain.ObjectMeta(
         resourceVersionO = Some(payload.resourceVersion),
         annotations = annotations,
@@ -370,13 +370,14 @@ class PersistentUserManagementStore(
 
   private def withUser[T](
       id: Ref.UserId,
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(
       f: UserManagementStorageBackend.DbUserWithId => T
   )(implicit connection: Connection): Result[T] = {
     backend.getUser(id = id)(connection) match {
-      case Some(user) if identityProviderId.isEmpty => Right(f(user))
-      case Some(user) if identityProviderId == user.payload.identityProviderId => Right(f(user))
+      case Some(user) if identityProviderId == Ref.IdentityProviderId.Default => Right(f(user))
+      case Some(user) if user.payload.identityProviderId.contains(identityProviderId) =>
+        Right(f(user))
       case _ => Left(UserNotFound(userId = id))
     }
   }

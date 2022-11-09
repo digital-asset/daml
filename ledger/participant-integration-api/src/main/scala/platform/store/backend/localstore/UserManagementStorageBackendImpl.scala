@@ -17,7 +17,7 @@ import com.daml.ledger.api.domain.UserRight.{
 import com.daml.ledger.api.v1.admin.user_management_service.Right
 import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.common.{ComposableQuery, QueryStrategy}
-import com.daml.platform.{IdentityProviderId, Party, UserId}
+import com.daml.platform.{LedgerString, Party, UserId}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 
 import scala.util.Try
@@ -61,7 +61,10 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   )(connection: Connection): Int = {
     val id = user.id: String
     val primaryParty = user.primaryPartyO: Option[String]
-    val identityProviderId = user.identityProviderId: Option[String]
+    val identityProviderId = user.identityProviderId match {
+      case Some(Ref.IdentityProviderId.Id(id: String)) => id
+      case None => ""
+    }
     val isDeactivated = user.isDeactivated
     val resourceVersion = user.resourceVersion
     val createdAt = user.createdAt
@@ -148,17 +151,18 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   override def getUsersOrderedById(
       fromExcl: Option[UserId],
       maxResults: Int,
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(
       connection: Connection
   ): Vector[UserManagementStorageBackend.DbUserWithId] = {
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     val whereClause = (fromExcl, identityProviderId) match {
-      case (None, None) => cSQL""
-      case (Some(id: String), Some(idpId: String)) =>
+      case (None, Ref.IdentityProviderId.Default) => cSQL""
+      case (Some(id: String), Ref.IdentityProviderId.Id(idpId: String)) =>
         cSQL"WHERE user_id > ${id} AND identity_provider_id=${idpId}"
-      case (Some(id: String), None) => cSQL"WHERE user_id > ${id}"
-      case (None, Some(idpId: String)) => cSQL"WHERE identity_provider_id=${idpId}"
+      case (Some(id: String), Ref.IdentityProviderId.Default) => cSQL"WHERE user_id > ${id}"
+      case (None, Ref.IdentityProviderId.Id(idpId: String)) =>
+        cSQL"WHERE identity_provider_id=${idpId}"
     }
     SQL"""SELECT internal_id, user_id, primary_party, identity_provider_id, is_deactivated, resource_version, created_at
           FROM participant_users
@@ -304,9 +308,10 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     raw.map(Party.assertFromString)
   }
 
-  private def dbStringToIdentityProviderId(raw: Option[String]): Option[IdentityProviderId] = {
-    raw.map(IdentityProviderId.assertFromString)
-  }
+  private def dbStringToIdentityProviderId(
+      raw: Option[String]
+  ): Option[Ref.IdentityProviderId.Id] =
+    raw.map(LedgerString.assertFromString).map(Ref.IdentityProviderId.Id.apply)
 
   private def isForPartyPredicate(forParty: Option[Party]): ComposableQuery.CompositeSql = {
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation

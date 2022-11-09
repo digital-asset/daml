@@ -80,8 +80,9 @@ private[apiserver] final class ApiUserManagementService(
           )
           pOptPrimaryParty <- optionalString(pUser.primaryParty)(requireParty)
           pRights <- fromProtoRights(request.rights)
-          identityProviderId <- optionalString(pUser.identityProviderId)(
-            requireIdentityProviderId(_, "identity_provider_id")
+          identityProviderId <- optionalIdentityProviderId(
+            pUser.identityProviderId,
+            "identity_provider_id",
           )
         } yield (
           User(
@@ -120,8 +121,9 @@ private[apiserver] final class ApiUserManagementService(
           )
           pFieldMask <- requirePresence(request.updateMask, "update_mask")
           pOptPrimaryParty <- optionalString(pUser.primaryParty)(requireParty)
-          identityProviderId <- optionalString(pUser.identityProviderId)(
-            requireIdentityProviderId(_, "identity_provider_id")
+          identityProviderId <- optionalIdentityProviderId(
+            pUser.identityProviderId,
+            "identity_provider_id",
           )
           pResourceVersion <- optionalString(pMetadata.resourceVersion)(
             FieldValidations.requireResourceVersion(_, "user.metadata.resource_version")
@@ -204,8 +206,9 @@ private[apiserver] final class ApiUserManagementService(
     withValidation {
       for {
         userId <- requireUserId(request.userId, "user_id")
-        identityProviderId <- optionalString(request.identityProviderId)(
-          requireIdentityProviderId(_, "identity_provider_id")
+        identityProviderId <- optionalIdentityProviderId(
+          request.identityProviderId,
+          "identity_provider_id",
         )
       } yield (userId, identityProviderId)
     } { case (userId, identityProviderId) =>
@@ -220,8 +223,9 @@ private[apiserver] final class ApiUserManagementService(
       withValidation {
         for {
           userId <- requireUserId(request.userId, "user_id")
-          identityProviderId <- optionalString(request.identityProviderId)(
-            requireIdentityProviderId(_, "identity_provider_id")
+          identityProviderId <- optionalIdentityProviderId(
+            request.identityProviderId,
+            "identity_provider_id",
           )
         } yield (userId, identityProviderId)
       } { case (userId, identityProviderId) =>
@@ -243,8 +247,9 @@ private[apiserver] final class ApiUserManagementService(
             .Reject("Max page size must be non-negative")
             .asGrpcError,
         )
-        identityProviderId <- optionalString(request.identityProviderId)(
-          requireIdentityProviderId(_, "identity_provider_id")
+        identityProviderId <- optionalIdentityProviderId(
+          request.identityProviderId,
+          "identity_provider_id",
         )
         pageSize =
           if (rawPageSize == 0) maxUsersPageSize
@@ -273,8 +278,9 @@ private[apiserver] final class ApiUserManagementService(
       for {
         userId <- requireUserId(request.userId, "user_id")
         rights <- fromProtoRights(request.rights)
-        identityProviderId <- optionalString(request.identityProviderId)(
-          requireIdentityProviderId(_, "identity_provider_id")
+        identityProviderId <- optionalIdentityProviderId(
+          request.identityProviderId,
+          "identity_provider_id",
         )
       } yield (userId, rights, identityProviderId)
     ) { case (userId, rights, identityProviderId) =>
@@ -297,8 +303,9 @@ private[apiserver] final class ApiUserManagementService(
       for {
         userId <- FieldValidations.requireUserId(request.userId, "user_id")
         rights <- fromProtoRights(request.rights)
-        identityProviderId <- optionalString(request.identityProviderId)(
-          requireIdentityProviderId(_, "identity_provider_id")
+        identityProviderId <- optionalIdentityProviderId(
+          request.identityProviderId,
+          "identity_provider_id",
         )
       } yield (userId, rights, identityProviderId)
     ) { case (userId, rights, identityProviderId) =>
@@ -320,8 +327,9 @@ private[apiserver] final class ApiUserManagementService(
     withValidation {
       for {
         userId <- requireUserId(request.userId, "user_id")
-        identityProviderId <- optionalString(request.identityProviderId)(
-          requireIdentityProviderId(_, "identity_provider_id")
+        identityProviderId <- optionalIdentityProviderId(
+          request.identityProviderId,
+          "identity_provider_id",
         )
       } yield (userId, identityProviderId)
     } { case (userId, identityProviderId) =>
@@ -430,7 +438,7 @@ object ApiUserManagementService {
       primaryParty = user.primaryParty.getOrElse(""),
       isDeactivated = user.isDeactivated,
       metadata = Some(Utils.toProtoObjectMeta(user.metadata)),
-      identityProviderId = user.identityProviderId.getOrElse(""),
+      identityProviderId = user.identityProviderId.toRequestString,
     )
 
   private val toProtoRight: UserRight => proto.Right = {

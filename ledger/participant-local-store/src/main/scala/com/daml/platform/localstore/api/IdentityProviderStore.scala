@@ -16,11 +16,11 @@ trait IdentityProviderStore {
       loggingContext: LoggingContext
   ): Future[Result[IdentityProviderConfig]]
 
-  def getIdentityProviderConfig(id: Ref.IdentityProviderId)(implicit
+  def getIdentityProviderConfig(id: Ref.IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
   ): Future[Result[IdentityProviderConfig]]
 
-  def deleteIdentityProviderConfig(id: Ref.IdentityProviderId)(implicit
+  def deleteIdentityProviderConfig(id: Ref.IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
   ): Future[Result[Unit]]
 
@@ -33,7 +33,7 @@ object IdentityProviderStore {
   type Result[T] = Either[Error, T]
 
   sealed trait Error
-  final case class IdentityProviderConfigNotFound(identityProviderId: Ref.IdentityProviderId)
+  final case class IdentityProviderConfigNotFound(identityProviderId: Ref.IdentityProviderId.Id)
       extends Error
 
 }

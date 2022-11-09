@@ -28,7 +28,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
     state.put(AdminUser.user.id, AdminUser)
   }
 
-  override def getUserInfo(id: UserId, identityProviderId: Option[Ref.IdentityProviderId])(implicit
+  override def getUserInfo(id: UserId, identityProviderId: Ref.IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserManagementStore.UserInfo]] =
     withUser(id, identityProviderId)(info => Right(toDomainUserInfo(info)))
@@ -58,7 +58,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def updateUser(
       userUpdate: UserUpdate
   )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
-    withUser(userUpdate.id, None) {
+    withUser(userUpdate.id, Ref.IdentityProviderId.Default) {
       userInfo => // TODO DPP-1299  we should check if the user is allowed to edit
         val updatedPrimaryParty =
           userUpdate.primaryPartyUpdateO.getOrElse(userInfo.user.primaryParty)
@@ -102,7 +102,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
 
   override def deleteUser(
       id: Ref.UserId,
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Unit]] =
     withUser(id, identityProviderId) { _ =>
       state.remove(id)
@@ -112,7 +112,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def grantRights(
       id: Ref.UserId,
       granted: Set[UserRight],
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[UserRight]]] =
     withUser(id, identityProviderId) { userInfo =>
       val newlyGranted = granted.diff(userInfo.rights) // faster than filter
@@ -126,7 +126,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def revokeRights(
       id: Ref.UserId,
       revoked: Set[UserRight],
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[UserRight]]] =
     withUser(id, identityProviderId) { userInfo =>
       val effectivelyRevoked = revoked.intersect(userInfo.rights) // faster than filter
@@ -140,7 +140,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]] = {
@@ -153,7 +153,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
         .take(maxResults)
         .map(info => toDomainUser(info.user))
         .filter { item =>
-          identityProviderId.nonEmpty && item.identityProviderId == identityProviderId || identityProviderId.isEmpty
+          identityProviderId != Ref.IdentityProviderId.Default && item.identityProviderId == identityProviderId || identityProviderId == Ref.IdentityProviderId.Default
         }
         .toSeq
       Right(UsersPage(users = users))
@@ -169,12 +169,12 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       Future.successful(t)
     )
 
-  private def withUser[T](id: Ref.UserId, identityProviderId: Option[Ref.IdentityProviderId])(
+  private def withUser[T](id: Ref.UserId, identityProviderId: Ref.IdentityProviderId)(
       f: InMemUserInfo => Result[T]
   ): Future[Result[T]] =
     withState(
       state.get(id) match {
-        case Some(user) if identityProviderId.isEmpty => f(user)
+        case Some(user) if identityProviderId == Ref.IdentityProviderId.Default => f(user)
         case Some(user) if user.user.identityProviderId == identityProviderId => f(user)
         case _ => Left(UserNotFound(id))
       }
@@ -221,7 +221,7 @@ object InMemoryUserManagementStore {
       isDeactivated: Boolean = false,
       resourceVersion: Long,
       annotations: Map[String, String],
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )
   case class InMemUserInfo(user: InMemUser, rights: Set[UserRight])
 
@@ -251,7 +251,7 @@ object InMemoryUserManagementStore {
       isDeactivated = false,
       resourceVersion = 0,
       annotations = Map.empty,
-      identityProviderId = None,
+      identityProviderId = Ref.IdentityProviderId.Default,
     ),
     rights = Set(UserRight.ParticipantAdmin),
   )

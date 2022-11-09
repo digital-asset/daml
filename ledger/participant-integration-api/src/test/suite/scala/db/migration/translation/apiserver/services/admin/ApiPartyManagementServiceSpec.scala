@@ -61,7 +61,7 @@ class ApiPartyManagementServiceSpec
         )
       when(
         mockPartyRecordStore.createPartyRecord(any[PartyRecord])(any[LoggingContext])
-      ).thenReturn(Future.successful(Right(PartyRecord(party, ObjectMeta.empty, None))))
+      ).thenReturn(Future.successful(Right(PartyRecord(party, ObjectMeta.empty, Ref.IdentityProviderId.Default))))
       when(
         mockPartyRecordStore.getPartyRecordO(any[Ref.Party])(any[LoggingContext])
       ).thenReturn(Future.successful(Right(None)))

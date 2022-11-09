@@ -4,10 +4,10 @@
 package com.daml.platform.store.backend.localstore
 
 import java.sql.Connection
-
 import anorm.SqlParser.{int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.IdentityProviderId
 
 import scala.util.Try
 
@@ -43,8 +43,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
           internalId = internalId,
           payload = PartyRecordStorageBackend.DbPartyRecordPayload(
             party = com.daml.platform.Party.assertFromString(party),
-            identityProviderId =
-              identityProviderId.map(com.daml.platform.IdentityProviderId.assertFromString),
+            identityProviderId = identityProviderId.map(IdentityProviderId.Id.assertFromString),
             resourceVersion = resourceVersion,
             createdAt = createdAt,
           ),
@@ -56,7 +55,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
       partyRecord: PartyRecordStorageBackend.DbPartyRecordPayload
   )(connection: Connection): Int = {
     val party = partyRecord.party: String
-    val identityProviderId = partyRecord.identityProviderId: Option[String]
+    val identityProviderId = partyRecord.identityProviderId.map(_.value): Option[String]
     val resourceVersion = partyRecord.resourceVersion
     val createdAt = partyRecord.createdAt
     val internalId: Try[Int] = SQL"""

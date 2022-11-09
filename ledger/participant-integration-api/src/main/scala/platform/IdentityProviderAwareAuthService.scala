@@ -6,6 +6,7 @@ package com.daml.platform
 import com.daml.jwt.{JwksVerifier, JwtTimestampLeeway}
 import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, ClaimSet}
 import com.daml.ledger.api.domain.IdentityProviderConfig
+import com.daml.lf.data.Ref
 import io.grpc.Metadata
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
@@ -17,7 +18,7 @@ class IdentityProviderAwareAuthService(
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
 ) extends AuthService {
 
-  private val services = TrieMap[String, IdentityProviderAwareAuthService.IdpEntry]()
+  private val services = TrieMap[Ref.IdentityProviderId.Id, IdentityProviderAwareAuthService.IdpEntry]()
 
   def addService(identityProviderConfig: IdentityProviderConfig): Boolean = {
     val service = AuthServiceJWT(JwksVerifier(identityProviderConfig.jwksURL, jwtTimestampLeeway))
@@ -29,7 +30,7 @@ class IdentityProviderAwareAuthService(
     services.put(entry.id, entry).isEmpty
   }
 
-  def removeService(id: String): Boolean = {
+  def removeService(id: Ref.IdentityProviderId.Id): Boolean = {
     services.remove(id).isDefined
   }
 
@@ -72,5 +73,5 @@ class IdentityProviderAwareAuthService(
 }
 
 object IdentityProviderAwareAuthService {
-  case class IdpEntry(id: String, issuer: String, service: AuthServiceJWT)
+  case class IdpEntry(id: Ref.IdentityProviderId.Id, issuer: String, service: AuthServiceJWT)
 }

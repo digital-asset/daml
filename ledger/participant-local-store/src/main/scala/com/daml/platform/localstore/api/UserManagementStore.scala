@@ -35,7 +35,7 @@ trait UserManagementStore {
 
   // read access
 
-  def getUserInfo(id: Ref.UserId, identityProviderId: Option[Ref.IdentityProviderId])(implicit
+  def getUserInfo(id: Ref.UserId, identityProviderId: Ref.IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserInfo]]
 
@@ -45,7 +45,7 @@ trait UserManagementStore {
   def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]]
@@ -60,14 +60,14 @@ trait UserManagementStore {
       loggingContext: LoggingContext
   ): Future[Result[User]]
 
-  def deleteUser(id: Ref.UserId, identityProviderId: Option[Ref.IdentityProviderId])(implicit
+  def deleteUser(id: Ref.UserId, identityProviderId: Ref.IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[Unit]]
 
   def grantRights(
       id: Ref.UserId,
       rights: Set[UserRight],
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]]
@@ -75,21 +75,21 @@ trait UserManagementStore {
   def revokeRights(
       id: Ref.UserId,
       rights: Set[UserRight],
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]]
 
   // read helpers
 
-  final def getUser(id: Ref.UserId, identityProviderId: Option[Ref.IdentityProviderId])(implicit
+  final def getUser(id: Ref.UserId, identityProviderId: Ref.IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[User]] = {
     getUserInfo(id, identityProviderId).map(_.map(_.user))(ExecutionContext.parasitic)
   }
 
-  final def listUserRights(id: Ref.UserId, identityProviderId: Option[Ref.IdentityProviderId])(
-      implicit loggingContext: LoggingContext
+  final def listUserRights(id: Ref.UserId, identityProviderId: Ref.IdentityProviderId)(implicit
+      loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]] = {
     getUserInfo(id, identityProviderId).map(_.map(_.rights))(ExecutionContext.parasitic)
   }

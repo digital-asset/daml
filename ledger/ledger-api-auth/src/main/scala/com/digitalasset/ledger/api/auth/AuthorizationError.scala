@@ -56,10 +56,10 @@ object AuthorizationError {
     override val reason = s"Claims do not authorize to act as party '$party'"
   }
 
-  final case class InvalidIdentityProviderId(identityProviderId: Option[Ref.IdentityProviderId])
+  final case class InvalidIdentityProviderId(identityProviderId: Ref.IdentityProviderId)
       extends AuthorizationError {
     // TODO DPP-1299 better error message?
     override val reason =
-      s"Claims are only valid for identityProviderId '${identityProviderId.getOrElse("")}'."
+      s"Claims are only valid for identityProviderId '${identityProviderId.toRequestString}'."
   }
 }

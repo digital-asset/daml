@@ -114,12 +114,12 @@ final class Authorizer(
       // token is not being resolved from the user - letting it through as is
       Right(identityProviderId)
     } else if (
-      claims.resolvedFromUser && requestIdentityProviderId.isDefined && requestIdentityProviderId == claims.identityProviderId
+      claims.resolvedFromUser && requestIdentityProviderId.isDefined && identityProviderId == claims.identityProviderId.toRequestString
     ) {
       // the user has provided idp_id, and it matches his issuer in the token
-      Right(identityProviderId)
+      Right(claims.identityProviderId.toRequestString)
     } else if (claims.resolvedFromUser && requestIdentityProviderId.isEmpty)
-      Right(claims.identityProviderId.getOrElse(""))
+      Right(claims.identityProviderId.toRequestString)
     else {
       Left(AuthorizationError.InvalidIdentityProviderId(claims.identityProviderId))
     }

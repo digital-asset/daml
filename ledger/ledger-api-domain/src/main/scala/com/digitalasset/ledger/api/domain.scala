@@ -396,7 +396,7 @@ object domain {
       primaryParty: Option[Ref.Party],
       isDeactivated: Boolean = false,
       metadata: ObjectMeta = ObjectMeta.empty,
-      identityProviderId: Option[Ref.IdentityProviderId] = None,
+      identityProviderId: Ref.IdentityProviderId = Ref.IdentityProviderId.Default,
   )
 
   case class PartyDetails(
@@ -404,7 +404,7 @@ object domain {
       displayName: Option[String],
       isLocal: Boolean,
       metadata: ObjectMeta,
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )
 
   sealed abstract class UserRight extends Product with Serializable
@@ -421,7 +421,7 @@ object domain {
   }
 
   final case class IdentityProviderConfig(
-      identityProviderId: Ref.IdentityProviderId,
+      identityProviderId: Ref.IdentityProviderId.Id,
       isDeactivated: Boolean = false,
       jwksURL: URL,
       issuer: String,

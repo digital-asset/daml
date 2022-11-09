@@ -9,5 +9,5 @@ import com.daml.lf.data.Ref
 final case class PartyRecord(
     party: Ref.Party,
     metadata: ObjectMeta,
-    identityProviderId: Option[Ref.IdentityProviderId],
+    identityProviderId: Ref.IdentityProviderId,
 )

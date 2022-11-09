@@ -148,13 +148,25 @@ object FieldValidations {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.LedgerString] =
     requireNonEmptyParsedId(Ref.LedgerString.fromString)(s, fieldName)
+
   def requireIdentityProviderId(
       s: String,
       fieldName: String,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Ref.IdentityProviderId] =
-    requireNonEmptyParsedId(Ref.IdentityProviderId.fromString)(s, fieldName)
+  ): Either[StatusRuntimeException, Ref.IdentityProviderId.Id] =
+    Ref.IdentityProviderId.Id.fromString(s).left.map(invalidField(fieldName, _))
+
+  def optionalIdentityProviderId(
+      s: String,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Ref.IdentityProviderId] = {
+    if (s.isEmpty) Right(Ref.IdentityProviderId.Default)
+    else
+      Ref.IdentityProviderId.Id.fromString(s).left.map(invalidField(fieldName, _))
+  }
 
   def requireLedgerString(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

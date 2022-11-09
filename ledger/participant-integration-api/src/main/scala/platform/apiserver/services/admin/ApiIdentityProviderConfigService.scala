@@ -101,7 +101,7 @@ class ApiIdentityProviderConfigService(
         .deleteIdentityProviderConfig(identityProviderId)
         .flatMap(handleResult("deleting identity_provider_config"))
         .map { _ =>
-          identityProviderAwareAuthService.removeService(request.identityProviderId)
+          identityProviderAwareAuthService.removeService(identityProviderId)
           proto.DeleteIdentityProviderConfigResponse()
         }
     )
@@ -113,7 +113,7 @@ class ApiIdentityProviderConfigService(
     case Left(IdentityProviderStore.IdentityProviderConfigNotFound(id)) =>
       Future.failed(
         LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigNotFound
-          .Reject(operation, id)
+          .Reject(operation, id.value)
           .asGrpcError
       )
     case scala.util.Right(t) =>
@@ -131,7 +131,7 @@ object ApiIdentityProviderConfigService {
       identityProviderConfig: IdentityProviderConfig
   ): proto.IdentityProviderConfig =
     proto.IdentityProviderConfig(
-      identityProviderId = identityProviderConfig.identityProviderId,
+      identityProviderId = identityProviderConfig.identityProviderId.toRequestString,
       isDeactivated = identityProviderConfig.isDeactivated,
       jwksUrl = identityProviderConfig.jwksURL.toString,
       issuer = identityProviderConfig.issuer,

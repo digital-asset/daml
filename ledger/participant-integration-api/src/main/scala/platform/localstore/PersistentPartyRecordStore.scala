@@ -98,8 +98,8 @@ class PersistentPartyRecordStore(
                 _ <- withoutPartyRecord(party) {
                   val newPartyRecord = PartyRecord(
                     party = party,
-                    identityProviderId =
-                      None, // TODO DPP-1299 What is going on here? why we are creating a party?
+                    identityProviderId = Ref.IdentityProviderId.Default,
+                    // TODO DPP-1299 What is going on here? why we are creating a party?
                     metadata = domain.ObjectMeta(
                       resourceVersionO = None,
                       annotations = partyRecordUpdate.metadataUpdate.annotationsUpdateO.getOrElse(
@@ -163,7 +163,7 @@ class PersistentPartyRecordStore(
     val now = epochMicroseconds()
     val dbParty = PartyRecordStorageBackend.DbPartyRecordPayload(
       party = partyRecord.party,
-      identityProviderId = partyRecord.identityProviderId,
+      identityProviderId = partyRecord.identityProviderId.toDb,
       resourceVersion = 0,
       createdAt = now,
     )
@@ -237,7 +237,7 @@ class PersistentPartyRecordStore(
   ): PartyRecord = {
     PartyRecord(
       party = payload.party,
-      identityProviderId = payload.identityProviderId,
+      identityProviderId = Ref.IdentityProviderId.fromDb(payload.identityProviderId),
       metadata = domain.ObjectMeta(
         resourceVersionO = Some(payload.resourceVersion),
         annotations = annotations,

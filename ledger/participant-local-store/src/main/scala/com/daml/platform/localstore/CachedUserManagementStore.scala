@@ -42,7 +42,7 @@ class CachedUserManagementStore(
                 executor: Executor,
             ): CompletableFuture[Result[UserInfo]] = {
               val cf = new CompletableFuture[Result[UserInfo]]
-              delegate.getUserInfo(key, None).onComplete {
+              delegate.getUserInfo(key, Ref.IdentityProviderId.Default).onComplete {
                 case Success(value) => cf.complete(value)
                 case Failure(e) => cf.completeExceptionally(e)
               }
@@ -53,13 +53,13 @@ class CachedUserManagementStore(
       metrics.daml.userManagement.cache,
     )
 
-  override def getUserInfo(id: UserId, identityProviderId: Option[Ref.IdentityProviderId])(implicit
+  override def getUserInfo(id: UserId, identityProviderId: Ref.IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserManagementStore.UserInfo]] = {
     cache
       .get(id)
       .map(_.flatMap {
-        case user if identityProviderId.isEmpty => Right(user)
+        case user if identityProviderId == Ref.IdentityProviderId.Default => Right(user)
         case user if identityProviderId == user.user.identityProviderId =>
           Right(user)
         case _ =>
@@ -84,7 +84,7 @@ class CachedUserManagementStore(
 
   override def deleteUser(
       id: UserId,
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Unit]] = {
     delegate
       .deleteUser(id, identityProviderId)
@@ -94,7 +94,7 @@ class CachedUserManagementStore(
   override def grantRights(
       id: UserId,
       rights: Set[domain.UserRight],
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     delegate
       .grantRights(id, rights, identityProviderId)
@@ -104,7 +104,7 @@ class CachedUserManagementStore(
   override def revokeRights(
       id: UserId,
       rights: Set[domain.UserRight],
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     delegate
       .revokeRights(id, rights, identityProviderId)
@@ -114,7 +114,7 @@ class CachedUserManagementStore(
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserManagementStore.UsersPage]] =

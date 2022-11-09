@@ -30,7 +30,7 @@ object InMemoryPartyRecordStore {
       party: Ref.Party,
       resourceVersion: Long,
       annotations: Map[String, String],
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )
 
   def toPartyRecord(info: PartyRecordInfo): PartyRecord =
@@ -103,7 +103,7 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
                     Map.empty[String, String]
                   ),
                 ),
-                identityProviderId = None,
+                identityProviderId = Ref.IdentityProviderId.Default,
               )
               for {
                 info <- doCreatePartyRecord(newPartyRecord)
@@ -150,7 +150,7 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
         party = party,
         resourceVersion = newResourceVersion,
         annotations = updatedAnnotations,
-        identityProviderId = None,
+        identityProviderId = Ref.IdentityProviderId.Default,
       )
       state.put(party, updatedInfo)
       updatedInfo

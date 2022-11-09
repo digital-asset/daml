@@ -28,7 +28,7 @@ trait UserManagementStorageBackend extends ResourceVersionOps {
   def getUsersOrderedById(
       fromExcl: Option[UserId] = None,
       maxResults: Int,
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Ref.IdentityProviderId,
   )(
       connection: Connection
   ): Vector[UserManagementStorageBackend.DbUserWithId]
@@ -64,7 +64,7 @@ object UserManagementStorageBackend {
   case class DbUserPayload(
       id: Ref.UserId,
       primaryPartyO: Option[Ref.Party],
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Option[Ref.IdentityProviderId.Id],
       isDeactivated: Boolean,
       resourceVersion: Long,
       createdAt: Long,

@@ -89,7 +89,10 @@ final class AuthorizationInterceptor(
           userId <- getUserId(userIdStr)
           user <- verifyUserIsActive(userManagementStore, userId)
           identityProviderId <- verifyIdentityProviderConfig(issuer, user, identityProviderStore)
-          userRightsResult <- userManagementStore.listUserRights(userId, None)
+          userRightsResult <- userManagementStore.listUserRights(
+            userId,
+            Ref.IdentityProviderId.Default,
+          )
           claimsSet <- userRightsResult match {
             case Left(msg) =>
               Future.failed(
@@ -122,9 +125,9 @@ final class AuthorizationInterceptor(
       tokenIssuer: Option[String],
       user: User,
       identityProviderStore: IdentityProviderStore,
-  ): Future[Option[Ref.IdentityProviderId]] =
+  ): Future[Ref.IdentityProviderId] =
     user.identityProviderId match {
-      case Some(_) if tokenIssuer.isEmpty =>
+      case Ref.IdentityProviderId.Id(_) if tokenIssuer.isEmpty =>
         Future.failed(
           LedgerApiErrors.AuthorizationChecks.PermissionDenied
             .Reject(
@@ -132,11 +135,11 @@ final class AuthorizationInterceptor(
             )(errorLogger)
             .asGrpcError
         )
-      case Some(identityProviderId) =>
+      case identityProviderId: Ref.IdentityProviderId.Id =>
         identityProviderStore.getIdentityProviderConfig(identityProviderId).flatMap {
           case Right(identityProviderConfig)
               if tokenIssuer.contains(identityProviderConfig.issuer) && tokenIssuer.isDefined =>
-            Future.successful(Some(identityProviderId))
+            Future.successful(identityProviderId)
           case _ =>
             Future.failed(
               LedgerApiErrors.AuthorizationChecks.PermissionDenied
@@ -146,9 +149,9 @@ final class AuthorizationInterceptor(
                 .asGrpcError
             )
         }
-      case None =>
+      case Ref.IdentityProviderId.Default =>
         // User is assigned to default IDP, "iss" claim of the token does not matter for this case
-        Future.successful(None)
+        Future.successful(Ref.IdentityProviderId.Default)
     }
 
   private def verifyUserIsActive(
@@ -156,7 +159,7 @@ final class AuthorizationInterceptor(
       userId: UserId,
   ): Future[User] =
     for {
-      userResult <- userManagementStore.getUser(id = userId, None)
+      userResult <- userManagementStore.getUser(id = userId, Ref.IdentityProviderId.Default)
       value <- userResult match {
         case Left(msg) =>
           Future.failed(

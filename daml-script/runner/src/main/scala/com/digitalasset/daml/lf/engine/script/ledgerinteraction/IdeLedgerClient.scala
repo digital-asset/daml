@@ -419,7 +419,7 @@ class IdeLedgerClient(
         displayName = Some(displayName),
         isLocal = true,
         metadata = ObjectMeta.empty,
-        identityProviderId = None,
+        identityProviderId = Ref.IdentityProviderId.Default,
       )
       _ = allocatedParties += (name -> partyDetails)
     } yield partyDetails.party)
@@ -466,14 +466,14 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[User]] =
-    userManagementStore.getUser(id, None)(LoggingContext.empty).map(_.toOption)
+    userManagementStore.getUser(id, Ref.IdentityProviderId.Default)(LoggingContext.empty).map(_.toOption)
 
   override def deleteUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[Unit]] =
-    userManagementStore.deleteUser(id, None)(LoggingContext.empty).map(_.toOption)
+    userManagementStore.deleteUser(id, Ref.IdentityProviderId.Default)(LoggingContext.empty).map(_.toOption)
 
   override def listAllUsers()(implicit
       ec: ExecutionContext,
@@ -491,7 +491,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .grantRights(id, rights.toSet, None)(LoggingContext.empty)
+      .grantRights(id, rights.toSet, Ref.IdentityProviderId.Default)(LoggingContext.empty)
       .map(_.toOption.map(_.toList))
 
   override def revokeUserRights(
@@ -503,7 +503,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .revokeRights(id, rights.toSet, None)(LoggingContext.empty)
+      .revokeRights(id, rights.toSet, Ref.IdentityProviderId.Default)(LoggingContext.empty)
       .map(_.toOption.map(_.toList))
 
   override def listUserRights(id: UserId)(implicit
@@ -511,5 +511,5 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
-    userManagementStore.listUserRights(id, None)(LoggingContext.empty).map(_.toOption.map(_.toList))
+    userManagementStore.listUserRights(id, Ref.IdentityProviderId.Default)(LoggingContext.empty).map(_.toOption.map(_.toList))
 }

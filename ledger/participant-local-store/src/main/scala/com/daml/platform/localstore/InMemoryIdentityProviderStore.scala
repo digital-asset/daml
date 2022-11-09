@@ -6,7 +6,6 @@ package com.daml.platform.localstore
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.IdentityProviderConfig
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.IdentityProviderId
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.api.IdentityProviderStore
 import com.daml.platform.localstore.api.IdentityProviderStore.{
@@ -18,8 +17,8 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
 
 class InMemoryIdentityProviderStore extends IdentityProviderStore {
-  private val state: TrieMap[Ref.IdentityProviderId, IdentityProviderConfig] =
-    TrieMap[Ref.IdentityProviderId, IdentityProviderConfig]()
+  private val state: TrieMap[Ref.IdentityProviderId.Id, IdentityProviderConfig] =
+    TrieMap[Ref.IdentityProviderId.Id, IdentityProviderConfig]()
 
   override def createIdentityProviderConfig(identityProviderConfig: domain.IdentityProviderConfig)(
       implicit loggingContext: LoggingContext
@@ -28,13 +27,13 @@ class InMemoryIdentityProviderStore extends IdentityProviderStore {
     Future.successful(Right(identityProviderConfig))
   }
 
-  override def getIdentityProviderConfig(id: IdentityProviderId)(implicit
+  override def getIdentityProviderConfig(id: Ref.IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
   ): Future[Result[domain.IdentityProviderConfig]] = {
     Future.successful(state.get(id).toRight(IdentityProviderConfigNotFound(id)))
   }
 
-  override def deleteIdentityProviderConfig(id: IdentityProviderId)(implicit
+  override def deleteIdentityProviderConfig(id: Ref.IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
   ): Future[Result[Unit]] = {
     state.remove(id)
