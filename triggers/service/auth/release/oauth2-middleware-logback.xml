@@ -4,14 +4,7 @@
             <if condition='isDefined("LOG_FORMAT_JSON")'>
                 <then>
                     <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
-                        <pattern>
-                            {
-                            "level": "%level",
-                            "logger": "%logger{36}",
-                            "thread": "%thread",
-                            "summary": "%msg"
-                            }
-                        </pattern>
+                        <layout class="net.logstash.logback.layout.LoggingEventCompositeJsonLayout"/>
                     </encoder>
                 </then>
                 <else>
