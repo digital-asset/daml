@@ -201,12 +201,20 @@ private[backend] trait StorageBackendTestsUserManagement
     val user2 = newDbUser(userId = "user_id_2")
     val user3 = newDbUser(userId = "user_id_3")
     executeSql(
-      tested.getUsersOrderedById(fromExcl = None, maxResults = 10, identityProviderId = Ref.IdentityProviderId.Default)
+      tested.getUsersOrderedById(
+        fromExcl = None,
+        maxResults = 10,
+        identityProviderId = Ref.IdentityProviderId.Default,
+      )
     ) shouldBe empty
     val _ = executeSql(tested.createUser(user3))
     val _ = executeSql(tested.createUser(user1))
     executeSql(
-      tested.getUsersOrderedById(fromExcl = None, maxResults = 10, identityProviderId = Ref.IdentityProviderId.Default)
+      tested.getUsersOrderedById(
+        fromExcl = None,
+        maxResults = 10,
+        identityProviderId = Ref.IdentityProviderId.Default,
+      )
     )
       .map(_.payload) shouldBe Seq(
       user1,
@@ -214,7 +222,11 @@ private[backend] trait StorageBackendTestsUserManagement
     )
     val _ = executeSql(tested.createUser(user2))
     executeSql(
-      tested.getUsersOrderedById(fromExcl = None, maxResults = 10, identityProviderId = Ref.IdentityProviderId.Default)
+      tested.getUsersOrderedById(
+        fromExcl = None,
+        maxResults = 10,
+        identityProviderId = Ref.IdentityProviderId.Default,
+      )
     )
       .map(_.payload) shouldBe Seq(
       user1,
@@ -233,7 +245,11 @@ private[backend] trait StorageBackendTestsUserManagement
     val users = Seq(user1, user2, user3, user4, user5, user6)
     users.foreach(user => executeSql(tested.createUser(user)))
     executeSql(
-      tested.getUsersOrderedById(fromExcl = None, maxResults = 10, identityProviderId = Ref.IdentityProviderId.Default)
+      tested.getUsersOrderedById(
+        fromExcl = None,
+        maxResults = 10,
+        identityProviderId = Ref.IdentityProviderId.Default,
+      )
     )
       .map(_.payload.id) shouldBe Seq("!a", "_a", "a", "a!", "a_", "b")
   }
@@ -247,7 +263,11 @@ private[backend] trait StorageBackendTestsUserManagement
     val user6 = newDbUser(userId = "user_id_6")
     val user7 = newDbUser(userId = "user_id_7")
     executeSql(
-      tested.getUsersOrderedById(fromExcl = None, maxResults = 10, identityProviderId = Ref.IdentityProviderId.Default)
+      tested.getUsersOrderedById(
+        fromExcl = None,
+        maxResults = 10,
+        identityProviderId = Ref.IdentityProviderId.Default,
+      )
     ) shouldBe empty
     // Creating users in a random order
     val _ = executeSql(tested.createUser(user5))
@@ -258,7 +278,11 @@ private[backend] trait StorageBackendTestsUserManagement
     val _ = executeSql(tested.createUser(user2))
     // Get first 2 elements
     executeSql(
-      tested.getUsersOrderedById(fromExcl = None, maxResults = 2, identityProviderId = Ref.IdentityProviderId.Default)
+      tested.getUsersOrderedById(
+        fromExcl = None,
+        maxResults = 2,
+        identityProviderId = Ref.IdentityProviderId.Default,
+      )
     )
       .map(_.payload) shouldBe Seq(
       user1,
@@ -320,7 +344,11 @@ private[backend] trait StorageBackendTestsUserManagement
   it should "handle adding rights to non-existent user" in {
     val nonExistentUserInternalId = 123
     val allUsers = executeSql(
-      tested.getUsersOrderedById(maxResults = 10, fromExcl = None, identityProviderId = Ref.IdentityProviderId.Default)
+      tested.getUsersOrderedById(
+        maxResults = 10,
+        fromExcl = None,
+        identityProviderId = Ref.IdentityProviderId.Default,
+      )
     )
     val rightExists = executeSql(tested.userRightExists(nonExistentUserInternalId, right2))
     allUsers shouldBe empty

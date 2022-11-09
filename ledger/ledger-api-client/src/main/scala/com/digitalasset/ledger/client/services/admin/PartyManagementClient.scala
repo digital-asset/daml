@@ -27,7 +27,7 @@ object PartyManagementClient {
       if (d.displayName.isEmpty) None else Some(d.displayName),
       d.isLocal,
       ObjectMeta.empty,
-      Ref.IdentityProviderId(d.identityProviderId)
+      Ref.IdentityProviderId(d.identityProviderId),
     )
 
   private val getParticipantIdRequest = GetParticipantIdRequest()

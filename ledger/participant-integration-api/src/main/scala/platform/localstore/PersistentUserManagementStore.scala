@@ -166,67 +166,68 @@ class PersistentUserManagementStore(
   )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
     inTransaction(_.updateUser) { implicit connection =>
       for {
-        _ <- withUser(id = userUpdate.id, Ref.IdentityProviderId.Default) { dbUser => // todo provide identityProviderId
-          val now = epochMicroseconds()
-          // Step 1: Update resource version
-          // NOTE: We starts by writing to the 'resource_version' attribute
-          //       of 'participant_users' to effectively obtain an exclusive lock for
-          //       updating this user for the rest of the transaction.
-          userUpdate.metadataUpdate.resourceVersionO match {
-            case Some(expectedResourceVersion) =>
-              if (
-                !backend.compareAndIncreaseResourceVersion(
-                  internalId = dbUser.internalId,
-                  expectedResourceVersion = expectedResourceVersion,
+        _ <- withUser(id = userUpdate.id, Ref.IdentityProviderId.Default) {
+          dbUser => // todo provide identityProviderId
+            val now = epochMicroseconds()
+            // Step 1: Update resource version
+            // NOTE: We starts by writing to the 'resource_version' attribute
+            //       of 'participant_users' to effectively obtain an exclusive lock for
+            //       updating this user for the rest of the transaction.
+            userUpdate.metadataUpdate.resourceVersionO match {
+              case Some(expectedResourceVersion) =>
+                if (
+                  !backend.compareAndIncreaseResourceVersion(
+                    internalId = dbUser.internalId,
+                    expectedResourceVersion = expectedResourceVersion,
+                  )(connection)
+                ) {
+                  throw ConcurrentUserUpdateDetectedRuntimeException(
+                    userUpdate.id
+                  )
+                }
+              case None =>
+                backend.increaseResourceVersion(
+                  internalId = dbUser.internalId
                 )(connection)
+            }
+            // Step 2: Update annotations
+            userUpdate.metadataUpdate.annotationsUpdateO.foreach { newAnnotations =>
+              val existingAnnotations =
+                backend.getUserAnnotations(dbUser.internalId)(connection)
+              val updatedAnnotations = LocalAnnotationsUtils.calculateUpdatedAnnotations(
+                newValue = newAnnotations,
+                existing = existingAnnotations,
+              )
+              if (
+                !ResourceAnnotationValidation
+                  .isWithinMaxAnnotationsByteSize(updatedAnnotations)
               ) {
-                throw ConcurrentUserUpdateDetectedRuntimeException(
-                  userUpdate.id
-                )
+                throw MaxAnnotationsSizeExceededException(userId = userUpdate.id)
               }
-            case None =>
-              backend.increaseResourceVersion(
-                internalId = dbUser.internalId
-              )(connection)
-          }
-          // Step 2: Update annotations
-          userUpdate.metadataUpdate.annotationsUpdateO.foreach { newAnnotations =>
-            val existingAnnotations =
-              backend.getUserAnnotations(dbUser.internalId)(connection)
-            val updatedAnnotations = LocalAnnotationsUtils.calculateUpdatedAnnotations(
-              newValue = newAnnotations,
-              existing = existingAnnotations,
-            )
-            if (
-              !ResourceAnnotationValidation
-                .isWithinMaxAnnotationsByteSize(updatedAnnotations)
-            ) {
-              throw MaxAnnotationsSizeExceededException(userId = userUpdate.id)
+              backend.deleteUserAnnotations(internalId = dbUser.internalId)(connection)
+              updatedAnnotations.iterator.foreach { case (key, value) =>
+                backend.addUserAnnotation(
+                  internalId = dbUser.internalId,
+                  key = key,
+                  value = value,
+                  updatedAt = now,
+                )(connection)
+              }
             }
-            backend.deleteUserAnnotations(internalId = dbUser.internalId)(connection)
-            updatedAnnotations.iterator.foreach { case (key, value) =>
-              backend.addUserAnnotation(
+            // update is_deactivated
+            userUpdate.isDeactivatedUpdateO.foreach { newValue =>
+              backend.updateUserIsDeactivated(
                 internalId = dbUser.internalId,
-                key = key,
-                value = value,
-                updatedAt = now,
+                isDeactivated = newValue,
               )(connection)
             }
-          }
-          // update is_deactivated
-          userUpdate.isDeactivatedUpdateO.foreach { newValue =>
-            backend.updateUserIsDeactivated(
-              internalId = dbUser.internalId,
-              isDeactivated = newValue,
-            )(connection)
-          }
-          // update primary_party
-          userUpdate.primaryPartyUpdateO.foreach { newValue =>
-            backend.updateUserPrimaryParty(
-              internalId = dbUser.internalId,
-              primaryPartyO = newValue,
-            )(connection)
-          }
+            // update primary_party
+            userUpdate.primaryPartyUpdateO.foreach { newValue =>
+              backend.updateUserPrimaryParty(
+                internalId = dbUser.internalId,
+                primaryPartyO = newValue,
+              )(connection)
+            }
         }
         domainUser <- withUser(id = userUpdate.id, Ref.IdentityProviderId.Default) {
           dbUserAfterUpdates => // todo provide identityProviderId

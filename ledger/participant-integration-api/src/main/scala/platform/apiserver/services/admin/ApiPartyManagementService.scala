@@ -169,7 +169,9 @@ private[apiserver] final class ApiPartyManagementService private (
         }
         identityProviderId match {
           case id: Ref.IdentityProviderId.Id =>
-            ListKnownPartiesResponse(protoDetails.filter(_.identityProviderId == id.toRequestString))
+            ListKnownPartiesResponse(
+              protoDetails.filter(_.identityProviderId == id.toRequestString)
+            )
           case Ref.IdentityProviderId.Default =>
             ListKnownPartiesResponse(protoDetails)
         }

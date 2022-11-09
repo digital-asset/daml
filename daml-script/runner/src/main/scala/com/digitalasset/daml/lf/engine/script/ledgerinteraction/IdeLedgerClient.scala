@@ -466,14 +466,18 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[User]] =
-    userManagementStore.getUser(id, Ref.IdentityProviderId.Default)(LoggingContext.empty).map(_.toOption)
+    userManagementStore
+      .getUser(id, Ref.IdentityProviderId.Default)(LoggingContext.empty)
+      .map(_.toOption)
 
   override def deleteUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[Unit]] =
-    userManagementStore.deleteUser(id, Ref.IdentityProviderId.Default)(LoggingContext.empty).map(_.toOption)
+    userManagementStore
+      .deleteUser(id, Ref.IdentityProviderId.Default)(LoggingContext.empty)
+      .map(_.toOption)
 
   override def listAllUsers()(implicit
       ec: ExecutionContext,
@@ -511,5 +515,7 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
-    userManagementStore.listUserRights(id, Ref.IdentityProviderId.Default)(LoggingContext.empty).map(_.toOption.map(_.toList))
+    userManagementStore
+      .listUserRights(id, Ref.IdentityProviderId.Default)(LoggingContext.empty)
+      .map(_.toOption.map(_.toList))
 }

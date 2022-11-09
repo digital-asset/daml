@@ -18,7 +18,8 @@ class IdentityProviderAwareAuthService(
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
 ) extends AuthService {
 
-  private val services = TrieMap[Ref.IdentityProviderId.Id, IdentityProviderAwareAuthService.IdpEntry]()
+  private val services =
+    TrieMap[Ref.IdentityProviderId.Id, IdentityProviderAwareAuthService.IdpEntry]()
 
   def addService(identityProviderConfig: IdentityProviderConfig): Boolean = {
     val service = AuthServiceJWT(JwksVerifier(identityProviderConfig.jwksURL, jwtTimestampLeeway))

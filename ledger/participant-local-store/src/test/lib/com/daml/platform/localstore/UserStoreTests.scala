@@ -183,7 +183,11 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           _ <- tested.createUser(newUser("user2"), Set.empty)
           _ <- tested.createUser(newUser("user3"), Set.empty)
           _ <- tested.createUser(newUser("user4"), Set.empty)
-          list1 <- tested.listUsers(fromExcl = None, maxResults = 3, identityProviderId = Ref.IdentityProviderId.Default)
+          list1 <- tested.listUsers(
+            fromExcl = None,
+            maxResults = 3,
+            identityProviderId = Ref.IdentityProviderId.Default,
+          )
           _ = list1 shouldBe Right(
             UsersPage(
               Seq(
@@ -209,9 +213,17 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
         for {
           res1 <- tested.createUser(newUser("user1"), Set.empty)
           res2 <- tested.createUser(newUser("user2"), Set.empty)
-          users1 <- tested.listUsers(fromExcl = None, maxResults = 10000, identityProviderId = Ref.IdentityProviderId.Default)
+          users1 <- tested.listUsers(
+            fromExcl = None,
+            maxResults = 10000,
+            identityProviderId = Ref.IdentityProviderId.Default,
+          )
           res3 <- tested.deleteUser("user1", Ref.IdentityProviderId.Default)
-          users2 <- tested.listUsers(fromExcl = None, maxResults = 10000, identityProviderId = Ref.IdentityProviderId.Default)
+          users2 <- tested.listUsers(
+            fromExcl = None,
+            maxResults = 10000,
+            identityProviderId = Ref.IdentityProviderId.Default,
+          )
         } yield {
           res1 shouldBe Right(createdUser("user1"))
           res2 shouldBe Right(createdUser("user2"))
@@ -266,9 +278,21 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       testIt { tested =>
         for {
           res1 <- tested.createUser(newUser("user1"), Set.empty)
-          rights1 <- tested.grantRights("user1", Set(ParticipantAdmin), Ref.IdentityProviderId.Default)
-          rights2 <- tested.grantRights("user1", Set(ParticipantAdmin), Ref.IdentityProviderId.Default)
-          rights3 <- tested.grantRights("user1", Set(CanActAs("party1"), CanReadAs("party2")), Ref.IdentityProviderId.Default)
+          rights1 <- tested.grantRights(
+            "user1",
+            Set(ParticipantAdmin),
+            Ref.IdentityProviderId.Default,
+          )
+          rights2 <- tested.grantRights(
+            "user1",
+            Set(ParticipantAdmin),
+            Ref.IdentityProviderId.Default,
+          )
+          rights3 <- tested.grantRights(
+            "user1",
+            Set(CanActAs("party1"), CanReadAs("party2")),
+            Ref.IdentityProviderId.Default,
+          )
           rights4 <- tested.listUserRights("user1", Ref.IdentityProviderId.Default)
         } yield {
           res1 shouldBe Right(createdUser("user1"))
@@ -301,8 +325,16 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
             Set(ParticipantAdmin, CanActAs("party1"), CanReadAs("party2")),
           )
           rights1 <- tested.listUserRights("user1", Ref.IdentityProviderId.Default)
-          rights2 <- tested.revokeRights("user1", Set(ParticipantAdmin), Ref.IdentityProviderId.Default)
-          rights3 <- tested.revokeRights("user1", Set(ParticipantAdmin), Ref.IdentityProviderId.Default)
+          rights2 <- tested.revokeRights(
+            "user1",
+            Set(ParticipantAdmin),
+            Ref.IdentityProviderId.Default,
+          )
+          rights3 <- tested.revokeRights(
+            "user1",
+            Set(ParticipantAdmin),
+            Ref.IdentityProviderId.Default,
+          )
           rights4 <- tested.listUserRights("user1", Ref.IdentityProviderId.Default)
           rights5 <- tested.revokeRights(
             "user1",
