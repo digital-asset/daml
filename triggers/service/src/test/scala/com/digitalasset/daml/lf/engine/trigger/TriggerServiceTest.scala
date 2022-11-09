@@ -42,8 +42,8 @@ import com.daml.ledger.client.services.commands.CompletionStreamElement
 import com.daml.lf.data.Ref.PackageId
 import com.daml.timer.RetryStrategy
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.{
-  Authorization,
   Authentication,
+  Authorization,
   Availability,
   Confidentiality,
 }
@@ -55,6 +55,7 @@ import org.scalatest.time.{Seconds, Span}
 
 import java.nio.file.Files
 import scala.concurrent.duration._
+import scala.language.reflectiveCalls
 
 trait AbstractTriggerServiceTestHelper
     extends AsyncFlatSpec
@@ -112,7 +113,12 @@ trait AbstractTriggerServiceTestHelper
   protected val aliceAcs: Party = Tag("Alice_acs")
   protected val aliceExp: Party = Tag("Alice_exp")
 
-  protected[this] def inClaims(self: ItVerbString, testFn: => Future[Assertion])(implicit
+  protected[this] type HasInIgnore = {
+    def in(testFun: => scala.concurrent.Future[Assertion])(implicit pos: source.Position): Unit
+    def ignore(testFun: => scala.concurrent.Future[Assertion])(implicit pos: source.Position): Unit
+  }
+
+  protected[this] def inClaims(self: HasInIgnore, testFn: => Future[Assertion])(implicit
       pos: source.Position
   ): Unit =
     self in testFn
@@ -127,12 +133,9 @@ trait AbstractTriggerServiceTestHelper
       AbstractTriggerServiceTestHelper.this.inClaims(self, testFn)
   }
 
-  protected[this] def inClaims(self: ItVerbStringTaggedAs, testFn: => Future[Assertion])(implicit
-      pos: source.Position
-  ): Unit =
-    self in testFn
-
-  protected[this] implicit final class `InClaims2 syntax`(private val self: ItVerbStringTaggedAs) {
+  protected[this] implicit final class `InClaimsTagged syntax`(
+      private val self: ItVerbStringTaggedAs
+  ) {
 
     /** Like `in`, but disables tests that would require the oauth test server
       * to grant claims for the user tokens it manufactures; see
@@ -861,7 +864,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
 }
 
 trait DisableOauthClaimsTests extends AbstractTriggerServiceTest {
-  protected[this] override final def inClaims(self: ItVerbString, testFn: => Future[Assertion])(
+  protected[this] override final def inClaims(self: HasInIgnore, testFn: => Future[Assertion])(
       implicit pos: source.Position
   ) =
     self ignore testFn
