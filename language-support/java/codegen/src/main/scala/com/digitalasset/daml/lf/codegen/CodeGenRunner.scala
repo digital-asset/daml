@@ -24,39 +24,51 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
 
 private final class CodeGenRunner(
-    scope: CodeGenRunner.Scope,
+    scopeByPrefix: Map[Option[String], CodeGenRunner.Scope],
     outputDirectory: Path,
     decoderPackageAndClass: Option[(String, String)],
 ) extends StrictLogging {
 
   def runWith(executionContext: ExecutionContext): Future[Unit] = {
     implicit val ec: ExecutionContext = executionContext
-    val packageIds = scope.signatures.map(_.packageId).mkString(", ")
-    logger.info(s"Start processing packageIds '$packageIds'")
-    for {
-      _ <- generateDecoder()
-      interfaceTrees = scope.signatures.map(InterfaceTree.fromInterface)
-      _ <- Future.traverse(interfaceTrees)(processInterfaceTree(_))
-    } yield logger.info(s"Finished processing packageIds '$packageIds'")
+    Future
+      .traverse(scopeByPrefix.toSeq) { case (maybePrefix, scope) =>
+        val packageIds = scope.signatures.map(_.packageId).mkString(", ")
+        val prefix = maybePrefix.fold("")(p => s" with prefix '$p'")
+        logger.info(
+          s"Start processing packageIds '$packageIds'$prefix"
+        )
+        for {
+          _ <- generateDecoder()
+          interfaceTrees = scope.signatures.map(InterfaceTree.fromInterface)
+          _ <- Future.traverse(interfaceTrees)(processInterfaceTree(scope, _))
+        } yield logger.info(s"Finished processing packageIds '$packageIds'$prefix")
+      }
+      .map(_ => ())
   }
 
   private def generateDecoder()(implicit ec: ExecutionContext): Future[Unit] =
     decoderPackageAndClass.fold(Future.unit) { case (decoderPackage, decoderClassName) =>
-      val decoderClass = DecoderClass.generateCode(decoderClassName, scope.templateClassNames)
+      val decoderClass = DecoderClass.generateCode(
+        decoderClassName,
+        scopeByPrefix.view.values.flatMap(s => s.templateClassNames),
+      )
       val decoderFile = JavaFile.builder(decoderPackage, decoderClass).build()
       Future(decoderFile.writeTo(outputDirectory))
     }
 
   private def processInterfaceTree(
-      interfaceTree: InterfaceTree
+      scope: CodeGenRunner.Scope,
+      interfaceTree: InterfaceTree,
   )(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info(s"Start processing packageId '${interfaceTree.interface.packageId}'")
-    for (_ <- interfaceTree.process(process))
+    for (_ <- interfaceTree.process(process(scope, _)))
       yield logger.info(s"Finished processing packageId '${interfaceTree.interface.packageId}'")
   }
 
   private def process(
-      nodeWithContext: NodeWithContext
+      scope: CodeGenRunner.Scope,
+      nodeWithContext: NodeWithContext,
   )(implicit ec: ExecutionContext): Future[Unit] =
     nodeWithContext match {
       case moduleWithContext: ModuleWithContext =>
@@ -64,7 +76,7 @@ private final class CodeGenRunner(
         val moduleName = moduleWithContext.lineage.map(_._1).toSeq.mkString(".")
         Future {
           logger.info(s"Generating code for module $moduleName")
-          for (javaFile <- createTypeDefinitionClasses(moduleWithContext)) {
+          for (javaFile <- createTypeDefinitionClasses(scope, moduleWithContext)) {
             val javaFileFullName = s"${javaFile.packageName}.${javaFile.typeSpec.name}"
             logger.info(s"Writing $javaFileFullName to directory $outputDirectory")
             javaFile.writeTo(outputDirectory)
@@ -74,7 +86,10 @@ private final class CodeGenRunner(
         Future.unit
     }
 
-  private def createTypeDefinitionClasses(module: ModuleWithContext): Iterable[JavaFile] = {
+  private def createTypeDefinitionClasses(
+      scope: CodeGenRunner.Scope,
+      module: ModuleWithContext,
+  ): Iterable[JavaFile] = {
     MDC.put("packageId", module.packageId)
     MDC.put("packageIdShort", module.packageId.take(7))
     MDC.put("moduleName", module.name)
@@ -125,15 +140,25 @@ object CodeGenRunner extends StrictLogging {
     }
     checkAndCreateOutputDir(conf.outputDirectory)
 
-    val scope = configureCodeGenScope(conf.darFiles, conf.modulePrefixes)
+    val scopeByPrefix = configureCodeGenScopeByPrefix(conf.darFiles, conf.modulePrefixes)
 
-    val codegen = new CodeGenRunner(scope, conf.outputDirectory, conf.decoderPkgAndClass)
+    val codegen = new CodeGenRunner(scopeByPrefix, conf.outputDirectory, conf.decoderPkgAndClass)
     val executionContext: ExecutionContextExecutorService = createExecutionContext()
     val result = codegen.runWith(executionContext)
     Await.result(result, 10.minutes)
     executionContext.shutdownNow()
 
     ()
+  }
+
+  private[codegen] def configureCodeGenScopeByPrefix(
+      darFiles: Iterable[(Path, Option[String])],
+      modulePrefixes: Map[PackageReference, String],
+  ): Map[Option[String], CodeGenRunner.Scope] = {
+    val pathsByPrefix = darFiles.groupMap(_._2)(_._1)
+    pathsByPrefix.map { case (maybePrefix, paths) =>
+      maybePrefix -> configureCodeGenScope(paths.map(_ -> maybePrefix), modulePrefixes)
+    }
   }
 
   private[codegen] def configureCodeGenScope(
@@ -206,7 +231,7 @@ object CodeGenRunner extends StrictLogging {
       if (grouped.length > 1) {
         val prefixes = grouped.map(_._2).mkString(", ")
         throw new IllegalArgumentException(
-          s"""Ambiguous prefixes $prefixes configured on package id $packageId."""
+          s"""Ambiguous prefixes ($prefixes) configured on package id $packageId."""
         )
       }
     }
