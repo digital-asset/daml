@@ -550,7 +550,7 @@ private[lf] object Speedy {
               loop()
             case Control.Value(value) =>
               popTempStackToBase()
-              setControl(popKont().execute(value))
+              setControl(popKont().execute(this, value))
               loop()
             case Control.Question(res: SResult) =>
               res
@@ -1114,60 +1114,61 @@ private[lf] object Speedy {
   private[speedy] sealed abstract class Kont {
 
     /** Execute the continuation. */
-    def execute(v: SValue): Control
+    def execute(machine: Machine, v: SValue): Control
   }
 
   /** Final continuation; machine has computed final value */
   private[speedy] final case object KFinished extends Kont {
-    override def execute(v: SValue): Control = {
-      Control.Complete(v)
-    }
+    override def execute(machine: Machine, v: SValue): Control = Control.Complete(v)
   }
 
-  private[speedy] final case class KOverApp(machine: Machine, newArgs: Array[SExprAtomic])
-      extends Kont
+  private[speedy] final case class KOverApp(
+      savedBase: Int,
+      frame: Frame,
+      actuals: Actuals,
+      newArgs: Array[SExprAtomic],
+  ) extends Kont
       with SomeArrayEquals {
-
-    private[this] val savedBase = machine.markBase()
-    private[this] val frame = machine.currentFrame
-    private[this] val actuals = machine.currentActuals
-
-    override def execute(vfun: SValue): Control = {
+    override def execute(machine: Machine, vfun: SValue): Control = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       machine.enterApplication(vfun, newArgs)
     }
   }
 
+  object KOverApp {
+    def apply(machine: Machine, newArgs: Array[SExprAtomic]): KOverApp =
+      KOverApp(machine.markBase(), machine.currentFrame, machine.currentActuals, newArgs)
+  }
+
   /** The function has been evaluated to a value. Now restore the environment and execute the application */
   private[speedy] final case class KArg(
-      machine: Machine,
+      savedBase: Int,
+      frame: Frame,
+      actuals: Actuals,
       newArgs: Array[SExpr],
   ) extends Kont
       with SomeArrayEquals {
-
-    private[this] val savedBase = machine.markBase()
-    private[this] val frame = machine.currentFrame
-    private[this] val actuals = machine.currentActuals
-
-    override def execute(vfun: SValue): Control = {
+    override def execute(machine: Machine, vfun: SValue): Control = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       machine.executeApplication(vfun, newArgs)
     }
   }
 
+  object KArg {
+    def apply(machine: Machine, newArgs: Array[SExpr]): KArg =
+      KArg(machine.markBase(), machine.currentFrame, machine.currentActuals, newArgs)
+  }
+
   /** The function-closure and arguments have been evaluated. Now execute the body. */
   private[speedy] final case class KFun(
-      machine: Machine,
+      savedBase: Int,
       closure: SValue.PClosure,
       actuals: util.ArrayList[SValue],
   ) extends Kont
       with SomeArrayEquals {
-
-    private[this] val savedBase = machine.markBase()
-
-    override def execute(v: SValue): Control = {
+    override def execute(machine: Machine, v: SValue): Control = {
       discard[Boolean](actuals.add(v))
       // Set frame/actuals to allow access to the function arguments and closure free-varables.
       machine.restoreBase(savedBase)
@@ -1184,22 +1185,29 @@ private[lf] object Speedy {
     }
   }
 
+  object KFun {
+    def apply(machine: Machine, closure: SValue.PClosure, actuals: util.ArrayList[SValue]): KFun =
+      KFun(machine.markBase(), closure, actuals)
+  }
+
   /** The builtin arguments have been evaluated. Now execute the builtin. */
   private[speedy] final case class KBuiltin(
-      machine: Machine,
+      savedBase: Int,
       builtin: SBuiltin,
       actuals: util.ArrayList[SValue],
   ) extends Kont {
-
-    private[this] val savedBase = machine.markBase()
-
-    override def execute(v: SValue): Control = {
+    override def execute(machine: Machine, v: SValue): Control = {
       discard[Boolean](actuals.add(v))
       // A builtin has no free-vars, so we set the frame to null.
       machine.restoreBase(savedBase)
       machine.restoreFrameAndActuals(null, actuals)
       builtin.execute(actuals, machine)
     }
+  }
+
+  object KBuiltin {
+    def apply(machine: Machine, builtin: SBuiltin, actuals: util.ArrayList[SValue]): KBuiltin =
+      KBuiltin(machine.markBase(), builtin, actuals)
   }
 
   /** The function's partial-arguments have been evaluated. Construct and return the PAP */
@@ -1210,7 +1218,7 @@ private[lf] object Speedy {
       arity: Int,
   ) extends Kont {
 
-    override def execute(v: SValue): Control = {
+    override def execute(machine: Machine, v: SValue): Control = {
       discard[Boolean](actuals.add(v))
       val pap = SValue.SPAP(prim, actuals, arity)
       Control.Value(pap)
@@ -1313,17 +1321,14 @@ private[lf] object Speedy {
     * directly into the environment.
     */
   private[speedy] final case class KPushTo(
-      machine: Machine,
+      savedBase: Int,
+      frame: Frame,
+      actuals: Actuals,
       to: util.ArrayList[SValue],
       next: SExpr,
   ) extends Kont
       with SomeArrayEquals {
-
-    private[this] val savedBase = machine.markBase()
-    private[this] val frame = machine.currentFrame
-    private[this] val actuals = machine.currentActuals
-
-    override def execute(v: SValue): Control = {
+    override def execute(machine: Machine, v: SValue): Control = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       discard[Boolean](to.add(v))
@@ -1331,17 +1336,19 @@ private[lf] object Speedy {
     }
   }
 
+  object KPushTo {
+    def apply(machine: Machine, to: util.ArrayList[SValue], next: SExpr): KPushTo =
+      KPushTo(machine.markBase(), machine.currentFrame, machine.currentActuals, to, next)
+  }
+
   private[speedy] final case class KFoldl(
-      machine: Machine,
+      frame: Frame,
+      actuals: Actuals,
       func: SValue,
       var list: FrontStack[SValue],
   ) extends Kont
       with SomeArrayEquals {
-
-    private[this] val frame = machine.currentFrame
-    private[this] val actuals = machine.currentActuals
-
-    override def execute(acc: SValue): Control = {
+    override def execute(machine: Machine, acc: SValue): Control = {
       list.pop match {
         case None =>
           Control.Value(acc)
@@ -1356,18 +1363,20 @@ private[lf] object Speedy {
     }
   }
 
+  object KFoldl {
+    def apply(machine: Machine, func: SValue, list: FrontStack[SValue]): KFoldl =
+      KFoldl(machine.currentFrame, machine.currentActuals, func, list)
+  }
+
   private[speedy] final case class KFoldr(
-      machine: Machine,
+      frame: Frame,
+      actuals: Actuals,
       func: SValue,
       list: ImmArray[SValue],
       var lastIndex: Int,
   ) extends Kont
       with SomeArrayEquals {
-
-    private[this] val frame = machine.currentFrame
-    private[this] val actuals = machine.currentActuals
-
-    override def execute(acc: SValue): Control = {
+    override def execute(machine: Machine, acc: SValue): Control = {
       if (lastIndex > 0) {
         machine.restoreFrameAndActuals(frame, actuals)
         val currentIndex = lastIndex - 1
@@ -1381,21 +1390,23 @@ private[lf] object Speedy {
     }
   }
 
+  object KFoldr {
+    def apply(machine: Machine, func: SValue, list: ImmArray[SValue], lastIndex: Int): KFoldr =
+      KFoldr(machine.currentFrame, machine.currentActuals, func, list, lastIndex)
+  }
+
   // NOTE: See the explanation above the definition of `SBFoldr` on why we need
   // this continuation and what it does.
   private[speedy] final case class KFoldr1Map(
-      machine: Machine,
+      frame: Frame,
+      actuals: Actuals,
       func: SValue,
       var list: FrontStack[SValue],
       var revClosures: FrontStack[SValue],
       init: SValue,
   ) extends Kont
       with SomeArrayEquals {
-
-    private[this] val frame = machine.currentFrame
-    private[this] val actuals = machine.currentActuals
-
-    override def execute(closure: SValue): Control = {
+    override def execute(machine: Machine, closure: SValue): Control = {
       revClosures = closure +: revClosures
       list.pop match {
         case None =>
@@ -1410,18 +1421,26 @@ private[lf] object Speedy {
     }
   }
 
+  object KFoldr1Map {
+    def apply(
+        machine: Machine,
+        func: SValue,
+        list: FrontStack[SValue],
+        revClosures: FrontStack[SValue],
+        init: SValue,
+    ): KFoldr1Map =
+      KFoldr1Map(machine.currentFrame, machine.currentActuals, func, list, revClosures, init)
+  }
+
   // NOTE: See the explanation above the definition of `SBFoldr` on why we need
   // this continuation and what it does.
   private[speedy] final case class KFoldr1Reduce(
-      machine: Machine,
+      frame: Frame,
+      actuals: Actuals,
       var revClosures: FrontStack[SValue],
   ) extends Kont
       with SomeArrayEquals {
-
-    private[this] val frame = machine.currentFrame
-    private[this] val actuals = machine.currentActuals
-
-    override def execute(acc: SValue): Control = {
+    override def execute(machine: Machine, acc: SValue): Control = {
       revClosures.pop match {
         case None =>
           Control.Value(acc)
@@ -1432,6 +1451,11 @@ private[lf] object Speedy {
           machine.enterApplication(closure, Array(SEValue(acc)))
       }
     }
+  }
+
+  object KFoldr1Reduce {
+    def apply(machine: Machine, revClosures: FrontStack[SValue]): KFoldr1Reduce =
+      KFoldr1Reduce(machine.currentFrame, machine.currentActuals, revClosures)
   }
 
   /** Store the evaluated value in the definition and in the 'SEVal' from which the
@@ -1447,7 +1471,7 @@ private[lf] object Speedy {
       defn: SDefinition,
   ) extends Kont {
 
-    override def execute(sv: SValue): Control = {
+    override def execute(machine: Machine, sv: SValue): Control = {
       v.setCached(sv)
       defn.setCached(sv)
       Control.Value(sv)
@@ -1457,7 +1481,7 @@ private[lf] object Speedy {
   private[speedy] final case class KCacheContract(machine: Machine, cid: V.ContractId)
       extends Kont {
 
-    override def execute(sv: SValue): Control = {
+    override def execute(machine: Machine, sv: SValue): Control = {
       machine.withOnLedger("KCacheContract") { onLedger =>
         val cached = SBuiltin.extractCachedContract(sv)
         machine.checkContractVisibility(onLedger, cid, cached)
@@ -1474,7 +1498,7 @@ private[lf] object Speedy {
       handleKeyFound: V.ContractId => Control.Value,
   ) extends Kont {
 
-    override def execute(sv: SValue): Control = {
+    override def execute(machine: Machine, sv: SValue): Control = {
       machine.withOnLedger("KCheckKeyVisibitiy") { onLedger =>
         machine.checkKeyVisibility(onLedger, gKey, cid, handleKeyFound)
       }
@@ -1487,7 +1511,7 @@ private[lf] object Speedy {
     */
   private[speedy] final case class KCloseExercise(machine: Machine) extends Kont {
 
-    override def execute(exerciseResult: SValue): Control = {
+    override def execute(machine: Machine, exerciseResult: SValue): Control = {
       machine.withOnLedger("KCloseExercise") { onLedger =>
         onLedger.ptx = onLedger.ptx.endExercises(exerciseResult.toNormalizedValue)
       }
@@ -1501,28 +1525,35 @@ private[lf] object Speedy {
     * enclosing KTryCatchHandler (if there is one), and the code for the handler executed.
     */
   private[speedy] final case class KTryCatchHandler(
-      machine: Machine,
+      savedBase: Int,
+      frame: Frame,
+      actuals: Actuals,
       handler: SExpr,
   ) extends Kont
       with SomeArrayEquals {
-
-    private[this] val savedBase = machine.markBase()
-    private[this] val frame = machine.currentFrame
-    private[this] val actuals = machine.currentActuals
-
     // we must restore when catching a throw, or for normal execution
-    def restore(): Unit = {
+    def restore(machine: Machine): Unit = {
       machine.restoreBase(savedBase)
       machine.restoreFrameAndActuals(frame, actuals)
     }
 
-    override def execute(v: SValue): Control = {
-      restore()
+    override def execute(machine: Machine, v: SValue): Control = {
+      restore(machine)
       machine.withOnLedger("KTryCatchHandler") { onLedger =>
         onLedger.ptx = onLedger.ptx.endTry
       }
       Control.Value(v)
     }
+  }
+
+  object KTryCatchHandler {
+    def apply(machine: Machine, handler: SExpr): KTryCatchHandler =
+      KTryCatchHandler(
+        machine.markBase(),
+        machine.currentFrame,
+        machine.currentActuals,
+        handler: SExpr,
+      )
   }
 
   private[speedy] final case class KCheckChoiceGuard(
@@ -1535,7 +1566,7 @@ private[lf] object Speedy {
     def abort[E](): E =
       throw SErrorDamlException(IError.ChoiceGuardFailed(coid, templateId, choiceName, byInterface))
 
-    override def execute(v: SValue): Control = {
+    override def execute(machine: Machine, v: SValue): Control = {
       v match {
         case SValue.SBool(b) =>
           if (b) {
@@ -1591,7 +1622,7 @@ private[lf] object Speedy {
     }
     unwind() match {
       case Some(kh) =>
-        kh.restore()
+        kh.restore(machine)
         machine.popTempStackToBase()
         machine.pushEnv(excep) // payload on stack where handler expects it
         Control.Expression(kh.handler)
@@ -1610,7 +1641,7 @@ private[lf] object Speedy {
     */
   private[speedy] final case class KLabelClosure(machine: Machine, label: Profile.Label)
       extends Kont {
-    override def execute(v: SValue): Control = {
+    override def execute(machine: Machine, v: SValue): Control = {
       v match {
         case SValue.SPAP(SValue.PClosure(_, expr, closure), args, arity) =>
           val pap = SValue.SPAP(SValue.PClosure(label, expr, closure), args, arity)
@@ -1626,14 +1657,14 @@ private[lf] object Speedy {
     */
   private[speedy] final case class KLeaveClosure(machine: Machine, label: Profile.Label)
       extends Kont {
-    override def execute(v: SValue): Control = {
+    override def execute(machine: Machine, v: SValue): Control = {
       machine.profile.addCloseEvent(label)
       Control.Value(v)
     }
   }
 
   private[speedy] final case class KPreventException(machine: Machine) extends Kont {
-    override def execute(v: SValue): Control = {
+    override def execute(machine: Machine, v: SValue): Control = {
       Control.Value(v)
     }
   }
