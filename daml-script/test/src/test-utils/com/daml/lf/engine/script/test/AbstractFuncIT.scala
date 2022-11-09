@@ -280,7 +280,7 @@ abstract class AbstractFuncIT
     "traceOrder" should {
       "emit trace statements in correct order" in {
         val msgRegex = raw"""\[DA.Internal.Prelude:\d+]: (.*)""".r
-        def stripLoc(msg: String) = (msg: @nowarn("match may not be exhaustive")) match {
+        def stripLoc(msg: String) = (msg: @nowarn("msg=match may not be exhaustive")) match {
           case msgRegex(msg_) => msg_
         }
         for {
