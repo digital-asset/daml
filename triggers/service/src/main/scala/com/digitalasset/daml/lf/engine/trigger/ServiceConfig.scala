@@ -42,5 +42,6 @@ private[trigger] final case class ServiceConfig(
     portFile: Option[Path],
     allowExistingSchema: Boolean,
     compilerConfig: Compiler.Config,
+    triggerConfig: TriggerRunnerConfig,
     rootLoggingLevel: Option[Level],
 )

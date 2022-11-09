@@ -33,6 +33,7 @@ private final case class ScenarioServiceConfig(
     enableScenarios: Boolean,
 )
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 private object ScenarioServiceConfig {
   // default to 128MB
   val DefaultMaxInboundMessageSize: Int = 128 * 1024 * 1024
@@ -65,6 +66,7 @@ private object ScenarioServiceConfig {
     )
 }
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 object ScenarioServiceMain extends App {
   ScenarioServiceConfig.parse(args) match {
     case None => sys.exit(1)
@@ -114,6 +116,7 @@ object ScenarioService {
     Status.NOT_FOUND.withDescription(s" context $id not found!").asRuntimeException
 }
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class ScenarioService(
     enableScenarios: Boolean
 )(implicit

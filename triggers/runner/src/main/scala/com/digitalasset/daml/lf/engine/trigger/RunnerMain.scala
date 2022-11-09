@@ -114,6 +114,7 @@ object RunnerMain {
             config.applicationId,
             parties,
             config.compilerConfig,
+            config.triggerConfig,
           )
         } yield ()
 

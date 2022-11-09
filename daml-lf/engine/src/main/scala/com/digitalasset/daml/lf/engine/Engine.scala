@@ -58,6 +58,7 @@ import com.daml.scalautil.Statement.discard
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
+@scala.annotation.nowarn("msg=return statement uses an exception to pass control to the caller")
 class Engine(val config: EngineConfig = Engine.StableConfig) {
 
   config.profileDir.foreach(Files.createDirectories(_))
