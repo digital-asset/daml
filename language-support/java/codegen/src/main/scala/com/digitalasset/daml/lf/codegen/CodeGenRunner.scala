@@ -24,7 +24,7 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
 
 private final class CodeGenRunner(
-    scopeByPrefix: Map[Option[String], CodeGenRunner.Scope],
+    scopeByPackagePrefix: Map[Option[String], CodeGenRunner.Scope],
     outputDirectory: Path,
     decoderPackageAndClass: Option[(String, String)],
 ) extends StrictLogging {
@@ -32,7 +32,7 @@ private final class CodeGenRunner(
   def runWith(executionContext: ExecutionContext): Future[Unit] = {
     implicit val ec: ExecutionContext = executionContext
     Future
-      .traverse(scopeByPrefix.toSeq) { case (maybePrefix, scope) =>
+      .traverse(scopeByPackagePrefix.toSeq) { case (maybePrefix, scope) =>
         val packageIds = scope.signatures.map(_.packageId).mkString(", ")
         val prefix = maybePrefix.fold("")(p => s" with prefix '$p'")
         logger.info(
@@ -51,7 +51,7 @@ private final class CodeGenRunner(
     decoderPackageAndClass.fold(Future.unit) { case (decoderPackage, decoderClassName) =>
       val decoderClass = DecoderClass.generateCode(
         decoderClassName,
-        scopeByPrefix.view.values.flatMap(s => s.templateClassNames),
+        scopeByPackagePrefix.view.values.flatMap(_.templateClassNames),
       )
       val decoderFile = JavaFile.builder(decoderPackage, decoderClass).build()
       Future(decoderFile.writeTo(outputDirectory))
@@ -120,7 +120,6 @@ object CodeGenRunner extends StrictLogging {
       case id -> (_: TypeDecl.Template) =>
         ClassName.bestGuess(fullyQualifiedName(id, packagePrefixes))
     }
-
   }
 
   def run(conf: Conf): Unit = {
@@ -140,9 +139,11 @@ object CodeGenRunner extends StrictLogging {
     }
     checkAndCreateOutputDir(conf.outputDirectory)
 
-    val scopeByPrefix = configureCodeGenScopeByPackagePrefix(conf.darFiles, conf.modulePrefixes)
+    val scopeByPackagePrefix =
+      configureCodeGenScopeByPackagePrefix(conf.darFiles, conf.modulePrefixes)
 
-    val codegen = new CodeGenRunner(scopeByPrefix, conf.outputDirectory, conf.decoderPkgAndClass)
+    val codegen =
+      new CodeGenRunner(scopeByPackagePrefix, conf.outputDirectory, conf.decoderPkgAndClass)
     val executionContext: ExecutionContextExecutorService = createExecutionContext()
     val result = codegen.runWith(executionContext)
     Await.result(result, 10.minutes)

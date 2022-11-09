@@ -18,11 +18,98 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   import CodeGenRunnerTests._
 
+  behavior of "configureCodeGenScopeByPackagePrefix"
+
+  it should "read interfaces from a single DAR file without a prefix" in {
+
+    val scopeByPrefix =
+      CodeGenRunner.configureCodeGenScopeByPackagePrefix(Map(testDar -> None), Map.empty)
+
+    assert(scopeByPrefix.size === 1)
+    assert(scopeByPrefix.head._1 === None)
+
+    val scope = scopeByPrefix.head._2
+    assert(scope.signatures.length === 25)
+    assert(scope.packagePrefixes === Map.empty)
+    assert(scope.toBeGenerated === Set.empty)
+  }
+
+  it should "read interfaces from 2 DAR files with same dependencies without a prefix" in {
+
+    val scopeByPrefix =
+      CodeGenRunner.configureCodeGenScopeByPackagePrefix(
+        Map(testDar -> None, testDarWithSameDependencies -> None),
+        Map.empty,
+      )
+
+    assert(scopeByPrefix.size === 1)
+    assert(scopeByPrefix.head._1 === None)
+
+    val scope = scopeByPrefix.head._2
+    assert(scope.signatures.length === 26)
+    assert(scope.packagePrefixes === Map.empty)
+    assert(scope.toBeGenerated === Set.empty)
+  }
+
+  // Test case reproducing #15341
+  it should "read interfaces from 2 DAR files with same dependencies but one with different daml compiler version" in {
+
+    val scopeByPrefix =
+      CodeGenRunner.configureCodeGenScopeByPackagePrefix(
+        Map(testDar -> None, testDarWithSameDependenciesButDifferentTargetVersion -> None),
+        Map.empty,
+      )
+
+    assert(scopeByPrefix.size === 1)
+    assert(scopeByPrefix.head._1 === None)
+
+    val scope = scopeByPrefix.head._2
+    assert(scope.signatures.length === 28)
+    assert(scope.packagePrefixes === Map.empty)
+    assert(scope.toBeGenerated === Set.empty)
+  }
+
+  it should "read interfaces from a single DAR file with a prefix" in {
+
+    val scopeByPrefix =
+      CodeGenRunner.configureCodeGenScopeByPackagePrefix(Map(testDar -> Some("PREFIX")), Map.empty)
+    assert(scopeByPrefix.size === 1)
+    assert(scopeByPrefix.head._1 === Some("PREFIX"))
+
+    val scope = scopeByPrefix.head._2
+    assert(scope.signatures.map(_.packageId).length === dar.all.length)
+    assert(scope.packagePrefixes.size === dar.all.length)
+    assert(scope.toBeGenerated === Set.empty)
+  }
+
+  it should "read interfaces from 2 DAR files containing the same packages configured with different prefixes" in {
+
+    val scopeByPrefix =
+      CodeGenRunner.configureCodeGenScopeByPackagePrefix(
+        Map(testTemplateDar -> Some("prefix1"), testTemplate2Dar -> Some("prefix2")),
+        Map.empty,
+      )
+    assert(scopeByPrefix.size === 2)
+    assert(scopeByPrefix.contains(Some("prefix1")))
+    assert(scopeByPrefix.contains(Some("prefix2")))
+
+    val scope1 = scopeByPrefix(Some("prefix1"))
+    assert(scope1.signatures.map(_.packageId).length === dar.all.length)
+    assert(scope1.packagePrefixes.size === dar.all.length)
+    assert(scope1.toBeGenerated.size === 4)
+
+    val scope2 = scopeByPrefix(Some("prefix2"))
+    assert(scope2.signatures.map(_.packageId).length === dar.all.length)
+    assert(scope2.packagePrefixes.size === dar.all.length)
+    assert(scope2.toBeGenerated.size === 4)
+
+  }
+
   behavior of "configureCodeGenScope"
 
   it should "read interfaces from a single DAR file without a prefix" in {
 
-    val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> None), Map.empty)
+    val scope = CodeGenRunner.configureCodeGenScope(None, Seq(testDar), Map.empty)
 
     assert(scope.signatures.length === 25)
     assert(scope.packagePrefixes === Map.empty)
@@ -33,7 +120,8 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
     val scope =
       CodeGenRunner.configureCodeGenScope(
-        Map(testDar -> None, testDarWithSameDependencies -> None),
+        None,
+        Seq(testDar, testDarWithSameDependencies),
         Map.empty,
       )
 
@@ -47,7 +135,8 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
     val scope =
       CodeGenRunner.configureCodeGenScope(
-        Map(testDar -> None, testDarWithSameDependenciesButDifferentTargetVersion -> None),
+        None,
+        Seq(testDar, testDarWithSameDependenciesButDifferentTargetVersion),
         Map.empty,
       )
 
@@ -58,20 +147,11 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   it should "read interfaces from a single DAR file with a prefix" in {
 
-    val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> Some("PREFIX")), Map.empty)
+    val scope = CodeGenRunner.configureCodeGenScope(Some("PREFIX"), Seq(testDar), Map.empty)
 
     assert(scope.signatures.map(_.packageId).length === dar.all.length)
-    assert(scope.packagePrefixes.size === 0)
+    assert(scope.packagePrefixes.size === dar.all.length)
     assert(scope.toBeGenerated === Set.empty)
-  }
-
-  it should "fail to read interfaces from 2 DAR files containing the same packages configured with different prefixes" in {
-    assertThrows[IllegalArgumentException] {
-      CodeGenRunner.configureCodeGenScope(
-        Map(testTemplateDar -> Some("PREFIX1"), testTemplate2Dar -> Some("PREFIX2")),
-        Map.empty,
-      )
-    }
   }
 
   behavior of "detectModuleCollisions"
@@ -155,7 +235,6 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     val pkg1 = PackageId.assertFromString("pkg-1")
     val pkg2 = PackageId.assertFromString("pkg-2")
     val pkg3 = PackageId.assertFromString("pkg-3")
-    val pkgPrefixes = Map(pkg1 -> "com.pkg1", pkg2 -> "com.pkg2")
     val name2 = PackageName.assertFromString("name2")
     val name3 = PackageName.assertFromString("name3")
     val version = PackageVersion.assertFromString("1.0.0")
@@ -168,21 +247,22 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     val interface3 = interface(pkg3, Some(PackageMetadata(name3, version)))
     assert(
       CodeGenRunner.resolvePackagePrefixes(
-        pkgPrefixes,
+        Some("com.pkg"),
         modulePrefixes,
         Seq(interface1, interface2, interface3),
         moduleIdSet(Seq(interface1, interface2, interface3)),
       ) ===
-        Map(pkg1 -> "com.pkg1", pkg2 -> "com.pkg2.a.b", pkg3 -> "c.d")
+        Map(pkg1 -> "com.pkg", pkg2 -> "com.pkg.a.b", pkg3 -> "com.pkg.c.d")
     )
   }
+
   it should "fail if module-prefixes references non-existing package" in {
     val name2 = PackageName.assertFromString("name2")
     val version = PackageVersion.assertFromString("1.0.0")
     val modulePrefixes =
       Map[PackageReference, String](PackageReference.NameVersion(name2, version) -> "A.B")
     assertThrows[IllegalArgumentException] {
-      CodeGenRunner.resolvePackagePrefixes(Map.empty, modulePrefixes, Seq.empty, Set.empty)
+      CodeGenRunner.resolvePackagePrefixes(None, modulePrefixes, Seq.empty, Set.empty)
     }
   }
 }
