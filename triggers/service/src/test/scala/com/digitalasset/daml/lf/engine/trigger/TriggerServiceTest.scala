@@ -865,4 +865,9 @@ trait DisableOauthClaimsTests extends AbstractTriggerServiceTest {
       implicit pos: source.Position
   ) =
     self ignore testFn
+
+  protected[this] override final def inClaims(self: ItVerbStringTaggedAs, testFn: => Future[Assertion])(
+      implicit pos: source.Position
+  ) =
+    self ignore testFn
 }
