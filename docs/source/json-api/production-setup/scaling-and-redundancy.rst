@@ -34,7 +34,7 @@ It's possible to go too far in the other direction: any error will usually cause
 You can solve this by batching requests, or using :doc:`/daml/intro/8_Exceptions` to collect and return failed cases to the JSON API client for retrying, allowing successful parts of the batch to proceed.
 
 
-Scaling queries
+Scaling Queries
 ***************
 
 The :doc:`query-store` is a key factor of efficient queries.
@@ -68,7 +68,7 @@ autoscaling implementation in order to ensure a minimum number of *HTTP JSON API
 failures.
 
 
-Hitting a scaling bottleneck
+Hitting a Scaling Bottleneck
 ****************************
 
 As JSON API and its query store are optimized for rapid application development and ease of developer onboarding, you may reach a point where your application's performance demands exceed what the JSON API can offer.

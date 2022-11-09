@@ -28,7 +28,7 @@ If you are using this API from JavaScript or TypeScript, we strongly recommend u
 This will both simplify access to the endpoints described here and (with TypeScript) help to provide the correct JavaScript value format for each of your contracts, choice arguments, and choice results.
 
 As suggested by those bindings, the primary target application for the JSON API is a web application, where user actions translate to one or a few ledger operations.
-It is not intended for high-throughput, high-performance ledger automation; the Ledger API is better suited to such use case.
+It is not intended for high-throughput, high-performance ledger automation; the Ledger API is better suited to such use cases.
 
 We welcome feedback about the JSON API on
 `our issue tracker <https://github.com/digital-asset/daml/issues/new/choose>`_, or
