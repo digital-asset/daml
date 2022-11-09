@@ -213,10 +213,6 @@ da_scala_library(
         ["src/test-suite/scala/**/*.scala"],
         exclude = ["**/*Oracle*"],
     ),
-    data = [
-        ":src/test-suite/resources/trigger-service.conf",
-        ":src/test-suite/resources/trigger-service-minimal.conf",
-    ],
     scala_deps = [
         "@maven//:io_spray_spray_json",
         "@maven//:com_typesafe_akka_akka_http_core",
