@@ -111,6 +111,7 @@ binary_deps = [
     "//libs-scala/scala-utils",
     "//triggers/service/auth:middleware-api",
     "@maven//:org_slf4j_slf4j_api",
+    "//triggers/runner:trigger-runner-lib",
 ]
 
 trigger_service_runtime_deps = {
@@ -194,6 +195,7 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
+        "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-middleware",
         "//triggers/service/auth:oauth2-test-server",
@@ -249,6 +251,7 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
+        "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
