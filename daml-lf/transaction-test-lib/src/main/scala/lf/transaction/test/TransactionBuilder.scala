@@ -259,9 +259,9 @@ object TransactionBuilder {
       if (currentVersion >= supportedVersions.max) {
         Right(currentVersion)
       } else {
-        values0 match {
-          case FrontStack() => Right(currentVersion)
-          case FrontStackCons(value, values) =>
+        values0.pop match {
+          case None => Right(currentVersion)
+          case Some((value, values)) =>
             value match {
               // for things supported since version 1, we do not need to check
               case ValueRecord(_, fs) => go(currentVersion, fs.map(v => v._2) ++: values)

@@ -4,7 +4,7 @@
 package com.daml.lf.kv.transactions
 
 import com.daml.SafeProto
-import com.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
+import com.daml.lf.data.{FrontStack, ImmArray}
 import com.daml.lf.kv.ConversionError
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.daml.lf.transaction.{
@@ -198,9 +198,9 @@ object TransactionConversions {
         def goNodesToKeep(
             toVisit: FrontStack[String],
             result: Set[String],
-        ): Either[ConversionError, Set[String]] = toVisit match {
-          case FrontStack() => Right(result)
-          case FrontStackCons(nodeId, previousToVisit) =>
+        ): Either[ConversionError, Set[String]] = toVisit.pop match {
+          case None => Right(result)
+          case Some((nodeId, previousToVisit)) =>
             nodeMap.get(nodeId) match {
               case Some(node) =>
                 node.getNodeTypeCase match {
