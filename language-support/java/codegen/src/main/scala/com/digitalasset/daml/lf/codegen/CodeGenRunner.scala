@@ -140,7 +140,7 @@ object CodeGenRunner extends StrictLogging {
     }
     checkAndCreateOutputDir(conf.outputDirectory)
 
-    val scopeByPrefix = configureCodeGenScopeByPrefix(conf.darFiles, conf.modulePrefixes)
+    val scopeByPrefix = configureCodeGenScopeByPackagePrefix(conf.darFiles, conf.modulePrefixes)
 
     val codegen = new CodeGenRunner(scopeByPrefix, conf.outputDirectory, conf.decoderPkgAndClass)
     val executionContext: ExecutionContextExecutorService = createExecutionContext()
@@ -151,33 +151,25 @@ object CodeGenRunner extends StrictLogging {
     ()
   }
 
-  private[codegen] def configureCodeGenScopeByPrefix(
+  private[codegen] def configureCodeGenScopeByPackagePrefix(
       darFiles: Iterable[(Path, Option[String])],
       modulePrefixes: Map[PackageReference, String],
   ): Map[Option[String], CodeGenRunner.Scope] = {
-    val pathsByPrefix = darFiles.groupMap(_._2)(_._1)
-    pathsByPrefix.map { case (maybePrefix, paths) =>
-      maybePrefix -> configureCodeGenScope(paths.map(_ -> maybePrefix), modulePrefixes)
+    val pathsByPackagePrefix = darFiles.groupMap(_._2)(_._1)
+    pathsByPackagePrefix.map { case (maybePrefix, paths) =>
+      maybePrefix -> configureCodeGenScope(maybePrefix, paths, modulePrefixes)
     }
   }
 
   private[codegen] def configureCodeGenScope(
-      darFiles: Iterable[(Path, Option[String])],
+      packagePrefix: Option[String],
+      darFiles: Iterable[Path],
       modulePrefixes: Map[PackageReference, String],
   ): CodeGenRunner.Scope = {
-    val signaturesAndPackagePrefixes =
-      for {
-        (path, packagePrefix) <- darFiles.view
-        interface <- decodeDarAt(path)
-      } yield (interface, packagePrefix)
-    val (signatureMap, packageIdPrefixes) =
-      signaturesAndPackagePrefixes.foldLeft(
-        (Map.empty[PackageId, PackageSignature], List.empty[(PackageId, String)])
-      ) { case ((signatures, prefixes), (signature, prefix)) =>
-        val updatedSignatures = signatures.updated(signature.packageId, signature)
-        val updatedPackageIdPrefixes = prefix.fold(prefixes)((signature.packageId, _) :: prefixes)
-        (updatedSignatures, updatedPackageIdPrefixes)
-      }
+    val signatureMap = (for {
+      path <- darFiles
+      signature <- decodeDarAt(path)
+    } yield signature.packageId -> signature).toMap
 
     val signatures = signatureMap.values.toSeq
     val environmentInterface = EnvironmentSignature.fromPackageSignatures(signatures)
@@ -200,7 +192,7 @@ object CodeGenRunner extends StrictLogging {
 
     val resolvedPrefixes =
       resolvePackagePrefixes(
-        packagePrefixes(packageIdPrefixes, generatedModuleIds),
+        packagePrefix,
         modulePrefixes,
         resolvedSignatures,
         generatedModuleIds,
@@ -211,30 +203,6 @@ object CodeGenRunner extends StrictLogging {
       resolvedPrefixes,
       transitiveClosure.serializableTypes,
     )
-  }
-
-  private def packagePrefixes(
-      packageIdPrefix: List[(PackageId, String)],
-      generatedModules: Set[Reference.Module],
-  ): Map[PackageId, String] = {
-    val generatedPackageId = generatedModules.map(_.packageId)
-    val generatedPackageIdPrefix = packageIdPrefix.filter(p => generatedPackageId.contains(p._1))
-    detectPrefixCollisions(generatedPackageIdPrefix)
-
-    generatedPackageIdPrefix.toMap
-  }
-
-  private def detectPrefixCollisions(
-      packageIdPrefix: List[(PackageId, String)]
-  ): Unit = {
-    packageIdPrefix.groupBy(_._1).foreach { case (packageId, grouped) =>
-      if (grouped.length > 1) {
-        val prefixes = grouped.map(_._2).mkString(", ")
-        throw new IllegalArgumentException(
-          s"""Ambiguous prefixes ($prefixes) configured on package id $packageId."""
-        )
-      }
-    }
   }
 
   private def createExecutionContext(): ExecutionContextExecutorService =
@@ -273,7 +241,7 @@ object CodeGenRunner extends StrictLogging {
     * daml.yaml, produce the combined prefixes per package id.
     */
   private[codegen] def resolvePackagePrefixes(
-      packagePrefixes: Map[PackageId, String],
+      packagePrefix: Option[String],
       modulePrefixes: Map[PackageReference, String],
       signatures: Seq[PackageSignature],
       generatedModules: Set[Reference.Module],
@@ -299,8 +267,10 @@ object CodeGenRunner extends StrictLogging {
       resolveRef(k) -> v.toLowerCase
     }
     val resolvedPackagePrefixes =
-      (packagePrefixes.keySet union resolvedModulePrefixes.keySet).view.map { k =>
-        val prefix = (packagePrefixes.get(k), resolvedModulePrefixes.get(k)) match {
+      (packagePrefix.fold(Set.empty[PackageId])(_ =>
+        signatures.map(_.packageId).toSet
+      ) union resolvedModulePrefixes.keySet).view.map { k =>
+        val prefix = (packagePrefix, resolvedModulePrefixes.get(k)) match {
           case (None, None) =>
             throw new RuntimeException(
               "Internal error: key in pkgPrefixes and resolvedModulePrefixes could not be found in either of them"
