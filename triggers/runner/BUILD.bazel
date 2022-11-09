@@ -5,11 +5,8 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
+    "lf_scalacopts_stricter",
 )
-
-tsvc_main_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
-    "NonUnitStatements",
-]]
 
 da_scala_library(
     name = "trigger-runner-lib",
@@ -20,7 +17,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_paiges_core",
     ],
-    scalacopts = tsvc_main_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:trigger-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
@@ -47,6 +44,7 @@ da_scala_binary(
     name = "trigger-runner",
     main_class = "com.daml.lf.engine.trigger.RunnerMain",
     resources = ["src/main/resources/logback.xml"],
+    scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
     deps = [":trigger-runner-lib"],
 )
