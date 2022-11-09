@@ -52,6 +52,7 @@ private[trigger] final case class Cli(
     allowExistingSchema: Boolean,
     compilerConfig: Compiler.Config,
     rootLoggingLevel: Option[Level],
+    logEncoder: LogEncoder,
 ) extends StrictLogging {
 
   def loadFromConfigFile: Option[Either[ConfigReaderFailures, TriggerServiceAppConf]] =
@@ -84,6 +85,7 @@ private[trigger] final case class Cli(
       allowExistingSchema = allowExistingSchema,
       compilerConfig = compilerConfig,
       rootLoggingLevel = rootLoggingLevel,
+      logEncoder = logEncoder,
     )
   }
 
@@ -156,6 +158,7 @@ private[trigger] object Cli {
     allowExistingSchema = false,
     compilerConfig = DefaultCompilerConfig,
     rootLoggingLevel = None,
+    logEncoder = LogEncoder.Plain,
   )
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
@@ -305,6 +308,15 @@ private[trigger] object Cli {
       .text("Log-level of the root logger")
       .valueName("<LEVEL>")
       .action((level, cli) => cli.copy(rootLoggingLevel = Some(level)))
+
+    opt[String]("log-encoder")
+      .text("Log encoder: plain|json")
+      .action {
+        case ("json", cli) => cli.copy(logEncoder = LogEncoder.Json)
+        case ("plain", cli) => cli.copy(logEncoder = LogEncoder.Plain)
+        case (other, _) =>
+          throw new IllegalArgumentException(s"Unsupported logging encoder $other")
+      }
 
     opt[Unit]("dev-mode-unsafe")
       .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev))

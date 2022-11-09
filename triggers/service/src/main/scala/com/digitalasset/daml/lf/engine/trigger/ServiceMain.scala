@@ -93,7 +93,12 @@ object ServiceMain {
     ) match {
       case None => sys.exit(1)
       case Some(config) =>
-        config.rootLoggingLevel.foreach(setLoggingLevel("LOG_LEVEL_ROOT", _))
+        config.rootLoggingLevel.foreach(setLoggingLevel)
+        config.logEncoder match {
+          case LogEncoder.Plain =>
+          case LogEncoder.Json =>
+            discard(System.setProperty("LOG_FORMAT_JSON", "true"))
+        }
 
         val logger = ContextualizedLogger.get(this.getClass)
         val encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]] =
@@ -197,7 +202,7 @@ object ServiceMain {
     }
   }
 
-  private def setLoggingLevel(name: String, level: Level): Unit = {
-    discard(System.setProperty(name, level.levelStr))
+  private def setLoggingLevel(level: Level): Unit = {
+    discard(System.setProperty("LOG_LEVEL_ROOT", level.levelStr))
   }
 }

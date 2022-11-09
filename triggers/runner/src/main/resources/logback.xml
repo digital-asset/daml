@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg %replace(, context: %marker){', context: $', ''} %n</pattern>
-        </encoder>
+        <if condition='isDefined("LOG_FORMAT_JSON")'>
+            <then>
+                <encoder>
+                    <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg %replace(, context: %marker){', context: $', ''} %n</pattern>
+                </encoder>
+            </then>
+            <else>
+                <encoder>
+                    <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg %replace(, context: %marker){', context: $', ''} %n</pattern>
+                </encoder>
+            </else>
+        </if>
     </appender>
 
     <logger name="io.netty" level="WARN" />

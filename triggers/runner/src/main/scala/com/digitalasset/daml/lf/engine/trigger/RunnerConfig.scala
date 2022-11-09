@@ -19,6 +19,12 @@ import com.daml.lf.speedy.Compiler
 
 import scala.concurrent.{ExecutionContext, Future}
 
+sealed trait LogEncoder
+object LogEncoder {
+  object Plain extends LogEncoder
+  object Json extends LogEncoder
+}
+
 case class RunnerConfig(
     darPath: Path,
     // If defined, we will only list the triggers in the DAR and exit.
@@ -36,6 +42,7 @@ case class RunnerConfig(
     tlsConfig: TlsConfiguration,
     compilerConfig: Compiler.Config,
     rootLoggingLevel: Option[Level],
+    logEncoder: LogEncoder,
 ) {
   private def updatePartySpec(f: TriggerParties => TriggerParties): RunnerConfig =
     if (ledgerClaims == null) {
@@ -86,7 +93,7 @@ final case class UserSpecification(userId: Ref.UserId) extends ClaimsSpecificati
           s"User $user has no primary party. Specify a party explicitly via --ledger-party"
         )
       )
-    )(Future.successful(_))
+    )(Future.successful)
     rights <- client.userManagementClient.listUserRights(userId)
     readAs = rights.collect { case domain.UserRight.CanReadAs(party) =>
       party
@@ -228,6 +235,15 @@ object RunnerConfig {
       .valueName("<LEVEL>")
       .action((level, cli) => cli.copy(rootLoggingLevel = Some(level)))
 
+    opt[String]("log-encoder")
+      .text("Log encoder: plain|json")
+      .action {
+        case ("json", cli) => cli.copy(logEncoder = LogEncoder.Json)
+        case ("plain", cli) => cli.copy(logEncoder = LogEncoder.Plain)
+        case (other, _) =>
+          throw new IllegalArgumentException(s"Unsupported logging encoder $other")
+      }
+
     opt[Unit]("dev-mode-unsafe")
       .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev))
       .optional()
@@ -310,5 +326,6 @@ object RunnerConfig {
     applicationId = DefaultApplicationId,
     compilerConfig = DefaultCompilerConfig,
     rootLoggingLevel = None,
+    logEncoder = LogEncoder.Plain,
   )
 }

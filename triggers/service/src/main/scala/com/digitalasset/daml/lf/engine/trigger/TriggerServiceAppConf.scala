@@ -63,8 +63,18 @@ private[trigger] object TriggerServiceAppConf {
       }
     })
 
-  implicit val levelRead: ConfigReader[Level] =
+  implicit val levelReader: ConfigReader[Level] =
     ConfigReader.fromString[Level](level => Right(Level.valueOf(level)))
+
+  implicit val logEncoderReader: ConfigReader[LogEncoder] =
+    ConfigReader.fromString[LogEncoder](ConvertHelpers.catchReadError {
+      case "plain" => LogEncoder.Plain
+      case "json" => LogEncoder.Json
+      case s =>
+        throw new IllegalArgumentException(
+          s"Value '$s' for log-encoder is not one of 'plain' or 'json'"
+        )
+    })
 
   implicit val serviceCfgReader: ConfigReader[TriggerServiceAppConf] =
     deriveReader[TriggerServiceAppConf]
@@ -92,6 +102,7 @@ private[trigger] final case class TriggerServiceAppConf(
     allowExistingSchema: Boolean = false,
     compilerConfig: Compiler.Config = Compiler.Config.Default,
     rootLoggingLevel: Option[Level] = None,
+    logEncoder: LogEncoder = LogEncoder.Plain,
 ) {
   def toServiceConfig: ServiceConfig = {
     ServiceConfig(
@@ -121,6 +132,7 @@ private[trigger] final case class TriggerServiceAppConf(
       allowExistingSchema = allowExistingSchema,
       compilerConfig = compilerConfig,
       rootLoggingLevel = rootLoggingLevel,
+      logEncoder = logEncoder,
     )
   }
 }

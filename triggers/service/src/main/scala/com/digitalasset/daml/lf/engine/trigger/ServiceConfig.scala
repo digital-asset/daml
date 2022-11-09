@@ -43,4 +43,5 @@ private[trigger] final case class ServiceConfig(
     allowExistingSchema: Boolean,
     compilerConfig: Compiler.Config,
     rootLoggingLevel: Option[Level],
+    logEncoder: LogEncoder,
 )
