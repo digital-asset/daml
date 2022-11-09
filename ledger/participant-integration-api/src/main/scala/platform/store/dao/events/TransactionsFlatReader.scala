@@ -13,7 +13,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics, Timed}
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
-import com.daml.platform.{Party, TemplatePartiesFilter}
+import com.daml.platform.TemplatePartiesFilter
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.indexer.parallel.BatchN
 import com.daml.platform.store.backend.{
@@ -61,8 +61,8 @@ class TransactionsFlatReader(
 )(implicit executionContext: ExecutionContext) {
   import TransactionsReader._
 
-  private val dbMetrics: metrics.daml.index.db.type = metrics.daml.index.db
   private val logger = ContextualizedLogger.get(getClass)
+  private val dbMetrics: metrics.daml.index.db.type = metrics.daml.index.db
 
   private val orderBySequentialEventId =
     Ordering.by[EventStorageBackend.Entry[Raw.FlatEvent], Long](_.eventSequentialId)
@@ -74,17 +74,19 @@ class TransactionsFlatReader(
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val startExclusiveOffset: Offset = queryRange.startExclusive._1
     val endInclusiveOffset: Offset = queryRange.endInclusive._1
-    val span = Telemetry.Transactions.createSpan(startExclusiveOffset, endInclusiveOffset)(
-      qualifiedNameOfCurrentFunc
-    )
+    val span =
+      Telemetry.Transactions.createSpan(startExclusiveOffset, endInclusiveOffset)(
+        qualifiedNameOfCurrentFunc
+      )
     logger.debug(
-      s"Streaming flat transactions ($startExclusiveOffset, $endInclusiveOffset, $filteringConstraints, $eventProjectionProperties)"
+      s"streamFlatTransactions($startExclusiveOffset, $endInclusiveOffset, $filteringConstraints, $eventProjectionProperties)"
     )
-    val sourceOfFlatTransactions = doStreamFlatTransactions(
-      queryRange,
-      filteringConstraints,
-      eventProjectionProperties,
-    )
+    val sourceOfFlatTransactions: Source[(Offset, GetTransactionsResponse), NotUsed] =
+      doStreamFlatTransactions(
+        queryRange,
+        filteringConstraints,
+        eventProjectionProperties,
+      )
     sourceOfFlatTransactions
       .wireTap(_ match {
         case (_, getTransactionsResponse) =>
@@ -125,13 +127,13 @@ class TransactionsFlatReader(
     val idPageSizing = IdQueryConfiguration(
       maxIdPageSize = maxIdsPerIdPage,
       // The full set of ids for flat transactions is the union of two disjoint sets ids from 1) consuming events, and 2) create events.
-      // We assign half of the working memory for each of the two source sets.
+      // We assign half of the working memory to each of the two source sets.
       idPageWorkingMemoryBytes = maxWorkingMemoryInBytesForIdPages / 2,
       filterSize = decomposedFilters.size,
       idPageBufferSize = maxPagesPerPagesBuffer,
     )
     val sourceOfBatchedConsumingEventIds: Source[ArrayBuffer[Long], NotUsed] =
-      streamIdsForAllDecomposedFilters(
+      buildSourceOfSortedAndBatchedIds(
         startExclusiveEventSequentialId = startExclusiveEventSequentialId,
         endInclusiveEventSequentialId = endInclusiveEventSequentialId,
         decomposedFilters = decomposedFilters,
@@ -142,8 +144,9 @@ class TransactionsFlatReader(
         maxOutputBatchSize = maxPayloadsPerPayloadsPage,
         maxOutputBatchCount = maxParallelConsumingEventQueries + 1,
       )
-    val sourceOfBatchedCreateEventIds: Source[ArrayBuffer[Long], NotUsed] =
-      streamIdsForAllDecomposedFilters(
+    val sourceOfBatchedCreateEventIds: Source[ArrayBuffer[Long], NotUsed] = {
+      // TODO pbatko: Partially apply streamIdsForDecomposedFilters
+      buildSourceOfSortedAndBatchedIds(
         startExclusiveEventSequentialId = startExclusiveEventSequentialId,
         endInclusiveEventSequentialId = endInclusiveEventSequentialId,
         decomposedFilters = decomposedFilters,
@@ -154,19 +157,43 @@ class TransactionsFlatReader(
         maxOutputBatchSize = maxPayloadsPerPayloadsPage,
         maxOutputBatchCount = maxParallelCreateEventQueries + 1,
       )
-    val sourceOfCombinedOrderedPayloads: Source[EventStorageBackend.Entry[Raw.FlatEvent], NotUsed] =
-      buildSourceOfFlatTransactions(
-        sourceOfBatchedConsumingEventIds = sourceOfBatchedConsumingEventIds,
-        sourceOfBatchedCreateEventIds = sourceOfBatchedCreateEventIds,
+    }
+    val streamOfConsumingEventPayloads = {
+      // TODO pbatko: Partially apply buildSourceOfPayloads
+      buildSourceOfPayloads(
+        allFilterParties = filteringConstraints.allFilterParties,
         startExclusiveOffset = startExclusiveOffset,
         endInclusiveOffset = endInclusiveOffset,
-        allFilterParties = filteringConstraints.allFilterParties,
         eventFetchingLimiter = maxParallelPayloadQueriesLimiter,
+        maxParallelPayloadQueries = maxParallelConsumingEventQueries,
+        dbMetric = metrics.daml.index.db.getFlatTransactions,
+        target = PayloadFetchingForFlatTxTarget.ConsumingEventPayloads,
+        sourceOfBatchedIds = sourceOfBatchedConsumingEventIds,
       )
+    }
+    val streamOfCreateEventPayloads =
+      buildSourceOfPayloads(
+        allFilterParties = filteringConstraints.allFilterParties,
+        startExclusiveOffset = startExclusiveOffset,
+        endInclusiveOffset = endInclusiveOffset,
+        eventFetchingLimiter = maxParallelPayloadQueriesLimiter,
+        maxParallelPayloadQueries = maxParallelCreateEventQueries,
+        dbMetric = metrics.daml.index.db.getFlatTransactions,
+        target = PayloadFetchingForFlatTxTarget.CreateEventPayloads,
+        sourceOfBatchedIds = sourceOfBatchedCreateEventIds,
+      )
+    val sourceOfCombinedOrderedPayloads
+        : Source[EventStorageBackend.Entry[Raw.FlatEvent], NotUsed] = {
+      val combinedSource: Source[EventStorageBackend.Entry[Raw.FlatEvent], NotUsed] =
+        streamOfConsumingEventPayloads.mergeSorted(streamOfCreateEventPayloads)(
+          orderBySequentialEventId
+        )
+      combinedSource
+    }
     val sourceOfFlatTransactions: Source[(Offset, GetTransactionsResponse), NotUsed] =
       TransactionsReader
         .groupContiguous(sourceOfCombinedOrderedPayloads)(by = _.transactionId)
-        .mapAsync(payloadProcessingParallelism)(decode(_, eventProjectionProperties))
+        .mapAsync(payloadProcessingParallelism)(deserializeLfValues(_, eventProjectionProperties))
         .mapConcat { groupOfPayloads: Vector[EventStorageBackend.Entry[Event]] =>
           val response = TransactionConversions.toGetTransactionsResponse(groupOfPayloads)
           response.map(r => offsetFor(r) -> r)
@@ -174,7 +201,7 @@ class TransactionsFlatReader(
     sourceOfFlatTransactions
   }
 
-  private def streamIdsForAllDecomposedFilters(
+  private def buildSourceOfSortedAndBatchedIds(
       startExclusiveEventSequentialId: Long,
       endInclusiveEventSequentialId: Long,
       decomposedFilters: Vector[Filter],
@@ -219,43 +246,6 @@ class TransactionsFlatReader(
       )
   }
 
-  private def buildSourceOfFlatTransactions(
-      sourceOfBatchedConsumingEventIds: Source[ArrayBuffer[Long], NotUsed],
-      sourceOfBatchedCreateEventIds: Source[ArrayBuffer[Long], NotUsed],
-      allFilterParties: Set[Party],
-      startExclusiveOffset: Offset,
-      endInclusiveOffset: Offset,
-      eventFetchingLimiter: ConcurrencyLimiter,
-  )(implicit lc: LoggingContext): Source[EventStorageBackend.Entry[Raw.FlatEvent], NotUsed] = {
-    val streamOfConsumingEventPayloads =
-      buildSourceOfPayloads(
-        allFilterParties = allFilterParties,
-        startExclusiveOffset = startExclusiveOffset,
-        endInclusiveOffset = endInclusiveOffset,
-        eventFetchingLimiter = eventFetchingLimiter,
-        maxParallelPayloadQueries = maxParallelConsumingEventQueries,
-        dbMetric = metrics.daml.index.db.getFlatTransactions,
-        target = PayloadFetchingForFlatTxTarget.ConsumingEventPayloads,
-        sourceOfBatchedIds = sourceOfBatchedConsumingEventIds,
-      )
-    val streamOfCreateEventPayloads =
-      buildSourceOfPayloads(
-        allFilterParties = allFilterParties,
-        startExclusiveOffset = startExclusiveOffset,
-        endInclusiveOffset = endInclusiveOffset,
-        eventFetchingLimiter = eventFetchingLimiter,
-        maxParallelPayloadQueries = maxParallelCreateEventQueries,
-        dbMetric = metrics.daml.index.db.getFlatTransactions,
-        target = PayloadFetchingForFlatTxTarget.CreateEventPayloads,
-        sourceOfBatchedIds = sourceOfBatchedCreateEventIds,
-      )
-    val combinedSource: Source[EventStorageBackend.Entry[Raw.FlatEvent], NotUsed] =
-      streamOfConsumingEventPayloads.mergeSorted(streamOfCreateEventPayloads)(
-        orderBySequentialEventId
-      )
-    combinedSource
-  }
-
   private def buildSourceOfPayloads(
       allFilterParties: Set[_root_.com.daml.platform.Party],
       startExclusiveOffset: Offset,
@@ -292,7 +282,7 @@ class TransactionsFlatReader(
       .mapConcat(identity)
   }
 
-  private def decode(
+  private def deserializeLfValues(
       rawEvents: Vector[EventStorageBackend.Entry[Raw.FlatEvent]],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit lc: LoggingContext): Future[Vector[EventStorageBackend.Entry[Event]]] = {

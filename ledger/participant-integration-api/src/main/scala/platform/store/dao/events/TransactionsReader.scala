@@ -118,7 +118,7 @@ private[dao] final class TransactionsReader(
     val requestedRangeF: Future[EventsRange[(Offset, Long)]] =
       getEventSeqIdRange(startExclusive, endInclusive)
     val futureSource = requestedRangeF.map(queryRange =>
-      treeTransactionsReader.doGetTransactionTrees(
+      treeTransactionsReader.streamTreeTransaction(
         queryRange = queryRange,
         requestingParties = requestingParties,
         eventProjectionProperties = eventProjectionProperties,

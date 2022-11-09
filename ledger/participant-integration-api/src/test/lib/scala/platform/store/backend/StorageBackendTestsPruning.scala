@@ -163,7 +163,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       backend.event.fetchEventIdsForInformees(
         target = EventIdFetchingForInformeesTarget.CreateNonStakeholderInformee
       )(
-        partyFilter = someParty,
+        informee = someParty,
         startExclusive = 0,
         endInclusive = 2L,
         limit = 10,
@@ -233,7 +233,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       backend.event.fetchEventIdsForInformees(
         target = EventIdFetchingForInformeesTarget.CreateNonStakeholderInformee
       )(
-        partyFilter = someParty,
+        informee = someParty,
         startExclusive = 0,
         endInclusive = 2L,
         limit = 10,

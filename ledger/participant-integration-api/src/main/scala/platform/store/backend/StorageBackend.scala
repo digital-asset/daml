@@ -322,7 +322,7 @@ trait EventStorageBackend {
     *         on which this party is a stakeholder.)
     */
   def fetchEventIdsForInformees(target: EventIdFetchingForInformeesTarget)(
-      partyFilter: Party,
+      informee: Party,
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
