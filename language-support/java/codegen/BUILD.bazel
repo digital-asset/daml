@@ -56,6 +56,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
+        "//daml-lf/language",
         "//language-support/codegen-common",
         "//language-support/java/bindings:bindings-java",
         "@maven//:ch_qos_logback_logback_classic",
@@ -75,6 +76,7 @@ da_scala_test(
     data = [
         ":test-daml.dar",
         ":test-daml-with-same-dependencies.dar",
+        ":test-daml-with-same-dependencies-but-different-target-version.dar",
     ],
     resource_strip_prefix = "language-support/java/codegen/src/test/resources/",
     resources = glob(["src/test/resources/**/*"]),
@@ -94,6 +96,7 @@ da_scala_test(
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
+        "//daml-lf/language",
         "//language-support/codegen-common",
         "//language-support/java/bindings:bindings-java",
         "@maven//:com_squareup_javapoet",
@@ -110,6 +113,12 @@ daml_compile(
 daml_compile(
     name = "test-daml-with-same-dependencies",
     srcs = ["src/test/daml/Foo2.daml"],
+)
+
+daml_compile(
+    name = "test-daml-with-same-dependencies-but-different-target-version",
+    srcs = ["src/test/daml/Foo2.daml"],
+    target = "1.13",
 )
 
 daml_compile(
