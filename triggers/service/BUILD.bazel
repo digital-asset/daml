@@ -267,6 +267,7 @@ da_scala_library(
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
