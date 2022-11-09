@@ -44,4 +44,5 @@ private[trigger] final case class ServiceConfig(
     compilerConfig: Compiler.Config,
     triggerConfig: TriggerRunnerConfig,
     rootLoggingLevel: Option[Level],
+    logEncoder: LogEncoder,
 )
