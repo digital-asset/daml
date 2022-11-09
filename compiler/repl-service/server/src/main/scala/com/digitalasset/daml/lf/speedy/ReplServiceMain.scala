@@ -251,7 +251,7 @@ class ReplService(
         case (pkgId, pkg) if pkg.modules.contains(DottedName.assertFromString("Daml.Script")) =>
           pkgId
       }
-      .getOrElse(throw new RuntimeException("Cannot find Daml.Script module"))
+      .getOrElse(sys.error("Cannot find Daml.Script module"))
 
     var scriptExpr: SExpr = SEVal(
       LfDefRef(
