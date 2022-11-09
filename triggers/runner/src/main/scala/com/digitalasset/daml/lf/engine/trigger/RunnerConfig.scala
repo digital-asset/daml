@@ -11,7 +11,7 @@ import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.client.LedgerClient
-import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerConfig
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.lf.speedy.Compiler
 
@@ -297,6 +297,6 @@ object RunnerConfig {
     tlsConfig = TlsConfiguration(enabled = false, None, None, None),
     applicationId = DefaultApplicationId,
     compilerConfig = DefaultCompilerConfig,
-    triggerConfig = DefaultTriggerConfig,
+    triggerConfig = DefaultTriggerRunnerConfig,
   )
 }

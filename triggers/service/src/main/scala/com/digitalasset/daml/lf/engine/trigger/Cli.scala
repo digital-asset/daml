@@ -15,7 +15,7 @@ import com.daml.cliopts
 import scala.concurrent.duration.FiniteDuration
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.dbutils.{DBConfig, JdbcConfig}
-import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerConfig
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.typesafe.scalalogging.StrictLogging
 import pureconfig.ConfigSource
 import pureconfig.error.ConfigReaderFailures
@@ -155,7 +155,7 @@ private[trigger] object Cli {
     portFile = None,
     allowExistingSchema = false,
     compilerConfig = DefaultCompilerConfig,
-    triggerConfig = DefaultTriggerConfig,
+    triggerConfig = DefaultTriggerRunnerConfig,
   )
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders

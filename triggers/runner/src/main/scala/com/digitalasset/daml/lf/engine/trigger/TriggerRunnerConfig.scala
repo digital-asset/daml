@@ -26,7 +26,7 @@ final case class TriggerRunnerConfig(
 )
 
 object TriggerRunnerConfig {
-  val DefaultTriggerConfig: TriggerRunnerConfig = {
+  val DefaultTriggerRunnerConfig: TriggerRunnerConfig = {
     val parallelism = 8
 
     TriggerRunnerConfig(

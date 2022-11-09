@@ -9,7 +9,7 @@ import com.daml.lf.speedy.Compiler
 import com.daml.platform.services.time.TimeProviderType
 import pureconfig.{ConfigReader, ConvertHelpers}
 import com.daml.auth.middleware.api.{Client => AuthClient}
-import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerConfig
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.pureconfigutils.LedgerApiConfig
 import com.daml.pureconfigutils.SharedConfigReaders._
 import pureconfig.error.FailureReason
@@ -91,7 +91,7 @@ private[trigger] final case class TriggerServiceAppConf(
     triggerStore: Option[JdbcConfig] = None,
     allowExistingSchema: Boolean = false,
     compilerConfig: Compiler.Config = Compiler.Config.Default,
-    triggerConfig: TriggerRunnerConfig = DefaultTriggerConfig,
+    triggerConfig: TriggerRunnerConfig = DefaultTriggerRunnerConfig,
 ) {
   def toServiceConfig: ServiceConfig = {
     ServiceConfig(

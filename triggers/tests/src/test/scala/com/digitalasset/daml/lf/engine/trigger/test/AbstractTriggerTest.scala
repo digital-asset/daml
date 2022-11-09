@@ -25,7 +25,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref._
-import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerConfig
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
@@ -106,7 +106,7 @@ trait AbstractTriggerTest
         new Runner(
           compiledPackages,
           trigger,
-          DefaultTriggerConfig,
+          DefaultTriggerRunnerConfig,
           client,
           config.participants(ParticipantId).apiServer.timeProviderType,
           applicationId,
