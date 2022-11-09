@@ -3,6 +3,8 @@
 
 package com.daml.lf.engine.trigger
 
+import ch.qos.logback.classic.Level
+
 import java.nio.file.{Path, Paths}
 import java.time.Duration
 import com.daml.lf.data.Ref
@@ -34,6 +36,7 @@ case class RunnerConfig(
     tlsConfig: TlsConfiguration,
     compilerConfig: Compiler.Config,
     triggerConfig: TriggerRunnerConfig,
+    rootLoggingLevel: Option[Level],
 ) {
   private def updatePartySpec(f: TriggerParties => TriggerParties): RunnerConfig =
     if (ledgerClaims == null) {
@@ -216,6 +219,20 @@ object RunnerConfig {
       }
       .text(s"Application ID used to submit commands. Defaults to ${DefaultApplicationId}")
 
+    opt[Unit]('v', "verbose")
+      .text("Root logging level -> DEBUG")
+      .action((_, cli) => cli.copy(rootLoggingLevel = Some(Level.DEBUG)))
+
+    opt[Unit]("debug")
+      .text("Root logging level -> DEBUG")
+      .action((_, cli) => cli.copy(rootLoggingLevel = Some(Level.DEBUG)))
+
+    implicit val levelRead: scopt.Read[Level] = scopt.Read.reads(Level.valueOf)
+    opt[Level]("log-level-root")
+      .text("Log-level of the root logger")
+      .valueName("<LEVEL>")
+      .action((level, cli) => cli.copy(rootLoggingLevel = Some(level)))
+
     opt[Unit]("dev-mode-unsafe")
       .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev))
       .optional()
@@ -298,5 +315,6 @@ object RunnerConfig {
     applicationId = DefaultApplicationId,
     compilerConfig = DefaultCompilerConfig,
     triggerConfig = DefaultTriggerRunnerConfig,
+    rootLoggingLevel = None,
   )
 }

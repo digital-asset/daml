@@ -4,12 +4,12 @@
 package com.daml.lf.engine.trigger
 
 import java.util.UUID
-
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
+import ch.qos.logback.classic.Level
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dbutils.JdbcConfig
@@ -95,6 +95,8 @@ object ServiceMain {
     ) match {
       case None => sys.exit(1)
       case Some(config) =>
+        config.rootLoggingLevel.foreach(setLoggingLevel("LOG_LEVEL_ROOT", _))
+
         val logger = ContextualizedLogger.get(this.getClass)
         val encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]] =
           config.darPaths.traverse(p => DarReader.readArchiveFromFile(p.toFile)) match {
@@ -196,5 +198,9 @@ object ServiceMain {
           discard[serviceF.type](Await.ready(serviceF, 5.seconds))
         }
     }
+  }
+
+  private def setLoggingLevel(name: String, level: Level): Unit = {
+    discard(System.setProperty(name, level.levelStr))
   }
 }

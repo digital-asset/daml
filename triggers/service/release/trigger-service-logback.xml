@@ -11,7 +11,7 @@
     <logger name="io.grpc.netty" level="WARN">
         <appender-ref ref="STDOUT"/>
     </logger>
-    <root level="INFO">
+    <root level="${LOG_LEVEL_ROOT:-INFO}">
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>

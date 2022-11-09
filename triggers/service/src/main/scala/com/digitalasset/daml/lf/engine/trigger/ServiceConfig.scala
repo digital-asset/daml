@@ -8,6 +8,7 @@ import com.daml.lf.speedy.Compiler
 import java.nio.file.Path
 import java.time.Duration
 import akka.http.scaladsl.model.Uri
+import ch.qos.logback.classic.Level
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.dbutils.JdbcConfig
@@ -42,4 +43,5 @@ private[trigger] final case class ServiceConfig(
     allowExistingSchema: Boolean,
     compilerConfig: Compiler.Config,
     triggerConfig: TriggerRunnerConfig,
+    rootLoggingLevel: Option[Level],
 )
