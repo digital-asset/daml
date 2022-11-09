@@ -373,7 +373,7 @@ private[speedy] case class PartialTransaction(
             val nextPtx = ptx.copy(contractState = next)
             Right((cid, nextPtx))
           case Left(duplicate) =>
-            Left(ptx, duplicate)
+            Left((ptx, duplicate))
         }
     }
   }

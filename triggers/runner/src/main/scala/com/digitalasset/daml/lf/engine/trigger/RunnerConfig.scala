@@ -7,13 +7,13 @@ import ch.qos.logback.classic.Level
 
 import java.nio.file.{Path, Paths}
 import java.time.Duration
-
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.client.LedgerClient
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.lf.speedy.Compiler
 
@@ -41,6 +41,7 @@ case class RunnerConfig(
     applicationId: ApplicationId,
     tlsConfig: TlsConfiguration,
     compilerConfig: Compiler.Config,
+    triggerConfig: TriggerRunnerConfig,
     rootLoggingLevel: Option[Level],
     logEncoder: LogEncoder,
 ) {
@@ -80,12 +81,16 @@ sealed abstract class ClaimsSpecification {
 }
 
 final case class PartySpecification(claims: TriggerParties) extends ClaimsSpecification {
-  override def resolveClaims(client: LedgerClient)(implicit ec: ExecutionContext) =
+  override def resolveClaims(client: LedgerClient)(implicit
+      ec: ExecutionContext
+  ): Future[TriggerParties] =
     Future.successful(claims)
 }
 
 final case class UserSpecification(userId: Ref.UserId) extends ClaimsSpecification {
-  override def resolveClaims(client: LedgerClient)(implicit ec: ExecutionContext) = for {
+  override def resolveClaims(
+      client: LedgerClient
+  )(implicit ec: ExecutionContext): Future[TriggerParties] = for {
     user <- client.userManagementClient.getUser(userId)
     primaryParty <- user.primaryParty.fold[Future[Ref.Party]](
       Future.failed(
@@ -325,6 +330,7 @@ object RunnerConfig {
     tlsConfig = TlsConfiguration(enabled = false, None, None, None),
     applicationId = DefaultApplicationId,
     compilerConfig = DefaultCompilerConfig,
+    triggerConfig = DefaultTriggerRunnerConfig,
     rootLoggingLevel = None,
     logEncoder = LogEncoder.Plain,
   )

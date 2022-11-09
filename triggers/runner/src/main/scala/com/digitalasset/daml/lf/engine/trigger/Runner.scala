@@ -48,7 +48,7 @@ import com.daml.script.converter.ConverterException
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
 import com.typesafe.scalalogging.StrictLogging
-import io.grpc.Status.Code
+import io.grpc.Status.UNAVAILABLE
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
@@ -58,6 +58,7 @@ import scalaz.{-\/, Tag, \/, \/-}
 
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -346,6 +347,7 @@ object Trigger extends StrictLogging {
 class Runner(
     compiledPackages: CompiledPackages,
     trigger: Trigger,
+    triggerConfig: TriggerRunnerConfig,
     client: LedgerClient,
     timeProviderType: TimeProviderType,
     applicationId: ApplicationId,
@@ -357,12 +359,58 @@ class Runner(
   private val compiler = compiledPackages.compiler
   // Converts between various objects and SValues.
   private val converter: Converter = new Converter(compiledPackages, trigger.defn)
-  // These are the command IDs used on the ledger API to submit commands for
-  // this trigger for which we are awaiting either a completion or transaction
-  // message, or both.
-  // This is a data structure that is shared across (potentially) multiple async contexts
-  // - hence why we use a scala.concurrent.TrieMap here.
-  private[this] val pendingCommandIds = TrieMap.empty[UUID, SeenMsgs]
+
+  private class InFlightCommands {
+    // These are the command IDs used on the ledger API to submit commands for
+    // this trigger for which we are awaiting either a completion or transaction
+    // message, or both.
+    // This is a data structure that is shared across (potentially) multiple async contexts
+    // - hence why we use a scala.concurrent.TrieMap here.
+    private[this] val pendingIds = TrieMap.empty[UUID, SeenMsgs]
+    // Due to concurrency, inFlight counts are eventually consistent (with pendingIds) and so only
+    // approximate the actual commands that are in-flight.
+    private[this] val inFlight: AtomicLong = new AtomicLong(0)
+
+    def get(uuid: UUID): Option[SeenMsgs] = {
+      pendingIds.get(uuid)
+    }
+
+    def count: Int = {
+      inFlight.intValue()
+    }
+
+    def update(uuid: UUID, seeOne: SeenMsgs): Unit = {
+      val inFlightState = pendingIds.put(uuid, seeOne)
+
+      (inFlightState, seeOne) match {
+        case (None, SeenMsgs.Neither) =>
+          discard(inFlight.incrementAndGet())
+
+        case (None, _) | (Some(SeenMsgs.Neither), SeenMsgs.Neither) =>
+        // no work required
+
+        case (Some(SeenMsgs.Neither), _) =>
+          discard(inFlight.decrementAndGet())
+
+        case (Some(_), SeenMsgs.Neither) =>
+          discard(inFlight.incrementAndGet())
+
+        case (Some(_), _) =>
+        // no work required
+      }
+    }
+
+    def remove(uuid: UUID): Unit = {
+      val inFlightState = pendingIds.remove(uuid)
+
+      if (inFlightState.contains(SeenMsgs.Neither)) {
+        discard(inFlight.decrementAndGet())
+      }
+    }
+  }
+
+  private[this] val inFlightCommands = new InFlightCommands
+
   private val transactionFilter =
     TransactionFilter(parties.readers.map(p => (p.unwrap, trigger.filters)).toMap)
 
@@ -370,34 +418,27 @@ class Runner(
 
   // return whether uuid *was* present in pendingCommandIds
   private[this] def useCommandId(uuid: UUID, seeOne: SeenMsgs.One): Boolean = {
-    pendingCommandIds.get(uuid) match {
+    inFlightCommands.get(uuid) match {
       case None =>
         false
 
       case Some(seenOne) =>
         seenOne.see(seeOne) match {
           case Some(v) =>
-            pendingCommandIds.update(uuid, v)
+            inFlightCommands.update(uuid, v)
           case None =>
-            discard(pendingCommandIds.remove(uuid))
+            inFlightCommands.remove(uuid)
         }
         true
     }
   }
 
-  import Runner.{
-    DamlFun,
-    SingleCommandFailure,
-    maxParallelSubmissionsPerTrigger,
-    maxTriesWhenOverloaded,
-    overloadedRetryDelay,
-    retrying,
-  }
+  import Runner.{DamlFun, SingleCommandFailure, overloadedRetryDelay, retrying}
 
   @throws[RuntimeException]
   private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
     val commandUUID = UUID.randomUUID
-    pendingCommandIds.update(commandUUID, SeenMsgs.Neither)
+    inFlightCommands.update(commandUUID, SeenMsgs.Neither)
     val commandsArg = Commands(
       ledgerId = client.ledgerId.unwrap,
       applicationId = applicationId.unwrap,
@@ -473,7 +514,6 @@ class Runner(
     // A queue for command submission failures.
     val submissionFailureQueue: Flow[SingleCommandFailure, Completion, NotUsed] =
       Flow[SingleCommandFailure]
-        // 256 comes from the default ExecutionContext.
         // Why `fail`?  Consider the most obvious alternatives.
         //
         // `backpressure`?  This feeds into the Free interpreter flow, which may produce
@@ -486,7 +526,7 @@ class Runner(
         // `fail`, on the other hand?  It far better fits the trigger model to go
         //   tabula rasa and notice the still-unhandled contract in the ACS again
         //   on init, as we expect triggers to be able to do anyhow.
-        .buffer(256 + maxParallelSubmissionsPerTrigger, OverflowStrategy.fail)
+        .buffer(triggerConfig.submissionFailureQueueSize, OverflowStrategy.fail)
         .map { case SingleCommandFailure(commandId, s) =>
           Completion(
             commandId,
@@ -726,7 +766,10 @@ class Runner(
   private[this] def submitOrFail(implicit
       ec: ExecutionContext
   ): Flow[SubmitRequest, SingleCommandFailure, NotUsed] = {
-    def submit(req: SubmitRequest) = {
+    import io.grpc.Status.Code
+    import Code.RESOURCE_EXHAUSTED
+
+    def submit(req: SubmitRequest): Future[Option[SingleCommandFailure]] = {
       val f: Future[Empty] = client.commandClient
         .submitSingleCommand(req)
       f.map(_ => None).recover {
@@ -737,23 +780,63 @@ class Runner(
         // any other error will cause the trigger's stream to fail
       }
     }
-    import io.grpc.Status.Code
-    import Code.RESOURCE_EXHAUSTED
-    def retryableSubmit(req: SubmitRequest) =
+
+    def retryableSubmit(req: SubmitRequest): Future[Option[Option[SingleCommandFailure]]] =
       submit(req).map {
         case Some(SingleCommandFailure(_, s))
             if (s.getStatus.getCode: Code) == (RESOURCE_EXHAUSTED: Code) =>
           None
         case z => Some(z)
       }
-    retrying(
-      initialTries = maxTriesWhenOverloaded,
-      backoff = overloadedRetryDelay,
-      parallelism = maxParallelSubmissionsPerTrigger,
-      retryableSubmit,
-      submit,
-    )
-      .collect { case Some(err) => err }
+
+    val throttleFlow: Flow[SubmitRequest, SubmitRequest, NotUsed] =
+      Flow[SubmitRequest]
+        .throttle(triggerConfig.maxSubmissionRequests, triggerConfig.maxSubmissionDuration)
+    val submitFlow: Flow[SubmitRequest, SingleCommandFailure, NotUsed] =
+      Flow[SubmitRequest]
+        .filter { _ =>
+          inFlightCommands.count <= triggerConfig.maxInFlightCommands
+        }
+        .via(
+          retrying(
+            initialTries = triggerConfig.maxRetries,
+            backoff = overloadedRetryDelay,
+            parallelism = triggerConfig.parallelism,
+            retryableSubmit,
+            submit,
+          )
+            .collect { case Some(err) => err }
+        )
+    val failureFlow: Flow[SubmitRequest, SingleCommandFailure, NotUsed] =
+      Flow[SubmitRequest]
+        .filterNot { _ =>
+          inFlightCommands.count <= triggerConfig.maxInFlightCommands
+        }
+        .map { request =>
+          SingleCommandFailure(
+            request.getCommands.commandId,
+            new StatusRuntimeException(UNAVAILABLE),
+          )
+        }
+    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+    val graph = GraphDSL.create() { implicit gb =>
+      import GraphDSL.Implicits._
+
+      val broadcast = gb.add(Broadcast[SubmitRequest](2))
+      val merge = gb.add(Merge[SingleCommandFailure](2))
+      val throttle = gb.add(throttleFlow)
+      val submit = gb.add(submitFlow)
+      val failure = gb.add(failureFlow)
+
+      // format: off
+      throttle ~> broadcast ~> submit  ~> merge
+                  broadcast ~> failure ~> merge
+      // format: on
+
+      FlowShape(throttle.in, merge.out)
+    }
+
+    Flow.fromGraph(graph)
   }
 
   // Run the trigger given the state of the ACS. The msgFlow argument
@@ -781,14 +864,6 @@ class Runner(
 }
 
 object Runner extends StrictLogging {
-
-  /** The number of submitSingleCommand invocations each trigger will
-    * attempt to execute in parallel.  Note that this does not in any
-    * way bound the number of already-submitted, but not completed,
-    * commands that may be pending.
-    */
-  val maxParallelSubmissionsPerTrigger = 8
-  val maxTriesWhenOverloaded = 6
 
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
     (250 * (1 << (afterTries - 1))).milliseconds
@@ -867,6 +942,7 @@ object Runner extends StrictLogging {
       applicationId: ApplicationId,
       parties: TriggerParties,
       config: Compiler.Config,
+      triggerConfig: TriggerRunnerConfig,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] =
     Trigger.newLoggingContext(triggerId, parties.actAs, parties.readAs) { implicit lc =>
       val darMap = dar.all.toMap
@@ -879,7 +955,15 @@ object Runner extends StrictLogging {
         case Right(trigger) => trigger
       }
       val runner =
-        new Runner(compiledPackages, trigger, client, timeProviderType, applicationId, parties)
+        new Runner(
+          compiledPackages,
+          trigger,
+          triggerConfig,
+          client,
+          timeProviderType,
+          applicationId,
+          parties,
+        )
       for {
         (acs, offset) <- runner.queryACS()
         finalState <- runner.runWithACS(acs, offset)._2

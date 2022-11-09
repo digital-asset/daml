@@ -14,6 +14,7 @@ import com.daml.lf.value.{Value => V}
 
 import scala.jdk.CollectionConverters._
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 final class Conversions(
     homePackageId: Ref.PackageId,
     ledger: ScenarioLedger,

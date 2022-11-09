@@ -52,6 +52,7 @@ object ServiceMain {
       jdbcConfig: Option[JdbcConfig],
       allowExistingSchema: Boolean,
       compilerConfig: Compiler.Config,
+      triggerConfig: TriggerRunnerConfig,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Future[(ServerBinding, ActorSystem[Server.Message])] = {
 
@@ -73,6 +74,7 @@ object ServiceMain {
           jdbcConfig,
           allowExistingSchema,
           compilerConfig,
+          triggerConfig,
           logTriggerStatus,
         ),
         "TriggerService",
@@ -112,7 +114,7 @@ object ServiceMain {
             case (None, None, Some(both)) => AuthMiddleware(both, both)
             case (Some(int), Some(ext), None) => AuthMiddleware(int, ext)
             case (int, ext, both) =>
-              // Note that this should never happen, as it should be caucht by
+              // Note that this should never happen, as it should be caught by
               // the checkConfig part of our scopt configuration
               logger.withoutContext.error(
                 s"Must specify either both --auth-internal and --auth-external or just --auth. Got: auth-internal: $int, auth-external: $ext, auth: $both."
@@ -174,6 +176,7 @@ object ServiceMain {
               config.jdbcConfig,
               config.allowExistingSchema,
               config.compilerConfig,
+              config.triggerConfig,
             ),
             "TriggerService",
           )

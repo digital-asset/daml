@@ -90,9 +90,9 @@ final case class Transaction(
         visited: Set[NodeId],
         toVisit: FrontStack[NodeId],
     ): (Set[NotWellFormedError], Set[NodeId]) =
-      toVisit match {
-        case FrontStack() => (errors, visited)
-        case FrontStackCons(nid, nids) =>
+      toVisit.pop match {
+        case None => (errors, visited)
+        case Some((nid, nids)) =>
           val alreadyVisited = visited.contains(nid)
           val newVisited = visited + nid
           val newErrors = if (alreadyVisited) {
@@ -148,9 +148,9 @@ final case class Transaction(
   ): Boolean = {
     @tailrec
     def go(toCompare: FrontStack[(NodeId, NodeId)]): Boolean =
-      toCompare match {
-        case FrontStack() => true
-        case FrontStackCons((nid1, nid2), rest) =>
+      toCompare.pop match {
+        case None => true
+        case Some(((nid1, nid2), rest)) =>
           val node1 = nodes(nid1)
           val node2 = other.nodes(nid2)
           node1 match {
@@ -287,9 +287,9 @@ sealed abstract class HasTxNodes {
   final def foreach(f: (NodeId, Node) => Unit): Unit = {
 
     @tailrec
-    def go(toVisit: FrontStack[NodeId]): Unit = toVisit match {
-      case FrontStack() =>
-      case FrontStackCons(nodeId, toVisit) =>
+    def go(toVisit: FrontStack[NodeId]): Unit = toVisit.pop match {
+      case None =>
+      case Some((nodeId, toVisit)) =>
         val node = nodes(nodeId)
         f(nodeId, node)
         node match {
@@ -324,9 +324,9 @@ sealed abstract class HasTxNodes {
     var globalState = globalState0
 
     @tailrec
-    def go(toVisit: FrontStack[(NodeId, B)]): Unit = toVisit match {
-      case FrontStack() =>
-      case FrontStackCons((nodeId, pathState), toVisit) =>
+    def go(toVisit: FrontStack[(NodeId, B)]): Unit = toVisit.pop match {
+      case None =>
+      case Some(((nodeId, pathState), toVisit)) =>
         val node = nodes(nodeId)
         val (globalState1, newPathState) = op(globalState, pathState, nodeId, node)
         globalState = globalState1
@@ -571,8 +571,8 @@ sealed abstract class HasTxNodes {
           ((NodeId, Either[Node.Rollback, Node.Exercise]), FrontStack[NodeId])
         ],
     ): Unit =
-      currNodes match {
-        case FrontStackCons(nid, rest) =>
+      currNodes.pop match {
+        case Some((nid, rest)) =>
           nodes(nid) match {
             case rb: Node.Rollback =>
               rollbackBegin(nid, rb) match {
@@ -592,9 +592,9 @@ sealed abstract class HasTxNodes {
               leaf(nid, node)
               loop(rest, stack)
           }
-        case FrontStack() =>
-          stack match {
-            case FrontStackCons(((nid, either), brothers), rest) =>
+        case None =>
+          stack.pop match {
+            case Some((((nid, either), brothers), rest)) =>
               either match {
                 case Left(rb) =>
                   rollbackEnd(nid, rb)
@@ -603,7 +603,7 @@ sealed abstract class HasTxNodes {
                   exerciseEnd(nid, exe)
                   loop(brothers, rest)
               }
-            case FrontStack() =>
+            case None =>
           }
       }
 
@@ -650,14 +650,14 @@ sealed abstract class HasTxNodes {
   }
 
   final def guessSubmitter: Either[String, Party] =
-    rootNodes.map(_.requiredAuthorizers) match {
-      case ImmArray() =>
+    rootNodes.map(_.requiredAuthorizers).toFrontStack.pop match {
+      case None =>
         Left(s"Empty transaction")
-      case ImmArrayCons(head, _) if head.size != 1 =>
+      case Some((head, _)) if head.size != 1 =>
         Left(s"Transaction's roots do not have exactly one authorizer: $this")
-      case ImmArrayCons(head, tail) if tail.toSeq.exists(_ != head) =>
+      case Some((head, tail)) if tail.iterator.exists(_ != head) =>
         Left(s"Transaction's roots have different authorizers: $this")
-      case ImmArrayCons(head, _) =>
+      case Some((head, _)) =>
         Right(head.head)
     }
 

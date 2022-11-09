@@ -31,6 +31,7 @@ import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeSet
 import scala.math.Ordering.Implicits.infixOrderingOps
@@ -2196,7 +2197,9 @@ private[lf] object SBuiltin {
     cachedContractSignatoriesIdx,
     cachedContractObserversIdx,
     cachedContractKeyIdx,
-  ) = cachedContractFieldNames.map(cachedContractStruct.indexOf)
+  ) = cachedContractFieldNames.map(cachedContractStruct.indexOf): @nowarn(
+    "msg=match may not be exhaustive"
+  )
 
   private[speedy] val SBuildCachedContract =
     SBuiltin.SBStructCon(cachedContractStruct)

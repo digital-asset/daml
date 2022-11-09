@@ -536,6 +536,7 @@ object Server {
       jdbcConfig: Option[JdbcConfig],
       allowExistingSchema: Boolean,
       compilerConfig: speedy.Compiler.Config,
+      triggerConfig: TriggerRunnerConfig,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Behavior[Message] = Behaviors.setup { implicit ctx =>
     // Implicit boilerplate.
@@ -609,6 +610,7 @@ object Server {
             runningTrigger.triggerRefreshToken,
             compiledPackages,
             trigger,
+            triggerConfig,
             ledgerConfig,
             restartConfig,
             runningTrigger.triggerReadAs,
@@ -644,7 +646,7 @@ object Server {
         .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
     }
 
-    def getRunner(req: GetRunner) = {
+    def getRunner(req: GetRunner): Unit = {
       req.replyTo ! getRunnerRef(req.uuid)
     }
 

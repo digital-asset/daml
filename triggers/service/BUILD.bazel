@@ -197,6 +197,7 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
+        "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-middleware",
         "//triggers/service/auth:oauth2-test-server",
