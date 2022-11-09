@@ -111,6 +111,7 @@ binary_deps = [
     "//libs-scala/scala-utils",
     "//triggers/service/auth:middleware-api",
     "@maven//:org_slf4j_slf4j_api",
+    "//triggers/runner:trigger-runner-lib",
 ]
 
 trigger_service_runtime_deps = {
