@@ -4,6 +4,7 @@
 package com.daml.lf.engine.trigger
 
 import akka.http.scaladsl.model.Uri
+import ch.qos.logback.classic.Level
 import com.daml.dbutils.JdbcConfig
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.services.time.TimeProviderType
@@ -62,6 +63,9 @@ private[trigger] object TriggerServiceAppConf {
       }
     })
 
+  implicit val levelRead: ConfigReader[Level] =
+    ConfigReader.fromString[Level](level => Right(Level.valueOf(level)))
+
   implicit val serviceCfgReader: ConfigReader[TriggerServiceAppConf] =
     deriveReader[TriggerServiceAppConf]
 }
@@ -87,6 +91,7 @@ private[trigger] final case class TriggerServiceAppConf(
     triggerStore: Option[JdbcConfig] = None,
     allowExistingSchema: Boolean = false,
     compilerConfig: Compiler.Config = Compiler.Config.Default,
+    rootLoggingLevel: Option[Level] = None,
 ) {
   def toServiceConfig: ServiceConfig = {
     ServiceConfig(
@@ -115,6 +120,7 @@ private[trigger] final case class TriggerServiceAppConf(
       portFile = portFile,
       allowExistingSchema = allowExistingSchema,
       compilerConfig = compilerConfig,
+      rootLoggingLevel = rootLoggingLevel,
     )
   }
 }

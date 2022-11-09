@@ -4,6 +4,7 @@
 package com.daml.lf.engine.trigger
 
 import akka.http.scaladsl.model.Uri
+import ch.qos.logback.classic.Level
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.services.time.TimeProviderType
 
@@ -50,6 +51,7 @@ private[trigger] final case class Cli(
     portFile: Option[Path],
     allowExistingSchema: Boolean,
     compilerConfig: Compiler.Config,
+    rootLoggingLevel: Option[Level],
 ) extends StrictLogging {
 
   def loadFromConfigFile: Option[Either[ConfigReaderFailures, TriggerServiceAppConf]] =
@@ -81,6 +83,7 @@ private[trigger] final case class Cli(
       portFile = portFile,
       allowExistingSchema = allowExistingSchema,
       compilerConfig = compilerConfig,
+      rootLoggingLevel = rootLoggingLevel,
     )
   }
 
@@ -152,6 +155,7 @@ private[trigger] object Cli {
     portFile = None,
     allowExistingSchema = false,
     compilerConfig = DefaultCompilerConfig,
+    rootLoggingLevel = None,
   )
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
@@ -287,6 +291,20 @@ private[trigger] object Cli {
         c.copy(commandTtl = Duration.ofSeconds(t))
       }
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
+
+    opt[Unit]('v', "verbose")
+      .text("Root logging level -> DEBUG")
+      .action((_, cli) => cli.copy(rootLoggingLevel = Some(Level.DEBUG)))
+
+    opt[Unit]("debug")
+      .text("Root logging level -> DEBUG")
+      .action((_, cli) => cli.copy(rootLoggingLevel = Some(Level.DEBUG)))
+
+    implicit val levelRead: scopt.Read[Level] = scopt.Read.reads(Level.valueOf)
+    opt[Level]("log-level-root")
+      .text("Log-level of the root logger")
+      .valueName("<LEVEL>")
+      .action((level, cli) => cli.copy(rootLoggingLevel = Some(level)))
 
     opt[Unit]("dev-mode-unsafe")
       .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev))

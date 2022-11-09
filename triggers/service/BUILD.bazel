@@ -83,6 +83,7 @@ da_scala_library(
         "//libs-scala/scala-utils",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
+        "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_typesafe_config",
         "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_slf4j_slf4j_api",
@@ -111,6 +112,7 @@ binary_deps = [
     "//libs-scala/scala-utils",
     "//triggers/service/auth:middleware-api",
     "@maven//:org_slf4j_slf4j_api",
+    "@maven//:ch_qos_logback_logback_classic",
 ]
 
 trigger_service_runtime_deps = {
