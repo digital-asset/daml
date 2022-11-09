@@ -55,7 +55,7 @@ message TransferredOutEvent {
   // Required
   string transfer_out_id = 1;
 
-  // The ID of the created contract.
+  // The ID of the transferred contract.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string contract_id = 2;
@@ -79,7 +79,7 @@ message TransferredOutEvent {
 // Records that a contract has been transferred-in, and it becomes usable on the target domain
 message TransferredInEvent {
 
-  // The ID of the created contract.
+  // The ID of the transferred contract.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string contract_id = 1;
