@@ -56,9 +56,9 @@ message IdentityProviderConfig {
   // Required
   string identity_provider_id = 1;
 
-  // When set, then the JWT token issued by this identity provider is denied all access to the Ledger API.
-  // Otherwise, the user-id and `identity_provider_id` provided in the JWT token will be used to identity
-  // the user in the user management database.
+  // When set, the callers using JWT tokens issued by this identity provider are denied all access
+  // to the Ledger API. Otherwise, the `sub` and `iss` claims provided in the JWT tokens will be 
+  // used to identify the users in the user management database and to grant access accordingly.
   // Optional,
   // Modifiable
   bool is_deactivated = 2;
