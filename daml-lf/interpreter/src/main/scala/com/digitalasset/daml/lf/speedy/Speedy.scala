@@ -584,7 +584,7 @@ private[lf] object Speedy {
                   eval.setCached(svalue)
                   Control.Value(svalue)
                 case None =>
-                  pushKont(KCacheVal(this, eval, defn))
+                  pushKont(KCacheVal(eval, defn))
                   Control.Expression(defn.body)
               }
             case None =>
@@ -655,7 +655,7 @@ private[lf] object Speedy {
                 val label = closure.label
                 if (label != null) {
                   this.profile.addOpenEvent(label)
-                  this.pushKont(KLeaveClosure(this, label))
+                  this.pushKont(KLeaveClosure(label))
                 }
                 // Start evaluating the body of the closure.
                 popTempStackToBase()
@@ -686,7 +686,7 @@ private[lf] object Speedy {
 
           // Not enough arguments. Push a continuation to construct the PAP.
           if (othersLength < 0) {
-            this.pushKont(KPap(this, prim, actuals, arity))
+            this.pushKont(KPap(prim, actuals, arity))
           } else {
             // Too many arguments: Push a continuation to re-apply the over-applied args.
             if (othersLength > 0) {
@@ -1177,7 +1177,7 @@ private[lf] object Speedy {
       val label = closure.label
       if (label != null) {
         machine.profile.addOpenEvent(label)
-        machine.pushKont(KLeaveClosure(machine, label))
+        machine.pushKont(KLeaveClosure(label))
       }
       // Start evaluating the body of the closure.
       machine.popTempStackToBase()
@@ -1212,7 +1212,6 @@ private[lf] object Speedy {
 
   /** The function's partial-arguments have been evaluated. Construct and return the PAP */
   private[speedy] final case class KPap(
-      machine: Machine,
       prim: SValue.Prim,
       actuals: util.ArrayList[SValue],
       arity: Int,
@@ -1466,7 +1465,6 @@ private[lf] object Speedy {
     * large record is updated multiple times.
     */
   private[speedy] final case class KCacheVal(
-      machine: Machine,
       v: SEVal,
       defn: SDefinition,
   ) extends Kont {
@@ -1478,9 +1476,7 @@ private[lf] object Speedy {
     }
   }
 
-  private[speedy] final case class KCacheContract(machine: Machine, cid: V.ContractId)
-      extends Kont {
-
+  private[speedy] final case class KCacheContract(cid: V.ContractId) extends Kont {
     override def execute(machine: Machine, sv: SValue): Control = {
       machine.withOnLedger("KCacheContract") { onLedger =>
         val cached = SBuiltin.extractCachedContract(sv)
@@ -1492,7 +1488,6 @@ private[lf] object Speedy {
   }
 
   private[speedy] final case class KCheckKeyVisibility(
-      machine: Machine,
       gKey: GlobalKey,
       cid: V.ContractId,
       handleKeyFound: V.ContractId => Control.Value,
@@ -1509,7 +1504,7 @@ private[lf] object Speedy {
     * (1) by 'endExercises' if this continuation is entered normally, or
     * (2) by 'abortExercises' if we unwind the stack through this continuation
     */
-  private[speedy] final case class KCloseExercise(machine: Machine) extends Kont {
+  private[speedy] final case object KCloseExercise extends Kont {
 
     override def execute(machine: Machine, exerciseResult: SValue): Control = {
       machine.withOnLedger("KCloseExercise") { onLedger =>
@@ -1557,7 +1552,6 @@ private[lf] object Speedy {
   }
 
   private[speedy] final case class KCheckChoiceGuard(
-      machine: Machine,
       coid: V.ContractId,
       templateId: TypeConName,
       choiceName: ChoiceName,
@@ -1596,7 +1590,7 @@ private[lf] object Speedy {
               onLedger.ptx = onLedger.ptx.rollbackTry(excep)
             }
             Some(handler)
-          case _: KCloseExercise =>
+          case KCloseExercise =>
             machine.withOnLedger("unwindToHandler/KCloseExercise") { onLedger =>
               onLedger.ptx = onLedger.ptx.abortExercises
             }
@@ -1608,7 +1602,7 @@ private[lf] object Speedy {
             machine.clearKontStack()
             machine.clearEnv()
             k.abort()
-          case KPreventException(_) =>
+          case KPreventException =>
             throw SError.SErrorDamlException(
               interpretation.Error.UnhandledException(
                 excep.ty,
@@ -1639,8 +1633,7 @@ private[lf] object Speedy {
     * used during profiling. Its purpose is to attach a label to closures such
     * that entering the closure can write an "open event" with that label.
     */
-  private[speedy] final case class KLabelClosure(machine: Machine, label: Profile.Label)
-      extends Kont {
+  private[speedy] final case class KLabelClosure(label: Profile.Label) extends Kont {
     override def execute(machine: Machine, v: SValue): Control = {
       v match {
         case SValue.SPAP(SValue.PClosure(_, expr, closure), args, arity) =>
@@ -1655,15 +1648,14 @@ private[lf] object Speedy {
   /** Continuation marking the exit of a closure. This is only used during
     * profiling.
     */
-  private[speedy] final case class KLeaveClosure(machine: Machine, label: Profile.Label)
-      extends Kont {
+  private[speedy] final case class KLeaveClosure(label: Profile.Label) extends Kont {
     override def execute(machine: Machine, v: SValue): Control = {
       machine.profile.addCloseEvent(label)
       Control.Value(v)
     }
   }
 
-  private[speedy] final case class KPreventException(machine: Machine) extends Kont {
+  private[speedy] final case object KPreventException extends Kont {
     override def execute(machine: Machine, v: SValue): Control = {
       Control.Value(v)
     }
