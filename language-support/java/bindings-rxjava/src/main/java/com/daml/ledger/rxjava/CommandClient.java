@@ -18,6 +18,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 /** An RxJava version of {@link com.daml.ledger.api.v1.CommandServiceGrpc} */
 public interface CommandClient {
 
+  //TODO: Shouldn't these be deprecated and not removed?
   Single<Empty> submitAndWait(
           @NonNull String workflowId,
           @NonNull String applicationId,
@@ -29,83 +30,6 @@ public interface CommandClient {
           @NonNull Optional<Duration> deduplicationTime,
           @NonNull List<@NonNull ? extends HasCommands> commands,
           @NonNull Optional<String> accessToken);
-
-//  Single<Empty> submitAndWait(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-
-  // no usages
-//  Single<Empty> submitAndWait(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-
-//  Single<Empty> submitAndWait(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
-
-//  Single<Empty> submitAndWait(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
-
-//  Single<Empty> submitAndWait(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-
-//  Single<Empty> submitAndWait(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-
-//  Single<Empty> submitAndWait(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
-
-//  Single<Empty> submitAndWait(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
 
   Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
@@ -119,82 +43,6 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull Optional<String> accessToken);
 
-//  Single<String> submitAndWaitForTransactionId(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-//
-//  Single<String> submitAndWaitForTransactionId(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-//
-//  Single<String> submitAndWaitForTransactionId(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
-//
-//  Single<String> submitAndWaitForTransactionId(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
-
-//  Single<String> submitAndWaitForTransactionId(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-//
-//  Single<String> submitAndWaitForTransactionId(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-//
-//  Single<String> submitAndWaitForTransactionId(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
-//
-//  Single<String> submitAndWaitForTransactionId(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
-
   Single<Transaction> submitAndWaitForTransaction(
           @NonNull String workflowId,
           @NonNull String applicationId,
@@ -206,82 +54,6 @@ public interface CommandClient {
           @NonNull Optional<Duration> deduplicationTime,
           @NonNull List<@NonNull ? extends HasCommands> commands,
           @NonNull Optional<String> accessToken);
-
-//  Single<Transaction> submitAndWaitForTransaction(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-//
-//  Single<Transaction> submitAndWaitForTransaction(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-//
-//  Single<Transaction> submitAndWaitForTransaction(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
-//
-//  Single<Transaction> submitAndWaitForTransaction(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
-//
-//  Single<Transaction> submitAndWaitForTransaction(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-//
-//  Single<Transaction> submitAndWaitForTransaction(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-//
-//  Single<Transaction> submitAndWaitForTransaction(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
-//
-//  Single<Transaction> submitAndWaitForTransaction(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
 
   Single<TransactionTree> submitAndWaitForTransactionTree(
           @NonNull String workflowId,
@@ -295,83 +67,6 @@ public interface CommandClient {
           @NonNull List<@NonNull ? extends HasCommands> commands,
           @NonNull Optional<String> accessToken);
 
-//  Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-//
-//  Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-//
-//  Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
-//
-//  Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
-//
-//  Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-//
-//  Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull List<@NonNull ? extends HasCommands> commands);
-//
-//  Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
-//
-//  Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken);
-
-
   <U> Single<U> submitAndWaitForResult(
           @NonNull String workflowId,
           @NonNull String applicationId,
@@ -380,21 +75,4 @@ public interface CommandClient {
           @NonNull List<@NonNull String> readAs,
           @NonNull Update<U> update,
           @NonNull Optional<String> accessToken);
-
-//  <U> Single<U> submitAndWaitForResult(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull Update<U> update);
-//
-//  <U> Single<U> submitAndWaitForResult(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull Update<U> update,
-//      @NonNull String accessToken);
 }
