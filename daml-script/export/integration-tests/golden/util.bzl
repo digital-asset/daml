@@ -20,7 +20,8 @@ def daml_ledger_export_test(
         expected_daml,
         expected_args_json,
         expected_daml_yaml,
-        dev = False):
+        dev = False,
+        timeout = "short"):
     # Disabled on Windows since postgres gets unhappy in client_server_test.
     if not is_windows:
         server_dev_args = ["-C ledger.engine.allowed-language-versions=daml-lf-dev-mode-unsafe"] if dev else []
@@ -49,6 +50,7 @@ def daml_ledger_export_test(
                 "-C ledger.participants.default.api-server.port=0",
                 "-C ledger.participants.default.api-server.port-file=%PORT_FILE%",
             ] + server_dev_args,
+            timeout = timeout,
         )
 
 # Generate the Daml ledger export and compare to the expected files. This is
