@@ -37,15 +37,14 @@ import scala.util.{Failure, Success}
 
 /** @param dbDispatcher Executes the queries prepared by this object
   * @param executionContext Runs transformations on data fetched from the database, including Daml-LF value deserialization
-  * @param maxPayloadsPerPayloadsPage The number of events to fetch at a time the database when serving streaming calls
-  * @param payloadProcessingParallelism The parallelism for loading and decoding state events
+  * @param payloadProcessingParallelism The parallelism for loading and decoding event payloads
   * @param lfValueTranslation The delegate in charge of translating serialized Daml-LF values
   */
 private[dao] final class TransactionsReader(
-    flatTransactionsReader: TransactionsFlatReader,
-    treeTransactionsReader: TransactionsTreeReader,
-    flatTransactionFetching: FlatTransactionFetching,
-    treeTransactionFetching: TreeTransactionFetching,
+    flatTransactionsStreamReader: FlatTransactionsStreamReader,
+    treeTransactionsStreamReader: TreeTransactionsStreamReader,
+    flatTransactionPointwiseReader: FlatTransactionPointwiseReader,
+    treeTransactionPointwiseReader: TreeTransactionPointwiseReader,
     dbDispatcher: DbDispatcher,
     queryNonPruned: QueryNonPruned,
     eventStorageBackend: EventStorageBackend,
@@ -72,7 +71,11 @@ private[dao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val futureSource = getEventSeqIdRange(startExclusive, endInclusive)
       .map(queryRange =>
-        flatTransactionsReader.streamFlatTransactions(queryRange, filter, eventProjectionProperties)
+        flatTransactionsStreamReader.streamFlatTransactions(
+          queryRange,
+          filter,
+          eventProjectionProperties,
+        )
       )
     Source
       .futureSource(futureSource)
@@ -83,7 +86,7 @@ private[dao] final class TransactionsReader(
       transactionId: Ref.TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] = {
-    flatTransactionFetching.lookupTransactionById(
+    flatTransactionPointwiseReader.lookupTransactionById(
       transactionId = transactionId,
       requestingParties = requestingParties,
       eventProjectionProperties = EventProjectionProperties(
@@ -97,7 +100,7 @@ private[dao] final class TransactionsReader(
       transactionId: Ref.TransactionId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] = {
-    treeTransactionFetching.lookupTransactionById(
+    treeTransactionPointwiseReader.lookupTransactionById(
       transactionId = transactionId,
       requestingParties = requestingParties,
       eventProjectionProperties = EventProjectionProperties(
@@ -118,7 +121,7 @@ private[dao] final class TransactionsReader(
     val requestedRangeF: Future[EventsRange[(Offset, Long)]] =
       getEventSeqIdRange(startExclusive, endInclusive)
     val futureSource = requestedRangeF.map(queryRange =>
-      treeTransactionsReader.streamTreeTransaction(
+      treeTransactionsStreamReader.streamTreeTransaction(
         queryRange = queryRange,
         requestingParties = requestingParties,
         eventProjectionProperties = eventProjectionProperties,

@@ -25,7 +25,10 @@ import com.daml.scalautil.NeverEqualsOverride
 import java.sql.Connection
 import javax.sql.DataSource
 
-import com.daml.lf.data.Ref
+import com.daml.platform.store.backend.common.{
+  TransactionPointwiseQueries,
+  TransactionStreamingQueries,
+}
 
 import scala.annotation.unused
 
@@ -253,31 +256,10 @@ object ContractStorageBackend {
   )
 }
 
-sealed trait EventIdFetchingForStakeholdersTarget
-object EventIdFetchingForStakeholdersTarget {
-  object CreateStakeholder extends EventIdFetchingForStakeholdersTarget
-  object ConsumingStakeholder extends EventIdFetchingForStakeholdersTarget
-}
-sealed trait EventIdFetchingForInformeesTarget
-object EventIdFetchingForInformeesTarget {
-  object CreateStakeholder extends EventIdFetchingForInformeesTarget
-  object CreateNonStakeholderInformee extends EventIdFetchingForInformeesTarget
-  object ConsumingStakeholder extends EventIdFetchingForInformeesTarget
-  object ConsumingNonStakeholderInformee extends EventIdFetchingForInformeesTarget
-  object NonConsumingInformee extends EventIdFetchingForInformeesTarget
-}
-sealed trait PayloadFetchingForFlatTxTarget
-object PayloadFetchingForFlatTxTarget {
-  object CreateEventPayloads extends PayloadFetchingForFlatTxTarget
-  object ConsumingEventPayloads extends PayloadFetchingForFlatTxTarget
-}
-sealed trait PayloadFetchingForTreeTxTarget
-object PayloadFetchingForTreeTxTarget {
-  object CreateEventPayloads extends PayloadFetchingForTreeTxTarget
-  object ConsumingEventPayloads extends PayloadFetchingForTreeTxTarget
-  object NonConsumingEventPayloads extends PayloadFetchingForTreeTxTarget
-}
 trait EventStorageBackend {
+
+  def transactionPointwiseQueries: TransactionPointwiseQueries
+  def streamingTransactionQueries: TransactionStreamingQueries
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
@@ -291,72 +273,11 @@ trait EventStorageBackend {
       connection: Connection,
   ): Boolean
 
-  /** @param allFilterParties - needed only for the result raw row parsing
-    */
-  def fetchEventPayloadsFlat(target: PayloadFetchingForFlatTxTarget)(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Ref.Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-
-  /** @param allFilterParties - needed only for the result raw row parsing
-    */
-  def fetchEventPayloadsTree(target: PayloadFetchingForTreeTxTarget)(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Ref.Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
-
-  def fetchEventIdsForStakeholder(target: EventIdFetchingForStakeholdersTarget)(
-      stakeholder: Party,
-      templateIdO: Option[Identifier],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long]
-
-  /** @return at most `limit` event sequential ids from the given range
-    *         that match the specified party and template filters,
-    *         and which are retrieved from the stakeholders filter table
-    *         for consuming events.
-    *         (A party is present in the stakeholders filter table for consuming events
-    *         if and only if there is a consuming exercise on the corresponding contract
-    *         on which this party is a stakeholder.)
-    */
-  def fetchEventIdsForInformees(target: EventIdFetchingForInformeesTarget)(
-      informee: Party,
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long]
-
-  def fetchIds_create_stakeholders(
-      partyFilter: Party,
-      templateIdFilter: Option[Identifier],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long]
-
   def activeContractEventBatch(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Party],
       endInclusive: Long,
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-
-  def fetchIdsFromTransactionMeta(
-      transactionId: Ref.TransactionId
-  )(connection: Connection): Option[(Long, Long)]
-
-  def fetchFlatTransaction(
-      firstEventSequentialId: Long,
-      lastEventSequentialId: Long,
-      requestingParties: Set[Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-
-  def fetchTreeTransaction(
-      firstEventSequentialId: Long,
-      lastEventSequentialId: Long,
-      requestingParties: Set[Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
 
   /** Max event sequential id of observable (create, consuming and nonconsuming exercise) events. */
   def maxEventSequentialIdOfAnObservableEvent(offset: Offset)(connection: Connection): Option[Long]

@@ -26,7 +26,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.{ApplicationId, PackageId, Party, SubmissionId, TransactionId, WorkflowId}
 import com.daml.platform.store._
-import com.daml.platform.store.dao.events.{TransactionsFlatReader, _}
+import com.daml.platform.store.dao.events.{FlatTransactionsStreamReader, _}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{ParameterStorageBackend, ReadStorageBackend}
 import com.daml.platform.store.cache.LedgerEndCache
@@ -494,7 +494,7 @@ private class JdbcLedgerDao(
   private val txMaxWorkingMemoryInBytesForIdPages: Int =
     IndexServiceConfig.DefaultAcsIdPageWorkingMemoryBytes
 
-  private val flatTransactionsReader: TransactionsFlatReader = new TransactionsFlatReader(
+  private val flatTransactionsStreamReader = new FlatTransactionsStreamReader(
     maxPayloadsPerPayloadsPage = txMaxPayloadsPerPayloadsPage,
     payloadProcessingParallelism = payloadProcessingParallelism,
     maxIdsPerIdPage = txMaxIdsPerIdPage,
@@ -509,7 +509,7 @@ private class JdbcLedgerDao(
     metrics = metrics,
   )(servicesExecutionContext)
 
-  private val treeTransactionsReader: TransactionsTreeReader = new TransactionsTreeReader(
+  private val treeTransactionsStreamReader = new TreeTransactionsStreamReader(
     maxPayloadsPerPayloadsPage = txMaxPayloadsPerPayloadsPage,
     payloadProcessingParallelism = payloadProcessingParallelism,
     maxIdsPerIdPage = txMaxIdsPerIdPage,
@@ -524,14 +524,14 @@ private class JdbcLedgerDao(
     metrics = metrics,
   )(servicesExecutionContext)
 
-  private val flatTransactionFetching: FlatTransactionFetching = new FlatTransactionFetching(
+  private val flatTransactionPointwiseReader = new FlatTransactionPointwiseReader(
     dbDispatcher = dbDispatcher,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     metrics = metrics,
     lfValueTranslation = translation,
   )(servicesExecutionContext)
 
-  private val treeTransactionFetching: TreeTransactionFetching = new TreeTransactionFetching(
+  private val treeTransactionPointwiseReader = new TreeTransactionPointwiseReader(
     dbDispatcher = dbDispatcher,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     metrics = metrics,
@@ -546,10 +546,10 @@ private class JdbcLedgerDao(
       payloadProcessingParallelism = payloadProcessingParallelism,
       metrics = metrics,
       lfValueTranslation = translation,
-      flatTransactionsReader = flatTransactionsReader,
-      treeTransactionsReader = treeTransactionsReader,
-      flatTransactionFetching = flatTransactionFetching,
-      treeTransactionFetching = treeTransactionFetching,
+      flatTransactionsStreamReader = flatTransactionsStreamReader,
+      treeTransactionsStreamReader = treeTransactionsStreamReader,
+      flatTransactionPointwiseReader = flatTransactionPointwiseReader,
+      treeTransactionPointwiseReader = treeTransactionPointwiseReader,
       acsReader = acsReader,
     )(
       servicesExecutionContext

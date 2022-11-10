@@ -74,20 +74,42 @@ class IndexDBMetrics(override val prefix: MetricName, override val registry: Met
     "lookup_contract_by_key"
   )
 
-  val getConsumingIds_stakeholdersFilter: DatabaseMetrics = createDbMetrics(
-    "get_consuming_ids_from_stakeholders_filter"
+  // TODO etq: Tune metric names
+  val flatTxIdsCreate: DatabaseMetrics = createDbMetrics(
+    "get_create_event_ids_for_flat_transactions"
   )
-  val getConsumingIds_nonStakeholderInformeesFilter: DatabaseMetrics = createDbMetrics(
-    "get_consuming_ids_from_nonstakeholder_informees_filter"
+  val flatTxIdsConsuming: DatabaseMetrics = createDbMetrics(
+    "get_consuming_event_ids_for_flat_transactions"
   )
-  val getCreateEventIds_stakeholdersFilter: DatabaseMetrics = createDbMetrics(
-    "get_create_ids_from_stakeholders_filter"
+  val flatTxPayloadCreate: DatabaseMetrics = createDbMetrics(
+    "get_create_event_payloads_for_flat_transactions"
   )
-  val getCreateEventIds_nonStakeholderInformeesFilter: DatabaseMetrics = createDbMetrics(
-    "get_create_ids_from_nonstakeholder_informees_filter"
+  val flatTxPayloadConsuming: DatabaseMetrics = createDbMetrics(
+    "get_consuming_event_payloads_for_flat_transactions"
   )
-  val getNonConsumingEventIds_informeesFilter: DatabaseMetrics = createDbMetrics(
-    "get_nonconsuming_ids_from_informees_filter"
+  val treeTxIdsCreateStakeholder: DatabaseMetrics = createDbMetrics(
+    "get_create_event_ids_for_stakeholder_for_tree_transactions"
+  )
+  val treeTxIdsCreateNonStakeholderInformee: DatabaseMetrics = createDbMetrics(
+    "get_create_event_ids_for_nonstakeholderinformee_for_tree_transactions"
+  )
+  val treeTxIdsConsumingStakeholder: DatabaseMetrics = createDbMetrics(
+    "get_consuming_event_ids_for_stakeholder_for_tree_transactions"
+  )
+  val treeTxIdsConsumingNonStakeholderInformee: DatabaseMetrics = createDbMetrics(
+    "get_consuming_event_ids_for_nonstakeholderinformee_for_tree_transactions"
+  )
+  val treeTxIdsNonConsumingInformee: DatabaseMetrics = createDbMetrics(
+    "get_nonconsuming_event_ids_for_informee_for_tree_transactions"
+  )
+  val treeTxPayloadCreate: DatabaseMetrics = createDbMetrics(
+    "get_create_event_payloads_for_tree_transactions"
+  )
+  val treeTxPayloadConsuming: DatabaseMetrics = createDbMetrics(
+    "get_consuming_event_payloads_for_tree_transactions"
+  )
+  val treeTxPayloadNonConsuming: DatabaseMetrics = createDbMetrics(
+    "get_nonconsuming_event_payloads_for_tree_transactions"
   )
 
   val getFlatTransactions: DatabaseMetrics = createDbMetrics("get_flat_transactions")

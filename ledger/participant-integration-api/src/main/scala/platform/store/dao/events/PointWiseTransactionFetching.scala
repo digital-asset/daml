@@ -55,14 +55,16 @@ sealed trait PointWiseTransactionFetching {
   )(implicit loggingContext: LoggingContext): Future[Option[RespT]] = {
     val requestingPartiesStrings: Set[String] = requestingParties.toSet[String]
     for {
-      // Fetching event seq. id range corresponding to the requested transaction id
+      // Fetching event sequential id range corresponding to the requested transaction id
       eventSeqIdRangeO <- dbDispatcher.executeSql(dbMetric)(
-        eventStorageBackend.fetchIdsFromTransactionMeta(transactionId = transactionId)
+        eventStorageBackend.transactionPointwiseQueries.fetchIdsFromTransactionMeta(transactionId =
+          transactionId
+        )
       )
       response <- eventSeqIdRangeO match {
         case Some((firstEventSeqId, lastEventSeqId)) =>
           for {
-            // Fetching all events from the event seq. id range
+            // Fetching all events from the event sequential id range
             rawEvents <- dbDispatcher.executeSql(dbMetric)(
               fetchTransaction(
                 firstEventSequentialId = firstEventSeqId,
@@ -92,7 +94,7 @@ sealed trait PointWiseTransactionFetching {
   }
 }
 
-final class TreeTransactionFetching(
+final class TreeTransactionPointwiseReader(
     override val dbDispatcher: DbDispatcher,
     override val eventStorageBackend: EventStorageBackend,
     override val metrics: Metrics,
@@ -112,7 +114,7 @@ final class TreeTransactionFetching(
       requestingParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
   )(connection: Connection): Vector[EventStorageBackend.Entry[RawEventT]] = {
-    eventStorageBackend.fetchTreeTransaction(
+    eventStorageBackend.transactionPointwiseQueries.fetchTreeTransaction(
       firstEventSequentialId = firstEventSequentialId,
       lastEventSequentialId = lastEventSequentialId,
       requestingParties = requestingParties,
@@ -124,7 +126,7 @@ final class TreeTransactionFetching(
   }
 }
 
-final class FlatTransactionFetching(
+final class FlatTransactionPointwiseReader(
     override val dbDispatcher: DbDispatcher,
     override val eventStorageBackend: EventStorageBackend,
     override val metrics: Metrics,
@@ -144,7 +146,7 @@ final class FlatTransactionFetching(
       requestingParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
   )(connection: Connection): Vector[EventStorageBackend.Entry[RawEventT]] = {
-    eventStorageBackend.fetchFlatTransaction(
+    eventStorageBackend.transactionPointwiseQueries.fetchFlatTransaction(
       firstEventSequentialId = firstEventSequentialId,
       lastEventSequentialId = lastEventSequentialId,
       requestingParties = requestingParties,

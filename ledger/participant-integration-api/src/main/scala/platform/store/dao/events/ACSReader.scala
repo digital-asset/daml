@@ -74,13 +74,14 @@ class FilterTableACSReader(
       )(idQuery =>
         idQueryLimiter.execute {
           dispatcher.executeSql(metrics.daml.index.db.getActiveContractIds) { connection =>
-            val result = eventStorageBackend.fetchIds_create_stakeholders(
-              partyFilter = filter.party,
-              templateIdFilter = filter.templateId,
-              startExclusive = idQuery.fromExclusiveEventSeqId,
-              endInclusive = activeAt._2,
-              limit = idQuery.pageSize,
-            )(connection)
+            val result =
+              eventStorageBackend.streamingTransactionQueries.fetchIdsOfCreateEventsForStakeholders(
+                partyFilter = filter.party,
+                templateIdFilter = filter.templateId,
+                startExclusive = idQuery.fromExclusiveEventSeqId,
+                endInclusive = activeAt._2,
+                limit = idQuery.pageSize,
+              )(connection)
             logger.debug(
               s"getActiveContractIds $filter returned #${result.size} ${result.lastOption
                   .map(last => s"until $last")

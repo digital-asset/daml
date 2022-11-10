@@ -16,10 +16,10 @@ import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.TemplatePartiesFilter
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.indexer.parallel.BatchN
-import com.daml.platform.store.backend.{
-  EventIdFetchingForStakeholdersTarget,
-  EventStorageBackend,
-  PayloadFetchingForFlatTxTarget,
+import com.daml.platform.store.backend.EventStorageBackend
+import com.daml.platform.store.backend.common.{
+  EventIdSourceForStakeholders,
+  EventPayloadSourceForFlatTx,
 }
 import com.daml.platform.store.dao.{DbDispatcher, EventProjectionProperties, PaginatingAsyncStream}
 import com.daml.platform.store.dao.PaginatingAsyncStream.IdPaginationState
@@ -37,7 +37,7 @@ import scala.util.chaining._
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 
-class TransactionsFlatReader(
+class FlatTransactionsStreamReader(
     maxPayloadsPerPayloadsPage: Int,
     payloadProcessingParallelism: Int,
     maxIdsPerIdPage: Int = IndexServiceConfig.DefaultAcsIdPageSize,
@@ -108,17 +108,17 @@ class TransactionsFlatReader(
       queryRange.startExclusive
     val (endInclusiveOffset, endInclusiveEventSequentialId): (Offset, Long) =
       queryRange.endInclusive
-    val maxParallelCreateEventIdQueriesLimiter = new QueueBasedConcurrencyLimiter(
+    val createEventIdQueriesLimiter = new QueueBasedConcurrencyLimiter(
       maxParallelCreateEventIdQueries,
       executionContext,
       parentO = Some(globalMaxParallelIdQueriesLimiter),
     )
-    val maxParallelConsumingEventIdQueriesLimiter = new QueueBasedConcurrencyLimiter(
+    val consumingEventIdQueriesLimiter = new QueueBasedConcurrencyLimiter(
       maxParallelConsumingEventIdQueries,
       executionContext,
       parentO = Some(globalMaxParallelIdQueriesLimiter),
     )
-    val maxParallelPayloadQueriesLimiter = new QueueBasedConcurrencyLimiter(
+    val payloadQueriesLimiter = new QueueBasedConcurrencyLimiter(
       maxParallelPayloadQueries,
       executionContext,
       parentO = Some(globalMaxParallelPayloadQueriesLimiter),
@@ -126,61 +126,55 @@ class TransactionsFlatReader(
     val decomposedFilters = FilterTableACSReader.makeSimpleFilters(filteringConstraints).toVector
     val idPageSizing = IdQueryConfiguration(
       maxIdPageSize = maxIdsPerIdPage,
-      // The full set of ids for flat transactions is the union of two disjoint sets ids from 1) consuming events, and 2) create events.
-      // We assign half of the working memory to each of the two source sets.
+      // The full set of ids for flat transactions is the union of two disjoint sets ids:
+      // 1) ids for consuming events and 2) ids for create events.
+      // We assign half of the working memory to each source.
       idPageWorkingMemoryBytes = maxWorkingMemoryInBytesForIdPages / 2,
       filterSize = decomposedFilters.size,
       idPageBufferSize = maxPagesPerPagesBuffer,
     )
+    val buildSourceOfSortedAndBatchedIdsFun = buildSourceOfSortedAndBatchedIds(
+      startExclusiveEventSequentialId = startExclusiveEventSequentialId,
+      endInclusiveEventSequentialId = endInclusiveEventSequentialId,
+      decomposedFilters = decomposedFilters,
+      idPageSizing = idPageSizing,
+      maxOutputBatchSize = maxPayloadsPerPayloadsPage,
+    ) _
+    val buildSourceOfPayloadsFun = buildSourceOfPayloads(
+      allFilterParties = filteringConstraints.allFilterParties,
+      startExclusiveOffset = startExclusiveOffset,
+      endInclusiveOffset = endInclusiveOffset,
+      eventFetchingLimiter = payloadQueriesLimiter,
+    ) _
     val sourceOfBatchedConsumingEventIds: Source[ArrayBuffer[Long], NotUsed] =
-      buildSourceOfSortedAndBatchedIds(
-        startExclusiveEventSequentialId = startExclusiveEventSequentialId,
-        endInclusiveEventSequentialId = endInclusiveEventSequentialId,
-        decomposedFilters = decomposedFilters,
-        idPageSizing = idPageSizing,
-        maxParallelIdQueriesLimiter = maxParallelConsumingEventIdQueriesLimiter,
-        fetchIdsMetric = metrics.daml.index.db.getConsumingIds_stakeholdersFilter,
-        target = EventIdFetchingForStakeholdersTarget.ConsumingStakeholder,
-        maxOutputBatchSize = maxPayloadsPerPayloadsPage,
-        maxOutputBatchCount = maxParallelConsumingEventQueries + 1,
+      buildSourceOfSortedAndBatchedIdsFun(
+        consumingEventIdQueriesLimiter,
+        dbMetrics.flatTxIdsConsuming,
+        EventIdSourceForStakeholders.Consuming,
+        maxParallelConsumingEventQueries + 1,
       )
     val sourceOfBatchedCreateEventIds: Source[ArrayBuffer[Long], NotUsed] = {
-      // TODO pbatko: Partially apply streamIdsForDecomposedFilters
-      buildSourceOfSortedAndBatchedIds(
-        startExclusiveEventSequentialId = startExclusiveEventSequentialId,
-        endInclusiveEventSequentialId = endInclusiveEventSequentialId,
-        decomposedFilters = decomposedFilters,
-        idPageSizing = idPageSizing,
-        maxParallelIdQueriesLimiter = maxParallelCreateEventIdQueriesLimiter,
-        fetchIdsMetric = metrics.daml.index.db.getCreateEventIds_stakeholdersFilter,
-        target = EventIdFetchingForStakeholdersTarget.CreateStakeholder,
-        maxOutputBatchSize = maxPayloadsPerPayloadsPage,
-        maxOutputBatchCount = maxParallelCreateEventQueries + 1,
+      buildSourceOfSortedAndBatchedIdsFun(
+        createEventIdQueriesLimiter,
+        dbMetrics.flatTxIdsCreate,
+        EventIdSourceForStakeholders.Create,
+        maxParallelCreateEventQueries + 1,
       )
     }
     val streamOfConsumingEventPayloads = {
-      // TODO pbatko: Partially apply buildSourceOfPayloads
-      buildSourceOfPayloads(
-        allFilterParties = filteringConstraints.allFilterParties,
-        startExclusiveOffset = startExclusiveOffset,
-        endInclusiveOffset = endInclusiveOffset,
-        eventFetchingLimiter = maxParallelPayloadQueriesLimiter,
-        maxParallelPayloadQueries = maxParallelConsumingEventQueries,
-        dbMetric = metrics.daml.index.db.getFlatTransactions,
-        target = PayloadFetchingForFlatTxTarget.ConsumingEventPayloads,
-        sourceOfBatchedIds = sourceOfBatchedConsumingEventIds,
+      buildSourceOfPayloadsFun(
+        maxParallelConsumingEventQueries,
+        dbMetrics.flatTxPayloadConsuming,
+        EventPayloadSourceForFlatTx.Consuming,
+        sourceOfBatchedConsumingEventIds,
       )
     }
     val streamOfCreateEventPayloads =
-      buildSourceOfPayloads(
-        allFilterParties = filteringConstraints.allFilterParties,
-        startExclusiveOffset = startExclusiveOffset,
-        endInclusiveOffset = endInclusiveOffset,
-        eventFetchingLimiter = maxParallelPayloadQueriesLimiter,
-        maxParallelPayloadQueries = maxParallelCreateEventQueries,
-        dbMetric = metrics.daml.index.db.getFlatTransactions,
-        target = PayloadFetchingForFlatTxTarget.CreateEventPayloads,
-        sourceOfBatchedIds = sourceOfBatchedCreateEventIds,
+      buildSourceOfPayloadsFun(
+        maxParallelCreateEventQueries,
+        dbMetrics.flatTxPayloadCreate,
+        EventPayloadSourceForFlatTx.Create,
+        sourceOfBatchedCreateEventIds,
       )
     val sourceOfCombinedOrderedPayloads
         : Source[EventStorageBackend.Entry[Raw.FlatEvent], NotUsed] = {
@@ -206,10 +200,11 @@ class TransactionsFlatReader(
       endInclusiveEventSequentialId: Long,
       decomposedFilters: Vector[Filter],
       idPageSizing: IdQueryConfiguration,
+      maxOutputBatchSize: Int,
+  )(
       maxParallelIdQueriesLimiter: QueueBasedConcurrencyLimiter,
       fetchIdsMetric: DatabaseMetrics,
-      target: EventIdFetchingForStakeholdersTarget,
-      maxOutputBatchSize: Int,
+      target: EventIdSourceForStakeholders,
       maxOutputBatchCount: Int,
   )(implicit lc: LoggingContext): Source[ArrayBuffer[Long], NotUsed] = {
     decomposedFilters
@@ -222,7 +217,7 @@ class TransactionsFlatReader(
           fetchPage = (state: IdPaginationState) => {
             maxParallelIdQueriesLimiter.execute {
               dbDispatcher.executeSql(fetchIdsMetric) { connection =>
-                eventStorageBackend.fetchEventIdsForStakeholder(
+                eventStorageBackend.streamingTransactionQueries.fetchEventIdsForStakeholder(
                   target = target
                 )(
                   stakeholder = filter.party,
@@ -251,9 +246,10 @@ class TransactionsFlatReader(
       startExclusiveOffset: Offset,
       endInclusiveOffset: Offset,
       eventFetchingLimiter: ConcurrencyLimiter,
+  )(
       maxParallelPayloadQueries: Int,
       dbMetric: DatabaseMetrics,
-      target: PayloadFetchingForFlatTxTarget,
+      target: EventPayloadSourceForFlatTx,
       sourceOfBatchedIds: Source[ArrayBuffer[Long], NotUsed],
   )(implicit lc: LoggingContext): Source[EventStorageBackend.Entry[Raw.FlatEvent], NotUsed] = {
     sourceOfBatchedIds
@@ -268,10 +264,11 @@ class TransactionsFlatReader(
           .execute(
             dbDispatcher.executeSql(dbMetric) { implicit connection =>
               queryNonPruned.executeSql(
-                query = eventStorageBackend.fetchEventPayloadsFlat(target = target)(
-                  eventSequentialIds = ids,
-                  allFilterParties = allFilterParties,
-                )(connection),
+                query = eventStorageBackend.streamingTransactionQueries
+                  .fetchEventPayloadsFlat(target = target)(
+                    eventSequentialIds = ids,
+                    allFilterParties = allFilterParties,
+                  )(connection),
                 minOffsetExclusive = startExclusiveOffset,
                 error = (prunedOffset: Offset) =>
                   s"Transactions request from ${startExclusiveOffset.toHexString} to ${endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
