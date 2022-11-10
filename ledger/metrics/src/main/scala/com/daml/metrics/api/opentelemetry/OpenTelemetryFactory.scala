@@ -19,13 +19,11 @@ import io.opentelemetry.api.metrics.{
   Meter => OtelMeter,
 }
 
-trait OpenTelemetryFactory extends Factory {
+class OpenTelemetryFactory(otelMeter: OtelMeter) extends Factory {
 
   val globalMetricsContext: MetricsContext = MetricsContext(
     Map("daml_version" -> BuildInfo.Version)
   )
-
-  def otelMeter: OtelMeter
 
   override def timer(
       name: MetricName

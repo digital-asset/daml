@@ -1,11 +1,14 @@
 package com.daml.metrics.grpc
 
 import com.daml.metrics.api.MetricHandle.Factory
-import com.daml.metrics.api.{MetricHandle, MetricName}
+import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 
-class DamlGrpcServerMetrics(metricsFactory: Factory) extends GrpcServerMetrics {
+class DamlGrpcServerMetrics(metricsFactory: Factory, component: String) extends GrpcServerMetrics {
 
   private val grpcServerMetricsPrefix = MetricName.Daml :+ "grpc" :+ "server"
+  private implicit val metricsContext: MetricsContext = MetricsContext(
+    Map("component" -> component)
+  )
 
   override val callTimer: MetricHandle.Timer = metricsFactory.timer(grpcServerMetricsPrefix)
   override val messagesSent: MetricHandle.Meter = metricsFactory.meter(

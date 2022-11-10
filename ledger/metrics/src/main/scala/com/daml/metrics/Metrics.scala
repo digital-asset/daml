@@ -18,9 +18,7 @@ object Metrics {
 final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMeter)
     extends DropwizardFactory {
 
-  val openTelemetryFactory: OpenTelemetryFactory = new OpenTelemetryFactory {
-    override def otelMeter: OtelMeter = Metrics.this.meter
-  }
+  val openTelemetryFactory: OpenTelemetryFactory = new OpenTelemetryFactory(Metrics.this.meter)
 
   object test {
     private val prefix: MetricName = MetricName("test")
@@ -79,7 +77,7 @@ final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMe
       )
     }
 
-    object grpc extends DamlGrpcServerMetrics(openTelemetryFactory)
+    object grpc extends DamlGrpcServerMetrics(openTelemetryFactory, "participant")
 
   }
 }
