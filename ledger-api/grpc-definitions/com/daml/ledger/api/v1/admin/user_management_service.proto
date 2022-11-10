@@ -164,6 +164,7 @@ message GetUserRequest {
     // Required
 
     string user_id = 1;
+
     // The id of the ``Identity Provider``
     // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
     // Optional
