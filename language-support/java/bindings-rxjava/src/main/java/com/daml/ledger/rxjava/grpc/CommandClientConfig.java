@@ -58,7 +58,7 @@ public class CommandClientConfig {
    * @param commandId
    * @return
    */
-  public CommandClientConfig create(String workflowId, String applicationId, String commandId) {
+  public static CommandClientConfig create(String workflowId, String applicationId, String commandId) {
     return new CommandClientConfig(
         workflowId,
         applicationId,
