@@ -15,7 +15,7 @@ object Metrics {
   lazy val ForTesting = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
 }
 
-final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
+final class Metrics(override val registry: MetricRegistry, val otelmeter: OtelMeter)
     extends DropwizardFactory {
 
   object test {
@@ -53,7 +53,7 @@ final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
 
       private val grpcServerMetricsPrefix = prefix :+ "grpc" :+ "server"
 
-      override def otelMeter: OtelMeter = Metrics.this.meter
+      override def otelMeter: OtelMeter = Metrics.this.otelmeter
       override val callTimer: MetricHandle.Timer = timer(grpcServerMetricsPrefix)
       override val messagesSent: MetricHandle.Meter = meter(
         grpcServerMetricsPrefix :+ "messages" :+ "sent"
