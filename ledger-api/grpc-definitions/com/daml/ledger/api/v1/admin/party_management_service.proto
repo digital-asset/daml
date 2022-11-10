@@ -32,24 +32,15 @@ service PartyManagementService {
   // All horizontally scaled replicas should return the same id.
   // daml-on-kv-ledger: returns an identifier supplied on command line at launch time
   // canton: returns globally unique identifier of the participant
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   rpc GetParticipantId (GetParticipantIdRequest) returns (GetParticipantIdResponse);
 
   // Get the party details of the given parties. Only known parties will be
   // returned in the list.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   rpc GetParties (GetPartiesRequest) returns (GetPartiesResponse);
 
   // List the parties known by the participant.
   // The list returned contains parties whose ledger access is facilitated by
   // the participant and the ones maintained elsewhere.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   rpc ListKnownParties (ListKnownPartiesRequest) returns (ListKnownPartiesResponse);
 
   // Allocates a new party on a ledger and adds it to the set managed by the participant.
@@ -60,12 +51,6 @@ service PartyManagementService {
   // - Succeed, in which case the actual allocated identifier is visible in
   //   the response.
   // - Respond with a gRPC error
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``UNIMPLEMENTED``: if synchronous party allocation is not supported by the participant
-  // - ``DEADLINE_EXCEEDED``: if the request times out
-  // - ``INVALID_ARGUMENT``: if the provided hint and/or display name is invalid on the given ledger (see below).
   // daml-on-kv-ledger: suggestion's uniqueness is checked by the validators in
   // the consensus layer and call rejected if the identifier is already present.
   // canton: completely different globally unique identifier is allocated.

@@ -20,9 +20,6 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 service PackageManagementService {
 
   // Returns the details of all Daml-LF packages known to the backing participant.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   rpc ListKnownPackages (ListKnownPackagesRequest) returns
     (ListKnownPackagesResponse);
 
@@ -35,11 +32,6 @@ service PackageManagementService {
   // - Succeed, if the package was successfully uploaded, or if the same package
   //   was already uploaded before.
   // - Respond with a gRPC error
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``UNIMPLEMENTED``: if DAR package uploading is not supported by the backing participant
-  // - ``INVALID_ARGUMENT``: if the DAR file is too big or malformed. The maximum supported size is implementation specific.
   rpc UploadDarFile (UploadDarFileRequest) returns (UploadDarFileResponse);
 }
 
