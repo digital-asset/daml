@@ -68,10 +68,10 @@ final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
         grpcServerMetricsPrefix :+ "messages" :+ "received" :+ "bytes"
       )
       override val callsStarted: MetricHandle.Meter = meter(
-        grpcServerMetricsPrefix :+ "calls" :+ "started"
+        grpcServerMetricsPrefix :+ "started"
       )
       override val callsFinished: MetricHandle.Meter = meter(
-        grpcServerMetricsPrefix :+ "calls" :+ "finished"
+        grpcServerMetricsPrefix :+ "handled"
       )
     }
 
