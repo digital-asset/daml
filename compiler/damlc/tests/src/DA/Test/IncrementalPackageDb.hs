@@ -3,6 +3,8 @@
 
 module DA.Test.IncrementalPackageDb (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import Data.Foldable

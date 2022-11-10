@@ -4,6 +4,8 @@
 
 module DA.Test.DamlDoc (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import DA.Daml.Doc.Driver (loadExternalAnchors)
 import DA.Daml.Doc.Types
 import qualified DA.Daml.Doc.Tests as Damldoc

@@ -5,6 +5,8 @@
 {-# LANGUAGE TypeOperators #-}
 module Main (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Control.Concurrent
 import Control.Applicative.Combinators
 import Control.Lens hiding (List, children, (.=))

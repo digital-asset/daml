@@ -14,6 +14,8 @@ module DA.Test.Sandbox
     , makeSignedJwt
     ) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Control.Exception
 import DA.Bazel.Runfiles
 import DA.Daml.Helper.Ledger
