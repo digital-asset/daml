@@ -4,6 +4,8 @@ module DamlcTest
    ( main
    ) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Data.List.Extra (isInfixOf, isPrefixOf)
 import System.Directory
 import System.Environment.Blank

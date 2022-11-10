@@ -6,6 +6,7 @@ package com.daml.lf.engine.trigger
 import java.io.File
 import akka.actor.ActorSystem
 import akka.stream._
+import ch.qos.logback.classic.Level
 import com.daml.auth.TokenHolder
 import com.daml.grpc.adapter.AkkaExecutionSequencerPool
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -20,6 +21,7 @@ import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
+import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -57,6 +59,13 @@ object RunnerMain {
     RunnerConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) => {
+        config.rootLoggingLevel.foreach(setLoggingLevel)
+        config.logEncoder match {
+          case LogEncoder.Plain =>
+          case LogEncoder.Json =>
+            discard(System.setProperty("LOG_FORMAT_JSON", "true"))
+        }
+
         val dar: Dar[(PackageId, Package)] =
           DarDecoder.assertReadArchiveFromFile(config.darPath.toFile)
 
@@ -110,6 +119,7 @@ object RunnerMain {
             config.applicationId,
             parties,
             config.compilerConfig,
+            config.triggerConfig,
           )
         } yield ()
 
@@ -118,5 +128,9 @@ object RunnerMain {
         Await.result(flow, Duration.Inf)
       }
     }
+  }
+
+  private def setLoggingLevel(level: Level): Unit = {
+    discard(System.setProperty("LOG_LEVEL_ROOT", level.levelStr))
   }
 }

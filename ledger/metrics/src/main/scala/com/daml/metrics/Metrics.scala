@@ -15,7 +15,7 @@ object Metrics {
   lazy val ForTesting = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
 }
 
-final class Metrics(override val registry: MetricRegistry, val otelmeter: OtelMeter)
+final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMeter)
     extends DropwizardFactory {
 
   object test {
@@ -47,13 +47,13 @@ final class Metrics(override val registry: MetricRegistry, val otelmeter: OtelMe
 
     object services extends ServicesMetrics(prefix :+ "services", registry)
 
-    object HttpJsonApi extends HttpJsonApiMetrics(prefix :+ "http_json_api", registry)
+    object HttpJsonApi extends HttpJsonApiMetrics(prefix :+ "http_json_api", registry, otelMeter)
 
     object grpc extends OpenTelemetryFactory with GrpcServerMetrics {
 
       private val grpcServerMetricsPrefix = prefix :+ "grpc" :+ "server"
 
-      override def otelMeter: OtelMeter = Metrics.this.otelmeter
+      override def otelMeter: OtelMeter = Metrics.this.otelMeter
       override val callTimer: MetricHandle.Timer = timer(grpcServerMetricsPrefix)
       override val messagesSent: MetricHandle.Meter = meter(
         grpcServerMetricsPrefix :+ "messages" :+ "sent"

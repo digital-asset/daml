@@ -4,6 +4,8 @@ module DA.Daml.Helper.Test.Packages
   ( main
   ) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import DA.Bazel.Runfiles
 import DA.Test.HttpJson
 import DA.Test.Sandbox

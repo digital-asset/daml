@@ -3,6 +3,8 @@
 
 module DA.Test.ScriptService (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Control.Exception
 import Control.Monad
 import DA.Bazel.Runfiles

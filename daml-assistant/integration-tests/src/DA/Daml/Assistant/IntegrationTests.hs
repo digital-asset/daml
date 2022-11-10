@@ -2,6 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Assistant.IntegrationTests (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Lens

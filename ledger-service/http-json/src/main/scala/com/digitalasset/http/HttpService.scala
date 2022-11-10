@@ -34,6 +34,8 @@ import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
+import com.daml.metrics.api.MetricsContext
+import com.daml.metrics.akkahttp.AkkaHttpMetrics
 import com.daml.ports.{Port, PortFiles}
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import scalaz.Scalaz._
@@ -85,6 +87,7 @@ object HttpService {
     import startSettings._
 
     implicit val settings: ServerSettings = ServerSettings(asys).withTransparentHeadRequests(true)
+    implicit val mc: MetricsContext = MetricsContext.Empty
 
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(DummyApplicationId),
@@ -214,8 +217,16 @@ object HttpService {
         client.identityClient,
       )
 
+      rateDurationSizeMetrics = AkkaHttpMetrics.rateDurationSizeMetrics(
+        metrics.daml.HttpJsonApi.httpRequestsTotal,
+        metrics.daml.HttpJsonApi.httpErrorsTotal,
+        metrics.daml.HttpJsonApi.httpLatency,
+        metrics.daml.HttpJsonApi.httpRequestsPayloadBytesTotal,
+        metrics.daml.HttpJsonApi.httpResponsesPayloadBytesTotal,
+      )
+
       defaultEndpoints =
-        concat(
+        rateDurationSizeMetrics apply concat(
           jsonEndpoints.all: Route,
           websocketEndpoints.transactionWebSocket,
         )

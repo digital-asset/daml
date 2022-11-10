@@ -6,6 +6,8 @@ package transaction
 
 import com.daml.lf.data.Ref.PackageId
 
+import scala.annotation.nowarn
+
 object TransactionNodeStatistics {
 
   /** Container for transaction statistics.
@@ -70,7 +72,7 @@ object TransactionNodeStatistics {
     fetchesByKeyIdx,
     lookupsByKeyIdx,
   ) =
-    (0 until numberOfFields)
+    (0 until numberOfFields): @nowarn("msg=match may not be exhaustive")
 
   private[this] def emptyFields = Array.fill(numberOfFields)(0)
 

@@ -27,7 +27,7 @@ public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
   }
 
   /** The origin of the choice, not the createArguments. */
-  protected abstract ContractTypeCompanion<?, ?> getCompanion();
+  protected abstract ContractTypeCompanion<?, ?, ?, ?> getCompanion();
 
   /**
    * Parent of all generated {@code CreateAnd} classes within interfaces. These need to pass both

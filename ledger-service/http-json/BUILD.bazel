@@ -80,6 +80,7 @@ hj_scalacopts = lf_scalacopts + [
             "//libs-scala/resources",
             "//libs-scala/scala-utils",
             "//libs-scala/struct-json",
+            "//observability/akka-http-metrics",
         ],
     )
     for edition in [
