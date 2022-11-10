@@ -99,7 +99,7 @@ message GetPartiesResponse {
 
 // Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
 message ListKnownPartiesRequest {
-  // The id of the ``Identity Provider``
+  // The id of the ``Identity Provider`` whose parties should be retrieved.
   // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
   // Optional
   string identity_provider_id = 1;
