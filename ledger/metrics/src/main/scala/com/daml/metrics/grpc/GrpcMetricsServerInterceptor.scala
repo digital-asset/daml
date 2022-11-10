@@ -57,7 +57,6 @@ class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInt
         metrics.messagesSent,
         metrics.messagesSentSize,
         metrics.callsFinished,
-        metrics.messagesRequested,
       )
       new MonitoringServerCallListener(
         serverCallHandler.startCall(metricsServerCall, metadata),
@@ -88,14 +87,8 @@ class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInt
       messagesSent: Meter,
       messagesSentSize: Histogram,
       callsClosed: Meter,
-      messagesRequested: Meter,
   )(implicit metricsContext: MetricsContext)
       extends SimpleForwardingServerCall[ReqT, RespT](call) {
-
-    override def request(numMessages: Int): Unit = {
-      super.request(numMessages)
-      messagesRequested.mark(numMessages.toLong)
-    }
 
     override def sendMessage(message: RespT): Unit = {
       super.sendMessage(message)
@@ -146,5 +139,4 @@ trait GrpcServerMetrics {
   val messagesReceivedSize: Histogram
   val callsStarted: Meter
   val callsFinished: Meter
-  val messagesRequested: Meter
 }

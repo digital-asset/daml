@@ -61,9 +61,6 @@ final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
       override val messagesReceived: MetricHandle.Meter = meter(
         grpcServerMetricsPrefix :+ "messages" :+ "received"
       )
-      override val messagesRequested: MetricHandle.Meter = meter(
-        grpcServerMetricsPrefix :+ "messages" :+ "requested"
-      )
       override val messagesSentSize: MetricHandle.Histogram = histogram(
         grpcServerMetricsPrefix :+ "messages" :+ "sent" :+ "bytes"
       )

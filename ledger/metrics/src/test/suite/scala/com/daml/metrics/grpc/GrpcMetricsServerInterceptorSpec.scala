@@ -89,7 +89,6 @@ class GrpcMetricsServerInterceptorSpec
         )
         meterHasValueForStreaming(metrics.messagesSent, value = 3)
         meterHasValueForStreaming(metrics.messagesReceived)
-        meterHasValueForStreaming(metrics.messagesRequested, value = 2)
       }
     }
   }
@@ -147,7 +146,5 @@ object GrpcMetricsServerInterceptorSpec {
       InMemoryMetricsFactory.histogram(metricName)
     override val callsStarted: MetricHandle.Meter = InMemoryMetricsFactory.meter(metricName)
     override val callsFinished: MetricHandle.Meter = InMemoryMetricsFactory.meter(metricName)
-    override val messagesRequested: MetricHandle.Meter =
-      InMemoryMetricsFactory.meter(metricName)
   }
 }
