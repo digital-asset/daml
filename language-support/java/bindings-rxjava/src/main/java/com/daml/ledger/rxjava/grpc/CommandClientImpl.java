@@ -6,6 +6,7 @@ package com.daml.ledger.rxjava.grpc;
 import static com.daml.ledger.javaapi.data.EventUtils.firstExercisedEvent;
 import static com.daml.ledger.javaapi.data.EventUtils.singleCreatedEvent;
 import static com.daml.ledger.javaapi.data.codegen.HasCommands.toCommands;
+import static java.util.Arrays.asList;
 
 import com.daml.ledger.api.v1.CommandServiceGrpc;
 import com.daml.ledger.api.v1.CommandServiceOuterClass;
@@ -37,18 +38,17 @@ public class CommandClientImpl implements CommandClient {
         StubHelper.authenticating(CommandServiceGrpc.newFutureStub(channel), accessToken);
   }
 
-  @Override
-  public Single<Empty> submitAndWait(
-          @NonNull String workflowId,
-          @NonNull String applicationId,
-          @NonNull String commandId,
-          @NonNull List<@NonNull String> actAs,
-          @NonNull List<@NonNull String> readAs,
-          @NonNull Optional<Instant> minLedgerTimeAbs,
-          @NonNull Optional<Duration> minLedgerTimeRel,
-          @NonNull Optional<Duration> deduplicationTime,
-          @NonNull List<@NonNull ? extends HasCommands> commands,
-          @NonNull Optional<String> accessToken) {
+  private Single<Empty> submitAndWait(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull Optional<String> accessToken) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
         SubmitAndWaitRequest.toProto(
             this.ledgerId,
@@ -65,7 +65,187 @@ public class CommandClientImpl implements CommandClient {
         StubHelper.authenticating(this.serviceStub, accessToken).submitAndWait(request));
   }
 
-  public Single<String> submitAndWaitForTransactionId(
+  @Override
+  public Single<Empty> submitAndWait(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWait(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.empty());
+  }
+
+  @Override
+  public Single<Empty> submitAndWait(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWait(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.empty());
+  }
+
+  @Override
+  public Single<Empty> submitAndWait(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWait(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<Empty> submitAndWait(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWait(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<Empty> submitAndWait(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWait(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.empty());
+  }
+
+  @Override
+  public Single<Empty> submitAndWait(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWait(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.empty());
+  }
+
+  @Override
+  public Single<Empty> submitAndWait(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWait(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<Empty> submitAndWait(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWait(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.of(accessToken));
+  }
+
+  private Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -95,7 +275,186 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<Transaction> submitAndWaitForTransaction(
+  public Single<String> submitAndWaitForTransactionId(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWaitForTransactionId(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.empty());
+  }
+
+  @Override
+  public Single<String> submitAndWaitForTransactionId(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWaitForTransactionId(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.empty());
+  }
+
+  @Override
+  public Single<String> submitAndWaitForTransactionId(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWaitForTransactionId(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<String> submitAndWaitForTransactionId(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWaitForTransactionId(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<String> submitAndWaitForTransactionId(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWaitForTransactionId(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.empty());
+  }
+
+  @Override
+  public Single<String> submitAndWaitForTransactionId(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWaitForTransactionId(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.empty());
+  }
+
+  @Override
+  public Single<String> submitAndWaitForTransactionId(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWaitForTransactionId(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<String> submitAndWaitForTransactionId(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWaitForTransactionId(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.of(accessToken));
+  }
+
+  private Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -126,7 +485,186 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<TransactionTree> submitAndWaitForTransactionTree(
+  public Single<Transaction> submitAndWaitForTransaction(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWaitForTransaction(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.empty());
+  }
+
+  @Override
+  public Single<Transaction> submitAndWaitForTransaction(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWaitForTransaction(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.empty());
+  }
+
+  @Override
+  public Single<Transaction> submitAndWaitForTransaction(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWaitForTransaction(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<Transaction> submitAndWaitForTransaction(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWaitForTransaction(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<Transaction> submitAndWaitForTransaction(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWaitForTransaction(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.empty());
+  }
+
+  @Override
+  public Single<Transaction> submitAndWaitForTransaction(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWaitForTransaction(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.empty());
+  }
+
+  @Override
+  public Single<Transaction> submitAndWaitForTransaction(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWaitForTransaction(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<Transaction> submitAndWaitForTransaction(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWaitForTransaction(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.of(accessToken));
+  }
+
+  private Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -156,190 +694,187 @@ public class CommandClientImpl implements CommandClient {
         .map(TransactionTree::fromProto);
   }
 
-
-
-//  @Override
-//  public Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands) {
-//    return submitAndWaitForTransactionTree(
-//        workflowId,
-//        applicationId,
-//        commandId,
-//        asList(party),
-//        asList(),
-//        minLedgerTimeAbs,
-//        minLedgerTimeRel,
-//        deduplicationTime,
-//        commands,
-//        Optional.empty());
-//  }
-//
-//  @Override
-//  public Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands) {
-//    return submitAndWaitForTransactionTree(
-//        workflowId,
-//        applicationId,
-//        commandId,
-//        actAs,
-//        readAs,
-//        minLedgerTimeAbs,
-//        minLedgerTimeRel,
-//        deduplicationTime,
-//        commands,
-//        Optional.empty());
-//  }
-//
-//  @Override
-//  public Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken) {
-//    return submitAndWaitForTransactionTree(
-//        workflowId,
-//        applicationId,
-//        commandId,
-//        asList(party),
-//        asList(),
-//        minLedgerTimeAbs,
-//        minLedgerTimeRel,
-//        deduplicationTime,
-//        commands,
-//        Optional.of(accessToken));
-//  }
-//
-//  @Override
-//  public Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull Optional<Instant> minLedgerTimeAbs,
-//      @NonNull Optional<Duration> minLedgerTimeRel,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken) {
-//    return submitAndWaitForTransactionTree(
-//        workflowId,
-//        applicationId,
-//        commandId,
-//        actAs,
-//        readAs,
-//        minLedgerTimeAbs,
-//        minLedgerTimeRel,
-//        deduplicationTime,
-//        commands,
-//        Optional.of(accessToken));
-//  }
-//
-//  @Override
-//  public Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull List<@NonNull ? extends HasCommands> commands) {
-//    return submitAndWaitForTransactionTree(
-//        workflowId,
-//        applicationId,
-//        commandId,
-//        asList(party),
-//        asList(),
-//        Optional.empty(),
-//        Optional.empty(),
-//        Optional.empty(),
-//        commands,
-//        Optional.empty());
-//  }
-//
-//  @Override
-//  public Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull List<@NonNull ? extends HasCommands> commands) {
-//    return submitAndWaitForTransactionTree(
-//        workflowId,
-//        applicationId,
-//        commandId,
-//        actAs,
-//        readAs,
-//        Optional.empty(),
-//        Optional.empty(),
-//        Optional.empty(),
-//        commands,
-//        Optional.empty());
-//  }
-//
-//  @Override
-//  public Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull String party,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken) {
-//    return submitAndWaitForTransactionTree(
-//        workflowId,
-//        applicationId,
-//        commandId,
-//        asList(party),
-//        asList(),
-//        Optional.empty(),
-//        Optional.empty(),
-//        Optional.empty(),
-//        commands,
-//        Optional.of(accessToken));
-//  }
-//
-//  @Override
-//  public Single<TransactionTree> submitAndWaitForTransactionTree(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull List<@NonNull ? extends HasCommands> commands,
-//      @NonNull String accessToken) {
-//    return submitAndWaitForTransactionTree(
-//        workflowId,
-//        applicationId,
-//        commandId,
-//        actAs,
-//        readAs,
-//        Optional.empty(),
-//        Optional.empty(),
-//        Optional.empty(),
-//        commands,
-//        Optional.of(accessToken));
-//  }
+  @Override
+  public Single<TransactionTree> submitAndWaitForTransactionTree(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWaitForTransactionTree(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.empty());
+  }
 
   @Override
-  public <U> Single<U> submitAndWaitForResult(
+  public Single<TransactionTree> submitAndWaitForTransactionTree(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWaitForTransactionTree(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.empty());
+  }
+
+  @Override
+  public Single<TransactionTree> submitAndWaitForTransactionTree(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWaitForTransactionTree(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<TransactionTree> submitAndWaitForTransactionTree(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWaitForTransactionTree(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<TransactionTree> submitAndWaitForTransactionTree(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWaitForTransactionTree(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.empty());
+  }
+
+  @Override
+  public Single<TransactionTree> submitAndWaitForTransactionTree(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
+    return submitAndWaitForTransactionTree(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.empty());
+  }
+
+  @Override
+  public Single<TransactionTree> submitAndWaitForTransactionTree(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String party,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWaitForTransactionTree(
+        workflowId,
+        applicationId,
+        commandId,
+        asList(party),
+        asList(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<TransactionTree> submitAndWaitForTransactionTree(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
+      @NonNull String accessToken) {
+    return submitAndWaitForTransactionTree(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        commands,
+        Optional.of(accessToken));
+  }
+
+  private <U> Single<U> submitAndWaitForResult(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -394,28 +929,28 @@ public class CommandClientImpl implements CommandClient {
         });
   }
 
-//  @Override
-//  public <U> Single<U> submitAndWaitForResult(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull Update<U> update) {
-//    return submitAndWaitForResult(
-//        workflowId, applicationId, commandId, actAs, readAs, update, Optional.empty());
-//  }
-//
-//  @Override
-//  public <U> Single<U> submitAndWaitForResult(
-//      @NonNull String workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull Update<U> update,
-//      @NonNull String accessToken) {
-//    return submitAndWaitForResult(
-//        workflowId, applicationId, commandId, actAs, readAs, update, Optional.of(accessToken));
-//  }
+  @Override
+  public <U> Single<U> submitAndWaitForResult(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Update<U> update) {
+    return submitAndWaitForResult(
+        workflowId, applicationId, commandId, actAs, readAs, update, Optional.empty());
+  }
+
+  @Override
+  public <U> Single<U> submitAndWaitForResult(
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Update<U> update,
+      @NonNull String accessToken) {
+    return submitAndWaitForResult(
+        workflowId, applicationId, commandId, actAs, readAs, update, Optional.of(accessToken));
+  }
 }
