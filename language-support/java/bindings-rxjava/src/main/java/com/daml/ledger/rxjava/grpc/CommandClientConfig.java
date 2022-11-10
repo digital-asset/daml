@@ -14,7 +14,18 @@ import java.util.List;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-/** TODO: Java doc this */
+/**
+ * TODO: javadoc this
+ * This class represents a set of parameters required for {@link com.daml.ledger.rxjava.CommandClient}
+ *
+ * Usage:
+ * <pre>
+ *   var params = CommandClientConfig.create("workflowId", "applicationId", "commandId")
+ *                                   .params.withAccessToken("token")
+ *
+ *
+ * <pre/>
+ */
 public class CommandClientConfig {
   private String workflowId;
   private String applicationId;
@@ -114,21 +125,21 @@ public class CommandClientConfig {
         accessToken);
   }
 
-  public CommandClientConfig withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
+  public CommandClientConfig withMinLedgerTimeAbs(Instant minLedgerTimeAbs) {
     return new CommandClientConfig(
         workflowId,
         applicationId,
         commandId,
         actAs,
         readAs,
-        minLedgerTimeAbs,
+        Optional.of(minLedgerTimeAbs),
         minLedgerTimeRel,
         deduplicationTime,
         commands,
         accessToken);
   }
 
-  public CommandClientConfig withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
+  public CommandClientConfig withMinLedgerTimeRel(Duration minLedgerTimeRel) {
     return new CommandClientConfig(
         workflowId,
         applicationId,
@@ -136,13 +147,13 @@ public class CommandClientConfig {
         actAs,
         readAs,
         minLedgerTimeAbs,
-        minLedgerTimeRel,
+        Optional.of(minLedgerTimeRel),
         deduplicationTime,
         commands,
         accessToken);
   }
 
-  public CommandClientConfig withDeduplicationTime(Optional<Duration> deduplicationTime) {
+  public CommandClientConfig withDeduplicationTime(Duration deduplicationTime) {
     return new CommandClientConfig(
         workflowId,
         applicationId,
@@ -151,7 +162,7 @@ public class CommandClientConfig {
         readAs,
         minLedgerTimeAbs,
         minLedgerTimeRel,
-        deduplicationTime,
+        Optional.of(deduplicationTime),
         commands,
         accessToken);
   }
@@ -170,7 +181,7 @@ public class CommandClientConfig {
         accessToken);
   }
 
-  public CommandClientConfig withAccessToken(Optional<String> accessToken) {
+  public CommandClientConfig withAccessToken(String accessToken) {
     return new CommandClientConfig(
         workflowId,
         applicationId,
@@ -181,6 +192,6 @@ public class CommandClientConfig {
         minLedgerTimeRel,
         deduplicationTime,
         commands,
-        accessToken);
+        Optional.of(accessToken));
   }
 }
