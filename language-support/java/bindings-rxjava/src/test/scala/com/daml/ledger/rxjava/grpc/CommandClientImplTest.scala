@@ -6,7 +6,6 @@ package com.daml.ledger.rxjava.grpc
 import java.time.{Duration, Instant}
 import java.util.{Optional, UUID}
 import java.util.concurrent.TimeUnit
-
 import com.daml.ledger.javaapi.data.{Command, CreateCommand, DamlRecord, Identifier}
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
@@ -22,6 +21,7 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.util.Collections.{emptyList, singletonList}
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 
@@ -58,11 +58,13 @@ class CommandClientImplTest
           commands.getWorkflowId,
           commands.getApplicationId,
           commands.getCommandId,
-          commands.getParty,
+          singletonList(commands.getParty),
+          emptyList(),
           commands.getMinLedgerTimeAbsolute,
           commands.getMinLedgerTimeRelative,
           commands.getDeduplicationTime,
           commands.getCommands,
+          Optional.empty(),
         )
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
@@ -83,11 +85,13 @@ class CommandClientImplTest
           commands.getWorkflowId,
           commands.getApplicationId,
           commands.getCommandId,
-          commands.getParty,
+          singletonList(commands.getParty),
+          emptyList(),
           commands.getMinLedgerTimeAbsolute,
           commands.getMinLedgerTimeRelative,
           commands.getDeduplicationTime,
           commands.getCommands,
+          Optional.empty(),
         )
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
@@ -133,56 +137,82 @@ class CommandClientImplTest
         String,
         String,
         String,
-        String,
+        java.util.List[String],
+        java.util.List[String],
         Optional[Instant],
         Optional[Duration],
         Optional[Duration],
         java.util.List[Command],
+        Optional[String],
     ) => Single[A]
+
+  // TODO: We shouldn't need this anymore
   private type SubmitAndWaitWithToken[A] =
     (
         String,
         String,
         String,
-        String,
+        java.util.List[String],
+        java.util.List[String],
         Optional[Instant],
         Optional[Duration],
         Optional[Duration],
         java.util.List[Command],
-        String,
+        Optional[String],
     ) => Single[A]
 
   private def submitAndWaitFor[A](
-      noToken: SubmitAndWait[A],
+      noToken: SubmitAndWait[A], // todo: remove this
       withToken: SubmitAndWaitWithToken[A],
-  )(commands: java.util.List[Command], party: String, token: Option[String]): A =
+  )(commands: java.util.List[Command], party: String, token: Option[String]): A = {
+
+    // TODO: Ideally, the final solution should just be
+//    withToken(
+//      UUID.randomUUID.toString,
+//      UUID.randomUUID.toString,
+//      UUID.randomUUID.toString,
+//      singletonList(party),
+//      emptyList(),
+//      Optional.empty(),
+//      Optional.empty(),
+//      Optional.empty(),
+//      commands,
+//      Optional.ofNullable(token.orNull),
+//    )
+//      .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+//      .blockingGet()
+
     token
       .fold(
         noToken(
           UUID.randomUUID.toString,
           UUID.randomUUID.toString,
           UUID.randomUUID.toString,
-          party,
+          singletonList(party),
+          emptyList(),
           Optional.empty(),
           Optional.empty(),
           Optional.empty(),
           dummyCommands,
+          Optional.empty(),
         )
-      )(
+      )(token =>
         withToken(
           UUID.randomUUID.toString,
           UUID.randomUUID.toString,
           UUID.randomUUID.toString,
-          party,
+          singletonList(party),
+          emptyList(),
           Optional.empty(),
           Optional.empty(),
           Optional.empty(),
           commands,
-          _,
+          Optional.of(token),
         )
       )
       .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
       .blockingGet()
+  }
 
   private def submitAndWait(client: CommandClient) =
     submitAndWaitFor(client.submitAndWait, client.submitAndWait) _
