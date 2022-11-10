@@ -51,7 +51,6 @@ private class JdbcLedgerDao(
     acsIdFetchingParallelism: Int,
     acsContractFetchingParallelism: Int,
     acsGlobalParallelism: Int,
-    completionsPageSize: Int,
     metrics: Metrics,
     engine: Option[Engine],
     sequentialIndexer: SequentialWriteDao,
@@ -62,6 +61,7 @@ private class JdbcLedgerDao(
     transactionsTreeStreamReaderConfig: TransactionsTreeStreamReaderConfig,
     globalMaxIdQueries: Int,
     globalMaxPayloadQueries: Int,
+    completionsMaxPayloadsPerPayloadsPage: Int,
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -557,7 +557,7 @@ private class JdbcLedgerDao(
       readStorageBackend.completionStorageBackend,
       queryNonPruned,
       metrics,
-      pageSize = completionsPageSize,
+      pageSize = completionsMaxPayloadsPerPayloadsPage,
     )
 
   /** This is a combined store transaction method to support sandbox-classic and tests
@@ -637,7 +637,6 @@ private[platform] object JdbcLedgerDao {
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
-      completionsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       engine: Option[Engine],
@@ -648,6 +647,7 @@ private[platform] object JdbcLedgerDao {
       transactionsTreeStreamReaderConfig: TransactionsTreeStreamReaderConfig,
       globalMaxIdQueries: Int,
       globalMaxPayloadQueries: Int,
+      completionsMaxPayloadsPerPayloadsPage: Int,
   ): LedgerReadDao =
     new JdbcLedgerDao(
       dbSupport.dbDispatcher,
@@ -660,7 +660,6 @@ private[platform] object JdbcLedgerDao {
       acsIdFetchingParallelism,
       acsContractFetchingParallelism,
       acsGlobalParallelism,
-      completionsPageSize,
       metrics,
       engine,
       SequentialWriteDao.noop,
@@ -671,6 +670,7 @@ private[platform] object JdbcLedgerDao {
       transactionsTreeStreamReaderConfig,
       globalMaxIdQueries = globalMaxIdQueries,
       globalMaxPayloadQueries = globalMaxPayloadQueries,
+      completionsMaxPayloadsPerPayloadsPage = completionsMaxPayloadsPerPayloadsPage,
     )
 
   def write(
@@ -684,7 +684,6 @@ private[platform] object JdbcLedgerDao {
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
-      completionsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       engine: Option[Engine],
@@ -695,6 +694,7 @@ private[platform] object JdbcLedgerDao {
       transactionsTreeStreamReaderConfig: TransactionsTreeStreamReaderConfig,
       globalMaxIdQueries: Int,
       globalMaxPayloadQueries: Int,
+      completionsMaxPayloadsPerPayloadsPage: Int,
   ): LedgerDao =
     new JdbcLedgerDao(
       dbSupport.dbDispatcher,
@@ -707,7 +707,6 @@ private[platform] object JdbcLedgerDao {
       acsIdFetchingParallelism,
       acsContractFetchingParallelism,
       acsGlobalParallelism,
-      completionsPageSize,
       metrics,
       engine,
       sequentialWriteDao,
@@ -718,6 +717,7 @@ private[platform] object JdbcLedgerDao {
       transactionsTreeStreamReaderConfig,
       globalMaxIdQueries = globalMaxIdQueries,
       globalMaxPayloadQueries = globalMaxPayloadQueries,
+      completionsMaxPayloadsPerPayloadsPage = completionsMaxPayloadsPerPayloadsPage,
     )
 
   val acceptType = "accept"

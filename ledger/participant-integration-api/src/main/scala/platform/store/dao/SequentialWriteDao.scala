@@ -100,20 +100,20 @@ private[dao] case class SequentialWriteDaoImpl[DB_BATCH](
       case e: DbDto.EventCreate => e.copy(event_sequential_id = nextEventSeqId)
       case e: DbDto.EventDivulgence => e.copy(event_sequential_id = nextEventSeqId)
       case e: DbDto.EventExercise => e.copy(event_sequential_id = nextEventSeqId)
-      case e: DbDto.CreateFilter_Stakeholder =>
+      case e: DbDto.FilterCreateStakeholder =>
         e.copy(event_sequential_id = lastEventSeqId)
-      case e: DbDto.CreateFilter_NonStakeholderInformee =>
+      case e: DbDto.FilterCreateNonStakeholderInformee =>
         e.copy(event_sequential_id = lastEventSeqId)
-      case e: DbDto.ConsumingFilter_Stakeholder =>
+      case e: DbDto.FilterConsumingStakeholder =>
         e.copy(event_sequential_id = lastEventSeqId)
-      case e: DbDto.ConsumingFilter_NonStakeholderInformee =>
+      case e: DbDto.FilterConsumingNonStakeholderInformee =>
         e.copy(event_sequential_id = lastEventSeqId)
-      case e: DbDto.NonConsumingFilter_Informee =>
+      case e: DbDto.FilterNonConsumingInformee =>
         e.copy(event_sequential_id = lastEventSeqId)
       case e: DbDto.TransactionMeta =>
         val dto = e.copy(
-          event_sequential_id_from = (previousTransactionMetaToEventSeqId + 1),
-          event_sequential_id_to = lastEventSeqId,
+          event_sequential_id_first = (previousTransactionMetaToEventSeqId + 1),
+          event_sequential_id_last = lastEventSeqId,
         )
         previousTransactionMetaToEventSeqId = lastEventSeqId
         dto

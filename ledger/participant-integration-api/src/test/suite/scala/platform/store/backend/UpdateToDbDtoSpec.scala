@@ -346,12 +346,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos(4) shouldEqual DbDto.TransactionMeta(
         transaction_id = transactionId,
         event_offset = someOffset.toHexString,
-        event_sequential_id_from = 0,
-        event_sequential_id_to = 0,
+        event_sequential_id_first = 0,
+        event_sequential_id_last = 0,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "signatory"),
-        DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "observer"),
+        DbDto.FilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
+        DbDto.FilterCreateStakeholder(0L, createNode.templateId.toString, "observer"),
       )
       dtos.size shouldEqual 5
     }
@@ -423,12 +423,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
         ),
-        DbDto.ConsumingFilter_Stakeholder(
+        DbDto.FilterConsumingStakeholder(
           event_sequential_id = 0,
           template_id = exerciseNode.templateId.toString,
           party_id = "signatory",
         ),
-        DbDto.ConsumingFilter_Stakeholder(
+        DbDto.FilterConsumingStakeholder(
           event_sequential_id = 0,
           template_id = exerciseNode.templateId.toString,
           party_id = "observer",
@@ -452,8 +452,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.TransactionMeta(
           transaction_id = transactionId,
           event_offset = someOffset.toHexString,
-          event_sequential_id_from = 0,
-          event_sequential_id_to = 0,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
         ),
       )
     }
@@ -525,7 +525,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
         ),
-        DbDto.NonConsumingFilter_Informee(
+        DbDto.FilterNonConsumingInformee(
           event_sequential_id = 0,
           party_id = "signatory",
         ),
@@ -548,8 +548,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.TransactionMeta(
           transaction_id = transactionId,
           event_offset = someOffset.toHexString,
-          event_sequential_id_from = 0,
-          event_sequential_id_to = 0,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
         ),
       )
     }
@@ -652,7 +652,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
         ),
-        DbDto.NonConsumingFilter_Informee(
+        DbDto.FilterNonConsumingInformee(
           event_sequential_id = 0,
           party_id = "signatory",
         ),
@@ -682,7 +682,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
         ),
-        DbDto.NonConsumingFilter_Informee(
+        DbDto.FilterNonConsumingInformee(
           event_sequential_id = 0,
           party_id = "signatory",
         ),
@@ -712,7 +712,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
         ),
-        DbDto.NonConsumingFilter_Informee(
+        DbDto.FilterNonConsumingInformee(
           event_sequential_id = 0,
           party_id = "signatory",
         ),
@@ -735,8 +735,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.TransactionMeta(
           transaction_id = transactionId,
           event_offset = someOffset.toHexString,
-          event_sequential_id_from = 0,
-          event_sequential_id_to = 0,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
         ),
       )
     }
@@ -810,8 +810,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.TransactionMeta(
           transaction_id = transactionId,
           event_offset = someOffset.toHexString,
-          event_sequential_id_from = 0,
-          event_sequential_id_to = 0,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
         ),
       )
     }
@@ -885,17 +885,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
         ),
-        DbDto.ConsumingFilter_Stakeholder(
+        DbDto.FilterConsumingStakeholder(
           event_sequential_id = 0,
           template_id = exerciseNode.templateId.toString,
           party_id = "signatory",
         ),
-        DbDto.ConsumingFilter_Stakeholder(
+        DbDto.FilterConsumingStakeholder(
           event_sequential_id = 0,
           template_id = exerciseNode.templateId.toString,
           party_id = "observer",
         ),
-        DbDto.ConsumingFilter_NonStakeholderInformee(
+        DbDto.FilterConsumingNonStakeholderInformee(
           event_sequential_id = 0,
           party_id = "divulgee",
         ),
@@ -933,8 +933,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.TransactionMeta(
           transaction_id = transactionId,
           event_offset = someOffset.toHexString,
-          event_sequential_id_from = 0,
-          event_sequential_id_to = 0,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
         ),
       )
     }
@@ -1009,8 +1009,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         driver_metadata = Some(someContractDriverMetadata.toByteArray),
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "signatory"),
-        DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "observer"),
+        DbDto.FilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
+        DbDto.FilterCreateStakeholder(0L, createNode.templateId.toString, "observer"),
       )
       dtos(3) shouldEqual DbDto.EventExercise(
         consuming = true,
@@ -1038,17 +1038,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         exercise_result_compression = compressionAlgorithmId,
         event_sequential_id = 0,
       )
-      dtos(4) shouldEqual DbDto.ConsumingFilter_Stakeholder(
+      dtos(4) shouldEqual DbDto.FilterConsumingStakeholder(
         event_sequential_id = 0,
         template_id = exerciseNode.templateId.toString,
         party_id = "signatory",
       )
-      dtos(5) shouldEqual DbDto.ConsumingFilter_Stakeholder(
+      dtos(5) shouldEqual DbDto.FilterConsumingStakeholder(
         event_sequential_id = 0,
         template_id = exerciseNode.templateId.toString,
         party_id = "observer",
       )
-      dtos(6) shouldEqual DbDto.ConsumingFilter_NonStakeholderInformee(
+      dtos(6) shouldEqual DbDto.FilterConsumingNonStakeholderInformee(
         event_sequential_id = 0,
         party_id = "divulgee",
       )
@@ -1086,8 +1086,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos(9) shouldEqual DbDto.TransactionMeta(
         transaction_id = transactionId,
         event_offset = someOffset.toHexString,
-        event_sequential_id_from = 0,
-        event_sequential_id_to = 0,
+        event_sequential_id_first = 0,
+        event_sequential_id_last = 0,
       )
       dtos.size shouldEqual 10
     }
@@ -1162,17 +1162,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         exercise_result_compression = compressionAlgorithmId,
         event_sequential_id = 0,
       )
-      dtos(1) shouldEqual DbDto.ConsumingFilter_Stakeholder(
+      dtos(1) shouldEqual DbDto.FilterConsumingStakeholder(
         event_sequential_id = 0,
         template_id = exerciseNode.templateId.toString,
         party_id = "signatory",
       )
-      dtos(2) shouldEqual DbDto.ConsumingFilter_Stakeholder(
+      dtos(2) shouldEqual DbDto.FilterConsumingStakeholder(
         event_sequential_id = 0,
         template_id = exerciseNode.templateId.toString,
         party_id = "observer",
       )
-      dtos(3) shouldEqual DbDto.ConsumingFilter_NonStakeholderInformee(
+      dtos(3) shouldEqual DbDto.FilterConsumingNonStakeholderInformee(
         event_sequential_id = 0,
         party_id = "disclosee",
       )
@@ -1208,8 +1208,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos(6) shouldEqual DbDto.TransactionMeta(
         transaction_id = transactionId,
         event_offset = someOffset.toHexString,
-        event_sequential_id_from = 0,
-        event_sequential_id_to = 0,
+        event_sequential_id_first = 0,
+        event_sequential_id_last = 0,
       )
       dtos should have length 7
     }
@@ -1297,8 +1297,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         DbDto.TransactionMeta(
           transaction_id = transactionId,
           event_offset = someOffset.toHexString,
-          event_sequential_id_from = 0,
-          event_sequential_id_to = 0,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
         ),
       )
     }
@@ -1424,12 +1424,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       dtos(3) shouldEqual DbDto.TransactionMeta(
         transaction_id = transactionId,
         event_offset = someOffset.toHexString,
-        event_sequential_id_from = 0,
-        event_sequential_id_to = 0,
+        event_sequential_id_first = 0,
+        event_sequential_id_last = 0,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "signatory"),
-        DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "observer"),
+        DbDto.FilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
+        DbDto.FilterCreateStakeholder(0L, createNode.templateId.toString, "observer"),
       )
       dtos.size shouldEqual 4
     }
@@ -1559,8 +1559,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             driver_metadata = Some(someContractDriverMetadata.toByteArray),
           )
           Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-            DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "signatory"),
-            DbDto.CreateFilter_Stakeholder(0L, createNode.templateId.toString, "observer"),
+            DbDto.FilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
+            DbDto.FilterCreateStakeholder(0L, createNode.templateId.toString, "observer"),
           )
           dtos(3) shouldEqual DbDto.CommandCompletion(
             completion_offset = someOffset.toHexString,
@@ -1581,8 +1581,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           dtos(4) shouldEqual DbDto.TransactionMeta(
             transaction_id = transactionId,
             event_offset = someOffset.toHexString,
-            event_sequential_id_from = 0,
-            event_sequential_id_to = 0,
+            event_sequential_id_first = 0,
+            event_sequential_id_last = 0,
           )
           dtos.size shouldEqual 5
       }

@@ -33,7 +33,7 @@ object H2EventStrategy extends EventStrategy {
     cSQL"( ($clause) AND (template_id = ANY($templateIdsArray)) )"
   }
 
-  override def pruneCreateFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = {
+  override def pruneFilterCreateStakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
           -- Create events filter table (only for contracts archived before the specified offset)
@@ -52,8 +52,8 @@ object H2EventStrategy extends EventStrategy {
           )"""
   }
 
-  // TODO pbatko: test me
-  override def pruneCreateFilters_nonStakeholderInformees(
+  // TODO pbatko: Unit test pruning filter and transaction_meta tables
+  override def pruneFilterCreateNonStakeholderInformees(
       pruneUpToInclusive: Offset
   ): SimpleSql[Row] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
@@ -77,7 +77,7 @@ object H2EventStrategy extends EventStrategy {
           )"""
   }
 
-  override def pruneConsumingFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = {
+  override def pruneFilterConsumingStakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
           DELETE FROM
@@ -91,7 +91,7 @@ object H2EventStrategy extends EventStrategy {
           )"""
   }
 
-  override def pruneConsumingFilters_nonStakeholderInformees(
+  override def pruneFilterConsumingNonStakeholderInformees(
       pruneUpToInclusive: Offset
   ): SimpleSql[Row] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
@@ -107,7 +107,7 @@ object H2EventStrategy extends EventStrategy {
           )"""
   }
 
-  override def pruneNonConsumingFilters_informees(pruneUpToInclusive: Offset): SimpleSql[Row] = {
+  override def pruneFilterNonConsumingInformees(pruneUpToInclusive: Offset): SimpleSql[Row] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
           DELETE FROM

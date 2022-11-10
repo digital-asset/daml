@@ -55,7 +55,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       dtoPackageEntry(offset(3)),
       // 4: transaction with create node
       dtoCreate(offset(4), 1L, hashCid("#4")),
-      DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, someParty.toString),
+      DbDto.FilterCreateStakeholder(1L, someTemplateId.toString, someParty.toString),
       dtoCompletion(offset(4)),
       // 5: transaction with exercise node and retroactive divulgence
       dtoExercise(offset(5), 2L, true, hashCid("#4")),

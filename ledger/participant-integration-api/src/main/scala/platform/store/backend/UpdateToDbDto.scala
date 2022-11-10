@@ -141,13 +141,11 @@ object UpdateToDbDto {
           )
           .reverse
 
-//        var min_event_sequential_id = Long.MaxValue
-//        var max_event_sequential_id = Long.MaxValue
         val transactionMeta = DbDto.TransactionMeta(
           transaction_id = u.transactionId,
           event_offset = offset.toHexString,
-          event_sequential_id_from = 0, // this is filled later
-          event_sequential_id_to = 0, // this is filled later
+          event_sequential_id_first = 0, // this is filled later
+          event_sequential_id_last = 0, // this is filled later
         )
         val events: Iterator[DbDto] = preorderTraversal.iterator
           .flatMap {
@@ -196,14 +194,13 @@ object UpdateToDbDto {
                     u.contractMetadata.get(create.coid).map(_.toByteArray),
                 )
               ) ++ stakeholders.iterator.map(
-                // TODO pbatko: NOTE: com.daml.platform.store.backend.UpdateToDbDtoSpec depends on a specific order of `CreateFilter_...` `ConsumingFilter_...`, `NonconsumingFilter..`
-                DbDto.CreateFilter_Stakeholder(
+                DbDto.FilterCreateStakeholder(
                   event_sequential_id = 0, // this is filled later
                   template_id = templateId,
                   _,
                 )
               ) ++ nonStakeholderInformees.iterator.map(
-                DbDto.CreateFilter_NonStakeholderInformee(
+                DbDto.FilterCreateNonStakeholderInformee(
                   event_sequential_id = 0, // this is filled later
                   _,
                 )
@@ -259,20 +256,20 @@ object UpdateToDbDto {
               ) ++ {
                 if (exercise.consuming) {
                   stakeholders.iterator.map(stakeholder =>
-                    DbDto.ConsumingFilter_Stakeholder(
+                    DbDto.FilterConsumingStakeholder(
                       event_sequential_id = 0, // this is filled later
                       template_id = templateId,
                       party_id = stakeholder,
                     )
                   ) ++ nonStakeholderInformees.iterator.map(stakeholder =>
-                    DbDto.ConsumingFilter_NonStakeholderInformee(
+                    DbDto.FilterConsumingNonStakeholderInformee(
                       event_sequential_id = 0, // this is filled later
                       party_id = stakeholder,
                     )
                   )
                 } else {
                   informees.iterator.map(stakeholder =>
-                    DbDto.NonConsumingFilter_Informee(
+                    DbDto.FilterNonConsumingInformee(
                       event_sequential_id = 0, // this is filled later
                       party_id = stakeholder,
                     )
@@ -312,7 +309,9 @@ object UpdateToDbDto {
           u.optCompletionInfo.iterator.map(
             commandCompletion(offset, u.recordTime, Some(u.transactionId), _)
           )
-        // NOTE: transactionMeta always comes last
+
+        // transactionMeta must come last because in a later stage events will be assigned consecutive event sequantial ids
+        // and transaction meta needs to know event sequential ids of its events
         events ++ divulgences ++ completions ++ Seq(transactionMeta)
     }
   }

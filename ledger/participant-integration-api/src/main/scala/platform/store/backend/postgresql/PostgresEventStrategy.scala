@@ -30,7 +30,9 @@ object PostgresEventStrategy extends EventStrategy {
     cSQL"( (#$witnessesColumnName::integer[] && $partiesArray::integer[]) AND (template_id = ANY($templateIdsArray::integer[])) )"
   }
 
-  override def pruneCreateFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = {
+  // TODO etq: This query can be simplified if we can assume that pruning of event tables have already happened
+  //           However maybe we are checking for existence of an archive event because that's more efficient?
+  override def pruneFilterCreateStakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
           -- Create events filter table (only for contracts archived before the specified offset)
@@ -47,8 +49,9 @@ object PostgresEventStrategy extends EventStrategy {
             delete_events.event_sequential_id = participant_events_create_filter.event_sequential_id"""
   }
 
-  // TODO pbatko: test me
-  override def pruneCreateFilters_nonStakeholderInformees(
+  // TODO etq: This query can be simplified if we can assume that pruning of event tables have already happened?
+  //           However maybe we are checking for existence of an archive event because that's more efficient?
+  override def pruneFilterCreateNonStakeholderInformees(
       pruneUpToInclusive: Offset
   ): SimpleSql[Row] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
@@ -70,7 +73,7 @@ object PostgresEventStrategy extends EventStrategy {
             events.event_sequential_id = filter.event_sequential_id"""
   }
 
-  override def pruneConsumingFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = {
+  override def pruneFilterConsumingStakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
           DELETE FROM
@@ -82,7 +85,7 @@ object PostgresEventStrategy extends EventStrategy {
             events.event_sequential_id = filter.event_sequential_id"""
   }
 
-  override def pruneConsumingFilters_nonStakeholderInformees(
+  override def pruneFilterConsumingNonStakeholderInformees(
       pruneUpToInclusive: Offset
   ): SimpleSql[Row] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
@@ -96,7 +99,7 @@ object PostgresEventStrategy extends EventStrategy {
             events.event_sequential_id = filter.event_sequential_id"""
   }
 
-  override def pruneNonConsumingFilters_informees(pruneUpToInclusive: Offset): SimpleSql[Row] = {
+  override def pruneFilterNonConsumingInformees(pruneUpToInclusive: Offset): SimpleSql[Row] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
           DELETE FROM
@@ -105,22 +108,13 @@ object PostgresEventStrategy extends EventStrategy {
           WHERE
             events.event_offset <= $pruneUpToInclusive
             AND
-            EXISTS (
-              SELECT 1 FROM participant_events_consuming_exercise archive_events
-              WHERE
-                archive_events.event_offset <= $pruneUpToInclusive
-                AND
-                archive_events.contract_id = events.contract_id
-              )
-            AND
             events.event_sequential_id = filter.event_sequential_id"""
   }
 
   override def pruneTransactionMeta(pruneUpToInclusive: Offset): SimpleSql[Row] = {
+    // For each transaction we check only if at least one of its create events still exists
+    // and don't have to check consuming or non-consuming events because we can assume event tables have already been pruned.
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
-    // NOTE: We don't have to check for the existence of consuming and non-consuming events before pruning offset
-    //       because all of them are deleted anyway by pruning.
-    //       We only need to check for the existence of create contracts.
     SQL"""
          DELETE FROM
             participant_transaction_meta m

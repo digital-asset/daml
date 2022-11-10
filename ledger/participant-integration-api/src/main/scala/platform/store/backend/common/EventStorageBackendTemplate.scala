@@ -460,7 +460,22 @@ abstract class EventStorageBackendTemplate(
       .asVectorOf(rawFlatEventParser(allInternedFilterParties, stringInterning))(connection)
   }
 
-  // This method is too complex for StorageBackend.
+  // TODO pbatko: Consider renaming filter tables from '...filter...' tables to  '...id_filter_...'
+  // TODO etq: Implement pruning queries in terms of event sequential id in order to be able to drop offset based indices.
+  /** Deletes in order the following data up to the pruning offset::
+    * 1.a if pruning-all-divulged-contracts is enabled: all divulgence events (retroactive divulgence),
+    * 1.b if pruning-all-divulged-contracts is disabled: divulgence events for which there is an archive event (retroactive divulgence),
+    * 2. entries from filter for create stakeholders for there is an archive for the corresponding create event,
+    * 3. entries from filter for create non-stakeholder informees for there is an archive for the corresponding create event,
+    * 4. all entries from filter for consuming stakeholders,
+    * 5. all entries from filter for consuming non-stakeholders informees,
+    * 6. all entries from filter for non-consuming informees,
+    * 7. create events table for which there is an archive event,
+    * 8. if pruning-all-divulged-contracts is enabled: create contracts which did not have a locally hosted party before their creation offset (immediate divulgence),
+    * 9. all consuming events,
+    * 10. all non-consuming events,
+    * 11. transaction meta entries for which there exists at least one create event.
+    */
   override def pruneEvents(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
@@ -494,28 +509,28 @@ abstract class EventStorageBackendTemplate(
       }(connection, loggingContext)
     }
 
-    pruneWithLogging(queryDescription = "Create events stakeholders filter table pruning") {
-      eventStrategy.pruneCreateFilters_stakeholders(pruneUpToInclusive)
+    pruneWithLogging(queryDescription = "Pruning filter table for create stakeholders") {
+      eventStrategy.pruneFilterCreateStakeholders(pruneUpToInclusive)
     }(connection, loggingContext)
 
     pruneWithLogging(queryDescription =
-      "Create events non stakeholder informees filter table pruning"
+      "Pruning filter table for create non-stakeholder informees"
     ) {
-      eventStrategy.pruneCreateFilters_nonStakeholderInformees(pruneUpToInclusive)
+      eventStrategy.pruneFilterCreateNonStakeholderInformees(pruneUpToInclusive)
     }(connection, loggingContext)
 
-    pruneWithLogging(queryDescription = "Consuming events stakeholders filter table pruning") {
-      eventStrategy.pruneConsumingFilters_stakeholders(pruneUpToInclusive)
+    pruneWithLogging(queryDescription = "Pruning filter table for consuming stakeholders") {
+      eventStrategy.pruneFilterConsumingStakeholders(pruneUpToInclusive)
     }(connection, loggingContext)
 
     pruneWithLogging(queryDescription =
-      "Consuming events non stakeholder informees filter table pruning"
+      "Pruning filter table for consuming non-stakeholders informees"
     ) {
-      eventStrategy.pruneConsumingFilters_nonStakeholderInformees(pruneUpToInclusive)
+      eventStrategy.pruneFilterConsumingNonStakeholderInformees(pruneUpToInclusive)
     }(connection, loggingContext)
 
-    pruneWithLogging(queryDescription = "Non-consuming events informees filter table pruning") {
-      eventStrategy.pruneNonConsumingFilters_informees(pruneUpToInclusive)
+    pruneWithLogging(queryDescription = "Pruning filter table for non-consuming informees") {
+      eventStrategy.pruneFilterNonConsumingInformees(pruneUpToInclusive)
     }(connection, loggingContext)
 
     pruneWithLogging(queryDescription = "Create events pruning") {
@@ -833,13 +848,17 @@ trait EventStrategy {
     * @param pruneUpToInclusive create and archive events must be earlier or equal to this offset
     * @return the executable anorm query
     */
-  def pruneCreateFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row]
-  def pruneCreateFilters_nonStakeholderInformees(pruneUpToInclusive: Offset): SimpleSql[Row]
+  // TODO pbatko: Can we use the same SQL for all backends?
+  def pruneFilterCreateStakeholders(pruneUpToInclusive: Offset): SimpleSql[Row]
+  def pruneFilterCreateNonStakeholderInformees(pruneUpToInclusive: Offset): SimpleSql[Row]
 
-  def pruneConsumingFilters_stakeholders(pruneUpToInclusive: Offset): SimpleSql[Row]
-  def pruneConsumingFilters_nonStakeholderInformees(pruneUpToInclusive: Offset): SimpleSql[Row]
+  def pruneFilterConsumingStakeholders(pruneUpToInclusive: Offset): SimpleSql[Row]
+  def pruneFilterConsumingNonStakeholderInformees(pruneUpToInclusive: Offset): SimpleSql[Row]
 
-  def pruneNonConsumingFilters_informees(pruneUpToInclusive: Offset): SimpleSql[Row]
+  def pruneFilterNonConsumingInformees(pruneUpToInclusive: Offset): SimpleSql[Row]
 
+  /** Callers must call it after pruning create, consuming and non-consuming event tables.
+    * Implementors can assume that these tables have already been pruned.
+    */
   def pruneTransactionMeta(pruneUpToInclusive: Offset): SimpleSql[Row]
 }

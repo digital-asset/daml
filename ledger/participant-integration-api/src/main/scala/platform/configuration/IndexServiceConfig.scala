@@ -25,7 +25,6 @@ final case class IndexServiceConfig(
     inMemoryFanOutThreadPoolSize: Int = IndexServiceConfig.DefaultInMemoryFanOutThreadPoolSize,
     preparePackageMetadataTimeOutWarning: FiniteDuration =
       IndexServiceConfig.PreparePackageMetadataTimeOutWarning,
-    completionsPageSize: Int = IndexServiceConfig.DefaultCompletionsPageSize,
     transactionsFlatStreamReaderConfig: TransactionsFlatStreamReaderConfig =
       TransactionsFlatStreamReaderConfig.default,
     transactionsTreeStreamReaderConfig: TransactionsTreeStreamReaderConfig =
@@ -33,6 +32,7 @@ final case class IndexServiceConfig(
     // TODO etq: Take care what config key names will get exposed in the user-facing participant config
     globalMaxIdQueries: Int = 20,
     globalMaxPayloadQueries: Int = 10,
+    completionsMaxPayloadsPerPayloadsPage: Int = 1000,
 )
 
 object IndexServiceConfig {
@@ -53,7 +53,6 @@ object IndexServiceConfig {
   val DefaultInMemoryStateUpdaterParallelism: Int = 2
   val DefaultInMemoryFanOutThreadPoolSize: Int = 16
   val PreparePackageMetadataTimeOutWarning: FiniteDuration = FiniteDuration(1, "second")
-  val DefaultCompletionsPageSize: Int = 1000
 }
 
 // TODO etq: Take care what config key names will get exposed in the user-facing participant config

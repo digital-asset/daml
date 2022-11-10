@@ -277,11 +277,11 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
           someEventDivulgence,
           someParty,
           someEventCreated,
-          DbDto.CreateFilter_Stakeholder(0L, "", ""),
-          DbDto.CreateFilter_NonStakeholderInformee(0L, ""),
-          DbDto.ConsumingFilter_Stakeholder(0L, "", ""),
-          DbDto.ConsumingFilter_NonStakeholderInformee(0L, ""),
-          DbDto.NonConsumingFilter_Informee(0L, ""),
+          DbDto.FilterCreateStakeholder(0L, "", ""),
+          DbDto.FilterCreateNonStakeholderInformee(0L, ""),
+          DbDto.FilterConsumingStakeholder(0L, "", ""),
+          DbDto.FilterConsumingNonStakeholderInformee(0L, ""),
+          DbDto.FilterNonConsumingInformee(0L, ""),
           someEventCreated,
           someEventCreated,
           DbDto.TransactionMeta("", "", 0L, 0L),
@@ -300,25 +300,25 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
     result.lastStringInterningId shouldBe 1
     result.batch(1).asInstanceOf[DbDto.EventDivulgence].event_sequential_id shouldBe 16
     result.batch(3).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 17
-    result.batch(4).asInstanceOf[DbDto.CreateFilter_Stakeholder].event_sequential_id shouldBe 17
+    result.batch(4).asInstanceOf[DbDto.FilterCreateStakeholder].event_sequential_id shouldBe 17
     result
       .batch(5)
-      .asInstanceOf[DbDto.CreateFilter_NonStakeholderInformee]
+      .asInstanceOf[DbDto.FilterCreateNonStakeholderInformee]
       .event_sequential_id shouldBe 17
-    result.batch(6).asInstanceOf[DbDto.ConsumingFilter_Stakeholder].event_sequential_id shouldBe 17
+    result.batch(6).asInstanceOf[DbDto.FilterConsumingStakeholder].event_sequential_id shouldBe 17
     result
       .batch(7)
-      .asInstanceOf[DbDto.ConsumingFilter_NonStakeholderInformee]
+      .asInstanceOf[DbDto.FilterConsumingNonStakeholderInformee]
       .event_sequential_id shouldBe 17
-    result.batch(8).asInstanceOf[DbDto.NonConsumingFilter_Informee].event_sequential_id shouldBe 17
+    result.batch(8).asInstanceOf[DbDto.FilterNonConsumingInformee].event_sequential_id shouldBe 17
     result.batch(11).asInstanceOf[DbDto.TransactionMeta].tap { transactionMeta =>
-      transactionMeta.event_sequential_id_from shouldBe 16L
-      transactionMeta.event_sequential_id_to shouldBe 19L
+      transactionMeta.event_sequential_id_first shouldBe 16L
+      transactionMeta.event_sequential_id_last shouldBe 19L
     }
     result.batch(13).asInstanceOf[DbDto.EventExercise].event_sequential_id shouldBe 20
     result.batch(14).asInstanceOf[DbDto.TransactionMeta].tap { transactionMeta =>
-      transactionMeta.event_sequential_id_from shouldBe 20L
-      transactionMeta.event_sequential_id_to shouldBe 20L
+      transactionMeta.event_sequential_id_first shouldBe 20L
+      transactionMeta.event_sequential_id_last shouldBe 20L
     }
     result.batch(16).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 0
     result.batch(16).asInstanceOf[DbDto.StringInterningDto].externalString shouldBe "0"

@@ -85,8 +85,7 @@ object IndexMetadata {
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
-          // TODO pbatko: Determine suitable value
-          completionsPageSize = 1000,
+          completionsMaxPayloadsPerPayloadsPage = 1000,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           engine = None,

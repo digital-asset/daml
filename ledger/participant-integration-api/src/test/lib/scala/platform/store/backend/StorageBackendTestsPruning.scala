@@ -89,8 +89,8 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = hashCid("#1"),
       signatory = someParty,
     )
-    val createFilter1 = DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, someParty)
-    val createFilter2 = DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, "observer")
+    val createFilter1 = DbDto.FilterCreateStakeholder(1L, someTemplateId.toString, someParty)
+    val createFilter2 = DbDto.FilterCreateStakeholder(1L, someTemplateId.toString, "observer")
     val createTransactionId: TransactionId = dtoTransactionId(create)
     val archive = dtoExercise(
       offset = offset(2),
@@ -99,20 +99,20 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = hashCid("#1"),
       signatory = someParty,
     )
-    val consumingFilter1 = DbDto.ConsumingFilter_Stakeholder(1L, someTemplateId.toString, someParty)
+    val consumingFilter1 = DbDto.FilterConsumingStakeholder(1L, someTemplateId.toString, someParty)
     val consumingFilter2 =
-      DbDto.ConsumingFilter_Stakeholder(1L, someTemplateId.toString, "observer")
+      DbDto.FilterConsumingStakeholder(1L, someTemplateId.toString, "observer")
     val transactionMeta1 = DbDto.TransactionMeta(
       transaction_id = createTransactionId,
       event_offset = create.event_offset.get,
-      event_sequential_id_from = create.event_sequential_id,
-      event_sequential_id_to = create.event_sequential_id,
+      event_sequential_id_first = create.event_sequential_id,
+      event_sequential_id_last = create.event_sequential_id,
     )
     val transactionMeta2 = DbDto.TransactionMeta(
       transaction_id = dtoTransactionId(archive),
       event_offset = archive.event_offset.get,
-      event_sequential_id_from = archive.event_sequential_id,
-      event_sequential_id_to = archive.event_sequential_id,
+      event_sequential_id_first = archive.event_sequential_id,
+      event_sequential_id_last = archive.event_sequential_id,
     )
 //    val range = RangeParams(0L, 2L, None, None)
     val requestingParties = Set(someParty)
@@ -322,15 +322,15 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = hashCid("#1"),
       signatory = someParty,
     )
-    val createFilter1 = DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, "signatory")
-    val createFilter2 = DbDto.CreateFilter_Stakeholder(1L, someTemplateId.toString, "observer")
+    val createFilter1 = DbDto.FilterCreateStakeholder(1L, someTemplateId.toString, "signatory")
+    val createFilter2 = DbDto.FilterCreateStakeholder(1L, someTemplateId.toString, "observer")
     val createTransactionId = dtoTransactionId(create)
 
     val transactionMeta = DbDto.TransactionMeta(
       transaction_id = createTransactionId,
       event_offset = create.event_offset.get,
-      event_sequential_id_from = create.event_sequential_id,
-      event_sequential_id_to = create.event_sequential_id,
+      event_sequential_id_first = create.event_sequential_id,
+      event_sequential_id_last = create.event_sequential_id,
     )
 
 //    val range = RangeParams(0L, 1L, None, None)
@@ -500,14 +500,14 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     val transactionMeta1 = DbDto.TransactionMeta(
       transaction_id = contract1_immediateDivulgence.transaction_id.get,
       event_offset = contract1_immediateDivulgence.event_offset.get,
-      event_sequential_id_from = contract1_immediateDivulgence.event_sequential_id,
-      event_sequential_id_to = contract1_immediateDivulgence.event_sequential_id,
+      event_sequential_id_first = contract1_immediateDivulgence.event_sequential_id,
+      event_sequential_id_last = contract1_immediateDivulgence.event_sequential_id,
     )
     val transactionMeta2 = DbDto.TransactionMeta(
       transaction_id = contract2_createWithLocalStakeholder.transaction_id.get,
       event_offset = contract2_createWithLocalStakeholder.event_offset.get,
-      event_sequential_id_from = contract2_createWithLocalStakeholder.event_sequential_id,
-      event_sequential_id_to = contract2_createWithLocalStakeholder.event_sequential_id,
+      event_sequential_id_first = contract2_createWithLocalStakeholder.event_sequential_id,
+      event_sequential_id_last = contract2_createWithLocalStakeholder.event_sequential_id,
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
@@ -602,14 +602,14 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     val transactionMeta1 = DbDto.TransactionMeta(
       transaction_id = contract1_create.transaction_id.get,
       event_offset = contract1_create.event_offset.get,
-      event_sequential_id_from = contract1_create.event_sequential_id,
-      event_sequential_id_to = contract1_create.event_sequential_id,
+      event_sequential_id_first = contract1_create.event_sequential_id,
+      event_sequential_id_last = contract1_create.event_sequential_id,
     )
     val transactionMeta2 = DbDto.TransactionMeta(
       transaction_id = contract1_consumingExercise.transaction_id.get,
       event_offset = contract1_consumingExercise.event_offset.get,
-      event_sequential_id_from = contract1_consumingExercise.event_sequential_id,
-      event_sequential_id_to = contract1_consumingExercise.event_sequential_id,
+      event_sequential_id_first = contract1_consumingExercise.event_sequential_id,
+      event_sequential_id_last = contract1_consumingExercise.event_sequential_id,
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams))

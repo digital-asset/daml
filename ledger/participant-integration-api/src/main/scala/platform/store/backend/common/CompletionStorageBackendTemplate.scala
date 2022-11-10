@@ -43,7 +43,7 @@ class CompletionStorageBackendTemplate(
     if (internedParties.isEmpty) {
       Vector.empty
     } else {
-      val result = SQL"""
+      val rows = SQL"""
         SELECT
           submitters,
           completion_offset,
@@ -71,10 +71,9 @@ class CompletionStorageBackendTemplate(
         ORDER BY completion_offset ASC
         ${QueryStrategy.limitClause(Some(limit))}"""
         .asVectorOf(completionParser)(connection)
-      val filteredBySubmitters = result.collect {
+      rows.collect {
         case (submitters, response) if submitters.exists(internedParties) => response
       }
-      filteredBySubmitters
     }
   }
 
