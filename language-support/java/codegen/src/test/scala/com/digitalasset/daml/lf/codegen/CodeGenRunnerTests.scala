@@ -72,9 +72,9 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
   it should "read interfaces from a single DAR file with a prefix" in {
 
     val scopeByPrefix =
-      CodeGenRunner.configureCodeGenScopeByPackagePrefix(Map(testDar -> Some("PREFIX")), Map.empty)
+      CodeGenRunner.configureCodeGenScopeByPackagePrefix(Map(testDar -> Some("prefix")), Map.empty)
     assert(scopeByPrefix.size === 1)
-    assert(scopeByPrefix.head._1 === Some("PREFIX"))
+    assert(scopeByPrefix.head._1 === Some("prefix"))
 
     val scope = scopeByPrefix.head._2
     assert(scope.signatures.map(_.packageId).length === dar.all.length)
@@ -147,7 +147,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   it should "read interfaces from a single DAR file with a prefix" in {
 
-    val scope = CodeGenRunner.configureCodeGenScope(Some("PREFIX"), Seq(testDar), Map.empty)
+    val scope = CodeGenRunner.configureCodeGenScope(Some("prefix"), Seq(testDar), Map.empty)
 
     assert(scope.signatures.map(_.packageId).length === dar.all.length)
     assert(scope.packagePrefixes.size === dar.all.length)
