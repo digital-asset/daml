@@ -120,7 +120,9 @@ message Right {
         string party = 1;
     }
 
-    // The right to administrate the identity provider.
+    // The right to administrate the identity provider which user belongs to.
+    // Having this right, the user would be able to use some administrative services, but the scope
+    // of his change will be limited within the identity provided to which user belongs to.
     message IdentityProviderAdmin {}
 
     // Required
@@ -131,7 +133,7 @@ message Right {
         CanActAs can_act_as = 2;
         // The user can read ledger data visible to a specific party.
         CanReadAs can_read_as = 3;
-        // The user can administrate the identity provider.
+        // The user can administrate the identity provider which user belongs to.
         IdentityProviderAdmin identity_provider_admin = 4;
     }
 }
