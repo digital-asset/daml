@@ -11,19 +11,21 @@ option java_outer_classname = "IdentityProviderConfigServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
-// Service to manage identity provider configuration to make it possible for participant node administrators
-// to setup additional identity providers at runtime.
+// Identity Provider Config Service makes it possible for participant node administrators
+// to setup and manage additional identity providers at runtime.
 
 // The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
 // (1) ``Optional`` denoting the client may leave the field unset when sending a request.
 // (2) ``Required`` denoting the client must set the field to a non-default value when sending a request.
 //
+// An identity provider config resource is described by the ``IdentityProviderConfig`` message,
 // An identity provider config resource, once it has been created, can be modified.
 // In order to update the properties represented by the ``IdentityProviderConfig`` message use the ``UpdateIdentityProviderConfig`` RPC.
 // The only fields that can be modified are those marked as ``Modifiable``.
 service IdentityProviderConfigService {
 
   // Create a new identity provider configuration.
+  // The request will fail if the maximum allowed number of separate configurations is reached.
   rpc CreateIdentityProviderConfig (CreateIdentityProviderConfigRequest) returns (CreateIdentityProviderConfigResponse);
 
   // Get the identity provider configuration data by id.
