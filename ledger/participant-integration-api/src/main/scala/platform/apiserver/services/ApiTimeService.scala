@@ -29,6 +29,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import com.daml.timer.Timeout._
 
 import scala.concurrent.duration.Duration
+import scala.util.{Failure, Success}
 
 private[apiserver] final class ApiTimeService private (
     val ledgerId: LedgerId,
@@ -101,7 +102,7 @@ private[apiserver] final class ApiTimeService private (
         )
     }
 
-    val result = for {
+    val validatedInput: Either[StatusRuntimeException, (Instant, Instant)] = for {
       _ <- matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       expectedTime <- FieldValidations
         .requirePresence(request.currentTime, "current_time")
@@ -117,22 +118,24 @@ private[apiserver] final class ApiTimeService private (
             )
           )
       }
-    } yield {
-      updateTime(expectedTime, requestedTime)
-        .map { _ =>
+    } yield (expectedTime, requestedTime)
+    val result: Future[Either[StatusRuntimeException, Empty]] = validatedInput match {
+      case Left(err) => Future.successful(Left(err))
+      case Right((expectedTime, requestedTime)) =>
+        updateTime(expectedTime, requestedTime) map (_.map { _ =>
           dispatcher.signal()
           Empty()
-        }
-        .andThen(logger.logErrorsOnCall[Empty])
+        })
     }
 
-    result.fold(
-      { error =>
-        logger.warn(s"Failed to set time for request $request: ${error.getMessage}")
-        Future.failed(error)
-      },
-      identity,
-    )
+    result
+      .andThen(logger.logErrorsOnCall)
+      .transform(_.flatMap {
+        case Left(error) =>
+          logger.warn(s"Failed to set time for request $request: ${error.getMessage}")
+          Failure(error)
+        case Right(r) => Success(r)
+      })
   }
 
   override def bindService(): ServerServiceDefinition =
