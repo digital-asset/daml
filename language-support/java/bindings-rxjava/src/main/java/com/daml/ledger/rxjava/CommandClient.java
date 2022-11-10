@@ -31,6 +31,10 @@ public interface CommandClient {
       @NonNull Optional<Duration> deduplicationTime,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * @deprecated This method has been deprecated as of [???]. Please use {@link #submitAndWait(CommandClientConfig)} instead
+   */
+  @Deprecated
   Single<Empty> submitAndWait(
       @NonNull String workflowId,
       @NonNull String applicationId,
