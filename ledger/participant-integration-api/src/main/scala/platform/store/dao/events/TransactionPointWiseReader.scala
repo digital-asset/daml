@@ -23,7 +23,7 @@ import com.daml.platform.store.dao.{DbDispatcher, EventProjectionProperties}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-sealed trait PointWiseTransactionFetching {
+sealed trait TransactionPointWiseReader {
   type EventT
   type RawEventT <: Raw[EventT]
   type RespT
@@ -94,13 +94,13 @@ sealed trait PointWiseTransactionFetching {
   }
 }
 
-final class TreeTransactionPointwiseReader(
+final class TransactionTreePointwiseReader(
     override val dbDispatcher: DbDispatcher,
     override val eventStorageBackend: EventStorageBackend,
     override val metrics: Metrics,
     override val lfValueTranslation: LfValueTranslation,
 )(implicit val ec: ExecutionContext)
-    extends PointWiseTransactionFetching {
+    extends TransactionPointWiseReader {
 
   override type EventT = TreeEvent
   override type RawEventT = Raw.TreeEvent
@@ -126,13 +126,13 @@ final class TreeTransactionPointwiseReader(
   }
 }
 
-final class FlatTransactionPointwiseReader(
+final class TransactionFlatPointwiseReader(
     override val dbDispatcher: DbDispatcher,
     override val eventStorageBackend: EventStorageBackend,
     override val metrics: Metrics,
     override val lfValueTranslation: LfValueTranslation,
 )(implicit val ec: ExecutionContext)
-    extends PointWiseTransactionFetching {
+    extends TransactionPointWiseReader {
 
   override type EventT = Event
   override type RawEventT = Raw.FlatEvent

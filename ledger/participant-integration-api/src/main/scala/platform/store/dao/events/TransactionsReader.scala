@@ -41,10 +41,10 @@ import scala.util.{Failure, Success}
   * @param lfValueTranslation The delegate in charge of translating serialized Daml-LF values
   */
 private[dao] final class TransactionsReader(
-    flatTransactionsStreamReader: FlatTransactionsStreamReader,
-    treeTransactionsStreamReader: TreeTransactionsStreamReader,
-    flatTransactionPointwiseReader: FlatTransactionPointwiseReader,
-    treeTransactionPointwiseReader: TreeTransactionPointwiseReader,
+    flatTransactionsStreamReader: TransactionsFlatStreamReader,
+    treeTransactionsStreamReader: TransactionsTreeStreamReader,
+    flatTransactionPointwiseReader: TransactionFlatPointwiseReader,
+    treeTransactionPointwiseReader: TransactionTreePointwiseReader,
     dbDispatcher: DbDispatcher,
     queryNonPruned: QueryNonPruned,
     eventStorageBackend: EventStorageBackend,
