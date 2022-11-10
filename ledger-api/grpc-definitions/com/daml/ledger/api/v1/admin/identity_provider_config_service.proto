@@ -14,6 +14,13 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // Identity Provider Config Service makes it possible for participant node administrators
 // to setup and manage additional identity providers at runtime.
 
+// This allows accepting JWTs from issuers which are provided using this API.
+// The user-id provided in the JWT token and `identity_provider_id` will be used to identity the user
+// against the user management database. Users and parties identified by the identity provider
+// created using this API will be isolated from other users and parties having other identity provider.
+// Users and parties without `identity_provider_id` defined are assumed to be using default identity provider,
+// which is provided in the participant node configuration.
+
 // The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
 // (1) ``Optional`` denoting the client may leave the field unset when sending a request.
 // (2) ``Required`` denoting the client must set the field to a non-default value when sending a request.
@@ -49,8 +56,9 @@ message IdentityProviderConfig {
   // Required
   string identity_provider_id = 1;
 
-  // When set, then the user identified by the identity provider is denied all access to the Ledger API.
-  // Otherwise, the user identified by the identity provider has access to the Ledger API as per the user's record.
+  // When set, then the JWT token issued by this identity provider is denied all access to the Ledger API.
+  // Otherwise, the user-id and `identity_provider_id` provided in the JWT token will be used to identity
+  // the user in the user management database.
   // Optional,
   // Modifiable
   bool is_deactivated = 2;
