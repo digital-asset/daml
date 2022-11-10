@@ -18,7 +18,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 /**
  * TODO: Java doc this
  */
-class CommandClientConfig {
+public class CommandClientConfig {
   private String workflowId;
   private String applicationId;
   private String commandId;

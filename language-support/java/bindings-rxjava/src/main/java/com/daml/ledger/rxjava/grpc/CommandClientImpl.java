@@ -38,6 +38,11 @@ public class CommandClientImpl implements CommandClient {
         StubHelper.authenticating(CommandServiceGrpc.newFutureStub(channel), accessToken);
   }
 
+  @Override
+  public Single<Empty> submitAndWait(CommandClientConfig params) {
+    return null;
+  }
+
   private Single<Empty> submitAndWait(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -243,6 +248,11 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty(),
         commands,
         Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<String> submitAndWaitForTransactionId(CommandClientConfig params) {
+    return null;
   }
 
   private Single<String> submitAndWaitForTransactionId(
@@ -452,6 +462,11 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty(),
         commands,
         Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<Transaction> submitAndWaitForTransaction(CommandClientConfig params) {
+    return null;
   }
 
   private Single<Transaction> submitAndWaitForTransaction(
@@ -664,6 +679,11 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Override
+  public Single<TransactionTree> submitAndWaitForTransactionTree(CommandClientConfig params) {
+    return null;
+  }
+
   private Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -872,6 +892,11 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty(),
         commands,
         Optional.of(accessToken));
+  }
+
+  @Override
+  public <U> Single<U> submitAndWaitForResult(CommandClientConfig params, @NonNull Update<U> update) {
+    return null;
   }
 
   private <U> Single<U> submitAndWaitForResult(

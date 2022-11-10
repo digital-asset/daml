@@ -7,6 +7,7 @@ import com.daml.ledger.javaapi.data.Transaction;
 import com.daml.ledger.javaapi.data.TransactionTree;
 import com.daml.ledger.javaapi.data.codegen.HasCommands;
 import com.daml.ledger.javaapi.data.codegen.Update;
+import com.daml.ledger.rxjava.grpc.CommandClientConfig;
 import com.google.protobuf.Empty;
 import io.reactivex.Single;
 import java.time.Duration;
@@ -17,6 +18,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 /** An RxJava version of {@link com.daml.ledger.api.v1.CommandServiceGrpc} */
 public interface CommandClient {
+  // TODO: Deprecate old methods and javadoc new ones
+  Single<Empty> submitAndWait(CommandClientConfig params);
 
   Single<Empty> submitAndWait(
       @NonNull String workflowId,
@@ -94,6 +97,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  Single<String> submitAndWaitForTransactionId(CommandClientConfig params);
+
   Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -169,6 +174,9 @@ public interface CommandClient {
       @NonNull List<@NonNull String> readAs,
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
+
+
+  Single<Transaction> submitAndWaitForTransaction(CommandClientConfig params);
 
   Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
@@ -246,6 +254,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  Single<TransactionTree> submitAndWaitForTransactionTree(CommandClientConfig params);
+
   Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -321,6 +331,8 @@ public interface CommandClient {
       @NonNull List<@NonNull String> readAs,
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
+
+  <U> Single<U> submitAndWaitForResult(CommandClientConfig params, @NonNull Update<U> update);
 
   <U> Single<U> submitAndWaitForResult(
       @NonNull String workflowId,
