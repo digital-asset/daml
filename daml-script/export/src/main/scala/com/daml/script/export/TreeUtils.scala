@@ -14,6 +14,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.{Graphs, StablePackage}
+import com.daml.scalautil.Statement.discard
 import scalaz.std.option._
 import scalaz.std.iterable._
 import scalaz.std.set._
@@ -269,7 +270,7 @@ object TreeUtils {
       }
       def removeArchivedContractKey(exercisedEvent: ExercisedEvent): Unit = {
         if (exercisedEvent.consuming) {
-          contractKeys -= ContractId(exercisedEvent.contractId)
+          discard(contractKeys -= ContractId(exercisedEvent.contractId))
         }
       }
       def updateContractKeys(ev: Kind): Unit = {
@@ -284,7 +285,7 @@ object TreeUtils {
       rootEvents.foreach {
         case Kind.Empty =>
         case Kind.Created(createdEvent) =>
-          commands += CreateCommand(createdEvent)
+          discard(commands += CreateCommand(createdEvent))
           addContractKey(createdEvent)
         case ev @ Kind.Exercised(exercisedEvent) =>
           val optCreateAndExercise = commands.lastOption.flatMap {
@@ -302,8 +303,8 @@ object TreeUtils {
             case Some(command) => commands.update(commands.length - 1, command)
             case None =>
               optExerciseByKey match {
-                case Some(command) => commands += command
-                case None => commands += ExerciseCommand(exercisedEvent)
+                case Some(command) => discard(commands += command)
+                case None => discard(commands += ExerciseCommand(exercisedEvent))
               }
           }
           updateContractKeys(ev)
@@ -434,7 +435,7 @@ object TreeUtils {
           val submit = Submit.fromTree(tree)
           if (timestamp > currentTime) {
             currentTime = timestamp
-            result += SetTime(timestamp)
+            discard(result += SetTime(timestamp))
           }
           result += submit
         }

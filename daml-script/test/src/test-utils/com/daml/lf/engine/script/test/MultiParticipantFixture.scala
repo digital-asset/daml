@@ -17,6 +17,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.script._
 import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptTimeMode}
 import com.daml.ports.{LockedFreePort, Port}
+import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
 import com.google.protobuf.ByteString
 import io.grpc.ManagedChannelBuilder
@@ -109,7 +110,7 @@ trait MultiParticipantFixture
         }
         def stop(r: (Port, Port, Process)): Future[Unit] = {
           r._3.destroy()
-          r._3.exitValue()
+          discard(r._3.exitValue())
           Future.unit
         }
         Resource(start())(stop).map({ case (p1, p2, _) => (p1, p2) })
@@ -126,7 +127,7 @@ trait MultiParticipantFixture
           Future.traverse(Seq(p1, p2)) { port =>
             val builder = ManagedChannelBuilder
               .forAddress(InetAddress.getLoopbackAddress.getHostName, port.value)
-            builder.usePlaintext()
+            discard(builder.usePlaintext())
             ResourceOwner.forChannel(builder, shutdownTimeout = 1.second).use { channel =>
               val packageManagement = PackageManagementServiceGrpc.stub(channel)
               packageManagement.uploadDarFile(
