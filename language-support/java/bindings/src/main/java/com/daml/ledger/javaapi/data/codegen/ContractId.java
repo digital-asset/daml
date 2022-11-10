@@ -68,7 +68,9 @@ public class ContractId<T> implements Exercises<ExerciseCommand> {
    *
    * @hidden
    */
-  protected ContractTypeCompanion<T, ?> getCompanion() {
+  protected ContractTypeCompanion<
+          ? extends Contract<? extends ContractId<T>, ?>, ? extends ContractId<T>, T, ?>
+      getCompanion() {
     throw new UnsupportedOperationException(
         "Cannot exercise on a contract ID type without code-generated exercise methods");
   }

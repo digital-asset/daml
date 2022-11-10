@@ -3,6 +3,8 @@
 
 module DA.Test.DamlDocTestIntegration (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import DA.Bazel.Runfiles
 import Data.List
 import System.Exit

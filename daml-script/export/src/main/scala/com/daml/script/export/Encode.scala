@@ -23,12 +23,12 @@ private[export] object Encode {
 
   def encodeArgs(scriptExport: Export): JsObject = {
     JsObject(
-      "parties" -> JsObject(scriptExport.partyMap.keys.map { case Party(party) =>
-        party -> JsString(party)
-      }.toMap),
-      "contracts" -> JsObject(scriptExport.unknownCids.map { case ContractId(c) =>
-        c -> JsString(c)
-      }.toMap),
+      "parties" -> JsObject(
+        scriptExport.partyMap.keys.map(Party.unwrap).map(party => party -> JsString(party)).toMap
+      ),
+      "contracts" -> JsObject(
+        scriptExport.unknownCids.view.map(ContractId.unwrap).map(c => c -> JsString(c)).toMap
+      ),
     )
   }
 
@@ -149,8 +149,8 @@ private[export] object Encode {
       Doc.text("allocateParties = DA.Traversable.mapA allocateParty (DA.TextMap.fromList") /
       ("[" &: Doc.intercalate(
         Doc.hardLine :+ ", ",
-        partyMap.keys.map { case Party(p) =>
-          val party = quotes(p)
+        partyMap.keys.map { p =>
+          val party = quotes(Party.unwrap(p))
           tuple(Seq(party, party))
         },
       ) :& "])").indent(2)
@@ -296,13 +296,13 @@ private[export] object Encode {
       case app: Ast.TApp =>
         unfoldApp(app) match {
           case (Ast.TTyCon(tycon), args) if isTupleRefId(tycon) =>
-            tuple(args.map(ty => encodeType(ty)))
+            tuple(args.map(ty => encodeType(ty, 0)))
           case (Ast.TBuiltin(Ast.BTList), Seq(arg)) =>
-            brackets(encodeType(arg))
+            brackets(encodeType(arg, 0))
           case (Ast.TBuiltin(Ast.BTArrow), Seq(a, b)) =>
             precParens(
               1,
-              encodeType(a, 2) & Doc.text("->") & encodeType(b),
+              encodeType(a, 2) & Doc.text("->") & encodeType(b, 0),
             )
           case (f, args) =>
             val argsDoc = Doc.spread(args.map(ty => encodeType(ty, 11)))

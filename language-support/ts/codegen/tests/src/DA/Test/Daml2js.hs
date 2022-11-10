@@ -3,6 +3,8 @@
 {-# LANGUAGE DerivingStrategies #-}
 module DA.Test.Daml2js (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import System.FilePath
 import System.IO.Extra
 import System.Environment.Blank

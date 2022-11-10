@@ -1,8 +1,21 @@
 <configuration>
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg %replace(, context: %marker){', context: $', ''} %n</pattern>
-        </encoder>
+    <appender name="STDOUT" class="net.logstash.logback.appender.LoggingEventAsyncDisruptorAppender">
+        <appender-ref ref="console" />
+    </appender>
+
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <if condition='isDefined("LOG_FORMAT_JSON")'>
+            <then>
+                <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                    <layout class="net.logstash.logback.layout.LoggingEventCompositeJsonLayout"/>
+                </encoder>
+            </then>
+            <else>
+                <encoder>
+                    <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg %replace(, context: %marker){', context: $', ''} %n</pattern>
+                </encoder>
+            </else>
+        </if>
     </appender>
 
     <logger name="io.netty" level="WARN">
@@ -15,7 +28,7 @@
         <appender-ref ref="STDOUT"/>
     </logger>
 
-    <root level="INFO">
+    <root level="${LOG_LEVEL_ROOT:-INFO}">
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>

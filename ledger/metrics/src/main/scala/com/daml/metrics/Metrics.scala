@@ -13,7 +13,7 @@ object Metrics {
   lazy val ForTesting = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
 }
 
-final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
+final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMeter)
     extends DropwizardFactory {
 
   object test {
@@ -45,7 +45,7 @@ final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
 
     object services extends ServicesMetrics(prefix :+ "services", registry)
 
-    object HttpJsonApi extends HttpJsonApiMetrics(prefix :+ "http_json_api", registry)
+    object HttpJsonApi extends HttpJsonApiMetrics(prefix :+ "http_json_api", registry, otelMeter)
 
   }
 }

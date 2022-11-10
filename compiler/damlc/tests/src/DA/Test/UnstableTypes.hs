@@ -4,6 +4,8 @@
 {-# LANGUAGE MultiWayIf #-}
 module DA.Test.UnstableTypes (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Data.Bifunctor
 import Control.Monad.Extra
 import DA.Bazel.Runfiles

@@ -193,7 +193,13 @@ object ContractIdClass {
     def generateGetCompanion(markerName: ClassName, kind: For) =
       ClassGenUtils.generateGetCompanion(
         ParameterizedTypeName.get(
-          ClassName get classOf[javaapi.data.codegen.ContractTypeCompanion[_, _]],
+          ClassName get classOf[javaapi.data.codegen.ContractTypeCompanion[_, _, _, _]],
+          WildcardTypeName subtypeOf ParameterizedTypeName.get(
+            ClassName get classOf[javaapi.data.codegen.Contract[_, _]],
+            contractIdClassName,
+            WildcardTypeName subtypeOf classOf[Object],
+          ),
+          contractIdClassName,
           markerName,
           WildcardTypeName subtypeOf classOf[Object],
         ),
@@ -234,6 +240,8 @@ object ContractIdClass {
       spec.build()
     }
 
+    private[this] val contractIdClassName = ClassName bestGuess "ContractId"
+
     def create(
         templateClassName: ClassName,
         choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
@@ -241,7 +249,6 @@ object ContractIdClass {
         packagePrefixes: Map[PackageId, String],
     ): Builder = {
 
-      val contractIdClassName = ClassName bestGuess "ContractId"
       val idClassBuilder =
         TypeSpec
           .classBuilder("ContractId")

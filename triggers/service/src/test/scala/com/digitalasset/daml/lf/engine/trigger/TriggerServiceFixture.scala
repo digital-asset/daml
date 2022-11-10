@@ -47,6 +47,7 @@ import com.daml.ledger.sandbox.SandboxOnXForTest._
 import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -574,6 +575,7 @@ trait TriggerServiceFixture
                 jdbcConfig,
                 false,
                 Compiler.Config.Dev,
+                DefaultTriggerRunnerConfig,
                 logTriggerStatus,
               )
             } yield r

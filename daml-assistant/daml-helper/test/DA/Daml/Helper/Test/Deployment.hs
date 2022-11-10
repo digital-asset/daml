@@ -3,6 +3,8 @@
 
 module DA.Daml.Helper.Test.Deployment (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Control.Exception
 import qualified Data.UUID.V4 as UUID
 import System.Directory.Extra (withCurrentDirectory)

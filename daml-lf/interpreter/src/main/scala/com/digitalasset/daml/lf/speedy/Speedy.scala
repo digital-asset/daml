@@ -1255,11 +1255,15 @@ private[lf] object Speedy {
         alts.find { alt =>
           alt.pattern match {
             case SCPNil if lst.isEmpty => true
-            case SCPCons if !lst.isEmpty =>
-              val Some((head, tail)) = lst.pop
-              machine.pushEnv(head)
-              machine.pushEnv(SValue.SList(tail))
-              true
+            case SCPCons =>
+              lst.pop match {
+                case Some((head, tail)) =>
+                  machine.pushEnv(head)
+                  machine.pushEnv(SValue.SList(tail))
+                  true
+                case None =>
+                  false
+              }
             case SCPDefault => true
             case _ => false
           }

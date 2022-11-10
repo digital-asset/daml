@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.{CommonErrors, LedgerApiErrors}
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
   Filters,
@@ -59,7 +59,7 @@ import com.daml.platform.store.dao.{
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
-import com.daml.platform.{ApiOffset, TemplatePartiesFilter, PruneBuffers}
+import com.daml.platform.{ApiOffset, PruneBuffers, TemplatePartiesFilter}
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.ToTagOps
@@ -458,7 +458,7 @@ private[index] class IndexServiceImpl(
   }
 
   private def toGrpcError(implicit loggingContext: LoggingContext): StatusRuntimeException =
-    LedgerApiErrors.ServiceNotRunning
+    CommonErrors.ServiceNotRunning
       .Reject("Index Service")(new DamlContextualizedErrorLogger(logger, loggingContext, None))
       .asGrpcError
 

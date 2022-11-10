@@ -4,7 +4,7 @@
 package com.daml.error.utils
 
 import com.daml.error.ErrorCategory.BackgroundProcessDegradationWarning
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.CommonErrors
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorClass, ErrorCode}
 import com.google.protobuf
 import io.grpc.{Status, StatusRuntimeException}
@@ -21,26 +21,25 @@ class ErrorDetailsSpec extends AnyFlatSpec with Matchers {
 
   it should "correctly match exception to error codes " in {
     val securitySensitive =
-      LedgerApiErrors.AuthorizationChecks.Unauthenticated.MissingJwtToken()(errorLogger).asGrpcError
-    val notSecuritySensitive = LedgerApiErrors.Admin.UserManagement.UserNotFound
-      .Reject(operation = "operation123", userId = "userId123")(errorLogger)
-      .asGrpcError
+      CommonErrors.ServiceInternalError.Generic("some internal failure")(errorLogger).asGrpcError
+    val notSecuritySensitive =
+      CommonErrors.ServiceNotRunning.Reject("some service")(errorLogger).asGrpcError
 
     ErrorDetails.matches(
       securitySensitive,
-      LedgerApiErrors.AuthorizationChecks.Unauthenticated,
+      CommonErrors.ServiceInternalError,
     ) shouldBe false
     ErrorDetails.matches(
       notSecuritySensitive,
-      LedgerApiErrors.Admin.UserManagement.UserNotFound,
+      CommonErrors.ServiceNotRunning,
     ) shouldBe true
     ErrorDetails.matches(
       new StatusRuntimeException(Status.ABORTED),
-      LedgerApiErrors.Admin.UserManagement.UserNotFound,
+      CommonErrors.ServiceNotRunning,
     ) shouldBe false
     ErrorDetails.matches(
       new Exception,
-      LedgerApiErrors.Admin.UserManagement.UserNotFound,
+      CommonErrors.ServiceNotRunning,
     ) shouldBe false
 
     object NonGrpcErrorCode

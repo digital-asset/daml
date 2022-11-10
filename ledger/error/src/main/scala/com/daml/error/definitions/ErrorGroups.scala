@@ -9,6 +9,7 @@ object ErrorGroups {
   val rootErrorClass: ErrorClass = ErrorClass.root()
 
   object ParticipantErrorGroup extends ErrorGroup()(rootErrorClass) {
+    abstract class CommonErrorGroup extends ErrorGroup()
     abstract class IndexErrorGroup extends ErrorGroup() {
       abstract class DatabaseErrorGroup extends ErrorGroup()
     }

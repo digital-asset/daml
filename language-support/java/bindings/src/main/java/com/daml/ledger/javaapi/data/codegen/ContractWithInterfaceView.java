@@ -8,10 +8,10 @@ import java.util.Set;
 
 final class ContractWithInterfaceView<Id, View> extends Contract<Id, View> {
 
-  private final ContractTypeCompanion<?, View> contractTypeCompanion;
+  private final InterfaceCompanion<?, Id, View> contractTypeCompanion;
 
   ContractWithInterfaceView(
-      ContractTypeCompanion<?, View> contractTypeCompanion,
+      InterfaceCompanion<?, Id, View> contractTypeCompanion,
       Id id,
       View interfaceView,
       Optional<String> agreementText,
@@ -22,7 +22,7 @@ final class ContractWithInterfaceView<Id, View> extends Contract<Id, View> {
   }
 
   @Override
-  protected ContractTypeCompanion<?, View> getCompanion() {
+  protected InterfaceCompanion<?, Id, View> getCompanion() {
     return contractTypeCompanion;
   }
 

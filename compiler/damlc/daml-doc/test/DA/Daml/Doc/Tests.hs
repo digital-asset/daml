@@ -6,6 +6,8 @@
 module DA.Daml.Doc.Tests(mkTestTree)
   where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import DA.Bazel.Runfiles
 import DA.Daml.Compiler.Output (diagnosticsLogger)
 import DA.Daml.Options.Types
