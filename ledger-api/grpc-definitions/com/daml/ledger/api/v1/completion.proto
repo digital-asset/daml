@@ -20,6 +20,7 @@ message Completion {
   string command_id = 1;
 
   // Identifies the exact type of the error.
+  // The error is reported using the same rules for error codes and messages as the errors returned for API requests.
   // Optional
   google.rpc.Status status = 2;
 
