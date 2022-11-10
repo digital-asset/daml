@@ -14,10 +14,7 @@ import java.util.List;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-
-/**
- * TODO: Java doc this
- */
+/** TODO: Java doc this */
 public class CommandClientConfig {
   private String workflowId;
   private String applicationId;
@@ -55,6 +52,7 @@ public class CommandClientConfig {
 
   /**
    * TODO: java doc this
+   *
    * @param workflowId
    * @param applicationId
    * @param commandId
@@ -85,8 +83,7 @@ public class CommandClientConfig {
         minLedgerTimeRel,
         deduplicationTime,
         commands,
-        accessToken
-    );
+        accessToken);
   }
 
   public CommandClientConfig withActAs(List<@NonNull String> actAs) {
@@ -100,8 +97,7 @@ public class CommandClientConfig {
         minLedgerTimeRel,
         deduplicationTime,
         commands,
-        accessToken
-    );
+        accessToken);
   }
 
   public CommandClientConfig withReadAs(List<@NonNull String> readAs) {
@@ -115,8 +111,7 @@ public class CommandClientConfig {
         minLedgerTimeRel,
         deduplicationTime,
         commands,
-        accessToken
-    );
+        accessToken);
   }
 
   public CommandClientConfig withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
@@ -130,8 +125,7 @@ public class CommandClientConfig {
         minLedgerTimeRel,
         deduplicationTime,
         commands,
-        accessToken
-    );
+        accessToken);
   }
 
   public CommandClientConfig withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
@@ -145,8 +139,7 @@ public class CommandClientConfig {
         minLedgerTimeRel,
         deduplicationTime,
         commands,
-        accessToken
-    );
+        accessToken);
   }
 
   public CommandClientConfig withDeduplicationTime(Optional<Duration> deduplicationTime) {
@@ -160,8 +153,7 @@ public class CommandClientConfig {
         minLedgerTimeRel,
         deduplicationTime,
         commands,
-        accessToken
-    );
+        accessToken);
   }
 
   public CommandClientConfig withCommands(List<@NonNull ? extends HasCommands> commands) {
@@ -175,8 +167,7 @@ public class CommandClientConfig {
         minLedgerTimeRel,
         deduplicationTime,
         commands,
-        accessToken
-    );
+        accessToken);
   }
 
   public CommandClientConfig withAccessToken(Optional<String> accessToken) {
@@ -190,7 +181,6 @@ public class CommandClientConfig {
         minLedgerTimeRel,
         deduplicationTime,
         commands,
-        accessToken
-    );
+        accessToken);
   }
 }

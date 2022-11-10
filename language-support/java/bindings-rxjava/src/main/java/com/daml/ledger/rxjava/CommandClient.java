@@ -175,7 +175,6 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
-
   Single<Transaction> submitAndWaitForTransaction(CommandClientConfig params);
 
   Single<Transaction> submitAndWaitForTransaction(

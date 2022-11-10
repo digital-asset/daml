@@ -895,7 +895,8 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public <U> Single<U> submitAndWaitForResult(CommandClientConfig params, @NonNull Update<U> update) {
+  public <U> Single<U> submitAndWaitForResult(
+      CommandClientConfig params, @NonNull Update<U> update) {
     return null;
   }
 
