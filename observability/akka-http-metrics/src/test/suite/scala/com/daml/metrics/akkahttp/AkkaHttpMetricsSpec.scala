@@ -257,6 +257,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
             Source(List(byteString1, byteString2)),
           ),
         ) ~> route ~> check {
+          responseAs[String] // force processing the request
           metrics.httpRequestsBytesTotalValue should be(byteString1Size + byteString2Size)
         }
       }
@@ -315,7 +316,9 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
             ContentTypes.`application/octet-stream`,
             Source(List(byteString1, byteString2)),
           ),
-        ) ~> route
+        ) ~> route ~> check {
+          responseAs[String] // force processing the request
+        }
         Get(
           "/exception",
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, byteString1),
