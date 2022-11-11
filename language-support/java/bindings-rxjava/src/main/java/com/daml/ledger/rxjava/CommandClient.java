@@ -32,9 +32,10 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * @deprecated This method has been deprecated as of [???]. Please use {@link #submitAndWait(CommandClientConfig)} instead
+   * TODO: add deprecation doc and annotations This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWait(CommandClientConfig)} instead
    */
-  @Deprecated
+  //  @Deprecated
   Single<Empty> submitAndWait(
       @NonNull String workflowId,
       @NonNull String applicationId,

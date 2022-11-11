@@ -40,7 +40,17 @@ public class CommandClientImpl implements CommandClient {
 
   @Override
   public Single<Empty> submitAndWait(CommandClientConfig params) {
-    return null;
+    return submitAndWait(
+        params.getWorkflowId(),
+        params.getApplicationId(),
+        params.getCommandId(),
+        params.getActAs(),
+        params.getReadAs(),
+        params.getMinLedgerTimeAbs(),
+        params.getMinLedgerTimeRel(),
+        params.getDeduplicationTime(),
+        params.getCommands(),
+        params.getAccessToken());
   }
 
   private Single<Empty> submitAndWait(

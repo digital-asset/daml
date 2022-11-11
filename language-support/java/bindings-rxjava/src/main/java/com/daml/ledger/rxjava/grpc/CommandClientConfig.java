@@ -69,7 +69,8 @@ public class CommandClientConfig {
    * @param commandId
    * @return
    */
-  public static CommandClientConfig create(String workflowId, String applicationId, String commandId) {
+  public static CommandClientConfig create(
+      String workflowId, String applicationId, String commandId) {
     return new CommandClientConfig(
         workflowId,
         applicationId,
@@ -83,7 +84,47 @@ public class CommandClientConfig {
         empty());
   }
 
-  public CommandClientConfig withActAs(String party) {
+  public String getWorkflowId() {
+    return workflowId;
+  }
+
+  public String getApplicationId() {
+    return applicationId;
+  }
+
+  public String getCommandId() {
+    return commandId;
+  }
+
+  public List<String> getActAs() {
+    return actAs;
+  }
+
+  public List<String> getReadAs() {
+    return readAs;
+  }
+
+  public Optional<Instant> getMinLedgerTimeAbs() {
+    return minLedgerTimeAbs;
+  }
+
+  public Optional<Duration> getMinLedgerTimeRel() {
+    return minLedgerTimeRel;
+  }
+
+  public Optional<Duration> getDeduplicationTime() {
+    return deduplicationTime;
+  }
+
+  public List<? extends HasCommands> getCommands() {
+    return commands;
+  }
+
+  public Optional<String> getAccessToken() {
+    return accessToken;
+  }
+
+  public CommandClientConfig withParty(String party) {
     return new CommandClientConfig(
         workflowId,
         applicationId,
@@ -125,35 +166,7 @@ public class CommandClientConfig {
         accessToken);
   }
 
-  public CommandClientConfig withMinLedgerTimeAbs(Instant minLedgerTimeAbs) {
-    return new CommandClientConfig(
-        workflowId,
-        applicationId,
-        commandId,
-        actAs,
-        readAs,
-        Optional.of(minLedgerTimeAbs),
-        minLedgerTimeRel,
-        deduplicationTime,
-        commands,
-        accessToken);
-  }
-
-  public CommandClientConfig withMinLedgerTimeRel(Duration minLedgerTimeRel) {
-    return new CommandClientConfig(
-        workflowId,
-        applicationId,
-        commandId,
-        actAs,
-        readAs,
-        minLedgerTimeAbs,
-        Optional.of(minLedgerTimeRel),
-        deduplicationTime,
-        commands,
-        accessToken);
-  }
-
-  public CommandClientConfig withDeduplicationTime(Duration deduplicationTime) {
+  public CommandClientConfig withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
     return new CommandClientConfig(
         workflowId,
         applicationId,
@@ -162,7 +175,35 @@ public class CommandClientConfig {
         readAs,
         minLedgerTimeAbs,
         minLedgerTimeRel,
-        Optional.of(deduplicationTime),
+        deduplicationTime,
+        commands,
+        accessToken);
+  }
+
+  public CommandClientConfig withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
+    return new CommandClientConfig(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        accessToken);
+  }
+
+  public CommandClientConfig withDeduplicationTime(Optional<Duration> deduplicationTime) {
+    return new CommandClientConfig(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
         commands,
         accessToken);
   }
@@ -181,7 +222,7 @@ public class CommandClientConfig {
         accessToken);
   }
 
-  public CommandClientConfig withAccessToken(String accessToken) {
+  public CommandClientConfig withAccessToken(Optional<String> accessToken) {
     return new CommandClientConfig(
         workflowId,
         applicationId,
@@ -192,6 +233,6 @@ public class CommandClientConfig {
         minLedgerTimeRel,
         deduplicationTime,
         commands,
-        Optional.of(accessToken));
+        accessToken);
   }
 }
