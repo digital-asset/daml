@@ -21,6 +21,13 @@ public interface CommandClient {
   // TODO: Deprecate old methods and javadoc new ones
   Single<Empty> submitAndWait(CommandClientConfig params);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWait(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Empty> submitAndWait(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -32,10 +39,12 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * TODO: add deprecation doc and annotations This method has been deprecated as of [???]. Please
+   * This method has been deprecated as of [???]. Please
    * use {@link #submitAndWait(CommandClientConfig)} instead
+   *
+   * @deprecated
    */
-  //  @Deprecated
+  @Deprecated
   Single<Empty> submitAndWait(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -47,6 +56,13 @@ public interface CommandClient {
       @NonNull Optional<Duration> deduplicationTime,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWait(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Empty> submitAndWait(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -58,6 +74,13 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWait(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Empty> submitAndWait(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -70,6 +93,13 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWait(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Empty> submitAndWait(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -77,6 +107,13 @@ public interface CommandClient {
       @NonNull String party,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWait(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Empty> submitAndWait(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -85,6 +122,13 @@ public interface CommandClient {
       @NonNull List<@NonNull String> readAs,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWait(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Empty> submitAndWait(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -93,6 +137,13 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWait(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Empty> submitAndWait(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -104,6 +155,13 @@ public interface CommandClient {
 
   Single<String> submitAndWaitForTransactionId(CommandClientConfig params);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -114,6 +172,13 @@ public interface CommandClient {
       @NonNull Optional<Duration> deduplicationTime,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -125,6 +190,13 @@ public interface CommandClient {
       @NonNull Optional<Duration> deduplicationTime,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -136,6 +208,13 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -148,6 +227,13 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -155,6 +241,13 @@ public interface CommandClient {
       @NonNull String party,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -163,6 +256,13 @@ public interface CommandClient {
       @NonNull List<@NonNull String> readAs,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -171,6 +271,13 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -182,6 +289,13 @@ public interface CommandClient {
 
   Single<Transaction> submitAndWaitForTransaction(CommandClientConfig params);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -192,6 +306,13 @@ public interface CommandClient {
       @NonNull Optional<Duration> deduplicationTime,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -203,6 +324,13 @@ public interface CommandClient {
       @NonNull Optional<Duration> deduplicationTime,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -214,6 +342,13 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -226,6 +361,13 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -233,6 +375,13 @@ public interface CommandClient {
       @NonNull String party,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -241,6 +390,13 @@ public interface CommandClient {
       @NonNull List<@NonNull String> readAs,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -249,6 +405,13 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -260,6 +423,13 @@ public interface CommandClient {
 
   Single<TransactionTree> submitAndWaitForTransactionTree(CommandClientConfig params);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -270,6 +440,13 @@ public interface CommandClient {
       @NonNull Optional<Duration> deduplicationTime,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -281,6 +458,13 @@ public interface CommandClient {
       @NonNull Optional<Duration> deduplicationTime,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -292,6 +476,13 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -304,6 +495,13 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -311,6 +509,13 @@ public interface CommandClient {
       @NonNull String party,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -319,6 +524,13 @@ public interface CommandClient {
       @NonNull List<@NonNull String> readAs,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -327,6 +539,13 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -338,6 +557,13 @@ public interface CommandClient {
 
   <U> Single<U> submitAndWaitForResult(CommandClientConfig params, @NonNull Update<U> update);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForResult(CommandClientConfig, Update)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   <U> Single<U> submitAndWaitForResult(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -346,6 +572,13 @@ public interface CommandClient {
       @NonNull List<@NonNull String> readAs,
       @NonNull Update<U> update);
 
+  /**
+   * This method has been deprecated as of [???]. Please
+   * use {@link #submitAndWaitForResult(CommandClientConfig, Update)} instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   <U> Single<U> submitAndWaitForResult(
       @NonNull String workflowId,
       @NonNull String applicationId,
