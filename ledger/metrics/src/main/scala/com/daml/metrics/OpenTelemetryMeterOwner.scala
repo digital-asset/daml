@@ -3,16 +3,15 @@
 
 package com.daml.metrics
 
-import java.util.function.Predicate
-
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.metrics.OpenTelemetryMeterOwner.buildProviderWithViews
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.metrics.api.reporters.MetricsReporter.Prometheus
 import io.opentelemetry.api.metrics.Meter
 import io.opentelemetry.exporter.prometheus.PrometheusCollector
-import io.opentelemetry.sdk.metrics.SdkMeterProvider
 import io.opentelemetry.sdk.metrics.common.InstrumentType
 import io.opentelemetry.sdk.metrics.view.{Aggregation, InstrumentSelector, View}
+import io.opentelemetry.sdk.metrics.{SdkMeterProvider, SdkMeterProviderBuilder}
 
 import scala.annotation.nowarn
 import scala.concurrent.Future
@@ -25,26 +24,7 @@ case class OpenTelemetryMeterOwner(enabled: Boolean, reporter: Option[MetricsRep
   override def acquire()(implicit
       context: ResourceContext
   ): Resource[Meter] = {
-    val meterProviderBuilder = SdkMeterProvider
-      .builder()
-      .registerView(
-        InstrumentSelector
-          .builder()
-          .setType(InstrumentType.HISTOGRAM)
-          .setName(new Predicate[String] {
-            override def test(t: String): Boolean = t.endsWith("duration.ms")
-          })
-          .build(),
-        View
-          .builder()
-          .setAggregation(
-            Aggregation.explicitBucketHistogram(
-              Seq(5d, 10d, 15d, 25d, 35d, 50d, 75d, 100d, 150d, 200d, 250d, 350d, 500d, 750d,
-                1_000d, 2_500d, 5_000d, 7_500d, 10_000d, 25_000d, 50_000d).map(Double.box).asJava
-            )
-          )
-          .build(),
-      )
+    val meterProviderBuilder = buildProviderWithViews
 
     /* To integrate with prometheus we're using the deprecated [[PrometheusCollector]].
      * More details about the deprecation here: https://github.com/open-telemetry/opentelemetry-java/issues/4284
@@ -64,4 +44,26 @@ case class OpenTelemetryMeterOwner(enabled: Boolean, reporter: Option[MetricsRep
     }
   }
 
+}
+object OpenTelemetryMeterOwner {
+
+  def buildProviderWithViews: SdkMeterProviderBuilder =
+    SdkMeterProvider
+      .builder()
+      .registerView(
+        InstrumentSelector
+          .builder()
+          .setType(InstrumentType.HISTOGRAM)
+          .setName((t: String) => t.endsWith("duration.ms"))
+          .build(),
+        View
+          .builder()
+          .setAggregation(
+            Aggregation.explicitBucketHistogram(
+              Seq(5d, 10d, 15d, 25d, 35d, 50d, 75d, 100d, 150d, 200d, 250d, 350d, 500d, 750d,
+                1_000d, 2_500d, 5_000d, 7_500d, 10_000d, 25_000d, 50_000d).map(Double.box).asJava
+            )
+          )
+          .build(),
+      )
 }
