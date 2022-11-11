@@ -331,13 +331,13 @@ abstract class AbstractFuncIT
         }
       }
     }
-    "Interface:test_queryView" should {
+    "Interface:test_queryInterface" should {
       "succeed" in {
         for {
           clients <- participantClients()
           v <- run(
             clients,
-            QualifiedName.assertFromString("TestInterfaces:test_queryView"),
+            QualifiedName.assertFromString("TestInterfaces:test_queryInterface"),
             dar = devDar,
           )
         } yield {

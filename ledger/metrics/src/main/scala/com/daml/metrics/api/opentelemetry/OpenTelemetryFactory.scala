@@ -140,7 +140,7 @@ case class OpenTelemetryTimer(name: String, histogram: LongHistogram, timerConte
   ): Unit =
     histogram.record(
       TimeUnit.MILLISECONDS.convert(duration, unit),
-      AttributesHelper.multiContextAsAttributes(context, timerContext),
+      AttributesHelper.multiContextAsAttributes(timerContext, context),
     )
   override def time[T](call: => T)(implicit
       context: MetricsContext
@@ -149,20 +149,21 @@ case class OpenTelemetryTimer(name: String, histogram: LongHistogram, timerConte
     val result = call
     histogram.record(
       TimeUnit.MILLISECONDS.convert(System.nanoTime() - start, TimeUnit.NANOSECONDS),
-      AttributesHelper.multiContextAsAttributes(context, timerContext),
+      AttributesHelper.multiContextAsAttributes(timerContext, context),
     )
     result
   }
 
-  override def startAsync()(implicit
-      context: MetricsContext
-  ): TimerHandle = {
+  override def startAsync()(implicit startContext: MetricsContext): TimerHandle = {
     val start = System.nanoTime()
-    () =>
-      histogram.record(
-        TimeUnit.MILLISECONDS.convert(System.nanoTime() - start, TimeUnit.NANOSECONDS),
-        AttributesHelper.multiContextAsAttributes(context, timerContext),
-      )
+    new TimerHandle {
+      override def stop()(implicit stopContext: MetricsContext): Unit = {
+        histogram.record(
+          TimeUnit.MILLISECONDS.convert(System.nanoTime() - start, TimeUnit.NANOSECONDS),
+          AttributesHelper.multiContextAsAttributes(timerContext, startContext, stopContext),
+        )
+      }
+    }
   }
 
   override def update(duration: Duration)(implicit

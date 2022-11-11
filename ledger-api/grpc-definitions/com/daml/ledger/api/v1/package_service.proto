@@ -13,24 +13,12 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 service PackageService {
 
   // Returns the identifiers of all supported packages.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id
   rpc ListPackages (ListPackagesRequest) returns (ListPackagesResponse);
 
   // Returns the contents of a single package.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the requested package is unknown
   rpc GetPackage (GetPackageRequest) returns (GetPackageResponse);
 
   // Returns the status of a single package.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the requested package is unknown
   rpc GetPackageStatus (GetPackageStatusRequest) returns (GetPackageStatusResponse);
 
 }
