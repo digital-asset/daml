@@ -7,7 +7,7 @@ class DamlGrpcServerMetrics(metricsFactory: Factory, component: String) extends 
 
   private val grpcServerMetricsPrefix = MetricName.Daml :+ "grpc" :+ "server"
   private implicit val metricsContext: MetricsContext = MetricsContext(
-    Map("component" -> component)
+    Map("service" -> component)
   )
 
   override val callTimer: MetricHandle.Timer = metricsFactory.timer(grpcServerMetricsPrefix)
@@ -17,9 +17,6 @@ class DamlGrpcServerMetrics(metricsFactory: Factory, component: String) extends 
   override val messagesReceived: MetricHandle.Meter = metricsFactory.meter(
     grpcServerMetricsPrefix :+ "messages" :+ "received"
   )
-  override val messagesRequested: MetricHandle.Meter = metricsFactory.meter(
-    grpcServerMetricsPrefix :+ "messages" :+ "requested"
-  )
   override val messagesSentSize: MetricHandle.Histogram = metricsFactory.histogram(
     grpcServerMetricsPrefix :+ "messages" :+ "sent" :+ "bytes"
   )
@@ -27,10 +24,10 @@ class DamlGrpcServerMetrics(metricsFactory: Factory, component: String) extends 
     grpcServerMetricsPrefix :+ "messages" :+ "received" :+ "bytes"
   )
   override val callsStarted: MetricHandle.Meter = metricsFactory.meter(
-    grpcServerMetricsPrefix :+ "calls" :+ "started"
+    grpcServerMetricsPrefix :+ "started"
   )
-  override val callsFinished: MetricHandle.Meter = metricsFactory.meter(
-    grpcServerMetricsPrefix :+ "calls" :+ "finished"
+  override val callsHandled: MetricHandle.Meter = metricsFactory.meter(
+    grpcServerMetricsPrefix :+ "handled"
   )
 
 }
