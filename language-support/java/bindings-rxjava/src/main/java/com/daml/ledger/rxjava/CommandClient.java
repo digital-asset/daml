@@ -22,8 +22,8 @@ public interface CommandClient {
   Single<Empty> submitAndWait(CommandClientConfig params);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWait(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWait(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -39,8 +39,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWait(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWait(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -57,8 +57,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWait(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWait(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -75,8 +75,8 @@ public interface CommandClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWait(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWait(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -94,8 +94,8 @@ public interface CommandClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWait(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWait(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -108,8 +108,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWait(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWait(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -123,8 +123,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWait(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWait(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -138,8 +138,8 @@ public interface CommandClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWait(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWait(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -156,8 +156,8 @@ public interface CommandClient {
   Single<String> submitAndWaitForTransactionId(CommandClientConfig params);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionId(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -173,8 +173,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionId(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -191,8 +191,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionId(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -209,8 +209,8 @@ public interface CommandClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionId(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -228,8 +228,8 @@ public interface CommandClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionId(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -242,8 +242,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionId(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -257,8 +257,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionId(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -272,8 +272,8 @@ public interface CommandClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionId(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionId(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -290,8 +290,8 @@ public interface CommandClient {
   Single<Transaction> submitAndWaitForTransaction(CommandClientConfig params);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransaction(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -307,8 +307,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransaction(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -325,8 +325,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransaction(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -343,8 +343,8 @@ public interface CommandClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransaction(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -362,8 +362,8 @@ public interface CommandClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransaction(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -376,8 +376,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransaction(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -391,8 +391,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransaction(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -406,8 +406,8 @@ public interface CommandClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransaction(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransaction(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -424,8 +424,8 @@ public interface CommandClient {
   Single<TransactionTree> submitAndWaitForTransactionTree(CommandClientConfig params);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionTree(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -441,8 +441,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionTree(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -459,8 +459,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionTree(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -477,8 +477,8 @@ public interface CommandClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionTree(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -496,8 +496,8 @@ public interface CommandClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionTree(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -510,8 +510,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionTree(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -525,8 +525,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionTree(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -540,8 +540,8 @@ public interface CommandClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForTransactionTree(CommandClientConfig)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForTransactionTree(CommandClientConfig)} instead
    *
    * @deprecated
    */
@@ -558,8 +558,8 @@ public interface CommandClient {
   <U> Single<U> submitAndWaitForResult(CommandClientConfig params, @NonNull Update<U> update);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForResult(CommandClientConfig, Update)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForResult(CommandClientConfig, Update)} instead
    *
    * @deprecated
    */
@@ -573,8 +573,8 @@ public interface CommandClient {
       @NonNull Update<U> update);
 
   /**
-   * This method has been deprecated as of [???]. Please
-   * use {@link #submitAndWaitForResult(CommandClientConfig, Update)} instead
+   * This method has been deprecated as of [???]. Please use {@link
+   * #submitAndWaitForResult(CommandClientConfig, Update)} instead
    *
    * @deprecated
    */
