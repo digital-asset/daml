@@ -102,13 +102,15 @@ class WebsocketEndpoints(
                 )
                 (jwt, jwtPayload) = payload
               } yield {
-                implicit val mc: MetricsContext = LabelExtractor.labelsFromRequest(req)
-                handleWebsocketRequest[domain.SearchForeverRequest](
-                  jwt,
-                  jwtPayload,
-                  upgradeReq,
-                  wsProtocol,
-                )
+                MetricsContext.withMetricLabels(LabelExtractor.labelsFromRequest(req): _*) {
+                  implicit mc: MetricsContext =>
+                    handleWebsocketRequest[domain.SearchForeverRequest](
+                      jwt,
+                      jwtPayload,
+                      upgradeReq,
+                      wsProtocol,
+                    )
+                }
               })
                 .valueOr(httpResponseError)
         )
@@ -131,13 +133,15 @@ class WebsocketEndpoints(
                 )
                 (jwt, jwtPayload) = payload
               } yield {
-                implicit val mc: MetricsContext = LabelExtractor.labelsFromRequest(req)
-                handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
-                  jwt,
-                  jwtPayload,
-                  upgradeReq,
-                  wsProtocol,
-                )
+                MetricsContext.withMetricLabels(LabelExtractor.labelsFromRequest(req): _*) {
+                  implicit mc: MetricsContext =>
+                    handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
+                      jwt,
+                      jwtPayload,
+                      upgradeReq,
+                      wsProtocol,
+                    )
+                }
               })
                 .valueOr(httpResponseError)
         )

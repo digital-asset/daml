@@ -21,7 +21,10 @@ case class MetricsContext(labels: Map[String, String]) {
 
 object MetricsContext {
 
-  val Empty: MetricsContext = MetricsContext(Map.empty)
+  val Empty: MetricsContext = MetricsContext(Map.empty[String, String])
+
+  def apply(labels: (String, String)*): MetricsContext =
+    MetricsContext(labels.toMap)
 
   def withEmptyMetricsContext[T](run: MetricsContext => T): T = run(Empty)
 

@@ -61,7 +61,7 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
       metrics.messagesSentTotal,
       metrics.messagesSentBytesTotal,
       testFlow,
-    )(MetricsContext(labels.toMap))
+    )(MetricsContext(labels: _*))
     f(duplicatingFlowWithMetrics, metrics)
   }
 

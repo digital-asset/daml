@@ -4,12 +4,11 @@
 package com.daml.metrics.akkahttp
 
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import com.daml.metrics.api.MetricsContext
 
 object LabelExtractor {
 
-  def labelsFromRequest(request: HttpRequest): MetricsContext = {
-    val baseLabels = Map[String, String](
+  def labelsFromRequest(request: HttpRequest): Seq[(String, String)] = {
+    val baseLabels = Seq[(String, String)](
       ("http_verb", request.method.name),
       ("path", request.uri.path.toString),
     )
@@ -18,20 +17,14 @@ object LabelExtractor {
       if (host.isEmpty)
         baseLabels
       else
-        baseLabels + (("host", host.address))
-    MetricsContext(labelsWithHost)
+        (("host", host.address)) +: baseLabels
+    labelsWithHost
   }
 
-  def addLabelsFromResponse(
-      metricsContext: MetricsContext,
-      response: HttpResponse,
-  ): MetricsContext = {
-    metricsContext.merge(
-      MetricsContext(
-        Map[String, String](("http_status", response.status.intValue.toString))
-      )
-    )
-
+  def labelsFromResponse(
+      response: HttpResponse
+  ): Seq[(String, String)] = {
+    Seq(("http_status", response.status.intValue.toString))
   }
 
 }
