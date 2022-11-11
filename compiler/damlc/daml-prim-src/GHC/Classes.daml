@@ -64,7 +64,7 @@ import GHC.CString (unpackCString#)
 import GHC.Types
 import GHC.Integer.Type
 import DA.Types
-import GHC.Tuple.Check
+import GHC.Tuple.Check()
 
 infix  4  ==, /=, <, <=, >=, >
 infixr 3  &&

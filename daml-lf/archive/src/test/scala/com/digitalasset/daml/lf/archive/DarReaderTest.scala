@@ -85,7 +85,6 @@ class DarReaderTest
         "GHC.Err",
         "GHC.Base",
         "LibraryModules",
-        "GHC.Tuple.Check",
       )
     }
   }

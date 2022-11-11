@@ -50,7 +50,6 @@ genrule(
         "daml-prim/GHC-Types.dalf",
         "daml-prim/GHC-Prim.dalf",
         "daml-prim/GHC-Tuple.dalf",
-        "daml-prim/GHC-Tuple-Check.dalf",
         "daml-prim/DA-Internal-Erased.dalf",
         "daml-prim/DA-Internal-NatSyn.dalf",
         "daml-prim/DA-Internal-PromotedText.dalf",
@@ -76,7 +75,6 @@ genrule(
       $(location :generate-stable-package) --module GHC.Types -o $(location daml-prim/GHC-Types.dalf)
       $(location :generate-stable-package) --module GHC.Prim -o $(location daml-prim/GHC-Prim.dalf)
       $(location :generate-stable-package) --module GHC.Tuple -o $(location daml-prim/GHC-Tuple.dalf)
-      $(location :generate-stable-package) --module GHC.Tuple.Check -o $(location daml-prim/GHC-Tuple-Check.dalf)
       $(location :generate-stable-package) --module DA.Internal.Erased -o $(location daml-prim/DA-Internal-Erased.dalf)
       $(location :generate-stable-package) --module DA.Internal.NatSyn -o $(location daml-prim/DA-Internal-NatSyn.dalf)
       $(location :generate-stable-package) --module DA.Internal.PromotedText -o $(location daml-prim/DA-Internal-PromotedText.dalf)
@@ -117,7 +115,6 @@ filegroup(
         "daml-prim/DA-Types.dalf",
         "daml-prim/GHC-Prim.dalf",
         "daml-prim/GHC-Tuple.dalf",
-        "daml-prim/GHC-Tuple-Check.dalf",
         "daml-prim/GHC-Types.dalf",
         "daml-stdlib/DA-Date-Types.dalf",
         "daml-stdlib/DA-Internal-Any.dalf",
