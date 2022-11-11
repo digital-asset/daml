@@ -3,6 +3,7 @@
 
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase #-}
 
 -- | Main entry-point of the Daml compiler
 module DA.Cli.Damlc.Test (
@@ -26,7 +27,6 @@ import Data.Either
 import qualified Data.HashSet as HashSet
 import Data.List.Extra
 import qualified Data.Map.Strict as M
--- import qualified Data.Map.Merge.Strict as M
 import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Set as S
@@ -48,6 +48,7 @@ import System.Directory (createDirectoryIfMissing)
 import System.Exit (exitFailure)
 import System.FilePath
 import qualified Text.XML.Light as XML
+import Text.Printf
 
 
 newtype UseColor = UseColor {getUseColor :: Bool}
@@ -205,6 +206,8 @@ data Report = Report
           (Variety
             (LF.Qualified LF.Template)
             (LF.Qualified LF.DefInterface))
+    , definedInterfaceImplementationsInside ::
+        M.Map (ContractIdentifier, ContractIdentifier) LF.InterfaceInstanceBody
     , internalCreatedAnywhere :: S.Set ContractIdentifier
     , internalCreatedInternal :: S.Set ContractIdentifier
     , externalCreatedInternal :: S.Set ContractIdentifier
@@ -247,25 +250,28 @@ printTestCoverage ::
     -> [LocalOrExternal]
     -> [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
     -> IO ()
-printTestCoverage ShowCoverage {getShowCoverage} allPackages results
+--printTestCoverage ShowCoverage {getShowCoverage} allPackages results
+printTestCoverage _ allPackages results
   | any (isLeft . snd) $ concatMap snd results = pure ()
-  | otherwise = do
-      printReport $ report "defined in local modules" isLocal
-      printReport $ report "defined in external modules" (not . isLocal)
-      printReport $ report "defined anywhere" (const True)
+  | otherwise = printReport
+      --printReport $ report "defined in local modules" isLocal
+      --printReport $ report "defined in external modules" (not . isLocal)
+      --printReport $ report "defined anywhere" (const True)
   where
+        {-
     report :: String -> (LocalOrExternal -> Bool) -> Report
     report groupName pred =
         let allMatchingPackages = filter pred allPackages
             allMatchingResults = map snd $ filter (pred . fst) results
             definedContractsInside = contractsDefinedIn allMatchingPackages
             definedChoicesInside = choicesDefinedIn allMatchingPackages
-            exercisedInside = foldMap exercisedChoices allMatchingResults
-            createdInside = foldMap createdContracts allMatchingResults
-            internalExercisedAnywhere = allExercisedChoices `S.intersection` M.keysSet definedChoicesInside
+            definedInterfaceImplementationsInside = interfaceImplementationsDefinedIn allMatchingPackages
+            exercisedInside = foldMap (M.keysSet . exercisedChoices) allMatchingResults
+            createdInside = foldMap (M.keysSet . createdContracts) allMatchingResults
+            internalExercisedAnywhere = M.keysSet allExercisedChoices `S.intersection` M.keysSet definedChoicesInside
             internalExercisedInternal = exercisedInside `S.intersection` M.keysSet definedChoicesInside
             externalExercisedInternal = exercisedInside `S.difference` M.keysSet definedChoicesInside
-            internalCreatedAnywhere = allCreatedContracts `S.intersection` M.keysSet definedContractsInside
+            internalCreatedAnywhere = M.keysSet allCreatedContracts `S.intersection` M.keysSet definedContractsInside
             internalCreatedInternal = createdInside `S.intersection` M.keysSet definedContractsInside
             externalCreatedInternal = createdInside `S.difference` M.keysSet definedContractsInside
         in
@@ -279,17 +285,65 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
             , internalCreatedAnywhere
             , internalCreatedInternal
             , externalCreatedInternal
+            , definedInterfaceImplementationsInside
             }
+        -}
 
+    printReport :: IO ()
+    printReport =
+        let countWhere pred = M.size . M.filter pred
+            --anyLocal, anyExternal :: Foldable t => t LocalOrExternal -> Bool
+            --anyLocal = any isLocal
+            --anyExternal = not . all isLocal
+
+            allContracts = contractsDefinedIn allPackages
+            localTemplates = M.filterWithKey pred allContracts
+              where
+                pred (ContractIdentifier Nothing _) (TemplateV _) = True
+                pred _ _ = False
+            localTemplatesCreated = M.intersection allCreatedContracts localTemplates
+
+            allChoices = choicesDefinedIn allPackages
+            localTemplateChoices = M.filterWithKey pred allChoices
+              where
+                pred (ChoiceIdentifier (ContractIdentifier Nothing _) _) (TemplateV _) = True
+                pred _ _ = False
+            localTemplateChoicesExercised = M.intersection allExercisedChoices localTemplateChoices
+
+            --localInterfaces = M.filterWithKey pred allContracts
+            --  where
+            --    pred (ContractIdentifier Nothing _) (InterfaceV _) = True
+            --    pred _ _ = False
+            allImplementations = interfaceImplementationsDefinedIn allPackages
+            fillInImplementation (ifaceId, _) (loe, instanceBody) = (loe, instanceBody, def)
+              where
+                def = case M.lookup ifaceId allContracts of
+                        Just (InterfaceV LF.Qualified { qualObject }) -> Just qualObject
+                        _ -> Nothing
+            allImplementationChoices = M.fromList $ do
+                (k, (loe, body, mdef)) <- M.toList $ M.mapWithKey fillInImplementation allImplementations
+                def <- maybeToList mdef
+                choice <- NM.toList $ LF.intChoices def
+                pure (LF.chcName choice, (loe, k, body, def, choice))
+        in
+        putStrLn $
+        unlines
+        [ printf "Modules internal to this package:"
+        -- Can't have any external tests that exercise internals, as that would
+        -- require a circular dependency
+        , printf "- Templates defined: %d" (M.size localTemplates)
+        , printf "    %d created" (M.size localTemplatesCreated)
+        , printf "- Template choices defined: %d" (M.size localTemplateChoices)
+        , printf "    %d exercised" (M.size localTemplateChoicesExercised)
+        , printf "- Interface implementations defined: %d" (countWhere (isLocal . fst) allImplementations)
+        , printf "    %d implementations of internal interfaces" (countWhere (isLocal . fst) allImplementations)
+        , printf "    %d implementations of external interfaces" (countWhere (not . isLocal . fst) allImplementations)
+        , printf "    %d interface choices defined" (M.size allImplementationChoices)
+        ]
+
+        {-
     printReport :: Report -> IO ()
-    printReport
-        Report
-            { groupName
-            , definedChoicesInside
-            , internalExercisedAnywhere
-            , definedContractsInside
-            , internalCreatedAnywhere
-            } =
+    printReport _ =
         let percentage i j
               | j > 0 = show (round @Double $ 100.0 * (fromIntegral i / fromIntegral j) :: Int) <> "%"
               | otherwise = "100%"
@@ -311,6 +365,7 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
             msg = unlines $ header : map indent (body1 ++ body2)
         in
         putStrLn msg
+        -}
 
     contractsDefinedIn :: [LocalOrExternal] -> M.Map ContractIdentifier (Variety (LF.Qualified LF.Template) (LF.Qualified LF.DefInterface))
     contractsDefinedIn = fmap TemplateV . templatesDefinedIn <> fmap InterfaceV . interfacesDefinedIn
@@ -352,29 +407,31 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
         , let name = LF.unChoiceName $ LF.chcName choice
         ]
 
-    interfaceImplementations :: [LocalOrExternal] -> M.Map (ContractIdentifier, ContractIdentifier) LF.InterfaceInstanceBody
-    interfaceImplementations localOrExternals = M.fromList $
-        [ ((lfMkNameIdentifier tpiInterface, templateIdentifier), tpiBody)
-        | (templateIdentifier, templateInfo) <- M.toList $ templatesDefinedIn localOrExternals
+    interfaceImplementationsDefinedIn :: [LocalOrExternal] -> M.Map (ContractIdentifier, ContractIdentifier) (LocalOrExternal, LF.InterfaceInstanceBody)
+    interfaceImplementationsDefinedIn localOrExternals = M.fromList $
+        [ ((lfMkNameIdentifier tpiInterface, templateIdentifier), (loe, tpiBody))
+        | loe <- localOrExternals
+        , (templateIdentifier, templateInfo) <- M.toList $ templatesDefinedIn [loe]
         , LF.TemplateImplements { tpiInterface, tpiBody }
             <- NM.toList $ LF.tplImplements $ LF.qualObject templateInfo
         ] ++
-        [ ((interfaceIdentifier, lfMkNameIdentifier iciTemplate), iciBody)
-        | (interfaceIdentifier, interfaceInfo) <- M.toList $ interfacesDefinedIn localOrExternals
+        [ ((interfaceIdentifier, lfMkNameIdentifier iciTemplate), (loe, iciBody))
+        | loe <- localOrExternals
+        , (interfaceIdentifier, interfaceInfo) <- M.toList $ interfacesDefinedIn [loe]
         , LF.InterfaceCoImplements { iciTemplate, iciBody }
             <- NM.toList $ LF.intCoImplements $ LF.qualObject interfaceInfo
         ]
 
-    allCreatedContracts :: S.Set ContractIdentifier
-    allCreatedContracts = foldMap (createdContracts . snd) results
+    allCreatedContracts :: M.Map ContractIdentifier [LocalOrExternal]
+    allCreatedContracts = M.unionsWith (<>) $ map (uncurry createdContracts) results
 
-    allExercisedChoices :: S.Set ChoiceIdentifier
-    allExercisedChoices = foldMap (exercisedChoices . snd) results
+    allExercisedChoices :: M.Map ChoiceIdentifier [LocalOrExternal]
+    allExercisedChoices = M.unionsWith (<>) $ map (uncurry exercisedChoices) results
 
-    createdContracts :: [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> S.Set ContractIdentifier
-    createdContracts results =
-        S.fromList $
-        [ ssIdentifierToIdentifier identifier
+    createdContracts :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> M.Map ContractIdentifier [LocalOrExternal]
+    createdContracts loe results =
+        M.fromList $
+        [ (ssIdentifierToIdentifier identifier, [loe])
         | n <- scenarioNodes results
         , Just (SS.NodeNodeCreate SS.Node_Create {SS.node_CreateContractInstance}) <-
               [SS.nodeNode n]
@@ -382,15 +439,16 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
         , Just identifier <- [SS.contractInstanceTemplateId contractInstance]
         ]
 
-    exercisedChoices :: [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> S.Set ChoiceIdentifier
-    exercisedChoices results =
-        S.fromList $
-        [ ChoiceIdentifier (ssIdentifierToIdentifier identifier) (TL.toStrict node_ExerciseChoiceId)
+    exercisedChoices :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> M.Map ChoiceIdentifier [LocalOrExternal]
+    exercisedChoices loe results =
+        M.fromList $
+        [ (choiceIdentifier, [loe])
         | n <- scenarioNodes results
         , Just (SS.NodeNodeExercise SS.Node_Exercise { SS.node_ExerciseTemplateId
                                                      , SS.node_ExerciseChoiceId
                                                      }) <- [SS.nodeNode n]
         , Just identifier <- [node_ExerciseTemplateId]
+        , let choiceIdentifier = ChoiceIdentifier (ssIdentifierToIdentifier identifier) (TL.toStrict node_ExerciseChoiceId)
         ]
 
     scenarioNodes :: [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> [SS.Node]
@@ -400,30 +458,30 @@ printTestCoverage ShowCoverage {getShowCoverage} allPackages results
         , node <- V.toList $ SS.scenarioResultNodes result
         ]
 
-    pkgIdToPkgName :: T.Text -> T.Text
-    pkgIdToPkgName targetPid =
-        case mapMaybe isTargetPackage allPackages of
-          [] -> targetPid
-          [matchingPkg] -> maybe targetPid (LF.unPackageName . LF.packageName) $ LF.packageMetadata $ LF.extPackagePkg matchingPkg
-          _ -> error ("pkgIdToPkgName: more than one package matching name " <> T.unpack targetPid)
-        where
-            isTargetPackage loe
-                | External pkg <- loe
-                , targetPid == LF.unPackageId (LF.extPackageId pkg)
-                = Just pkg
-                | otherwise
-                = Nothing
+    --pkgIdToPkgName :: T.Text -> T.Text
+    --pkgIdToPkgName targetPid =
+    --    case mapMaybe isTargetPackage allPackages of
+    --      [] -> targetPid
+    --      [matchingPkg] -> maybe targetPid (LF.unPackageName . LF.packageName) $ LF.packageMetadata $ LF.extPackagePkg matchingPkg
+    --      _ -> error ("pkgIdToPkgName: more than one package matching name " <> T.unpack targetPid)
+    --    where
+    --        isTargetPackage loe
+    --            | External pkg <- loe
+    --            , targetPid == LF.unPackageId (LF.extPackageId pkg)
+    --            = Just pkg
+    --            | otherwise
+    --            = Nothing
 
-    printTemplateIdentifier :: ContractIdentifier -> String
-    printTemplateIdentifier ContractIdentifier { package, qualifiedName } =
-        T.unpack $ maybe
-            qualifiedName
-            (\pId -> pkgIdToPkgName pId <> ":" <> qualifiedName)
-            package
+    --printTemplateIdentifier :: ContractIdentifier -> String
+    --printTemplateIdentifier ContractIdentifier { package, qualifiedName } =
+    --    T.unpack $ maybe
+    --        qualifiedName
+    --        (\pId -> pkgIdToPkgName pId <> ":" <> qualifiedName)
+    --        package
 
-    printChoiceIdentifier :: ChoiceIdentifier -> String
-    printChoiceIdentifier ChoiceIdentifier { packageContract, choice } =
-        printTemplateIdentifier packageContract <> ":" <> T.unpack choice
+    --printChoiceIdentifier :: ChoiceIdentifier -> String
+    --printChoiceIdentifier ChoiceIdentifier { packageContract, choice } =
+    --    printTemplateIdentifier packageContract <> ":" <> T.unpack choice
 
 printScenarioResults :: UseColor -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> IO ()
 printScenarioResults color results = do
