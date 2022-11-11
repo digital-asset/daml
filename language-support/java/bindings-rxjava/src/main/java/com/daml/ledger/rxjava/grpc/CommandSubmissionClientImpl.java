@@ -39,7 +39,23 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         StubHelper.authenticating(CommandSubmissionServiceGrpc.newFutureStub(channel), accessToken);
   }
 
-  public Single<com.google.protobuf.Empty> submit(
+  @Override
+  public Single<Empty> submit(CommandClientConfig params) {
+    return submit(
+        params.getWorkflowId(),
+        params.getApplicationId(),
+        params.getCommandId(),
+        params.getActAs(),
+        params.getReadAs(),
+        params.getMinLedgerTimeAbs(),
+        params.getMinLedgerTimeRel(),
+        params.getDeduplicationTime(),
+        params.getCommands(),
+        params.getAccessToken());
+  }
+
+  @Deprecated
+  public Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -70,7 +86,8 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         StubHelper.authenticating(stubWithTimeout, accessToken).submit(request));
   }
 
-  public Single<com.google.protobuf.Empty> submit(
+  @Deprecated
+  public Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -93,8 +110,9 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         accessToken);
   }
 
+  @Deprecated
   @Override
-  public Single<com.google.protobuf.Empty> submit(
+  public Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -112,6 +130,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
@@ -133,8 +152,9 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
-  public Single<com.google.protobuf.Empty> submit(
+  public Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -156,6 +176,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
@@ -181,6 +202,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
@@ -203,6 +225,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
@@ -227,6 +250,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
@@ -247,6 +271,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,

@@ -4,6 +4,7 @@
 package com.daml.ledger.rxjava;
 
 import com.daml.ledger.javaapi.data.codegen.HasCommands;
+import com.daml.ledger.rxjava.grpc.CommandClientConfig;
 import com.google.protobuf.Empty;
 import io.reactivex.Single;
 import java.time.Duration;
@@ -15,6 +16,15 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 /** An RxJava version of {@link com.daml.ledger.api.v1.CommandSubmissionServiceGrpc} */
 public interface CommandSubmissionClient {
 
+  Single<Empty> submit(CommandClientConfig params);
+
+  /**
+   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
+   * instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -25,6 +35,13 @@ public interface CommandSubmissionClient {
       @NonNull Optional<Duration> deduplicationTime,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
+   * instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -36,6 +53,13 @@ public interface CommandSubmissionClient {
       @NonNull Optional<Duration> deduplicationTime,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
+   * instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -47,6 +71,13 @@ public interface CommandSubmissionClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
+   * instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -59,6 +90,13 @@ public interface CommandSubmissionClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
+   * instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -66,6 +104,13 @@ public interface CommandSubmissionClient {
       @NonNull String party,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
+   * instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -74,6 +119,13 @@ public interface CommandSubmissionClient {
       @NonNull List<@NonNull String> readAs,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
+  /**
+   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
+   * instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -82,6 +134,13 @@ public interface CommandSubmissionClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
+   * instead
+   *
+   * @deprecated
+   */
+  @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
