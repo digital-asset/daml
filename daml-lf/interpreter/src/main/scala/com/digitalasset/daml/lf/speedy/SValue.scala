@@ -103,6 +103,16 @@ sealed abstract class SValue {
           )
         case SContractId(coid) =>
           V.ValueContractId(coid)
+
+        case SAny(ty: Type, value: SValue) => ty match {
+          case TTyCon(tycon) =>
+            V.ValueAny(tycon, go(value, nextMaxNesting))
+          case _ => throw SError.SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"SValue.toValue: unexpected SAny(ty = ${ty})",
+          )
+        }
+
         case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: STNat | _: SPAP | SToken =>
           throw SError.SErrorCrash(
             NameOf.qualifiedNameOfCurrentFunc,

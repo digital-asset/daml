@@ -81,6 +81,8 @@ message Value {
 
     // The GenMap type
     GenMap gen_map = 18;
+
+    Any any = 19;
   }
 }
 
@@ -204,4 +206,9 @@ message GenMap{
   }
 
   repeated Entry entries = 1;
+}
+
+message Any {
+    Identifier tycon = 1;
+    Value value = 2;
 }

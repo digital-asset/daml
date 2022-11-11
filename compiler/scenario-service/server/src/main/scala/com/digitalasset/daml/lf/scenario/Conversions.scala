@@ -826,6 +826,12 @@ final class Conversions(
           ()
         }
         builder.setGenMap(mapBuilder)
+      case V.ValueAny(tycon, value) =>
+        val protoAny = proto.Any
+              .newBuilder()
+              .setTycon(convertIdentifier(tycon))
+              .setValue(convertValue(value))
+        builder.setAny(protoAny).build()
     }
     builder.build
   }

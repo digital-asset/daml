@@ -149,6 +149,9 @@ object ValueValidator {
         }
       genMap.map(entries => Lf.ValueGenMap(entries.toImmArray))
 
+    case Sum.Any(_) =>
+      Left(invalidArgument("Can't read Any value from ledger API"))
+
     case Sum.Empty => Left(missingField("value"))
   }
 

@@ -679,7 +679,7 @@ convertInterface env mc intName ib =
       pure $ DDataType DefDataType
         { dataLocation = Nothing
         , dataTypeCon = intName
-        , dataSerializable = IsSerializable False
+        , dataSerializable = IsSerializable True
         , dataParams = []
         , dataCons = DataInterface
         }

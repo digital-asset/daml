@@ -845,6 +845,12 @@ private[lf] object Speedy {
                     compiledPackages.pkgInterface.lookupEnumConstructor(tyCon, constructor)
                   )
                 SValue.SEnum(tyCon, constructor, rank)
+              case V.ValueAny(anyTyCon, anyValue) =>
+                discard(assertRight(compiledPackages.pkgInterface.lookupInterfaceInstance(
+                  interfaceName = tyCon,
+                  templateName = anyTyCon,
+                )))
+                SValue.SAny(TTyCon(anyTyCon), go(TTyCon(anyTyCon), anyValue))
               case _ =>
                 typeMismatch
             }

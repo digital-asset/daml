@@ -451,6 +451,8 @@ private[lf] object Pretty {
           prettyValue(verbose)(k) + text(" -> ") + prettyValue(verbose)(v)
         }
         text("GenMap(") + intercalate(text(", "), list.toSeq) + text(")")
+      case ValueAny(tycon, value) =>
+        text("Any(") + prettyIdentifier(tycon) + text(", ") + prettyValue(verbose)(value) + char(')')
     }
 
   object SExpr {

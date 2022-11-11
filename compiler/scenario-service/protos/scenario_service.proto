@@ -380,6 +380,7 @@ message Value {
     Map map = 14;
     Enum enum = 15;
     GenMap gen_map = 16;
+    Any any = 18;
 
     // An unserializable value, e.g. closure. Contains a description of the value.
     string unserializable = 17;
@@ -406,6 +407,11 @@ message GenMap{
   }
 
   repeated Entry entries = 1;
+}
+
+message Any {
+    Identifier tycon = 1;
+    Value value = 2;
 }
 
 // Modules that can be loaded. The actual message types are not

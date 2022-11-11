@@ -77,6 +77,8 @@ message Value {
         Enum enum = 17;
 
         GenMap gen_map = 18; // *since version 11*
+
+        Any any = 19; // *dev only*
     }
     reserved 3; // was `contract_id`
 }
@@ -140,4 +142,9 @@ message GenMap { // *since version 11*
         Value value = 2;
     }
     repeated Entry entries = 1;
+}
+
+message Any {
+    Identifier tycon = 1;
+    Value value = 2;
 }

@@ -46,6 +46,8 @@ sealed abstract class Value extends CidContainer[Value] with Product with Serial
         case ValueTextMap(x) => ValueTextMap(x.mapValue(go))
         case ValueGenMap(entries) =>
           ValueGenMap(entries.map { case (k, v) => go(k) -> go(v) })
+        case ValueAny(tycon, value) =>
+          ValueAny(tycon, go(value))
       }
     go(this)
   }
@@ -69,6 +71,8 @@ sealed abstract class Value extends CidContainer[Value] with Product with Serial
           x.foreach { case (_, value) => go(value) }
         case ValueGenMap(entries) =>
           entries.foreach { case (k, v) => go(k); go(v) }
+        case ValueAny(tycon@_, value) =>
+          go(value)
       }
 
     go
@@ -99,6 +103,11 @@ object Value {
   final case class ValueRecord(
       tycon: Option[Identifier],
       fields: ImmArray[(Option[Name], Value)],
+  ) extends Value
+
+  final case class ValueAny(
+      tycon: Identifier,
+      value: Value
   ) extends Value
 
   object ValueArithmeticError {
@@ -345,6 +354,13 @@ private final class `Value Order instance`(Scope: Value.LookupVariantEnum) exten
           ctorOrder(idA, idB, conA, conB) |+| a ?|? b
         },
       )
+    case ValueAny(_, a) =>
+      (
+        200,
+        k { case ValueAny(_, b) =>
+          a ?|? b
+        },
+      )
   }
 
   private[this] def ctorOrder(
@@ -417,6 +433,10 @@ private final class `Value Equal instance` extends Equal[Value] {
       }
       case genMap: ValueGenMap => { case ValueGenMap(entries2) =>
         genMap.entries === entries2
+      }
+      case v: ValueAny => { case ValueAny(tycon2, value2) =>
+        import v._
+        tycon == tycon2 && value === value2
       }
     }(fallback = false)
 }

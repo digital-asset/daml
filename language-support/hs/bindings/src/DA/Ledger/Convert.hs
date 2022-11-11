@@ -13,6 +13,7 @@ module DA.Ledger.Convert (
     raiseCompletionStreamResponse,
     raiseGetActiveContractsResponse,
     raiseAbsLedgerOffset,
+    raiseAny,
     raiseGetLedgerConfigurationResponse,
     raiseGetTimeResponse,
     raiseTimestamp,
@@ -147,6 +148,7 @@ lowerValue = LL.Value . Just . \case
     VMap m -> (LL.ValueSumMap . lowerTextMap) m
     VGenMap m -> (LL.ValueSumGenMap . lowerGenMap) m
     VEnum e -> (LL.ValueSumEnum . lowerEnum) e
+    VAny a -> (LL.ValueSumAny . lowerAny) a
 
 lowerVariant :: Variant -> LL.Variant
 lowerVariant = \case
@@ -192,6 +194,12 @@ lowerRecordField = \case
         recordFieldLabel = label,
         recordFieldValue = Just (lowerValue fieldValue) }
 
+lowerAny :: Any -> LL.Any
+lowerAny = \case
+    Any {..} ->
+        LL.Any {
+            anyTycon = Just (lowerIdentifier tycon),
+            anyValue = Just (lowerValue value) }
 
 -- raise
 
@@ -386,6 +394,7 @@ raiseValue = \case
         LL.ValueSumOptional o -> (fmap VOpt . raiseOptional) o
         LL.ValueSumMap m -> (fmap VMap . raiseTextMap) m
         LL.ValueSumGenMap m -> (fmap VGenMap . raiseGenMap) m
+        LL.ValueSumAny a -> (fmap VAny . raiseAny) a
 
 raiseVariant :: LL.Variant -> Perhaps Variant
 raiseVariant = \case
@@ -508,3 +517,9 @@ raiseConstructorId = fmap ConstructorId . raiseText "ConstructorId"
 
 raiseText :: String -> Text -> Perhaps Text
 raiseText tag = perhaps tag . \case "" -> Nothing; x -> Just x
+
+raiseAny :: LL.Any -> Perhaps Any
+raiseAny LL.Any {..} =
+  Any
+    <$> (perhaps "tycon" anyTycon >>= raiseIdentifier)
+    <*> (perhaps "value" anyValue >>= raiseValue)

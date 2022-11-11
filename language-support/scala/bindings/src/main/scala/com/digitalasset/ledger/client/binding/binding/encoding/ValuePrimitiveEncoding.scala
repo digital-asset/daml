@@ -71,7 +71,7 @@ object ValuePrimitiveEncoding {
       case Map(_) => Some(valueTextMap(valueText))
       case GenMap(_) => Some(valueGenMap(valueText, valueText))
       // types that represent non-primitives only
-      case Record(_) | Variant(_) | Enum(_) | Empty => None
+      case Record(_) | Variant(_) | Enum(_) | Any(_) | Empty => None
     }
   }
 

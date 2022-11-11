@@ -16,6 +16,7 @@
 module DA.Ledger.Types( -- High Level types for communication over Ledger API
 
     AbsOffset(..),
+    Any(..),
     Checkpoint(..),
     Choice(..),
     Command(..),
@@ -223,6 +224,13 @@ data Value
     | VMap (Map Text Value)
     | VGenMap [(Value, Value)] -- GenMap is sensitive to order.
     | VEnum Enum
+    | VAny Any
+    deriving (Eq,Ord,Show)
+
+data Any = Any
+    { tycon :: Identifier
+    , value :: Value
+    }
     deriving (Eq,Ord,Show)
 
 data Enum = Enum

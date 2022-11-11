@@ -911,12 +911,18 @@ prettyValue' showRecordType prec world (Value (Just vsum)) = case vsum of
   ValueSumOptional (Optional (Just v)) -> "some " <> prettyValue' True precHighest world v
   ValueSumMap (Map entries) -> "Map" <> brackets (fcommasep (mapV (prettyEntry prec world) entries))
   ValueSumGenMap (GenMap entries) -> "GenMap" <> brackets (fcommasep (mapV (prettyGenMapEntry prec world) entries))
+  ValueSumAny (Any mbTycon mbValue) ->
+    "Any" <> parens (fcommasep
+      [ prettyMay "<missing tycon>" (prettyDefName world) mbTycon
+      , prettyMay "<missing value>" (prettyValue' True precLowest world) mbValue
+      ])
   ValueSumUnserializable what -> ltext what
   where
     prettyField (Field label mbValue) =
       hang (ltext label <-> "=") 2
         (prettyMay "<missing value>" (prettyValue' True precHighest world) mbValue)
     precWith = 1
+    precLowest = 1
     precHighest = 9
 
 prettyGenMapEntry :: Int -> LF.World -> GenMap_Entry -> Doc SyntaxClass

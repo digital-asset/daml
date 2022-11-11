@@ -354,6 +354,16 @@ object ValueCoder {
               .to(ImmArray)
             ValueGenMap(genMap)
 
+
+          case proto.Value.SumCase.ANY =>
+            assertSince(TransactionVersion.minGenMap, "Value.SumCase.ANY")
+            val any = protoValue.getAny
+            ValueAny(
+              tycon = decodeIdentifier(any.getTycon)
+                  .fold[Identifier]((err => throw Err(err.errorMessage)), x => x),
+              value = go(newNesting, any.getValue),
+            )
+
           case proto.Value.SumCase.SUM_NOT_SET =>
             throw Err(s"Value not set")
         }
@@ -510,6 +520,13 @@ object ValueCoder {
             }
             builder.setGenMap(protoMap).build()
 
+          case ValueAny(tycon, value) =>
+            assertSince(TransactionVersion.minGenMap, "Value.SumCase.ANY")
+            val protoAny = proto.Any
+                  .newBuilder()
+                  .setTycon(encodeIdentifier(tycon))
+                  .setValue(go(newNesting, value))
+            builder.setAny(protoAny).build()
         }
       }
     }

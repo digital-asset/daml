@@ -234,6 +234,20 @@ private[lf] final class ValueTranslator(
                 )
                 val rank = handleLookup(pkgInterface.lookupEnumConstructor(tyCon, constructor))
                 SValue.SEnum(tyCon, constructor, rank)
+
+              case ValueAny(anyTyCon, anyValue) =>
+                pkgInterface.lookupInterfaceInstance(
+                  interfaceName = tyCon,
+                  templateName = anyTyCon,
+                ) match {
+                  case Left(_) =>
+                    typeError(
+                      s"Mismatching any value, the type tells us $tyCon, but the value tells us $anyTyCon, but there's no interface instance $tyCon for $anyTyCon"
+                    )
+                  case Right(_) =>
+                    SValue.SAny(TTyCon(anyTyCon), go(TTyCon(anyTyCon), anyValue, newNesting))
+                }
+
               case _ =>
                 typeError()
             }

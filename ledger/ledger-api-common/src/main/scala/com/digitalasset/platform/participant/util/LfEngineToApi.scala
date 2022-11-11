@@ -169,6 +169,8 @@ object LfEngineToApi {
             )
           )
         }
+      case _: Lf.ValueAny =>
+        lfValueToApiValue(verbose, Lf.ValueUnit)
     }
 
   def lfContractKeyToApiValue(

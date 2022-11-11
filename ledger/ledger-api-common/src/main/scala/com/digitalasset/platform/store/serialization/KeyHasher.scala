@@ -110,6 +110,10 @@ object KeyHasher extends KeyHasher {
         val z1 = op(z, HashTokenCollectionBegin(entries.length))
         val z2 = entries.foldLeft[T](z1) { case (t, (k, v)) => foldLeft(k, foldLeft(v, t, op), op) }
         op(z2, HashTokenCollectionEnd())
+      case ValueAny(_, v) =>
+        val z1 = op(z, HashTokenCollectionBegin(1))
+        val z2 = foldLeft(v, z1, op)
+        op(z2, HashTokenCollectionEnd())
     }
   }
 

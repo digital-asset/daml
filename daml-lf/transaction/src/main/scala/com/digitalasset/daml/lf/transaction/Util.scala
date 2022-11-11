@@ -70,6 +70,8 @@ object Util {
               s"GenMap are not allowed in transaction version $version",
             )
           }
+        case _ : ValueAny =>
+          value
       }
 
     go(value0)

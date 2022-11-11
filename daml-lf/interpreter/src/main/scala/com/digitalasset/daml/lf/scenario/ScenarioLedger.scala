@@ -321,6 +321,8 @@ object ScenarioLedger {
             collect(k)
             collect(v)
           }
+        case ValueAny(_, value) =>
+          collect(value)
       }
 
     collect(value)

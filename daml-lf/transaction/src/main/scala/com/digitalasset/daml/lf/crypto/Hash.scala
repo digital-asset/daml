@@ -216,6 +216,8 @@ object Hash {
           iterateOver(entries.iterator, entries.length)((acc, x) =>
             acc.addTypedValue(x._1).addTypedValue(x._2)
           )
+        case Value.ValueAny(_, v) =>
+          addTypedValue(v)
       }
   }
 
