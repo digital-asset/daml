@@ -3,29 +3,30 @@
 
 package com.daml.ledger.rxjava.grpc
 
+import java.time.{Duration, Instant}
+import java.util.{Optional, UUID}
+import java.util.concurrent.TimeUnit
+
+import com.daml.ledger.javaapi.data.{Command, CreateCommand, DamlRecord, Identifier}
+import com.daml.ledger.rxjava._
+import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
 }
-import com.daml.ledger.javaapi.data.{Command, CreateCommand, DamlRecord, Identifier}
-import com.daml.ledger.rxjava._
-import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.google.protobuf.empty.Empty
 import io.reactivex.Single
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.time.{Duration, Instant}
-import java.util.UUID.randomUUID
-import java.util.concurrent.TimeUnit
-import java.util.Optional
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 
-class CommandClientImplTest
+//TODO: Should be removed in rxjava 3 copy #15180
+class CommandClientImplDeprecatedTest
     extends AnyFlatSpec
     with Matchers
     with AuthMatchers
@@ -50,22 +51,22 @@ class CommandClientImplTest
 
   behavior of "[2.1] CommandClientImpl.submitAndWait"
 
-  it should "send the given command to the Ledger with new params" in {
+  it should "send the given command to the Ledger" in {
     withCommandClient() { (client, service) =>
       val commands = genCommands(List.empty)
-      val params = CommandClientConfig
-        .create(commands.getWorkflowId, commands.getApplicationId, commands.getCommandId)
-        .withParty(commands.getParty)
-        .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
-        .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
-        .withDeduplicationTime(commands.getDeduplicationTime)
-        .withCommands(commands.getCommands)
-
       client
-        .submitAndWait(params)
+        .submitAndWait(
+          commands.getWorkflowId,
+          commands.getApplicationId,
+          commands.getCommandId,
+          commands.getParty,
+          commands.getMinLedgerTimeAbsolute,
+          commands.getMinLedgerTimeRelative,
+          commands.getDeduplicationTime,
+          commands.getCommands,
+        )
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
-
       service.getLastRequest.value.getCommands.commands shouldBe empty
     }
   }
@@ -78,20 +79,19 @@ class CommandClientImplTest
       val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
       val commands = genCommands(List(command))
-
-      val params = CommandClientConfig
-        .create(commands.getWorkflowId, commands.getApplicationId, commands.getCommandId)
-        .withParty(commands.getParty)
-        .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
-        .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
-        .withDeduplicationTime(commands.getDeduplicationTime)
-        .withCommands(commands.getCommands)
-
       client
-        .submitAndWait(params)
+        .submitAndWait(
+          commands.getWorkflowId,
+          commands.getApplicationId,
+          commands.getCommandId,
+          commands.getParty,
+          commands.getMinLedgerTimeAbsolute,
+          commands.getMinLedgerTimeRelative,
+          commands.getDeduplicationTime,
+          commands.getCommands,
+        )
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
-
       service.getLastRequest.value.getCommands.applicationId shouldBe commands.getApplicationId
       service.getLastRequest.value.getCommands.commandId shouldBe commands.getCommandId
       service.getLastRequest.value.getCommands.party shouldBe commands.getParty
@@ -153,23 +153,6 @@ class CommandClientImplTest
         String,
     ) => Single[A]
 
-  private type SubmitAndWait2[A] = CommandClientConfig => Single[A]
-
-  private def submitAndWaitFor2[A](
-      submit: SubmitAndWait2[A]
-  )(commands: java.util.List[Command], party: String, token: Option[String]) = {
-    val params = CommandClientConfig
-      .create(randomUUID().toString, randomUUID().toString, randomUUID().toString)
-      .withParty(party)
-      .withCommands(token.fold(dummyCommands)(_ => commands))
-      .withAccessToken(Optional.ofNullable(token.orNull))
-
-    submit(params).timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS).blockingGet()
-  }
-
-  private def submitAndWait(client: CommandClient) =
-    submitAndWaitFor2(client.submitAndWait) _
-
   private def submitAndWaitFor[A](
       noToken: SubmitAndWait[A],
       withToken: SubmitAndWaitWithToken[A],
@@ -177,9 +160,9 @@ class CommandClientImplTest
     token
       .fold(
         noToken(
-          randomUUID.toString,
-          randomUUID.toString,
-          randomUUID.toString,
+          UUID.randomUUID.toString,
+          UUID.randomUUID.toString,
+          UUID.randomUUID.toString,
           party,
           Optional.empty(),
           Optional.empty(),
@@ -188,9 +171,9 @@ class CommandClientImplTest
         )
       )(
         withToken(
-          randomUUID.toString,
-          randomUUID.toString,
-          randomUUID.toString,
+          UUID.randomUUID.toString,
+          UUID.randomUUID.toString,
+          UUID.randomUUID.toString,
           party,
           Optional.empty(),
           Optional.empty(),
@@ -201,6 +184,9 @@ class CommandClientImplTest
       )
       .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
       .blockingGet()
+
+  private def submitAndWait(client: CommandClient) =
+    submitAndWaitFor(client.submitAndWait, client.submitAndWait) _
 
   private def submitAndWaitForTransaction(client: CommandClient) =
     submitAndWaitFor(client.submitAndWaitForTransaction, client.submitAndWaitForTransaction) _
