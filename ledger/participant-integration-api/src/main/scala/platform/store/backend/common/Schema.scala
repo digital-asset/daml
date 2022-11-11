@@ -149,6 +149,7 @@ private[backend] object AppendOnlySchema {
         "create_key_value_compression" -> fieldStrategy.smallintOptional(_ =>
           _.create_key_value_compression
         ),
+        "driver_metadata" -> fieldStrategy.byteaOptional(_ => _.driver_metadata),
       )
 
     val exerciseFields: Vector[(String, Field[DbDto.EventExercise, _, _])] =

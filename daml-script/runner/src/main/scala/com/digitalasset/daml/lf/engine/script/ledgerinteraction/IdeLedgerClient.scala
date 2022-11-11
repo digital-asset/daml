@@ -173,7 +173,7 @@ class IdeLedgerClient(
     compiledPackages.pkgInterface.lookupInterfaceInstance(interfaceId, templateId).isRight
   }
 
-  override def queryView(
+  override def queryInterface(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Option[Value])]] = {
@@ -202,7 +202,7 @@ class IdeLedgerClient(
     Future.successful(res)
   }
 
-  override def queryViewContractId(
+  override def queryInterfaceContractId(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
       cid: ContractId,

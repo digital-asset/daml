@@ -22,5 +22,9 @@ sealed case class NoOpTimer(name: String) extends Timer {
   ): T = call
   override def startAsync()(implicit
       context: MetricsContext = MetricsContext.Empty
-  ): TimerHandle = () => ()
+  ): TimerHandle = NoOpTimerHandle
+}
+
+case object NoOpTimerHandle extends TimerHandle {
+  override def stop()(implicit context: MetricsContext): Unit = ()
 }

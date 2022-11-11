@@ -8,6 +8,8 @@ module DA.Test.DamlcIntegration
   ( main
   ) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import           DA.Bazel.Runfiles
 import           DA.Daml.Options
 import           DA.Daml.Options.Types

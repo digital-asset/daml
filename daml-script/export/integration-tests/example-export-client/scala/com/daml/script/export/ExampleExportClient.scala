@@ -35,6 +35,7 @@ case class ExampleExportClientConfig(
     outputDamlYaml: Path,
 )
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 object ExampleExportClientConfig {
   def parse(args: Array[String]): Option[ExampleExportClientConfig] =
     parser.parse(
@@ -102,6 +103,7 @@ object ExampleExportClientConfig {
   }
 }
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 object ExampleExportClient {
   def main(args: Array[String]): Unit = {
     ExampleExportClientConfig.parse(args) match {

@@ -8,14 +8,11 @@ load("//rules_daml:daml.bzl", "daml_compile", "daml_test")
 # documentation. This functions as both a golden test on ledger exports and to
 # make sure that the documentation stays up-to-date.
 daml_ledger_export_test(
-    name = "matches-docs",
+    name = "matches-docs-test",
     dar = "//daml-script/test:script-test.dar",
     expected_args_json = "//docs:source/tools/export/output-root/args.json",
     expected_daml = "//docs:source/tools/export/output-root/Export.daml",
     expected_daml_yaml = "//docs:source/tools/export/output-root/daml.yaml",
-    out_args_json = "args.json",
-    out_daml = "Export.daml",
-    out_daml_yaml = "daml.yaml",
     parties = [
         "Alice",
         "Bob",
@@ -30,14 +27,11 @@ daml_compile(
 )
 
 daml_ledger_export_test(
-    name = "values",
+    name = "values-test",
     dar = ":values.dar",
     expected_args_json = ":values/args.json",
     expected_daml = ":values/Export.daml",
     expected_daml_yaml = ":values/daml.yaml",
-    out_args_json = "out/args.json",
-    out_daml = "out/Export.daml",
-    out_daml_yaml = "out/daml.yaml",
     parties = ["Bank"],
     script_identifier = "Values:initialize",
 )
@@ -66,15 +60,12 @@ daml_compile(
 )
 
 daml_ledger_export_test(
-    name = "interface-choices",
+    name = "interface-choices-test",
     dar = ":interface-choices.dar",
     dev = True,
     expected_args_json = ":interface-choices/args.json",
     expected_daml = ":interface-choices/Export.daml",
     expected_daml_yaml = ":interface-choices/daml.yaml",
-    out_args_json = "out/args.json",
-    out_daml = "out/Export.daml",
-    out_daml_yaml = "out/daml.yaml",
     parties = [
         "Alice",
         "Bob",

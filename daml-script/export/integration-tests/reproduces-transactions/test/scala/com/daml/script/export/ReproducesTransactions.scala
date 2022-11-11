@@ -221,6 +221,7 @@ trait ReproducesTransactions
       TransactionEq.equivalent(beforeCmp, afterCmp).fold(fail(_), _ => succeed)
     }
 
+  @scala.annotation.nowarn("msg=match may not be exhaustive")
   private def testIou: (LedgerClient, Seq[Ref.Party]) => Future[Unit] = {
     case (client, Seq(p1, p2)) =>
       for {

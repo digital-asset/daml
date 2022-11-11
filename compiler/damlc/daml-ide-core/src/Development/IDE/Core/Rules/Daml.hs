@@ -69,7 +69,6 @@ import "ghc-lib" GHC hiding (Succeeded, typecheckModule)
 import "ghc-lib-parser" Module (DefUnitId(..), UnitId(..), stringToUnitId)
 import Safe
 import System.Directory.Extra as Dir
-import System.Environment
 import System.FilePath
 import qualified System.FilePath.Posix as FPP
 import System.IO
@@ -600,6 +599,7 @@ generateStablePackages lfVersion fp = do
                     , "DA-Types.dalf"
                     , "GHC-Prim.dalf"
                     , "GHC-Tuple.dalf"
+                    , "GHC-Tuple-Check.dalf"
                     , "GHC-Types.dalf"]
                 , map ("daml-stdlib" </>)
                     [ "DA-Internal-Any.dalf"
@@ -632,16 +632,15 @@ generateStablePackages lfVersion fp = do
 
 -- | Find the directory containing the stable packages if it exists.
 locateStablePackages :: IO FilePath
-locateStablePackages = do
-    -- On Windows, looking up mainWorkspace/compiler/damlc and then appeanding stable-packages doesn’t work.
-    -- On the other hand, looking up the full path directly breaks our resources logic for dist tarballs.
-    -- Therefore we first try stable-packages and then fall back to resources if that does not exist
-    execPath <- getExecutablePath
-    let jarResources = takeDirectory execPath </> "resources"
-    hasJarResources <- Dir.doesDirectoryExist jarResources
-    if hasJarResources
-        then pure (jarResources </> "stable-packages")
-        else locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "stable-packages")
+locateStablePackages = locateResource Resource
+  -- //compiler/damlc/stable-packages
+  { resourcesPath = "stable-packages"
+    -- In a packaged application, the directory "stable-packages" is preserved
+    -- underneath the resources directory because the bazel target includes
+    -- multiple files.
+    -- See @bazel_tools/packaging/packaging.bzl@.
+  , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc"
+  }
 
 generateStablePackagesRule :: Options -> Rules ()
 generateStablePackagesRule opts =
@@ -1227,8 +1226,14 @@ dlintSettings (DlintEnabled DlintOptions {..}) = do
     where
       getDlintRulesFile :: DlintRulesFile -> IO FilePath
       getDlintRulesFile = \case
-        DefaultDlintRulesFile -> locateRunfiles $
-          mainWorkspace </> "compiler" </> "damlc" </> "daml-ide-core" </> "dlint.yaml"
+        DefaultDlintRulesFile -> locateResource Resource
+          -- //compiler/damlc/daml-ide-core:dlint.yaml
+          { resourcesPath = "dlint.yaml"
+            -- In a packaged application, this is stored directly underneath
+            -- the resources directory because it's a single file.
+            -- See @bazel_tools/packaging/packaging.bzl@.
+          , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc" </> "daml-ide-core"
+          }
         ExplicitDlintRulesFile path -> pure path
 
       getHintFiles :: DlintHintFiles -> IO [FilePath]

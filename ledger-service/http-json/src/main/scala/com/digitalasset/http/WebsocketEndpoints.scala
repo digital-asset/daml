@@ -22,6 +22,8 @@ import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
+import com.daml.metrics.api.MetricsContext
+import com.daml.metrics.akkahttp.WebSocketMetrics
 
 import scala.collection.immutable.Seq
 import scalaz.std.scalaFuture._
@@ -149,14 +151,20 @@ class WebsocketEndpoints(
       )
   }
 
-  def handleWebsocketRequest[A: WebSocketService.StreamQueryReader](
+  def handleWebsocketRequest[A: WebSocketService.StreamRequestParser](
       jwt: Jwt,
       jwtPayload: domain.JwtPayload,
       req: WebSocketUpgrade,
       protocol: String,
   )(implicit lc: LoggingContextOf[InstanceUUID with RequestID], metrics: Metrics): HttpResponse = {
     val handler: Flow[Message, Message, _] =
-      webSocketService.transactionMessageHandler[A](jwt, jwtPayload)
+      WebSocketMetrics.withRateSizeMetrics(
+        metrics.daml.HttpJsonApi.websocketReceivedTotal,
+        metrics.daml.HttpJsonApi.websocketReceivedBytesTotal,
+        metrics.daml.HttpJsonApi.websocketSentTotal,
+        metrics.daml.HttpJsonApi.websocketSentBytesTotal,
+        webSocketService.transactionMessageHandler[A](jwt, jwtPayload),
+      )(MetricsContext.Empty)
     req.handleMessages(handler, Some(protocol))
   }
 }

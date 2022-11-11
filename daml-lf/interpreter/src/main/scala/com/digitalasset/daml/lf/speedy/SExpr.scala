@@ -105,7 +105,7 @@ object SExpr {
     * Because this case exists we must retain the complicated/slow path in the
     * speedy-machine: executeApplication
     */
-  @deprecated("Prefer SEAppAtomic or SEApp helper instead.")
+  @deprecated("Prefer SEAppAtomic or SEApp helper instead.", since = "2.4.0")
   final case class SEAppOnlyFunIsAtomic(fun: SExprAtomic, args: Array[SExpr])
       extends SExpr
       with SomeArrayEquals {

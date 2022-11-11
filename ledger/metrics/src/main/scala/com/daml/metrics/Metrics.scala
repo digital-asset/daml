@@ -6,14 +6,16 @@ package com.daml.metrics
 import com.codahale.metrics.MetricRegistry
 import io.opentelemetry.api.GlobalOpenTelemetry
 import io.opentelemetry.api.metrics.{Meter => OtelMeter}
-import com.daml.metrics.api.MetricName
+import com.daml.metrics.api.{MetricHandle, MetricName}
 import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
+import com.daml.metrics.grpc.GrpcServerMetrics
 
 object Metrics {
   lazy val ForTesting = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
 }
 
-final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
+final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMeter)
     extends DropwizardFactory {
 
   object test {
@@ -45,7 +47,33 @@ final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
 
     object services extends ServicesMetrics(prefix :+ "services", registry)
 
-    object HttpJsonApi extends HttpJsonApiMetrics(prefix :+ "http_json_api", registry)
+    object HttpJsonApi extends HttpJsonApiMetrics(prefix :+ "http_json_api", registry, otelMeter)
+
+    object grpc extends OpenTelemetryFactory with GrpcServerMetrics {
+
+      private val grpcServerMetricsPrefix = prefix :+ "grpc" :+ "server"
+
+      override def otelMeter: OtelMeter = Metrics.this.otelMeter
+      override val callTimer: MetricHandle.Timer = timer(grpcServerMetricsPrefix)
+      override val messagesSent: MetricHandle.Meter = meter(
+        grpcServerMetricsPrefix :+ "messages" :+ "sent"
+      )
+      override val messagesReceived: MetricHandle.Meter = meter(
+        grpcServerMetricsPrefix :+ "messages" :+ "received"
+      )
+      override val messagesSentSize: MetricHandle.Histogram = histogram(
+        grpcServerMetricsPrefix :+ "messages" :+ "sent" :+ "bytes"
+      )
+      override val messagesReceivedSize: MetricHandle.Histogram = histogram(
+        grpcServerMetricsPrefix :+ "messages" :+ "received" :+ "bytes"
+      )
+      override val callsStarted: MetricHandle.Meter = meter(
+        grpcServerMetricsPrefix :+ "started"
+      )
+      override val callsFinished: MetricHandle.Meter = meter(
+        grpcServerMetricsPrefix :+ "handled"
+      )
+    }
 
   }
 }

@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Sink
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.{CommonErrors, LedgerApiErrors}
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
@@ -225,7 +225,7 @@ object BridgeWriteService {
           )
         case QueueOfferResult.QueueClosed =>
           SubmissionResult.SynchronousError(
-            LedgerApiErrors.ServiceNotRunning
+            CommonErrors.ServiceNotRunning
               .Reject("Sandbox-on-X ledger bridge")
               .rpcStatus()
           )

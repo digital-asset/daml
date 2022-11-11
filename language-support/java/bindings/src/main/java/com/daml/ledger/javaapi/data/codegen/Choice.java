@@ -36,10 +36,12 @@ public final class Choice<Tpl, ArgType, ResType> {
   }
 
   /**
-   * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
-   *     href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code
-   *     generator</a>, and <em>should not be referenced directly</em>. Applications should refer to
-   *     the generated {@code CHOICE_*} fields on templates or interfaces.
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+   * and <em>should not be referenced directly</em>. Applications should refer to the generated
+   * {@code CHOICE_*} fields on templates or interfaces.
+   *
+   * @hidden
    */
   public static <Tpl, ArgType, ResType> Choice<Tpl, ArgType, ResType> create(
       final String name,

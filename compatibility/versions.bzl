@@ -25,7 +25,7 @@ sdk_versions = [
     "2.0.1",
     "2.1.1",
     "2.2.1",
-    "2.3.6",
+    "2.3.7",
     "2.4.0",
     "0.0.0",
 ]
@@ -52,7 +52,7 @@ platform_versions = [
     "2.0.1",
     "2.1.1",
     "2.2.1",
-    "2.3.6",
+    "2.3.7",
     "2.4.0",
     "0.0.0",
 ]
@@ -79,7 +79,7 @@ stable_versions = [
     "2.0.1",
     "2.1.1",
     "2.2.1",
-    "2.3.6",
+    "2.3.7",
     "2.4.0",
     "0.0.0",
 ]
@@ -307,16 +307,16 @@ version_sha256s = {
         "create_daml_app_patch": "57b76fb4ed7c3bf6bc900dc70965b51434a22a30aa4229d46684a35e300bfe81",
         "sandbox_on_x": "21aa5f21df5f2976189dc9c1a2512ee92a1874927e7014f5756816d2a3f32573",
     },
-    "2.3.6": {
-        "linux": "d10adab8229845a0b8a17d4a57f07f497e4191faa54c8205494188c2113b7375",
-        "macos": "9aa85b939badd99e38756def3580bed223c527c1f53cd842ecc8e4bda41421df",
-        "windows": "f0c7a5d881140277fcce8ed3a84880b5da6e88717e035fddb1f8551f36a4da32",
-        "test_tool": "72bae58e031ae07eb055bb98ab297aafe69940005201db8a60803785b8d6a02b",
-        "daml_types": "cce5e4df2e0a5bd55828544226d4f3946558a09becb4b341bf2a6c8ab8cf4379",
-        "daml_ledger": "7c65c9d5a479a2eaebf454ea5b494de027a33df02e0756b3cce3b7c70957afc6",
-        "daml_react": "d14326a28978d1767330fa3d09e0844e31c30f4a4e2521d903cd9844413426a4",
+    "2.3.7": {
+        "linux": "f78edf72c801ce1cd49a75042795c182b40537f80fc843d02052d2c2cc8f20a3",
+        "macos": "d3e52a8890b2eb94898c3e6c80146edf684bfaaa49c7feb211d50037fafc0203",
+        "windows": "fc05e9022f18a715dcb41b472919cc9dee5092c8c41465de900004b804bfa6b7",
+        "test_tool": "d9083025d57250eff808263ac62fc66ee16bfeff330ca2b06f4649d1330a66ec",
+        "daml_types": "47eacd61b5ff257ab0f8ebcb55d878ee138fa06efc6aa678f083a87bc042ad66",
+        "daml_ledger": "b9de1a96da8e7a41a3e2d5ae64e0c5145f040ef2539d07bcf2455e74f6ae3872",
+        "daml_react": "db4eca19d80fd60ef6882368d91fd16649b09b051c01afa276ce0df46a80faae",
         "create_daml_app_patch": "57b76fb4ed7c3bf6bc900dc70965b51434a22a30aa4229d46684a35e300bfe81",
-        "sandbox_on_x": "68fca56570987a896392102391a2893458dddcea6665f77d44dc4290172f8572",
+        "sandbox_on_x": "c82c383ecdd51ebaae209fbd409127de84f0714a28a17ba304c2f93d57744185",
     },
     "2.4.0": {
         "linux": "0bef7f2247165d37e2b0cc798cec6a4ddd0e39fc6e6d75b523b577579a49a6e7",

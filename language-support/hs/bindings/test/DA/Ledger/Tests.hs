@@ -5,6 +5,8 @@
 
 module DA.Ledger.Tests (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Control.Monad
 import Control.Monad.IO.Class(liftIO)
 import DA.Bazel.Runfiles

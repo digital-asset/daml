@@ -8,6 +8,8 @@ module DA.Test.Daml2jsUtils (
     setupYarnEnv,
     ) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as BSL
 import Control.Monad

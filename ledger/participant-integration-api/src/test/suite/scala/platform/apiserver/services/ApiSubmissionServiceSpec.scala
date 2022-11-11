@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver.services
 
 import com.daml.api.util.TimeProvider
-import com.daml.error.definitions.ErrorCause
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.daml.ledger.api.domain.{CommandId, Commands}
