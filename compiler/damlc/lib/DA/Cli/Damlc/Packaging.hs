@@ -469,6 +469,7 @@ baseImports =
         False
         (map (\mod -> (GHC.mkModuleName mod, GHC.mkModuleName (currentSdkPrefix <> "." <> mod)))
            [ "GHC.Tuple"
+           , "GHC.Tuple.Check"
            , "GHC.Types"
            , "DA.Types"
            , "DA.Internal.Erased"

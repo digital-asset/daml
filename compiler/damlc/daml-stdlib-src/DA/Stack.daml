@@ -16,7 +16,7 @@ import DA.Text
 import GHC.Stack.Types hiding (SrcLoc(..))
 import qualified DA.Internal.Record
 import qualified GHC.Stack.Types as GHC
-import GHC.Types (magic)
+import GHC.Tuple.Check
 
 -- | Pretty-print a `CallStack`.
 prettyCallStack : CallStack -> Text
