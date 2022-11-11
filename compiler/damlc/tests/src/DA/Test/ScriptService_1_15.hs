@@ -165,25 +165,25 @@ main =
                     , "  let i2c1 = toInterfaceContractId @MyInterface2 c1"
                     , "  let i2c2 = toInterfaceContractId @MyInterface2 c2"
 
-                    -- Test queryViewContractId (Interface1)
-                    , "  Some v <- queryViewContractId p i1a1"
+                    -- Test queryInterfaceContractId (Interface1)
+                    , "  Some v <- queryInterfaceContractId p i1a1"
                     , "  v.info === 142"
-                    , "  Some v <- queryViewContractId p i1a2"
+                    , "  Some v <- queryInterfaceContractId p i1a2"
                     , "  v.info === 143"
-                    , "  Some v <- queryViewContractId p i1b1"
+                    , "  Some v <- queryInterfaceContractId p i1b1"
                     , "  v.info === 244"
-                    , "  None <- queryViewContractId p i1a3" -- contract is archived
-                    , "  None <- queryViewContractId p i1a4" -- not a stakeholder
+                    , "  None <- queryInterfaceContractId p i1a3" -- contract is archived
+                    , "  None <- queryInterfaceContractId p i1a4" -- not a stakeholder
 
-                    -- Test queryViewContractId (Interface2)
-                    , "  Some v <- queryViewContractId p i2b1"
+                    -- Test queryInterfaceContractId (Interface2)
+                    , "  Some v <- queryInterfaceContractId p i2b1"
                     , "  v.info === \"B:44\""
-                    , "  Some v <- queryViewContractId p i2c1"
+                    , "  Some v <- queryInterfaceContractId p i2c1"
                     , "  v.info === \"C:I-am-c1\""
-                    , "  None <- queryViewContractId p i2c2" -- view function failed
+                    , "  None <- queryInterfaceContractId p i2c2" -- view function failed
 
-                    -- Test queryView (Interface1)
-                    , "  [(i1,Some v1),(i2,Some v2),(i3,Some v3)] <- sortOn snd <$> queryView @MyInterface1 p"
+                    -- Test queryInterface (Interface1)
+                    , "  [(i1,Some v1),(i2,Some v2),(i3,Some v3)] <- sortOn snd <$> queryInterface @MyInterface1 p"
                     , "  i1 === i1a1"
                     , "  i2 === i1a2"
                     , "  i3 === i1b1"
@@ -191,8 +191,8 @@ main =
                     , "  v2.info === 143"
                     , "  v3.info === 244"
 
-                    -- Test queryView (Interface2)
-                    , "  [(i1,None),(i2,Some v2),(i3,Some v3)] <- sortOn snd <$> queryView @MyInterface2 p"
+                    -- Test queryInterface (Interface2)
+                    , "  [(i1,None),(i2,Some v2),(i3,Some v3)] <- sortOn snd <$> queryInterface @MyInterface2 p"
                     , "  i1 === i2c2" -- view function failed, so no info
                     , "  i2 === i2b1"
                     , "  i3 === i2c1"

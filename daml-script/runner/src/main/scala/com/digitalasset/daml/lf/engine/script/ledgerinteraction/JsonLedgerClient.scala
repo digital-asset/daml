@@ -209,13 +209,13 @@ class JsonLedgerClient(
       })
     }
   }
-  override def queryView(
+  override def queryInterface(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Option[Value])]] = {
     sys.error("not implemented") // TODO https://github.com/digital-asset/daml/issues/14830
   }
-  override def queryViewContractId(
+  override def queryInterfaceContractId(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
       cid: ContractId,
