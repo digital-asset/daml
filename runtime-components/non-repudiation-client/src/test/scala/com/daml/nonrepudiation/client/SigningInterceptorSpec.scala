@@ -4,14 +4,13 @@
 package com.daml.nonrepudiation.client
 
 import java.time.{Clock, Instant, ZoneId}
-import java.util.Collections
-
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
 import com.daml.ledger.javaapi.data.Command
 import com.daml.ledger.api.v1.CommandsOuterClass.{Command => ProtoCommand}
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.daml.ledger.rxjava.DamlLedgerClient
+import com.daml.ledger.rxjava.grpc.CommandClientConfig
 import com.daml.nonrepudiation.testing._
 import com.daml.nonrepudiation.{
   AlgorithmString,
@@ -26,6 +25,7 @@ import org.scalatest.Inside
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.util.Collections.singletonList
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 
@@ -75,14 +75,14 @@ final class SigningInterceptorSpec extends AsyncFlatSpec with Matchers with Insi
       val expectedApplicationId = "application-id"
       val expectedCommandId = "command-id"
       val expectedParty = "party-1"
+
+      val params = CommandClientConfig
+        .create(expectedWorkflowId, expectedApplicationId, expectedCommandId)
+        .withParty(expectedParty)
+        .withCommands(singletonList(Command.fromProtoCommand(command)))
+
       client.getCommandClient
-        .submitAndWait(
-          expectedWorkflowId,
-          expectedApplicationId,
-          expectedCommandId,
-          expectedParty,
-          Collections.singletonList(Command.fromProtoCommand(command)),
-        )
+        .submitAndWait(params)
         .blockingGet()
 
       withClue("Only the command should be signed, not the call to the ledger identity service") {
