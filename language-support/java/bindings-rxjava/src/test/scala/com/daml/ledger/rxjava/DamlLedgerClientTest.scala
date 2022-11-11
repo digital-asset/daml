@@ -197,17 +197,17 @@ class DamlLedgerClientTest
       val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
       val commands = genCommands(List[Command](command), Option(someParty))
+
+      val params = CommandClientConfig
+        .create(commands.getWorkflowId, commands.getApplicationId, commands.getCommandId)
+        .withParty(commands.getParty)
+        .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
+        .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
+        .withDeduplicationTime(commands.getDeduplicationTime)
+        .withCommands(commands.getCommands)
+
       commandSubmissionClient
-        .submit(
-          commands.getWorkflowId,
-          commands.getApplicationId,
-          commands.getCommandId,
-          commands.getParty,
-          commands.getMinLedgerTimeAbsolute,
-          commands.getMinLedgerTimeRelative,
-          commands.getDeduplicationTime,
-          commands.getCommands,
-        )
+        .submit(params)
         .timeout(1L, TimeUnit.SECONDS)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()

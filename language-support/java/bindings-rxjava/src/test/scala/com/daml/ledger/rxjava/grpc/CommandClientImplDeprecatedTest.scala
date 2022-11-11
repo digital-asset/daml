@@ -26,6 +26,7 @@ import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 
 //TODO: Should be removed in rxjava 3 copy #15180
+@Deprecated
 class CommandClientImplDeprecatedTest
     extends AnyFlatSpec
     with Matchers
