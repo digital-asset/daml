@@ -98,8 +98,9 @@ class PersistentPartyRecordStore(
                 _ <- withoutPartyRecord(party) {
                   val newPartyRecord = PartyRecord(
                     party = party,
-                    identityProviderId = Ref.IdentityProviderId.Default,
-                    // TODO DPP-1299 What is going on here? why we are creating a party?
+                    identityProviderId = partyRecordUpdate.identityProviderIdUpdate.getOrElse(
+                      Ref.IdentityProviderId.Default
+                    ),
                     metadata = domain.ObjectMeta(
                       resourceVersionO = None,
                       annotations = partyRecordUpdate.metadataUpdate.annotationsUpdateO.getOrElse(
@@ -205,6 +206,11 @@ class PersistentPartyRecordStore(
         backend.increaseResourceVersion(
           internalId = dbPartyRecord.internalId
         )(connection)
+    }
+    partyRecordUpdate.identityProviderIdUpdate.foreach { identityProviderId =>
+      backend.updateIdentityProviderId(dbPartyRecord.internalId, identityProviderId.toDb)(
+        connection
+      )
     }
     // Step 2: Update annotations
     partyRecordUpdate.metadataUpdate.annotationsUpdateO.foreach { newAnnotations =>

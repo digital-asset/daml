@@ -342,6 +342,7 @@ private[apiserver] final class ApiPartyManagementService private (
                 PartyRecordUpdate(
                   party = partyDetailsUpdate.party,
                   metadataUpdate = partyDetailsUpdate.metadataUpdate,
+                  identityProviderIdUpdate = partyDetailsUpdate.identityProviderIdUpdate,
                 )
               )
             }

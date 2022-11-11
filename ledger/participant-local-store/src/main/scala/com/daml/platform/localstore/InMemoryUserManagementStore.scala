@@ -64,6 +64,8 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
           userUpdate.primaryPartyUpdateO.getOrElse(userInfo.user.primaryParty)
         val updatedIsDeactivated =
           userUpdate.isDeactivatedUpdateO.getOrElse(userInfo.user.isDeactivated)
+        val identityProviderId =
+          userUpdate.identityProviderIdUpdate.getOrElse(userInfo.user.identityProviderId)
         val existingAnnotations = userInfo.user.annotations
         val updatedAnnotations =
           userUpdate.metadataUpdate.annotationsUpdateO.fold(existingAnnotations) { newAnnotations =>
@@ -92,6 +94,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
               isDeactivated = updatedIsDeactivated,
               resourceVersion = newResourceVersion,
               annotations = updatedAnnotations,
+              identityProviderId = identityProviderId,
             )
           )
           state.update(userUpdate.id, updatedUserInfo)

@@ -228,6 +228,12 @@ class PersistentUserManagementStore(
                 primaryPartyO = newValue,
               )(connection)
             }
+            userUpdate.identityProviderIdUpdate.foreach { newValue =>
+              backend.updateUserIdentityProviderId(
+                internalId = dbUser.internalId,
+                identityProviderId = newValue.toDb,
+              )(connection)
+            }
         }
         domainUser <- withUser(id = userUpdate.id, Ref.IdentityProviderId.Default) {
           dbUserAfterUpdates => // todo provide identityProviderId

@@ -21,11 +21,13 @@ case class PartyDetailsUpdate(
     displayNameUpdate: Option[Option[String]],
     isLocalUpdate: Option[Boolean],
     metadataUpdate: ObjectMetaUpdate,
+    identityProviderIdUpdate: Option[Ref.IdentityProviderId] = None,
 )
 
 case class PartyRecordUpdate(
     party: Ref.Party,
     metadataUpdate: ObjectMetaUpdate,
+    identityProviderIdUpdate: Option[Ref.IdentityProviderId],
 )
 
 trait PartyRecordStore {

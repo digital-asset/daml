@@ -11,7 +11,8 @@ protected[update] object UpdateRequestsPaths {
     val resourceVersion: List[String] =
       List(FieldNames.User.metadata, FieldNames.Metadata.resourceVersion)
     val primaryParty: List[String] = List(FieldNames.User.primaryParty)
-    val isDeactivated = List(FieldNames.User.isDeactivated)
+    val isDeactivated: List[String] = List(FieldNames.User.isDeactivated)
+    val identityProviderId: List[String] = List(FieldNames.User.identityProviderId)
     val fullUpdateTrie: UpdatePathsTrie = UpdatePathsTrie
       .fromPaths(
         Seq(
@@ -20,6 +21,7 @@ protected[update] object UpdateRequestsPaths {
           isDeactivated,
           annotations,
           resourceVersion,
+          identityProviderId,
         )
       )
       .getOrElse(sys.error("Failed to create full update user tree. This should never happen"))
@@ -33,6 +35,7 @@ protected[update] object UpdateRequestsPaths {
       List(FieldNames.PartyDetails.localMetadata, FieldNames.Metadata.resourceVersion)
     val displayName: List[String] = List(FieldNames.PartyDetails.displayName)
     val isLocal: List[String] = List(FieldNames.PartyDetails.isLocal)
+    val identityProviderId: List[String] = List(FieldNames.PartyDetails.identityProviderId)
     val fullUpdateTrie: UpdatePathsTrie = UpdatePathsTrie
       .fromPaths(
         Seq(
@@ -41,6 +44,7 @@ protected[update] object UpdateRequestsPaths {
           isLocal,
           annotations,
           resourceVersion,
+          identityProviderId,
         )
       )
       .getOrElse(sys.error("Failed to create full update user tree. This should never happen"))

@@ -15,6 +15,8 @@ object FieldNames {
       resolveFieldName(admin.user_management_service.User)(_.IS_DEACTIVATED_FIELD_NUMBER)
     val metadata: String =
       resolveFieldName(admin.user_management_service.User)(_.METADATA_FIELD_NUMBER)
+    val identityProviderId: String =
+      resolveFieldName(admin.user_management_service.User)(_.IDENTITY_PROVIDER_ID_FIELD_NUMBER)
   }
   object Metadata {
     val annotations: String =
@@ -32,6 +34,10 @@ object FieldNames {
       resolveFieldName(admin.party_management_service.PartyDetails)(_.DISPLAY_NAME_FIELD_NUMBER)
     val isLocal: String =
       resolveFieldName(admin.party_management_service.PartyDetails)(_.IS_LOCAL_FIELD_NUMBER)
+    val identityProviderId: String =
+      resolveFieldName(admin.party_management_service.PartyDetails)(
+        _.IDENTITY_PROVIDER_ID_FIELD_NUMBER
+      )
   }
 
   private def resolveFieldName[A <: GeneratedMessageCompanion[_]](

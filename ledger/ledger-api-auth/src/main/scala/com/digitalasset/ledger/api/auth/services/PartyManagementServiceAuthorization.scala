@@ -54,7 +54,16 @@ private[daml] final class PartyManagementServiceAuthorization(
   override def updatePartyDetails(
       request: UpdatePartyDetailsRequest
   ): Future[UpdatePartyDetailsResponse] =
-    authorizer.requireAdminOrIDPAdminClaims(service.updatePartyDetails)(request)
+    authorizer.requireIDPContext(
+      request.partyDetails.map(_.identityProviderId).getOrElse(""),
+      authorizer.requireAdminOrIDPAdminClaims(service.updatePartyDetails),
+    )((identityProviderId, request) =>
+      request.copy(partyDetails =
+        request.partyDetails.map(_.copy(identityProviderId = identityProviderId))
+      )
+    )(
+      request
+    )
 
   override def bindService(): ServerServiceDefinition =
     PartyManagementServiceGrpc.bindService(this, executionContext)

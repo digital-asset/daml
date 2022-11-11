@@ -105,4 +105,14 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
     )
   }
 
+  override def updateIdentityProviderId(
+      internalId: Int,
+      identityProviderId: Option[IdentityProviderId.Id],
+  )(connection: Connection): Boolean =
+    ParticipantMetadataBackend.updateIdentityProviderId("participant_party_records")(
+      internalId,
+      identityProviderId,
+    )(
+      connection
+    )
 }

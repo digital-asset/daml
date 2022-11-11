@@ -57,12 +57,14 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
   def makePartRecordUpdate(
       party: Ref.Party = party1,
       annotationsUpdateO: Option[Map[String, String]] = None,
+      identityProviderIdUpdate: Option[Ref.IdentityProviderId] = None,
   ): PartyRecordUpdate = PartyRecordUpdate(
     party = party,
     metadataUpdate = ObjectMetaUpdate(
       resourceVersionO = None,
       annotationsUpdateO = annotationsUpdateO,
     ),
+    identityProviderIdUpdate = identityProviderIdUpdate,
   )
 
   def resetResourceVersion(
@@ -138,6 +140,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                   resourceVersionO = create1.value.metadata.resourceVersionO,
                   annotationsUpdateO = Some(Map("k1" -> "v1")),
                 ),
+                identityProviderIdUpdate = None,
               ),
               ledgerPartyExists = _ => Future.successful(true),
             )
@@ -164,6 +167,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                     )
                   ),
                 ),
+                identityProviderIdUpdate = None,
               ),
               ledgerPartyExists = _ => Future.successful(true),
             )
@@ -203,6 +207,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                     )
                   ),
                 ),
+                identityProviderIdUpdate = None,
               ),
               ledgerPartyExists = _ => Future.successful(true),
             )
@@ -228,6 +233,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                   resourceVersionO = None,
                   annotationsUpdateO = Some(Map("k1" -> "v1")),
                 ),
+                identityProviderIdUpdate = None,
               ),
               ledgerPartyExists = _ => Future.successful(false),
             )
@@ -248,6 +254,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                   resourceVersionO = Some(100),
                   annotationsUpdateO = Some(Map("k1" -> "v1")),
                 ),
+                identityProviderIdUpdate = None,
               ),
               ledgerPartyExists = _ => Future.successful(true),
             )

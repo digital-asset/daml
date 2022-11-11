@@ -113,9 +113,15 @@ private[daml] final class UserManagementServiceAuthorization(
         )
     }
 
-  override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] = {
-    authorizer.requireAdminOrIDPAdminClaims(service.updateUser)(request)
-  }
+  override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] =
+    authorizer.requireIDPContext(
+      request.user.map(_.identityProviderId).getOrElse(""),
+      authorizer.requireAdminOrIDPAdminClaims(service.updateUser),
+    )((identityProviderId, request) =>
+      request.copy(user = request.user.map(_.copy(identityProviderId = identityProviderId)))
+    )(
+      request
+    )
 
   override def bindService(): ServerServiceDefinition =
     UserManagementServiceGrpc.bindService(this, executionContext)

@@ -4,9 +4,9 @@
 package com.daml.platform.store.backend.localstore
 
 import java.sql.Connection
-
 import anorm.SqlParser.{long, str}
 import anorm.{RowParser, SqlStringInterpolation, ~}
+import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 
 /** Provides primitive backend operations for managing:
@@ -103,6 +103,21 @@ object ParticipantMetadataBackend {
     val rowsUpdated = SQL"""
          UPDATE #$tableName
          SET resource_version  = resource_version + 1
+         WHERE
+             internal_id = ${internalId}
+       """.executeUpdate()(connection)
+    rowsUpdated == 1
+  }
+
+  def updateIdentityProviderId(
+      tableName: String
+  )(internalId: Int, identityProviderId: Option[Ref.IdentityProviderId.Id])(
+      connection: Connection
+  ): Boolean = {
+    val rowsUpdated =
+      SQL"""
+         UPDATE #$tableName
+         SET identity_provider_id  = ${identityProviderId.map(_.value): Option[String]}
          WHERE
              internal_id = ${internalId}
        """.executeUpdate()(connection)

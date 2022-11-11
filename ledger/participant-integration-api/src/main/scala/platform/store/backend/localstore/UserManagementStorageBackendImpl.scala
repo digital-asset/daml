@@ -344,4 +344,18 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     rowsUpdated == 1
   }
 
+  override def updateUserIdentityProviderId(
+      internalId: Int,
+      identityProviderId: Option[Ref.IdentityProviderId.Id],
+  )(connection: Connection): Boolean = {
+    val rowsUpdated =
+      SQL"""
+         UPDATE participant_users
+         SET identity_provider_id  = ${identityProviderId.map(_.value): Option[String]}
+         WHERE
+             internal_id = ${internalId}
+       """.executeUpdate()(connection)
+    rowsUpdated == 1
+  }
+
 }

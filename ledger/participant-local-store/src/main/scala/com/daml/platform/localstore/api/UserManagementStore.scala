@@ -14,6 +14,7 @@ case class UserUpdate(
     primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
     isDeactivatedUpdateO: Option[Boolean] = None,
     metadataUpdate: ObjectMetaUpdate,
+    identityProviderIdUpdate: Option[Ref.IdentityProviderId] = None,
 )
 
 case class ObjectMetaUpdate(
