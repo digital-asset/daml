@@ -33,17 +33,18 @@ message Transfer {
   // Optional
   string workflow_id = 3;
 
-  // Ledger effective time.
-  // Required
-  google.protobuf.Timestamp effective_at = 4;
-
   // The absolute offset. The format of this field is described in ``ledger_offset.proto``.
   // Required
-  string offset = 5;
+  string offset = 4;
+
+  // Party on whose behalf the command was executed.
+  // Must be a valid PartyIdString (as described in ``value.proto``).
+  // Required
+  string submitter = 5;
 
   oneof event {
-    TransferredOutEvent transfer_out_event = 6;
-    TransferredInEvent transfer_in_event = 7;
+    TransferredOutEvent transfer_out_event = 7;
+    TransferredInEvent transfer_in_event = 8;
   }
 }
 
@@ -79,25 +80,23 @@ message TransferredOutEvent {
 // Records that a contract has been transferred-in, and it becomes usable on the target domain
 message TransferredInEvent {
 
-  // The ID of the transferred contract.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
-  string contract_id = 1;
-
   // The ID of the source domain
   // Must be a valid domain ID
   // Required
-  string source = 2;
+  string source = 1;
 
   // The ID of the target domain
   // Must be a valid domain ID
   // Required
-  string target = 3;
+  string target = 2;
 
   // The ID of the transfer-out event
   // For correlation capabilities
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string transfer_out_id = 4;
+  string transfer_out_id = 3;
+
+  // Required
+  CreatedEvent created_event = 4;
 }
 

@@ -42,15 +42,12 @@ message TransferCommand {
   // Required
   string command_id = ;
 
-  // TODO deprecated, consider dropping it for 3.0
   // Party on whose behalf the command should be executed.
   // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
   // to act on behalf of the given party.
   // Must be a valid PartyIdString (as described in ``value.proto``).
-  // Deprecated in favor of the ``act_as`` field. If both are set, then the effective list of parties on whose
-  // behalf the command should be executed is the union of all parties listed in ``party`` and ``act_as``.
-  // Optional
-  string party = ;
+  // Required
+  string submitter = ;
 
   reserved 6; // was ledger_effective_time
   reserved 7; // was maximum_record_time
@@ -108,7 +105,7 @@ message TransferCommand {
   // should be executed is the union of all parties listed in ``party`` and ``act_as``, which must be non-empty.
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
   // Optional
-  repeated string act_as = ;
+  // repeated string act_as = ;
 
   // Set of parties on whose behalf (in addition to all parties listed in ``act_as``) contracts can be retrieved.
   // This affects Daml operations such as ``fetch``, ``fetchByKey``, ``lookupByKey``, ``exercise``, and ``exerciseByKey``.

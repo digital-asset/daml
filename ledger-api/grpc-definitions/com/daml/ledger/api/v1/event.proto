@@ -40,7 +40,7 @@ message CreatedEvent {
 
   // The ID of this particular event.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Optional, this field is filled only for transactions and not for transfers.
   string event_id = 1;
 
   // The ID of the created contract.
