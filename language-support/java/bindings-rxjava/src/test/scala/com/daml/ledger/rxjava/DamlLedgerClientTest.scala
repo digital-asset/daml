@@ -5,7 +5,6 @@ package com.daml.ledger.rxjava
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
-
 import com.daml.ledger.javaapi.data.LedgerOffset.Absolute
 import com.daml.ledger.javaapi.data.{Command, CreateCommand, DamlRecord, Identifier}
 import com.daml.ledger.rxjava.grpc.helpers.{CommandServiceImpl, _}
@@ -18,6 +17,7 @@ import com.daml.ledger.api.v1.command_service.{
 }
 import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import com.daml.ledger.api.v1.package_service._
+import com.daml.ledger.rxjava.grpc.CommandClientConfig
 import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import io.grpc.Server
@@ -152,17 +152,17 @@ class DamlLedgerClientTest
       val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
       val commands = genCommands(List(command), Option(someParty))
+
+      val params = CommandClientConfig
+        .create(commands.getWorkflowId, commands.getApplicationId, commands.getCommandId)
+        .withParty(commands.getParty)
+        .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
+        .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
+        .withDeduplicationTime(commands.getDeduplicationTime)
+        .withCommands(commands.getCommands)
+
       commandClient
-        .submitAndWait(
-          commands.getWorkflowId,
-          commands.getApplicationId,
-          commands.getCommandId,
-          commands.getParty,
-          commands.getMinLedgerTimeAbsolute,
-          commands.getMinLedgerTimeRelative,
-          commands.getDeduplicationTime,
-          commands.getCommands,
-        )
+        .submitAndWait(params)
         .timeout(1L, TimeUnit.SECONDS)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()

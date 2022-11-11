@@ -18,7 +18,6 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.time.{Duration, Instant}
 import java.util.UUID.randomUUID
 import java.util.concurrent.TimeUnit
 import java.util.Optional
@@ -129,34 +128,10 @@ class CommandClientImplTest
     List(command).asJava
   }
 
-  private type SubmitAndWait[A] =
-    (
-        String,
-        String,
-        String,
-        String,
-        Optional[Instant],
-        Optional[Duration],
-        Optional[Duration],
-        java.util.List[Command],
-    ) => Single[A]
-  private type SubmitAndWaitWithToken[A] =
-    (
-        String,
-        String,
-        String,
-        String,
-        Optional[Instant],
-        Optional[Duration],
-        Optional[Duration],
-        java.util.List[Command],
-        String,
-    ) => Single[A]
+  private type SubmitAndWait[A] = CommandClientConfig => Single[A]
 
-  private type SubmitAndWait2[A] = CommandClientConfig => Single[A]
-
-  private def submitAndWaitFor2[A](
-      submit: SubmitAndWait2[A]
+  private def submitAndWaitFor[A](
+      submit: SubmitAndWait[A]
   )(commands: java.util.List[Command], party: String, token: Option[String]) = {
     val params = CommandClientConfig
       .create(randomUUID().toString, randomUUID().toString, randomUUID().toString)
@@ -168,51 +143,16 @@ class CommandClientImplTest
   }
 
   private def submitAndWait(client: CommandClient) =
-    submitAndWaitFor2(client.submitAndWait) _
-
-  private def submitAndWaitFor[A](
-      noToken: SubmitAndWait[A],
-      withToken: SubmitAndWaitWithToken[A],
-  )(commands: java.util.List[Command], party: String, token: Option[String]): A =
-    token
-      .fold(
-        noToken(
-          randomUUID.toString,
-          randomUUID.toString,
-          randomUUID.toString,
-          party,
-          Optional.empty(),
-          Optional.empty(),
-          Optional.empty(),
-          dummyCommands,
-        )
-      )(
-        withToken(
-          randomUUID.toString,
-          randomUUID.toString,
-          randomUUID.toString,
-          party,
-          Optional.empty(),
-          Optional.empty(),
-          Optional.empty(),
-          commands,
-          _,
-        )
-      )
-      .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-      .blockingGet()
+    submitAndWaitFor(client.submitAndWait) _
 
   private def submitAndWaitForTransaction(client: CommandClient) =
-    submitAndWaitFor(client.submitAndWaitForTransaction, client.submitAndWaitForTransaction) _
+    submitAndWaitFor(client.submitAndWaitForTransaction) _
 
   private def submitAndWaitForTransactionId(client: CommandClient) =
-    submitAndWaitFor(client.submitAndWaitForTransactionId, client.submitAndWaitForTransactionId) _
+    submitAndWaitFor(client.submitAndWaitForTransactionId) _
 
   private def submitAndWaitForTransactionTree(client: CommandClient) =
-    submitAndWaitFor(
-      client.submitAndWaitForTransactionTree,
-      client.submitAndWaitForTransactionTree,
-    ) _
+    submitAndWaitFor(client.submitAndWaitForTransactionTree) _
 
   behavior of "Authorization"
 
