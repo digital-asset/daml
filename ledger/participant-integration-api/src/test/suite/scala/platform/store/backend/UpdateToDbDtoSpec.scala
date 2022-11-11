@@ -1359,10 +1359,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         driver_metadata = Some(someContractDriverMetadata.toByteArray),
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "signatory"),
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "observer"),
+        DbDto.FilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
+        DbDto.FilterCreateStakeholder(0L, createNode.templateId.toString, "observer"),
       )
-      dtos.size shouldEqual 3
+      dtos.size shouldEqual 4
     }
 
     "handle TransactionAccepted (no contract metadata)" in {

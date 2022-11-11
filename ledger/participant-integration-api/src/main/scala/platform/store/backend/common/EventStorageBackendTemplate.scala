@@ -425,7 +425,11 @@ abstract class EventStorageBackendTemplate(
       stringInterning = stringInterning,
     )
 
-  override def streamingTransactionQueries: TransactionStreamingQueries = ???
+  override def streamingTransactionQueries: TransactionStreamingQueries =
+    new TransactionStreamingQueries(
+      queryStrategy = queryStrategy,
+      stringInterning = stringInterning,
+    )
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
