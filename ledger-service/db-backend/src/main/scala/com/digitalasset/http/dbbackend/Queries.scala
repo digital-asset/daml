@@ -25,14 +25,14 @@ import cats.instances.list._
 import cats.Applicative
 import cats.syntax.applicative._
 import cats.syntax.functor._
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.lf.crypto.Hash
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Metrics
 import doobie.free.connection
 
 sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(implicit
-    metrics: Metrics
+    metrics: HttpJsonApiMetrics
 ) {
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
@@ -707,7 +707,7 @@ object Queries {
 
 private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Long)(implicit
     ipol: Queries.SqlInterpolation.StringArray,
-    metrics: Metrics,
+    metrics: HttpJsonApiMetrics,
 ) extends Queries(tablePrefix, tpIdCacheMaxEntries) {
   import Queries._, Queries.InitDdl.{Droppable, CreateIndex}
   import Implicits._
@@ -839,7 +839,7 @@ private final class OracleQueries(
     tablePrefix: String,
     disableContractPayloadIndexing: DisableContractPayloadIndexing,
     tpIdCacheMaxEntries: Long,
-)(implicit metrics: Metrics)
+)(implicit metrics: HttpJsonApiMetrics)
     extends Queries(tablePrefix, tpIdCacheMaxEntries) {
   import Queries._, InitDdl._
   import Implicits._

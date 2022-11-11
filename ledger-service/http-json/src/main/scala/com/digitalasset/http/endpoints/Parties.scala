@@ -13,8 +13,8 @@ import scalaz.std.scalaFuture._
 import scalaz.{EitherT, NonEmptyList}
 
 import scala.concurrent.ExecutionContext
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Metrics
 
 private[http] final class Parties(
     routeSetup: RouteSetup,
@@ -40,10 +40,10 @@ private[http] final class Parties(
 
   def allocateParty(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): ET[domain.SyncResponse[domain.PartyDetails]] =
     EitherT
-      .pure(metrics.daml.HttpJsonApi.allocatePartyThroughput.mark())
+      .pure(metrics.allocatePartyThroughput.mark())
       .flatMap(_ => proxyWithCommand(partiesService.allocate)(req).map(domain.OkResponse(_)))
 }
 

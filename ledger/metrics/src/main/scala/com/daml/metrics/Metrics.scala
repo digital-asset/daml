@@ -49,9 +49,6 @@ final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMe
 
     object services extends ServicesMetrics(prefix :+ "services", registry)
 
-    object HttpJsonApi
-        extends HttpJsonApiMetrics(prefix :+ "http_json_api", registry, openTelemetryFactory)
-
     object grpc extends DamlGrpcServerMetrics(openTelemetryFactory, "participant")
 
   }
