@@ -39,10 +39,10 @@ def daml_ledger_export_test(
             client = client_name,
             client_args = [
                 "--target-port=%PORT%",
-                "--script-identifier={}".format(script_identifier),
+                "--script-identifier=%s" % script_identifier,
                 "--party=" + ",".join(parties),
             ],
-            client_files = ["$(rootpath {})".format(dar)],
+            client_files = ["$(rootpath %s)" % dar],
             data = [dar],
             server = "//ledger/sandbox-on-x:sandbox-on-x-ephemeral-postgresql",
             server_args = [
