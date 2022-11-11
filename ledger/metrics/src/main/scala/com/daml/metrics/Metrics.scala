@@ -18,7 +18,7 @@ object Metrics {
 final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMeter)
     extends DropwizardFactory {
 
-  val openTelemetryFactory: OpenTelemetryFactory = new OpenTelemetryFactory(Metrics.this.meter)
+  val openTelemetryFactory: OpenTelemetryFactory = new OpenTelemetryFactory(otelMeter)
 
   object test {
     private val prefix: MetricName = MetricName("test")
@@ -49,33 +49,8 @@ final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMe
 
     object services extends ServicesMetrics(prefix :+ "services", registry)
 
-    object HttpJsonApi extends HttpJsonApiMetrics(prefix :+ "http_json_api", registry, otelMeter)
-
-    object grpc extends OpenTelemetryFactory with GrpcServerMetrics {
-
-      private val grpcServerMetricsPrefix = prefix :+ "grpc" :+ "server"
-
-      override def otelMeter: OtelMeter = Metrics.this.otelMeter
-      override val callTimer: MetricHandle.Timer = timer(grpcServerMetricsPrefix)
-      override val messagesSent: MetricHandle.Meter = meter(
-        grpcServerMetricsPrefix :+ "messages" :+ "sent"
-      )
-      override val messagesReceived: MetricHandle.Meter = meter(
-        grpcServerMetricsPrefix :+ "messages" :+ "received"
-      )
-      override val messagesSentSize: MetricHandle.Histogram = histogram(
-        grpcServerMetricsPrefix :+ "messages" :+ "sent" :+ "bytes"
-      )
-      override val messagesReceivedSize: MetricHandle.Histogram = histogram(
-        grpcServerMetricsPrefix :+ "messages" :+ "received" :+ "bytes"
-      )
-      override val callsStarted: MetricHandle.Meter = meter(
-        grpcServerMetricsPrefix :+ "started"
-      )
-      override val callsFinished: MetricHandle.Meter = meter(
-        grpcServerMetricsPrefix :+ "handled"
-      )
-    }
+    object HttpJsonApi
+        extends HttpJsonApiMetrics(prefix :+ "http_json_api", registry, openTelemetryFactory)
 
     object grpc extends DamlGrpcServerMetrics(openTelemetryFactory, "participant")
 

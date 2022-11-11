@@ -5,7 +5,6 @@ package com.daml.metrics.akkahttp
 
 import com.daml.metrics.api.MetricHandle
 import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
-import io.opentelemetry.api.metrics.{Meter => OtelMeter}
 import io.opentelemetry.sdk.metrics.SdkMeterProvider
 import io.opentelemetry.sdk.metrics.data.MetricData
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader
@@ -27,9 +26,7 @@ abstract class OpenTelemetryTestMetrics {
   val testClock: TestClock = TestClock.create();
   val sdkMeterProvider: SdkMeterProvider =
     SdkMeterProvider.builder().setClock(testClock).registerMetricReader(metricReader).build();
-  val metricFactory = new OpenTelemetryFactory {
-    override val otelMeter: OtelMeter = sdkMeterProvider.get("test")
-  }
+  val metricFactory = new OpenTelemetryFactory(sdkMeterProvider.get("test"))
 
   private def metricData(metric: MetricHandle): MetricData = {
     // required to force the in memory reader to report the recent updates
