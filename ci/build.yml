@@ -362,8 +362,8 @@ jobs:
     - bash: ci/check-protobuf-stability.sh
     - template: tell-slack-failed.yml
 
-- job: collect_build_data
-  condition: always()
+- job: collect_build_data_failed
+  condition: failed()
   dependsOn:
     - Linux
     - Linux_oracle
@@ -374,6 +374,16 @@ jobs:
     - compatibility_linux
     - compatibility_stable_protobuf
     - check_for_release
-  pool:
-    name: "ubuntu_20_04"
-    demands: assignment -equals default
+
+- job: collect_build_data
+  condition: always()
+  dependsOn:
+    - collect_build_data_failed
+  variables:
+    failed_result: $[ dependencies.collect_build_data_failed.result ]
+  steps:
+    - bash: "exit 1"
+      # Since 'collect_build_data_failed' only runs when 'failed()', if it was
+      # successful that means at least one of its dependencies failed, so we set
+      # the result of 'collect_build_data' to 'Failed' with 'exit 1'
+      condition: eq(variables.failed_result, 'Succeeded')
