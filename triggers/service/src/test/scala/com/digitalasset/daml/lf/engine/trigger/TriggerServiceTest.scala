@@ -55,7 +55,6 @@ import org.scalatest.time.{Seconds, Span}
 
 import java.nio.file.Files
 import scala.concurrent.duration._
-import scala.language.reflectiveCalls
 
 trait AbstractTriggerServiceTestHelper
     extends AsyncFlatSpec
@@ -120,8 +119,10 @@ trait AbstractTriggerServiceTestHelper
 
   protected[this] def inClaims(self: HasInIgnore, testFn: => Future[Assertion])(implicit
       pos: source.Position
-  ): Unit =
+  ): Unit = {
+    import scala.language.reflectiveCalls
     self in testFn
+  }
 
   protected[this] implicit final class `InClaims syntax`(private val self: ItVerbString) {
 
@@ -866,6 +867,8 @@ trait AbstractTriggerServiceTestAuthMiddleware
 trait DisableOauthClaimsTests extends AbstractTriggerServiceTest {
   protected[this] override final def inClaims(self: HasInIgnore, testFn: => Future[Assertion])(
       implicit pos: source.Position
-  ) =
+  ) = {
+    import scala.language.reflectiveCalls
     self ignore testFn
+  }
 }
