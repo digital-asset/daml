@@ -14,7 +14,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // Allows clients to attempt advancing the ledger's state by submitting commands.
 // The final states of their submissions are disclosed by the Command Completion Service.
-// The on-ledger effects of their submissions are disclosed by the Transaction Service.
+// The on-ledger effects of their submissions are disclosed by the Update Service.
 //
 // Commands may fail in 2 distinct manners:
 //

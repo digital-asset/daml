@@ -101,7 +101,7 @@ message ExperimentalCommitterEventLog {
     CENTRALIZED = 0;
     // There is more than one event log. Usually, when the committer itself is distributed.
     // Or there are per-participant event logs.
-    // It may result in transaction IDs being different for the same transaction across participants, for example.
+    // It may result in update IDs being different for the same transaction across participants, for example.
     DISTRIBUTED = 1;
   }
 }

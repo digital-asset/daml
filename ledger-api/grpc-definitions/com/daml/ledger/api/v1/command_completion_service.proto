@@ -15,7 +15,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // Allows clients to observe the status of their submissions.
 // Commands may be submitted via the Command Submission Service.
-// The on-ledger effects of their submissions are disclosed by the Transaction Service.
+// The on-ledger effects of their submissions are disclosed by the Update Service.
 //
 // Commands may fail in 2 distinct manners:
 //

@@ -49,7 +49,7 @@ message GetActiveContractsRequest {
 message GetActiveContractsResponse {
 
   // Included in the last message.
-  // The client should start consuming the transactions endpoint with this offset.
+  // The client should start consuming the updates endpoint with this offset.
   // The format of this field is described in ``ledger_offset.proto``.
   // Required
   string offset = 1;

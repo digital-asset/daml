@@ -87,7 +87,7 @@ message Value {
 // Contains nested values.
 message Record {
 
-  // Omitted from the transaction stream when verbose streaming is not enabled.
+  // Omitted from the update stream when verbose streaming is not enabled.
   // Optional when submitting commands.
   Identifier record_id = 1;
 
@@ -99,7 +99,7 @@ message Record {
 // A named nested value within a record.
 message RecordField {
 
-  // When reading a transaction stream, it's omitted if verbose streaming is not enabled.
+  // When reading a update stream, it's omitted if verbose streaming is not enabled.
   // When submitting a commmand, it's optional:
   //   - if all keys within a single record are present, the order in which fields appear does not matter. however, each key must appear exactly once.
   //   - if any of the keys within a single record are omitted, the order of fields MUST match the order of declaration in the Daml template.
@@ -134,7 +134,7 @@ message Identifier {
 // A value with alternative representations.
 message Variant {
 
-  // Omitted from the transaction stream when verbose streaming is not enabled.
+  // Omitted from the update stream when verbose streaming is not enabled.
   // Optional when submitting commands.
   Identifier variant_id = 1;
 
@@ -163,7 +163,7 @@ message Variant {
 // A value with finite set of alternative representations.
 message Enum {
 
-  // Omitted from the transaction stream when verbose streaming is not enabled.
+  // Omitted from the update stream when verbose streaming is not enabled.
   // Optional when submitting commands.
   Identifier enum_id = 1;
 

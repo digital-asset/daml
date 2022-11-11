@@ -18,7 +18,7 @@ message TransactionTree {
   // Assigned by the server. Useful for correlating logs.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string transaction_id = 1;
+  string update_id = 1;
 
   // The ID of the command which resulted in this transaction. Missing for everyone except the submitting party.
   // Must be a valid LedgerString (as described in ``value.proto``).
@@ -74,7 +74,7 @@ message Transaction {
   // Assigned by the server. Useful for correlating logs.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string transaction_id = 1;
+  string update_id = 1;
 
   // The ID of the command which resulted in this transaction. Missing for everyone except the submitting party.
   // Must be a valid LedgerString (as described in ``value.proto``).

@@ -35,7 +35,7 @@ service CommandService {
   // - ``DEADLINE_EXCEEDED``: if the request failed to receive its completion within the predefined timeout.
   rpc SubmitAndWait (SubmitAndWaitRequest) returns (google.protobuf.Empty);
 
-  // Submits a single composite command, waits for its result, and returns the transaction id.
+  // Submits a single composite command, waits for its result, and returns the update id.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
@@ -49,7 +49,7 @@ service CommandService {
   // or if an interpretation error occurred
   // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
   // - ``DEADLINE_EXCEEDED``: if the request failed to receive its completion within the predefined timeout.
-  rpc SubmitAndWaitForTransactionId (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionIdResponse);
+  rpc SubmitAndWaitForTransactionId (SubmitAndWaitRequest) returns (SubmitAndWaitForUpdateIdResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
@@ -91,11 +91,11 @@ message SubmitAndWaitRequest {
   Commands commands = 1;
 }
 
-message SubmitAndWaitForTransactionIdResponse {
+message SubmitAndWaitForUpdateIdResponse {
   // The id of the transaction that resulted from the submitted command.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string transaction_id = 1;
+  string update_id = 1;
   // The format of this field is described in ``ledger_offset.proto``.
   // Optional
   string completion_offset = 2;
