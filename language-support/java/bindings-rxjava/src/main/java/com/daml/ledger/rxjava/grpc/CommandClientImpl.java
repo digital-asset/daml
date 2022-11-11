@@ -262,7 +262,17 @@ public class CommandClientImpl implements CommandClient {
 
   @Override
   public Single<String> submitAndWaitForTransactionId(CommandClientConfig params) {
-    return null;
+    return submitAndWaitForTransactionId(
+        params.getWorkflowId(),
+        params.getApplicationId(),
+        params.getCommandId(),
+        params.getActAs(),
+        params.getReadAs(),
+        params.getMinLedgerTimeAbs(),
+        params.getMinLedgerTimeRel(),
+        params.getDeduplicationTime(),
+        params.getCommands(),
+        params.getAccessToken());
   }
 
   private Single<String> submitAndWaitForTransactionId(
@@ -476,7 +486,17 @@ public class CommandClientImpl implements CommandClient {
 
   @Override
   public Single<Transaction> submitAndWaitForTransaction(CommandClientConfig params) {
-    return null;
+    return submitAndWaitForTransaction(
+        params.getWorkflowId(),
+        params.getApplicationId(),
+        params.getCommandId(),
+        params.getActAs(),
+        params.getReadAs(),
+        params.getMinLedgerTimeAbs(),
+        params.getMinLedgerTimeRel(),
+        params.getDeduplicationTime(),
+        params.getCommands(),
+        params.getAccessToken());
   }
 
   private Single<Transaction> submitAndWaitForTransaction(
@@ -691,7 +711,17 @@ public class CommandClientImpl implements CommandClient {
 
   @Override
   public Single<TransactionTree> submitAndWaitForTransactionTree(CommandClientConfig params) {
-    return null;
+    return submitAndWaitForTransactionTree(
+        params.getWorkflowId(),
+        params.getApplicationId(),
+        params.getCommandId(),
+        params.getActAs(),
+        params.getReadAs(),
+        params.getMinLedgerTimeAbs(),
+        params.getMinLedgerTimeRel(),
+        params.getDeduplicationTime(),
+        params.getCommands(),
+        params.getAccessToken());
   }
 
   private Single<TransactionTree> submitAndWaitForTransactionTree(
@@ -907,7 +937,14 @@ public class CommandClientImpl implements CommandClient {
   @Override
   public <U> Single<U> submitAndWaitForResult(
       CommandClientConfig params, @NonNull Update<U> update) {
-    return null;
+    return submitAndWaitForResult(
+        params.getWorkflowId(),
+        params.getApplicationId(),
+        params.getCommandId(),
+        params.getActAs(),
+        params.getReadAs(),
+        update,
+        params.getAccessToken());
   }
 
   private <U> Single<U> submitAndWaitForResult(
