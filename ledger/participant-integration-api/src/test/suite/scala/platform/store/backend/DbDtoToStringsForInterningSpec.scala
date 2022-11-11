@@ -107,6 +107,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       create_argument_compression = Some(1),
       create_key_value_compression = Some(1),
       event_sequential_id = 1,
+      driver_metadata = None,
     ),
     DbDto.EventExercise(
       consuming = true,
