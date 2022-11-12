@@ -5,7 +5,7 @@ package com.daml.metrics.api.testing
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.{AtomicInteger, AtomicLong, AtomicReference}
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Histogram, Meter, Timer}
 import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
@@ -65,35 +65,34 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
   }
 
   case class InMemoryTimer(initialContext: MetricsContext) extends Timer {
-    val runTimers: collection.concurrent.Map[MetricsContext, AtomicInteger] = TrieMap()
+    val data = InMemoryHistogram(initialContext)
 
     override def name: String = "test"
 
-    override def update(duration: Long, unit: TimeUnit)(implicit context: MetricsContext): Unit =
-      incrementForContext(context)
+    override def update(duration: Long, unit: TimeUnit)(implicit context: MetricsContext): Unit = {
+      data.update(TimeUnit.MILLISECONDS.convert(duration, unit))
+    }
 
     override def update(duration: Duration)(implicit context: MetricsContext): Unit =
-      incrementForContext(context)
+      data.update(TimeUnit.MILLISECONDS.convert(duration))
 
     override def time[T](call: => T)(implicit context: MetricsContext): T = {
-      incrementForContext(context)
-      call
+      val start = System.nanoTime()
+      val result = call
+      val end = System.nanoTime()
+      data.update(TimeUnit.MILLISECONDS.convert(end - start, TimeUnit.NANOSECONDS))
+      result
     }
-    override def startAsync()(implicit startContext: MetricsContext): Timer.TimerHandle =
+
+    override def startAsync()(implicit startContext: MetricsContext): Timer.TimerHandle = {
+      val start = System.nanoTime()
       new Timer.TimerHandle {
         override def stop()(implicit context: MetricsContext): Unit =
-          incrementForContext(startContext.merge(context))
+          data.update(
+            TimeUnit.MILLISECONDS.convert(System.nanoTime() - start, TimeUnit.NANOSECONDS)
+          )(startContext.merge(context))
       }
-
-    private def incrementForContext(context: MetricsContext): Unit =
-      discard {
-        runTimers.updateWith(initialContext.merge(context)) {
-          case None => Some(new AtomicInteger(1))
-          case data @ Some(existing) =>
-            existing.incrementAndGet()
-            data
-        }
-      }
+    }
 
   }
 
