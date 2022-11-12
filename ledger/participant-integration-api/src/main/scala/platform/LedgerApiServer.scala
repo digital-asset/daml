@@ -144,7 +144,8 @@ class LedgerApiServer(
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
-  ): ResourceOwner[ApiService] =
+  ): ResourceOwner[ApiService] = {
+    val identityProviderStore = new InMemoryIdentityProviderStore
     ApiServiceOwner(
       indexService = indexService,
       ledgerId = ledgerId,
@@ -165,7 +166,7 @@ class LedgerApiServer(
         maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
         timeProvider = TimeProvider.UTC,
       )(servicesExecutionContext, loggingContext),
-      identityProviderStore = new InMemoryIdentityProviderStore,
+      identityProviderStore = identityProviderStore,
       partyRecordStore = new PersistentPartyRecordStore(
         dbSupport = dbSupport,
         metrics = metrics,
@@ -174,11 +175,15 @@ class LedgerApiServer(
       ),
       ledgerFeatures = ledgerFeatures,
       participantId = participantId,
-      authService =
-        new IdentityProviderAwareAuthService(authService, participantConfig.jwtTimestampLeeway),
+      authService = new IdentityProviderAwareAuthService(
+        authService,
+        participantConfig.jwtTimestampLeeway,
+        identityProviderStore,
+      )(servicesExecutionContext, loggingContext),
       jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
       explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
     )
+  }
 }
 
 object LedgerApiServer {

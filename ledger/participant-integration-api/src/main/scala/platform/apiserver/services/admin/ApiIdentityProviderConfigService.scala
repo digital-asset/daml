@@ -8,7 +8,6 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.IdentityProviderConfig
 import com.daml.ledger.api.v1.admin.{identity_provider_config_service => proto}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.IdentityProviderAwareAuthService
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiIdentityProviderConfigService.toProto
 import com.daml.platform.localstore.api
@@ -18,7 +17,6 @@ import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scala.concurrent.{ExecutionContext, Future}
 
 class ApiIdentityProviderConfigService(
-    identityProviderAwareAuthService: IdentityProviderAwareAuthService,
     identityProviderStore: IdentityProviderStore,
 )(implicit
     executionContext: ExecutionContext,
@@ -59,10 +57,6 @@ class ApiIdentityProviderConfigService(
       identityProviderStore
         .createIdentityProviderConfig(config)
         .flatMap(handleResult("creating identity_provider_config"))
-        .map { config =>
-          identityProviderAwareAuthService.addService(config)
-          config
-        }
         .map(config => proto.CreateIdentityProviderConfigResponse(Some(toProto(config))))
     }
 
@@ -101,7 +95,6 @@ class ApiIdentityProviderConfigService(
         .deleteIdentityProviderConfig(identityProviderId)
         .flatMap(handleResult("deleting identity_provider_config"))
         .map { _ =>
-          identityProviderAwareAuthService.removeService(identityProviderId)
           proto.DeleteIdentityProviderConfigResponse()
         }
     )
