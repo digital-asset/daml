@@ -58,6 +58,29 @@ object OpenTelemetryMeterOwner {
             5d, 10d)
         ),
       )
+      .registerView(
+        histogramSelectorEndingWith(Histogram.Bytes),
+        explicitHistogramBucketsView(
+          Seq(
+            50,
+            250,
+            500,
+            kilobytes(1),
+            kilobytes(5),
+            kilobytes(15),
+            kilobytes(30),
+            kilobytes(50),
+            kilobytes(100),
+            kilobytes(250),
+            kilobytes(500),
+            megabytes(1),
+            megabytes(2),
+            megabytes(5),
+            megabytes(10),
+            megabytes(100),
+          )
+        ),
+      )
   }
 
   private def histogramSelectorEndingWith(endingWith: String) = InstrumentSelector
@@ -74,5 +97,8 @@ object OpenTelemetryMeterOwner {
       )
     )
     .build()
+
+  private def kilobytes(value: Int): Double = value * 1024d
+  private def megabytes(value: Int): Double = value * 1024d * 1024d
 
 }

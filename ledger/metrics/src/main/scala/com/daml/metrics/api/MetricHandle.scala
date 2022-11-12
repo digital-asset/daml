@@ -142,4 +142,8 @@ object MetricHandle {
 
   }
 
+  object Histogram {
+    val Bytes: MetricName = MetricName("bytes")
+  }
+
 }
