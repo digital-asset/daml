@@ -91,7 +91,7 @@ class IdentityProviderAwareAuthService(
 
   override def decodeMetadata(headers: Metadata): CompletionStage[ClaimSet] =
     identityProviderStore
-      .listIdentityProviderConfigs() //cache the list
+      .listIdentityProviderConfigs() // cache the list
       .flatMap(handleResult)
       .asJava
       .thenCompose(iterateOverIdentityProviders(headers))

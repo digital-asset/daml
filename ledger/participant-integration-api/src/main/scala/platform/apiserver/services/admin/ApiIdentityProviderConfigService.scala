@@ -17,7 +17,7 @@ import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scala.concurrent.{ExecutionContext, Future}
 
 class ApiIdentityProviderConfigService(
-    identityProviderStore: IdentityProviderStore,
+    identityProviderStore: IdentityProviderStore
 )(implicit
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,

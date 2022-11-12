@@ -127,7 +127,8 @@ final class AuthorizationInterceptor(
       identityProviderStore: IdentityProviderStore,
   ): Future[Ref.IdentityProviderId] =
     user.identityProviderId match {
-      case Ref.IdentityProviderId.Id(_) if tokenIssuer.isEmpty => //token issuer is empty but user is assigned to Some(idp)
+      case Ref.IdentityProviderId.Id(_)
+          if tokenIssuer.isEmpty => // token issuer is empty but user is assigned to Some(idp)
         Future.failed(
           LedgerApiErrors.AuthorizationChecks.PermissionDenied
             .Reject(
@@ -135,7 +136,7 @@ final class AuthorizationInterceptor(
             )(errorLogger)
             .asGrpcError
         )
-      case identityProviderId: Ref.IdentityProviderId.Id => //todo check if idp is active
+      case identityProviderId: Ref.IdentityProviderId.Id => // todo check if idp is active
         identityProviderStore.getIdentityProviderConfig(identityProviderId).flatMap {
           case Right(identityProviderConfig)
               if tokenIssuer.contains(identityProviderConfig.issuer) && tokenIssuer.isDefined =>
