@@ -24,42 +24,11 @@ class IdentityProviderAuthService(
 
   private val logger: Logger = LoggerFactory.getLogger(IdentityProviderAuthService.getClass)
 
-  private def jwkProvider(url: URL) =
-    new UrlJwkProvider(
-      url,
-      Integer.valueOf(
-        config.http.connectionTimeoutUnit.toMillis(config.http.connectionTimeout).toInt
-      ),
-      Integer.valueOf(config.http.readTimeoutUnit.toMillis(config.http.readTimeout).toInt),
-    )
-
   private val cache: Cache[String, JwtVerifier] = CacheBuilder
     .newBuilder()
     .maximumSize(config.cache.maxSize)
     .expireAfterWrite(config.cache.expirationTime, config.cache.expirationUnit)
     .build()
-
-  private def getVerifier(
-      entry: IdentityProviderAuthService.Entry,
-      keyId: String,
-  ): JwtVerifier.Error \/ JwtVerifier = {
-    val jwk = jwkProvider(entry.url).get(keyId)
-    val publicKey = jwk.getPublicKey.asInstanceOf[RSAPublicKey]
-    RSA256Verifier(publicKey, config.jwtTimestampLeeway)
-  }
-
-  private def getCachedVerifier(
-      entry: IdentityProviderAuthService.Entry,
-      keyId: Option[String],
-  ): JwtVerifier.Error \/ JwtVerifier =
-    keyId match {
-      case None =>
-        -\/(JwtVerifier.Error(Symbol("getCachedVerifier"), "No Key ID found"))
-      case Some(keyId) =>
-        \/.attempt(
-          cache.get(keyId, () => getVerifier(entry, keyId).fold(e => sys.error(e.shows), x => x))
-        )(e => JwtVerifier.Error(Symbol("getCachedVerifier"), e.getMessage))
-    }
 
   def decodeMetadata(
       authorizationHeader: Option[String],
@@ -71,49 +40,13 @@ class IdentityProviderAuthService(
         case Some(header) =>
           parseJWTPayload(header, entries).fold(
             error => {
-              logger.warn("Authorization error: " + error.message)
+              logger.warn("Authorization error: " + error.show)
               ClaimSet.Unauthenticated
             },
             identity,
           )
       }
     }
-
-  private def parse(jwtPayload: String): AuthServiceJWTPayload = {
-    import AuthServiceJWTCodec.JsonImplicits._
-    JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
-  }
-
-  private def parsePayload(
-      jwtPayload: String
-  ): JwtVerifier.Error \/ StandardJWTPayload = {
-
-    def toError(t: Throwable) =
-      JwtVerifier.Error(Symbol("parsePayload"), "Could not parse JWT token: " + t.getMessage)
-
-    \/.attempt(parse(jwtPayload))(toError)
-      .flatMap {
-        case _: CustomDamlJWTPayload =>
-          -\/(JwtVerifier.Error(Symbol("parsePayload"), "Unexpected token format"))
-        case payload: StandardJWTPayload =>
-          \/-(payload)
-      }
-  }
-
-  private def entryByIssuer(
-      issuer: String,
-      entries: Seq[IdentityProviderAuthService.Entry],
-  ): JwtVerifier.Error \/ IdentityProviderAuthService.Entry =
-    \/.fromEither(
-      entries
-        .find(e => issuer == e.issuer)
-        .toRight(
-          JwtVerifier.Error(Symbol("entryByIssuer"), s"Could not find an entry by issuer=$issuer")
-        )
-    )
-
-  private def decode(token: String): JwtVerifier.Error \/ DecodedJWT =
-    \/.attempt(JWT.decode(token))(e => JwtVerifier.Error(Symbol("JWT.decode"), e.getMessage))
 
   private def parseJWTPayload(
       header: String,
@@ -129,6 +62,9 @@ class IdentityProviderAuthService(
         entries,
       )
     } yield claims
+
+  private def decode(token: String): JwtVerifier.Error \/ DecodedJWT =
+    \/.attempt(JWT.decode(token))(e => JwtVerifier.Error(Symbol("JWT.decode"), e.getMessage))
 
   def extractClaims(
       token: String,
@@ -146,6 +82,70 @@ class IdentityProviderAuthService(
           parsed <- parsePayload(decoded.payload)
         } yield toAuthenticatedUser(parsed, entry.id)
     }
+  }
+
+  private def entryByIssuer(
+      issuer: String,
+      entries: Seq[IdentityProviderAuthService.Entry],
+  ): JwtVerifier.Error \/ IdentityProviderAuthService.Entry =
+    \/.fromEither(
+      entries
+        .find(e => issuer == e.issuer)
+        .toRight(
+          JwtVerifier.Error(Symbol("entryByIssuer"), s"Could not find an entry by issuer=$issuer")
+        )
+    )
+
+  private def getCachedVerifier(
+      entry: IdentityProviderAuthService.Entry,
+      keyId: Option[String],
+  ): JwtVerifier.Error \/ JwtVerifier =
+    keyId match {
+      case None =>
+        -\/(JwtVerifier.Error(Symbol("getCachedVerifier"), "No Key ID found"))
+      case Some(keyId) =>
+        \/.attempt(
+          cache.get(keyId, () => getVerifier(entry, keyId).fold(e => sys.error(e.shows), x => x))
+        )(e => JwtVerifier.Error(Symbol("getCachedVerifier"), e.getMessage))
+    }
+
+  private def getVerifier(
+      entry: IdentityProviderAuthService.Entry,
+      keyId: String,
+  ): JwtVerifier.Error \/ JwtVerifier = {
+    val jwk = jwkProvider(entry.url).get(keyId)
+    val publicKey = jwk.getPublicKey.asInstanceOf[RSAPublicKey]
+    RSA256Verifier(publicKey, config.jwtTimestampLeeway)
+  }
+
+  private def jwkProvider(url: URL) =
+    new UrlJwkProvider(
+      url,
+      Integer.valueOf(
+        config.http.connectionTimeoutUnit.toMillis(config.http.connectionTimeout).toInt
+      ),
+      Integer.valueOf(config.http.readTimeoutUnit.toMillis(config.http.readTimeout).toInt),
+    )
+
+  private def parsePayload(
+      jwtPayload: String
+  ): JwtVerifier.Error \/ StandardJWTPayload = {
+
+    def toError(t: Throwable) =
+      JwtVerifier.Error(Symbol("parsePayload"), "Could not parse JWT token: " + t.getMessage)
+
+    \/.attempt(parse(jwtPayload))(toError)
+      .flatMap {
+        case _: CustomDamlJWTPayload =>
+          -\/(JwtVerifier.Error(Symbol("parsePayload"), "Unexpected token format"))
+        case payload: StandardJWTPayload =>
+          \/-(payload)
+      }
+  }
+
+  private def parse(jwtPayload: String): AuthServiceJWTPayload = {
+    import AuthServiceJWTCodec.JsonImplicits._
+    JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
   }
 
   private def toAuthenticatedUser(payload: StandardJWTPayload, id: Ref.IdentityProviderId.Id) =
