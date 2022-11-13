@@ -110,7 +110,7 @@ class IdentityProviderAuthService(
     \/.fromEither(
       entries
         .find(e => issuer.contains(e.issuer))
-        .toRight(JwtVerifier.Error(Symbol("entryByIssuer"), "Could not find an entry by isuer"))
+        .toRight(JwtVerifier.Error(Symbol("entryByIssuer"), "Could not find an entry by issuer"))
     )
 
   private def decode(token: String): JwtVerifier.Error \/ DecodedJWT =
