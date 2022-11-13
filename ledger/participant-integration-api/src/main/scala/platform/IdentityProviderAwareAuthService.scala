@@ -57,12 +57,11 @@ class IdentityProviderAwareAuthService(
       prevClaims: ClaimSet,
       entry: IdentityProviderAwareAuthService.IdpEntry,
       headers: Metadata,
-  ): CompletionStage[ClaimSet] = {
+  ): CompletionStage[ClaimSet] =
     if (prevClaims != ClaimSet.Unauthenticated)
       CompletableFuture.completedFuture(prevClaims)
     else
       entry.service.decodeMetadata(headers)
-  }
 
   private def handleResult(
       result: Result[Seq[IdentityProviderConfig]]
@@ -74,9 +73,8 @@ class IdentityProviderAwareAuthService(
 
   private def iterateOverIdentityProviders(
       headers: Metadata
-  )(identityProviders: Seq[IdentityProviderConfig]) = {
-    identityProviders
-      .map(toEntry)
+  )(entries: Seq[IdentityProviderAwareAuthService.IdpEntry]): CompletableFuture[ClaimSet] =
+    entries
       .foldLeft(deny) { case (acc, elem) =>
         acc.thenCompose(prevClaims => claimCheck(prevClaims, elem, headers))
       }
@@ -87,12 +85,12 @@ class IdentityProviderAwareAuthService(
           defaultAuthService.decodeMetadata(headers)
         }
       }
-  }
 
   override def decodeMetadata(headers: Metadata): CompletionStage[ClaimSet] =
     identityProviderStore
-      .listIdentityProviderConfigs() // cache the list
+      .listIdentityProviderConfigs() // todo cache the list
       .flatMap(handleResult)
+      .map(_.map(toEntry))
       .asJava
       .thenCompose(iterateOverIdentityProviders(headers))
 }

@@ -6,7 +6,7 @@ package com.daml.ledger.api.auth
 import com.auth0.jwk.UrlJwkProvider
 import com.daml.jwt.{JwtTimestampLeeway, JwtVerifier, RSA256Verifier}
 import com.google.common.cache.{Cache, CacheBuilder}
-import scalaz.{-\/, \/}
+import scalaz.{-\/, \/, \/-}
 import scalaz.syntax.show._
 
 import java.net.URL
@@ -16,8 +16,6 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 import io.grpc.Metadata
 import org.slf4j.{Logger, LoggerFactory}
 import spray.json._
-
-import scala.util.Try
 
 class IdentityProviderAuthService(
     url: URL,
@@ -51,18 +49,17 @@ class IdentityProviderAuthService(
   /** Looks up the verifier for the given keyId from the local cache.
     * On a cache miss, creates a new verifier by fetching the public key from the JWKS URL.
     */
-  private def getCachedVerifier(keyId: String): JwtVerifier.Error \/ JwtVerifier = {
+  private def getCachedVerifier(keyId: String): JwtVerifier.Error \/ JwtVerifier =
     if (keyId == null)
       -\/(JwtVerifier.Error(Symbol("getCachedVerifier"), "No Key ID found"))
     else
       \/.attempt(
         cache.get(keyId, () => getVerifier(keyId).fold(e => sys.error(e.shows), x => x))
       )(e => JwtVerifier.Error(Symbol("getCachedVerifier"), e.getMessage))
-  }
 
   private def verify(
       jwt: com.daml.jwt.domain.Jwt
-  ): JwtVerifier.Error \/ com.daml.jwt.domain.DecodedJwt[String] = {
+  ): JwtVerifier.Error \/ com.daml.jwt.domain.DecodedJwt[String] =
     for {
       keyId <- \/.attempt(com.auth0.jwt.JWT.decode(jwt.value).getKeyId)(e =>
         JwtVerifier.Error(Symbol("verify"), e.getMessage)
@@ -70,7 +67,6 @@ class IdentityProviderAuthService(
       verifier <- getCachedVerifier(keyId)
       decoded <- verifier.verify(jwt)
     } yield decoded
-  }
 
   override def decodeMetadata(headers: Metadata): CompletionStage[ClaimSet] =
     CompletableFuture.completedFuture {
@@ -92,33 +88,34 @@ class IdentityProviderAuthService(
       token => toAuthenticatedUser(token),
     )
 
+  def parse(jwtPayload: String): AuthServiceJWTPayload = {
+    import AuthServiceJWTCodec.JsonImplicits._
+    JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
+  }
+
   private def parsePayload(
       jwtPayload: String
-  ): Either[JwtVerifier.Error, StandardJWTPayload] = {
-    import AuthServiceJWTCodec.JsonImplicits._
-    Try(JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]).toEither.left
-      .map(t =>
-        JwtVerifier.Error(Symbol("parsePayload"), "Could not parse JWT token: " + t.getMessage)
-      )
+  ): JwtVerifier.Error \/ StandardJWTPayload = {
+
+    def toError(t: Throwable) =
+      JwtVerifier.Error(Symbol("parsePayload"), "Could not parse JWT token: " + t.getMessage)
+
+    \/.attempt(parse(jwtPayload))(toError)
       .flatMap {
         case _: CustomDamlJWTPayload =>
-          Left(JwtVerifier.Error(Symbol("parsePayload"), "Unexpected token format"))
+          -\/(JwtVerifier.Error(Symbol("parsePayload"), "Unexpected token format"))
         case token: StandardJWTPayload if !token.issuer.contains(expectedIssuer) =>
-          Left(JwtVerifier.Error(Symbol("parsePayload"), "Unexpected token issuer"))
-        case payload: StandardJWTPayload => Right(payload)
+          -\/(JwtVerifier.Error(Symbol("parsePayload"), "Unexpected token issuer"))
+        case payload: StandardJWTPayload => \/-(payload)
       }
   }
 
   private def parseJWTPayload(
       header: String
-  ): Either[JwtVerifier.Error, StandardJWTPayload] =
+  ): JwtVerifier.Error \/ StandardJWTPayload =
     for {
-      token <- JwtVerifier.fromHeader(header)
-      decoded <-
-        verify(com.daml.jwt.domain.Jwt(token)).toEither.left
-          .map(e =>
-            JwtVerifier.Error(Symbol("parseJWTPayload"), "Could not verify JWT token: " + e.message)
-          )
+      token <- \/.fromEither(JwtVerifier.fromHeader(header))
+      decoded <- verify(com.daml.jwt.domain.Jwt(token))
       parsed <- parsePayload(decoded.payload)
     } yield parsed
 
