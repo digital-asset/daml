@@ -164,7 +164,7 @@ object ClaimSet {
 
   /** The representation of a user that was authenticated, but whose [[Claims]] have not yet been resolved. */
   final case class AuthenticatedUser(
-      issuer: Option[String],
+      identityProviderId: Ref.IdentityProviderId,
       userId: String,
       participantId: Option[String],
       expiration: Option[Instant],

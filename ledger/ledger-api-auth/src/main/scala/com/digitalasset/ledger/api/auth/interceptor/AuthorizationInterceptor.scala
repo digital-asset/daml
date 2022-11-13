@@ -82,13 +82,17 @@ final class AuthorizationInterceptor(
 
   private[this] def resolveAuthenticatedUserRights(claimSet: ClaimSet): Future[ClaimSet] =
     claimSet match {
-      case ClaimSet.AuthenticatedUser(issuer, userIdStr, participantId, expiration) =>
+      case ClaimSet.AuthenticatedUser(identityProviderId, userIdStr, participantId, expiration) =>
         for {
           userManagementStore <- getUserManagementStore(userManagementStoreO)
           identityProviderStore <- getIdentityProviderStore(identityProviderStore0)
           userId <- getUserId(userIdStr)
           user <- verifyUserIsActive(userManagementStore, userId)
-          identityProviderId <- verifyIdentityProviderConfig(issuer, user, identityProviderStore)
+          _ <- verifyIdentityProviderConfig(
+            identityProviderId,
+            user,
+            identityProviderStore,
+          )
           userRightsResult <- userManagementStore.listUserRights(
             userId,
             Ref.IdentityProviderId.Default,
@@ -122,38 +126,38 @@ final class AuthorizationInterceptor(
     }
 
   private def verifyIdentityProviderConfig(
-      tokenIssuer: Option[String],
+      identityProviderId: Ref.IdentityProviderId,
       user: User,
       identityProviderStore: IdentityProviderStore,
-  ): Future[Ref.IdentityProviderId] =
-    user.identityProviderId match {
-      case Ref.IdentityProviderId.Id(_)
-          if tokenIssuer.isEmpty => // token issuer is empty but user is assigned to Some(idp)
-        Future.failed(
-          LedgerApiErrors.AuthorizationChecks.PermissionDenied
-            .Reject(
-              s"User is assigned to an identity provider, but token does not have issuer defined"
-            )(errorLogger)
-            .asGrpcError
-        )
-      case identityProviderId: Ref.IdentityProviderId.Id => // todo check if idp is active
-        identityProviderStore.getIdentityProviderConfig(identityProviderId).flatMap {
-          case Right(identityProviderConfig)
-              if tokenIssuer.contains(identityProviderConfig.issuer) && tokenIssuer.isDefined =>
-            Future.successful(identityProviderId)
-          case _ =>
-            Future.failed(
-              LedgerApiErrors.AuthorizationChecks.PermissionDenied
-                .Reject(
-                  s"User is assigned to another identity provider"
-                )(errorLogger)
-                .asGrpcError
-            )
-        }
-      case Ref.IdentityProviderId.Default =>
-        // User is assigned to default IDP, "iss" claim of the token does not matter for this case
-        Future.successful(Ref.IdentityProviderId.Default)
+  ): Future[Unit] = {
+    if (user.identityProviderId != identityProviderId) {
+      Future.failed(
+        LedgerApiErrors.AuthorizationChecks.PermissionDenied
+          .Reject(
+            s"User is assigned to another identity provider"
+          )(errorLogger)
+          .asGrpcError
+      )
+    } else {
+      identityProviderId match {
+        case Ref.IdentityProviderId.Default =>
+          Future.unit
+        case id: Ref.IdentityProviderId.Id =>
+          identityProviderStore.getIdentityProviderConfig(id).flatMap {
+            case Right(identityProviderConfig) if !identityProviderConfig.isDeactivated =>
+              Future.unit
+            case _ =>
+              Future.failed(
+                LedgerApiErrors.AuthorizationChecks.PermissionDenied
+                  .Reject(
+                    s"IDP is deactivated"
+                  )(errorLogger)
+                  .asGrpcError
+              )
+          }
+      }
     }
+  }
 
   private def verifyUserIsActive(
       userManagementStore: UserManagementStore,

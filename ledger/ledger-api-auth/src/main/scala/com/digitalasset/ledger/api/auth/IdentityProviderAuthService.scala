@@ -50,14 +50,16 @@ class IdentityProviderAuthService(
 
   private def getCachedVerifier(
       entry: IdentityProviderAuthService.Entry,
-      keyId: String,
+      keyId: Option[String],
   ): JwtVerifier.Error \/ JwtVerifier =
-    if (keyId == null)
-      -\/(JwtVerifier.Error(Symbol("getCachedVerifier"), "No Key ID found"))
-    else
-      \/.attempt(
-        cache.get(keyId, () => getVerifier(entry, keyId).fold(e => sys.error(e.shows), x => x))
-      )(e => JwtVerifier.Error(Symbol("getCachedVerifier"), e.getMessage))
+    keyId match {
+      case None =>
+        -\/(JwtVerifier.Error(Symbol("getCachedVerifier"), "No Key ID found"))
+      case Some(keyId) =>
+        \/.attempt(
+          cache.get(keyId, () => getVerifier(entry, keyId).fold(e => sys.error(e.shows), x => x))
+        )(e => JwtVerifier.Error(Symbol("getCachedVerifier"), e.getMessage))
+    }
 
   def decodeMetadata(
       authorizationHeader: Option[String],
@@ -66,21 +68,16 @@ class IdentityProviderAuthService(
     CompletableFuture.completedFuture {
       authorizationHeader match {
         case None => ClaimSet.Unauthenticated
-        case Some(header) => parseHeader(header, entries)
+        case Some(header) =>
+          parseJWTPayload(header, entries).fold(
+            error => {
+              logger.warn("Authorization error: " + error.message)
+              ClaimSet.Unauthenticated
+            },
+            identity,
+          )
       }
     }
-
-  private def parseHeader(
-      header: String,
-      entries: Seq[IdentityProviderAuthService.Entry],
-  ): ClaimSet =
-    parseJWTPayload(header, entries).fold(
-      error => {
-        logger.warn("Authorization error: " + error.message)
-        ClaimSet.Unauthenticated
-      },
-      token => toAuthenticatedUser(token),
-    )
 
   private def parse(jwtPayload: String): AuthServiceJWTPayload = {
     import AuthServiceJWTCodec.JsonImplicits._
@@ -104,13 +101,15 @@ class IdentityProviderAuthService(
   }
 
   private def entryByIssuer(
-      issuer: Option[String],
+      issuer: String,
       entries: Seq[IdentityProviderAuthService.Entry],
   ): JwtVerifier.Error \/ IdentityProviderAuthService.Entry =
     \/.fromEither(
       entries
-        .find(e => issuer.contains(e.issuer))
-        .toRight(JwtVerifier.Error(Symbol("entryByIssuer"), "Could not find an entry by issuer"))
+        .find(e => issuer == e.issuer)
+        .toRight(
+          JwtVerifier.Error(Symbol("entryByIssuer"), s"Could not find an entry by issuer=$issuer")
+        )
     )
 
   private def decode(token: String): JwtVerifier.Error \/ DecodedJWT =
@@ -119,23 +118,43 @@ class IdentityProviderAuthService(
   private def parseJWTPayload(
       header: String,
       entries: Seq[IdentityProviderAuthService.Entry],
-  ): JwtVerifier.Error \/ StandardJWTPayload =
+  ): JwtVerifier.Error \/ ClaimSet =
     for {
       token <- \/.fromEither(JwtVerifier.fromHeader(header))
-      jwt = com.daml.jwt.domain.Jwt(token)
-      decodedJWT <- decode(jwt.value)
-      entry <- entryByIssuer(Option(decodedJWT.getIssuer), entries)
-      verifier <- getCachedVerifier(entry, decodedJWT.getKeyId)
-      decoded <- verifier.verify(jwt)
-      parsed <- parsePayload(decoded.payload)
-    } yield parsed
+      decodedJWT <- decode(token)
+      claims <- extractClaims(
+        token,
+        Option(decodedJWT.getIssuer),
+        Option(decodedJWT.getKeyId),
+        entries,
+      )
+    } yield claims
 
-  private def toAuthenticatedUser(payload: StandardJWTPayload) = ClaimSet.AuthenticatedUser(
-    issuer = payload.issuer,
-    participantId = payload.participantId,
-    userId = payload.userId,
-    expiration = payload.exp,
-  )
+  def extractClaims(
+      token: String,
+      issuer: Option[String],
+      keyId: Option[String],
+      entries: Seq[IdentityProviderAuthService.Entry],
+  ): JwtVerifier.Error \/ ClaimSet = {
+    issuer match {
+      case None => \/-(ClaimSet.Unauthenticated)
+      case Some(issuer) =>
+        for {
+          entry <- entryByIssuer(issuer, entries)
+          verifier <- getCachedVerifier(entry, keyId)
+          decoded <- verifier.verify(com.daml.jwt.domain.Jwt(token))
+          parsed <- parsePayload(decoded.payload)
+        } yield toAuthenticatedUser(parsed, entry.id)
+    }
+  }
+
+  private def toAuthenticatedUser(payload: StandardJWTPayload, id: Ref.IdentityProviderId.Id) =
+    ClaimSet.AuthenticatedUser(
+      identityProviderId = id,
+      participantId = payload.participantId,
+      userId = payload.userId,
+      expiration = payload.exp,
+    )
 }
 
 object IdentityProviderAuthService {
