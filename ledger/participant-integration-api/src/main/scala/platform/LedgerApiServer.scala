@@ -6,7 +6,7 @@ package com.daml.platform
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
-import com.daml.ledger.api.auth.AuthService
+import com.daml.ledger.api.auth.{AuthService, IdentityProviderAuthService}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
@@ -177,7 +177,11 @@ class LedgerApiServer(
       participantId = participantId,
       authService = new IdentityProviderAwareAuthService(
         authService,
-        participantConfig.jwtTimestampLeeway,
+        new IdentityProviderAuthService(
+          IdentityProviderAuthService.Config(
+            jwtTimestampLeeway = participantConfig.jwtTimestampLeeway
+          )
+        ),
         identityProviderStore,
       )(servicesExecutionContext, loggingContext),
       jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,

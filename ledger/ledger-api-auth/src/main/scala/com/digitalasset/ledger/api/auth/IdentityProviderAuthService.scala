@@ -4,28 +4,27 @@
 package com.daml.ledger.api.auth
 
 import com.auth0.jwk.UrlJwkProvider
+import com.auth0.jwt.JWT
+import com.auth0.jwt.interfaces.DecodedJWT
 import com.daml.jwt.{JwtTimestampLeeway, JwtVerifier, RSA256Verifier}
+import com.daml.lf.data.Ref
 import com.google.common.cache.{Cache, CacheBuilder}
-import scalaz.{-\/, \/, \/-}
+import org.slf4j.{Logger, LoggerFactory}
 import scalaz.syntax.show._
+import scalaz.{-\/, \/, \/-}
+import spray.json._
 
 import java.net.URL
 import java.security.interfaces.RSAPublicKey
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.{CompletableFuture, CompletionStage}
-import io.grpc.Metadata
-import org.slf4j.{Logger, LoggerFactory}
-import spray.json._
+import java.util.concurrent.{CompletableFuture, CompletionStage, TimeUnit}
 
 class IdentityProviderAuthService(
-    url: URL,
-    expectedIssuer: String,
-    config: IdentityProviderAuthService.Config,
-) extends AuthService {
+    config: IdentityProviderAuthService.Config
+) {
 
   private val logger: Logger = LoggerFactory.getLogger(IdentityProviderAuthService.getClass)
 
-  private val http =
+  private def jwkProvider(url: URL) =
     new UrlJwkProvider(
       url,
       Integer.valueOf(
@@ -40,47 +39,42 @@ class IdentityProviderAuthService(
     .expireAfterWrite(config.cache.expirationTime, config.cache.expirationUnit)
     .build()
 
-  private def getVerifier(keyId: String): JwtVerifier.Error \/ JwtVerifier = {
-    val jwk = http.get(keyId)
+  private def getVerifier(
+      entry: IdentityProviderAuthService.Entry,
+      keyId: String,
+  ): JwtVerifier.Error \/ JwtVerifier = {
+    val jwk = jwkProvider(entry.url).get(keyId)
     val publicKey = jwk.getPublicKey.asInstanceOf[RSAPublicKey]
     RSA256Verifier(publicKey, config.jwtTimestampLeeway)
   }
 
-  /** Looks up the verifier for the given keyId from the local cache.
-    * On a cache miss, creates a new verifier by fetching the public key from the JWKS URL.
-    */
-  private def getCachedVerifier(keyId: String): JwtVerifier.Error \/ JwtVerifier =
+  private def getCachedVerifier(
+      entry: IdentityProviderAuthService.Entry,
+      keyId: String,
+  ): JwtVerifier.Error \/ JwtVerifier =
     if (keyId == null)
       -\/(JwtVerifier.Error(Symbol("getCachedVerifier"), "No Key ID found"))
     else
       \/.attempt(
-        cache.get(keyId, () => getVerifier(keyId).fold(e => sys.error(e.shows), x => x))
+        cache.get(keyId, () => getVerifier(entry, keyId).fold(e => sys.error(e.shows), x => x))
       )(e => JwtVerifier.Error(Symbol("getCachedVerifier"), e.getMessage))
 
-  private def verify(
-      jwt: com.daml.jwt.domain.Jwt
-  ): JwtVerifier.Error \/ com.daml.jwt.domain.DecodedJwt[String] =
-    for {
-      keyId <- \/.attempt(com.auth0.jwt.JWT.decode(jwt.value).getKeyId)(e =>
-        JwtVerifier.Error(Symbol("verify"), e.getMessage)
-      )
-      verifier <- getCachedVerifier(keyId)
-      decoded <- verifier.verify(jwt)
-    } yield decoded
-
-  override def decodeMetadata(headers: Metadata): CompletionStage[ClaimSet] =
+  def decodeMetadata(
+      authorizationHeader: Option[String],
+      entries: Seq[IdentityProviderAuthService.Entry],
+  ): CompletionStage[ClaimSet] =
     CompletableFuture.completedFuture {
-      getAuthorizationHeader(headers) match {
+      authorizationHeader match {
         case None => ClaimSet.Unauthenticated
-        case Some(header) => parseHeader(header)
+        case Some(header) => parseHeader(header, entries)
       }
     }
 
-  private def getAuthorizationHeader(headers: Metadata): Option[String] =
-    Option(headers.get(AUTHORIZATION_KEY))
-
-  private def parseHeader(header: String): ClaimSet =
-    parseJWTPayload(header).fold(
+  private def parseHeader(
+      header: String,
+      entries: Seq[IdentityProviderAuthService.Entry],
+  ): ClaimSet =
+    parseJWTPayload(header, entries).fold(
       error => {
         logger.warn("Authorization error: " + error.message)
         ClaimSet.Unauthenticated
@@ -88,7 +82,7 @@ class IdentityProviderAuthService(
       token => toAuthenticatedUser(token),
     )
 
-  def parse(jwtPayload: String): AuthServiceJWTPayload = {
+  private def parse(jwtPayload: String): AuthServiceJWTPayload = {
     import AuthServiceJWTCodec.JsonImplicits._
     JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
   }
@@ -104,18 +98,35 @@ class IdentityProviderAuthService(
       .flatMap {
         case _: CustomDamlJWTPayload =>
           -\/(JwtVerifier.Error(Symbol("parsePayload"), "Unexpected token format"))
-        case token: StandardJWTPayload if !token.issuer.contains(expectedIssuer) =>
-          -\/(JwtVerifier.Error(Symbol("parsePayload"), "Unexpected token issuer"))
-        case payload: StandardJWTPayload => \/-(payload)
+        case payload: StandardJWTPayload =>
+          \/-(payload)
       }
   }
 
+  private def entryByIssuer(
+      issuer: Option[String],
+      entries: Seq[IdentityProviderAuthService.Entry],
+  ): JwtVerifier.Error \/ IdentityProviderAuthService.Entry =
+    \/.fromEither(
+      entries
+        .find(e => issuer.contains(e.issuer))
+        .toRight(JwtVerifier.Error(Symbol("entryByIssuer"), "Could not find an entry by isuer"))
+    )
+
+  private def decode(token: String): JwtVerifier.Error \/ DecodedJWT =
+    \/.attempt(JWT.decode(token))(e => JwtVerifier.Error(Symbol("JWT.decode"), e.getMessage))
+
   private def parseJWTPayload(
-      header: String
+      header: String,
+      entries: Seq[IdentityProviderAuthService.Entry],
   ): JwtVerifier.Error \/ StandardJWTPayload =
     for {
       token <- \/.fromEither(JwtVerifier.fromHeader(header))
-      decoded <- verify(com.daml.jwt.domain.Jwt(token))
+      jwt = com.daml.jwt.domain.Jwt(token)
+      decodedJWT <- decode(jwt.value)
+      entry <- entryByIssuer(Option(decodedJWT.getIssuer), entries)
+      verifier <- getCachedVerifier(entry, decodedJWT.getKeyId)
+      decoded <- verifier.verify(jwt)
       parsed <- parsePayload(decoded.payload)
     } yield parsed
 
@@ -128,6 +139,12 @@ class IdentityProviderAuthService(
 }
 
 object IdentityProviderAuthService {
+  case class Entry(
+      id: Ref.IdentityProviderId.Id,
+      url: URL,
+      issuer: String,
+  )
+
   case class CacheConfig(
       // Large enough such that malicious users can't cycle through all keys from reasonably sized JWKS,
       // forcing cache eviction and thus introducing additional latency.
@@ -142,8 +159,8 @@ object IdentityProviderAuthService {
       readTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
   )
   case class Config(
-      cache: CacheConfig,
-      http: HttpConfig,
+      cache: CacheConfig = CacheConfig(),
+      http: HttpConfig = HttpConfig(),
       jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
   )
 }

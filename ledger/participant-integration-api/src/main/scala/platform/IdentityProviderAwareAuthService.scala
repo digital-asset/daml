@@ -5,10 +5,8 @@ package com.daml.platform
 
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.api.auth.{AuthService, ClaimSet, IdentityProviderAuthService}
 import com.daml.ledger.api.domain.IdentityProviderConfig
-import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.localstore.api.IdentityProviderStore
 import com.daml.platform.localstore.api.IdentityProviderStore.Result
@@ -21,7 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 //TODO DPP-1299 Move to a package
 class IdentityProviderAwareAuthService(
     defaultAuthService: AuthService,
-    jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+    identityProviderAuthService: IdentityProviderAuthService,
     identityProviderStore: IdentityProviderStore,
 )(implicit
     executionContext: ExecutionContext,
@@ -33,35 +31,14 @@ class IdentityProviderAwareAuthService(
   private implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  private val deny = CompletableFuture.completedFuture(ClaimSet.Unauthenticated: ClaimSet)
-
   private def toEntry(
       identityProviderConfig: IdentityProviderConfig
-  ): IdentityProviderAwareAuthService.IdpEntry = {
-    val authService = new IdentityProviderAuthService(
+  ): IdentityProviderAuthService.Entry =
+    IdentityProviderAuthService.Entry(
+      identityProviderConfig.identityProviderId,
       identityProviderConfig.jwksURL,
       identityProviderConfig.issuer,
-      IdentityProviderAuthService.Config(
-        cache = IdentityProviderAuthService.CacheConfig(),
-        http = IdentityProviderAuthService.HttpConfig(),
-        jwtTimestampLeeway = jwtTimestampLeeway,
-      ),
     )
-    IdentityProviderAwareAuthService.IdpEntry(
-      identityProviderConfig.identityProviderId,
-      authService,
-    )
-  }
-
-  private def claimCheck(
-      prevClaims: ClaimSet,
-      entry: IdentityProviderAwareAuthService.IdpEntry,
-      headers: Metadata,
-  ): CompletionStage[ClaimSet] =
-    if (prevClaims != ClaimSet.Unauthenticated)
-      CompletableFuture.completedFuture(prevClaims)
-    else
-      entry.service.decodeMetadata(headers)
 
   private def handleResult(
       result: Result[Seq[IdentityProviderConfig]]
@@ -80,24 +57,21 @@ class IdentityProviderAwareAuthService(
       defaultAuthService.decodeMetadata(headers)
     }
 
+  private def getAuthorizationHeader(headers: Metadata): Option[String] =
+    Option(headers.get(AUTHORIZATION_KEY))
+
   private def iterateOverIdentityProviders(
       headers: Metadata
-  )(entries: Seq[IdentityProviderAwareAuthService.IdpEntry]): CompletableFuture[ClaimSet] =
-    entries
-      .foldLeft(deny) { case (acc, elem) =>
-        acc.thenCompose(prevClaims => claimCheck(prevClaims, elem, headers))
-      }
+  )(entries: Seq[IdentityProviderAuthService.Entry]): CompletionStage[ClaimSet] =
+    identityProviderAuthService.decodeMetadata(getAuthorizationHeader(headers), entries)
 
   override def decodeMetadata(headers: Metadata): CompletionStage[ClaimSet] =
     identityProviderStore
       .listIdentityProviderConfigs() // todo cache the list
       .flatMap(handleResult)
+      .map(_.filterNot(_.isDeactivated))
       .map(_.map(toEntry))
       .asJava
       .thenCompose(iterateOverIdentityProviders(headers))
       .thenCompose(defaultAuth(headers))
-}
-
-object IdentityProviderAwareAuthService {
-  case class IdpEntry(id: Ref.IdentityProviderId.Id, service: AuthService)
 }
