@@ -71,19 +71,21 @@ class IdentityProviderAwareAuthService(
       Future.failed(LedgerApiErrors.InternalError.Generic(error.toString).asGrpcError)
   }
 
+  def defaultAuth(
+      headers: Metadata
+  )(prevClaims: ClaimSet): CompletionStage[ClaimSet] =
+    if (prevClaims != ClaimSet.Unauthenticated)
+      CompletableFuture.completedFuture(prevClaims)
+    else {
+      defaultAuthService.decodeMetadata(headers)
+    }
+
   private def iterateOverIdentityProviders(
       headers: Metadata
   )(entries: Seq[IdentityProviderAwareAuthService.IdpEntry]): CompletableFuture[ClaimSet] =
     entries
       .foldLeft(deny) { case (acc, elem) =>
         acc.thenCompose(prevClaims => claimCheck(prevClaims, elem, headers))
-      }
-      .thenCompose { prevClaims =>
-        if (prevClaims != ClaimSet.Unauthenticated)
-          CompletableFuture.completedFuture(prevClaims)
-        else {
-          defaultAuthService.decodeMetadata(headers)
-        }
       }
 
   override def decodeMetadata(headers: Metadata): CompletionStage[ClaimSet] =
@@ -93,6 +95,7 @@ class IdentityProviderAwareAuthService(
       .map(_.map(toEntry))
       .asJava
       .thenCompose(iterateOverIdentityProviders(headers))
+      .thenCompose(defaultAuth(headers))
 }
 
 object IdentityProviderAwareAuthService {
