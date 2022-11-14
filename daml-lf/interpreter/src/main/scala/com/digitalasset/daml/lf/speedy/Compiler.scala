@@ -937,71 +937,17 @@ private[lf] final class Compiler(
       }
     }
 
-//  private[this] def translateExerciseByInterface(
-//      env: Env,
-//      interfaceId: TypeConName,
-//      templateId: TypeConName,
-//      contractId: SValue,
-//      choiceId: ChoiceName,
-//      argument: SValue,
-//  ): s.SExpr =
-//    unaryFunction(env) { (tokenPos, env) =>
-//      t.InterfaceChoiceDefRef(interfaceId, choiceId)(
-//        s.SEApp(s.SEBuiltin(SBGuardMatchTemplateId(templateId)), List(s.SEValue(contractId))),
-//        s.SEValue(contractId),
-//        s.SEValue(argument),
-//        env.toSEVar(tokenPos),
-//      )
-//    }
-//
-//  private[this] def translateExerciseByInheritedInterface(
-//      env: Env,
-//      requiredIfaceId: TypeConName,
-//      requiringIfaceId: TypeConName,
-//      contractId: SValue,
-//      choiceId: ChoiceName,
-//      argument: SValue,
-//  ): s.SExpr =
-//    unaryFunction(env) { (tokenPos, env) =>
-//      t.InterfaceChoiceDefRef(requiredIfaceId, choiceId)(
-//        s.SEApp(
-//          s.SEBuiltin(SBGuardRequiredInterfaceId(requiredIfaceId, requiringIfaceId)),
-//          List(s.SEValue(contractId)),
-//        ),
-//        s.SEValue(contractId),
-//        s.SEValue(argument),
-//        env.toSEVar(tokenPos),
-//      )
-//    }
-
   private[this] def translateCommand(env: Env, cmd: Command): s.SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       t.CreateDefRef(templateId)(s.SEValue(argument))
     case Command.ExerciseTemplate(templateId, contractId, choiceId, argument) =>
       t.TemplateChoiceDefRef(templateId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
-//    case Command.ExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument) =>
-//      translateExerciseByInterface(env, interfaceId, templateId, contractId, choiceId, argument)
     case Command.ExerciseInterface(interfaceId, contractId, choiceId, argument) =>
       t.InterfaceChoiceDefRef(interfaceId, choiceId)(
         s.SEBuiltin(SBGuardConstTrue),
         s.SEValue(contractId),
         s.SEValue(argument),
       )
-//    case Command.ExerciseByInheritedInterface(
-//          requiredIfaceId,
-//          requiringIfaceId,
-//          contractId,
-//          choiceId,
-//          argument,
-//        ) =>
-//      translateExerciseByInheritedInterface(
-//        env,
-//        requiredIfaceId,
-//        requiringIfaceId,
-//        contractId,
-//        choiceId,
-//        argument,
-//      )
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
       t.ChoiceByKeyDefRef(templateId, choiceId)(s.SEValue(contractKey), s.SEValue(argument))
     case Command.FetchTemplate(templateId, coid) =>
