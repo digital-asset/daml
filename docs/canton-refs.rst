@@ -20,3 +20,10 @@ Dummy Canton Refs
 .. _how-do-i-enable-unsupported-features:
 
 .. _canton_console:
+
+Dummy TOC Refs
+--------------
+
+.. same idea but for the toc in the docs repo
+
+.. _ledger-administration-introduction:
