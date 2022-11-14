@@ -1135,7 +1135,7 @@ message Expr {
     InterfaceTemplateTypeRep interface_template_type_rep = 43;
 
     // Upcast/downcast interface payloads.
-    // *Available in versions >= 1.dev*
+    // *Available in versions >= 1.15*
     ToRequiredInterface to_required_interface = 44;
     FromRequiredInterface from_required_interface = 45;
     UnsafeFromRequiredInterface unsafe_from_required_interface = 46;
@@ -1641,7 +1641,7 @@ message DefInterface {
   // View type for this interface
   Type view = 8;
 
-  repeated TypeConName requires = 9;  // *Available in versions >= 1.dev*
+  repeated TypeConName requires = 9;  // *Available in versions >= 1.15*
 }
 
 // Exception definition

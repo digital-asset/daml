@@ -1117,7 +1117,7 @@ class DecodeV1Spec
       }
     }
 
-    s"decode extended TypRep  iff version < ${LV.v1_dev}" in {
+    s"decode extended TypeRep iff version < ${LV.v1_dev}" in {
       val testCases = {
         val typeRepTyConName = DamlLf1.Expr
           .newBuilder()
