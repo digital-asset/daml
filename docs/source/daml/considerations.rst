@@ -21,9 +21,9 @@ When programming within a distributed system like Daml, the developer must view 
 Application design must understand the sources of contention; this allows you to use different techniques to manage it and improve performance by increasing throughput and decreasing latency. These techniques include:
 
 - Bundling or batching business logic to increase business transaction throughput - the marginal cost of extra business logic within a transaction is often small, so bundling or batching business logic cleverly can allow for throughput an order of magnitude higher.
-- Maximizing parallelism with techniques like sharding, ensuring there is no contention between shards. (Avoid large sets of observers, which can negatively impact parallelism.) 
+- Maximizing parallelism with techniques like sharding, ensuring there is no contention between shards. (Avoid large sets of observers, which can negatively impact parallelism.)
 
-When designing Daml applications: 
+When designing Daml applications:
 
 * Understand where contention occurs
 * Split contracts across natural lines to reduce single high contention contracts (e.g., don't represent asset holdings for all owners and types as a dictionary on a single contract, but as individual contracts)
@@ -44,10 +44,10 @@ The diagram below shows the components often used in a Daml deployment. High ava
 .. image:: ./create-apps-intro.png
    :alt: Common components of a Daml deployment. Starting at top left: The application is connected to the participant node and the HTTP JSON API service. The trigger service is connected to the HTTP JSON API service, the participant node, and OAuth 2.0 Auth Middleware. The participant node is additionally connected directly to the HTTP JSON API service and the sequencer; the sequencer is further connected to the mediator, topology manager, and Postgres HA for Synchronoization layer.
 
-Next Steps 
+Next Steps
 **********
 
-Go to :doc:`/intro/0_Intro` to begin learning how to write smart contracts with Daml.
+Go to :doc:`/daml/intro/0_Intro` to begin learning how to write smart contracts with Daml.
 
 
 
