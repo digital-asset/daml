@@ -318,27 +318,36 @@ printTestCoverage _ allPackages results
             fillInImplementation (ifaceId, _) (loe, instanceBody) = (loe, instanceBody, def)
               where
                 def = case M.lookup ifaceId allContracts of
-                        Just (InterfaceV LF.Qualified { qualObject }) -> Just qualObject
+                        Just (InterfaceV def) -> Just def
                         _ -> Nothing
+
             allImplementationChoices = M.fromList $ do
-                (k, (loe, body, mdef)) <- M.toList $ M.mapWithKey fillInImplementation allImplementations
+                (k@(_, contractId), (loe, body, mdef)) <- M.toList $ M.mapWithKey fillInImplementation allImplementations
                 def <- maybeToList mdef
-                choice <- NM.toList $ LF.intChoices def
-                pure (LF.chcName choice, (loe, k, body, def, choice))
+                choice <- NM.toList $ LF.intChoices $ LF.qualObject def
+                let name = LF.unChoiceName $ LF.chcName choice
+                guard (name == "Archive")
+                pure (ChoiceIdentifier contractId name, (k, loe, body, def, choice))
+            allExercisedImplementationChoices = M.intersection allExercisedChoices allImplementationChoices
         in
         putStrLn $
         unlines
         [ printf "Modules internal to this package:"
         -- Can't have any external tests that exercise internals, as that would
         -- require a circular dependency
-        , printf "- Templates defined: %d" (M.size localTemplates)
-        , printf "    %d created" (M.size localTemplatesCreated)
-        , printf "- Template choices defined: %d" (M.size localTemplateChoices)
-        , printf "    %d exercised" (M.size localTemplateChoicesExercised)
-        , printf "- Interface implementations defined: %d" (countWhere (isLocal . fst) allImplementations)
+        , printf "- Templates"
+        , printf "  %d defined" (M.size localTemplates)
+        , printf "  %d created" (M.size localTemplatesCreated)
+        , printf "- Template choices"
+        , printf "  %d defined" (M.size localTemplateChoices)
+        , printf "  %d exercised" (M.size localTemplateChoicesExercised)
+        , printf "- Interfaces"
+        , printf "  %d implementations defined" (countWhere (isLocal . fst) allImplementations)
         , printf "    %d implementations of internal interfaces" (countWhere (isLocal . fst) allImplementations)
         , printf "    %d implementations of external interfaces" (countWhere (not . isLocal . fst) allImplementations)
-        , printf "    %d interface choices defined" (M.size allImplementationChoices)
+        , printf "- Interface choices"
+        , printf "  %d defined" (countWhere (\(_, loe, _, _, _) -> isLocal loe) allImplementationChoices)
+        , printf "  %d exercised" (countWhere (any isLocal) allExercisedImplementationChoices)
         ]
 
         {-
