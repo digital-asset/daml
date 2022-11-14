@@ -326,7 +326,7 @@ printTestCoverage _ allPackages results
                 def <- maybeToList mdef
                 choice <- NM.toList $ LF.intChoices $ LF.qualObject def
                 let name = LF.unChoiceName $ LF.chcName choice
-                guard (name == "Archive")
+                guard (name /= "Archive")
                 pure (ChoiceIdentifier contractId name, (k, loe, body, def, choice))
             allExercisedImplementationChoices = M.intersection allExercisedChoices allImplementationChoices
         in
