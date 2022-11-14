@@ -137,7 +137,7 @@ def daml_trigger_test(compiler_version, runner_version):
         server_files_prefix = ""
     else:
         server = daml_runner
-        server_args = ["sandbox"] + (["[--canton-port-file", "_port_file"] if (use_canton) else [])
+        server_args = ["sandbox"] + (["--canton-port-file", "_port_file"] if (use_canton) else [])
         server_files = ["$(rootpath {})".format(compiled_dar)]
         server_files_prefix = "--dar=" if use_canton else ""
 
