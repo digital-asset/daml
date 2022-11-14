@@ -4,11 +4,10 @@
 package com.daml.http
 package endpoints
 
-import akka.http.scaladsl.model._
 import Endpoints.ET
 import com.daml.jwt.domain.Jwt
 import util.Collections.toNonEmptySet
-import util.FutureUtil.{either, eitherT}
+import util.FutureUtil.eitherT
 import util.Logging.{InstanceUUID, RequestID}
 import scalaz.std.scalaFuture._
 import scalaz.{EitherT, NonEmptyList}
@@ -17,18 +16,14 @@ import scala.concurrent.ExecutionContext
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
 
-private[http] final class Parties(
-    routeSetup: RouteSetup,
-    partiesService: PartiesService,
-)(implicit ec: ExecutionContext) {
+private[http] final class Parties(partiesService: PartiesService)(implicit ec: ExecutionContext) {
   import Parties._
-  import routeSetup._
 
-  def allParties(req: HttpRequest)(implicit
+  def allParties(jwt: Jwt)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
-    proxyWithoutCommand((jwt, _) => partiesService.allParties(jwt))(req)
-      .flatMap(pd => either(pd map (domain.OkResponse(_))))
+  ): ET[domain.SyncResponse[List[domain.PartyDetails]]] = for {
+    res <- eitherT(partiesService.allParties(jwt))
+  } yield domain.OkResponse(res)
 
   def parties(jwt: Jwt, parties: NonEmptyList[domain.Party])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]

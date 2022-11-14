@@ -13,14 +13,15 @@ import EndpointsCompanion._
 import Endpoints.ET
 import com.daml.scalautil.Statement.discard
 import domain.JwtPayloadLedgerIdOnly
-import util.FutureUtil.{either, eitherT}
+import util.FutureUtil.{either, eitherT, rightT}
 import util.Logging.{InstanceUUID, RequestID}
 import util.{ProtobufByteStrings, toLedgerId}
 import com.daml.jwt.domain.Jwt
 import scalaz.std.scalaFuture._
-import scalaz.{-\/, EitherT, \/, \/-}
+import scalaz.EitherT
 
 import scala.concurrent.{ExecutionContext, Future}
+import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
 
@@ -67,29 +68,23 @@ class PackagesAndDars(routeSetup: RouteSetup, packageManagementService: PackageM
           .leftMap(it => it: Error)
       )
 
-  def listPackages(req: HttpRequest)(implicit
+  def listPackages(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[Seq[String]]] =
-    proxyWithoutCommand(packageManagementService.listPackages)(req).map(domain.OkResponse(_))
+    rightT(packageManagementService.listPackages(jwt, ledgerId)).map(domain.OkResponse(_))
 
-  def downloadPackage(req: HttpRequest, packageId: String)(implicit
+  def downloadPackage(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId, packageId: String)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[HttpResponse] = {
-    val et: ET[admin.GetPackageResponse] =
-      proxyWithoutCommand((jwt, ledgerId) =>
-        packageManagementService.getPackage(jwt, ledgerId, packageId)
-      )(req)
-    val fa: Future[Error \/ admin.GetPackageResponse] = et.run
-    fa.map {
-      case -\/(e) =>
-        httpResponseError(e)
-      case \/-(x) =>
-        HttpResponse(
-          entity = HttpEntity.apply(
-            ContentTypes.`application/octet-stream`,
-            ProtobufByteStrings.toSource(x.archivePayload),
-          )
+    val pkgResp: Future[admin.GetPackageResponse] =
+      packageManagementService.getPackage(jwt, ledgerId, packageId)
+    pkgResp.map { x =>
+      HttpResponse(
+        entity = HttpEntity.apply(
+          ContentTypes.`application/octet-stream`,
+          ProtobufByteStrings.toSource(x.archivePayload),
         )
+      )
     }
   }
 

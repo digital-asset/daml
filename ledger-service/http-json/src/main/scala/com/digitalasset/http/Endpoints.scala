@@ -16,7 +16,8 @@ import akka.util.ByteString
 import ContractsService.SearchResult
 import EndpointsCompanion._
 import json._
-import util.FutureUtil.either
+import util.toLedgerId
+import util.FutureUtil.{either, rightT}
 import util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import scalaz.std.scalaFuture._
@@ -32,6 +33,7 @@ import com.daml.metrics.{Metrics, Timed}
 import akka.http.scaladsl.server.Directives._
 import com.daml.http.endpoints.{MeteringReportEndpoint, RouteSetup}
 import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.metrics.api.MetricHandle.Timer
@@ -88,7 +90,7 @@ class Endpoints(
     new endpoints.ContractList(routeSetup, decoder, contractsService)
   import contractList._
 
-  private[this] val partiesEP: endpoints.Parties = new endpoints.Parties(routeSetup, partiesService)
+  private[this] val partiesEP: endpoints.Parties = new endpoints.Parties(partiesService)
   import partiesEP._
 
   private[this] val logger = ContextualizedLogger.get(getClass)
@@ -129,20 +131,64 @@ class Endpoints(
 
   private def toGetRoute[Res](
       httpRequest: HttpRequest,
-      fn: (Jwt, String) => ET[domain.SyncResponse[Res]],
+      fn: (Jwt) => ET[domain.SyncResponse[Res]],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       mkHttpResponse: MkHttpResponse[ET[domain.SyncResponse[Res]]],
   ): Route = {
     val res = for {
       t <- eitherT(routeSetup.input(httpRequest)): ET[(Jwt, String)]
-      (jwt, parameter) = t
-      res <- eitherT(RouteSetup.handleFutureEitherFailure(fn(jwt, parameter).run)): ET[
+      (jwt, _) = t
+      res <- eitherT(RouteSetup.handleFutureEitherFailure(fn(jwt).run)): ET[
         domain.SyncResponse[Res]
       ]
     } yield res
     responseToRoute(httpResponse(res))
   }
+
+  private def toGetRouteLedgerId[Res](
+      httpRequest: HttpRequest,
+      fn: (Jwt, LedgerApiDomain.LedgerId) => ET[domain.SyncResponse[Res]],
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      mkHttpResponse: MkHttpResponse[ET[domain.SyncResponse[Res]]],
+  ): Route = {
+    val res = for {
+      t <- extractJwtAndLedgerId(httpRequest)
+      (jwt, ledgerId) = t
+      res <- eitherT(
+        RouteSetup.handleFutureEitherFailure(fn(jwt, ledgerId).run)
+      ): ET[domain.SyncResponse[Res]]
+    } yield res
+    responseToRoute(httpResponse(res))
+  }
+
+  private def toDownloadPackageRoute[Res](
+      httpRequest: HttpRequest,
+      packageId: String,
+      fn: (Jwt, LedgerApiDomain.LedgerId, String) => Future[HttpResponse],
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Route = {
+    responseToRoute(
+      httpResponse(
+        extractJwtAndLedgerId(httpRequest).flatMap { case (jwt, ledgerId) =>
+          rightT(fn(jwt, ledgerId, packageId))
+        }
+      )
+    )
+  }
+
+  private def extractJwtAndLedgerId(
+      httpRequest: HttpRequest
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[(Jwt, LedgerApiDomain.LedgerId)] = for {
+    t <- routeSetup
+      .inputAndJwtPayload[domain.JwtPayloadLedgerIdOnly](httpRequest)
+      .leftMap(it => it: Error): ET[(Jwt, domain.JwtPayloadLedgerIdOnly, String)]
+    (jwt, jwtBody, _) = t
+  } yield (jwt, toLedgerId(jwtBody.ledgerId))
 
   private def mkRequestLogMsg(request: HttpRequest, remoteAddress: RemoteAddress) =
     s"Incoming ${request.method.value} request on ${request.uri} from $remoteAddress"
@@ -317,18 +363,14 @@ class Endpoints(
         get apply concat(
           path("query") & withTimer(queryAllTimer) apply
             toRoute(retrieveAll(req)),
-          path("user") apply toGetRoute(req, (jwt, _) => getAuthenticatedUser(jwt)),
-          path("user" / "rights") apply toGetRoute(
-            req,
-            (jwt, _) => listAuthenticatedUserRights(jwt),
-          ),
-          path("users") apply toGetRoute(req, (jwt, _) => listUsers(jwt)),
-          path("parties") & withTimer(getPartyTimer) apply
-            toRoute(allParties(req)),
-          path("packages") apply toRoute(listPackages(req)),
+          path("user") apply toGetRoute(req, getAuthenticatedUser),
+          path("user" / "rights") apply toGetRoute(req, listAuthenticatedUserRights),
+          path("users") apply toGetRoute(req, listUsers),
+          path("parties") & withTimer(getPartyTimer) apply toGetRoute(req, allParties),
+          path("packages") apply toGetRouteLedgerId(req, listPackages),
           path("packages" / ".+".r)(packageId =>
             withTimer(downloadPackageTimer) & extractRequest apply (req =>
-              responseToRoute(downloadPackage(req, packageId))
+              toDownloadPackageRoute(req, packageId, downloadPackage)
             )
           ),
         ),
@@ -358,6 +400,20 @@ class Endpoints(
   ): MkHttpResponse[Future[Error \/ SearchResult[Error \/ JsValue]]] =
     MkHttpResponse { output =>
       output.map(_.fold(httpResponseError, searchHttpResponse))
+    }
+
+  private implicit def mkHttpResponseEitherT(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): MkHttpResponse[ET[HttpResponse]] =
+    MkHttpResponse { output =>
+      implicitly[MkHttpResponse[Future[Error \/ HttpResponse]]].run(output.run)
+    }
+
+  private implicit def mkHttpResponse(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): MkHttpResponse[Future[Error \/ HttpResponse]] =
+    MkHttpResponse { output =>
+      output.map(_.fold(httpResponseError, identity))
     }
 
   private def searchHttpResponse(searchResult: SearchResult[Error \/ JsValue]): HttpResponse = {
