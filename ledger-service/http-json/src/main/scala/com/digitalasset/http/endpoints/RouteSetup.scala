@@ -64,6 +64,7 @@ private[http] final class RouteSetup(
       b <- eitherT(handleFutureEitherFailure(fn(jwt, a))): ET[R]
     } yield b
 
+  // TODO can be removed
   private[endpoints] def proxyWithCommandET[A: JsonReader, R](
       fn: (Jwt, A) => ET[R]
   )(req: HttpRequest)(implicit

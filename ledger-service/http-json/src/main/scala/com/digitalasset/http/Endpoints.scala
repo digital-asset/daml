@@ -306,10 +306,11 @@ class Endpoints(
           path("user" / "rights") apply toPostRoute(req, listUserRights),
           path("user" / "rights" / "grant") apply toPostRoute(req, grantUserRights),
           path("user" / "rights" / "revoke") apply toPostRoute(req, revokeUserRights),
-          path("parties") & withFetchTimer apply toRoute(parties(req)),
-          path("parties" / "allocate") & withTimer(
-            allocatePartyTimer
-          ) apply toRoute(allocateParty(req)),
+          path("parties") & withFetchTimer apply toPostRoute(req, parties),
+          path("parties" / "allocate") & withTimer(allocatePartyTimer) apply toPostRoute(
+            req,
+            allocateParty,
+          ),
           path("packages") apply toRoute(uploadDarFile(req)),
           path("metering-report") apply toRoute(meteringReportEndpoint.generateReportResponse(req)),
         ),

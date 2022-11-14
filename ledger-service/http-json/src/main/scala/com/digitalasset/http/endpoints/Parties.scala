@@ -6,8 +6,9 @@ package endpoints
 
 import akka.http.scaladsl.model._
 import Endpoints.ET
+import com.daml.jwt.domain.Jwt
 import util.Collections.toNonEmptySet
-import util.FutureUtil.either
+import util.FutureUtil.{either, eitherT}
 import util.Logging.{InstanceUUID, RequestID}
 import scalaz.std.scalaFuture._
 import scalaz.{EitherT, NonEmptyList}
@@ -22,7 +23,6 @@ private[http] final class Parties(
 )(implicit ec: ExecutionContext) {
   import Parties._
   import routeSetup._
-  import json.JsonProtocol._
 
   def allParties(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -30,21 +30,21 @@ private[http] final class Parties(
     proxyWithoutCommand((jwt, _) => partiesService.allParties(jwt))(req)
       .flatMap(pd => either(pd map (domain.OkResponse(_))))
 
-  def parties(req: HttpRequest)(implicit
+  def parties(jwt: Jwt, parties: NonEmptyList[domain.Party])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
-    proxyWithCommand[NonEmptyList[domain.Party], (Set[domain.PartyDetails], Set[domain.Party])](
-      (jwt, cmd) => partiesService.parties(jwt, toNonEmptySet(cmd))
-    )(req)
-      .map(ps => partiesResponse(parties = ps._1.toList, unknownParties = ps._2.toList))
+    for {
+      ps <- eitherT(partiesService.parties(jwt, toNonEmptySet(parties)))
+    } yield partiesResponse(parties = ps._1.toList, unknownParties = ps._2.toList)
 
-  def allocateParty(req: HttpRequest)(implicit
+  def allocateParty(jwt: Jwt, request: domain.AllocatePartyRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
   ): ET[domain.SyncResponse[domain.PartyDetails]] =
-    EitherT
-      .pure(metrics.daml.HttpJsonApi.allocatePartyThroughput.mark())
-      .flatMap(_ => proxyWithCommand(partiesService.allocate)(req).map(domain.OkResponse(_)))
+    for {
+      _ <- EitherT.pure(metrics.daml.HttpJsonApi.allocatePartyThroughput.mark())
+      res <- eitherT(partiesService.allocate(jwt, request))
+    } yield domain.OkResponse(res)
 }
 
 private[endpoints] object Parties {
