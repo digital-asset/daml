@@ -137,7 +137,7 @@ jobs:
 
         user=$(user_slack_handle $(branch_sha))
         if [ "$user" != "" ]; then
-            tell_slack "<@${user}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has completed with status $(build_status) (changelog: $(changelog_status))." \
+            tell_slack "<@${user}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has completed with status $(build_status)." \
                        "$(Slack.team-daml-ci)"
         fi
 
