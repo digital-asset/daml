@@ -208,7 +208,7 @@ SNASPSHOT_VERSIONS = [ver for ver in PROTO_LF_VERSIONS if ver != "1.dev"]
 ] if not is_windows else []
 
 sh_test(
-    name = "proto_immutability_test",
+    name = "proto_immutability_check",
     srcs = ["proto_check_hash.sh"],
     data = [
         ":daml_lf_%s_archive_proto_srcs" % version
