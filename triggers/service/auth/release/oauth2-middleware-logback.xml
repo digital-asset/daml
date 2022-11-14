@@ -3,9 +3,7 @@
         <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
             <if condition='isDefined("LOG_FORMAT_JSON")'>
                 <then>
-                    <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
-                        <layout class="net.logstash.logback.layout.LoggingEventCompositeJsonLayout"/>
-                    </encoder>
+                    <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
                 </then>
                 <else>
                     <encoder>
