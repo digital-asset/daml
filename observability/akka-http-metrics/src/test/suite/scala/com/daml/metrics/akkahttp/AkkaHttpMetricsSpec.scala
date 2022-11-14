@@ -582,7 +582,7 @@ class AkkaHttpMetricsSpec
 
 object AkkaHttpMetricsSpec extends MetricValues {
 
-  private val metricFactory = InMemoryMetricsFactory
+  private val metricsFactory = InMemoryMetricsFactory
   // The metrics being tested
   case class TestMetrics(
       httpRequestsTotal: Meter,
@@ -604,11 +604,11 @@ object AkkaHttpMetricsSpec extends MetricValues {
     // Creates a new set of metrics, for one test
     def apply(): TestMetrics = {
       val baseName = MetricName(s"test")
-      val httpRequestsTotal = metricFactory.meter(baseName)
-      val httpErrorsTotal = metricFactory.meter(baseName)
-      val httpLatency = metricFactory.timer(baseName)
-      val httpRequestsBytesTotal = metricFactory.meter(baseName)
-      val httpResponsesBytesTotal = metricFactory.meter(baseName)
+      val httpRequestsTotal = metricsFactory.meter(baseName)
+      val httpErrorsTotal = metricsFactory.meter(baseName)
+      val httpLatency = metricsFactory.timer(baseName)
+      val httpRequestsBytesTotal = metricsFactory.meter(baseName)
+      val httpResponsesBytesTotal = metricsFactory.meter(baseName)
 
       TestMetrics(
         httpRequestsTotal,

@@ -325,7 +325,7 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
 
 object WebSocketMetricsSpec extends MetricValues {
 
-  private val metricFactory = InMemoryMetricsFactory
+  private val metricsFactory = InMemoryMetricsFactory
   // The metrics being tested
   case class TestMetrics(
       messagesReceivedTotal: Meter,
@@ -347,10 +347,10 @@ object WebSocketMetricsSpec extends MetricValues {
     def apply(): TestMetrics = {
       val baseName = MetricName(s"test")
 
-      val receivedTotal = metricFactory.meter(baseName)
-      val receivedBytesTotal = metricFactory.meter(baseName)
-      val sentTotal = metricFactory.meter(baseName)
-      val sentBytesTotal = metricFactory.meter(baseName)
+      val receivedTotal = metricsFactory.meter(baseName)
+      val receivedBytesTotal = metricsFactory.meter(baseName)
+      val sentTotal = metricsFactory.meter(baseName)
+      val sentBytesTotal = metricsFactory.meter(baseName)
 
       TestMetrics(receivedTotal, receivedBytesTotal, sentTotal, sentBytesTotal)
     }
