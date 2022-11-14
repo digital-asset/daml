@@ -98,7 +98,7 @@ runner=$$(canonicalize_rlocation $(rootpath {runner}))
 # Cleanup the trigger runner process but maintain the script runner exit code.
 trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
 
-if [ {wait_for_port_file} -eq 1]; then
+if [ {wait_for_port_file} -eq 1 ]; then
     while [ ! -e _port_file ]; do
         sleep 1
     done

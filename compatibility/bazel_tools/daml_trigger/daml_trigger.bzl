@@ -163,7 +163,7 @@ runner=$$(canonicalize_rlocation $(rootpath {runner}))
 trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
 
 SCRIPTOUTPUT=$$(mktemp -d)
-if [ {wait_for_port_file} -eq 1]; then
+if [ {wait_for_port_file} -eq 1 ]; then
     while [ ! -e _port_file ]; do
         sleep 1
     done
