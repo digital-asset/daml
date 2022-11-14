@@ -229,7 +229,7 @@ data QueryInterfacePayload a = QueryInterfacePayload
 
 -- | Query the set of active contracts views for an interface
 -- that are visible to the given party.
-queryInterface : forall i v p. (TemplateOrInterface i, HasInterfaceView i v, IsParties p) => p -> Script [(ContractId i, Optional v)]
+queryInterface : forall i v p. (Template i, HasInterfaceView i v, IsParties p) => p -> Script [(ContractId i, Optional v)]
 queryInterface p = lift $ Free $ QueryInterface QueryInterfacePayload with
   parties = toParties p
   interfaceId = templateTypeRep @i
