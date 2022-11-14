@@ -52,25 +52,6 @@ private[http] final class RouteSetup(
   import encoder.implicits._
   import util.ErrorOps._
 
-  def proxyWithCommand[A: JsonReader, R](
-      fn: (Jwt, A) => Future[Error \/ R]
-  )(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[R] =
-    for {
-      t2 <- inputJsVal(req): ET[(Jwt, JsValue)]
-      (jwt, reqBody) = t2
-      a <- either(SprayJson.decode[A](reqBody).liftErr(InvalidUserInput)): ET[A]
-      b <- eitherT(handleFutureEitherFailure(fn(jwt, a))): ET[R]
-    } yield b
-
-  // TODO can be removed
-  private[endpoints] def proxyWithCommandET[A: JsonReader, R](
-      fn: (Jwt, A) => ET[R]
-  )(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[R] = proxyWithCommand((jwt, a: A) => fn(jwt, a).run)(req)
-
   def proxyWithoutCommand[A](
       fn: (Jwt, LedgerApiDomain.LedgerId) => Future[A]
   )(req: HttpRequest)(implicit

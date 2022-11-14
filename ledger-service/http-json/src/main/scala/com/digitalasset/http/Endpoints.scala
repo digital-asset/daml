@@ -82,7 +82,7 @@ class Endpoints(
   import packagesDars._
 
   private[this] val meteringReportEndpoint =
-    new MeteringReportEndpoint(routeSetup, meteringReportService)
+    new MeteringReportEndpoint(meteringReportService)
 
   private[this] val contractList: endpoints.ContractList =
     new endpoints.ContractList(routeSetup, decoder, contractsService)
@@ -312,7 +312,7 @@ class Endpoints(
             allocateParty,
           ),
           path("packages") apply toRoute(uploadDarFile(req)),
-          path("metering-report") apply toRoute(meteringReportEndpoint.generateReportResponse(req)),
+          path("metering-report") apply toPostRoute(req, meteringReportEndpoint.generateReport),
         ),
         get apply concat(
           path("query") & withTimer(queryAllTimer) apply
