@@ -814,7 +814,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
                     DefInterface.build(
                       requires =
                         if (lfInterface.getRequiresCount != 0) {
-                          assertSince(LV.Features.extendedInterfaces, "DefInterface.requires")
+                          assertSince(LV.Features.basicInterfaces, "DefInterface.requires")
                           lfInterface.getRequiresList.asScala.view.map(decodeTypeConName)
                         } else
                           List.empty,
@@ -1417,7 +1417,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.TO_REQUIRED_INTERFACE =>
-          assertSince(LV.Features.extendedInterfaces, "Expr.to_required_interface")
+          assertSince(LV.Features.basicInterfaces, "Expr.to_required_interface")
           val toRequiredInterface = lfExpr.getToRequiredInterface
           val requiredIfaceId = decodeTypeConName(toRequiredInterface.getRequiredInterface)
           val requiringIfaceId = decodeTypeConName(toRequiredInterface.getRequiringInterface)
@@ -1426,7 +1426,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.FROM_REQUIRED_INTERFACE =>
-          assertSince(LV.Features.extendedInterfaces, "Expr.from_required_interface")
+          assertSince(LV.Features.basicInterfaces, "Expr.from_required_interface")
           val fromRequiredInterface = lfExpr.getFromRequiredInterface
           decodeExpr(fromRequiredInterface.getExpr, definition) { body =>
             Ret(
@@ -1439,7 +1439,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.UNSAFE_FROM_REQUIRED_INTERFACE =>
-          assertSince(LV.Features.extendedInterfaces, "Expr.from_required_interface")
+          assertSince(LV.Features.basicInterfaces, "Expr.from_required_interface")
           val unsafeFromRequiredInterface = lfExpr.getUnsafeFromRequiredInterface
           val requiredIfaceId = decodeTypeConName(unsafeFromRequiredInterface.getRequiredInterface)
           val requiringIfaceId =
@@ -1644,7 +1644,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             decodeExpr(exercise.getArg, definition) { argE =>
               bindWork(
                 if (exercise.hasGuard) {
-                  assertSince(LV.Features.extendedInterfaces, "exerciseInterface.guard")
+                  assertSince(LV.v1_dev, "exerciseInterface.guard")
                   decodeExpr(exercise.getGuard, definition) { e =>
                     Ret(Some(e))
                   }
@@ -2348,7 +2348,7 @@ private[archive] object DecodeV1 {
       BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = bigNumeric),
       BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),
-      BuiltinFunctionInfo(TYPEREP_TYCON_NAME, BTypeRepTyConName, minVersion = extendedInterfaces),
+      BuiltinFunctionInfo(TYPEREP_TYCON_NAME, BTypeRepTyConName, minVersion = LV.v1_dev),
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),
