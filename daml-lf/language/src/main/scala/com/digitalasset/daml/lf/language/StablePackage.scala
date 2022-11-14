@@ -224,6 +224,7 @@ private[daml] object StablePackage {
       DA.Internal.Any,
       DA.Internal.Down,
       DA.Internal.Erased,
+      DA.Internal.Interface.AnyView.Types,
       DA.Internal.NatSyn,
       DA.Internal.PromotedText,
       DA.Internal.Template,
