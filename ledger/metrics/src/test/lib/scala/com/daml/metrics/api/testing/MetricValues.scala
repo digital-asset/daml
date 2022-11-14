@@ -53,6 +53,9 @@ trait MetricValues {
 
     def value: Long = meter match {
       case DropwizardMeter(_, metric) => metric.getCount
+      case meter: InMemoryMeter =>
+        val contextWithValues = meter.markers.view.mapValues(_.get()).toMap
+        singleValueFromContexts(contextWithValues)
       case other =>
         throw new IllegalArgumentException(s"Value not supported for $other")
     }
@@ -81,6 +84,13 @@ trait MetricValues {
         throw new IllegalArgumentException(s"Values not supported for $other")
     }
 
+    def values: Seq[Long] = histogram match {
+      case histogram: InMemoryHistogram =>
+        singleValueFromContexts(histogram.values.toMap)
+      case other =>
+        throw new IllegalArgumentException(s"Values not supported for $other")
+    }
+
   }
 
   class TimerValues(timer: Timer) {
@@ -93,17 +103,33 @@ trait MetricValues {
 
     def getCount: Long = timer match {
       case DropwizardTimer(_, metric) => metric.getCount
+      case timer: InMemoryTimer =>
+        singleValueFromContexts(timer.data.values.toMap.view.mapValues(_.size.toLong).toMap)
       case other =>
         throw new IllegalArgumentException(s"Count not supported for $other")
     }
 
     def getCounts: Map[MetricsContext, Long] = timer match {
       case timer: InMemoryTimer =>
-        timer.runTimers.toMap.view.mapValues(_.get().toLong).toMap
+        timer.data.values.toMap.view.mapValues(_.size.toLong).toMap
       case other =>
         throw new IllegalArgumentException(s"Counts not supported for $other")
     }
 
+    def getValues: Seq[Long] = timer match {
+      case timer: InMemoryTimer =>
+        singleValueFromContexts(timer.data.values.toMap)
+      case other =>
+        throw new IllegalArgumentException(s"Count not supported for $other")
+    }
+
   }
+
+  private def singleValueFromContexts[T](
+      contextToValueMapping: Map[MetricsContext, T]
+  ) = if (contextToValueMapping.size == 1)
+    contextToValueMapping.head._2
+  else
+    throw new IllegalArgumentException("Cannot get value with multi context metrics.")
 
 }

@@ -215,6 +215,7 @@ object SequentialWriteDaoSpec {
     create_argument_compression = None,
     create_key_value_compression = None,
     event_sequential_id = 0,
+    driver_metadata = None,
   )
 
   private val someEventExercise = DbDto.EventExercise(

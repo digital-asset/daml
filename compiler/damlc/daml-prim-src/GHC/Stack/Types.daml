@@ -12,6 +12,7 @@ import GHC.CString
 import GHC.Err
 import GHC.Tuple ()
 import GHC.Types
+import GHC.Tuple.Check
 
 -- | Request a `CallStack`. Use this as a constraint in type signatures in order
 -- to get nicer callstacks for error and debug messages.

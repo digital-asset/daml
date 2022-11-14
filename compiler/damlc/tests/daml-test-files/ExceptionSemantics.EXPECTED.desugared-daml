@@ -2,6 +2,7 @@ module ExceptionSemantics where
 import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
+import (implicit) qualified GHC.Tuple.Check
 import (implicit) DA.Internal.RebindableSyntax
 import DA.Exception
 import DA.Assert ( (===) )
@@ -85,7 +86,7 @@ instance DA.Internal.Desugar.HasExerciseByKey K (Party,
   _exerciseByKey = GHC.Types.primitive @"UExerciseByKey"
 instance DA.Internal.Desugar.HasKey K (Party, Int) where
   key this@K {..}
-    = GHC.Types.magic @"userWrittenTuple" : forall x. x -> x (p, v)
+    = GHC.Tuple.Check.userWrittenTuple (p, v)
     where
         _ = this
 instance DA.Internal.Desugar.HasMaintainer K (Party, Int) where

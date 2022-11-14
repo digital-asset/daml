@@ -139,7 +139,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     }
   }
 
-  override def queryView(parties: OneAnd[Set, Ref.Party], interfaceId: Identifier)(implicit
+  override def queryInterface(parties: OneAnd[Set, Ref.Party], interfaceId: Identifier)(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Seq[(ContractId, Option[Value])]] = {
@@ -173,7 +173,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     }
   }
 
-  override def queryViewContractId(
+  override def queryInterfaceContractId(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
       cid: ContractId,
@@ -182,7 +182,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       mat: Materializer,
   ): Future[Option[Value]] = {
     for {
-      activeViews <- queryView(parties, interfaceId)
+      activeViews <- queryInterface(parties, interfaceId)
     } yield {
       activeViews.collectFirst {
         case (k, Some(v)) if (k == cid) => v

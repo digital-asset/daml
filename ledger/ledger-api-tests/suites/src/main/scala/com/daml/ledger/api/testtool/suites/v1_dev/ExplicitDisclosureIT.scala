@@ -12,9 +12,16 @@ import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEvents
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.commands.DisclosedContract.{Arguments => ProtoArguments}
 import com.daml.ledger.api.v1.commands.{Command, DisclosedContract, ExerciseByKeyCommand}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
+import com.daml.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  InterfaceFilter,
+  TransactionFilter,
+}
 import com.daml.ledger.api.v1.transaction_service.GetTransactionsRequest
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
@@ -23,20 +30,12 @@ import com.daml.ledger.client.binding
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test
 import com.daml.ledger.test.model.Test._
+import com.daml.ledger.test.modelext.TestExtension.IDelegated
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, QualifiedName}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import scalaz.syntax.tag._
-import com.daml.ledger.api.v1.commands.{DisclosedContract => ProtoDisclosedContract}
-import ProtoDisclosedContract.{Arguments => ProtoArguments}
-import com.daml.ledger.api.v1.transaction_filter.{
-  Filters,
-  InclusiveFilters,
-  InterfaceFilter,
-  TransactionFilter,
-}
-import com.daml.ledger.test.modelext.TestExtension.IDelegated
 
 import java.time.temporal.ChronoUnit
 import java.util.regex.Pattern
@@ -667,6 +666,90 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         Some(
           "Invalid field disclosed_contracts: feature in development: disclosed_contracts should not be set"
         ),
+        checkDefiniteAnswerMetadata = true,
+      )
+    }
+  })
+
+  // TODO ED: Consider extracting this assertion in generic contract test
+  test(
+    "EDContractDriverMetadata",
+    "The contract driver metadata is present and consistent across all endpoints",
+    allocate(SingleParty),
+    enabled = _.explicitDisclosure,
+  )(implicit ec => { case Participants(Participant(ledger, owner)) =>
+    for {
+      // Create Dummy contract
+      _ <- ledger.create(owner, Dummy(owner))
+
+      // Fetch the create across possible endpoints
+      acs <- ledger.activeContracts(owner)
+
+      flatTxs <- ledger.flatTransactions(owner)
+      flatTx = assertSingleton("Only one flat transaction expected", flatTxs)
+      flatTxById <- ledger.flatTransactionById(flatTx.transactionId, owner)
+
+      txTrees <- ledger.transactionTrees(owner)
+      txTree = assertSingleton("Only one flat transaction expected", txTrees)
+      txTreeById <- ledger.transactionTreeById(txTree.transactionId, owner)
+
+      // Extract the created event from results
+      acsCreatedEvent = assertSingleton("Only one ACS created event expected", acs)
+      flatTxCreatedEvent = assertSingleton(
+        context = "Only one flat transaction create event expected",
+        as = createdEvents(flatTx),
+      )
+      flatTxByIdCreatedEvent = assertSingleton(
+        context = "Only one flat transaction by id create event expected",
+        as = createdEvents(flatTxById),
+      )
+      txTreeCreatedEvent = assertSingleton(
+        context = "Only one transaction tree create event expected",
+        as = createdEvents(txTree),
+      )
+      txTreeByIdCreatedEvent = assertSingleton(
+        context = "Only one transaction tree by id create event expected",
+        as = createdEvents(txTreeById),
+      )
+    } yield {
+      def assertDriverMetadata(createdEvent: CreatedEvent): ByteString =
+        createdEvent.metadata.getOrElse(fail("Missing metadata")).driverMetadata
+
+      val acsCreateDriverMetadata = assertDriverMetadata(acsCreatedEvent)
+      assert(!acsCreateDriverMetadata.isEmpty)
+
+      assertEquals(acsCreateDriverMetadata, assertDriverMetadata(flatTxCreatedEvent))
+      assertEquals(acsCreateDriverMetadata, assertDriverMetadata(flatTxByIdCreatedEvent))
+      assertEquals(acsCreateDriverMetadata, assertDriverMetadata(txTreeCreatedEvent))
+      assertEquals(acsCreateDriverMetadata, assertDriverMetadata(txTreeByIdCreatedEvent))
+    }
+  })
+
+  test(
+    "EDIncorrectDriverMetadata",
+    "Submission is rejected on invalid contract driver metadata",
+    allocate(Parties(2)),
+    enabled = _.explicitDisclosure,
+  )(implicit ec => { case Participants(Participant(ledger, owner, delegate)) =>
+    for {
+      testContext <- initializeTest(
+        ledger,
+        owner,
+        delegate,
+        filterTxBy(owner, template = byTemplate, interface = None),
+      )
+
+      exerciseFetchError <- testContext
+        .exerciseFetchDelegated(
+          testContext.disclosedContract
+            .update(_.metadata.driverMetadata.set(ByteString.copyFromUtf8("00aabbcc")))
+        )
+        .mustFail("Submitter forwarded a contract with invalid driver metadata")
+    } yield {
+      assertGrpcError(
+        exerciseFetchError,
+        LedgerApiErrors.ConsistencyErrors.DisclosedContractInvalid,
+        None,
         checkDefiniteAnswerMetadata = true,
       )
     }

@@ -11,6 +11,7 @@ module DA.Internal.Record(HasField(..), Symbol, getFieldPrim, setFieldPrim) wher
 import GHC.Types
 import GHC.Tuple() -- reqired for Tuple's themselves
 import GHC.Integer.Type() -- required for Integer primitives
+import GHC.Tuple.Check
 
 -- | `HasField` gives you getter and setter functions for each record field
 -- automatically.

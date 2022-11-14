@@ -16,9 +16,6 @@ service LedgerIdentityService {
   option deprecated = true;
 
   // Clients may call this RPC to return the identifier of the ledger they are connected to.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   rpc GetLedgerIdentity (GetLedgerIdentityRequest) returns (GetLedgerIdentityResponse) {
       option deprecated = true;
   };

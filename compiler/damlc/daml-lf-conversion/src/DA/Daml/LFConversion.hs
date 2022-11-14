@@ -1443,7 +1443,9 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         [ "mkInterfaceInstance"
         , "mkMethod"
         , "mkInterfaceView"
-        , "userWrittenTuple"
+        ])
+    , ("GHC.Tuple.Check",
+        [ "userWrittenTuple"
         ])
     ]
 
@@ -1722,7 +1724,7 @@ convertExpr env0 e = do
     go env (VarIn GHC_Types "I#") args = pure (mkIdentity TInt64, args)
         -- we pretend Int and Int# are the same thing
 
-    go env (VarIn GHC_Types "magic") (LType (isStrLitTy -> Just "userWrittenTuple") : LType _ : LExpr head : rest)
+    go env (VarIn GHC_Tuple_Check "userWrittenTuple") (_ : LExpr head : rest)
         = let env' = env { envUserWrittenTuple = True }
           in
           go env' head rest

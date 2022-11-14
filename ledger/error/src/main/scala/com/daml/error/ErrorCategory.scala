@@ -363,7 +363,7 @@ object ErrorCategory {
       with ErrorCategory
 
   @Description(
-    """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request. This error is exposed on the API with grpc-status INTERNAL without any details for security reasons"""
+    """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request. This error is exposed on the API with grpc-status UNIMPLEMENTED without any details for security reasons"""
   )
   @RetryStrategy("""Errors in this category are non-retryable.""")
   @Resolution(

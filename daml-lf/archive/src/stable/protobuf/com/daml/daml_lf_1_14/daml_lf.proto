@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
-package daml_lf_1_13;
+package daml_lf_1_14;
 
 option java_package = "com.daml.daml_lf_1_14";
 option csharp_namespace = "Com.Daml.Daml_Lf_1_14.DamlLf";

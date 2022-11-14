@@ -261,6 +261,7 @@ private[platform] object InMemoryStateUpdater {
           createObservers = create.stakeholders.diff(create.signatories),
           createAgreementText = Some(create.agreementText).filter(_.nonEmpty),
           createKeyHash = create.key.map(_.key).map(Hash.safeHashContractKey(create.templateId, _)),
+          driverMetadata = txAccepted.contractMetadata.get(create.coid),
         )
       case (nodeId, exercise: Exercise) =>
         TransactionLogUpdate.ExercisedEvent(

@@ -2,6 +2,7 @@ module InterfaceRequiresError where
 import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
+import (implicit) qualified GHC.Tuple.Check
 import (implicit) DA.Internal.RebindableSyntax
 data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => A = A GHC.Types.Opaque

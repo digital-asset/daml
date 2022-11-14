@@ -259,13 +259,13 @@ object ScriptF {
       } yield SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(optR))))
   }
 
-  final case class QueryView(
+  final case class QueryInterface(
       parties: OneAnd[Set, Party],
       interfaceId: Identifier,
       stackTrace: StackTrace,
       continue: SValue,
   ) extends Cmd {
-    override def description = "queryView"
+    override def description = "queryInterface"
 
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
@@ -282,7 +282,7 @@ object ScriptF {
       for {
         viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
-        list <- client.queryView(parties, interfaceId)
+        list <- client.queryInterface(parties, interfaceId)
         list <- Converter.toFuture(
           list
             .to(FrontStack)
@@ -307,14 +307,14 @@ object ScriptF {
     }
   }
 
-  final case class QueryViewContractId(
+  final case class QueryInterfaceContractId(
       parties: OneAnd[Set, Party],
       interfaceId: Identifier,
       cid: ContractId,
       stackTrace: StackTrace,
       continue: SValue,
   ) extends Cmd {
-    override def description = "queryViewContractId"
+    override def description = "queryInterfaceContractId"
 
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
@@ -324,7 +324,7 @@ object ScriptF {
       for {
         viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
-        optR <- client.queryViewContractId(parties, interfaceId, cid)
+        optR <- client.queryInterfaceContractId(parties, interfaceId, cid)
         optR <- Converter.toFuture(
           optR.traverse(Converter.fromInterfaceView(env.valueTranslator, viewType, _))
         )
@@ -774,10 +774,10 @@ object ScriptF {
     }
   }
 
-  private def parseQueryView(
+  private def parseQueryInterface(
       ctx: Ctx,
       v: SValue,
-  ): Either[String, QueryView] = {
+  ): Either[String, QueryInterface] = {
     def convert(
         actAs: SValue,
         interfaceId: SValue,
@@ -788,18 +788,18 @@ object ScriptF {
         actAs <- Converter.toParties(actAs)
         interfaceId <- Converter.typeRepToIdentifier(interfaceId)
         stackTrace <- toStackTrace(ctx, stackTrace)
-      } yield QueryView(actAs, interfaceId, stackTrace, continue)
+      } yield QueryInterface(actAs, interfaceId, stackTrace, continue)
     v match {
       case SRecord(_, _, ArrayList(actAs, interfaceId, continue, stackTrace)) =>
         convert(actAs, interfaceId, Some(stackTrace), continue)
-      case _ => Left(s"Expected QueryView payload but got $v")
+      case _ => Left(s"Expected QueryInterface payload but got $v")
     }
   }
 
-  private def parseQueryViewContractId(
+  private def parseQueryInterfaceContractId(
       ctx: Ctx,
       v: SValue,
-  ): Either[String, QueryViewContractId] = {
+  ): Either[String, QueryInterfaceContractId] = {
     def convert(
         actAs: SValue,
         interfaceId: SValue,
@@ -812,11 +812,11 @@ object ScriptF {
         interfaceId <- Converter.typeRepToIdentifier(interfaceId)
         cid <- toContractId(cid)
         stackTrace <- toStackTrace(ctx, stackTrace)
-      } yield QueryViewContractId(actAs, interfaceId, cid, stackTrace, continue)
+      } yield QueryInterfaceContractId(actAs, interfaceId, cid, stackTrace, continue)
     v match {
       case SRecord(_, _, ArrayList(actAs, interfaceId, cid, continue, stackTrace)) =>
         convert(actAs, interfaceId, cid, Some(stackTrace), continue)
-      case _ => Left(s"Expected QueryViewContractId payload but got $v")
+      case _ => Left(s"Expected QueryInterfaceContractId payload but got $v")
     }
   }
 
@@ -1058,8 +1058,8 @@ object ScriptF {
       case "SubmitTree" => parseSubmit(ctx, v).map(SubmitTree(_))
       case "Query" => parseQuery(ctx, v)
       case "QueryContractId" => parseQueryContractId(ctx, v)
-      case "QueryView" => parseQueryView(ctx, v)
-      case "QueryViewContractId" => parseQueryViewContractId(ctx, v)
+      case "QueryInterface" => parseQueryInterface(ctx, v)
+      case "QueryInterfaceContractId" => parseQueryInterfaceContractId(ctx, v)
       case "QueryContractKey" => parseQueryContractKey(ctx, v)
       case "AllocParty" => parseAllocParty(ctx, v)
       case "ListKnownParties" => parseListKnownParties(ctx, v)
