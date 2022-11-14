@@ -1,0 +1,106 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ENABLE-SCENARIOS
+
+module SerializableInterface where
+
+import DA.Assert
+
+data AssetView = AssetView with
+    owner : Party
+  deriving (Eq, Ord, Show)
+
+-- | An interface comment.
+interface Asset where
+  viewtype AssetView
+
+  setOwner : Party -> Asset
+
+  choice ProposeTransfer : ContractId AssetTransferProposal
+    with newOwner : Party
+    controller (view this).owner
+    do
+      create AssetTransferProposal with
+        newOwner
+        asset = this
+
+instance Show Asset where
+  show _ = "<Asset>"
+
+template Coin
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer, owner
+
+    interface instance Asset for Coin where
+      view = AssetView with owner
+      setOwner newOwner =
+        toInterface (this with owner = newOwner)
+
+template AssetTransferProposal
+  with
+    asset : Asset
+    newOwner : Party
+  where
+    signatory signatory asset
+    observer newOwner
+
+    choice Accept : ContractId Asset
+      controller newOwner
+      do
+        create (setOwner asset newOwner)
+
+main = scenario do
+  alice <- getParty "alice"
+  bob <- getParty "bob"
+  cindy <- getParty "cindy"
+
+  aliceAssetCid <-
+    alice `submit` create
+      (toInterface @Asset Coin with
+        issuer = alice
+        owner = alice
+        amount = 5)
+
+  bobAssetProposalCid <-
+    alice `submit` exercise aliceAssetCid
+      ProposeTransfer with
+        newOwner = bob
+
+  bobAssetCid <-
+    bob `submit` exercise bobAssetProposalCid
+      Accept
+
+  cindyAssetProposalCid <-
+    bob `submit` exercise bobAssetCid
+      ProposeTransfer with
+        newOwner = cindy
+
+  cindyAssetProposal <-
+    cindy `submit` fetch cindyAssetProposalCid
+
+  cindyAssetProposal === AssetTransferProposal with
+    newOwner = cindy
+    asset = toInterface @Asset Coin with
+      issuer = alice
+      owner = bob
+      amount = 5
+
+  cindyAssetCid <-
+    cindy `submit` exercise cindyAssetProposalCid
+      Accept
+
+  cindyAsset <-
+    alice `submit` fetch cindyAssetCid
+
+  cindyAsset === toInterface @Asset Coin with
+    issuer = alice
+    owner = cindy
+    amount = 5
+
+  pure ()
