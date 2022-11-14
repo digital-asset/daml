@@ -42,6 +42,9 @@ package dotnot {
       extends DotNotFailure
   final case class UnknownType(name: String, cursor: PropertyCursor, value: String)
       extends DotNotFailure
+  // FIXME!
+  final case class AnyValueFailure(cursor: PropertyCursor, value: String)
+      extends DotNotFailure
 
   final case class NameMatcherToAction[T, R, C](matcher: NameMatcher, action: Action[T, R, C])
   final case class ValueMatcherToAction[T, R, C](matcher: ValueMatcher, action: Action[T, R, C])

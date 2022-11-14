@@ -43,6 +43,7 @@ object ApiCodecVerbose {
   private[this] final val tagRecord: String = "record"
   private[this] final val tagVariant: String = "variant"
   private[this] final val tagEnum: String = "enum"
+  private[this] final val tagAny: String = "any"
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
@@ -70,6 +71,12 @@ object ApiCodecVerbose {
     case V.ValueOptional(None) => JsObject(propType -> JsString(tagOptional), propValue -> JsNull)
     case V.ValueOptional(Some(v)) =>
       JsObject(propType -> JsString(tagOptional), propValue -> apiValueToJsValue(v))
+    case V.ValueAny(tycon, value) =>
+      JsObject(
+        propType -> JsString(tagAny),
+        propId -> tycon.toJson,
+        propValue -> apiValueToJsValue(value)
+      )
     case v: Model.ApiMap => apiTextMapToJsValue(v)
     case v: Model.ApiGenMap => apiGenMapToJsValue(v)
   }
@@ -175,6 +182,7 @@ object ApiCodecVerbose {
         V.ValueGenMap(
           arrayField(value, propValue, "ApiGenMap").view.map(jsValueToGenMapEntry).to(ImmArray)
         )
+      case `tagAny` => jsValueToApiAny(value)
       case t =>
         deserializationError(s"Can't read ${value.prettyPrint} as ApiValue, unknown type '$t'")
     }
@@ -248,6 +256,25 @@ object ApiCodecVerbose {
       case t =>
         deserializationError(
           s"Can't read ${value.prettyPrint} as ApiEnum, type '$t' is not a enum"
+        )
+    }
+
+  def jsValueToApiAny(value: JsValue): V.ValueAny =
+    strField(value, propType, "ApiAny") match {
+      case `tagAny` =>
+        V.ValueAny(
+          tycon = asObject(value, "ApiAny")
+            .fields
+            .get(propId)
+            .flatMap(_.convertTo[Option[DamlLfIdentifier]])
+            .getOrElse(
+              deserializationError(s"Can't read ${value.prettyPrint} as ApiValue"),
+            ),
+          value = jsValueToApiValue(anyField(value, propValue, "ApiAny")),
+        )
+      case t =>
+        deserializationError(
+          s"Can't read ${value.prettyPrint} as ApiAny, type '$t' is not a Any"
         )
     }
 

@@ -223,6 +223,9 @@ object project {
                   Left(TypeCoercionFailure("GenMap index", "int", cursor, cursor.current))
               }
           }
+        case V.ValueAny(_, _) =>
+          // FIXME!
+          Left(AnyValueFailure(cursor, cursor.current))
       }
     loop(rootArgument, cursor.prev.get)
   }

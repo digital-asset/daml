@@ -162,6 +162,8 @@ object TreeUtils {
         .foldLeft(Set[Party]()) { case (x, xs) =>
           x.union(xs)
         }
+    case Sum.Any(any) =>
+      valueParties(any.getValue.sum)
   }
 
   sealed abstract class CreatedContract extends Product with Serializable {
@@ -554,6 +556,8 @@ object TreeUtils {
       value.entries.foldMap(e =>
         valueRefs(e.getKey.sum).union(valueRefs(e.getValue.sum))
       ) + Identifier().withModuleName("DA.Map").withEntityName("Map")
+    case Sum.Any(any) =>
+      valueRefs(any.getValue.sum) + any.getTycon
   }
 
   def isTupleId(id: Identifier): Boolean = {
@@ -590,6 +594,8 @@ object TreeUtils {
     case Sum.Enum(_) => Set()
     case Sum.GenMap(value) =>
       value.entries.foldMap(e => valueCids(e.getKey.sum).union(valueCids(e.getValue.sum)))
+    case Sum.Any(any) =>
+      valueCids(any.getValue.sum)
   }
 
 }

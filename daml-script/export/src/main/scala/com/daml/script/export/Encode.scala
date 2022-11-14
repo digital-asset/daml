@@ -232,6 +232,8 @@ private[export] object Encode {
               m.entries.map(e => pair(go(e.getKey.sum), go(e.getValue.sum)))
             )
           )
+        case Sum.Any(_) =>
+          Doc.text("FIXME {- interface value in daml script export -}")
       }
 
     go(v)

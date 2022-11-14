@@ -281,6 +281,7 @@ object TransactionBuilder {
                   key +: value +: acc
                 }
                 go(currentVersion max TransactionVersion.minGenMap, newValues)
+              case ValueAny(_, value) => go(currentVersion, value +: values)
             }
         }
       }

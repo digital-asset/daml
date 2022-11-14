@@ -422,6 +422,7 @@ case object LedgerApiV1 {
   ): Result[Model.ApiValue] =
     value match {
       case v: V.ValueEnum => fillInEnumTI(v, typ)
+      case V.ValueAny(t, v) => fillInTypeInfo(v, typ, ctx).map(V.ValueAny(t, _))
       case _: V.ValueCidlessLeaf | _: V.ValueContractId => Right(value)
       case v: Model.ApiOptional => fillInOptionalTI(v, typ, ctx)
       case v: Model.ApiMap => fillInTextMapTI(v, typ, ctx)
