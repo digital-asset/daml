@@ -99,8 +99,14 @@ runner=$$(canonicalize_rlocation $(rootpath {runner}))
 trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
 
 if [ {wait_for_port_file} -eq 1 ]; then
+    timeout=60
     while [ ! -e _port_file ]; do
+        if [ "$timeout" = 0 ]; then
+            echo "Timed out waiting for Canton startup" >&2
+            exit 1
+        fi
         sleep 1
+        timeout=$((timeout - 1))
     done
 fi
 if [ {upload_dar} -eq 1 ] ; then
