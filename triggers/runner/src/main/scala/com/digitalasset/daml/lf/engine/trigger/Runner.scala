@@ -4,6 +4,7 @@
 package com.daml.lf.engine.trigger
 
 import akka.NotUsed
+import akka.event.Logging
 import akka.stream._
 import akka.stream.scaladsl._
 import com.daml.api.util.TimeProvider
@@ -384,15 +385,18 @@ class Runner(
 
       (inFlightState, seeOne) match {
         case (None, SeenMsgs.Neither) =>
+          logger.debug(s"New in-flight command: $uuid")
           discard(inFlight.incrementAndGet())
 
         case (None, _) | (Some(SeenMsgs.Neither), SeenMsgs.Neither) =>
         // no work required
 
         case (Some(SeenMsgs.Neither), _) =>
+          logger.debug(s"In-flight command completion: $uuid")
           discard(inFlight.decrementAndGet())
 
         case (Some(_), SeenMsgs.Neither) =>
+          logger.debug(s"New in-flight command: $uuid")
           discard(inFlight.incrementAndGet())
 
         case (Some(_), _) =>
@@ -404,6 +408,7 @@ class Runner(
       val inFlightState = pendingIds.remove(uuid)
 
       if (inFlightState.contains(SeenMsgs.Neither)) {
+        logger.debug(s"In-flight command completion: $uuid")
         discard(inFlight.decrementAndGet())
       }
     }
@@ -448,7 +453,7 @@ class Runner(
       commands = commands,
     )
     logger.debug(
-      s"submitting command ID ${commandUUID: UUID}, commands ${commands.map(_.command.value)}"
+      s"Submitting command ID ${commandUUID: UUID}, commands ${commands.map(_.command.value)}"
     )
     (commandUUID, SubmitRequest(commands = Some(commandsArg)))
   }
@@ -510,10 +515,15 @@ class Runner(
       parties: TriggerParties,
       filter: TransactionFilter,
   ): Flow[SingleCommandFailure, TriggerMsg, NotUsed] = {
-
     // A queue for command submission failures.
-    val submissionFailureQueue: Flow[SingleCommandFailure, Completion, NotUsed] =
+    val submissionFailureQueue: Flow[SingleCommandFailure, TriggerMsg, NotUsed] = {
       Flow[SingleCommandFailure]
+        .log(
+          "Command submission failure",
+          failure =>
+            s"SingleCommandFailure(${failure.commandId}, Status(${failure.s.getStatus.getCode
+                .value()}, ${failure.s.getStatus.getDescription}))",
+        )
         // Why `fail`?  Consider the most obvious alternatives.
         //
         // `backpressure`?  This feeds into the Free interpreter flow, which may produce
@@ -526,52 +536,57 @@ class Runner(
         // `fail`, on the other hand?  It far better fits the trigger model to go
         //   tabula rasa and notice the still-unhandled contract in the ACS again
         //   on init, as we expect triggers to be able to do anyhow.
-        .buffer(triggerConfig.submissionFailureQueueSize, OverflowStrategy.fail)
+        .buffer(
+          triggerConfig.submissionFailureQueueSize,
+          OverflowStrategy.fail.withLogLevel(Logging.WarningLevel),
+        )
         .map { case SingleCommandFailure(commandId, s) =>
-          Completion(
-            commandId,
-            Some(Status(s.getStatus.getCode.value(), s.getStatus.getDescription)),
+          CompletionMsg(
+            Completion(
+              commandId,
+              Some(Status(s.getStatus.getCode.value(), s.getStatus.getDescription)),
+            )
           )
         }
+        .log("Apply trigger rules to command submission failure")
+    }
 
     // The transaction source (ledger).
-    val transactionSource: Source[TriggerMsg, NotUsed] =
+    val transactionSource: Source[TriggerMsg, NotUsed] = {
       client.transactionClient
         .getTransactions(offset, None, filter)
         .map(TransactionMsg)
+        .log("Transaction source")
+    }
 
-    // Command completion source (ledger completion stream +
-    // synchronous submission failures).
-    val completionSource: Flow[SingleCommandFailure, TriggerMsg, NotUsed] =
-      submissionFailureQueue
-        .merge(
-          client.commandClient
-            // Completions only take actAs into account so no need to include readAs.
-            .completionSource(List(parties.actAs.unwrap), offset)
-            .mapConcat {
-              case CheckpointElement(_) => List()
-              case CompletionElement(c, _) => List(c)
-            }
-        )
-        .map(CompletionMsg)
+    // Command completion source (ledger completion stream)
+    val completionSource: Source[TriggerMsg, NotUsed] = {
+      client.commandClient
+        // Completions only take actAs into account so no need to include readAs.
+        .completionSource(List(parties.actAs.unwrap), offset)
+        .collect { case CompletionElement(c, _) =>
+          CompletionMsg(c)
+        }
+        .log("Completion source")
+    }
 
     // Heartbeats source (we produce these repetitively on a timer with
     // the given delay interval).
     val heartbeatSource: Source[TriggerMsg, NotUsed] = heartbeat match {
       case Some(interval) =>
+        logger.info(s"Heartbeat source configured with interval: $interval")
         Source
           .tick[TriggerMsg](interval, interval, HeartbeatMsg())
           .mapMaterializedValue(_ => NotUsed)
-      case None => Source.empty[TriggerMsg]
+          .log("Heartbeat source")
+
+      case None =>
+        logger.info("No heartbeat source configured")
+        Source.empty[TriggerMsg]
     }
 
-    completionSource merge transactionSource merge heartbeatSource
-  }
-
-  private def logReceivedMsg(tm: TriggerMsg): Unit = tm match {
-    case CompletionMsg(c) => logger.debug(s"trigger received completion message $c")
-    case TransactionMsg(t) => logger.debug(s"trigger received transaction, ID ${t.transactionId}")
-    case HeartbeatMsg() => ()
+    submissionFailureQueue
+      .merge(completionSource merge transactionSource merge heartbeatSource)
   }
 
   private[this] def getInitialStateFreeAndUpdate(acs: Seq[CreatedEvent]): (SValue, SValue) = {
@@ -653,9 +668,18 @@ class Runner(
 
     import UnfoldState.{flatMapConcatNode, flatMapConcatNodeOps, toSource, toSourceOps}
 
-    val runInitialState = toSource(freeTriggerSubmits(clientTime, initialStateFree))
+    val runInitialState =
+      toSource(
+        freeTriggerSubmits(clientTime, initialStateFree)
+          .leftMap { state =>
+            logger.debug(s"Trigger rule initial state: $state")
+            state
+          }
+      )
 
     val runRuleOnMsgs = flatMapConcatNode { (state: SValue, messageVal: SValue) =>
+      logger.debug(s"Run trigger rule: state=$state; message=$messageVal")
+
       val clientTime: Timestamp =
         Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
       machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal))
@@ -676,17 +700,12 @@ class Runner(
           _.expect(
             "TriggerRule new state",
             { case DamlTuple2(SUnit, newState) =>
-              logger.debug(s"New state: $newState")
+              logger.debug(s"Trigger rule state updated: $newState")
               newState
             },
           ).orConverterException
         )
     }
-
-    val logInitialState =
-      Flow[SValue].wireTap(evaluatedInitialState =>
-        logger.debug(s"Initial state: $evaluatedInitialState")
-      )
 
     // The flow that we return:
     //  - Maps incoming trigger messages to new trigger messages
@@ -698,14 +717,15 @@ class Runner(
     @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
     val graph = GraphDSL.createGraph(Sink.last[SValue]) { implicit gb => saveLastState =>
       import GraphDSL.Implicits._
-      val msgIn = gb add Flow[TriggerMsg].wireTap(logReceivedMsg _)
+
+      val msgIn = gb add Flow[TriggerMsg]
       val initialState = gb add runInitialState
       val initialStateOut = gb add Broadcast[SValue](2)
       val rule = gb add runRuleOnMsgs
       val submissions = gb add Merge[SubmitRequest](2)
       val finalStateIn = gb add Concat[SValue](2)
       // format: off
-      initialState.finalState ~> logInitialState ~> initialStateOut ~> rule.initState
+      initialState.finalState                    ~> initialStateOut ~> rule.initState
       initialState.elemsOut                          ~> submissions
                           msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> rule.elemsIn
                                                         submissions <~ rule.elemsOut
@@ -789,6 +809,7 @@ class Runner(
         case z => Some(z)
       }
 
+    // FIXME: warn log (not error log) on throttle retries?
     val throttleFlow: Flow[SubmitRequest, SubmitRequest, NotUsed] =
       Flow[SubmitRequest]
         .throttle(triggerConfig.maxSubmissionRequests, triggerConfig.maxSubmissionDuration)
@@ -813,6 +834,11 @@ class Runner(
           inFlightCommands.count <= triggerConfig.maxInFlightCommands
         }
         .map { request =>
+          logger.warn(
+            s"""Due to excessive in-flight commands (currently there are ${inFlightCommands.count} in-flight commands),
+               | failing submission request for command ${request.getCommands.commandId}
+               | """.stripMargin
+          )
           SingleCommandFailure(
             request.getCommands.commandId,
             new StatusRuntimeException(UNAVAILABLE),
@@ -894,18 +920,29 @@ object Runner extends StrictLogging {
       notRetryable: A => Future[B],
   )(implicit ec: ExecutionContext): Flow[A, B, NotUsed] = {
     def trial(tries: Int, value: A): Future[B] =
-      if (tries <= 1) notRetryable(value)
-      else
+      if (tries <= 1) {
+        notRetryable(value).recoverWith { case error: Throwable =>
+          logger.error(s"Failing permanently after $initialTries submission attempts")
+          Future.failed(error)
+        }
+      } else {
         retryable(value).flatMap(
           _.cata(
-            Future.successful, {
-              Future {
-                try Thread.sleep(backoff(initialTries - tries + 1).toMillis)
-                catch { case _: InterruptedException => }
-              }.flatMap(_ => trial(tries - 1, value))
-            },
+            Future.successful,
+            Future {
+              val attempt = initialTries - tries + 1
+              val backoffPeriod = backoff(attempt)
+
+              logger.warn(
+                s"Submission failed on attempt $attempt of $initialTries, will retry again in $backoffPeriod"
+              )
+
+              Thread.sleep(backoffPeriod.toMillis)
+            }.flatMap(_ => trial(tries - 1, value)),
           )
         )
+      }
+
     Flow[A].mapAsync(parallelism)(trial(initialTries, _))
   }
 
