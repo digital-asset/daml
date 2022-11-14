@@ -603,7 +603,7 @@ object AkkaHttpMetricsSpec extends MetricValues {
 
     // Creates a new set of metrics, for one test
     def apply(): TestMetrics = {
-      val baseName = MetricName(s"test")
+      val baseName = MetricName("test")
       val httpRequestsTotal = metricsFactory.meter(baseName)
       val httpErrorsTotal = metricsFactory.meter(baseName)
       val httpLatency = metricsFactory.timer(baseName)

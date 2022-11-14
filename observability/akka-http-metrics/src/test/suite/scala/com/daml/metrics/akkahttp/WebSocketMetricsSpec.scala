@@ -345,7 +345,7 @@ object WebSocketMetricsSpec extends MetricValues {
 
     // Creates a new set of metrics, for one test
     def apply(): TestMetrics = {
-      val baseName = MetricName(s"test")
+      val baseName = MetricName("test")
 
       val receivedTotal = metricsFactory.meter(baseName)
       val receivedBytesTotal = metricsFactory.meter(baseName)
