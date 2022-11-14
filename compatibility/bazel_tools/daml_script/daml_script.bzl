@@ -73,7 +73,7 @@ def daml_script_test(
         server_files_prefix = ""
     else:
         server = daml_runner
-        server_args = ["sandbox"]
+        server_args = ["sandbox"] + (["--canton-port-file", "_port_file"] if (use_canton) else [])
         server_files = ["$(rootpath {})".format(compiled_dar)]
         server_files_prefix = "--dar=" if use_canton else ""
 
@@ -98,8 +98,11 @@ runner=$$(canonicalize_rlocation $(rootpath {runner}))
 # Cleanup the trigger runner process but maintain the script runner exit code.
 trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
 
-sleep 2
-
+if [ {wait_for_port_file} -eq 1]; then
+    while [ ! -e _port_file ]; do
+        sleep 1
+    done
+fi
 if [ {upload_dar} -eq 1 ] ; then
   $$runner ledger upload-dar \\
     --host localhost \\
@@ -120,6 +123,7 @@ chmod +x $(OUTS)
             runner = daml_runner,
             script_name = script_name,
             upload_dar = "1" if use_sandbox_on_x else "0",
+            wait_for_port_file = "1" if use_canton else "0",
         ),
         exec_tools = [
             compiled_dar,
