@@ -126,13 +126,10 @@ trait MetricValues {
   }
 
   private def singleValueFromContexts[T](
-      contextWithValues: Map[
-        MetricsContext,
-        T,
-      ]
+      contextToValueMapping: Map[MetricsContext, T]
   ) = {
-    if (contextWithValues.size == 1)
-      contextWithValues.head._2
+    if (contextToValueMapping.size == 1)
+      contextToValueMapping.head._2
     else throw new IllegalArgumentException("Cannot get value with multi context metrics.")
   }
 
