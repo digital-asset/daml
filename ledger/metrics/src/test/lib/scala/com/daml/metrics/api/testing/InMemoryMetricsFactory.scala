@@ -69,9 +69,8 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
 
     override def name: String = "test"
 
-    override def update(duration: Long, unit: TimeUnit)(implicit context: MetricsContext): Unit = {
+    override def update(duration: Long, unit: TimeUnit)(implicit context: MetricsContext): Unit =
       data.update(TimeUnit.MILLISECONDS.convert(duration, unit))
-    }
 
     override def update(duration: Duration)(implicit context: MetricsContext): Unit =
       data.update(TimeUnit.MILLISECONDS.convert(duration))
