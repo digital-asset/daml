@@ -59,7 +59,7 @@ import scalaz.{-\/, Tag, \/, \/-}
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
@@ -609,9 +609,9 @@ class Runner(
       .stepToValue(machine)
       .expect(
         "TriggerSetup",
-        { case DamlAnyModuleRecord("TriggerSetup", fts) =>
-          fts
-        },
+        { case DamlAnyModuleRecord("TriggerSetup", fts) => fts }: @nowarn(
+          "msg=A repeated case parameter or extracted sequence is not matched by a sequence wildcard"
+        ),
       )
       .orConverterException
     machine.setExpressionToEvaluate(update)
@@ -665,7 +665,7 @@ class Runner(
           "TriggerRule",
           { case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) =>
             fun
-          },
+          }: @nowarn("msg=A repeated case parameter .* is not matched by a sequence wildcard"),
         )
         .orConverterException
       machine.setExpressionToEvaluate(makeAppD(stateFun, state))

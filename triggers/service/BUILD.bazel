@@ -12,6 +12,7 @@ load(
     "da_scala_library",
     "da_scala_test",
     "da_scala_test_suite",
+    "lf_scalacopts_stricter",
 )
 
 triggerMain = "src/main/scala/com/digitalasset/daml/lf/engine/trigger/ServiceMain.scala"
@@ -55,6 +56,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_slf4j",
         "@maven//:org_tpolecat_doobie_postgres",
     ],
+    scalacopts = lf_scalacopts_stricter,
     # Uncomment this if/when the target is published to maven.
     # tags = ["maven_coordinates=com.daml:trigger-service:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -129,6 +131,7 @@ trigger_service_runtime_deps = {
         resource_strip_prefix = "triggers/service/release/trigger-service-",
         resources = ["release/trigger-service-logback.xml"],
         scala_deps = scala_binary_deps,
+        scalacopts = lf_scalacopts_stricter,
         visibility = ["//visibility:public"],
         runtime_deps = trigger_service_runtime_deps.get(edition),
         deps = binary_deps + [
