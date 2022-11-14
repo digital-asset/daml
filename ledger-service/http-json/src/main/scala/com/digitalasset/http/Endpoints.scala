@@ -70,7 +70,6 @@ class Endpoints(
   import commandsHelper._
 
   private[this] val userManagement: endpoints.UserManagement = new endpoints.UserManagement(
-    routeSetup = routeSetup,
     decodeJwt = decodeJwt,
     userManagementClient,
   )
@@ -133,7 +132,6 @@ class Endpoints(
       fn: (Jwt, String) => ET[domain.SyncResponse[Res]],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
       mkHttpResponse: MkHttpResponse[ET[domain.SyncResponse[Res]]],
   ): Route = {
     val res = for {
@@ -323,7 +321,7 @@ class Endpoints(
             req,
             (jwt, _) => listAuthenticatedUserRights(jwt),
           ),
-          path("users") apply toRoute(listUsers(req)),
+          path("users") apply toGetRoute(req, (jwt, _) => listUsers(jwt)),
           path("parties") & withTimer(getPartyTimer) apply
             toRoute(allParties(req)),
           path("packages") apply toRoute(listPackages(req)),

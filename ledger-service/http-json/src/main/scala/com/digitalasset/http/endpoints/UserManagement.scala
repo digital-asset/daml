@@ -5,13 +5,11 @@ package com.daml.http
 package endpoints
 
 import akka.NotUsed
-import akka.http.scaladsl.model._
 import akka.stream.scaladsl.Source
 import EndpointsCompanion._
 import Endpoints.ET
 import com.daml.http.EndpointsCompanion.CreateFromUserToken.userIdFromToken
-import util.FutureUtil.{either, eitherT}
-import util.Logging.{InstanceUUID, RequestID}
+import util.FutureUtil.either
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.StandardJWTPayload
 import scalaz.std.scalaFuture._
@@ -19,20 +17,17 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, EitherT, Monad, \/, \/-}
 
 import scala.concurrent.{ExecutionContext, Future}
-import com.daml.logging.LoggingContextOf
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.lf.data.Ref.UserId
 
 private[http] final class UserManagement(
-    routeSetup: RouteSetup,
     decodeJwt: EndpointsCompanion.ValidateJwt,
     userManagementClient: UserManagementClient,
 )(implicit
     ec: ExecutionContext
 ) {
   import UserManagement._
-  import routeSetup._
 
   def getUser(jwt: Jwt, req: domain.GetUserRequest): ET[domain.SyncResponse[domain.UserDetails]] =
     for {
@@ -152,15 +147,7 @@ private[http] final class UserManagement(
     ]]
   }
 
-  def listUsers(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[Source[Error \/ domain.UserDetails, NotUsed]]] =
-    for {
-      jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
-      users = aggregateListUserPages(Some(jwt.value))
-    } yield domain.OkResponse(users.map(_ map domain.UserDetails.fromUser))
-
-  def listUsers2(
+  def listUsers(
       jwt: Jwt
   ): ET[domain.SyncResponse[Source[Error \/ domain.UserDetails, NotUsed]]] = {
     val users = aggregateListUserPages(Some(jwt.value))
