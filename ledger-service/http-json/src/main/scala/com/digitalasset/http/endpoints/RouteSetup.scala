@@ -18,11 +18,10 @@ import EndpointsCompanion._
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.scalautil.Statement.discard
-import domain.{JwtPayloadG, JwtPayloadLedgerIdOnly, JwtPayloadTag, JwtWritePayload}
+import domain.{JwtPayloadG, JwtPayloadTag, JwtWritePayload}
 import json._
 import util.FutureUtil.{either, eitherT}
 import util.Logging.{InstanceUUID, RequestID}
-import util.toLedgerId
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import lav1.value.{Value => ApiValue}
@@ -34,7 +33,6 @@ import spray.json._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
@@ -51,16 +49,6 @@ private[http] final class RouteSetup(
   import RouteSetup._
   import encoder.implicits._
   import util.ErrorOps._
-
-  def proxyWithoutCommand[A](
-      fn: (Jwt, LedgerApiDomain.LedgerId) => Future[A]
-  )(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[A] =
-    for {
-      t3 <- inputAndJwtPayload[JwtPayloadLedgerIdOnly](req).leftMap(it => it: Error)
-      a <- eitherT(handleFutureFailure(fn(t3._1, toLedgerId(t3._2.ledgerId)))): ET[A]
-    } yield a
 
   private[endpoints] def handleCommand[T[_]](req: HttpRequest)(
       fn: (
