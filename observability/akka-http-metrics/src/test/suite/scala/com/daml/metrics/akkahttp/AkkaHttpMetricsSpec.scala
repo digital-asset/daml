@@ -5,13 +5,13 @@ package com.daml.metrics.akkahttp
 
 import akka.util.ByteString
 import akka.http.scaladsl.model.{
+  ContentTypes,
+  HttpEntity,
   HttpRequest,
   HttpResponse,
-  HttpEntity,
   RequestEntity,
   ResponseEntity,
   StatusCodes,
-  ContentTypes,
 }
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.Directives
@@ -22,12 +22,18 @@ import com.daml.metrics.akkahttp.AkkaUtils._
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.MetricHandle.{Meter, Timer}
+import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteTest {
+class AkkaHttpMetricsSpec
+    extends AnyWordSpec
+    with Matchers
+    with ScalatestRouteTest
+    with MetricValues {
 
   import AkkaHttpMetricsSpec._
 
@@ -44,7 +50,7 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
 
   // The route used for testing
   // extractStrictEntity is used to force reading the request entity
-  val testRoute = concat(
+  private val testRoute = concat(
     pathSingleSlash {
       Directives.extractStrictEntity(2.seconds) { _ =>
         Directives.complete("root")
@@ -529,9 +535,9 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
     "record duration of any request" in {
       withRouteAndMetrics { (route, metrics) =>
         Get("/") ~> route ~> check {
-          val value = metrics.httpLatencyValue
-          value.count should be(1L)
-          value.sum should be >= 0L
+          val value = metrics.httpLatency
+          value.getCount should be(1L)
+          value.getValues.sum should be >= 0L
         }
       }
     }
@@ -539,9 +545,9 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
     "record meaningful duration for a request" in {
       withRouteAndMetrics { (route, metrics) =>
         Get("/delay/300") ~> route ~> check {
-          val value = metrics.httpLatencyValue
-          value.count should be(1L)
-          value.sum should be >= 300L
+          val value = metrics.httpLatency
+          value.getCount should be(1L)
+          value.getValues.sum should be >= 300L
         }
       }
     }
@@ -550,9 +556,9 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
       withRouteAndMetrics { (route, metrics) =>
         Get("/delay/300") ~> route
         Get("/delay/600") ~> route ~> check {
-          val value = metrics.httpLatencyValue
-          value.count should be(2L)
-          value.sum should be >= 900L
+          val value = metrics.httpLatency
+          value.getCount should be(2L)
+          value.getValues.sum should be >= 900L
         }
       }
     }
@@ -574,8 +580,9 @@ class AkkaHttpMetricsSpec extends AnyWordSpec with Matchers with ScalatestRouteT
     }
 }
 
-object AkkaHttpMetricsSpec {
+object AkkaHttpMetricsSpec extends MetricValues {
 
+  private val metricsFactory = InMemoryMetricsFactory
   // The metrics being tested
   case class TestMetrics(
       httpRequestsTotal: Meter,
@@ -585,34 +592,23 @@ object AkkaHttpMetricsSpec {
       httpResponsesBytesTotal: Meter,
   ) {
 
-    import TestMetrics._
-
-    def httpRequestsTotalValue: Long = getCurrentValue(httpRequestsTotal)
-    def httpErrorsTotalValue: Long = getCurrentValue(httpErrorsTotal)
-    def httpLatencyValue: HistogramData = getHistogramValues(httpLatency)
-    def httpRequestsBytesTotalValue: Long = getCurrentValue(httpRequestsBytesTotal)
-    def httpResponsesBytesTotalValue: Long = getCurrentValue(httpResponsesBytesTotal)
+    def httpRequestsTotalValue: Long = httpRequestsTotal.value
+    def httpErrorsTotalValue: Long = httpErrorsTotal.value
+    def httpRequestsBytesTotalValue: Long = httpRequestsBytesTotal.value
+    def httpResponsesBytesTotalValue: Long = httpResponsesBytesTotal.value
 
   }
 
-  object TestMetrics extends OpenTelemetryTestMetrics {
+  object TestMetrics {
 
     // Creates a new set of metrics, for one test
     def apply(): TestMetrics = {
-      val testNumber = testNumbers.getAndIncrement()
-      val baseName = MetricName(s"test-$testNumber")
-
-      val httpRequestsTotalName = baseName :+ "requests_total"
-      val httpErrorsTotalName = baseName :+ "errors_total"
-      val httpLatencyName = baseName :+ "requests_duration_seconds"
-      val httpRequestsBytesTotalName = baseName :+ "requests_bytes_total"
-      val httpResponsesBytesTotalName = baseName :+ "responses_bytes_total"
-
-      val httpRequestsTotal = metricFactory.meter(httpRequestsTotalName)
-      val httpErrorsTotal = metricFactory.meter(httpErrorsTotalName)
-      val httpLatency = metricFactory.timer(httpLatencyName)
-      val httpRequestsBytesTotal = metricFactory.meter(httpRequestsBytesTotalName)
-      val httpResponsesBytesTotal = metricFactory.meter(httpResponsesBytesTotalName)
+      val baseName = MetricName("test")
+      val httpRequestsTotal = metricsFactory.meter(baseName)
+      val httpErrorsTotal = metricsFactory.meter(baseName)
+      val httpLatency = metricsFactory.timer(baseName)
+      val httpRequestsBytesTotal = metricsFactory.meter(baseName)
+      val httpResponsesBytesTotal = metricsFactory.meter(baseName)
 
       TestMetrics(
         httpRequestsTotal,
