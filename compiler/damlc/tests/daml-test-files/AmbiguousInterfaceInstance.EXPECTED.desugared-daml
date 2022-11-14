@@ -2,7 +2,6 @@ module AmbiguousInterfaceInstance where
 import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
-import (implicit) qualified GHC.Tuple.Check
 import (implicit) DA.Internal.RebindableSyntax
 data GHC.Types.DamlTemplate => Foo
   = Foo {owner : Party}

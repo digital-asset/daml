@@ -2,7 +2,6 @@ module RetroactiveInterfaceInstance where
 import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
-import (implicit) qualified GHC.Tuple.Check
 import (implicit) DA.Internal.RebindableSyntax
 import Asset
 import DA.Assert ( (===) )
@@ -320,7 +319,7 @@ _method_Token_Token_Asset_splitImpl
                     cid1 <- create this {amount = splitAmount}
                     cid2 <- create this {amount = amount - splitAmount}
                     pure
-                      GHC.Tuple.Check.userWrittenTuple
+                      userWrittenTuple
                         (toInterfaceContractId @Token cid1, 
                          toInterfaceContractId @Token cid2)
            in splitImpl

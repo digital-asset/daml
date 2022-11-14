@@ -7,7 +7,7 @@
 
 module GHC.Tuple.Check where
 
-import GHC.Types
+import GHC.Types()
 
 userWrittenTuple : a -> a
-userWrittenTuple = magic @"userWrittenTuple"
+userWrittenTuple = \a -> a
