@@ -4,70 +4,21 @@
 package com.daml.http
 package endpoints
 
-import akka.NotUsed
 import akka.http.scaladsl.model._
-import akka.stream.Materializer
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
-import EndpointsCompanion._
 import Endpoints.ET
-import com.daml.scalautil.Statement.discard
-import domain.JwtPayloadLedgerIdOnly
-import util.FutureUtil.{either, eitherT, rightT}
+import util.FutureUtil.rightT
 import util.Logging.{InstanceUUID, RequestID}
-import util.{ProtobufByteStrings, toLedgerId}
+import util.ProtobufByteStrings
 import com.daml.jwt.domain.Jwt
 import scalaz.std.scalaFuture._
-import scalaz.EitherT
 
 import scala.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Metrics
 
-class PackagesAndDars(routeSetup: RouteSetup, packageManagementService: PackageManagementService)(
-    implicit
-    ec: ExecutionContext,
-    mat: Materializer,
+class PackagesAndDars(packageManagementService: PackageManagementService)(implicit
+    ec: ExecutionContext
 ) {
-  import routeSetup._, RouteSetup._
-
-  def uploadDarFile(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
-  ): ET[domain.SyncResponse[Unit]] =
-    for {
-      parseAndDecodeTimer <- getParseAndDecodeTimerCtx()
-      _ <- EitherT.pure(metrics.daml.HttpJsonApi.uploadPackagesThroughput.mark())
-      t2 <- inputSource(req)
-      (jwt, payload, source) = t2
-      _ <- EitherT.pure(parseAndDecodeTimer.stop())
-
-      _ <- eitherT(
-        handleFutureFailure(
-          packageManagementService.uploadDarFile(
-            jwt,
-            toLedgerId(payload.ledgerId),
-            source.mapMaterializedValue(_ => NotUsed),
-          )
-        )
-      ): ET[Unit]
-
-    } yield domain.OkResponse(())
-
-  private[this] def inputSource(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[(Jwt, JwtPayloadLedgerIdOnly, Source[ByteString, Any])] =
-    either(findJwt(req))
-      .leftMap { e =>
-        discard { req.entity.discardBytes(mat) }
-        e: Error
-      }
-      .flatMap(j =>
-        withJwtPayload[Source[ByteString, Any], JwtPayloadLedgerIdOnly]((j, req.entity.dataBytes))
-          .leftMap(it => it: Error)
-      )
-
   def listPackages(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[Seq[String]]] =
@@ -87,5 +38,4 @@ class PackagesAndDars(routeSetup: RouteSetup, packageManagementService: PackageM
       )
     }
   }
-
 }

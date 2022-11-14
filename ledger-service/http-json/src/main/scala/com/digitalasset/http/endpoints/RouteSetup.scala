@@ -15,10 +15,12 @@ import akka.http.scaladsl.model.headers.{
 import akka.stream.Materializer
 import Endpoints.ET
 import EndpointsCompanion._
+import akka.stream.scaladsl.Source
+import akka.util.ByteString
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.scalautil.Statement.discard
-import domain.{JwtPayloadG, JwtPayloadTag, JwtWritePayload}
+import domain.{JwtPayloadG, JwtPayloadLedgerIdOnly, JwtPayloadTag, JwtWritePayload}
 import json._
 import util.FutureUtil.{either, eitherT}
 import util.Logging.{InstanceUUID, RequestID}
@@ -117,6 +119,19 @@ private[http] final class RouteSetup(
     }
   }
 
+  private[http] def inputSource(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Future[Error \/ (Jwt, JwtPayloadLedgerIdOnly, Source[ByteString, Any])] =
+    findJwt(req) match {
+      case e @ -\/(_) =>
+        discard { req.entity.discardBytes(mat) }
+        Future.successful(e)
+      case \/-(j) =>
+        withJwtPayload[Source[ByteString, Any], JwtPayloadLedgerIdOnly](
+          (j, req.entity.dataBytes)
+        ).run
+    }
+
   private[this] def data(entity: RequestEntity): Future[String] =
     entity.toStrict(maxTimeToCollectRequest).map(_.data.utf8String)
 
@@ -170,7 +185,7 @@ private[http] object RouteSetup {
       "read_as" -> jwtPayload.readAs.toString,
     ).run(fn)
 
-  private[endpoints] def handleFutureFailure[A](fa: Future[A])(implicit
+  private[http] def handleFutureFailure[A](fa: Future[A])(implicit
       ec: ExecutionContext
   ): Future[Error \/ A] =
     fa.map(a => \/-(a)).recover(Error.fromThrowable andThen (-\/(_)))

@@ -77,10 +77,8 @@ class Endpoints(
   )
   import userManagement._
 
-  private[this] val packagesDars: endpoints.PackagesAndDars = new endpoints.PackagesAndDars(
-    routeSetup = routeSetup,
-    packageManagementService,
-  )
+  private[this] val packagesDars: endpoints.PackagesAndDars =
+    new endpoints.PackagesAndDars(packageManagementService)
   import packagesDars._
 
   private[this] val meteringReportEndpoint =
@@ -163,6 +161,31 @@ class Endpoints(
     responseToRoute(httpResponse(res))
   }
 
+  private def toUploadDarFileRoute(httpRequest: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
+      mkHttpResponse: MkHttpResponse[ET[domain.SyncResponse[Unit]]],
+  ): Route = {
+    val res: ET[domain.SyncResponse[Unit]] = for {
+      parseAndDecodeTimer <- routeSetup.getParseAndDecodeTimerCtx()
+      _ <- EitherT.pure(metrics.daml.HttpJsonApi.uploadPackagesThroughput.mark())
+      t2 <- eitherT(routeSetup.inputSource(httpRequest))
+      (jwt, payload, source) = t2
+      _ <- EitherT.pure(parseAndDecodeTimer.stop())
+
+      _ <- eitherT(
+        RouteSetup.handleFutureFailure(
+          packageManagementService.uploadDarFile(
+            jwt,
+            toLedgerId(payload.ledgerId),
+            source.mapMaterializedValue(_ => NotUsed),
+          )
+        )
+      ): ET[Unit]
+    } yield domain.OkResponse(())
+    responseToRoute(httpResponse(res))
+  }
+
   private def toDownloadPackageRoute[Res](
       httpRequest: HttpRequest,
       packageId: String,
@@ -185,8 +208,9 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[(Jwt, LedgerApiDomain.LedgerId)] = for {
     t <- routeSetup
-      .inputAndJwtPayload[domain.JwtPayloadLedgerIdOnly](httpRequest)
-      .leftMap(it => it: Error): ET[(Jwt, domain.JwtPayloadLedgerIdOnly, String)]
+      .inputAndJwtPayload[domain.JwtPayloadLedgerIdOnly](httpRequest): ET[
+      (Jwt, domain.JwtPayloadLedgerIdOnly, String)
+    ]
     (jwt, jwtBody, _) = t
   } yield (jwt, toLedgerId(jwtBody.ledgerId))
 
@@ -357,7 +381,7 @@ class Endpoints(
             req,
             allocateParty,
           ),
-          path("packages") apply toRoute(uploadDarFile(req)),
+          path("packages") apply toUploadDarFileRoute(req),
           path("metering-report") apply toPostRoute(req, meteringReportEndpoint.generateReport),
         ),
         get apply concat(
