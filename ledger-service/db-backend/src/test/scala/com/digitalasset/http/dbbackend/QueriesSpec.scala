@@ -13,12 +13,6 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import scala.collection.{immutable => imm}
 import scalaz.\/
-import scalaz.std.anyVal._
-import scalaz.std.map._
-import scalaz.std.set._
-import scalaz.std.vector._
-import scalaz.syntax.foldable._
-import scalaz.syntax.std.map._
 
 class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
@@ -95,25 +89,27 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
       STSC.generatorDrivenConfig.copy(minSuccessful = 1000)
 
     "include all arguments in the result" in scForAll(sizes, randomArg) { (s, r) =>
-      chunkBySetSize(s, r).foldMap1Opt(identity) should ===(Some(r))
+      chunkBySetSize(s, r).transform((_, chunks) => chunks.flatten.toSet) should ===(r)
     }
 
-    def measuredChunkSize[K, V](chunk: NonEmpty[Map[K, NonEmpty[Set[V]]]]) =
-      chunk.toNEF.foldMap(_.size)
+    def measuredChunkSize(chunk: NonEmpty[Iterable[_]]) =
+      chunk.size
 
     "never exceed size in each chunk" in scForAll(sizes, randomArg) { (s, r) =>
-      all(chunkBySetSize(s, r) map measuredChunkSize) should be <= s
+      all(chunkBySetSize(s, r).values.flatten map measuredChunkSize) should be <= s
     }
 
     "make chunks as large as possible" in scForAll(sizes, randomArg) { (s, r) =>
-      all(chunkBySetSize(s, r).init map measuredChunkSize) should ===(s)
+      all(chunkBySetSize(s, r).values.flatMap(_.init) map measuredChunkSize) should ===(s)
     }
 
     "make chunks that do not intersect" in scForAll(sizes, randomArg) { (s, r) =>
-      cForAll(chunkBySetSize(s, r).sliding(2, 1).toSeq) {
-        case Seq(a, b) => all(a.forgetNE.intersectWith(b)(_ intersect _).values) shouldBe empty
-        case Seq(_) => succeed
-        case _ => fail("impossible sliding or empty output")
+      cForAll(chunkBySetSize(s, r).toSeq.forgetNE) { case (_, chunks) =>
+        cForAll(chunks.sliding(2, 1).toSeq) {
+          case Seq(a, b) => a intersect b shouldBe empty
+          case Seq(_) => succeed
+          case _ => fail("impossible sliding or empty output")
+        }
       }
     }
   }
