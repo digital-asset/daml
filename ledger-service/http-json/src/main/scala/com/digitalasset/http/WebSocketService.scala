@@ -40,10 +40,9 @@ import scalaz.std.scalaFuture._
 import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.tuple._
-import scalaz.std.vector._
 import scalaz.syntax.traverse._
 import scalaz.std.list._
-import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
+import scalaz.{-\/, Foldable, Liskov, NonEmptyList, Tag, \/, \/-}
 import Liskov.<~<
 import com.daml.fetchcontracts.domain.ResolvedQuery
 import ResolvedQuery.Unsupported
@@ -652,14 +651,12 @@ object WebSocketService {
           sjd: dbbackend.SupportedJdbcDriver.TC
       ): Seq[(CtId, doobie.Fragment)] =
         q.toSeq map { case (t, lfvKeys) =>
-          val khd +: ktl = lfvKeys.toVector
+          val NonEmpty(keys) = lfvKeys.toVector
           import dbbackend.Queries.joinFragment, com.daml.lf.crypto.Hash
           (
             t,
             joinFragment(
-              OneAnd(khd, ktl) map (k =>
-                keyEquality(Hash.assertHashContractKey(toLedgerApiValue(t), k))
-              ),
+              keys map (k => keyEquality(Hash.assertHashContractKey(toLedgerApiValue(t), k))),
               sql" OR ",
             ),
           )

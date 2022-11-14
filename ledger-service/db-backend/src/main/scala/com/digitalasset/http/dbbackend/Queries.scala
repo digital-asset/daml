@@ -323,7 +323,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
               chunk.toVector.map { case (tpid, cids) =>
                 val inCids = Fragments.in(fr"contract_id", cids.toVector.toNEF)
                 fr"(tpid = $tpid AND $inCids)"
-              }.toOneAnd,
+              },
               fr" OR ",
             )).update.run
         }.foldA
@@ -369,7 +369,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     val NonEmpty(queryConditions) = queries.toVector
     val queriesCondition =
       joinFragment(
-        queryConditions.toOneAnd map { case (tpid, predicate) =>
+        queryConditions map { case (tpid, predicate) =>
           fr"($tpid = $tpidSelector AND ($predicate))"
         },
         fr" OR ",
@@ -516,8 +516,9 @@ object Queries {
     case object GTEQ extends OrderOperator
   }
 
-  private[http] def joinFragment(xs: OneAnd[Vector, Fragment], sep: Fragment): Fragment =
-    concatFragment(intersperse(xs, sep))
+  // XXX SC I'm pretty certain we can use NonEmpty all the way down
+  private[http] def joinFragment(xs: NonEmpty[Vector[Fragment]], sep: Fragment): Fragment =
+    concatFragment(intersperse(xs.toOneAnd, sep))
 
   private[http] def concatFragment[F[X] <: IndexedSeq[X]](xs: OneAnd[F, Fragment]): Fragment = {
     val OneAnd(hd, tl) = xs
@@ -1048,9 +1049,9 @@ private final class OracleQueries(
 
       case JsObject(fields) =>
         fields.toVector match {
-          case hp +: tp =>
+          case NonEmpty(fields) =>
             // this assertFromString is forced by the aforementioned too-big type
-            val fieldPreds = OneAnd(hp, tp).map { case (ok, ov) =>
+            val fieldPreds = fields.map { case (ok, ov) =>
               containsAtContractPath(path objectAt Ref.Name.assertFromString(ok), ov)
             }
             joinFragment(fieldPreds, sql" AND ")
