@@ -28,6 +28,8 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
+import com.daml.logging.LoggingContextOf
+import com.daml.logging.entries.LoggingValue
 import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
 import com.daml.platform.sandbox.services.TestCommands
 import org.scalatest._
@@ -99,15 +101,23 @@ trait AbstractTriggerTest
       party: String,
       readAs: Set[String] = Set.empty,
   ): Runner = {
+    import Runner.Implicits._
+
     val triggerId = Identifier(packageId, name)
+
     Trigger.newLoggingContext(
       triggerId,
       Party(party),
       Party.subst(readAs),
       "test-trigger",
       ApplicationId("test-trigger-app"),
-    ) { implicit loggingContext =>
+    ) { implicit loggingContext: LoggingContextOf[Trigger] =>
       val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
+      val updatedLoggingContext = loggingContext.enrichTriggerContext(
+        "level" -> LoggingValue.OfString(trigger.defn.level.toString),
+        "version" -> LoggingValue.OfString(trigger.defn.version.toString),
+      )
+
       new Runner(
         compiledPackages,
         trigger,
@@ -119,7 +129,7 @@ trait AbstractTriggerTest
           actAs = Party(party),
           readAs = Party.subst(readAs),
         ),
-      )
+      )(updatedLoggingContext)
     }
   }
 
