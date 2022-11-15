@@ -36,5 +36,5 @@ object IdentityProviderConfigStore {
   final case class IdentityProviderConfigNotFound(identityProviderId: Ref.IdentityProviderId.Id)
       extends Error
   final case class IdentityProviderConfigExists(identityProviderId: Ref.IdentityProviderId.Id)
-    extends Error
+      extends Error
 }
