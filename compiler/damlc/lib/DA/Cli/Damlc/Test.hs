@@ -311,7 +311,7 @@ printTestCoverage ShowCoverage{getShowCoverage} allPackages results
 
             showCoverageReport :: (k -> String) -> String -> M.Map k a -> [String]
             showCoverageReport printer variety names
-              | getShowCoverage = []
+              | not getShowCoverage = []
               | otherwise =
                 [ printf "  %s: %d" variety (M.size names)
                 ] ++ [ "    " ++ printer id | id <- M.keys names ]
