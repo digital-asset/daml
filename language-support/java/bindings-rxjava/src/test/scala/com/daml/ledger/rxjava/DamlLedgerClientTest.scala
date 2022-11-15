@@ -154,12 +154,11 @@ class DamlLedgerClientTest
       val commands = genCommands(List(command), Option(someParty))
 
       val params = CommandClientConfig
-        .create(commands.getWorkflowId, commands.getApplicationId, commands.getCommandId)
+        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
         .withParty(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
         .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
         .withDeduplicationTime(commands.getDeduplicationTime)
-        .withCommands(commands.getCommands)
 
       commandClient
         .submitAndWait(params)
@@ -199,12 +198,11 @@ class DamlLedgerClientTest
       val commands = genCommands(List[Command](command), Option(someParty))
 
       val params = CommandClientConfig
-        .create(commands.getWorkflowId, commands.getApplicationId, commands.getCommandId)
+        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
         .withParty(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
         .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
         .withDeduplicationTime(commands.getDeduplicationTime)
-        .withCommands(commands.getCommands)
 
       commandSubmissionClient
         .submit(params)

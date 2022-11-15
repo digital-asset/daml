@@ -27,15 +27,18 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  * <pre/>
  */
 public class CommandClientConfig {
-  private String workflowId;
+  // Required params
   private String applicationId;
   private String commandId;
+  private List<@NonNull ? extends HasCommands> commands;
+
+  // optional params
+  private String workflowId;
   private List<@NonNull String> actAs;
   private List<@NonNull String> readAs;
   private Optional<Instant> minLedgerTimeAbs;
   private Optional<Duration> minLedgerTimeRel;
   private Optional<Duration> deduplicationTime;
-  private List<@NonNull ? extends HasCommands> commands;
   private Optional<String> accessToken;
 
   private CommandClientConfig(
@@ -64,15 +67,15 @@ public class CommandClientConfig {
   /**
    * TODO: java doc this
    *
-   * @param workflowId
    * @param applicationId
    * @param commandId
+   * @param commands
    * @return
    */
   public static CommandClientConfig create(
-      String workflowId, String applicationId, String commandId) {
+      String applicationId, String commandId, List<@NonNull ? extends HasCommands> commands) {
     return new CommandClientConfig(
-        workflowId,
+        "",
         applicationId,
         commandId,
         emptyList(),
@@ -80,7 +83,7 @@ public class CommandClientConfig {
         empty(),
         empty(),
         empty(),
-        emptyList(),
+        commands,
         empty());
   }
 
@@ -122,6 +125,20 @@ public class CommandClientConfig {
 
   public Optional<String> getAccessToken() {
     return accessToken;
+  }
+
+  public CommandClientConfig withWorkflowId(String workflowId) {
+    return new CommandClientConfig(
+        workflowId,
+        applicationId,
+        commandId,
+        actAs,
+        readAs,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        commands,
+        accessToken);
   }
 
   public CommandClientConfig withParty(String party) {

@@ -53,12 +53,11 @@ class CommandClientImplTest
     withCommandClient() { (client, service) =>
       val commands = genCommands(List.empty)
       val params = CommandClientConfig
-        .create(commands.getWorkflowId, commands.getApplicationId, commands.getCommandId)
+        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
         .withParty(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
         .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
         .withDeduplicationTime(commands.getDeduplicationTime)
-        .withCommands(commands.getCommands)
 
       client
         .submitAndWait(params)
@@ -79,12 +78,12 @@ class CommandClientImplTest
       val commands = genCommands(List(command))
 
       val params = CommandClientConfig
-        .create(commands.getWorkflowId, commands.getApplicationId, commands.getCommandId)
+        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
+        .withWorkflowId(commands.getWorkflowId)
         .withParty(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
         .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
         .withDeduplicationTime(commands.getDeduplicationTime)
-        .withCommands(commands.getCommands)
 
       client
         .submitAndWait(params)
@@ -134,9 +133,12 @@ class CommandClientImplTest
       submit: SubmitAndWait[A]
   )(commands: java.util.List[Command], party: String, token: Option[String]) = {
     val params = CommandClientConfig
-      .create(randomUUID().toString, randomUUID().toString, randomUUID().toString)
+      .create(
+        randomUUID().toString,
+        randomUUID().toString,
+        token.fold(dummyCommands)(_ => commands),
+      )
       .withParty(party)
-      .withCommands(token.fold(dummyCommands)(_ => commands))
       .withAccessToken(Optional.ofNullable(token.orNull))
 
     submit(params).timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS).blockingGet()

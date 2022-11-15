@@ -77,9 +77,12 @@ final class SigningInterceptorSpec extends AsyncFlatSpec with Matchers with Insi
       val expectedParty = "party-1"
 
       val params = CommandClientConfig
-        .create(expectedWorkflowId, expectedApplicationId, expectedCommandId)
+        .create(
+          expectedApplicationId,
+          expectedCommandId,
+          singletonList(Command.fromProtoCommand(command)),
+        )
         .withParty(expectedParty)
-        .withCommands(singletonList(Command.fromProtoCommand(command)))
 
       client.getCommandClient
         .submitAndWait(params)

@@ -43,12 +43,11 @@ class CommandSubmissionClientImplTest
       val commands = genCommands(List.empty)
 
       val params = CommandClientConfig
-        .create(commands.getWorkflowId, commands.getApplicationId, commands.getCommandId)
+        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
         .withParty(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
         .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
         .withDeduplicationTime(commands.getDeduplicationTime)
-        .withCommands(commands.getCommands)
 
       withClue("The first command should be stuck") {
         expectDeadlineExceeded(
@@ -76,12 +75,12 @@ class CommandSubmissionClientImplTest
       val commands = genCommands(List.empty)
 
       val params = CommandClientConfig
-        .create(commands.getWorkflowId, commands.getApplicationId, commands.getCommandId)
+        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
+        .withWorkflowId(commands.getWorkflowId)
         .withParty(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
         .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
         .withDeduplicationTime(commands.getDeduplicationTime)
-        .withCommands(commands.getCommands)
 
       client
         .submit(params)
@@ -133,12 +132,11 @@ class CommandSubmissionClientImplTest
     val commands = genCommands(List[Command](command), Option(someParty))
 
     val params = CommandClientConfig
-      .create(commands.getWorkflowId, commands.getApplicationId, commands.getCommandId)
+      .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
       .withParty(commands.getParty)
       .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
       .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
       .withDeduplicationTime(commands.getDeduplicationTime)
-      .withCommands(commands.getCommands)
       .withAccessToken(Optional.ofNullable(accessToken.orNull))
 
     client
