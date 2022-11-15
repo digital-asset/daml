@@ -13,8 +13,8 @@ import com.daml.platform.localstore.api.IdentityProviderConfigStore.Result
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader
 import com.github.benmanes.caffeine.{cache => caffeine}
 
-import java.util.concurrent.{CompletableFuture, Executor}
 import java.time.Duration
+import java.util.concurrent.{CompletableFuture, Executor}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -53,10 +53,39 @@ class CachedIdentityProviderConfigStore(
       metrics.daml.identityProviderConfigStore.cache,
     )
 
+  private val listCache: CaffeineCache.AsyncLoadingCaffeineCache[
+    CaffeineCache.type,
+    Result[Seq[IdentityProviderConfig]],
+  ] =
+    new CaffeineCache.AsyncLoadingCaffeineCache(
+      caffeine.Caffeine
+        .newBuilder()
+        .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
+        .maximumSize(1)
+        .buildAsync(
+          new AsyncCacheLoader[CaffeineCache.type, Result[Seq[IdentityProviderConfig]]] {
+            override def asyncLoad(
+                key: CaffeineCache.type,
+                executor: Executor,
+            ): CompletableFuture[Result[Seq[IdentityProviderConfig]]] = {
+              val cf = new CompletableFuture[Result[Seq[IdentityProviderConfig]]]
+              delegate.listIdentityProviderConfigs().onComplete {
+                case Success(value) => cf.complete(value)
+                case Failure(e) => cf.completeExceptionally(e)
+              }
+              cf
+            }
+          }
+        ),
+      metrics.daml.identityProviderConfigStore.cache,
+    )
+
   override def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig)(implicit
       loggingContext: LoggingContext
   ): Future[Result[IdentityProviderConfig]] =
-    delegate.createIdentityProviderConfig(identityProviderConfig)
+    delegate
+      .createIdentityProviderConfig(identityProviderConfig)
+      .andThen(invalidateOnSuccess(identityProviderConfig.identityProviderId))
 
   override def getIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
@@ -69,11 +98,12 @@ class CachedIdentityProviderConfigStore(
 
   override def listIdentityProviderConfigs()(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Seq[IdentityProviderConfig]]] = delegate.listIdentityProviderConfigs()
+  ): Future[Result[Seq[IdentityProviderConfig]]] = listCache.get(CaffeineCache)
 
   private def invalidateOnSuccess(
       id: IdentityProviderId.Id
   ): PartialFunction[Try[Result[Any]], Unit] = { case Success(Right(_)) =>
     cache.invalidate(id)
+    listCache.invalidate(CaffeineCache)
   }
 }
