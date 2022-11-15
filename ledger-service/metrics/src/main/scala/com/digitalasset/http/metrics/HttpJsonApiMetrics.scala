@@ -13,7 +13,10 @@ import io.opentelemetry.api.GlobalOpenTelemetry
 
 object HttpJsonApiMetrics {
   lazy val ForTesting =
-    new HttpJsonApiMetrics(new MetricRegistry, new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("test")))
+    new HttpJsonApiMetrics(
+      new MetricRegistry,
+      new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("test")),
+    )
 }
 
 class HttpJsonApiMetrics(
