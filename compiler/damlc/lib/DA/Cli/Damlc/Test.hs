@@ -255,8 +255,9 @@ printTestCoverage _ allPackages results
     printReport :: IO ()
     printReport =
         let countWhere pred = M.size . M.filter pred
-            pctage :: Int -> Int -> Int
-            pctage n d = max 0 $ min 100 $ floor (100 * fromIntegral n / fromIntegral d :: Double)
+            pctage :: Int -> Int -> Double
+            pctage _ 0 = 100
+            pctage n d = max 0 $ min 100 $ 100 * fromIntegral n / fromIntegral d
 
             allContracts = contractsDefinedIn allPackages
             localTemplates = M.filterWithKey pred allContracts
@@ -319,14 +320,14 @@ printTestCoverage _ allPackages results
           in
           [ printf "- Internal templates"
           , printf "  %d defined" defined
-          , printf "  %d (%d%%) created" created (pctage created defined)
+          , printf "  %d (%3.1f%%) created" created (pctage created defined)
           ]
         , let defined = M.size localTemplateChoices
               exercised = M.size localTemplateChoicesExercised
           in
           [ printf "- Internal template choices"
           , printf "  %d defined" defined
-          , printf "  %d (%d%%) exercised" exercised (pctage exercised defined)
+          , printf "  %d (%3.1f%%) exercised" exercised (pctage exercised defined)
           ]
         , let defined = countWhere (isLocal . fst) allImplementations
               internal = countWhere (isLocal . fst) allImplementations
@@ -342,7 +343,7 @@ printTestCoverage _ allPackages results
           in
           [ printf "- Interface choices"
           , printf "  %d defined" defined
-          , printf "  %d (%d%%) exercised" exercised (pctage exercised defined)
+          , printf "  %d (%3.1f%%) exercised" exercised (pctage exercised defined)
           ]
         , [ printf "Modules external to this package:" ]
         -- Here, interface instances can only refer to external templates and
@@ -354,9 +355,9 @@ printTestCoverage _ allPackages results
           in
           [ printf "- External templates"
           , printf "  %d defined" defined
-          , printf "  %d (%d%%) created in any tests" createdAny (pctage createdAny defined)
-          , printf "  %d (%d%%) created in internal tests" createdInternal (pctage createdInternal defined)
-          , printf "  %d (%d%%) created in external tests" createdExternal (pctage createdExternal defined)
+          , printf "  %d (%3.1f%%) created in any tests" createdAny (pctage createdAny defined)
+          , printf "  %d (%3.1f%%) created in internal tests" createdInternal (pctage createdInternal defined)
+          , printf "  %d (%3.1f%%) created in external tests" createdExternal (pctage createdExternal defined)
           ]
         , let defined = M.size externalTemplateChoices
               exercisedAny = M.size externalTemplateChoicesExercised
@@ -365,9 +366,9 @@ printTestCoverage _ allPackages results
           in
           [ printf "- External template choices"
           , printf "  %d defined" defined
-          , printf "  %d (%d%%) exercised in any tests" exercisedAny (pctage exercisedAny defined)
-          , printf "  %d (%d%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
-          , printf "  %d (%d%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
+          , printf "  %d (%3.1f%%) exercised in any tests" exercisedAny (pctage exercisedAny defined)
+          , printf "  %d (%3.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
+          , printf "  %d (%3.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
           ]
         , let defined = countWhere (isLocal . fst) allImplementations
           in
@@ -381,9 +382,9 @@ printTestCoverage _ allPackages results
           in
           [ printf "- External interface choices"
           , printf "  %d defined" defined
-          , printf "  %d (%d%%) exercised in any tests" exercisedAny (pctage exercisedAny defined)
-          , printf "  %d (%d%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
-          , printf "  %d (%d%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
+          , printf "  %d (%3.1f%%) exercised in any tests" exercisedAny (pctage exercisedAny defined)
+          , printf "  %d (%3.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
+          , printf "  %d (%3.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
           ]
         ]
 
