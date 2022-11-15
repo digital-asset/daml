@@ -56,7 +56,7 @@ class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInt
         timerHandle,
         metrics.messagesSent,
         metrics.messagesSentSize,
-        metrics.callsFinished,
+        metrics.callsHandled,
       )
       new MonitoringServerCallListener(
         serverCallHandler.startCall(metricsServerCall, metadata),
@@ -138,5 +138,5 @@ trait GrpcServerMetrics {
   val messagesReceived: Meter
   val messagesReceivedSize: Histogram
   val callsStarted: Meter
-  val callsFinished: Meter
+  val callsHandled: Meter
 }

@@ -59,7 +59,7 @@ class GrpcMetricsServerInterceptorSpec
         metrics.callsStarted.valueWithContext should contain theSameElementsAs Map(
           labelsForSimpleRequest -> 1
         )
-        metrics.callsFinished.valueWithContext should contain theSameElementsAs Map(
+        metrics.callsHandled.valueWithContext should contain theSameElementsAs Map(
           labelsForSimpleRequestWithStatusCode -> 1
         )
       }
@@ -84,7 +84,7 @@ class GrpcMetricsServerInterceptorSpec
         }
         meterHasValueForStreaming(metrics.callsStarted)
         meterHasValueForStreaming(
-          metrics.callsFinished,
+          metrics.callsHandled,
           withStreamingLabels(labelsForSimpleRequestWithStatusCode),
         )
         meterHasValueForStreaming(metrics.messagesSent, value = 3)
@@ -145,6 +145,6 @@ object GrpcMetricsServerInterceptorSpec {
     override val messagesReceivedSize: MetricHandle.Histogram =
       InMemoryMetricsFactory.histogram(metricName)
     override val callsStarted: MetricHandle.Meter = InMemoryMetricsFactory.meter(metricName)
-    override val callsFinished: MetricHandle.Meter = InMemoryMetricsFactory.meter(metricName)
+    override val callsHandled: MetricHandle.Meter = InMemoryMetricsFactory.meter(metricName)
   }
 }

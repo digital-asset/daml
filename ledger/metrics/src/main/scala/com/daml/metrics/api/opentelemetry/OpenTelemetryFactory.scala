@@ -19,24 +19,24 @@ import io.opentelemetry.api.metrics.{
   Meter => OtelMeter,
 }
 
-trait OpenTelemetryFactory extends Factory {
+class OpenTelemetryFactory(otelMeter: OtelMeter) extends Factory {
 
   val globalMetricsContext: MetricsContext = MetricsContext(
     Map("daml_version" -> BuildInfo.Version)
   )
 
-  def otelMeter: OtelMeter
-
   override def timer(
       name: MetricName
   )(implicit
       context: MetricsContext = MetricsContext.Empty
-  ): MetricHandle.Timer =
+  ): MetricHandle.Timer = {
+    val nameWithSuffix = name :+ "duration" :+ "ms"
     OpenTelemetryTimer(
-      name,
-      otelMeter.histogramBuilder(name).ofLongs().setUnit("ms").build(),
+      nameWithSuffix,
+      otelMeter.histogramBuilder(nameWithSuffix).ofLongs().setUnit("ms").build(),
       globalMetricsContext.merge(context),
     )
+  }
   override def gauge[T](name: MetricName, initial: T)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Gauge[T] = {
