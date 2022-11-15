@@ -105,7 +105,7 @@ class IdentityProviderAuthService(
         -\/(JwtVerifier.Error(Symbol("getCachedVerifier"), "No Key ID found"))
       case Some(keyId) =>
         \/.attempt(
-          cache.get(keyId, () => getVerifier(entry, keyId).fold(e => sys.error(e.shows), x => x))
+          cache.get(keyId, () => getVerifier(entry, keyId).fold(e => sys.error(e.shows), identity))
         )(e => JwtVerifier.Error(Symbol("getCachedVerifier"), e.getMessage))
     }
 
@@ -113,14 +113,14 @@ class IdentityProviderAuthService(
       entry: IdentityProviderAuthService.Entry,
       keyId: String,
   ): JwtVerifier.Error \/ JwtVerifier = {
-    val jwk = jwkProvider(entry.url).get(keyId)
+    val jwk = jwkProvider(entry.jwksURL).get(keyId)
     val publicKey = jwk.getPublicKey.asInstanceOf[RSAPublicKey]
     RSA256Verifier(publicKey, config.jwtTimestampLeeway)
   }
 
-  private def jwkProvider(url: URL) =
+  private def jwkProvider(jwksUrl: URL) =
     new UrlJwkProvider(
-      url,
+      jwksUrl,
       Integer.valueOf(
         config.http.connectionTimeoutUnit.toMillis(config.http.connectionTimeout).toInt
       ),
@@ -160,7 +160,7 @@ class IdentityProviderAuthService(
 object IdentityProviderAuthService {
   case class Entry(
       id: Ref.IdentityProviderId.Id,
-      url: URL,
+      jwksURL: URL,
       issuer: String,
   )
 
