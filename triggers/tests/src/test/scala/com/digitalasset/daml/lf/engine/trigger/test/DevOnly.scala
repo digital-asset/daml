@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.{value => LedgerApi}
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-import com.daml.lf.engine.trigger.{TransactionMsg, TriggerMsg}
+import com.daml.lf.engine.trigger.TriggerMsg
 
 import scala.collection.concurrent.TrieMap
 
@@ -116,7 +116,7 @@ class DevOnly
               offset,
               msgFlow = Flow[TriggerMsg]
                 .wireTap {
-                  case msg: TransactionMsg =>
+                  case msg: TriggerMsg.Transaction =>
                     transactionEvents.addOne(msg.t.transactionId -> msg.t.events)
                   case _ =>
                   // No evidence to collect
@@ -199,7 +199,7 @@ class DevOnly
               offset,
               msgFlow = Flow[TriggerMsg]
                 .wireTap {
-                  case msg: TransactionMsg =>
+                  case msg: TriggerMsg.Transaction =>
                     transactionEvents.addOne(msg.t.transactionId -> msg.t.events)
                   case _ =>
                   // No evidence to collect
@@ -282,7 +282,7 @@ class DevOnly
               offset,
               msgFlow = Flow[TriggerMsg]
                 .wireTap {
-                  case msg: TransactionMsg =>
+                  case msg: TriggerMsg.Transaction =>
                     transactionEvents.addOne(msg.t.transactionId -> msg.t.events)
                   case _ =>
                   // No evidence to collect

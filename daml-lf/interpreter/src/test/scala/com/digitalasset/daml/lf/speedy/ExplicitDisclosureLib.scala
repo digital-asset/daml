@@ -264,7 +264,7 @@ object ExplicitDisclosureLib {
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-  ): (Either[SError.SError, SValue], Speedy.OnLedger) = {
+  ): (Either[SError.SError, SValue], Speedy.OnLedgerMachine) = {
     import SpeedyTestLib.loggingContext
 
     // A token function closure is added as part of compiling the Expr
@@ -295,7 +295,7 @@ object ExplicitDisclosureLib {
       getKey = getKey,
     )
 
-    (result, machine.ledgerMode.asInstanceOf[Speedy.OnLedger])
+    (result, machine)
   }
 
   def evaluateSExpr(
@@ -305,7 +305,7 @@ object ExplicitDisclosureLib {
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-  ): (Either[SError.SError, SValue], Speedy.OnLedger) = {
+  ): (Either[SError.SError, SValue], Speedy.OnLedgerMachine) = {
     import SpeedyTestLib.loggingContext
 
     val machine =
@@ -322,13 +322,13 @@ object ExplicitDisclosureLib {
       getKey = getKey,
     )
 
-    (result, machine.ledgerMode.asInstanceOf[Speedy.OnLedger])
+    (result, machine)
   }
 
-  def haveInactiveContractIds(contractIds: ContractId*): Matcher[Speedy.OnLedger] = Matcher {
-    ledger =>
+  def haveInactiveContractIds(contractIds: ContractId*): Matcher[Speedy.OnLedgerMachine] = Matcher {
+    machine =>
       val expectedResult = contractIds.toSet
-      val actualResult = ledger.ptx.contractState.activeState.consumedBy.keySet
+      val actualResult = machine.ptx.contractState.activeState.consumedBy.keySet
       val debugMessage = Seq(
         s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
         s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
@@ -341,10 +341,12 @@ object ExplicitDisclosureLib {
       )
   }
 
-  def haveDisclosedContracts(disclosedContracts: DisclosedContract*): Matcher[Speedy.OnLedger] =
-    Matcher { ledger =>
+  def haveDisclosedContracts(
+      disclosedContracts: DisclosedContract*
+  ): Matcher[Speedy.OnLedgerMachine] =
+    Matcher { machine =>
       val expectedResult = ImmArray(disclosedContracts: _*)
-      val actualResult = ledger.ptx.disclosedContracts
+      val actualResult = machine.ptx.disclosedContracts
       val debugMessage = Seq(
         s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId)}",
         s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.contractId)}",
