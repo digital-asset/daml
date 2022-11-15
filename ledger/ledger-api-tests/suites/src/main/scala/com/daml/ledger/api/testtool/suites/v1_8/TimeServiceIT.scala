@@ -53,6 +53,27 @@ final class TimeServiceIT extends LedgerTestSuite {
   })
 
   test(
+    "TSTimeAdvancementCanFail",
+    "Time advancement can fail when current time is not accurate",
+    allocate(NoParties),
+    runConcurrently = false,
+    enabled = _.staticTime,
+    disabledReason = "requires ledger static time feature",
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    for {
+      initialTime <- ledger.time()
+      invalidInitialTime = initialTime.plusSeconds(1)
+      thirtySecLater = initialTime.plusSeconds(30)
+      _ <- ledger
+        .setTime(invalidInitialTime, thirtySecLater)
+        .mustFailWith(
+          "current_time mismatch",
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+        )
+    } yield ()
+  })
+
+  test(
     "TSFailWhenTimeNotAdvanced",
     "The submission of an exercise before time advancement should fail",
     allocate(SingleParty),

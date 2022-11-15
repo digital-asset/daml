@@ -743,7 +743,6 @@ buildModule file imports decls = L dummySrcSpan HsModule
   , hsmodExports = Nothing
   , hsmodImports = Preprocessor.onImports $
       noLoc (simpleImportDecl (mkModuleName "Daml.Script")) :
-      noLoc (simpleImportDecl (mkModuleName "GHC.Types")) :
       map noLoc (concat (Map.elems $ getImports imports))
   , hsmodDecls = decls
   , hsmodDeprecMessage = Nothing

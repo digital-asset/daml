@@ -4,6 +4,8 @@
 package com.daml.lf
 package language
 
+import scala.annotation.nowarn
+
 final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
   def pretty: String = s"${major.pretty}.${minor.toProtoIdentifier}"
 }
@@ -30,7 +32,8 @@ object LanguageVersion {
 
   val All = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
 
-  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev) = All
+  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev) =
+    All: @nowarn("msg=match may not be exhaustive")
 
   object Features {
     val default = v1_6
@@ -52,7 +55,6 @@ object LanguageVersion {
     val bigNumeric = v1_13
     val exceptions = v1_14
     val basicInterfaces = v1_15
-    val extendedInterfaces = v1_dev
     val explicitDisclosure = v1_dev
 
     /** Unstable, experimental features. This should stay in 1.dev forever.

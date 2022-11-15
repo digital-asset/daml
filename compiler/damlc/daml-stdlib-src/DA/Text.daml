@@ -76,7 +76,8 @@ module DA.Text
 import Prelude
 import Prelude qualified as P
 import DA.List qualified as L
-import GHC.Types (primitive, magic)
+import GHC.Types (primitive)
+import GHC.Tuple.Check()
 
 explode : Text -> [Text]
 explode = primitive @"BEExplodeText"

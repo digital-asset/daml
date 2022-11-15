@@ -21,7 +21,6 @@ module DA.Daml.Options.Types
     , ModRenaming(..)
     , PackageArg(..)
     , defaultOptions
-    , getBaseDir
     , damlArtifactDir
     , projectPackageDatabase
     , projectDependenciesDatabase
@@ -209,7 +208,15 @@ basePackages = ["daml-prim", "daml-stdlib"]
 locateBuiltinPackageDbs :: Maybe NormalizedFilePath -> IO [FilePath]
 locateBuiltinPackageDbs mbProjRoot = do
     -- package db for daml-stdlib and daml-prim
-    internalPackageDb <- fmap (</> "pkg-db_dir") $ locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
+    internalPackageDb <- locateResource Resource
+      -- //compiler/damlc/pkg-db
+      { resourcesPath = "pkg-db_dir"
+        -- In a packaged application, the directory "pkg-db_dir" is preserved
+        -- underneath the resources directory because it is the target's
+        -- only output (even if it's a directory).
+        -- See @bazel_tools/packaging/packaging.bzl@.
+      , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc" </> "pkg-db"
+      }
     -- If these directories do not exist, we just discard them.
     filterM Dir.doesDirectoryExist (internalPackageDb : [fromNormalizedFilePath projRoot </> projectPackageDatabase | Just projRoot <- [mbProjRoot]])
 
@@ -251,9 +258,6 @@ defaultOptions mbVersion =
         , optAccessTokenPath = Nothing
         , optAllowLargeTuples = AllowLargeTuples False
         }
-
-getBaseDir :: IO FilePath
-getBaseDir = locateRunfiles (mainWorkspace </> "compiler/damlc")
 
 pkgNameVersion :: LF.PackageName -> Maybe LF.PackageVersion -> UnitId
 pkgNameVersion (LF.PackageName n) mbV =

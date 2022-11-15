@@ -31,6 +31,7 @@ import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeSet
 import scala.math.Ordering.Implicits.infixOrderingOps
@@ -1149,7 +1150,7 @@ private[lf] object SBuiltin {
 
         case None =>
           def continue(coinst: V.ContractInstance): Control = {
-            machine.pushKont(KCacheContract(machine, coid))
+            machine.pushKont(KCacheContract(coid))
             val e = coinst match {
               case V.ContractInstance(actualTmplId, arg, _) =>
                 SELet1(
@@ -1192,7 +1193,7 @@ private[lf] object SBuiltin {
       val coid = getSContractId(args, 2)
 
       val e = SEAppAtomic(SEValue(guard), Array(SEValue(SAnyContract(templateId, record))))
-      machine.pushKont(KCheckChoiceGuard(machine, coid, templateId, choiceName, byInterface))
+      machine.pushKont(KCheckChoiceGuard(coid, templateId, choiceName, byInterface))
       Control.Expression(e)
     }
   }
@@ -1602,9 +1603,7 @@ private[lf] object SBuiltin {
                 case ContractStateMachine.KeyActive(coid) =>
                   // We do not call directly machine.checkKeyVisibility as it may throw an SError,
                   // and such error cannot be throw inside a ledger-question continuation.
-                  machine.pushKont(
-                    KCheckKeyVisibility(machine, gkey, coid, operation.handleKeyFound)
-                  )
+                  machine.pushKont(KCheckKeyVisibility(gkey, coid, operation.handleKeyFound))
                   if (onLedger.hasCachedContract(coid)) {
                     (Control.Value(SUnit), true)
                   } else {
@@ -2196,7 +2195,9 @@ private[lf] object SBuiltin {
     cachedContractSignatoriesIdx,
     cachedContractObserversIdx,
     cachedContractKeyIdx,
-  ) = cachedContractFieldNames.map(cachedContractStruct.indexOf)
+  ) = cachedContractFieldNames.map(cachedContractStruct.indexOf): @nowarn(
+    "msg=match may not be exhaustive"
+  )
 
   private[speedy] val SBuildCachedContract =
     SBuiltin.SBStructCon(cachedContractStruct)

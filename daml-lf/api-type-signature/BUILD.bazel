@@ -6,10 +6,11 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
-    "lf_scalacopts_stricter",
 )
 load("//rules_daml:daml.bzl", "daml_compile")
 load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration")
+
+scalacopts = lf_scalacopts + ["-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements"]
 
 da_scala_library(
     name = "api-type-signature",
@@ -18,7 +19,7 @@ da_scala_library(
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = lf_scalacopts_stricter,
+    scalacopts = scalacopts,
     tags = ["maven_coordinates=com.daml:daml-lf-api-type-signature:__VERSION__"],
     visibility = [
         "//daml-assistant/daml-sdk:__subpackages__",

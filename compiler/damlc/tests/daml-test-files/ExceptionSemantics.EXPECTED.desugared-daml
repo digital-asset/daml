@@ -85,7 +85,7 @@ instance DA.Internal.Desugar.HasExerciseByKey K (Party,
   _exerciseByKey = GHC.Types.primitive @"UExerciseByKey"
 instance DA.Internal.Desugar.HasKey K (Party, Int) where
   key this@K {..}
-    = GHC.Types.magic @"userWrittenTuple" : forall x. x -> x (p, v)
+    = userWrittenTuple (p, v)
     where
         _ = this
 instance DA.Internal.Desugar.HasMaintainer K (Party, Int) where

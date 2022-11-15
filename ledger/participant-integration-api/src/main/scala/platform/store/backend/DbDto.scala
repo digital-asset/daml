@@ -49,6 +49,7 @@ object DbDto {
       create_argument_compression: Option[Int],
       create_key_value_compression: Option[Int],
       event_sequential_id: Long,
+      driver_metadata: Option[Array[Byte]],
   ) extends DbDto
 
   final case class EventExercise(

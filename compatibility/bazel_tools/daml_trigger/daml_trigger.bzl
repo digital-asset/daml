@@ -137,7 +137,7 @@ def daml_trigger_test(compiler_version, runner_version):
         server_files_prefix = ""
     else:
         server = daml_runner
-        server_args = ["sandbox"]
+        server_args = ["sandbox"] + (["--canton-port-file", "_port_file"] if (use_canton) else [])
         server_files = ["$(rootpath {})".format(compiled_dar)]
         server_files_prefix = "--dar=" if use_canton else ""
 
@@ -162,9 +162,18 @@ runner=$$(canonicalize_rlocation $(rootpath {runner}))
 # Cleanup the trigger runner process but maintain the script runner exit code.
 trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
 
-sleep 2
-
 SCRIPTOUTPUT=$$(mktemp -d)
+if [ {wait_for_port_file} -eq 1 ]; then
+      timeout=60
+      while [ ! -e _port_file ]; do
+          if [ "$$timeout" = 0 ]; then
+              echo "Timed out waiting for Canton startup" >&2
+              exit 1
+          fi
+          sleep 1
+          timeout=$$((timeout - 1))
+      done
+fi
 if [ {upload_dar} -eq 1 ] ; then
   $$runner ledger upload-dar \\
     --host localhost \\
@@ -200,6 +209,7 @@ chmod +x $(OUTS)
             dar = compiled_dar,
             runner = daml_runner,
             upload_dar = "1" if use_sandbox_on_x else "0",
+            wait_for_port_file = "1" if use_canton else "0",
         ),
         exec_tools = [
             compiled_dar,

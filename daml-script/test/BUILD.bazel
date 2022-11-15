@@ -6,6 +6,7 @@ load(
     "da_scala_library",
     "da_scala_test",
     "da_scala_test_suite",
+    "lf_scalacopts_stricter",
 )
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
@@ -132,6 +133,7 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
+    scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
@@ -161,6 +163,7 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
+        "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

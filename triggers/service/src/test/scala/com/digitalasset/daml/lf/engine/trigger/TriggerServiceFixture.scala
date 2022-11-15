@@ -47,6 +47,7 @@ import com.daml.ledger.sandbox.SandboxOnXForTest._
 import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -92,12 +93,11 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
   )(implicit system: ActorSystem, ec: ExecutionContext): Future[HttpResponse] = {
     Http()
       .singleRequest {
-        if (cookieJar.nonEmpty) {
-          val hd +: tl = cookieJar.view.map(headers.HttpCookiePair(_)).toSeq
-          val cookies = headers.Cookie(hd, tl: _*)
-          request.addHeader(cookies)
-        } else {
-          request
+        cookieJar.view.map(headers.HttpCookiePair(_)).toList match {
+          case head :: tail =>
+            request.addHeader(headers.Cookie(head, tail: _*))
+          case Nil =>
+            request
         }
       }
       .andThen { case Success(resp) =>
@@ -574,6 +574,7 @@ trait TriggerServiceFixture
                 jdbcConfig,
                 false,
                 Compiler.Config.Dev,
+                DefaultTriggerRunnerConfig,
                 logTriggerStatus,
               )
             } yield r

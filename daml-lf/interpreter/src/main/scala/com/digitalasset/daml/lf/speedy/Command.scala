@@ -28,28 +28,11 @@ private[lf] object Command {
       argument: SValue,
   ) extends Command
 
-  /** Exercise a template choice, by interface */
-  final case class ExerciseByInterface(
-      interfaceId: Identifier,
-      templateId: Identifier,
-      contractId: SContractId,
-      choiceId: ChoiceName,
-      argument: SValue,
-  ) extends Command
-
   /** Exercise an interface choice. This is used for exercising an interface
     * on the ledger api, where the template id is unknown.
     */
   final case class ExerciseInterface(
       interfaceId: Identifier,
-      contractId: SContractId,
-      choiceId: ChoiceName,
-      argument: SValue,
-  ) extends Command
-
-  final case class ExerciseByInheritedInterface(
-      requiredIface: Identifier,
-      requiringIface: Identifier,
       contractId: SContractId,
       choiceId: ChoiceName,
       argument: SValue,

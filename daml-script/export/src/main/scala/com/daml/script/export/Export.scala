@@ -5,13 +5,13 @@ package com.daml.script.export
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-
 import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party, TemplateId}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast
+import com.daml.scalautil.Statement.discard
 import com.daml.script.export.Dependencies.TemplateInstanceSpec
 import com.daml.script.export.TreeUtils.{
   Action,
@@ -143,19 +143,23 @@ object Export {
       Export.fromTransactionTrees(acs, trees, missingInstances, acsBatchSize, setTime)
 
     val dir = Files.createDirectories(targetDir)
-    Files.write(
-      dir.resolve("Export.daml"),
-      Encode
-        .encodeExport(scriptExport)
-        .render(80)
-        .getBytes(StandardCharsets.UTF_8),
+    discard(
+      Files.write(
+        dir.resolve("Export.daml"),
+        Encode
+          .encodeExport(scriptExport)
+          .render(80)
+          .getBytes(StandardCharsets.UTF_8),
+      )
     )
-    Files.write(
-      dir.resolve("args.json"),
-      Encode
-        .encodeArgs(scriptExport)
-        .prettyPrint
-        .getBytes(StandardCharsets.UTF_8),
+    discard(
+      Files.write(
+        dir.resolve("args.json"),
+        Encode
+          .encodeArgs(scriptExport)
+          .prettyPrint
+          .getBytes(StandardCharsets.UTF_8),
+      )
     )
     val exposedPackages: Seq[String] =
       pkgRefs.view.collect(Function.unlift(Dependencies.toPackages(_, pkgs))).toSeq

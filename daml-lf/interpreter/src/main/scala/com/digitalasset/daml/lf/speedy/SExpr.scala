@@ -105,7 +105,7 @@ object SExpr {
     * Because this case exists we must retain the complicated/slow path in the
     * speedy-machine: executeApplication
     */
-  @deprecated("Prefer SEAppAtomic or SEApp helper instead.")
+  @deprecated("Prefer SEAppAtomic or SEApp helper instead.", since = "2.4.0")
   final case class SEAppOnlyFunIsAtomic(fun: SExprAtomic, args: Array[SExpr])
       extends SExpr
       with SomeArrayEquals {
@@ -310,7 +310,7 @@ object SExpr {
     */
   final case class SELabelClosure(label: Profile.Label, expr: SExpr) extends SExpr {
     override def execute(machine: Machine): Control = {
-      machine.pushKont(KLabelClosure(machine, label))
+      machine.pushKont(KLabelClosure(label))
       Control.Expression(expr)
     }
   }
@@ -340,14 +340,14 @@ object SExpr {
   /** Exercise scope (begin..end) */
   final case class SEScopeExercise(body: SExpr) extends SExpr {
     override def execute(machine: Machine): Control = {
-      machine.pushKont(KCloseExercise(machine))
+      machine.pushKont(KCloseExercise)
       Control.Expression(body)
     }
   }
 
   final case class SEPreventCatch(body: SExpr) extends SExpr {
     override def execute(machine: Machine): Control = {
-      machine.pushKont(KPreventException(machine))
+      machine.pushKont(KPreventException)
       Control.Expression(body)
     }
   }

@@ -80,8 +80,12 @@ object MetricHandle {
 
   object Timer {
 
-    trait TimerHandle extends AutoCloseable {
-      def stop(): Unit = close()
+    trait TimerHandle {
+
+      def stop()(implicit
+          context: MetricsContext = MetricsContext.Empty
+      ): Unit
+
     }
 
   }
@@ -113,13 +117,13 @@ object MetricHandle {
     override def metricType: String = "Counter"
     def inc()(implicit
         context: MetricsContext = MetricsContext.Empty
-    ): Unit
+    ): Unit = inc(1)
     def inc(n: Long)(implicit
         context: MetricsContext
     ): Unit
     def dec()(implicit
         context: MetricsContext = MetricsContext.Empty
-    ): Unit
+    ): Unit = dec(1)
     def dec(n: Long)(implicit
         context: MetricsContext
     ): Unit

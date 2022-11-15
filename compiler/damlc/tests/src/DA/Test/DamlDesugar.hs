@@ -3,6 +3,8 @@
 
 module DA.Test.DamlDesugar (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import DA.Bazel.Runfiles (locateRunfiles, mainWorkspace)
 import DA.Daml.Desugar.Tests (mkTestTree)
 import System.Environment.Blank (setEnv)

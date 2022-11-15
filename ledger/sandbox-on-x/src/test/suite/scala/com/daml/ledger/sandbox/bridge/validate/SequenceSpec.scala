@@ -4,7 +4,6 @@
 package com.daml.ledger.sandbox.bridge.validate
 
 import java.time.Duration
-
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
@@ -22,7 +21,7 @@ import com.daml.ledger.sandbox.domain.{Rejection, Submission}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.IdString
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.Transaction.{KeyActive, KeyCreate}
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -481,7 +480,8 @@ class SequenceSpec
     }
 
     def buildSequence(
-        initialLedgerConfiguration: Option[Configuration] = initialLedgerConfiguration
+        initialLedgerConfiguration: Option[Configuration] = initialLedgerConfiguration,
+        explicitDisclosureEnabled: Boolean = false,
     ) = new SequenceImpl(
       participantId = Ref.ParticipantId.assertFromString(participantName),
       bridgeMetrics = bridgeMetrics,
@@ -490,6 +490,7 @@ class SequenceSpec
       initialAllocatedParties = allocatedInformees,
       initialLedgerConfiguration = initialLedgerConfiguration,
       maxDeduplicationDuration = maxDeduplicationDuration,
+      explicitDisclosureEnabled = explicitDisclosureEnabled,
     )
 
     def exerciseNonConsuming(
@@ -520,16 +521,18 @@ class SequenceSpec
         completionInfo: CompletionInfo = completionInfo,
         recordTime: Time.Timestamp = currentRecordTime,
         cmdId: Ref.CommandId = commandId(1),
+        contractMetadata: Map[ContractId, Bytes] = Map.empty,
+        tx: SubmittedTransaction = txMock,
     ): Update.TransactionAccepted =
       Update.TransactionAccepted(
         optCompletionInfo = Some(completionInfo.copy(commandId = cmdId)),
         transactionMeta = transactionMeta,
-        transaction = CommittedTransaction(txMock),
+        transaction = CommittedTransaction(tx),
         transactionId = Ref.TransactionId.assertFromString(txId.toString),
         recordTime = recordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
-        contractMetadata = Map.empty,
+        contractMetadata = contractMetadata,
       )
 
     def assertCommandRejected(

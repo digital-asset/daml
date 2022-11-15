@@ -149,6 +149,7 @@ private[backend] object StorageBackendTestValues {
       create_argument_compression = None,
       create_key_value_compression = None,
       event_sequential_id = eventSequentialId,
+      driver_metadata = None,
     )
   }
 

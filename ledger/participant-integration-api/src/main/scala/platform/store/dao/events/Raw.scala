@@ -85,6 +85,7 @@ object Raw {
         eventWitnesses: ArraySeq[String],
         createKeyHash: Option[Hash],
         ledgerEffectiveTime: Timestamp,
+        driverMetadata: Option[Array[Byte]],
     ): PbCreatedEvent =
       PbCreatedEvent(
         eventId = eventId,
@@ -100,8 +101,7 @@ object Raw {
           PbContractMetadata(
             createdAt = Some(TimestampConversion.fromLf(ledgerEffectiveTime)),
             contractKeyHash = createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
-            // TODO ED: Store driver metadata in the database
-            driverMetadata = ByteString.EMPTY,
+            driverMetadata = ByteString.copyFrom(driverMetadata.getOrElse(Array.empty)),
           )
         ),
       )
@@ -144,6 +144,7 @@ object Raw {
           createKeyValueCompression: Option[Int],
           ledgerEffectiveTime: Timestamp,
           eventWitnesses: ArraySeq[String],
+          driverMetadata: Option[Array[Byte]],
       ): Raw.FlatEvent.Created =
         new Raw.FlatEvent.Created(
           raw = Raw.Created(
@@ -156,6 +157,7 @@ object Raw {
             eventWitnesses = eventWitnesses,
             createKeyHash = createKeyHash,
             ledgerEffectiveTime = ledgerEffectiveTime,
+            driverMetadata = driverMetadata,
           ),
           createArgument = createArgument,
           createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),
@@ -236,6 +238,7 @@ object Raw {
           createKeyValueCompression: Option[Int],
           ledgerEffectiveTime: Timestamp,
           eventWitnesses: ArraySeq[String],
+          driverMetadata: Option[Array[Byte]],
       ): Raw.TreeEvent.Created =
         new Raw.TreeEvent.Created(
           raw = Raw.Created(
@@ -248,6 +251,7 @@ object Raw {
             eventWitnesses = eventWitnesses,
             createKeyHash = createKeyHash,
             ledgerEffectiveTime = ledgerEffectiveTime,
+            driverMetadata = driverMetadata,
           ),
           createArgument = createArgument,
           createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),

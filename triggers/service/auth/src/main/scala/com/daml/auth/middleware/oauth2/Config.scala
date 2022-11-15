@@ -38,7 +38,7 @@ final case class Config(
     // Token verification
     tokenVerifier: JwtVerifierBase,
 ) {
-  def validate: Unit = {
+  def validate(): Unit = {
     require(oauthToken != null, "Oauth token value on config cannot be null")
     require(oauthAuth != null, "Oauth auth value on config cannot be null")
     require(clientId.nonEmpty, "DAML_CLIENT_ID cannot be empty")
@@ -51,6 +51,7 @@ final case class SecretString(value: String) {
   override def toString: String = "###"
 }
 
+@scala.annotation.nowarn("msg=Block result was adapted via implicit conversion")
 object Config {
   val DefaultHttpPort: Int = 3000
   val DefaultCookieSecure: Boolean = true
