@@ -255,6 +255,8 @@ printTestCoverage _ allPackages results
     printReport :: IO ()
     printReport =
         let countWhere pred = M.size . M.filter pred
+            pctage :: Int -> Int -> Int
+            pctage n d = max 0 $ min 100 $ floor (100 * fromIntegral n / fromIntegral d :: Double)
 
             allContracts = contractsDefinedIn allPackages
             localTemplates = M.filterWithKey pred allContracts
@@ -299,43 +301,82 @@ printTestCoverage _ allPackages results
             externalTemplateChoicesExercised = M.intersection allExercisedChoices externalTemplateChoices
         in
         putStrLn $
-        unlines
-        [ printf "Modules internal to this package:"
+        unlines $
+        concat
+        [ [ printf "Modules internal to this package:" ]
         -- Can't have any external tests that exercise internals, as that would
         -- require a circular dependency, so we only report local test results
-        , printf "- Internal templates"
-        , printf "  %d defined" (M.size localTemplates)
-        , printf "  %d created" (M.size localTemplatesCreated)
-        , printf "- Internal template choices"
-        , printf "  %d defined" (M.size localTemplateChoices)
-        , printf "  %d exercised" (M.size localTemplateChoicesExercised)
-        , printf "- Internal interface implementations"
-        , printf "  %d defined" (countWhere (isLocal . fst) allImplementations)
-        , printf "    %d internal interfaces" (countWhere (isLocal . fst) allImplementations)
-        , printf "    %d external interfaces" (countWhere (not . isLocal . fst) allImplementations)
-        , printf "- Interface choices"
-        , printf "  %d defined" (countWhere (\(_, loe, _, _, _) -> isLocal loe) allImplementationChoices)
-        , printf "  %d exercised" (countWhere (any isLocal) allExercisedImplementationChoices)
-        , printf "Modules external to this package:"
+        , let defined = M.size localTemplates
+              created = M.size localTemplatesCreated
+          in
+          [ printf "- Internal templates"
+          , printf "  %d defined" defined
+          , printf "  %d (%d%%) created" created (pctage created defined)
+          ]
+        , let defined = M.size localTemplateChoices
+              exercised = M.size localTemplateChoicesExercised
+          in
+          [ printf "- Internal template choices"
+          , printf "  %d defined" defined
+          , printf "  %d (%d%%) exercised" exercised (pctage exercised defined)
+          ]
+        , let defined = countWhere (isLocal . fst) allImplementations
+              internal = countWhere (isLocal . fst) allImplementations
+              external = countWhere (not . isLocal . fst) allImplementations
+          in
+          [ printf "- Internal interface implementations"
+          , printf "  %d defined" defined
+          , printf "    %d internal interfaces" internal
+          , printf "    %d external interfaces" external
+          ]
+        , let defined = countWhere (\(_, loe, _, _, _) -> isLocal loe) allImplementationChoices
+              exercised = countWhere (any isLocal) allExercisedImplementationChoices
+          in
+          [ printf "- Interface choices"
+          , printf "  %d defined" defined
+          , printf "  %d (%d%%) exercised" exercised (pctage exercised defined)
+          ]
+        , [ printf "Modules external to this package:" ]
         -- Here, interface instances can only refer to external templates and
         -- interfaces, so we only report external interface instances
-        , printf "- External templates"
-        , printf "  %d defined" (M.size externalTemplates)
-        , printf "  %d created in any tests" (M.size externalTemplatesCreated)
-        , printf "  %d created in internal tests" (countWhere (any isLocal) externalTemplatesCreated)
-        , printf "  %d created in external tests" (countWhere (not . all isLocal) externalTemplatesCreated)
-        , printf "- External template choices"
-        , printf "  %d defined" (M.size externalTemplateChoices)
-        , printf "  %d exercised in any tests" (M.size externalTemplateChoicesExercised)
-        , printf "  %d exercised in internal tests" (countWhere (any isLocal) externalTemplateChoicesExercised)
-        , printf "  %d exercised in external tests" (countWhere (not . all isLocal) externalTemplateChoicesExercised)
-        , printf "- External interfaces"
-        , printf "  %d implementations defined" (countWhere (isLocal . fst) allImplementations)
-        , printf "- External interface choices"
-        , printf "  %d defined" (countWhere (\(_, loe, _, _, _) -> isLocal loe) allImplementationChoices)
-        , printf "  %d exercised in any tests" (countWhere (any isLocal) allExercisedImplementationChoices)
-        , printf "  %d exercised in internal tests" (countWhere (any isLocal) allExercisedImplementationChoices)
-        , printf "  %d exercised in external tests" (countWhere (any isLocal) allExercisedImplementationChoices)
+        , let defined = M.size externalTemplates
+              createdAny = M.size externalTemplatesCreated
+              createdInternal = countWhere (any isLocal) externalTemplatesCreated
+              createdExternal = countWhere (not . all isLocal) externalTemplatesCreated
+          in
+          [ printf "- External templates"
+          , printf "  %d defined" defined
+          , printf "  %d (%d%%) created in any tests" createdAny (pctage createdAny defined)
+          , printf "  %d (%d%%) created in internal tests" createdInternal (pctage createdInternal defined)
+          , printf "  %d (%d%%) created in external tests" createdExternal (pctage createdExternal defined)
+          ]
+        , let defined = M.size externalTemplateChoices
+              exercisedAny = M.size externalTemplateChoicesExercised
+              exercisedInternal = countWhere (any isLocal) externalTemplateChoicesExercised
+              exercisedExternal = countWhere (not . all isLocal) externalTemplateChoicesExercised
+          in
+          [ printf "- External template choices"
+          , printf "  %d defined" defined
+          , printf "  %d (%d%%) exercised in any tests" exercisedAny (pctage exercisedAny defined)
+          , printf "  %d (%d%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
+          , printf "  %d (%d%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
+          ]
+        , let defined = countWhere (isLocal . fst) allImplementations
+          in
+          [ printf "- External interfaces"
+          , printf "  %d implementations defined" defined
+          ]
+        , let defined = countWhere (\(_, loe, _, _, _) -> isLocal loe) allImplementationChoices
+              exercisedAny = countWhere (any isLocal) allExercisedImplementationChoices
+              exercisedInternal = countWhere (any isLocal) allExercisedImplementationChoices
+              exercisedExternal = countWhere (any isLocal) allExercisedImplementationChoices
+          in
+          [ printf "- External interface choices"
+          , printf "  %d defined" defined
+          , printf "  %d (%d%%) exercised in any tests" exercisedAny (pctage exercisedAny defined)
+          , printf "  %d (%d%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
+          , printf "  %d (%d%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
+          ]
         ]
 
     contractsDefinedIn :: [LocalOrExternal] -> M.Map ContractIdentifier (Variety (LF.Qualified LF.Template) (LF.Qualified LF.DefInterface))
