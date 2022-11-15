@@ -288,6 +288,15 @@ printTestCoverage _ allPackages results
                 pure (ChoiceIdentifier contractId name, (k, loe, body, def, choice))
             allExercisedImplementationChoices = M.intersection allExercisedChoices allImplementationChoices
 
+            localImplementationChoices = M.filter pred allImplementationChoices
+              where
+                pred (_, loe, _, _, _) = isLocal loe
+            localImplementationChoicesExercised = M.intersection allExercisedChoices localImplementationChoices
+            externalImplementationChoices = M.filter pred allImplementationChoices
+              where
+                pred (_, loe, _, _, _) = not (isLocal loe)
+            externalImplementationChoicesExercised = M.intersection allExercisedChoices externalImplementationChoices
+
             externalTemplates = M.filterWithKey pred allContracts
               where
                 pred (ContractIdentifier (Just _) _) (TemplateV _) = True
@@ -329,8 +338,8 @@ printTestCoverage _ allPackages results
           , printf "    %d internal interfaces" internal
           , printf "    %d external interfaces" external
           ]
-        , let defined = countWhere (\(_, loe, _, _, _) -> isLocal loe) allImplementationChoices
-              exercised = countWhere (any isLocal) allExercisedImplementationChoices
+        , let defined = localImplementationChoices
+              exercised = M.size localImplementationChoicesExercised
           in
           [ printf "- Interface choices"
           , printf "  %d defined" defined
@@ -366,10 +375,10 @@ printTestCoverage _ allPackages results
           [ printf "- External interfaces"
           , printf "  %d implementations defined" defined
           ]
-        , let defined = countWhere (\(_, loe, _, _, _) -> isLocal loe) allImplementationChoices
-              exercisedAny = countWhere (any isLocal) allExercisedImplementationChoices
-              exercisedInternal = countWhere (any isLocal) allExercisedImplementationChoices
-              exercisedExternal = countWhere (any isLocal) allExercisedImplementationChoices
+        , let defined = externalImplementationChoices
+              exercisedAny = M.size externalImplementationChoicesExercised
+              exercisedInternal = countWhere (any isLocal) externalImplementationChoicesExercised
+              exercisedExternal = countWhere (not . all isLocal) externalImplementationChoicesExercised
           in
           [ printf "- External interface choices"
           , printf "  %d defined" defined
