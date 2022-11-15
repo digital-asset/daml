@@ -89,7 +89,7 @@ class AkkaHttpMetricsSpec
     },
     path("delay" / LongNumber) { delayMs =>
       Directives.complete {
-        Thread.sleep(delayMs)
+        Thread.sleep(delayMs + 100)
         s"delayed $delayMs ms"
       }
     },
