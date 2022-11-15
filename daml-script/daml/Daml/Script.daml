@@ -229,7 +229,7 @@ data QueryInterfacePayload a = QueryInterfacePayload
 
 -- | Query the set of active contracts views for an interface
 -- that are visible to the given party.
-queryInterface : forall i v p. (TemplateOrInterface i, HasInterfaceView i v, IsParties p) => p -> Script [(ContractId i, Optional v)]
+queryInterface : forall i v p. (Template i, HasInterfaceView i v, IsParties p) => p -> Script [(ContractId i, Optional v)]
 queryInterface p = lift $ Free $ QueryInterface QueryInterfacePayload with
   parties = toParties p
   interfaceId = templateTypeRep @i
@@ -244,7 +244,7 @@ data QueryInterfaceContractIdPayload a = QueryInterfaceContractIdPayload
   , locations : [(Text, SrcLoc)]
   } deriving Functor
 
-queryInterfaceContractId : forall i v p. (TemplateOrInterface i, HasInterfaceView i v, IsParties p) => HasCallStack => p -> ContractId i -> Script (Optional v)
+queryInterfaceContractId : forall i v p. (Template i, HasInterfaceView i v, IsParties p) => HasCallStack => p -> ContractId i -> Script (Optional v)
 queryInterfaceContractId p c = lift $ Free $ QueryInterfaceContractId QueryInterfaceContractIdPayload with
   parties = toParties p
   interfaceId = templateTypeRep @i
@@ -776,7 +776,7 @@ instance Show AnyContractId where
     where app_prec = 10
 
 -- | HIDE This is an early access feature.
-fromAnyContractId : forall t. TemplateOrInterface t => AnyContractId -> Optional (ContractId t)
+fromAnyContractId : forall t. Template t => AnyContractId -> Optional (ContractId t)
 fromAnyContractId cid
   | cid.templateId == templateTypeRep @t = Some (coerceContractId cid.contractId)
   | otherwise = None
