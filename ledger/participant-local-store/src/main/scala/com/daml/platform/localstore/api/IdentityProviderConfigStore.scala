@@ -37,4 +37,5 @@ object IdentityProviderConfigStore {
       extends Error
   final case class IdentityProviderConfigExists(identityProviderId: Ref.IdentityProviderId.Id)
       extends Error
+  final case class IdentityProviderConfigWithIssuerExists(issuer: String) extends Error
 }

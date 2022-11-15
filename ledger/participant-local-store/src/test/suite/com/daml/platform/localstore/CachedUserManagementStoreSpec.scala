@@ -114,11 +114,15 @@ class CachedUserManagementStoreSpec
       order.verify(delegate, times(1)).getUserInfo(user.id, identityProviderId)
       order
         .verify(delegate, times(1))
-        .grantRights(eqTo(user.id), any[Set[UserRight]], identityProviderId)(any[LoggingContext])
+        .grantRights(eqTo(user.id), any[Set[UserRight]], eqTo(identityProviderId))(
+          any[LoggingContext]
+        )
       order.verify(delegate, times(1)).getUserInfo(userInfo.user.id, identityProviderId)
       order
         .verify(delegate, times(1))
-        .revokeRights(eqTo(user.id), any[Set[UserRight]], identityProviderId)(any[LoggingContext])
+        .revokeRights(eqTo(user.id), any[Set[UserRight]], eqTo(identityProviderId))(
+          any[LoggingContext]
+        )
       order.verify(delegate, times(1)).getUserInfo(userInfo.user.id, identityProviderId)
       order.verify(delegate, times(1)).updateUser(any[UserUpdate])(any[LoggingContext])
       order.verify(delegate, times(1)).getUserInfo(userInfo.user.id, identityProviderId)
@@ -180,7 +184,7 @@ class CachedUserManagementStoreSpec
         .createUser(any[User], any[Set[UserRight]])(any[LoggingContext])
       order
         .verify(delegate, times(2))
-        .getUserInfo(any[Ref.UserId], identityProviderId)(any[LoggingContext])
+        .getUserInfo(any[Ref.UserId], eqTo(identityProviderId))(any[LoggingContext])
       order.verifyNoMoreInteractions()
       create1 shouldBe Right(createdUser1)
       get1 shouldBe Right(createdUserInfo)

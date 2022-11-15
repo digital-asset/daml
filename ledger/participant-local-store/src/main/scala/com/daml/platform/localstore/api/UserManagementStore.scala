@@ -116,4 +116,6 @@ object UserManagementStore {
   final case class TooManyUserRights(userId: Ref.UserId) extends Error
   final case class ConcurrentUserUpdate(userId: Ref.UserId) extends Error
   final case class MaxAnnotationsSizeExceeded(userId: Ref.UserId) extends Error
+  final case class IdentityProviderConfigNotFound(identityProviderId: Ref.IdentityProviderId.Id)
+      extends Error
 }

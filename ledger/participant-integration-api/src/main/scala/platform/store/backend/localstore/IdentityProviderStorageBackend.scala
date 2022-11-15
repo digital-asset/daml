@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref
 
 import java.sql.Connection
 
-trait IdentityProviderStorageBackend {
+trait IdentityProviderStorageBackend extends IdentityProviderCheckStorageBackend {
   def createIdentityProviderConfig(
       identityProviderConfig: IdentityProviderConfig
   )(connection: Connection): Unit
@@ -22,6 +22,9 @@ trait IdentityProviderStorageBackend {
   def listIdentityProviderConfigs()(
       connection: Connection
   ): Vector[IdentityProviderConfig]
+
+  def idpConfigByIssuerExists(issuer: String)(connection: Connection): Boolean
+
 }
 
 object IdentityProviderStorageBackend {}

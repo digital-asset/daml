@@ -3,27 +3,27 @@
 
 package com.daml.platform.localstore
 
-import java.sql.Connection
-
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.User
-import com.daml.platform.localstore.api.UserManagementStore._
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.UserId
+import com.daml.lf.data.Ref.{IdentityProviderId, UserId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.localstore.PersistentUserManagementStore.{
   ConcurrentUserUpdateDetectedRuntimeException,
+  IdentityProviderConfigNotFound,
   MaxAnnotationsSizeExceededException,
   TooManyUserRightsRuntimeException,
 }
+import com.daml.platform.localstore.api.UserManagementStore._
 import com.daml.platform.localstore.api.{UserManagementStore, UserUpdate}
 import com.daml.platform.localstore.utils.LocalAnnotationsUtils
 import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.backend.localstore.UserManagementStorageBackend
 
+import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}
 
 object UserManagementConfig {
@@ -60,6 +60,9 @@ object PersistentUserManagementStore {
       extends RuntimeException
 
   final case class MaxAnnotationsSizeExceededException(userId: Ref.UserId) extends RuntimeException
+
+  final case class IdentityProviderConfigNotFound(identityProviderId: Ref.IdentityProviderId.Id)
+      extends RuntimeException
 
   def cached(
       dbSupport: DbSupport,
@@ -132,6 +135,7 @@ class PersistentUserManagementStore(
           resourceVersion = 0,
           createdAt = now,
         )
+        checkIdentityProviderExists(user.identityProviderId)(connection)
         val internalId = backend.createUser(user = dbUser)(connection)
         user.metadata.annotations.foreach { case (key, value) =>
           backend.addUserAnnotation(
@@ -173,6 +177,7 @@ class PersistentUserManagementStore(
             // NOTE: We starts by writing to the 'resource_version' attribute
             //       of 'participant_users' to effectively obtain an exclusive lock for
             //       updating this user for the rest of the transaction.
+            userUpdate.identityProviderIdUpdate.foreach(checkIdentityProviderExists(_)(connection))
             userUpdate.metadataUpdate.resourceVersionO match {
               case Some(expectedResourceVersion) =>
                 if (
@@ -345,6 +350,8 @@ class PersistentUserManagementStore(
           Left(UserManagementStore.ConcurrentUserUpdate(userId))
         case MaxAnnotationsSizeExceededException(userId) =>
           Left(UserManagementStore.MaxAnnotationsSizeExceeded(userId))
+        case IdentityProviderConfigNotFound(identityProviderId) =>
+          Left(UserManagementStore.IdentityProviderConfigNotFound(identityProviderId))
       }(ExecutionContext.parasitic)
   }
 
@@ -411,5 +418,17 @@ class PersistentUserManagementStore(
   private def epochMicroseconds(): Long = {
     val now = timeProvider.getCurrentTime
     (now.getEpochSecond * 1000 * 1000) + (now.getNano / 1000)
+  }
+
+  private def checkIdentityProviderExists(
+      identityProviderId: IdentityProviderId
+  )(connection: Connection) = {
+    identityProviderId match {
+      case identityProviderId: Ref.IdentityProviderId.Id =>
+        if (!backend.idpConfigByIdExists(identityProviderId)(connection)) {
+          throw IdentityProviderConfigNotFound(identityProviderId)
+        }
+      case _ =>
+    }
   }
 }

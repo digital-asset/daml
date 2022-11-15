@@ -115,6 +115,12 @@ class ApiIdentityProviderConfigService(
           .Reject(operation, id.value)
           .asGrpcError
       )
+    case Left(IdentityProviderConfigStore.IdentityProviderConfigWithIssuerExists(issuer)) =>
+      Future.failed(
+        LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigIssuerAlreadyExists
+          .Reject(operation, issuer)
+          .asGrpcError
+      )
     case scala.util.Right(t) =>
       Future.successful(t)
   }

@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.backend.localstore
 
-import anorm.SqlParser.{bool, str}
+import anorm.SqlParser.{bool, int, str}
 import anorm.{RowParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.IdentityProviderConfig
 import com.daml.lf.data.Ref.IdentityProviderId
@@ -14,6 +14,9 @@ import java.net.URL
 import java.sql.Connection
 
 object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend {
+
+  private val IntParser0: RowParser[Int] =
+    int("dummy") map { i => i }
 
   private val IDPConfigRecordParser: RowParser[(String, Boolean, String, String)] = {
     import com.daml.platform.store.backend.Conversions.bigDecimalColumnToBoolean
@@ -85,4 +88,18 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
       }
   }
 
+  override def idpConfigByIssuerExists(issuer: String)(connection: Connection): Boolean = {
+    import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+    val res: Seq[_] =
+      SQL"""
+         SELECT 1 AS dummy
+         FROM participant_identity_provider_config idpcfg
+         WHERE idpcfg.issuer = $issuer
+         """.asVectorOf(IntParser0)(connection)
+    assert(res.length <= 1)
+    res.length == 1
+  }
+
+  override def idpConfigByIdExists(id: IdentityProviderId.Id)(connection: Connection): Boolean =
+    IdentityProviderCheckStorageBackendImpl.idpConfigByIdExists(id)(connection)
 }

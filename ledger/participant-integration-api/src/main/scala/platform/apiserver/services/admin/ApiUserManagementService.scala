@@ -388,6 +388,13 @@ private[apiserver] final class ApiUserManagementService(
             .asGrpcError
         )
 
+      case Left(e: UserManagementStore.IdentityProviderConfigNotFound) =>
+        Future.failed(
+          LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigNotFound
+            .Reject(operation, identityProviderId = e.identityProviderId.value)
+            .asGrpcError
+        )
+
       case scala.util.Right(t) =>
         Future.successful(t)
     }

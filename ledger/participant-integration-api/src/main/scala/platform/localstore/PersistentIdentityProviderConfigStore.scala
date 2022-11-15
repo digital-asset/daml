@@ -10,6 +10,7 @@ import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.localstore.api.IdentityProviderConfigStore
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
   IdentityProviderConfigExists,
+  IdentityProviderConfigWithIssuerExists,
   Result,
 }
 import com.daml.platform.store.DbSupport
@@ -29,7 +30,7 @@ class PersistentIdentityProviderConfigStore(
       implicit loggingContext: LoggingContext
   ): Future[Result[domain.IdentityProviderConfig]] = {
     inTransaction(_.createIDPConfig) { implicit connection =>
-      withoutIDPConfig(identityProviderConfig.identityProviderId) {
+      withoutIDPConfig(identityProviderConfig.identityProviderId, identityProviderConfig.issuer) {
         backend.createIdentityProviderConfig(identityProviderConfig)(connection)
         identityProviderConfig
       }
@@ -71,16 +72,21 @@ class PersistentIdentityProviderConfigStore(
       .executeSql(dbMetric(metrics.daml.identityProviderConfigStore))(thunk)
 
   private def withoutIDPConfig[T](
-      id: IdentityProviderId.Id
+      id: IdentityProviderId.Id,
+      issuer: String,
   )(t: => T)(implicit connection: Connection): Result[T] = {
-    backend.getIdentityProviderConfig(id = id)(connection) match {
-      case Some(identityProviderConfig) =>
+    val idExists = backend.idpConfigByIdExists(id)(connection)
+    val issuerExists = backend.idpConfigByIssuerExists(issuer)(connection)
+    (idExists, issuerExists) match {
+      case (true, _) =>
         Left(
-          IdentityProviderConfigExists(identityProviderId =
-            identityProviderConfig.identityProviderId
-          )
+          IdentityProviderConfigExists(identityProviderId = id)
         )
-      case None => Right(t)
+      case (_, true) =>
+        Left(
+          IdentityProviderConfigWithIssuerExists(issuer)
+        )
+      case (false, false) => Right(t)
     }
   }
 

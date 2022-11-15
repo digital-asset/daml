@@ -3,8 +3,8 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error.definitions.DamlErrorWithDefiniteAnswer
 import com.daml.error._
+import com.daml.error.definitions.DamlErrorWithDefiniteAnswer
 
 object IdentityProviderConfigServiceErrorGroup
     extends AdminServices.IdentityProviderConfigServiceErrorGroup {
@@ -48,6 +48,29 @@ object IdentityProviderConfigServiceErrorGroup
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.IdentityProviderConfig -> identityProviderId
+      )
+    }
+  }
+
+  @Explanation(
+    "There already exists a identity provider configuration with the same issuer."
+  )
+  @Resolution(
+    "Check that you are connecting to the right participant node and the identity provider id is spelled correctly, or use the identity provider that already exists."
+  )
+  object IdentityProviderConfigIssuerAlreadyExists
+      extends ErrorCode(
+        id = "IDP_CONFIG_ISSUER_ALREADY_EXISTS",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
+      ) {
+    case class Reject(operation: String, issuer: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause =
+            s"${operation} failed, as identity provider with issuer \"${issuer}\" already exists"
+        ) {
+      override def resources: Seq[(ErrorResource, String)] = Seq(
+        ErrorResource.IdentityProviderConfig -> issuer
       )
     }
   }
