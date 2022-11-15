@@ -8,8 +8,8 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.auth.{AuthService, ClaimSet, IdentityProviderAuthService}
 import com.daml.ledger.api.domain.IdentityProviderConfig
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.localstore.api.IdentityProviderStore
-import com.daml.platform.localstore.api.IdentityProviderStore.Result
+import com.daml.platform.localstore.api.IdentityProviderConfigStore
+import com.daml.platform.localstore.api.IdentityProviderConfigStore.Result
 import io.grpc.Metadata
 
 import scala.jdk.FutureConverters.FutureOps
@@ -20,7 +20,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class IdentityProviderAwareAuthService(
     defaultAuthService: AuthService,
     identityProviderAuthService: IdentityProviderAuthService,
-    identityProviderStore: IdentityProviderStore,
+    identityProviderConfigStore: IdentityProviderConfigStore,
 )(implicit
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
@@ -66,7 +66,7 @@ class IdentityProviderAwareAuthService(
     identityProviderAuthService.decodeMetadata(getAuthorizationHeader(headers), entries)
 
   override def decodeMetadata(headers: Metadata): CompletionStage[ClaimSet] =
-    identityProviderStore
+    identityProviderConfigStore
       .listIdentityProviderConfigs() // todo cache the list
       .flatMap(handleResult)
       .map(_.filterNot(_.isDeactivated))

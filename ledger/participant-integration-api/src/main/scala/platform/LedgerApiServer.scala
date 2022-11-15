@@ -26,7 +26,7 @@ import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.index.{InMemoryStateUpdater, IndexServiceOwner}
 import com.daml.platform.indexer.IndexerServiceOwner
 import com.daml.platform.localstore.{
-  InMemoryIdentityProviderStore,
+  PersistentIdentityProviderConfigStore,
   PersistentPartyRecordStore,
   PersistentUserManagementStore,
   UserManagementConfig,
@@ -145,7 +145,13 @@ class LedgerApiServer(
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
   ): ResourceOwner[ApiService] = {
-    val identityProviderStore = new InMemoryIdentityProviderStore
+    val identityProviderStore =
+      PersistentIdentityProviderConfigStore.cached(
+        dbSupport = dbSupport,
+        metrics = metrics,
+        expiryAfterWriteInSeconds = apiServerConfig.userManagement.cacheExpiryAfterWriteInSeconds,
+        maximumCacheSize = apiServerConfig.userManagement.maxCacheSize,
+      )(servicesExecutionContext, loggingContext)
     ApiServiceOwner(
       indexService = indexService,
       ledgerId = ledgerId,
@@ -166,7 +172,7 @@ class LedgerApiServer(
         maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
         timeProvider = TimeProvider.UTC,
       )(servicesExecutionContext, loggingContext),
-      identityProviderStore = identityProviderStore,
+      identityProviderConfigStore = identityProviderStore,
       partyRecordStore = new PersistentPartyRecordStore(
         dbSupport = dbSupport,
         metrics = metrics,

@@ -13,7 +13,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.CompletableFuture
-import com.daml.platform.localstore.api.{IdentityProviderStore, UserManagementStore}
+import com.daml.platform.localstore.api.{IdentityProviderConfigStore, UserManagementStore}
 
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.Promise
@@ -41,7 +41,7 @@ class AuthorizationInterceptorSpec
   private def testServerCloseError(assertRpcStatus: (Status, Metadata) => Assertion) = {
     val authService = mock[AuthService]
     val userManagementService = mock[UserManagementStore]
-    val identityProviderStore = mock[IdentityProviderStore]
+    val identityProviderStore = mock[IdentityProviderConfigStore]
     val serverCall = mock[ServerCall[Nothing, Nothing]]
     val failedMetadataDecode = CompletableFuture.supplyAsync[ClaimSet](() =>
       throw new RuntimeException("some internal failure")

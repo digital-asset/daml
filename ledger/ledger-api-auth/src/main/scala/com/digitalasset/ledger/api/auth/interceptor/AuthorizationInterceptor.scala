@@ -12,7 +12,7 @@ import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.localstore.api.{IdentityProviderStore, UserManagementStore}
+import com.daml.platform.localstore.api.{IdentityProviderConfigStore, UserManagementStore}
 import io.grpc._
 
 import scala.jdk.FutureConverters.CompletionStageOps
@@ -27,7 +27,7 @@ import scala.util.{Failure, Success, Try}
 final class AuthorizationInterceptor(
     authService: AuthService,
     userManagementStoreO: Option[UserManagementStore],
-    identityProviderStore0: Option[IdentityProviderStore],
+    identityProviderConfigStore0: Option[IdentityProviderConfigStore],
     implicit val ec: ExecutionContext,
 )(implicit loggingContext: LoggingContext)
     extends ServerInterceptor {
@@ -85,7 +85,7 @@ final class AuthorizationInterceptor(
       case ClaimSet.AuthenticatedUser(identityProviderId, userIdStr, participantId, expiration) =>
         for {
           userManagementStore <- getUserManagementStore(userManagementStoreO)
-          identityProviderStore <- getIdentityProviderStore(identityProviderStore0)
+          identityProviderStore <- getIdentityProviderStore(identityProviderConfigStore0)
           userId <- getUserId(userIdStr)
           user <- verifyUserIsActive(userManagementStore, userId)
           _ <- verifyIdentityProviderConfig(
@@ -128,7 +128,7 @@ final class AuthorizationInterceptor(
   private def verifyIdentityProviderConfig(
       identityProviderId: Ref.IdentityProviderId,
       user: User,
-      identityProviderStore: IdentityProviderStore,
+      identityProviderConfigStore: IdentityProviderConfigStore,
   ): Future[Unit] = {
     if (user.identityProviderId != identityProviderId) {
       Future.failed(
@@ -143,7 +143,7 @@ final class AuthorizationInterceptor(
         case Ref.IdentityProviderId.Default =>
           Future.unit
         case id: Ref.IdentityProviderId.Id =>
-          identityProviderStore.getIdentityProviderConfig(id).flatMap {
+          identityProviderConfigStore.getIdentityProviderConfig(id).flatMap {
             case Right(identityProviderConfig) if !identityProviderConfig.isDeactivated =>
               Future.unit
             case _ =>
@@ -204,8 +204,8 @@ final class AuthorizationInterceptor(
     }
 
   private[this] def getIdentityProviderStore(
-      identityProviderStoreO: Option[IdentityProviderStore]
-  ): Future[IdentityProviderStore] =
+      identityProviderStoreO: Option[IdentityProviderConfigStore]
+  ): Future[IdentityProviderConfigStore] =
     identityProviderStoreO match {
       case None =>
         Future.failed(
@@ -248,7 +248,7 @@ object AuthorizationInterceptor {
   def apply(
       authService: AuthService,
       userManagementStoreO: Option[UserManagementStore],
-      identityProviderStore0: Option[IdentityProviderStore],
+      identityProviderStore0: Option[IdentityProviderConfigStore],
       ec: ExecutionContext,
   ): AuthorizationInterceptor =
     LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>

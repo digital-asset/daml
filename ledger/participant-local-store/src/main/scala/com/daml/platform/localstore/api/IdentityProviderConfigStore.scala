@@ -6,11 +6,11 @@ package com.daml.platform.localstore.api
 import com.daml.ledger.api.domain.IdentityProviderConfig
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.localstore.api.IdentityProviderStore.Result
+import com.daml.platform.localstore.api.IdentityProviderConfigStore.Result
 
 import scala.concurrent.Future
 
-trait IdentityProviderStore {
+trait IdentityProviderConfigStore {
 
   def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig)(implicit
       loggingContext: LoggingContext
@@ -29,11 +29,12 @@ trait IdentityProviderStore {
   ): Future[Result[Seq[IdentityProviderConfig]]]
 
 }
-object IdentityProviderStore {
+object IdentityProviderConfigStore {
   type Result[T] = Either[Error, T]
 
   sealed trait Error
   final case class IdentityProviderConfigNotFound(identityProviderId: Ref.IdentityProviderId.Id)
       extends Error
-
+  final case class IdentityProviderConfigExists(identityProviderId: Ref.IdentityProviderId.Id)
+    extends Error
 }

@@ -441,3 +441,13 @@ CREATE TABLE participant_party_record_annotations (
     updated_at          BIGINT              NOT NULL,
     UNIQUE (internal_id, name)
 );
+---------------------------------------------------------------------------------------------------
+-- Participant local store: identity provider configurations
+---------------------------------------------------------------------------------------------------
+CREATE TABLE participant_identity_provider_config
+(
+    identity_provider_id VARCHAR PRIMARY KEY NOT NULL,
+    issuer               VARCHAR             NOT NULL UNIQUE,
+    jwks_url             VARCHAR             NOT NULL,
+    is_deactivated       BOOLEAN             NOT NULL
+);

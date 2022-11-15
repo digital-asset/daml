@@ -31,7 +31,10 @@ import com.daml.ledger.api.v1.package_service.{
 }
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
 import com.daml.logging.LoggingContext
-import com.daml.platform.localstore.{InMemoryIdentityProviderStore, InMemoryUserManagementStore}
+import com.daml.platform.localstore.{
+  InMemoryIdentityProviderConfigStore,
+  InMemoryUserManagementStore,
+}
 import com.google.protobuf.empty.Empty
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
@@ -99,7 +102,7 @@ final class LedgerServices(val ledgerId: String) {
     val authorizationInterceptor = AuthorizationInterceptor(
       authService,
       Some(new InMemoryUserManagementStore()),
-      Some(new InMemoryIdentityProviderStore()),
+      Some(new InMemoryIdentityProviderConfigStore()),
       executionContext,
     )
     services

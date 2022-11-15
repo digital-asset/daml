@@ -36,7 +36,7 @@ import com.daml.platform.apiserver.services.transaction.ApiTransactionService
 import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
 import com.daml.platform.localstore.UserManagementConfig
 import com.daml.platform.localstore.api.{
-  IdentityProviderStore,
+  IdentityProviderConfigStore,
   PartyRecordStore,
   UserManagementStore,
 }
@@ -73,7 +73,7 @@ private[daml] object ApiServices {
       optWriteService: Option[state.WriteService],
       indexService: IndexService,
       userManagementStore: UserManagementStore,
-      identityProviderStore: IdentityProviderStore,
+      identityProviderConfigStore: IdentityProviderConfigStore,
       partyRecordStore: PartyRecordStore,
       authorizer: Authorizer,
       engine: Engine,
@@ -210,7 +210,7 @@ private[daml] object ApiServices {
               submissionIdGenerator = SubmissionIdGenerator.Random,
             )
           val identityProvider =
-            new ApiIdentityProviderConfigService(identityProviderStore)
+            new ApiIdentityProviderConfigService(identityProviderConfigStore)
           List(
             new UserManagementServiceAuthorization(apiUserManagementService, authorizer),
             new IdentityProviderConfigServiceAuthorization(identityProvider, authorizer),

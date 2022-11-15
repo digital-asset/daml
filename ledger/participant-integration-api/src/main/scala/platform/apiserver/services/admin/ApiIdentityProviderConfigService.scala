@@ -11,13 +11,13 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiIdentityProviderConfigService.toProto
 import com.daml.platform.localstore.api
-import com.daml.platform.localstore.api.IdentityProviderStore
+import com.daml.platform.localstore.api.IdentityProviderConfigStore
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class ApiIdentityProviderConfigService(
-    identityProviderStore: IdentityProviderStore
+    identityProviderConfigStore: IdentityProviderConfigStore
 )(implicit
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
@@ -54,7 +54,7 @@ class ApiIdentityProviderConfigService(
         issuer,
       )
     } { config =>
-      identityProviderStore
+      identityProviderConfigStore
         .createIdentityProviderConfig(config)
         .flatMap(handleResult("creating identity_provider_config"))
         .map(config => proto.CreateIdentityProviderConfigResponse(Some(toProto(config))))
@@ -66,7 +66,7 @@ class ApiIdentityProviderConfigService(
     withValidation(
       requireIdentityProviderId(request.identityProviderId, "identity_provider_id")
     )(identityProviderId =>
-      identityProviderStore
+      identityProviderConfigStore
         .getIdentityProviderConfig(identityProviderId)
         .flatMap(handleResult("getting identity_provider_config"))
         .map(cfg => proto.GetIdentityProviderConfigResponse(Some(toProto(cfg))))
@@ -80,7 +80,7 @@ class ApiIdentityProviderConfigService(
   override def listIdentityProviderConfigs(
       request: proto.ListIdentityProviderConfigsRequest
   ): Future[proto.ListIdentityProviderConfigsResponse] =
-    identityProviderStore
+    identityProviderConfigStore
       .listIdentityProviderConfigs()
       .flatMap(handleResult("listing identity_provider_configs"))
       .map(result => proto.ListIdentityProviderConfigsResponse(result.map(toProto).toSeq))
@@ -91,7 +91,7 @@ class ApiIdentityProviderConfigService(
     withValidation(
       requireIdentityProviderId(request.identityProviderId, "identity_provider_id")
     )(identityProviderId =>
-      identityProviderStore
+      identityProviderConfigStore
         .deleteIdentityProviderConfig(identityProviderId)
         .flatMap(handleResult("deleting identity_provider_config"))
         .map { _ =>
@@ -101,11 +101,17 @@ class ApiIdentityProviderConfigService(
   }
 
   private def handleResult[T](operation: String)(
-      result: api.IdentityProviderStore.Result[T]
+      result: api.IdentityProviderConfigStore.Result[T]
   ): Future[T] = result match {
-    case Left(IdentityProviderStore.IdentityProviderConfigNotFound(id)) =>
+    case Left(IdentityProviderConfigStore.IdentityProviderConfigNotFound(id)) =>
       Future.failed(
         LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigNotFound
+          .Reject(operation, id.value)
+          .asGrpcError
+      )
+    case Left(IdentityProviderConfigStore.IdentityProviderConfigExists(id)) =>
+      Future.failed(
+        LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigAlreadyExists
           .Reject(operation, id.value)
           .asGrpcError
       )

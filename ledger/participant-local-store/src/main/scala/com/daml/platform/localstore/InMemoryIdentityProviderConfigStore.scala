@@ -7,8 +7,8 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.IdentityProviderConfig
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.localstore.api.IdentityProviderStore
-import com.daml.platform.localstore.api.IdentityProviderStore.{
+import com.daml.platform.localstore.api.IdentityProviderConfigStore
+import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
   IdentityProviderConfigNotFound,
   Result,
 }
@@ -16,7 +16,7 @@ import com.daml.platform.localstore.api.IdentityProviderStore.{
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
 
-class InMemoryIdentityProviderStore extends IdentityProviderStore {
+class InMemoryIdentityProviderConfigStore extends IdentityProviderConfigStore {
   private val state: TrieMap[Ref.IdentityProviderId.Id, IdentityProviderConfig] =
     TrieMap[Ref.IdentityProviderId.Id, IdentityProviderConfig]()
 

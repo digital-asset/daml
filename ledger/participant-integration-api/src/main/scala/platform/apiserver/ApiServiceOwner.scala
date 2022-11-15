@@ -22,7 +22,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.meteringreport.MeteringReportKey
 import com.daml.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
 import com.daml.platform.localstore.api.{
-  IdentityProviderStore,
+  IdentityProviderConfigStore,
   PartyRecordStore,
   UserManagementStore,
 }
@@ -43,7 +43,7 @@ object ApiServiceOwner {
   def apply(
       indexService: IndexService,
       userManagementStore: UserManagementStore,
-      identityProviderStore: IdentityProviderStore,
+      identityProviderConfigStore: IdentityProviderConfigStore,
       partyRecordStore: PartyRecordStore,
       ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
@@ -119,7 +119,7 @@ object ApiServiceOwner {
         managementServiceTimeout = config.managementServiceTimeout,
         checkOverloaded = checkOverloaded,
         userManagementStore = userManagementStore,
-        identityProviderStore = identityProviderStore,
+        identityProviderConfigStore = identityProviderConfigStore,
         partyRecordStore = partyRecordStore,
         ledgerFeatures = ledgerFeatures,
         userManagementConfig = config.userManagement,
@@ -138,7 +138,7 @@ object ApiServiceOwner {
         AuthorizationInterceptor(
           authService,
           Option.when(config.userManagement.enabled)(userManagementStore),
-          Option.when(config.userManagement.enabled)(identityProviderStore),
+          Option.when(config.userManagement.enabled)(identityProviderConfigStore),
           servicesExecutionContext,
         ) :: otherInterceptors,
         servicesExecutionContext,

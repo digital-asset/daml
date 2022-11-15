@@ -4,14 +4,7 @@
 package com.daml.error.definitions.groups
 
 import com.daml.error.definitions.DamlErrorWithDefiniteAnswer
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  ErrorCategory,
-  ErrorCode,
-  ErrorResource,
-  Explanation,
-  Resolution,
-}
+import com.daml.error._
 
 object IdentityProviderConfigServiceErrorGroup
     extends AdminServices.IdentityProviderConfigServiceErrorGroup {
@@ -29,6 +22,29 @@ object IdentityProviderConfigServiceErrorGroup
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"${operation} failed for unknown identity provider id=\"${identityProviderId}\""
+        ) {
+      override def resources: Seq[(ErrorResource, String)] = Seq(
+        ErrorResource.IdentityProviderConfig -> identityProviderId
+      )
+    }
+  }
+
+  @Explanation(
+    "There already exists a identity provider configuration with the same identity provider id."
+  )
+  @Resolution(
+    "Check that you are connecting to the right participant node and the identity provider id is spelled correctly, or use the identity provider that already exists."
+  )
+  object IdentityProviderConfigAlreadyExists
+      extends ErrorCode(
+        id = "IDP_CONFIG_ALREADY_EXISTS",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
+      ) {
+    case class Reject(operation: String, identityProviderId: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause =
+            s"${operation} failed, as identity provider \"${identityProviderId}\" already exists"
         ) {
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.IdentityProviderConfig -> identityProviderId
