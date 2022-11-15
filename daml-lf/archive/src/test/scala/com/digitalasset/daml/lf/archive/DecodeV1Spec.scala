@@ -951,8 +951,11 @@ class DecodeV1Spec
           DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
         val ifaceTyConName =
           DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
+        val requiredIfaceTyConName =
+          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(3)
         val scalaTemplateTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:T")
         val scalaIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:I")
+        val scalaRequiredIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:J")
 
         val signatoryInterface = DamlLf1.Expr
           .newBuilder()
@@ -1024,60 +1027,6 @@ class DecodeV1Spec
           )
           .build()
 
-        Table(
-          "input" -> "expected output",
-          signatoryInterface -> Ast
-            .ESignatoryInterface(ifaceId = scalaIfaceTyConName, body = EUnit),
-          observerInterface -> Ast.EObserverInterface(ifaceId = scalaIfaceTyConName, body = EUnit),
-          toInterface -> Ast.EToInterface(
-            interfaceId = scalaIfaceTyConName,
-            templateId = scalaTemplateTyConName,
-            value = EUnit,
-          ),
-          fromInterface -> Ast.EFromInterface(
-            interfaceId = scalaIfaceTyConName,
-            templateId = scalaTemplateTyConName,
-            value = EUnit,
-          ),
-          interfaceTemplateTypeRep -> Ast.EInterfaceTemplateTypeRep(
-            ifaceId = scalaIfaceTyConName,
-            body = EUnit,
-          ),
-          unsafeFromInterface -> Ast.EUnsafeFromInterface(
-            interfaceId = scalaIfaceTyConName,
-            templateId = scalaTemplateTyConName,
-            contractIdExpr = EUnit,
-            ifaceExpr = EFalse,
-          ),
-        )
-      }
-
-      forEveryVersion { version =>
-        forEvery(testCases) { (proto, scala) =>
-          val result = Try(interfacePrimitivesDecoder(version).decodeExprForTest(proto, "test"))
-          if (version < LV.Features.basicInterfaces)
-            inside(result) { case Failure(error) => error shouldBe a[Error.Parsing] }
-          else
-            result shouldBe Success(scala)
-        }
-      }
-    }
-
-    // TODO: #14770 Re-enable when lf 15 protobuf is cleaned up and ready
-    s"decode extended interface primitives iff version < ${LV.Features.extendedInterfaces}" in {
-      val testCases = {
-
-        val unit = DamlLf1.Unit.newBuilder().build()
-        val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
-        val modRef =
-          DamlLf1.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
-        val ifaceTyConName =
-          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
-        val requiredIfaceTyConName =
-          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(3)
-        val scalaIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:I")
-        val scalaRequiredIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:J")
-
         val toRequiredInterface = DamlLf1.Expr
           .newBuilder()
           .setToRequiredInterface(
@@ -1113,15 +1062,31 @@ class DecodeV1Spec
           )
           .build()
 
-        val typeRepTyConName = DamlLf1.Expr
-          .newBuilder()
-          .setBuiltin(
-            DamlLf1.BuiltinFunction.TYPEREP_TYCON_NAME
-          )
-          .build()
-
         Table(
           "input" -> "expected output",
+          signatoryInterface -> Ast
+            .ESignatoryInterface(ifaceId = scalaIfaceTyConName, body = EUnit),
+          observerInterface -> Ast.EObserverInterface(ifaceId = scalaIfaceTyConName, body = EUnit),
+          toInterface -> Ast.EToInterface(
+            interfaceId = scalaIfaceTyConName,
+            templateId = scalaTemplateTyConName,
+            value = EUnit,
+          ),
+          fromInterface -> Ast.EFromInterface(
+            interfaceId = scalaIfaceTyConName,
+            templateId = scalaTemplateTyConName,
+            value = EUnit,
+          ),
+          interfaceTemplateTypeRep -> Ast.EInterfaceTemplateTypeRep(
+            ifaceId = scalaIfaceTyConName,
+            body = EUnit,
+          ),
+          unsafeFromInterface -> Ast.EUnsafeFromInterface(
+            interfaceId = scalaIfaceTyConName,
+            templateId = scalaTemplateTyConName,
+            contractIdExpr = EUnit,
+            ifaceExpr = EFalse,
+          ),
           toRequiredInterface -> Ast.EToRequiredInterface(
             requiredIfaceId = scalaRequiredIfaceTyConName,
             requiringIfaceId = scalaIfaceTyConName,
@@ -1138,6 +1103,31 @@ class DecodeV1Spec
             contractIdExpr = EUnit,
             ifaceExpr = EFalse,
           ),
+        )
+      }
+
+      forEveryVersion { version =>
+        forEvery(testCases) { (proto, scala) =>
+          val result = Try(interfacePrimitivesDecoder(version).decodeExprForTest(proto, "test"))
+          if (version < LV.Features.basicInterfaces)
+            inside(result) { case Failure(error) => error shouldBe a[Error.Parsing] }
+          else
+            result shouldBe Success(scala)
+        }
+      }
+    }
+
+    s"decode extended TypeRep iff version < ${LV.v1_dev}" in {
+      val testCases = {
+        val typeRepTyConName = DamlLf1.Expr
+          .newBuilder()
+          .setBuiltin(
+            DamlLf1.BuiltinFunction.TYPEREP_TYCON_NAME
+          )
+          .build()
+
+        Table(
+          "input" -> "expected output",
           typeRepTyConName -> Ast.EBuiltin(Ast.BTypeRepTyConName),
         )
       }
@@ -1145,7 +1135,7 @@ class DecodeV1Spec
       forEveryVersion { version =>
         forEvery(testCases) { (proto, scala) =>
           val result = Try(interfacePrimitivesDecoder(version).decodeExprForTest(proto, "test"))
-          if (version < LV.Features.extendedInterfaces)
+          if (version < LV.v1_dev)
             inside(result) { case Failure(error) => error shouldBe a[Error.Parsing] }
           else
             result shouldBe Success(scala)
@@ -1213,7 +1203,7 @@ class DecodeV1Spec
       }
     }
 
-    s"translate interface exercise guard iff version >= ${LV.Features.extendedInterfaces}" in {
+    s"translate interface exercise guard iff version >= ${LV.v1_dev}" in {
 
       val unit = DamlLf1.Unit.newBuilder().build()
       val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
@@ -1242,7 +1232,7 @@ class DecodeV1Spec
         Some(EUnit),
       )
 
-      forEveryVersionSuchThat(_ >= LV.Features.extendedInterfaces) { version =>
+      forEveryVersionSuchThat(_ >= LV.v1_dev) { version =>
         val decoder =
           moduleDecoder(version, ImmArraySeq("Choice"), interfaceDottedNameTable, typeTable)
         val proto = DamlLf1.Expr.newBuilder().setUpdate(exerciseInterfaceProto).build()
@@ -1382,7 +1372,7 @@ class DecodeV1Spec
       }
     }
 
-    s"accept interface requires iff version >= ${LV.Features.extendedInterfaces}" in {
+    s"accept interface requires iff version >= ${LV.Features.basicInterfaces}" in {
 
       val interfaceName = Ref.DottedName.assertFromString("I")
 
@@ -1424,7 +1414,7 @@ class DecodeV1Spec
       forEveryVersion { version =>
         val decoder = interfaceDefDecoder(version)
         val result = Try(decoder.decodeDefInterfaceForTest(interfaceName, requiresDefInterface))
-        if (version >= LV.Features.extendedInterfaces)
+        if (version >= LV.Features.basicInterfaces)
           result shouldBe Success(requiresDefInterfaceScala)
         else
           inside(result) { case Failure(error) => error shouldBe an[Error.Parsing] }
