@@ -5,7 +5,7 @@ package com.daml.platform.localstore
 
 import com.daml.ledger.api.domain
 import com.daml.lf.data.Ref.IdentityProviderId
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.localstore.api.IdentityProviderConfigStore
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
@@ -21,10 +21,12 @@ import scala.concurrent.{ExecutionContext, Future}
 class PersistentIdentityProviderConfigStore(
     dbSupport: DbSupport,
     metrics: Metrics,
-) extends IdentityProviderConfigStore {
+)(implicit executionContext: ExecutionContext)
+    extends IdentityProviderConfigStore {
 
   private val backend = dbSupport.storageBackendFactory.createIdentityProviderConfigStorageBackend
   private val dbDispatcher = dbSupport.dbDispatcher
+  private val logger = ContextualizedLogger.get(getClass)
 
   override def createIdentityProviderConfig(identityProviderConfig: domain.IdentityProviderConfig)(
       implicit loggingContext: LoggingContext
@@ -34,7 +36,11 @@ class PersistentIdentityProviderConfigStore(
         backend.createIdentityProviderConfig(identityProviderConfig)(connection)
         identityProviderConfig
       }
-    }
+    }.map(tapSuccess { _ =>
+      logger.info(
+        s"Created new identity provider configuration: $identityProviderConfig"
+      )
+    })
   }
 
   override def getIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
@@ -54,7 +60,11 @@ class PersistentIdentityProviderConfigStore(
       } else {
         Right(())
       }
-    }
+    }.map(tapSuccess { _ =>
+      logger.info(
+        s"Deleted identity provider configuration with id $id"
+      )
+    })
   }
 
   override def listIdentityProviderConfigs()(implicit
@@ -99,6 +109,11 @@ class PersistentIdentityProviderConfigStore(
       case Some(partyRecord) => Right(f(partyRecord))
       case None => Left(IdentityProviderConfigStore.IdentityProviderConfigNotFound(id))
     }
+  }
+
+  private def tapSuccess[T](f: T => Unit)(r: Result[T]): Result[T] = {
+    r.foreach(f)
+    r
   }
 
 }

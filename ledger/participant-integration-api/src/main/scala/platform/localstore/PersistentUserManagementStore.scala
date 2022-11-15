@@ -422,13 +422,11 @@ class PersistentUserManagementStore(
 
   private def checkIdentityProviderExists(
       identityProviderId: IdentityProviderId
-  )(connection: Connection) = {
+  )(connection: Connection) =
     identityProviderId match {
-      case identityProviderId: Ref.IdentityProviderId.Id =>
-        if (!backend.idpConfigByIdExists(identityProviderId)(connection)) {
-          throw IdentityProviderConfigNotFound(identityProviderId)
-        }
+      case identityProviderId: Ref.IdentityProviderId.Id
+          if !backend.idpConfigByIdExists(identityProviderId)(connection) =>
+        throw IdentityProviderConfigNotFound(identityProviderId)
       case _ =>
     }
-  }
 }
