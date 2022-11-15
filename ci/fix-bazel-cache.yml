@@ -1,0 +1,33 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+jobs:
+- job: fix_bazel_cache
+  timeoutInMinutes: 120
+  condition: eq(variables['System.PullRequest.IsFork'], 'False')
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  steps:
+    - checkout: self
+    - bash: ci/dev-env-install.sh
+      displayName: 'Build/Install the Developer Environment'
+    - template: bash-lib.yml
+      parameters:
+        var_name: bash-lib
+    - bash: |
+        set -euo pipefail
+        eval "$(dev-env/bin/dade assist)"
+
+        bazel build //ci/cron:cron
+
+        key=$(mktemp)
+        cleanup="rm -rf $key ~/.config/gcloud"
+        trap "$cleanup" EXIT
+        echo "$GCRED" > $key
+        gcloud auth activate-service-account --key-file=$key
+        export BOTO_CONFIG=/dev/null
+        ./bazel-bin/ci/cron/cron bazel-cache --age 120 --delete --cache-suffix '**'
+      env:
+        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    - template: tell-slack-failed.yml
