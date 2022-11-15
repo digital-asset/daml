@@ -1,7 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @SINCE-LF-FEATURE DAML_INTERFACE
 
 -- This checks collisions check for Interface choice
 -- This also covers regression test for interface instance, view and method markers.
@@ -12,7 +12,7 @@ module InterfaceChoiceCollision where
 import qualified InterfaceChoiceCollision1
 import qualified InterfaceChoiceCollision2
 
-template T with
+template T withn
     owner : Party
   where
     signatory owner
