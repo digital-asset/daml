@@ -44,7 +44,7 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
     streamedBinaryMessageData.foldLeft(0L)((acc, bs) => acc + bs.length)
 
   private val labels = List(("label1", "abc"), ("other", "label2"))
-  private val labelFilter = labels.map { case (key, value) => LabelKeyValue(key, value) }
+  private val labelFilters = labels.map { case (key, value) => LabelFilter(key, value) }
 
   // Test flow.
   // Creates 2 deep copies of each passing message
@@ -100,7 +100,7 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
         List(strictTextMessage),
         getMessagesReceivedTotalValue,
         1,
-        labelFilter: _*
+        labelFilters: _*
       )
     }
   }
@@ -143,7 +143,7 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
         List(strictTextMessage),
         getMessagesSentTotalValue,
         2,
-        labelFilter: _*
+        labelFilters: _*
       )
     }
   }
@@ -199,7 +199,7 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
         List(strictTextMessage),
         getMessagesReceivedBytesTotalValue,
         strictTextMessageSize,
-        labelFilter: _*
+        labelFilters: _*
       )
     }
   }
@@ -258,7 +258,7 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
         List(strictTextMessage),
         getMessagesSentBytesTotalValue,
         strictTextMessageSize * 2,
-        labelFilter: _*
+        labelFilters: _*
       )
     }
   }
@@ -281,30 +281,26 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
     }
   }
 
-  // TODO def
-  private val getMessagesReceivedTotalValue: (TestMetrics, Seq[LabelKeyValue]) => Long =
-    (metrics: TestMetrics, labels: Seq[LabelKeyValue]) =>
-      metrics.messagesReceivedTotalValue(labels: _*)
+  private def getMessagesReceivedTotalValue(metrics: TestMetrics, labels: Seq[LabelFilter]): Long =
+    metrics.messagesReceivedTotalValue(labels: _*)
 
-  // TODO def
-  private val getMessagesSentTotalValue: (TestMetrics, Seq[LabelKeyValue]) => Long =
-    (metrics: TestMetrics, labels: Seq[LabelKeyValue]) => metrics.messagesSentTotalValue(labels: _*)
+  private def getMessagesSentTotalValue(metrics: TestMetrics, labels: Seq[LabelFilter]): Long =
+    metrics.messagesSentTotalValue(labels: _*)
 
-  // TODO def
-  private val getMessagesReceivedBytesTotalValue: (TestMetrics, Seq[LabelKeyValue]) => Long =
-    (metrics: TestMetrics, labels: Seq[LabelKeyValue]) =>
-      metrics.messagesReceivedBytesTotalValue(labels: _*)
+  private def getMessagesReceivedBytesTotalValue(
+      metrics: TestMetrics,
+      labels: Seq[LabelFilter],
+  ): Long =
+    metrics.messagesReceivedBytesTotalValue(labels: _*)
 
-  // TODO def
-  private val getMessagesSentBytesTotalValue: (TestMetrics, Seq[LabelKeyValue]) => Long =
-    (metrics: TestMetrics, labels: Seq[LabelKeyValue]) =>
-      metrics.messagesSentBytesTotalValue(labels: _*)
+  private def getMessagesSentBytesTotalValue(metrics: TestMetrics, labels: Seq[LabelFilter]): Long =
+    metrics.messagesSentBytesTotalValue(labels: _*)
 
   private def checkCountThroughFlowForLabels(
       messages: List[Message],
-      metricExtractor: (TestMetrics, Seq[LabelKeyValue]) => Long,
+      metricExtractor: (TestMetrics, Seq[LabelFilter]) => Long,
       expected: Long,
-      labels: LabelKeyValue*
+      labels: LabelFilter*
   ): Future[Assertion] = {
     withDuplicatingFlowAndMetrics { (flow, metrics) =>
       val done = Source(messages).via(flow).runWith(drainStreamedMessages)
@@ -316,7 +312,7 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
 
   private def checkCountThroughFlow(
       messages: List[Message],
-      metricExtractor: (TestMetrics, Seq[LabelKeyValue]) => Long,
+      metricExtractor: (TestMetrics, Seq[LabelFilter]) => Long,
       expected: Long,
   ): Future[Assertion] = {
     checkCountThroughFlowForLabels(messages, metricExtractor, expected)
@@ -324,7 +320,7 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
 
   private def checkCountThroughFlow(
       message: Message,
-      metricExtractor: (TestMetrics, Seq[LabelKeyValue]) => Long,
+      metricExtractor: (TestMetrics, Seq[LabelFilter]) => Long,
       expected: Long,
   ): Future[Assertion] = {
     checkCountThroughFlow(List(message), metricExtractor, expected)
@@ -389,16 +385,14 @@ object WebSocketMetricsSpec extends MetricValues {
       messagesSentBytesTotal: Meter,
   ) {
 
-    import TestMetrics._
-
-    def messagesReceivedTotalValue(labels: LabelKeyValue*): Long =
-      getCurrentValue(messagesReceivedTotal, labels: _*)
-    def messagesReceivedBytesTotalValue(labels: LabelKeyValue*): Long =
-      getCurrentValue(messagesReceivedBytesTotal, labels: _*)
-    def messagesSentTotalValue(labels: LabelKeyValue*): Long =
-      getCurrentValue(messagesSentTotal, labels: _*)
-    def messagesSentBytesTotalValue(labels: LabelKeyValue*): Long =
-      getCurrentValue(messagesSentBytesTotal, labels: _*)
+    def messagesReceivedTotalValue(labels: LabelFilter*): Long =
+      messagesReceivedTotal.valueFilteredOnLabels(labels: _*)
+    def messagesReceivedBytesTotalValue(labels: LabelFilter*): Long =
+      messagesReceivedBytesTotal.valueFilteredOnLabels(labels: _*)
+    def messagesSentTotalValue(labels: LabelFilter*): Long =
+      messagesSentTotal.valueFilteredOnLabels(labels: _*)
+    def messagesSentBytesTotalValue(labels: LabelFilter*): Long =
+      messagesSentBytesTotal.valueFilteredOnLabels(labels: _*)
 
   }
 

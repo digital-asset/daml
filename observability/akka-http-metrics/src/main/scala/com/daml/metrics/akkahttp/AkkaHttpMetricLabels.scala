@@ -5,26 +5,31 @@ package com.daml.metrics.akkahttp
 
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 
-object LabelExtractor {
+object AkkaHttpMetricLabels {
+
+  final val HostLabel = "host"
+  final val HttpStatusLabel = "http_status"
+  final val HttpVerbLabel = "http_verb"
+  final val PathLabel = "path"
 
   def labelsFromRequest(request: HttpRequest): Seq[(String, String)] = {
     val baseLabels = Seq[(String, String)](
-      ("http_verb", request.method.name),
-      ("path", request.uri.path.toString),
+      (HttpVerbLabel, request.method.name),
+      (PathLabel, request.uri.path.toString),
     )
     val host = request.uri.authority.host
     val labelsWithHost =
       if (host.isEmpty)
         baseLabels
       else
-        (("host", host.address)) +: baseLabels
+        ((HostLabel, host.address)) +: baseLabels
     labelsWithHost
   }
 
   def labelsFromResponse(
       response: HttpResponse
   ): Seq[(String, String)] = {
-    Seq(("http_status", response.status.intValue.toString))
+    Seq((HttpStatusLabel, response.status.intValue.toString))
   }
 
 }

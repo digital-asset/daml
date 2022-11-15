@@ -23,7 +23,7 @@ import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.api.MetricsContext
-import com.daml.metrics.akkahttp.{LabelExtractor, WebSocketMetrics}
+import com.daml.metrics.akkahttp.{AkkaHttpMetricLabels, WebSocketMetrics}
 
 import scala.collection.immutable.Seq
 import scalaz.std.scalaFuture._
@@ -102,7 +102,7 @@ class WebsocketEndpoints(
                 )
                 (jwt, jwtPayload) = payload
               } yield {
-                MetricsContext.withMetricLabels(LabelExtractor.labelsFromRequest(req): _*) {
+                MetricsContext.withMetricLabels(AkkaHttpMetricLabels.labelsFromRequest(req): _*) {
                   implicit mc: MetricsContext =>
                     handleWebsocketRequest[domain.SearchForeverRequest](
                       jwt,
@@ -133,7 +133,7 @@ class WebsocketEndpoints(
                 )
                 (jwt, jwtPayload) = payload
               } yield {
-                MetricsContext.withMetricLabels(LabelExtractor.labelsFromRequest(req): _*) {
+                MetricsContext.withMetricLabels(AkkaHttpMetricLabels.labelsFromRequest(req): _*) {
                   implicit mc: MetricsContext =>
                     handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
                       jwt,
