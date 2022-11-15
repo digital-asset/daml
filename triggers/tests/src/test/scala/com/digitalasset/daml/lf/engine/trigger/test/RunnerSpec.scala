@@ -6,6 +6,7 @@ package test
 
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.logging.LoggingContext
 import com.daml.scalatest.AsyncForAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -18,6 +19,8 @@ import scala.concurrent.Future
 
 class RunnerSpec extends AsyncWordSpec with Matchers with AsyncForAll with AkkaBeforeAndAfterAll {
   import Runner.retrying
+
+  implicit val loggingContext: LoggingContext = LoggingContext.empty
 
   "retrying" should {
     import Future.{successful => okf}
@@ -45,18 +48,32 @@ class RunnerSpec extends AsyncWordSpec with Matchers with AsyncForAll with AkkaB
         .map(_ should ===(xs map (_ + 42)))
     }
 
-    "retry if failed" in forAllAsync(trialCount) { xs: Seq[Int] =>
-      runItThrough(xs)(
-        retrying(
-          6,
-          _ => 10.milliseconds,
-          1,
-          a => okf((a % 2 == 0) option (a - 42)),
-//          a => okf(a + 42),
-          _ => Future.failed(new Exception("DEBUGGY")),
+    "if failed" should {
+      "retry when parallelism is 1" in forAllAsync(trialCount) { xs: Seq[Int] =>
+        runItThrough(xs)(
+          retrying(
+            3,
+            _ => 10.milliseconds,
+            1,
+            a => okf((a % 2 == 0) option (a - 42)),
+            a => okf(a + 42),
+          )
         )
-      )
-        .map(_ should contain theSameElementsAs xs.map(n => n + (if (n % 2 == 0) -42 else 42)))
+          .map(_ should contain theSameElementsAs xs.map(n => n + (if (n % 2 == 0) -42 else 42)))
+      }
+
+      "retry when parallelism is 6" in forAllAsync(trialCount) { xs: Seq[Int] =>
+        runItThrough(xs)(
+          retrying(
+            3,
+            _ => 10.milliseconds,
+            6,
+            a => okf((a % 2 == 0) option (a - 42)),
+            a => okf(a + 42),
+          )
+        )
+          .map(_ should contain theSameElementsAs xs.map(n => n + (if (n % 2 == 0) -42 else 42)))
+      }
     }
   }
 }

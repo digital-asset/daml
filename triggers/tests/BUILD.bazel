@@ -169,6 +169,7 @@ da_scala_library(
             "//ledger/sandbox-on-x",
             "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
             "//ledger/test-common",
+            "//libs-scala/contextualized-logging",
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/scalatest-utils",

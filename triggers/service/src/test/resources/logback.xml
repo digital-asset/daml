@@ -1,17 +1,19 @@
 <configuration>
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <if condition='isDefined("LOG_FORMAT_JSON")'>
+            <then>
+                <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+            </then>
+            <else>
+                <encoder>
+                    <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg %replace(, context: %marker){', context: $', ''} %n</pattern>
+                </encoder>
+            </else>
+        </if>
+    </appender>
+
     <appender name="STDOUT" class="net.logstash.logback.appender.LoggingEventAsyncDisruptorAppender">
-        <appender class="ch.qos.logback.core.ConsoleAppender">
-            <if condition='isDefined("LOG_FORMAT_JSON")'>
-                <then>
-                    <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
-                </then>
-                <else>
-                    <encoder>
-                        <pattern>%d{HH:mm:ss.SSS} [thread=%thread, %X] %-5level %logger{36} - %msg %replace(, context: %marker){', context: $', ''} %n</pattern>
-                    </encoder>
-                </else>
-            </if>
-        </appender>
+        <appender-ref ref="console"/>
     </appender>
 
     <logger name="io.netty" level="WARN">
@@ -20,7 +22,7 @@
     <logger name="io.grpc.netty" level="WARN">
         <appender-ref ref="STDOUT"/>
     </logger>
-    <logger name="com.daml.lf.engine.trigger" level="INFO">
+    <logger name="com.daml.lf.engine.trigger" level="DEBUG">
         <appender-ref ref="STDOUT"/>
     </logger>
 
