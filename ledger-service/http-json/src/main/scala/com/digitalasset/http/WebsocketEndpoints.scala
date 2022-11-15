@@ -167,12 +167,9 @@ class WebsocketEndpoints(
       req: WebSocketUpgrade,
       protocol: String,
   )(implicit
-     
       lc: LoggingContextOf[InstanceUUID with RequestID],
-     
       metrics: HttpJsonApiMetrics,
       mc: MetricsContext,
-  ,
   ): HttpResponse = {
     val handler: Flow[Message, Message, _] =
       WebSocketMetrics.withRateSizeMetrics(
