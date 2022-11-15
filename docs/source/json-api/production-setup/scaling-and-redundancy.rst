@@ -19,7 +19,7 @@ understand the bottlenecks and see if adding additional processing power/memory 
 Scaling creates and exercises
 *****************************
 
-The JSON API provides simple, synchronous endpoints for carrying out creates and exercises on the ledger.
+The HTTP JSON API service provides simple, synchronous endpoints for carrying out creates and exercises on the ledger.
 It does not support the complex multi-command asynchronous submission protocols supported by the ledger API.
 
 For performing large numbers of creates and exercises at once, while you can perform many HTTP requests at once to carry out this task, it may be simpler and more concurrent-safe to shift more of this logic into a Daml choice that can be exercised.
@@ -28,10 +28,10 @@ The pattern looks like this:
 
 1. Have a contract with a key and one or more choices on the ledger.
 2. Such a choice can carry out as many creates and exercises as desired; all of these will take place in a single transaction.
-3. Use the JSON API to exercise this choice by key.
+3. Use the HTTP JSON API service to exercise this choice by key.
 
 It's possible to go too far in the other direction: any error will usually cause the whole transaction to roll back, so an excessively large amount of work done by a single choice can also cause needless retrying.
-You can solve this by batching requests, or using :doc:`/daml/intro/8_Exceptions` to collect and return failed cases to the JSON API client for retrying, allowing successful parts of the batch to proceed.
+You can solve this by batching requests, or using :doc:`/daml/intro/8_Exceptions` to collect and return failed cases to the HTTP JSON API service client for retrying, allowing successful parts of the batch to proceed.
 
 
 Scaling Queries
@@ -39,7 +39,7 @@ Scaling Queries
 
 The :doc:`query-store` is a key factor of efficient queries.
 However, it behaves very differently depending on the characteristics of the underlying ledger, Daml application, and client query patterns.
-:doc:`Understanding how it works <query-store>` is a major prerequisite to understanding how the JSON API will interact with your application's performance profile.
+:doc:`Understanding how it works <query-store>` is a major prerequisite to understanding how the HTTP JSON API service will interact with your application's performance profile.
 
 Additionally, the *HTTP JSON API* can be scaled independently of its query store.
 You can have any number of *HTTP JSON API* instances talking to the same query store
@@ -71,10 +71,10 @@ failures.
 Hitting a Scaling Bottleneck
 ****************************
 
-As JSON API and its query store are optimized for rapid application development and ease of developer onboarding, you may reach a point where your application's performance demands exceed what the JSON API can offer.
-The more demanding your application is, the less likely it is to be well-matched with the simplifications and generalizations that the JSON API makes for developer simplicity.
+As HTTP JSON API service and its query store are optimized for rapid application development and ease of developer onboarding, you may reach a point where your application's performance demands exceed what the HTTP JSON API service can offer.
+The more demanding your application is, the less likely it is to be well-matched with the simplifications and generalizations that the HTTP JSON API service makes for developer simplicity.
 
-In this case, it's important to remember that *the JSON API can only do whatever an ordinary ledger API client application could do, including your own*.
+In this case, it's important to remember that *the HTTP JSON API service can only do whatever an ordinary ledger API client application could do, including your own*.
 
 For example, for a JVM application, interacting with JSON is probably simpler than gRPC directly, but using :doc:`/app-dev/bindings-java/index` :doc:`codegen </app-dev/bindings-java/codegen>` are much simpler than either.
 

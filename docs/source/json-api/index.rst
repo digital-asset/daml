@@ -22,12 +22,12 @@ complicating concerns including, but not limited to:
 - temporal queries (e.g. active contracts *as of a certain time*), and
 
 For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>` instead.
-The JSON API is a "proxy", after a fashion, for that API; *there is literally nothing that JSON API can do that your own application cannot do via gRPC*.
+The HTTP JSON API service is a "proxy", after a fashion, for that API; *there is literally nothing that HTTP JSON API service can do that your own application cannot do via gRPC*.
 
 If you are using this API from JavaScript or TypeScript, we strongly recommend using :doc:`the JavaScript bindings and code generator </app-dev/bindings-ts/index>` rather than invoking these endpoints directly.
 This will both simplify access to the endpoints described here and (with TypeScript) help to provide the correct JavaScript value format for each of your contracts, choice arguments, and choice results.
 
-As suggested by those bindings, the primary target application for the JSON API is a web application, where user actions translate to one or a few ledger operations.
+As suggested by those bindings, the primary target application for the HTTP JSON API service is a web application, where user actions translate to one or a few ledger operations.
 It is not intended for high-throughput, high-performance ledger automation; the Ledger API is better suited to such use cases.
 
 We welcome feedback about the JSON API on
@@ -207,7 +207,7 @@ using.
 With Query Store
 ----------------
 
-In production setups, you should configure the JSON API to use a PostgreSQL backend as a :doc:`production-setup/query-store`.
+In production setups, you should configure the HTTP JSON API service to use a PostgreSQL backend as a :doc:`production-setup/query-store`.
 The in-memory backend will call the
 ledger to fetch the entire active contract set for the templates in
 your query every time so it is generally not recommended to rely on

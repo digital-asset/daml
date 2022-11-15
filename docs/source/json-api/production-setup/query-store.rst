@@ -91,7 +91,7 @@ As such, the query store does not provide data continuity guarantees across vers
 and furthermore doesn't guarantee that a query store initialized with a previous
 version of the *HTTP JSON API* will work with a newer version.
 However, the query store keeps track of the schema version under which it was initialized and
-JSON API refuses to start if an old schema is detected when it's run with a newer version.
+HTTP JSON API service refuses to start if an old schema is detected when it's run with a newer version.
 
 To evolve, the operator of the *HTTP JSON API* query store needs to drop the database
 used to hold the *HTTP JSON API* query store, create a new one (consult your database
@@ -103,13 +103,13 @@ or only with ``start-mode=create-and-start`` as described above.
 Behavior Under High Load
 ************************
 
-As stated :doc:`in the overview <../index>`, the JSON API is optimized for rapid application development and ease of developer onboarding.
+As stated :doc:`in the overview <../index>`, the HTTP JSON API service is optimized for rapid application development and ease of developer onboarding.
 It is not intended to support every high-performance use case.
 To understand how a high-load application may reach the limits of its design, you need to consider how the query store works.
 
-First, always keep in mind that *the JSON API can only do whatever an ordinary ledger API client application could do, including your own*.
+First, always keep in mind that *the HTTP JSON API service can only do whatever an ordinary ledger API client application could do, including your own*.
 That's because it *is* an ordinary client of :doc:`/app-dev/ledger-api`.
-So, if your application's queries are a poor match for the way JSON API's query store works, it's time to consider cutting out the middleman.
+So, if your application's queries are a poor match for the way HTTP JSON API service's query store works, it's time to consider cutting out the middleman.
 
 
 Running a Query
@@ -155,9 +155,9 @@ Here are some more specific characteristics likely to be shared by Daml designs 
    The template ID index is the most efficient part of query store filtering.
    In addition, contract table updates on separate template IDs do not contend (i.e. cause the reset to step #1 above), so changes to the ledger on other parts of the workflow do not affect queries on the template in question.
 2. Queries that return <10% of all active contracts for a given contract type ID and party set.
-   This maximizes the value of storing redundant copies in SQL-queryable form at all, namely, that the JSON API does not even need to consider already-stored, unmatched contracts.
+   This maximizes the value of storing redundant copies in SQL-queryable form at all, namely, that the HTTP JSON API service does not even need to consider already-stored, unmatched contracts.
 3. Queries against a slow participant.
-   If the transaction stream from your ledger API participant server is particularly slow, it may be faster to retrieve most contracts from its local database, even if JSON API gets no benefit from #2.
+   If the transaction stream from your ledger API participant server is particularly slow, it may be faster to retrieve most contracts from its local database, even if HTTP JSON API service gets no benefit from #2.
 4. Templates with low churn, i.e. most active contracts from the previous query are likely to still be active for the next query.
    If the query store is likelier to have already stored most of the contracts for that template, the update part of the process will be significantly faster and much less likely to contend.
 
@@ -165,15 +165,15 @@ Here are some more specific characteristics likely to be shared by Daml designs 
 Ill-Matched Use Cases
 =====================
 
-By contrast, many Daml applications can yield patterns in the ACS and transactions that hurt the performance of applications built on the JSON API.
-Below are some "gotchas" that might indicate that your application calls for a custom view, perhaps even stored locally in SQL and managed by your application, beyond what JSON API's query store can provide.
+By contrast, many Daml applications can yield patterns in the ACS and transactions that hurt the performance of applications built on the HTTP JSON API service.
+Below are some "gotchas" that might indicate that your application calls for a custom view, perhaps even stored locally in SQL and managed by your application, beyond what HTTP JSON API service's query store can provide.
 
 1. Workflows that use the "state field" antipattern.
    This adds a filter on the relatively inefficient payload query that ought to instead be placed on the template ID.
    In addition, updates to the state field will needlessly contend with updates to contracts with the state you're interested in.
 2. Queries that return a large percentage of active contracts against a given contract type ID and party set.
-   If the query store cannot yield any benefit from letting JSON API ignore most contracts on each query it will spend more time updating its contract table than it would have spent simply reading from the gRPC API and filtering directly, so you might as well turn off the query store.
+   If the query store cannot yield any benefit from letting HTTP JSON API service ignore most contracts on each query it will spend more time updating its contract table than it would have spent simply reading from the gRPC API and filtering directly, so you might as well turn off the query store.
 3. Templates with high churn, i.e. the active contracts during the last query are very unlikely to still be active.
-   In such cases JSON API may spend so much time updating its contract table that it washes out any performance advantage from being able to SQL query it afterwards.
+   In such cases HTTP JSON API service may spend so much time updating its contract table that it washes out any performance advantage from being able to SQL query it afterwards.
 4. Contracts with highly-overlapping signatories and observers.
    When signatories and observers do not intersect, their updates never contend; the more this happens, the more likely updates for queries with different party-sets will contend.
