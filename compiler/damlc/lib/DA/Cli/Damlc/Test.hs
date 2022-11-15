@@ -338,7 +338,7 @@ printTestCoverage _ allPackages results
           , printf "    %d internal interfaces" internal
           , printf "    %d external interfaces" external
           ]
-        , let defined = localImplementationChoices
+        , let defined = M.size localImplementationChoices
               exercised = M.size localImplementationChoicesExercised
           in
           [ printf "- Interface choices"
@@ -375,7 +375,7 @@ printTestCoverage _ allPackages results
           [ printf "- External interfaces"
           , printf "  %d implementations defined" defined
           ]
-        , let defined = externalImplementationChoices
+        , let defined = M.size externalImplementationChoices
               exercisedAny = M.size externalImplementationChoicesExercised
               exercisedInternal = countWhere (any isLocal) externalImplementationChoicesExercised
               exercisedExternal = countWhere (not . all isLocal) externalImplementationChoicesExercised
