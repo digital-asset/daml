@@ -10,6 +10,7 @@ import com.codahale.metrics.jmx.JmxReporter
 import com.codahale.metrics.{MetricRegistry, Reporter, Slf4jReporter}
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.metrics.{JvmMetricSet, OpenTelemetryMeterOwner}
 
@@ -53,7 +54,7 @@ final class MetricsReporting(
       _ <- Resource(Future.successful(slf4JReporter))(reporter =>
         Future.successful(reporter.report())
       )
-    } yield new HttpJsonApiMetrics(registry, openTelemetryMeter)
+    } yield new HttpJsonApiMetrics(registry, new OpenTelemetryFactory(openTelemetryMeter))
   }
 
   private def newJmxReporter(registry: MetricRegistry): JmxReporter =
