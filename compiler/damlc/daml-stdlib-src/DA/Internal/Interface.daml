@@ -102,7 +102,7 @@ toInterfaceContractId = coerceContractId
 -- Can also be used to convert an interface contract id into a contract id of
 -- one of its requiring interfaces.
 --
--- This function does not verify that the in/FAILterface contract id
+-- This function does not verify that the interface contract id
 -- actually points to a template of the given type. This means
 -- that a subsequent `fetch`, `exercise`, or `archive` may fail, if,
 -- for example, the contract id points to a contract that implements

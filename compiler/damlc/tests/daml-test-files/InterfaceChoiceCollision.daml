@@ -12,7 +12,7 @@ module InterfaceChoiceCollision where
 import qualified InterfaceChoiceCollision1
 import qualified InterfaceChoiceCollision2
 
-template T withn
+template T with
     owner : Party
   where
     signatory owner
