@@ -317,7 +317,16 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
             exitCode @?= ExitSuccess
             let out = lines stdout
             assertBool ("test coverage is reported correctly: " <> stdout)
-                       ("defined in local modules:\n  choices: 1 / 3 (33%)\n  templates: 1 / 2 (50%)" `isInfixOf` stdout)
+                       ( unlines
+                       [ "Modules internal to this package:"
+                       , "- Internal templates"
+                       , "  2 defined"
+                       , "  1 ( 50.0%) created"
+                       , "- Internal template choices"
+                       , "  3 defined"
+                       , "  1 ( 33.3%) exercised"
+                       ]
+                       `isInfixOf` stdout)
             assertBool ("test summary is reported correctly: " <> out!!1)
                        ("Test Summary" `isPrefixOf` (out!!1))
             assertBool ("test summary is reported correctly: " <> out!!3)
@@ -356,13 +365,18 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
                   ""
             exitCode @?= ExitSuccess
             assertBool
-                ("test coverage is reported correctly: " <> stdout)
+                ("template creation coverage is reported correctly: " <> stdout)
                 (unlines
-                     [ "  templates never created:"
+                     [ "  never created: 1"
                      , "    Foo:S"
-                     , "  choices never executed:"
+                     ] `isInfixOf`
+                 stdout)
+            assertBool
+                ("template choice coverage is reported correctly: " <> stdout)
+                (unlines
+                     [ "  never exercised: 2"
                      , "    Foo:S:Archive"
-                     , "    Foo:T:Archive\n"
+                     , "    Foo:T:Archive"
                      ] `isInfixOf`
                  stdout)
 -- TODO: https://github.com/digital-asset/daml/issues/13044
@@ -509,16 +523,37 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
                  , "a:testA: ok, 0 active contracts, 2 transactions."
                  ] `isInfixOf`
              stdout)
-          assertBool ("Test coverage is reported correctly: " <> stdout)
+          assertBool ("Internal module test coverage is reported correctly: " <> stdout)
             (unlines
-                 [ "defined anywhere:"
-                 , "  choices: 2 / 5 (40%)"
-                 , "  templates: 2 / 3 (67%)"
-                 , "  templates never created:"
+                 [ "Modules internal to this package:"
+                 , "- Internal templates"
+                 , "  2 defined"
+                 , "  1 ( 50.0%) created"
+                 , "  never created: 1"
                  , "    B:S"
-                 , "  choices never executed:"
+                 , "- Internal template choices"
+                 , "  3 defined"
+                 , "  1 ( 33.3%) exercised"
+                 , "  never exercised: 2"
                  , "    B:S:Archive"
                  , "    B:T:Archive"
+                 ] `isInfixOf`
+             stdout)
+          assertBool ("External module test coverage is reported correctly: " <> stdout)
+            (unlines
+                 [ "Modules external to this package:"
+                 , "- External templates"
+                 , "  1 defined"
+                 , "  1 (100.0%) created in any tests"
+                 , "  0 (  0.0%) created in internal tests"
+                 , "  1 (100.0%) created in external tests"
+                 , "  never created: 0"
+                 , "- External template choices"
+                 , "  2 defined"
+                 , "  1 ( 50.0%) exercised in any tests"
+                 , "  0 (  0.0%) exercised in internal tests"
+                 , "  1 ( 50.0%) exercised in external tests"
+                 , "  never exercised: 1"
                  , "    a:A:U:Archive"
                  ] `isInfixOf`
              stdout)
@@ -577,9 +612,13 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
             (unlines
               ["B.daml:needleHaystack: ok, 0 active contracts, 0 transactions."
               , "a:test_needleHaystack: ok, 0 active contracts, 0 transactions."
-              , "defined in local modules:"
-              , "  choices: 0 / 0 (100%)"
-              , "  templates: 0 / 0 (100%)"
+              , "Modules internal to this package:"
+              , "- Internal templates"
+              , "  0 defined"
+              , "  0 (100.0%) created"
+              , "- Internal template choices"
+              , "  0 defined"
+              , "  0 (100.0%) exercised"
               ] `isInfixOf` stdout)
           exitCode @?= ExitSuccess
     , testCase "Full test coverage report without --all set (but imports)" $ withTempDir $ \projDir -> do
@@ -647,14 +686,18 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
           assertBool ("Test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "B.daml:x: ok, 0 active contracts, 2 transactions."
-                 , "defined in local modules:"
-                 , "  choices: 1 / 3 (33%)"
-                 , "  templates: 1 / 2 (50%)"
-                 , "  templates never created:"
+                 , "Modules internal to this package:"
+                 , "- Internal templates"
+                 , "  2 defined"
+                 , "  1 ( 50.0%) created"
+                 , "  never created: 1"
                  , "    B:S"
-                 , "  choices never executed:"
+                 , "- Internal template choices"
+                 , "  3 defined"
+                 , "  1 ( 33.3%) exercised"
+                 , "  never exercised: 2"
                  , "    B:S:Archive"
-                 , "    B:T:Archive\n"
+                 , "    B:T:Archive"
                  ] `isInfixOf`
              stdout)
           exitCode @?= ExitSuccess
