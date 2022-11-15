@@ -328,7 +328,7 @@ printTestCoverage ShowCoverage{getShowCoverage} allPackages results
           in
           [ printf "- Internal templates"
           , printf "  %d defined" defined
-          , printf "  %d (%3.1f%%) created" created (pctage created defined)
+          , printf "  %d (%5.1f%%) created" created (pctage created defined)
           ] ++ showCoverageReport printContractIdentifier "never created" neverCreated
         , let defined = M.size localTemplateChoices
               exercised = M.size localTemplateChoicesExercised
@@ -336,7 +336,7 @@ printTestCoverage ShowCoverage{getShowCoverage} allPackages results
           in
           [ printf "- Internal template choices"
           , printf "  %d defined" defined
-          , printf "  %d (%3.1f%%) exercised" exercised (pctage exercised defined)
+          , printf "  %d (%5.1f%%) exercised" exercised (pctage exercised defined)
           ] ++ showCoverageReport printChoiceIdentifier "never exercised" neverExercised
         , let defined = countWhere (isLocal . fst) allImplementations
               internal = countWhere (isLocal . fst) allImplementations
@@ -353,7 +353,7 @@ printTestCoverage ShowCoverage{getShowCoverage} allPackages results
           in
           [ printf "- Interface choices"
           , printf "  %d defined" defined
-          , printf "  %d (%3.1f%%) exercised" exercised (pctage exercised defined)
+          , printf "  %d (%5.1f%%) exercised" exercised (pctage exercised defined)
           ] ++ showCoverageReport printChoiceIdentifier "never exercised" neverExercised
         , [ printf "Modules external to this package:" ]
         -- Here, interface instances can only refer to external templates and
@@ -366,9 +366,9 @@ printTestCoverage ShowCoverage{getShowCoverage} allPackages results
           in
           [ printf "- External templates"
           , printf "  %d defined" defined
-          , printf "  %d (%3.1f%%) created in any tests" createdAny (pctage createdAny defined)
-          , printf "  %d (%3.1f%%) created in internal tests" createdInternal (pctage createdInternal defined)
-          , printf "  %d (%3.1f%%) created in external tests" createdExternal (pctage createdExternal defined)
+          , printf "  %d (%5.1f%%) created in any tests" createdAny (pctage createdAny defined)
+          , printf "  %d (%5.1f%%) created in internal tests" createdInternal (pctage createdInternal defined)
+          , printf "  %d (%5.1f%%) created in external tests" createdExternal (pctage createdExternal defined)
           ] ++ showCoverageReport printContractIdentifier "never created" neverCreated
         , let defined = M.size externalTemplateChoices
               exercisedAny = M.size externalTemplateChoicesExercised
@@ -378,9 +378,9 @@ printTestCoverage ShowCoverage{getShowCoverage} allPackages results
           in
           [ printf "- External template choices"
           , printf "  %d defined" defined
-          , printf "  %d (%3.1f%%) exercised in any tests" exercisedAny (pctage exercisedAny defined)
-          , printf "  %d (%3.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
-          , printf "  %d (%3.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
+          , printf "  %d (%5.1f%%) exercised in any tests" exercisedAny (pctage exercisedAny defined)
+          , printf "  %d (%5.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
+          , printf "  %d (%5.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
           ] ++ showCoverageReport printChoiceIdentifier "never exercised" neverExercised
         , let defined = countWhere (isLocal . fst) allImplementations
           in
@@ -395,9 +395,9 @@ printTestCoverage ShowCoverage{getShowCoverage} allPackages results
           in
           [ printf "- External interface choices"
           , printf "  %d defined" defined
-          , printf "  %d (%3.1f%%) exercised in any tests" exercisedAny (pctage exercisedAny defined)
-          , printf "  %d (%3.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
-          , printf "  %d (%3.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
+          , printf "  %d (%5.1f%%) exercised in any tests" exercisedAny (pctage exercisedAny defined)
+          , printf "  %d (%5.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
+          , printf "  %d (%5.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
           ] ++ showCoverageReport printChoiceIdentifier "never exercised" neverExercised
         ]
 
