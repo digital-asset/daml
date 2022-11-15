@@ -3,26 +3,19 @@
 
 package com.daml.error.definitions.groups
 
-import java.time.Duration
-
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.LedgerApiErrors
 import com.daml.error.definitions.LedgerApiErrors.EarliestOffsetMetadataKey
-import com.daml.error.definitions.{DamlError, DamlErrorWithDefiniteAnswer, LedgerApiErrors}
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  ErrorCategory,
-  ErrorCode,
-  ErrorGroup,
-  ErrorResource,
-  Explanation,
-  Resolution,
-}
+import com.daml.error.definitions.{DamlError, DamlErrorWithDefiniteAnswer}
+import com.daml.error._
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.language.{LookupError, Reference}
 
-@Explanation(
-  "Validation errors raised when evaluating requests in the Ledger API."
-)
-object RequestValidation extends LedgerApiErrors.RequestValidation {
+import java.time.Duration
+
+object RequestValidation {
+
+  import LedgerApiErrors.RequestValidation.errorClass
+
   object NotFound extends ErrorGroup() {
     @Explanation(
       "This rejection is given when a read request tries to access a package which does not exist on the ledger."

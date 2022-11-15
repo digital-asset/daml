@@ -5,11 +5,13 @@ package com.daml.error.definitions
 
 import com.daml.error.ErrorCode.LoggedApiException
 import com.daml.error._
-import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.IndexErrorGroup
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup
 
-@Explanation("Errors raised by the Participant Index persistence layer.")
-object IndexErrors extends IndexErrorGroup {
-  object DatabaseErrors extends DatabaseErrorGroup {
+object IndexErrors {
+  object DatabaseErrors {
+
+    import ParticipantErrorGroup.IndexErrors.DatabaseErrors.errorClass
+
     @Explanation(
       "This error occurs if a transient error arises when executing a query against the index database."
     )

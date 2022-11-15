@@ -4,15 +4,14 @@
 package com.daml.error.definitions
 
 import com.daml.error._
-import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.LedgerApiErrorGroup
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup
 import com.daml.lf.engine.Error.Validation.ReplayMismatch
 import com.daml.lf.engine.{Error => LfError}
 import org.slf4j.event.Level
 
-@Explanation(
-  "Errors raised by or forwarded by the Ledger API."
-)
-object LedgerApiErrors extends LedgerApiErrorGroup {
+object LedgerApiErrors {
+
+  import ParticipantErrorGroup.LedgerApiErrors.errorClass
 
   val Admin: groups.AdminServices.type = groups.AdminServices
   val CommandExecution: groups.CommandExecution.type = groups.CommandExecution

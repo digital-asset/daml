@@ -3,22 +3,15 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error.definitions.{DamlErrorWithDefiniteAnswer, LedgerApiErrors}
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  ErrorCategory,
-  ErrorCode,
-  ErrorGroup,
-  ErrorResource,
-  Explanation,
-  Resolution,
-}
+import com.daml.error._
+import com.daml.error.definitions.DamlErrorWithDefiniteAnswer
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.LedgerApiErrors
 import com.daml.lf.transaction.GlobalKey
 
-@Explanation(
-  "Generic submission rejection errors returned by the backing ledger's write service."
-)
-object WriteServiceRejections extends LedgerApiErrors.WriteServiceRejections {
+object WriteServiceRejections {
+
+  import LedgerApiErrors.WriteServiceRejections.errorClass
+
   @Explanation("The submitting party has not been allocated.")
   @Resolution(
     "Check that the party identifier is correct, allocate the submitting party, " +

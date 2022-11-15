@@ -3,17 +3,13 @@
 
 package com.daml.error.definitions.groups
 
+import com.daml.error._
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup
 import com.daml.error.definitions.{DamlError, DamlErrorWithDefiniteAnswer}
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  ErrorCategory,
-  ErrorCode,
-  ErrorResource,
-  Explanation,
-  Resolution,
-}
 
-object UserManagementServiceErrorGroup extends AdminServices.UserManagementServiceErrorGroup {
+object UserManagementServiceErrorGroup {
+
+  import ParticipantErrorGroup.LedgerApiErrors.AdminServices.UserManagementServiceErrorGroup.errorClass
 
   @Explanation("There was an attempt to update a user using an invalid update request.")
   @Resolution(

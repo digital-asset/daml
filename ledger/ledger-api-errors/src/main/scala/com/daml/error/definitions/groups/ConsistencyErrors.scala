@@ -3,25 +3,18 @@
 
 package com.daml.error.definitions.groups
 
-import java.time.Instant
-
-import com.daml.error.definitions.{DamlErrorWithDefiniteAnswer, LedgerApiErrors}
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  ErrorCategory,
-  ErrorCode,
-  ErrorResource,
-  Explanation,
-  Resolution,
-}
+import com.daml.error._
+import com.daml.error.definitions.DamlErrorWithDefiniteAnswer
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.LedgerApiErrors
 import com.daml.ledger.participant.state.v2.ChangeId
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 
-@Explanation(
-  "Potential consistency errors raised due to race conditions during command submission or returned as submission rejections by the backing ledger."
-)
-object ConsistencyErrors extends LedgerApiErrors.ConsistencyErrors {
+import java.time.Instant
+
+object ConsistencyErrors {
+
+  import LedgerApiErrors.ConsistencyErrors.errorClass
 
   @Explanation("A command with the given command id has already been successfully processed.")
   @Resolution(

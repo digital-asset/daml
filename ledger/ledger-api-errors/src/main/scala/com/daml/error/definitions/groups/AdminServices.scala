@@ -3,12 +3,14 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error.definitions.{DamlErrorWithDefiniteAnswer, LedgerApiErrors}
-import com.daml.error.definitions.groups
-import com.daml.error.{ContextualizedErrorLogger, ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.daml.error._
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.LedgerApiErrors
+import com.daml.error.definitions.{DamlErrorWithDefiniteAnswer, groups}
 
 @Explanation("Errors raised by Ledger API admin services.")
-object AdminServices extends LedgerApiErrors.AdminServicesErrorGroup {
+object AdminServices {
+
+  import LedgerApiErrors.AdminServices.errorClass
 
   val UserManagement: groups.UserManagementServiceErrorGroup.type =
     groups.UserManagementServiceErrorGroup

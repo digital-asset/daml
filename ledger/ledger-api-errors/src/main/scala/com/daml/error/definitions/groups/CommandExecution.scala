@@ -3,16 +3,9 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error.definitions.{DamlErrorWithDefiniteAnswer, LedgerApiErrors}
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  ErrorCategory,
-  ErrorCode,
-  ErrorGroup,
-  ErrorResource,
-  Explanation,
-  Resolution,
-}
+import com.daml.error._
+import com.daml.error.definitions.DamlErrorWithDefiniteAnswer
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.LedgerApiErrors
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.{Error => LfError}
@@ -21,10 +14,9 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.{VersionRange, language}
 
-@Explanation(
-  "Errors raised during the command execution phase of the command submission evaluation."
-)
-object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
+object CommandExecution {
+
+  import LedgerApiErrors.CommandExecution.errorClass
   @Explanation(
     """This error occurs if the participant fails to determine the max ledger time of the used
       |contracts. Most likely, this means that one of the contracts is not active anymore which can

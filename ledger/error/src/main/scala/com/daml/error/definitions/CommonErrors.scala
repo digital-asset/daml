@@ -4,12 +4,11 @@
 package com.daml.error.definitions
 
 import com.daml.error._
-import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.CommonErrorGroup
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup
 
-@Explanation(
-  "Common errors raised in Daml services and components."
-)
-object CommonErrors extends CommonErrorGroup {
+object CommonErrors {
+
+  import ParticipantErrorGroup.CommonErrors.errorClass
 
   @Explanation(
     """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request."""

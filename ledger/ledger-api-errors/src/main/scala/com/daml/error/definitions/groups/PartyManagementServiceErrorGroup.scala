@@ -3,17 +3,13 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  ErrorCategory,
-  ErrorCode,
-  ErrorResource,
-  Explanation,
-  Resolution,
-}
+import com.daml.error._
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup
 import com.daml.error.definitions.{DamlError, DamlErrorWithDefiniteAnswer}
 
-object PartyManagementServiceErrorGroup extends AdminServices.PartyManagementServiceErrorGroup {
+object PartyManagementServiceErrorGroup {
+
+  import ParticipantErrorGroup.LedgerApiErrors.AdminServices.PartyManagementServiceErrorGroup.errorClass
 
   @Explanation("There was an attempt to update a party using an invalid update request.")
   @Resolution(

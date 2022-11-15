@@ -3,20 +3,15 @@
 
 package com.daml.error.definitions.groups
 
-import com.daml.error.definitions.{DamlErrorWithDefiniteAnswer, LedgerApiErrors}
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  ErrorCategory,
-  ErrorCategoryRetry,
-  ErrorCode,
-  Explanation,
-  Resolution,
-}
+import com.daml.error._
+import com.daml.error.definitions.DamlErrorWithDefiniteAnswer
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.LedgerApiErrors
 
 import scala.concurrent.duration._
 
-@Explanation("Authentication and authorization errors.")
-object AuthorizationChecks extends LedgerApiErrors.AuthorizationChecks {
+object AuthorizationChecks {
+
+  import LedgerApiErrors.AuthorizationChecks.errorClass
 
   @Explanation("""The stream was aborted because the authenticated user's rights changed,
                  |and the user might thus no longer be authorized to this stream.
