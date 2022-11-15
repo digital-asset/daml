@@ -237,10 +237,9 @@ You can define *stable* keys for contracts using the ``key`` and ``maintainer`` 
 
 Since Daml is designed to run on distributed systems, you have to assume that there is no global entity that can guarantee uniqueness, which is why each ``key`` expression must come with a ``maintainer`` expression. ``maintainer`` takes one or several parties, all of which have to be signatories of the contract and be part of the key. That way the index can be partitioned amongst sets of maintainers, and each set of maintainers can independently ensure the uniqueness constraint on their piece of the index. The constraint that maintainers are part of the key is ensured by only having the variable `key` in each maintainer expression.
 
-Instead of calling ``queryContractId`` to get the contract arguments associated with a given contract identifier, we use ``fetchByKey @Account``. ``fetchByKey @Account`` takes a value of type ``AccountKey`` and returns a tuple ``(ContractId Account, Account)`` if the lookup was successful or fails the transaction otherwise. ``fetchByKey`` cannot be used directly in the list of commands sent to the ledger. Therefore we create a ``Helper`` template with a ``FetchAccountByKey`` choice and call that
-via ``createAndExerciseCmd``. We will learn more about choices in the :doc:`next section <4_Transformations>`.
+Instead of calling ``queryContractId`` to get the contract arguments associated with a given contract identifier, we use ``queryContractKey``. ``queryContractKey`` takes a value of type ``AccountKey`` and returns an optional tuple. In this case, that optional tuple is of type ``Optional (ContractId Account, Account)``. Now even after archiving the old account (to change the phone number), we can still fetch the account using the existing, unmodified ``balance``. Where the ``ContractId Account`` is different for the new account, the ``AccountKey`` is the same.
 
-Since a single type could be used as the key for multiple templates, you need to tell the compiler what type of contract is being fetched by using the ``@Account`` notation.
+Notice that when calling ``queryContractKey`` a single key type could be used as the key for multiple templates. Consequently, you need to tell the compiler what type of contract the key is referencing. You do that with a type annotation on the returned value.
 
 
 Next Up
