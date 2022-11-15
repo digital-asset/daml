@@ -103,7 +103,7 @@ or only with ``start-mode=create-and-start`` as described above.
 Behavior Under High Load
 ************************
 
-As stated :doc:`in the overview <../json-api>`, the JSON API is optimized for rapid application development and ease of developer onboarding.
+As stated :doc:`in the overview <../index>`, the JSON API is optimized for rapid application development and ease of developer onboarding.
 It is not intended to support every high-performance use case.
 To understand how a high-load application may reach the limits of its design, you need to consider how the query store works.
 
