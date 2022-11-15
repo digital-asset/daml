@@ -286,7 +286,6 @@ printTestCoverage _ allPackages results
                 let name = LF.unChoiceName $ LF.chcName choice
                 guard (name /= "Archive")
                 pure (ChoiceIdentifier contractId name, (k, loe, body, def, choice))
-            allExercisedImplementationChoices = M.intersection allExercisedChoices allImplementationChoices
 
             localImplementationChoices = M.filter pred allImplementationChoices
               where
