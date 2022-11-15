@@ -170,7 +170,7 @@ class TransactionsTreeStreamReader(
         maxParallelPayloadQueries: Int,
         metric: DatabaseMetrics,
     ): Source[EventStorageBackend.Entry[Raw.TreeEvent], NotUsed] = {
-      ids
+      ids.async
         .addAttributes(
           Attributes
             .inputBuffer(initial = maxParallelPayloadQueries, max = maxParallelPayloadQueries)

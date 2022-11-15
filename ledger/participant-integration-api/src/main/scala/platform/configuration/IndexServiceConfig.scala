@@ -13,6 +13,10 @@ final case class IndexServiceConfig(
     acsIdPageBufferSize: Int = IndexServiceConfig.DefaultAcsIdPageBufferSize,
     acsIdPageWorkingMemoryBytes: Int = IndexServiceConfig.DefaultAcsIdPageWorkingMemoryBytes,
     acsIdFetchingParallelism: Int = IndexServiceConfig.DefaultAcsIdFetchingParallelism,
+    // TODO etq: Document that it must be a power of two because Akka buffer sizing requires it
+    //           java.lang.IllegalArgumentException: buffer size must be a power of two
+    //	         at akka.stream.impl.fusing.ActorGraphInterpreter$BatchingActorInputBoundary.<init>(ActorGraphInterpreter.scala:128)
+    // TODO etq: Same for other config values used to size an akka streaming buffer
     acsContractFetchingParallelism: Int = IndexServiceConfig.DefaultAcsContractFetchingParallelism,
     acsGlobalParallelism: Int = IndexServiceConfig.DefaultAcsGlobalParallelism,
     maxContractStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractStateCacheSize,
@@ -42,8 +46,8 @@ object IndexServiceConfig {
   val DefaultAcsIdPageSize: Int = 20000
   val DefaultAcsIdPageBufferSize: Int = 1
   val DefaultAcsIdPageWorkingMemoryBytes: Int = 100 * 1024 * 1024
-  // TODO pbatko: Must be power of 2
   val DefaultAcsIdFetchingParallelism: Int = 2
+  // TODO etq: This must be a power of 2
   val DefaultAcsContractFetchingParallelism: Int = 2
   val DefaultAcsGlobalParallelism: Int = 10
   val DefaultMaxContractStateCacheSize: Long = 100000L
@@ -61,13 +65,12 @@ case class TransactionsFlatStreamReaderConfig(
     maxPagesPerIdPagesBuffer: Int = 1,
     maxWorkingMemoryInBytesForIdPages: Int = 100 * 1024 * 1024,
     maxPayloadsPerPayloadsPage: Int = 1000, // eventsPageSize
-    // TODO pbatko: Check if these really must be powers of 2
-    // BEGIN
     maxParallelIdCreateQueries: Int = 4,
     maxParallelIdConsumingQueries: Int = 4,
+    // TODO etq: This must be a power of 2
     maxParallelPayloadCreateQueries: Int = 2,
+    // TODO etq: This must be a power of 2
     maxParallelPayloadConsumingQueries: Int = 2,
-    // END
     maxParallelPayloadQueries: Int = 2,
     payloadProcessingParallelism: Int = 8,
 )

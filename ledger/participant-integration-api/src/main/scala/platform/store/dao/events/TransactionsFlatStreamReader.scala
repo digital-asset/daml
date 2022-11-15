@@ -168,7 +168,7 @@ class TransactionsFlatStreamReader(
         maxParallelPayloadQueries: Int,
         dbMetric: DatabaseMetrics,
     ): Source[EventStorageBackend.Entry[Raw.FlatEvent], NotUsed] = {
-      ids
+      ids.async
         .addAttributes(
           Attributes.inputBuffer(
             initial = maxParallelPayloadQueries,
@@ -197,31 +197,31 @@ class TransactionsFlatStreamReader(
 
     val idsCreate =
       fetchIds(
-        EventIdSourceForStakeholders.Create,
-        createEventIdQueriesLimiter,
-        maxParallelPayloadCreateQueries + 1,
-        dbMetrics.flatTxIdsCreate,
+        target = EventIdSourceForStakeholders.Create,
+        maxParallelIdQueriesLimiter = createEventIdQueriesLimiter,
+        maxOutputBatchCount = maxParallelPayloadCreateQueries + 1,
+        metric = dbMetrics.flatTxIdsCreate,
       )
     val idsConsuming =
       fetchIds(
-        EventIdSourceForStakeholders.Consuming,
-        consumingEventIdQueriesLimiter,
-        maxParallelPayloadConsumingQueries + 1,
-        dbMetrics.flatTxIdsConsuming,
+        target = EventIdSourceForStakeholders.Consuming,
+        maxParallelIdQueriesLimiter = consumingEventIdQueriesLimiter,
+        maxOutputBatchCount = maxParallelPayloadConsumingQueries + 1,
+        metric = dbMetrics.flatTxIdsConsuming,
       )
     val payloadsCreate =
       fetchPayloads(
-        idsCreate,
-        EventPayloadSourceForFlatTx.Create,
-        maxParallelPayloadCreateQueries,
-        dbMetrics.flatTxPayloadCreate,
+        ids = idsCreate,
+        target = EventPayloadSourceForFlatTx.Create,
+        maxParallelPayloadQueries = maxParallelPayloadCreateQueries,
+        dbMetric = dbMetrics.flatTxPayloadCreate,
       )
     val payloadsConsuming =
       fetchPayloads(
-        idsConsuming,
-        EventPayloadSourceForFlatTx.Consuming,
-        maxParallelPayloadConsumingQueries,
-        dbMetrics.flatTxPayloadConsuming,
+        ids = idsConsuming,
+        target = EventPayloadSourceForFlatTx.Consuming,
+        maxParallelPayloadQueries = maxParallelPayloadConsumingQueries,
+        dbMetric = dbMetrics.flatTxPayloadConsuming,
       )
     val allSortedPayloads = payloadsConsuming.mergeSorted(payloadsCreate)(orderBySequentialEventId)
     val sourceOfFlatTransactions: Source[(Offset, GetTransactionsResponse), NotUsed] =
