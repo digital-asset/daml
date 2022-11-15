@@ -172,7 +172,7 @@ Below are some "gotchas" that might indicate that your application calls for a c
    This adds a filter on the relatively inefficient payload query that ought to instead be placed on the template ID.
    In addition, updates to the state field will needlessly contend with updates to contracts with the state you're interested in.
 2. Queries that return a large percentage of active contracts against a given contract type ID and party set.
-   If the query store cannot yield any benefit from letting JSON API ignore most contracts on each query, then it will spend more time updating its contract table than it would have spent simply reading from the gRPC API and filtering directly, so you might as well turn off the query store.
+   If the query store cannot yield any benefit from letting JSON API ignore most contracts on each query it will spend more time updating its contract table than it would have spent simply reading from the gRPC API and filtering directly, so you might as well turn off the query store.
 3. Templates with high churn, i.e. the active contracts during the last query are very unlikely to still be active.
    In such cases JSON API may spend so much time updating its contract table that it washes out any performance advantage from being able to SQL query it afterwards.
 4. Contracts with highly-overlapping signatories and observers.
