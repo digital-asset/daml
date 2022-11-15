@@ -59,7 +59,6 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/nameof",
         "//libs-scala/scala-utils",
     ],
 )

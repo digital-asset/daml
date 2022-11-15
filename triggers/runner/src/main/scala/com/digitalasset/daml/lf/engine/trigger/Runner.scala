@@ -109,7 +109,7 @@ private[lf] object Machine {
 
   // Run speedy until we arrive at a value.
   def stepToValue(
-      machine: Speedy.OffLedgerMachine
+      machine: Speedy.PureMachine
   )(implicit triggerContext: TriggerLogContext): SValue = {
     machine.run() match {
       case SResultFinal(v) => v
@@ -502,8 +502,7 @@ private[lf] class Runner private (
       triggerContext: TriggerLogContext
   ): UnfoldState[SValue, TriggerContext[SubmitRequest]] = {
     def evaluate(se: SExpr): SValue = {
-      val machine: Speedy.OffLedgerMachine =
-        Speedy.Machine.fromPureSExpr(compiledPackages, se)
+      val machine = Speedy.Machine.fromPureSExpr(compiledPackages, se)
       // Evaluate it.
       machine.setExpressionToEvaluate(se)
       Machine.stepToValue(machine)
@@ -693,7 +692,7 @@ private[lf] class Runner private (
         initialStateArgs,
       )
     // Prepare a speedy machine for evaluating expressions.
-    val machine: Speedy.OffLedgerMachine =
+    val machine: Speedy.PureMachine =
       Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
     // Evaluate it.
     machine.setExpressionToEvaluate(initialState)
@@ -738,7 +737,7 @@ private[lf] class Runner private (
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     val (initialStateFree, evaluatedUpdate) = getInitialStateFreeAndUpdate(acs)
     // Prepare another speedy machine for evaluating expressions.
-    val machine: Speedy.OffLedgerMachine =
+    val machine: Speedy.PureMachine =
       Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
 
     import UnfoldState.{flatMapConcatNode, flatMapConcatNodeOps, toSource, toSourceOps}

@@ -9,12 +9,11 @@ import data.Ref.{PackageId, TypeConName}
 import data.Time
 import SResult._
 import com.daml.lf.language.{Ast, PackageInterface}
-import com.daml.lf.speedy.Speedy.{CachedContract, OnLedgerMachine}
+import com.daml.lf.speedy.Speedy.{CachedContract, UpdateMachine}
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
-import com.daml.nameof.NameOf
 import transaction.{GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
 import value.Value
 import scalautil.Statement.discard
@@ -96,7 +95,7 @@ private[speedy] object SpeedyTestLib {
         case SResultError(err) =>
           Left(err)
         case _: SResultFinal | _: SResultScenarioGetParty | _: SResultScenarioPassTime |
-            _: SResultScenarioSubmit =>
+            _: SResultScenarioSubmit | _: SResultScenarioGetTime =>
           throw UnexpectedSResultScenarioX
       }
     }
@@ -106,7 +105,7 @@ private[speedy] object SpeedyTestLib {
 
   @throws[SError.SErrorCrash]
   def buildTransaction(
-      machine: Speedy.Machine,
+      machine: Speedy.UpdateMachine,
       getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
@@ -115,7 +114,7 @@ private[speedy] object SpeedyTestLib {
   ): Either[SError.SError, SubmittedTransaction] =
     runTx(machine, getPkg, getContract, getKey, getTime) match {
       case Right(SResultFinal(_)) =>
-        machine.asOnLedger(NameOf.qualifiedNameOfCurrentFunc)(_.finish.map(_.tx))
+        machine.finish.map(_.tx)
       case Left(err) =>
         Left(err)
     }
@@ -137,10 +136,10 @@ private[speedy] object SpeedyTestLib {
 
   private[speedy] object Implicits {
 
-    implicit class AddTestMethodsToMachine(machine: OnLedgerMachine) {
+    implicit class AddTestMethodsToMachine(machine: UpdateMachine) {
 
-      private[lf] def withWarningLog(warningLog: WarningLog): OnLedgerMachine =
-        new OnLedgerMachine(
+      private[lf] def withWarningLog(warningLog: WarningLog): UpdateMachine =
+        new UpdateMachine(
           sexpr = machine.sexpr,
           traceLog = machine.traceLog,
           warningLog = warningLog,
@@ -157,7 +156,7 @@ private[speedy] object SpeedyTestLib {
           disclosureKeyTable = machine.disclosureKeyTable,
         )
 
-      def withCachedContracts(cachedContracts: (ContractId, CachedContract)*): OnLedgerMachine = {
+      def withCachedContracts(cachedContracts: (ContractId, CachedContract)*): UpdateMachine = {
         for {
           entry <- cachedContracts
           (contractId, cachedContract) = entry
@@ -168,7 +167,7 @@ private[speedy] object SpeedyTestLib {
       private[speedy] def withLocalContractKey(
           contractId: ContractId,
           key: GlobalKey,
-      ): OnLedgerMachine = {
+      ): UpdateMachine = {
         machine.ptx = machine.ptx.copy(
           contractState = machine.ptx.contractState.copy(
             locallyCreated = machine.ptx.contractState.locallyCreated + contractId,
@@ -181,7 +180,7 @@ private[speedy] object SpeedyTestLib {
       private[speedy] def withDisclosedContractKeys(
           templateId: TypeConName,
           disclosedContractKeys: (crypto.Hash, ContractId)*
-      ): OnLedgerMachine = {
+      ): UpdateMachine = {
         for {
           entry <- disclosedContractKeys
           (keyHash, contractId) = entry

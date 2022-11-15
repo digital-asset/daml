@@ -134,7 +134,7 @@ private[lf] object Speedy {
     if (actual > limit)
       throw SError.SErrorDamlException(IError.Limit(error(limit)))
 
-  final class OnLedgerMachine(
+  final class UpdateMachine(
       override val sexpr: SExpr,
       override val traceLog: TraceLog,
       override val warningLog: WarningLog,
@@ -156,13 +156,23 @@ private[lf] object Speedy {
   )(implicit loggingContext: LoggingContext)
       extends Machine {
 
+    private[speedy] override def asUpdateMachine(location: String)(
+        f: UpdateMachine => Control
+    ): Control =
+      f(this)
+
+    override private[speedy] def asScenarioMachine(location: String)(
+        f: ScenarioMachine => Control
+    ): Nothing =
+      throw SErrorCrash(location, "unexpected update machine")
+
     /** unwindToHandler is called when an exception is thrown by the builtin SBThrow or
       * re-thrown by the builtin SBTryHandler. If a catch-handler is found, we initiate
       * execution of the handler code (which might decide to re-throw). Otherwise we call
       * throwUnhandledException to apply the message function to the exception payload,
       * producing a text message.
       */
-    private[speedy] def handleException(excep: SValue.SAny): Control = {
+    private[speedy] override def handleException(excep: SValue.SAny): Control = {
       @tailrec def unwind(): Option[KTryCatchHandler] =
         if (kontDepth() == 0) {
           None
@@ -306,9 +316,9 @@ private[lf] object Speedy {
         IError.Limit.ChoiceObservers(cid, templateId, choiceName, arg, observers, _),
       )
 
-    def finish: Either[SErrorCrash, OnLedgerMachine.Result] = ptx.finish.map { case (tx, seeds) =>
+    def finish: Either[SErrorCrash, UpdateMachine.Result] = ptx.finish.map { case (tx, seeds) =>
       val inputContracts = tx.inputContracts
-      OnLedgerMachine.Result(
+      UpdateMachine.Result(
         tx,
         ptx.locationInfo(),
         seeds zip ptx.actionNodeSeeds.toImmArray,
@@ -418,7 +428,7 @@ private[lf] object Speedy {
     }
   }
 
-  object OnLedgerMachine {
+  object UpdateMachine {
 
     @throws[SErrorDamlException]
     def apply(
@@ -436,11 +446,11 @@ private[lf] object Speedy {
         commitLocation: Option[Location] = None,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
         disclosedContracts: ImmArray[speedy.DisclosedContract],
-    )(implicit loggingContext: LoggingContext): OnLedgerMachine = {
+    )(implicit loggingContext: LoggingContext): UpdateMachine = {
       val exprWithDisclosures =
         compiledPackages.compiler.unsafeCompileWithContractDisclosures(expr, disclosedContracts)
 
-      new OnLedgerMachine(
+      new UpdateMachine(
         sexpr = exprWithDisclosures,
         validating = validating,
         submissionTime = submissionTime,
@@ -511,7 +521,7 @@ private[lf] object Speedy {
     private[speedy] def toMap: Map[crypto.Hash, SValue.SContractId] = keyMap.toMap
   }
 
-  final class OffLedgerMachine(
+  final class ScenarioMachine(
       override val sexpr: SExpr,
       /* The trace log. */
       override val traceLog: TraceLog,
@@ -524,9 +534,54 @@ private[lf] object Speedy {
   )(implicit loggingContext: LoggingContext)
       extends Machine {
 
-    /** OffLegder Machine does not handle exceptions */
-    private[speedy] def handleException(excep: SValue.SAny): Control =
+    private[speedy] override def asUpdateMachine(location: String)(
+        f: UpdateMachine => Control
+    ): Nothing =
+      throw SErrorCrash(location, "unexpected scenario machine")
+
+    private[speedy] override def asScenarioMachine(location: String)(
+        f: ScenarioMachine => Control
+    ): Control = f(this)
+
+    /** Scenario Machine does not handle exceptions */
+    private[speedy] override def handleException(excep: SValue.SAny): Control =
       unhandledException(excep)
+  }
+
+  final class PureMachine(
+      override val sexpr: SExpr,
+      /* The trace log. */
+      override val traceLog: TraceLog,
+      /* Engine-generated warnings. */
+      override val warningLog: WarningLog,
+      /* Compiled packages (Daml-LF ast + compiled speedy expressions). */
+      override var compiledPackages: CompiledPackages,
+      /* Profile of the run when the packages haven been compiled with profiling enabled. */
+      override val profile: Profile,
+  )(implicit loggingContext: LoggingContext)
+      extends Machine {
+
+    private[speedy] override def asUpdateMachine(location: String)(
+        f: UpdateMachine => Control
+    ): Nothing =
+      throw SErrorCrash(location, "unexpected pure machine")
+
+    private[speedy] override def asScenarioMachine(location: String)(
+        f: ScenarioMachine => Control
+    ): Nothing =
+      throw SErrorCrash(location, "unexpected pure machine")
+
+    /** Pure Machine does not handle exceptions */
+    private[speedy] override def handleException(excep: SValue.SAny): Control =
+      unhandledException(excep)
+
+    def runPure(): Either[SError, SValue] =
+      run() match {
+        case SResultError(err) => Left(err)
+        case SResultFinal(v) => Right(v)
+        case otherwise =>
+          Left(SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"unexpected $otherwise"))
+      }
   }
 
   /** The speedy CEK machine. */
@@ -606,11 +661,9 @@ private[lf] object Speedy {
     @inline
     private[speedy] final def kontDepth(): Int = kontStack.size()
 
-    final def asOnLedger[T](location: String)(f: OnLedgerMachine => T): T =
-      this match {
-        case onLedger: OnLedgerMachine => f(onLedger)
-        case _ => throw SErrorCrash(location, "unexpected off-ledger machine")
-      }
+    private[speedy] def asUpdateMachine(location: String)(f: UpdateMachine => Control): Control
+
+    private[speedy] def asScenarioMachine(location: String)(f: ScenarioMachine => Control): Control
 
     @inline
     private[speedy] final def pushKont(k: Kont): Unit = {
@@ -1095,9 +1148,8 @@ private[lf] object Speedy {
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
         disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
-    )(implicit loggingContext: LoggingContext): OnLedgerMachine = {
+    )(implicit loggingContext: LoggingContext): UpdateMachine = {
       val updateSE: SExpr = compiledPackages.compiler.unsafeCompile(updateE)
-
       fromUpdateSExpr(
         compiledPackages,
         transactionSeed,
@@ -1121,8 +1173,8 @@ private[lf] object Speedy {
         disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
         traceLog: TraceLog = newTraceLog,
-    )(implicit loggingContext: LoggingContext): OnLedgerMachine = {
-      OnLedgerMachine(
+    )(implicit loggingContext: LoggingContext): UpdateMachine = {
+      UpdateMachine(
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
@@ -1142,10 +1194,15 @@ private[lf] object Speedy {
     def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
         scenario: SExpr,
-    )(implicit loggingContext: LoggingContext): OffLedgerMachine =
-      fromPureSExpr(
+        traceLog: TraceLog = newTraceLog,
+        warningLog: WarningLog = newWarningLog,
+    )(implicit loggingContext: LoggingContext): ScenarioMachine =
+      new ScenarioMachine(
+        sexpr = SEApp(scenario, Array(SValue.SToken)),
+        traceLog = traceLog,
+        warningLog = warningLog,
         compiledPackages = compiledPackages,
-        expr = SEApp(scenario, Array(SValue.SToken)),
+        profile = new Profile(),
       )
 
     @throws[PackageNotFound]
@@ -1154,7 +1211,7 @@ private[lf] object Speedy {
     def fromScenarioExpr(
         compiledPackages: CompiledPackages,
         scenario: Expr,
-    )(implicit loggingContext: LoggingContext): OffLedgerMachine =
+    )(implicit loggingContext: LoggingContext): ScenarioMachine =
       fromScenarioSExpr(
         compiledPackages = compiledPackages,
         scenario = compiledPackages.compiler.unsafeCompile(scenario),
@@ -1168,15 +1225,14 @@ private[lf] object Speedy {
         expr: SExpr,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
-    )(implicit loggingContext: LoggingContext): OffLedgerMachine = {
-      new OffLedgerMachine(
+    )(implicit loggingContext: LoggingContext): PureMachine =
+      new PureMachine(
         sexpr = expr,
         traceLog = traceLog,
         warningLog = warningLog,
         compiledPackages = compiledPackages,
         profile = new Profile(),
       )
-    }
 
     @throws[PackageNotFound]
     @throws[CompilationError]
@@ -1184,11 +1240,27 @@ private[lf] object Speedy {
     def fromPureExpr(
         compiledPackages: CompiledPackages,
         expr: Expr,
-    )(implicit loggingContext: LoggingContext): OffLedgerMachine =
+    )(implicit loggingContext: LoggingContext): PureMachine =
       fromPureSExpr(
         compiledPackages,
         compiledPackages.compiler.unsafeCompile(expr),
       )
+
+    @throws[PackageNotFound]
+    @throws[CompilationError]
+    def runPureExpr(
+        expr: Expr,
+        compiledPackages: CompiledPackages = PureCompiledPackages.Empty,
+    )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
+      fromPureExpr(compiledPackages, expr).runPure()
+
+    @throws[PackageNotFound]
+    @throws[CompilationError]
+    def runPureSExpr(
+        expr: SExpr,
+        compiledPackages: CompiledPackages = PureCompiledPackages.Empty,
+    )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
+      fromPureSExpr(compiledPackages, expr).runPure()
 
   }
 
@@ -1602,7 +1674,7 @@ private[lf] object Speedy {
 
   private[speedy] final case class KCacheContract(cid: V.ContractId) extends Kont {
     override def execute(machine: Machine, sv: SValue): Control =
-      machine.asOnLedger(productPrefix) { machine =>
+      machine.asUpdateMachine(productPrefix) { machine =>
         val cached = SBuiltin.extractCachedContract(sv)
         machine.checkContractVisibility(cid, cached)
         machine.addGlobalContract(cid, cached)
@@ -1616,9 +1688,7 @@ private[lf] object Speedy {
       handleKeyFound: V.ContractId => Control.Value,
   ) extends Kont {
     override def execute(machine: Machine, sv: SValue): Control =
-      machine.asOnLedger(productPrefix) { machine =>
-        machine.checkKeyVisibility(gKey, cid, handleKeyFound)
-      }
+      machine.asUpdateMachine(productPrefix)(_.checkKeyVisibility(gKey, cid, handleKeyFound))
   }
 
   /** KCloseExercise. Marks an open-exercise which needs to be closed. Either:
@@ -1628,7 +1698,7 @@ private[lf] object Speedy {
   private[speedy] final case object KCloseExercise extends Kont {
 
     override def execute(machine: Machine, exerciseResult: SValue): Control =
-      machine.asOnLedger(productPrefix) { machine =>
+      machine.asUpdateMachine(productPrefix) { machine =>
         machine.ptx = machine.ptx.endExercises(exerciseResult.toNormalizedValue)
         Control.Value(exerciseResult)
       }
@@ -1648,13 +1718,13 @@ private[lf] object Speedy {
       with SomeArrayEquals
       with NoCopy {
     // we must restore when catching a throw, or for normal execution
-    def restore(machine: OnLedgerMachine): Unit = {
+    def restore(machine: UpdateMachine): Unit = {
       machine.restoreBase(savedBase)
       machine.restoreFrameAndActuals(frame, actuals)
     }
 
     override def execute(machine: Machine, v: SValue): Control =
-      machine.asOnLedger(productPrefix) { machine =>
+      machine.asUpdateMachine(productPrefix) { machine =>
         restore(machine)
         machine.ptx = machine.ptx.endTry
         Control.Value(v)

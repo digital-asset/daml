@@ -226,7 +226,7 @@ private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltin(
   }
 }
 
-private[speedy] sealed abstract class OnLedgerBuiltin(arity: Int)
+private[speedy] sealed abstract class UpdateBuiltin(arity: Int)
     extends SBuiltin(arity)
     with Product {
 
@@ -236,17 +236,38 @@ private[speedy] sealed abstract class OnLedgerBuiltin(arity: Int)
     * @param machine the Speedy machine (machine state may be modified by the builtin)
     * @return the builtin execution's resulting control value
     */
-  protected def executeWithLedger(
+  protected def executeUpdate(
       args: util.ArrayList[SValue],
-      machine: OnLedgerMachine,
+      machine: UpdateMachine,
   ): Control
 
   override private[speedy] final def execute(
       args: util.ArrayList[SValue],
       machine: Machine,
-  ): Control = {
-    machine.asOnLedger(productPrefix)(executeWithLedger(args, _))
-  }
+  ): Control =
+    machine.asUpdateMachine(productPrefix)(executeUpdate(args, _))
+}
+
+private[speedy] sealed abstract class ScenarioBuiltin(arity: Int)
+    extends SBuiltin(arity)
+    with Product {
+
+  /** On ledger builtins may reference the Speedy machine's ledger state.
+    *
+    * @param args arguments for executing the builtin
+    * @param machine the Speedy machine (machine state may be modified by the builtin)
+    * @return the builtin execution's resulting control value
+    */
+  protected def executeScenario(
+      args: util.ArrayList[SValue],
+      machine: ScenarioMachine,
+  ): Control
+
+  override private[speedy] final def execute(
+      args: util.ArrayList[SValue],
+      machine: Machine,
+  ): Control =
+    machine.asScenarioMachine(productPrefix)(executeScenario(args, _))
 }
 
 private[lf] object SBuiltin {
@@ -470,9 +491,9 @@ private[lf] object SBuiltin {
     ): Control = {
       val coid = getSContractId(args, 0).coid
       machine match {
-        case _: OffLedgerMachine =>
+        case _: PureMachine | _: ScenarioMachine =>
           Control.Value(SOptional(Some(SText(coid))))
-        case _: OnLedgerMachine =>
+        case _: UpdateMachine =>
           Control.Value(SValue.SValue.None)
       }
     }
@@ -958,10 +979,10 @@ private[lf] object SBuiltin {
     *    -> CachedContract
     *    -> ContractId arg
     */
-  final case object SBUCreate extends OnLedgerBuiltin(1) {
-    override protected def executeWithLedger(
+  final case object SBUCreate extends UpdateBuiltin(1) {
+    override protected def executeUpdate(
         args: util.ArrayList[SValue],
-        machine: OnLedgerMachine,
+        machine: UpdateMachine,
     ): Control = {
       val cached = extractCachedContract(args.get(0))
       val version = machine.tmplId2TxVersion(cached.templateId)
@@ -1017,11 +1038,11 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
-  ) extends OnLedgerBuiltin(4) {
+  ) extends UpdateBuiltin(4) {
 
-    override protected def executeWithLedger(
+    override protected def executeUpdate(
         args: util.ArrayList[SValue],
-        machine: OnLedgerMachine,
+        machine: UpdateMachine,
     ): Control = {
       val coid = getSContractId(args, 1)
       val cached =
@@ -1123,10 +1144,10 @@ private[lf] object SBuiltin {
     *    -> Optional {key: key, maintainers: List Party} (template key, if present)
     *    -> a
     */
-  final case object SBFetchAny extends OnLedgerBuiltin(2) {
-    override protected def executeWithLedger(
+  final case object SBFetchAny extends UpdateBuiltin(2) {
+    override protected def executeUpdate(
         args: util.ArrayList[SValue],
-        machine: OnLedgerMachine,
+        machine: UpdateMachine,
     ): Control = {
       val coid = getSContractId(args, 0)
       machine.getCachedContract(coid) match {
@@ -1442,10 +1463,10 @@ private[lf] object SBuiltin {
   final case class SBUInsertFetchNode(
       templateId: TypeConName,
       byKey: Boolean,
-  ) extends OnLedgerBuiltin(1) {
-    override protected def executeWithLedger(
+  ) extends UpdateBuiltin(1) {
+    override protected def executeUpdate(
         args: util.ArrayList[SValue],
-        machine: OnLedgerMachine,
+        machine: UpdateMachine,
     ): Control = {
       val coid = getSContractId(args, 0)
       val cached =
@@ -1480,10 +1501,10 @@ private[lf] object SBuiltin {
     *    -> Maybe (ContractId T)
     *    -> ()
     */
-  final case class SBUInsertLookupNode(templateId: TypeConName) extends OnLedgerBuiltin(2) {
-    override protected def executeWithLedger(
+  final case class SBUInsertLookupNode(templateId: TypeConName) extends UpdateBuiltin(2) {
+    override protected def executeUpdate(
         args: util.ArrayList[SValue],
-        machine: OnLedgerMachine,
+        machine: UpdateMachine,
     ): Control = {
       val keyWithMaintainers =
         extractKeyWithMaintainers(NameOf.qualifiedNameOfCurrentFunc, args.get(0))
@@ -1556,11 +1577,11 @@ private[lf] object SBuiltin {
 
   private[speedy] sealed abstract class SBUKeyBuiltin(
       operation: KeyOperation
-  ) extends OnLedgerBuiltin(1) {
+  ) extends UpdateBuiltin(1) {
 
-    final override def executeWithLedger(
+    final override def executeUpdate(
         args: util.ArrayList[SValue],
-        machine: OnLedgerMachine,
+        machine: UpdateMachine,
     ): Control = {
       val skey = args.get(0)
       val keyWithMaintainers = extractKeyWithMaintainers(NameOf.qualifiedNameOfCurrentFunc, skey)
@@ -1648,22 +1669,30 @@ private[lf] object SBuiltin {
       extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId))
 
   /** $getTime :: Token -> Timestamp */
-  final case object SBGetTime extends SBuiltin(1) {
-    override private[speedy] def execute(
+  final case object SBUGetTime extends UpdateBuiltin(1) {
+    override protected def executeUpdate(
         args: util.ArrayList[SValue],
-        machine: Machine,
+        machine: UpdateMachine,
     ): Control = {
       checkToken(args, 0)
-      // $ugettime :: Token -> Timestamp
-      machine match {
-        case machine: OnLedgerMachine =>
-          machine.setDependsOnTime()
-        case _: OffLedgerMachine =>
-      }
+      machine.setDependsOnTime()
       Control.Question(
-        SResultNeedTime { timestamp =>
+        SResultNeedTime(timestamp => machine.setControl(Control.Value(STimestamp(timestamp))))
+      )
+    }
+  }
+
+  /** $getTime :: Token -> Timestamp */
+  final case object SBSGetTime extends ScenarioBuiltin(1) {
+    protected def executeScenario(
+        args: util.ArrayList[SValue],
+        machine: ScenarioMachine,
+    ): Control = {
+      checkToken(args, 0)
+      Control.Question(
+        SResultScenarioGetTime(timestamp =>
           machine.setControl(Control.Value(STimestamp(timestamp)))
-        }
+        )
       )
     }
   }
@@ -1687,10 +1716,11 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case class SBSSubmit(optLocation: Option[Location], mustFail: Boolean) extends SBuiltin(3) {
-    override private[speedy] def execute(
+  final case class SBSSubmit(optLocation: Option[Location], mustFail: Boolean)
+      extends ScenarioBuiltin(3) {
+    override protected def executeScenario(
         args: util.ArrayList[SValue],
-        machine: Machine,
+        machine: ScenarioMachine,
     ): Control = {
       checkToken(args, 2)
       Control.Question(
@@ -1699,16 +1729,14 @@ private[lf] object SBuiltin {
           commands = args.get(1),
           location = optLocation,
           mustFail = mustFail,
-          callback = { newValue =>
-            machine.setControl(Control.Value(newValue))
-          },
+          callback = newValue => machine.setControl(Control.Value(newValue)),
         )
       )
     }
   }
 
   /** $pure :: a -> Token -> a */
-  final case object SBSPure extends SBuiltin(2) {
+  final case object SBPure extends SBuiltin(2) {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -1719,10 +1747,10 @@ private[lf] object SBuiltin {
   }
 
   /** $pass :: Int64 -> Token -> Timestamp */
-  final case object SBSPass extends SBuiltin(2) {
-    override private[speedy] def execute(
+  final case object SBSPass extends ScenarioBuiltin(2) {
+    override protected def executeScenario(
         args: util.ArrayList[SValue],
-        machine: Machine,
+        machine: ScenarioMachine,
     ): Control = {
       checkToken(args, 1)
       val relTime = getSInt64(args, 0)
@@ -1738,19 +1766,17 @@ private[lf] object SBuiltin {
   }
 
   /** $getParty :: Text -> Token -> Party */
-  final case object SBSGetParty extends SBuiltin(2) {
-    override private[speedy] def execute(
+  final case object SBSGetParty extends ScenarioBuiltin(2) {
+    override protected def executeScenario(
         args: util.ArrayList[SValue],
-        machine: Machine,
+        machine: ScenarioMachine,
     ): Control = {
       checkToken(args, 1)
       val name = getSText(args, 0)
       Control.Question(
         SResultScenarioGetParty(
           name,
-          callback = { party =>
-            machine.setControl(Control.Value(SParty(party)))
-          },
+          callback = (party => machine.setControl(Control.Value(SParty(party)))),
         )
       )
     }
@@ -2117,11 +2143,11 @@ private[lf] object SBuiltin {
 
   /** $cacheDisclosedContract[T] :: ContractId T -> CachedContract T -> Unit */
   private[speedy] final case class SBCacheDisclosedContract(contractId: V.ContractId)
-      extends OnLedgerBuiltin(1) {
+      extends UpdateBuiltin(1) {
 
-    override protected def executeWithLedger(
+    override protected def executeUpdate(
         args: util.ArrayList[SValue],
-        machine: OnLedgerMachine,
+        machine: UpdateMachine,
     ): Control = {
       val cachedContract = extractCachedContract(args.get(0))
       val templateId = cachedContract.templateId

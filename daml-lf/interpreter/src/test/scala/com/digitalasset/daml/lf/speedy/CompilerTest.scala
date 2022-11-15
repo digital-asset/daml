@@ -566,7 +566,7 @@ object CompilerTest {
     (SValue, Map[ContractId, CachedContract], Map[crypto.Hash, SValue.SContractId]),
   ] = {
     val machine =
-      Speedy.OnLedgerMachine(
+      Speedy.UpdateMachine(
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey("CompilerTest")),
