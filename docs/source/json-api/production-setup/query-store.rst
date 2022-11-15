@@ -120,7 +120,7 @@ Here is what happens every time you run a query with a configured query store:
 1. The query store uses the transaction stream from the gRPC API to update its contract table with an up-to-date "view" of all active contracts that match the template IDs, interface IDs, and user party set in the request.
    The payload query is not considered at all; every matching contract is added to the table.
    This will use the active contract service to "skip past" most of the transaction stream, if the contract table is empty at that set.
-2. A database query is run on the contract table, filtering on template ID/interface ID, party set and the payload.
+2. A database query is run on the contract table, filtering on template ID/interface ID, party set, and the payload.
 3. If contention with concurrent requests is detected, the query store will assume it is "behind" and "catch up" by returning to #1.
    This uses an iterative "livelocking" strategy, where progress is guaranteed and more concurrency is permitted, rather than exclusive locking.
 4. Results are returned to the user.
