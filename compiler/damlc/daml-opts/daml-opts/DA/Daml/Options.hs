@@ -447,17 +447,30 @@ setImports :: [FilePath] -> DynFlags -> DynFlags
 setImports paths dflags = dflags { importPaths = paths }
 
 locateGhcVersionHeader :: IO GhcVersionHeader
-locateGhcVersionHeader = GhcVersionHeader <$> do
-    resourcesDir <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
-    isDirectory <- doesDirectoryExist resourcesDir
-    let path | isDirectory = resourcesDir </> "ghcversion.h"
-             | otherwise = resourcesDir
-    pure path
+locateGhcVersionHeader = GhcVersionHeader <$> locateResource Resource
+  -- //compiler/damlc:ghcversion
+  { resourcesPath = "ghcversion.h"
+    -- In a packaged application, this is stored directly underneath the
+    -- resources directory because it's a single file.
+    -- See @bazel_tools/packaging/packaging.bzl@.
+  , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc"
+  }
 
 locateCppPath :: IO (Maybe FilePath)
 locateCppPath = do
-    resourcesDir <- locateRunfiles $ "stackage" </> "hpp-0.6.4" </> "_install" </> "bin"
-    let path  = resourcesDir </> exe "hpp"
+    path <- locateResource Resource
+      { resourcesPath = exe "hpp"
+        -- //compiler/damlc:hpp-dist
+        -- In a packaged application, the executable is stored directly underneath
+        -- the resources directory because the target produces a tarball which
+        -- has the executable directly under the top directory.
+        -- See @bazel_tools/packaging/packaging.bzl@.
+      , runfilesPathPrefix = "stackage" </> "hpp-0.6.4" </> "_install" </> "bin"
+        -- @stackage-exe//hpp
+        -- when running as a bazel target, the executable has the same name
+        -- but comes from the stackage target, so the prefix is different
+        -- from that of the dist target.
+      }
     exists <- doesFileExist path
     pure (guard exists >> Just path)
 

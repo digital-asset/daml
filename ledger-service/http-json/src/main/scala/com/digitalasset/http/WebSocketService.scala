@@ -40,19 +40,18 @@ import scalaz.std.scalaFuture._
 import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.tuple._
-import scalaz.std.vector._
 import scalaz.syntax.traverse._
 import scalaz.std.list._
-import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
+import scalaz.{-\/, Foldable, Liskov, NonEmptyList, Tag, \/, \/-}
 import Liskov.<~<
 import com.daml.fetchcontracts.domain.ResolvedQuery
 import ResolvedQuery.Unsupported
 import com.daml.fetchcontracts.domain.ContractTypeId.{OptionalPkg, toLedgerApiValue}
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.lf.crypto.Hash
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.Metrics
 import spray.json.{JsArray, JsObject, JsValue, JsonReader, JsonWriter, enrichAny => `sj enrichAny`}
 
 import scala.collection.mutable.HashSet
@@ -652,14 +651,12 @@ object WebSocketService {
           sjd: dbbackend.SupportedJdbcDriver.TC
       ): Seq[(CtId, doobie.Fragment)] =
         q.toSeq map { case (t, lfvKeys) =>
-          val khd +: ktl = lfvKeys.toVector
+          val NonEmpty(keys) = lfvKeys.toVector
           import dbbackend.Queries.joinFragment, com.daml.lf.crypto.Hash
           (
             t,
             joinFragment(
-              OneAnd(khd, ktl) map (k =>
-                keyEquality(Hash.assertHashContractKey(toLedgerApiValue(t), k))
-              ),
+              keys map (k => keyEquality(Hash.assertHashContractKey(toLedgerApiValue(t), k))),
               sql" OR ",
             ),
           )
@@ -761,7 +758,7 @@ class WebSocketService(
       jwtPayload: JwtPayload,
   )(implicit
       lc: LoggingContextOf[InstanceUUID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Flow[Message, Message, _] =
     wsMessageHandler[A](jwt, jwtPayload)
       .via(applyConfig)
@@ -774,25 +771,25 @@ class WebSocketService(
 
   private def connCounter[A](implicit
       lc: LoggingContextOf[InstanceUUID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Flow[A, A, NotUsed] =
     Flow[A]
       .watchTermination() { (_, future) =>
         discard { numConns.incrementAndGet }
-        metrics.daml.HttpJsonApi.websocketRequestCounter.inc()
+        metrics.websocketRequestCounter.inc()
         logger.info(
           s"New websocket client has connected, current number of clients:${numConns.get()}"
         )
         future onComplete {
           case Success(_) =>
             discard { numConns.decrementAndGet }
-            metrics.daml.HttpJsonApi.websocketRequestCounter.dec()
+            metrics.websocketRequestCounter.dec()
             logger.info(
               s"Websocket client has disconnected. Current number of clients: ${numConns.get()}"
             )
           case Failure(ex) =>
             discard { numConns.decrementAndGet }
-            metrics.daml.HttpJsonApi.websocketRequestCounter.dec()
+            metrics.websocketRequestCounter.dec()
             logger.info(
               s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: ${numConns.get()}"
             )

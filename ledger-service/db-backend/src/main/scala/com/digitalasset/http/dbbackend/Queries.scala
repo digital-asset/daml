@@ -25,14 +25,14 @@ import cats.instances.list._
 import cats.Applicative
 import cats.syntax.applicative._
 import cats.syntax.functor._
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.lf.crypto.Hash
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Metrics
 import doobie.free.connection
 
 sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(implicit
-    metrics: Metrics
+    metrics: HttpJsonApiMetrics
 ) {
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
@@ -309,24 +309,28 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
       cids: Map[SurrogateTpId, Set[String]]
   )(implicit log: LogHandler): ConnectionIO[Int] = {
     import cats.instances.vector._
-    import cats.instances.int._
-    import cats.syntax.foldable._
     import nonempty.catsinstances._
     (cids: Iterable[(SurrogateTpId, Set[String])]).view.collect { case (k, NonEmpty(cids)) =>
       (k, cids)
     }.toMap match {
       case NonEmpty(cids) =>
-        val chunks = maxListSize.fold(Vector(cids))(chunkBySetSize(_, cids))
-        chunks.map { chunk =>
-          (fr"DELETE FROM $contractTableName WHERE " ++
-            joinFragment(
-              chunk.toVector.map { case (tpid, cids) =>
-                val inCids = Fragments.in(fr"contract_id", cids.toVector.toNEF)
-                fr"(tpid = $tpid AND $inCids)"
-              }.toOneAnd,
-              fr" OR ",
-            )).update.run
-        }.foldA
+        val del = fr"DELETE FROM $contractTableName WHERE " ++ {
+          val chunkMap =
+            maxListSize.fold(cids.transform((_, sv) => NonEmpty(Vector, sv)))(
+              chunkBySetSize(_, cids)
+            )
+          joinFragment(
+            chunkMap.toVector.map { case (tpid, chunks) =>
+              val inCids = joinFragment(
+                chunks.map(cids => Fragments.in(fr"contract_id", cids.toVector.toNEF)),
+                fr" OR ",
+              )
+              fr"(tpid = $tpid AND ($inCids))"
+            },
+            fr" OR ",
+          )
+        }
+        del.update.run
       case _ =>
         free.connection.pure(0)
     }
@@ -369,7 +373,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     val NonEmpty(queryConditions) = queries.toVector
     val queriesCondition =
       joinFragment(
-        queryConditions.toOneAnd map { case (tpid, predicate) =>
+        queryConditions map { case (tpid, predicate) =>
           fr"($tpid = $tpidSelector AND ($predicate))"
         },
         fr" OR ",
@@ -516,8 +520,9 @@ object Queries {
     case object GTEQ extends OrderOperator
   }
 
-  private[http] def joinFragment(xs: OneAnd[Vector, Fragment], sep: Fragment): Fragment =
-    concatFragment(intersperse(xs, sep))
+  // XXX SC I'm pretty certain we can use NonEmpty all the way down
+  private[http] def joinFragment(xs: NonEmpty[Vector[Fragment]], sep: Fragment): Fragment =
+    concatFragment(intersperse(xs.toOneAnd, sep))
 
   private[http] def concatFragment[F[X] <: IndexedSeq[X]](xs: OneAnd[F, Fragment]): Fragment = {
     val OneAnd(hd, tl) = xs
@@ -590,46 +595,17 @@ object Queries {
     (allTpids diff grouped.keySet).view.map((_, Map.empty[Party, Off])).toMap ++ grouped
   }
 
-  // invariant: each element x of result has `x.values.flatten.size <= size`
+  // invariant: each element x of result has `x.values.forall(_.forall(_.size <= size))`
   private[dbbackend] def chunkBySetSize[K, V](
       size: Int,
       groups: NonEmpty[Map[K, NonEmpty[Set[V]]]],
-  ): Vector[NonEmpty[Map[K, NonEmpty[Set[V]]]]] = {
+  ): NonEmpty[Map[K, NonEmpty[Vector[NonEmpty[Set[V]]]]]] = {
     assert(size > 0, s"chunk size must be positive, not $size")
-    type Groups = NonEmpty[Map[K, NonEmpty[Set[V]]]]
-    type Remaining = Map[K, NonEmpty[Set[V]]]
-
-    @annotation.tailrec
-    def takeSize(size: Int, acc: Groups, remaining: Remaining): (Groups, Remaining) =
-      if (size <= 0 || remaining.isEmpty) (acc, remaining)
-      else {
-        val (k, sv) = remaining.head
-        if (sv.size <= size)
-          takeSize(size - sv.size, acc.updated(k, sv), remaining - k)
-        else {
-          // ! <= proves that both sides of the split are non-empty
-          val NonEmpty(taken) = sv take size
-          val NonEmpty(left) = sv -- taken
-          (acc.updated(k, taken), remaining.updated(k, left))
-        }
+    groups.transform { (_, nesv) =>
+      nesv.grouped(size).collect { case NonEmpty(sv) => sv }.toVector match {
+        case NonEmpty(svs) => svs
+        case _ => sys.error("impossible: non-empty input set was empty")
       }
-
-    // XXX SC: takeInitSize duplicates some of takeSize, but it's a little tricky
-    // to start with an empty acc
-    def takeInitSize(remaining: Groups): (Groups, Remaining) = {
-      val (k, sv) = remaining.head
-      if (sv.size <= size)
-        takeSize(size - sv.size, NonEmpty(Map, k -> sv), remaining - k)
-      else {
-        // ! <= proves that both sides of the split are non-empty
-        val NonEmpty(taken) = sv take size
-        val NonEmpty(left) = sv -- taken
-        (NonEmpty(Map, k -> taken), remaining.updated(k, left))
-      }
-    }
-
-    Vector.unfold(groups: Remaining) { remaining =>
-      NonEmpty from remaining map takeInitSize
     }
   }
 
@@ -707,7 +683,7 @@ object Queries {
 
 private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Long)(implicit
     ipol: Queries.SqlInterpolation.StringArray,
-    metrics: Metrics,
+    metrics: HttpJsonApiMetrics,
 ) extends Queries(tablePrefix, tpIdCacheMaxEntries) {
   import Queries._, Queries.InitDdl.{Droppable, CreateIndex}
   import Implicits._
@@ -839,7 +815,7 @@ private final class OracleQueries(
     tablePrefix: String,
     disableContractPayloadIndexing: DisableContractPayloadIndexing,
     tpIdCacheMaxEntries: Long,
-)(implicit metrics: Metrics)
+)(implicit metrics: HttpJsonApiMetrics)
     extends Queries(tablePrefix, tpIdCacheMaxEntries) {
   import Queries._, InitDdl._
   import Implicits._
@@ -1048,9 +1024,9 @@ private final class OracleQueries(
 
       case JsObject(fields) =>
         fields.toVector match {
-          case hp +: tp =>
+          case NonEmpty(fields) =>
             // this assertFromString is forced by the aforementioned too-big type
-            val fieldPreds = OneAnd(hp, tp).map { case (ok, ov) =>
+            val fieldPreds = fields.map { case (ok, ov) =>
               containsAtContractPath(path objectAt Ref.Name.assertFromString(ok), ov)
             }
             joinFragment(fieldPreds, sql" AND ")

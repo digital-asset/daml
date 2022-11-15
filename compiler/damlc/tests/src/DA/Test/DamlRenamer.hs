@@ -5,6 +5,8 @@
 
 module DA.Test.DamlRenamer (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Control.Monad (filterM)
 import DA.Bazel.Runfiles (exe, locateRunfiles, mainWorkspace)
 import Data.List.Extra (nubOrd)

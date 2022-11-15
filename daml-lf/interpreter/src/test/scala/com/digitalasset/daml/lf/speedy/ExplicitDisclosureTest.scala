@@ -379,7 +379,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
   }
 }
 
-trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matchers {
+private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matchers {
 
   import ExplicitDisclosureLib._
 

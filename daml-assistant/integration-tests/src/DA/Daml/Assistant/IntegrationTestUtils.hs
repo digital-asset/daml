@@ -7,6 +7,8 @@ module DA.Daml.Assistant.IntegrationTestUtils
   , throwError
   ) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Conduit hiding (connect)
 import Control.Monad (forM_)
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra

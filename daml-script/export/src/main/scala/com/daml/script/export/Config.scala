@@ -39,6 +39,7 @@ final case class PartyConfig(
     parties: Seq[Party],
 )
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 object Config {
   val DefaultMaxInboundMessageSize: Int = 4194304
 

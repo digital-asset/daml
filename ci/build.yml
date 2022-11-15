@@ -3,37 +3,7 @@
 
 jobs:
 
-- job: fix_bazel_cache
-  timeoutInMinutes: 120
-  condition: eq(variables['System.PullRequest.IsFork'], 'False')
-  pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
-  steps:
-    - checkout: self
-    - bash: ci/dev-env-install.sh
-      displayName: 'Build/Install the Developer Environment'
-    - template: bash-lib.yml
-      parameters:
-        var_name: bash-lib
-    - bash: |
-        set -euo pipefail
-        eval "$(dev-env/bin/dade assist)"
-
-        bazel build //ci/cron:cron
-
-        key=$(mktemp)
-        cleanup="rm -rf $key ~/.config/gcloud"
-        trap "$cleanup" EXIT
-        echo "$GCRED" > $key
-        gcloud auth activate-service-account --key-file=$key
-        export BOTO_CONFIG=/dev/null
-          # 90 minutes should provide enough overlap for an hourly
-        # cronjob.
-        ./bazel-bin/ci/cron/cron bazel-cache --age 90 --delete
-      env:
-        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-    - template: tell-slack-failed.yml
+- template: fix-bazel-cache.yml
 
 - job: git_sha
   pool:
@@ -362,8 +332,8 @@ jobs:
     - bash: ci/check-protobuf-stability.sh
     - template: tell-slack-failed.yml
 
-- job: collect_build_data
-  condition: always()
+- job: collect_build_data_failed
+  condition: failed()
   dependsOn:
     - Linux
     - Linux_oracle
@@ -377,3 +347,19 @@ jobs:
   pool:
     name: "ubuntu_20_04"
     demands: assignment -equals default
+
+- job: collect_build_data
+  condition: always()
+  dependsOn:
+    - collect_build_data_failed
+  variables:
+    failed_result: $[ dependencies.collect_build_data_failed.result ]
+  pool:
+    name: "ubuntu_20_04"
+    demands: assignment -equals default
+  steps:
+    - bash: "exit 1"
+      # Since 'collect_build_data_failed' only runs when 'failed()', if it was
+      # successful that means at least one of its dependencies failed, so we set
+      # the result of 'collect_build_data' to 'Failed' with 'exit 1'
+      condition: eq(variables.failed_result, 'Succeeded')

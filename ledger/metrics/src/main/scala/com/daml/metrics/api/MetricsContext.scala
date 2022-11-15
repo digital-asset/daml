@@ -25,4 +25,14 @@ object MetricsContext {
 
   def withEmptyMetricsContext[T](run: MetricsContext => T): T = run(Empty)
 
+  def withMetricLabels[T](labels: (String, String)*)(run: MetricsContext => T): T = run(
+    MetricsContext(Map(labels: _*))
+  )
+
+  def withExtraMetricLabels[T](labels: (String, String)*)(run: MetricsContext => T)(implicit
+      metrics: MetricsContext
+  ): T = run(
+    metrics.merge(MetricsContext(Map(labels: _*)))
+  )
+
 }

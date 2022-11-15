@@ -10,8 +10,8 @@ import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.dbbackend.OracleQueries.DisableContractPayloadIndexing
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.ContractTypeId
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.instanceUUIDLogCtx
-import com.daml.metrics.Metrics
 import com.daml.testing.oracle.OracleAround
 import com.daml.testing.oracle.OracleAround.RichOracleUser
 import com.daml.testing.postgresql.{PostgresAround, PostgresDatabase}
@@ -32,7 +32,7 @@ abstract class ContractDaoBenchmark {
 
   protected implicit val ec: ExecutionContext = ExecutionContext.global
   protected implicit val logger: LogHandler = Slf4jLogHandler(getClass)
-  protected implicit val metrics: Metrics = Metrics.ForTesting
+  protected implicit val metrics: HttpJsonApiMetrics = HttpJsonApiMetrics.ForTesting
 
   @Param(Array("1000"))
   var batchSize: Int = _

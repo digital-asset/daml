@@ -5,6 +5,8 @@
 
 module DamlcVisualize (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL

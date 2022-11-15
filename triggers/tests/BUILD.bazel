@@ -6,6 +6,7 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
+    "lf_scalacopts_stricter",
 )
 load("@build_environment//:configuration.bzl", "sdk_version")
 

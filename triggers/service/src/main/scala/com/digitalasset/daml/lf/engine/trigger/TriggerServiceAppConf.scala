@@ -20,6 +20,7 @@ import java.nio.file.Path
 import java.time.Duration
 import scala.concurrent.duration.FiniteDuration
 
+@scala.annotation.nowarn("msg=Block result was adapted via implicit conversion")
 private[trigger] object AuthorizationConfig {
   final case object AuthConfigFailure extends FailureReason {
     val description =
@@ -51,6 +52,7 @@ private[trigger] final case class AuthorizationConfig(
     authCallbackTimeout: FiniteDuration = Cli.DefaultAuthCallbackTimeout,
 )
 
+@scala.annotation.nowarn("msg=Block result was adapted via implicit conversion")
 private[trigger] object TriggerServiceAppConf {
   implicit val compilerCfgReader: ConfigReader[Compiler.Config] =
     ConfigReader.fromString[Compiler.Config](ConvertHelpers.catchReadError { s =>

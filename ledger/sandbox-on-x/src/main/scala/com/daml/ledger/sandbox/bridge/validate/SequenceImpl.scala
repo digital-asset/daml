@@ -42,6 +42,7 @@ private[validate] class SequenceImpl(
     initialLedgerConfiguration: Option[Configuration],
     bridgeMetrics: BridgeMetrics,
     maxDeduplicationDuration: Duration,
+    explicitDisclosureEnabled: Boolean,
 ) extends Sequence {
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
@@ -190,9 +191,10 @@ private[validate] class SequenceImpl(
           txSubmission,
         )
       } yield transactionAccepted(
-        txSubmission.submission,
-        offsetIdx,
-        recordTime,
+        transactionSubmission = txSubmission.submission,
+        index = offsetIdx,
+        currentTimestamp = recordTime,
+        populateContractMetadata = explicitDisclosureEnabled,
       )
     }(txSubmission.submission.loggingContext, logger)
       .fold(_.toCommandRejectedUpdate(recordTime), identity)

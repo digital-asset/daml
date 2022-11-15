@@ -4,6 +4,8 @@ module DamlcPkgManager
     ( main
     ) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.InspectDar
 import DA.Daml.Helper.Ledger (downloadAllReachablePackages)

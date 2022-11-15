@@ -3,6 +3,8 @@
 
 module Main (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import           System.Directory
 import           System.FilePath
 import           Test.Tasty

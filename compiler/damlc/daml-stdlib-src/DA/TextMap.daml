@@ -28,7 +28,8 @@ import DA.Internal.LF (TextMap, unpackPair)
 import DA.List qualified as List
 import DA.Optional
 import DA.Traversable qualified as Traversable
-import GHC.Types (primitive, magic)
+import GHC.Types (primitive)
+import GHC.Tuple.Check()
 
 -- | Create a map from a list of key/value pairs.
 fromList : [(Text, a)] -> TextMap a

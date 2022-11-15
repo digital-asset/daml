@@ -425,7 +425,7 @@ private[lf] class Runner(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Speedy.Machine, Future[SValue]) = {
+  ): (Speedy.OffLedgerMachine, Future[SValue]) = {
     val machine =
       Speedy.Machine.fromPureSExpr(
         extendedCompiledPackages,

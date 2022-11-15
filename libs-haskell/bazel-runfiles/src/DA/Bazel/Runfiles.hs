@@ -5,7 +5,9 @@
 -- but since we also want support for locating runfiles in JARs
 -- it is simpler to have all code located here.
 module DA.Bazel.Runfiles
-  ( locateRunfiles
+  ( Resource (..)
+  , locateResource
+  , locateRunfiles
   , setRunfilesEnv
   , mainWorkspace
   , exe
@@ -27,27 +29,70 @@ exe :: FilePath -> FilePath
 exe | os == "mingw32" = (<.> "exe")
     | otherwise       = id
 
--- | Return the resources directory for the given runfiles dependency.
+-- | Identifies a runtime resource.
+data Resource = Resource
+  { resourcesPath :: FilePath
+    -- ^ Path of the resource relative to the @"resources"@ directory of the
+    -- packaged application where it's used.
+  , runfilesPathPrefix :: FilePath
+    -- ^ Prefix which must be prepended to @resourcesPath@ in order to find the
+    -- same resource in the @"runfiles"@ directory when the application is used
+    -- as a Bazel target.
+  }
+  deriving (Eq, Ord, Show)
+
+-- | The runfiles path of a Resource is simply its 'resourcesPath' prepended
+-- with its 'runfilesPathPrefix'.
+runfilesPath :: Resource -> FilePath
+runfilesPath res = runfilesPathPrefix res </> resourcesPath res
+
+-- | Return the path for the given resource dependency.
 --
--- In packaged application, using @bazel_tools/packaging/packaging.bzl@
--- this corresponds to the top-level @resources@ directory. In a @bazel run@ or
--- @bazel test@ target this corresponds to the @runfiles@ path of the given
--- @data@ dependency.
-locateRunfiles :: HasCallStack => FilePath -> IO FilePath
-locateRunfiles fp = do
+-- In a packaged application, using @bazel_tools/packaging/packaging.bzl@,
+--
+-- > locateResource Resource { resourcesPath, runfilesPathPrefix }
+--
+-- returns the path
+--
+-- > topLevelResourcesDir </> resourcesPath
+--
+-- where @topLevelResourcesDir@ is the top level @resources@ directory, a
+-- sibling of the packaged executable.
+--
+-- In a @bazel run@ or @bazel test@ target, the same expression returns
+--
+-- > topLevelRunfilesDir </> runfilesPathPrefix </> resourcesPath
+--
+-- where @topLevelRunfilesDir@ is the top level @runfiles@ directory assigned
+-- by Bazel.
+--
+locateResource :: HasCallStack => Resource -> IO FilePath
+locateResource res = do
   -- If the current executable was packaged using @package_app@, then
   -- data files are stored underneath the resources directory.
   -- See @bazel_tools/packaging/packaging.bzl@.
-  -- This is based on Buck's runfiles behavior and users of locateRunfiles
-  -- expect the resources directory itself.
+  -- This is based on Buck's runfiles behavior.
   execPath <- getExecutablePath
   let jarResources = takeDirectory execPath </> "resources"
   hasJarResources <- doesDirectoryExist jarResources
   if hasJarResources
-      then pure jarResources
-      else do
-          runfiles <- Bazel.Runfiles.create
-          pure $! Bazel.Runfiles.rlocation runfiles fp
+      then pure (jarResources </> resourcesPath res)
+      else locateRunfiles (runfilesPath res)
+
+-- | Return the path for the given runfiles dependency.
+--
+-- WARNING: The runfiles directory only exists when the executable is a
+-- @bazel run@ or @bazel test@ target. In particular, this function will
+-- fail at runtime when used from a packaged application
+-- (@bazel_tools/packaging/packaging.bzl@).
+--
+-- Instead, use 'locateResource' for codepaths that will be used from both
+-- packaged applications and @bazel run@ or @bazel test@ targets.
+--
+locateRunfiles :: HasCallStack => FilePath -> IO FilePath
+locateRunfiles fp = do
+  runfiles <- Bazel.Runfiles.create
+  pure $! Bazel.Runfiles.rlocation runfiles fp
 
 -- | Store the detected runfiles in the environment.
 --

@@ -49,6 +49,7 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/cli-opts",
             "//ledger-service/jwt",
+            "//ledger-service/metrics",
             "//ledger-service/utils",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",

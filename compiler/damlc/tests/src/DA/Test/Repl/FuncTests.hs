@@ -2,6 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Test.Repl.FuncTests (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Exception

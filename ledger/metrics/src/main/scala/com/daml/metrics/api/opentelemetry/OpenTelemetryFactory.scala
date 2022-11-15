@@ -19,24 +19,24 @@ import io.opentelemetry.api.metrics.{
   Meter => OtelMeter,
 }
 
-trait OpenTelemetryFactory extends Factory {
+class OpenTelemetryFactory(otelMeter: OtelMeter) extends Factory {
 
   val globalMetricsContext: MetricsContext = MetricsContext(
     Map("daml_version" -> BuildInfo.Version)
   )
 
-  def otelMeter: OtelMeter
-
   override def timer(
       name: MetricName
   )(implicit
       context: MetricsContext = MetricsContext.Empty
-  ): MetricHandle.Timer =
+  ): MetricHandle.Timer = {
+    val nameWithSuffix = name :+ "duration" :+ "ms"
     OpenTelemetryTimer(
-      name,
-      otelMeter.histogramBuilder(name).ofLongs().setUnit("ms").build(),
+      nameWithSuffix,
+      otelMeter.histogramBuilder(nameWithSuffix).ofLongs().setUnit("ms").build(),
       globalMetricsContext.merge(context),
     )
+  }
   override def gauge[T](name: MetricName, initial: T)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Gauge[T] = {
@@ -140,7 +140,7 @@ case class OpenTelemetryTimer(name: String, histogram: LongHistogram, timerConte
   ): Unit =
     histogram.record(
       TimeUnit.MILLISECONDS.convert(duration, unit),
-      AttributesHelper.multiContextAsAttributes(context, timerContext),
+      AttributesHelper.multiContextAsAttributes(timerContext, context),
     )
   override def time[T](call: => T)(implicit
       context: MetricsContext
@@ -149,20 +149,21 @@ case class OpenTelemetryTimer(name: String, histogram: LongHistogram, timerConte
     val result = call
     histogram.record(
       TimeUnit.MILLISECONDS.convert(System.nanoTime() - start, TimeUnit.NANOSECONDS),
-      AttributesHelper.multiContextAsAttributes(context, timerContext),
+      AttributesHelper.multiContextAsAttributes(timerContext, context),
     )
     result
   }
 
-  override def startAsync()(implicit
-      context: MetricsContext
-  ): TimerHandle = {
+  override def startAsync()(implicit startContext: MetricsContext): TimerHandle = {
     val start = System.nanoTime()
-    () =>
-      histogram.record(
-        TimeUnit.MILLISECONDS.convert(System.nanoTime() - start, TimeUnit.NANOSECONDS),
-        AttributesHelper.multiContextAsAttributes(context, timerContext),
-      )
+    new TimerHandle {
+      override def stop()(implicit stopContext: MetricsContext): Unit = {
+        histogram.record(
+          TimeUnit.MILLISECONDS.convert(System.nanoTime() - start, TimeUnit.NANOSECONDS),
+          AttributesHelper.multiContextAsAttributes(timerContext, startContext, stopContext),
+        )
+      }
+    }
   }
 
   override def update(duration: Duration)(implicit

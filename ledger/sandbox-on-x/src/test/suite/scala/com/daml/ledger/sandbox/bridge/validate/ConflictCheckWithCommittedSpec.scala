@@ -43,7 +43,7 @@ class ConflictCheckWithCommittedSpec
 
   behavior of classOf[ConflictCheckWithCommittedImpl].getSimpleName
 
-  it should "validate causal monotonicity and key usages" in new TestContext {
+  it should "validate causal monotonicity, key usages and disclosed contracts" in new TestContext {
     conflictCheckWithCommitted(input).futureValue shouldBe input
   }
 
@@ -235,6 +235,32 @@ class ConflictCheckWithCommittedSpec
     }
   }
 
+  it should "fail validation on invalid contract driver metadata" in new TestContext {
+    private val submissionWithInvalidContractDriverMetadata =
+      preparedTransactionSubmission.copy(submission =
+        preparedTransactionSubmission.submission.copy(disclosedContracts =
+          ImmArray(
+            Versioned(
+              TransactionVersion.VDev,
+              disclosedContract.copy(metadata =
+                disclosedContract.metadata.copy(driverMetadata = ImmArray.empty)
+              ),
+            )
+          )
+        )
+      )
+
+    private val validationResult = conflictCheckWithCommitted(
+      Right(offset -> submissionWithInvalidContractDriverMetadata)
+    ).futureValue
+
+    validationResult match {
+      case Left(DisclosedContractInvalid(contractId, _)) =>
+        contractId shouldBe disclosedContract.contractId
+      case failure => fail(s"Expectation mismatch: got $failure")
+    }
+  }
+
   private class TestContext extends FixtureContext {
     implicit val loggingContext: LoggingContext =
       LoggingContext.ForTesting
@@ -276,16 +302,20 @@ class ConflictCheckWithCommittedSpec
     val informeesSet: Set[Ref.Party] = transactionInformees.toSet
     val blindingInfo: BlindingInfo = BlindingInfo(Map(), Map(divulgedContract -> Set(informee1)))
 
-    val disclosedContract: DisclosedContract = DisclosedContract(
-      templateId = templateId,
-      contractId = cid(1),
-      argument = Value.ValueText("Some contract value"),
-      metadata = ContractMetadata(
-        createdAt = Time.Timestamp.now(),
-        keyHash = None, // Not affected by this validation
-        driverMetadata = ImmArray.empty, // Not affected by this validation
-      ),
-    )
+    val disclosedContract: DisclosedContract = {
+      val contractId = cid(1)
+      DisclosedContract(
+        templateId = templateId,
+        contractId = contractId,
+        argument = Value.ValueText("Some contract value"),
+        metadata = ContractMetadata(
+          createdAt = Time.Timestamp.now(),
+          keyHash = None, // Not affected by this validation
+          driverMetadata =
+            ImmArray.from(contractId.toBytes.toByteArray), // Not affected by this validation
+        ),
+      )
+    }
 
     val txSubmission: Submission.Transaction = Submission.Transaction(
       submitterInfo = submitterInfo,
@@ -347,7 +377,8 @@ object ConflictCheckWithCommittedSpec {
   private val offsetString = Ref.HexString.assertFromString("ab")
   private val offset = Offset.fromHexString(offsetString)
 
-  private def cid(i: Int): Value.ContractId = Value.ContractId.V1(Hash.hashPrivateKey(i.toString))
+  private def cid(i: Int): Value.ContractId.V1 =
+    Value.ContractId.V1(Hash.hashPrivateKey(i.toString))
   private def contractKey(idx: Long) = GlobalKey.assertBuild(
     templateId = templateId,
     key = Value.ValueInt64(idx),

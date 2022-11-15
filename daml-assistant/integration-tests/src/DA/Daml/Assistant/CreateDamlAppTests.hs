@@ -2,6 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Assistant.CreateDamlAppTests (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Conduit
 import Control.Exception.Extra
 import Control.Monad

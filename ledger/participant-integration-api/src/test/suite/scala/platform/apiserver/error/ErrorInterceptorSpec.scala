@@ -12,23 +12,18 @@ import com.daml.error.definitions.{CommonErrors, DamlError}
 import com.daml.error.utils.ErrorDetails
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.sampleservice.HelloServiceResponding
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
-import com.daml.platform.apiserver.services.GrpcClientResource
+import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingServerInterceptors}
+import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceAkkaGrpc, HelloServiceGrpc}
 import com.daml.platform.testing.LogCollector.ThrowableEntry
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions, StreamConsumer}
-import com.daml.ports.Port
 import io.grpc._
-import io.grpc.netty.NettyServerBuilder
 import org.scalatest.concurrent.Eventually
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, Assertions, BeforeAndAfter, Checkpoints}
 
-import java.net.{InetAddress, InetSocketAddress}
-import java.util.concurrent.TimeUnit
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 final class ErrorInterceptorSpec
@@ -266,30 +261,8 @@ final class ErrorInterceptorSpec
 object ErrorInterceptorSpec {
 
   def server(tested: ErrorInterceptor, service: BindableService): ResourceOwner[Channel] = {
-    for {
-      server <- serverOwner(interceptor = tested, service = service)
-      channel <- GrpcClientResource.owner(Port(server.getPort))
-    } yield channel
+    TestingServerInterceptors.channelOwner(tested, service)
   }
-
-  private def serverOwner(
-      interceptor: ServerInterceptor,
-      service: BindableService,
-  ): ResourceOwner[Server] =
-    new ResourceOwner[Server] {
-      def acquire()(implicit context: ResourceContext): Resource[Server] =
-        Resource(Future {
-          val server =
-            NettyServerBuilder
-              .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0))
-              .directExecutor()
-              .intercept(interceptor)
-              .addService(service)
-              .build()
-          server.start()
-          server
-        })(server => Future(server.shutdown().awaitTermination(10, TimeUnit.SECONDS): Unit))
-    }
 
   object FooMissingErrorCode
       extends ErrorCode(
