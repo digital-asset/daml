@@ -13,9 +13,9 @@ import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 import com.daml.http.domain.Offset
 import com.daml.http.json.{JsonError, SprayJson}
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.FutureUtil
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.metrics.Metrics
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy.model.ToxicDirection
 import org.scalatest._
@@ -438,7 +438,7 @@ abstract class FailureTests
     import DbStartupOps._, com.daml.http.dbbackend.DbStartupMode._,
     com.daml.http.dbbackend.JdbcConfig, com.daml.dbutils
     val bc = jdbcConfig_.baseConfig
-    implicit val metrics: Metrics = Metrics.ForTesting
+    implicit val metrics: HttpJsonApiMetrics = HttpJsonApiMetrics.ForTesting
     val dao = dbbackend.ContractDao(
       JdbcConfig(
         // discarding other settings

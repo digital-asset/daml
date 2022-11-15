@@ -17,6 +17,7 @@ import com.daml.http.json.{
   DomainJsonEncoder,
   JsValueToApiValueConverter,
 }
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.ApiValueToLfValueConverter
 import com.daml.http.util.FutureUtil._
 import com.daml.http.util.Logging.InstanceUUID
@@ -33,7 +34,6 @@ import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.Metrics
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.akkahttp.AkkaHttpMetrics
 import com.daml.ports.{Port, PortFiles}
@@ -79,7 +79,7 @@ object HttpService {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Future[Error \/ (ServerBinding, Option[ContractDao])] = {
 
     logger.info("HTTP Server pre-startup")
@@ -218,11 +218,11 @@ object HttpService {
       )
 
       rateDurationSizeMetrics = AkkaHttpMetrics.rateDurationSizeMetrics(
-        metrics.daml.HttpJsonApi.httpRequestsTotal,
-        metrics.daml.HttpJsonApi.httpErrorsTotal,
-        metrics.daml.HttpJsonApi.httpLatency,
-        metrics.daml.HttpJsonApi.httpRequestsPayloadBytesTotal,
-        metrics.daml.HttpJsonApi.httpResponsesPayloadBytesTotal,
+        metrics.httpRequestsTotal,
+        metrics.httpErrorsTotal,
+        metrics.httpLatency,
+        metrics.httpRequestsPayloadBytesTotal,
+        metrics.httpResponsesPayloadBytesTotal,
       )
 
       defaultEndpoints =
