@@ -16,7 +16,6 @@ CREATE INDEX pe_consuming_exercise_filter_stakeholders_pts_idx ON pe_consuming_e
 CREATE INDEX pe_consuming_exercise_filter_stakeholders_ps_idx  ON pe_consuming_exercise_filter_stakeholders(party_id, event_sequential_id);
 CREATE INDEX pe_consuming_exercise_filter_stakeholders_s_idx   ON pe_consuming_exercise_filter_stakeholders(event_sequential_id);
 
-
 --- Tree transactions
 
 CREATE TABLE pe_create_filter_nonstakeholder_informees (
@@ -57,3 +56,9 @@ CREATE INDEX participant_transaction_meta_eventoffset_idx ON participant_transac
 DROP INDEX participant_events_create_transaction_id_idx;
 DROP INDEX participant_events_consuming_exercise_transaction_id_idx;
 DROP INDEX participant_events_non_consuming_exercise_transaction_id_idx;
+
+-- Drop event tables' offset indexes
+
+DROP INDEX participant_events_create_event_offset;
+DROP INDEX participant_events_consuming_exercise_event_offset;
+DROP INDEX participant_events_non_consuming_exercise_event_offset;

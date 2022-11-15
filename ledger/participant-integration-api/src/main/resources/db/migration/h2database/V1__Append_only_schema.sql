@@ -215,7 +215,7 @@ CREATE TABLE participant_events_create (
 );
 
 -- offset index: used to translate to sequential_id
-CREATE INDEX participant_events_create_event_offset ON participant_events_create (event_offset);
+--CREATE INDEX participant_events_create_event_offset ON participant_events_create (event_offset);
 
 -- sequential_id index for paging
 CREATE INDEX participant_events_create_event_sequential_id ON participant_events_create (event_sequential_id);
@@ -276,7 +276,7 @@ CREATE TABLE participant_events_consuming_exercise (
 );
 
 -- offset index: used to translate to sequential_id
-CREATE INDEX participant_events_consuming_exercise_event_offset ON participant_events_consuming_exercise (event_offset);
+--CREATE INDEX participant_events_consuming_exercise_event_offset ON participant_events_consuming_exercise (event_offset);
 
 -- sequential_id index for paging
 CREATE INDEX participant_events_consuming_exercise_event_sequential_id ON participant_events_consuming_exercise (event_sequential_id);
@@ -334,7 +334,7 @@ CREATE TABLE participant_events_non_consuming_exercise (
 );
 
 -- offset index: used to translate to sequential_id
-CREATE INDEX participant_events_non_consuming_exercise_event_offset ON participant_events_non_consuming_exercise (event_offset);
+--CREATE INDEX participant_events_non_consuming_exercise_event_offset ON participant_events_non_consuming_exercise (event_offset);
 
 -- sequential_id index for paging
 CREATE INDEX participant_events_non_consuming_exercise_event_sequential_id ON participant_events_non_consuming_exercise (event_sequential_id);
