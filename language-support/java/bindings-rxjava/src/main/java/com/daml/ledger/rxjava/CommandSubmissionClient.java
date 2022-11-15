@@ -4,7 +4,7 @@
 package com.daml.ledger.rxjava;
 
 import com.daml.ledger.javaapi.data.codegen.HasCommands;
-import com.daml.ledger.rxjava.grpc.CommandClientConfig;
+import com.daml.ledger.rxjava.grpc.CommandsBuilder;
 import com.google.protobuf.Empty;
 import io.reactivex.Single;
 import java.time.Duration;
@@ -16,13 +16,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 /** An RxJava version of {@link com.daml.ledger.api.v1.CommandSubmissionServiceGrpc} */
 public interface CommandSubmissionClient {
 
-  Single<Empty> submit(CommandClientConfig params);
+  Single<Empty> submit(CommandsBuilder params);
 
   /**
-   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
-   * instead
+   * Use {@link #submit(CommandsBuilder)} instead
    *
    * @deprecated
+   * @since 2.5
    */
   @Deprecated
   Single<Empty> submit(
@@ -36,7 +36,7 @@ public interface CommandSubmissionClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
+   * This method has been deprecated as of [???]. Please use {@link #submit(CommandsBuilder)}
    * instead
    *
    * @deprecated
@@ -54,7 +54,7 @@ public interface CommandSubmissionClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
+   * This method has been deprecated as of [???]. Please use {@link #submit(CommandsBuilder)}
    * instead
    *
    * @deprecated
@@ -72,7 +72,7 @@ public interface CommandSubmissionClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
+   * This method has been deprecated as of [???]. Please use {@link #submit(CommandsBuilder)}
    * instead
    *
    * @deprecated
@@ -91,7 +91,7 @@ public interface CommandSubmissionClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
+   * This method has been deprecated as of [???]. Please use {@link #submit(CommandsBuilder)}
    * instead
    *
    * @deprecated
@@ -105,7 +105,7 @@ public interface CommandSubmissionClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
+   * This method has been deprecated as of [???]. Please use {@link #submit(CommandsBuilder)}
    * instead
    *
    * @deprecated
@@ -120,7 +120,7 @@ public interface CommandSubmissionClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
+   * This method has been deprecated as of [???]. Please use {@link #submit(CommandsBuilder)}
    * instead
    *
    * @deprecated
@@ -135,7 +135,7 @@ public interface CommandSubmissionClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please use {@link #submit(CommandClientConfig)}
+   * This method has been deprecated as of [???]. Please use {@link #submit(CommandsBuilder)}
    * instead
    *
    * @deprecated

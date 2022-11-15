@@ -15,24 +15,23 @@ import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
- * TODO: javadoc this
- * This class represents a set of parameters required for {@link com.daml.ledger.rxjava.CommandClient}
+ * This class should be used to build a valid submission. It provides {@link #create(String, String, List)}
+ * for initial creation and extra builder methods for additional parameters
+ * e.g {@link #withActAs(List)}, {@link #withWorkflowId(String)} e.t.c
  *
  * Usage:
  * <pre>
- *   var params = CommandClientConfig.create("workflowId", "applicationId", "commandId")
- *                                   .params.withAccessToken("token")
- *
- *
+ *   var params = CommandsBuilder.create("applicationId", "commandId", commands)
+ *                                   .withAccessToken("token")
+ *                                   .withParty("party")
+ *                                   .with...
  * <pre/>
  */
-public class CommandClientConfig {
-  // Required params
+public class CommandsBuilder {
   private String applicationId;
   private String commandId;
   private List<@NonNull ? extends HasCommands> commands;
 
-  // optional params
   private String workflowId;
   private List<@NonNull String> actAs;
   private List<@NonNull String> readAs;
@@ -41,7 +40,7 @@ public class CommandClientConfig {
   private Optional<Duration> deduplicationTime;
   private Optional<String> accessToken;
 
-  private CommandClientConfig(
+  private CommandsBuilder(
       String workflowId,
       String applicationId,
       String commandId,
@@ -64,17 +63,9 @@ public class CommandClientConfig {
     this.accessToken = accessToken;
   }
 
-  /**
-   * TODO: java doc this
-   *
-   * @param applicationId
-   * @param commandId
-   * @param commands
-   * @return
-   */
-  public static CommandClientConfig create(
+  public static CommandsBuilder create(
       String applicationId, String commandId, List<@NonNull ? extends HasCommands> commands) {
-    return new CommandClientConfig(
+    return new CommandsBuilder(
         "",
         applicationId,
         commandId,
@@ -127,8 +118,8 @@ public class CommandClientConfig {
     return accessToken;
   }
 
-  public CommandClientConfig withWorkflowId(String workflowId) {
-    return new CommandClientConfig(
+  public CommandsBuilder withWorkflowId(String workflowId) {
+    return new CommandsBuilder(
         workflowId,
         applicationId,
         commandId,
@@ -141,8 +132,8 @@ public class CommandClientConfig {
         accessToken);
   }
 
-  public CommandClientConfig withParty(String party) {
-    return new CommandClientConfig(
+  public CommandsBuilder withParty(String party) {
+    return new CommandsBuilder(
         workflowId,
         applicationId,
         commandId,
@@ -155,8 +146,8 @@ public class CommandClientConfig {
         accessToken);
   }
 
-  public CommandClientConfig withActAs(List<@NonNull String> actAs) {
-    return new CommandClientConfig(
+  public CommandsBuilder withActAs(List<@NonNull String> actAs) {
+    return new CommandsBuilder(
         workflowId,
         applicationId,
         commandId,
@@ -169,8 +160,8 @@ public class CommandClientConfig {
         accessToken);
   }
 
-  public CommandClientConfig withReadAs(List<@NonNull String> readAs) {
-    return new CommandClientConfig(
+  public CommandsBuilder withReadAs(List<@NonNull String> readAs) {
+    return new CommandsBuilder(
         workflowId,
         applicationId,
         commandId,
@@ -183,8 +174,8 @@ public class CommandClientConfig {
         accessToken);
   }
 
-  public CommandClientConfig withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
-    return new CommandClientConfig(
+  public CommandsBuilder withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
+    return new CommandsBuilder(
         workflowId,
         applicationId,
         commandId,
@@ -197,8 +188,8 @@ public class CommandClientConfig {
         accessToken);
   }
 
-  public CommandClientConfig withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
-    return new CommandClientConfig(
+  public CommandsBuilder withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
+    return new CommandsBuilder(
         workflowId,
         applicationId,
         commandId,
@@ -211,8 +202,8 @@ public class CommandClientConfig {
         accessToken);
   }
 
-  public CommandClientConfig withDeduplicationTime(Optional<Duration> deduplicationTime) {
-    return new CommandClientConfig(
+  public CommandsBuilder withDeduplicationTime(Optional<Duration> deduplicationTime) {
+    return new CommandsBuilder(
         workflowId,
         applicationId,
         commandId,
@@ -225,8 +216,8 @@ public class CommandClientConfig {
         accessToken);
   }
 
-  public CommandClientConfig withCommands(List<@NonNull ? extends HasCommands> commands) {
-    return new CommandClientConfig(
+  public CommandsBuilder withCommands(List<@NonNull ? extends HasCommands> commands) {
+    return new CommandsBuilder(
         workflowId,
         applicationId,
         commandId,
@@ -239,8 +230,8 @@ public class CommandClientConfig {
         accessToken);
   }
 
-  public CommandClientConfig withAccessToken(Optional<String> accessToken) {
-    return new CommandClientConfig(
+  public CommandsBuilder withAccessToken(Optional<String> accessToken) {
+    return new CommandsBuilder(
         workflowId,
         applicationId,
         commandId,

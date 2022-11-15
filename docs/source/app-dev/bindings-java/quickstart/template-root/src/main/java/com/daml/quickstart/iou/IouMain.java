@@ -9,7 +9,7 @@ import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.codegen.Update;
 import com.daml.ledger.rxjava.DamlLedgerClient;
 import com.daml.ledger.rxjava.LedgerClient;
-import com.daml.ledger.rxjava.grpc.CommandClientConfig;
+import com.daml.ledger.rxjava.grpc.CommandsBuilder;
 import com.daml.quickstart.model.iou.Iou;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -135,7 +135,7 @@ public class IouMain {
 
   private static <U> U submit(LedgerClient client, String party, Update<U> update) {
     var params =
-        CommandClientConfig.create(APP_ID, randomUUID().toString(), update.commands())
+        CommandsBuilder.create(APP_ID, randomUUID().toString(), update.commands())
             .withParty(party);
 
     return client.getCommandClient().submitAndWaitForResult(params, update).blockingGet();

@@ -40,7 +40,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
   }
 
   @Override
-  public Single<Empty> submit(CommandClientConfig params) {
+  public Single<Empty> submit(CommandsBuilder params) {
     return submit(
         params.getWorkflowId(),
         params.getApplicationId(),

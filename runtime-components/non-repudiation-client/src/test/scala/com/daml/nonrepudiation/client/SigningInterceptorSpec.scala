@@ -10,7 +10,7 @@ import com.daml.ledger.api.v1.CommandsOuterClass.{Command => ProtoCommand}
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.daml.ledger.rxjava.DamlLedgerClient
-import com.daml.ledger.rxjava.grpc.CommandClientConfig
+import com.daml.ledger.rxjava.grpc.CommandsBuilder
 import com.daml.nonrepudiation.testing._
 import com.daml.nonrepudiation.{
   AlgorithmString,
@@ -76,7 +76,7 @@ final class SigningInterceptorSpec extends AsyncFlatSpec with Matchers with Insi
       val expectedCommandId = "command-id"
       val expectedParty = "party-1"
 
-      val params = CommandClientConfig
+      val params = CommandsBuilder
         .create(
           expectedApplicationId,
           expectedCommandId,

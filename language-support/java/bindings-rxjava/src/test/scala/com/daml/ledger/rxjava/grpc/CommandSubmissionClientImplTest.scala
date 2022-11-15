@@ -42,7 +42,7 @@ class CommandSubmissionClientImplTest
     ) { (client, _) =>
       val commands = genCommands(List.empty)
 
-      val params = CommandClientConfig
+      val params = CommandsBuilder
         .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
         .withParty(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
@@ -74,7 +74,7 @@ class CommandSubmissionClientImplTest
     ledgerServices.withCommandSubmissionClient(alwaysSucceed) { (client, serviceImpl) =>
       val commands = genCommands(List.empty)
 
-      val params = CommandClientConfig
+      val params = CommandsBuilder
         .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
         .withWorkflowId(commands.getWorkflowId)
         .withParty(commands.getParty)
@@ -131,7 +131,7 @@ class CommandSubmissionClientImplTest
     val command = new CreateCommand(new Identifier("a", "a", "b"), record)
     val commands = genCommands(List[Command](command), Option(someParty))
 
-    val params = CommandClientConfig
+    val params = CommandsBuilder
       .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
       .withParty(commands.getParty)
       .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)

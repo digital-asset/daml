@@ -7,7 +7,7 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 import com.daml.ledger.javaapi.data.LedgerOffset.Absolute
 import com.daml.ledger.javaapi.data.{Command, CreateCommand, DamlRecord, Identifier}
-import com.daml.ledger.rxjava.grpc.helpers.{CommandServiceImpl, _}
+import com.daml.ledger.rxjava.grpc.helpers._
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.command_service.{
@@ -17,7 +17,7 @@ import com.daml.ledger.api.v1.command_service.{
 }
 import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import com.daml.ledger.api.v1.package_service._
-import com.daml.ledger.rxjava.grpc.CommandClientConfig
+import com.daml.ledger.rxjava.grpc.CommandsBuilder
 import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import io.grpc.Server
@@ -153,7 +153,7 @@ class DamlLedgerClientTest
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
       val commands = genCommands(List(command), Option(someParty))
 
-      val params = CommandClientConfig
+      val params = CommandsBuilder
         .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
         .withParty(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
@@ -197,7 +197,7 @@ class DamlLedgerClientTest
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
       val commands = genCommands(List[Command](command), Option(someParty))
 
-      val params = CommandClientConfig
+      val params = CommandsBuilder
         .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
         .withParty(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)

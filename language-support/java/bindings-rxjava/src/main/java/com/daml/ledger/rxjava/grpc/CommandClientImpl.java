@@ -39,7 +39,7 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<Empty> submitAndWait(CommandClientConfig params) {
+  public Single<Empty> submitAndWait(CommandsBuilder params) {
     return submitAndWait(
         params.getWorkflowId(),
         params.getApplicationId(),
@@ -269,7 +269,7 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<String> submitAndWaitForTransactionId(CommandClientConfig params) {
+  public Single<String> submitAndWaitForTransactionId(CommandsBuilder params) {
     return submitAndWaitForTransactionId(
         params.getWorkflowId(),
         params.getApplicationId(),
@@ -502,7 +502,7 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<Transaction> submitAndWaitForTransaction(CommandClientConfig params) {
+  public Single<Transaction> submitAndWaitForTransaction(CommandsBuilder params) {
     return submitAndWaitForTransaction(
         params.getWorkflowId(),
         params.getApplicationId(),
@@ -736,7 +736,7 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<TransactionTree> submitAndWaitForTransactionTree(CommandClientConfig params) {
+  public Single<TransactionTree> submitAndWaitForTransactionTree(CommandsBuilder params) {
     return submitAndWaitForTransactionTree(
         params.getWorkflowId(),
         params.getApplicationId(),
@@ -971,7 +971,7 @@ public class CommandClientImpl implements CommandClient {
 
   @Override
   public <U> Single<U> submitAndWaitForResult(
-      CommandClientConfig params, @NonNull Update<U> update) {
+      CommandsBuilder params, @NonNull Update<U> update) {
     return submitAndWaitForResult(
         params.getWorkflowId(),
         params.getApplicationId(),
