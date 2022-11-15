@@ -153,14 +153,14 @@ Similarly, function types have sensible Java counterparts, satisfying (3), but n
 
 The following types are *not serializable*, and thus may not be used in templates.
 
-1. function types
-2. record types where any field is not serializable
-3. variant types where any value is not serializable
-4. variant and enum types with no constructors
-5. references to a parameterized data type where any type argument is not serializable.
-   This applies whether or not the data type definition uses the type parameter
-6. defined data types with type parameters of kind ``Nat``, or any kind other than ``*``.
-   This means higher-kinded types and types that take a parameter just to pass to ``Numeric`` are not serializable
+- Function types.
+- Record types with any non-serializable field.
+- Variant types with any non-serializable value case.
+- Variant and enum types with no constructors.
+- References to a parameterized data type with any non-serializable type argument.
+  This applies whether or not the data type definition uses the type parameter.
+- Defined data types with any type parameter of kind ``Nat``, or any kind other than ``*``.
+  This means higher-kinded types, and types that take a parameter just to pass to ``Numeric``, are not serializable.
 
 .. _daml-ref-agreements:
 
