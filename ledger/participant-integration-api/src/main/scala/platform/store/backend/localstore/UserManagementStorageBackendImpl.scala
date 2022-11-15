@@ -61,10 +61,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   )(connection: Connection): Int = {
     val id = user.id: String
     val primaryParty = user.primaryPartyO: Option[String]
-    val identityProviderId = user.identityProviderId match {
-      case Some(Ref.IdentityProviderId.Id(id: String)) => id
-      case None => ""
-    }
+    val identityProviderId = user.identityProviderId.map(_.value): Option[String]
     val isDeactivated = user.isDeactivated
     val resourceVersion = user.resourceVersion
     val createdAt = user.createdAt

@@ -54,7 +54,6 @@ import com.daml.platform.server.api.validation.FieldValidations.{
   optionalIdentityProviderId,
   optionalString,
   requireEmptyString,
-  requireIdentityProviderId,
   requireParty,
   requirePresence,
   requireResourceVersion,
@@ -116,8 +115,9 @@ private[apiserver] final class ApiPartyManagementService private (
       logger.info("Getting parties")
       withValidation {
         for {
-          identityProviderId <- optionalString(request.identityProviderId)(
-            requireIdentityProviderId(_, "identity_provider_id")
+          identityProviderId <- optionalIdentityProviderId(
+            request.identityProviderId,
+            "identity_provider_id",
           )
           parties <- request.parties.toList.traverse(requireParty)
         } yield (parties, identityProviderId)
@@ -135,9 +135,9 @@ private[apiserver] final class ApiPartyManagementService private (
               )
             }
           identityProviderId match {
-            case Some(id) =>
+            case Ref.IdentityProviderId.Id(id) =>
               GetPartiesResponse(partyDetails = protoDetails.filter(_.identityProviderId == id))
-            case None =>
+            case Ref.IdentityProviderId.Default =>
               GetPartiesResponse(partyDetails = protoDetails)
           }
         }
