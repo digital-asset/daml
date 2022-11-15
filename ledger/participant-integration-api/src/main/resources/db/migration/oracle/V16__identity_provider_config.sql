@@ -1,9 +1,9 @@
 CREATE TABLE participant_identity_provider_config
 (
-    identity_provider_id VARCHAR PRIMARY KEY NOT NULL,
-    issuer               VARCHAR             NOT NULL UNIQUE,
-    jwks_url             VARCHAR             NOT NULL,
-    is_deactivated       BOOLEAN             NOT NULL
+    identity_provider_id VARCHAR2(4000) PRIMARY KEY NOT NULL,
+    issuer               VARCHAR2(4000) NOT NULL UNIQUE,
+    jwks_url             VARCHAR2(4000) NOT NULL,
+    is_deactivated       NUMBER DEFAULT 0 NOT NULL
 );
 
 ALTER TABLE participant_users
