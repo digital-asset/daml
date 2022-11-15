@@ -21,6 +21,7 @@ import com.daml.ledger.api.v1.transaction_filter.{
   InterfaceFilter,
   TransactionFilter,
 }
+import com.daml.ledger.api.v1.{value => V}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement._
 import com.daml.lf.archive.Dar
@@ -30,6 +31,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.trigger.Runner.Implicits._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -39,7 +41,8 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{Compiler, Pretty, SValue, Speedy}
 import com.daml.lf.{CompiledPackages, PureCompiledPackages}
 import com.daml.logging.LoggingContextOf.label
-import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingValue}
+import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingValue, ToLoggingValue}
+import com.daml.logging.entries.ToLoggingValue._
 import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingContextOf}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
@@ -95,7 +98,7 @@ object Machine {
   import Runner.logger
 
   // Run speedy until we arrive at a value.
-  def stepToValue(machine: Speedy.Machine)(implicit loggingcontext: LoggingContext): SValue = {
+  def stepToValue(machine: Speedy.Machine)(implicit loggingContext: LoggingContext): SValue = {
     machine.run() match {
       case SResultFinal(v) => v
       case SResultError(err) => {
@@ -122,14 +125,14 @@ object Trigger {
   ): (LoggingContextOf[Trigger with P] => T) => T = {
     val entries = List[LoggingEntry](
       "id" -> triggerId,
-      "definition" -> triggerDefinition.toString,
+      "definition" -> triggerDefinition,
       "actAs" -> Tag.unwrap(actAs),
       "readAs" -> Tag.unsubst(readAs),
     )
 
     LoggingContextOf.newLoggingContext(
       LoggingContextOf.label[Trigger with P],
-      "applicationId" -> LoggingValue.OfString(applicationId.unwrap),
+      "applicationId" -> applicationId.unwrap,
       "trigger" -> LoggingValue.Nested(LoggingEntries(entries: _*)),
     )
   }
@@ -363,7 +366,6 @@ class Runner(
     parties: TriggerParties,
 )(implicit loggingContext: LoggingContextOf[Trigger]) {
   import Runner.{SeenMsgs, logger}
-  import Runner.Implicits._
 
   // Compiles LF expressions into Speedy expressions.
   private val compiler = compiledPackages.compiler
@@ -395,7 +397,7 @@ class Runner(
       (inFlightState, seeOne) match {
         case (None, SeenMsgs.Neither) =>
           logger.debug("New in-flight command")(
-            loggingContext.enrichTriggerContext("commandId" -> LoggingValue.OfString(uuid.toString))
+            loggingContext.enrichTriggerContext("commandId" -> uuid)
           )
           discard(inFlight.incrementAndGet())
 
@@ -404,13 +406,13 @@ class Runner(
 
         case (Some(SeenMsgs.Neither), _) =>
           logger.debug("In-flight command completed")(
-            loggingContext.enrichTriggerContext("commandId" -> LoggingValue.OfString(uuid.toString))
+            loggingContext.enrichTriggerContext("commandId" -> uuid)
           )
           discard(inFlight.decrementAndGet())
 
         case (Some(_), SeenMsgs.Neither) =>
           logger.debug("New in-flight command")(
-            loggingContext.enrichTriggerContext("commandId" -> LoggingValue.OfString(uuid.toString))
+            loggingContext.enrichTriggerContext("commandId" -> uuid)
           )
           discard(inFlight.incrementAndGet())
 
@@ -424,7 +426,7 @@ class Runner(
 
       if (inFlightState.contains(SeenMsgs.Neither)) {
         logger.debug("In-flight command completed")(
-          loggingContext.enrichTriggerContext("commandId" -> LoggingValue.OfString(uuid.toString))
+          loggingContext.enrichTriggerContext("commandId" -> uuid)
         )
         discard(inFlight.decrementAndGet())
       }
@@ -472,12 +474,10 @@ class Runner(
       "Submitting command"
     )(
       loggingContext.enrichTriggerContext(
-        "commandId" -> LoggingValue.OfString(commandUUID.toString),
-        "commands" -> LoggingValue.OfIterable(
-          commands.map(cmd => LoggingValue.OfString(cmd.command.value.toString))
-        ),
+        "commandId" -> commandUUID,
+        "commands" -> commands,
       )
-    ) // FIXME:
+    )
 
     (commandUUID, SubmitRequest(commands = Some(commandsArg)))
   }
@@ -514,8 +514,8 @@ class Runner(
             }
             case _ =>
               logger.error("Unrecognised TriggerF step")(
-                loggingContext.enrichTriggerContext("variant" -> LoggingValue.OfString(variant))
-              ) // FIXME:
+                loggingContext.enrichTriggerContext("variant" -> variant)
+              )
               throw new ConverterException(s"unrecognized TriggerF step $variant")
           }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
         case Right(Left(newState)) => Left(-\/(newState))
@@ -548,12 +548,9 @@ class Runner(
             loggingContext.enrichTriggerContext(
               "failure" -> LoggingValue.Nested(
                 LoggingEntries(
-                  "commandId" -> LoggingValue.OfString(failure.commandId),
-                  "status" -> LoggingValue.OfInt(
-                    failure.s.getStatus.getCode
-                      .value()
-                  ),
-                  "message" -> LoggingValue.OfString(failure.s.getStatus.getDescription),
+                  "commandId" -> failure.commandId,
+                  "status" -> failure.s.getStatus.getCode.value(),
+                  "message" -> failure.s.getStatus.getDescription,
                 )
               )
             )
@@ -590,9 +587,9 @@ class Runner(
               .enrichTriggerContext(
                 "completionMsg" -> LoggingValue.Nested(
                   LoggingEntries(
-                    "commandId" -> LoggingValue.OfString(commandId),
-                    "status" -> LoggingValue.OfInt(s.getStatus.getCode.value()),
-                    "message" -> LoggingValue.OfString(s.getStatus.getDescription),
+                    "commandId" -> commandId,
+                    "status" -> s.getStatus.getCode.value(),
+                    "message" -> s.getStatus.getDescription,
                   )
                 )
               )
@@ -610,14 +607,8 @@ class Runner(
             value =>
               LoggingValue.Nested(
                 LoggingEntries(
-                  "templateIds" -> LoggingValue.OfIterable(
-                    value.getInclusive.templateIds.map(id => LoggingValue.OfString(id.toString))
-                  ),
-                  "interfaceIds" -> LoggingValue.OfIterable(
-                    value.getInclusive.interfaceFilters.map(i =>
-                      LoggingValue.OfString(i.getInterfaceId.toString)
-                    )
-                  ),
+                  "templateIds" -> value.getInclusive.templateIds,
+                  "interfaceIds" -> value.getInclusive.interfaceFilters.map(_.getInterfaceId),
                 )
               )
           }.toSeq: _*))
@@ -630,37 +621,34 @@ class Runner(
             loggingContext.enrichTriggerContext(
               "transactionMsg" -> LoggingValue.Nested(
                 LoggingEntries(
-                  "transactionId" -> LoggingValue.OfString(transaction.transactionId),
-                  "commandId" -> LoggingValue.OfString(transaction.commandId),
-                  "workflowId" -> LoggingValue.OfString(transaction.workflowId),
-                  "offset" -> LoggingValue.OfString(transaction.offset),
+                  "transactionId" -> transaction.transactionId,
+                  "commandId" -> transaction.commandId,
+                  "workflowId" -> transaction.workflowId,
+                  "offset" -> transaction.offset,
                   "events" -> LoggingValue.OfIterable(transaction.events.collect {
                     case Event(Event.Event.Created(created)) =>
                       LoggingValue.Nested(
                         LoggingEntries(
                           "type" -> "CreatedEvent",
-                          "id" -> LoggingValue.OfString(created.eventId),
-                          "contractId" -> LoggingValue.OfString(created.contractId),
-                          "templateId" -> LoggingValue.OfString(created.getTemplateId.toString),
-                          "interfaceViews" -> LoggingValue.OfIterable(created.interfaceViews.map {
-                            view =>
+                          "id" -> created.eventId,
+                          "contractId" -> created.contractId,
+                          "templateId" -> created.getTemplateId,
+                          "interfaceViews" -> LoggingValue.OfIterable(
+                            created.interfaceViews.map(view =>
                               LoggingValue.Nested(
                                 LoggingEntries(
-                                  "interfaceId" -> LoggingValue
-                                    .OfString(view.getInterfaceId.toString),
-                                  "viewStatus" -> LoggingValue.OfString(view.getViewStatus.toString),
+                                  "interfaceId" -> view.getInterfaceId,
+                                  "viewStatus" -> view.getViewStatus,
                                 )
                               )
-                          }),
-                          "witnessParties" -> LoggingValue
-                            .OfIterable(created.witnessParties.map(LoggingValue.OfString)),
-                          "signatories" -> LoggingValue
-                            .OfIterable(created.signatories.map(LoggingValue.OfString)),
-                          "observers" -> LoggingValue
-                            .OfIterable(created.observers.map(LoggingValue.OfString)),
+                            )
+                          ),
+                          "witnessParties" -> created.witnessParties,
+                          "signatories" -> created.signatories,
+                          "observers" -> created.observers,
                         ) ++ created.contractKey.fold(LoggingEntries.empty) { contractKey =>
                           LoggingEntries(
-                            "contractKey" -> LoggingValue.OfString(contractKey.toString)
+                            "contractKey" -> contractKey
                           )
                         }
                       )
@@ -669,11 +657,10 @@ class Runner(
                       LoggingValue.Nested(
                         LoggingEntries(
                           "type" -> "ArchivedEvent",
-                          "id" -> LoggingValue.OfString(archived.eventId),
-                          "contractId" -> LoggingValue.OfString(archived.contractId),
-                          "templateId" -> LoggingValue.OfString(archived.getTemplateId.toString),
-                          "witnessParties" -> LoggingValue
-                            .OfIterable(archived.witnessParties.map(LoggingValue.OfString)),
+                          "id" -> archived.eventId,
+                          "contractId" -> archived.contractId,
+                          "templateId" -> archived.getTemplateId,
+                          "witnessParties" -> archived.witnessParties,
                         )
                       )
                   }),
@@ -697,9 +684,9 @@ class Runner(
             loggingContext.enrichTriggerContext(
               "completionMsg" -> LoggingValue.Nested(
                 LoggingEntries(
-                  "commandId" -> LoggingValue.OfString(c.commandId),
-                  "status" -> LoggingValue.OfInt(c.getStatus.code),
-                  "message" -> LoggingValue.OfString(c.getStatus.message),
+                  "commandId" -> c.commandId,
+                  "status" -> c.getStatus.code,
+                  "message" -> c.getStatus.message,
                 )
               )
             )
@@ -714,9 +701,7 @@ class Runner(
     val heartbeatSource: Source[TriggerMsg, NotUsed] = heartbeat match {
       case Some(interval) =>
         logger.info("Heartbeat source configured")(
-          loggingContext.enrichTriggerContext(
-            "heartbeat" -> LoggingValue.OfString(interval.toString)
-          )
+          loggingContext.enrichTriggerContext("heartbeat" -> interval)
         )
         Source
           .tick[TriggerMsg](interval, interval, HeartbeatMsg())
@@ -795,8 +780,8 @@ class Runner(
             loggingContext.enrichTriggerContext(
               "failure" -> LoggingValue.Nested(
                 LoggingEntries(
-                  "message" -> LoggingValue.OfString(status.message),
-                  "code" -> LoggingValue.OfInt(status.code),
+                  "message" -> status.message,
+                  "code" -> status.code,
                 )
               )
             )
@@ -830,8 +815,8 @@ class Runner(
         freeTriggerSubmits(clientTime, initialStateFree)
           .leftMap { state =>
             logger.debug("Trigger rule initial state")(
-              loggingContext.enrichTriggerContext("state" -> LoggingValue.OfString(state.toString))
-            ) // FIXME:
+              loggingContext.enrichTriggerContext("state" -> state)
+            )
             state
           }
       )
@@ -839,10 +824,10 @@ class Runner(
     val runRuleOnMsgs = flatMapConcatNode { (state: SValue, messageVal: SValue) =>
       logger.debug("Trigger rule evaluation")(
         loggingContext.enrichTriggerContext(
-          "state" -> LoggingValue.OfString(state.toString),
-          "message" -> LoggingValue.OfString(messageVal.toString),
+          "state" -> state,
+          "message" -> messageVal,
         )
-      ) // FIXME:
+      )
 
       val clientTime: Timestamp =
         Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
@@ -865,10 +850,8 @@ class Runner(
             "TriggerRule new state",
             { case DamlTuple2(SUnit, newState) =>
               logger.debug("Trigger rule state updated")(
-                loggingContext.enrichTriggerContext(
-                  "state" -> LoggingValue.OfString(newState.toString)
-                )
-              ) // FIXME:
+                loggingContext.enrichTriggerContext("state" -> newState)
+              )
               newState
             },
           ).orConverterException
@@ -933,7 +916,8 @@ class Runner(
     SEApp(func, values)
   }
 
-  private[this] def makeAppD(func: SValue, values: SValue*) = makeApp(SEValue(func), values.toArray)
+  private[this] def makeAppD(func: SValue, values: SValue*): SExpr =
+    makeApp(SEValue(func), values.toArray)
 
   // Query the ACS. This allows you to separate the initialization of
   // the initial state from the first run.
@@ -943,7 +927,7 @@ class Runner(
   ): Future[(Seq[CreatedEvent], LedgerOffset)] = {
     for {
       acsResponses <- client.activeContractSetClient
-        .getActiveContracts(transactionFilter, verbose = false)
+        .getActiveContracts(transactionFilter)
         .runWith(Sink.seq)
       offset = Array(acsResponses: _*).lastOption
         .fold(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))(resp =>
@@ -1004,9 +988,9 @@ class Runner(
         .map { request =>
           logger.warn("Due to excessive in-flight commands, failing submission request")(
             loggingContext.enrichTriggerContext(
-              "commandId" -> LoggingValue.OfString(request.getCommands.commandId),
-              "in-flight-commands" -> LoggingValue.OfInt(inFlightCommands.count),
-              "max-in-flight-commands" -> LoggingValue.OfInt(triggerConfig.maxInFlightCommands),
+              "commandId" -> request.getCommands.commandId,
+              "in-flight-commands" -> inFlightCommands.count,
+              "max-in-flight-commands" -> triggerConfig.maxInFlightCommands,
             )
           )
 
@@ -1097,6 +1081,31 @@ object Runner {
           .run(identity)
       }
     }
+
+    implicit def `FiniteDuration to LoggingValue`: ToLoggingValue[FiniteDuration] =
+      ToStringToLoggingValue
+
+    implicit def `value.Identifier to LoggingValue`: ToLoggingValue[V.Identifier] =
+      ToStringToLoggingValue
+
+    implicit def `Identifier to LoggingValue`: ToLoggingValue[Identifier] = ToStringToLoggingValue
+
+    implicit def `UUID to LoggingValue`: ToLoggingValue[UUID] = ToStringToLoggingValue
+
+    implicit def `VariantConName to LoggingValue`: ToLoggingValue[VariantConName] =
+      ToStringToLoggingValue
+
+    implicit def `Status to LoggingValue`: ToLoggingValue[Status] = ToStringToLoggingValue
+
+    // FIXME:
+    implicit def `value.Value to LoggingValue`: ToLoggingValue[V.Value] = ToStringToLoggingValue
+
+    // FIXME:
+    implicit def `SValue to LoggingValue`: ToLoggingValue[SValue] = ToStringToLoggingValue
+
+    // FIXME:
+    implicit def `Command to LoggingValue`: ToLoggingValue[Command] = value =>
+      LoggingValue.OfString(value.command.value.toString)
   }
 
   import Implicits._
@@ -1135,7 +1144,7 @@ object Runner {
       if (tries <= 1) {
         notRetryable(value).recoverWith { case error: Throwable =>
           logger.error("Failing permanently after exhausting submission retries")(
-            loggingContext.enrichTriggerContext("max-retries" -> LoggingValue.OfInt(initialTries))
+            loggingContext.enrichTriggerContext("max-retries" -> initialTries)
           )
           Future.failed(error)
         }
@@ -1151,9 +1160,9 @@ object Runner {
                 "Submission failed, will retry again with backoff"
               )(
                 loggingContext.enrichTriggerContext(
-                  "attempt" -> LoggingValue.OfInt(attempt),
-                  "max-retries" -> LoggingValue.OfInt(initialTries),
-                  "backoff-period" -> LoggingValue.OfString(backoffPeriod.toString),
+                  "attempt" -> attempt,
+                  "max-retries" -> initialTries,
+                  "backoff-period" -> backoffPeriod,
                 )
               )
 
@@ -1218,8 +1227,8 @@ object Runner {
         case Right(trigger) => trigger
       }
       val loggingContext = lc.enrichTriggerContext(
-        "level" -> LoggingValue.OfString(trigger.defn.level.toString),
-        "version" -> LoggingValue.OfString(trigger.defn.version.toString),
+        "level" -> trigger.defn.level.toString,
+        "version" -> trigger.defn.version.toString,
       )
       val runner =
         new Runner(

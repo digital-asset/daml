@@ -17,6 +17,7 @@ da_scala_library(
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_paiges_core",
     ],
