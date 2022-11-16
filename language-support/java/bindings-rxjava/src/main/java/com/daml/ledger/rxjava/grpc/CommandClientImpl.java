@@ -970,7 +970,8 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public <U> Single<U> submitAndWaitForResult(CommandsSubmission params, @NonNull Update<U> update) {
+  public <U> Single<U> submitAndWaitForResult(
+      CommandsSubmission params, @NonNull Update<U> update) {
     return submitAndWaitForResult(
         params.getWorkflowId(),
         params.getApplicationId(),

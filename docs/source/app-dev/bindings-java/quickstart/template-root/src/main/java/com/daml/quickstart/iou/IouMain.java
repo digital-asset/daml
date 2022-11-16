@@ -135,7 +135,8 @@ public class IouMain {
 
   private static <U> U submit(LedgerClient client, String party, Update<U> update) {
     var params =
-        CommandsSubmission.create(APP_ID, randomUUID().toString(), update.commands()).withActAs(party);
+        CommandsSubmission.create(APP_ID, randomUUID().toString(), update.commands())
+            .withActAs(party);
 
     return client.getCommandClient().submitAndWaitForResult(params, update).blockingGet();
   }
