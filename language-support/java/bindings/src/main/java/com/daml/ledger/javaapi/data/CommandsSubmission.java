@@ -17,7 +17,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 /**
  * This class should be used to build a valid submission. It provides {@link #create(String, String, List)}
  * for initial creation and extra builder methods for additional parameters
- * e.g {@link #withActAs(List)}, {@link #withWorkflowId(String)} e.t.c
+ * e.g {@link #withActAs(List)}, {@link #withWorkflowId(String)} etc.
  *
  * Usage:
  * <pre>
