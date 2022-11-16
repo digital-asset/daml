@@ -54,7 +54,7 @@ object OpenTelemetryMeterOwner {
       .registerView(
         histogramSelectorEndingWith(OpenTelemetryTimer.TimerUnitAndSuffix),
         explicitHistogramBucketsView(
-          Seq(0.01d, 0.025d, 0.050d, 0.075d, 0.1d, 0.15d, 0.2d, 0.25d, 0.35d, 0.5d, 0.75d, 1d, 2_5d,
+          Seq(0.01d, 0.025d, 0.050d, 0.075d, 0.1d, 0.15d, 0.2d, 0.25d, 0.35d, 0.5d, 0.75d, 1d, 2.5d,
             5d, 10d)
         ),
       )
