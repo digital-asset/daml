@@ -25,7 +25,6 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref._
-import com.daml.lf.engine.trigger.Runner.triggerAction
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
@@ -101,8 +100,6 @@ trait AbstractTriggerTest
       party: String,
       readAs: Set[String] = Set.empty,
   ): Runner = {
-    import Runner.Implicits._
-
     val triggerId = Identifier(packageId, name)
 
     Trigger.newLoggingContext(
@@ -112,30 +109,20 @@ trait AbstractTriggerTest
       "test-trigger",
       ApplicationId("test-trigger-app"),
     ) { implicit loggingContext: LoggingContextOf[Trigger] =>
-      loggingContext.withEnrichedTriggerContext(
-        triggerAction("trigger.setup")
-      ) { implicit loggingContext: LoggingContextOf[Trigger] =>
-        val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
+      val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
 
-        loggingContext
-          .withEnrichedTriggerContext(
-            "level" -> trigger.defn.level.toString,
-            "version" -> trigger.defn.version.toString,
-          ) { implicit loggingContext: LoggingContextOf[Trigger] =>
-            new Runner(
-              compiledPackages,
-              trigger,
-              DefaultTriggerRunnerConfig,
-              client,
-              config.participants(ParticipantId).apiServer.timeProviderType,
-              applicationId,
-              TriggerParties(
-                actAs = Party(party),
-                readAs = Party.subst(readAs),
-              ),
-            )
-          }
-      }
+      Runner(
+        compiledPackages,
+        trigger,
+        DefaultTriggerRunnerConfig,
+        client,
+        config.participants(ParticipantId).apiServer.timeProviderType,
+        applicationId,
+        TriggerParties(
+          actAs = Party(party),
+          readAs = Party.subst(readAs),
+        ),
+      )
     }
   }
 

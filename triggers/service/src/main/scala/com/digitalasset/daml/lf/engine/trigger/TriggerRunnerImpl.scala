@@ -195,7 +195,7 @@ object TriggerRunnerImpl {
           clientConfig,
           channelConfig,
         )
-        runner = new Runner(
+        runner = Runner(
           config.compiledPackages,
           config.trigger,
           config.triggerConfig,
