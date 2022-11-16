@@ -45,7 +45,7 @@ class CommandClientImplTest
 
   behavior of "[2.1] CommandClientImpl.submitAndWait"
 
-  it should "send the given command to the Ledger with new params" in {
+  it should "send the given command to the Ledger" in {
     withCommandClient() { (client, service) =>
       val commands = genCommands(List.empty)
       val params = CommandsSubmission
