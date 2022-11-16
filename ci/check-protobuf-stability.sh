@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-set -euo pipefail
+set -xeuo pipefail
 
 eval "$(dev-env/bin/dade assist)"
 
