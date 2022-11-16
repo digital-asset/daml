@@ -40,6 +40,25 @@ object FieldNames {
       )
   }
 
+  object IdentityProviderConfig {
+    val identityProviderId: String =
+      resolveFieldName(admin.identity_provider_config_service.IdentityProviderConfig)(
+        _.IDENTITY_PROVIDER_ID_FIELD_NUMBER
+      )
+    val issuer =
+      resolveFieldName(admin.identity_provider_config_service.IdentityProviderConfig)(
+        _.ISSUER_FIELD_NUMBER
+      )
+    val isDeactivated =
+      resolveFieldName(admin.identity_provider_config_service.IdentityProviderConfig)(
+        _.IS_DEACTIVATED_FIELD_NUMBER
+      )
+    val jwksUrl =
+      resolveFieldName(admin.identity_provider_config_service.IdentityProviderConfig)(
+        _.JWKS_URL_FIELD_NUMBER
+      )
+  }
+
   private def resolveFieldName[A <: GeneratedMessageCompanion[_]](
       companion: A
   )(getFieldNumberFun: A => Int): String = {

@@ -28,6 +28,10 @@ trait IdentityProviderConfigStore {
       loggingContext: LoggingContext
   ): Future[Result[Seq[IdentityProviderConfig]]]
 
+  def updateIdentityProviderConfig(update: IdentityProviderConfigUpdate)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[IdentityProviderConfig]]
+
 }
 object IdentityProviderConfigStore {
   type Result[T] = Either[Error, T]

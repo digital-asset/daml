@@ -7,11 +7,14 @@ import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.IdentityProviderConfig
 import com.daml.ledger.api.v1.admin.{identity_provider_config_service => proto}
+import com.daml.lf.data.Ref.IdentityProviderId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiIdentityProviderConfigService.toProto
+import com.daml.platform.apiserver.update
+import com.daml.platform.apiserver.update.IdentityProviderConfigUpdateMapper
 import com.daml.platform.localstore.api
-import com.daml.platform.localstore.api.IdentityProviderConfigStore
+import com.daml.platform.localstore.api.{IdentityProviderConfigStore, IdentityProviderConfigUpdate}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -75,7 +78,47 @@ class ApiIdentityProviderConfigService(
   override def updateIdentityProviderConfig(
       request: proto.UpdateIdentityProviderConfigRequest
   ): Future[proto.UpdateIdentityProviderConfigResponse] =
-    Future.successful(proto.UpdateIdentityProviderConfigResponse())
+    withValidation {
+      for {
+        config <- requirePresence(request.identityProviderConfig, "identity_provider_config")
+        identityProviderId <- requireIdentityProviderId(
+          config.identityProviderId,
+          "identity_provider_id",
+        )
+        jwksURL <- requireURL(config.jwksUrl, "jwks_uri")
+        issuer <- requireNonEmptyString(config.issuer, "issuer")
+        updateMask <- requirePresence(
+          request.updateMask,
+          "update_mask",
+        )
+      } yield (
+        IdentityProviderConfig(
+          identityProviderId,
+          config.isDeactivated,
+          jwksURL,
+          issuer,
+        ),
+        updateMask,
+      )
+    } { case (identityProviderConfig, updateMask) =>
+      for {
+        identityProviderConfigUpdate: IdentityProviderConfigUpdate <- handleUpdatePathResult(
+          identityProviderId = identityProviderConfig.identityProviderId,
+          IdentityProviderConfigUpdateMapper.toUpdate(
+            domainObject = identityProviderConfig,
+            updateMask = updateMask,
+          ),
+        )
+        updateResult <- identityProviderConfigStore.updateIdentityProviderConfig(
+          identityProviderConfigUpdate
+        )
+        updatedIdentityProviderConfig <- handleResult("deleting identity_provider_config")(
+          updateResult
+        )
+      } yield proto.UpdateIdentityProviderConfigResponse(
+        Some(toProto(updatedIdentityProviderConfig))
+      )
+    }
 
   override def listIdentityProviderConfigs(
       request: proto.ListIdentityProviderConfigsRequest
@@ -124,6 +167,21 @@ class ApiIdentityProviderConfigService(
     case scala.util.Right(t) =>
       Future.successful(t)
   }
+
+  private def handleUpdatePathResult[T](
+      identityProviderId: IdentityProviderId.Id,
+      result: update.Result[T],
+  ): Future[T] =
+    result match {
+      case Left(e: update.UpdatePathError) =>
+        Future.failed(
+          LedgerApiErrors.Admin.IdentityProviderConfig.InvalidUpdateIdentityProviderConfigRequest
+            .Reject(identityProviderId.value, reason = e.getReason)
+            .asGrpcError
+        )
+      case Right(t) =>
+        Future.successful(t)
+    }
 
   override def close(): Unit = ()
 

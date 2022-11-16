@@ -4,10 +4,34 @@
 package com.daml.error.definitions.groups
 
 import com.daml.error._
-import com.daml.error.definitions.DamlErrorWithDefiniteAnswer
+import com.daml.error.definitions.{DamlError, DamlErrorWithDefiniteAnswer}
 
 object IdentityProviderConfigServiceErrorGroup
     extends AdminServices.IdentityProviderConfigServiceErrorGroup {
+
+  @Explanation(
+    "There was an attempt to update an identity provider config using an invalid update request."
+  )
+  @Resolution(
+    """|Inspect the error details for specific information on what made the request invalid.
+       |Retry with an adjusted update request."""
+  )
+  object InvalidUpdateIdentityProviderConfigRequest
+      extends ErrorCode(
+        id = "INVALID_IDENTITY_PROVIDER_UPDATE_REQUEST",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    case class Reject(identityProviderId: String, reason: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlError(
+          cause =
+            s"Update operation for identity provider config '$identityProviderId' failed due to: $reason"
+        ) {
+      override def resources: Seq[(ErrorResource, String)] = Seq(
+        ErrorResource.IdentityProviderConfig -> identityProviderId
+      )
+    }
+  }
 
   @Explanation("The identity provider config referred to by the request was not found.")
   @Resolution(

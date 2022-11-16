@@ -50,4 +50,26 @@ protected[update] object UpdateRequestsPaths {
       .getOrElse(sys.error("Failed to create full update user tree. This should never happen"))
   }
 
+  object IdentityProviderConfigPaths {
+    val identityProviderId: List[String] = List(
+      FieldNames.IdentityProviderConfig.identityProviderId
+    )
+    val isDeactivated: List[String] = List(FieldNames.IdentityProviderConfig.isDeactivated)
+    val jwksUrl: List[String] = List(FieldNames.IdentityProviderConfig.jwksUrl)
+    val issuer: List[String] = List(FieldNames.IdentityProviderConfig.issuer)
+    val fullUpdateTrie: UpdatePathsTrie = UpdatePathsTrie
+      .fromPaths(
+        Seq(
+          identityProviderId,
+          isDeactivated,
+          jwksUrl,
+          issuer,
+        )
+      )
+      .getOrElse(
+        sys.error(
+          "Failed to create full update identity provider config tree. This should never happen"
+        )
+      )
+  }
 }

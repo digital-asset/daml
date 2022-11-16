@@ -8,8 +8,8 @@ import com.daml.ledger.api.domain.IdentityProviderConfig
 import com.daml.lf.data.Ref.IdentityProviderId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.localstore.api.IdentityProviderConfigStore
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.Result
+import com.daml.platform.localstore.api.{IdentityProviderConfigStore, IdentityProviderConfigUpdate}
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader
 import com.github.benmanes.caffeine.{cache => caffeine}
 
@@ -99,6 +99,12 @@ class CachedIdentityProviderConfigStore(
   override def listIdentityProviderConfigs()(implicit
       loggingContext: LoggingContext
   ): Future[Result[Seq[IdentityProviderConfig]]] = listCache.get(CaffeineCache)
+
+  override def updateIdentityProviderConfig(update: IdentityProviderConfigUpdate)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[IdentityProviderConfig]] = delegate
+    .updateIdentityProviderConfig(update)
+    .andThen(invalidateOnSuccess(update.identityProviderId))
 
   private def invalidateOnSuccess(
       id: IdentityProviderId.Id

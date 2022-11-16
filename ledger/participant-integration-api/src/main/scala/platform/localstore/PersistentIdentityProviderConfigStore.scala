@@ -7,12 +7,12 @@ import com.daml.ledger.api.domain
 import com.daml.lf.data.Ref.IdentityProviderId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
-import com.daml.platform.localstore.api.IdentityProviderConfigStore
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
   IdentityProviderConfigExists,
   IdentityProviderConfigWithIssuerExists,
   Result,
 }
+import com.daml.platform.localstore.api.{IdentityProviderConfigStore, IdentityProviderConfigUpdate}
 import com.daml.platform.store.DbSupport
 
 import java.sql.Connection
@@ -73,6 +73,27 @@ class PersistentIdentityProviderConfigStore(
     inTransaction(_.deleteIDPConfig) { implicit connection =>
       Right(backend.listIdentityProviderConfigs()(connection))
     }
+  }
+
+  override def updateIdentityProviderConfig(update: IdentityProviderConfigUpdate)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[domain.IdentityProviderConfig]] = {
+    inTransaction(_.updateIDPConfig) { implicit connection =>
+      for {
+        _ <- withIDPConfig(update.identityProviderId) { _ =>
+          update.issuerUpdate.foreach(backend.updateIssuer(update.identityProviderId, _)(connection))
+          update.jwksUrlUpdate.foreach(backend.updateJwksURL(update.identityProviderId, _)(connection))
+          update.isDeactivatedUpdate.foreach(backend.updateIsDeactivated(update.identityProviderId, _)(connection))
+        }
+        domainConfig <- withIDPConfig(update.identityProviderId)(identity)
+      } yield {
+        domainConfig
+      }
+    }.map(tapSuccess { _ =>
+      logger.info(
+        s"Updated identity provider configuration with id ${update.identityProviderId}"
+      )
+    })
   }
 
   private def inTransaction[T](

@@ -6,6 +6,7 @@ package com.daml.platform.store.backend.localstore
 import com.daml.ledger.api.domain.IdentityProviderConfig
 import com.daml.lf.data.Ref
 
+import java.net.URL
 import java.sql.Connection
 
 trait IdentityProviderStorageBackend extends IdentityProviderCheckStorageBackend {
@@ -22,6 +23,16 @@ trait IdentityProviderStorageBackend extends IdentityProviderCheckStorageBackend
   def listIdentityProviderConfigs()(
       connection: Connection
   ): Vector[IdentityProviderConfig]
+
+  def updateIssuer(id: Ref.IdentityProviderId.Id, newIssuer: String)(
+      connection: Connection
+  ): Boolean
+
+  def updateJwksURL(id: Ref.IdentityProviderId.Id, jwksURL: URL)(
+      connection: Connection
+  ): Boolean
+
+  def updateIsDeactivated(id: Ref.IdentityProviderId.Id, isDeactivated: Boolean)(connection: Connection): Boolean
 
   def idpConfigByIssuerExists(issuer: String)(connection: Connection): Boolean
 

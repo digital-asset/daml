@@ -177,7 +177,6 @@ class PersistentUserManagementStore(
             // NOTE: We starts by writing to the 'resource_version' attribute
             //       of 'participant_users' to effectively obtain an exclusive lock for
             //       updating this user for the rest of the transaction.
-            userUpdate.identityProviderIdUpdate.foreach(checkIdentityProviderExists(_)(connection))
             userUpdate.metadataUpdate.resourceVersionO match {
               case Some(expectedResourceVersion) =>
                 if (
@@ -234,6 +233,7 @@ class PersistentUserManagementStore(
               )(connection)
             }
             userUpdate.identityProviderIdUpdate.foreach { newValue =>
+              checkIdentityProviderExists(newValue)(connection)
               backend.updateUserIdentityProviderId(
                 internalId = dbUser.internalId,
                 identityProviderId = newValue.toDb,

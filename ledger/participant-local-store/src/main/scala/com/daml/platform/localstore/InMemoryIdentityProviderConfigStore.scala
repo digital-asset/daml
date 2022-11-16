@@ -7,11 +7,11 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.IdentityProviderConfig
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.localstore.api.IdentityProviderConfigStore
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
   IdentityProviderConfigNotFound,
   Result,
 }
+import com.daml.platform.localstore.api.{IdentityProviderConfigStore, IdentityProviderConfigUpdate}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
@@ -44,5 +44,11 @@ class InMemoryIdentityProviderConfigStore extends IdentityProviderConfigStore {
       loggingContext: LoggingContext
   ): Future[Result[Seq[domain.IdentityProviderConfig]]] = {
     Future.successful(Right(state.values.toSeq))
+  }
+
+  override def updateIdentityProviderConfig(update: IdentityProviderConfigUpdate)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[IdentityProviderConfig]] = {
+    ??? // TODO DPP-1299 implement :(((
   }
 }
