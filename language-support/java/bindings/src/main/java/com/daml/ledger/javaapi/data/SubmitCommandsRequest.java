@@ -302,7 +302,7 @@ public final class SubmitCommandsRequest {
         commandsSubmission.getMinLedgerTimeRel(),
         commandsSubmission.getDeduplicationTime(),
         Optional.empty(),
-        (List<Command>) commandsSubmission.getCommands()); // TODO: remove cast
+        (List<Command>) commandsSubmission.getCommands()); // TODO: remove this horrible cast
   }
 
   /**
@@ -352,7 +352,7 @@ public final class SubmitCommandsRequest {
         commandsSubmission.getMinLedgerTimeRel(),
         commandsSubmission.getDeduplicationTime(),
         Optional.of(submissionId),
-        (List<Command>) commandsSubmission.getCommands());
+        (List<Command>) commandsSubmission.getCommands()); //todo remove this horrible cast
   }
 
   /**
