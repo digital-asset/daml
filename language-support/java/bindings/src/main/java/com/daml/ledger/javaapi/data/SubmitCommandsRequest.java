@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 public final class SubmitCommandsRequest {
@@ -209,34 +210,9 @@ public final class SubmitCommandsRequest {
         listOfCommands);
   }
 
-//  private static CommandsOuterClass.Commands toProto(
-//      @NonNull String ledgerId,
-//      @NonNull Optional<String> workflowId,
-//      @NonNull String applicationId,
-//      @NonNull String commandId,
-//      @NonNull List<@NonNull String> actAs,
-//      @NonNull List<@NonNull String> readAs,
-//      @NonNull Optional<Instant> minLedgerTimeAbsolute,
-//      @NonNull Optional<Duration> minLedgerTimeRelative,
-//      @NonNull Optional<Duration> deduplicationTime,
-//      @NonNull Optional<String> submissionId,
-//      @NonNull List<@NonNull Command> commands){
-//    return toProto(
-//        ledgerId,
-//        workflowId.orElse(""),
-//        applicationId,
-//        commandId,
-//        actAs,
-//        readAs,
-//        minLedgerTimeAbsolute,
-//        minLedgerTimeRelative,
-//        deduplicationTime,
-//        submissionId,
-//        commands
-//    );
-//  }
-
-  //TODO: Refactor this to take Optional for workflowId when deprecated methods using it below are removed.
+  // TODO: Refactor this to take Optional for workflowId when deprecated methods using it below are
+  // removed.
+  @Deprecated
   private static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -286,6 +262,73 @@ public final class SubmitCommandsRequest {
                       .setNanos(dedup.getNano()));
         });
     submissionId.ifPresent(builder::setSubmissionId);
+    return builder.build();
+  }
+
+  private static CommandsOuterClass.Commands toProto(
+      @NonNull String ledgerId,
+      @NonNull Optional<String> submissionId,
+      @NonNull CommandsSubmission commandsSubmission) {
+
+    if (commandsSubmission.getActAs().size() == 0) {
+      throw new IllegalArgumentException("actAs must have at least one element");
+    }
+    ArrayList<CommandsOuterClass.Command> commandsConverted =
+        new ArrayList<>(commandsSubmission.getCommands().size());
+
+    // TODO: there has to be a better way!
+    List<Command> commands =
+        commandsSubmission.getCommands().stream()
+            .map(c -> (Command) c)
+            .collect(Collectors.toList());
+
+    for (Command command : commands) {
+      commandsConverted.add(command.toProtoCommand());
+    }
+
+    CommandsOuterClass.Commands.Builder builder =
+        CommandsOuterClass.Commands.newBuilder()
+            .setLedgerId(ledgerId)
+            .setApplicationId(commandsSubmission.getApplicationId())
+            .setCommandId(commandsSubmission.getCommandId())
+            .setParty(commandsSubmission.getActAs().get(0))
+            .addAllActAs(commandsSubmission.getActAs())
+            .addAllReadAs(commandsSubmission.getReadAs())
+            .addAllCommands(commandsConverted);
+
+    commandsSubmission
+        .getMinLedgerTimeAbs()
+        .ifPresent(
+            abs ->
+                builder.setMinLedgerTimeAbs(
+                    Timestamp.newBuilder()
+                        .setSeconds(abs.getEpochSecond())
+                        .setNanos(abs.getNano())));
+
+    commandsSubmission
+        .getMinLedgerTimeRel()
+        .ifPresent(
+            rel ->
+                builder.setMinLedgerTimeRel(
+                    com.google.protobuf.Duration.newBuilder()
+                        .setSeconds(rel.getSeconds())
+                        .setNanos(rel.getNano())));
+
+    commandsSubmission
+        .getDeduplicationTime()
+        .ifPresent(
+            dedup -> {
+              @SuppressWarnings("deprecation")
+              var unused =
+                  builder.setDeduplicationTime(
+                      com.google.protobuf.Duration.newBuilder()
+                          .setSeconds(dedup.getSeconds())
+                          .setNanos(dedup.getNano()));
+            });
+
+    commandsSubmission.getWorkflowId().ifPresent(builder::setWorkflowId);
+    submissionId.ifPresent(builder::setSubmissionId);
+
     return builder.build();
   }
 
@@ -352,7 +395,7 @@ public final class SubmitCommandsRequest {
         commandsSubmission.getMinLedgerTimeRel(),
         commandsSubmission.getDeduplicationTime(),
         Optional.of(submissionId),
-        (List<Command>) commandsSubmission.getCommands()); //todo remove this horrible cast
+        (List<Command>) commandsSubmission.getCommands()); // todo remove this horrible cast
   }
 
   /**
