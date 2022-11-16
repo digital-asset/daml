@@ -82,7 +82,7 @@ final class SigningInterceptorSpec extends AsyncFlatSpec with Matchers with Insi
           expectedCommandId,
           singletonList(Command.fromProtoCommand(command)),
         )
-        .withParty(expectedParty)
+        .withActAs(expectedParty)
 
       client.getCommandClient
         .submitAndWait(params)

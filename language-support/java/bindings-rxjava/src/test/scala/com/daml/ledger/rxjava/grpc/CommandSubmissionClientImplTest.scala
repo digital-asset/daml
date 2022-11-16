@@ -44,7 +44,7 @@ class CommandSubmissionClientImplTest
 
       val params = CommandsSubmission
         .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
-        .withParty(commands.getParty)
+        .withActAs(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
         .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
         .withDeduplicationTime(commands.getDeduplicationTime)
@@ -77,7 +77,7 @@ class CommandSubmissionClientImplTest
       val params = CommandsSubmission
         .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
         .withWorkflowId(commands.getWorkflowId)
-        .withParty(commands.getParty)
+        .withActAs(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
         .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
         .withDeduplicationTime(commands.getDeduplicationTime)
@@ -133,7 +133,7 @@ class CommandSubmissionClientImplTest
 
     val params = CommandsSubmission
       .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
-      .withParty(commands.getParty)
+      .withActAs(commands.getParty)
       .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
       .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
       .withDeduplicationTime(commands.getDeduplicationTime)

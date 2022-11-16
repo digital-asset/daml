@@ -132,12 +132,12 @@ public class CommandsSubmission {
         accessToken);
   }
 
-  public CommandsSubmission withParty(String party) {
+  public CommandsSubmission withActAs(String actAs) {
     return new CommandsSubmission(
         workflowId,
         applicationId,
         commandId,
-        singletonList(party),
+        singletonList(actAs),
         readAs,
         minLedgerTimeAbs,
         minLedgerTimeRel,

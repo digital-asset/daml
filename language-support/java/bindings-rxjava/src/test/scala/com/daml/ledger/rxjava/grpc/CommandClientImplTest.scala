@@ -54,7 +54,7 @@ class CommandClientImplTest
       val commands = genCommands(List.empty)
       val params = CommandsSubmission
         .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
-        .withParty(commands.getParty)
+        .withActAs(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
         .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
         .withDeduplicationTime(commands.getDeduplicationTime)
@@ -80,7 +80,7 @@ class CommandClientImplTest
       val params = CommandsSubmission
         .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
         .withWorkflowId(commands.getWorkflowId)
-        .withParty(commands.getParty)
+        .withActAs(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
         .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
         .withDeduplicationTime(commands.getDeduplicationTime)
@@ -138,7 +138,7 @@ class CommandClientImplTest
         randomUUID().toString,
         token.fold(dummyCommands)(_ => commands),
       )
-      .withParty(party)
+      .withActAs(party)
       .withAccessToken(Optional.ofNullable(token.orNull))
 
     submit(params).timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS).blockingGet()
