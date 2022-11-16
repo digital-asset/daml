@@ -22,8 +22,9 @@ import io.netty.handler.ssl.ClientAuth
 import org.scalatest.Assertion
 import org.scalatest.exceptions.ModifiableMessage
 import org.scalatest.wordspec.AsyncWordSpec
-
 import java.io.File
+
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
 abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
@@ -78,7 +79,7 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
     List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
       new File(rlocation("ledger/test-common/test-certificates/" + src))
     }
-  }
+  }: @nowarn("msg=match may not be exhaustive")
 
   override protected def config: Config =
     super.config.copy(

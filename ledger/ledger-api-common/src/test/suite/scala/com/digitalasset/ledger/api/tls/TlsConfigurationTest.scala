@@ -10,12 +10,13 @@ import org.apache.commons.io.IOUtils
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-
 import java.io.{File, InputStream}
 import java.net.ConnectException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.security.Security
+
+import scala.annotation.nowarn
 
 class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfterEach {
 
@@ -35,7 +36,7 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
     List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
       new File(rlocation("ledger/test-common/test-certificates/" + src))
     }
-  }
+  }: @nowarn("msg=match may not be exhaustive")
 
   println(clientCertChainFilePath)
   println(clientPrivateKeyFilePath)

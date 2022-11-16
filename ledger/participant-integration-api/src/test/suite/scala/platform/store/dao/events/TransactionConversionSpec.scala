@@ -10,8 +10,12 @@ import com.daml.platform.store.dao.events.TransactionConversion.removeTransient
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.nowarn
+
 final class TransactionConversionSpec extends AnyWordSpec with Matchers {
-  private val List(contractId1, contractId2) = List.fill(2)(TransactionBuilder.newCid)
+  private val List(contractId1, contractId2) = List.fill(2)(TransactionBuilder.newCid): @nowarn(
+    "msg=match may not be exhaustive"
+  )
 
   private def create(contractId: Value.ContractId): Event =
     Event.of(

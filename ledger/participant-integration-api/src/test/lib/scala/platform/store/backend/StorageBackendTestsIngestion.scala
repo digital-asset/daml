@@ -10,6 +10,7 @@ import org.scalatest.{Inside, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 import scala.util.Random
@@ -143,7 +144,7 @@ private[backend] trait StorageBackendTestsIngestion
   ) { connections =>
     import scala.concurrent.ExecutionContext.Implicits.global
 
-    val List(connection1, connection2) = connections
+    val List(connection1, connection2) = connections: @nowarn("msg=match may not be exhaustive")
     def packageFor(n: Int): DbDto.Package =
       dtoPackage(offset(n.toLong))
         .copy(

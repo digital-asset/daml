@@ -30,14 +30,15 @@ class HmacSha256Spec extends AnyWordSpec with Matchers {
     "compute MAC" in {
       val expected = "uFfrKWtNvoMl-GdCBrotl33cTFOqLeF8EjaooomUKOw="
       val key = MeteringReportKey.communityKey()
-      val Right(mac) = HmacSha256.compute(key, "some message".getBytes(StandardCharsets.UTF_8))
-      val actual = toBase64(mac)
-      actual shouldBe expected
+      HmacSha256.compute(key, "some message".getBytes(StandardCharsets.UTF_8)).map { mac =>
+        val actual = toBase64(mac)
+        actual shouldBe expected
+      }
     }
 
     "fail if key is invalid" in {
       val key = Key("invalid", Bytes(Array.empty), "")
-      val Left(_) = HmacSha256.compute(key, "some message".getBytes(StandardCharsets.UTF_8))
+      HmacSha256.compute(key, "some message".getBytes(StandardCharsets.UTF_8)).isLeft shouldBe true
     }
 
     "generate key" in {

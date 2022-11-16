@@ -177,8 +177,7 @@ class ContractStoreBasedMaximumLedgerTimeServiceSpec extends AsyncFlatSpec with 
         contractId3,
         contractId4,
       )
-    ).map { result =>
-      val MaximumLedgerTime.Archived(archivedResults) = result
+    ).collect { case MaximumLedgerTime.Archived(archivedResults) =>
       archivedResults.size shouldBe 1
       val archivedResult = archivedResults.head
       Set(contractId1, contractId3) should contain(archivedResult)
@@ -198,8 +197,7 @@ class ContractStoreBasedMaximumLedgerTimeServiceSpec extends AsyncFlatSpec with 
         contractId3,
         contractId4,
       )
-    ).map { result =>
-      val MaximumLedgerTime.Archived(archivedResults) = result
+    ).collect { case MaximumLedgerTime.Archived(archivedResults) =>
       archivedResults.size shouldBe 1
       val archivedResult = archivedResults.head
       Set(contractId1, contractId2, contractId3, contractId4) should contain(archivedResult)
@@ -219,8 +217,7 @@ class ContractStoreBasedMaximumLedgerTimeServiceSpec extends AsyncFlatSpec with 
         contractId3,
         contractId4,
       )
-    ).map { result =>
-      val MaximumLedgerTime.Archived(archivedResults) = result
+    ).collect { case MaximumLedgerTime.Archived(archivedResults) =>
       archivedResults.size shouldBe 1
       val archivedResult = archivedResults.head
       Set(contractId1, contractId3) should contain(archivedResult)

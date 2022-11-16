@@ -398,11 +398,14 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     for {
       _ <- ledger.create(alice, WithObservers(alice, Seq(alice, bob)))
       contracts <- ledger.activeContracts(alice)
-      Seq(ce) = contracts
-    } yield assert(
-      ce.observers == Seq(bob),
-      s"Expected observers to only contain $bob, but received ${ce.observers}",
-    )
+    } yield {
+      contracts.foreach(ce =>
+        assert(
+          ce.observers == Seq(bob),
+          s"Expected observers to only contain $bob, but received ${ce.observers}",
+        )
+      )
+    }
   })
 
   test(

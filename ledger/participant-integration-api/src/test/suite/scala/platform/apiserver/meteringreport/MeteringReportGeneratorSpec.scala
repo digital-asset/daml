@@ -16,9 +16,10 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalapb.json4s.JsonFormat
 import spray.json._
-
 import java.time.Duration
 import java.time.temporal.ChronoUnit
+
+import scala.annotation.nowarn
 
 class MeteringReportGeneratorSpec extends AsyncWordSpec with Matchers {
 
@@ -45,7 +46,9 @@ class MeteringReportGeneratorSpec extends AsyncWordSpec with Matchers {
       applications = Seq(ApplicationReport(appIdA, 4), ApplicationReport(appIdB, 2)),
       check = None,
     )
-    val Right(signedReport) = JcsSigner.sign(report, testKey)
+    val Right(signedReport) = JcsSigner.sign(report, testKey): @nowarn(
+      "msg=match may not be exhaustive"
+    )
     val json = signedReport.toJson.compactPrint
     val struct: Struct = JsonFormat.parser.fromJsonString[Struct](json)
     struct
@@ -67,7 +70,14 @@ class MeteringReportGeneratorSpec extends AsyncWordSpec with Matchers {
       )
 
       val Right(actual) =
-        underTest.generate(request, from, Some(to), Some(appIdX), reportData, generationTime)
+        underTest.generate(
+          request,
+          from,
+          Some(to),
+          Some(appIdX),
+          reportData,
+          generationTime,
+        ): @nowarn("msg=match may not be exhaustive")
 
       actual.meteringReportJson.get.fields
         .get("check") shouldBe expected.meteringReportJson.get.fields.get("check")

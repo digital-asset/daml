@@ -9,6 +9,8 @@ import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
+
 private[backend] trait StorageBackendTestsCompletions
     extends Matchers
     with Inside
@@ -93,7 +95,8 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     completions should have length 2
-    val List(completionWithSubmissionId, completionWithoutSubmissionId) = completions
+    val List(completionWithSubmissionId, completionWithoutSubmissionId) =
+      completions: @nowarn("msg=match may not be exhaustive")
     completionWithSubmissionId.completions should have length 1
     completionWithSubmissionId.completions.head.submissionId should be(someSubmissionId)
     completionWithoutSubmissionId.completions should have length 1
@@ -124,7 +127,7 @@ private[backend] trait StorageBackendTestsCompletions
 
     completions should have length 2
     val List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =
-      completions
+      completions: @nowarn("msg=match may not be exhaustive")
     completionWithDeduplicationOffset.completions should have length 1
     completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should be(
       Some(anOffsetHex)
@@ -165,7 +168,7 @@ private[backend] trait StorageBackendTestsCompletions
 
     completions should have length 2
     val List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =
-      completions
+      completions: @nowarn("msg=match may not be exhaustive")
     completionWithDeduplicationOffset.completions should have length 1
     completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationDuration should be(
       Some(expectedDuration)

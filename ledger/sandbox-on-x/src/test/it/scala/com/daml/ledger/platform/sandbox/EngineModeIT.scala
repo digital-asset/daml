@@ -26,9 +26,10 @@ import com.google.protobuf
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-
 import java.nio.file.{Files, Path, Paths}
 import java.util.UUID
+
+import scala.annotation.nowarn
 import scala.util.{Failure, Success}
 
 class EngineModeIT
@@ -45,7 +46,7 @@ class EngineModeIT
       LanguageVersion.StableVersions.max,
       LanguageVersion.EarlyAccessVersions.max,
       LanguageVersion.DevVersions.max,
-    )
+    ): @nowarn("msg=match may not be exhaustive")
 
   private[this] val applicationId = ApplicationId("EngineModeIT")
 

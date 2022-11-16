@@ -4,6 +4,7 @@
 package com.daml.platform.store.cache
 
 import java.util.concurrent.Executors
+
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Time
@@ -18,6 +19,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
+import scala.annotation.nowarn
 import scala.collection.Searching.{Found, InsertionPoint}
 import scala.collection.{View, immutable}
 import scala.concurrent.duration.DurationInt
@@ -30,7 +32,7 @@ class InMemoryFanoutBufferSpec
   private val offsetIdx = Vector(2, 4, 6, 8, 10)
   private val BeginOffset = offset(0L)
   private val offsets @ Seq(offset1, offset2, offset3, offset4, offset5) =
-    offsetIdx.map(i => offset(i.toLong))
+    offsetIdx.map(i => offset(i.toLong)): @nowarn("msg=match may not be exhaustive")
 
   private val txAccepted1 = txAccepted(1L, offset1)
   private val txAccepted2 = txAccepted(2L, offset2)
@@ -39,7 +41,7 @@ class InMemoryFanoutBufferSpec
   private val bufferValues = Seq(txAccepted1, txAccepted2, txAccepted3, txAccepted4)
   private val txAccepted5 = txAccepted(5L, offset5)
   private val bufferElements @ Seq(entry1, entry2, entry3, entry4) =
-    offsets.zip(bufferValues)
+    offsets.zip(bufferValues): @nowarn("msg=match may not be exhaustive")
 
   private val LastOffset = offset4
   private val IdentityFilter: TransactionLogUpdate => Option[TransactionLogUpdate] = Some(_)
