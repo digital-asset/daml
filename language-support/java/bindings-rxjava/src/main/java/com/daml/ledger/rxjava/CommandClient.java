@@ -38,8 +38,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please use {@link
-   * #submitAndWait(CommandsBuilder)} instead
+   * This method has been deprecated as of [???]. Please use {@link #submitAndWait(CommandsBuilder)}
+   * instead
    *
    * @deprecated
    */
@@ -56,8 +56,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please use {@link
-   * #submitAndWait(CommandsBuilder)} instead
+   * This method has been deprecated as of [???]. Please use {@link #submitAndWait(CommandsBuilder)}
+   * instead
    *
    * @deprecated
    */
@@ -74,8 +74,8 @@ public interface CommandClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please use {@link
-   * #submitAndWait(CommandsBuilder)} instead
+   * This method has been deprecated as of [???]. Please use {@link #submitAndWait(CommandsBuilder)}
+   * instead
    *
    * @deprecated
    */
@@ -93,8 +93,8 @@ public interface CommandClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please use {@link
-   * #submitAndWait(CommandsBuilder)} instead
+   * This method has been deprecated as of [???]. Please use {@link #submitAndWait(CommandsBuilder)}
+   * instead
    *
    * @deprecated
    */
@@ -107,8 +107,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please use {@link
-   * #submitAndWait(CommandsBuilder)} instead
+   * This method has been deprecated as of [???]. Please use {@link #submitAndWait(CommandsBuilder)}
+   * instead
    *
    * @deprecated
    */
@@ -122,8 +122,8 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
   /**
-   * This method has been deprecated as of [???]. Please use {@link
-   * #submitAndWait(CommandsBuilder)} instead
+   * This method has been deprecated as of [???]. Please use {@link #submitAndWait(CommandsBuilder)}
+   * instead
    *
    * @deprecated
    */
@@ -137,8 +137,8 @@ public interface CommandClient {
       @NonNull String accessToken);
 
   /**
-   * This method has been deprecated as of [???]. Please use {@link
-   * #submitAndWait(CommandsBuilder)} instead
+   * This method has been deprecated as of [???]. Please use {@link #submitAndWait(CommandsBuilder)}
+   * instead
    *
    * @deprecated
    */
