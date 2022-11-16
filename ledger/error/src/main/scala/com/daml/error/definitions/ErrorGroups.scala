@@ -9,24 +9,24 @@ object ErrorGroups {
   val rootErrorClass: ErrorClass = ErrorClass.root()
 
   object ParticipantErrorGroup extends ErrorGroup()(rootErrorClass) {
-    @Explanation(
-      "Common errors raised in Daml services and components."
-    )
+
+    @Explanation("Common errors raised in Daml services and components.")
     object CommonErrors extends ErrorGroup()
+
     @Explanation("Errors raised by the Participant Index persistence layer.")
     object IndexErrors extends ErrorGroup() {
       object DatabaseErrors extends ErrorGroup()
     }
 
-    @Explanation(
-      "Errors raised by or forwarded by the Ledger API."
-    )
+    @Explanation("Errors raised by or forwarded by the Ledger API.")
     object LedgerApiErrors extends ErrorGroup() {
+
       @Explanation("Errors raised by Ledger API admin services.")
       object AdminServices extends ErrorGroup() {
         object UserManagementServiceErrorGroup extends ErrorGroup()
         object PartyManagementServiceErrorGroup extends ErrorGroup()
       }
+
       @Explanation("Authentication and authorization errors.")
       object AuthorizationChecks extends ErrorGroup()
 
@@ -40,14 +40,10 @@ object ErrorGroups {
       )
       object ConsistencyErrors extends ErrorGroup()
 
-      @Explanation(
-        "Errors raised by the Package Management Service on package uploads."
-      )
+      @Explanation("Errors raised by the Package Management Service on package uploads.")
       object PackageServiceError extends ErrorGroup()
 
-      @Explanation(
-        "Validation errors raised when evaluating requests in the Ledger API."
-      )
+      @Explanation("Validation errors raised when evaluating requests in the Ledger API.")
       object RequestValidation extends ErrorGroup()
 
       @Explanation(
