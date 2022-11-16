@@ -4,6 +4,7 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v1.CommandSubmissionServiceOuterClass;
+import com.daml.ledger.rxjava.grpc.CommandsSubmission;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -12,6 +13,29 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 public final class SubmitRequest {
 
+  public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
+      @NonNull String ledgerId, @NonNull CommandsSubmission commandsSubmission) {
+    return CommandSubmissionServiceOuterClass.SubmitRequest.newBuilder()
+        .setCommands(SubmitCommandsRequest.toProto(ledgerId, commandsSubmission))
+        .build();
+  }
+
+  public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
+      @NonNull String ledgerId,
+      @NonNull String submissionId,
+      @NonNull CommandsSubmission commandsSubmission) {
+    return CommandSubmissionServiceOuterClass.SubmitRequest.newBuilder()
+        .setCommands(SubmitCommandsRequest.toProto(ledgerId, submissionId, commandsSubmission))
+        .build();
+  }
+
+  /**
+   * Please use {@link #toProto(String, CommandsSubmission)}
+   *
+   * @deprecated
+   * @since 2.5
+   */
+  @Deprecated
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -37,6 +61,12 @@ public final class SubmitRequest {
         .build();
   }
 
+  /**
+   * Please use {@link #toProto(String, CommandsSubmission)}
+   *
+   * @deprecated
+   * @since 2.5
+   */
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -64,6 +94,12 @@ public final class SubmitRequest {
         .build();
   }
 
+  /**
+   * Please use {@link #toProto(String, String, CommandsSubmission)}
+   *
+   * @deprecated
+   * @since 2.5
+   */
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -91,6 +127,12 @@ public final class SubmitRequest {
         .build();
   }
 
+  /**
+   * Please use {@link #toProto(String, String, CommandsSubmission)}
+   *
+   * @deprecated
+   * @since 2.5
+   */
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,

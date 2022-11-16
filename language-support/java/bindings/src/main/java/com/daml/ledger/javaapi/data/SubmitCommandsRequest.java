@@ -7,6 +7,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
 
 import com.daml.ledger.api.v1.CommandsOuterClass;
+import com.daml.ledger.rxjava.grpc.CommandsSubmission;
 import com.google.protobuf.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
@@ -262,6 +263,22 @@ public final class SubmitCommandsRequest {
   }
 
   public static CommandsOuterClass.Commands toProto(
+      @NonNull String ledgerId, @NonNull CommandsSubmission commandsSubmission) {
+    return toProto(
+        ledgerId,
+        commandsSubmission.getWorkflowId(),
+        commandsSubmission.getApplicationId(),
+        commandsSubmission.getCommandId(),
+        commandsSubmission.getActAs(),
+        commandsSubmission.getReadAs(),
+        commandsSubmission.getMinLedgerTimeAbs(),
+        commandsSubmission.getMinLedgerTimeRel(),
+        commandsSubmission.getDeduplicationTime(),
+        Optional.empty(),
+        (List<Command>) commandsSubmission.getCommands()); // TODO: remove cast
+  }
+
+  public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -284,6 +301,24 @@ public final class SubmitCommandsRequest {
         deduplicationTime,
         Optional.empty(),
         commands);
+  }
+
+  public static CommandsOuterClass.Commands toProto(
+      @NonNull String ledgerId,
+      @NonNull String submissionId,
+      @NonNull CommandsSubmission commandsSubmission) {
+    return toProto(
+        ledgerId,
+        commandsSubmission.getWorkflowId(),
+        commandsSubmission.getApplicationId(),
+        commandsSubmission.getCommandId(),
+        commandsSubmission.getActAs(),
+        commandsSubmission.getReadAs(),
+        commandsSubmission.getMinLedgerTimeAbs(),
+        commandsSubmission.getMinLedgerTimeRel(),
+        commandsSubmission.getDeduplicationTime(),
+        Optional.of(submissionId),
+        (List<Command>) commandsSubmission.getCommands());
   }
 
   public static CommandsOuterClass.Commands toProto(
