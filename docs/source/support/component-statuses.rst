@@ -124,17 +124,23 @@ Libraries
    * - ``bindings-rxjava`` :doc:`library and its public API </app-dev/bindings-java/index>`.
      - Stable
      -
-   * - Maven artifact ``daml-lf-1.6-archive-java-proto``
+   * -  ``daml-lf-1.6-archive-java-proto``
      - Stable
      -
-   * - Maven artifact ``daml-lf-1.7-archive-java-proto``
+   * -  ``daml-lf-1.7-archive-java-proto``
      - Stable
      -
-   * - Maven artifact ``daml-lf-1.8-archive-java-proto``
+   * -  ``daml-lf-1.8-archive-java-proto``
      - Stable
      -
-   * - Maven artifact ``daml-lf-dev-archive-java-proto``
+   * -  ``daml-lf-dev-archive-java-proto``
      - Alpha
+     -
+   * - **Python Ledger API Bindings**
+     -
+     -
+   * - ``dazl`` `library and its public API <https://digital-asset.github.io/dazl-client/>`_
+     - Stable
      -
    * - **JavaScript Client Libraries**
      -
