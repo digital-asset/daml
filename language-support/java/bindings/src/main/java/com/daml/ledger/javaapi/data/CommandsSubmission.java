@@ -4,6 +4,7 @@
 package com.daml.ledger.javaapi.data;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Optional.empty;
 
 import com.daml.ledger.javaapi.data.codegen.HasCommands;
@@ -90,11 +91,11 @@ public final class CommandsSubmission {
   }
 
   public List<String> getActAs() {
-    return actAs;
+    return unmodifiableList(actAs);
   }
 
   public List<String> getReadAs() {
-    return readAs;
+    return unmodifiableList(readAs);
   }
 
   public Optional<Instant> getMinLedgerTimeAbs() {
@@ -110,7 +111,7 @@ public final class CommandsSubmission {
   }
 
   public List<? extends HasCommands> getCommands() {
-    return commands;
+    return unmodifiableList(commands);
   }
 
   public Optional<String> getAccessToken() {
