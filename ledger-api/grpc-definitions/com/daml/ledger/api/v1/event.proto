@@ -88,7 +88,7 @@ message CreatedEvent {
   // of the event. If served as part of a flat transaction those will
   // be limited to all parties specified in the ``TransactionFilter`` that
   // are stakeholders of the contract (i.e. either signatories or observers).
-  // Required
+  // Optional, this field is filled only for transactions and not for transfers.
   repeated string witness_parties = 5;
 
   // The signatories for this contract as specified by the template.
