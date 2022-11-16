@@ -1,0 +1,48 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- regression test for https://github.com/digital-asset/daml/issues/15459
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+
+module InterfaceMethodInMethod where
+
+data IV = IV with
+  unit : ()
+
+interface I where
+  viewtype IV
+  im : Int -> Int
+
+data JV = JV with
+  iv : IV
+
+interface J where
+  viewtype JV
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+    interface instance I for T where
+      view = IV ()
+      im = succ
+
+    interface instance J for T where
+      -- using 'view' inside 'view' implementation
+      view = JV (view (toInterface @I this))
+
+template U
+  with
+    p : Party
+    t : T
+  where
+    signatory p, t.p
+
+    interface instance I for U where
+      view = IV ()
+      -- using method 'im' inside method 'im' implementation
+      im = (2 *) . im (toInterface @I t)
+
