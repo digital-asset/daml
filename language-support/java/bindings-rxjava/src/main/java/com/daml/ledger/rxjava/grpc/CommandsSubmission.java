@@ -21,13 +21,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  *
  * Usage:
  * <pre>
- *   var params = CommandsBuilder.create("applicationId", "commandId", commands)
+ *   var params = CommandsSubmission.create("applicationId", "commandId", commands)
  *                                   .withAccessToken("token")
  *                                   .withParty("party")
  *                                   .with...
  * <pre/>
  */
-public class CommandsBuilder {
+public class CommandsSubmission {
   private String applicationId;
   private String commandId;
   private List<@NonNull ? extends HasCommands> commands;
@@ -40,7 +40,7 @@ public class CommandsBuilder {
   private Optional<Duration> deduplicationTime;
   private Optional<String> accessToken;
 
-  private CommandsBuilder(
+  private CommandsSubmission(
       String workflowId,
       String applicationId,
       String commandId,
@@ -63,9 +63,9 @@ public class CommandsBuilder {
     this.accessToken = accessToken;
   }
 
-  public static CommandsBuilder create(
+  public static CommandsSubmission create(
       String applicationId, String commandId, List<@NonNull ? extends HasCommands> commands) {
-    return new CommandsBuilder(
+    return new CommandsSubmission(
         "",
         applicationId,
         commandId,
@@ -118,8 +118,8 @@ public class CommandsBuilder {
     return accessToken;
   }
 
-  public CommandsBuilder withWorkflowId(String workflowId) {
-    return new CommandsBuilder(
+  public CommandsSubmission withWorkflowId(String workflowId) {
+    return new CommandsSubmission(
         workflowId,
         applicationId,
         commandId,
@@ -132,8 +132,8 @@ public class CommandsBuilder {
         accessToken);
   }
 
-  public CommandsBuilder withParty(String party) {
-    return new CommandsBuilder(
+  public CommandsSubmission withParty(String party) {
+    return new CommandsSubmission(
         workflowId,
         applicationId,
         commandId,
@@ -146,8 +146,8 @@ public class CommandsBuilder {
         accessToken);
   }
 
-  public CommandsBuilder withActAs(List<@NonNull String> actAs) {
-    return new CommandsBuilder(
+  public CommandsSubmission withActAs(List<@NonNull String> actAs) {
+    return new CommandsSubmission(
         workflowId,
         applicationId,
         commandId,
@@ -160,8 +160,8 @@ public class CommandsBuilder {
         accessToken);
   }
 
-  public CommandsBuilder withReadAs(List<@NonNull String> readAs) {
-    return new CommandsBuilder(
+  public CommandsSubmission withReadAs(List<@NonNull String> readAs) {
+    return new CommandsSubmission(
         workflowId,
         applicationId,
         commandId,
@@ -174,8 +174,8 @@ public class CommandsBuilder {
         accessToken);
   }
 
-  public CommandsBuilder withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
-    return new CommandsBuilder(
+  public CommandsSubmission withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
+    return new CommandsSubmission(
         workflowId,
         applicationId,
         commandId,
@@ -188,8 +188,8 @@ public class CommandsBuilder {
         accessToken);
   }
 
-  public CommandsBuilder withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
-    return new CommandsBuilder(
+  public CommandsSubmission withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
+    return new CommandsSubmission(
         workflowId,
         applicationId,
         commandId,
@@ -202,8 +202,8 @@ public class CommandsBuilder {
         accessToken);
   }
 
-  public CommandsBuilder withDeduplicationTime(Optional<Duration> deduplicationTime) {
-    return new CommandsBuilder(
+  public CommandsSubmission withDeduplicationTime(Optional<Duration> deduplicationTime) {
+    return new CommandsSubmission(
         workflowId,
         applicationId,
         commandId,
@@ -216,8 +216,8 @@ public class CommandsBuilder {
         accessToken);
   }
 
-  public CommandsBuilder withCommands(List<@NonNull ? extends HasCommands> commands) {
-    return new CommandsBuilder(
+  public CommandsSubmission withCommands(List<@NonNull ? extends HasCommands> commands) {
+    return new CommandsSubmission(
         workflowId,
         applicationId,
         commandId,
@@ -230,8 +230,8 @@ public class CommandsBuilder {
         accessToken);
   }
 
-  public CommandsBuilder withAccessToken(Optional<String> accessToken) {
-    return new CommandsBuilder(
+  public CommandsSubmission withAccessToken(Optional<String> accessToken) {
+    return new CommandsSubmission(
         workflowId,
         applicationId,
         commandId,

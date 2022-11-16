@@ -52,7 +52,7 @@ class CommandClientImplTest
   it should "send the given command to the Ledger with new params" in {
     withCommandClient() { (client, service) =>
       val commands = genCommands(List.empty)
-      val params = CommandsBuilder
+      val params = CommandsSubmission
         .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
         .withParty(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
@@ -77,7 +77,7 @@ class CommandClientImplTest
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
       val commands = genCommands(List(command))
 
-      val params = CommandsBuilder
+      val params = CommandsSubmission
         .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
         .withWorkflowId(commands.getWorkflowId)
         .withParty(commands.getParty)
@@ -127,12 +127,12 @@ class CommandClientImplTest
     List(command).asJava
   }
 
-  private type SubmitAndWait[A] = CommandsBuilder => Single[A]
+  private type SubmitAndWait[A] = CommandsSubmission => Single[A]
 
   private def submitAndWaitFor[A](
       submit: SubmitAndWait[A]
   )(commands: java.util.List[Command], party: String, token: Option[String]) = {
-    val params = CommandsBuilder
+    val params = CommandsSubmission
       .create(
         randomUUID().toString,
         randomUUID().toString,

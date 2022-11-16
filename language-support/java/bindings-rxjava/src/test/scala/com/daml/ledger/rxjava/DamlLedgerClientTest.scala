@@ -17,7 +17,7 @@ import com.daml.ledger.api.v1.command_service.{
 }
 import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import com.daml.ledger.api.v1.package_service._
-import com.daml.ledger.rxjava.grpc.CommandsBuilder
+import com.daml.ledger.rxjava.grpc.CommandsSubmission
 import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import io.grpc.Server
@@ -153,7 +153,7 @@ class DamlLedgerClientTest
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
       val commands = genCommands(List(command), Option(someParty))
 
-      val params = CommandsBuilder
+      val params = CommandsSubmission
         .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
         .withParty(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
@@ -197,7 +197,7 @@ class DamlLedgerClientTest
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
       val commands = genCommands(List[Command](command), Option(someParty))
 
-      val params = CommandsBuilder
+      val params = CommandsSubmission
         .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
         .withParty(commands.getParty)
         .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
