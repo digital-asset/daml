@@ -389,10 +389,10 @@ CREATE UNIQUE INDEX participant_metering_from_to_application ON participant_mete
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_identity_provider_config
 (
-    identity_provider_id VARCHAR PRIMARY KEY NOT NULL,
-    issuer               VARCHAR             NOT NULL UNIQUE,
-    jwks_url             VARCHAR             NOT NULL,
-    is_deactivated       BOOLEAN             NOT NULL
+    identity_provider_id VARCHAR(255) PRIMARY KEY NOT NULL,
+    issuer               VARCHAR                  NOT NULL UNIQUE,
+    jwks_url             VARCHAR                  NOT NULL,
+    is_deactivated       BOOLEAN                  NOT NULL
 );
 
 ---------------------------------------------------------------------------------------------------
@@ -402,7 +402,7 @@ CREATE TABLE participant_users (
     internal_id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id              VARCHAR(256) NOT NULL UNIQUE,
     primary_party        VARCHAR(512),
-    identity_provider_id VARCHAR REFERENCES participant_identity_provider_config (identity_provider_id),
+    identity_provider_id VARCHAR(255) REFERENCES participant_identity_provider_config (identity_provider_id),
     is_deactivated       BOOLEAN      NOT NULL,
     resource_version     BIGINT       NOT NULL,
     created_at           BIGINT       NOT NULL
@@ -440,7 +440,7 @@ INSERT INTO participant_user_rights(user_internal_id, user_right, for_party, gra
 CREATE TABLE participant_party_records (
     internal_id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     party                VARCHAR(512) NOT NULL UNIQUE,
-    identity_provider_id VARCHAR REFERENCES participant_identity_provider_config (identity_provider_id),
+    identity_provider_id VARCHAR(255) REFERENCES participant_identity_provider_config (identity_provider_id),
     resource_version     BIGINT       NOT NULL,
     created_at           BIGINT       NOT NULL
 );
