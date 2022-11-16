@@ -32,7 +32,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.trigger.Runner.Implicits._
-import com.daml.lf.engine.trigger.Runner.{TriggerContext, triggerAction}
+import com.daml.lf.engine.trigger.Runner.{TriggerContext, triggerAction, triggerUserState}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -748,7 +748,9 @@ private[lf] class Runner private (
           freeTriggerSubmits(clientTime, initialStateFree)
             .leftMap { state =>
               logger.debug("Trigger rule initial state")(
-                loggingContext.enrichTriggerContext("state" -> state)
+                loggingContext.enrichTriggerContext(
+                  "state" -> triggerUserState(state, trigger.defn.level)
+                )
               )
               state
             }
@@ -761,7 +763,7 @@ private[lf] class Runner private (
 
       logger.debug("Trigger rule evaluation")(
         loggingContext.enrichTriggerContext(
-          "state" -> state,
+          "state" -> triggerUserState(state, trigger.defn.level),
           "message" -> messageVal.value,
         )
       )
@@ -787,7 +789,9 @@ private[lf] class Runner private (
             "TriggerRule new state",
             { case DamlTuple2(SUnit, newState) =>
               logger.debug("Trigger rule state updated")(
-                loggingContext.enrichTriggerContext("state" -> newState)
+                loggingContext.enrichTriggerContext(
+                  "state" -> triggerUserState(newState, trigger.defn.level)
+                )
               )
               newState
             },
@@ -1047,6 +1051,23 @@ object Runner {
         "id" -> id,
       ) ++ parent.fold(LoggingEntries.empty)(id => LoggingEntries("parentId" -> id))
     )
+  }
+
+  def triggerUserState(state: SValue, level: Trigger.Level): SValue = {
+    level match {
+      case Trigger.Level.High =>
+        state
+          .expect(
+            "SRecord",
+            { case SRecord(_, _, values) =>
+              values.get(3)
+            },
+          )
+          .orConverterException
+
+      case Trigger.Level.Low =>
+        state
+    }
   }
 
   object Implicits {
