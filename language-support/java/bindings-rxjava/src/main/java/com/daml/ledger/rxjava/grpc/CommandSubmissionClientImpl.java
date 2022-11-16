@@ -9,6 +9,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.daml.ledger.api.v1.CommandSubmissionServiceGrpc;
 import com.daml.ledger.api.v1.CommandSubmissionServiceOuterClass;
+import com.daml.ledger.javaapi.data.CommandsSubmission;
 import com.daml.ledger.javaapi.data.SubmitRequest;
 import com.daml.ledger.javaapi.data.codegen.HasCommands;
 import com.daml.ledger.rxjava.CommandSubmissionClient;

@@ -40,19 +40,14 @@ public class CommandClientImpl implements CommandClient {
 
   @Override
   public Single<Empty> submitAndWait(CommandsSubmission params) {
-    return submitAndWait(
-        params.getWorkflowId(),
-        params.getApplicationId(),
-        params.getCommandId(),
-        params.getActAs(),
-        params.getReadAs(),
-        params.getMinLedgerTimeAbs(),
-        params.getMinLedgerTimeRel(),
-        params.getDeduplicationTime(),
-        params.getCommands(),
-        params.getAccessToken());
+    CommandServiceOuterClass.SubmitAndWaitRequest request =
+        SubmitAndWaitRequest.toProto(this.ledgerId, params);
+
+    return Single.fromFuture(
+        StubHelper.authenticating(this.serviceStub, params.getAccessToken()).submitAndWait(request));
   }
 
+  @Deprecated
   private Single<Empty> submitAndWait(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -270,17 +265,12 @@ public class CommandClientImpl implements CommandClient {
 
   @Override
   public Single<String> submitAndWaitForTransactionId(CommandsSubmission params) {
-    return submitAndWaitForTransactionId(
-        params.getWorkflowId(),
-        params.getApplicationId(),
-        params.getCommandId(),
-        params.getActAs(),
-        params.getReadAs(),
-        params.getMinLedgerTimeAbs(),
-        params.getMinLedgerTimeRel(),
-        params.getDeduplicationTime(),
-        params.getCommands(),
-        params.getAccessToken());
+    CommandServiceOuterClass.SubmitAndWaitRequest request =
+        SubmitAndWaitRequest.toProto(this.ledgerId, params);
+    return Single.fromFuture(
+            StubHelper.authenticating(this.serviceStub, params.getAccessToken())
+                .submitAndWaitForTransactionId(request))
+        .map(CommandServiceOuterClass.SubmitAndWaitForTransactionIdResponse::getTransactionId);
   }
 
   @Deprecated
@@ -503,17 +493,14 @@ public class CommandClientImpl implements CommandClient {
 
   @Override
   public Single<Transaction> submitAndWaitForTransaction(CommandsSubmission params) {
-    return submitAndWaitForTransaction(
-        params.getWorkflowId(),
-        params.getApplicationId(),
-        params.getCommandId(),
-        params.getActAs(),
-        params.getReadAs(),
-        params.getMinLedgerTimeAbs(),
-        params.getMinLedgerTimeRel(),
-        params.getDeduplicationTime(),
-        params.getCommands(),
-        params.getAccessToken());
+    CommandServiceOuterClass.SubmitAndWaitRequest request =
+        SubmitAndWaitRequest.toProto(this.ledgerId, params);
+
+    return Single.fromFuture(
+            StubHelper.authenticating(this.serviceStub, params.getAccessToken())
+                .submitAndWaitForTransaction(request))
+        .map(CommandServiceOuterClass.SubmitAndWaitForTransactionResponse::getTransaction)
+        .map(Transaction::fromProto);
   }
 
   @Deprecated
@@ -737,17 +724,14 @@ public class CommandClientImpl implements CommandClient {
 
   @Override
   public Single<TransactionTree> submitAndWaitForTransactionTree(CommandsSubmission params) {
-    return submitAndWaitForTransactionTree(
-        params.getWorkflowId(),
-        params.getApplicationId(),
-        params.getCommandId(),
-        params.getActAs(),
-        params.getReadAs(),
-        params.getMinLedgerTimeAbs(),
-        params.getMinLedgerTimeRel(),
-        params.getDeduplicationTime(),
-        params.getCommands(),
-        params.getAccessToken());
+    CommandServiceOuterClass.SubmitAndWaitRequest request =
+        SubmitAndWaitRequest.toProto(this.ledgerId, params);
+
+    return Single.fromFuture(
+            StubHelper.authenticating(this.serviceStub, params.getAccessToken())
+                .submitAndWaitForTransactionTree(request))
+        .map(CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse::getTransaction)
+        .map(TransactionTree::fromProto);
   }
 
   @Deprecated
@@ -972,14 +956,31 @@ public class CommandClientImpl implements CommandClient {
   @Override
   public <U> Single<U> submitAndWaitForResult(
       CommandsSubmission params, @NonNull Update<U> update) {
-    return submitAndWaitForResult(
-        params.getWorkflowId(),
-        params.getApplicationId(),
-        params.getCommandId(),
-        params.getActAs(),
-        params.getReadAs(),
-        update,
-        params.getAccessToken());
+    return update.foldUpdate(
+        new Update.FoldUpdate<>() {
+          @Override
+          public <CtId> Single<U> created(Update.CreateUpdate<CtId, U> create) {
+            var transaction =
+                submitAndWaitForTransaction(params);
+            return transaction.map(
+                tx -> {
+                  var createdEvent = singleCreatedEvent(tx.getEvents());
+                  return create.k.apply(Created.fromEvent(create.createdContractId, createdEvent));
+                });
+          }
+
+          @Override
+          public <R> Single<U> exercised(Update.ExerciseUpdate<R, U> exercise) {
+            var transactionTree =
+                submitAndWaitForTransactionTree(params);
+            return transactionTree.map(
+                txTree -> {
+                  var exercisedEvent = firstExercisedEvent(txTree);
+                  return exercise.k.apply(
+                      Exercised.fromEvent(exercise.returnTypeDecoder, exercisedEvent));
+                });
+          }
+        });
   }
 
   @Deprecated

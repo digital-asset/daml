@@ -4,7 +4,7 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v1.CommandServiceOuterClass;
-import com.daml.ledger.rxjava.grpc.CommandsSubmission;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -16,19 +16,7 @@ public final class SubmitAndWaitRequest {
   public static CommandServiceOuterClass.SubmitAndWaitRequest toProto(
       @NonNull String ledgerId, @NonNull CommandsSubmission commandsSubmission) {
     return CommandServiceOuterClass.SubmitAndWaitRequest.newBuilder()
-        .setCommands(
-            SubmitCommandsRequest.toProto(
-                ledgerId,
-                commandsSubmission.getWorkflowId(),
-                commandsSubmission.getApplicationId(),
-                commandsSubmission.getCommandId(),
-                commandsSubmission.getActAs(),
-                commandsSubmission.getReadAs(),
-                commandsSubmission.getMinLedgerTimeAbs(),
-                commandsSubmission.getMinLedgerTimeRel(),
-                commandsSubmission.getDeduplicationTime(),
-                (List<Command>) commandsSubmission.getCommands()) // TODO: remove this cast
-            )
+        .setCommands(SubmitCommandsRequest.toProto(ledgerId, commandsSubmission))
         .build();
   }
 
@@ -37,20 +25,7 @@ public final class SubmitAndWaitRequest {
       @NonNull String submissionId,
       @NonNull CommandsSubmission commandsSubmission) {
     return CommandServiceOuterClass.SubmitAndWaitRequest.newBuilder()
-        .setCommands(
-            SubmitCommandsRequest.toProto(
-                ledgerId,
-                commandsSubmission.getWorkflowId(),
-                commandsSubmission.getApplicationId(),
-                commandsSubmission.getCommandId(),
-                submissionId,
-                commandsSubmission.getActAs(),
-                commandsSubmission.getReadAs(),
-                commandsSubmission.getMinLedgerTimeAbs(),
-                commandsSubmission.getMinLedgerTimeRel(),
-                commandsSubmission.getDeduplicationTime(),
-                (List<Command>) commandsSubmission.getCommands()) // TODO: remove this cast
-            )
+        .setCommands(SubmitCommandsRequest.toProto(ledgerId, submissionId, commandsSubmission))
         .build();
   }
 

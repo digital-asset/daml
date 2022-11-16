@@ -4,7 +4,7 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v1.CommandSubmissionServiceOuterClass;
-import com.daml.ledger.rxjava.grpc.CommandsSubmission;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;

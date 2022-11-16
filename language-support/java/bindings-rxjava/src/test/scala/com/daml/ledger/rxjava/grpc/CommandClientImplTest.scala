@@ -4,12 +4,8 @@
 package com.daml.ledger.rxjava.grpc
 
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
-import com.daml.ledger.api.v1.command_service.{
-  SubmitAndWaitForTransactionIdResponse,
-  SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitForTransactionTreeResponse,
-}
-import com.daml.ledger.javaapi.data.{Command, CreateCommand, DamlRecord, Identifier}
+import com.daml.ledger.api.v1.command_service.{SubmitAndWaitForTransactionIdResponse, SubmitAndWaitForTransactionResponse, SubmitAndWaitForTransactionTreeResponse}
+import com.daml.ledger.javaapi.data.{Command, CommandsSubmission, CreateCommand, DamlRecord, Identifier}
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.google.protobuf.empty.Empty

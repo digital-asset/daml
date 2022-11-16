@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.rxjava.grpc;
+package com.daml.ledger.javaapi.data;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
@@ -32,7 +32,7 @@ public class CommandsSubmission {
   private String commandId;
   private List<@NonNull ? extends HasCommands> commands;
 
-  private String workflowId;
+  private Optional<String> workflowId;
   private List<@NonNull String> actAs;
   private List<@NonNull String> readAs;
   private Optional<Instant> minLedgerTimeAbs;
@@ -41,7 +41,7 @@ public class CommandsSubmission {
   private Optional<String> accessToken;
 
   private CommandsSubmission(
-      String workflowId,
+      Optional<String> workflowId,
       String applicationId,
       String commandId,
       List<@NonNull String> actAs,
@@ -66,7 +66,7 @@ public class CommandsSubmission {
   public static CommandsSubmission create(
       String applicationId, String commandId, List<@NonNull ? extends HasCommands> commands) {
     return new CommandsSubmission(
-        "",
+        Optional.empty(),
         applicationId,
         commandId,
         emptyList(),
@@ -78,7 +78,7 @@ public class CommandsSubmission {
         empty());
   }
 
-  public String getWorkflowId() {
+  public Optional<String> getWorkflowId() {
     return workflowId;
   }
 
@@ -120,7 +120,7 @@ public class CommandsSubmission {
 
   public CommandsSubmission withWorkflowId(String workflowId) {
     return new CommandsSubmission(
-        workflowId,
+        Optional.of(workflowId),
         applicationId,
         commandId,
         actAs,

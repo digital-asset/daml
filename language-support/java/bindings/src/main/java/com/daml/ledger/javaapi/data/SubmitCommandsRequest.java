@@ -7,7 +7,6 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
 
 import com.daml.ledger.api.v1.CommandsOuterClass;
-import com.daml.ledger.rxjava.grpc.CommandsSubmission;
 import com.google.protobuf.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
@@ -210,6 +209,34 @@ public final class SubmitCommandsRequest {
         listOfCommands);
   }
 
+//  private static CommandsOuterClass.Commands toProto(
+//      @NonNull String ledgerId,
+//      @NonNull Optional<String> workflowId,
+//      @NonNull String applicationId,
+//      @NonNull String commandId,
+//      @NonNull List<@NonNull String> actAs,
+//      @NonNull List<@NonNull String> readAs,
+//      @NonNull Optional<Instant> minLedgerTimeAbsolute,
+//      @NonNull Optional<Duration> minLedgerTimeRelative,
+//      @NonNull Optional<Duration> deduplicationTime,
+//      @NonNull Optional<String> submissionId,
+//      @NonNull List<@NonNull Command> commands){
+//    return toProto(
+//        ledgerId,
+//        workflowId.orElse(""),
+//        applicationId,
+//        commandId,
+//        actAs,
+//        readAs,
+//        minLedgerTimeAbsolute,
+//        minLedgerTimeRelative,
+//        deduplicationTime,
+//        submissionId,
+//        commands
+//    );
+//  }
+
+  //TODO: Refactor this to take Optional for workflowId when deprecated methods using it below are removed.
   private static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -266,7 +293,7 @@ public final class SubmitCommandsRequest {
       @NonNull String ledgerId, @NonNull CommandsSubmission commandsSubmission) {
     return toProto(
         ledgerId,
-        commandsSubmission.getWorkflowId(),
+        commandsSubmission.getWorkflowId().orElse(""),
         commandsSubmission.getApplicationId(),
         commandsSubmission.getCommandId(),
         commandsSubmission.getActAs(),
@@ -316,7 +343,7 @@ public final class SubmitCommandsRequest {
       @NonNull CommandsSubmission commandsSubmission) {
     return toProto(
         ledgerId,
-        commandsSubmission.getWorkflowId(),
+        commandsSubmission.getWorkflowId().orElse(""),
         commandsSubmission.getApplicationId(),
         commandsSubmission.getCommandId(),
         commandsSubmission.getActAs(),

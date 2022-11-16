@@ -5,12 +5,11 @@ package com.daml.nonrepudiation.client
 
 import java.time.{Clock, Instant, ZoneId}
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
-import com.daml.ledger.javaapi.data.Command
+import com.daml.ledger.javaapi.data.{Command, CommandsSubmission}
 import com.daml.ledger.api.v1.CommandsOuterClass.{Command => ProtoCommand}
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.daml.ledger.rxjava.DamlLedgerClient
-import com.daml.ledger.rxjava.grpc.CommandsSubmission
 import com.daml.nonrepudiation.testing._
 import com.daml.nonrepudiation.{
   AlgorithmString,

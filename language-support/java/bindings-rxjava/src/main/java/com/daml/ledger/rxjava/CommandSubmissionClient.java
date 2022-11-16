@@ -4,7 +4,7 @@
 package com.daml.ledger.rxjava;
 
 import com.daml.ledger.javaapi.data.codegen.HasCommands;
-import com.daml.ledger.rxjava.grpc.CommandsSubmission;
+import com.daml.ledger.javaapi.data.CommandsSubmission;
 import com.google.protobuf.Empty;
 import io.reactivex.Single;
 import java.time.Duration;
