@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
 import static java.util.Optional.empty;
 
 import com.daml.ledger.javaapi.data.codegen.HasCommands;
@@ -137,7 +136,7 @@ public final class CommandsSubmission {
         workflowId,
         applicationId,
         commandId,
-        singletonList(actAs),
+        List.of(actAs),
         readAs,
         minLedgerTimeAbs,
         minLedgerTimeRel,
