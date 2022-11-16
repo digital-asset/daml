@@ -11,6 +11,7 @@ import com.daml.metrics.akkahttp.AkkaUtils._
 import com.daml.metrics.api.MetricHandle.Meter
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.daml.metrics.api.{MetricName, MetricsContext}
+import com.daml.metrics.http.WebSocketMetrics
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -55,11 +56,8 @@ class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with
       f: (Flow[Message, Message, _], TestMetrics) => T
   ): T = {
     val metrics = TestMetrics()
-    val duplicatingFlowWithMetrics = WebSocketMetrics.withRateSizeMetrics(
-      metrics.messagesReceivedTotal,
-      metrics.messagesReceivedBytesTotal,
-      metrics.messagesSentTotal,
-      metrics.messagesSentBytesTotal,
+    val duplicatingFlowWithMetrics = WebSocketMetricsInterceptor.withRateSizeMetrics(
+      metrics,
       testFlow,
     )(MetricsContext(labels: _*))
     f(duplicatingFlowWithMetrics, metrics)
@@ -383,7 +381,7 @@ object WebSocketMetricsSpec extends MetricValues {
       messagesReceivedBytesTotal: Meter,
       messagesSentTotal: Meter,
       messagesSentBytesTotal: Meter,
-  ) {
+  ) extends WebSocketMetrics {
 
     def messagesReceivedTotalValue(labels: LabelFilter*): Long =
       messagesReceivedTotal.valueFilteredOnLabels(labels: _*)
