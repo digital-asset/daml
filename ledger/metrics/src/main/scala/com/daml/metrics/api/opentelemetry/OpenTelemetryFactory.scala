@@ -186,8 +186,8 @@ object OpenTelemetryTimer {
 
   private val NanoSecondsInASecond = 1_000_000_000
 
-  private def convertNanosecondsToSeconds[T](nanoseconds: Long) = {
-    nanoseconds / NanoSecondsInASecond
+  private def convertNanosecondsToSeconds[T](nanoseconds: Long): Double = {
+    nanoseconds.toDouble / NanoSecondsInASecond
   }
 }
 
