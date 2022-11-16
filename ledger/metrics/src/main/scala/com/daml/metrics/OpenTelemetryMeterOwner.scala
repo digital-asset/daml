@@ -5,7 +5,6 @@ package com.daml.metrics
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.OpenTelemetryMeterOwner.buildProviderWithViews
-import com.daml.metrics.api.MetricHandle.Histogram
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.metrics.api.reporters.MetricsReporter.Prometheus
@@ -55,8 +54,8 @@ object OpenTelemetryMeterOwner {
       .registerView(
         histogramSelectorEndingWith(OpenTelemetryTimer.TimerUnitAndSuffix),
         explicitHistogramBucketsView(
-          Seq(0.005d, 0.01d, 0.025d, 0.050d, 0.075d, 0.1d, 0.15d, 0.2d, 0.25d, 0.35d, 0.5d, 0.75d,
-            1d, 2_5d, 5d, 7_5d, 10d, 25d)
+          Seq(0.01d, 0.025d, 0.050d, 0.075d, 0.1d, 0.15d, 0.2d, 0.25d, 0.35d, 0.5d, 0.75d,
+            1d, 2_5d, 5d, 10d)
         ),
       )
   }
