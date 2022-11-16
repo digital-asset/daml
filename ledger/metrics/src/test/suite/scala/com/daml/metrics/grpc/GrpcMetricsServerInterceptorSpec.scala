@@ -45,7 +45,7 @@ class GrpcMetricsServerInterceptorSpec
     val metrics = new TestingGrpcMetrics
     withService(metrics).use { helloService =>
       helloService.single(new HelloRequest()).map { _ =>
-        metrics.callTimer.getCounts should contain theSameElementsAs Map(
+        metrics.callTimer.countsWithContext should contain theSameElementsAs Map(
           labelsForSimpleRequestWithStatusCode -> 1
         )
       }
@@ -56,10 +56,10 @@ class GrpcMetricsServerInterceptorSpec
     val metrics = new TestingGrpcMetrics
     withService(metrics).use { helloService =>
       helloService.single(new HelloRequest()).map { _ =>
-        metrics.callsStarted.valueWithContext should contain theSameElementsAs Map(
+        metrics.callsStarted.valuesWithContext should contain theSameElementsAs Map(
           labelsForSimpleRequest -> 1
         )
-        metrics.callsHandled.valueWithContext should contain theSameElementsAs Map(
+        metrics.callsHandled.valuesWithContext should contain theSameElementsAs Map(
           labelsForSimpleRequestWithStatusCode -> 1
         )
       }
@@ -78,7 +78,7 @@ class GrpcMetricsServerInterceptorSpec
             metricsContext: MetricsContext = withStreamingLabels(labelsForSimpleRequest),
             value: Long = 1,
         ) = {
-          meter.valueWithContext should contain theSameElementsAs Map(
+          meter.valuesWithContext should contain theSameElementsAs Map(
             metricsContext -> value
           )
         }

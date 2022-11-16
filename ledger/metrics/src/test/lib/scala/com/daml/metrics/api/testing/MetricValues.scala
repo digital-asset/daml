@@ -60,12 +60,15 @@ trait MetricValues {
         throw new IllegalArgumentException(s"Value not supported for $other")
     }
 
-    def valueWithContext: Map[MetricsContext, Long] = meter match {
+    def valuesWithContext: Map[MetricsContext, Long] = meter match {
       case meter: InMemoryMeter =>
         meter.markers.view.mapValues(_.get()).toMap
       case other =>
         throw new IllegalArgumentException(s"Value not supported by $other")
     }
+
+    def valueFilteredOnLabels(labelFilters: LabelFilter*): Long =
+      singleValueFromContextsFilteredOnLabels(valuesWithContext, labelFilters: _*)
 
   }
 
@@ -101,7 +104,7 @@ trait MetricValues {
         throw new IllegalArgumentException(s"Snapshot not supported for $other")
     }
 
-    def getCount: Long = timer match {
+    def count: Long = timer match {
       case DropwizardTimer(_, metric) => metric.getCount
       case timer: InMemoryTimer =>
         singleValueFromContexts(timer.data.values.toMap.view.mapValues(_.size.toLong).toMap)
@@ -109,20 +112,41 @@ trait MetricValues {
         throw new IllegalArgumentException(s"Count not supported for $other")
     }
 
-    def getCounts: Map[MetricsContext, Long] = timer match {
+    def countsWithContext: Map[MetricsContext, Long] = timer match {
       case timer: InMemoryTimer =>
         timer.data.values.toMap.view.mapValues(_.size.toLong).toMap
       case other =>
         throw new IllegalArgumentException(s"Counts not supported for $other")
     }
 
-    def getValues: Seq[Long] = timer match {
+    def values: Seq[Long] = timer match {
       case timer: InMemoryTimer =>
         singleValueFromContexts(timer.data.values.toMap)
       case other =>
         throw new IllegalArgumentException(s"Count not supported for $other")
     }
 
+    def valuesWithContext: Map[MetricsContext, Seq[Long]] = timer match {
+      case timer: InMemoryTimer =>
+        timer.data.values.toMap
+      case other =>
+        throw new IllegalArgumentException(s"Values not supported for $other")
+    }
+
+    def valuesFilteredOnLabels(labelFilters: LabelFilter*): Seq[Long] =
+      singleValueFromContextsFilteredOnLabels(valuesWithContext, labelFilters: _*)
+  }
+
+  case class LabelFilter(name: String, value: String)
+
+  private def singleValueFromContextsFilteredOnLabels[T](
+      contextToValueMapping: Map[MetricsContext, T],
+      labelFilters: LabelFilter*
+  ): T = {
+    val matchingFilters = labelFilters.foldLeft(contextToValueMapping) { (acc, labelFilter) =>
+      acc.filter(labelFilter.value == _._1.labels.getOrElse(labelFilter.name, null))
+    }
+    singleValueFromContexts(matchingFilters)
   }
 
   private def singleValueFromContexts[T](
