@@ -103,7 +103,9 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
   override def idpConfigByIdExists(id: IdentityProviderId.Id)(connection: Connection): Boolean =
     IdentityProviderCheckStorageBackendImpl.idpConfigByIdExists(id)(connection)
 
-  override def updateIssuer(id: IdentityProviderId.Id, newIssuer: String)(connection: Connection): Boolean = {
+  override def updateIssuer(id: IdentityProviderId.Id, newIssuer: String)(
+      connection: Connection
+  ): Boolean = {
     val rowsUpdated =
       SQL"""
          UPDATE participant_identity_provider_config
@@ -114,7 +116,9 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
     rowsUpdated == 1
   }
 
-  override def updateJwksURL(id: IdentityProviderId.Id, jwksURL: URL)(connection: Connection): Boolean = {
+  override def updateJwksURL(id: IdentityProviderId.Id, jwksURL: URL)(
+      connection: Connection
+  ): Boolean = {
     val rowsUpdated =
       SQL"""
          UPDATE participant_identity_provider_config
@@ -125,7 +129,9 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
     rowsUpdated == 1
   }
 
-  override def updateIsDeactivated(id: IdentityProviderId.Id, isDeactivated: Boolean)(connection: Connection): Boolean = {
+  override def updateIsDeactivated(id: IdentityProviderId.Id, isDeactivated: Boolean)(
+      connection: Connection
+  ): Boolean = {
     val rowsUpdated =
       SQL"""
          UPDATE participant_identity_provider_config

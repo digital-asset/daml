@@ -81,9 +81,15 @@ class PersistentIdentityProviderConfigStore(
     inTransaction(_.updateIDPConfig) { implicit connection =>
       for {
         _ <- withIDPConfig(update.identityProviderId) { _ =>
-          update.issuerUpdate.foreach(backend.updateIssuer(update.identityProviderId, _)(connection))
-          update.jwksUrlUpdate.foreach(backend.updateJwksURL(update.identityProviderId, _)(connection))
-          update.isDeactivatedUpdate.foreach(backend.updateIsDeactivated(update.identityProviderId, _)(connection))
+          update.issuerUpdate.foreach(
+            backend.updateIssuer(update.identityProviderId, _)(connection)
+          )
+          update.jwksUrlUpdate.foreach(
+            backend.updateJwksURL(update.identityProviderId, _)(connection)
+          )
+          update.isDeactivatedUpdate.foreach(
+            backend.updateIsDeactivated(update.identityProviderId, _)(connection)
+          )
         }
         domainConfig <- withIDPConfig(update.identityProviderId)(identity)
       } yield {

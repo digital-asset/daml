@@ -32,7 +32,9 @@ trait IdentityProviderStorageBackend extends IdentityProviderCheckStorageBackend
       connection: Connection
   ): Boolean
 
-  def updateIsDeactivated(id: Ref.IdentityProviderId.Id, isDeactivated: Boolean)(connection: Connection): Boolean
+  def updateIsDeactivated(id: Ref.IdentityProviderId.Id, isDeactivated: Boolean)(
+      connection: Connection
+  ): Boolean
 
   def idpConfigByIssuerExists(issuer: String)(connection: Connection): Boolean
 
