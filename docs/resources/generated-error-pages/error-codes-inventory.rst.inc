@@ -568,6 +568,22 @@ IDP_CONFIG_NOT_FOUND
 
 
 
+
+.. _error_code_INVALID_IDENTITY_PROVIDER_UPDATE_REQUEST:
+
+INVALID_IDENTITY_PROVIDER_UPDATE_REQUEST
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: There was an attempt to update an identity provider config using an invalid update request.
+
+    **Category**: InvalidIndependentOfSystemState
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
+
+    **Resolution**: Inspect the error details for specific information on what made the request invalid. Retry with an adjusted update request.
+
+
+
 2.3.1.2. ParticipantErrorGroup / LedgerApiErrors / AdminServices / PartyManagementServiceErrorGroup
 ===================================================================================================================
 

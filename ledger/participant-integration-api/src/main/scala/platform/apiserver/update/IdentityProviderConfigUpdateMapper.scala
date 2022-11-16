@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver.update
 
-import com.daml.ledger.api.domain.IdentityProviderConfig
 import com.daml.platform.localstore.api.IdentityProviderConfigUpdate
 
 import java.net.URL
@@ -12,22 +11,22 @@ object IdentityProviderConfigUpdateMapper extends UpdateMapperBase {
 
   import UpdateRequestsPaths.IdentityProviderConfigPaths
 
-  type Resource = IdentityProviderConfig
+  type Resource = IdentityProviderConfigUpdate
   type Update = IdentityProviderConfigUpdate
 
   override val fullResourceTrie: UpdatePathsTrie = IdentityProviderConfigPaths.fullUpdateTrie
 
   override def makeUpdateObject(
-      identityProviderConfig: IdentityProviderConfig,
+      identityProviderConfig: IdentityProviderConfigUpdate,
       updateTrie: UpdatePathsTrie,
   ): Result[IdentityProviderConfigUpdate] = {
     for {
       isDeactivatedUpdate <- resolveIsDeactivatedUpdate(
         updateTrie,
-        identityProviderConfig.isDeactivated,
+        identityProviderConfig.isDeactivatedUpdate,
       )
-      issuerUpdate <- resolveIssuerUpdate(updateTrie, identityProviderConfig.issuer)
-      jwksUrlUpdate <- resolveJwksUrlUpdate(updateTrie, identityProviderConfig.jwksURL)
+      issuerUpdate <- resolveIssuerUpdate(updateTrie, identityProviderConfig.issuerUpdate)
+      jwksUrlUpdate <- resolveJwksUrlUpdate(updateTrie, identityProviderConfig.jwksUrlUpdate)
     } yield {
       IdentityProviderConfigUpdate(
         identityProviderId = identityProviderConfig.identityProviderId,
@@ -40,41 +39,41 @@ object IdentityProviderConfigUpdateMapper extends UpdateMapperBase {
 
   def resolveIsDeactivatedUpdate(
       updateTrie: UpdatePathsTrie,
-      newValue: Boolean,
+      newValue: Option[Boolean],
   ): Result[Option[Boolean]] =
     updateTrie
       .findMatch(IdentityProviderConfigPaths.isDeactivated)
       .fold(noUpdate[Boolean])(updateMatch =>
-        makePrimitiveFieldUpdate(
-          updateMatch = updateMatch,
-          defaultValue = false,
-          newValue = newValue,
-        )
+        if (updateMatch.isExact) {
+          Right(newValue)
+        } else {
+          Right(None)
+        }
       )
 
   def resolveIssuerUpdate(
       updateTrie: UpdatePathsTrie,
-      newValue: String,
+      newValue: Option[String],
   ): Result[Option[String]] =
     updateTrie
       .findMatch(IdentityProviderConfigPaths.issuer)
       .fold(noUpdate[String])(updateMatch =>
-        makePrimitiveFieldUpdate(
-          updateMatch = updateMatch,
-          defaultValue = "",
-          newValue = newValue,
-        )
+        if (updateMatch.isExact) {
+          Right(newValue)
+        } else {
+          Right(None)
+        }
       )
 
   def resolveJwksUrlUpdate(
       updateTrie: UpdatePathsTrie,
-      newValue: URL,
+      newValue: Option[URL],
   ): Result[Option[URL]] =
     updateTrie
       .findMatch(IdentityProviderConfigPaths.jwksUrl)
       .fold(noUpdate[URL])(updateMatch =>
         if (updateMatch.isExact) {
-          Right(Some(newValue))
+          Right(newValue)
         } else {
           Right(None)
         }

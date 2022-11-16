@@ -136,8 +136,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
       SQL"""
          UPDATE participant_identity_provider_config
          SET is_deactivated  = $isDeactivated
-         WHERE
-             WHERE identity_provider_id = ${id.value: String}
+         WHERE identity_provider_id = ${id.value: String}
        """.executeUpdate()(connection)
     rowsUpdated == 1
   }

@@ -85,16 +85,16 @@ class ApiIdentityProviderConfigService(
           config.identityProviderId,
           "identity_provider_id",
         )
-        jwksURL <- requireURL(config.jwksUrl, "jwks_uri")
-        issuer <- requireNonEmptyString(config.issuer, "issuer")
+        jwksURL <- optionalString(config.jwksUrl)(requireURL(_, "jwks_uri"))
+        issuer <- optionalString(config.issuer)(requireNonEmptyString(_, "issuer"))
         updateMask <- requirePresence(
           request.updateMask,
           "update_mask",
         )
       } yield (
-        IdentityProviderConfig(
+        IdentityProviderConfigUpdate(
           identityProviderId,
-          config.isDeactivated,
+          Some(config.isDeactivated),
           jwksURL,
           issuer,
         ),
