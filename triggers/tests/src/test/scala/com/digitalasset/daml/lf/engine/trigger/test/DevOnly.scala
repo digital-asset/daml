@@ -11,10 +11,12 @@ import com.daml.ledger.api.v1.event.{CreatedEvent, Event}
 import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.api.v1.{value => LedgerApi}
+import com.daml.lf.engine.trigger.Runner.TriggerContext
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.lf.engine.trigger.TriggerMsg
+import com.daml.util.Ctx
 
 import scala.collection.concurrent.TrieMap
 
@@ -43,7 +45,7 @@ class DevOnly
           // 1 for completion
           // 1 for exercise
           // 1 for corresponding completion
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(4))._2
           acs <- queryACS(client, party)
         } yield {
           acs(tId) should have length 1
@@ -114,9 +116,9 @@ class DevOnly
             .runWithACS(
               acs,
               offset,
-              msgFlow = Flow[TriggerMsg]
+              msgFlow = Flow[TriggerContext[TriggerMsg]]
                 .wireTap {
-                  case msg: TriggerMsg.Transaction =>
+                  case Ctx(_, msg: TriggerMsg.Transaction, _) =>
                     transactionEvents.addOne(msg.t.transactionId -> msg.t.events)
                   case _ =>
                   // No evidence to collect
@@ -197,9 +199,9 @@ class DevOnly
             .runWithACS(
               acs,
               offset,
-              msgFlow = Flow[TriggerMsg]
+              msgFlow = Flow[TriggerContext[TriggerMsg]]
                 .wireTap {
-                  case msg: TriggerMsg.Transaction =>
+                  case Ctx(_, msg: TriggerMsg.Transaction, _) =>
                     transactionEvents.addOne(msg.t.transactionId -> msg.t.events)
                   case _ =>
                   // No evidence to collect
@@ -280,9 +282,9 @@ class DevOnly
             .runWithACS(
               acs,
               offset,
-              msgFlow = Flow[TriggerMsg]
+              msgFlow = Flow[TriggerContext[TriggerMsg]]
                 .wireTap {
-                  case msg: TriggerMsg.Transaction =>
+                  case Ctx(_, msg: TriggerMsg.Transaction, _) =>
                     transactionEvents.addOne(msg.t.transactionId -> msg.t.events)
                   case _ =>
                   // No evidence to collect
