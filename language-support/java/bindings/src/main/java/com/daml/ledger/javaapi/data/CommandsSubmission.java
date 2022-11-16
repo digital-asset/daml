@@ -27,7 +27,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  *                                   .with...
  * <pre/>
  */
-public class CommandsSubmission {
+public final class CommandsSubmission {
   private String applicationId;
   private String commandId;
   private List<@NonNull ? extends HasCommands> commands;
