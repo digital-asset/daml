@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref
 // TODO: https://github.com/digital-asset/daml/issues/12051
 //  Drop this workaround.
 @deprecated
-private object ChoiceCoder {
+object ChoiceCoder {
 
   /*
      Inherited choices are ambiguous: one needs the ID of the interface where
