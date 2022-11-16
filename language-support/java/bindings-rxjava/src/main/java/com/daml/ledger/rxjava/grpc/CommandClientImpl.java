@@ -44,7 +44,8 @@ public class CommandClientImpl implements CommandClient {
         SubmitAndWaitRequest.toProto(this.ledgerId, params);
 
     return Single.fromFuture(
-        StubHelper.authenticating(this.serviceStub, params.getAccessToken()).submitAndWait(request));
+        StubHelper.authenticating(this.serviceStub, params.getAccessToken())
+            .submitAndWait(request));
   }
 
   @Deprecated
@@ -960,8 +961,7 @@ public class CommandClientImpl implements CommandClient {
         new Update.FoldUpdate<>() {
           @Override
           public <CtId> Single<U> created(Update.CreateUpdate<CtId, U> create) {
-            var transaction =
-                submitAndWaitForTransaction(params);
+            var transaction = submitAndWaitForTransaction(params);
             return transaction.map(
                 tx -> {
                   var createdEvent = singleCreatedEvent(tx.getEvents());
@@ -971,8 +971,7 @@ public class CommandClientImpl implements CommandClient {
 
           @Override
           public <R> Single<U> exercised(Update.ExerciseUpdate<R, U> exercise) {
-            var transactionTree =
-                submitAndWaitForTransactionTree(params);
+            var transactionTree = submitAndWaitForTransactionTree(params);
             return transactionTree.map(
                 txTree -> {
                   var exercisedEvent = firstExercisedEvent(txTree);

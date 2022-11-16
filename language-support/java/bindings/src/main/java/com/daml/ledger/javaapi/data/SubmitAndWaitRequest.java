@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v1.CommandServiceOuterClass;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
