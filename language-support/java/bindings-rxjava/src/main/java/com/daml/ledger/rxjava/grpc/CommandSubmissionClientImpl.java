@@ -41,17 +41,14 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
 
   @Override
   public Single<Empty> submit(CommandsSubmission params) {
-    return submit(
-        params.getWorkflowId(),
-        params.getApplicationId(),
-        params.getCommandId(),
-        params.getActAs(),
-        params.getReadAs(),
-        params.getMinLedgerTimeAbs(),
-        params.getMinLedgerTimeRel(),
-        params.getDeduplicationTime(),
-        params.getCommands(),
-        params.getAccessToken());
+    CommandSubmissionServiceOuterClass.SubmitRequest request =
+        SubmitRequest.toProto(ledgerId, params);
+    CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub stubWithTimeout =
+        this.timeout
+            .map(t -> this.serviceStub.withDeadlineAfter(t.toMillis(), MILLISECONDS))
+            .orElse(this.serviceStub);
+    return Single.fromFuture(
+        StubHelper.authenticating(stubWithTimeout, params.getAccessToken()).submit(request));
   }
 
   @Deprecated

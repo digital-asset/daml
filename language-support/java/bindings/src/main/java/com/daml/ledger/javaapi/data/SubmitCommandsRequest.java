@@ -278,6 +278,13 @@ public final class SubmitCommandsRequest {
         (List<Command>) commandsSubmission.getCommands()); // TODO: remove cast
   }
 
+  /**
+   * Please use {@link #toProto(String, CommandsSubmission)}
+   *
+   * @deprecated
+   * @since 2.5
+   */
+  @Deprecated
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -321,6 +328,13 @@ public final class SubmitCommandsRequest {
         (List<Command>) commandsSubmission.getCommands());
   }
 
+  /**
+   * Please use {@link #toProto(String, String, CommandsSubmission)}
+   *
+   * @deprecated
+   * @since 2.5
+   */
+  @Deprecated
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -347,6 +361,13 @@ public final class SubmitCommandsRequest {
         commands);
   }
 
+  /**
+   * Please use {@link #toProto(String, String, CommandsSubmission)}
+   *
+   * @deprecated
+   * @since 2.5
+   */
+  @Deprecated
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -375,6 +396,13 @@ public final class SubmitCommandsRequest {
         commands);
   }
 
+  /**
+   * Please use {@link #toProto(String, CommandsSubmission)}
+   *
+   * @deprecated
+   * @since 2.5
+   */
+  @Deprecated
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
