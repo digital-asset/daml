@@ -514,7 +514,61 @@ PACKAGE_UPLOAD_REJECTED
 
 
 
-2.3.1.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices / PartyManagementServiceErrorGroup
+2.3.1.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices / IdentityProviderConfigServiceErrorGroup
+===================================================================================================================
+
+
+
+
+
+.. _error_code_IDP_CONFIG_ALREADY_EXISTS:
+
+IDP_CONFIG_ALREADY_EXISTS
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: There already exists a identity provider configuration with the same identity provider id.
+
+    **Category**: InvalidGivenCurrentSystemStateResourceExists
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ALREADY_EXISTS including a detailed error message.
+
+    **Resolution**: Check that you are connecting to the right participant node and the identity provider id is spelled correctly, or use the identity provider that already exists.
+
+
+
+
+.. _error_code_IDP_CONFIG_ISSUER_ALREADY_EXISTS:
+
+IDP_CONFIG_ISSUER_ALREADY_EXISTS
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: There already exists a identity provider configuration with the same issuer.
+
+    **Category**: InvalidGivenCurrentSystemStateResourceExists
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ALREADY_EXISTS including a detailed error message.
+
+    **Resolution**: Check that you are connecting to the right participant node and the identity provider id is spelled correctly, or use the identity provider that already exists.
+
+
+
+
+.. _error_code_IDP_CONFIG_NOT_FOUND:
+
+IDP_CONFIG_NOT_FOUND
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: The identity provider config referred to by the request was not found.
+
+    **Category**: InvalidGivenCurrentSystemStateResourceMissing
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
+
+    **Resolution**: Check that you are connecting to the right participant node and the identity provider config is spelled correctly, or create the configuration.
+
+
+
+2.3.1.2. ParticipantErrorGroup / LedgerApiErrors / AdminServices / PartyManagementServiceErrorGroup
 ===================================================================================================================
 
 
@@ -616,7 +670,7 @@ PARTY_NOT_FOUND
 
 
 
-2.3.1.2. ParticipantErrorGroup / LedgerApiErrors / AdminServices / UserManagementServiceErrorGroup
+2.3.1.3. ParticipantErrorGroup / LedgerApiErrors / AdminServices / UserManagementServiceErrorGroup
 ===================================================================================================================
 
 
