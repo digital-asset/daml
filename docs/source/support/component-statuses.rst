@@ -136,7 +136,7 @@ Libraries
    * -  ``daml-lf-dev-archive-java-proto``
      - Alpha
      -
-   * - **Python Ledger API Bindings**
+   * - **Python Ledger API Bindings (formerly known as DAZL)**
      -
      -
    * - ``dazl`` `library and its public API <https://digital-asset.github.io/dazl-client/>`_

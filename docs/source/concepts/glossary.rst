@@ -407,7 +407,7 @@ An idiomatic Java library for writing `ledger applications <#application-ledger-
 Python Bindings
 ---------------
 
-A Python library for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`Python Bindings </app-dev/bindings-python>`.
+A Python library (formerly known as DAZL) for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`Python Bindings </app-dev/bindings-python>`.
 
 Reading From the Ledger
 =======================
