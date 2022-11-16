@@ -67,6 +67,7 @@ public final class SubmitRequest {
    * @deprecated
    * @since 2.5
    */
+  @Deprecated
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -100,6 +101,7 @@ public final class SubmitRequest {
    * @deprecated
    * @since 2.5
    */
+  @Deprecated
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -133,6 +135,7 @@ public final class SubmitRequest {
    * @deprecated
    * @since 2.5
    */
+  @Deprecated
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
