@@ -32,7 +32,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
   ): Unit = {
     val identityProviderId = identityProviderConfig.identityProviderId.value: String
     val isDeactivated = identityProviderConfig.isDeactivated
-    val jwksUrl = identityProviderConfig.jwksURL.toString
+    val jwksUrl = identityProviderConfig.jwksURL.value
     val issuer = identityProviderConfig.issuer
     discard(SQL"""
        INSERT INTO participant_identity_provider_config (identity_provider_id, is_deactivated, jwks_url, issuer)
@@ -109,8 +109,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
       SQL"""
          UPDATE participant_identity_provider_config
          SET issuer  = $newIssuer
-         WHERE
-             WHERE identity_provider_id = ${id.value: String}
+         WHERE identity_provider_id = ${id.value: String}
        """.executeUpdate()(connection)
     rowsUpdated == 1
   }
@@ -122,8 +121,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
       SQL"""
          UPDATE participant_identity_provider_config
          SET jwks_url  = ${jwksURL.value}
-         WHERE
-             WHERE identity_provider_id = ${id.value: String}
+         WHERE identity_provider_id = ${id.value: String}
        """.executeUpdate()(connection)
     rowsUpdated == 1
   }
