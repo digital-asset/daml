@@ -81,7 +81,7 @@ conformance_test_tool_args = [
     ]),
 ]
 
-conformane_test(
+conformance_test(
     name = "conformance-test",
     extra_data =
         conformance_test_extra_data_base + [
