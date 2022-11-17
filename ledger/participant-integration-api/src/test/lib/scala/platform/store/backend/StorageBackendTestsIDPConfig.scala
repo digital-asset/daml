@@ -9,6 +9,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, OptionValues}
 
+import java.sql.SQLException
 import java.util.UUID
 
 private[backend] trait StorageBackendTestsIDPConfig
@@ -39,17 +40,23 @@ private[backend] trait StorageBackendTestsIDPConfig
   it should "update existing identity provider config's isDeactivated attribute" in {
     val cfg = config().copy(isDeactivated = false)
     executeSql(tested.createIdentityProviderConfig(cfg))
-    executeSql(tested.updateIsDeactivated(cfg.identityProviderId, true))
+    // deactivate
+    executeSql(tested.updateIsDeactivated(cfg.identityProviderId, true)) shouldBe true
     executeSql(
       tested.getIdentityProviderConfig(cfg.identityProviderId)
     ).value.isDeactivated shouldBe true
+    // activate again
+    executeSql(tested.updateIsDeactivated(cfg.identityProviderId, false)) shouldBe true
+    executeSql(
+      tested.getIdentityProviderConfig(cfg.identityProviderId)
+    ).value.isDeactivated shouldBe false
   }
 
   it should "update existing identity provider config's jwksURL attribute" in {
     val cfg = config()
     executeSql(tested.createIdentityProviderConfig(cfg))
     val newJwksUrl = JwksUrl("http://example.com/jwks2.json")
-    executeSql(tested.updateJwksURL(cfg.identityProviderId, newJwksUrl))
+    executeSql(tested.updateJwksURL(cfg.identityProviderId, newJwksUrl)) shouldBe true
     executeSql(
       tested.getIdentityProviderConfig(cfg.identityProviderId)
     ).value.jwksURL shouldBe newJwksUrl
@@ -59,25 +66,89 @@ private[backend] trait StorageBackendTestsIDPConfig
     val cfg = config()
     executeSql(tested.createIdentityProviderConfig(cfg))
     val newIssuer = UUID.randomUUID().toString
-    executeSql(tested.updateIssuer(cfg.identityProviderId, newIssuer))
+    executeSql(tested.updateIssuer(cfg.identityProviderId, newIssuer)) shouldBe true
     executeSql(
       tested.getIdentityProviderConfig(cfg.identityProviderId)
     ).value.issuer shouldBe newIssuer
   }
 
-  it should "fail to update non existing identity provider config" in {}
-  it should "fail to update identity provider config issuer attribute to non-unique issuer" in {}
-  it should "fail to create identity provider config with non-unique issuer" in {}
+  it should "check if identity provider config's issuer exists" in {
+    val cfg = config()
+    executeSql(tested.idpConfigByIssuerExists(cfg.issuer)) shouldBe false
+    executeSql(tested.createIdentityProviderConfig(cfg))
+    executeSql(tested.idpConfigByIssuerExists(cfg.issuer)) shouldBe true
+  }
+
+  it should "check if identity provider config by id exists" in {
+    val cfg = config()
+    executeSql(tested.idpConfigByIdExists(cfg.identityProviderId)) shouldBe false
+    executeSql(tested.createIdentityProviderConfig(cfg))
+    executeSql(tested.idpConfigByIdExists(cfg.identityProviderId)) shouldBe true
+  }
+
+  it should "fail to update issuer for non existing identity provider config" in {
+    executeSql(tested.updateIssuer(randomId(), "whatever")) shouldBe false
+    executeSql(tested.updateIssuer(randomId(), "")) shouldBe false
+  }
+
+  it should "fail to update isDeactivated for non existing identity provider config" in {
+    executeSql(tested.updateIsDeactivated(randomId(), true)) shouldBe false
+    executeSql(tested.updateIsDeactivated(randomId(), false)) shouldBe false
+  }
+
+  it should "fail to update jwksURL for non existing identity provider config" in {
+    executeSql(
+      tested.updateJwksURL(randomId(), JwksUrl("http://example.com/jwks.json"))
+    ) shouldBe false
+    executeSql(
+      tested.updateJwksURL(randomId(), JwksUrl("http://example2.com/jwks.json"))
+    ) shouldBe false
+  }
+
+  it should "fail to update identity provider config issuer attribute to non-unique issuer" in {
+    val cfg1 = config()
+    val cfg2 = config()
+    executeSql(tested.createIdentityProviderConfig(cfg1))
+    executeSql(tested.createIdentityProviderConfig(cfg2))
+    assertThrows[SQLException] {
+      executeSql(tested.updateIssuer(cfg1.identityProviderId, cfg2.issuer))
+    }
+  }
+
+  it should "fail to create identity provider config with non-unique issuer" in {
+    val cfg1 = config()
+    val cfg2 = config()
+    executeSql(tested.createIdentityProviderConfig(cfg1))
+    assertThrows[SQLException] {
+      executeSql(tested.createIdentityProviderConfig(cfg2.copy(issuer = cfg1.issuer)))
+    }
+  }
+
+  it should "fail to create identity provider config with non-unique id" in {
+    val cfg1 = config()
+    val cfg2 = config()
+    executeSql(tested.createIdentityProviderConfig(cfg1))
+    assertThrows[SQLException] {
+      executeSql(
+        tested.createIdentityProviderConfig(cfg2.copy(identityProviderId = cfg1.identityProviderId))
+      )
+    }
+  }
+
   it should "get all identity provider configs ordered by id" in {}
 
-  def config() = {
-    val id = UUID.randomUUID().toString
+  private def config() = {
     IdentityProviderConfig(
-      identityProviderId = Ref.IdentityProviderId.Id(Ref.LedgerString.assertFromString(id)),
+      identityProviderId = randomId(),
       isDeactivated = false,
       jwksURL = JwksUrl.assertFromString("http://example.com/jwks.json"),
       issuer = UUID.randomUUID().toString,
     )
+  }
+
+  private def randomId() = {
+    val id = UUID.randomUUID().toString
+    Ref.IdentityProviderId.Id(Ref.LedgerString.assertFromString(id))
   }
 
 }
