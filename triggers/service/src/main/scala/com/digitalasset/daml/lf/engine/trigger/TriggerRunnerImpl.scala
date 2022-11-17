@@ -19,6 +19,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.lf.CompiledPackages
+import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.lf.engine.trigger.TriggerRunner.{QueryingACS, Running, TriggerStatus}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import io.grpc.Status.Code
@@ -116,7 +117,7 @@ object TriggerRunnerImpl {
               val (killSwitch, trigger) = runner.runWithACS(
                 acs,
                 offset,
-                msgFlow = KillSwitches.single[TriggerMsg],
+                msgFlow = KillSwitches.single[TriggerContext[TriggerMsg]],
               )
 
               // If we are stopped we will end up causing the future
