@@ -321,6 +321,7 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
         "-pkgId-:Mod:Name#ChName",
         "-pkgId-:Mod:Name#ChName#",
         "#-pkgId-:Mod:Name",
+        "#-pkgId-:Mod:Name#",
         "#-pkgId-:Mod:Name#ChName#",
       )
 
