@@ -29,6 +29,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.trigger.Runner.triggerUserState
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -676,7 +677,7 @@ class Runner(
           _.expect(
             "TriggerRule new state",
             { case DamlTuple2(SUnit, newState) =>
-              logger.debug(s"New state: $newState")
+              logger.debug(s"New state: ${triggerUserState(newState, trigger.defn.level)}")
               newState
             },
           ).orConverterException
@@ -864,6 +865,23 @@ class Runner(
 }
 
 object Runner extends StrictLogging {
+
+  def triggerUserState(state: SValue, level: Trigger.Level): SValue = {
+    level match {
+      case Trigger.Level.High =>
+        state
+          .expect(
+            "SRecord",
+            { case SRecord(_, _, values) =>
+              values.get(3)
+            },
+          )
+          .orConverterException
+
+      case Trigger.Level.Low =>
+        state
+    }
+  }
 
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
     (250 * (1 << (afterTries - 1))).milliseconds
