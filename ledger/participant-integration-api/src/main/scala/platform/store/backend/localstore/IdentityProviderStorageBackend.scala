@@ -3,10 +3,9 @@
 
 package com.daml.platform.store.backend.localstore
 
-import com.daml.ledger.api.domain.IdentityProviderConfig
+import com.daml.ledger.api.domain.{IdentityProviderConfig, JwksUrl}
 import com.daml.lf.data.Ref
 
-import java.net.URL
 import java.sql.Connection
 
 trait IdentityProviderStorageBackend extends IdentityProviderCheckStorageBackend {
@@ -28,7 +27,7 @@ trait IdentityProviderStorageBackend extends IdentityProviderCheckStorageBackend
       connection: Connection
   ): Boolean
 
-  def updateJwksURL(id: Ref.IdentityProviderId.Id, jwksURL: URL)(
+  def updateJwksURL(id: Ref.IdentityProviderId.Id, jwksURL: JwksUrl)(
       connection: Connection
   ): Boolean
 

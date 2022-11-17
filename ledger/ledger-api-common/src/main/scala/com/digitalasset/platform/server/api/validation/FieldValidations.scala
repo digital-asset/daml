@@ -7,7 +7,7 @@ import com.daml.api.util.TimestampConversion
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.domain.{JwksUrl, LedgerId}
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.lf.crypto.Hash
@@ -23,7 +23,6 @@ import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.StatusRuntimeException
 
-import java.net.URL
 import scala.util.{Failure, Success, Try}
 
 object FieldValidations {
@@ -100,19 +99,12 @@ object FieldValidations {
     }
   }
 
-  def requireURL(raw: String, fieldName: String)(implicit
+  def requireJwksUrl(raw: String, fieldName: String)(implicit
       errorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, URL] = {
-    Try {
-      new URL(raw)
-    } match {
-      case Success(url) => Right(url)
-      case Failure(e) =>
-        Left(
-          invalidField(fieldName = fieldName, message = s"Malformed URL: ${e.getMessage}")
-        )
+  ): Either[StatusRuntimeException, JwksUrl] =
+    JwksUrl.fromString(raw).left.map { error =>
+      invalidField(fieldName = fieldName, message = s"Malformed URL: $error")
     }
-  }
 
   def requireParties(parties: Set[String])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

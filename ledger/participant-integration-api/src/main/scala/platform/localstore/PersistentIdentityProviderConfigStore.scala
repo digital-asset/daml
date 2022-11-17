@@ -9,6 +9,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
   IdentityProviderConfigExists,
+  IdentityProviderConfigNotFound,
   IdentityProviderConfigWithIssuerExists,
   Result,
 }
@@ -32,10 +33,15 @@ class PersistentIdentityProviderConfigStore(
       implicit loggingContext: LoggingContext
   ): Future[Result[domain.IdentityProviderConfig]] = {
     inTransaction(_.createIDPConfig) { implicit connection =>
-      withoutIDPConfig(identityProviderConfig.identityProviderId, identityProviderConfig.issuer) {
-        backend.createIdentityProviderConfig(identityProviderConfig)(connection)
-        identityProviderConfig
-      }
+      val id = identityProviderConfig.identityProviderId
+      for {
+        _ <- idpConfigDoesNotExist(id)
+        _ <- idpConfigIssuerDoesNotExist(Some(identityProviderConfig.issuer))
+        _ = backend.createIdentityProviderConfig(identityProviderConfig)(connection)
+        domainConfig <- backend
+          .getIdentityProviderConfig(id)(connection)
+          .toRight(IdentityProviderConfigNotFound(id))
+      } yield domainConfig
     }.map(tapSuccess { _ =>
       logger.info(
         s"Created new identity provider configuration: $identityProviderConfig"
@@ -47,7 +53,9 @@ class PersistentIdentityProviderConfigStore(
       loggingContext: LoggingContext
   ): Future[Result[domain.IdentityProviderConfig]] = {
     inTransaction(_.getIDPConfig) { implicit connection =>
-      withIDPConfig(id)(identity)
+      backend
+        .getIdentityProviderConfig(id)(connection)
+        .toRight(IdentityProviderConfigNotFound(id))
     }
   }
 
@@ -56,7 +64,7 @@ class PersistentIdentityProviderConfigStore(
   ): Future[Result[Unit]] = {
     inTransaction(_.deleteIDPConfig) { implicit connection =>
       if (!backend.deleteIdentityProviderConfig(id)(connection)) {
-        Left(IdentityProviderConfigStore.IdentityProviderConfigNotFound(id))
+        Left(IdentityProviderConfigNotFound(id))
       } else {
         Right(())
       }
@@ -70,7 +78,7 @@ class PersistentIdentityProviderConfigStore(
   override def listIdentityProviderConfigs()(implicit
       loggingContext: LoggingContext
   ): Future[Result[Seq[domain.IdentityProviderConfig]]] = {
-    inTransaction(_.deleteIDPConfig) { implicit connection =>
+    inTransaction(_.listIDPConfigs) { implicit connection =>
       Right(backend.listIdentityProviderConfigs()(connection))
     }
   }
@@ -79,8 +87,11 @@ class PersistentIdentityProviderConfigStore(
       loggingContext: LoggingContext
   ): Future[Result[domain.IdentityProviderConfig]] = {
     inTransaction(_.updateIDPConfig) { implicit connection =>
+      val id = update.identityProviderId
       for {
-        _ <- withIDPConfig(update.identityProviderId) { _ =>
+        _ <- idpConfigExists(id)
+        _ <- idpConfigIssuerDoesNotExist(update.issuerUpdate)
+        _ = {
           update.issuerUpdate.foreach(
             backend.updateIssuer(update.identityProviderId, _)(connection)
           )
@@ -91,10 +102,10 @@ class PersistentIdentityProviderConfigStore(
             backend.updateIsDeactivated(update.identityProviderId, _)(connection)
           )
         }
-        domainConfig <- withIDPConfig(update.identityProviderId)(identity)
-      } yield {
-        domainConfig
-      }
+        identityProviderConfig <- backend
+          .getIdentityProviderConfig(id)(connection)
+          .toRight(IdentityProviderConfigNotFound(id))
+      } yield identityProviderConfig
     }.map(tapSuccess { _ =>
       logger.info(
         s"Updated identity provider configuration with id ${update.identityProviderId}"
@@ -102,41 +113,39 @@ class PersistentIdentityProviderConfigStore(
     })
   }
 
+  private def idpConfigExists(
+      id: IdentityProviderId.Id
+  )(implicit connection: Connection): Result[Unit] = Either.cond(
+    backend.idpConfigByIdExists(id)(connection),
+    (),
+    IdentityProviderConfigNotFound(id),
+  )
+
+  private def idpConfigDoesNotExist(
+      id: IdentityProviderId.Id
+  )(implicit connection: Connection): Result[Unit] = Either.cond(
+    !backend.idpConfigByIdExists(id)(connection),
+    (),
+    IdentityProviderConfigExists(id),
+  )
+
+  private def idpConfigIssuerDoesNotExist(
+      issuer: Option[String]
+  )(implicit connection: Connection): Result[Unit] = issuer match {
+    case Some(value) =>
+      Either.cond(
+        backend.idpConfigByIssuerExists(value)(connection),
+        (),
+        IdentityProviderConfigWithIssuerExists(value),
+      )
+    case None => Right(())
+  }
+
   private def inTransaction[T](
       dbMetric: metrics.daml.identityProviderConfigStore.type => DatabaseMetrics
   )(thunk: Connection => Result[T])(implicit loggingContext: LoggingContext): Future[Result[T]] =
     dbDispatcher
       .executeSql(dbMetric(metrics.daml.identityProviderConfigStore))(thunk)
-
-  private def withoutIDPConfig[T](
-      id: IdentityProviderId.Id,
-      issuer: String,
-  )(t: => T)(implicit connection: Connection): Result[T] = {
-    val idExists = backend.idpConfigByIdExists(id)(connection)
-    val issuerExists = backend.idpConfigByIssuerExists(issuer)(connection)
-    (idExists, issuerExists) match {
-      case (true, _) =>
-        Left(
-          IdentityProviderConfigExists(identityProviderId = id)
-        )
-      case (_, true) =>
-        Left(
-          IdentityProviderConfigWithIssuerExists(issuer)
-        )
-      case (false, false) => Right(t)
-    }
-  }
-
-  private def withIDPConfig[T](
-      id: IdentityProviderId.Id
-  )(
-      f: domain.IdentityProviderConfig => T
-  )(implicit connection: Connection): Result[T] = {
-    backend.getIdentityProviderConfig(id)(connection) match {
-      case Some(partyRecord) => Right(f(partyRecord))
-      case None => Left(IdentityProviderConfigStore.IdentityProviderConfigNotFound(id))
-    }
-  }
 
   private def tapSuccess[T](f: T => Unit)(r: Result[T]): Result[T] = {
     r.foreach(f)

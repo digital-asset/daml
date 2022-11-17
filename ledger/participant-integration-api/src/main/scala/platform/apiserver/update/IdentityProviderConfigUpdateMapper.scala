@@ -3,9 +3,8 @@
 
 package com.daml.platform.apiserver.update
 
+import com.daml.ledger.api.domain.JwksUrl
 import com.daml.platform.localstore.api.IdentityProviderConfigUpdate
-
-import java.net.URL
 
 object IdentityProviderConfigUpdateMapper extends UpdateMapperBase {
 
@@ -67,11 +66,11 @@ object IdentityProviderConfigUpdateMapper extends UpdateMapperBase {
 
   def resolveJwksUrlUpdate(
       updateTrie: UpdatePathsTrie,
-      newValue: Option[URL],
-  ): Result[Option[URL]] =
+      newValue: Option[JwksUrl],
+  ): Result[Option[JwksUrl]] =
     updateTrie
       .findMatch(IdentityProviderConfigPaths.jwksUrl)
-      .fold(noUpdate[URL])(updateMatch =>
+      .fold(noUpdate[JwksUrl])(updateMatch =>
         if (updateMatch.isExact) {
           Right(newValue)
         } else {

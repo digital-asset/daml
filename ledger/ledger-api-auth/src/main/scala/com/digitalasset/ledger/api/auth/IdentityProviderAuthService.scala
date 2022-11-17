@@ -7,6 +7,7 @@ import com.auth0.jwk.UrlJwkProvider
 import com.auth0.jwt.JWT
 import com.auth0.jwt.interfaces.DecodedJWT
 import com.daml.jwt.{JwtTimestampLeeway, JwtVerifier, RSA256Verifier}
+import com.daml.ledger.api.domain.JwksUrl
 import com.daml.lf.data.Ref
 import com.google.common.cache.{Cache, CacheBuilder}
 import org.slf4j.{Logger, LoggerFactory}
@@ -14,7 +15,6 @@ import scalaz.syntax.show._
 import scalaz.{-\/, \/, \/-}
 import spray.json._
 
-import java.net.URL
 import java.security.interfaces.RSAPublicKey
 import java.util.concurrent.{CompletableFuture, CompletionStage, TimeUnit}
 
@@ -118,9 +118,9 @@ class IdentityProviderAuthService(
     RSA256Verifier(publicKey, config.jwtTimestampLeeway)
   }
 
-  private def jwkProvider(jwksUrl: URL) =
+  private def jwkProvider(jwksUrl: JwksUrl) =
     new UrlJwkProvider(
-      jwksUrl,
+      jwksUrl.toURL,
       Integer.valueOf(
         config.http.connectionTimeoutUnit.toMillis(config.http.connectionTimeout).toInt
       ),
@@ -160,7 +160,7 @@ class IdentityProviderAuthService(
 object IdentityProviderAuthService {
   case class Entry(
       id: Ref.IdentityProviderId.Id,
-      jwksURL: URL,
+      jwksURL: JwksUrl,
       issuer: String,
   )
 

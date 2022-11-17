@@ -21,4 +21,5 @@ class IdentityProviderConfigStoreMetrics(
   val getIDPConfig: DatabaseMetrics = createDbMetrics("get_identity_provider_config")
   val deleteIDPConfig: DatabaseMetrics = createDbMetrics("delete_identity_provider_config")
   val updateIDPConfig: DatabaseMetrics = createDbMetrics("update_identity_provider_config")
+  val listIDPConfigs: DatabaseMetrics = createDbMetrics("list_identity_provider_config")
 }

@@ -5,12 +5,11 @@ package com.daml.platform.store.backend.localstore
 
 import anorm.SqlParser.{bool, int, str}
 import anorm.{RowParser, SqlStringInterpolation, ~}
-import com.daml.ledger.api.domain.IdentityProviderConfig
+import com.daml.ledger.api.domain.{IdentityProviderConfig, JwksUrl}
 import com.daml.lf.data.Ref.IdentityProviderId
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.scalautil.Statement.discard
 
-import java.net.URL
 import java.sql.Connection
 
 object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend {
@@ -64,7 +63,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
         IdentityProviderConfig(
           identityProviderId = IdentityProviderId.Id.assertFromString(identityProviderId),
           isDeactivated = isDeactivated,
-          jwksURL = new URL(jwksURL),
+          jwksURL = JwksUrl.assertFromString(jwksURL),
           issuer = issuer,
         )
       }
@@ -82,7 +81,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
         IdentityProviderConfig(
           identityProviderId = IdentityProviderId.Id.assertFromString(identityProviderId),
           isDeactivated = isDeactivated,
-          jwksURL = new URL(jwksURL),
+          jwksURL = JwksUrl.assertFromString(jwksURL),
           issuer = issuer,
         )
       }
@@ -116,13 +115,13 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
     rowsUpdated == 1
   }
 
-  override def updateJwksURL(id: IdentityProviderId.Id, jwksURL: URL)(
+  override def updateJwksURL(id: IdentityProviderId.Id, jwksURL: JwksUrl)(
       connection: Connection
   ): Boolean = {
     val rowsUpdated =
       SQL"""
          UPDATE participant_identity_provider_config
-         SET jwks_url  = ${jwksURL.toString}
+         SET jwks_url  = ${jwksURL.value}
          WHERE
              WHERE identity_provider_id = ${id.value: String}
        """.executeUpdate()(connection)

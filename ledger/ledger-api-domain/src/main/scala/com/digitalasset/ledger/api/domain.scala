@@ -6,10 +6,10 @@ package com.daml.ledger.api
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.configuration.Configuration
 import com.daml.lf.command.{DisclosedContract, ApiCommands => LfCommands}
-import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Ref.LedgerString.ordering
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging._
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId => LfContractId}
 import com.daml.lf.value.{Value => Lf}
@@ -20,6 +20,8 @@ import scalaz.{@@, Tag}
 
 import java.net.URL
 import scala.collection.immutable
+import scala.util.Try
+import scala.util.control.NonFatal
 
 object domain {
 
@@ -420,10 +422,27 @@ object domain {
     case object UserManagement extends Feature
   }
 
+  case class JwksUrl(value: String) extends AnyVal {
+    def toURL = new URL(value)
+  }
+  object JwksUrl {
+    def fromString(value: String): Either[String, JwksUrl] =
+      Try(new URL(value)).toEither.left
+        .map { case NonFatal(e) =>
+          e.getMessage
+        }
+        .map(_ => JwksUrl(value))
+
+    def assertFromString(str: String): JwksUrl = fromString(str) match {
+      case Right(value) => value
+      case Left(err) => throw new IllegalArgumentException(err)
+    }
+  }
+
   final case class IdentityProviderConfig(
       identityProviderId: Ref.IdentityProviderId.Id,
       isDeactivated: Boolean = false,
-      jwksURL: URL,
+      jwksURL: JwksUrl,
       issuer: String,
   )
 }
