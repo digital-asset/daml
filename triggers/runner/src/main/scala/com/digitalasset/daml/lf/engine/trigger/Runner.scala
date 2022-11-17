@@ -28,6 +28,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.trigger.Runner.Implicits._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -36,7 +37,9 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{Compiler, Pretty, SValue, Speedy}
 import com.daml.lf.{CompiledPackages, PureCompiledPackages}
-import com.daml.logging.entries.LoggingEntry
+import com.daml.logging.LoggingContextOf.label
+import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingValue, ToLoggingValue}
+import com.daml.logging.entries.ToLoggingValue._
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
@@ -46,7 +49,6 @@ import com.daml.script.converter.Converter.{DamlAnyModuleRecord, DamlTuple2, unr
 import com.daml.script.converter.ConverterException
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
-import com.typesafe.scalalogging.StrictLogging
 import io.grpc.Status.UNAVAILABLE
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.bifunctor._
@@ -91,9 +93,13 @@ private[lf] final case class Trigger(
 )
 
 // Utilities for interacting with the speedy machine.
-private[lf] object Machine extends StrictLogging {
+private[lf] object Machine {
+  import Runner.logger
+
   // Run speedy until we arrive at a value.
-  def stepToValue(machine: Speedy.OffLedgerMachine): SValue = {
+  def stepToValue(
+      machine: Speedy.OffLedgerMachine
+  )(implicit loggingContext: LoggingContextOf[Trigger]): SValue = {
     machine.run() match {
       case SResultFinal(v) => v
       case SResultError(err) => {
@@ -109,21 +115,27 @@ private[lf] object Machine extends StrictLogging {
   }
 }
 
-object Trigger extends StrictLogging {
+object Trigger {
 
   private[trigger] def newLoggingContext[P, T](
       triggerDefinition: Identifier,
       actAs: Party,
       readAs: Set[Party],
-      triggerId: Option[UUID] = None,
+      triggerId: String,
+      applicationId: ApplicationId,
   ): (LoggingContextOf[Trigger with P] => T) => T = {
-    val entries0 = List[LoggingEntry](
-      "triggerDefinition" -> triggerDefinition.toString,
-      "triggerActAs" -> Tag.unwrap(actAs),
-      "triggerReadAs" -> Tag.unsubst(readAs),
+    val entries = List[LoggingEntry](
+      "id" -> triggerId,
+      "definition" -> triggerDefinition,
+      "actAs" -> Tag.unwrap(actAs),
+      "readAs" -> Tag.unsubst(readAs),
     )
-    val entries = triggerId.fold(entries0)(uuid => entries0.+:("triggerId" -> uuid.toString))
-    LoggingContextOf.newLoggingContext(LoggingContextOf.label[Trigger with P], entries: _*)
+
+    LoggingContextOf.newLoggingContext(
+      LoggingContextOf.label[Trigger with P],
+      "applicationId" -> applicationId.unwrap,
+      "trigger" -> LoggingValue.Nested(LoggingEntries(entries: _*)),
+    )
   }
 
   private def detectHasReadAs(
@@ -188,14 +200,12 @@ object Trigger extends StrictLogging {
       case Right(DValueSignature(TApp(ty @ TTyCon(tyCon), tyArg), _, _)) =>
         val triggerIds = TriggerIds(tyCon.packageId)
         if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
-          logger.debug("Running low-level trigger")
           val expr = EVal(triggerId)
           val ty = TypeConApp(tyCon, ImmArray(tyArg))
           detectVersion(pkgInterface, triggerIds).map(
             TriggerDefinition(triggerId, ty, _, Level.Low, expr)
           )
         } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
-          logger.debug("Running high-level trigger")
           val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
           val expr = EApp(runTrigger, EVal(triggerId))
           val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
@@ -208,8 +218,10 @@ object Trigger extends StrictLogging {
         } else {
           error(triggerId, ty)
         }
+
       case Right(DValueSignature(ty, _, _)) =>
         error(triggerId, ty)
+
       case Left(err) =>
         Left(err.pretty)
     }
@@ -219,8 +231,8 @@ object Trigger extends StrictLogging {
       compiledPackages: CompiledPackages,
       triggerId: Identifier,
   )(implicit loggingContext: LoggingContextOf[Trigger]): Either[String, Trigger] = {
-
     val compiler = compiledPackages.compiler
+
     for {
       triggerDef <- detectTriggerDefinition(compiledPackages.pkgInterface, triggerId)
       hasReadAs <- detectHasReadAs(compiledPackages.pkgInterface, triggerDef.triggerIds)
@@ -345,7 +357,7 @@ object Trigger extends StrictLogging {
   }
 }
 
-private[lf] class Runner(
+private[lf] class Runner private (
     compiledPackages: CompiledPackages,
     trigger: Trigger,
     triggerConfig: TriggerRunnerConfig,
@@ -354,7 +366,7 @@ private[lf] class Runner(
     applicationId: ApplicationId,
     parties: TriggerParties,
 )(implicit loggingContext: LoggingContextOf[Trigger]) {
-  import Runner.SeenMsgs
+  import Runner.{SeenMsgs, logger}
 
   // Compiles LF expressions into Speedy expressions.
   private val compiler = compiledPackages.compiler
@@ -414,8 +426,6 @@ private[lf] class Runner(
 
   private val transactionFilter =
     TransactionFilter(parties.readers.map(p => (p.unwrap, trigger.filters)).toMap)
-
-  private[this] def logger = ContextualizedLogger get getClass
 
   // return whether uuid *was* present in pendingCommandIds
   private[this] def useCommandId(uuid: UUID, seeOne: SeenMsgs.One): Boolean = {
@@ -639,16 +649,14 @@ private[lf] class Runner(
   // messages given the starting state represented by the ACS
   // argument.
   private def getTriggerEvaluator(
-      name: String,
-      acs: Seq[CreatedEvent],
+      acs: Seq[CreatedEvent]
   ): Flow[TriggerMsg, SubmitRequest, Future[SValue]] = {
-    logger.info(s"""Trigger ${name} is running as ${parties.actAs} with readAs=[${parties.readAs
-        .mkString(", ")}]""")
+    // TODO: cjp - a future PR will add in logging of trigger Id etc.
+    logger.info("Trigger starting")
 
     val clientTime: Timestamp =
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     val (initialStateFree, evaluatedUpdate) = getInitialStateFreeAndUpdate(acs)
-
     // Prepare another speedy machine for evaluating expressions.
     val machine: Speedy.OffLedgerMachine =
       Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
@@ -700,6 +708,7 @@ private[lf] class Runner(
     @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
     val graph = GraphDSL.createGraph(Sink.last[SValue]) { implicit gb => saveLastState =>
       import GraphDSL.Implicits._
+
       val msgIn = gb add Flow[TriggerMsg].wireTap(logReceivedMsg _)
       val initialState = gb add runInitialState
       val initialStateOut = gb add Broadcast[SValue](2)
@@ -716,7 +725,8 @@ private[lf] class Runner(
       // format: on
       new FlowShape(msgIn.in, submissions.out)
     }
-    Flow fromGraph graph
+
+    Flow.fromGraph(graph)
   }
 
   private[this] def catchIAE[A](a: => A): Option[A] =
@@ -746,7 +756,8 @@ private[lf] class Runner(
     SEApp(func, values)
   }
 
-  private[this] def makeAppD(func: SValue, values: SValue*) = makeApp(SEValue(func), values.toArray)
+  private[this] def makeAppD(func: SValue, values: SValue*): SExpr =
+    makeApp(SEValue(func), values.toArray)
 
   // Query the ACS. This allows you to separate the initialization of
   // the initial state from the first run.
@@ -756,7 +767,7 @@ private[lf] class Runner(
   ): Future[(Seq[CreatedEvent], LedgerOffset)] = {
     for {
       acsResponses <- client.activeContractSetClient
-        .getActiveContracts(transactionFilter, verbose = false)
+        .getActiveContracts(transactionFilter)
         .runWith(Sink.seq)
       offset = Array(acsResponses: _*).lastOption
         .fold(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))(resp =>
@@ -849,23 +860,72 @@ private[lf] class Runner(
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,
       msgFlow: Graph[FlowShape[TriggerMsg, TriggerMsg], T] = Flow[TriggerMsg],
-      name: String = "",
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
   ): (T, Future[SValue]) = {
     val source =
       msgSource(client, offset, trigger.heartbeat, parties, transactionFilter)
+
     Flow
       .fromGraph(msgFlow)
-      .viaMat(getTriggerEvaluator(name, acs))(Keep.both)
+      .viaMat(getTriggerEvaluator(acs))(Keep.both)
       .via(submitOrFail)
       .join(source)
       .run()
   }
 }
 
-object Runner extends StrictLogging {
+object Runner {
+
+  import Implicits._
+
+  private[trigger] val logger = ContextualizedLogger.get(getClass)
+
+  def apply(
+      compiledPackages: CompiledPackages,
+      trigger: Trigger,
+      triggerConfig: TriggerRunnerConfig,
+      client: LedgerClient,
+      timeProviderType: TimeProviderType,
+      applicationId: ApplicationId,
+      parties: TriggerParties,
+  )(implicit loggingContext: LoggingContextOf[Trigger]): Runner = {
+    val setupId: UUID = UUID.randomUUID()
+
+    loggingContext.withEnrichedTriggerContext(
+      triggerAction("trigger.setup", id = setupId)
+    ) { implicit loggingContext: LoggingContextOf[Trigger] =>
+      loggingContext
+        .withEnrichedTriggerContext(
+          "level" -> trigger.defn.level.toString,
+          "version" -> trigger.defn.version.toString,
+        ) { implicit loggingContext: LoggingContextOf[Trigger] =>
+          new Runner(
+            compiledPackages,
+            trigger,
+            triggerConfig,
+            client,
+            timeProviderType,
+            applicationId,
+            parties,
+          )
+        }
+    }
+  }
+
+  def triggerAction(
+      name: String,
+      id: UUID = UUID.randomUUID(),
+      parent: Option[UUID] = None,
+  ): (String, LoggingValue) = {
+    "action" -> LoggingValue.Nested(
+      LoggingEntries(
+        "type" -> name,
+        "id" -> id,
+      ) ++ parent.fold(LoggingEntries.empty)(id => LoggingEntries("parentId" -> id))
+    )
+  }
 
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
     (250 * (1 << (afterTries - 1))).milliseconds
@@ -946,7 +1006,13 @@ object Runner extends StrictLogging {
       config: Compiler.Config,
       triggerConfig: TriggerRunnerConfig,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] =
-    Trigger.newLoggingContext(triggerId, parties.actAs, parties.readAs) { implicit lc =>
+    Trigger.newLoggingContext(
+      triggerId,
+      parties.actAs,
+      parties.readAs,
+      triggerId.toString,
+      applicationId,
+    ) { implicit loggingContext: LoggingContextOf[Trigger] =>
       val darMap = dar.all.toMap
       val compiledPackages = PureCompiledPackages.build(darMap, config) match {
         case Left(err) => throw new RuntimeException(s"Failed to compile packages: $err")
@@ -957,7 +1023,7 @@ object Runner extends StrictLogging {
         case Right(trigger) => trigger
       }
       val runner =
-        new Runner(
+        Runner(
           compiledPackages,
           trigger,
           triggerConfig,
@@ -966,9 +1032,48 @@ object Runner extends StrictLogging {
           applicationId,
           parties,
         )
+
       for {
         (acs, offset) <- runner.queryACS()
         finalState <- runner.runWithACS(acs, offset)._2
       } yield finalState
     }
+
+  object Implicits {
+    implicit class EnrichTriggerLoggingContextOf(logContext: LoggingContextOf[Trigger]) {
+      def enrichTriggerContext(
+          entry: LoggingEntry,
+          entries: LoggingEntry*
+      ): LoggingContextOf[Trigger] = {
+        val triggerEntries = logContext.entries.contents.get("trigger") match {
+          case Some(LoggingValue.Nested(triggerContext)) =>
+            triggerContext ++ LoggingEntries(entry +: entries: _*)
+
+          case _ =>
+            LoggingEntries(entry +: entries: _*)
+        }
+
+        LoggingContextOf
+          .withEnrichedLoggingContext(
+            label[Trigger],
+            "trigger" -> LoggingValue.Nested(triggerEntries),
+          )(logContext)
+          .run(identity)
+      }
+
+      private[lf] def withEnrichedTriggerContext[A](
+          entry: LoggingEntry,
+          entries: LoggingEntry*
+      )(f: LoggingContextOf[Trigger] => A): A = {
+        f(logContext.enrichTriggerContext(entry, entries: _*))
+      }
+    }
+
+    implicit def `UUID to LoggingValue`: ToLoggingValue[UUID] = ToStringToLoggingValue
+
+    implicit def `Identifier to LoggingValue`: ToLoggingValue[Identifier] = {
+      case Identifier(packageId, qualifiedName) =>
+        s"$qualifiedName@$packageId"
+    }
+  }
 }
