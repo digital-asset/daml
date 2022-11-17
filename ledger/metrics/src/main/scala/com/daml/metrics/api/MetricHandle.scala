@@ -19,14 +19,23 @@ object MetricHandle {
 
   trait Factory {
 
+    /** A timer can be represented by either a summary or a histogram.
+      *  - for `Dropwizard` the timer is represented as a summary
+      *  - for `OpenTelemetry` the timer is represented by a histogram.
+      */
     def timer(name: MetricName)(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Timer
 
+    /** A gauge represents the current value being monitored (eg: queue size, requests in flight, so on)
+      * The values being monitored should be numeric for compatibility with multiple metric systems (eg: prometheus)
+      */
     def gauge[T](name: MetricName, initial: T)(implicit
         context: MetricsContext
     ): Gauge[T]
 
+    /** Same as a gauge, but the value is read using the `gaugeSupplier` only when the metrics are observed
+      */
     def gaugeWithSupplier[T](
         name: MetricName,
         gaugeSupplier: () => T,
@@ -34,14 +43,25 @@ object MetricHandle {
         context: MetricsContext = MetricsContext.Empty
     ): Unit
 
+    /** A meter represents a monotonically increasing value.
+      * In prometheus this is actually represented by a `Counter`.
+      * Warn: Meters should never decrease as the data is then skewed and unusable
+      */
     def meter(name: MetricName)(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Meter
 
+    /** A counter represents a value that can go up and down.
+      *  In fact for both `Dropwizard` and `Opentelemetry` a counter is actually represented as a gauge.
+      *  We can look at a counter the same way as a gauge with a more extended API.
+      */
     def counter(name: MetricName)(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Counter
 
+    /** A histogram represents a `bucketized` view of the data
+      *  In most cases the boundaries of the buckets should be manually configured for the monitored data
+      */
     def histogram(name: MetricName)(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Histogram
