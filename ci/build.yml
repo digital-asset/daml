@@ -332,6 +332,7 @@ jobs:
     - bash: ci/check-protobuf-stability.sh
     - template: tell-slack-failed.yml
 
+
 - job: collect_build_data_failed
   condition: failed()
   dependsOn:
