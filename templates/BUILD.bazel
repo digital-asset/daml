@@ -96,6 +96,9 @@ genrule(
 
         ## special cases we should work to remove
 
+        # hack around our super inconvenient test harness for gsg tests
+        sed -i 's|react-scripts start|react-scripts --openssl-legacy-provider start|' "$$OUT/create-daml-app/ui/package.json.template"
+
         # quickstart-java template
         tar xf $(location //docs:quickstart-java.tar.gz) --strip-components=1 -C $$OUT/quickstart-java
 
