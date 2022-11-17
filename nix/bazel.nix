@@ -146,7 +146,7 @@ let shared = rec {
 
   # rules_nodejs expects nodejs in a subdirectory of a repository rule.
   # We use a linkFarm to fulfill this requirement.
-  nodejsNested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs; }];
+  nodejsNested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs14; }];
   nodejs14Nested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs14; }];
 
   sass = pkgs.sass;
