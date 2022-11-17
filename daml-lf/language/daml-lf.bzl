@@ -58,7 +58,7 @@ lf_version_configuration = {
     "legacy": "1.8",
     "default": "1.14",
     "latest": "1.15",
-#    "preview": "",
+    #    "preview": "",
     "dev": "1.dev",
 }
 
