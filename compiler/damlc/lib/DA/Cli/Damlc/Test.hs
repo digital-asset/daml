@@ -382,10 +382,10 @@ printTestCoverage ShowCoverage{getShowCoverage} allPackages results
           , printf "  %d (%5.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
           , printf "  %d (%5.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
           ] ++ showCoverageReport printChoiceIdentifier "never exercised" neverExercised
-        , let defined = countWhere (isLocal . fst) allImplementations
+        , let defined = countWhere (not . isLocal . fst) allImplementations
           in
-          [ printf "- External interfaces"
-          , printf "  %d implementations defined" defined
+          [ printf "- External interface implementations"
+          , printf "  %d defined" defined
           ]
         , let defined = M.size externalImplementationChoices
               exercisedAny = M.size externalImplementationChoicesExercised
