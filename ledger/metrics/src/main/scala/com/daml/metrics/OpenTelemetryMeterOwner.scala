@@ -5,6 +5,7 @@ package com.daml.metrics
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.OpenTelemetryMeterOwner.buildProviderWithViews
+import com.daml.metrics.api.MetricHandle.Histogram
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.metrics.api.reporters.MetricsReporter.Prometheus
