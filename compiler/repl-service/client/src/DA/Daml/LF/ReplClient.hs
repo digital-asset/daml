@@ -25,6 +25,7 @@ module DA.Daml.LF.ReplClient
 import Control.Concurrent.Async
 import Control.Concurrent.Extra
 import Control.Exception
+import qualified Control.Monad (void)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import DA.PortFile
@@ -145,7 +146,7 @@ loadPackages Handle{..} packages = do
     r <- performRequest
         (Grpc.replServiceLoadPackages client)
         (Grpc.LoadPackagesRequest (V.fromList packages))
-    pure (() <$ r)
+    pure (Control.Monad.void r)
 
 data ScriptResult
     = ScriptSuccess (Maybe T.Text) -- ^ Script succeeded, if it was of type Script Text include the result.
@@ -176,7 +177,7 @@ clearResults :: Handle -> IO (Either BackendError ())
 clearResults Handle{..} = do
     client <- hClient
     r <- performRequest (Grpc.replServiceClearResults client) Grpc.ClearResultsRequest
-    pure (() <$ r)
+    pure (Control.Monad.void r)
 
 performRequest
   :: (ClientRequest 'Normal payload response -> IO (ClientResult 'Normal response))
