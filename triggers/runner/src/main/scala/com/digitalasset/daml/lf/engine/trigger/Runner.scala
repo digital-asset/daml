@@ -4,6 +4,7 @@
 package com.daml.lf.engine.trigger
 
 import akka.NotUsed
+import akka.event.Logging
 import akka.stream._
 import akka.stream.scaladsl._
 import com.daml.api.util.TimeProvider
@@ -20,6 +21,7 @@ import com.daml.ledger.api.v1.commands.{
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
@@ -37,7 +39,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.trigger.Runner.Implicits._
-import com.daml.lf.engine.trigger.Runner.{TriggerContext, logger}
+import com.daml.lf.engine.trigger.Runner.{TriggerContext, triggerAction, triggerUserState, logger}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -374,6 +376,7 @@ private[lf] class Runner private (
     timeProviderType: TimeProviderType,
     applicationId: ApplicationId,
     parties: TriggerParties,
+    setupId: UUID,
 )(implicit loggingContext: LoggingContextOf[Trigger]) {
   import Runner.SeenMsgs
 
@@ -559,6 +562,13 @@ private[lf] class Runner private (
     val submissionFailureQueue
         : Flow[TriggerContext[SingleCommandFailure], TriggerContext[TriggerMsg], NotUsed] = {
       Flow[TriggerContext[SingleCommandFailure]]
+        .map { case ctx @ Ctx(_, failure, _) =>
+          logger.info("Received command submission failure from ledger API client")(
+            ctx.context.enrichTriggerContext("failure" -> failure)
+          )
+
+          ctx.copy(value = failure)
+        }
         // Why `fail`?  Consider the most obvious alternatives.
         //
         // `backpressure`?  This feeds into the Free interpreter flow, which may produce
@@ -571,16 +581,23 @@ private[lf] class Runner private (
         // `fail`, on the other hand?  It far better fits the trigger model to go
         //   tabula rasa and notice the still-unhandled contract in the ACS again
         //   on init, as we expect triggers to be able to do anyhow.
-        .buffer(triggerConfig.submissionFailureQueueSize, OverflowStrategy.fail)
-        .map {
-          _.map { case SingleCommandFailure(commandId, s) =>
-            TriggerMsg.Completion(
-              Completion(
-                commandId,
-                Some(Status(s.getStatus.getCode.value(), s.getStatus.getDescription)),
-              )
+        .buffer(
+          triggerConfig.submissionFailureQueueSize,
+          OverflowStrategy.fail.withLogLevel(Logging.WarningLevel),
+        )
+        .map { case ctx @ Ctx(_, SingleCommandFailure(commandId, s), _) =>
+          val completion = TriggerMsg.Completion(
+            Completion(
+              commandId,
+              Some(Status(s.getStatus.getCode.value(), s.getStatus.getDescription)),
             )
-          }
+          )
+
+          logger.info("Rewrite command submission failure for trigger rules")(
+            ctx.context.enrichTriggerContext("message" -> completion)
+          )
+
+          ctx.copy(value = completion)
         }
     }
 
@@ -592,7 +609,15 @@ private[lf] class Runner private (
       client.transactionClient
         .getTransactions(offset, None, filter)
         .map { transaction =>
-          Ctx(loggingContext, TriggerMsg.Transaction(transaction))
+          loggingContext.withEnrichedTriggerContext(
+            triggerAction("trigger.rule.update", parent = Some(setupId))
+          ) { implicit loggingContext: LoggingContextOf[Trigger] =>
+            logger.info("Transaction source")(
+              loggingContext.enrichTriggerContext("message" -> transaction)
+            )
+
+            Ctx(loggingContext, TriggerMsg.Transaction(transaction))
+          }
         }
     }
 
@@ -603,7 +628,15 @@ private[lf] class Runner private (
         // Completions only take actAs into account so no need to include readAs.
         .completionSource(List(parties.actAs.unwrap), offset)
         .collect { case CompletionElement(completion, _) =>
-          Ctx(loggingContext, TriggerMsg.Completion(completion))
+          loggingContext.withEnrichedTriggerContext(
+            triggerAction("trigger.rule.update", parent = Some(setupId))
+          ) { implicit loggingContext: LoggingContextOf[Trigger] =>
+            logger.info("Completion source")(
+              loggingContext.enrichTriggerContext("message" -> completion)
+            )
+
+            Ctx(loggingContext, TriggerMsg.Completion(completion))
+          }
         }
     }
 
@@ -618,7 +651,15 @@ private[lf] class Runner private (
           .tick[TriggerMsg](interval, interval, TriggerMsg.Heartbeat)
           .mapMaterializedValue(_ => NotUsed)
           .map { heartbeat =>
-            Ctx(loggingContext, heartbeat)
+            loggingContext.withEnrichedTriggerContext(
+              triggerAction("trigger.rule.update", parent = Some(setupId))
+            ) { implicit loggingContext: LoggingContextOf[Trigger] =>
+              logger.info("Heartbeat source")(
+                loggingContext.enrichTriggerContext("message" -> "Heartbeat")
+              )
+
+              Ctx(loggingContext, heartbeat)
+            }
           }
 
       case None =>
@@ -705,9 +746,34 @@ private[lf] class Runner private (
 
     import UnfoldState.{flatMapConcatNode, flatMapConcatNodeOps, toSource, toSourceOps}
 
-    val runInitialState = toSource(freeTriggerSubmits(clientTime, initialStateFree))
+    val runInitialState = {
+      loggingContext.withEnrichedTriggerContext(
+        triggerAction("trigger.rule.initialization", parent = Some(setupId))
+      ) { implicit loggingContext: LoggingContextOf[Trigger] =>
+        toSource(
+          freeTriggerSubmits(clientTime, initialStateFree)
+            .leftMap { state =>
+              logger.debug("Trigger rule initial state")(
+                loggingContext.enrichTriggerContext(
+                  "state" -> triggerUserState(state, trigger.defn.level)
+                )
+              )
+              state
+            }
+        )
+      }
+    }
 
     val runRuleOnMsgs = flatMapConcatNode { (state: SValue, messageVal: TriggerContext[SValue]) =>
+      implicit val loggingContext: LoggingContextOf[Trigger] = messageVal.context
+
+      logger.debug("Trigger rule evaluation")(
+        loggingContext.enrichTriggerContext(
+          "state" -> triggerUserState(state, trigger.defn.level),
+          "message" -> messageVal.value,
+        )
+      )
+
       val clientTime: Timestamp =
         Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
       machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal.value))
@@ -728,7 +794,11 @@ private[lf] class Runner private (
           _.expect(
             "TriggerRule new state",
             { case DamlTuple2(SUnit, newState) =>
-              logger.debug(s"New state: $newState")
+              logger.debug("Trigger rule state updated")(
+                loggingContext.enrichTriggerContext(
+                  "state" -> triggerUserState(newState, trigger.defn.level)
+                )
+              )
               newState
             },
           ).orConverterException
@@ -973,6 +1043,7 @@ object Runner {
             timeProviderType,
             applicationId,
             parties,
+            setupId,
           )
         }
     }
@@ -989,6 +1060,23 @@ object Runner {
         "id" -> id,
       ) ++ parent.fold(LoggingEntries.empty)(id => LoggingEntries("parentId" -> id))
     )
+  }
+
+  def triggerUserState(state: SValue, level: Trigger.Level): SValue = {
+    level match {
+      case Trigger.Level.High =>
+        state
+          .expect(
+            "SRecord",
+            { case SRecord(_, _, values) =>
+              values.get(3)
+            },
+          )
+          .orConverterException
+
+      case Trigger.Level.Low =>
+        state
+    }
   }
 
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
@@ -1180,6 +1268,27 @@ object Runner {
     implicit def `FiniteDuration to LoggingValue`: ToLoggingValue[FiniteDuration] =
       ToStringToLoggingValue
 
+    implicit def `VariantConName to LoggingValue`: ToLoggingValue[VariantConName] =
+      ToStringToLoggingValue
+
+    implicit def `Status to LoggingValue`: ToLoggingValue[Status] = status =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "message" -> status.message,
+          "code" -> status.code,
+        )
+      )
+
+    implicit def `CompletionMsg to LoggingValue`: ToLoggingValue[TriggerMsg.Completion] =
+      completion =>
+        LoggingValue.Nested(
+          LoggingEntries(
+            "commandId" -> completion.c.commandId,
+            "status" -> completion.c.getStatus.code,
+            "message" -> completion.c.getStatus.message,
+          )
+        )
+
     implicit def `SingleCommandFailure to LoggingValue`: ToLoggingValue[SingleCommandFailure] =
       failure =>
         LoggingValue.Nested(
@@ -1193,6 +1302,9 @@ object Runner {
     implicit def `api.Value to LoggingValue`: ToLoggingValue[api.Value] = value =>
       PrettyPrint.prettyApiValue(verbose = true)(value).render(80)
 
+    implicit def `SValue to LoggingValue`: ToLoggingValue[SValue] = value =>
+      PrettyPrint.prettySValue(value).render(80)
+
     implicit def `TransactionFilter to LoggingValue`: ToLoggingValue[TransactionFilter] = filter =>
       LoggingValue.Nested(LoggingEntries(filter.filtersByParty.view.mapValues { value =>
         LoggingValue.Nested(
@@ -1202,6 +1314,70 @@ object Runner {
           )
         )
       }.toSeq: _*))
+
+    implicit def `CreatedEvent to LoggingEvent`: ToLoggingValue[CreatedEvent] = created =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "type" -> "CreatedEvent",
+          "id" -> created.eventId,
+          "contractId" -> created.contractId,
+          "templateId" -> created.getTemplateId,
+          "interfaceViews" -> LoggingValue.OfIterable(
+            created.interfaceViews.map(view =>
+              LoggingValue.Nested(
+                LoggingEntries(
+                  "interfaceId" -> view.getInterfaceId,
+                  "viewStatus" -> view.getViewStatus,
+                )
+              )
+            )
+          ),
+          "witnessParties" -> created.witnessParties,
+          "signatories" -> created.signatories,
+          "observers" -> created.observers,
+        ) ++ created.contractKey.fold(LoggingEntries.empty) { contractKey =>
+          LoggingEntries(
+            "contractKey" -> contractKey
+          )
+        }
+      )
+
+    implicit def `ArchivedEvent to LoggingValue`: ToLoggingValue[ArchivedEvent] = archived =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "type" -> "ArchivedEvent",
+          "id" -> archived.eventId,
+          "contractId" -> archived.contractId,
+          "templateId" -> archived.getTemplateId,
+          "witnessParties" -> archived.witnessParties,
+        )
+      )
+
+    implicit def `Transaction to LoggingValue`: ToLoggingValue[Transaction] = transaction =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "transactionId" -> transaction.transactionId,
+          "commandId" -> transaction.commandId,
+          "workflowId" -> transaction.workflowId,
+          "offset" -> transaction.offset,
+          "events" -> LoggingValue.OfIterable(transaction.events.collect {
+            case Event(Event.Event.Created(created)) =>
+              created
+
+            case Event(Event.Event.Archived(archived)) =>
+              archived
+          }),
+        )
+      )
+
+    implicit def `Completion to LoggingValue`: ToLoggingValue[Completion] = completion =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "commandId" -> completion.commandId,
+          "status" -> completion.getStatus.code,
+          "message" -> completion.getStatus.message,
+        )
+      )
 
     implicit def `CreateCommand to LoggingValue`: ToLoggingValue[CreateCommand] = create =>
       LoggingValue.Nested(
