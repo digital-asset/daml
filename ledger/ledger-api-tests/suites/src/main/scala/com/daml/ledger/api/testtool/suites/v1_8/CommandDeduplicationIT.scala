@@ -694,16 +694,20 @@ final class CommandDeduplicationIT(
       .submitAndWaitForTransaction(request)
       .mustFail("Request was accepted but we were expecting it to fail with a duplicate error")
       .map(
-        assertGrpcError(
+        assertGrpcErrorOneOf(
           _,
-          errorCode = LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
-          exceptionMessageSubstring = None,
-          checkDefiniteAnswerMetadata = true,
-          assertDeduplicatedSubmissionIdAndOffsetOnError(
-            acceptedSubmissionId,
-            acceptedOffset,
-            _,
+          extendedChecks = Some(
+            ExtendedAsserts(
+              checkDefiniteAnswerMetadata = true,
+              additionalErrorAssertions = assertDeduplicatedSubmissionIdAndOffsetOnError(
+                acceptedSubmissionId,
+                acceptedOffset,
+                _,
+              ),
+            )
           ),
+          LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
+          LedgerApiErrors.ConsistencyErrors.SubmissionAlreadyInFlight,
         )
       )
 
@@ -719,7 +723,12 @@ final class CommandDeduplicationIT(
       request,
       parties: _*
     ) { completion =>
-      assertCompletionStatus(request.toString, completion, Code.ALREADY_EXISTS)
+      assertCompletionStatus(
+        request.toString,
+        completion,
+        Code.ALREADY_EXISTS, // Deduplication error
+        Code.ABORTED, // Code for inflight request: Different grpc code implied by retryability of ContentionOnSharedResources
+      )
       assertDeduplicatedSubmissionIdAndOffsetOnCompletion(
         acceptedSubmissionId,
         acceptedOffset,
@@ -730,11 +739,13 @@ final class CommandDeduplicationIT(
   private def assertCompletionStatus(
       requestString: String,
       response: CompletionResponse,
-      statusCode: Code,
+      statusCodes: Code*
   ): Unit =
     assert(
-      response.completion.getStatus.code == statusCode.value(),
-      s"""Expecting completion with status code $statusCode but completion has status ${response.completion.status}.
+      statusCodes.exists(response.completion.getStatus.code == _.value()),
+      s"""Expecting completion with status code(s) ${statusCodes.mkString(
+          ","
+        )} but completion has status ${response.completion.status}.
          |Request: $requestString
          |Response: $response
          |Metadata: ${extractErrorInfoMetadata(
