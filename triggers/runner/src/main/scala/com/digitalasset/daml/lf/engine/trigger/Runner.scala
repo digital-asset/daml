@@ -557,7 +557,7 @@ private[lf] class Runner private (
   ): Flow[TriggerContext[SingleCommandFailure], TriggerContext[TriggerMsg], NotUsed] = {
     // A queue for command submission failures.
     val submissionFailureQueue
-        : Flow[TriggerContext[SingleCommandFailure], TriggerContext[TriggerMsg], NotUsed] =
+        : Flow[TriggerContext[SingleCommandFailure], TriggerContext[TriggerMsg], NotUsed] = {
       Flow[TriggerContext[SingleCommandFailure]]
         // Why `fail`?  Consider the most obvious alternatives.
         //
@@ -582,6 +582,7 @@ private[lf] class Runner private (
             )
           }
         }
+    }
 
     // The transaction source (ledger).
     val transactionSource: Source[TriggerContext[TriggerMsg], NotUsed] = {
@@ -595,20 +596,24 @@ private[lf] class Runner private (
         }
     }
 
-    // Command completion source (ledger completion stream +
-    // synchronous submission failures).
-    val completionSource: Source[TriggerContext[TriggerMsg], NotUsed] =
+    // Command completion source (ledger completion stream)
+    val completionSource: Source[TriggerContext[TriggerMsg], NotUsed] = {
+      logger.info("Subscribing to ledger API completion source")
       client.commandClient
         // Completions only take actAs into account so no need to include readAs.
         .completionSource(List(parties.actAs.unwrap), offset)
         .collect { case CompletionElement(completion, _) =>
           Ctx(loggingContext, TriggerMsg.Completion(completion))
         }
+    }
 
     // Heartbeats source (we produce these repetitively on a timer with
     // the given delay interval).
     val heartbeatSource: Source[TriggerContext[TriggerMsg], NotUsed] = heartbeat match {
       case Some(interval) =>
+        logger.info("Heartbeat source configured")(
+          loggingContext.enrichTriggerContext("heartbeat" -> interval)
+        )
         Source
           .tick[TriggerMsg](interval, interval, TriggerMsg.Heartbeat)
           .mapMaterializedValue(_ => NotUsed)
@@ -617,6 +622,7 @@ private[lf] class Runner private (
           }
 
       case None =>
+        logger.info("No heartbeat source configured")
         Source.empty[TriggerContext[TriggerMsg]]
     }
 
