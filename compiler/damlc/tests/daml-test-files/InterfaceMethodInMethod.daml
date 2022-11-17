@@ -4,18 +4,24 @@
 -- regression test for https://github.com/digital-asset/daml/issues/15459
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ENABLE-SCENARIOS
 
 module InterfaceMethodInMethod where
 
+import DA.Assert ((===))
+import DA.Foldable (forA_)
+
 data IV = IV with
-  unit : ()
+    unit : ()
+  deriving (Eq, Ord, Show)
 
 interface I where
   viewtype IV
   im : Int -> Int
 
 data JV = JV with
-  iv : IV
+    iv : IV
+  deriving (Eq, Ord, Show)
 
 interface J where
   viewtype JV
@@ -46,3 +52,20 @@ template U
       -- using method 'im' inside method 'im' implementation
       im = (2 *) . im (toInterface @I t)
 
+main = scenario do
+  alice <- getParty "alice"
+  let
+    t = T alice
+    u = U alice t
+    it = toInterface @I t
+    jt = toInterface @J t
+    iu = toInterface @I u
+
+  view it === IV ()
+  view jt === JV (IV ())
+
+  forA_ [1..10] \x -> do
+    im it x === succ x
+    im iu x === 2 * succ x
+
+  pure ()
