@@ -24,7 +24,7 @@
     <logger name="daml.warnings" level="WARN" />
     <logger name="com.daml.lf.engine.trigger" level="DEBUG" />
 
-    <root level="${LOG_LEVEL_ROOT:-OFF}">
+    <root level="${LOG_LEVEL_ROOT:-INFO}">
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>
