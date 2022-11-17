@@ -10,7 +10,14 @@ import akka.stream.scaladsl._
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.commands.{Command, Commands}
+import com.daml.ledger.api.v1.commands.{
+  Command,
+  Commands,
+  CreateAndExerciseCommand,
+  CreateCommand,
+  ExerciseByKeyCommand,
+  ExerciseCommand,
+}
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -405,18 +412,18 @@ private[lf] class Runner private (
 
       (inFlightState, seeOne) match {
         case (None, SeenMsgs.Neither) =>
-          logger.debug("New in-flight command")
+          logger.info("New in-flight command")
           discard(inFlight.incrementAndGet())
 
         case (None, _) | (Some(SeenMsgs.Neither), SeenMsgs.Neither) =>
         // no work required
 
         case (Some(SeenMsgs.Neither), _) =>
-          logger.debug("In-flight command completed")
+          logger.info("In-flight command completed")
           discard(inFlight.decrementAndGet())
 
         case (Some(_), SeenMsgs.Neither) =>
-          logger.debug("New in-flight command")
+          logger.info("New in-flight command")
           discard(inFlight.incrementAndGet())
 
         case (Some(_), _) =>
@@ -428,7 +435,7 @@ private[lf] class Runner private (
       val inFlightState = pendingIds.remove(uuid)
 
       if (inFlightState.contains(SeenMsgs.Neither)) {
-        logger.debug("In-flight command completed")
+        logger.info("In-flight command completed")
         discard(inFlight.decrementAndGet())
       }
     }
@@ -557,7 +564,7 @@ private[lf] class Runner private (
         : Flow[TriggerContext[SingleCommandFailure], TriggerContext[TriggerMsg], NotUsed] = {
       Flow[TriggerContext[SingleCommandFailure]]
         .map { case ctx @ Ctx(_, failure, _) =>
-          logger.debug("Received command submission failure")(
+          logger.info("Received command submission failure from ledger API client")(
             ctx.context.enrichTriggerContext("failure" -> failure)
           )
 
@@ -587,7 +594,7 @@ private[lf] class Runner private (
             )
           )
 
-          logger.debug("Rewrite command submission failure for trigger rules")(
+          logger.info("Rewrite command submission failure for trigger rules")(
             ctx.context.enrichTriggerContext("message" -> completion)
           )
 
@@ -606,7 +613,7 @@ private[lf] class Runner private (
           loggingContext.withEnrichedTriggerContext(
             triggerAction("trigger.rule.update", parent = Some(setupId))
           ) { implicit loggingContext: LoggingContextOf[Trigger] =>
-            logger.debug("Transaction source")(
+            logger.info("Transaction source")(
               loggingContext.enrichTriggerContext("message" -> transaction)
             )
 
@@ -625,7 +632,7 @@ private[lf] class Runner private (
           loggingContext.withEnrichedTriggerContext(
             triggerAction("trigger.rule.update", parent = Some(setupId))
           ) { implicit loggingContext: LoggingContextOf[Trigger] =>
-            logger.debug("Completion source")(
+            logger.info("Completion source")(
               loggingContext.enrichTriggerContext("message" -> completion)
             )
 
@@ -648,7 +655,7 @@ private[lf] class Runner private (
             loggingContext.withEnrichedTriggerContext(
               triggerAction("trigger.rule.update", parent = Some(setupId))
             ) { implicit loggingContext: LoggingContextOf[Trigger] =>
-              logger.debug("Heartbeat source")(
+              logger.info("Heartbeat source")(
                 loggingContext.enrichTriggerContext("message" -> "Heartbeat")
               )
 
@@ -888,8 +895,7 @@ private[lf] class Runner private (
     import Code.RESOURCE_EXHAUSTED
 
     def submit(req: TriggerContext[SubmitRequest]): Future[Option[SingleCommandFailure]] = {
-      val f: Future[Empty] = client.commandClient
-        .submitSingleCommand(req.value) // TODO: do we need to propagate correlation IDs here???
+      val f: Future[Empty] = client.commandClient.submitSingleCommand(req.value)
       f.map(_ => None).recover {
         case s: StatusRuntimeException if s.getStatus.getCode != Code.UNAUTHENTICATED =>
           // Do not capture UNAUTHENTICATED errors.
@@ -1103,8 +1109,10 @@ object Runner {
     implicit def `FiniteDuration to LoggingValue`: ToLoggingValue[FiniteDuration] =
       ToStringToLoggingValue
 
-    implicit def `value.Identifier to LoggingValue`: ToLoggingValue[V.Identifier] =
-      ToStringToLoggingValue
+    implicit def `value.Identifier to LoggingValue`: ToLoggingValue[V.Identifier] = {
+      case V.Identifier(packageId, moduleName, entityName) =>
+        LoggingValue.OfString(s"$packageId:$moduleName:$entityName")
+    }
 
     implicit def `Identifier to LoggingValue`: ToLoggingValue[Identifier] = ToStringToLoggingValue
 
@@ -1215,15 +1223,60 @@ object Runner {
         )
       )
 
-    // FIXME:
+    // FIXME: trigger rule message (DEBUG)
     implicit def `value.Value to LoggingValue`: ToLoggingValue[V.Value] = ToStringToLoggingValue
 
-    // FIXME:
+    // FIXME: trigger rule state (DEBUG)
     implicit def `SValue to LoggingValue`: ToLoggingValue[SValue] = ToStringToLoggingValue
 
-    // FIXME:
-    implicit def `Command to LoggingValue`: ToLoggingValue[Command] = value =>
-      LoggingValue.OfString(value.command.value.toString)
+    implicit def `CreateCommand to LoggingValue`: ToLoggingValue[CreateCommand] = create =>
+      LoggingValue.Nested(
+        LoggingEntries("type" -> "CreateCommand", "templateId" -> create.getTemplateId)
+      )
+
+    implicit def `ExerciseCommand to LoggingValue`: ToLoggingValue[ExerciseCommand] = exercise =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "type" -> "ExerciseCommand",
+          "templateId" -> exercise.getTemplateId,
+          "contractId" -> exercise.contractId,
+          "choice" -> exercise.choice,
+        )
+      )
+
+    implicit def `ExerciseByKeyCommand to LoggingValue`: ToLoggingValue[ExerciseByKeyCommand] =
+      exerciseByKey =>
+        LoggingValue.Nested(
+          LoggingEntries(
+            "type" -> "ExerciseByKeyCommand",
+            "templateId" -> exerciseByKey.getTemplateId,
+            "contractKey" -> exerciseByKey.getContractKey,
+            "choice" -> exerciseByKey.choice,
+          )
+        )
+
+    implicit def `CreateAndExerciseCommand to LoggingValue`
+        : ToLoggingValue[CreateAndExerciseCommand] = createAndExercise =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "type" -> "CreateAndExerciseCommand",
+          "templateId" -> createAndExercise.getTemplateId,
+          "choice" -> createAndExercise.choice,
+        )
+      )
+
+    implicit def `Command to LoggingValue`: ToLoggingValue[Command] = {
+      case Command(Command.Command.Empty) =>
+        LoggingValue.Nested(LoggingEntries("type" -> "EmptyCommand"))
+      case Command(Command.Command.Create(cmd)) =>
+        `CreateCommand to LoggingValue`.toLoggingValue(cmd)
+      case Command(Command.Command.Exercise(cmd)) =>
+        `ExerciseCommand to LoggingValue`.toLoggingValue(cmd)
+      case Command(Command.Command.ExerciseByKey(cmd)) =>
+        `ExerciseByKeyCommand to LoggingValue`.toLoggingValue(cmd)
+      case Command(Command.Command.CreateAndExercise(cmd)) =>
+        `CreateAndExerciseCommand to LoggingValue`.toLoggingValue(cmd)
+    }
   }
 
   import Implicits._
@@ -1297,7 +1350,7 @@ object Runner {
     }
 
     Flow[TriggerContext[A]].mapAsync(parallelism) { ctx =>
-      logger.debug("Submitting request to ledger API")(ctx.context)
+      logger.info("Submitting request to ledger API")(ctx.context)
 
       trial(initialTries, ctx).map(b => ctx.copy(value = b))
     }
