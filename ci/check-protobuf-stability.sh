@@ -102,6 +102,7 @@ USAGE
         fi;
       done | tail -1)"
   elif [[ "${TARGET}" == "main" ]]; then
+    GIT_TAG="$(git tag)"
     LATEST_STABLE_TAG="$(git tag | grep "v.*" | grep -v "snapshot" | sort -V | tail -1)"
   else
     echo "unsupported target branch $TARGET" >&2
