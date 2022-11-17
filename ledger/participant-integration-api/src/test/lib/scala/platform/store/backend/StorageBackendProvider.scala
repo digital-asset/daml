@@ -15,7 +15,11 @@ import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.Suite
 
 import java.sql.Connection
-import com.daml.platform.store.backend.localstore.{IdentityProviderStorageBackend, PartyRecordStorageBackend, UserManagementStorageBackend}
+import com.daml.platform.store.backend.localstore.{
+  IdentityProviderStorageBackend,
+  PartyRecordStorageBackend,
+  UserManagementStorageBackend,
+}
 
 /** Creates a database and a [[TestBackend]].
   * Used by [[StorageBackendSpec]] to run all StorageBackend tests on different databases.
@@ -93,7 +97,7 @@ case class TestBackend(
     userManagement: UserManagementStorageBackend,
     participantPartyStorageBackend: PartyRecordStorageBackend,
     metering: TestMeteringBackend,
-    identityProviderStorageBackend: IdentityProviderStorageBackend
+    identityProviderStorageBackend: IdentityProviderStorageBackend,
 )
 
 case class TestMeteringBackend(
@@ -134,7 +138,8 @@ object TestBackend {
       userManagement = storageBackendFactory.createUserManagementStorageBackend,
       participantPartyStorageBackend = storageBackendFactory.createPartyRecordStorageBackend,
       metering = createTestMeteringBackend,
-      identityProviderStorageBackend = storageBackendFactory.createIdentityProviderConfigStorageBackend
+      identityProviderStorageBackend =
+        storageBackendFactory.createIdentityProviderConfigStorageBackend,
     )
   }
 
