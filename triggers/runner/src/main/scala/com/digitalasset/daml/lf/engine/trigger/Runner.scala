@@ -1111,10 +1111,13 @@ object Runner {
 
     implicit def `value.Identifier to LoggingValue`: ToLoggingValue[V.Identifier] = {
       case V.Identifier(packageId, moduleName, entityName) =>
-        LoggingValue.OfString(s"$packageId:$moduleName:$entityName")
+        s"$moduleName:$entityName@$packageId"
     }
 
-    implicit def `Identifier to LoggingValue`: ToLoggingValue[Identifier] = ToStringToLoggingValue
+    implicit def `Identifier to LoggingValue`: ToLoggingValue[Identifier] = {
+      case Identifier(packageId, qualifiedName) =>
+        s"$qualifiedName@$packageId"
+    }
 
     implicit def `UUID to LoggingValue`: ToLoggingValue[UUID] = ToStringToLoggingValue
 
@@ -1223,11 +1226,11 @@ object Runner {
         )
       )
 
-    // FIXME: trigger rule message (DEBUG)
-    implicit def `value.Value to LoggingValue`: ToLoggingValue[V.Value] = ToStringToLoggingValue
+    implicit def `value.Value to LoggingValue`: ToLoggingValue[V.Value] = value =>
+      PrettyPrint.prettyApiValue(verbose = true)(value).render(80)
 
-    // FIXME: trigger rule state (DEBUG)
-    implicit def `SValue to LoggingValue`: ToLoggingValue[SValue] = ToStringToLoggingValue
+    implicit def `SValue to LoggingValue`: ToLoggingValue[SValue] = value =>
+      PrettyPrint.prettySValue(value).render(80)
 
     implicit def `CreateCommand to LoggingValue`: ToLoggingValue[CreateCommand] = create =>
       LoggingValue.Nested(
