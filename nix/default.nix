@@ -114,6 +114,7 @@ in rec {
     # Python development
     pip3        = pkgs.python38Packages.pip;
     python      = pkgs.python38Packages.python;
+    python3     = python;
 
     yapf = pkgs.python38Packages.yapf;
 
