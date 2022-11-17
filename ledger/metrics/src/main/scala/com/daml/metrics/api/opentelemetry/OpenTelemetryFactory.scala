@@ -184,10 +184,10 @@ object OpenTelemetryTimer {
   private[opentelemetry] val TimerUnit: String = "seconds"
   val TimerUnitAndSuffix: MetricName = MetricName("duration", TimerUnit)
 
-  private val NanoSecondsInASecond = 1_000_000_000
+  private val NanosecondsInASecond = 1_000_000_000
 
   private def convertNanosecondsToSeconds[T](nanoseconds: Long): Double = {
-    nanoseconds.toDouble / NanoSecondsInASecond
+    nanoseconds.toDouble / NanosecondsInASecond
   }
 }
 

@@ -60,23 +60,19 @@ object OpenTelemetryMeterOwner {
       )
   }
 
-  private def histogramSelectorEndingWith(endingWith: String) = {
-    InstrumentSelector
-      .builder()
-      .setType(InstrumentType.HISTOGRAM)
-      .setName((t: String) => t.endsWith(endingWith))
-      .build()
-  }
+  private def histogramSelectorEndingWith(endingWith: String) = InstrumentSelector
+    .builder()
+    .setType(InstrumentType.HISTOGRAM)
+    .setName((t: String) => t.endsWith(endingWith))
+    .build()
 
-  private def explicitHistogramBucketsView(buckets: Seq[Double]) = {
-    View
-      .builder()
-      .setAggregation(
-        Aggregation.explicitBucketHistogram(
-          buckets.map(Double.box).asJava
-        )
+  private def explicitHistogramBucketsView(buckets: Seq[Double]) = View
+    .builder()
+    .setAggregation(
+      Aggregation.explicitBucketHistogram(
+        buckets.map(Double.box).asJava
       )
-      .build()
-  }
+    )
+    .build()
 
 }
