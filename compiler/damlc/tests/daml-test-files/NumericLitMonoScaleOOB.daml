@@ -5,7 +5,7 @@
 -- `NumericScale` constraint.
 --
 -- @SINCE-LF 1.7
--- @ERROR range=16:12-16:19; No instance for (NumericScale 38)
+-- @ERROR range=16:12-16:19; Tried to define a Numeric with a scale of ‘38’, but only scales between 0 and 37 are supported.
 
 
 
