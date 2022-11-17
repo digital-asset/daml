@@ -94,7 +94,7 @@ conformance_test(
         # TODO https://github.com/digital-asset/daml/issues/12051
         #  replace 1.14 as soon as canton has a uptodate engine
         #"latest",
-        "1.14"
+        "1.14",
     ],
     ports = conformance_test_ports,
     runner = "@//bazel_tools/client_server/runner_with_health_check",
