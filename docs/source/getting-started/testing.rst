@@ -18,7 +18,7 @@ Of course there are more to choose from, but this is one combination that works.
 To install Puppeteer and some other testing utilities we are going to use,
 run the following command in the ``ui`` directory::
 
-    npm add --only=dev puppeteer@18.2.1 wait-on @types/jest @types/node @types/puppeteer @types/wait-on
+    npm i --save-dev puppeteer@~18.1.0 wait-on@~6.0.1 @types/jest@~29.2.3 @types/node@~18.11.9 @types/puppeteer@~7.0.4 @types/wait-on@~5.3.1
 
 Because these things are easier to describe with concrete examples, this
 section will show how to set up end-to-end tests for the application you would
