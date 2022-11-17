@@ -117,9 +117,7 @@ da_scala_binary(
             args = [
                 "$(location //daml-lf/repl:repl)",
                 "$(location :testing-dar-%s)" % target,
-                # TODO https://github.com/digital-asset/daml/issues/12051
-                #    remove 1.15 once preview is set to 1.15
-                "--dev" if (lf_version_configuration.get("dev") or target == lf_version_configuration.get("preview") or target == "1.15") else "",
+                "--dev" if (lf_version_configuration.get("dev") or target == lf_version_configuration.get("preview")) else "",
             ],
             data = [
                 "//daml-lf/repl",
