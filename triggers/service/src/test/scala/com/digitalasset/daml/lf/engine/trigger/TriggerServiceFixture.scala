@@ -93,12 +93,11 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
   )(implicit system: ActorSystem, ec: ExecutionContext): Future[HttpResponse] = {
     Http()
       .singleRequest {
-        if (cookieJar.nonEmpty) {
-          val hd +: tl = cookieJar.view.map(headers.HttpCookiePair(_)).toSeq
-          val cookies = headers.Cookie(hd, tl: _*)
-          request.addHeader(cookies)
-        } else {
-          request
+        cookieJar.view.map(headers.HttpCookiePair(_)).toList match {
+          case head :: tail =>
+            request.addHeader(headers.Cookie(head, tail: _*))
+          case Nil =>
+            request
         }
       }
       .andThen { case Success(resp) =>

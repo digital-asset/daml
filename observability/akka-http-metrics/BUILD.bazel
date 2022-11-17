@@ -44,12 +44,6 @@ da_scala_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//ledger/metrics",
-        "@maven//:io_opentelemetry_opentelemetry_api",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_common",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics_testing",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
     ],
 )
 
@@ -75,6 +69,7 @@ da_scala_test_suite(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/metrics",
+        "//ledger/metrics:metrics-test-lib",
         "@maven//:com_google_guava_guava",
         "@maven//:com_typesafe_config",
         "@maven//:io_opentelemetry_opentelemetry_api",

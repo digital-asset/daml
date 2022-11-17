@@ -96,7 +96,6 @@ doctestHeader =
     , ""
     , "import Test"
     , "import DA.Assert"
-    , "import GHC.Tuple.Check"
     , ""
     ]
 

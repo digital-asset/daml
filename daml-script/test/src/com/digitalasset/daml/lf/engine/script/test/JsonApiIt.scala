@@ -12,6 +12,7 @@ import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
 import com.daml.jwt.JwtSigner
@@ -61,7 +62,6 @@ import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.AuthServiceConfig.UnsafeJwtHmac256
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.UploadPackageHelper._
@@ -205,7 +205,7 @@ trait JsonApiFixture
                   jsonApiExecutionSequencerFactory,
                   jsonApiActorSystem.dispatcher,
                   lc,
-                  metrics = Metrics.ForTesting,
+                  metrics = HttpJsonApiMetrics.ForTesting,
                 )
                 .flatMap({
                   case -\/(e) => Future.failed(new IllegalStateException(e.toString))

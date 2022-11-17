@@ -51,7 +51,12 @@ public final class User {
 
   @Override
   public String toString() {
-    return "User{" + "id='" + id + '\'' + "primaryParty='" + primaryParty.orElse(null) + '\'' + '}';
+    return "User{"
+        + "id='"
+        + id
+        + '\''
+        + primaryParty.map(p -> ", primaryParty='" + p + '\'').orElse("")
+        + '}';
   }
 
   @Override

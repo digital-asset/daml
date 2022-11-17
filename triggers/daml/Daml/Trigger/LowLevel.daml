@@ -68,7 +68,7 @@ instance Show AnyContractId where
 
 
 -- | Wrap a `ContractId t` in `AnyContractId`.
-toAnyContractId : forall t. TemplateOrInterface t => ContractId t -> AnyContractId
+toAnyContractId : forall t. Template t => ContractId t -> AnyContractId
 toAnyContractId cid = AnyContractId
   { templateId = templateTypeRep @t
   , contractId = coerceContractId cid
@@ -76,7 +76,7 @@ toAnyContractId cid = AnyContractId
 
 -- | Check if a `AnyContractId` corresponds to the given template or return
 -- `None` otherwise.
-fromAnyContractId : forall t. TemplateOrInterface t => AnyContractId -> Optional (ContractId t)
+fromAnyContractId : forall t. Template t => AnyContractId -> Optional (ContractId t)
 fromAnyContractId cid
   | cid.templateId == templateTypeRep @t = Some (coerceContractId cid.contractId)
   | otherwise = None
@@ -188,7 +188,7 @@ data RegisteredTemplates
   = AllInDar -- ^ Listen to events for all templates in the given DAR.
   | RegisteredTemplates [RegisteredTemplate]
 
-registeredTemplate : forall t. TemplateOrInterface t => RegisteredTemplate
+registeredTemplate : forall t. Template t => RegisteredTemplate
 registeredTemplate = RegisteredTemplate (templateTypeRep @t)
 
 -- | A ledger API command. To construct a command use `createCmd` and `exerciseCmd`.

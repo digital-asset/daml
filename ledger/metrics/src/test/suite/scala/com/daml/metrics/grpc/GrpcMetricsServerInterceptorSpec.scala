@@ -12,6 +12,7 @@ import com.daml.metrics.grpc.GrpcMetricsServerInterceptorSpec.TestingGrpcMetrics
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.platform.testing.StreamConsumer
 import com.google.protobuf.ByteString
+import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -20,7 +21,8 @@ class GrpcMetricsServerInterceptorSpec
     with Matchers
     with AkkaBeforeAndAfterAll
     with TestResourceContext
-    with MetricValues {
+    with MetricValues
+    with Eventually {
 
   private val labelsForSimpleRequest = MetricsContext(
     Map(
@@ -45,9 +47,11 @@ class GrpcMetricsServerInterceptorSpec
     val metrics = new TestingGrpcMetrics
     withService(metrics).use { helloService =>
       helloService.single(new HelloRequest()).map { _ =>
-        metrics.callTimer.getCounts should contain theSameElementsAs Map(
-          labelsForSimpleRequestWithStatusCode -> 1
-        )
+        eventually {
+          metrics.callTimer.countsWithContext should contain theSameElementsAs Map(
+            labelsForSimpleRequestWithStatusCode -> 1
+          )
+        }
       }
     }
   }
@@ -56,12 +60,14 @@ class GrpcMetricsServerInterceptorSpec
     val metrics = new TestingGrpcMetrics
     withService(metrics).use { helloService =>
       helloService.single(new HelloRequest()).map { _ =>
-        metrics.callsStarted.valueWithContext should contain theSameElementsAs Map(
-          labelsForSimpleRequest -> 1
-        )
-        metrics.callsFinished.valueWithContext should contain theSameElementsAs Map(
-          labelsForSimpleRequestWithStatusCode -> 1
-        )
+        eventually {
+          metrics.callsStarted.valuesWithContext should contain theSameElementsAs Map(
+            labelsForSimpleRequest -> 1
+          )
+          metrics.callsHandled.valuesWithContext should contain theSameElementsAs Map(
+            labelsForSimpleRequestWithStatusCode -> 1
+          )
+        }
       }
     }
   }
@@ -78,17 +84,19 @@ class GrpcMetricsServerInterceptorSpec
             metricsContext: MetricsContext = withStreamingLabels(labelsForSimpleRequest),
             value: Long = 1,
         ) = {
-          meter.valueWithContext should contain theSameElementsAs Map(
+          meter.valuesWithContext should contain theSameElementsAs Map(
             metricsContext -> value
           )
         }
-        meterHasValueForStreaming(metrics.callsStarted)
-        meterHasValueForStreaming(
-          metrics.callsFinished,
-          withStreamingLabels(labelsForSimpleRequestWithStatusCode),
-        )
-        meterHasValueForStreaming(metrics.messagesSent, value = 3)
-        meterHasValueForStreaming(metrics.messagesReceived)
+        eventually {
+          meterHasValueForStreaming(metrics.callsStarted)
+          meterHasValueForStreaming(
+            metrics.callsHandled,
+            withStreamingLabels(labelsForSimpleRequestWithStatusCode),
+          )
+          meterHasValueForStreaming(metrics.messagesSent, value = 3)
+          meterHasValueForStreaming(metrics.messagesReceived)
+        }
       }
     }
   }
@@ -99,12 +107,14 @@ class GrpcMetricsServerInterceptorSpec
       val payload = ByteString.copyFromUtf8("test message")
       val request = new HelloRequest(payload = payload)
       helloService.single(request).map { response =>
-        metrics.messagesSentSize.valuesWithContext should contain theSameElementsAs Map(
-          labelsForSimpleRequest -> Seq(request.serializedSize)
-        )
-        metrics.messagesReceivedSize.valuesWithContext should contain theSameElementsAs Map(
-          labelsForSimpleRequest -> Seq(response.serializedSize)
-        )
+        eventually {
+          metrics.messagesSentSize.valuesWithContext should contain theSameElementsAs Map(
+            labelsForSimpleRequest -> Seq(request.serializedSize)
+          )
+          metrics.messagesReceivedSize.valuesWithContext should contain theSameElementsAs Map(
+            labelsForSimpleRequest -> Seq(response.serializedSize)
+          )
+        }
       }
     }
   }
@@ -145,6 +155,6 @@ object GrpcMetricsServerInterceptorSpec {
     override val messagesReceivedSize: MetricHandle.Histogram =
       InMemoryMetricsFactory.histogram(metricName)
     override val callsStarted: MetricHandle.Meter = InMemoryMetricsFactory.meter(metricName)
-    override val callsFinished: MetricHandle.Meter = InMemoryMetricsFactory.meter(metricName)
+    override val callsHandled: MetricHandle.Meter = InMemoryMetricsFactory.meter(metricName)
   }
 }

@@ -1,20 +1,29 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.metrics
+package com.daml.http.metrics
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.CacheMetrics
 import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.dropwizard.DropwizardFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
-import io.opentelemetry.api.metrics.{Meter => OtelMeter}
+import io.opentelemetry.api.GlobalOpenTelemetry
+
+object HttpJsonApiMetrics {
+  lazy val ForTesting =
+    new HttpJsonApiMetrics(
+      new MetricRegistry,
+      new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("test")),
+    )
+}
 
 class HttpJsonApiMetrics(
-    val prefix: MetricName,
     val registry: MetricRegistry,
-    val otelMeter: OtelMeter,
+    val openTelemetryFactory: OpenTelemetryFactory,
 ) {
+  val prefix: MetricName = MetricName.Daml :+ "http_json_api"
 
   object Db extends DropwizardFactory {
     val prefix: MetricName = HttpJsonApiMetrics.this.prefix :+ "db"
@@ -82,10 +91,6 @@ class HttpJsonApiMetrics(
   // Meters party allocation throughput
   val allocatePartyThroughput: Meter =
     dropwizardFactory.meter(prefix :+ "allocation_party_throughput")
-
-  val openTelemetryFactory = new OpenTelemetryFactory {
-    override val otelMeter: OtelMeter = HttpJsonApiMetrics.this.otelMeter
-  }
 
   // golden signals
   val httpRequestsTotal: Meter = openTelemetryFactory.meter(prefix :+ "requests_total")

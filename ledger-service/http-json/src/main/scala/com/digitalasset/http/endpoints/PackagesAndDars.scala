@@ -21,8 +21,8 @@ import scalaz.std.scalaFuture._
 import scalaz.{-\/, EitherT, \/, \/-}
 
 import scala.concurrent.{ExecutionContext, Future}
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Metrics
 
 class PackagesAndDars(routeSetup: RouteSetup, packageManagementService: PackageManagementService)(
     implicit
@@ -33,11 +33,11 @@ class PackagesAndDars(routeSetup: RouteSetup, packageManagementService: PackageM
 
   def uploadDarFile(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): ET[domain.SyncResponse[Unit]] =
     for {
       parseAndDecodeTimer <- getParseAndDecodeTimerCtx()
-      _ <- EitherT.pure(metrics.daml.HttpJsonApi.uploadPackagesThroughput.mark())
+      _ <- EitherT.pure(metrics.uploadPackagesThroughput.mark())
       t2 <- inputSource(req)
       (jwt, payload, source) = t2
       _ <- EitherT.pure(parseAndDecodeTimer.stop())

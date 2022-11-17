@@ -33,7 +33,6 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/nameof",
         "//libs-scala/scala-utils",
     ],
 )

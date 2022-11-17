@@ -213,6 +213,7 @@ da_scala_test_suite(
         "//ledger-service/http-json-cli:ce",
         "//ledger-service/jwt",
         "//ledger-service/lf-value-json",
+        "//ledger-service/metrics",
         "//ledger-service/utils",
         "//ledger/caching",
         "//ledger/ledger-api-auth",

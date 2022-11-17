@@ -10,33 +10,39 @@ import com.daml.buildinfo.BuildInfo
 import com.daml.metrics.api.Gauges.VarGauge
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Histogram, Meter, Timer}
+import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer.{
+  TimerUnit,
+  TimerUnitAndSuffix,
+  convertNanosecondsToSeconds,
+}
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.metrics.{
+  DoubleHistogram,
   LongCounter,
   LongHistogram,
   LongUpDownCounter,
   Meter => OtelMeter,
 }
 
-trait OpenTelemetryFactory extends Factory {
+class OpenTelemetryFactory(otelMeter: OtelMeter) extends Factory {
 
   val globalMetricsContext: MetricsContext = MetricsContext(
     Map("daml_version" -> BuildInfo.Version)
   )
 
-  def otelMeter: OtelMeter
-
   override def timer(
       name: MetricName
   )(implicit
       context: MetricsContext = MetricsContext.Empty
-  ): MetricHandle.Timer =
+  ): MetricHandle.Timer = {
+    val nameWithSuffix = name :+ TimerUnitAndSuffix
     OpenTelemetryTimer(
-      name,
-      otelMeter.histogramBuilder(name).ofLongs().setUnit("ms").build(),
+      nameWithSuffix,
+      otelMeter.histogramBuilder(nameWithSuffix).setUnit(TimerUnit).build(),
       globalMetricsContext.merge(context),
     )
+  }
   override def gauge[T](name: MetricName, initial: T)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Gauge[T] = {
@@ -132,14 +138,17 @@ trait OpenTelemetryFactory extends Factory {
 
 }
 
-case class OpenTelemetryTimer(name: String, histogram: LongHistogram, timerContext: MetricsContext)
-    extends Timer {
+case class OpenTelemetryTimer(
+    name: String,
+    histogram: DoubleHistogram,
+    timerContext: MetricsContext,
+) extends Timer {
 
   override def update(duration: Long, unit: TimeUnit)(implicit
       context: MetricsContext
   ): Unit =
     histogram.record(
-      TimeUnit.MILLISECONDS.convert(duration, unit),
+      convertNanosecondsToSeconds(TimeUnit.NANOSECONDS.convert(duration, unit)),
       AttributesHelper.multiContextAsAttributes(timerContext, context),
     )
   override def time[T](call: => T)(implicit
@@ -148,7 +157,7 @@ case class OpenTelemetryTimer(name: String, histogram: LongHistogram, timerConte
     val start = System.nanoTime()
     val result = call
     histogram.record(
-      TimeUnit.MILLISECONDS.convert(System.nanoTime() - start, TimeUnit.NANOSECONDS),
+      convertNanosecondsToSeconds(System.nanoTime() - start),
       AttributesHelper.multiContextAsAttributes(timerContext, context),
     )
     result
@@ -159,7 +168,7 @@ case class OpenTelemetryTimer(name: String, histogram: LongHistogram, timerConte
     new TimerHandle {
       override def stop()(implicit stopContext: MetricsContext): Unit = {
         histogram.record(
-          TimeUnit.MILLISECONDS.convert(System.nanoTime() - start, TimeUnit.NANOSECONDS),
+          convertNanosecondsToSeconds(System.nanoTime() - start),
           AttributesHelper.multiContextAsAttributes(timerContext, startContext, stopContext),
         )
       }
@@ -169,6 +178,17 @@ case class OpenTelemetryTimer(name: String, histogram: LongHistogram, timerConte
   override def update(duration: Duration)(implicit
       context: MetricsContext
   ): Unit = update(duration.toNanos, TimeUnit.NANOSECONDS)
+}
+object OpenTelemetryTimer {
+
+  private[opentelemetry] val TimerUnit: String = "seconds"
+  val TimerUnitAndSuffix: MetricName = MetricName("duration", TimerUnit)
+
+  private val NanosecondsInASecond = 1_000_000_000
+
+  private def convertNanosecondsToSeconds[T](nanoseconds: Long): Double = {
+    nanoseconds.toDouble / NanosecondsInASecond
+  }
 }
 
 case class OpenTelemetryGauge[T](name: String, varGauge: VarGauge[T]) extends Gauge[T] {

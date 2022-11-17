@@ -13,7 +13,6 @@ import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
@@ -59,17 +58,19 @@ import scalaz.{-\/, Tag, \/, \/-}
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
 
-sealed trait TriggerMsg
-final case class CompletionMsg(c: Completion) extends TriggerMsg
-final case class TransactionMsg(t: Transaction) extends TriggerMsg
-final case class HeartbeatMsg() extends TriggerMsg
+private[lf] sealed trait TriggerMsg
+private[lf] object TriggerMsg {
+  final case class Completion(c: com.daml.ledger.api.v1.completion.Completion) extends TriggerMsg
+  final case class Transaction(t: com.daml.ledger.api.v1.transaction.Transaction) extends TriggerMsg
+  final case object Heartbeat extends TriggerMsg
+}
 
-final case class TriggerDefinition(
+private[lf] final case class TriggerDefinition(
     id: Identifier,
     ty: TypeConApp,
     version: Trigger.Version,
@@ -79,7 +80,7 @@ final case class TriggerDefinition(
   val triggerIds = TriggerIds(ty.tycon.packageId)
 }
 
-final case class Trigger(
+private[lf] final case class Trigger(
     defn: TriggerDefinition,
     filters: Filters, // We store Filters rather than
     // TransactionFilter since the latter is
@@ -90,9 +91,9 @@ final case class Trigger(
 )
 
 // Utilities for interacting with the speedy machine.
-object Machine extends StrictLogging {
+private[lf] object Machine extends StrictLogging {
   // Run speedy until we arrive at a value.
-  def stepToValue(machine: Speedy.Machine): SValue = {
+  def stepToValue(machine: Speedy.OffLedgerMachine): SValue = {
     machine.run() match {
       case SResultFinal(v) => v
       case SResultError(err) => {
@@ -344,7 +345,7 @@ object Trigger extends StrictLogging {
   }
 }
 
-class Runner(
+private[lf] class Runner(
     compiledPackages: CompiledPackages,
     trigger: Trigger,
     triggerConfig: TriggerRunnerConfig,
@@ -458,7 +459,7 @@ class Runner(
       v: SValue,
   ): UnfoldState[SValue, SubmitRequest] = {
     def evaluate(se: SExpr) = {
-      val machine: Speedy.Machine =
+      val machine: Speedy.OffLedgerMachine =
         Speedy.Machine.fromPureSExpr(compiledPackages, se)
       // Evaluate it.
       machine.setExpressionToEvaluate(se)
@@ -538,7 +539,7 @@ class Runner(
     val transactionSource: Source[TriggerMsg, NotUsed] =
       client.transactionClient
         .getTransactions(offset, None, filter)
-        .map(TransactionMsg)
+        .map(TriggerMsg.Transaction)
 
     // Command completion source (ledger completion stream +
     // synchronous submission failures).
@@ -553,14 +554,14 @@ class Runner(
               case CompletionElement(c, _) => List(c)
             }
         )
-        .map(CompletionMsg)
+        .map(TriggerMsg.Completion)
 
     // Heartbeats source (we produce these repetitively on a timer with
     // the given delay interval).
     val heartbeatSource: Source[TriggerMsg, NotUsed] = heartbeat match {
       case Some(interval) =>
         Source
-          .tick[TriggerMsg](interval, interval, HeartbeatMsg())
+          .tick[TriggerMsg](interval, interval, TriggerMsg.Heartbeat)
           .mapMaterializedValue(_ => NotUsed)
       case None => Source.empty[TriggerMsg]
     }
@@ -569,9 +570,10 @@ class Runner(
   }
 
   private def logReceivedMsg(tm: TriggerMsg): Unit = tm match {
-    case CompletionMsg(c) => logger.debug(s"trigger received completion message $c")
-    case TransactionMsg(t) => logger.debug(s"trigger received transaction, ID ${t.transactionId}")
-    case HeartbeatMsg() => ()
+    case TriggerMsg.Completion(c) => logger.debug(s"trigger received completion message $c")
+    case TriggerMsg.Transaction(t) =>
+      logger.debug(s"trigger received transaction, ID ${t.transactionId}")
+    case TriggerMsg.Heartbeat => ()
   }
 
   private[this] def getInitialStateFreeAndUpdate(acs: Seq[CreatedEvent]): (SValue, SValue) = {
@@ -601,7 +603,7 @@ class Runner(
         initialStateArgs,
       )
     // Prepare a speedy machine for evaluating expressions.
-    val machine: Speedy.Machine =
+    val machine: Speedy.OffLedgerMachine =
       Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
     // Evaluate it.
     machine.setExpressionToEvaluate(initialState)
@@ -609,9 +611,9 @@ class Runner(
       .stepToValue(machine)
       .expect(
         "TriggerSetup",
-        { case DamlAnyModuleRecord("TriggerSetup", fts) =>
-          fts
-        },
+        { case DamlAnyModuleRecord("TriggerSetup", fts) => fts }: @nowarn(
+          "msg=A repeated case parameter or extracted sequence is not matched by a sequence wildcard"
+        ),
       )
       .orConverterException
     machine.setExpressionToEvaluate(update)
@@ -621,15 +623,15 @@ class Runner(
 
   private[this] def encodeMsgs: Flow[TriggerMsg, SValue, NotUsed] =
     Flow fromFunction {
-      case TransactionMsg(transaction) =>
+      case TriggerMsg.Transaction(transaction) =>
         converter.fromTransaction(transaction).orConverterException
-      case CompletionMsg(completion) =>
+      case TriggerMsg.Completion(completion) =>
         val status = completion.getStatus
         if (status.code != 0) {
           logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
         }
         converter.fromCompletion(completion).orConverterException
-      case HeartbeatMsg() => converter.fromHeartbeat
+      case TriggerMsg.Heartbeat => converter.fromHeartbeat
     }
 
   // A flow for trigger messages representing a process for the
@@ -648,7 +650,7 @@ class Runner(
     val (initialStateFree, evaluatedUpdate) = getInitialStateFreeAndUpdate(acs)
 
     // Prepare another speedy machine for evaluating expressions.
-    val machine: Speedy.Machine =
+    val machine: Speedy.OffLedgerMachine =
       Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
 
     import UnfoldState.{flatMapConcatNode, flatMapConcatNodeOps, toSource, toSourceOps}
@@ -665,7 +667,7 @@ class Runner(
           "TriggerRule",
           { case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) =>
             fun
-          },
+          }: @nowarn("msg=A repeated case parameter .* is not matched by a sequence wildcard"),
         )
         .orConverterException
       machine.setExpressionToEvaluate(makeAppD(stateFun, state))
@@ -723,21 +725,21 @@ class Runner(
 
   private[this] def hideIrrelevantMsgs: Flow[TriggerMsg, TriggerMsg, NotUsed] =
     Flow[TriggerMsg].mapConcat[TriggerMsg] {
-      case msg @ CompletionMsg(c) =>
+      case msg @ TriggerMsg.Completion(c) =>
         // This happens for invalid UUIDs which we might get for
         // completions not emitted by the trigger.
         val ouuid = catchIAE(UUID.fromString(c.commandId))
         ouuid.flatMap { uuid =>
           useCommandId(uuid, SeenMsgs.Completion) option msg
         }.toList
-      case msg @ TransactionMsg(t) =>
+      case msg @ TriggerMsg.Transaction(t) =>
         // This happens for invalid UUIDs which we might get for
         // transactions not emitted by the trigger.
         val ouuid = catchIAE(UUID.fromString(t.commandId))
         List(ouuid flatMap { uuid =>
           useCommandId(uuid, SeenMsgs.Transaction) option msg
-        } getOrElse TransactionMsg(t.copy(commandId = "")))
-      case x @ HeartbeatMsg() => List(x) // Heartbeats don't carry any information.
+        } getOrElse TriggerMsg.Transaction(t.copy(commandId = "")))
+      case x @ TriggerMsg.Heartbeat => List(x) // Heartbeats don't carry any information.
     }
 
   def makeApp(func: SExpr, values: Array[SValue]): SExpr = {

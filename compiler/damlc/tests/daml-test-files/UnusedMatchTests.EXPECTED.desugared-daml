@@ -2,7 +2,6 @@ module UnusedMatchTests where
 import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
-import (implicit) qualified GHC.Tuple.Check
 import (implicit) DA.Internal.RebindableSyntax
 f x = 12
 data GHC.Types.DamlTemplate => T
@@ -19,7 +18,7 @@ data Revoke
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
 _templateLet_T this@T {..}
   = let revokeRetVal = () in
-    let (sig, obs) = GHC.Tuple.Check.userWrittenTuple (p, q) in
+    let (sig, obs) = userWrittenTuple (p, q) in
     let assertion = True in
     let plainEnglish = "Chop wood, carry water." in
     let ident = "123" in
@@ -158,7 +157,7 @@ instance DA.Internal.Desugar.HasExerciseByKey T (Party,
   _exerciseByKey = GHC.Types.primitive @"UExerciseByKey"
 instance DA.Internal.Desugar.HasKey T (Party, Text) where
   key this@T {..}
-    = GHC.Tuple.Check.userWrittenTuple (sig, ident)
+    = userWrittenTuple (sig, ident)
     where
         (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
           = _templateLet_T this
