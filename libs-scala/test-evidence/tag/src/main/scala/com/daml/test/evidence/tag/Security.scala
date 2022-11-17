@@ -7,7 +7,13 @@ import better.files.File
 
 object Security {
 
-  /** Security-relevant information on a test-suite level. */
+  /** Security-relevant information on a test-suite level.
+    *
+    * If a scalatest suite extends this trait, you should add the following import:
+    * <pre>
+    * import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
+    * </pre>
+    */
   trait SecurityTestSuite {
 
     /** The layer that the security test suite tests, such as on the network/API level or the ledger model. */
