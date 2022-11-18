@@ -22,12 +22,15 @@ object Main {
     println(s"Wrote to $path")
   }
 
+  private val workspaceRoot: Option[String] = sys.env.get("BUILD_WORKSPACE_DIRECTORY")
+  private val targetDir = workspaceRoot.map(File(_)).getOrElse(File.currentWorkingDirectory)
+
   private def writeEvidenceToCsvFile[TE <: TestEntryCsv](
       fileName: String,
       entries: List[TE],
   ): Unit = {
     println(s"Writing inventory to $fileName...")
-    val file = File(fileName)
+    val file = targetDir / fileName
     val path = file.path.toAbsolutePath
     TestEntryCsvEncoder.write(file, entries)
     println(s"Wrote to $path")
