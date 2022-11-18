@@ -278,6 +278,7 @@ abstract class AbstractFuncTests
         } yield {
           acs(tId) should have length 1
           acs(doneId) should have length 1
+          fail("DEBUGGY")
         }
       }
     }
@@ -508,6 +509,7 @@ abstract class AbstractFuncTests
             ._2
         } yield {
           finalState shouldBe SInt64(2)
+          fail("DEBUGGY")
         }
       }
     }
