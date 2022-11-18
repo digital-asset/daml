@@ -20,8 +20,9 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.lf.CompiledPackages
 import com.daml.lf.engine.trigger.Runner.TriggerContext
+import com.daml.lf.engine.trigger.ToLoggingContext._
 import com.daml.lf.engine.trigger.TriggerRunner.{QueryingACS, Running, TriggerStatus}
-import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.logging.ContextualizedLogger
 import io.grpc.Status.Code
 import scalaz.syntax.tag._
 
@@ -46,8 +47,8 @@ object TriggerRunnerImpl {
       restartConfig: TriggerRestartConfig,
       readAs: Set[Party],
   ) {
-    private[trigger] def withLoggingContext[T]: (LoggingContextOf[Trigger with Config] => T) => T =
-      Trigger.newLoggingContext(
+    private[trigger] def withTriggerLogContext[T]: (TriggerLogContext => T) => T =
+      Trigger.newTriggerLogContext(
         trigger.defn.id,
         party,
         readAs,
@@ -68,7 +69,7 @@ object TriggerRunnerImpl {
   def apply(config: Config)(implicit
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-      loggingContext: LoggingContextOf[Config with Trigger],
+      triggerContext: TriggerLogContext,
   ): Behavior[Message] =
     Behaviors.setup { ctx =>
       val name = ctx.self.path.name
