@@ -21,7 +21,6 @@ package trigger {
 
   import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
   import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-  import com.daml.logging.LoggingContextOf
 
   case class LedgerConfig(
       host: String,
@@ -46,8 +45,8 @@ package trigger {
       triggerRefreshToken: Option[RefreshToken],
       triggerReadAs: Set[Party],
   ) {
-    private[trigger] def withLoggingContext[T]: (LoggingContextOf[Trigger] => T) => T =
-      Trigger.newLoggingContext(
+    private[trigger] def withTriggerLogContext[T]: (TriggerLogContext => T) => T =
+      Trigger.newTriggerLogContext(
         triggerName,
         triggerParty,
         triggerReadAs,
