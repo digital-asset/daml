@@ -135,7 +135,18 @@ private[backend] trait StorageBackendTestsIDPConfig
     }
   }
 
-  it should "get all identity provider configs ordered by id" in {}
+  it should "get all identity provider configs ordered by id" in {
+    val cfg1 = config()
+    val cfg2 = config()
+    val cfg3 = config()
+    executeSql(tested.createIdentityProviderConfig(cfg1))
+    executeSql(tested.createIdentityProviderConfig(cfg2))
+    executeSql(tested.createIdentityProviderConfig(cfg3))
+
+    executeSql(
+      tested.listIdentityProviderConfigs()
+    ) should contain theSameElementsAs Vector(cfg1, cfg2, cfg3)
+  }
 
   private def config() = {
     IdentityProviderConfig(
