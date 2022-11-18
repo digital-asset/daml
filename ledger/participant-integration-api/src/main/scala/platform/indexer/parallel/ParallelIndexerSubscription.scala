@@ -22,6 +22,7 @@ import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.interning.{InternizingStringInterningView, StringInterning}
 import java.sql.Connection
+import scala.util.chaining._
 
 import com.daml.metrics.api.MetricsContext
 
@@ -109,6 +110,8 @@ object ParallelIndexerSubscription {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   /** Batch wraps around a T-typed batch, enriching it with processing relevant information.
+    * Contains events from one or more transactions.
+    * If it contains an event from a transaction then it contains all the events from that transaction.
     *
     * @param lastOffset The latest offset available in the batch. Needed for tail ingestion.
     * @param lastSeqEventId The latest sequential-event-id in the batch, or if none present there, then the latest from before. Needed for tail ingestion.
@@ -176,6 +179,8 @@ object ParallelIndexerSubscription {
       offsetsUpdates = Vector.empty,
     )
 
+  /** Assigns sequential ids to events.
+    */
   def seqMapper(
       internize: Iterable[DbDto] => Iterable[(Int, String)],
       metrics: Metrics,
@@ -186,6 +191,7 @@ object ParallelIndexerSubscription {
     Timed.value(
       metrics.daml.parallelIndexer.seqMapping.duration, {
         var eventSeqId = previous.lastSeqEventId
+        var lastTransactionMetaLastEventId = eventSeqId
         val batchWithSeqIds = current.batch.map {
           case dbDto: DbDto.EventCreate =>
             eventSeqId += 1
@@ -199,10 +205,25 @@ object ParallelIndexerSubscription {
             eventSeqId += 1
             dbDto.copy(event_sequential_id = eventSeqId)
 
-          case dbDto: DbDto.CreateFilter =>
+          case dbDto: DbDto.IdFilterCreateStakeholder =>
             // we do not increase the event_seq_id here, because all the CreateFilter DbDto-s must have the same eventSeqId as the preceding EventCreate
             dbDto.copy(event_sequential_id = eventSeqId)
-
+          case dbDto: DbDto.IdFilterCreateNonStakeholderInformee =>
+            dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.IdFilterConsumingStakeholder =>
+            dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.IdFilterConsumingNonStakeholderInformee =>
+            dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.IdFilterNonConsumingInformee =>
+            dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.TransactionMeta =>
+            dbDto
+              .copy(
+                event_sequential_id_first = lastTransactionMetaLastEventId + 1,
+                event_sequential_id_last = eventSeqId,
+              )
+              .tap(_ => lastTransactionMetaLastEventId = eventSeqId)
+          // TODO etq: Consider listing explicitly all the remaining unmatched types
           case unChanged => unChanged
         }
 

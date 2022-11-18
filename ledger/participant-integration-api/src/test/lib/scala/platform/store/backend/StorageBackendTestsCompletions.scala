@@ -35,16 +35,19 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(updateLedgerEnd(offset(4), 3L))
     val completions0to3 = executeSql(
       backend.completion
-        .commandCompletions(Offset.beforeBegin, offset(3), applicationId, Set(party))
+        .commandCompletions(Offset.beforeBegin, offset(3), applicationId, Set(party), limit = 10)
     )
     val completions1to3 = executeSql(
-      backend.completion.commandCompletions(offset(1), offset(3), applicationId, Set(party))
+      backend.completion
+        .commandCompletions(offset(1), offset(3), applicationId, Set(party), limit = 10)
     )
     val completions2to3 = executeSql(
-      backend.completion.commandCompletions(offset(2), offset(3), applicationId, Set(party))
+      backend.completion
+        .commandCompletions(offset(2), offset(3), applicationId, Set(party), limit = 10)
     )
     val completions1to9 = executeSql(
-      backend.completion.commandCompletions(offset(1), offset(9), applicationId, Set(party))
+      backend.completion
+        .commandCompletions(offset(1), offset(9), applicationId, Set(party), limit = 10)
     )
 
     completions0to3 should have length 2
@@ -67,7 +70,8 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(updateLedgerEnd(offset(2), 1L))
 
     val completions = executeSql(
-      backend.completion.commandCompletions(offset(1), offset(2), applicationId, Set(party))
+      backend.completion
+        .commandCompletions(offset(1), offset(2), applicationId, Set(party), limit = 10)
     )
 
     completions should have length 1
@@ -89,7 +93,8 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(ingest(dtos, _))
     executeSql(updateLedgerEnd(offset(3), 2L))
     val completions = executeSql(
-      backend.completion.commandCompletions(offset(1), offset(3), someApplicationId, Set(party))
+      backend.completion
+        .commandCompletions(offset(1), offset(3), someApplicationId, Set(party), limit = 10)
     )
 
     completions should have length 2
@@ -120,7 +125,8 @@ private[backend] trait StorageBackendTestsCompletions
 
     executeSql(updateLedgerEnd(offset(3), 2L))
     val completions = executeSql(
-      backend.completion.commandCompletions(offset(1), offset(3), someApplicationId, Set(party))
+      backend.completion
+        .commandCompletions(offset(1), offset(3), someApplicationId, Set(party), limit = 10)
     )
 
     completions should have length 2
@@ -162,7 +168,8 @@ private[backend] trait StorageBackendTestsCompletions
 
     executeSql(updateLedgerEnd(offset(3), 2L))
     val completions = executeSql(
-      backend.completion.commandCompletions(offset(1), offset(3), someApplicationId, Set(party))
+      backend.completion
+        .commandCompletions(offset(1), offset(3), someApplicationId, Set(party), limit = 10)
     )
 
     completions should have length 2
@@ -206,6 +213,7 @@ private[backend] trait StorageBackendTestsCompletions
           offset(2),
           someApplicationId,
           Set(party),
+          limit = 10,
         )
       )
     )
@@ -230,6 +238,7 @@ private[backend] trait StorageBackendTestsCompletions
           offset(3),
           someApplicationId,
           Set(party),
+          limit = 10,
         )
       )
     )

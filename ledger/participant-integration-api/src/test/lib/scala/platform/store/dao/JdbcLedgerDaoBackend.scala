@@ -12,7 +12,11 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.ServerRole
+import com.daml.platform.configuration.{
+  ServerRole,
+  TransactionsFlatStreamReaderConfig,
+  TransactionsTreeStreamReaderConfig,
+}
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
@@ -97,6 +101,11 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
           ledgerEndCache = ledgerEndCache,
           stringInterning = stringInterningView,
+          transactionsFlatStreamReaderConfig = TransactionsFlatStreamReaderConfig.default,
+          transactionsTreeStreamReaderConfig = TransactionsTreeStreamReaderConfig.default,
+          globalMaxIdQueries = 20,
+          globalMaxPayloadQueries = 10,
+          completionsMaxPayloadsPerPayloadsPage = 1000,
         )
       }
   }

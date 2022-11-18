@@ -48,27 +48,27 @@ private[backend] trait StorageBackendTestsEvents
     executeSql(ingest(dtos, _))
     executeSql(updateLedgerEnd(offset(2), 2L))
     val resultSignatory = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partySignatory,
-        templateIdFilter = None,
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partySignatory,
+        templateIdO = None,
         startExclusive = 0L,
         endInclusive = 10L,
         limit = 10,
       )
     )
     val resultObserver1 = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partyObserver1,
-        templateIdFilter = None,
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partyObserver1,
+        templateIdO = None,
         startExclusive = 0L,
         endInclusive = 10L,
         limit = 10,
       )
     )
     val resultObserver2 = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partyObserver2,
-        templateIdFilter = None,
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partyObserver2,
+        templateIdO = None,
         startExclusive = 0L,
         endInclusive = 10L,
         limit = 10,
@@ -110,27 +110,27 @@ private[backend] trait StorageBackendTestsEvents
     executeSql(ingest(dtos, _))
     executeSql(updateLedgerEnd(offset(2), 2L))
     val resultSignatory = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partySignatory,
-        templateIdFilter = Some(someTemplateId),
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partySignatory,
+        templateIdO = Some(someTemplateId),
         startExclusive = 0L,
         endInclusive = 10L,
         limit = 10,
       )
     )
     val resultObserver1 = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partyObserver1,
-        templateIdFilter = Some(someTemplateId),
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partyObserver1,
+        templateIdO = Some(someTemplateId),
         startExclusive = 0L,
         endInclusive = 10L,
         limit = 10,
       )
     )
     val resultObserver2 = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partyObserver2,
-        templateIdFilter = Some(someTemplateId),
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partyObserver2,
+        templateIdO = Some(someTemplateId),
         startExclusive = 0L,
         endInclusive = 10L,
         limit = 10,
@@ -173,27 +173,27 @@ private[backend] trait StorageBackendTestsEvents
     executeSql(ingest(dtos, _))
     executeSql(updateLedgerEnd(offset(2), 2L))
     val resultSignatory = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partySignatory,
-        templateIdFilter = Some(otherTemplate),
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partySignatory,
+        templateIdO = Some(otherTemplate),
         startExclusive = 0L,
         endInclusive = 10L,
         limit = 10,
       )
     )
     val resultObserver1 = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partyObserver1,
-        templateIdFilter = Some(otherTemplate),
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partyObserver1,
+        templateIdO = Some(otherTemplate),
         startExclusive = 0L,
         endInclusive = 10L,
         limit = 10,
       )
     )
     val resultObserver2 = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partyObserver2,
-        templateIdFilter = Some(otherTemplate),
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partyObserver2,
+        templateIdO = Some(otherTemplate),
         startExclusive = 0L,
         endInclusive = 10L,
         limit = 10,
@@ -221,27 +221,27 @@ private[backend] trait StorageBackendTestsEvents
     executeSql(ingest(dtos, _))
     executeSql(updateLedgerEnd(offset(1), 1L))
     val resultUnknownParty = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partyUnknown,
-        templateIdFilter = None,
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partyUnknown,
+        templateIdO = None,
         startExclusive = 0L,
         endInclusive = 10L,
         limit = 10,
       )
     )
     val resultUnknownTemplate = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partySignatory,
-        templateIdFilter = Some(unknownTemplate),
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partySignatory,
+        templateIdO = Some(unknownTemplate),
         startExclusive = 0L,
         endInclusive = 10L,
         limit = 10,
       )
     )
     val resultUnknownPartyAndTemplate = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partyUnknown,
-        templateIdFilter = Some(unknownTemplate),
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partyUnknown,
+        templateIdO = Some(unknownTemplate),
         startExclusive = 0L,
         endInclusive = 10L,
         limit = 10,
@@ -283,36 +283,36 @@ private[backend] trait StorageBackendTestsEvents
     executeSql(ingest(dtos, _))
     executeSql(updateLedgerEnd(offset(2), 2L))
     val result01L2 = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partySignatory,
-        templateIdFilter = None,
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partySignatory,
+        templateIdO = None,
         startExclusive = 0L,
         endInclusive = 1L,
         limit = 2,
       )
     )
     val result12L2 = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partySignatory,
-        templateIdFilter = None,
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partySignatory,
+        templateIdO = None,
         startExclusive = 1L,
         endInclusive = 2L,
         limit = 2,
       )
     )
     val result02L1 = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partySignatory,
-        templateIdFilter = None,
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partySignatory,
+        templateIdO = None,
         startExclusive = 0L,
         endInclusive = 2L,
         limit = 1,
       )
     )
     val result02L2 = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = partySignatory,
-        templateIdFilter = None,
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+        stakeholder = partySignatory,
+        templateIdO = None,
         startExclusive = 0L,
         endInclusive = 2L,
         limit = 2,

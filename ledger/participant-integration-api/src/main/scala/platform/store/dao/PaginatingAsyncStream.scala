@@ -4,11 +4,16 @@
 package com.daml.platform.store.dao
 
 import akka.NotUsed
+import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.store.dao.events.FilterTableACSReader.IdQueryConfiguration
 
 import scala.concurrent.{ExecutionContext, Future}
 
 private[platform] object PaginatingAsyncStream {
+
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   /** Concatenates the results of multiple asynchronous calls into
     * a single [[Source]], injecting the offset of the next page to
@@ -61,7 +66,7 @@ private[platform] object PaginatingAsyncStream {
     * @tparam Off the type of the offset
     * @tparam T   the type of the items returned in each call
     */
-  def streamFrom[Off, T](startFromOffset: Off, getOffset: T => Off)(
+  def streamFromSeekPagination[Off, T](startFromOffset: Off, getOffset: T => Off)(
       query: Off => Future[Vector[T]]
   ): Source[T, NotUsed] = {
     Source
@@ -76,4 +81,41 @@ private[platform] object PaginatingAsyncStream {
       }
       .flatMapConcat(Source(_))
   }
+
+  case class IdPaginationState(startOffset: Long, pageSize: Int)
+
+  // TODO pbatko: See also com.daml.platform.store.dao.events.FilterTableACSReader.sourceFromPaginationQuery
+  def streamIdsFromSeekPagination(
+      pageConfig: IdQueryConfiguration,
+      pageBufferSize: Int,
+      initialStartOffset: Long,
+  )(
+      fetchPage: IdPaginationState => Future[Vector[Long]]
+  ): Source[Long, NotUsed] = {
+    Source
+      .unfoldAsync[IdPaginationState, Vector[Long]](
+        IdPaginationState(
+          startOffset = initialStartOffset,
+          pageSize = pageConfig.minPageSize,
+        ): IdPaginationState
+      ) { state: IdPaginationState =>
+        // TODO pbatko: Just for testing; remove me
+        logger.info(s"Id page size is: ${state.pageSize} at offset: ${state.startOffset}")(
+          LoggingContext.ForTesting
+        )
+        fetchPage(state).map {
+          case empty if empty.isEmpty => None
+          case nonEmpty: Vector[Long] =>
+            val nextPageStartOffset = nonEmpty.last
+            val newState = IdPaginationState(
+              startOffset = nextPageStartOffset,
+              pageSize = Math.min(state.pageSize * 4, pageConfig.maxPageSize),
+            )
+            Some(newState -> nonEmpty)
+        }(ExecutionContext.parasitic)
+      }
+      .buffer(pageBufferSize, OverflowStrategy.backpressure)
+      .mapConcat(identity)
+  }
+
 }

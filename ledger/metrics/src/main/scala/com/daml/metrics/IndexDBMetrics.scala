@@ -73,6 +73,45 @@ class IndexDBMetrics(override val prefix: MetricName, override val registry: Met
   val lookupContractByKeyDbMetrics: DatabaseMetrics = createDbMetrics(
     "lookup_contract_by_key"
   )
+
+  // TODO etq: Tune metric names
+  val flatTxIdsCreate: DatabaseMetrics = createDbMetrics(
+    "get_create_event_ids_for_flat_transactions"
+  )
+  val flatTxIdsConsuming: DatabaseMetrics = createDbMetrics(
+    "get_consuming_event_ids_for_flat_transactions"
+  )
+  val flatTxPayloadCreate: DatabaseMetrics = createDbMetrics(
+    "get_create_event_payloads_for_flat_transactions"
+  )
+  val flatTxPayloadConsuming: DatabaseMetrics = createDbMetrics(
+    "get_consuming_event_payloads_for_flat_transactions"
+  )
+  val treeTxIdsCreateStakeholder: DatabaseMetrics = createDbMetrics(
+    "get_create_event_ids_for_stakeholder_for_tree_transactions"
+  )
+  val treeTxIdsCreateNonStakeholderInformee: DatabaseMetrics = createDbMetrics(
+    "get_create_event_ids_for_nonstakeholderinformee_for_tree_transactions"
+  )
+  val treeTxIdsConsumingStakeholder: DatabaseMetrics = createDbMetrics(
+    "get_consuming_event_ids_for_stakeholder_for_tree_transactions"
+  )
+  val treeTxIdsConsumingNonStakeholderInformee: DatabaseMetrics = createDbMetrics(
+    "get_consuming_event_ids_for_nonstakeholderinformee_for_tree_transactions"
+  )
+  val treeTxIdsNonConsumingInformee: DatabaseMetrics = createDbMetrics(
+    "get_nonconsuming_event_ids_for_informee_for_tree_transactions"
+  )
+  val treeTxPayloadCreate: DatabaseMetrics = createDbMetrics(
+    "get_create_event_payloads_for_tree_transactions"
+  )
+  val treeTxPayloadConsuming: DatabaseMetrics = createDbMetrics(
+    "get_consuming_event_payloads_for_tree_transactions"
+  )
+  val treeTxPayloadNonConsuming: DatabaseMetrics = createDbMetrics(
+    "get_nonconsuming_event_payloads_for_tree_transactions"
+  )
+
   val getFlatTransactions: DatabaseMetrics = createDbMetrics("get_flat_transactions")
   val lookupFlatTransactionById: DatabaseMetrics = createDbMetrics(
     "lookup_flat_transaction_by_id"
