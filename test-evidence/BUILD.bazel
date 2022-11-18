@@ -38,17 +38,23 @@ test_evidence_binary(
     testonly = True,  # needed in order to depend on testonly targets
     main_class = "com.daml.test.evidence.generator.Main",
     tests = [
+        "//ledger-service/http-json:failure-tests",
         "//ledger-service/http-json:integration-tests-ce",
         "//ledger-service/http-json:integration-tests-lib",
         "//ledger-service/http-json:tests-ce",
         "//ledger-service/jwt:tests-lib",
         "//ledger-service/utils",
         "//ledger/sandbox-on-x:sandbox-on-x-it-tests-lib",
+        "//triggers/service:test",
+        "//triggers/service/auth:oauth2-middleware-tests",
+    ],
+    runtime_deps = [
+        "//ledger-service/http-json:failure-tests-lib-ce",
+        "//ledger-service/http-json:http-json-ce",
         "//libs-scala/jwt:tests-lib",
-        "//triggers/service:test-lib",
+        "//triggers/service:trigger-service",
         "//triggers/service:trigger-service-tests",
-        "//triggers/service/auth:oauth2-middleware-tests-lib",
-        "@maven//:ch_qos_logback_logback_classic",
+        "//triggers/service/auth:oauth2-middleware-tests",
     ],
     deps = [
         ":ledger-generator-lib",
@@ -57,11 +63,13 @@ test_evidence_binary(
         "//libs-scala/test-evidence/generator",
         "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "@maven//:ch_qos_logback_logback_classic",
     ],
 )
 
 genrule(
     name = "generate-security-test-evidence-files",
+    testonly = True,
     srcs = [],
     outs = [
         "daml-security-test-evidence.csv",
@@ -74,6 +82,7 @@ genrule(
 
 genrule(
     name = "test-evidence-tarball",
+    testonly = True,
     srcs = [
         ":generate-security-test-evidence-files",
     ],

@@ -225,94 +225,21 @@ daml_compile(
 )
 
 [
-    da_scala_library(
-        name = "tests-lib-{}".format(edition),
-        srcs = glob(["src/test/scala/**/*.scala"]),
-        plugins = [
-            kind_projector_plugin,
-        ],
-        scala_deps = [
-            "@maven//:org_scalatest_scalatest_flatspec",
-            "@maven//:com_lihaoyi_sourcecode",
-            "@maven//:com_chuusai_shapeless",
-            "@maven//:com_typesafe_akka_akka_http_core",
-            "@maven//:com_typesafe_akka_akka_stream",
-            "@maven//:io_spray_spray_json",
-            "@maven//:org_scalacheck_scalacheck",
-            "@maven//:org_scalatest_scalatest_core",
-            "@maven//:org_scalatest_scalatest_matchers_core",
-            "@maven//:org_scalatest_scalatest_shouldmatchers",
-            "@maven//:org_scalatest_scalatest_wordspec",
-            "@maven//:org_scalatestplus_scalacheck_1_15",
-            "@maven//:org_scalaz_scalaz_core",
-            "@maven//:org_scalaz_scalaz_scalacheck_binding",
-            "@maven//:org_tpolecat_doobie_core",
-            "@maven//:org_tpolecat_doobie_free",
-            "@maven//:org_typelevel_cats_core",
-            "@maven//:org_scalatest_scalatest_freespec",
-            "@maven//:org_typelevel_cats_effect",
-            "@maven//:org_typelevel_cats_free",
-            "@maven//:org_typelevel_cats_kernel",
-            "@maven//:org_scalactic_scalactic",
-        ],
-        scalacopts = hj_scalacopts + [
-            "-Xmaxerrs",
-            "10",
-            "-Xmaxwarns",
-            "10",
-        ],
-        deps = [
-            ":http-json-{}".format(edition),
-            "//bazel_tools/runfiles:scala_runfiles",
-            "//daml-lf/api-type-signature",
-            "//daml-lf/data",
-            "//daml-lf/transaction",
-            "//daml-lf/transaction-test-lib",
-            "//language-support/scala/bindings-akka",
-            "//ledger-service/db-backend",
-            "//ledger-service/fetch-contracts",
-            "//ledger/metrics",
-            "//ledger-service/http-json-cli:{}".format(edition),
-            "//ledger-service/http-json-testing:{}".format(edition),
-            "//ledger-service/cli-opts",
-            "//ledger-service/jwt",
-            "//ledger-service/lf-value-json",
-            "//ledger-service/utils",
-            "//ledger/ledger-api-common",
-            "//libs-scala/contextualized-logging",
-            "//libs-scala/db-utils",
-            "//libs-scala/logging-entries",
-            "//libs-scala/nonempty",
-            "//libs-scala/scala-utils",
-            "//libs-scala/scalatest-utils",
-            "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
-            "//libs-scala/test-evidence/tag:test-evidence-tag",
-            "@maven//:org_scalatest_scalatest_compatible",
-        ],
-    )
-    for edition in [
-        "ce",
-        "ee",
-    ]
-]
-
-alias(
-    name = "tests-lib",
-    actual = "tests-lib-ce",
-    visibility = ["//test-evidence:__pkg__"],
-)
-
-[
     da_scala_test(
         name = "tests-{}".format(edition),
         size = "medium",
+        srcs = glob(["src/test/scala/**/*.scala"]),
         data = [
             ":src/test/resources/http-json-api.conf",
             ":src/test/resources/http-json-api-minimal.conf",
             "//ledger/test-common/test-certificates",
         ],
+        plugins = [
+            kind_projector_plugin,
+        ],
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
+            "@maven//:com_lihaoyi_sourcecode",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:io_spray_spray_json",
             "@maven//:org_scalacheck_scalacheck",
@@ -331,9 +258,9 @@ alias(
             "@maven//:org_typelevel_cats_kernel",
         ],
         scalacopts = hj_scalacopts,
+        visibility = ["//test-evidence:__pkg__"] if edition == "ce" else None,
         deps = [
             ":http-json-{}".format(edition),
-            ":tests-lib-{}".format(edition),
             "//bazel_tools/runfiles:scala_runfiles",
             "//daml-lf/api-type-signature",
             "//daml-lf/data",
@@ -342,12 +269,12 @@ alias(
             "//language-support/scala/bindings-akka",
             "//ledger-service/db-backend",
             "//ledger-service/fetch-contracts",
-            "//ledger-service/metrics",
             "//ledger/metrics",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),
             "//ledger-service/cli-opts",
             "//ledger-service/lf-value-json",
+            "//ledger-service/metrics",
             "//ledger-service/utils",
             "//ledger/ledger-api-common",
             "//libs-scala/contextualized-logging",
@@ -357,6 +284,8 @@ alias(
             "//libs-scala/nonempty",
             "//libs-scala/scala-utils",
             "//libs-scala/scalatest-utils",
+            "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+            "//libs-scala/test-evidence/tag:test-evidence-tag",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
@@ -510,90 +439,13 @@ alias(
 ]
 
 [
-    da_scala_library(
-        name = "integration-tests-lib-pkg-{}".format(edition),
+    da_scala_test_suite(
+        name = "integration-tests-{}".format(edition),
+        size = "large",
         srcs = glob([
             "src/it/scala/**/*.scala",
             "src/it/edition/{}/**/*.scala".format(edition),
         ]),
-        plugins = [
-            kind_projector_plugin,
-        ],
-        scala_deps = [
-            "@maven//:com_lihaoyi_sourcecode",
-            "@maven//:com_chuusai_shapeless",
-            "@maven//:com_typesafe_akka_akka_http_core",
-            "@maven//:com_typesafe_scala_logging_scala_logging",
-            "@maven//:io_spray_spray_json",
-            "@maven//:org_scalacheck_scalacheck",
-            "@maven//:org_scalatest_scalatest_core",
-            "@maven//:org_scalatest_scalatest_flatspec",
-            "@maven//:org_scalatest_scalatest_freespec",
-            "@maven//:org_scalatest_scalatest_matchers_core",
-            "@maven//:org_scalatest_scalatest_shouldmatchers",
-            "@maven//:org_scalaz_scalaz_core",
-            "@maven//:org_tpolecat_doobie_core",
-            "@maven//:org_tpolecat_doobie_free",
-            "@maven//:org_tpolecat_doobie_postgres",
-            "@maven//:org_typelevel_cats_core",
-            "@maven//:org_typelevel_cats_effect",
-            "@maven//:org_typelevel_cats_free",
-            "@maven//:org_typelevel_cats_kernel",
-            "@maven//:org_scalactic_scalactic",
-        ],
-        scalacopts = hj_scalacopts,
-        deps = [
-            ":http-json-{}".format(edition),
-            ":integration-tests-lib-{}".format(edition),
-            ":integration-tests-lib-postgres-{}".format(edition),
-            "//daml-lf/api-type-signature",
-            "//daml-lf/data",
-            "//daml-lf/transaction",
-            "//daml-lf/transaction-test-lib",
-            "//language-support/scala/bindings-akka",
-            "//ledger-api/rs-grpc-bridge",
-            "//ledger-api/testing-utils",
-            "//ledger-service/db-backend",
-            "//ledger-service/fetch-contracts",
-            "//ledger/ledger-api-auth",
-            "//ledger/ledger-resources",
-            "//ledger/ledger-runner-common",
-            "//ledger/metrics",
-            "//ledger/sandbox-on-x",
-            "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
-            "//ledger-service/http-json-cli:{}".format(edition),
-            "//ledger-service/http-json-testing:{}".format(edition),
-            "//ledger-service/jwt",
-            "//ledger-service/utils",
-            "//libs-scala/contextualized-logging",
-            "//libs-scala/db-utils",
-            "//libs-scala/ports",
-            "//libs-scala/postgresql-testing",
-            "//libs-scala/resources",
-            "//libs-scala/scala-utils",
-            "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
-            "//libs-scala/test-evidence/tag:test-evidence-tag",
-            "//runtime-components/non-repudiation",
-            "//runtime-components/non-repudiation-postgresql",
-            "@maven//:org_scalatest_scalatest_compatible",
-        ],
-    )
-    for edition in [
-        "ce",
-        "ee",
-    ]
-]
-
-alias(
-    name = "integration-tests-lib-pkg",
-    actual = "integration-tests-lib-pkg-ce",
-    visibility = ["//test-evidence:__pkg__"],
-)
-
-[
-    da_scala_test_suite(
-        name = "integration-tests-{}".format(edition),
-        size = "large",
         data = [
             ":Account.dar",
             ":CIou.dar",
@@ -605,9 +457,13 @@ alias(
         ],
         # TODO https://github.com/digital-asset/daml/issues/11585
         flaky = True,
+        plugins = [
+            kind_projector_plugin,
+        ],
         resources = glob(["src/it/resources/**/*"]),
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
+            "@maven//:com_lihaoyi_sourcecode",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:com_typesafe_scala_logging_scala_logging",
             "@maven//:io_spray_spray_json",
@@ -627,10 +483,10 @@ alias(
             "@maven//:org_typelevel_cats_kernel",
         ],
         scalacopts = hj_scalacopts,
+        visibility = ["//test-evidence:__pkg__"] if edition == "ce" else None,
         deps = [
             ":http-json-{}".format(edition),
             ":integration-tests-lib-{}".format(edition),
-            ":integration-tests-lib-pkg-{}".format(edition),
             ":integration-tests-lib-postgres-{}".format(edition),
             "//bazel_tools/runfiles:scala_runfiles",
             "//daml-lf/api-type-signature",
@@ -659,6 +515,8 @@ alias(
             "//libs-scala/postgresql-testing",
             "//libs-scala/resources",
             "//libs-scala/scala-utils",
+            "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+            "//libs-scala/test-evidence/tag:test-evidence-tag",
             "//runtime-components/non-repudiation",
             "//runtime-components/non-repudiation-postgresql",
             "@maven//:org_scalatest_scalatest_compatible",
@@ -697,6 +555,7 @@ test_suite(
             "@maven//:org_typelevel_cats_effect",
         ],
         scalacopts = hj_scalacopts,
+        visibility = ["//test-evidence:__pkg__"] if edition == "ce" else None,
         deps = [
             ":http-json-{}".format(edition),
             "//bazel_tools/runfiles:scala_runfiles",
@@ -740,76 +599,9 @@ test_suite(
 ]
 
 [
-    da_scala_library(
-        name = "failure-tests-pkg-{}".format(edition),
-        srcs = glob(["src/failure/scala/**/*.scala"]),
-        plugins = [
-            kind_projector_plugin,
-        ],
-        scala_deps = [
-            "@maven//:com_typesafe_akka_akka_http_core",
-            #"@maven//:com_typesafe_scala_logging_scala_logging",
-            "@maven//:io_spray_spray_json",
-            "@maven//:org_scalactic_scalactic",
-            "@maven//:org_scalatest_scalatest_core",
-            "@maven//:org_scalatest_scalatest_freespec",
-            "@maven//:org_scalatest_scalatest_matchers_core",
-            "@maven//:org_scalatest_scalatest_shouldmatchers",
-            "@maven//:org_scalaz_scalaz_core",
-        ],
-        scalacopts = hj_scalacopts,
-        deps = [
-            ":http-json-{}".format(edition),
-            ":failure-tests-lib-{}".format(edition),
-            #"//bazel_tools/runfiles:scala_runfiles",
-            "//daml-lf/data",
-            "//language-support/scala/bindings-akka",
-            "//ledger-api/rs-grpc-bridge",
-            "//ledger-api/testing-utils",
-            "//ledger-service/fetch-contracts",
-            #"//ledger/ledger-configuration",
-            #"//libs-scala/contextualized-logging",
-            "//ledger-service/http-json-cli:{}".format(edition),
-            "//ledger-service/http-json-testing:{}".format(edition),
-            #"//ledger-service/utils",
-            #"//ledger/caching",
-            "//ledger/ledger-api-auth",
-            #"//ledger/ledger-api-common",
-            "//ledger/ledger-resources",
-            "//ledger/ledger-runner-common",
-            #"//ledger/metrics",
-            "//ledger/participant-integration-api",
-            #"//ledger/participant-integration-api:participant-integration-api-tests-lib",
-            "//ledger/sandbox-on-x",
-            "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
-            #"//libs-scala/db-utils",
-            "//libs-scala/jwt",
-            "//libs-scala/ports",
-            #"//libs-scala/ports:ports-testing",
-            "//libs-scala/postgresql-testing",
-            "//libs-scala/resources",
-            "//libs-scala/scala-utils",
-            #"//libs-scala/timer-utils",
-            "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
-            #"@maven//:io_dropwizard_metrics_metrics_core",
-            "@maven//:org_scalatest_scalatest_compatible",
-        ],
-    )
-    for edition in [
-        "ce",
-        "ee",
-    ]
-]
-
-alias(
-    name = "failure-tests-lib",
-    actual = "failure-tests-pkg-ce",
-    visibility = ["//test-evidence:__pkg__"],
-)
-
-[
     da_scala_test_suite(
         name = "failure-tests-{}".format(edition),
+        srcs = glob(["src/failure/scala/**/*.scala"]),
         data = [
             ":Account.dar",
             "//docs:quickstart-model.dar",
@@ -819,9 +611,57 @@ alias(
         ],
         # See https://github.com/digital-asset/daml/issues/9886
         flaky = True,
+        plugins = [
+            kind_projector_plugin,
+        ],
         resources = glob(["src/failure/resources/**/*"]),
+        scala_deps = [
+            "@maven//:com_typesafe_akka_akka_http_core",
+            "@maven//:com_typesafe_scala_logging_scala_logging",
+            "@maven//:io_spray_spray_json",
+            "@maven//:org_scalactic_scalactic",
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalatest_scalatest_freespec",
+            "@maven//:org_scalatest_scalatest_matchers_core",
+            "@maven//:org_scalatest_scalatest_shouldmatchers",
+            "@maven//:org_scalaz_scalaz_core",
+        ],
+        visibility = ["//test-evidence:__pkg__"] if edition == "ce" else None,
         deps = [
-            "failure-tests-pkg-{}".format(edition),
+            ":http-json-{}".format(edition),
+            ":failure-tests-lib-{}".format(edition),
+            "//bazel_tools/runfiles:scala_runfiles",
+            "//daml-lf/data",
+            "//language-support/scala/bindings-akka",
+            "//ledger-api/rs-grpc-bridge",
+            "//ledger-api/testing-utils",
+            "//ledger-service/fetch-contracts",
+            "//ledger/ledger-configuration",
+            "//libs-scala/contextualized-logging",
+            "//ledger-service/http-json-cli:{}".format(edition),
+            "//ledger-service/http-json-testing:{}".format(edition),
+            "//ledger-service/utils",
+            "//ledger/caching",
+            "//ledger/ledger-api-auth",
+            "//ledger/ledger-api-common",
+            "//ledger/ledger-resources",
+            "//ledger/ledger-runner-common",
+            "//ledger/metrics",
+            "//ledger/participant-integration-api",
+            "//ledger/participant-integration-api:participant-integration-api-tests-lib",
+            "//ledger/sandbox-on-x",
+            "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
+            "//libs-scala/db-utils",
+            "//libs-scala/jwt",
+            "//libs-scala/ports",
+            "//libs-scala/ports:ports-testing",
+            "//libs-scala/postgresql-testing",
+            "//libs-scala/resources",
+            "//libs-scala/scala-utils",
+            "//libs-scala/timer-utils",
+            "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+            "@maven//:io_dropwizard_metrics_metrics_core",
+            "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
     for edition in [
@@ -833,6 +673,7 @@ alias(
 test_suite(
     name = "failure-tests",
     tests = ["failure-tests-ce"],
+    visibility = ["//test-evidence:__pkg__"],
 )
 
 exports_files(["src/main/resources/logback.xml"])

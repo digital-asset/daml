@@ -17,6 +17,8 @@ object ScalaTestAdapter {
   def loadTestSuites(runpathList: List[String]): List[Suite] = {
     val loader = Runner.getRunpathClassLoader(runpathList)
     val testSuiteNames = SuiteDiscoveryHelper.discoverSuiteNames(runpathList, loader, None)
+    println(s"runpath: ${runpathList.mkString(",")}")
+    println(s"suites: ${testSuiteNames.mkString("\n")}")
     val suites = for {
       testSuiteName <- testSuiteNames.toList
     } yield DiscoverySuite.getSuiteInstance(testSuiteName, loader)
