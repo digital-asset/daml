@@ -134,7 +134,7 @@ class PersistentIdentityProviderConfigStore(
   )(implicit connection: Connection): Result[Unit] = issuer match {
     case Some(value) =>
       Either.cond(
-        backend.idpConfigByIssuerExists(value)(connection),
+        !backend.idpConfigByIssuerExists(value)(connection),
         (),
         IdentityProviderConfigWithIssuerExists(value),
       )

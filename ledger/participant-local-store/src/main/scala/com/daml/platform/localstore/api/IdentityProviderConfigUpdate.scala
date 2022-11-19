@@ -9,6 +9,6 @@ import com.daml.lf.data.Ref
 case class IdentityProviderConfigUpdate(
     identityProviderId: Ref.IdentityProviderId.Id,
     isDeactivatedUpdate: Option[Boolean] = None,
-    jwksUrlUpdate: Option[JwksUrl],
-    issuerUpdate: Option[String],
+    jwksUrlUpdate: Option[JwksUrl] = None,
+    issuerUpdate: Option[String] = None,
 )
