@@ -6,7 +6,6 @@ package com.daml.ledger.api
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.configuration.Configuration
 import com.daml.lf.command.{DisclosedContract, ApiCommands => LfCommands}
-import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Ref.LedgerString.ordering
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging._
@@ -16,7 +15,10 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import scalaz.syntax.tag._
 import scalaz.{@@, Tag}
 
+import java.net.URL
 import scala.collection.immutable
+import scala.util.Try
+import scala.util.control.NonFatal
 
 object domain {
 
@@ -329,4 +331,75 @@ object domain {
   object Feature {
     case object UserManagement extends Feature
   }
+
+  final case class JwksUrl(value: String) extends AnyVal {
+    def toURL = new URL(value)
+  }
+  object JwksUrl {
+    def fromString(value: String): Either[String, JwksUrl] =
+      Try(new URL(value)).toEither.left
+        .map { case NonFatal(e) =>
+          e.getMessage
+        }
+        .map(_ => JwksUrl(value))
+
+    def assertFromString(str: String): JwksUrl = fromString(str) match {
+      case Right(value) => value
+      case Left(err) => throw new IllegalArgumentException(err)
+    }
+  }
+
+  sealed trait IdentityProviderId {
+    def toRequestString: String
+
+    def toDb: Option[IdentityProviderId.Id]
+  }
+
+  object IdentityProviderId {
+    final case object Default extends IdentityProviderId {
+      override def toRequestString: String = ""
+      override def toDb: Option[Id] = None
+    }
+
+    final case class Id(value: Ref.LedgerString) extends IdentityProviderId {
+      override def toRequestString: String = value
+
+      override def toDb: Option[Id] = Some(this)
+    }
+
+    object Id {
+      def fromString(id: String): Either[String, IdentityProviderId.Id] = {
+        Ref.LedgerString.fromString(id).map(Id.apply)
+      }
+
+      def assertFromString(id: String) = {
+        Id(Ref.LedgerString.assertFromString(id))
+      }
+    }
+
+    def apply(identityProviderId: String): IdentityProviderId =
+      Option(identityProviderId).filter(_.nonEmpty) match {
+        case Some(id) => Id(Ref.LedgerString.assertFromString(id))
+        case None => Default
+      }
+
+    def fromString(identityProviderId: String): Either[String, IdentityProviderId] =
+      Option(identityProviderId).filter(_.nonEmpty) match {
+        case Some(id) => Ref.LedgerString.fromString(id).map(Id.apply)
+        case None => Right(Default)
+      }
+
+    def fromDb(identityProviderId: Option[IdentityProviderId.Id]): IdentityProviderId =
+      identityProviderId match {
+        case None => IdentityProviderId.Default
+        case Some(id) => id
+      }
+  }
+
+  final case class IdentityProviderConfig(
+      identityProviderId: IdentityProviderId.Id,
+      isDeactivated: Boolean = false,
+      jwksURL: JwksUrl,
+      issuer: String,
+  )
 }

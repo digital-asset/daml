@@ -29,6 +29,7 @@ object OracleResetStorageBackend extends ResetStorageBackend {
       "participant_users",
       "participant_user_rights",
       "participant_user_annotations",
+      "participant_identity_provider_config",
       "transaction_metering",
       "participant_metering",
       "metering_parameters",
