@@ -4,8 +4,7 @@
 package com.daml.platform.localstore
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.IdentityProviderConfig
-import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
   IdentityProviderConfigExists,
@@ -19,8 +18,8 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
 
 class InMemoryIdentityProviderConfigStore extends IdentityProviderConfigStore {
-  private val state: TrieMap[Ref.IdentityProviderId.Id, IdentityProviderConfig] =
-    TrieMap[Ref.IdentityProviderId.Id, IdentityProviderConfig]()
+  private val state: TrieMap[IdentityProviderId.Id, IdentityProviderConfig] =
+    TrieMap[IdentityProviderId.Id, IdentityProviderConfig]()
 
   override def createIdentityProviderConfig(identityProviderConfig: domain.IdentityProviderConfig)(
       implicit loggingContext: LoggingContext
@@ -34,13 +33,13 @@ class InMemoryIdentityProviderConfigStore extends IdentityProviderConfigStore {
     }
   }
 
-  override def getIdentityProviderConfig(id: Ref.IdentityProviderId.Id)(implicit
+  override def getIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
   ): Future[Result[domain.IdentityProviderConfig]] = withState {
     state.get(id).toRight(IdentityProviderConfigNotFound(id))
   }
 
-  override def deleteIdentityProviderConfig(id: Ref.IdentityProviderId.Id)(implicit
+  override def deleteIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
   ): Future[Result[Unit]] = withState {
     for {
@@ -79,14 +78,14 @@ class InMemoryIdentityProviderConfigStore extends IdentityProviderConfigStore {
       IdentityProviderConfigWithIssuerExists(issuer),
     )
 
-  def checkIdDoNotExists(id: Ref.IdentityProviderId.Id): Result[Unit] =
+  def checkIdDoNotExists(id: IdentityProviderId.Id): Result[Unit] =
     Either.cond(
       !state.isDefinedAt(id),
       (),
       IdentityProviderConfigExists(id),
     )
 
-  def checkIdExists(id: Ref.IdentityProviderId.Id): Result[IdentityProviderConfig] =
+  def checkIdExists(id: IdentityProviderId.Id): Result[IdentityProviderConfig] =
     state.get(id).toRight(IdentityProviderConfigNotFound(id))
 
   private def withState[T](t: => T): Future[T] =

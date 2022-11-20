@@ -5,8 +5,7 @@ package com.daml.platform.localstore
 
 import com.daml.caching.CaffeineCache
 import com.daml.caching.CaffeineCache.FutureAsyncCacheLoader
-import com.daml.ledger.api.domain.IdentityProviderConfig
-import com.daml.lf.data.Ref.IdentityProviderId
+import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.Result

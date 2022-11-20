@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.platform.store.backend.localstore
 
-import com.daml.lf.data.Ref.IdentityProviderId
+import com.daml.ledger.api.domain.IdentityProviderId
 
 import java.sql.Connection
 

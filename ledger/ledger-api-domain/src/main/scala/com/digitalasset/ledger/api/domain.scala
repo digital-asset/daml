@@ -398,7 +398,7 @@ object domain {
       primaryParty: Option[Ref.Party],
       isDeactivated: Boolean = false,
       metadata: ObjectMeta = ObjectMeta.empty,
-      identityProviderId: Ref.IdentityProviderId = Ref.IdentityProviderId.Default,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   )
 
   case class PartyDetails(
@@ -406,7 +406,7 @@ object domain {
       displayName: Option[String],
       isLocal: Boolean,
       metadata: ObjectMeta,
-      identityProviderId: Ref.IdentityProviderId,
+      identityProviderId: IdentityProviderId,
   )
 
   sealed abstract class UserRight extends Product with Serializable
@@ -422,10 +422,12 @@ object domain {
     case object UserManagement extends Feature
   }
 
-  case class JwksUrl(value: String) extends AnyVal {
+  final case class JwksUrl(value: String) extends AnyVal {
     def toURL = new URL(value)
   }
   object JwksUrl {
+    def apply(str: String): JwksUrl = assertFromString(str)
+
     def fromString(value: String): Either[String, JwksUrl] =
       Try(new URL(value)).toEither.left
         .map { case NonFatal(e) =>
@@ -439,8 +441,55 @@ object domain {
     }
   }
 
+  sealed trait IdentityProviderId {
+    def toRequestString: String
+
+    def toDb: Option[IdentityProviderId.Id]
+  }
+
+  object IdentityProviderId {
+    final case object Default extends IdentityProviderId {
+      override def toRequestString: String = ""
+      override def toDb: Option[Id] = None
+    }
+
+    final case class Id(value: Ref.LedgerString) extends IdentityProviderId {
+      override def toRequestString: String = value
+
+      override def toDb: Option[Id] = Some(this)
+    }
+
+    object Id {
+      def fromString(id: String): Either[String, IdentityProviderId.Id] = {
+        Ref.LedgerString.fromString(id).map(Id.apply)
+      }
+
+      def assertFromString(id: String) = {
+        Id(Ref.LedgerString.assertFromString(id))
+      }
+    }
+
+    def apply(identityProviderId: String): IdentityProviderId =
+      Option(identityProviderId).filter(_.nonEmpty) match {
+        case Some(id) => Id(Ref.LedgerString.assertFromString(id))
+        case None => Default
+      }
+
+    def fromString(identityProviderId: String): Either[String, IdentityProviderId] =
+      Option(identityProviderId).filter(_.nonEmpty) match {
+        case Some(id) => Ref.LedgerString.fromString(id).map(Id.apply)
+        case None => Right(Default)
+      }
+
+    def fromDb(identityProviderId: Option[IdentityProviderId.Id]): IdentityProviderId =
+      identityProviderId match {
+        case None => IdentityProviderId.Default
+        case Some(id) => id
+      }
+  }
+
   final case class IdentityProviderConfig(
-      identityProviderId: Ref.IdentityProviderId.Id,
+      identityProviderId: IdentityProviderId.Id,
       isDeactivated: Boolean = false,
       jwksURL: JwksUrl,
       issuer: String,

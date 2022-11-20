@@ -3,8 +3,7 @@
 
 package com.daml.platform.apiserver.update
 
-import com.daml.ledger.api.domain.PartyDetails
-import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.{IdentityProviderId, PartyDetails}
 import com.daml.platform.localstore.api.{ObjectMetaUpdate, PartyDetailsUpdate}
 
 object PartyRecordUpdateMapper extends UpdateMapperBase {
@@ -72,14 +71,14 @@ object PartyRecordUpdateMapper extends UpdateMapperBase {
 
   def resolveIdentityProviderIdUpdate(
       updateTrie: UpdatePathsTrie,
-      newValue: Ref.IdentityProviderId,
-  ): Result[Option[Ref.IdentityProviderId]] =
+      newValue: IdentityProviderId,
+  ): Result[Option[IdentityProviderId]] =
     updateTrie
       .findMatch(PartyDetailsPaths.identityProviderId)
-      .fold(noUpdate[Ref.IdentityProviderId])(matchResult =>
+      .fold(noUpdate[IdentityProviderId])(matchResult =>
         makePrimitiveFieldUpdate(
           updateMatch = matchResult,
-          defaultValue = Ref.IdentityProviderId.Default,
+          defaultValue = IdentityProviderId.Default,
           newValue = newValue,
         )
       )

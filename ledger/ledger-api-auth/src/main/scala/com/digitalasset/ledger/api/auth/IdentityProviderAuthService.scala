@@ -7,8 +7,7 @@ import com.auth0.jwk.UrlJwkProvider
 import com.auth0.jwt.JWT
 import com.auth0.jwt.interfaces.DecodedJWT
 import com.daml.jwt.{JwtTimestampLeeway, JwtVerifier, RSA256Verifier}
-import com.daml.ledger.api.domain.JwksUrl
-import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.{IdentityProviderId, JwksUrl}
 import com.google.common.cache.{Cache, CacheBuilder}
 import org.slf4j.{Logger, LoggerFactory}
 import scalaz.syntax.show._
@@ -148,7 +147,7 @@ class IdentityProviderAuthService(
     JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
   }
 
-  private def toAuthenticatedUser(payload: StandardJWTPayload, id: Ref.IdentityProviderId.Id) =
+  private def toAuthenticatedUser(payload: StandardJWTPayload, id: IdentityProviderId.Id) =
     ClaimSet.AuthenticatedUser(
       identityProviderId = id,
       participantId = payload.participantId,
@@ -159,7 +158,7 @@ class IdentityProviderAuthService(
 
 object IdentityProviderAuthService {
   case class Entry(
-      id: Ref.IdentityProviderId.Id,
+      id: IdentityProviderId.Id,
       jwksURL: JwksUrl,
       issuer: String,
   )

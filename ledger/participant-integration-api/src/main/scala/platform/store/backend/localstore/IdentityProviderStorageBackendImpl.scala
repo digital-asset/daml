@@ -5,8 +5,7 @@ package com.daml.platform.store.backend.localstore
 
 import anorm.SqlParser.{bool, int, str}
 import anorm.{RowParser, SqlStringInterpolation, ~}
-import com.daml.ledger.api.domain.{IdentityProviderConfig, JwksUrl}
-import com.daml.lf.data.Ref.IdentityProviderId
+import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.scalautil.Statement.discard
 

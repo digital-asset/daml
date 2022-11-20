@@ -6,7 +6,7 @@ package com.daml.platform.store.backend.localstore
 import java.sql.Connection
 import anorm.SqlParser.{long, str}
 import anorm.{RowParser, SqlStringInterpolation, ~}
-import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 
 /** Provides primitive backend operations for managing:
@@ -111,7 +111,7 @@ object ParticipantMetadataBackend {
 
   def updateIdentityProviderId(
       tableName: String
-  )(internalId: Int, identityProviderId: Option[Ref.IdentityProviderId.Id])(
+  )(internalId: Int, identityProviderId: Option[IdentityProviderId.Id])(
       connection: Connection
   ): Boolean = {
     val rowsUpdated =

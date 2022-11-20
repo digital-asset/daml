@@ -9,7 +9,7 @@ import akka.stream.scaladsl.Source
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{LedgerOffset, ObjectMeta, PartyDetails}
+import com.daml.ledger.api.domain.{IdentityProviderId, LedgerOffset, ObjectMeta, PartyDetails}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
@@ -135,9 +135,9 @@ private[apiserver] final class ApiPartyManagementService private (
               )
             }
           identityProviderId match {
-            case Ref.IdentityProviderId.Id(id) =>
+            case IdentityProviderId.Id(id) =>
               GetPartiesResponse(partyDetails = protoDetails.filter(_.identityProviderId == id))
-            case Ref.IdentityProviderId.Default =>
+            case IdentityProviderId.Default =>
               GetPartiesResponse(partyDetails = protoDetails)
           }
         }
@@ -168,11 +168,11 @@ private[apiserver] final class ApiPartyManagementService private (
           )
         }
         identityProviderId match {
-          case id: Ref.IdentityProviderId.Id =>
+          case id: IdentityProviderId.Id =>
             ListKnownPartiesResponse(
               protoDetails.filter(_.identityProviderId == id.toRequestString)
             )
-          case Ref.IdentityProviderId.Default =>
+          case IdentityProviderId.Default =>
             ListKnownPartiesResponse(protoDetails)
         }
       }
@@ -452,7 +452,7 @@ private[apiserver] object ApiPartyManagementService {
   private def toProtoPartyDetails(
       partyDetails: IndexerPartyDetails,
       metadataO: Option[ObjectMeta],
-      identityProviderId: Option[Ref.IdentityProviderId],
+      identityProviderId: Option[IdentityProviderId],
   ): ProtoPartyDetails =
     ProtoPartyDetails(
       party = partyDetails.party,

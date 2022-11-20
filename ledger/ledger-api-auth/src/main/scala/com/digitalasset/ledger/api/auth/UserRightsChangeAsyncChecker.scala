@@ -5,10 +5,10 @@ package com.daml.ledger.api.auth
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.actor.Scheduler
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.api.UserManagementStore
@@ -52,9 +52,9 @@ private[auth] final class UserRightsChangeAsyncChecker(
           for {
             userRightsResult <- userManagementStore.listUserRights(
               userId,
-              Ref.IdentityProviderId.Default,
+              IdentityProviderId.Default,
             )
-            userResult <- userManagementStore.getUser(userId, Ref.IdentityProviderId.Default)
+            userResult <- userManagementStore.getUser(userId, IdentityProviderId.Default)
           } yield {
             for {
               userRights <- userRightsResult

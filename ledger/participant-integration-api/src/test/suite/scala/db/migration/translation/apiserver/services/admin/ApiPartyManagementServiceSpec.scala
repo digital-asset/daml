@@ -4,10 +4,9 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
-
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
-import com.daml.ledger.api.domain.ObjectMeta
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.admin.party_management_service.AllocatePartyRequest
 import com.daml.ledger.participant.state.index.v2.{
@@ -63,7 +62,7 @@ class ApiPartyManagementServiceSpec
         mockPartyRecordStore.createPartyRecord(any[PartyRecord])(any[LoggingContext])
       ).thenReturn(
         Future.successful(
-          Right(PartyRecord(party, ObjectMeta.empty, Ref.IdentityProviderId.Default))
+          Right(PartyRecord(party, ObjectMeta.empty, IdentityProviderId.Default))
         )
       )
       when(

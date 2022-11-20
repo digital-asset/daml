@@ -4,8 +4,8 @@
 package com.daml.ledger.api.auth
 
 import com.daml.jwt.JwtTimestampLeeway
+import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.IdentityProviderId
 
 import java.time.{Duration, Instant}
 
@@ -81,7 +81,7 @@ object ClaimSet {
       participantId: Option[String],
       applicationId: Option[String],
       expiration: Option[Instant],
-      identityProviderId: Ref.IdentityProviderId,
+      identityProviderId: IdentityProviderId,
       resolvedFromUser: Boolean,
   ) extends ClaimSet {
     def validForLedger(id: String): Either[AuthorizationError, Unit] =
@@ -164,7 +164,7 @@ object ClaimSet {
 
   /** The representation of a user that was authenticated, but whose [[Claims]] have not yet been resolved. */
   final case class AuthenticatedUser(
-      identityProviderId: Ref.IdentityProviderId,
+      identityProviderId: IdentityProviderId,
       userId: String,
       participantId: Option[String],
       expiration: Option[Instant],

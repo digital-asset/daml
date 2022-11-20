@@ -5,8 +5,7 @@ package com.daml.platform.store.backend
 
 import java.sql.SQLException
 import java.util.UUID
-
-import com.daml.ledger.api.domain.UserRight
+import com.daml.ledger.api.domain.{IdentityProviderId, UserRight}
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.localstore.UserManagementStorageBackend
@@ -204,7 +203,7 @@ private[backend] trait StorageBackendTestsUserManagement
       tested.getUsersOrderedById(
         fromExcl = None,
         maxResults = 10,
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
       )
     ) shouldBe empty
     val _ = executeSql(tested.createUser(user3))
@@ -213,7 +212,7 @@ private[backend] trait StorageBackendTestsUserManagement
       tested.getUsersOrderedById(
         fromExcl = None,
         maxResults = 10,
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
       )
     )
       .map(_.payload) shouldBe Seq(
@@ -225,7 +224,7 @@ private[backend] trait StorageBackendTestsUserManagement
       tested.getUsersOrderedById(
         fromExcl = None,
         maxResults = 10,
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
       )
     )
       .map(_.payload) shouldBe Seq(
@@ -248,7 +247,7 @@ private[backend] trait StorageBackendTestsUserManagement
       tested.getUsersOrderedById(
         fromExcl = None,
         maxResults = 10,
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
       )
     )
       .map(_.payload.id) shouldBe Seq("!a", "_a", "a", "a!", "a_", "b")
@@ -266,7 +265,7 @@ private[backend] trait StorageBackendTestsUserManagement
       tested.getUsersOrderedById(
         fromExcl = None,
         maxResults = 10,
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
       )
     ) shouldBe empty
     // Creating users in a random order
@@ -281,7 +280,7 @@ private[backend] trait StorageBackendTestsUserManagement
       tested.getUsersOrderedById(
         fromExcl = None,
         maxResults = 2,
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
       )
     )
       .map(_.payload) shouldBe Seq(
@@ -293,7 +292,7 @@ private[backend] trait StorageBackendTestsUserManagement
       tested.getUsersOrderedById(
         maxResults = 3,
         fromExcl = Some(user1.id),
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
       )
     )
       .map(_.payload) shouldBe Seq(
@@ -306,7 +305,7 @@ private[backend] trait StorageBackendTestsUserManagement
       tested.getUsersOrderedById(
         maxResults = 10000,
         fromExcl = Some(user1.id),
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
       )
     ) map (_.payload) shouldBe Seq(
       user2,
@@ -320,7 +319,7 @@ private[backend] trait StorageBackendTestsUserManagement
       tested.getUsersOrderedById(
         maxResults = 2,
         fromExcl = Some(Ref.UserId.assertFromString("user_id_4")),
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
       )
     ).map(_.payload) shouldBe Seq(user5, user6)
     // Get no users when requesting with after set the last existing user
@@ -328,7 +327,7 @@ private[backend] trait StorageBackendTestsUserManagement
       tested.getUsersOrderedById(
         maxResults = 2,
         fromExcl = Some(user7.id),
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
       )
     ) shouldBe empty
     // Get no users when requesting with after set beyond the last existing user
@@ -336,7 +335,7 @@ private[backend] trait StorageBackendTestsUserManagement
       tested.getUsersOrderedById(
         maxResults = 2,
         fromExcl = Some(Ref.UserId.assertFromString("user_id_8")),
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
       )
     ) shouldBe empty
   }
@@ -347,7 +346,7 @@ private[backend] trait StorageBackendTestsUserManagement
       tested.getUsersOrderedById(
         maxResults = 10,
         fromExcl = None,
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
       )
     )
     val rightExists = executeSql(tested.userRightExists(nonExistentUserInternalId, right2))
@@ -438,7 +437,8 @@ private[backend] trait StorageBackendTestsUserManagement
       userId: String = "",
       isDeactivated: Boolean = false,
       primaryPartyOverride: Option[Option[Ref.Party]] = None,
-      identityProviderId: Ref.IdentityProviderId = Ref.IdentityProviderId.Default,
+      identityProviderId: com.daml.ledger.api.domain.IdentityProviderId =
+        IdentityProviderId.Default,
       resourceVersion: Long = 0,
       createdAt: Long = zeroMicros,
   ): UserManagementStorageBackend.DbUserPayload = {
