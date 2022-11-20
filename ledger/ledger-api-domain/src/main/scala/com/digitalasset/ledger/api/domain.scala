@@ -426,8 +426,6 @@ object domain {
     def toURL = new URL(value)
   }
   object JwksUrl {
-    def apply(str: String): JwksUrl = assertFromString(str)
-
     def fromString(value: String): Either[String, JwksUrl] =
       Try(new URL(value)).toEither.left
         .map { case NonFatal(e) =>

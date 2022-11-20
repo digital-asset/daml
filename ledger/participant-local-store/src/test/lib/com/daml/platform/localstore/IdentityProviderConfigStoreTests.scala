@@ -20,16 +20,15 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
   self: AsyncFreeSpec =>
   implicit val lc: LoggingContext = LoggingContext.ForTesting
 
-  private def config(): IdentityProviderConfig = {
+  def config(): IdentityProviderConfig =
     IdentityProviderConfig(
       identityProviderId = randomId(),
       isDeactivated = false,
       jwksURL = JwksUrl.assertFromString("http://example.com/jwks.json"),
       issuer = UUID.randomUUID().toString,
     )
-  }
 
-  private def randomId() = {
+  def randomId() = {
     val id = UUID.randomUUID().toString
     IdentityProviderId.Id(Ref.LedgerString.assertFromString(id))
   }
@@ -251,6 +250,20 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
           )
         } yield {
           res shouldBe Left(IdentityProviderConfigWithIssuerExists("issuer2"))
+        }
+      }
+    }
+
+    "allow listing all configs" in {
+      testIt { tested =>
+        val cfg1 = config().copy(issuer = "issuer1")
+        val cfg2 = config().copy(issuer = "issuer2")
+        for {
+          _ <- tested.createIdentityProviderConfig(cfg1)
+          _ <- tested.createIdentityProviderConfig(cfg2)
+          res <- tested.listIdentityProviderConfigs()
+        } yield {
+          res.value should contain theSameElementsAs Vector(cfg1, cfg2)
         }
       }
     }
