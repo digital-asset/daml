@@ -8,7 +8,9 @@ import com.daml.ledger.api.domain.IdentityProviderConfig
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
+  IdentityProviderConfigExists,
   IdentityProviderConfigNotFound,
+  IdentityProviderConfigWithIssuerExists,
   Result,
 }
 import com.daml.platform.localstore.api.{IdentityProviderConfigStore, IdentityProviderConfigUpdate}
@@ -22,33 +24,74 @@ class InMemoryIdentityProviderConfigStore extends IdentityProviderConfigStore {
 
   override def createIdentityProviderConfig(identityProviderConfig: domain.IdentityProviderConfig)(
       implicit loggingContext: LoggingContext
-  ): Future[Result[domain.IdentityProviderConfig]] = {
-    state.put(identityProviderConfig.identityProviderId, identityProviderConfig)
-    Future.successful(Right(identityProviderConfig))
+  ): Future[Result[domain.IdentityProviderConfig]] = withState {
+    for {
+      _ <- checkIssuerDoNotExists(identityProviderConfig.issuer)
+      _ <- checkIdDoNotExists(identityProviderConfig.identityProviderId)
+    } yield {
+      state.put(identityProviderConfig.identityProviderId, identityProviderConfig)
+      identityProviderConfig
+    }
   }
 
   override def getIdentityProviderConfig(id: Ref.IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
-  ): Future[Result[domain.IdentityProviderConfig]] = {
-    Future.successful(state.get(id).toRight(IdentityProviderConfigNotFound(id)))
+  ): Future[Result[domain.IdentityProviderConfig]] = withState {
+    state.get(id).toRight(IdentityProviderConfigNotFound(id))
   }
 
   override def deleteIdentityProviderConfig(id: Ref.IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Unit]] = {
-    state.remove(id)
-    Future.successful(Right(()))
+  ): Future[Result[Unit]] = withState {
+    for {
+      _ <- checkIdExists(id)
+    } yield {
+      state.remove(id)
+      ()
+    }
   }
 
   override def listIdentityProviderConfigs()(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Seq[domain.IdentityProviderConfig]]] = {
-    Future.successful(Right(state.values.toSeq))
+  ): Future[Result[Seq[domain.IdentityProviderConfig]]] = withState {
+    Right(state.values.toSeq)
   }
 
   override def updateIdentityProviderConfig(update: IdentityProviderConfigUpdate)(implicit
       loggingContext: LoggingContext
-  ): Future[Result[IdentityProviderConfig]] = {
-    ??? // TODO DPP-1299 implement :(((
+  ): Future[Result[IdentityProviderConfig]] = withState {
+    val id = update.identityProviderId
+    for {
+      currentState <- checkIdExists(id)
+      _ <- update.issuerUpdate.map(checkIssuerDoNotExists).getOrElse(Right(()))
+    } yield {
+      currentState
+        .copy(isDeactivated = update.isDeactivatedUpdate.getOrElse(currentState.isDeactivated))
+        .copy(issuer = update.issuerUpdate.getOrElse(currentState.issuer))
+        .copy(jwksURL = update.jwksUrlUpdate.getOrElse(currentState.jwksURL))
+    }
   }
+
+  def checkIssuerDoNotExists(issuer: String): Result[Unit] =
+    Either.cond(
+      !state.values.exists(_.issuer == issuer),
+      (),
+      IdentityProviderConfigWithIssuerExists(issuer),
+    )
+
+  def checkIdDoNotExists(id: Ref.IdentityProviderId.Id): Result[Unit] =
+    Either.cond(
+      !state.isDefinedAt(id),
+      (),
+      IdentityProviderConfigExists(id),
+    )
+
+  def checkIdExists(id: Ref.IdentityProviderId.Id): Result[IdentityProviderConfig] =
+    state.get(id).toRight(IdentityProviderConfigNotFound(id))
+
+  private def withState[T](t: => T): Future[T] =
+    state.synchronized(
+      Future.successful(t)
+    )
+
 }
