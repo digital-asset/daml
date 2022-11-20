@@ -33,15 +33,15 @@ alongside a few annotations with regards to the meaning of the configuration key
 .. code-block:: none
 
     {
-      // Mandatory. Paths to the DAR files containing the code executed by the trigger.
+      // Paths to the DAR files containing the code executed by the trigger.
       dar-paths = [
         "./my-app.dar"
       ]
 
-      // Mandatory. Host address that the Trigger Service listens on. Defaults to 127.0.0.1.
+      // Host address that the Trigger Service listens on. Defaults to 127.0.0.1.
       address = "127.0.0.1"
 
-      // Mandatory. Trigger Service port number. Defaults to 8088.
+      // Trigger Service port number. Defaults to 8088.
       // A port number of 0 will let the system pick an ephemeral port.
       port = 8088
       // Optional. If using 0 as the port number, consider specifying the path to a `port-file` where the chosen port will be saved in textual format.
