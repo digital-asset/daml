@@ -6,8 +6,8 @@ package com.daml.platform.store.backend.localstore
 import java.sql.Connection
 import anorm.SqlParser.{int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
+import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.IdentityProviderId
 
 import scala.util.Try
 

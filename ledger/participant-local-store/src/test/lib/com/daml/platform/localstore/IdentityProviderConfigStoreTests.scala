@@ -3,7 +3,7 @@
 
 package com.daml.platform.localstore
 
-import com.daml.ledger.api.domain.{IdentityProviderConfig, JwksUrl}
+import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
@@ -31,7 +31,7 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
 
   private def randomId() = {
     val id = UUID.randomUUID().toString
-    Ref.IdentityProviderId.Id(Ref.LedgerString.assertFromString(id))
+    IdentityProviderId.Id(Ref.LedgerString.assertFromString(id))
   }
 
   "identity provider config store" - {

@@ -4,7 +4,7 @@
 package com.daml.platform.localstore
 
 import com.daml.ledger.api.domain
-import com.daml.lf.data.Ref.IdentityProviderId
+import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.{

@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.backend
 
-import com.daml.ledger.api.domain.{IdentityProviderConfig, JwksUrl}
+import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
 import com.daml.lf.data.Ref
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -159,7 +159,7 @@ private[backend] trait StorageBackendTestsIDPConfig
 
   private def randomId() = {
     val id = UUID.randomUUID().toString
-    Ref.IdentityProviderId.Id(Ref.LedgerString.assertFromString(id))
+    IdentityProviderId.Id(Ref.LedgerString.assertFromString(id))
   }
 
 }

@@ -4,7 +4,7 @@ package com.daml.platform.store.backend.localstore
 
 import anorm.RowParser
 import anorm.SqlParser.int
-import com.daml.lf.data.Ref.IdentityProviderId
+import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 
 import java.sql.Connection

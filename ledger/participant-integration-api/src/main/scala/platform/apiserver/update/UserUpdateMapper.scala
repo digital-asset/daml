@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver.update
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.User
+import com.daml.ledger.api.domain.{IdentityProviderId, User}
 import com.daml.lf.data.Ref
 import com.daml.platform.localstore.api.{ObjectMetaUpdate, UserUpdate}
 
@@ -77,14 +77,14 @@ object UserUpdateMapper extends UpdateMapperBase {
 
   def isIdentityProviderIdUpdate(
       updateTrie: UpdatePathsTrie,
-      newValue: Ref.IdentityProviderId,
-  ): Result[Option[Ref.IdentityProviderId]] =
+      newValue: IdentityProviderId,
+  ): Result[Option[IdentityProviderId]] =
     updateTrie
       .findMatch(UserPaths.identityProviderId)
-      .fold(noUpdate[Ref.IdentityProviderId])(matchResult =>
+      .fold(noUpdate[IdentityProviderId])(matchResult =>
         makePrimitiveFieldUpdate(
           updateMatch = matchResult,
-          defaultValue = Ref.IdentityProviderId.Default,
+          defaultValue = IdentityProviderId.Default,
           newValue = newValue,
         )
       )

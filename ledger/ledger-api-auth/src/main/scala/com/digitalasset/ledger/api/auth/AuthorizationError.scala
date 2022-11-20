@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.auth
 
-import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.IdentityProviderId
 
 import java.time.Instant
 
@@ -56,7 +56,7 @@ object AuthorizationError {
     override val reason = s"Claims do not authorize to act as party '$party'"
   }
 
-  final case class InvalidIdentityProviderId(identityProviderId: Ref.IdentityProviderId)
+  final case class InvalidIdentityProviderId(identityProviderId: IdentityProviderId)
       extends AuthorizationError {
     // TODO DPP-1299 better error message?
     override val reason =

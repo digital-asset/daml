@@ -7,7 +7,7 @@ import com.daml.api.util.TimestampConversion
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{JwksUrl, LedgerId}
+import com.daml.ledger.api.domain.{IdentityProviderId, JwksUrl, LedgerId}
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.lf.crypto.Hash
@@ -146,18 +146,18 @@ object FieldValidations {
       fieldName: String,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Ref.IdentityProviderId.Id] =
-    Ref.IdentityProviderId.Id.fromString(s).left.map(invalidField(fieldName, _))
+  ): Either[StatusRuntimeException, IdentityProviderId.Id] =
+    IdentityProviderId.Id.fromString(s).left.map(invalidField(fieldName, _))
 
   def optionalIdentityProviderId(
       s: String,
       fieldName: String,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Ref.IdentityProviderId] = {
-    if (s.isEmpty) Right(Ref.IdentityProviderId.Default)
+  ): Either[StatusRuntimeException, IdentityProviderId] = {
+    if (s.isEmpty) Right(IdentityProviderId.Default)
     else
-      Ref.IdentityProviderId.Id.fromString(s).left.map(invalidField(fieldName, _))
+      IdentityProviderId.Id.fromString(s).left.map(invalidField(fieldName, _))
   }
 
   def requireLedgerString(s: String)(implicit

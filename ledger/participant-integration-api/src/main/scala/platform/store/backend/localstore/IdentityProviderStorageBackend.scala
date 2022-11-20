@@ -3,8 +3,7 @@
 
 package com.daml.platform.store.backend.localstore
 
-import com.daml.ledger.api.domain.{IdentityProviderConfig, JwksUrl}
-import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
 
 import java.sql.Connection
 
@@ -13,9 +12,9 @@ trait IdentityProviderStorageBackend extends IdentityProviderCheckStorageBackend
       identityProviderConfig: IdentityProviderConfig
   )(connection: Connection): Unit
 
-  def deleteIdentityProviderConfig(id: Ref.IdentityProviderId.Id)(connection: Connection): Boolean
+  def deleteIdentityProviderConfig(id: IdentityProviderId.Id)(connection: Connection): Boolean
 
-  def getIdentityProviderConfig(id: Ref.IdentityProviderId.Id)(
+  def getIdentityProviderConfig(id: IdentityProviderId.Id)(
       connection: Connection
   ): Option[IdentityProviderConfig]
 
@@ -23,15 +22,15 @@ trait IdentityProviderStorageBackend extends IdentityProviderCheckStorageBackend
       connection: Connection
   ): Vector[IdentityProviderConfig]
 
-  def updateIssuer(id: Ref.IdentityProviderId.Id, newIssuer: String)(
+  def updateIssuer(id: IdentityProviderId.Id, newIssuer: String)(
       connection: Connection
   ): Boolean
 
-  def updateJwksURL(id: Ref.IdentityProviderId.Id, jwksURL: JwksUrl)(
+  def updateJwksURL(id: IdentityProviderId.Id, jwksURL: JwksUrl)(
       connection: Connection
   ): Boolean
 
-  def updateIsDeactivated(id: Ref.IdentityProviderId.Id, isDeactivated: Boolean)(
+  def updateIsDeactivated(id: IdentityProviderId.Id, isDeactivated: Boolean)(
       connection: Connection
   ): Boolean
 

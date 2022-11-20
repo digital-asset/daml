@@ -5,9 +5,8 @@ package com.daml.platform.apiserver.services.admin
 
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.domain.IdentityProviderConfig
+import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
 import com.daml.ledger.api.v1.admin.{identity_provider_config_service => proto}
-import com.daml.lf.data.Ref.IdentityProviderId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiIdentityProviderConfigService.toProto

@@ -8,7 +8,7 @@ package ledgerinteraction
 
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{ObjectMeta, PartyDetails, User, UserRight}
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
@@ -30,7 +30,6 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.InMemoryUserManagementStore
 import com.daml.script.converter.ConverterException
-
 import io.grpc.StatusRuntimeException
 import scalaz.OneAnd
 import scalaz.OneAnd._
@@ -419,7 +418,7 @@ class IdeLedgerClient(
         displayName = Some(displayName),
         isLocal = true,
         metadata = ObjectMeta.empty,
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
       )
       _ = allocatedParties += (name -> partyDetails)
     } yield partyDetails.party)
@@ -467,7 +466,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[User]] =
     userManagementStore
-      .getUser(id, Ref.IdentityProviderId.Default)(LoggingContext.empty)
+      .getUser(id, IdentityProviderId.Default)(LoggingContext.empty)
       .map(_.toOption)
 
   override def deleteUser(id: UserId)(implicit
@@ -476,7 +475,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[Unit]] =
     userManagementStore
-      .deleteUser(id, Ref.IdentityProviderId.Default)(LoggingContext.empty)
+      .deleteUser(id, IdentityProviderId.Default)(LoggingContext.empty)
       .map(_.toOption)
 
   override def listAllUsers()(implicit
@@ -495,7 +494,9 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .grantRights(id, rights.toSet, Ref.IdentityProviderId.Default)(LoggingContext.empty)
+      .grantRights(id, rights.toSet, IdentityProviderId.Default)(
+        LoggingContext.empty
+      )
       .map(_.toOption.map(_.toList))
 
   override def revokeUserRights(
@@ -507,7 +508,9 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .revokeRights(id, rights.toSet, Ref.IdentityProviderId.Default)(LoggingContext.empty)
+      .revokeRights(id, rights.toSet, IdentityProviderId.Default)(
+        LoggingContext.empty
+      )
       .map(_.toOption.map(_.toList))
 
   override def listUserRights(id: UserId)(implicit
@@ -516,6 +519,8 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .listUserRights(id, Ref.IdentityProviderId.Default)(LoggingContext.empty)
+      .listUserRights(id, IdentityProviderId.Default)(
+        LoggingContext.empty
+      )
       .map(_.toOption.map(_.toList))
 }

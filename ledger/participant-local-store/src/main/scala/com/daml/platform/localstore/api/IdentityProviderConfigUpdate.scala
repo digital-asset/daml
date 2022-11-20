@@ -3,11 +3,10 @@
 
 package com.daml.platform.localstore.api
 
-import com.daml.ledger.api.domain.JwksUrl
-import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.{IdentityProviderId, JwksUrl}
 
 case class IdentityProviderConfigUpdate(
-    identityProviderId: Ref.IdentityProviderId.Id,
+    identityProviderId: IdentityProviderId.Id,
     isDeactivatedUpdate: Option[Boolean] = None,
     jwksUrlUpdate: Option[JwksUrl] = None,
     issuerUpdate: Option[String] = None,

@@ -4,9 +4,9 @@
 package com.daml.platform.localstore
 
 import java.sql.Connection
-
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.platform.localstore.api.PartyRecordStore.{
   ConcurrentPartyUpdate,
   MaxAnnotationsSizeExceeded,
@@ -99,7 +99,7 @@ class PersistentPartyRecordStore(
                   val newPartyRecord = PartyRecord(
                     party = party,
                     identityProviderId = partyRecordUpdate.identityProviderIdUpdate.getOrElse(
-                      Ref.IdentityProviderId.Default
+                      IdentityProviderId.Default
                     ),
                     metadata = domain.ObjectMeta(
                       resourceVersionO = None,
@@ -243,7 +243,7 @@ class PersistentPartyRecordStore(
   ): PartyRecord = {
     PartyRecord(
       party = payload.party,
-      identityProviderId = Ref.IdentityProviderId.fromDb(payload.identityProviderId),
+      identityProviderId = IdentityProviderId.fromDb(payload.identityProviderId),
       metadata = domain.ObjectMeta(
         resourceVersionO = Some(payload.resourceVersion),
         annotations = annotations,

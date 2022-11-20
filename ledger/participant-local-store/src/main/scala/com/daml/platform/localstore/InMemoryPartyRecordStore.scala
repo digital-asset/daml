@@ -4,7 +4,7 @@
 package com.daml.platform.localstore
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.ObjectMeta
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -30,7 +30,7 @@ object InMemoryPartyRecordStore {
       party: Ref.Party,
       resourceVersion: Long,
       annotations: Map[String, String],
-      identityProviderId: Ref.IdentityProviderId,
+      identityProviderId: IdentityProviderId,
   )
 
   def toPartyRecord(info: PartyRecordInfo): PartyRecord =
@@ -103,7 +103,7 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
                     Map.empty[String, String]
                   ),
                 ),
-                identityProviderId = Ref.IdentityProviderId.Default,
+                identityProviderId = IdentityProviderId.Default,
               )
               for {
                 info <- doCreatePartyRecord(newPartyRecord)
@@ -150,7 +150,7 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
         party = party,
         resourceVersion = newResourceVersion,
         annotations = updatedAnnotations,
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
       )
       state.put(party, updatedInfo)
       updatedInfo

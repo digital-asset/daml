@@ -3,8 +3,7 @@
 
 package com.daml.platform.localstore.api
 
-import com.daml.ledger.api.domain.IdentityProviderConfig
-import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.Result
 
@@ -16,11 +15,11 @@ trait IdentityProviderConfigStore {
       loggingContext: LoggingContext
   ): Future[Result[IdentityProviderConfig]]
 
-  def getIdentityProviderConfig(id: Ref.IdentityProviderId.Id)(implicit
+  def getIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
   ): Future[Result[IdentityProviderConfig]]
 
-  def deleteIdentityProviderConfig(id: Ref.IdentityProviderId.Id)(implicit
+  def deleteIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
   ): Future[Result[Unit]]
 
@@ -37,9 +36,9 @@ object IdentityProviderConfigStore {
   type Result[T] = Either[Error, T]
 
   sealed trait Error
-  final case class IdentityProviderConfigNotFound(identityProviderId: Ref.IdentityProviderId.Id)
+  final case class IdentityProviderConfigNotFound(identityProviderId: IdentityProviderId.Id)
       extends Error
-  final case class IdentityProviderConfigExists(identityProviderId: Ref.IdentityProviderId.Id)
+  final case class IdentityProviderConfigExists(identityProviderId: IdentityProviderId.Id)
       extends Error
   final case class IdentityProviderConfigWithIssuerExists(issuer: String) extends Error
 }

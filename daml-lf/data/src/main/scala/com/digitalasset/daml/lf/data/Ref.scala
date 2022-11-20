@@ -78,53 +78,6 @@ object Ref {
   type ParticipantId = IdString.ParticipantId
   val ParticipantId: IdString.ParticipantId.type = IdString.ParticipantId
 
-  sealed trait IdentityProviderId {
-    def toRequestString: String
-
-    def toDb: Option[Ref.IdentityProviderId.Id]
-  }
-  object IdentityProviderId {
-    final case object Default extends IdentityProviderId {
-      override def toRequestString: String = ""
-
-      override def toDb: Option[Id] = None
-    }
-
-    final case class Id(value: LedgerString) extends IdentityProviderId {
-      override def toRequestString: String = value
-
-      override def toDb: Option[Id] = Some(this)
-    }
-
-    object Id {
-      def fromString(id: String): Either[String, IdentityProviderId.Id] = {
-        LedgerString.fromString(id).map(Id.apply)
-      }
-
-      def assertFromString(id: String) = {
-        Id(LedgerString.assertFromString(id))
-      }
-    }
-
-    def apply(identityProviderId: String): IdentityProviderId =
-      Option(identityProviderId).filter(_.nonEmpty) match {
-        case Some(id) => Id(LedgerString.assertFromString(id))
-        case None => Default
-      }
-
-    def fromString(identityProviderId: String): Either[String, IdentityProviderId] =
-      Option(identityProviderId).filter(_.nonEmpty) match {
-        case Some(id) => LedgerString.fromString(id).map(Id.apply)
-        case None => Right(Default)
-      }
-
-    def fromDb(identityProviderId: Option[IdentityProviderId.Id]): IdentityProviderId =
-      identityProviderId match {
-        case None => IdentityProviderId.Default
-        case Some(id) => id
-      }
-  }
-
   /* Location annotation */
   case class Location(
       packageId: PackageId,

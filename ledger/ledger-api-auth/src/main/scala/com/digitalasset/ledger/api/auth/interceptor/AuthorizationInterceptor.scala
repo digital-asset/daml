@@ -7,7 +7,7 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.auth._
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{User, UserRight}
+import com.daml.ledger.api.domain.{IdentityProviderId, User, UserRight}
 import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
@@ -95,7 +95,7 @@ final class AuthorizationInterceptor(
           )
           userRightsResult <- userManagementStore.listUserRights(
             userId,
-            Ref.IdentityProviderId.Default,
+            IdentityProviderId.Default,
           )
           claimsSet <- userRightsResult match {
             case Left(msg) =>
@@ -126,7 +126,7 @@ final class AuthorizationInterceptor(
     }
 
   private def verifyIdentityProviderConfig(
-      identityProviderId: Ref.IdentityProviderId,
+      identityProviderId: IdentityProviderId,
       user: User,
       identityProviderConfigStore: IdentityProviderConfigStore,
   ): Future[Unit] = {
@@ -140,9 +140,9 @@ final class AuthorizationInterceptor(
       )
     } else {
       identityProviderId match {
-        case Ref.IdentityProviderId.Default =>
+        case IdentityProviderId.Default =>
           Future.unit
-        case id: Ref.IdentityProviderId.Id =>
+        case id: IdentityProviderId.Id =>
           identityProviderConfigStore.getIdentityProviderConfig(id).flatMap {
             case Right(identityProviderConfig) if !identityProviderConfig.isDeactivated =>
               Future.unit
@@ -164,7 +164,7 @@ final class AuthorizationInterceptor(
       userId: UserId,
   ): Future[User] =
     for {
-      userResult <- userManagementStore.getUser(id = userId, Ref.IdentityProviderId.Default)
+      userResult <- userManagementStore.getUser(id = userId, IdentityProviderId.Default)
       value <- userResult match {
         case Left(msg) =>
           Future.failed(

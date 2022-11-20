@@ -3,7 +3,7 @@
 
 package com.daml.platform.localstore
 
-import com.daml.ledger.api.domain.ObjectMeta
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
@@ -31,7 +31,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
   def newPartyRecord(
       name: String = party1,
       annotations: Map[String, String] = Map.empty,
-      identityProviderId: Ref.IdentityProviderId = Ref.IdentityProviderId.Default,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): PartyRecord =
     PartyRecord(
       party = name,
@@ -43,7 +43,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
       name: String = party1,
       annotations: Map[String, String] = Map.empty,
       resourceVersion: Long = 0,
-      identityProviderId: Ref.IdentityProviderId = Ref.IdentityProviderId.Default,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): PartyRecord =
     PartyRecord(
       party = name,
@@ -57,7 +57,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
   def makePartRecordUpdate(
       party: Ref.Party = party1,
       annotationsUpdateO: Option[Map[String, String]] = None,
-      identityProviderIdUpdate: Option[Ref.IdentityProviderId] = None,
+      identityProviderIdUpdate: Option[IdentityProviderId] = None,
   ): PartyRecordUpdate = PartyRecordUpdate(
     party = party,
     metadataUpdate = ObjectMetaUpdate(

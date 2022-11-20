@@ -6,6 +6,7 @@ package com.daml.ledger.api.auth
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import com.daml.lf.data.Ref
 import com.daml.jwt.{JwtVerifier, JwtVerifierBase}
+import com.daml.ledger.api.domain.IdentityProviderId
 import io.grpc.Metadata
 import org.slf4j.{Logger, LoggerFactory}
 import spray.json._
@@ -87,12 +88,12 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
         applicationId = payload.applicationId,
         expiration = payload.exp,
         resolvedFromUser = false,
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
       )
 
     case payload: StandardJWTPayload =>
       ClaimSet.AuthenticatedUser(
-        identityProviderId = Ref.IdentityProviderId.Default,
+        identityProviderId = IdentityProviderId.Default,
         participantId = payload.participantId,
         userId = payload.userId,
         expiration = payload.exp,

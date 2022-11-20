@@ -3,7 +3,7 @@
 
 package com.daml.platform.localstore.api
 
-import com.daml.ledger.api.domain.{User, UserRight}
+import com.daml.ledger.api.domain.{IdentityProviderId, User, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 
@@ -14,7 +14,7 @@ case class UserUpdate(
     primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
     isDeactivatedUpdateO: Option[Boolean] = None,
     metadataUpdate: ObjectMetaUpdate,
-    identityProviderIdUpdate: Option[Ref.IdentityProviderId] = None,
+    identityProviderIdUpdate: Option[IdentityProviderId] = None,
 )
 
 case class ObjectMetaUpdate(
@@ -36,7 +36,7 @@ trait UserManagementStore {
 
   // read access
 
-  def getUserInfo(id: Ref.UserId, identityProviderId: Ref.IdentityProviderId)(implicit
+  def getUserInfo(id: Ref.UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserInfo]]
 
@@ -46,7 +46,7 @@ trait UserManagementStore {
   def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
-      identityProviderId: Ref.IdentityProviderId,
+      identityProviderId: IdentityProviderId,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]]
@@ -61,14 +61,14 @@ trait UserManagementStore {
       loggingContext: LoggingContext
   ): Future[Result[User]]
 
-  def deleteUser(id: Ref.UserId, identityProviderId: Ref.IdentityProviderId)(implicit
+  def deleteUser(id: Ref.UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[Unit]]
 
   def grantRights(
       id: Ref.UserId,
       rights: Set[UserRight],
-      identityProviderId: Ref.IdentityProviderId,
+      identityProviderId: IdentityProviderId,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]]
@@ -76,20 +76,20 @@ trait UserManagementStore {
   def revokeRights(
       id: Ref.UserId,
       rights: Set[UserRight],
-      identityProviderId: Ref.IdentityProviderId,
+      identityProviderId: IdentityProviderId,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]]
 
   // read helpers
 
-  final def getUser(id: Ref.UserId, identityProviderId: Ref.IdentityProviderId)(implicit
+  final def getUser(id: Ref.UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[User]] = {
     getUserInfo(id, identityProviderId).map(_.map(_.user))(ExecutionContext.parasitic)
   }
 
-  final def listUserRights(id: Ref.UserId, identityProviderId: Ref.IdentityProviderId)(implicit
+  final def listUserRights(id: Ref.UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]] = {
     getUserInfo(id, identityProviderId).map(_.map(_.rights))(ExecutionContext.parasitic)
@@ -116,6 +116,7 @@ object UserManagementStore {
   final case class TooManyUserRights(userId: Ref.UserId) extends Error
   final case class ConcurrentUserUpdate(userId: Ref.UserId) extends Error
   final case class MaxAnnotationsSizeExceeded(userId: Ref.UserId) extends Error
-  final case class IdentityProviderConfigNotFound(identityProviderId: Ref.IdentityProviderId.Id)
-      extends Error
+  final case class IdentityProviderConfigNotFound(
+      identityProviderId: com.daml.ledger.api.domain.IdentityProviderId.Id
+  ) extends Error
 }
