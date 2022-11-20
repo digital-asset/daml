@@ -26,7 +26,7 @@ class RunnerSpec extends AsyncWordSpec with Matchers with AsyncForAll with AkkaB
     LoggingContextOf.newLoggingContext(LoggingContextOf.label)(identity)
 
   implicit val triggerContext: TriggerLogContext =
-    TriggerLogContext.newSpan("")(identity)(loggingContext)
+    TriggerLogContext.newRootSpan("trigger.setup")(identity)(loggingContext)
 
   "retrying" should {
     import Future.{successful => okf}

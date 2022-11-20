@@ -3,10 +3,11 @@
 
 package com.daml.lf.engine.trigger
 
+import com.daml.lf.data.{BackStack, NoCopy}
 import com.daml.lf.engine.trigger.Runner.Implicits._
-import com.daml.logging.LoggingContextOf
+import com.daml.lf.engine.trigger.TriggerLogContext._
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.logging.LoggingContextOf.label
-import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.{LoggingEntries, LoggingValue}
 
 import java.util.UUID
@@ -14,62 +15,123 @@ import java.util.UUID
 object ToLoggingContext {
   implicit def `TriggerLogContext to LoggingContextOf[Trigger]`(implicit
       triggerContext: TriggerLogContext
-  ): LoggingContextOf[Trigger] =
+  ): LoggingContextOf[Trigger] = {
+    val spanEntries = LoggingEntries(
+      "span" -> LoggingValue.Nested(
+        LoggingEntries(
+          "name" -> triggerContext.span.path.toImmArray.foldLeft("trigger")((path, name) =>
+            s"$path.$name"
+          ),
+          "id" -> triggerContext.span.id,
+        ) ++ triggerContext.span.parent.fold(LoggingEntries.empty)(id =>
+          LoggingEntries("parent" -> id)
+        )
+      )
+    )
+
     LoggingContextOf
       .withEnrichedLoggingContext(
         label[Trigger],
-        "trigger" -> LoggingValue.Nested(LoggingEntries(triggerContext.entries: _*)),
+        "trigger" -> LoggingValue.Nested(LoggingEntries(triggerContext.entries: _*) ++ spanEntries),
       )(triggerContext.loggingContext)
       .run(identity)
+  }
 }
 
-final case class TriggerLogContext private (
-    loggingContext: LoggingContextOf[Trigger],
-    entries: (String, LoggingValue)*
-) {
+final class TriggerLogContext private (
+    private[trigger] val loggingContext: LoggingContextOf[Trigger],
+    private[trigger] val entries: Seq[(String, LoggingValue)],
+    private[trigger] val span: TriggerLogSpan,
+) extends NoCopy {
+
+  import ToLoggingContext._
 
   def enrichTriggerContext[A](
       additionalEntries: (String, LoggingValue)*
   )(f: TriggerLogContext => A): A = {
-    f(TriggerLogContext(loggingContext, entries ++ additionalEntries: _*))
+    f(new TriggerLogContext(loggingContext, entries ++ additionalEntries, span))
   }
 
-  def nextSpan[A](spanName: String)(f: TriggerLogContext => A): A = {
-    val baseSpan: Seq[(String, LoggingValue)] =
-      Seq("span.name" -> spanName, "span.id" -> UUID.randomUUID())
-    val spanContext: Seq[(String, LoggingValue)] =
-      entries.toMap.get("span.id").fold(baseSpan)(id => ("span.parent" -> id) +: baseSpan)
-    val baseContext = entries.filterNot { case (key, _) =>
-      Seq("span.name", "span.id", "span.parent").contains(key)
-    }
-
-    f(TriggerLogContext(loggingContext, baseContext ++ spanContext: _*))
+  def nextSpan[A](
+      name: String,
+      additionalEntries: (String, LoggingValue)*
+  )(f: TriggerLogContext => A): A = {
+    f(new TriggerLogContext(loggingContext, entries ++ additionalEntries, span.nextSpan(name)))
   }
 
-  def subSpan[A](name: String)(f: TriggerLogContext => A): A = {
-    val spanName = entries.toMap
-      .get("span.name")
-      .fold(name)(prefix => s"${prefix.asInstanceOf[OfString].value}.$name")
-    val baseSpan: Seq[(String, LoggingValue)] =
-      Seq("span.name" -> spanName, "span.id" -> UUID.randomUUID())
-    val spanContext: Seq[(String, LoggingValue)] =
-      entries.toMap.get("span.id").fold(baseSpan)(id => ("span.parent" -> id) +: baseSpan)
-    val baseContext = entries.filterNot { case (key, _) =>
-      Seq("span.name", "span.id", "span.parent").contains(key)
-    }
+  def childSpan[A](
+      name: String,
+      additionalEntries: (String, LoggingValue)*
+  )(f: TriggerLogContext => A): A = {
+    f(new TriggerLogContext(loggingContext, entries ++ additionalEntries, span.childSpan(name)))
+  }
 
-    f(TriggerLogContext(loggingContext, baseContext ++ spanContext: _*))
+  def logError(message: String, additionalEntries: (String, LoggingValue)*)(implicit
+      logger: ContextualizedLogger
+  ): Unit = {
+    enrichTriggerContext(additionalEntries: _*) { implicit triggerContext: TriggerLogContext =>
+      logger.error(message)
+    }
+  }
+
+  def logWarning(message: String, additionalEntries: (String, LoggingValue)*)(implicit
+      logger: ContextualizedLogger
+  ): Unit = {
+    enrichTriggerContext(additionalEntries: _*) { implicit triggerContext: TriggerLogContext =>
+      logger.warn(message)
+    }
+  }
+
+  def logInfo(message: String, additionalEntries: (String, LoggingValue)*)(implicit
+      logger: ContextualizedLogger
+  ): Unit = {
+    enrichTriggerContext(additionalEntries: _*) { implicit triggerContext: TriggerLogContext =>
+      logger.info(message)
+    }
+  }
+
+  def logDebug(message: String, additionalEntries: (String, LoggingValue)*)(implicit
+      logger: ContextualizedLogger
+  ): Unit = {
+    enrichTriggerContext(additionalEntries: _*) { implicit triggerContext: TriggerLogContext =>
+      logger.debug(message)
+    }
+  }
+
+  def logTrace(message: String, additionalEntries: (String, LoggingValue)*)(implicit
+      logger: ContextualizedLogger
+  ): Unit = {
+    enrichTriggerContext(additionalEntries: _*) { implicit triggerContext: TriggerLogContext =>
+      logger.trace(message)
+    }
   }
 }
 
 object TriggerLogContext {
-  def newSpan[A](
-      name: String
+  def newRootSpan[A](
+      span: String,
+      entries: (String, LoggingValue)*
   )(f: TriggerLogContext => A)(implicit loggingContext: LoggingContextOf[Trigger]): A = {
-    TriggerLogContext(
+    new TriggerLogContext(
       loggingContext,
-      "span.name" -> name,
-      "span.id" -> UUID.randomUUID(),
+      entries,
+      TriggerLogSpan(BackStack(span)),
     ).enrichTriggerContext()(f)
+  }
+
+  private[trigger] final case class TriggerLogSpan(
+      path: BackStack[String],
+      id: UUID = UUID.randomUUID(),
+      parent: Option[UUID] = None,
+  ) {
+    def nextSpan(name: String): TriggerLogSpan = {
+      val basePath = path.pop.fold(BackStack.empty[String])(_._1)
+
+      TriggerLogSpan(basePath :+ name, parent = parent)
+    }
+
+    def childSpan(name: String): TriggerLogSpan = {
+      TriggerLogSpan(path :+ name, parent = Some(id))
+    }
   }
 }
