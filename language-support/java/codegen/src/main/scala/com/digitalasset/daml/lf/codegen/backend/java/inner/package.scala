@@ -127,8 +127,7 @@ package object inner {
         sys.error("Assumption error: toAPITypeName should not be called for type constructors!")
     }
 
-  // TODO #15227 SC remove with...
-  type PackagePrefixes = (Map[PackageId, String] @@ PackagePrefixesTag) with Map[PackageId, String]
+  type PackagePrefixes = Map[PackageId, String] @@ PackagePrefixesTag
   private[codegen] val PackagePrefixes = scalaz.Tag.of[PackagePrefixesTag]
 
   def fullyQualifiedName(
