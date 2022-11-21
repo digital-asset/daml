@@ -12,12 +12,15 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.typesig._
 import com.squareup.javapoet._
+import scalaz.@@
 
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
 package inner {
   case class FieldInfo(damlName: String, damlType: Type, javaName: String, javaType: TypeName)
+
+  sealed trait PackagePrefixesTag
 }
 
 package object inner {
@@ -127,11 +130,18 @@ package object inner {
         sys.error("Assumption error: toAPITypeName should not be called for type constructors!")
     }
 
+  // TODO #15227 SC remove with...
+  type PackagePrefixes = (Map[PackageId, String] @@ PackagePrefixesTag) with Map[PackageId, String]
+  private[inner] val PackagePrefixes = scalaz.Tag.of[PackagePrefixesTag]
+
   def fullyQualifiedName(
       identifier: Identifier,
-      packagePrefixes: Map[PackageId, String],
-  ): String =
-    fullyQualifiedName(identifier.qualifiedName, (identifier.packageId, packagePrefixes))
+      nowIgnored: Any,
+  )(implicit packagePrefixes: PackagePrefixes): String =
+    fullyQualifiedName(
+      identifier.qualifiedName,
+      (identifier.packageId, PackagePrefixes unwrap packagePrefixes),
+    )
 
   private def fullyQualifiedName(
       qualifiedName: QualifiedName,
