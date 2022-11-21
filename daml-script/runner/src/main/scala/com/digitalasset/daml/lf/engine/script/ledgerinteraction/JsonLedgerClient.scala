@@ -29,7 +29,6 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.script.{Converter, LfValueCodec}
 import com.daml.lf.language.Ast
-import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.PackageSignature.TypeDecl
@@ -175,7 +174,7 @@ class JsonLedgerClient(
       )
     } yield {
       val ctx = templateId.qualifiedName
-      val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).toOption.get
+      val ifaceType = Converter.toIfaceType(ctx, Ast.TTyCon(templateId)).toOption.get
       val parsedResults = queryResponse.results.map(r => {
         val payload = r.payload.convertTo[Value](
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
@@ -201,7 +200,7 @@ class JsonLedgerClient(
       )
     } yield {
       val ctx = templateId.qualifiedName
-      val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).toOption.get
+      val ifaceType = Converter.toIfaceType(ctx, Ast.TTyCon(templateId)).toOption.get
       fetchResponse.result.map(r => {
         val payload = r.payload.convertTo[Value](
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
@@ -285,7 +284,7 @@ class JsonLedgerClient(
       )
     } yield {
       val ctx = templateId.qualifiedName
-      val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).toOption.get
+      val ifaceType = Converter.toIfaceType(ctx, Ast.TTyCon(templateId)).toOption.get
       fetchResponse.result.map(r => {
         val payload = r.payload.convertTo[Value](
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
