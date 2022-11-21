@@ -34,9 +34,7 @@ class CachedUserManagementStore(
         .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
         .maximumSize(maximumCacheSize.toLong)
         .buildAsync(
-          new FutureAsyncCacheLoader[UserId, Result[UserInfo]](key =>
-            delegate.getUserInfo(key)
-          )
+          new FutureAsyncCacheLoader[UserId, Result[UserInfo]](key => delegate.getUserInfo(key))
         ),
       metrics.daml.userManagement.cache,
     )
