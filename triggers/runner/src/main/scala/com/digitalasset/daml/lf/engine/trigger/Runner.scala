@@ -28,6 +28,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.trigger.Runner.triggerUserState
 import com.daml.lf.engine.trigger.Runner.Implicits._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
@@ -651,7 +652,6 @@ private[lf] class Runner private (
   private def getTriggerEvaluator(
       acs: Seq[CreatedEvent]
   ): Flow[TriggerMsg, SubmitRequest, Future[SValue]] = {
-    // TODO: cjp - a future PR will add in logging of trigger Id etc.
     logger.info("Trigger starting")
 
     val clientTime: Timestamp =
@@ -686,7 +686,7 @@ private[lf] class Runner private (
           _.expect(
             "TriggerRule new state",
             { case DamlTuple2(SUnit, newState) =>
-              logger.debug(s"New state: $newState")
+              logger.debug(s"New state: ${triggerUserState(newState, trigger.defn.level)}")
               newState
             },
           ).orConverterException
@@ -894,7 +894,7 @@ object Runner {
     val setupId: UUID = UUID.randomUUID()
 
     loggingContext.withEnrichedTriggerContext(
-      triggerAction("trigger.setup", id = setupId)
+      triggerSpan("trigger.setup", id = setupId)
     ) { implicit loggingContext: LoggingContextOf[Trigger] =>
       loggingContext
         .withEnrichedTriggerContext(
@@ -914,17 +914,34 @@ object Runner {
     }
   }
 
-  def triggerAction(
+  private def triggerSpan(
       name: String,
-      id: UUID = UUID.randomUUID(),
+      id: UUID,
       parent: Option[UUID] = None,
   ): (String, LoggingValue) = {
-    "action" -> LoggingValue.Nested(
+    "span" -> LoggingValue.Nested(
       LoggingEntries(
-        "type" -> name,
+        "name" -> name,
         "id" -> id,
-      ) ++ parent.fold(LoggingEntries.empty)(id => LoggingEntries("parentId" -> id))
+      ) ++ parent.fold(LoggingEntries.empty)(id => LoggingEntries("parent" -> id))
     )
+  }
+
+  private def triggerUserState(state: SValue, level: Trigger.Level): SValue = {
+    level match {
+      case Trigger.Level.High =>
+        state
+          .expect(
+            "SRecord",
+            { case SRecord(_, _, values) =>
+              values.get(3)
+            },
+          )
+          .orConverterException
+
+      case Trigger.Level.Low =>
+        state
+    }
   }
 
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =

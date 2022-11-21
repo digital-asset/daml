@@ -181,7 +181,7 @@ final class LedgerTestCasesRunner(
       }
   }
 
-  private def createActorSystem(): ActorSystem =
+  private def createActorSystem: ActorSystem =
     ActorSystem(classOf[LedgerTestCasesRunner].getSimpleName)
 
   private def runTestCases(
@@ -268,7 +268,7 @@ final class LedgerTestCasesRunner(
   ): Future[Vector[LedgerTestSummary]] = {
 
     val materializerResources =
-      ResourceOwner.forMaterializerDirectly(createActorSystem).acquire()
+      ResourceOwner.forMaterializerDirectly(() => createActorSystem).acquire()
 
     // When running the tests, explicitly use the materializer's execution context
     // The tests will then be executed on it instead of the implicit one -- which
