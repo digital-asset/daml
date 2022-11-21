@@ -59,189 +59,196 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
 
   "Machine" should {
 
-    val committers = (0 to 100).view.map(i => Ref.Party.assertFromString(s"Parties$i")).toSet
-    val limit = 10
-    val testCases =
-      Table("size" -> "success", 1 -> true, limit -> true, limit + 1 -> false, 5 * limit -> false)
+    inside(t"Mod:T") { case Ast.TTyCon(t) =>
+      val committers = (0 to 100).view.map(i => Ref.Party.assertFromString(s"Parties$i")).toSet
+      val limit = 10
+      val testCases =
+        Table("size" -> "success", 1 -> true, limit -> true, limit + 1 -> false, 5 * limit -> false)
 
-    "refuse to create a contract with too many signatories" in {
-      val limits = interpretation.Limits.Lenient.copy(contractSignatories = limit)
+      "refuse to create a contract with too many signatories" in {
+        val limits = interpretation.Limits.Lenient.copy(contractSignatories = limit)
 
-      val e =
-        e"""\(signatories: List Party) (observers: List Party) ->
+        val e =
+          e"""\(signatories: List Party) (observers: List Party) ->
              create @Mod:T Mod:T { signatories = signatories, observers = observers }
          """
-      forEvery(testCases) { (i, succeed) =>
-        val (signatories, observers) = committers.splitAt(i)
-        val result =
-          eval(limits, Map.empty, committers, e, asSParties(signatories), asSParties(observers))
+        forEvery(testCases) { (i, succeed) =>
+          val (signatories, observers) = committers.splitAt(i)
+          val result =
+            eval(limits, Map.empty, committers, e, asSParties(signatories), asSParties(observers))
 
-        if (succeed)
-          result shouldBe a[Right[_, _]]
-        else
-          inside(result) {
-            case Left(
-                  SError.SErrorDamlException(
-                    IE.Limit(IE.Limit.ContractSignatories(_, templateId, _, parties, reportedlimit))
-                  )
-                ) =>
-              templateId shouldBe T
-              parties shouldBe signatories
-              reportedlimit shouldBe limit
-          }
+          if (succeed)
+            result shouldBe a[Right[_, _]]
+          else
+            inside(result) {
+              case Left(
+                    SError.SErrorDamlException(
+                      IE.Limit(
+                        IE.Limit.ContractSignatories(_, templateId, _, parties, reportedlimit)
+                      )
+                    )
+                  ) =>
+                templateId shouldBe t
+                parties shouldBe signatories
+                reportedlimit shouldBe limit
+            }
+        }
       }
-    }
 
-    "refuse to fetch a contract with too many signatories" in {
-      val limits = interpretation.Limits.Lenient.copy(contractSignatories = limit)
-      val e = e"""\(cid: ContractId Mod:T) -> fetch_template @Mod:T cid"""
+      "refuse to fetch a contract with too many signatories" in {
+        val limits = interpretation.Limits.Lenient.copy(contractSignatories = limit)
+        val e = e"""\(cid: ContractId Mod:T) -> fetch_template @Mod:T cid"""
 
-      forEvery(testCases) { (i, succeed) =>
-        val (signatories, observers) = committers.splitAt(i)
-        val contract = mkContract(signatories, observers)
-        val result = eval(limits, Map(aCid -> contract), signatories, e, SValue.SContractId(aCid))
-        if (succeed)
-          result shouldBe a[Right[_, _]]
-        else
-          inside(result) {
-            case Left(
-                  SError.SErrorDamlException(
-                    IE.Limit(IE.Limit.ContractSignatories(_, templateId, _, parties, reportedlimit))
-                  )
-                ) =>
-              templateId shouldBe T
-              parties shouldBe signatories
-              reportedlimit shouldBe limit
-          }
+        forEvery(testCases) { (i, succeed) =>
+          val (signatories, observers) = committers.splitAt(i)
+          val contract = mkContract(signatories, observers, t)
+          val result = eval(limits, Map(aCid -> contract), signatories, e, SValue.SContractId(aCid))
+          if (succeed)
+            result shouldBe a[Right[_, _]]
+          else
+            inside(result) {
+              case Left(
+                    SError.SErrorDamlException(
+                      IE.Limit(
+                        IE.Limit.ContractSignatories(_, templateId, _, parties, reportedlimit)
+                      )
+                    )
+                  ) =>
+                templateId shouldBe t
+                parties shouldBe signatories
+                reportedlimit shouldBe limit
+            }
+        }
       }
-    }
 
-    "refuse to exercise a contract with too many signatories" in {
-      val limits = interpretation.Limits.Lenient.copy(contractSignatories = limit)
-      val e =
-        e"""\(cid: ContractId Mod:T) (controllers: List Party) ->
+      "refuse to exercise a contract with too many signatories" in {
+        val limits = interpretation.Limits.Lenient.copy(contractSignatories = limit)
+        val e =
+          e"""\(cid: ContractId Mod:T) (controllers: List Party) ->
            exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = controllers, observers = Nil @Party }"""
 
-      forEvery(testCases) { (i, succeed) =>
-        val (signatories, observers) = committers.splitAt(i)
-        val contract = mkContract(signatories, observers)
-        val result = eval(
-          limits,
-          Map(aCid -> contract),
-          signatories,
-          e,
-          SValue.SContractId(aCid),
-          asSParties(signatories),
-        )
+        forEvery(testCases) { (i, succeed) =>
+          val (signatories, observers) = committers.splitAt(i)
+          val contract = mkContract(signatories, observers, t)
+          val result = eval(
+            limits,
+            Map(aCid -> contract),
+            signatories,
+            e,
+            SValue.SContractId(aCid),
+            asSParties(signatories),
+          )
 
-        if (succeed)
-          result shouldBe a[Right[_, _]]
-        else
-          inside(result) {
-            case Left(
-                  SError.SErrorDamlException(
-                    IE.Limit(IE.Limit.ContractSignatories(_, templateId, _, parties, reportedlimit))
-                  )
-                ) =>
-              templateId shouldBe T
-              parties shouldBe signatories
-              reportedlimit shouldBe limit
-          }
+          if (succeed)
+            result shouldBe a[Right[_, _]]
+          else
+            inside(result) {
+              case Left(
+                    SError.SErrorDamlException(
+                      IE.Limit(
+                        IE.Limit.ContractSignatories(_, templateId, _, parties, reportedlimit)
+                      )
+                    )
+                  ) =>
+                templateId shouldBe t
+                parties shouldBe signatories
+                reportedlimit shouldBe limit
+            }
+        }
       }
-    }
 
-    "refuse to create a contract with too many observers" in {
-      val limits = interpretation.Limits.Lenient.copy(contractObservers = limit)
+      "refuse to create a contract with too many observers" in {
+        val limits = interpretation.Limits.Lenient.copy(contractObservers = limit)
 
-      val e =
-        e"""\(signatories: List Party) (observers: List Party) ->
+        val e =
+          e"""\(signatories: List Party) (observers: List Party) ->
              create @Mod:T Mod:T { signatories = signatories, observers = observers }
          """
 
-      forEvery(testCases) { (i, succeed) =>
-        val (observers, signatories) = committers.splitAt(i)
-        val result =
-          eval(limits, Map.empty, signatories, e, asSParties(signatories), asSParties(observers))
+        forEvery(testCases) { (i, succeed) =>
+          val (observers, signatories) = committers.splitAt(i)
+          val result =
+            eval(limits, Map.empty, signatories, e, asSParties(signatories), asSParties(observers))
 
-        if (succeed)
-          result shouldBe a[Right[_, _]]
-        else
-          inside(result) {
-            case Left(
-                  SError.SErrorDamlException(
-                    IE.Limit(IE.Limit.ContractObservers(_, templateId, _, parties, reportedlimit))
-                  )
-                ) =>
-              templateId shouldBe T
-              parties shouldBe observers
-              reportedlimit shouldBe limit
-          }
+          if (succeed)
+            result shouldBe a[Right[_, _]]
+          else
+            inside(result) {
+              case Left(
+                    SError.SErrorDamlException(
+                      IE.Limit(IE.Limit.ContractObservers(_, templateId, _, parties, reportedlimit))
+                    )
+                  ) =>
+                templateId shouldBe t
+                parties shouldBe observers
+                reportedlimit shouldBe limit
+            }
+        }
       }
-    }
 
-    "refuse to fetch a contract with too many observers" in {
-      val limits = interpretation.Limits.Lenient.copy(contractObservers = limit)
-      val e = e"""\(cid: ContractId Mod:T) -> fetch_template @Mod:T cid"""
+      "refuse to fetch a contract with too many observers" in {
+        val limits = interpretation.Limits.Lenient.copy(contractObservers = limit)
+        val e = e"""\(cid: ContractId Mod:T) -> fetch_template @Mod:T cid"""
 
-      forEvery(testCases) { (i, succeed) =>
-        val (observers, signatories) = committers.splitAt(i)
-        val contract = mkContract(signatories, observers)
-        val result = eval(limits, Map(aCid -> contract), signatories, e, SValue.SContractId(aCid))
+        forEvery(testCases) { (i, succeed) =>
+          val (observers, signatories) = committers.splitAt(i)
+          val contract = mkContract(signatories, observers, t)
+          val result = eval(limits, Map(aCid -> contract), signatories, e, SValue.SContractId(aCid))
 
-        if (succeed)
-          result shouldBe a[Right[_, _]]
-        else
-          inside(result) {
-            case Left(
-                  SError.SErrorDamlException(
-                    IE.Limit(IE.Limit.ContractObservers(_, templateId, _, parties, reportedlimit))
-                  )
-                ) =>
-              templateId shouldBe T
-              parties shouldBe observers
-              reportedlimit shouldBe limit
-          }
+          if (succeed)
+            result shouldBe a[Right[_, _]]
+          else
+            inside(result) {
+              case Left(
+                    SError.SErrorDamlException(
+                      IE.Limit(IE.Limit.ContractObservers(_, templateId, _, parties, reportedlimit))
+                    )
+                  ) =>
+                templateId shouldBe t
+                parties shouldBe observers
+                reportedlimit shouldBe limit
+            }
+        }
       }
-    }
 
-    "refuse to exercise a contract with too many observers" in {
-      val limits = interpretation.Limits.Lenient.copy(contractObservers = limit)
-      val e =
-        e"""\(cid: ContractId Mod:T) (controllers: List Party) ->
+      "refuse to exercise a contract with too many observers" in {
+        val limits = interpretation.Limits.Lenient.copy(contractObservers = limit)
+        val e =
+          e"""\(cid: ContractId Mod:T) (controllers: List Party) ->
            exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = controllers, observers = Nil @Party }"""
 
-      forEvery(testCases) { (i, succeed) =>
-        val (observers, signatories) = committers.splitAt(i)
-        val contract = mkContract(signatories, observers)
-        val result = eval(
-          limits,
-          Map(aCid -> contract),
-          signatories,
-          e,
-          SValue.SContractId(aCid),
-          asSParties(signatories),
-        )
+        forEvery(testCases) { (i, succeed) =>
+          val (observers, signatories) = committers.splitAt(i)
+          val contract = mkContract(signatories, observers, t)
+          val result = eval(
+            limits,
+            Map(aCid -> contract),
+            signatories,
+            e,
+            SValue.SContractId(aCid),
+            asSParties(signatories),
+          )
 
-        if (succeed)
-          result shouldBe a[Right[_, _]]
-        else
-          inside(result) {
-            case Left(
-                  SError.SErrorDamlException(
-                    IE.Limit(IE.Limit.ContractObservers(_, templateId, _, parties, reportedlimit))
-                  )
-                ) =>
-              templateId shouldBe T
-              parties shouldBe observers
-              reportedlimit shouldBe limit
-          }
+          if (succeed)
+            result shouldBe a[Right[_, _]]
+          else
+            inside(result) {
+              case Left(
+                    SError.SErrorDamlException(
+                      IE.Limit(IE.Limit.ContractObservers(_, templateId, _, parties, reportedlimit))
+                    )
+                  ) =>
+                templateId shouldBe t
+                parties shouldBe observers
+                reportedlimit shouldBe limit
+            }
+        }
       }
-    }
 
-    "refuse to exercise a choice with too many controllers" in {
-      val limits = interpretation.Limits.Lenient.copy(choiceControllers = limit)
-      val e =
-        e"""\(signatories: List Party) (controllers: List Party) ->
+      "refuse to exercise a choice with too many controllers" in {
+        val limits = interpretation.Limits.Lenient.copy(choiceControllers = limit)
+        val e =
+          e"""\(signatories: List Party) (controllers: List Party) ->
             ubind
                cid: ContractId Mod:T <- create @Mod:T Mod:T {
                  signatories = signatories,
@@ -250,42 +257,42 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
             in exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = controllers, observers = Nil @Party }
          """
 
-      forEvery(testCases) { (i, succeed) =>
-        val (controllers, signatories) = committers.splitAt(i)
-        val result =
-          eval(limits, Map.empty, committers, e, asSParties(signatories), asSParties(controllers))
+        forEvery(testCases) { (i, succeed) =>
+          val (controllers, signatories) = committers.splitAt(i)
+          val result =
+            eval(limits, Map.empty, committers, e, asSParties(signatories), asSParties(controllers))
 
-        if (succeed)
-          result shouldBe a[Right[_, _]]
-        else
-          inside(result) {
-            case Left(
-                  SError.SErrorDamlException(
-                    IE.Limit(
-                      IE.Limit.ChoiceControllers(
-                        _,
-                        templateId,
-                        choiceName,
-                        _,
-                        parties,
-                        reportedlimit,
+          if (succeed)
+            result shouldBe a[Right[_, _]]
+          else
+            inside(result) {
+              case Left(
+                    SError.SErrorDamlException(
+                      IE.Limit(
+                        IE.Limit.ChoiceControllers(
+                          _,
+                          templateId,
+                          choiceName,
+                          _,
+                          parties,
+                          reportedlimit,
+                        )
                       )
                     )
-                  )
-                ) =>
-              templateId shouldBe T
-              choiceName shouldBe "NoOp"
-              parties shouldBe controllers
-              reportedlimit shouldBe limit
-          }
+                  ) =>
+                templateId shouldBe t
+                choiceName shouldBe "NoOp"
+                parties shouldBe controllers
+                reportedlimit shouldBe limit
+            }
+        }
       }
-    }
 
-    "refuse to exercise a choice with too many observers" in {
-      val limits = interpretation.Limits.Lenient.copy(choiceObservers = limit)
-      val committers = (0 to 99).view.map(i => Ref.Party.assertFromString(s"Party$i")).toSet
-      val e =
-        e"""\(signatories: List Party) (controllers: List Party) (observers: List Party) ->
+      "refuse to exercise a choice with too many observers" in {
+        val limits = interpretation.Limits.Lenient.copy(choiceObservers = limit)
+        val committers = (0 to 99).view.map(i => Ref.Party.assertFromString(s"Party$i")).toSet
+        val e =
+          e"""\(signatories: List Party) (controllers: List Party) (observers: List Party) ->
             ubind
                cid: ContractId Mod:T <- create @Mod:T Mod:T {
                  signatories = signatories,
@@ -294,62 +301,70 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
             in exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = controllers, observers = observers}
          """
 
-      forEvery(testCases) { (i, succeed) =>
-        val (observers, signatories) = committers.splitAt(i)
-        val result = eval(
-          limits,
-          Map.empty,
-          committers,
-          e,
-          asSParties(signatories),
-          asSParties(signatories),
-          asSParties(observers),
-        )
-        if (succeed)
-          result shouldBe a[Right[_, _]]
-        else
-          inside(result) {
-            case Left(
-                  SError.SErrorDamlException(
-                    IE.Limit(
-                      IE.Limit.ChoiceObservers(_, templateId, choiceName, _, parties, reportedlimit)
+        forEvery(testCases) { (i, succeed) =>
+          val (observers, signatories) = committers.splitAt(i)
+          val result = eval(
+            limits,
+            Map.empty,
+            committers,
+            e,
+            asSParties(signatories),
+            asSParties(signatories),
+            asSParties(observers),
+          )
+          if (succeed)
+            result shouldBe a[Right[_, _]]
+          else
+            inside(result) {
+              case Left(
+                    SError.SErrorDamlException(
+                      IE.Limit(
+                        IE.Limit.ChoiceObservers(
+                          _,
+                          templateId,
+                          choiceName,
+                          _,
+                          parties,
+                          reportedlimit,
+                        )
+                      )
                     )
-                  )
-                ) =>
-              templateId shouldBe T
-              choiceName shouldBe "NoOp"
-              parties shouldBe observers
-              reportedlimit shouldBe limit
-              false
-          }
+                  ) =>
+                templateId shouldBe t
+                choiceName shouldBe "NoOp"
+                parties shouldBe observers
+                reportedlimit shouldBe limit
+                false
+            }
+        }
+      }
+
+      "refuse to build a transaction with too many input contracts" in {
+        val limits = interpretation.Limits.Lenient.copy(transactionInputContracts = limit)
+
+        val signatories = committers.take(1)
+        val contract = mkContract(signatories, Set.empty, t)
+        val cids =
+          (1 to 99).map(i => Value.ContractId.V1(crypto.Hash.hashPrivateKey(s"contract$i")))
+        val e = e"Mod:fetches"
+
+        forEvery(testCases) { (i, succeed) =>
+          val result = eval(limits, _ => contract, committers, e, asSCids(cids.take(i)))
+          if (succeed)
+            result shouldBe a[Right[_, _]]
+          else
+            inside(result) {
+              case Left(
+                    SError.SErrorDamlException(
+                      IE.Limit(IE.Limit.TransactionInputContracts(reportedlimit))
+                    )
+                  ) =>
+                reportedlimit shouldBe limit
+                false
+            }
+        }
       }
     }
-
-    "refuse to build a transaction with too many input contracts" in {
-      val limits = interpretation.Limits.Lenient.copy(transactionInputContracts = limit)
-
-      val signatories = committers.take(1)
-      val contract = mkContract(signatories, Set.empty)
-      val cids = (1 to 99).map(i => Value.ContractId.V1(crypto.Hash.hashPrivateKey(s"contract$i")))
-      val e = e"Mod:fetches"
-
-      forEvery(testCases) { (i, succeed) =>
-        val result = eval(limits, _ => contract, committers, e, asSCids(cids.take(i)))
-        if (succeed)
-          result shouldBe a[Right[_, _]]
-        else
-          inside(result) {
-            case Left(
-                  SError.SErrorDamlException(
-                    IE.Limit(IE.Limit.TransactionInputContracts(reportedlimit))
-                  )
-                ) =>
-              reportedlimit shouldBe limit
-              false
-          }
-      }
-    }
-
   }
 
   private def asSParties(parties: Iterable[Ref.Party]) =
@@ -360,15 +375,16 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
 
   private val txSeed = crypto.Hash.hashPrivateKey(this.getClass.getCanonicalName)
 
-  private[this] val T = { val Ast.TTyCon(t) = t"Mod:T"; t }
-
   private[this] val aCid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("a contract ID"))
-  private[this] def mkContract(signatories: Iterable[Ref.Party], observers: Iterable[Ref.Party]) = {
-
+  private[this] def mkContract(
+      signatories: Iterable[Ref.Party],
+      observers: Iterable[Ref.Party],
+      t: Ref.TypeConName,
+  ) = {
     Versioned(
       TransactionVersion.StableVersions.max,
       Value.ContractInstance(
-        T,
+        t,
         Value.ValueRecord(
           None,
           ImmArray(

@@ -7,6 +7,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{ChoiceName, DottedName, Name, TypeConName}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
+import org.scalatest.Inside.inside
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -301,141 +302,141 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   "Template.build" should {
 
-    val List(choice1, choice2, choice3) =
-      List("choice1", "choice2", "choice3").map(Name.assertFromString)
+    inside(List("choice1", "choice2", "choice3").map(Name.assertFromString)) {
+      case List(choice1, choice2, choice3) =>
+        "catch implements interface repetition " in {
+          Template.build(
+            param = Name.assertFromString("x"),
+            precond = ETrue,
+            signatories = eParties,
+            agreementText = eText,
+            choices = List.empty,
+            observers = eParties,
+            key = None,
+            implements = List(ifaceImpl1, ifaceImpl2),
+          )
 
-    "catch implements interface repetition " in {
-      Template.build(
-        param = Name.assertFromString("x"),
-        precond = ETrue,
-        signatories = eParties,
-        agreementText = eText,
-        choices = List.empty,
-        observers = eParties,
-        key = None,
-        implements = List(ifaceImpl1, ifaceImpl2),
-      )
+          a[PackageError] shouldBe thrownBy(
+            Template.build(
+              param = Name.assertFromString("x"),
+              precond = ETrue,
+              signatories = eParties,
+              agreementText = eText,
+              choices = List.empty,
+              observers = eParties,
+              key = None,
+              implements = List(ifaceImpl1, ifaceImpl1),
+            )
+          )
+        }
 
-      a[PackageError] shouldBe thrownBy(
-        Template.build(
-          param = Name.assertFromString("x"),
-          precond = ETrue,
-          signatories = eParties,
-          agreementText = eText,
-          choices = List.empty,
-          observers = eParties,
-          key = None,
-          implements = List(ifaceImpl1, ifaceImpl1),
-        )
-      )
-    }
+        "catch choice name collisions" in {
 
-    "catch choice name collisions" in {
+          Template.build(
+            param = Name.assertFromString("x"),
+            precond = ETrue,
+            signatories = eParties,
+            agreementText = eText,
+            choices = List(
+              choiceBuilder(choice1, TUnit, EUnit),
+              choiceBuilder(choice2, TBool, ETrue),
+              choiceBuilder(choice3, TText, eText),
+            ),
+            observers = eParties,
+            key = None,
+            implements = List.empty,
+          )
 
-      Template.build(
-        param = Name.assertFromString("x"),
-        precond = ETrue,
-        signatories = eParties,
-        agreementText = eText,
-        choices = List(
-          choiceBuilder(choice1, TUnit, EUnit),
-          choiceBuilder(choice2, TBool, ETrue),
-          choiceBuilder(choice3, TText, eText),
-        ),
-        observers = eParties,
-        key = None,
-        implements = List.empty,
-      )
-
-      a[PackageError] shouldBe thrownBy(
-        Template.build(
-          param = Name.assertFromString("x"),
-          precond = ETrue,
-          signatories = eParties,
-          agreementText = eText,
-          choices = List(
-            choiceBuilder(choice1, TUnit, EUnit),
-            choiceBuilder(choice2, TBool, ETrue),
-            choiceBuilder(choice1, TText, eText),
-          ),
-          observers = eParties,
-          key = None,
-          implements = List.empty,
-        )
-      )
+          a[PackageError] shouldBe thrownBy(
+            Template.build(
+              param = Name.assertFromString("x"),
+              precond = ETrue,
+              signatories = eParties,
+              agreementText = eText,
+              choices = List(
+                choiceBuilder(choice1, TUnit, EUnit),
+                choiceBuilder(choice2, TBool, ETrue),
+                choiceBuilder(choice1, TText, eText),
+              ),
+              observers = eParties,
+              key = None,
+              implements = List.empty,
+            )
+          )
+        }
     }
   }
 
   "GenDefInterface.build " should {
 
-    val List(choice1, choice2, choice3) =
-      List("choice1", "choice2", "choice3").map(Name.assertFromString)
+    inside(List("choice1", "choice2", "choice3").map(Name.assertFromString)) {
+      case List(choice1, choice2, choice3) =>
+        "build" in {
+          DefInterface.build(
+            requires = List.empty,
+            param = Name.assertFromString("x"),
+            choices = List(
+              choiceBuilder(choice1, TUnit, EUnit),
+              choiceBuilder(choice2, TBool, ETrue),
+              choiceBuilder(choice3, TText, eText),
+            ),
+            methods = List(ifaceMethod1, ifaceMethod2),
+            coImplements = List.empty,
+            view = TUnit,
+          )
+        }
 
-    "build" in {
-      DefInterface.build(
-        requires = List.empty,
-        param = Name.assertFromString("x"),
-        choices = List(
-          choiceBuilder(choice1, TUnit, EUnit),
-          choiceBuilder(choice2, TBool, ETrue),
-          choiceBuilder(choice3, TText, eText),
-        ),
-        methods = List(ifaceMethod1, ifaceMethod2),
-        coImplements = List.empty,
-        view = TUnit,
-      )
-    }
+        "catch duplicate choices" in {
+          a[PackageError] shouldBe thrownBy(
+            DefInterface.build(
+              requires = List.empty,
+              param = Name.assertFromString("x"),
+              choices = List(
+                choiceBuilder(choice1, TUnit, EUnit),
+                choiceBuilder(choice2, TBool, ETrue),
+                choiceBuilder(choice1, TText, eText),
+              ),
+              methods = List.empty,
+              coImplements = List.empty,
+              view = TUnit,
+            )
+          )
+        }
 
-    "catch duplicate choices" in {
-      a[PackageError] shouldBe thrownBy(
-        DefInterface.build(
-          requires = List.empty,
-          param = Name.assertFromString("x"),
-          choices = List(
-            choiceBuilder(choice1, TUnit, EUnit),
-            choiceBuilder(choice2, TBool, ETrue),
-            choiceBuilder(choice1, TText, eText),
-          ),
-          methods = List.empty,
-          coImplements = List.empty,
-          view = TUnit,
-        )
-      )
-    }
+        "catch duplicate method" in {
+          a[PackageError] shouldBe thrownBy(
+            DefInterface.build(
+              requires = List.empty,
+              param = Name.assertFromString("x"),
+              choices = List.empty,
+              methods = List(ifaceMethod1, ifaceMethod1),
+              coImplements = List.empty,
+              view = TUnit,
+            )
+          )
+        }
 
-    "catch duplicate method" in {
-      a[PackageError] shouldBe thrownBy(
-        DefInterface.build(
-          requires = List.empty,
-          param = Name.assertFromString("x"),
-          choices = List.empty,
-          methods = List(ifaceMethod1, ifaceMethod1),
-          coImplements = List.empty,
-          view = TUnit,
-        )
-      )
-    }
+        "catch duplicate co-implementation" in {
+          DefInterface.build(
+            requires = List.empty,
+            param = Name.assertFromString("x"),
+            choices = List.empty,
+            methods = List(ifaceMethod1, ifaceMethod2),
+            coImplements = List(ifaceCoImpl1, ifaceCoImpl2),
+            view = TUnit,
+          )
 
-    "catch duplicate co-implementation" in {
-      DefInterface.build(
-        requires = List.empty,
-        param = Name.assertFromString("x"),
-        choices = List.empty,
-        methods = List(ifaceMethod1, ifaceMethod2),
-        coImplements = List(ifaceCoImpl1, ifaceCoImpl2),
-        view = TUnit,
-      )
-
-      a[PackageError] shouldBe thrownBy(
-        DefInterface.build(
-          requires = List.empty,
-          param = Name.assertFromString("x"),
-          choices = List.empty,
-          methods = List(ifaceMethod1, ifaceMethod2),
-          coImplements = List(ifaceCoImpl1, ifaceCoImpl1),
-          view = TUnit,
-        )
-      )
+          a[PackageError] shouldBe thrownBy(
+            DefInterface.build(
+              requires = List.empty,
+              param = Name.assertFromString("x"),
+              choices = List.empty,
+              methods = List(ifaceMethod1, ifaceMethod2),
+              coImplements = List(ifaceCoImpl1, ifaceCoImpl1),
+              view = TUnit,
+            )
+          )
+        }
     }
   }
 

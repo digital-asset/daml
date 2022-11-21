@@ -68,7 +68,7 @@ class ArchiveConversionsSpec extends AnyWordSpec with Matchers with Inside {
 
   "decodePackages" should {
     "successfully decode packages" in {
-      val List(archive1, archive2) = for {
+      inside(for {
         differentiator <- List(1, 2)
         archive = encodePackage(
           p"""
@@ -79,17 +79,17 @@ class ArchiveConversionsSpec extends AnyWordSpec with Matchers with Inside {
             }
           """
         )
-      } yield archive
-
-      inside(
-        ArchiveConversions.decodePackages(
-          Iterable(
-            RawArchive(archive1.toByteString),
-            RawArchive(archive2.toByteString),
+      } yield archive) { case List(archive1, archive2) =>
+        inside(
+          ArchiveConversions.decodePackages(
+            Iterable(
+              RawArchive(archive1.toByteString),
+              RawArchive(archive2.toByteString),
+            )
           )
-        )
-      ) { case Right(map) =>
-        map should have size 2
+        ) { case Right(map) =>
+          map should have size 2
+        }
       }
     }
 

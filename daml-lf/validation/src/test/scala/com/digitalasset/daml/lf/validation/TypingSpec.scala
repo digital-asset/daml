@@ -10,6 +10,7 @@ import com.daml.lf.language.{LookupError, PackageInterface, Reference, LanguageV
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.{defaultLanguageVersion, defaultPackageId}
 import com.daml.lf.validation.SpecUtil._
+import org.scalatest.Inside.inside
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -849,15 +850,15 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                 LookupError.NotFound(Reference.Template(_), Reference.TemplateChoice(_, _)),
               ) =>
             // We double check that Ti implements I and Ti has a choice ChTmpl
-            val TTyCon(conI) = t"Mod:I"
-            val TTyCon(conTi) = t"Mod:Ti"
-            env.pkgInterface.lookupInterfaceInstance(conI, conTi) should matchPattern {
-              case Right(iiInfo: PackageInterface.InterfaceInstanceInfo)
-                  if iiInfo.interfaceId == conI
-                    && iiInfo.templateId == conTi
-                    && iiInfo.parent == TemplateOrInterface.Template(conTi) =>
+            inside((t"Mod:I", t"Mod:Ti")) { case (TTyCon(conI), TTyCon(conTi)) =>
+              env.pkgInterface.lookupInterfaceInstance(conI, conTi) should matchPattern {
+                case Right(iiInfo: PackageInterface.InterfaceInstanceInfo)
+                    if iiInfo.interfaceId == conI
+                      && iiInfo.templateId == conTi
+                      && iiInfo.parent == TemplateOrInterface.Template(conTi) =>
+              }
+              assert(env.pkgInterface.lookupTemplateChoice(conTi, n"ChTmpl").isRight)
             }
-            assert(env.pkgInterface.lookupTemplateChoice(conTi, n"ChTmpl").isRight)
         },
         // UpdExerciseInterface
         E"λ (e₁: ContractId Mod:U) (e₂: Int64) (e₃: Mod:U → Bool) → ⸨ exercise_interface_with_guard @Mod:U ChIface e₁ e₂ e₃ ⸩" -> //
@@ -893,15 +894,15 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                   LookupError.NotFound(Reference.Interface(_), Reference.InterfaceChoice(_, _)),
                 ) =>
               // We double check that Ti implements I and Ti has a choice ChTmpl
-              val TTyCon(conI) = t"Mod:I"
-              val TTyCon(conTi) = t"Mod:Ti"
-              env.pkgInterface.lookupInterfaceInstance(conI, conTi) should matchPattern {
-                case Right(iiInfo: PackageInterface.InterfaceInstanceInfo)
-                    if iiInfo.interfaceId == conI
-                      && iiInfo.templateId == conTi
-                      && iiInfo.parent == TemplateOrInterface.Template(conTi) =>
+              inside((t"Mod:I", t"Mod:Ti")) { case (TTyCon(conI), TTyCon(conTi)) =>
+                env.pkgInterface.lookupInterfaceInstance(conI, conTi) should matchPattern {
+                  case Right(iiInfo: PackageInterface.InterfaceInstanceInfo)
+                      if iiInfo.interfaceId == conI
+                        && iiInfo.templateId == conTi
+                        && iiInfo.parent == TemplateOrInterface.Template(conTi) =>
+                }
+                assert(env.pkgInterface.lookupInterfaceChoice(conI, n"ChIface").isRight)
               }
-              assert(env.pkgInterface.lookupInterfaceChoice(conI, n"ChIface").isRight)
           },
         // UpdFetch
         E"λ (e: ContractId Mod:U) → ⸨ fetch_template @Mod:U e ⸩" -> //

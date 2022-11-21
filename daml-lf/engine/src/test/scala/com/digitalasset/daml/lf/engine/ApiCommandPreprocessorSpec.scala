@@ -277,19 +277,25 @@ class ApiCommandPreprocessorSpec
         compiledPackage.pkgInterface,
         requireV1ContractIdSuffix = true,
       )
-      val List(aLegalCid, anotherLegalCid) =
+      inside(
         List("a legal Contract ID", "another legal Contract ID").map(s =>
           ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
         )
-      val illegalCid =
-        ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("an illegal Contract ID"), Bytes.Empty)
-      val failure = Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCid))
+      ) { case List(aLegalCid, anotherLegalCid) =>
+        val illegalCid =
+          ContractId.V1.assertBuild(
+            crypto.Hash.hashPrivateKey("an illegal Contract ID"),
+            Bytes.Empty,
+          )
+        val failure =
+          Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCid))
 
-      forEvery(contractIdTestCases(aLegalCid, anotherLegalCid)) { cmd =>
-        Try(cmdPreprocessor.unsafePreprocessApiCommand(cmd)) shouldBe a[Success[_]]
-      }
-      forEvery(contractIdTestCases(illegalCid, aLegalCid)) { cmd =>
-        Try(cmdPreprocessor.unsafePreprocessApiCommand(cmd)) shouldBe failure
+        forEvery(contractIdTestCases(aLegalCid, anotherLegalCid)) { cmd =>
+          Try(cmdPreprocessor.unsafePreprocessApiCommand(cmd)) shouldBe a[Success[_]]
+        }
+        forEvery(contractIdTestCases(illegalCid, aLegalCid)) { cmd =>
+          Try(cmdPreprocessor.unsafePreprocessApiCommand(cmd)) shouldBe failure
+        }
       }
     }
 

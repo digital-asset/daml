@@ -64,37 +64,39 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
        }
       """)
 
-    val List((t1, e1), (t2, e2)) =
+    inside(
       List("M:E1", "M:E2")
         .map(id => data.Ref.Identifier.assertFromString(s"$defaultPackageId:$id"))
         .map(tyCon => TTyCon(tyCon) -> ValueRecord(Some(tyCon), data.ImmArray.Empty))
-    val divZeroE =
-      ValueRecord(
-        Some(DA.Exception.ArithmeticError.ArithmeticError),
-        data.ImmArray(
-          Some(data.Ref.Name.assertFromString("message")) ->
-            ValueText("ArithmeticError while evaluating (DIV_INT64 1 0).")
+    ) { case List((t1, e1), (t2, e2)) =>
+      val divZeroE =
+        ValueRecord(
+          Some(DA.Exception.ArithmeticError.ArithmeticError),
+          data.ImmArray(
+            Some(data.Ref.Name.assertFromString("message")) ->
+              ValueText("ArithmeticError while evaluating (DIV_INT64 1 0).")
+          ),
+        )
+
+      val testCases = Table[String, SError](
+        ("expression", "expected"),
+        ("M:unhandled1", SErrorDamlException(IE.UnhandledException(t1, e1))),
+        ("M:unhandled2", SErrorDamlException(IE.UnhandledException(t1, e1))),
+        ("M:unhandled3", SErrorDamlException(IE.UnhandledException(t1, e1))),
+        ("M:unhandled4", SErrorDamlException(IE.UnhandledException(t2, e2))),
+        (
+          "M:divZero",
+          SErrorDamlException(
+            IE.UnhandledException(TTyCon(DA.Exception.ArithmeticError.ArithmeticError), divZeroE)
+          ),
         ),
       )
 
-    val testCases = Table[String, SError](
-      ("expression", "expected"),
-      ("M:unhandled1", SErrorDamlException(IE.UnhandledException(t1, e1))),
-      ("M:unhandled2", SErrorDamlException(IE.UnhandledException(t1, e1))),
-      ("M:unhandled3", SErrorDamlException(IE.UnhandledException(t1, e1))),
-      ("M:unhandled4", SErrorDamlException(IE.UnhandledException(t2, e2))),
-      (
-        "M:divZero",
-        SErrorDamlException(
-          IE.UnhandledException(TTyCon(DA.Exception.ArithmeticError.ArithmeticError), divZeroE)
-        ),
-      ),
-    )
-
-    forEvery(testCases) { (exp: String, expected: SError) =>
-      s"eval[$exp] --> $expected" in {
-        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultError(err) =>
-          err shouldBe expected
+      forEvery(testCases) { (exp: String, expected: SError) =>
+        s"eval[$exp] --> $expected" in {
+          inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultError(err) =>
+            err shouldBe expected
+          }
         }
       }
     }

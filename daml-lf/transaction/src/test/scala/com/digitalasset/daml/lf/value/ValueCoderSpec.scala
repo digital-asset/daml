@@ -11,6 +11,7 @@ import com.daml.lf.transaction.{TransactionVersion, Versioned}
 import com.daml.lf.value.{ValueOuterClass => proto}
 import org.scalacheck.{Arbitrary, Shrink}
 import org.scalatest.Assertion
+import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -62,26 +63,27 @@ class ValueCoderSpec
         (s: Numeric.Scale, d: BigDecimal) =>
           // we are filtering on decimals invariant under string conversion
           whenever(Numeric.fromBigDecimal(s, d).isRight) {
-            val Right(dec) = Numeric.fromBigDecimal(s, d)
-            val value = ValueNumeric(dec)
-            val recoveredDecimal = ValueCoder.decodeValue(
-              ValueCoder.CidDecoder,
-              TransactionVersion.minVersion,
-              assertRight(
-                ValueCoder
-                  .encodeValue(
-                    ValueCoder.CidEncoder,
-                    TransactionVersion.minVersion,
-                    value,
-                  )
-              ),
-            ) match {
-              case Right(ValueNumeric(x)) => x
-              case x => fail(s"should have got a numeric back, got $x")
+            inside(Numeric.fromBigDecimal(s, d)) { case Right(dec) =>
+              val value = ValueNumeric(dec)
+              val recoveredDecimal = ValueCoder.decodeValue(
+                ValueCoder.CidDecoder,
+                TransactionVersion.minVersion,
+                assertRight(
+                  ValueCoder
+                    .encodeValue(
+                      ValueCoder.CidEncoder,
+                      TransactionVersion.minVersion,
+                      value,
+                    )
+                ),
+              ) match {
+                case Right(ValueNumeric(x)) => x
+                case x => fail(s"should have got a numeric back, got $x")
+              }
+              Numeric.toUnscaledString(value.value) shouldEqual Numeric.toUnscaledString(
+                recoveredDecimal
+              )
             }
-            Numeric.toUnscaledString(value.value) shouldEqual Numeric.toUnscaledString(
-              recoveredDecimal
-            )
           }
       }
     }

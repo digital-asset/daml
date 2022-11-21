@@ -32,33 +32,34 @@ class EqualitySpec extends AnyWordSpec with Inside with Matchers with ScalaCheck
       val cid12 = Value.ContractId.V1(discriminator1, suffix2)
       val cid21 = Value.ContractId.V1(discriminator2, suffix1)
 
-      val List(vCid10, vCid11, vCid12, vCid21) = List(cid10, cid11, cid12, cid21).map(SContractId)
+      inside(List(cid10, cid11, cid12, cid21).map(SContractId)) {
+        case List(vCid10, vCid11, vCid12, vCid21) =>
+          val negativeTestCases =
+            Table(
+              "cid1" -> "cid2",
+              vCid10 -> vCid10,
+              vCid11 -> vCid11,
+              vCid11 -> vCid12,
+              vCid11 -> vCid21,
+            )
 
-      val negativeTestCases =
-        Table(
-          "cid1" -> "cid2",
-          vCid10 -> vCid10,
-          vCid11 -> vCid11,
-          vCid11 -> vCid12,
-          vCid11 -> vCid21,
-        )
+          val positiveTestCases = Table(
+            "glovalCid2",
+            cid11,
+            cid12,
+          )
 
-      val positiveTestCases = Table(
-        "glovalCid2",
-        cid11,
-        cid12,
-      )
+          forEvery(negativeTestCases) { (cid1, cid2) =>
+            Equality.areEqual(cid1, cid2) shouldBe cid1 == cid2
+            Equality.areEqual(cid2, cid1) shouldBe cid1 == cid2
+          }
 
-      forEvery(negativeTestCases) { (cid1, cid2) =>
-        Equality.areEqual(cid1, cid2) shouldBe cid1 == cid2
-        Equality.areEqual(cid2, cid1) shouldBe cid1 == cid2
-      }
-
-      forEvery(positiveTestCases) { globalCid =>
-        Try(Equality.areEqual(vCid10, SContractId(globalCid))) shouldBe
-          Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
-        Try(Equality.areEqual(SContractId(globalCid), vCid10)) shouldBe
-          Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
+          forEvery(positiveTestCases) { globalCid =>
+            Try(Equality.areEqual(vCid10, SContractId(globalCid))) shouldBe
+              Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
+            Try(Equality.areEqual(SContractId(globalCid), vCid10)) shouldBe
+              Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
+          }
       }
 
     }

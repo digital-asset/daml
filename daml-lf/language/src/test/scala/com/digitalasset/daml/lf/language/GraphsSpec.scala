@@ -3,6 +3,7 @@
 
 package com.daml.lf.language
 
+import org.scalatest.Inside.inside
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -45,16 +46,16 @@ class GraphsSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCheck
         val result = topoSort(dag)
         result shouldBe a[Right[_, _]]
 
-        val Right(sortedEdges) = result
+        inside(result) { case Right(sortedEdges) =>
+          val allEdges = dag.values.foldLeft(dag.keySet)(_ | _)
+          sortedEdges.toSet shouldBe allEdges
 
-        val allEdges = dag.values.foldLeft(dag.keySet)(_ | _)
-        sortedEdges.toSet shouldBe allEdges
-
-        val edgeRank = sortedEdges.zipWithIndex.toMap
-        for {
-          e <- dag.keys
-          e_ <- dag(e)
-        } edgeRank(e_) should be < edgeRank(e)
+          val edgeRank = sortedEdges.zipWithIndex.toMap
+          for {
+            e <- dag.keys
+            e_ <- dag(e)
+          } edgeRank(e_) should be < edgeRank(e)
+        }
       }
     }
 
@@ -63,10 +64,10 @@ class GraphsSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCheck
         val result = topoSort(dcg)
         result shouldBe a[Left[_, _]]
 
-        val Left(Cycle(loop)) = result
-
-        ((loop.last :: loop) zip loop).foreach { case (e, e_) =>
-          dcg(e) should contain(e_)
+        inside(result) { case Left(Cycle(loop)) =>
+          ((loop.last :: loop) zip loop).foreach { case (e, e_) =>
+            dcg(e) should contain(e_)
+          }
         }
       }
     }

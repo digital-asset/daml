@@ -8,8 +8,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 import scalaz.scalacheck.ScalazProperties
 import scalaz.std.anyVal._
-
 import ImmArray.ImmArraySeq
+import org.scalatest.Inside.inside
 
 class ImmArrayTest extends AnyFlatSpec with Matchers with FlatSpecCheckLaws {
   import DataArbitrary._
@@ -53,13 +53,15 @@ class ImmArrayTest extends AnyFlatSpec with Matchers with FlatSpecCheckLaws {
 
   it should "uncons" in {
     val arr1 = ImmArray(1, 2)
-    val Some((one, arr2)) = ImmArrayCons.unapply[Int](arr1)
-    val Some((two, arr3)) = ImmArrayCons.unapply[Int](arr2)
-    one shouldBe 1
-    two shouldBe 2
-    arr2 shouldBe ImmArray(2)
-    arr3 shouldBe ImmArray.Empty
-    ImmArrayCons.unapply(arr3) shouldBe None
+    inside(ImmArrayCons.unapply[Int](arr1)) { case Some((one, arr2)) =>
+      inside(ImmArrayCons.unapply[Int](arr2)) { case Some((two, arr3)) =>
+        one shouldBe 1
+        two shouldBe 2
+        arr2 shouldBe ImmArray(2)
+        arr3 shouldBe ImmArray.Empty
+        ImmArrayCons.unapply(arr3) shouldBe None
+      }
+    }
   }
 
   it should "cons and snoc" in {

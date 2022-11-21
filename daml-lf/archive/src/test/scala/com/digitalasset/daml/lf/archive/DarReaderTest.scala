@@ -32,61 +32,63 @@ class DarReaderTest
 
   s"should read dar file: $darFile, main archive: DarReaderTest returned first" in {
 
-    val Right(dar) = DarReader.readArchiveFromFile(darFile)
-    val mainArchive = dar.main.proto
+    val dar = DarReader.readArchiveFromFile(darFile)
+    inside(dar) { case Right(dar) =>
+      val mainArchive = dar.main.proto
 
-    forAll(dar.all) { case ArchivePayload(packageId, archive, ver) =>
-      packageId shouldNot be(Symbol("empty"))
-      archive.getDamlLf1.getModulesCount should be > 0
-      ver.major should be(LanguageMajorVersion.V1)
-    }
+      forAll(dar.all) { case ArchivePayload(packageId, archive, ver) =>
+        packageId shouldNot be(Symbol("empty"))
+        archive.getDamlLf1.getModulesCount should be > 0
+        ver.major should be(LanguageMajorVersion.V1)
+      }
 
-    val mainArchiveModules = mainArchive.getDamlLf1.getModulesList.asScala
-    val mainArchiveInternedDotted = mainArchive.getDamlLf1.getInternedDottedNamesList.asScala
-    val mainArchiveInternedStrings = mainArchive.getDamlLf1.getInternedStringsList.asScala
-    inside(
-      mainArchiveModules
-        .find(m =>
-          internedName(
-            mainArchiveInternedDotted,
-            mainArchiveInternedStrings,
-            m.getNameInternedDname,
-          ) == "DarReaderTest"
-        )
-    ) { case Some(module) =>
-      val actualTypes: Set[String] =
-        module.getDataTypesList.asScala.toSet.map((t: DamlLf1.DefDataType) =>
-          internedName(
-            mainArchiveInternedDotted,
-            mainArchiveInternedStrings,
-            t.getNameInternedDname,
+      val mainArchiveModules = mainArchive.getDamlLf1.getModulesList.asScala
+      val mainArchiveInternedDotted = mainArchive.getDamlLf1.getInternedDottedNamesList.asScala
+      val mainArchiveInternedStrings = mainArchive.getDamlLf1.getInternedStringsList.asScala
+      inside(
+        mainArchiveModules
+          .find(m =>
+            internedName(
+              mainArchiveInternedDotted,
+              mainArchiveInternedStrings,
+              m.getNameInternedDname,
+            ) == "DarReaderTest"
           )
-        )
-      actualTypes should contain.allOf("Transfer", "Call2", "CallablePayout", "PayOut")
-    }
+      ) { case Some(module) =>
+        val actualTypes: Set[String] =
+          module.getDataTypesList.asScala.toSet.map((t: DamlLf1.DefDataType) =>
+            internedName(
+              mainArchiveInternedDotted,
+              mainArchiveInternedStrings,
+              t.getNameInternedDname,
+            )
+          )
+        actualTypes should contain.allOf("Transfer", "Call2", "CallablePayout", "PayOut")
+      }
 
-    forExactly(1, dar.dependencies) { case ArchivePayload(_, archive, _) =>
-      val archiveModules = archive.getDamlLf1.getModulesList.asScala
-      val archiveInternedDotted = archive.getDamlLf1.getInternedDottedNamesList.asScala
-      val archiveInternedStrings = archive.getDamlLf1.getInternedStringsList.asScala
-      val archiveModuleNames = archiveModules
-        .map(m =>
-          internedName(archiveInternedDotted, archiveInternedStrings, m.getNameInternedDname)
+      forExactly(1, dar.dependencies) { case ArchivePayload(_, archive, _) =>
+        val archiveModules = archive.getDamlLf1.getModulesList.asScala
+        val archiveInternedDotted = archive.getDamlLf1.getInternedDottedNamesList.asScala
+        val archiveInternedStrings = archive.getDamlLf1.getInternedStringsList.asScala
+        val archiveModuleNames = archiveModules
+          .map(m =>
+            internedName(archiveInternedDotted, archiveInternedStrings, m.getNameInternedDname)
+          )
+          .toSet
+        archiveModuleNames shouldBe Set(
+          "GHC.Enum",
+          "GHC.Show",
+          "GHC.Show.Text",
+          "GHC.Num",
+          "GHC.Stack.Types",
+          "GHC.Classes",
+          "Control.Exception.Base",
+          "GHC.Err",
+          "GHC.Base",
+          "LibraryModules",
+          "GHC.Tuple.Check",
         )
-        .toSet
-      archiveModuleNames shouldBe Set(
-        "GHC.Enum",
-        "GHC.Show",
-        "GHC.Show.Text",
-        "GHC.Num",
-        "GHC.Stack.Types",
-        "GHC.Classes",
-        "Control.Exception.Base",
-        "GHC.Err",
-        "GHC.Base",
-        "LibraryModules",
-        "GHC.Tuple.Check",
-      )
+      }
     }
   }
 

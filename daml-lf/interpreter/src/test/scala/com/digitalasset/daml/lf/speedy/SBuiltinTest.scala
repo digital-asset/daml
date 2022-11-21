@@ -1675,88 +1675,90 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
       "when no template key is defined" in {
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
-        val (disclosedContract, None) =
-          buildDisclosedContract(contractId, alice, alice, templateId, withKey = false)
-        val cachedContract = CachedContract(
-          templateId,
-          disclosedContract.argument,
-          Set(alice),
-          Set.empty,
-          None,
-        )
-        val cachedContractSExpr = SBuildCachedContract(
-          SEValue(STypeRep(TTyCon(templateId))),
-          SEValue(disclosedContract.argument),
-          SEValue(SList(FrontStack(SParty(alice)))),
-          SEValue(SList(FrontStack.Empty)),
-          SEValue(SOptional(None)),
-        )
+        inside(buildDisclosedContract(contractId, alice, alice, templateId, withKey = false)) {
+          case (disclosedContract, None) =>
+            val cachedContract = CachedContract(
+              templateId,
+              disclosedContract.argument,
+              Set(alice),
+              Set.empty,
+              None,
+            )
+            val cachedContractSExpr = SBuildCachedContract(
+              SEValue(STypeRep(TTyCon(templateId))),
+              SEValue(disclosedContract.argument),
+              SEValue(SList(FrontStack(SParty(alice)))),
+              SEValue(SList(FrontStack.Empty)),
+              SEValue(SOptional(None)),
+            )
 
-        inside(
-          evalSExpr(
-            SELet1(
-              cachedContractSExpr,
-              SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId)), Array(SELocS(1))),
-            ),
-            getContract = Map(
-              contractId -> VersionedContractInstance(
-                version,
-                templateId,
-                disclosedContract.argument.toUnnormalizedValue,
-                "Agreement",
+            inside(
+              evalSExpr(
+                SELet1(
+                  cachedContractSExpr,
+                  SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId)), Array(SELocS(1))),
+                ),
+                getContract = Map(
+                  contractId -> VersionedContractInstance(
+                    version,
+                    templateId,
+                    disclosedContract.argument.toUnnormalizedValue,
+                    "Agreement",
+                  )
+                ),
+                onLedger = true,
               )
-            ),
-            onLedger = true,
-          )
-        ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
-          contractCache shouldBe Map(
-            contractId -> cachedContract
-          )
-          disclosedContractKeys shouldBe Map.empty
+            ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
+              contractCache shouldBe Map(
+                contractId -> cachedContract
+              )
+              disclosedContractKeys shouldBe Map.empty
+            }
         }
       }
 
       "when template key is defined" in {
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
-        val (disclosedContract, Some((key, keyWithMaintainers, keyHash))) =
-          buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
-        val optionalKey = Some(SKeyWithMaintainers(key, Set(alice)))
-        val cachedContract = CachedContract(
-          templateId,
-          disclosedContract.argument,
-          Set(alice),
-          Set.empty,
-          optionalKey,
-        )
-        val cachedContractSExpr = SBuildCachedContract(
-          SEValue(STypeRep(TTyCon(templateId))),
-          SEValue(disclosedContract.argument),
-          SEValue(SList(FrontStack(SParty(alice)))),
-          SEValue(SList(FrontStack.Empty)),
-          SEValue(SOptional(Some(keyWithMaintainers))),
-        )
+        inside(buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)) {
+          case (disclosedContract, Some((key, keyWithMaintainers, keyHash))) =>
+            val optionalKey = Some(SKeyWithMaintainers(key, Set(alice)))
+            val cachedContract = CachedContract(
+              templateId,
+              disclosedContract.argument,
+              Set(alice),
+              Set.empty,
+              optionalKey,
+            )
+            val cachedContractSExpr = SBuildCachedContract(
+              SEValue(STypeRep(TTyCon(templateId))),
+              SEValue(disclosedContract.argument),
+              SEValue(SList(FrontStack(SParty(alice)))),
+              SEValue(SList(FrontStack.Empty)),
+              SEValue(SOptional(Some(keyWithMaintainers))),
+            )
 
-        inside(
-          evalSExpr(
-            SELet1(
-              cachedContractSExpr,
-              SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId)), Array(SELocS(1))),
-            ),
-            getContract = Map(
-              contractId -> VersionedContractInstance(
-                version,
-                templateId,
-                disclosedContract.argument.toUnnormalizedValue,
-                "Agreement",
+            inside(
+              evalSExpr(
+                SELet1(
+                  cachedContractSExpr,
+                  SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId)), Array(SELocS(1))),
+                ),
+                getContract = Map(
+                  contractId -> VersionedContractInstance(
+                    version,
+                    templateId,
+                    disclosedContract.argument.toUnnormalizedValue,
+                    "Agreement",
+                  )
+                ),
+                onLedger = true,
               )
-            ),
-            onLedger = true,
-          )
-        ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
-          contractCache shouldBe Map(
-            contractId -> cachedContract
-          )
-          disclosedContractKeys shouldBe Map(keyHash -> SValue.SContractId(contractId))
+            ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
+              contractCache shouldBe Map(
+                contractId -> cachedContract
+              )
+              disclosedContractKeys shouldBe Map(keyHash -> SValue.SContractId(contractId))
+            }
         }
       }
     }

@@ -15,15 +15,16 @@ import com.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
-  Transaction,
   SubmittedTransaction,
+  Transaction,
 }
 import com.daml.lf.value.Value._
 import com.daml.lf.command.ReplayCommand
-import com.daml.lf.transaction.test.TransactionBuilder.{assertAsVersionedContract}
+import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
+import org.scalatest.Inside.inside
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -123,8 +124,9 @@ class ReinterpretTest
           ValueRecord(Some(r), ImmArray.Empty),
         )
       }
-      val Right(tx) = reinterpretCommand(theCommand)
-      Shape.ofTransaction(tx.transaction) shouldBe Top(Exercise())
+      inside(reinterpretCommand(theCommand)) { case Right(tx) =>
+        Shape.ofTransaction(tx.transaction) shouldBe Top(Exercise())
+      }
     }
 
     "be a rollback for an exercise command which throws" in {
@@ -141,8 +143,9 @@ class ReinterpretTest
           ValueRecord(Some(r), ImmArray.Empty),
         )
       }
-      val Right(tx) = reinterpretCommand(theCommand)
-      Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise()))
+      inside(reinterpretCommand(theCommand)) { case Right(tx) =>
+        Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise()))
+      }
     }
 
     "still fail for an uncatchable exception" in {
@@ -159,8 +162,9 @@ class ReinterpretTest
           ValueRecord(Some(r), ImmArray.Empty),
         )
       }
-      val Left(err) = reinterpretCommand(theCommand)
-      assert(err.message.contains("Error: functions are not comparable"))
+      inside(reinterpretCommand(theCommand)) { case Left(err) =>
+        assert(err.message.contains("Error: functions are not comparable"))
+      }
     }
 
     "rollback version 14 contract creation" in {
@@ -177,8 +181,9 @@ class ReinterpretTest
           ValueRecord(Some(r), ImmArray.Empty),
         )
       }
-      val Right(tx) = reinterpretCommand(theCommand)
-      Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise(Create())))
+      inside(reinterpretCommand(theCommand)) { case Right(tx) =>
+        Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise(Create())))
+      }
     }
 
     "not rollback version 13 contract creation" in {
@@ -196,8 +201,9 @@ class ReinterpretTest
         )
       }
 
-      val Left(err) = reinterpretCommand(theCommand)
-      assert(err.toString().contains("ReinterpretTests:MyError"))
+      inside(reinterpretCommand(theCommand)) { case Left(err) =>
+        assert(err.toString().contains("ReinterpretTests:MyError"))
+      }
     }
 
   }

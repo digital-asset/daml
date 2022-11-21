@@ -90,35 +90,38 @@ class EngineTest
     }
 
     "reinterpret to the same result" in {
-      val Right((tx, txMeta)) = interpretResult
-      val stx = suffix(tx)
+      inside(interpretResult) { case Right((tx, txMeta)) =>
+        val stx = suffix(tx)
 
-      val Right((rtx, newMeta)) =
-        reinterpret(
-          suffixStrictEngine,
-          Set(party),
-          stx.roots,
-          stx,
-          txMeta,
-          let,
-          lookupPackage,
-        )
-      isReplayedBy(stx, rtx) shouldBe Right(())
-      txMeta.nodeSeeds shouldBe newMeta.nodeSeeds
+        val Right((rtx, newMeta)) =
+          reinterpret(
+            suffixStrictEngine,
+            Set(party),
+            stx.roots,
+            stx,
+            txMeta,
+            let,
+            lookupPackage,
+          )
+        isReplayedBy(stx, rtx) shouldBe Right(())
+        txMeta.nodeSeeds shouldBe newMeta.nodeSeeds
+      }
     }
 
     "be validated" in {
-      val Right((tx, meta)) = interpretResult
-      val Right(submitter) = tx.guessSubmitter
-      val submitters = Set(submitter)
-      val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
-      val validated = suffixLenientEngine
-        .validate(submitters, ntx, let, participant, meta.submissionTime, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey)
-      validated match {
-        case Left(e) =>
-          fail(e.message)
-        case Right(()) => ()
+      inside(interpretResult) { case Right((tx, meta)) =>
+        inside(tx.guessSubmitter) { case Right(submitter) =>
+          val submitters = Set(submitter)
+          val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
+          val validated = suffixLenientEngine
+            .validate(submitters, ntx, let, participant, meta.submissionTime, submissionSeed)
+            .consume(lookupContract, lookupPackage, lookupKey)
+          validated match {
+            case Left(e) =>
+              fail(e.message)
+            case Right(()) => ()
+          }
+        }
       }
     }
 
@@ -189,71 +192,73 @@ class EngineTest
 
     "reinterpret to the same result" in {
       forAll(cases) { case (templateId, signatories, submitters) =>
-        val Right((tx, txMeta)) = interpretResult(templateId, signatories, submitters)
-        val stx = suffix(tx)
+        inside(interpretResult(templateId, signatories, submitters)) { case Right((tx, txMeta)) =>
+          val stx = suffix(tx)
 
-        val Right((rtx, _)) =
-          reinterpret(
-            suffixStrictEngine,
-            signatories.map(_._2),
-            stx.roots,
-            stx,
-            txMeta,
-            let,
-            lookupPackage,
-          )
-        isReplayedBy(stx, rtx) shouldBe Right(())
+          val Right((rtx, _)) =
+            reinterpret(
+              suffixStrictEngine,
+              signatories.map(_._2),
+              stx.roots,
+              stx,
+              txMeta,
+              let,
+              lookupPackage,
+            )
+          isReplayedBy(stx, rtx) shouldBe Right(())
+        }
       }
     }
 
     "be validated" in {
       forAll(cases) { case (templateId, signatories, submitters) =>
-        val Right((tx, meta)) = interpretResult(templateId, signatories, submitters)
-        val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
-        val validated = suffixLenientEngine
-          .validate(submitters, ntx, let, participant, meta.submissionTime, submissionSeed)
-          .consume(lookupContract, lookupPackage, lookupKey)
-        validated match {
-          case Left(e) =>
-            fail(e.message)
-          case Right(()) => succeed
+        inside(interpretResult(templateId, signatories, submitters)) { case Right((tx, meta)) =>
+          val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
+          val validated = suffixLenientEngine
+            .validate(submitters, ntx, let, participant, meta.submissionTime, submissionSeed)
+            .consume(lookupContract, lookupPackage, lookupKey)
+          validated match {
+            case Left(e) =>
+              fail(e.message)
+            case Right(()) => succeed
+          }
         }
       }
     }
 
     "allow replay with a superset of submitters" in {
       forAll(cases) { case (templateId, signatories, submitters) =>
-        val Right((tx, _)) = interpretResult(templateId, signatories, submitters)
+        inside(interpretResult(templateId, signatories, submitters)) { case Right((tx, _)) =>
+          val replaySubmitters = submitters + party
+          val replayResult = suffixLenientEngine.replay(
+            submitters = replaySubmitters,
+            tx = tx,
+            ledgerEffectiveTime = let,
+            participantId = participant,
+            submissionTime = let,
+            submissionSeed = submissionSeed,
+          )
 
-        val replaySubmitters = submitters + party
-        val replayResult = suffixLenientEngine.replay(
-          submitters = replaySubmitters,
-          tx = tx,
-          ledgerEffectiveTime = let,
-          participantId = participant,
-          submissionTime = let,
-          submissionSeed = submissionSeed,
-        )
-
-        replayResult shouldBe a[ResultDone[_]]
+          replayResult shouldBe a[ResultDone[_]]
+        }
       }
     }
 
     "not allow replay with a subset of submitters" in {
       forAll(cases) { case (templateId, signatories, submitters) =>
-        val Right((tx, _)) = interpretResult(templateId, signatories, submitters)
+        inside(interpretResult(templateId, signatories, submitters)) { case Right((tx, _)) =>
+          val replaySubmitters = submitters.drop(1)
+          val replayResult = suffixLenientEngine.replay(
+            submitters = replaySubmitters,
+            tx = tx,
+            ledgerEffectiveTime = let,
+            participantId = participant,
+            submissionTime = let,
+            submissionSeed = submissionSeed,
+          )
 
-        val replaySubmitters = submitters.drop(1)
-        val replayResult = suffixLenientEngine.replay(
-          submitters = replaySubmitters,
-          tx = tx,
-          ledgerEffectiveTime = let,
-          participantId = participant,
-          submissionTime = let,
-          submissionSeed = submissionSeed,
-        )
-
-        replayResult shouldBe a[ResultError]
+          replayResult shouldBe a[ResultError]
+        }
       }
     }
   }

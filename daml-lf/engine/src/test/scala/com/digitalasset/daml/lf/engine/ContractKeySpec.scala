@@ -163,26 +163,28 @@ class ContractKeySpec
 
       val submitters = Set(alice)
 
-      val Right(cmds) = preprocessor
-        .preprocessApiCommands(
-          ImmArray(
-            ApiCommand.CreateAndExercise(templateId, createArg, "DontExecuteCreate", exerciseArg)
+      inside(
+        preprocessor
+          .preprocessApiCommands(
+            ImmArray(
+              ApiCommand.CreateAndExercise(templateId, createArg, "DontExecuteCreate", exerciseArg)
+            )
           )
-        )
-        .consume(_ => None, lookupPackage, lookupKey)
-
-      val result = suffixLenientEngine
-        .interpretCommands(
-          validating = false,
-          submitters = submitters,
-          readAs = Set.empty,
-          commands = cmds,
-          ledgerTime = now,
-          submissionTime = now,
-          seeding = InitialSeeding.TransactionSeed(txSeed),
-        )
-        .consume(_ => None, lookupPackage, lookupKey)
-      result shouldBe a[Right[_, _]]
+          .consume(_ => None, lookupPackage, lookupKey)
+      ) { case Right(cmds) =>
+        val result = suffixLenientEngine
+          .interpretCommands(
+            validating = false,
+            submitters = submitters,
+            readAs = Set.empty,
+            commands = cmds,
+            ledgerTime = now,
+            submissionTime = now,
+            seeding = InitialSeeding.TransactionSeed(txSeed),
+          )
+          .consume(_ => None, lookupPackage, lookupKey)
+        result shouldBe a[Right[_, _]]
+      }
     }
 
     // TEST_EVIDENCE: Integrity: contract keys should be evaluated after ensure clause
@@ -197,25 +199,28 @@ class ContractKeySpec
 
       val submitters = Set(alice)
 
-      val Right(cmds) = preprocessor
-        .preprocessApiCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
-        .consume(_ => None, lookupPackage, lookupKey)
-
-      val result = suffixLenientEngine
-        .interpretCommands(
-          validating = false,
-          submitters = submitters,
-          readAs = Set.empty,
-          commands = cmds,
-          ledgerTime = now,
-          submissionTime = now,
-          seeding = InitialSeeding.TransactionSeed(txSeed),
-        )
-        .consume(_ => None, lookupPackage, lookupKey)
-      result shouldBe a[Left[_, _]]
-      val Left(err) = result
-      err.message should not include ("Boom")
-      err.message should include("Template precondition violated")
+      inside(
+        preprocessor
+          .preprocessApiCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
+          .consume(_ => None, lookupPackage, lookupKey)
+      ) { case Right(cmds) =>
+        val result = suffixLenientEngine
+          .interpretCommands(
+            validating = false,
+            submitters = submitters,
+            readAs = Set.empty,
+            commands = cmds,
+            ledgerTime = now,
+            submissionTime = now,
+            seeding = InitialSeeding.TransactionSeed(txSeed),
+          )
+          .consume(_ => None, lookupPackage, lookupKey)
+        result shouldBe a[Left[_, _]]
+        inside(result) { case Left(err) =>
+          err.message should not include ("Boom")
+          err.message should include("Template precondition violated")
+        }
+      }
     }
 
     // TEST_EVIDENCE: Integrity: contract keys must have a non-empty set of maintainers
@@ -230,25 +235,28 @@ class ContractKeySpec
 
       val submitters = Set(alice)
 
-      val Right(cmds) = preprocessor
-        .preprocessApiCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
-        .consume(_ => None, lookupPackage, lookupKey)
-      val result = suffixLenientEngine
-        .interpretCommands(
-          validating = false,
-          submitters = submitters,
-          readAs = Set.empty,
-          commands = cmds,
-          ledgerTime = now,
-          submissionTime = now,
-          seeding = InitialSeeding.TransactionSeed(txSeed),
-        )
-        .consume(_ => None, lookupPackage, lookupKey)
+      inside(
+        preprocessor
+          .preprocessApiCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
+          .consume(_ => None, lookupPackage, lookupKey)
+      ) { case Right(cmds) =>
+        val result = suffixLenientEngine
+          .interpretCommands(
+            validating = false,
+            submitters = submitters,
+            readAs = Set.empty,
+            commands = cmds,
+            ledgerTime = now,
+            submissionTime = now,
+            seeding = InitialSeeding.TransactionSeed(txSeed),
+          )
+          .consume(_ => None, lookupPackage, lookupKey)
 
-      inside(result) { case Left(err) =>
-        err.message should include(
-          "Update failed due to a contract key with an empty sey of maintainers"
-        )
+        inside(result) { case Left(err) =>
+          err.message should include(
+            "Update failed due to a contract key with an empty sey of maintainers"
+          )
+        }
       }
     }
 
@@ -309,20 +317,23 @@ class ContractKeySpec
           choice,
           argument,
         )
-        val Right(cmds) = preprocessor
-          .preprocessApiCommands(ImmArray(cmd))
-          .consume(lookupContract, lookupPackage, lookupKey)
-        engine
-          .interpretCommands(
-            validating = false,
-            submitters = Set(party),
-            readAs = Set.empty,
-            commands = cmds,
-            ledgerTime = let,
-            submissionTime = let,
-            seeding = seeding,
-          )
-          .consume(lookupContract, lookupPackage, lookupKey)
+        inside(
+          preprocessor
+            .preprocessApiCommands(ImmArray(cmd))
+            .consume(lookupContract, lookupPackage, lookupKey)
+        ) { case Right(cmds) =>
+          engine
+            .interpretCommands(
+              validating = false,
+              submitters = Set(party),
+              readAs = Set.empty,
+              commands = cmds,
+              ledgerTime = let,
+              submissionTime = let,
+              seeding = seeding,
+            )
+            .consume(lookupContract, lookupPackage, lookupKey)
+        }
       }
       val emptyRecord = ValueRecord(None, ImmArray.Empty)
       // The cid returned by a fetchByKey at the beginning

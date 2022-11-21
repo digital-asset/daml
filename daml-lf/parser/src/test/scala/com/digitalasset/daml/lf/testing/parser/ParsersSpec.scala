@@ -10,11 +10,12 @@ import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.testing.parser.Implicits._
+import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import scala.collection.immutable.VectorMap
 
+import scala.collection.immutable.VectorMap
 import scala.language.implicitConversions
 
 class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matchers {
@@ -610,97 +611,98 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         }
       """
 
-      val TTyCon(human) = t"Mod1:Human"
-      val TTyCon(referenceable) = t"Mod2:Referenceable"
-
-      val template =
-        Template(
-          param = n"this",
-          precond = e"True",
-          signatories = e"Cons @Party [person] (Nil @Party)",
-          agreementText = e""" "Agreement" """,
-          choices = Map(
-            n"Sleep" ->
-              TemplateChoice(
-                name = n"Sleep",
-                consuming = true,
-                controllers = e"Cons @Party [person] (Nil @Party)",
-                choiceObservers = None,
-                selfBinder = n"self",
-                argBinder = n"u" -> TUnit,
-                returnType = t"ContractId Mod:Person",
-                update = e"upure @(ContractId Mod:Person) self",
-              ),
-            n"Nap" ->
-              TemplateChoice(
-                name = n"Nap",
-                consuming = false,
-                controllers = e"Cons @Party [person] (Nil @Party)",
-                choiceObservers = Some(e"Nil @Party"),
-                selfBinder = n"self",
-                argBinder = n"i" -> TInt64,
-                returnType = t"Int64",
-                update = e"upure @Int64 i",
-              ),
-            n"PowerNap" ->
-              TemplateChoice(
-                name = n"PowerNap",
-                consuming = false,
-                controllers = e"Cons @Party [person] (Nil @Party)",
-                choiceObservers = Some(e"Cons @Party [person] (Nil @Party)"),
-                selfBinder = n"self",
-                argBinder = n"i" -> TInt64,
-                returnType = t"Int64",
-                update = e"upure @Int64 i",
-              ),
-          ),
-          observers = e"Cons @Party [Mod:Person {person} this] (Nil @Party)",
-          key = Some(TemplateKey(t"Party", e"(Mod:Person {name} this)", e"""\ (p: Party) -> p""")),
-          implements = VectorMap(
-            human ->
-              TemplateImplements(
-                human,
-                InterfaceInstanceBody(
-                  Map(
-                    n"age" -> InterfaceInstanceMethod(n"age", e"42"),
-                    n"alive" -> InterfaceInstanceMethod(n"alive", e"True"),
+      inside((t"Mod1:Human", t"Mod2:Referenceable")) {
+        case (TTyCon(human), TTyCon(referenceable)) =>
+          val template =
+            Template(
+              param = n"this",
+              precond = e"True",
+              signatories = e"Cons @Party [person] (Nil @Party)",
+              agreementText = e""" "Agreement" """,
+              choices = Map(
+                n"Sleep" ->
+                  TemplateChoice(
+                    name = n"Sleep",
+                    consuming = true,
+                    controllers = e"Cons @Party [person] (Nil @Party)",
+                    choiceObservers = None,
+                    selfBinder = n"self",
+                    argBinder = n"u" -> TUnit,
+                    returnType = t"ContractId Mod:Person",
+                    update = e"upure @(ContractId Mod:Person) self",
                   ),
-                  e"""Mod1:HumanView { name = "Foo B. Baz" }""",
+                n"Nap" ->
+                  TemplateChoice(
+                    name = n"Nap",
+                    consuming = false,
+                    controllers = e"Cons @Party [person] (Nil @Party)",
+                    choiceObservers = Some(e"Nil @Party"),
+                    selfBinder = n"self",
+                    argBinder = n"i" -> TInt64,
+                    returnType = t"Int64",
+                    update = e"upure @Int64 i",
+                  ),
+                n"PowerNap" ->
+                  TemplateChoice(
+                    name = n"PowerNap",
+                    consuming = false,
+                    controllers = e"Cons @Party [person] (Nil @Party)",
+                    choiceObservers = Some(e"Cons @Party [person] (Nil @Party)"),
+                    selfBinder = n"self",
+                    argBinder = n"i" -> TInt64,
+                    returnType = t"Int64",
+                    update = e"upure @Int64 i",
+                  ),
+              ),
+              observers = e"Cons @Party [Mod:Person {person} this] (Nil @Party)",
+              key =
+                Some(TemplateKey(t"Party", e"(Mod:Person {name} this)", e"""\ (p: Party) -> p""")),
+              implements = VectorMap(
+                human ->
+                  TemplateImplements(
+                    human,
+                    InterfaceInstanceBody(
+                      Map(
+                        n"age" -> InterfaceInstanceMethod(n"age", e"42"),
+                        n"alive" -> InterfaceInstanceMethod(n"alive", e"True"),
+                      ),
+                      e"""Mod1:HumanView { name = "Foo B. Baz" }""",
+                    ),
+                  ),
+                referenceable -> TemplateImplements(
+                  referenceable,
+                  InterfaceInstanceBody(
+                    Map(
+                      n"uuid" -> InterfaceInstanceMethod(
+                        n"uuid",
+                        e""""123e4567-e89b-12d3-a456-426614174000"""",
+                      )
+                    ),
+                    e"Mod1:ReferenceableView { indirect = False }",
+                  ),
                 ),
               ),
-            referenceable -> TemplateImplements(
-              referenceable,
-              InterfaceInstanceBody(
-                Map(
-                  n"uuid" -> InterfaceInstanceMethod(
-                    n"uuid",
-                    e""""123e4567-e89b-12d3-a456-426614174000"""",
-                  )
-                ),
-                e"Mod1:ReferenceableView { indirect = False }",
-              ),
-            ),
-          ),
-        )
+            )
 
-      val recDef = DDataType(
-        true,
-        ImmArray.Empty,
-        DataRecord(ImmArray(n"person" -> t"Party", n"name" -> t"Text")),
-      )
-      val name = DottedName.assertFromString("Person")
-      parseModules(p) shouldBe Right(
-        List(
-          Module(
-            name = modName,
-            definitions = Map(name -> recDef),
-            templates = Map(name -> template),
-            exceptions = Map.empty,
-            interfaces = Map.empty,
-            featureFlags = FeatureFlags.default,
+          val recDef = DDataType(
+            true,
+            ImmArray.Empty,
+            DataRecord(ImmArray(n"person" -> t"Party", n"name" -> t"Text")),
           )
-        )
-      )
+          val name = DottedName.assertFromString("Person")
+          parseModules(p) shouldBe Right(
+            List(
+              Module(
+                name = modName,
+                definitions = Map(name -> recDef),
+                templates = Map(name -> template),
+                exceptions = Map.empty,
+                interfaces = Map.empty,
+                featureFlags = FeatureFlags.default,
+              )
+            )
+          )
+      }
 
     }
 
@@ -751,7 +753,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           )
         )
       )
-
     }
 
     "parses exception definition" in {
@@ -813,73 +814,73 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
        }
 
       """
-      val TTyCon(company) = t"Mod1:Company"
-
-      val interface =
-        DefInterface(
-          requires = Set.empty,
-          param = n"this",
-          methods = Map(
-            n"asParty" -> InterfaceMethod(n"asParty", t"Party"),
-            n"getName" -> InterfaceMethod(n"getName", t"Text"),
-          ),
-          choices = Map(
-            n"Sleep" -> TemplateChoice(
-              name = n"Sleep",
-              consuming = true,
-              controllers = e"Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)",
-              choiceObservers = None,
-              selfBinder = n"self",
-              argBinder = n"u" -> TUnit,
-              returnType = t"ContractId Mod:Person",
-              update = e"upure @(ContractId Mod:Person) self",
+      inside(t"Mod1:Company") { case TTyCon(company) =>
+        val interface =
+          DefInterface(
+            requires = Set.empty,
+            param = n"this",
+            methods = Map(
+              n"asParty" -> InterfaceMethod(n"asParty", t"Party"),
+              n"getName" -> InterfaceMethod(n"getName", t"Text"),
             ),
-            n"Nap" -> TemplateChoice(
-              name = n"Nap",
-              consuming = false,
-              controllers = e"Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)",
-              choiceObservers = Some(e"Nil @Party"),
-              selfBinder = n"self",
-              argBinder = n"i" -> TInt64,
-              returnType = t"Int64",
-              update = e"upure @Int64 i",
+            choices = Map(
+              n"Sleep" -> TemplateChoice(
+                name = n"Sleep",
+                consuming = true,
+                controllers = e"Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)",
+                choiceObservers = None,
+                selfBinder = n"self",
+                argBinder = n"u" -> TUnit,
+                returnType = t"ContractId Mod:Person",
+                update = e"upure @(ContractId Mod:Person) self",
+              ),
+              n"Nap" -> TemplateChoice(
+                name = n"Nap",
+                consuming = false,
+                controllers = e"Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)",
+                choiceObservers = Some(e"Nil @Party"),
+                selfBinder = n"self",
+                argBinder = n"i" -> TInt64,
+                returnType = t"Int64",
+                update = e"upure @Int64 i",
+              ),
             ),
-          ),
-          coImplements = Map(
-            company ->
-              InterfaceCoImplements(
-                company,
-                InterfaceInstanceBody(
-                  Map(
-                    n"asParty" -> InterfaceInstanceMethod(
-                      n"asParty",
-                      e"Mod1:Company {party} this",
+            coImplements = Map(
+              company ->
+                InterfaceCoImplements(
+                  company,
+                  InterfaceInstanceBody(
+                    Map(
+                      n"asParty" -> InterfaceInstanceMethod(
+                        n"asParty",
+                        e"Mod1:Company {party} this",
+                      ),
+                      n"getName" -> InterfaceInstanceMethod(
+                        n"getName",
+                        e"Mod1:Company {legalName} this",
+                      ),
                     ),
-                    n"getName" -> InterfaceInstanceMethod(
-                      n"getName",
-                      e"Mod1:Company {legalName} this",
-                    ),
+                    e"Mod1:PersonView { name = callMethod @Mod:Person getName this }",
                   ),
-                  e"Mod1:PersonView { name = callMethod @Mod:Person getName this }",
-                ),
-              )
-          ),
-          view = t"Mod1:PersonView",
-        )
+                )
+            ),
+            view = t"Mod1:PersonView",
+          )
 
-      val person = DottedName.assertFromString("Person")
-      parseModules(p) shouldBe Right(
-        List(
-          Module(
-            name = modName,
-            definitions = Map(person -> DDataType.Interface),
-            templates = Map.empty,
-            exceptions = Map.empty,
-            interfaces = Map(person -> interface),
-            featureFlags = FeatureFlags.default,
+        val person = DottedName.assertFromString("Person")
+        parseModules(p) shouldBe Right(
+          List(
+            Module(
+              name = modName,
+              definitions = Map(person -> DDataType.Interface),
+              templates = Map.empty,
+              exceptions = Map.empty,
+              interfaces = Map(person -> interface),
+              featureFlags = FeatureFlags.default,
+            )
           )
         )
-      )
+      }
     }
 
     "parses location annotations" in {

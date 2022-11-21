@@ -8,7 +8,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data.{Bytes, FrontStack, Ref}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SExpr.{SELet1, SEImportValue, SELocS, SELocF, SEMakeClo}
+import com.daml.lf.speedy.SExpr.{SEImportValue, SELet1, SELocF, SELocS, SEMakeClo}
 import com.daml.lf.value.Value
 import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.test.ValueGenerators.{comparableCoidsGen, suffixedV1CidGen}
@@ -149,35 +149,35 @@ class OrderingSpec
       val cid12 = Value.ContractId.V1(discriminator1, suffix2)
       val cid21 = Value.ContractId.V1(discriminator2, suffix1)
 
-      val List(vCid10, vCid11, vCid12, vCid21) = List(cid10, cid11, cid12, cid21).map(SContractId)
+      inside(List(cid10, cid11, cid12, cid21).map(SContractId)) {
+        case List(vCid10, vCid11, vCid12, vCid21) =>
+          val negativeTestCases =
+            Table(
+              "cid1" -> "cid2",
+              vCid10 -> vCid10,
+              vCid11 -> vCid11,
+              vCid11 -> vCid12,
+              vCid11 -> vCid21,
+            )
 
-      val negativeTestCases =
-        Table(
-          "cid1" -> "cid2",
-          vCid10 -> vCid10,
-          vCid11 -> vCid11,
-          vCid11 -> vCid12,
-          vCid11 -> vCid21,
-        )
+          val positiveTestCases = Table(
+            "glovalCid2",
+            cid11,
+            cid12,
+          )
 
-      val positiveTestCases = Table(
-        "glovalCid2",
-        cid11,
-        cid12,
-      )
+          forEvery(negativeTestCases) { (cid1, cid2) =>
+            Ordering.compare(cid1, cid2) == 0 shouldBe cid1 == cid2
+            Ordering.compare(cid2, cid1) == 0 shouldBe cid1 == cid2
+          }
 
-      forEvery(negativeTestCases) { (cid1, cid2) =>
-        Ordering.compare(cid1, cid2) == 0 shouldBe cid1 == cid2
-        Ordering.compare(cid2, cid1) == 0 shouldBe cid1 == cid2
+          forEvery(positiveTestCases) { globalCid =>
+            Try(Ordering.compare(vCid10, SContractId(globalCid))) shouldBe
+              Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
+            Try(Ordering.compare(SContractId(globalCid), vCid10)) shouldBe
+              Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
+          }
       }
-
-      forEvery(positiveTestCases) { globalCid =>
-        Try(Ordering.compare(vCid10, SContractId(globalCid))) shouldBe
-          Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
-        Try(Ordering.compare(SContractId(globalCid), vCid10)) shouldBe
-          Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
-      }
-
     }
   }
 

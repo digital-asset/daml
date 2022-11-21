@@ -1425,51 +1425,52 @@ class DecodeV1Spec
 
   "decodeModuleRef" should {
 
-    lazy val Right(ArchivePayload(pkgId, dalfProto, version)) =
-      ArchiveReader.fromFile(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
-
-    lazy val extId = {
-      val dalf1 = dalfProto.getDamlLf1
-      val iix = dalf1
-        .getModules(0)
-        .getValuesList
-        .asScala
-        .collectFirst {
-          case dv
-              if dalf1.getInternedDottedNamesList
-                .asScala(dv.getNameWithType.getNameInternedDname)
-                .getSegmentsInternedStrList
-                .asScala
-                .lastOption
-                .map(x => dalf1.getInternedStringsList.asScala(x)) contains "reverseCopy" =>
-            val pr = dv.getExpr.getVal.getModule.getPackageRef
-            pr.getSumCase shouldBe DamlLf1.PackageRef.SumCase.PACKAGE_ID_INTERNED_STR
-            pr.getPackageIdInternedStr
+    inside(ArchiveReader.fromFile(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))) {
+      case Right(ArchivePayload(pkgId, dalfProto, version)) =>
+        lazy val extId = {
+          val dalf1 = dalfProto.getDamlLf1
+          val iix = dalf1
+            .getModules(0)
+            .getValuesList
+            .asScala
+            .collectFirst {
+              case dv
+                  if dalf1.getInternedDottedNamesList
+                    .asScala(dv.getNameWithType.getNameInternedDname)
+                    .getSegmentsInternedStrList
+                    .asScala
+                    .lastOption
+                    .map(x => dalf1.getInternedStringsList.asScala(x)) contains "reverseCopy" =>
+                val pr = dv.getExpr.getVal.getModule.getPackageRef
+                pr.getSumCase shouldBe DamlLf1.PackageRef.SumCase.PACKAGE_ID_INTERNED_STR
+                pr.getPackageIdInternedStr
+            }
+            .value
+          dalf1.getInternedStringsList.asScala.lift(iix.toInt).value
         }
-        .value
-      dalf1.getInternedStringsList.asScala.lift(iix.toInt).value
-    }
 
-    "take a dalf with interned IDs" in {
-      version.major should ===(LV.Major.V1)
+        "take a dalf with interned IDs" in {
+          version.major should ===(LV.Major.V1)
 
-      version.minor should !==("dev")
+          version.minor should !==("dev")
 
-      extId should not be empty
-      (extId: String) should !==(pkgId: String)
-    }
-
-    "decode resolving the interned package ID" in {
-      val decoder = new DecodeV1(version.minor)
-      inside(decoder.decodePackage(pkgId, dalfProto.getDamlLf1, false)) { case Right(pkg) =>
-        inside(
-          pkg
-            .modules(Ref.DottedName.assertFromString("DarReaderTest"))
-            .definitions(Ref.DottedName.assertFromString("reverseCopy"))
-        ) { case Ast.DValue(_, Ast.ELocation(_, Ast.EVal(Ref.Identifier(resolvedExtId, _))), _) =>
-          (resolvedExtId: String) should ===(extId: String)
+          extId should not be empty
+          (extId: String) should !==(pkgId: String)
         }
-      }
+
+        "decode resolving the interned package ID" in {
+          val decoder = new DecodeV1(version.minor)
+          inside(decoder.decodePackage(pkgId, dalfProto.getDamlLf1, false)) { case Right(pkg) =>
+            inside(
+              pkg
+                .modules(Ref.DottedName.assertFromString("DarReaderTest"))
+                .definitions(Ref.DottedName.assertFromString("reverseCopy"))
+            ) {
+              case Ast.DValue(_, Ast.ELocation(_, Ast.EVal(Ref.Identifier(resolvedExtId, _))), _) =>
+                (resolvedExtId: String) should ===(extId: String)
+            }
+          }
+        }
     }
   }
 

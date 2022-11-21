@@ -67,57 +67,61 @@ class SBuiltinInterfaceTest
 
         val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
 
-        inside(
-          evalApp(
-            e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
-            Array(SContractId(cid), SToken),
-            true,
-            getContract = Map(
-              cid -> Versioned(
-                TransactionVersion.StableVersions.max,
-                ContractInstance(iouId, iouPayload, ""),
-              )
-            ),
-            getPkg = PartialFunction.empty,
-          )
-        ) { case Success(result) =>
-          result shouldBe a[Right[_, _]]
-        }
+        inside(t"'${SBuiltinInterfaceTest.basePkgId}':Mod:Iou") { case Ast.TTyCon(iouId) =>
+          inside(
+            evalApp(
+              e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
+              Array(SContractId(cid), SToken),
+              true,
+              getContract = Map(
+                cid -> Versioned(
+                  TransactionVersion.StableVersions.max,
+                  ContractInstance(iouId, iouPayload, ""),
+                )
+              ),
+              getPkg = PartialFunction.empty,
+            )
+          ) { case Success(result) =>
+            result shouldBe a[Right[_, _]]
+          }
 
-        inside(
-          evalApp(
-            e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
-            Array(SContractId(cid), SToken),
-            true,
-            getContract = Map(
-              cid -> Versioned(
-                TransactionVersion.StableVersions.max,
-                ContractInstance(extraIouId, iouPayload, ""),
+          inside(t"'$extraPkgId':Mod:Iou") { case Ast.TTyCon(extraIouId) =>
+            inside(
+              evalApp(
+                e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
+                Array(SContractId(cid), SToken),
+                true,
+                getContract = Map(
+                  cid -> Versioned(
+                    TransactionVersion.StableVersions.max,
+                    ContractInstance(extraIouId, iouPayload, ""),
+                  )
+                ),
+                getPkg = PartialFunction.empty,
               )
-            ),
-            getPkg = PartialFunction.empty,
-          )
-        ) { case Failure(err) =>
-          err shouldBe a[SpeedyTestLib.UnknownPackage]
-        }
+            ) { case Failure(err) =>
+              err shouldBe a[SpeedyTestLib.UnknownPackage]
+            }
 
-        inside(
-          evalApp(
-            e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
-            Array(SContractId(cid), SToken),
-            true,
-            getContract = Map(
-              cid -> Versioned(
-                TransactionVersion.StableVersions.max,
-                ContractInstance(extraIouId, iouPayload, ""),
+            inside(
+              evalApp(
+                e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
+                Array(SContractId(cid), SToken),
+                true,
+                getContract = Map(
+                  cid -> Versioned(
+                    TransactionVersion.StableVersions.max,
+                    ContractInstance(extraIouId, iouPayload, ""),
+                  )
+                ),
+                getPkg = { case `extraPkgId` =>
+                  compiledExtendedPkgs
+                },
               )
-            ),
-            getPkg = { case `extraPkgId` =>
-              compiledExtendedPkgs
-            },
-          )
-        ) { case Success(result) =>
-          result shouldBe a[Right[_, _]]
+            ) { case Success(result) =>
+              result shouldBe a[Right[_, _]]
+            }
+          }
         }
       }
 
@@ -132,7 +136,7 @@ object SBuiltinInterfaceTest {
   private[this] val alice = Ref.Party.assertFromString("Alice")
   private[this] val bob = Ref.Party.assertFromString("Bob")
 
-  import defaultParserParameters.{defaultPackageId => basePkgId}
+  val basePkgId = defaultParserParameters.defaultPackageId
 
   private[this] lazy val basePkgs = {
     val pkg =
@@ -267,8 +271,6 @@ object SBuiltinInterfaceTest {
   }
   lazy val compiledBasePkgs = PureCompiledPackages.assertBuild(basePkgs)
 
-  private[lf] val Ast.TTyCon(iouId) = t"'$basePkgId':Mod:Iou"
-
   private val extraPkgId = Ref.PackageId.assertFromString("-extra-package-")
   assume(extraPkgId != basePkgId)
 
@@ -301,8 +303,6 @@ object SBuiltinInterfaceTest {
     basePkgs + (defaultParserParameters.defaultPackageId -> pkg)
   }
   lazy val compiledExtendedPkgs = PureCompiledPackages.assertBuild(extendedPkgs)
-
-  private val Ast.TTyCon(extraIouId) = t"'$extraPkgId':Mod:Iou"
 
   private val iouPayload =
     Value.ValueRecord(

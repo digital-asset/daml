@@ -4,6 +4,7 @@
 package com.daml.lf.data
 
 import org.scalacheck.Gen
+import org.scalatest.Inside.inside
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -65,11 +66,12 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
     "do not have basic Utf16 ordering issue" in {
       val s1 = "｡"
       val s2 = "😂"
-      val List(cp1) = s1.codePoints().iterator().asScala.toList
-      val List(cp2) = s2.codePoints().iterator().asScala.toList
-
-      Ordering.String.lt(s1, s2) shouldNot be(Ordering.Int.lt(cp1, cp2))
-      Utf8.Ordering.lt(s1, s2) shouldBe Ordering.Int.lt(cp1, cp2)
+      inside(s1.codePoints().iterator().asScala.toList) { case List(cp1) =>
+        inside(s2.codePoints().iterator().asScala.toList) { case List(cp2) =>
+          Ordering.String.lt(s1, s2) shouldNot be(Ordering.Int.lt(cp1, cp2))
+          Utf8.Ordering.lt(s1, s2) shouldBe Ordering.Int.lt(cp1, cp2)
+        }
+      }
     }
 
     "be reflexive" in {
@@ -88,8 +90,9 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
       import Utf8.Ordering.lteq
 
       forAll(strings, strings, strings) { (x_, y_, z_) =>
-        val List(x, y, z) = List(x_, y_, z_).sorted(Utf8.Ordering)
-        lteq(x, y) && lteq(y, z) && lteq(x, z) shouldBe true
+        inside(List(x_, y_, z_).sorted(Utf8.Ordering)) { case List(x, y, z) =>
+          lteq(x, y) && lteq(y, z) && lteq(x, z) shouldBe true
+        }
       }
     }
 

@@ -48,123 +48,123 @@ class NormalizeRollbacksSpec extends AnyWordSpec with Matchers with Inside {
   def E(xs: Shape*) = Shape.Exercise(xs.toList)
   def R(xs: Shape*) = Shape.Rollback(xs.toList)
 
-  val List(c1, c2, c3, c4) = List[Long](1, 2, 3, 4).map(Shape.Create)
+  inside(List[Long](1, 2, 3, 4).map(Shape.Create)) { case List(c1, c2, c3, c4) =>
+    // no normalization required
+    test("empty tx")(
+      Top(),
+      Top(),
+    )
+    test("one create")(
+      Top(c1),
+      Top(c1),
+    )
+    test("two creates")(
+      Top(c1, c2),
+      Top(c1, c2),
+    )
+    test("rollback create")(
+      Top(R(c1)),
+      Top(R(c1)),
+    )
+    test("non empty rollback between creates")(
+      Top(c1, R(c2), c3),
+      Top(c1, R(c2), c3),
+    )
+    test("empty exercise")(
+      Top(E()),
+      Top(E()),
+    )
+    test("exercise and creates")(
+      Top(E(c1, E(), c2)),
+      Top(E(c1, E(), c2)),
+    )
 
-  // no normalization required
-  test("empty tx")(
-    Top(),
-    Top(),
-  )
-  test("one create")(
-    Top(c1),
-    Top(c1),
-  )
-  test("two creates")(
-    Top(c1, c2),
-    Top(c1, c2),
-  )
-  test("rollback create")(
-    Top(R(c1)),
-    Top(R(c1)),
-  )
-  test("non empty rollback between creates")(
-    Top(c1, R(c2), c3),
-    Top(c1, R(c2), c3),
-  )
-  test("empty exercise")(
-    Top(E()),
-    Top(E()),
-  )
-  test("exercise and creates")(
-    Top(E(c1, E(), c2)),
-    Top(E(c1, E(), c2)),
-  )
+    // normalization rule #1
+    test("empty rollback")(
+      Top(R()),
+      Top(),
+    )
+    test("empty rollback after create")(
+      Top(c1, R()),
+      Top(c1),
+    )
+    test("empty rollback before create")(
+      Top(R(), c1),
+      Top(c1),
+    )
+    test("empty rollback between creates")(
+      Top(c1, R(), c2),
+      Top(c1, c2),
+    )
+    test("sibling empty rollback")(
+      Top(R(), R()),
+      Top(),
+    )
+    test("nested inner empty rollback")(
+      Top(R(c1, R(), c2)),
+      Top(R(c1, c2)),
+    )
+    test("inner empty rollback, within exercise")(
+      Top(E(c1, R(), c2)),
+      Top(E(c1, c2)),
+    )
+    test("nested empty rollback")(
+      Top(R(R())),
+      Top(),
+    )
+    test("nested sibling empty rollback")(
+      Top(R(R(), R())),
+      Top(),
+    )
 
-  // normalization rule #1
-  test("empty rollback")(
-    Top(R()),
-    Top(),
-  )
-  test("empty rollback after create")(
-    Top(c1, R()),
-    Top(c1),
-  )
-  test("empty rollback before create")(
-    Top(R(), c1),
-    Top(c1),
-  )
-  test("empty rollback between creates")(
-    Top(c1, R(), c2),
-    Top(c1, c2),
-  )
-  test("sibling empty rollback")(
-    Top(R(), R()),
-    Top(),
-  )
-  test("nested inner empty rollback")(
-    Top(R(c1, R(), c2)),
-    Top(R(c1, c2)),
-  )
-  test("inner empty rollback, within exercise")(
-    Top(E(c1, R(), c2)),
-    Top(E(c1, c2)),
-  )
-  test("nested empty rollback")(
-    Top(R(R())),
-    Top(),
-  )
-  test("nested sibling empty rollback")(
-    Top(R(R(), R())),
-    Top(),
-  )
+    // normalization rules #2 or #3
+    test("nested-rollback")(
+      Top(R(R(c1))),
+      Top(R(c1)),
+    )
 
-  // normalization rules #2 or #3
-  test("nested-rollback")(
-    Top(R(R(c1))),
-    Top(R(c1)),
-  )
+    // normalization rules #2
+    test("head-nested-rollback")(
+      Top(R(R(c1), c2)),
+      Top(R(c1), R(c2)),
+    )
+    test("head-nested-rollback-cascade")(
+      Top(R(R(R(c1), c2), c3)),
+      Top(R(c1), R(c2), R(c3)),
+    )
 
-  // normalization rules #2
-  test("head-nested-rollback")(
-    Top(R(R(c1), c2)),
-    Top(R(c1), R(c2)),
-  )
-  test("head-nested-rollback-cascade")(
-    Top(R(R(R(c1), c2), c3)),
-    Top(R(c1), R(c2), R(c3)),
-  )
+    // normalization rules #3
+    test("tail-nested-rollback")(
+      Top(R(c1, R(c2))),
+      Top(R(c1, c2)),
+    )
+    test("tail-nested-rollback-cascade")(
+      Top(R(c1, R(c2, R(c3)))),
+      Top(R(c1, c2, c3)),
+    )
+    test("tail-nested-rollback-cascade-complex")(
+      Top(R(c1, c2, R(c3, R(c4)))),
+      Top(R(c1, c2, c3, c4)),
+    )
 
-  // normalization rules #3
-  test("tail-nested-rollback")(
-    Top(R(c1, R(c2))),
-    Top(R(c1, c2)),
-  )
-  test("tail-nested-rollback-cascade")(
-    Top(R(c1, R(c2, R(c3)))),
-    Top(R(c1, c2, c3)),
-  )
-  test("tail-nested-rollback-cascade-complex")(
-    Top(R(c1, c2, R(c3, R(c4)))),
-    Top(R(c1, c2, c3, c4)),
-  )
-
-  // normalization rules #2 and #3
-  test("mixed-rollback-nesting-A")(
-    Top(R(R(c1), c2, R(c3))),
-    Top(R(c1), R(c2, c3)),
-  )
-  test("mixed-rollback-nesting-B")(
-    Top(R(R(c1), c2, c3, R(c4))),
-    Top(R(c1), R(c2, c3, c4)),
-  )
-  test("mixed-extra-1")(
-    Top(R(c1, R(R(c2), c3))),
-    Top(R(c1, R(c2), c3)),
-  )
-  test("mixed-extra-2")(
-    Top(R(R(c1, R(c2)), c3)),
-    Top(R(c1, c2), R(c3)),
-  )
+    // normalization rules #2 and #3
+    test("mixed-rollback-nesting-A")(
+      Top(R(R(c1), c2, R(c3))),
+      Top(R(c1), R(c2, c3)),
+    )
+    test("mixed-rollback-nesting-B")(
+      Top(R(R(c1), c2, c3, R(c4))),
+      Top(R(c1), R(c2, c3, c4)),
+    )
+    test("mixed-extra-1")(
+      Top(R(c1, R(R(c2), c3))),
+      Top(R(c1, R(c2), c3)),
+    )
+    test("mixed-extra-2")(
+      Top(R(R(c1, R(c2)), c3)),
+      Top(R(c1, c2), R(c3)),
+    )
+  }
 
 }
 

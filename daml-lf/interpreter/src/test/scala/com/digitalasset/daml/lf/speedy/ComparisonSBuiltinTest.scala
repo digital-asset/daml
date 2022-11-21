@@ -10,6 +10,7 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.value.Value.ContractId
+import org.scalatest.Inside.inside
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -416,204 +417,203 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
       def text(s: String) = EPrimLit(PLText(s))
 
       val eitherT = t"Mod:Either"
-      val TTyCon(eitherTyCon) = eitherT
-      val leftName = Ref.Name.assertFromString("Left")
-      val rightName = Ref.Name.assertFromString("Right")
-
-      def left(leftT: Type, rightT: Type)(l: Expr) =
-        EVariantCon(TypeConApp(eitherTyCon, ImmArray(leftT, rightT)), rightName, l)
-
-      def right(leftT: Type, rightT: Type)(r: Expr) =
-        EVariantCon(TypeConApp(eitherTyCon, ImmArray(leftT, rightT)), leftName, r)
-
       val tupleT = t"Mod:Tuple"
-      val TTyCon(tupleTyCon) = tupleT
-      val fstName = Ref.Name.assertFromString("fst")
-      val sndName = Ref.Name.assertFromString("snd")
+      inside((tupleT, eitherT)) { case (TTyCon(tupleTyCon), TTyCon(eitherTyCon)) =>
+        val leftName = Ref.Name.assertFromString("Left")
+        val rightName = Ref.Name.assertFromString("Right")
 
-      def tupleR(fstT: Type, sndT: Type)(fst: Expr, snd: Expr) =
-        ERecCon(
-          TypeConApp(tupleTyCon, ImmArray(fstT, sndT)),
-          ImmArray(fstName -> fst, sndName -> snd),
+        def left(leftT: Type, rightT: Type)(l: Expr) =
+          EVariantCon(TypeConApp(eitherTyCon, ImmArray(leftT, rightT)), rightName, l)
+
+        def right(leftT: Type, rightT: Type)(r: Expr) =
+          EVariantCon(TypeConApp(eitherTyCon, ImmArray(leftT, rightT)), leftName, r)
+
+        val fstName = Ref.Name.assertFromString("fst")
+        val sndName = Ref.Name.assertFromString("snd")
+
+        def tupleR(fstT: Type, sndT: Type)(fst: Expr, snd: Expr) =
+          ERecCon(
+            TypeConApp(tupleTyCon, ImmArray(fstT, sndT)),
+            ImmArray(fstName -> fst, sndName -> snd),
+          )
+
+        def list(t: Type)(es: Expr*) =
+          if (es.isEmpty) ENil(t) else ECons(t, es.to(ImmArray), ENil(t))
+
+        def textMap(T: Type)(entries: (String, Expr)*) =
+          entries.foldRight(etApps(EBuiltin(BTextMapEmpty), T)) { case ((key, value), acc) =>
+            eApps(etApps(EBuiltin(BTextMapInsert), T), text(key), value, acc)
+          }
+
+        def genMap(kT: Type, vT: Type)(entries: (Expr, Expr)*) =
+          entries.foldRight(etApps(EBuiltin(BGenMapEmpty), kT, vT)) { case ((key, value), acc) =>
+            eApps(etApps(EBuiltin(BGenMapInsert), kT, vT), key, value, acc)
+          }
+
+        def tupleS(fst: Expr, snd: Expr) =
+          EStructCon(ImmArray(fstName -> fst, sndName -> snd))
+
+        val T = tApps(eitherT, funT, TInt64)
+        val X1 = left(funT, TInt64)(e"1")
+        val X2 = left(funT, TInt64)(e"2")
+        val X3 = left(funT, TInt64)(e"3")
+        val U = right(funT, TInt64)(fun1)
+
+        case class Test(
+            typ: Type,
+            negativeTestCases: List[(Expr, Expr)],
+            positiveTestCases: List[(Expr, Expr)],
         )
 
-      def list(t: Type)(es: Expr*) =
-        if (es.isEmpty) ENil(t) else ECons(t, es.to(ImmArray), ENil(t))
+        val tests = Table(
+          ("test cases"),
+          Test(
+            typ = funT,
+            negativeTestCases = List.empty,
+            positiveTestCases = List(fun1 -> fun1, fun1 -> fun2),
+          ),
+          Test(
+            typ = T,
+            negativeTestCases = List(X1 -> U, U -> X1),
+            positiveTestCases = List(U -> U),
+          ),
+          Test(
+            typ = tApps(tupleT, T, T),
+            negativeTestCases = List(
+              tupleR(T, T)(X1, U) -> tupleR(T, T)(X2, U)
+            ),
+            positiveTestCases = List(
+              tupleR(T, T)(U, X1) -> tupleR(T, T)(U, X1),
+              tupleR(T, T)(U, X1) -> tupleR(T, T)(U, X2),
+              tupleR(T, T)(X1, U) -> tupleR(T, T)(X1, U),
+            ),
+          ),
+          Test(
+            typ = TList(T),
+            negativeTestCases = List(
+              list(T)(X1, U) -> list(T)(X2, U),
+              list(T)(U) -> list(T)(),
+              list(T)() -> list(T)(U),
+            ),
+            positiveTestCases = List(
+              list(T)(U) -> list(T)(U),
+              list(T)(U, X1) -> list(T)(U),
+              list(T)(X1, U) -> list(T)(X1, U),
+              list(T)(X1, U, X1) -> list(T)(X1, U),
+            ),
+          ),
+          Test(
+            typ = TOptional(T),
+            negativeTestCases = List(
+              ENone(T) -> ESome(T, U),
+              ESome(T, X1) -> ESome(T, U),
+            ),
+            positiveTestCases = List(
+              ESome(T, U) -> ESome(T, U)
+            ),
+          ),
+          Test(
+            typ = TTextMap(T),
+            negativeTestCases = List(
+              textMap(T)("a" -> X1, "b" -> U) ->
+                textMap(T)("a" -> X2, "b" -> U),
+              textMap(T)("a" -> X1) ->
+                textMap(T)("b" -> U),
+              textMap(T)("a" -> X1, "b" -> U) ->
+                textMap(T)("a" -> X1, "c" -> U),
+              textMap(T)("a" -> X1, "b" -> U) ->
+                textMap(T)("b" -> U),
+              textMap(T)("a" -> X1, "b" -> U) ->
+                textMap(T)("b" -> U),
+              textMap(T)("a" -> X1, "b" -> U) ->
+                textMap(T)("b" -> X1, "c" -> U),
+              textMap(T)("a" -> U) ->
+                textMap(T)(),
+            ),
+            positiveTestCases = List(
+              textMap(T)("a" -> U) ->
+                textMap(T)("a" -> U),
+              textMap(T)("a" -> U, "b" -> X1) ->
+                textMap(T)("a" -> U),
+              textMap(T)("a" -> U, "b" -> X1) ->
+                textMap(T)("a" -> U, "c" -> X1),
+              textMap(T)("a" -> U, "b" -> X1) ->
+                textMap(T)("a" -> U, "b" -> X2),
+              textMap(T)("a" -> X1, "b" -> U) ->
+                textMap(T)("a" -> X1, "b" -> U),
+            ),
+          ),
+          Test(
+            typ = TGenMap(T, T),
+            negativeTestCases = List(
+              genMap(T, T)(X1 -> X1, X2 -> U) ->
+                genMap(T, T)(X1 -> X2, X2 -> U),
+              genMap(T, T)(X1 -> X1) ->
+                genMap(T, T)(X2 -> U),
+              genMap(T, T)(X1 -> X1, X2 -> U) ->
+                genMap(T, T)(X1 -> X1, X3 -> U),
+              genMap(T, T)(X1 -> X1, X2 -> U) ->
+                genMap(T, T)(X2 -> U),
+              genMap(T, T)(X1 -> X1, X2 -> U) ->
+                genMap(T, T)(X2 -> U),
+              genMap(T, T)(X1 -> X1, X2 -> U) ->
+                genMap(T, T)(X2 -> X1, X3 -> U),
+              genMap(T, T)(X1 -> U) ->
+                genMap(T, T)(),
+            ),
+            positiveTestCases = List(
+              genMap(T, T)(X1 -> U) ->
+                genMap(T, T)(X1 -> U),
+              genMap(T, T)(X1 -> U, X2 -> X1) ->
+                genMap(T, T)(X1 -> U),
+              genMap(T, T)(X1 -> U, X2 -> X1) ->
+                genMap(T, T)(X1 -> U, X3 -> X1),
+              genMap(T, T)(X1 -> U, X2 -> X1) ->
+                genMap(T, T)(X1 -> U, X2 -> X2),
+              genMap(T, T)(X1 -> X1, X2 -> U) ->
+                genMap(T, T)(X1 -> X1, X2 -> U),
+            ),
+          ),
+          Test(
+            typ = TStruct(Struct.assertFromSeq(List(fstName -> T, sndName -> T))),
+            negativeTestCases = List(
+              tupleS(X1, U) -> tupleS(X2, U)
+            ),
+            positiveTestCases = List(
+              tupleS(U, X1) -> tupleS(U, X1),
+              tupleS(U, X1) -> tupleS(U, X2),
+              tupleS(X1, U) -> tupleS(X1, U),
+            ),
+          ),
+          Test(
+            typ = TAny,
+            negativeTestCases = List(
+              EToAny(tApps(eitherT, funT, TText), right(funT, TText)(fun1)) ->
+                EToAny(tApps(eitherT, funT, TInt64), right(funT, TInt64)(fun1))
+            ),
+            positiveTestCases = List(
+              EToAny(T, U) -> EToAny(T, U)
+            ),
+          ),
+        )
 
-      def textMap(T: Type)(entries: (String, Expr)*) =
-        entries.foldRight(etApps(EBuiltin(BTextMapEmpty), T)) { case ((key, value), acc) =>
-          eApps(etApps(EBuiltin(BTextMapInsert), T), text(key), value, acc)
-        }
-
-      def genMap(kT: Type, vT: Type)(entries: (Expr, Expr)*) =
-        entries.foldRight(etApps(EBuiltin(BGenMapEmpty), kT, vT)) { case ((key, value), acc) =>
-          eApps(etApps(EBuiltin(BGenMapInsert), kT, vT), key, value, acc)
-        }
-
-      def tupleS(fst: Expr, snd: Expr) =
-        EStructCon(ImmArray(fstName -> fst, sndName -> snd))
-
-      val T = tApps(eitherT, funT, TInt64)
-      val X1 = left(funT, TInt64)(e"1")
-      val X2 = left(funT, TInt64)(e"2")
-      val X3 = left(funT, TInt64)(e"3")
-      val U = right(funT, TInt64)(fun1)
-
-      case class Test(
-          typ: Type,
-          negativeTestCases: List[(Expr, Expr)],
-          positiveTestCases: List[(Expr, Expr)],
-      )
-
-      val tests = Table(
-        ("test cases"),
-        Test(
-          typ = funT,
-          negativeTestCases = List.empty,
-          positiveTestCases = List(fun1 -> fun1, fun1 -> fun2),
-        ),
-        Test(
-          typ = T,
-          negativeTestCases = List(X1 -> U, U -> X1),
-          positiveTestCases = List(U -> U),
-        ),
-        Test(
-          typ = tApps(tupleT, T, T),
-          negativeTestCases = List(
-            tupleR(T, T)(X1, U) -> tupleR(T, T)(X2, U)
-          ),
-          positiveTestCases = List(
-            tupleR(T, T)(U, X1) -> tupleR(T, T)(U, X1),
-            tupleR(T, T)(U, X1) -> tupleR(T, T)(U, X2),
-            tupleR(T, T)(X1, U) -> tupleR(T, T)(X1, U),
-          ),
-        ),
-        Test(
-          typ = TList(T),
-          negativeTestCases = List(
-            list(T)(X1, U) -> list(T)(X2, U),
-            list(T)(U) -> list(T)(),
-            list(T)() -> list(T)(U),
-          ),
-          positiveTestCases = List(
-            list(T)(U) -> list(T)(U),
-            list(T)(U, X1) -> list(T)(U),
-            list(T)(X1, U) -> list(T)(X1, U),
-            list(T)(X1, U, X1) -> list(T)(X1, U),
-          ),
-        ),
-        Test(
-          typ = TOptional(T),
-          negativeTestCases = List(
-            ENone(T) -> ESome(T, U),
-            ESome(T, X1) -> ESome(T, U),
-          ),
-          positiveTestCases = List(
-            ESome(T, U) -> ESome(T, U)
-          ),
-        ),
-        Test(
-          typ = TTextMap(T),
-          negativeTestCases = List(
-            textMap(T)("a" -> X1, "b" -> U) ->
-              textMap(T)("a" -> X2, "b" -> U),
-            textMap(T)("a" -> X1) ->
-              textMap(T)("b" -> U),
-            textMap(T)("a" -> X1, "b" -> U) ->
-              textMap(T)("a" -> X1, "c" -> U),
-            textMap(T)("a" -> X1, "b" -> U) ->
-              textMap(T)("b" -> U),
-            textMap(T)("a" -> X1, "b" -> U) ->
-              textMap(T)("b" -> U),
-            textMap(T)("a" -> X1, "b" -> U) ->
-              textMap(T)("b" -> X1, "c" -> U),
-            textMap(T)("a" -> U) ->
-              textMap(T)(),
-          ),
-          positiveTestCases = List(
-            textMap(T)("a" -> U) ->
-              textMap(T)("a" -> U),
-            textMap(T)("a" -> U, "b" -> X1) ->
-              textMap(T)("a" -> U),
-            textMap(T)("a" -> U, "b" -> X1) ->
-              textMap(T)("a" -> U, "c" -> X1),
-            textMap(T)("a" -> U, "b" -> X1) ->
-              textMap(T)("a" -> U, "b" -> X2),
-            textMap(T)("a" -> X1, "b" -> U) ->
-              textMap(T)("a" -> X1, "b" -> U),
-          ),
-        ),
-        Test(
-          typ = TGenMap(T, T),
-          negativeTestCases = List(
-            genMap(T, T)(X1 -> X1, X2 -> U) ->
-              genMap(T, T)(X1 -> X2, X2 -> U),
-            genMap(T, T)(X1 -> X1) ->
-              genMap(T, T)(X2 -> U),
-            genMap(T, T)(X1 -> X1, X2 -> U) ->
-              genMap(T, T)(X1 -> X1, X3 -> U),
-            genMap(T, T)(X1 -> X1, X2 -> U) ->
-              genMap(T, T)(X2 -> U),
-            genMap(T, T)(X1 -> X1, X2 -> U) ->
-              genMap(T, T)(X2 -> U),
-            genMap(T, T)(X1 -> X1, X2 -> U) ->
-              genMap(T, T)(X2 -> X1, X3 -> U),
-            genMap(T, T)(X1 -> U) ->
-              genMap(T, T)(),
-          ),
-          positiveTestCases = List(
-            genMap(T, T)(X1 -> U) ->
-              genMap(T, T)(X1 -> U),
-            genMap(T, T)(X1 -> U, X2 -> X1) ->
-              genMap(T, T)(X1 -> U),
-            genMap(T, T)(X1 -> U, X2 -> X1) ->
-              genMap(T, T)(X1 -> U, X3 -> X1),
-            genMap(T, T)(X1 -> U, X2 -> X1) ->
-              genMap(T, T)(X1 -> U, X2 -> X2),
-            genMap(T, T)(X1 -> X1, X2 -> U) ->
-              genMap(T, T)(X1 -> X1, X2 -> U),
-          ),
-        ),
-        Test(
-          typ = TStruct(Struct.assertFromSeq(List(fstName -> T, sndName -> T))),
-          negativeTestCases = List(
-            tupleS(X1, U) -> tupleS(X2, U)
-          ),
-          positiveTestCases = List(
-            tupleS(U, X1) -> tupleS(U, X1),
-            tupleS(U, X1) -> tupleS(U, X2),
-            tupleS(X1, U) -> tupleS(X1, U),
-          ),
-        ),
-        Test(
-          typ = TAny,
-          negativeTestCases = List(
-            EToAny(tApps(eitherT, funT, TText), right(funT, TText)(fun1)) ->
-              EToAny(tApps(eitherT, funT, TInt64), right(funT, TInt64)(fun1))
-          ),
-          positiveTestCases = List(
-            EToAny(T, U) -> EToAny(T, U)
-          ),
-        ),
-      )
-
-      forEvery(tests) { case Test(typ, negativeTestCases, positiveTestCases) =>
-        negativeTestCases.foreach { case (x, y) =>
-          forEvery(builtins) { case (bi, _) =>
-            eval(bi, typ, x, y) shouldBe a[Right[_, _]]
-            if (x != y) eval(bi, typ, y, x) shouldBe a[Right[_, _]]
+        forEvery(tests) { case Test(typ, negativeTestCases, positiveTestCases) =>
+          negativeTestCases.foreach { case (x, y) =>
+            forEvery(builtins) { case (bi, _) =>
+              eval(bi, typ, x, y) shouldBe a[Right[_, _]]
+              if (x != y) eval(bi, typ, y, x) shouldBe a[Right[_, _]]
+            }
           }
-        }
 
-        positiveTestCases.foreach { case (x, y) =>
-          forEvery(builtins) { case (bi, _) =>
-            eval(bi, typ, x, y) shouldBe a[Left[_, _]]
-            if (x != y) eval(bi, typ, y, x) shouldBe a[Left[_, _]]
+          positiveTestCases.foreach { case (x, y) =>
+            forEvery(builtins) { case (bi, _) =>
+              eval(bi, typ, x, y) shouldBe a[Left[_, _]]
+              if (x != y) eval(bi, typ, y, x) shouldBe a[Left[_, _]]
+            }
           }
-        }
 
+        }
       }
-
     }
 
   }

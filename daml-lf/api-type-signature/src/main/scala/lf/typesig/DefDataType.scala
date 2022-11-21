@@ -290,9 +290,11 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
                 logger.warn(s"discarded inherited choices for $choiceName, see #$githubIssue")
                 directChoice
               }, {
-                val (Some(randomKey), randomChoice) = overloads.head1
+                val (maybeRandomKey, randomChoice) = overloads.head1
                 logger.warn(
-                  s"selected $randomKey-inherited choice but discarded others for $choiceName, see #$githubIssue"
+                  s"""selected ${maybeRandomKey.fold("<unknown>")(
+                      _.toString
+                    )}-inherited choice but discarded others for $choiceName, see #$githubIssue"""
                 )
                 randomChoice
               },
