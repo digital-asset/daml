@@ -10,11 +10,8 @@ import com.squareup.javapoet._
 
 private[inner] object RecordMethods {
 
-  def apply(
-      fields: Fields,
-      className: ClassName,
-      typeParameters: IndexedSeq[String],
-      packagePrefixes: Map[PackageId, String],
+  def apply(fields: Fields, className: ClassName, typeParameters: IndexedSeq[String])(implicit
+      packagePrefixes: PackagePrefixes
   ): Vector[MethodSpec] = {
 
     val constructor = ConstructorGenerator.generateConstructor(fields)

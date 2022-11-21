@@ -80,9 +80,8 @@ private[inner] object FromValueGenerator extends StrictLogging {
       typeParameters: IndexedSeq[String],
       methodName: String,
       recordValueExtractor: (String, String) => CodeBlock,
-      packagePrefixes: Map[PackageId, String],
       isPublic: Boolean = true,
-  ): MethodSpec = {
+  )(implicit packagePrefixes: PackagePrefixes): MethodSpec = {
     logger.debug(s"Generating value decoder method $methodName")
 
     val converterParams = FromValueExtractorParameters
@@ -164,11 +163,8 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .build()
   }
 
-  def generateFieldExtractor(
-      fieldType: Type,
-      field: String,
-      accessor: CodeBlock,
-      packagePrefixes: Map[PackageId, String],
+  def generateFieldExtractor(fieldType: Type, field: String, accessor: CodeBlock)(implicit
+      packagePrefixes: PackagePrefixes
   ): CodeBlock =
     CodeBlock.of(
       "$T $L =$W$L",

@@ -20,9 +20,8 @@ object VariantValueDecodersMethods {
       typeArgs: IndexedSeq[String],
       variant: Variant.FWT,
       typeWithContext: TypeWithContext,
-      packagePrefixes: Map[PackageId, String],
       subPackage: String,
-  ): Vector[MethodSpec] = {
+  )(implicit packagePrefixes: PackagePrefixes): Vector[MethodSpec] = {
     val (variantRecords, methodSpecs) =
       getFieldsWithTypes(variant.fields, packagePrefixes).partitionMap { fieldInfo =>
         val FieldInfo(damlName, damlType, javaName, _) = fieldInfo
@@ -75,7 +74,8 @@ object VariantValueDecodersMethods {
       typeParameters: IndexedSeq[String],
       className: TypeName,
       fieldType: Type,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ) = {
     val converterParams =
       FromValueExtractorParameters.generate(typeParameters).valueDecoderParameterSpecs

@@ -29,7 +29,7 @@ private[inner] object ClassGenUtils {
   val getArguments = CodeBlock.of("event.getArguments()")
   val getAgreementText = CodeBlock.of("event.getAgreementText()")
 
-  def getContractKey(t: Type, packagePrefixes: Map[PackageId, String]) =
+  def getContractKey(t: Type)(implicit packagePrefixes: PackagePrefixes) =
     CodeBlock.of(
       "event.getContractKey().map(e -> $L)",
       FromValueGenerator.extractor(t, "e", CodeBlock.of("e"), newNameGenerator, packagePrefixes),

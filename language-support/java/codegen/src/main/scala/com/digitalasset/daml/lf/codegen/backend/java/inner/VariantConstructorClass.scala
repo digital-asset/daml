@@ -24,7 +24,8 @@ object VariantConstructorClass extends StrictLogging {
       constructorName: String,
       javaName: String,
       body: Type,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ): TypeSpec = {
     TrackLineage.of("variant constructor", constructorName) {
       logger.info("Start")
@@ -81,7 +82,8 @@ object VariantConstructorClass extends StrictLogging {
       typeArgs: IndexedSeq[String],
       body: Type,
       fieldName: String,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ) = {
     val extractorParameters = ToValueExtractorParameters.generate(typeArgs)
 
