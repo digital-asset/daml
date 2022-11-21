@@ -9,7 +9,7 @@
                 <!-- encoders are assigned the type
                     ch.qos.logback.classic.encoder.PatternLayoutEncoder by default -->
                 <encoder>
-                    <pattern>%date{"dd-MM-yyyy HH:mm:ss.SSS", UTC} [%thread] %-5level %logger{36} - %msg%replace(, context: %marker){', context: $', ''} %n</pattern>
+                    <pattern>%date{"yyyy-MM-dd HH:mm:ss.SSS", UTC} [%thread] %-5level %logger{36} - %msg%replace(, context: %marker){', context: $', ''} %n</pattern>
                 </encoder>
             </else>
         </if>
