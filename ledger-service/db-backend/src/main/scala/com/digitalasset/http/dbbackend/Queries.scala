@@ -546,7 +546,7 @@ object Queries {
       selector: Fragment,
   ): Fragment =
     fr"CASE" ++ {
-      assert(m.nonEmpty, "existing offsets must be non-empty")
+      require(m.nonEmpty, "existing offsets must be non-empty")
       val when +: whens = m.iterator.map { case (k, v) =>
         fr"WHEN ($selector = $k) THEN $v"
       }.toVector
@@ -600,7 +600,7 @@ object Queries {
       size: Int,
       groups: NonEmpty[Map[K, NonEmpty[Set[V]]]],
   ): NonEmpty[Map[K, NonEmpty[Vector[NonEmpty[Set[V]]]]]] = {
-    assert(size > 0, s"chunk size must be positive, not $size")
+    require(size > 0, s"chunk size must be positive, not $size")
     groups.transform { (_, nesv) =>
       nesv.grouped(size).collect { case NonEmpty(sv) => sv }.toVector match {
         case NonEmpty(svs) => svs
