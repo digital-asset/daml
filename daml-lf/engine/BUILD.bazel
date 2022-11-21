@@ -147,7 +147,7 @@ da_scala_test(
         "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
         "//ledger/sandbox-on-x",
-        "//ledger/test-common:dar-files-1.14-lib",
+        "//ledger/test-common:dar-files-latest-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
