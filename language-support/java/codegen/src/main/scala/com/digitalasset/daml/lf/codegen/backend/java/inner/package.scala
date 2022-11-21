@@ -132,17 +132,8 @@ package object inner {
 
   def fullyQualifiedName(
       identifier: Identifier
-  )(implicit packagePrefixes: PackagePrefixes): String =
-    fullyQualifiedName(
-      identifier.qualifiedName,
-      (identifier.packageId, PackagePrefixes unwrap packagePrefixes),
-    )
-
-  private def fullyQualifiedName(
-      qualifiedName: QualifiedName,
-      packageIdAndPackagePrefixes: (PackageId, Map[PackageId, String]),
-  ): String = {
-    val QualifiedName(module, name) = qualifiedName
+  )(implicit packagePrefixes: PackagePrefixes): String = {
+    val Identifier(packageId, QualifiedName(module, name)) = identifier
 
     // consider all but the last name segment to be part of the java package name
     val packageSegments = module.segments.slowAppend(name.segments).toSeq.dropRight(1)
@@ -150,8 +141,7 @@ package object inner {
     val className = name.segments.toSeq.takeRight(1)
 
     val packageName = packageSegments.map(_.toLowerCase)
-    val (packageId, packagePrefixes) = packageIdAndPackagePrefixes
-    val packagePrefix = packagePrefixes.getOrElse(packageId, "")
+    val packagePrefix = PackagePrefixes.unwrap(packagePrefixes).getOrElse(packageId, "")
 
     (Vector(packagePrefix) ++ packageName ++ className)
       .filter(_.nonEmpty)
