@@ -36,7 +36,7 @@ class PersistentIdentityProviderConfigStore(
       val id = identityProviderConfig.identityProviderId
       for {
         _ <- idpConfigDoesNotExist(id)
-        _ <- idpConfigIssuerDoesNotExist(Some(identityProviderConfig.issuer))
+        _ <- idpConfigByIssuerDoesNotExist(Some(identityProviderConfig.issuer))
         _ = backend.createIdentityProviderConfig(identityProviderConfig)(connection)
         domainConfig <- backend
           .getIdentityProviderConfig(id)(connection)
@@ -90,7 +90,7 @@ class PersistentIdentityProviderConfigStore(
       val id = update.identityProviderId
       for {
         _ <- idpConfigExists(id)
-        _ <- idpConfigIssuerDoesNotExist(update.issuerUpdate)
+        _ <- idpConfigByIssuerDoesNotExist(update.issuerUpdate)
         _ = {
           update.issuerUpdate.foreach(
             backend.updateIssuer(update.identityProviderId, _)(connection)
@@ -129,7 +129,7 @@ class PersistentIdentityProviderConfigStore(
     IdentityProviderConfigExists(id),
   )
 
-  private def idpConfigIssuerDoesNotExist(
+  private def idpConfigByIssuerDoesNotExist(
       issuer: Option[String]
   )(implicit connection: Connection): Result[Unit] = issuer match {
     case Some(value) =>
