@@ -5,7 +5,6 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
 import com.daml.lf.codegen.backend.java.ObjectMethods
-import com.daml.lf.data.Ref.PackageId
 import com.squareup.javapoet._
 
 private[inner] object RecordMethods {

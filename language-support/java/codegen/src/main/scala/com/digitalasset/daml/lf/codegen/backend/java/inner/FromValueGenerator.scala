@@ -11,7 +11,6 @@ import com.daml.ledger.javaapi.data.codegen.{
 }
 import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.typesig._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging

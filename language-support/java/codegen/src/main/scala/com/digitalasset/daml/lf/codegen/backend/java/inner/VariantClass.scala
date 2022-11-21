@@ -6,7 +6,6 @@ package com.daml.lf.codegen.backend.java.inner
 import com.daml.ledger.javaapi
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.codegen.backend.java.JavaEscaper
-import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.typesig._
 import PackageSignature.TypeDecl.Normal
 import com.daml.ledger.javaapi.data.codegen.ValueDecoder

@@ -5,7 +5,7 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.codegen.backend.java.JavaEscaper
-import com.daml.lf.data.Ref.{PackageId, Identifier}
+import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.typesig.{Enum, DefDataType, PackageSignature, Record, Variant}
 import PackageSignature.TypeDecl
 import TypeDecl.{Normal, Template}

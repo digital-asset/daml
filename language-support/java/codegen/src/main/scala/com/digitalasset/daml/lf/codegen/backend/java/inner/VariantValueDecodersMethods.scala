@@ -4,7 +4,6 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.lf.typesig.{Type, Variant}
-import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.typesig._
