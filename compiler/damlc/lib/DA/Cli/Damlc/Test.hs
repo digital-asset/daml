@@ -27,7 +27,6 @@ import Data.List.Extra
 import qualified Data.Map.Strict as M
 import Data.Maybe
 import qualified Data.NameMap as NM
-import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import Data.Tuple.Extra
@@ -184,34 +183,6 @@ data ChoiceIdentifier = ChoiceIdentifier
     }
     deriving (Eq, Ord, Show)
 
-data Variety tpl iface = TemplateV tpl | InterfaceV iface
-    deriving (Eq, Ord, Show)
-
-data Report = Report
-    { groupName :: String
-    , definedChoicesInside ::
-        M.Map
-          ChoiceIdentifier
-          (Variety
-            (LF.Qualified LF.Template, LF.TemplateChoice)
-            (LF.Qualified LF.DefInterface, LF.TemplateChoice))
-    , internalExercisedAnywhere :: S.Set ChoiceIdentifier
-    , internalExercisedInternal :: S.Set ChoiceIdentifier
-    , externalExercisedInternal :: S.Set ChoiceIdentifier
-    , definedContractsInside ::
-        M.Map
-          ContractIdentifier
-          (Variety
-            (LF.Qualified LF.Template)
-            (LF.Qualified LF.DefInterface))
-    , definedInterfaceImplementationsInside ::
-        M.Map (ContractIdentifier, ContractIdentifier) LF.InterfaceInstanceBody
-    , internalCreatedAnywhere :: S.Set ContractIdentifier
-    , internalCreatedInternal :: S.Set ContractIdentifier
-    , externalCreatedInternal :: S.Set ContractIdentifier
-    }
-    deriving (Show)
-
 lfTemplateIdentifier :: LF.Qualified LF.Template -> ContractIdentifier
 lfTemplateIdentifier = lfMkNameIdentifier . fmap LF.tplTypeCon
 
@@ -259,26 +230,23 @@ printTestCoverage ShowCoverage{getShowCoverage} allPackages results
             pctage _ 0 = 100
             pctage n d = max 0 $ min 100 $ 100 * fromIntegral n / fromIntegral d
 
-            allContracts = contractsDefinedIn allPackages
-            localTemplates = M.filterWithKey pred allContracts
+            allTemplates = templatesDefinedIn allPackages
+            localTemplates = M.filterWithKey pred allTemplates
               where
-                pred (ContractIdentifier Nothing _) (TemplateV _) = True
+                pred (ContractIdentifier Nothing _) _ = True
                 pred _ _ = False
             localTemplatesCreated = M.intersection allCreatedContracts localTemplates
 
-            allChoices = choicesDefinedIn allPackages
-            localTemplateChoices = M.filterWithKey pred allChoices
+            allTemplateChoices = templateChoicesDefinedIn allPackages
+            localTemplateChoices = M.filterWithKey pred allTemplateChoices
               where
-                pred (ChoiceIdentifier (ContractIdentifier Nothing _) _) (TemplateV _) = True
+                pred (ChoiceIdentifier (ContractIdentifier Nothing _) _) _ = True
                 pred _ _ = False
             localTemplateChoicesExercised = M.intersection allExercisedChoices localTemplateChoices
 
+            allInterfaces = interfacesDefinedIn allPackages
             allImplementations = interfaceImplementationsDefinedIn allPackages
-            fillInImplementation (ifaceId, _) (loe, instanceBody) = (loe, instanceBody, def)
-              where
-                def = case M.lookup ifaceId allContracts of
-                        Just (InterfaceV def) -> Just def
-                        _ -> Nothing
+            fillInImplementation (ifaceId, _) (loe, instanceBody) = (loe, instanceBody, M.lookup ifaceId allInterfaces)
 
             allImplementationChoices = M.fromList $ do
                 (k@(_, contractId), (loe, body, mdef)) <- M.toList $ M.mapWithKey fillInImplementation allImplementations
@@ -297,15 +265,15 @@ printTestCoverage ShowCoverage{getShowCoverage} allPackages results
                 pred (_, loe, _, _, _) = not (isLocal loe)
             externalImplementationChoicesExercised = M.intersection allExercisedChoices externalImplementationChoices
 
-            externalTemplates = M.filterWithKey pred allContracts
+            externalTemplates = M.filterWithKey pred allTemplates
               where
-                pred (ContractIdentifier (Just _) _) (TemplateV _) = True
+                pred (ContractIdentifier (Just _) _) _ = True
                 pred _ _ = False
             externalTemplatesCreated = M.intersection allCreatedContracts externalTemplates
 
-            externalTemplateChoices = M.filterWithKey pred allChoices
+            externalTemplateChoices = M.filterWithKey pred allTemplateChoices
               where
-                pred (ChoiceIdentifier (ContractIdentifier (Just _) _) _) (TemplateV _) = True
+                pred (ChoiceIdentifier (ContractIdentifier (Just _) _) _) _ = True
                 pred _ _ = False
             externalTemplateChoicesExercised = M.intersection allExercisedChoices externalTemplateChoices
 
@@ -401,9 +369,6 @@ printTestCoverage ShowCoverage{getShowCoverage} allPackages results
           ] ++ showCoverageReport printChoiceIdentifier "never exercised" neverExercised
         ]
 
-    contractsDefinedIn :: [LocalOrExternal] -> M.Map ContractIdentifier (Variety (LF.Qualified LF.Template) (LF.Qualified LF.DefInterface))
-    contractsDefinedIn = fmap TemplateV . templatesDefinedIn <> fmap InterfaceV . interfacesDefinedIn
-
     templatesDefinedIn :: [LocalOrExternal] -> M.Map ContractIdentifier (LF.Qualified LF.Template)
     templatesDefinedIn localOrExternals = M.fromList
         [ (lfTemplateIdentifier templateInfo, templateInfo)
@@ -422,22 +387,11 @@ printTestCoverage ShowCoverage{getShowCoverage} allPackages results
         , let interfaceInfo = qualifier interface
         ]
 
-    choicesDefinedIn :: [LocalOrExternal] -> M.Map ChoiceIdentifier (Variety (LF.Qualified LF.Template, LF.TemplateChoice) (LF.Qualified LF.DefInterface, LF.TemplateChoice))
-    choicesDefinedIn = fmap TemplateV . templateChoicesDefinedIn <> fmap InterfaceV . interfaceChoicesDefinedIn
-
     templateChoicesDefinedIn :: [LocalOrExternal] -> M.Map ChoiceIdentifier (LF.Qualified LF.Template, LF.TemplateChoice)
     templateChoicesDefinedIn localOrExternals = M.fromList
         [ (ChoiceIdentifier templateIdentifier name, (templateInfo, choice))
         | (templateIdentifier, templateInfo) <- M.toList $ templatesDefinedIn localOrExternals
         , choice <- NM.toList $ LF.tplChoices $ LF.qualObject templateInfo
-        , let name = LF.unChoiceName $ LF.chcName choice
-        ]
-
-    interfaceChoicesDefinedIn :: [LocalOrExternal] -> M.Map ChoiceIdentifier (LF.Qualified LF.DefInterface, LF.TemplateChoice)
-    interfaceChoicesDefinedIn localOrExternals = M.fromList
-        [ (ChoiceIdentifier interfaceIdentifier name, (interfaceInfo, choice))
-        | (interfaceIdentifier, interfaceInfo) <- M.toList $ interfacesDefinedIn localOrExternals
-        , choice <- NM.toList $ LF.intChoices $ LF.qualObject interfaceInfo
         , let name = LF.unChoiceName $ LF.chcName choice
         ]
 
