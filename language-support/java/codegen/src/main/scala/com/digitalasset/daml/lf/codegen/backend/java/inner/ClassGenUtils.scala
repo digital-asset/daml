@@ -79,14 +79,15 @@ private[inner] object ClassGenUtils {
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       fields: Fields,
-      packagePrefixes: Map[PackageId, String],
-  )(alter: MethodSpec.Builder => MethodSpec.Builder): MethodSpec = {
+  )(alter: MethodSpec.Builder => MethodSpec.Builder)(implicit
+      packagePrefixes: PackagePrefixes
+  ): MethodSpec = {
     val methodName = s"$name${choiceName.capitalize}"
     val choiceBuilder = MethodSpec
       .methodBuilder(methodName)
       .addModifiers(Modifier.PUBLIC)
       .returns(returns)
-    val javaType = toJavaTypeName(choice.param, packagePrefixes)
+    val javaType = toJavaTypeName(choice.param)
     for (FieldInfo(_, _, javaName, javaType) <- fields) {
       choiceBuilder.addParameter(javaType, javaName)
     }
