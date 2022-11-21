@@ -6,18 +6,14 @@ package com.daml.platform.localstore
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
 import com.daml.logging.LoggingContext
-import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
-  IdentityProviderConfigExists,
-  IdentityProviderConfigNotFound,
-  IdentityProviderConfigWithIssuerExists,
-  Result,
-}
+import com.daml.platform.localstore.api.IdentityProviderConfigStore._
 import com.daml.platform.localstore.api.{IdentityProviderConfigStore, IdentityProviderConfigUpdate}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
 
-class InMemoryIdentityProviderConfigStore extends IdentityProviderConfigStore {
+class InMemoryIdentityProviderConfigStore(maxIdentityProviderConfigs: Int = 10)
+    extends IdentityProviderConfigStore {
   private val state: TrieMap[IdentityProviderId.Id, IdentityProviderConfig] =
     TrieMap[IdentityProviderId.Id, IdentityProviderConfig]()
 
@@ -27,10 +23,9 @@ class InMemoryIdentityProviderConfigStore extends IdentityProviderConfigStore {
     for {
       _ <- checkIssuerDoNotExists(identityProviderConfig.issuer)
       _ <- checkIdDoNotExists(identityProviderConfig.identityProviderId)
-    } yield {
-      state.put(identityProviderConfig.identityProviderId, identityProviderConfig)
-      identityProviderConfig
-    }
+      _ = state.put(identityProviderConfig.identityProviderId, identityProviderConfig)
+      _ <- tooManyIdentityProviderConfigs()
+    } yield identityProviderConfig
   }
 
   override def getIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
@@ -86,6 +81,14 @@ class InMemoryIdentityProviderConfigStore extends IdentityProviderConfigStore {
       (),
       IdentityProviderConfigExists(id),
     )
+
+  private def tooManyIdentityProviderConfigs(): Result[Unit] = {
+    Either.cond(
+      state.size <= maxIdentityProviderConfigs,
+      (),
+      TooManyIdentityProviderConfigs(),
+    )
+  }
 
   def checkIdExists(id: IdentityProviderId.Id): Result[IdentityProviderConfig] =
     state.get(id).toRight(IdentityProviderConfigNotFound(id))

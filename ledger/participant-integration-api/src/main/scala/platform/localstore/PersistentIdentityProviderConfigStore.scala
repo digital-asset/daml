@@ -12,6 +12,7 @@ import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
   IdentityProviderConfigNotFound,
   IdentityProviderConfigWithIssuerExists,
   Result,
+  TooManyIdentityProviderConfigs,
 }
 import com.daml.platform.localstore.api.{IdentityProviderConfigStore, IdentityProviderConfigUpdate}
 import com.daml.platform.store.DbSupport
@@ -22,6 +23,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class PersistentIdentityProviderConfigStore(
     dbSupport: DbSupport,
     metrics: Metrics,
+    maxIdentityProviderConfigs: Int,
 )(implicit executionContext: ExecutionContext)
     extends IdentityProviderConfigStore {
 
@@ -38,13 +40,14 @@ class PersistentIdentityProviderConfigStore(
         _ <- idpConfigDoesNotExist(id)
         _ <- idpConfigByIssuerDoesNotExist(Some(identityProviderConfig.issuer))
         _ = backend.createIdentityProviderConfig(identityProviderConfig)(connection)
+        _ <- tooManyIdentityProviderConfigs()(connection)
         domainConfig <- backend
           .getIdentityProviderConfig(id)(connection)
           .toRight(IdentityProviderConfigNotFound(id))
       } yield domainConfig
-    }.map(tapSuccess { _ =>
+    }.map(tapSuccess { cfg =>
       logger.info(
-        s"Created new identity provider configuration: $identityProviderConfig"
+        s"Created new identity provider configuration: $cfg"
       )
     })
   }
@@ -113,6 +116,16 @@ class PersistentIdentityProviderConfigStore(
     })
   }
 
+  private def tooManyIdentityProviderConfigs()(
+      connection: Connection
+  ): Result[Unit] = {
+    Either.cond(
+      backend.countIdentityProviderConfigs()(connection) <= maxIdentityProviderConfigs,
+      (),
+      TooManyIdentityProviderConfigs(),
+    )
+  }
+
   private def idpConfigExists(
       id: IdentityProviderId.Id
   )(implicit connection: Connection): Result[Unit] = Either.cond(
@@ -160,11 +173,13 @@ object PersistentIdentityProviderConfigStore {
       metrics: Metrics,
       expiryAfterWriteInSeconds: Int,
       maximumCacheSize: Int,
+      maxIdentityProviderConfigs: Int,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ) = new CachedIdentityProviderConfigStore(
-    delegate = new PersistentIdentityProviderConfigStore(dbSupport, metrics),
+    delegate =
+      new PersistentIdentityProviderConfigStore(dbSupport, metrics, maxIdentityProviderConfigs),
     expiryAfterWriteInSeconds = expiryAfterWriteInSeconds,
     maximumCacheSize = maximumCacheSize,
     metrics = metrics,

@@ -4,7 +4,7 @@
 package com.daml.platform.store.backend.localstore
 
 import anorm.SqlParser.{bool, int, str}
-import anorm.{RowParser, SqlStringInterpolation, ~}
+import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.scalautil.Statement.discard
@@ -138,5 +138,10 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
          WHERE identity_provider_id = ${id.value: String}
        """.executeUpdate()(connection)
     rowsUpdated == 1
+  }
+
+  override def countIdentityProviderConfigs()(connection: Connection): Int = {
+    SQL"SELECT count(*) AS identity_provider_configs_count from participant_identity_provider_config"
+      .as(SqlParser.int("identity_provider_configs_count").single)(connection)
   }
 }
