@@ -10,11 +10,13 @@ import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
   IdentityProviderConfigExists,
   IdentityProviderConfigNotFound,
   IdentityProviderConfigWithIssuerExists,
+  TooManyIdentityProviderConfigs,
 }
 import com.daml.platform.localstore.api.IdentityProviderConfigUpdate
 import org.scalatest.freespec.AsyncFreeSpec
 
 import java.util.UUID
+import scala.concurrent.Future
 
 trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBase {
   self: AsyncFreeSpec =>
@@ -70,6 +72,18 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
         } yield {
           res1 shouldBe Right(cfg1)
           res2 shouldBe Left(IdentityProviderConfigWithIssuerExists("issuer1"))
+        }
+      }
+    }
+
+    s"disallow to create more than 10 configs" in {
+      testIt { tested =>
+        for {
+          res1 <- Future.sequence((1 to 10).map(_ => tested.createIdentityProviderConfig(config())))
+          res2 <- tested.createIdentityProviderConfig(config())
+        } yield {
+          res1.forall(_.isRight) shouldBe true
+          res2 shouldBe Left(TooManyIdentityProviderConfigs())
         }
       }
     }

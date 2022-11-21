@@ -41,4 +41,5 @@ object IdentityProviderConfigStore {
   final case class IdentityProviderConfigExists(identityProviderId: IdentityProviderId.Id)
       extends Error
   final case class IdentityProviderConfigWithIssuerExists(issuer: String) extends Error
+  final case class TooManyIdentityProviderConfigs() extends Error
 }
