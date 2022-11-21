@@ -74,6 +74,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
     SQL"""
        SELECT identity_provider_id, is_deactivated, jwks_url, issuer
        FROM participant_identity_provider_config
+       ORDER BY identity_provider_id
        """
       .asVectorOf(IdpConfigRecordParser)(connection)
       .map { case (identityProviderId, isDeactivated, jwksURL, issuer) =>

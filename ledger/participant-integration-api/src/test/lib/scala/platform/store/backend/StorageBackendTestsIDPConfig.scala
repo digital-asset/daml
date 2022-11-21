@@ -136,16 +136,16 @@ private[backend] trait StorageBackendTestsIDPConfig
   }
 
   it should "get all identity provider configs ordered by id" in {
-    val cfg1 = config()
-    val cfg2 = config()
-    val cfg3 = config()
+    val cfg1 = config().copy(identityProviderId = id("a"))
+    val cfg2 = config().copy(identityProviderId = id("b"))
+    val cfg3 = config().copy(identityProviderId = id("c"))
     executeSql(tested.createIdentityProviderConfig(cfg1))
     executeSql(tested.createIdentityProviderConfig(cfg2))
     executeSql(tested.createIdentityProviderConfig(cfg3))
 
     executeSql(
       tested.listIdentityProviderConfigs()
-    ) should contain theSameElementsAs Vector(cfg1, cfg2, cfg3)
+    ) shouldBe Vector(cfg1, cfg2, cfg3)
   }
 
   private def config() = {
@@ -158,8 +158,9 @@ private[backend] trait StorageBackendTestsIDPConfig
   }
 
   private def randomId() = {
-    val id = UUID.randomUUID().toString
-    IdentityProviderId.Id(Ref.LedgerString.assertFromString(id))
+    id(UUID.randomUUID().toString)
   }
+
+  private def id(str: String) = IdentityProviderId.Id(Ref.LedgerString.assertFromString(str))
 
 }
