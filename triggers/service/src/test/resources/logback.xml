@@ -1,14 +1,8 @@
 <configuration>
-    <appender name="STDOUT" class="net.logstash.logback.appender.LoggingEventAsyncDisruptorAppender">
-        <appender-ref ref="console" />
-    </appender>
-
     <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
         <if condition='isDefined("LOG_FORMAT_JSON")'>
             <then>
-                <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
-                    <layout class="net.logstash.logback.layout.LoggingEventCompositeJsonLayout"/>
-                </encoder>
+                <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
             </then>
             <else>
                 <encoder>
@@ -18,15 +12,13 @@
         </if>
     </appender>
 
-    <logger name="io.netty" level="WARN">
-        <appender-ref ref="STDOUT"/>
-    </logger>
-    <logger name="io.grpc.netty" level="WARN">
-        <appender-ref ref="STDOUT"/>
-    </logger>
-    <logger name="com.daml.lf.engine.trigger" level="INFO">
-        <appender-ref ref="STDOUT"/>
-    </logger>
+    <appender name="STDOUT" class="net.logstash.logback.appender.LoggingEventAsyncDisruptorAppender">
+        <appender-ref ref="console"/>
+    </appender>
+
+    <logger name="io.netty" level="WARN"/>
+    <logger name="io.grpc.netty" level="WARN"/>
+    <logger name="com.daml.lf.engine.trigger" level="DEBUG"/>
 
     <root level="${LOG_LEVEL_ROOT:-INFO}">
         <appender-ref ref="STDOUT" />

@@ -44,5 +44,5 @@ data-dependencies:
 - deps/daml-stdlib-DA-Set-Types-1.0.0-HASH.dalf
 - deps/interface-choices-1.0.0-HASH.dalf
 build-options:
-- --target=1.dev
+- --target=1.15
 - --package=interface-choices-1.0.0

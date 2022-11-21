@@ -76,14 +76,14 @@ _method_Foo_Bar_Foo_bar
       @Bar
       @Foo
       @"bar"
-      \ this@Foo {..} -> let _ = this in let bar = False in bar
+      \ this@Foo {..} -> let _ = this in let $bar = False in $bar
 _view_Foo_Bar_Foo : DA.Internal.Desugar.InterfaceView Foo Bar Foo
 _view_Foo_Bar_Foo
   = DA.Internal.Desugar.mkInterfaceView
       @Foo
       @Bar
       @Foo
-      \ this@Foo {..} -> let _ = this in let view = BarView {} in view
+      \ this@Foo {..} -> let _ = this in let $view = BarView {} in $view
 instance DA.Internal.Desugar.HasToInterface Foo Bar where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Foo Bar where
@@ -169,14 +169,14 @@ _method_Bar_Bar_Foo_bar
       @Bar
       @Foo
       @"bar"
-      \ this@Foo {..} -> let _ = this in let bar = True in bar
+      \ this@Foo {..} -> let _ = this in let $bar = True in $bar
 _view_Bar_Bar_Foo : DA.Internal.Desugar.InterfaceView Bar Bar Foo
 _view_Bar_Bar_Foo
   = DA.Internal.Desugar.mkInterfaceView
       @Bar
       @Bar
       @Foo
-      \ this@Foo {..} -> let _ = this in let view = BarView {} in view
+      \ this@Foo {..} -> let _ = this in let $view = BarView {} in $view
 instance DA.Internal.Desugar.HasToInterface Foo Bar where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Foo Bar where
