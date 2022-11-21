@@ -32,34 +32,31 @@ package object inner {
 
   type Fields = IndexedSeq[FieldInfo]
 
-  private[inner] def getFieldsWithTypes(
-      fields: IndexedSeq[FieldWithType],
-      packagePrefixes: Map[PackageId, String],
+  private[inner] def getFieldsWithTypes(fields: IndexedSeq[FieldWithType])(implicit
+      packagePrefixes: PackagePrefixes
   ): Fields =
-    fields.map(getFieldWithType(_, packagePrefixes))
+    fields.map(getFieldWithType(_))
 
-  private[inner] def getFieldWithType(
-      fwt: FieldWithType,
-      packagePrefixes: Map[PackageId, String],
+  private[inner] def getFieldWithType(fwt: FieldWithType)(implicit
+      packagePrefixes: PackagePrefixes
   ): FieldInfo =
     FieldInfo(
       fwt._1,
       fwt._2,
       JavaEscaper.escapeString(fwt._1),
-      toJavaTypeName(fwt._2, packagePrefixes),
+      toJavaTypeName(fwt._2),
     )
 
   private[inner] def toJavaTypeName(
-      damlType: Type,
-      packagePrefixes: Map[PackageId, String],
-  ): TypeName =
+      damlType: Type
+  )(implicit packagePrefixes: PackagePrefixes): TypeName =
     damlType match {
       case TypeCon(TypeConName(ident), Seq()) =>
         ClassName.bestGuess(fullyQualifiedName(ident, packagePrefixes)).box()
       case TypeCon(TypeConName(ident), typeParameters) =>
         ParameterizedTypeName.get(
           ClassName.bestGuess(fullyQualifiedName(ident, packagePrefixes)),
-          typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*
+          typeParameters.map(toJavaTypeName(_)): _*
         )
       case TypePrim(PrimTypeBool, _) => ClassName.get(classOf[java.lang.Boolean])
       case TypePrim(PrimTypeInt64, _) => ClassName.get(classOf[java.lang.Long])
@@ -69,7 +66,7 @@ package object inner {
       case TypePrim(PrimTypeTimestamp, _) => ClassName.get(classOf[java.time.Instant])
       case TypePrim(PrimTypeParty, _) => ClassName.get(classOf[java.lang.String])
       case TypePrim(PrimTypeContractId, ImmArraySeq(templateType)) =>
-        toJavaTypeName(templateType, packagePrefixes) match {
+        toJavaTypeName(templateType) match {
           case templateClass: ClassName => templateClass.nestedClass("ContractId")
           case typeVariableName: TypeVariableName =>
             ParameterizedTypeName.get(ClassName.get(classOf[ContractId[_]]), typeVariableName)
@@ -79,26 +76,26 @@ package object inner {
         ParameterizedTypeName
           .get(
             ClassName.get(classOf[java.util.List[_]]),
-            typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*
+            typeParameters.map(toJavaTypeName(_)): _*
           )
       case TypePrim(PrimTypeOptional, typeParameters) =>
         ParameterizedTypeName
           .get(
             ClassName.get(classOf[java.util.Optional[_]]),
-            typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*
+            typeParameters.map(toJavaTypeName(_)): _*
           )
       case TypePrim(PrimTypeTextMap, typeParameters) =>
         ParameterizedTypeName
           .get(
             ClassName.get(classOf[java.util.Map[String, _]]),
             ClassName.get(classOf[java.lang.String]) +:
-              typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*
+              typeParameters.map(toJavaTypeName(_)): _*
           )
       case TypePrim(PrimTypeGenMap, typeParameters) =>
         ParameterizedTypeName
           .get(
             ClassName.get(classOf[java.util.Map[_, _]]),
-            typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*
+            typeParameters.map(toJavaTypeName(_)): _*
           )
       case TypePrim(PrimTypeUnit, _) => ClassName.get(classOf[javaapi.data.Unit])
       case TypeVar(name) => TypeVariableName.get(JavaEscaper.escapeString(name))
