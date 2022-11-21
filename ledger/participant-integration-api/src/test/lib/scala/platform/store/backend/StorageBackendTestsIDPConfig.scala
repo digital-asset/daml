@@ -74,9 +74,14 @@ private[backend] trait StorageBackendTestsIDPConfig
 
   it should "check if identity provider config's issuer exists" in {
     val cfg = config()
-    executeSql(tested.identityProviderConfigByIssuerExists(cfg.issuer)) shouldBe false
+    executeSql(
+      tested.identityProviderConfigByIssuerExists(cfg.identityProviderId, cfg.issuer)
+    ) shouldBe false
     executeSql(tested.createIdentityProviderConfig(cfg))
-    executeSql(tested.identityProviderConfigByIssuerExists(cfg.issuer)) shouldBe true
+    executeSql(tested.identityProviderConfigByIssuerExists(randomId(), cfg.issuer)) shouldBe true
+    executeSql(
+      tested.identityProviderConfigByIssuerExists(cfg.identityProviderId, cfg.issuer)
+    ) shouldBe false
   }
 
   it should "check if identity provider config by id exists" in {

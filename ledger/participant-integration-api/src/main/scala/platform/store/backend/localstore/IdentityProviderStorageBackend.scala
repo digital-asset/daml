@@ -34,7 +34,9 @@ trait IdentityProviderStorageBackend extends IdentityProviderCheckStorageBackend
       connection: Connection
   ): Boolean
 
-  def identityProviderConfigByIssuerExists(issuer: String)(connection: Connection): Boolean
+  def identityProviderConfigByIssuerExists(ignoreId: IdentityProviderId.Id, issuer: String)(
+      connection: Connection
+  ): Boolean
 
   def countIdentityProviderConfigs()(connection: Connection): Int
 
