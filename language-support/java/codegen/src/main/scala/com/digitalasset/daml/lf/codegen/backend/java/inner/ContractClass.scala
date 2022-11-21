@@ -25,8 +25,6 @@ object ContractClass {
       contractIdClassName: ClassName,
       contractKeyClassName: Option[TypeName],
       key: Option[Type],
-  )(implicit
-      packagePrefixes: PackagePrefixes
   ) {
     def addGenerateFromMethods(): Builder = {
       classBuilder

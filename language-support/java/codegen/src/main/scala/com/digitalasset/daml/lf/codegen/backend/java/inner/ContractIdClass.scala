@@ -28,8 +28,6 @@ object ContractIdClass {
       templateClassName: ClassName,
       choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
       kind: For,
-  )(implicit
-      packagePrefixes: PackagePrefixes
   ) = Builder.create(
     templateClassName,
     choices,
@@ -41,8 +39,6 @@ object ContractIdClass {
       contractIdClassName: ClassName,
       idClassBuilder: TypeSpec.Builder,
       choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
-  )(implicit
-      packagePrefixes: PackagePrefixes
   ) {
     def build(): TypeSpec = idClassBuilder.build()
 
@@ -246,8 +242,6 @@ object ContractIdClass {
         templateClassName: ClassName,
         choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
         kind: For,
-    )(implicit
-        packagePrefixes: PackagePrefixes
     ): Builder = {
 
       val idClassBuilder =
