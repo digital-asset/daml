@@ -128,7 +128,7 @@ object TriggerRunnerImpl {
               // Report to the server that this trigger is entering
               // the running state.
               config.server ! Server.TriggerStarted(triggerInstance)
-              logger.info(s"Trigger $name is starting")
+              logger.info(s"Trigger $name is running")
               running(killSwitch)
             } catch {
               case cause: Throwable =>
