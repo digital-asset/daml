@@ -52,10 +52,10 @@ package object inner {
   )(implicit packagePrefixes: PackagePrefixes): TypeName =
     damlType match {
       case TypeCon(TypeConName(ident), Seq()) =>
-        ClassName.bestGuess(fullyQualifiedName(ident, packagePrefixes)).box()
+        ClassName.bestGuess(fullyQualifiedName(ident)).box()
       case TypeCon(TypeConName(ident), typeParameters) =>
         ParameterizedTypeName.get(
-          ClassName.bestGuess(fullyQualifiedName(ident, packagePrefixes)),
+          ClassName.bestGuess(fullyQualifiedName(ident)),
           typeParameters.map(toJavaTypeName(_)): _*
         )
       case TypePrim(PrimTypeBool, _) => ClassName.get(classOf[java.lang.Boolean])
@@ -132,8 +132,7 @@ package object inner {
   private[codegen] val PackagePrefixes = scalaz.Tag.of[PackagePrefixesTag]
 
   def fullyQualifiedName(
-      identifier: Identifier,
-      nowIgnored: Any,
+      identifier: Identifier
   )(implicit packagePrefixes: PackagePrefixes): String =
     fullyQualifiedName(
       identifier.qualifiedName,

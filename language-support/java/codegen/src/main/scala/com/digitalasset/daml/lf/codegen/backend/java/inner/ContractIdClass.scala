@@ -58,7 +58,7 @@ object ContractIdClass {
       )
       implementedInterfaces.foreach { interfaceName =>
         val name =
-          ClassName.bestGuess(fullyQualifiedName(interfaceName, packagePrefixes))
+          ClassName.bestGuess(fullyQualifiedName(interfaceName))
         val interfaceContractIdName = name nestedClass "ContractId"
         val tplContractIdClassName = templateClassName.nestedClass("ContractId")
         idClassBuilder.addMethod(
@@ -142,7 +142,7 @@ object ContractIdClass {
       packagePrefixes: PackagePrefixes
   ) =
     implementedInterfaces.map { interfaceName =>
-      val name = ClassName.bestGuess(fullyQualifiedName(interfaceName, packagePrefixes))
+      val name = ClassName.bestGuess(fullyQualifiedName(interfaceName))
       val interfaceContractIdName = name nestedClass nestedReturn
       MethodSpec
         .methodBuilder("toInterface")

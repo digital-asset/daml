@@ -108,7 +108,7 @@ object CodeGenRunner extends StrictLogging {
 
     val templateClassNames: Vector[ClassName] = serializableTypes.collect {
       case id -> (_: TypeDecl.Template) =>
-        ClassName.bestGuess(fullyQualifiedName(id, packagePrefixes))
+        ClassName.bestGuess(fullyQualifiedName(id))
     }
 
   }

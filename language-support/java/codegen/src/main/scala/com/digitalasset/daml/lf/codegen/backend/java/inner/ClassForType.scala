@@ -25,7 +25,7 @@ object ClassForType extends StrictLogging {
         .toList
 
     def generateForType(lfInterfaceType: TypeDecl): List[JavaFile] = {
-      val classNameString = fullyQualifiedName(typeWithContext.identifier, packagePrefixes)
+      val classNameString = fullyQualifiedName(typeWithContext.identifier)
       val className = ClassName.bestGuess(classNameString)
       generateInterfaceTypes(typeWithContext) ++
         generateSerializableTypes(typeWithContext, className, lfInterfaceType)
@@ -44,8 +44,7 @@ object ClassForType extends StrictLogging {
     for {
       (interfaceName, interface) <- typeWithContext.interface.interfaces.toList
       classNameString = fullyQualifiedName(
-        Identifier(typeWithContext.interface.packageId, interfaceName),
-        packagePrefixes,
+        Identifier(typeWithContext.interface.packageId, interfaceName)
       )
       className = ClassName.bestGuess(classNameString)
       interfaceViewTypeName = ClassName.bestGuess(
@@ -54,8 +53,7 @@ object ClassForType extends StrictLogging {
             throw new IllegalArgumentException(
               s"View Type is required for interface $interfaceName"
             )
-          ),
-          packagePrefixes,
+          )
         )
       )
       packageName = className.packageName()
