@@ -219,6 +219,25 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
       }
     }
 
+    "allows to update existing identity provider config's issuer attribute to the same value" in {
+      testIt { tested =>
+        val cfg = config().copy(issuer = "issuer1")
+        for {
+          _ <- tested.createIdentityProviderConfig(cfg)
+          res2 <- tested.updateIdentityProviderConfig(
+            IdentityProviderConfigUpdate(
+              identityProviderId = cfg.identityProviderId,
+              issuerUpdate = Some("issuer1"),
+            )
+          )
+          res3 <- tested.getIdentityProviderConfig(cfg.identityProviderId)
+        } yield {
+          res2 shouldBe Right(cfg.copy(issuer = "issuer1"))
+          res3 shouldBe Right(cfg.copy(issuer = "issuer1"))
+        }
+      }
+    }
+
     "allows to update everything at the same time" in {
       testIt { tested =>
         val id = randomId()

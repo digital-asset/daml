@@ -88,14 +88,17 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
   }
 
   override def identityProviderConfigByIssuerExists(
-      issuer: String
+      ignoreId: IdentityProviderId.Id,
+      issuer: String,
   )(connection: Connection): Boolean = {
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     val res: Seq[_] =
       SQL"""
          SELECT 1 AS dummy
          FROM participant_identity_provider_config t
-         WHERE t.issuer = $issuer
+         WHERE
+            t.issuer = $issuer AND
+            identity_provider_id != ${ignoreId.value: String}
          """.asVectorOf(IntParser)(connection)
     assert(res.length <= 1)
     res.length == 1
