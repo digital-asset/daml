@@ -31,6 +31,7 @@ import Data.Either
 import Data.Tuple.Extra
 import Data.List.Extra
 import Data.Maybe
+import Data.Void (Void)
 import Options.Applicative
 import System.Directory
 import System.Environment
@@ -901,8 +902,8 @@ infixr 6 <.> -- This is the same fixity as '<>'.
 -- TokenInterface<Asset>`. If the template implements a second `Other` interface, the type `ContractId
 -- Token` needs to be replaced with `ContractId (TokenInterface<Asset> & OtherInterface<Asset>)` and
 -- `ContractId Other` with `ContractId (TokenInterface<Asset> & OtherInterface<Asset>)`.
-genType :: TypeRef -> Maybe (Set.Set TsTypeConRef, T.Text) -> GenType
-genType (TypeRef curModName t) mbSubst = uncurry GenType $ go t
+genType :: TypeRef -> Maybe Void -> GenType
+genType (TypeRef curModName t) _ = uncurry GenType $ go t
   where
     go = \case
         TVar v -> dupe (unTypeVarName v)
@@ -941,9 +942,7 @@ genType (TypeRef curModName t) mbSubst = uncurry GenType $ go t
             in
             ("damlTypes.ContractId<" <> t' <> ">", "damlTypes.ContractId(" <> ser <> ")")
         TConApp con ts ->
-            let (con', ser)
-                  | Just (impls, subst) <- mbSubst, (fst $ genTypeCon curModName con) `Set.member` impls = (subst, "")
-                  | otherwise = coerce $ genTypeCon curModName con
+            let (con', ser) = coerce $ genTypeCon curModName con
                 (ts', sers) = unzip (map go ts)
             in
             if null ts
