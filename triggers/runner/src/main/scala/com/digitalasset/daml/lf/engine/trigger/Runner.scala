@@ -616,7 +616,6 @@ private[lf] class Runner private (
           triggerContext.childSpan("update") { implicit triggerContext: TriggerLogContext =>
             triggerContext.logInfo("Transaction source")
 
-
             triggerContext.childSpan("evaluation") { implicit triggerContext: TriggerLogContext =>
               Ctx(triggerContext, TriggerMsg.Transaction(transaction))
             }
@@ -748,18 +747,18 @@ private[lf] class Runner private (
     import UnfoldState.{flatMapConcatNode, flatMapConcatNodeOps, toSource, toSourceOps}
 
     val runInitialState = {
-        toSource(
-          freeTriggerSubmits(clientTime, initialStateFree)
-            .leftMap { state =>
-              triggerContext.logDebug(
-                "Trigger rule initial state",
-                "state" -> triggerUserState(state, trigger.defn.level),
-              )
+      toSource(
+        freeTriggerSubmits(clientTime, initialStateFree)
+          .leftMap { state =>
+            triggerContext.logDebug(
+              "Trigger rule initial state",
+              "state" -> triggerUserState(state, trigger.defn.level),
+            )
 
-              state
-            }
-        )
-      }
+            state
+          }
+      )
+    }
 
     val runRuleOnMsgs = flatMapConcatNode { (state: SValue, messageVal: TriggerContext[SValue]) =>
       messageVal.context.enrichTriggerContext() { implicit triggerContext: TriggerLogContext =>
@@ -991,8 +990,9 @@ private[lf] class Runner private (
   ): (T, Future[SValue]) = {
     triggerContext.nextSpan("rule") { implicit triggerContext: TriggerLogContext =>
       val source = msgSource(client, offset, trigger.heartbeat, parties, transactionFilter)
-      val triggerRuleEvaluator = triggerContext.childSpan("initialization") { implicit triggerContext: TriggerLogContext =>
-        getTriggerEvaluator(acs)
+      val triggerRuleEvaluator = triggerContext.childSpan("initialization") {
+        implicit triggerContext: TriggerLogContext =>
+          getTriggerEvaluator(acs)
       }
 
       Flow
