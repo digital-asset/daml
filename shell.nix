@@ -3,4 +3,8 @@
 }:
 pkgs.mkShell {
   buildInputs = pkgs.lib.attrsets.mapAttrsToList (name: value: value) default.toolAttrs;
+
+  shellHook = ''
+    pre-commit install
+  '';
 }
