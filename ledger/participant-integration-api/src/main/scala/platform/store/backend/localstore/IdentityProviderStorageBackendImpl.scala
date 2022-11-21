@@ -13,10 +13,10 @@ import java.sql.Connection
 
 object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend {
 
-  private val IntParser0: RowParser[Int] =
+  private val IntParser: RowParser[Int] =
     int("dummy") map { i => i }
 
-  private val IDPConfigRecordParser: RowParser[(String, Boolean, String, String)] = {
+  private val IdpConfigRecordParser: RowParser[(String, Boolean, String, String)] = {
     import com.daml.platform.store.backend.Conversions.bigDecimalColumnToBoolean
     str("identity_provider_id") ~
       bool("is_deactivated") ~
@@ -31,7 +31,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
   ): Unit = {
     val identityProviderId = identityProviderConfig.identityProviderId.value: String
     val isDeactivated = identityProviderConfig.isDeactivated
-    val jwksUrl = identityProviderConfig.jwksURL.value
+    val jwksUrl = identityProviderConfig.jwksUrl.value
     val issuer = identityProviderConfig.issuer
     discard(SQL"""
        INSERT INTO participant_identity_provider_config (identity_provider_id, is_deactivated, jwks_url, issuer)
@@ -57,12 +57,12 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
        FROM participant_identity_provider_config
        WHERE identity_provider_id = ${id.value: String}
        """
-      .as(IDPConfigRecordParser.singleOpt)(connection)
+      .as(IdpConfigRecordParser.singleOpt)(connection)
       .map { case (identityProviderId, isDeactivated, jwksURL, issuer) =>
         IdentityProviderConfig(
           identityProviderId = IdentityProviderId.Id.assertFromString(identityProviderId),
           isDeactivated = isDeactivated,
-          jwksURL = JwksUrl.assertFromString(jwksURL),
+          jwksUrl = JwksUrl.assertFromString(jwksURL),
           issuer = issuer,
         )
       }
@@ -75,25 +75,27 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
        SELECT identity_provider_id, is_deactivated, jwks_url, issuer
        FROM participant_identity_provider_config
        """
-      .asVectorOf(IDPConfigRecordParser)(connection)
+      .asVectorOf(IdpConfigRecordParser)(connection)
       .map { case (identityProviderId, isDeactivated, jwksURL, issuer) =>
         IdentityProviderConfig(
           identityProviderId = IdentityProviderId.Id.assertFromString(identityProviderId),
           isDeactivated = isDeactivated,
-          jwksURL = JwksUrl.assertFromString(jwksURL),
+          jwksUrl = JwksUrl.assertFromString(jwksURL),
           issuer = issuer,
         )
       }
   }
 
-  override def idpConfigByIssuerExists(issuer: String)(connection: Connection): Boolean = {
+  override def identityProviderConfigByIssuerExists(
+      issuer: String
+  )(connection: Connection): Boolean = {
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     val res: Seq[_] =
       SQL"""
          SELECT 1 AS dummy
-         FROM participant_identity_provider_config idpcfg
-         WHERE idpcfg.issuer = $issuer
-         """.asVectorOf(IntParser0)(connection)
+         FROM participant_identity_provider_config t
+         WHERE t.issuer = $issuer
+         """.asVectorOf(IntParser)(connection)
     assert(res.length <= 1)
     res.length == 1
   }
@@ -113,13 +115,13 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
     rowsUpdated == 1
   }
 
-  override def updateJwksURL(id: IdentityProviderId.Id, jwksURL: JwksUrl)(
+  override def updateJwksUrl(id: IdentityProviderId.Id, jwksUrl: JwksUrl)(
       connection: Connection
   ): Boolean = {
     val rowsUpdated =
       SQL"""
          UPDATE participant_identity_provider_config
-         SET jwks_url  = ${jwksURL.value}
+         SET jwks_url = ${jwksUrl.value}
          WHERE identity_provider_id = ${id.value: String}
        """.executeUpdate()(connection)
     rowsUpdated == 1

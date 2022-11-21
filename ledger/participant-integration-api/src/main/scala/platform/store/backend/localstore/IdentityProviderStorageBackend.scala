@@ -26,7 +26,7 @@ trait IdentityProviderStorageBackend extends IdentityProviderCheckStorageBackend
       connection: Connection
   ): Boolean
 
-  def updateJwksURL(id: IdentityProviderId.Id, jwksURL: JwksUrl)(
+  def updateJwksUrl(id: IdentityProviderId.Id, jwksUrl: JwksUrl)(
       connection: Connection
   ): Boolean
 
@@ -34,8 +34,6 @@ trait IdentityProviderStorageBackend extends IdentityProviderCheckStorageBackend
       connection: Connection
   ): Boolean
 
-  def idpConfigByIssuerExists(issuer: String)(connection: Connection): Boolean
+  def identityProviderConfigByIssuerExists(issuer: String)(connection: Connection): Boolean
 
 }
-
-object IdentityProviderStorageBackend {}

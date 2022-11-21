@@ -64,10 +64,12 @@ class InMemoryIdentityProviderConfigStore extends IdentityProviderConfigStore {
       currentState <- checkIdExists(id)
       _ <- update.issuerUpdate.map(checkIssuerDoNotExists).getOrElse(Right(()))
     } yield {
-      currentState
+      val updatedValue = currentState
         .copy(isDeactivated = update.isDeactivatedUpdate.getOrElse(currentState.isDeactivated))
         .copy(issuer = update.issuerUpdate.getOrElse(currentState.issuer))
-        .copy(jwksURL = update.jwksUrlUpdate.getOrElse(currentState.jwksURL))
+        .copy(jwksUrl = update.jwksUrlUpdate.getOrElse(currentState.jwksUrl))
+      state.put(update.identityProviderId, updatedValue)
+      updatedValue
     }
   }
 

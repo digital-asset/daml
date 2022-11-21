@@ -8,6 +8,7 @@ import com.daml.caching.CaffeineCache.FutureAsyncCacheLoader
 import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.localstore.CachedIdentityProviderConfigStore.SingletonCacheKey
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.Result
 import com.daml.platform.localstore.api.{IdentityProviderConfigStore, IdentityProviderConfigUpdate}
 import com.github.benmanes.caffeine.{cache => caffeine}
@@ -42,7 +43,7 @@ class CachedIdentityProviderConfigStore(
     )
 
   private val idpListCache: CaffeineCache.AsyncLoadingCaffeineCache[
-    CaffeineCache.type,
+    SingletonCacheKey.type,
     Result[Seq[IdentityProviderConfig]],
   ] =
     new CaffeineCache.AsyncLoadingCaffeineCache(
@@ -51,8 +52,8 @@ class CachedIdentityProviderConfigStore(
         .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
         .maximumSize(1)
         .buildAsync(
-          new FutureAsyncCacheLoader[CaffeineCache.type, Result[Seq[IdentityProviderConfig]]](_ =>
-            delegate.listIdentityProviderConfigs()
+          new FutureAsyncCacheLoader[SingletonCacheKey.type, Result[Seq[IdentityProviderConfig]]](
+            _ => delegate.listIdentityProviderConfigs()
           )
         ),
       metrics.daml.identityProviderConfigStore.cache,
@@ -76,7 +77,7 @@ class CachedIdentityProviderConfigStore(
 
   override def listIdentityProviderConfigs()(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Seq[IdentityProviderConfig]]] = idpListCache.get(CaffeineCache)
+  ): Future[Result[Seq[IdentityProviderConfig]]] = idpListCache.get(SingletonCacheKey)
 
   override def updateIdentityProviderConfig(update: IdentityProviderConfigUpdate)(implicit
       loggingContext: LoggingContext
@@ -88,6 +89,10 @@ class CachedIdentityProviderConfigStore(
       id: IdentityProviderId.Id
   ): PartialFunction[Try[Result[Any]], Unit] = { case Success(Right(_)) =>
     idpCache.invalidate(id)
-    idpListCache.invalidate(CaffeineCache)
+    idpListCache.invalidate(SingletonCacheKey)
   }
+}
+
+object CachedIdentityProviderConfigStore {
+  case object SingletonCacheKey
 }

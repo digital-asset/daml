@@ -56,10 +56,10 @@ private[backend] trait StorageBackendTestsIDPConfig
     val cfg = config()
     executeSql(tested.createIdentityProviderConfig(cfg))
     val newJwksUrl = JwksUrl("http://example.com/jwks2.json")
-    executeSql(tested.updateJwksURL(cfg.identityProviderId, newJwksUrl)) shouldBe true
+    executeSql(tested.updateJwksUrl(cfg.identityProviderId, newJwksUrl)) shouldBe true
     executeSql(
       tested.getIdentityProviderConfig(cfg.identityProviderId)
-    ).value.jwksURL shouldBe newJwksUrl
+    ).value.jwksUrl shouldBe newJwksUrl
   }
 
   it should "update existing identity provider config's issuer attribute" in {
@@ -74,9 +74,9 @@ private[backend] trait StorageBackendTestsIDPConfig
 
   it should "check if identity provider config's issuer exists" in {
     val cfg = config()
-    executeSql(tested.idpConfigByIssuerExists(cfg.issuer)) shouldBe false
+    executeSql(tested.identityProviderConfigByIssuerExists(cfg.issuer)) shouldBe false
     executeSql(tested.createIdentityProviderConfig(cfg))
-    executeSql(tested.idpConfigByIssuerExists(cfg.issuer)) shouldBe true
+    executeSql(tested.identityProviderConfigByIssuerExists(cfg.issuer)) shouldBe true
   }
 
   it should "check if identity provider config by id exists" in {
@@ -98,10 +98,10 @@ private[backend] trait StorageBackendTestsIDPConfig
 
   it should "fail to update jwksURL for non existing identity provider config" in {
     executeSql(
-      tested.updateJwksURL(randomId(), JwksUrl("http://example.com/jwks.json"))
+      tested.updateJwksUrl(randomId(), JwksUrl("http://example.com/jwks.json"))
     ) shouldBe false
     executeSql(
-      tested.updateJwksURL(randomId(), JwksUrl("http://example2.com/jwks.json"))
+      tested.updateJwksUrl(randomId(), JwksUrl("http://example2.com/jwks.json"))
     ) shouldBe false
   }
 
@@ -152,7 +152,7 @@ private[backend] trait StorageBackendTestsIDPConfig
     IdentityProviderConfig(
       identityProviderId = randomId(),
       isDeactivated = false,
-      jwksURL = JwksUrl.assertFromString("http://example.com/jwks.json"),
+      jwksUrl = JwksUrl.assertFromString("http://example.com/jwks.json"),
       issuer = UUID.randomUUID().toString,
     )
   }
