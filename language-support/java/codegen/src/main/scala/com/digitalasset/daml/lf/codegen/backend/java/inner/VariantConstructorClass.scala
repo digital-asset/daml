@@ -101,7 +101,6 @@ object VariantConstructorClass extends StrictLogging {
             body,
             CodeBlock.of("this.$L", fieldName),
             newNameGenerator,
-            packagePrefixes,
           ),
       )
       .build()

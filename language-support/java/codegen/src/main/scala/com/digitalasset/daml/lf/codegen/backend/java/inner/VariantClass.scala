@@ -320,7 +320,6 @@ private[inner] object VariantClass extends StrictLogging {
                 getFieldsWithTypes(record.fields),
                 child.name,
                 fullVariantClassName,
-                packagePrefixes,
               )
           case t =>
             val c = s"${typeWithContext.name}.${child.name}"

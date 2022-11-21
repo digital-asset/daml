@@ -38,7 +38,6 @@ private[inner] object RecordMethods {
       val toValue = ToValueGenerator.generateToValueForRecordLike(
         params,
         fields,
-        packagePrefixes,
         ClassName.get(classOf[javaapi.data.DamlRecord]),
         name => CodeBlock.of("return new $T($L)", classOf[javaapi.data.DamlRecord], name),
       )

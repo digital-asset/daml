@@ -175,7 +175,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .addParameter(toJavaTypeName(key), "key")
         .addStatement(
           "return new ByKey($L)",
-          generateToValueConverter(key, CodeBlock.of("key"), newNameGenerator, packagePrefixes),
+          generateToValueConverter(key, CodeBlock.of("key"), newNameGenerator),
         )
         .addJavadoc(
           """Set up an {@link $T};$Winvoke an {@code exercise} method on the result of
@@ -534,7 +534,6 @@ private[inner] object TemplateClass extends StrictLogging {
             choice.param,
             CodeBlock.of("value$$"),
             Iterator.empty,
-            packagePrefixes,
           ),
           FromValueGenerator.extractor(
             choice.param,
