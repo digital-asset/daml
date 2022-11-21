@@ -216,8 +216,6 @@ class PureConfigReaderWriterSpec
     compare(LanguageVersion.EarlyAccessVersions, "early-access")
     compare(LanguageVersion.LegacyVersions, "legacy")
 
-    versionRangeWriter.to(LanguageVersion.StableVersions) shouldBe fromAnyRef("stable")
-
     versionRangeReader
       .from(fromAnyRef("stable"))
       .value shouldBe LanguageVersion.StableVersions
