@@ -7,7 +7,12 @@ import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory}
 import com.daml.lf.archive.DarParser
-import com.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass, fullyQualifiedName}
+import com.daml.lf.codegen.backend.java.inner.{
+  ClassForType,
+  DecoderClass,
+  fullyQualifiedName,
+  PackagePrefixes,
+}
 import com.daml.lf.codegen.conf.{Conf, PackageReference}
 import com.daml.lf.codegen.dependencygraph.DependencyGraph
 import com.daml.lf.data.Ref.{Identifier, PackageId}
@@ -95,9 +100,8 @@ object CodeGenRunner extends StrictLogging {
 
   private[codegen] final class Scope(
       val signatures: Seq[PackageSignature],
-      val packagePrefixes: Map[PackageId, String],
       serializableTypes: Vector[(Identifier, TypeDecl)],
-  ) {
+  )(implicit val packagePrefixes: PackagePrefixes) {
 
     val toBeGenerated: Set[Identifier] = serializableTypes.view.map(_._1).toSet
 

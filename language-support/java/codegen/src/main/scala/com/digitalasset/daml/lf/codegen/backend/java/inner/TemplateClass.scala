@@ -27,15 +27,16 @@ private[inner] object TemplateClass extends StrictLogging {
       record: Record.FWT,
       template: DefTemplate.FWT,
       typeWithContext: TypeWithContext,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ): TypeSpec =
     TrackLineage.of("template", typeWithContext.name) {
       logger.info("Start")
-      val fields = getFieldsWithTypes(record.fields, packagePrefixes)
+      val fields = getFieldsWithTypes(record.fields)
       val staticCreateMethod = generateStaticCreateMethod(fields, className)
 
       val templateChoices = template.tChoices.directChoices
-      val companion = new Companion(className, template.key, packagePrefixes)
+      val companion = new Companion(className, template.key)
       val templateType = TypeSpec
         .classBuilder(className)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
@@ -48,7 +49,6 @@ private[inner] object TemplateClass extends StrictLogging {
             template.key,
             typeWithContext.interface.typeDecls,
             typeWithContext.packageId,
-            packagePrefixes,
           )
         )
         .addMethods(
@@ -56,7 +56,6 @@ private[inner] object TemplateClass extends StrictLogging {
             templateChoices,
             typeWithContext.interface.typeDecls,
             typeWithContext.packageId,
-            packagePrefixes,
           )
         )
         .addMethod(staticCreateMethod)
@@ -88,12 +87,11 @@ private[inner] object TemplateClass extends StrictLogging {
         )
         .addMethod(generateCreateAndMethod())
         .addType(
-          generateCreateAndClass(className, \/-(template.implementedInterfaces), packagePrefixes)
+          generateCreateAndClass(className, \/-(template.implementedInterfaces))
         )
         .addFields(
           generateChoicesMetadata(
             className: ClassName,
-            packagePrefixes,
             templateChoices,
           ).asJava
         )
@@ -101,11 +99,11 @@ private[inner] object TemplateClass extends StrictLogging {
         .addMethod(companion.generateGetter())
         .addFields(RecordFields(fields).asJava)
         .addMethods(TemplateMethods(fields, className, packagePrefixes).asJava)
-      generateByKeyMethod(template.key, packagePrefixes) foreach { byKeyMethod =>
+      generateByKeyMethod(template.key) foreach { byKeyMethod =>
         templateType
           .addMethod(byKeyMethod)
           .addType(
-            generateByKeyClass(className, \/-(template.implementedInterfaces), packagePrefixes)
+            generateByKeyClass(className, \/-(template.implementedInterfaces))
           )
       }
       logger.debug("End")
@@ -168,16 +166,15 @@ private[inner] object TemplateClass extends StrictLogging {
 
   private val byKeyClassName = "ByKey"
 
-  private[this] def generateByKeyMethod(
-      maybeKey: Option[Type],
-      packagePrefixes: Map[PackageId, String],
+  private[this] def generateByKeyMethod(maybeKey: Option[Type])(implicit
+      packagePrefixes: PackagePrefixes
   ) =
     maybeKey map { key =>
       MethodSpec
         .methodBuilder("byKey")
         .returns(ClassName bestGuess byKeyClassName)
         .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-        .addParameter(toJavaTypeName(key, packagePrefixes), "key")
+        .addParameter(toJavaTypeName(key), "key")
         .addStatement(
           "return new ByKey($L)",
           generateToValueConverter(key, CodeBlock.of("key"), newNameGenerator, packagePrefixes),
@@ -196,7 +193,8 @@ private[inner] object TemplateClass extends StrictLogging {
   private[inner] def generateByKeyClass(
       markerName: ClassName,
       implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName],
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ) = {
     import scala.language.existentials
     val (superclass, companionArg) = implementedInterfaces.fold(
@@ -248,7 +246,8 @@ private[inner] object TemplateClass extends StrictLogging {
       maybeKey: Option[Type],
       typeDeclarations: Map[QualifiedName, PackageSignature.TypeDecl],
       packageId: PackageId,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ) =
     maybeKey.fold(java.util.Collections.emptyList[MethodSpec]()) { key =>
       val methods = for ((choiceName, choice) <- choices.toList) yield {
@@ -256,7 +255,6 @@ private[inner] object TemplateClass extends StrictLogging {
           choiceName,
           choice,
           key,
-          packagePrefixes,
         )
         val flattened =
           for (
@@ -273,8 +271,7 @@ private[inner] object TemplateClass extends StrictLogging {
                 choiceName,
                 choice,
                 key,
-                getFieldsWithTypes(record.fields, packagePrefixes),
-                packagePrefixes,
+                getFieldsWithTypes(record.fields),
               )
             }
         raw :: flattened.toList
@@ -287,7 +284,8 @@ private[inner] object TemplateClass extends StrictLogging {
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       key: Type,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ): MethodSpec =
     MethodSpec
       .methodBuilder(s"exerciseByKey${choiceName.capitalize}")
@@ -297,7 +295,7 @@ private[inner] object TemplateClass extends StrictLogging {
           updateClassName,
           parameterizedTypeName(
             exercisedClassName,
-            toJavaTypeName(choice.returnType, packagePrefixes),
+            toJavaTypeName(choice.returnType),
           ),
         )
       )
@@ -305,8 +303,8 @@ private[inner] object TemplateClass extends StrictLogging {
         howToFix = s"use {@code byKey(key).exercise${choiceName.capitalize}} instead",
         sinceDaml = "2.3.0",
       )
-      .addParameter(toJavaTypeName(key, packagePrefixes), "key")
-      .addParameter(toJavaTypeName(choice.param, packagePrefixes), "arg")
+      .addParameter(toJavaTypeName(key), "key")
+      .addParameter(toJavaTypeName(choice.param), "arg")
       .addStatement(
         "return byKey(key).exercise$L(arg)",
         choiceName.capitalize,
@@ -319,7 +317,8 @@ private[inner] object TemplateClass extends StrictLogging {
       choice: TemplateChoice[Type],
       key: Type,
       fields: Fields,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ): MethodSpec = {
     val methodName = s"exerciseByKey${choiceName.capitalize}"
     val exerciseByKeyBuilder = MethodSpec
@@ -330,11 +329,11 @@ private[inner] object TemplateClass extends StrictLogging {
           updateClassName,
           parameterizedTypeName(
             exercisedClassName,
-            toJavaTypeName(choice.returnType, packagePrefixes),
+            toJavaTypeName(choice.returnType),
           ),
         )
       )
-      .addParameter(toJavaTypeName(key, packagePrefixes), "key")
+      .addParameter(toJavaTypeName(key), "key")
     for (FieldInfo(_, _, javaName, javaType) <- fields) {
       exerciseByKeyBuilder.addParameter(javaType, javaName)
     }
@@ -363,7 +362,8 @@ private[inner] object TemplateClass extends StrictLogging {
   private[inner] def generateCreateAndClass(
       markerName: ClassName,
       implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName],
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ) = {
     import scala.language.existentials
     val (superclass, companionArg) = implementedInterfaces.fold(
@@ -414,14 +414,14 @@ private[inner] object TemplateClass extends StrictLogging {
       choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
       typeDeclarations: Map[QualifiedName, PackageSignature.TypeDecl],
       packageId: PackageId,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ) = {
     val methods = for ((choiceName, choice) <- choices) yield {
       val createAndExerciseChoiceMethod =
         generateDeprecatedCreateAndExerciseMethod(
           choiceName,
           choice,
-          packagePrefixes,
         )
       val splatted =
         for (
@@ -436,8 +436,7 @@ private[inner] object TemplateClass extends StrictLogging {
           generateDeprecatedFlattenedCreateAndExerciseMethod(
             choiceName,
             choice,
-            getFieldsWithTypes(record.fields, packagePrefixes),
-            packagePrefixes,
+            getFieldsWithTypes(record.fields),
           )
         }
       createAndExerciseChoiceMethod :: splatted.toList
@@ -449,10 +448,11 @@ private[inner] object TemplateClass extends StrictLogging {
   private def generateDeprecatedCreateAndExerciseMethod(
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ): MethodSpec = {
     val methodName = s"createAndExercise${choiceName.capitalize}"
-    val javaType = toJavaTypeName(choice.param, packagePrefixes)
+    val javaType = toJavaTypeName(choice.param)
     MethodSpec
       .methodBuilder(methodName)
       .addModifiers(Modifier.PUBLIC)
@@ -465,7 +465,7 @@ private[inner] object TemplateClass extends StrictLogging {
           updateClassName,
           parameterizedTypeName(
             exercisedClassName,
-            toJavaTypeName(choice.returnType, packagePrefixes),
+            toJavaTypeName(choice.returnType),
           ),
         )
       )
@@ -482,7 +482,8 @@ private[inner] object TemplateClass extends StrictLogging {
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       fields: Fields,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ): MethodSpec =
     ClassGenUtils.generateFlattenedCreateOrExerciseMethod(
       "createAndExercise",
@@ -490,7 +491,7 @@ private[inner] object TemplateClass extends StrictLogging {
         updateClassName,
         parameterizedTypeName(
           exercisedClassName,
-          toJavaTypeName(choice.returnType, packagePrefixes),
+          toJavaTypeName(choice.returnType),
         ),
       ),
       choiceName,
@@ -513,9 +514,8 @@ private[inner] object TemplateClass extends StrictLogging {
 
   def generateChoicesMetadata(
       templateClassName: ClassName,
-      packagePrefixes: Map[PackageId, String],
       templateChoices: Map[ChoiceName, TemplateChoice.FWT],
-  ): Seq[FieldSpec] = {
+  )(implicit packagePrefixes: PackagePrefixes): Seq[FieldSpec] = {
     templateChoices.map { case (choiceName, choice) =>
       val fieldClass = classOf[Choice[_, _, _]]
       FieldSpec
@@ -523,8 +523,8 @@ private[inner] object TemplateClass extends StrictLogging {
           ParameterizedTypeName.get(
             ClassName get fieldClass,
             templateClassName,
-            toJavaTypeName(choice.param, packagePrefixes),
-            toJavaTypeName(choice.returnType, packagePrefixes),
+            toJavaTypeName(choice.param),
+            toJavaTypeName(choice.returnType),
           ),
           toChoiceNameField(choiceName),
           Modifier.STATIC,
@@ -560,10 +560,8 @@ private[inner] object TemplateClass extends StrictLogging {
     }.toSeq
   }
 
-  private final class Companion(
-      templateClassName: ClassName,
-      maybeKey: Option[Type],
-      packagePrefixes: Map[PackageId, String],
+  private final class Companion(templateClassName: ClassName, maybeKey: Option[Type])(implicit
+      packagePrefixes: PackagePrefixes
   ) {
     import scala.language.existentials
     import javaapi.data.codegen.ContractCompanion
@@ -572,7 +570,7 @@ private[inner] object TemplateClass extends StrictLogging {
       keyType =>
         (
           classOf[ContractCompanion.WithKey[_, _, _, _]],
-          Seq(toJavaTypeName(keyType, packagePrefixes)),
+          Seq(toJavaTypeName(keyType)),
           ",$We -> $L",
           Seq(
             FromValueGenerator

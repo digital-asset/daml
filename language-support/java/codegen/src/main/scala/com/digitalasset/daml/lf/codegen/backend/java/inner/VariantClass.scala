@@ -25,11 +25,10 @@ private[inner] object VariantClass extends StrictLogging {
       typeArguments: IndexedSeq[String],
       variant: Variant.FWT,
       typeWithContext: TypeWithContext,
-      packagePrefixes: Map[PackageId, String],
-  ): (TypeSpec, List[TypeSpec]) =
+  )(implicit packagePrefixes: PackagePrefixes): (TypeSpec, List[TypeSpec]) =
     TrackLineage.of("variant", typeWithContext.name) {
       logger.info("Start")
-      val constructorInfo = getFieldsWithTypes(variant.fields, packagePrefixes)
+      val constructorInfo = getFieldsWithTypes(variant.fields)
       val variantType = TypeSpec
         .classBuilder(variantClassName)
         .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
@@ -283,15 +282,14 @@ private[inner] object VariantClass extends StrictLogging {
       typeArgs: IndexedSeq[String],
       variant: Variant.FWT,
       typeWithContext: TypeWithContext,
-      packagePrefixes: Map[PackageId, String],
       variantClassName: ClassName,
-  ): List[TypeSpec] = {
+  )(implicit packagePrefixes: PackagePrefixes): List[TypeSpec] = {
     logger.debug("Generating inner classes")
     val innerClasses = new collection.mutable.ArrayBuffer[TypeSpec]
     val variantRecords = new collection.mutable.HashSet[String]()
     val fullVariantClassName = variantClassName.parameterized(typeArgs)
 
-    for (fieldInfo <- getFieldsWithTypes(variant.fields, packagePrefixes)) {
+    for (fieldInfo <- getFieldsWithTypes(variant.fields)) {
       val FieldInfo(damlName, damlType, javaName, _) = fieldInfo
       damlType match {
         case TypeCon(TypeConName(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
@@ -323,7 +321,7 @@ private[inner] object VariantClass extends StrictLogging {
               .generate(
                 typeWithContext.interface.packageId,
                 typeVars.map(JavaEscaper.escapeString),
-                getFieldsWithTypes(record.fields, packagePrefixes),
+                getFieldsWithTypes(record.fields),
                 child.name,
                 fullVariantClassName,
                 packagePrefixes,

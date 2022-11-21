@@ -16,20 +16,19 @@ object ClassForType extends StrictLogging {
 
   def apply(
       typeWithContext: TypeWithContext,
-      packagePrefixes: Map[PackageId, String],
       toBeGenerated: Identifier => Boolean,
-  ): List[JavaFile] = {
+  )(implicit packagePrefixes: PackagePrefixes): List[JavaFile] = {
 
     def recurOnTypeLineages: List[JavaFile] =
       typeWithContext.typesLineages
-        .flatMap(ClassForType(_, packagePrefixes, toBeGenerated))
+        .flatMap(ClassForType(_, toBeGenerated))
         .toList
 
     def generateForType(lfInterfaceType: TypeDecl): List[JavaFile] = {
       val classNameString = fullyQualifiedName(typeWithContext.identifier, packagePrefixes)
       val className = ClassName.bestGuess(classNameString)
-      generateInterfaceTypes(typeWithContext, packagePrefixes) ++
-        generateSerializableTypes(typeWithContext, className, packagePrefixes, lfInterfaceType)
+      generateInterfaceTypes(typeWithContext) ++
+        generateSerializableTypes(typeWithContext, className, lfInterfaceType)
     }
 
     Option
@@ -40,9 +39,8 @@ object ClassForType extends StrictLogging {
   }
 
   private def generateInterfaceTypes(
-      typeWithContext: TypeWithContext,
-      packagePrefixes: Map[PackageId, String],
-  ): List[JavaFile] =
+      typeWithContext: TypeWithContext
+  )(implicit packagePrefixes: PackagePrefixes): List[JavaFile] =
     for {
       (interfaceName, interface) <- typeWithContext.interface.interfaces.toList
       classNameString = fullyQualifiedName(
@@ -67,7 +65,6 @@ object ClassForType extends StrictLogging {
             className,
             interfaceViewTypeName,
             interface,
-            packagePrefixes,
             typeWithContext.interface.typeDecls,
             typeWithContext.interface.packageId,
             interfaceName,
@@ -77,9 +74,8 @@ object ClassForType extends StrictLogging {
   private def generateSerializableTypes(
       typeWithContext: TypeWithContext,
       className: ClassName,
-      packagePrefixes: Map[PackageId, String],
       lfInterfaceType: TypeDecl,
-  ): List[JavaFile] = {
+  )(implicit packagePrefixes: PackagePrefixes): List[JavaFile] = {
     val packageName = className.packageName()
     lfInterfaceType match {
       case Normal(DefDataType(typeVars, record: Record.FWT)) =>
@@ -103,7 +99,6 @@ object ClassForType extends StrictLogging {
             escapedTypeVars,
             variant,
             typeWithContext,
-            packagePrefixes,
           )
         javaFile(packageName, variantSpec) :: javaFiles(subPackage, constructorSpecs)
       case Normal(DefDataType(_, enum: Enum)) =>

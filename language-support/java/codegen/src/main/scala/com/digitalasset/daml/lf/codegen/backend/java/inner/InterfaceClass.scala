@@ -22,11 +22,10 @@ object InterfaceClass extends StrictLogging {
       interfaceName: ClassName,
       interfaceViewTypeName: ClassName,
       interface: DefInterface.FWT,
-      packagePrefixes: Map[PackageId, String],
       typeDeclarations: Map[QualifiedName, typesig.PackageSignature.TypeDecl],
       packageId: PackageId,
       interfaceId: QualifiedName,
-  ): TypeSpec =
+  )(implicit packagePrefixes: PackagePrefixes): TypeSpec =
     TrackLineage.of("interface", interfaceName.simpleName()) {
       logger.info("Start")
       val interfaceType = TypeSpec
@@ -37,7 +36,6 @@ object InterfaceClass extends StrictLogging {
           TemplateClass
             .generateChoicesMetadata(
               interfaceName,
-              packagePrefixes,
               interface.choices,
             )
             .asJava
@@ -66,12 +64,11 @@ object InterfaceClass extends StrictLogging {
           TemplateClass.generateCreateAndClass(
             interfaceName,
             -\/(ContractIdClass.For.Interface),
-            packagePrefixes,
           )
         )
         .addType(
           TemplateClass
-            .generateByKeyClass(interfaceName, -\/(ContractIdClass.For.Interface), packagePrefixes)
+            .generateByKeyClass(interfaceName, -\/(ContractIdClass.For.Interface))
         )
         .addType(
           generateInterfaceCompanionClass(
