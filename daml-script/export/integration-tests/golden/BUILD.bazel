@@ -55,8 +55,8 @@ daml_compile(
         ":interface-choices/InterfaceChoices/Asset.daml",
         ":interface-choices/InterfaceChoices/Token.daml",
     ],
-    dependencies = ["//daml-script/daml:daml-script-1.dev.dar"],
-    target = "1.dev",
+    dependencies = ["//daml-script/daml:daml-script-1.15.dar"],
+    target = "1.15",
 )
 
 daml_ledger_export_test(
@@ -85,6 +85,6 @@ daml_test(
         ":interface-choices/InterfaceChoices/Asset.daml",
         ":interface-choices/InterfaceChoices/Token.daml",
     ],
-    target = "1.dev",
-    deps = ["//daml-script/daml:daml-script-1.dev.dar"],
+    target = "1.15",
+    deps = ["//daml-script/daml:daml-script-1.15.dar"],
 )

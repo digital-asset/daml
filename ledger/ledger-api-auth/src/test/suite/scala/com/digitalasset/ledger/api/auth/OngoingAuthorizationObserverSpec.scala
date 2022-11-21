@@ -50,7 +50,7 @@ class OngoingAuthorizationObserverSpec
         resolvedFromUser = true,
         applicationId = Some("some_user_id"),
       ),
-      nowF = clock.instant,
+      nowF = () => clock.instant,
       userManagementStore = mock[UserManagementStore],
       // This is also the user rights state refresh timeout
       userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
@@ -111,7 +111,7 @@ class OngoingAuthorizationObserverSpec
         applicationId = Some("some_user_id"),
         expiration = Some(clock.instant.plusSeconds(1)),
       ),
-      nowF = clock.instant,
+      nowF = () => clock.instant,
       userManagementStore = mock[UserManagementStore],
       userRightsCheckIntervalInSeconds = 10,
       akkaScheduler = mockScheduler,
@@ -154,7 +154,7 @@ class OngoingAuthorizationObserverSpec
         // the expiration claim will be invalid in the next second
         expiration = Some(expiration),
       ),
-      nowF = clock.instant,
+      nowF = () => clock.instant,
       userManagementStore = mock[UserManagementStore],
       userRightsCheckIntervalInSeconds = 10,
       akkaScheduler = mockScheduler,

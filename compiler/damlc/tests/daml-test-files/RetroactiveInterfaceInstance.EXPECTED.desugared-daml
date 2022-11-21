@@ -301,8 +301,8 @@ _method_Token_Token_Asset_setAmount
       @"setAmount"
       \ this@Asset {..}
         -> let _ = this in
-           let setAmount x = toInterface @Token (this {amount = x})
-           in setAmount
+           let $setAmount x = toInterface @Token (this {amount = x})
+           in $setAmount
 _method_Token_Token_Asset_splitImpl :
   DA.Internal.Desugar.Method Token Token Asset "splitImpl"
 _method_Token_Token_Asset_splitImpl
@@ -314,7 +314,7 @@ _method_Token_Token_Asset_splitImpl
       \ this@Asset {..}
         -> let _ = this in
            let
-             splitImpl splitAmount
+             $splitImpl splitAmount
                = do assert (splitAmount < amount)
                     cid1 <- create this {amount = splitAmount}
                     cid2 <- create this {amount = amount - splitAmount}
@@ -322,7 +322,7 @@ _method_Token_Token_Asset_splitImpl
                       userWrittenTuple
                         (toInterfaceContractId @Token cid1, 
                          toInterfaceContractId @Token cid2)
-           in splitImpl
+           in $splitImpl
 _method_Token_Token_Asset_transferImpl :
   DA.Internal.Desugar.Method Token Token Asset "transferImpl"
 _method_Token_Token_Asset_transferImpl
@@ -334,10 +334,10 @@ _method_Token_Token_Asset_transferImpl
       \ this@Asset {..}
         -> let _ = this in
            let
-             transferImpl newOwner
+             $transferImpl newOwner
                = do cid <- create this {owner = newOwner}
                     pure (toInterfaceContractId @Token cid)
-           in transferImpl
+           in $transferImpl
 _method_Token_Token_Asset_noopImpl :
   DA.Internal.Desugar.Method Token Token Asset "noopImpl"
 _method_Token_Token_Asset_noopImpl
@@ -349,10 +349,10 @@ _method_Token_Token_Asset_noopImpl
       \ this@Asset {..}
         -> let _ = this in
            let
-             noopImpl nothing
+             $noopImpl nothing
                = do [1] === [1]
                     pure ()
-           in noopImpl
+           in $noopImpl
 _view_Token_Token_Asset :
   DA.Internal.Desugar.InterfaceView Token Token Asset
 _view_Token_Token_Asset
@@ -361,7 +361,7 @@ _view_Token_Token_Asset
       @Token
       @Asset
       \ this@Asset {..}
-        -> let _ = this in let view = TokenView {owner, amount} in view
+        -> let _ = this in let $view = TokenView {owner, amount} in $view
 instance DA.Internal.Desugar.HasToInterface Asset Token where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Asset Token where

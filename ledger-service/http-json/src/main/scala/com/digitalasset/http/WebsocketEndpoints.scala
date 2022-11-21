@@ -23,7 +23,7 @@ import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.api.MetricsContext
-import com.daml.metrics.akkahttp.WebSocketMetrics
+import com.daml.metrics.akkahttp.{AkkaHttpMetricLabels, WebSocketMetrics}
 
 import scala.collection.immutable.Seq
 import scalaz.std.scalaFuture._
@@ -101,12 +101,17 @@ class WebsocketEndpoints(
                   ledgerIdentityClient,
                 )
                 (jwt, jwtPayload) = payload
-              } yield handleWebsocketRequest[domain.SearchForeverRequest](
-                jwt,
-                jwtPayload,
-                upgradeReq,
-                wsProtocol,
-              ))
+              } yield {
+                MetricsContext.withMetricLabels(AkkaHttpMetricLabels.labelsFromRequest(req): _*) {
+                  implicit mc: MetricsContext =>
+                    handleWebsocketRequest[domain.SearchForeverRequest](
+                      jwt,
+                      jwtPayload,
+                      upgradeReq,
+                      wsProtocol,
+                    )
+                }
+              })
                 .valueOr(httpResponseError)
         )
 
@@ -127,12 +132,17 @@ class WebsocketEndpoints(
                   ledgerIdentityClient,
                 )
                 (jwt, jwtPayload) = payload
-              } yield handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
-                jwt,
-                jwtPayload,
-                upgradeReq,
-                wsProtocol,
-              ))
+              } yield {
+                MetricsContext.withMetricLabels(AkkaHttpMetricLabels.labelsFromRequest(req): _*) {
+                  implicit mc: MetricsContext =>
+                    handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
+                      jwt,
+                      jwtPayload,
+                      upgradeReq,
+                      wsProtocol,
+                    )
+                }
+              })
                 .valueOr(httpResponseError)
         )
     }
@@ -159,6 +169,7 @@ class WebsocketEndpoints(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpJsonApiMetrics,
+      mc: MetricsContext,
   ): HttpResponse = {
     val handler: Flow[Message, Message, _] =
       WebSocketMetrics.withRateSizeMetrics(
@@ -167,7 +178,7 @@ class WebsocketEndpoints(
         metrics.websocketSentTotal,
         metrics.websocketSentBytesTotal,
         webSocketService.transactionMessageHandler[A](jwt, jwtPayload),
-      )(MetricsContext.Empty)
+      )
     req.handleMessages(handler, Some(protocol))
   }
 }

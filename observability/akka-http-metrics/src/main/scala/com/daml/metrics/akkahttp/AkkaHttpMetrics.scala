@@ -28,8 +28,11 @@ object AkkaHttpMetrics {
       latency: Timer,
       requestsPayloadBytesTotal: Meter,
       responsesPayloadBytesTotal: Meter,
-  )(implicit ec: ExecutionContext, mc: MetricsContext) =
+  )(implicit ec: ExecutionContext) =
     Directive { (fn: Unit => Route) => ctx =>
+      implicit val metricsContext: MetricsContext =
+        MetricsContext(AkkaHttpMetricLabels.labelsFromRequest(ctx.request): _*)
+
       // process the query, using a copy of the httpRequest, with size metric computation
       val newCtx = ctx.withRequest(
         ctx.request.withEntity(
@@ -41,24 +44,26 @@ object AkkaHttpMetrics {
       result.transform { result =>
         result match {
           case Success(Complete(httpResponse)) =>
-            // record request
-            requestsTotal.mark()
-            if (httpResponse.status.isFailure)
-              // record failure
-              errorsTotal.mark()
-            // return a copy of the httpResponse, with size metric computation
-            Success(
-              Complete(
-                httpResponse.withEntity(
-                  responseEntityContentLengthReportMetric(
-                    httpResponse.entity,
-                    responsesPayloadBytesTotal,
+            MetricsContext.withExtraMetricLabels(
+              AkkaHttpMetricLabels.labelsFromResponse(httpResponse): _*
+            ) { implicit metricsContext: MetricsContext =>
+              requestsTotal.mark()
+              if (httpResponse.status.isFailure)
+                errorsTotal.mark()
+              // return a copy of the httpResponse, with size metric computation
+              Success(
+                Complete(
+                  httpResponse.withEntity(
+                    responseEntityContentLengthReportMetric(
+                      httpResponse.entity,
+                      responsesPayloadBytesTotal,
+                    )
                   )
                 )
               )
-            )
+
+            }
           case _ =>
-            // record request and failure
             requestsTotal.mark()
             errorsTotal.mark()
             result
