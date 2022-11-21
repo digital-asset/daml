@@ -56,7 +56,7 @@ versions = struct(
 
 lf_version_configuration = {
     "legacy": "1.8",
-    "default": "1.14",
+    "default": "1.15",
     "latest": "1.15",
     #    "preview": "",
     "dev": "1.dev",
@@ -93,10 +93,10 @@ LF_VERSIONS = [
     "1.dev",
 ]
 
-PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14")]
+PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.15")]
 
 # The subset of LF versions accepted by the compiler in the syntax
 # expected by the --target option.
-COMPILER_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14")]
+COMPILER_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.15")]
 
 LF_MAJOR_VERSIONS = ["1"]
