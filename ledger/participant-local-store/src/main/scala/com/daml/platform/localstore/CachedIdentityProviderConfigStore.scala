@@ -42,6 +42,7 @@ class CachedIdentityProviderConfigStore(
       metrics.daml.identityProviderConfigStore.cache,
     )
 
+  // todo remove the cache
   private val idpListCache: CaffeineCache.AsyncLoadingCaffeineCache[
     SingletonCacheKey.type,
     Result[Seq[IdentityProviderConfig]],

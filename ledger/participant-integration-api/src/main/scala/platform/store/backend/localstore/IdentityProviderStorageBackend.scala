@@ -7,7 +7,7 @@ import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId, J
 
 import java.sql.Connection
 
-trait IdentityProviderStorageBackend extends IdentityProviderCheckStorageBackend {
+trait IdentityProviderStorageBackend {
   def createIdentityProviderConfig(
       identityProviderConfig: IdentityProviderConfig
   )(connection: Connection): Unit
@@ -39,5 +39,7 @@ trait IdentityProviderStorageBackend extends IdentityProviderCheckStorageBackend
   ): Boolean
 
   def countIdentityProviderConfigs()(connection: Connection): Int
+
+  def idpConfigByIdExists(id: IdentityProviderId.Id)(connection: Connection): Boolean
 
 }

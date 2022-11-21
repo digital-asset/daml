@@ -91,6 +91,12 @@ private[backend] trait StorageBackendTestsIDPConfig
     executeSql(tested.idpConfigByIdExists(cfg.identityProviderId)) shouldBe true
   }
 
+  it should "return success for no-op issuer update" in {
+    val cfg = config()
+    executeSql(tested.createIdentityProviderConfig(cfg))
+    executeSql(tested.updateIssuer(cfg.identityProviderId, cfg.issuer)) shouldBe true
+  }
+
   it should "fail to update issuer for non existing identity provider config" in {
     executeSql(tested.updateIssuer(randomId(), "whatever")) shouldBe false
     executeSql(tested.updateIssuer(randomId(), "")) shouldBe false
@@ -101,13 +107,25 @@ private[backend] trait StorageBackendTestsIDPConfig
     executeSql(tested.updateIsDeactivated(randomId(), false)) shouldBe false
   }
 
-  it should "fail to update jwksURL for non existing identity provider config" in {
+  it should "fail to update JwksUrl for non existing identity provider config" in {
     executeSql(
       tested.updateJwksUrl(randomId(), JwksUrl("http://example.com/jwks.json"))
     ) shouldBe false
     executeSql(
       tested.updateJwksUrl(randomId(), JwksUrl("http://example2.com/jwks.json"))
     ) shouldBe false
+  }
+
+  it should "return success for no-op JwksUrl update" in {
+    val cfg = config()
+    executeSql(tested.createIdentityProviderConfig(cfg))
+    executeSql(tested.updateJwksUrl(cfg.identityProviderId, cfg.jwksUrl)) shouldBe true
+  }
+
+  it should "return success for no-op isDeactivated update" in {
+    val cfg = config()
+    executeSql(tested.createIdentityProviderConfig(cfg))
+    executeSql(tested.updateIsDeactivated(cfg.identityProviderId, cfg.isDeactivated)) shouldBe true
   }
 
   it should "fail to update identity provider config issuer attribute to non-unique issuer" in {

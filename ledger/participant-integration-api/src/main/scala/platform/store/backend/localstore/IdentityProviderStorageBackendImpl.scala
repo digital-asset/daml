@@ -104,8 +104,17 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
     res.length == 1
   }
 
-  override def idpConfigByIdExists(id: IdentityProviderId.Id)(connection: Connection): Boolean =
-    IdentityProviderCheckStorageBackendImpl.idpConfigByIdExists(id)(connection)
+  override def idpConfigByIdExists(id: IdentityProviderId.Id)(connection: Connection): Boolean = {
+    import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+    val res: Seq[_] =
+      SQL"""
+           SELECT 1 AS dummy
+           FROM participant_identity_provider_config t
+           WHERE t.identity_provider_id = ${id.value: String}
+           """.asVectorOf(IntParser)(connection)
+    assert(res.length <= 1)
+    res.length == 1
+  }
 
   override def updateIssuer(id: IdentityProviderId.Id, newIssuer: String)(
       connection: Connection
