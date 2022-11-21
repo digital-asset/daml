@@ -92,11 +92,11 @@ test = script do
 -- Two interfaces (1,2)...
 interface MyInterface1 where
   viewtype MyView1
-data MyView1 = MyView1 { info : Int } deriving (Eq,Ord)
+data MyView1 = MyView1 { info : Int } deriving (Eq,Ord,Show)
 
 interface MyInterface2 where
   viewtype MyView2
-data MyView2 = MyView2 { info : Text } deriving (Eq,Ord)
+data MyView2 = MyView2 { info : Text } deriving (Eq,Ord,Show)
 
 -- ...which are variously implemented by three templates (A,B,C)
 template MyTemplateA
@@ -132,9 +132,17 @@ template MyTemplateC
 
 test_queryInterface : Script ()
 test_queryInterface = script do
-
   p <- allocateParty "Alice" -- primary party in the test script
-  p2 <- allocateParty "Bob" -- other/different party
+  sharedQueryInterfaceTest GRPC p
+
+jsonQueryInterface : Party -> Script ()
+jsonQueryInterface p = script do
+  sharedQueryInterfaceTest JSON p
+
+data Caller = JSON | GRPC
+
+sharedQueryInterfaceTest : Caller -> Party -> Script ()
+sharedQueryInterfaceTest caller p = script do
 
   -- Create various contract-instances of A,B,C (for p)
   a1 <- submit p do createCmd (MyTemplateA p 42)
@@ -147,15 +155,11 @@ test_queryInterface = script do
   a3 <- submit p do createCmd (MyTemplateA p 999)
   submit p do archiveCmd a3
 
-  -- Contracts created by another party (p2) wont be visible when querying (by p)
-  a4 <- submit p2 do createCmd (MyTemplateA p2 911)
-
   -- Refer to p's instances via interface-contract-ids
   -- (Note: we can refer to b1 via either Interface 1 or 2)
   let i1a1 = toInterfaceContractId @MyInterface1 a1
   let i1a2 = toInterfaceContractId @MyInterface1 a2
   let i1a3 = toInterfaceContractId @MyInterface1 a3
-  let i1a4 = toInterfaceContractId @MyInterface1 a4
   let i1b1 = toInterfaceContractId @MyInterface1 b1
   let i2b1 = toInterfaceContractId @MyInterface2 b1
   let i2c1 = toInterfaceContractId @MyInterface2 c1
@@ -166,10 +170,10 @@ test_queryInterface = script do
   v.info === 142
   Some v <- queryInterfaceContractId p i1a2
   v.info === 143
+
   Some v <- queryInterfaceContractId p i1b1
   v.info === 244
   None <- queryInterfaceContractId p i1a3 -- contract is archived
-  None <- queryInterfaceContractId p i1a4 -- not a stakeholder
 
   -- Test queryInterfaceContractId (Interface2)
   Some v <- queryInterfaceContractId p i2b1
@@ -188,11 +192,23 @@ test_queryInterface = script do
   v3.info === 244
 
   -- Test queryInterface (Interface2)
-  [(i1,None),(i2,Some v2),(i3,Some v3)] <- sortOn snd <$> queryInterface @MyInterface2 p
-  i1 === i2c2 -- view function failed, so no info
-  i2 === i2b1
-  i3 === i2c1
-  v2.info === "B:44"
-  v3.info === "C:I-am-c1"
+  case caller of
+
+    GRPC -> do
+      [(i1,None),(i2,Some v2),(i3,Some v3)] <- sortOn snd <$> queryInterface @MyInterface2 p
+      i1 === i2c2 -- view function failed, so no info
+      i2 === i2b1
+      i3 === i2c1
+      v2.info === "B:44"
+      v3.info === "C:I-am-c1"
+
+    -- TODO https://github.com/digital-asset/daml/issues/14830
+    -- contracts with failed-views are not returned over the Json API
+    JSON -> do
+      [(i2,Some v2),(i3,Some v3)] <- sortOn snd <$> queryInterface @MyInterface2 p
+      i2 === i2b1
+      i3 === i2c1
+      v2.info === "B:44"
+      v3.info === "C:I-am-c1"
 
   pure ()

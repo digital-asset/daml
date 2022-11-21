@@ -9,14 +9,7 @@ import akka.stream.scaladsl._
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.commands.{
-  Command,
-  Commands,
-  CreateAndExerciseCommand,
-  CreateCommand,
-  ExerciseByKeyCommand,
-  ExerciseCommand,
-}
+import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -36,9 +29,8 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.trigger.Runner.triggerUserState
+import com.daml.lf.engine.trigger.Runner.{logger, SeenMsgs, TriggerContext, triggerUserState}
 import com.daml.lf.engine.trigger.Runner.Implicits._
-import com.daml.lf.engine.trigger.Runner.{TriggerContext, logger}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -376,7 +368,6 @@ private[lf] class Runner private (
     applicationId: ApplicationId,
     parties: TriggerParties,
 )(implicit loggingContext: LoggingContextOf[Trigger]) {
-  import Runner.SeenMsgs
 
   // Compiles LF expressions into Speedy expressions.
   private val compiler = compiledPackages.compiler
