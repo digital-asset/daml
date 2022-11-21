@@ -37,7 +37,6 @@ private[inner] object VariantRecordClass extends StrictLogging {
             superclass,
             className.parameterized(typeParameters),
             typeParameters,
-            packagePrefixes,
           ).asJava
         )
         .build()
