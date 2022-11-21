@@ -3,7 +3,7 @@
 
 package com.daml.metrics.http
 
-import com.daml.metrics.api.MetricHandle.{Factory, Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{Factory, Histogram, Meter, Timer}
 import com.daml.metrics.api.{MetricName, MetricsContext}
 
 class DamlHttpMetrics(metricsFactory: Factory, component: String) extends HttpMetrics {
@@ -15,11 +15,10 @@ class DamlHttpMetrics(metricsFactory: Factory, component: String) extends HttpMe
   )
 
   override val requestsTotal: Meter = metricsFactory.meter(httpMetricsPrefix :+ "requests")
-  override val errorsTotal: Meter = metricsFactory.meter(httpMetricsPrefix :+ "errors")
   override val latency: Timer = metricsFactory.timer(httpMetricsPrefix :+ "requests")
-  override val requestsPayloadBytesTotal: Meter =
-    metricsFactory.meter(httpMetricsPrefix :+ "requests" :+ "payload" :+ "bytes")
-  override val responsesPayloadBytesTotal: Meter =
-    metricsFactory.meter(httpMetricsPrefix :+ "responses" :+ "payload" :+ "bytes")
+  override val requestsPayloadBytes: Histogram =
+    metricsFactory.histogram(httpMetricsPrefix :+ "requests" :+ "payload" :+ Histogram.Bytes)
+  override val responsesPayloadBytes: Histogram =
+    metricsFactory.histogram(httpMetricsPrefix :+ "responses" :+ "payload" :+ Histogram.Bytes)
 
 }
