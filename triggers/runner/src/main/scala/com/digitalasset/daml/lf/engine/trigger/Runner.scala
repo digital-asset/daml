@@ -30,10 +30,11 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.trigger.Runner.{
-  logger,
   SeenMsgs,
   TriggerContext,
   TriggerContextualFlow,
+  TriggerContextualSource,
+  logger,
   triggerUserState,
 }
 import com.daml.lf.engine.trigger.Runner.Implicits._
@@ -582,7 +583,7 @@ private[lf] class Runner private (
     }
 
     // The transaction source (ledger).
-    val transactionSource: Source[TriggerContext[TriggerMsg], NotUsed] = {
+    val transactionSource: TriggerContextualSource[TriggerMsg, NotUsed] = {
       logger.info("Subscribing to ledger API transaction source")(
         loggingContext.enrichTriggerContext("filter" -> filter)
       )
@@ -594,7 +595,7 @@ private[lf] class Runner private (
     }
 
     // Command completion source (ledger completion stream)
-    val completionSource: Source[TriggerContext[TriggerMsg], NotUsed] = {
+    val completionSource: TriggerContextualSource[TriggerMsg, NotUsed] = {
       logger.info("Subscribing to ledger API completion source")
       client.commandClient
         // Completions only take actAs into account so no need to include readAs.
@@ -606,7 +607,7 @@ private[lf] class Runner private (
 
     // Heartbeats source (we produce these repetitively on a timer with
     // the given delay interval).
-    val heartbeatSource: Source[TriggerContext[TriggerMsg], NotUsed] = heartbeat match {
+    val heartbeatSource: TriggerContextualSource[TriggerMsg, NotUsed] = heartbeat match {
       case Some(interval) =>
         logger.info("Heartbeat source configured")(
           loggingContext.enrichTriggerContext("heartbeat" -> interval)
@@ -939,6 +940,8 @@ object Runner {
   private[trigger] val logger = ContextualizedLogger.get(getClass)
 
   type TriggerContext[+Value] = Ctx[LoggingContextOf[Trigger], Value]
+
+  type TriggerContextualSource[+Out, +Mat] = Source[TriggerContext[Out], Mat]
 
   type TriggerContextualFlow[-In, +Out, +Mat] = Flow[TriggerContext[In], TriggerContext[Out], Mat]
 
