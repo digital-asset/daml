@@ -24,7 +24,6 @@ import org.scalatest.exceptions.ModifiableMessage
 import org.scalatest.wordspec.AsyncWordSpec
 import java.io.File
 
-import scala.annotation.nowarn
 import scala.concurrent.Future
 
 abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
@@ -69,17 +68,14 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
       throw new IllegalArgumentException(s"Not test cases found for TLS version: |${other}|!")
   }
 
-  protected val List(
-    certChainFilePath,
-    privateKeyFilePath,
-    trustCertCollectionFilePath,
-    clientCertChainFilePath,
-    clientPrivateKeyFilePath,
-  ) = {
-    List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
-      new File(rlocation("ledger/test-common/test-certificates/" + src))
-    }
-  }: @nowarn("msg=match may not be exhaustive")
+  private def getFilePath(fileName: String) = new File(
+    rlocation("ledger/test-common/test-certificates/" + fileName)
+  )
+  private val certChainFilePath = getFilePath("server.crt")
+  private val privateKeyFilePath = getFilePath("server.pem")
+  private val trustCertCollectionFilePath = getFilePath("ca.crt")
+  private val clientCertChainFilePath = getFilePath("client.crt")
+  private val clientPrivateKeyFilePath = getFilePath("client.pem")
 
   override protected def config: Config =
     super.config.copy(

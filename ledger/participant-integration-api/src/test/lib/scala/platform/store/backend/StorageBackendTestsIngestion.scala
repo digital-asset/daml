@@ -10,7 +10,6 @@ import org.scalatest.{Inside, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 import scala.util.Random
@@ -144,44 +143,49 @@ private[backend] trait StorageBackendTestsIngestion
   ) { connections =>
     import scala.concurrent.ExecutionContext.Implicits.global
 
-    val List(connection1, connection2) = connections: @nowarn("msg=match may not be exhaustive")
-    def packageFor(n: Int): DbDto.Package =
-      dtoPackage(offset(n.toLong))
-        .copy(
-          package_id = s"abc123$n",
-          _package = Random.nextString(Random.nextInt(200000) + 200).getBytes,
-        )
-    val conflictingPackageDtos = 11 to 20 map packageFor
-    val packages1 = 21 to 30 map packageFor
-    val packages2 = 31 to 40 map packageFor
+    inside(connections) { case List(connection1, connection2) =>
+      def packageFor(n: Int): DbDto.Package =
+        dtoPackage(offset(n.toLong))
+          .copy(
+            package_id = s"abc123$n",
+            _package = Random.nextString(Random.nextInt(200000) + 200).getBytes,
+          )
 
-    def test() = {
+      val conflictingPackageDtos = 11 to 20 map packageFor
+      val packages1 = 21 to 30 map packageFor
+      val packages2 = 31 to 40 map packageFor
 
-      executeSql(backend.parameter.initializeParameters(someIdentityParams))
+      def test() = {
 
-      def ingestPackagesF(connection: Connection, packages: Iterable[DbDto.Package]): Future[Unit] =
-        Future {
-          connection.setAutoCommit(false)
-          ingest(packages.toVector, connection)
-          connection.commit()
-        }
+        executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
-      val ingestF1 = ingestPackagesF(connection1, packages1 ++ conflictingPackageDtos)
-      val ingestF2 = ingestPackagesF(connection2, packages2 ++ conflictingPackageDtos)
+        def ingestPackagesF(
+            connection: Connection,
+            packages: Iterable[DbDto.Package],
+        ): Future[Unit] =
+          Future {
+            connection.setAutoCommit(false)
+            ingest(packages.toVector, connection)
+            connection.commit()
+          }
 
-      Await.result(ingestF1, Duration(10, "seconds"))
-      Await.result(ingestF2, Duration(10, "seconds"))
+        val ingestF1 = ingestPackagesF(connection1, packages1 ++ conflictingPackageDtos)
+        val ingestF2 = ingestPackagesF(connection2, packages2 ++ conflictingPackageDtos)
 
-      executeSql(updateLedgerEnd(offset(50), 0))
+        Await.result(ingestF1, Duration(10, "seconds"))
+        Await.result(ingestF2, Duration(10, "seconds"))
 
-      executeSql(backend.packageBackend.lfPackages).keySet.map(_.toString) shouldBe (
-        conflictingPackageDtos ++ packages1 ++ packages2
-      ).map(_.package_id).toSet
-    }
+        executeSql(updateLedgerEnd(offset(50), 0))
 
-    1 to NumberOfUpsertPackagesTests foreach { _ =>
-      test()
-      executeSql(backend.reset.resetAll)
+        executeSql(backend.packageBackend.lfPackages).keySet.map(_.toString) shouldBe (
+          conflictingPackageDtos ++ packages1 ++ packages2
+        ).map(_.package_id).toSet
+      }
+
+      1 to NumberOfUpsertPackagesTests foreach { _ =>
+        test()
+        executeSql(backend.reset.resetAll)
+      }
     }
   }
 }

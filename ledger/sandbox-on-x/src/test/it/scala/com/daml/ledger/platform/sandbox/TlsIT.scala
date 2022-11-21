@@ -20,22 +20,18 @@ import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest.wordspec.AsyncWordSpec
 import java.io.File
 
-import scala.annotation.nowarn
 import scala.concurrent.Future
 
 class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManagementAroundAll {
 
-  private val List(
-    certChainFilePath,
-    privateKeyFilePath,
-    trustCertCollectionFilePath,
-    clientCertChainFilePath,
-    clientPrivateKeyFilePath,
-  ) = {
-    List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
-      new File(rlocation("ledger/test-common/test-certificates/" + src))
-    }
-  }: @nowarn("msg=match may not be exhaustive")
+  private def getFilePath(fileName: String) = new File(
+    rlocation("ledger/test-common/test-certificates/" + fileName)
+  )
+  private val certChainFilePath = getFilePath("server.crt")
+  private val privateKeyFilePath = getFilePath("server.pem")
+  private val trustCertCollectionFilePath = getFilePath("ca.crt")
+  private val clientCertChainFilePath = getFilePath("client.crt")
+  private val clientPrivateKeyFilePath = getFilePath("client.pem")
 
   private lazy val baseConfig: LedgerClientConfiguration =
     LedgerClientConfiguration(
