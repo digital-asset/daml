@@ -5,16 +5,14 @@ package com.daml.ledger.javaapi.data;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
+import static java.util.stream.Collectors.toList;
 
 import com.daml.ledger.api.v1.CommandsOuterClass;
+import com.daml.ledger.javaapi.data.codegen.HasCommands;
 import com.google.protobuf.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.*;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 public final class SubmitCommandsRequest {
@@ -276,11 +274,7 @@ public final class SubmitCommandsRequest {
     ArrayList<CommandsOuterClass.Command> commandsConverted =
         new ArrayList<>(commandsSubmission.getCommands().size());
 
-    // TODO: there has to be a better way!
-    List<Command> commands =
-        commandsSubmission.getCommands().stream()
-            .map(c -> (Command) c)
-            .collect(Collectors.toList());
+    List<Command> commands = toCommands(commandsSubmission.getCommands());
 
     for (Command command : commands) {
       commandsConverted.add(command.toProtoCommand());
@@ -345,7 +339,7 @@ public final class SubmitCommandsRequest {
         commandsSubmission.getMinLedgerTimeRel(),
         commandsSubmission.getDeduplicationTime(),
         Optional.empty(),
-        (List<Command>) commandsSubmission.getCommands()); // TODO: remove this horrible cast
+        toCommands(commandsSubmission.getCommands()));
   }
 
   /**
@@ -395,7 +389,7 @@ public final class SubmitCommandsRequest {
         commandsSubmission.getMinLedgerTimeRel(),
         commandsSubmission.getDeduplicationTime(),
         Optional.of(submissionId),
-        (List<Command>) commandsSubmission.getCommands()); // todo remove this horrible cast
+        toCommands(commandsSubmission.getCommands()));
   }
 
   /**
@@ -615,5 +609,9 @@ public final class SubmitCommandsRequest {
         deduplicationTime,
         submissionId,
         commands);
+  }
+
+  private static List<Command> toCommands(List<? extends HasCommands> hasCommands) {
+    return hasCommands.stream().map(c -> (Command) c).collect(toList());
   }
 }
