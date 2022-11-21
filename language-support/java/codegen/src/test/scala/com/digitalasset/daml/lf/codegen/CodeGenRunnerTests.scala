@@ -24,9 +24,9 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
     val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> None), Map.empty)
 
-    assert(scope.signatures.length === 25)
-    assert(scope.packagePrefixes === Map.empty)
-    assert(scope.toBeGenerated === Set.empty)
+    scope.signatures.length should ===(25)
+    scope.packagePrefixes should ===(Map.empty)
+    scope.toBeGenerated should ===(Set.empty)
   }
 
   it should "read interfaces from 2 DAR files with same dependencies without a prefix" in {
@@ -37,9 +37,9 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
         Map.empty,
       )
 
-    assert(scope.signatures.length === 26)
-    assert(scope.packagePrefixes === Map.empty)
-    assert(scope.toBeGenerated === Set.empty)
+    scope.signatures.length should ===(26)
+    scope.packagePrefixes should ===(Map.empty)
+    scope.toBeGenerated should ===(Set.empty)
   }
 
   // Test case reproducing #15341
@@ -51,19 +51,19 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
         Map.empty,
       )
 
-    assert(scope.signatures.length === 28)
-    assert(scope.packagePrefixes === Map.empty)
-    assert(scope.toBeGenerated === Set.empty)
+    scope.signatures.length should ===(28)
+    scope.packagePrefixes should ===(Map.empty)
+    scope.toBeGenerated should ===(Set.empty)
   }
 
   it should "read interfaces from a single DAR file with a prefix" in {
 
     val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> Some("PREFIX")), Map.empty)
 
-    assert(scope.signatures.map(_.packageId).length === dar.all.length)
-    assert(scope.packagePrefixes.size === dar.all.length)
-    assert(scope.packagePrefixes.values.forall(_ === "PREFIX"))
-    assert(scope.toBeGenerated === Set.empty)
+    scope.signatures.map(_.packageId).length should ===(dar.all.length)
+    scope.packagePrefixes.size should ===(dar.all.length)
+    all(scope.packagePrefixes.values) should ===("PREFIX")
+    scope.toBeGenerated should ===(Set.empty)
   }
 
   behavior of "detectModuleCollisions"
@@ -77,13 +77,11 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   it should "succeed if there are no collisions" in {
     val signatures = Seq(interface("pkg1", "A", "A.B"), interface("pkg2", "B", "A.B.C"))
-    assert(
-      CodeGenRunner.detectModuleCollisions(
-        Map.empty,
-        signatures,
-        moduleIdSet(signatures),
-      ) === ()
-    )
+    CodeGenRunner.detectModuleCollisions(
+      Map.empty,
+      signatures,
+      moduleIdSet(signatures),
+    ) should ===(())
   }
 
   it should "fail if there is a collision" in {
@@ -110,35 +108,29 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   it should "succeed if collision is resolved by prefixing" in {
     val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
-    assert(
-      CodeGenRunner.detectModuleCollisions(
-        Map(PackageId.assertFromString("pkg2") -> "Pkg2"),
-        signatures,
-        moduleIdSet(signatures),
-      ) === ()
-    )
+    CodeGenRunner.detectModuleCollisions(
+      Map(PackageId.assertFromString("pkg2") -> "Pkg2"),
+      signatures,
+      moduleIdSet(signatures),
+    ) should ===(())
   }
 
   it should "succeed if there is a collisions on modules which are not to be generated" in {
     val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
-    assert(
-      CodeGenRunner.detectModuleCollisions(
-        Map.empty,
-        signatures,
-        Set.empty,
-      ) === ()
-    )
+    CodeGenRunner.detectModuleCollisions(
+      Map.empty,
+      signatures,
+      Set.empty,
+    ) should ===(())
   }
 
   it should "succeed if same module name between a module not to be generated and a module to be generated " in {
     val signatures = Seq(interface("pkg1", "A"), interface("pkg2", "A"))
-    assert(
-      CodeGenRunner.detectModuleCollisions(
-        Map.empty,
-        signatures,
-        Set(Reference.Module(PackageId.assertFromString("pkg1"), ModuleName.assertFromString("A"))),
-      ) === ()
-    )
+    CodeGenRunner.detectModuleCollisions(
+      Map.empty,
+      signatures,
+      Set(Reference.Module(PackageId.assertFromString("pkg1"), ModuleName.assertFromString("A"))),
+    ) should ===(())
   }
 
   behavior of "resolvePackagePrefixes"
@@ -158,15 +150,12 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     val interface1 = interface(pkg1, None)
     val interface2 = interface(pkg2, Some(PackageMetadata(name2, version)))
     val interface3 = interface(pkg3, Some(PackageMetadata(name3, version)))
-    assert(
-      CodeGenRunner.resolvePackagePrefixes(
-        pkgPrefixes,
-        modulePrefixes,
-        Seq(interface1, interface2, interface3),
-        moduleIdSet(Seq(interface1, interface2, interface3)),
-      ) ===
-        Map(pkg1 -> "com.pkg1", pkg2 -> "com.pkg2.a.b", pkg3 -> "c.d")
-    )
+    CodeGenRunner.resolvePackagePrefixes(
+      pkgPrefixes,
+      modulePrefixes,
+      Seq(interface1, interface2, interface3),
+      moduleIdSet(Seq(interface1, interface2, interface3)),
+    ) should ===(Map(pkg1 -> "com.pkg1", pkg2 -> "com.pkg2.a.b", pkg3 -> "c.d"))
   }
   it should "fail if module-prefixes references non-existing package" in {
     val name2 = PackageName.assertFromString("name2")
