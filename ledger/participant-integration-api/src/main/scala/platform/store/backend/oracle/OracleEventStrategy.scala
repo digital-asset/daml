@@ -30,36 +30,109 @@ object OracleEventStrategy extends EventStrategy {
     cSQL"( ($clause) AND (template_id IN ($internedTemplates)) )"
   }
 
-  override def pruneIdFilterCreateStakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = {
-    import com.daml.platform.store.backend.Conversions.OffsetToStatement
-    SQL"""
-          -- Create events filter table (only for contracts archived before the specified offset)
-          delete from participant_events_create_filter
-          where exists (
-            select * from participant_events_create delete_events
-            where
-              delete_events.event_offset <= $pruneUpToInclusive and
-              exists (
-                SELECT 1 FROM participant_events_consuming_exercise archive_events
-                WHERE
-                  archive_events.event_offset <= $pruneUpToInclusive AND
-                  archive_events.contract_id = delete_events.contract_id
-              ) and
-              delete_events.event_sequential_id = participant_events_create_filter.event_sequential_id
-          )"""
-  }
+  override def pruneIdFilterCreateStakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] =
+    pruneIdFilterCreate(
+      tableName = "participant_events_create_filter",
+      pruneUpToInclusive = pruneUpToInclusive,
+    )
 
   override def pruneIdFilterCreateNonStakeholderInformees(
       pruneUpToInclusive: Offset
-  ): SimpleSql[Row] = ???
+  ): SimpleSql[Row] =
+    pruneIdFilterCreate(
+      tableName = "pe_create_filter_nonstakeholder_informees",
+      pruneUpToInclusive = pruneUpToInclusive,
+    )
 
-  override def pruneIdFilterConsumingStakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] = ???
+  override def pruneIdFilterConsumingStakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] =
+    pruneIdFilterConsumingOrNonConsuming(
+      idFilterTableName = "pe_consuming_exercise_filter_stakeholders",
+      eventsTableName = "participant_events_consuming_exercise",
+      pruneUpToInclusive = pruneUpToInclusive,
+    )
 
   override def pruneIdFilterConsumingNonStakeholderInformees(
       pruneUpToInclusive: Offset
-  ): SimpleSql[Row] = ???
+  ): SimpleSql[Row] = {
+    pruneIdFilterConsumingOrNonConsuming(
+      idFilterTableName = "pe_consuming_exercise_filter_nonstakeholder_informees",
+      eventsTableName = "participant_events_consuming_exercise",
+      pruneUpToInclusive = pruneUpToInclusive,
+    )
+  }
 
-  override def pruneIdFilterNonConsumingInformees(pruneUpToInclusive: Offset): SimpleSql[Row] = ???
+  override def pruneIdFilterNonConsumingInformees(pruneUpToInclusive: Offset): SimpleSql[Row] =
+    pruneIdFilterConsumingOrNonConsuming(
+      idFilterTableName = "pe_non_consuming_exercise_filter_informees",
+      eventsTableName = "participant_events_non_consuming_exercise",
+      pruneUpToInclusive = pruneUpToInclusive,
+    )
 
-  override def pruneTransactionMeta(pruneUpToInclusive: Offset): SimpleSql[Row] = ???
+  override def pruneTransactionMeta(pruneUpToInclusive: Offset): SimpleSql[Row] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+         DELETE FROM
+            participant_transaction_meta m
+         WHERE
+          m.event_offset <= $pruneUpToInclusive
+          AND
+          NOT EXISTS (
+            SELECT 1 FROM participant_events_create c
+            WHERE
+              c.event_sequential_id >= m.event_sequential_id_from
+              AND
+              c.event_sequential_id <= m.event_sequential_id_to
+          )
+       """
+  }
+
+  // TODO etq: Currently we query two additional tables: create and consuming events tables.
+  //           This can be simplified to query only the create events table if we impose the ordering
+  //           that create events tables has already been pruned.
+  /** Prunes create events id filter table only for contracts archived before the specified offset
+    */
+  private def pruneIdFilterCreate(tableName: String, pruneUpToInclusive: Offset): SimpleSql[Row] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+          DELETE FROM
+            #$tableName id_filter
+          WHERE EXISTS (
+            SELECT * from participant_events_create c
+            WHERE
+            c.event_offset <= $pruneUpToInclusive
+            AND
+            EXISTS (
+              SELECT 1 FROM participant_events_consuming_exercise archive
+              WHERE
+                archive.event_offset <= $pruneUpToInclusive
+                AND
+                archive.contract_id = c.contract_id
+              )
+            AND
+            c.event_sequential_id = id_filter.event_sequential_id
+          )"""
+  }
+
+  // TODO etq: Currently we query an events table to discover the event offset corresponding
+  //           to a row from the id filter table.
+  //           This query can simplified not to query the events table at all if we pruned up to
+  //           a given event sequential id rather than an event offset.
+  private def pruneIdFilterConsumingOrNonConsuming(
+      idFilterTableName: String,
+      eventsTableName: String,
+      pruneUpToInclusive: Offset,
+  ): SimpleSql[Row] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+          DELETE FROM
+            #$idFilterTableName id_filter
+          WHERE EXISTS (
+            SELECT * FROM #$eventsTableName events
+          WHERE
+            events.event_offset <= $pruneUpToInclusive
+            AND
+            events.event_sequential_id = id_filter.event_sequential_id
+          )"""
+
+  }
 }

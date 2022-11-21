@@ -25,6 +25,7 @@ class CompletionStorageBackendTemplate(
     queryStrategy: QueryStrategy,
     stringInterning: StringInterning,
 ) extends CompletionStorageBackend {
+  import com.daml.platform.store.backend.Conversions.ArrayColumnToIntArray._
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 

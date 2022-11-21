@@ -30,6 +30,8 @@ import com.daml.platform.store.interning.StringInterning
 import scala.collection.immutable.ArraySeq
 
 object EventStorageBackendTemplate {
+  import com.daml.platform.store.backend.Conversions.ArrayColumnToIntArray._
+  import com.daml.platform.store.backend.Conversions.ArrayColumnToStringArray._
 
   // TOOD etq: Move non-private members to the top
 
