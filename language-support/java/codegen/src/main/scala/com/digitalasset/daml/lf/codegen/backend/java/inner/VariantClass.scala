@@ -62,7 +62,6 @@ private[inner] object VariantClass extends StrictLogging {
         typeArguments,
         variant,
         typeWithContext,
-        packagePrefixes,
         variantClassName,
       )
       logger.debug("End")
@@ -304,7 +303,6 @@ private[inner] object VariantClass extends StrictLogging {
             damlName,
             javaName,
             damlType,
-            packagePrefixes,
           )
       }
     }

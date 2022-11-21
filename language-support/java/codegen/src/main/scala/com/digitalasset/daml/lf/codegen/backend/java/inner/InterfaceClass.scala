@@ -48,7 +48,6 @@ object InterfaceClass extends StrictLogging {
               interfaceName,
               interface.choices,
               ContractIdClass.For.Interface,
-              packagePrefixes,
             )
             .build()
         )
@@ -57,7 +56,6 @@ object InterfaceClass extends StrictLogging {
             interface.choices,
             typeDeclarations,
             packageId,
-            packagePrefixes,
           )
         )
         .addType(

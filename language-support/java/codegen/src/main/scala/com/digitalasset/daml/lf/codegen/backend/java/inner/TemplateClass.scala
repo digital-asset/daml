@@ -65,15 +65,14 @@ private[inner] object TemplateClass extends StrictLogging {
               className,
               templateChoices,
               ContractIdClass.For.Template,
-              packagePrefixes,
             )
-            .addConversionForImplementedInterfaces(template.implementedInterfaces, packagePrefixes)
+            .addConversionForImplementedInterfaces(template.implementedInterfaces)
             .addContractIdConversionCompanionForwarder()
             .build()
         )
         .addType(
           ContractClass
-            .builder(className, template.key, packagePrefixes)
+            .builder(className, template.key)
             .addGenerateFromMethods()
             .build()
         )
@@ -82,7 +81,6 @@ private[inner] object TemplateClass extends StrictLogging {
             templateChoices,
             typeWithContext.interface.typeDecls,
             typeWithContext.packageId,
-            packagePrefixes,
           )
         )
         .addMethod(generateCreateAndMethod())
@@ -232,7 +230,6 @@ private[inner] object TemplateClass extends StrictLogging {
                   byKeyClassName,
                   s"$companionFieldName, this.contractKey",
                   implemented,
-                  packagePrefixes,
                 ),
           )
           .asJava
@@ -401,7 +398,6 @@ private[inner] object TemplateClass extends StrictLogging {
                   createAndClassName,
                   s"$companionFieldName, this.createArguments",
                   implemented,
-                  packagePrefixes,
                 ),
           )
           .asJava
@@ -497,7 +493,6 @@ private[inner] object TemplateClass extends StrictLogging {
       choiceName,
       choice,
       fields,
-      packagePrefixes,
     )(
       _.makeDeprecated(
         howToFix = s"use {@code createAnd().exercise${choiceName.capitalize}} instead",
@@ -546,14 +541,12 @@ private[inner] object TemplateClass extends StrictLogging {
             "value$",
             CodeBlock.of("$L", "value$"),
             newNameGenerator,
-            packagePrefixes,
           ),
           FromValueGenerator.extractor(
             choice.returnType,
             "value$",
             CodeBlock.of("$L", "value$"),
             newNameGenerator,
-            packagePrefixes,
           ),
         )
         .build()
@@ -574,7 +567,7 @@ private[inner] object TemplateClass extends StrictLogging {
           ",$We -> $L",
           Seq(
             FromValueGenerator
-              .extractor(keyType, "e", CodeBlock.of("e"), newNameGenerator, packagePrefixes)
+              .extractor(keyType, "e", CodeBlock.of("e"), newNameGenerator)
           ),
         ),
       (classOf[ContractCompanion.WithoutKey[_, _, _]], Seq.empty, "", Seq.empty),

@@ -23,7 +23,7 @@ object VariantValueDecodersMethods {
       subPackage: String,
   )(implicit packagePrefixes: PackagePrefixes): Vector[MethodSpec] = {
     val (variantRecords, methodSpecs) =
-      getFieldsWithTypes(variant.fields, packagePrefixes).partitionMap { fieldInfo =>
+      getFieldsWithTypes(variant.fields).partitionMap { fieldInfo =>
         val FieldInfo(damlName, damlType, javaName, _) = fieldInfo
         damlType match {
           case TypeCon(TypeConName(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
@@ -33,7 +33,7 @@ object VariantValueDecodersMethods {
             val className =
               ClassName.bestGuess(s"$subPackage.$javaName").parameterized(typeArgs)
             Right(
-              variantConDecoderMethod(damlName, typeArgs, className, damlType, packagePrefixes)
+              variantConDecoderMethod(damlName, typeArgs, className, damlType)
             )
         }
       }
@@ -52,7 +52,7 @@ object VariantValueDecodersMethods {
             ClassName.bestGuess(s"$subPackage.${child.name}").parameterized(typeParameters)
 
           FromValueGenerator.generateValueDecoderForRecordLike(
-            getFieldsWithTypes(record.fields, packagePrefixes),
+            getFieldsWithTypes(record.fields),
             className,
             typeArgs,
             s"valueDecoder${child.name}",
