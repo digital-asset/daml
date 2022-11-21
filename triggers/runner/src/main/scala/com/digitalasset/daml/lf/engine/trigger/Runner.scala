@@ -29,7 +29,13 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.trigger.Runner.{logger, SeenMsgs, TriggerContext, triggerUserState}
+import com.daml.lf.engine.trigger.Runner.{
+  logger,
+  SeenMsgs,
+  TriggerContext,
+  TriggerContextualFlow,
+  triggerUserState,
+}
 import com.daml.lf.engine.trigger.Runner.Implicits._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
@@ -546,11 +552,10 @@ private[lf] class Runner private (
       heartbeat: Option[FiniteDuration],
       parties: TriggerParties,
       filter: TransactionFilter,
-  ): Flow[TriggerContext[SingleCommandFailure], TriggerContext[TriggerMsg], NotUsed] = {
+  ): TriggerContextualFlow[SingleCommandFailure, TriggerMsg, NotUsed] = {
     // A queue for command submission failures.
-    val submissionFailureQueue
-        : Flow[TriggerContext[SingleCommandFailure], TriggerContext[TriggerMsg], NotUsed] = {
-      Flow[TriggerContext[SingleCommandFailure]]
+    val submissionFailureQueue: TriggerContextualFlow[SingleCommandFailure, TriggerMsg, NotUsed] = {
+      TriggerContextualFlow[SingleCommandFailure]
         // Why `fail`?  Consider the most obvious alternatives.
         //
         // `backpressure`?  This feeds into the Free interpreter flow, which may produce
@@ -667,7 +672,7 @@ private[lf] class Runner private (
     (initialStateFree, evaluatedUpdate)
   }
 
-  private[this] def encodeMsgs: Flow[TriggerContext[TriggerMsg], TriggerContext[SValue], NotUsed] =
+  private[this] def encodeMsgs: TriggerContextualFlow[TriggerMsg, SValue, NotUsed] =
     Flow fromFunction {
       case ctx @ Ctx(_, TriggerMsg.Transaction(transaction), _) =>
         ctx.copy(value = converter.fromTransaction(transaction).orConverterException)
@@ -685,7 +690,7 @@ private[lf] class Runner private (
   // argument.
   private def getTriggerEvaluator(
       acs: Seq[CreatedEvent]
-  ): Flow[TriggerContext[TriggerMsg], TriggerContext[SubmitRequest], Future[SValue]] = {
+  ): TriggerContextualFlow[TriggerMsg, SubmitRequest, Future[SValue]] = {
     logger.info("Trigger starting")
 
     val clientTime: Timestamp =
@@ -738,7 +743,7 @@ private[lf] class Runner private (
     val graph = GraphDSL.createGraph(Sink.last[SValue]) { implicit gb => saveLastState =>
       import GraphDSL.Implicits._
 
-      val msgIn = gb add Flow[TriggerContext[TriggerMsg]]
+      val msgIn = gb add TriggerContextualFlow[TriggerMsg]
       val initialState = gb add runInitialState
       val initialStateOut = gb add Broadcast[SValue](2)
       val rule = gb add runRuleOnMsgs
@@ -762,9 +767,8 @@ private[lf] class Runner private (
     try Some(a)
     catch { case _: IllegalArgumentException => None }
 
-  private[this] def hideIrrelevantMsgs
-      : Flow[TriggerContext[TriggerMsg], TriggerContext[TriggerMsg], NotUsed] =
-    Flow[TriggerContext[TriggerMsg]].mapConcat[TriggerContext[TriggerMsg]] {
+  private[this] def hideIrrelevantMsgs: TriggerContextualFlow[TriggerMsg, TriggerMsg, NotUsed] =
+    TriggerContextualFlow[TriggerMsg].mapConcat[TriggerContext[TriggerMsg]] {
       case ctx @ Ctx(_, msg @ TriggerMsg.Completion(c), _) =>
         // This happens for invalid UUIDs which we might get for
         // completions not emitted by the trigger.
@@ -811,7 +815,7 @@ private[lf] class Runner private (
 
   private[this] def submitOrFail(implicit
       ec: ExecutionContext
-  ): Flow[TriggerContext[SubmitRequest], TriggerContext[SingleCommandFailure], NotUsed] = {
+  ): TriggerContextualFlow[SubmitRequest, SingleCommandFailure, NotUsed] = {
     import io.grpc.Status.Code
     import Code.RESOURCE_EXHAUSTED
 
@@ -836,12 +840,11 @@ private[lf] class Runner private (
         case z => Some(z)
       }
 
-    val throttleFlow: Flow[TriggerContext[SubmitRequest], TriggerContext[SubmitRequest], NotUsed] =
-      Flow[TriggerContext[SubmitRequest]]
+    val throttleFlow: TriggerContextualFlow[SubmitRequest, SubmitRequest, NotUsed] =
+      TriggerContextualFlow[SubmitRequest]
         .throttle(triggerConfig.maxSubmissionRequests, triggerConfig.maxSubmissionDuration)
-    val submitFlow
-        : Flow[TriggerContext[SubmitRequest], TriggerContext[SingleCommandFailure], NotUsed] =
-      Flow[TriggerContext[SubmitRequest]]
+    val submitFlow: TriggerContextualFlow[SubmitRequest, SingleCommandFailure, NotUsed] =
+      TriggerContextualFlow[SubmitRequest]
         .filter { _ =>
           inFlightCommands.count <= triggerConfig.maxInFlightCommands
         }
@@ -861,9 +864,8 @@ private[lf] class Runner private (
               ctx.copy(value = err)
             }
         )
-    val failureFlow
-        : Flow[TriggerContext[SubmitRequest], TriggerContext[SingleCommandFailure], NotUsed] =
-      Flow[TriggerContext[SubmitRequest]]
+    val failureFlow: TriggerContextualFlow[SubmitRequest, SingleCommandFailure, NotUsed] =
+      TriggerContextualFlow[SubmitRequest]
         .filterNot { _ =>
           inFlightCommands.count <= triggerConfig.maxInFlightCommands
         }
@@ -913,7 +915,7 @@ private[lf] class Runner private (
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,
       msgFlow: Graph[FlowShape[TriggerContext[TriggerMsg], TriggerContext[TriggerMsg]], T] =
-        Flow[TriggerContext[TriggerMsg]],
+        TriggerContextualFlow[TriggerMsg],
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -937,6 +939,11 @@ object Runner {
   private[trigger] val logger = ContextualizedLogger.get(getClass)
 
   type TriggerContext[+Value] = Ctx[LoggingContextOf[Trigger], Value]
+
+  type TriggerContextualFlow[-In, +Out, +Mat] = Flow[TriggerContext[In], TriggerContext[Out], Mat]
+
+  def TriggerContextualFlow[In]: TriggerContextualFlow[In, In, NotUsed] =
+    Flow.apply[TriggerContext[In]]
 
   def apply(
       compiledPackages: CompiledPackages,
