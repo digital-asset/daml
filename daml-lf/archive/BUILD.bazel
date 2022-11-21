@@ -115,10 +115,7 @@ da_scala_library(
 da_scala_test_suite(
     name = "daml_lf_archive_reader_tests",
     size = "small",
-    srcs = glob(
-        ["src/test/scala/**/*.scala"],
-        exclude = ["src/test/scala/com/digitalasset/daml/lf/archive/ZipBombDetectionSpec.scala"],
-    ),
+    srcs = glob(["src/test/scala/**/*.scala"]),
     data = [
         ":DarReaderTest.dalf",
         ":DarReaderTest.dar",
@@ -144,27 +141,6 @@ da_scala_test_suite(
         "//libs-scala/scalatest-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
-
-da_scala_test_suite(
-    name = "daml_lf_archive_reader_zipbomb_tests",
-    srcs = ["src/test/scala/com/digitalasset/daml/lf/archive/ZipBombDetectionSpec.scala"],
-    data = [
-        ":DarReaderTest.dar",
-    ],
-    scala_deps = [
-        "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatestplus_scalacheck_1_15",
-    ],
-    scalacopts = lf_scalacopts,
-    deps = [
-        ":daml_lf_1.14_archive_proto_java",
-        ":daml_lf_1.dev_archive_proto_java",
-        ":daml_lf_archive_reader",
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/data",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 

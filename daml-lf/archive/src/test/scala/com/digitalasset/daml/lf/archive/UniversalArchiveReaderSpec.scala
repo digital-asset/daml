@@ -35,11 +35,6 @@ class UniversalArchiveReaderSpec extends AnyFlatSpec with Matchers with TryValue
   }
 
   it should "reject a zip bomb with the proper error" in {
-    DarReader
-      .readArchiveFromFile(darFile, entrySizeThreshold = 1024) shouldBe Left(Error.ZipBomb)
-  }
-
-  it should "reject a zip bomb with the proper error" in {
     UniversalArchiveReader
       .readFile(darFile, entrySizeThreshold = 1024) shouldBe Left(Error.ZipBomb)
   }
