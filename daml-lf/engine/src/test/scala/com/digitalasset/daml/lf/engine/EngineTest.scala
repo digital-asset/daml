@@ -93,7 +93,7 @@ class EngineTest
       inside(interpretResult) { case Right((tx, txMeta)) =>
         val stx = suffix(tx)
 
-        val Right((rtx, newMeta)) =
+        inside(
           reinterpret(
             suffixStrictEngine,
             Set(party),
@@ -103,8 +103,10 @@ class EngineTest
             let,
             lookupPackage,
           )
-        isReplayedBy(stx, rtx) shouldBe Right(())
-        txMeta.nodeSeeds shouldBe newMeta.nodeSeeds
+        ) { case Right((rtx, newMeta)) =>
+          isReplayedBy(stx, rtx) shouldBe Right(())
+          txMeta.nodeSeeds shouldBe newMeta.nodeSeeds
+        }
       }
     }
 
@@ -195,7 +197,7 @@ class EngineTest
         inside(interpretResult(templateId, signatories, submitters)) { case Right((tx, txMeta)) =>
           val stx = suffix(tx)
 
-          val Right((rtx, _)) =
+          inside(
             reinterpret(
               suffixStrictEngine,
               signatories.map(_._2),
@@ -205,7 +207,9 @@ class EngineTest
               let,
               lookupPackage,
             )
-          isReplayedBy(stx, rtx) shouldBe Right(())
+          ) { case Right((rtx, _)) =>
+            isReplayedBy(stx, rtx) shouldBe Right(())
+          }
         }
       }
     }
@@ -303,57 +307,63 @@ class EngineTest
               lookupKey,
             )
         }
-    val Right((tx, txMeta)) = interpretResult
-    val Right(submitter) = tx.guessSubmitter
+    inside(interpretResult) { case Right((tx, txMeta)) =>
+      "be translated" in {
+        inside(
+          suffixLenientEngine
+            .submit(
+              Set(party),
+              readAs,
+              ApiCommands(ImmArray(command), let, "test"),
+              ImmArray.empty,
+              participant,
+              submissionSeed,
+            )
+            .consume(
+              lookupContract,
+              lookupPackage,
+              lookupKey,
+            )
+        ) { case Right((rtx, _)) =>
+          isReplayedBy(tx, rtx) shouldBe Right(())
+        }
+      }
 
-    "be translated" in {
-      val Right((rtx, _)) = suffixLenientEngine
-        .submit(
-          Set(party),
-          readAs,
-          ApiCommands(ImmArray(command), let, "test"),
-          ImmArray.empty,
-          participant,
-          submissionSeed,
-        )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
-      isReplayedBy(tx, rtx) shouldBe Right(())
-    }
+      "reinterpret to the same result" in {
+        val stx = suffix(tx)
 
-    "reinterpret to the same result" in {
-      val stx = suffix(tx)
+        inside(
+          reinterpret(
+            suffixStrictEngine,
+            Set(party),
+            stx.roots,
+            stx,
+            txMeta,
+            let,
+            lookupPackage,
+            defaultContracts,
+          )
+        ) { case Right((rtx, _)) =>
+          isReplayedBy(stx, rtx) shouldBe Right(())
+        }
+      }
 
-      val Right((rtx, _)) =
-        reinterpret(
-          suffixStrictEngine,
-          Set(party),
-          stx.roots,
-          stx,
-          txMeta,
-          let,
-          lookupPackage,
-          defaultContracts,
-        )
-      isReplayedBy(stx, rtx) shouldBe Right(())
-    }
-
-    "be validated" in {
-      val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
-      val validated = suffixLenientEngine
-        .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
-      validated match {
-        case Left(e) =>
-          fail(e.message)
-        case Right(()) => ()
+      "be validated" in {
+        inside(tx.guessSubmitter) { case Right(submitter) =>
+          val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
+          val validated = suffixLenientEngine
+            .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
+            .consume(
+              lookupContract,
+              lookupPackage,
+              lookupKey,
+            )
+          validated match {
+            case Left(e) =>
+              fail(e.message)
+            case Right(()) => ()
+          }
+        }
       }
     }
   }
@@ -443,65 +453,68 @@ class EngineTest
               lookupKey,
             )
         }
-    val Right((tx, txMeta)) = result
-
-    "be translated" in {
-      val Right((rtx, _)) = suffixLenientEngine
-        .submit(
-          submitters,
-          readAs,
-          ApiCommands(ImmArray(command), let, "test"),
-          ImmArray.empty,
-          participant,
-          submissionSeed,
-        )
-        .consume(lookupContract, lookupPackage, lookupKey)
-
-      isReplayedBy(tx, rtx) shouldBe Right(())
-    }
-
-    "reinterpret to the same result" in {
-      val stx = suffix(tx)
-
-      val Right((rtx, _)) =
-        reinterpret(
-          suffixStrictEngine,
-          Set(alice),
-          stx.roots,
-          stx,
-          txMeta,
-          let,
-          lookupPackage,
-          defaultContracts,
-          defaultKey,
-        )
-
-      isReplayedBy(stx, rtx) shouldBe Right(())
-    }
-
-    "be validated" in {
-      val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
-      val validated = suffixLenientEngine
-        .validate(submitters, ntx, let, participant, let, submissionSeed)
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
-      validated match {
-        case Left(e) =>
-          fail(e.message)
-        case Right(()) => ()
+    inside(result) { case Right((tx, txMeta)) =>
+      "be translated" in {
+        inside(
+          suffixLenientEngine
+            .submit(
+              submitters,
+              readAs,
+              ApiCommands(ImmArray(command), let, "test"),
+              ImmArray.empty,
+              participant,
+              submissionSeed,
+            )
+            .consume(lookupContract, lookupPackage, lookupKey)
+        ) { case Right((rtx, _)) =>
+          isReplayedBy(tx, rtx) shouldBe Right(())
+        }
       }
-    }
 
-    "mark all the exercise nodes as performed byKey" in {
-      val expectedNodes = tx.nodes.collect { case (id, _: Node.Exercise) =>
-        id
+      "reinterpret to the same result" in {
+        val stx = suffix(tx)
+
+        inside(
+          reinterpret(
+            suffixStrictEngine,
+            Set(alice),
+            stx.roots,
+            stx,
+            txMeta,
+            let,
+            lookupPackage,
+            defaultContracts,
+            defaultKey,
+          )
+        ) { case Right((rtx, _)) =>
+          isReplayedBy(stx, rtx) shouldBe Right(())
+        }
       }
-      val actualNodes = byKeyNodes(tx)
-      actualNodes shouldBe Symbol("nonEmpty")
-      actualNodes shouldBe expectedNodes.toSet
+
+      "be validated" in {
+        val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
+        val validated = suffixLenientEngine
+          .validate(submitters, ntx, let, participant, let, submissionSeed)
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+          )
+        validated match {
+          case Left(e) =>
+            fail(e.message)
+          case Right(()) => ()
+        }
+      }
+
+      "mark all the exercise nodes as performed byKey" in {
+        val expectedNodes = tx.nodes.collect { case (id, _: Node.Exercise) =>
+          id
+        }
+        val actualNodes = byKeyNodes(tx)
+        actualNodes shouldBe Symbol("nonEmpty")
+        actualNodes shouldBe expectedNodes.toSet
+      }
     }
   }
 
@@ -815,44 +828,46 @@ class EngineTest
             )
         }
 
-    val Right((tx, txMeta)) = interpretResult
-    val Right(submitter) = tx.guessSubmitter
-
-    "be translated" in {
-      tx.roots should have length 2
-      tx.nodes.keySet.toList should have length 2
-      val ImmArray(create, exercise) = tx.roots.map(tx.nodes)
-      create shouldBe a[Node.Create]
-      exercise shouldBe a[Node.Exercise]
-    }
-
-    "reinterpret to the same result" in {
-      val stx = suffix(tx)
-
-      val Right((rtx, _)) =
-        reinterpret(suffixStrictEngine, Set(party), stx.roots, stx, txMeta, let, lookupPackage)
-
-      isReplayedBy(stx, rtx) shouldBe Right(())
-    }
-
-    "be validated" in {
-      val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
-      val validated = suffixLenientEngine
-        .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
-      validated match {
-        case Left(e) =>
-          fail(e.message)
-        case Right(()) => ()
+    inside(interpretResult) { case Right((tx, txMeta)) =>
+      "be translated" in {
+        tx.roots should have length 2
+        tx.nodes.keySet.toList should have length 2
+        val ImmArray(create, exercise) = tx.roots.map(tx.nodes)
+        create shouldBe a[Node.Create]
+        exercise shouldBe a[Node.Exercise]
       }
-    }
 
-    "not mark any node as byKey" in {
-      interpretResult.map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
+      "reinterpret to the same result" in {
+        val stx = suffix(tx)
+
+        inside(
+          reinterpret(suffixStrictEngine, Set(party), stx.roots, stx, txMeta, let, lookupPackage)
+        ) { case Right((rtx, _)) =>
+          isReplayedBy(stx, rtx) shouldBe Right(())
+        }
+      }
+
+      "be validated" in {
+        inside(tx.guessSubmitter) { case Right(submitter) =>
+          val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
+          val validated = suffixLenientEngine
+            .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
+            .consume(
+              lookupContract,
+              lookupPackage,
+              lookupKey,
+            )
+          validated match {
+            case Left(e) =>
+              fail(e.message)
+            case Right(()) => ()
+          }
+        }
+      }
+
+      "not mark any node as byKey" in {
+        interpretResult.map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
+      }
     }
   }
 
@@ -923,15 +938,17 @@ class EngineTest
         ),
       )
 
-      val Right(DDataType(_, ImmArray(), _)) =
+      inside(
         basicTestsSignatures.lookupDataType(Identifier(basicTestsPkgId, "BasicTests:MyNestedRec"))
-      val res = preprocessor
-        .translateValue(
-          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:MyNestedRec"), ImmArray.Empty),
-          rec,
-        )
-        .consume(lookupContract, lookupPackage, lookupKey)
-      res shouldBe a[Right[_, _]]
+      ) { case Right(DDataType(_, ImmArray(), _)) =>
+        val res = preprocessor
+          .translateValue(
+            TTyConApp(Identifier(basicTestsPkgId, "BasicTests:MyNestedRec"), ImmArray.Empty),
+            rec,
+          )
+          .consume(lookupContract, lookupPackage, lookupKey)
+        res shouldBe a[Right[_, _]]
+      }
     }
 
     "work with fields with type parameters" in {
@@ -943,18 +960,20 @@ class EngineTest
         ),
       )
 
-      val Right(DDataType(_, ImmArray(), _)) =
+      inside(
         basicTestsSignatures.lookupDataType(
           Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")
         )
-      val res = preprocessor
-        .translateValue(
-          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
-          rec,
-        )
-        .consume(lookupContract, lookupPackage, lookupKey)
+      ) { case Right(DDataType(_, ImmArray(), _)) =>
+        val res = preprocessor
+          .translateValue(
+            TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
+            rec,
+          )
+          .consume(lookupContract, lookupPackage, lookupKey)
 
-      res shouldBe a[Right[_, _]]
+        res shouldBe a[Right[_, _]]
+      }
     }
 
     "work with fields with labels, in the wrong order" in {
@@ -966,18 +985,20 @@ class EngineTest
         ),
       )
 
-      val Right(DDataType(_, ImmArray(), _)) =
+      inside(
         basicTestsSignatures.lookupDataType(
           Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")
         )
-      val res = preprocessor
-        .translateValue(
-          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
-          rec,
-        )
-        .consume(lookupContract, lookupPackage, lookupKey)
+      ) { case Right(DDataType(_, ImmArray(), _)) =>
+        val res = preprocessor
+          .translateValue(
+            TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
+            rec,
+          )
+          .consume(lookupContract, lookupPackage, lookupKey)
 
-      res shouldBe a[Right[_, _]]
+        res shouldBe a[Right[_, _]]
+      }
     }
 
     "fail with fields with labels, with repetitions" in {
@@ -986,19 +1007,21 @@ class EngineTest
         ImmArray((Some(toName("p")), ValueParty(alice)), (Some(toName("p")), ValueParty(bob))),
       )
 
-      val Right(DDataType(_, ImmArray(), _)) =
+      inside(
         basicTestsSignatures.lookupDataType(
           Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")
         )
-      val res = preprocessor
-        .translateValue(
-          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
-          rec,
-        )
-        .consume(lookupContract, lookupPackage, lookupKey)
+      ) { case Right(DDataType(_, ImmArray(), _)) =>
+        val res = preprocessor
+          .translateValue(
+            TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
+            rec,
+          )
+          .consume(lookupContract, lookupPackage, lookupKey)
 
-      inside(res) { case Left(Error.Preprocessing(error)) =>
-        error shouldBe a[Error.Preprocessing.TypeMismatch]
+        inside(res) { case Left(Error.Preprocessing(error)) =>
+          error shouldBe a[Error.Preprocessing.TypeMismatch]
+        }
       }
     }
 
@@ -1008,18 +1031,20 @@ class EngineTest
         ImmArray((None, ValueParty(alice)), (None, ValueOptional(Some(ValueInt64(42))))),
       )
 
-      val Right(DDataType(_, ImmArray(), _)) =
+      inside(
         basicTestsSignatures.lookupDataType(
           Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")
         )
-      val res = preprocessor
-        .translateValue(
-          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
-          rec,
-        )
-        .consume(lookupContract, lookupPackage, lookupKey)
+      ) { case Right(DDataType(_, ImmArray(), _)) =>
+        val res = preprocessor
+          .translateValue(
+            TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
+            rec,
+          )
+          .consume(lookupContract, lookupPackage, lookupKey)
 
-      res shouldBe a[Right[_, _]]
+        res shouldBe a[Right[_, _]]
+      }
     }
 
     "fail with fields without labels, in the wrong order" in {
@@ -1028,19 +1053,21 @@ class EngineTest
         ImmArray((None, ValueOptional(Some(ValueInt64(42)))), (None, ValueParty(alice))),
       )
 
-      val Right(DDataType(_, ImmArray(), _)) =
+      inside(
         basicTestsSignatures.lookupDataType(
           Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")
         )
-      val res = preprocessor
-        .translateValue(
-          TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
-          rec,
-        )
-        .consume(lookupContract, lookupPackage, lookupKey)
+      ) { case Right(DDataType(_, ImmArray(), _)) =>
+        val res = preprocessor
+          .translateValue(
+            TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.Empty),
+            rec,
+          )
+          .consume(lookupContract, lookupPackage, lookupKey)
 
-      inside(res) { case Left(Error.Preprocessing(error)) =>
-        error shouldBe a[Error.Preprocessing.TypeMismatch]
+        inside(res) { case Left(Error.Preprocessing(error)) =>
+          error shouldBe a[Error.Preprocessing.TypeMismatch]
+        }
       }
     }
 
@@ -1062,108 +1089,117 @@ class EngineTest
     val submitters = Set(bob)
     val readAs = (Set.empty: Set[Party])
 
-    val Right((tx, txMeta)) = suffixLenientEngine
-      .submit(
-        submitters,
-        readAs,
-        ApiCommands(ImmArray(command), let, "test"),
-        ImmArray.empty,
-        participant,
-        submissionSeed,
-      )
-      .consume(lookupContract, lookupPackage, lookupKey)
-
-    val submissionTime = txMeta.submissionTime
-
-    val txSeed =
-      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
-    val Right(cmds) = preprocessor
-      .preprocessApiCommands(ImmArray(command))
-      .consume(lookupContract, lookupPackage, lookupKey)
-    val Right((rtx, _)) = suffixLenientEngine
-      .interpretCommands(
-        validating = false,
-        submitters = submitters,
-        readAs = Set.empty,
-        commands = cmds,
-        ledgerTime = let,
-        submissionTime = submissionTime,
-        seeding = InitialSeeding.TransactionSeed(txSeed),
-      )
-      .consume(lookupContract, lookupPackage, lookupKey)
-
-    "be translated" in {
-      isReplayedBy(tx, rtx) shouldBe Right(())
-    }
-
-    val blindingInfo = Blinding.blind(tx)
-
-    "reinterpret to the same result" in {
-      val stx = suffix(tx)
-
-      val Right((rtx, _)) =
-        reinterpret(
-          suffixStrictEngine,
-          Set(bob),
-          stx.transaction.roots,
-          stx,
-          txMeta,
-          let,
-          lookupPackage,
-          defaultContracts,
+    inside(
+      suffixLenientEngine
+        .submit(
+          submitters,
+          readAs,
+          ApiCommands(ImmArray(command), let, "test"),
+          ImmArray.empty,
+          participant,
+          submissionSeed,
         )
+        .consume(lookupContract, lookupPackage, lookupKey)
+    ) { case Right((tx, txMeta)) =>
+      val submissionTime = txMeta.submissionTime
 
-      isReplayedBy(rtx, stx) shouldBe Right(())
-    }
+      val txSeed =
+        crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
 
-    "blinded correctly" in {
-
-      // Bob sees both the archive and the create
-      val bobView = Blinding.divulgedTransaction(blindingInfo.disclosure, bob, tx.transaction)
-      bobView.nodes.size shouldBe 2
-      findNodeByIdx(bobView.nodes, 0).getOrElse(fail("node not found")) match {
-        case Node.Exercise(
-              coid,
-              _,
-              _,
-              choice,
-              consuming,
-              actingParties,
-              _,
-              _,
-              _,
-              _,
-              children,
-              _,
-              _,
-              _,
-              _,
-            ) =>
-          coid shouldBe originalCoid
-          consuming shouldBe true
-          actingParties shouldBe Set(bob)
-          children.map(_.index) shouldBe ImmArray(1)
-          choice shouldBe "Transfer"
-        case _ => fail("exercise expected first for Bob")
+      "be translated" in {
+        inside(
+          preprocessor
+            .preprocessApiCommands(ImmArray(command))
+            .consume(lookupContract, lookupPackage, lookupKey)
+        ) { case Right(cmds) =>
+          inside(
+            suffixLenientEngine
+              .interpretCommands(
+                validating = false,
+                submitters = submitters,
+                readAs = Set.empty,
+                commands = cmds,
+                ledgerTime = let,
+                submissionTime = submissionTime,
+                seeding = InitialSeeding.TransactionSeed(txSeed),
+              )
+              .consume(lookupContract, lookupPackage, lookupKey)
+          ) { case Right((rtx, _)) =>
+            isReplayedBy(tx, rtx) shouldBe Right(())
+          }
+        }
       }
 
-      findNodeByIdx(bobView.nodes, 1).getOrElse(fail("node not found")) match {
-        case create: Node.Create =>
-          create.templateId shouldBe templateId
-          create.stakeholders shouldBe Set(alice, clara)
-        case _ => fail("create event is expected")
+      val blindingInfo = Blinding.blind(tx)
+
+      "reinterpret to the same result" in {
+        val stx = suffix(tx)
+
+        inside(
+          reinterpret(
+            suffixStrictEngine,
+            Set(bob),
+            stx.transaction.roots,
+            stx,
+            txMeta,
+            let,
+            lookupPackage,
+            defaultContracts,
+          )
+        ) { case Right((rtx, _)) =>
+          isReplayedBy(rtx, stx) shouldBe Right(())
+        }
       }
 
-      // clara only sees create
-      val claraView =
-        Blinding.divulgedTransaction(blindingInfo.disclosure, clara, tx.transaction)
+      "blinded correctly" in {
 
-      claraView.nodes.size shouldBe 1
-      findNodeByIdx(claraView.nodes, 1).getOrElse(fail("node not found")) match {
-        case create: Node.Create =>
-          create.templateId shouldBe templateId
-          create.stakeholders shouldBe Set(alice, clara)
-        case _ => fail("create event is expected")
+        // Bob sees both the archive and the create
+        val bobView = Blinding.divulgedTransaction(blindingInfo.disclosure, bob, tx.transaction)
+        bobView.nodes.size shouldBe 2
+        findNodeByIdx(bobView.nodes, 0).getOrElse(fail("node not found")) match {
+          case Node.Exercise(
+                coid,
+                _,
+                _,
+                choice,
+                consuming,
+                actingParties,
+                _,
+                _,
+                _,
+                _,
+                children,
+                _,
+                _,
+                _,
+                _,
+              ) =>
+            coid shouldBe originalCoid
+            consuming shouldBe true
+            actingParties shouldBe Set(bob)
+            children.map(_.index) shouldBe ImmArray(1)
+            choice shouldBe "Transfer"
+          case _ => fail("exercise expected first for Bob")
+        }
+
+        findNodeByIdx(bobView.nodes, 1).getOrElse(fail("node not found")) match {
+          case create: Node.Create =>
+            create.templateId shouldBe templateId
+            create.stakeholders shouldBe Set(alice, clara)
+          case _ => fail("create event is expected")
+        }
+
+        // clara only sees create
+        val claraView =
+          Blinding.divulgedTransaction(blindingInfo.disclosure, clara, tx.transaction)
+
+        claraView.nodes.size shouldBe 1
+        findNodeByIdx(claraView.nodes, 1).getOrElse(fail("node not found")) match {
+          case create: Node.Create =>
+            create.templateId shouldBe templateId
+            create.stakeholders shouldBe Set(alice, clara)
+          case _ => fail("create event is expected")
+        }
       }
     }
   }
@@ -1271,36 +1307,41 @@ class EngineTest
 
     "propagate the parent's signatories and actors (but not observers) when stakeholders" in {
 
-      val Right((tx, _)) = runExample(fetcher1Cid, clara)
-      txFetchActors(tx.transaction) shouldBe Set(alice, clara)
+      inside(runExample(fetcher1Cid, clara)) { case Right((tx, _)) =>
+        txFetchActors(tx.transaction) shouldBe Set(alice, clara)
+      }
     }
 
     "not propagate the parent's signatories nor actors when not stakeholders" in {
 
-      val Right((tx, _)) = runExample(fetcher2Cid, clara)
-      txFetchActors(tx.transaction) shouldBe Set(clara)
+      inside(runExample(fetcher2Cid, clara)) { case Right((tx, _)) =>
+        txFetchActors(tx.transaction) shouldBe Set(clara)
+      }
     }
 
     "be retained when reinterpreting single fetch nodes" in {
-      val Right((tx, txMeta)) = runExample(fetcher1Cid, clara)
-      val fetchNodes = tx.nodes.iterator.collect { case (nid, fetch: Node.Fetch) =>
-        nid -> fetch
-      }
+      inside(runExample(fetcher1Cid, clara)) { case Right((tx, txMeta)) =>
+        val fetchNodes = tx.nodes.iterator.collect { case (nid, fetch: Node.Fetch) =>
+          nid -> fetch
+        }
 
-      fetchNodes.foreach { case (_, n) =>
-        val nid = NodeId(0) // we must use node-0 so the constructed tx is normalized
-        val fetchTx = VersionedTransaction(n.version, Map(nid -> n), ImmArray(nid))
-        val Right((reinterpreted, _)) =
-          suffixLenientEngine
-            .reinterpret(
-              n.requiredAuthorizers,
-              ReplayCommand.Fetch(n.templateId, n.coid),
-              txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) => seed },
-              txMeta.submissionTime,
-              let,
-            )
-            .consume(lookupContract, lookupPackage, lookupKey)
-        isReplayedBy(fetchTx, reinterpreted) shouldBe Right(())
+        fetchNodes.foreach { case (_, n) =>
+          val nid = NodeId(0) // we must use node-0 so the constructed tx is normalized
+          val fetchTx = VersionedTransaction(n.version, Map(nid -> n), ImmArray(nid))
+          inside(
+            suffixLenientEngine
+              .reinterpret(
+                n.requiredAuthorizers,
+                ReplayCommand.Fetch(n.templateId, n.coid),
+                txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) => seed },
+                txMeta.submissionTime,
+                let,
+              )
+              .consume(lookupContract, lookupPackage, lookupKey)
+          ) { case Right((reinterpreted, _)) =>
+            isReplayedBy(fetchTx, reinterpreted) shouldBe Right(())
+          }
+        }
       }
     }
 
@@ -1407,27 +1448,29 @@ class EngineTest
       )
       val submitters = Set(alice)
       val readAs = (Set.empty: Set[Party])
-      val Right((tx, _)) = newEngine()
-        .submit(
-          submitters,
-          readAs,
-          ApiCommands(ImmArray(exerciseCmd), now, "test"),
-          ImmArray.empty,
-          participant,
-          seed,
-        )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
-
-      val expectedByKeyNodes = tx.transaction.nodes.collect { case (id, _: Node.LookupByKey) =>
-        id
+      inside(
+        newEngine()
+          .submit(
+            submitters,
+            readAs,
+            ApiCommands(ImmArray(exerciseCmd), now, "test"),
+            ImmArray.empty,
+            participant,
+            seed,
+          )
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+          )
+      ) { case Right((tx, _)) =>
+        val expectedByKeyNodes = tx.transaction.nodes.collect { case (id, _: Node.LookupByKey) =>
+          id
+        }
+        val actualByKeyNodes = byKeyNodes(tx)
+        actualByKeyNodes shouldBe Symbol("nonEmpty")
+        actualByKeyNodes shouldBe expectedByKeyNodes.toSet
       }
-      val actualByKeyNodes = byKeyNodes(tx)
-      actualByKeyNodes shouldBe Symbol("nonEmpty")
-      actualByKeyNodes shouldBe expectedByKeyNodes.toSet
     }
 
     "be reinterpreted to the same node when lookup finds a contract" in {
@@ -1440,37 +1483,42 @@ class EngineTest
       val submitters = Set(alice)
       val readAs = (Set.empty: Set[Party])
 
-      val Right((tx, txMeta)) = suffixLenientEngine
-        .submit(
-          submitters,
-          readAs,
-          ApiCommands(ImmArray(exerciseCmd), now, "test"),
-          ImmArray.empty,
-          participant,
-          seed,
-        )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
-      val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
-
-      val Some((nid, lookupNode)) = firstLookupNode(tx.transaction)
-      lookupNode.result shouldBe Some(lookedUpCid)
-
-      val Right((reinterpreted, _)) =
-        newEngine()
-          .reinterpret(
+      inside(
+        suffixLenientEngine
+          .submit(
             submitters,
-            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.key),
-            nodeSeedMap.get(nid),
-            txMeta.submissionTime,
-            now,
+            readAs,
+            ApiCommands(ImmArray(exerciseCmd), now, "test"),
+            ImmArray.empty,
+            participant,
+            seed,
           )
-          .consume(lookupContract, lookupPackage, lookupKey)
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+          )
+      ) { case Right((tx, txMeta)) =>
+        val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
-      firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
+        inside(firstLookupNode(tx.transaction)) { case Some((nid, lookupNode)) =>
+          lookupNode.result shouldBe Some(lookedUpCid)
+
+          inside(
+            newEngine()
+              .reinterpret(
+                submitters,
+                ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.key),
+                nodeSeedMap.get(nid),
+                txMeta.submissionTime,
+                now,
+              )
+              .consume(lookupContract, lookupPackage, lookupKey)
+          ) { case Right((reinterpreted, _)) =>
+            firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
+          }
+        }
+      }
     }
 
     "be reinterpreted to the same node when lookup doesn't find a contract" in {
@@ -1483,38 +1531,42 @@ class EngineTest
       val submitters = Set(alice)
       val readAs = (Set.empty: Set[Party])
 
-      val Right((tx, txMeta)) = suffixLenientEngine
-        .submit(
-          submitters,
-          readAs,
-          ApiCommands(ImmArray(exerciseCmd), now, "test"),
-          ImmArray.empty,
-          participant,
-          seed,
-        )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
-
-      val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
-
-      val Some((nid, lookupNode)) = firstLookupNode(tx.transaction)
-      lookupNode.result shouldBe None
-
-      val Right((reinterpreted, _)) =
-        newEngine()
-          .reinterpret(
+      inside(
+        suffixLenientEngine
+          .submit(
             submitters,
-            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.key),
-            nodeSeedMap.get(nid),
-            txMeta.submissionTime,
-            now,
+            readAs,
+            ApiCommands(ImmArray(exerciseCmd), now, "test"),
+            ImmArray.empty,
+            participant,
+            seed,
           )
-          .consume(lookupContract, lookupPackage, lookupKey)
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+          )
+      ) { case Right((tx, txMeta)) =>
+        val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
-      firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
+        inside(firstLookupNode(tx.transaction)) { case Some((nid, lookupNode)) =>
+          lookupNode.result shouldBe None
+
+          inside(
+            newEngine()
+              .reinterpret(
+                submitters,
+                ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.key),
+                nodeSeedMap.get(nid),
+                txMeta.submissionTime,
+                now,
+              )
+              .consume(lookupContract, lookupPackage, lookupKey)
+          ) { case Right((reinterpreted, _)) =>
+            firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
+          }
+        }
+      }
     }
 
     "crash if use a contract key with an empty set of maintainers" in {
@@ -1692,31 +1744,33 @@ class EngineTest
 
       val submitters = Set(alice)
 
-      val Right((tx, _)) = suffixLenientEngine
-        .interpretCommands(
-          validating = false,
-          submitters = submitters,
-          readAs = Set.empty,
-          commands = ImmArray(cmd),
-          ledgerTime = now,
-          submissionTime = now,
-          seeding = InitialSeeding.TransactionSeed(txSeed),
-        )
-        .consume(
-          lookupContractMap.get,
-          lookupPackage,
-          lookupKey,
-        )
-
-      tx.transaction.nodes.values.headOption match {
-        case Some(Node.Fetch(_, _, _, _, _, key, _, _)) =>
-          key match {
-            // just test that the maintainers match here, getting the key out is a bit hairier
-            case Some(Node.KeyWithMaintainers(_, maintainers)) =>
-              assert(maintainers == Set(alice))
-            case None => fail("the recomputed fetch didn't have a key")
-          }
-        case _ => fail("Recomputed a non-fetch or no nodes at all")
+      inside(
+        suffixLenientEngine
+          .interpretCommands(
+            validating = false,
+            submitters = submitters,
+            readAs = Set.empty,
+            commands = ImmArray(cmd),
+            ledgerTime = now,
+            submissionTime = now,
+            seeding = InitialSeeding.TransactionSeed(txSeed),
+          )
+          .consume(
+            lookupContractMap.get,
+            lookupPackage,
+            lookupKey,
+          )
+      ) { case Right((tx, _)) =>
+        tx.transaction.nodes.values.headOption match {
+          case Some(Node.Fetch(_, _, _, _, _, key, _, _)) =>
+            key match {
+              // just test that the maintainers match here, getting the key out is a bit hairier
+              case Some(Node.KeyWithMaintainers(_, maintainers)) =>
+                assert(maintainers == Set(alice))
+              case None => fail("the recomputed fetch didn't have a key")
+            }
+          case _ => fail("Recomputed a non-fetch or no nodes at all")
+        }
       }
     }
 
@@ -1748,50 +1802,54 @@ class EngineTest
 
       val submitters = Set(alice)
 
-      val Right(cmds) = preprocessor
-        .preprocessApiCommands(
-          ImmArray(
-            ApiCommand.Exercise(
-              fetcherTemplateId,
-              fetcherCid,
-              "Fetch",
-              ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
+      inside(
+        preprocessor
+          .preprocessApiCommands(
+            ImmArray(
+              ApiCommand.Exercise(
+                fetcherTemplateId,
+                fetcherCid,
+                "Fetch",
+                ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
+              )
             )
           )
-        )
-        .consume(
-          lookupContractMap.get,
-          lookupPackage,
-          lookupKey,
-        )
-
-      val Right((tx, _)) = suffixLenientEngine
-        .interpretCommands(
-          validating = false,
-          submitters = submitters,
-          readAs = Set.empty,
-          commands = cmds,
-          ledgerTime = now,
-          submissionTime = now,
-          seeding = InitialSeeding.TransactionSeed(txSeed),
-        )
-        .consume(
-          lookupContractMap.get,
-          lookupPackage,
-          lookupKey,
-        )
-
-      tx.transaction.nodes
-        .collectFirst { case (id, nf: Node.Fetch) =>
-          nf.key match {
-            // just test that the maintainers match here, getting the key out is a bit hairier
-            case Some(Node.KeyWithMaintainers(_, maintainers)) =>
-              assert(maintainers == Set(alice))
-            case None => fail("the recomputed fetch didn't have a key")
-          }
-          byKeyNodes(tx) shouldBe Set(id)
+          .consume(
+            lookupContractMap.get,
+            lookupPackage,
+            lookupKey,
+          )
+      ) { case Right(cmds) =>
+        inside(
+          suffixLenientEngine
+            .interpretCommands(
+              validating = false,
+              submitters = submitters,
+              readAs = Set.empty,
+              commands = cmds,
+              ledgerTime = now,
+              submissionTime = now,
+              seeding = InitialSeeding.TransactionSeed(txSeed),
+            )
+            .consume(
+              lookupContractMap.get,
+              lookupPackage,
+              lookupKey,
+            )
+        ) { case Right((tx, _)) =>
+          tx.transaction.nodes
+            .collectFirst { case (id, nf: Node.Fetch) =>
+              nf.key match {
+                // just test that the maintainers match here, getting the key out is a bit hairier
+                case Some(Node.KeyWithMaintainers(_, maintainers)) =>
+                  assert(maintainers == Set(alice))
+                case None => fail("the recomputed fetch didn't have a key")
+              }
+              byKeyNodes(tx) shouldBe Set(id)
+            }
+            .getOrElse(fail("didn't find the fetch node resulting from fetchByKey"))
         }
-        .getOrElse(fail("didn't find the fetch node resulting from fetchByKey"))
+      }
     }
   }
 
@@ -1947,23 +2005,26 @@ class EngineTest
     }
 
     "be partially reinterpretable" in {
-      val Right((tx, txMeta)) = run(3)
-      val stx = suffix(tx)
+      inside(run(3)) { case Right((tx, txMeta)) =>
+        val stx = suffix(tx)
 
-      val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.Exercise(_, _, _, _, _, _, _, _, _, _, children, _, _, _, _) =
-        tx.transaction.nodes(exeNode1)
-      val nids = children.toSeq.take(2).toImmArray
+        inside(tx.transaction.roots) { case ImmArray(_, exeNode1) =>
+          inside(tx.transaction.nodes(exeNode1)) {
+            case Node.Exercise(_, _, _, _, _, _, _, _, _, _, children, _, _, _, _) =>
+              val nids = children.toSeq.take(2).toImmArray
 
-      reinterpret(
-        suffixStrictEngine,
-        Set(party),
-        nids,
-        stx,
-        txMeta,
-        let,
-        lookupPackage,
-      ) shouldBe a[Right[_, _]]
+              reinterpret(
+                suffixStrictEngine,
+                Set(party),
+                nids,
+                stx,
+                txMeta,
+                let,
+                lookupPackage,
+              ) shouldBe a[Right[_, _]]
+          }
+        }
+      }
 
     }
   }
@@ -1999,28 +2060,31 @@ class EngineTest
       }
     def run(cmd: ApiCommand) = {
       val submitters = Set(party)
-      val Right(cmds) = preprocessor
-        .preprocessApiCommands(ImmArray(cmd))
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
-      suffixLenientEngine
-        .interpretCommands(
-          validating = false,
-          submitters = submitters,
-          readAs = Set.empty,
-          commands = cmds,
-          ledgerTime = let,
-          submissionTime = let,
-          seeding = seeding,
-        )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
+      inside(
+        preprocessor
+          .preprocessApiCommands(ImmArray(cmd))
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+          )
+      ) { case Right(cmds) =>
+        suffixLenientEngine
+          .interpretCommands(
+            validating = false,
+            submitters = submitters,
+            readAs = Set.empty,
+            commands = cmds,
+            ledgerTime = let,
+            submissionTime = let,
+            seeding = seeding,
+          )
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+          )
+      }
     }
     "rolled-back archive of transient contract does not prevent consuming choice after rollback" in {
       val command = ApiCommand.CreateAndExercise(
@@ -2148,28 +2212,31 @@ class EngineTest
       }
     def run(cmd: ApiCommand) = {
       val submitters = Set(party)
-      val Right(cmds) = preprocessor
-        .preprocessApiCommands(ImmArray(cmd))
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
-      suffixLenientEngine
-        .interpretCommands(
-          validating = false,
-          submitters = submitters,
-          readAs = Set.empty,
-          commands = cmds,
-          ledgerTime = let,
-          submissionTime = let,
-          seeding = seeding,
-        )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-        )
+      inside(
+        preprocessor
+          .preprocessApiCommands(ImmArray(cmd))
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+          )
+      ) { case Right(cmds) =>
+        suffixLenientEngine
+          .interpretCommands(
+            validating = false,
+            submitters = submitters,
+            readAs = Set.empty,
+            commands = cmds,
+            ledgerTime = let,
+            submissionTime = let,
+            seeding = seeding,
+          )
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+          )
+      }
     }
 
     "Only create and exercise nodes end up in actionNodeSeeds" in {
@@ -2231,30 +2298,33 @@ class EngineTest
         keyLookups += 1
         lookupKey(key)
       }
-      val Right(cmds) = preprocessor
-        .preprocessApiCommands(ImmArray(cmd))
-        .consume(
-          lookupContract,
-          lookupPackage,
-          mockedKeyLookup,
-        )
-      val result = suffixLenientEngine
-        .interpretCommands(
-          validating = false,
-          submitters = submitters,
-          readAs = Set.empty,
-          commands = cmds,
-          ledgerTime = let,
-          submissionTime = let,
-          seeding = seeding,
-        )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          mockedKeyLookup,
-        )
-      inside(result) { case Right(_) =>
-        keyLookups
+      inside(
+        preprocessor
+          .preprocessApiCommands(ImmArray(cmd))
+          .consume(
+            lookupContract,
+            lookupPackage,
+            mockedKeyLookup,
+          )
+      ) { case Right(cmds) =>
+        val result = suffixLenientEngine
+          .interpretCommands(
+            validating = false,
+            submitters = submitters,
+            readAs = Set.empty,
+            commands = cmds,
+            ledgerTime = let,
+            submissionTime = let,
+            seeding = seeding,
+          )
+          .consume(
+            lookupContract,
+            lookupPackage,
+            mockedKeyLookup,
+          )
+        inside(result) { case Right(_) =>
+          keyLookups
+        }
       }
     }
     val cidArg = ValueRecord(None, ImmArray((None, ValueContractId(cid))))

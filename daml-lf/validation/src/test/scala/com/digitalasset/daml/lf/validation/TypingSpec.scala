@@ -1006,17 +1006,18 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           },
       )
 
-      val ELocation(expectedLocation, EVar("something")) = E"⸨ something ⸩"
-      val expectedContext = Context.Location(expectedLocation)
+      inside(E"⸨ something ⸩") { case ELocation(expectedLocation, EVar("something")) =>
+        val expectedContext = Context.Location(expectedLocation)
 
-      forEvery(testCases) { (exp, checkError) =>
-        import scala.util.{Failure, Try}
+        forEvery(testCases) { (exp, checkError) =>
+          import scala.util.{Failure, Try}
 
-        val x = Try(env.typeOfTopExpr(exp))
-        x should matchPattern {
-          case Failure(exception: ValidationError)
-              if exception.context == expectedContext // check the error happened between ⸨ ⸩
-                && checkError.isDefinedAt(exception) =>
+          val x = Try(env.typeOfTopExpr(exp))
+          x should matchPattern {
+            case Failure(exception: ValidationError)
+                if exception.context == expectedContext // check the error happened between ⸨ ⸩
+                  && checkError.isDefinedAt(exception) =>
+          }
         }
       }
     }

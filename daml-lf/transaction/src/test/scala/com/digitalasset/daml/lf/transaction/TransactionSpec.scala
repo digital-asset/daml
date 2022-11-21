@@ -237,35 +237,36 @@ class TransactionSpec
 
       val cids = List.fill(2)(TransactionBuilder.newV1Cid)
       assert(cids.distinct.length == cids.length)
-      val List(cid1, cid2) = cids
-      val mapping1 = cids.map { cid =>
-        assert(cid.suffix.isEmpty)
-        cid.discriminator -> cid.discriminator.bytes.slice(10, 20)
-      }.toMap
-      val mapping2: V.ContractId => V.ContractId = {
-        case cid @ V.ContractId.V1(discriminator, Bytes.Empty) =>
-          mapping1.get(discriminator) match {
-            case Some(value) => V.ContractId.V1.assertBuild(discriminator, value)
-            case None => cid
-          }
-        case cid => cid
+      inside(cids) { case List(cid1, cid2) =>
+        val mapping1 = cids.map { cid =>
+          assert(cid.suffix.isEmpty)
+          cid.discriminator -> cid.discriminator.bytes.slice(10, 20)
+        }.toMap
+        val mapping2: V.ContractId => V.ContractId = {
+          case cid @ V.ContractId.V1(discriminator, Bytes.Empty) =>
+            mapping1.get(discriminator) match {
+              case Some(value) => V.ContractId.V1.assertBuild(discriminator, value)
+              case None => cid
+            }
+          case cid => cid
+        }
+
+        val tx = mkTransaction(
+          HashMap(
+            NodeId(0) -> dummyCreateNode(cid1),
+            NodeId(0) -> dummyExerciseNode(cid1, ImmArray(NodeId(0)), true),
+            NodeId(1) -> dummyExerciseNode(cid2, ImmArray(NodeId(1)), true),
+          ),
+          ImmArray(NodeId(0), NodeId(1)),
+        )
+
+        val tx1 = tx.suffixCid(mapping1)
+        val tx2 = tx.suffixCid(mapping1)
+
+        tx1 shouldNot be(tx)
+        tx2 shouldBe tx1
+        tx1 shouldBe Right(tx.mapCid(mapping2))
       }
-
-      val tx = mkTransaction(
-        HashMap(
-          NodeId(0) -> dummyCreateNode(cid1),
-          NodeId(0) -> dummyExerciseNode(cid1, ImmArray(NodeId(0)), true),
-          NodeId(1) -> dummyExerciseNode(cid2, ImmArray(NodeId(1)), true),
-        ),
-        ImmArray(NodeId(0), NodeId(1)),
-      )
-
-      val tx1 = tx.suffixCid(mapping1)
-      val tx2 = tx.suffixCid(mapping1)
-
-      tx1 shouldNot be(tx)
-      tx2 shouldBe tx1
-      tx1 shouldBe Right(tx.mapCid(mapping2))
 
     }
   }

@@ -53,26 +53,28 @@ class TransactionCoderSpec
       forAll(malformedCreateNodeGen, versionInIncreasingOrder()) {
         case (createNode, (nodeVersion, txVersion)) =>
           val versionedNode = createNode.updateVersion(nodeVersion)
-          val Right(encodedNode) = TransactionCoder
-            .encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              txVersion,
-              NodeId(0),
-              versionedNode,
-            )
-
-          TransactionCoder.decodeVersionedNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            txVersion,
-            encodedNode,
-          ) shouldBe Right((NodeId(0), normalizeCreate(versionedNode)))
-
-          Right(createNode.informeesOfNode) shouldEqual
+          inside(
             TransactionCoder
-              .protoActionNodeInfo(txVersion, encodedNode)
-              .map(_.informeesOfNode)
+              .encodeNode(
+                TransactionCoder.NidEncoder,
+                ValueCoder.CidEncoder,
+                txVersion,
+                NodeId(0),
+                versionedNode,
+              )
+          ) { case Right(encodedNode) =>
+            TransactionCoder.decodeVersionedNode(
+              TransactionCoder.NidDecoder,
+              ValueCoder.CidDecoder,
+              txVersion,
+              encodedNode,
+            ) shouldBe Right((NodeId(0), normalizeCreate(versionedNode)))
+
+            Right(createNode.informeesOfNode) shouldEqual
+              TransactionCoder
+                .protoActionNodeInfo(txVersion, encodedNode)
+                .map(_.informeesOfNode)
+          }
       }
     }
 
@@ -109,7 +111,7 @@ class TransactionCoderSpec
       forAll(danglingRefExerciseNodeGen, versionInIncreasingOrder()) {
         case (exerciseNode, (nodeVersion, txVersion)) =>
           val normalizedNode = normalizeExe(exerciseNode.updateVersion(nodeVersion))
-          val Right(encodedNode) =
+          inside(
             TransactionCoder
               .encodeNode(
                 TransactionCoder.NidEncoder,
@@ -118,18 +120,20 @@ class TransactionCoderSpec
                 NodeId(0),
                 normalizedNode,
               )
-          TransactionCoder
-            .decodeVersionedNode(
-              TransactionCoder.NidDecoder,
-              ValueCoder.CidDecoder,
-              txVersion,
-              encodedNode,
-            ) shouldBe Right((NodeId(0), normalizedNode))
-
-          Right(normalizedNode.informeesOfNode) shouldEqual
+          ) { case Right(encodedNode) =>
             TransactionCoder
-              .protoActionNodeInfo(txVersion, encodedNode)
-              .map(_.informeesOfNode)
+              .decodeVersionedNode(
+                TransactionCoder.NidDecoder,
+                ValueCoder.CidDecoder,
+                txVersion,
+                encodedNode,
+              ) shouldBe Right((NodeId(0), normalizedNode))
+
+            Right(normalizedNode.informeesOfNode) shouldEqual
+              TransactionCoder
+                .protoActionNodeInfo(txVersion, encodedNode)
+                .map(_.informeesOfNode)
+          }
       }
     }
 
@@ -138,7 +142,7 @@ class TransactionCoderSpec
         forEvery(transactionVersions) { txVersion =>
           if (txVersion >= minExceptions) {
             val normalizedNode = normalizeNode(node)
-            val Right(encodedNode) =
+            inside(
               TransactionCoder
                 .encodeNode(
                   TransactionCoder.NidEncoder,
@@ -147,13 +151,15 @@ class TransactionCoderSpec
                   NodeId(0),
                   normalizedNode,
                 )
-            TransactionCoder
-              .decodeVersionedNode(
-                TransactionCoder.NidDecoder,
-                ValueCoder.CidDecoder,
-                txVersion,
-                encodedNode,
-              ) shouldBe Right((NodeId(0), normalizedNode))
+            ) { case Right(encodedNode) =>
+              TransactionCoder
+                .decodeVersionedNode(
+                  TransactionCoder.NidDecoder,
+                  ValueCoder.CidDecoder,
+                  txVersion,
+                  encodedNode,
+                ) shouldBe Right((NodeId(0), normalizedNode))
+            }
           }
         }
       }
@@ -363,42 +369,48 @@ class TransactionCoderSpec
         whenever(nodeVersion != version) {
           forAll(malformedCreateNodeGenWithVersion(nodeVersion)) { node =>
             val encodeVersion = ValueCoder.encodeValueVersion(version)
-            val Right(encodedNode) = TransactionCoder.encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              nodeVersion,
-              NodeId(0),
-              normalizeNode(node),
-            )
-            val encodedCreate = encodedNode.getCreate
-            var cases = List(
-              encodedCreate.toBuilder
-                .setContractInstance(
-                  encodedCreate.getContractInstance.toBuilder.setArgVersioned(
-                    changeVersion(encodedCreate.getContractInstance.getArgVersioned, encodeVersion)
-                  )
-                )
-                .build()
-            )
-            if (encodedCreate.hasKeyWithMaintainers)
-              cases = encodedCreate.toBuilder
-                .setKeyWithMaintainers(
-                  encodedCreate.getKeyWithMaintainers.toBuilder.setKeyVersioned(
-                    changeVersion(
-                      encodedCreate.getKeyWithMaintainers.getKeyVersioned,
-                      encodeVersion,
+            inside(
+              TransactionCoder.encodeNode(
+                TransactionCoder.NidEncoder,
+                ValueCoder.CidEncoder,
+                nodeVersion,
+                NodeId(0),
+                normalizeNode(node),
+              )
+            ) { case Right(encodedNode) =>
+              val encodedCreate = encodedNode.getCreate
+              var cases = List(
+                encodedCreate.toBuilder
+                  .setContractInstance(
+                    encodedCreate.getContractInstance.toBuilder.setArgVersioned(
+                      changeVersion(
+                        encodedCreate.getContractInstance.getArgVersioned,
+                        encodeVersion,
+                      )
                     )
                   )
-                )
-                .build() :: cases
-            cases.foreach(node =>
-              TransactionCoder.decodeVersionedNode(
-                TransactionCoder.NidDecoder,
-                ValueCoder.CidDecoder,
-                nodeVersion,
-                encodedNode.toBuilder.setCreate(node).build(),
-              ) shouldBe a[Left[_, _]]
-            )
+                  .build()
+              )
+              if (encodedCreate.hasKeyWithMaintainers)
+                cases = encodedCreate.toBuilder
+                  .setKeyWithMaintainers(
+                    encodedCreate.getKeyWithMaintainers.toBuilder.setKeyVersioned(
+                      changeVersion(
+                        encodedCreate.getKeyWithMaintainers.getKeyVersioned,
+                        encodeVersion,
+                      )
+                    )
+                  )
+                  .build() :: cases
+              cases.foreach(node =>
+                TransactionCoder.decodeVersionedNode(
+                  TransactionCoder.NidDecoder,
+                  ValueCoder.CidDecoder,
+                  nodeVersion,
+                  encodedNode.toBuilder.setCreate(node).build(),
+                ) shouldBe a[Left[_, _]]
+              )
+            }
           }
 
         }
@@ -410,29 +422,32 @@ class TransactionCoderSpec
         whenever(node.version != version && node.key.isDefined) {
           val nodeVersion = node.version
           val encodeVersion = ValueCoder.encodeValueVersion(version)
-          val Right(encodedNode) = TransactionCoder.encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            nodeVersion,
-            NodeId(0),
-            normalizeNode(node),
-          )
-          val encodedFetch = encodedNode.getFetch
-
-          val testCase = encodedFetch.toBuilder
-            .setKeyWithMaintainers(
-              encodedFetch.getKeyWithMaintainers.toBuilder.setKeyVersioned(
-                changeVersion(encodedFetch.getKeyWithMaintainers.getKeyVersioned, encodeVersion)
-              )
+          inside(
+            TransactionCoder.encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              nodeVersion,
+              NodeId(0),
+              normalizeNode(node),
             )
-            .build()
+          ) { case Right(encodedNode) =>
+            val encodedFetch = encodedNode.getFetch
 
-          TransactionCoder.decodeVersionedNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            nodeVersion,
-            encodedNode.toBuilder.setFetch(testCase).build(),
-          ) shouldBe a[Left[_, _]]
+            val testCase = encodedFetch.toBuilder
+              .setKeyWithMaintainers(
+                encodedFetch.getKeyWithMaintainers.toBuilder.setKeyVersioned(
+                  changeVersion(encodedFetch.getKeyWithMaintainers.getKeyVersioned, encodeVersion)
+                )
+              )
+              .build()
+
+            TransactionCoder.decodeVersionedNode(
+              TransactionCoder.NidDecoder,
+              ValueCoder.CidDecoder,
+              nodeVersion,
+              encodedNode.toBuilder.setFetch(testCase).build(),
+            ) shouldBe a[Left[_, _]]
+          }
         }
       }
     }
@@ -442,29 +457,32 @@ class TransactionCoderSpec
         whenever(node.version != version) {
           val nodeVersion = node.version
           val encodeVersion = ValueCoder.encodeValueVersion(version)
-          val Right(encodedNode) = TransactionCoder.encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            nodeVersion,
-            NodeId(0),
-            normalizeNode(node),
-          )
-          val encodedLookup = encodedNode.getLookupByKey
-
-          val testCase = encodedLookup.toBuilder
-            .setKeyWithMaintainers(
-              encodedLookup.getKeyWithMaintainers.toBuilder.setKeyVersioned(
-                changeVersion(encodedLookup.getKeyWithMaintainers.getKeyVersioned, encodeVersion)
-              )
+          inside(
+            TransactionCoder.encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              nodeVersion,
+              NodeId(0),
+              normalizeNode(node),
             )
-            .build()
+          ) { case Right(encodedNode) =>
+            val encodedLookup = encodedNode.getLookupByKey
 
-          TransactionCoder.decodeVersionedNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            nodeVersion,
-            encodedNode.toBuilder.setLookupByKey(testCase).build(),
-          ) shouldBe a[Left[_, _]]
+            val testCase = encodedLookup.toBuilder
+              .setKeyWithMaintainers(
+                encodedLookup.getKeyWithMaintainers.toBuilder.setKeyVersioned(
+                  changeVersion(encodedLookup.getKeyWithMaintainers.getKeyVersioned, encodeVersion)
+                )
+              )
+              .build()
+
+            TransactionCoder.decodeVersionedNode(
+              TransactionCoder.NidDecoder,
+              ValueCoder.CidDecoder,
+              nodeVersion,
+              encodedNode.toBuilder.setLookupByKey(testCase).build(),
+            ) shouldBe a[Left[_, _]]
+          }
         }
       }
     }
@@ -479,38 +497,41 @@ class TransactionCoderSpec
         whenever(exeNode.version != version) {
           val nodeVersion = exeNode.version
           val encodeVersion = ValueCoder.encodeValueVersion(version)
-          val Right(encodedNode) = TransactionCoder.encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            nodeVersion,
-            NodeId(0),
-            normalizeExe(exeNode),
-          )
-          val encodedExe = encodedNode.getExercise
-          var cases = List(
-            encodedExe.toBuilder
-              .setArgVersioned(changeVersion(encodedExe.getArgVersioned, encodeVersion))
-              .build(),
-            encodedExe.toBuilder
-              .setResultVersioned(changeVersion(encodedExe.getResultVersioned, encodeVersion))
-              .build(),
-          )
-          if (encodedExe.hasKeyWithMaintainers)
-            cases = encodedExe.toBuilder
-              .setKeyWithMaintainers(
-                encodedExe.getKeyWithMaintainers.toBuilder.setKeyVersioned(
-                  changeVersion(encodedExe.getKeyWithMaintainers.getKeyVersioned, encodeVersion)
-                )
-              )
-              .build() :: cases
-          cases.foreach(node =>
-            TransactionCoder.decodeVersionedNode(
-              TransactionCoder.NidDecoder,
-              ValueCoder.CidDecoder,
+          inside(
+            TransactionCoder.encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
               nodeVersion,
-              encodedNode.toBuilder.setExercise(node).build(),
-            ) shouldBe a[Left[_, _]]
-          )
+              NodeId(0),
+              normalizeExe(exeNode),
+            )
+          ) { case Right(encodedNode) =>
+            val encodedExe = encodedNode.getExercise
+            var cases = List(
+              encodedExe.toBuilder
+                .setArgVersioned(changeVersion(encodedExe.getArgVersioned, encodeVersion))
+                .build(),
+              encodedExe.toBuilder
+                .setResultVersioned(changeVersion(encodedExe.getResultVersioned, encodeVersion))
+                .build(),
+            )
+            if (encodedExe.hasKeyWithMaintainers)
+              cases = encodedExe.toBuilder
+                .setKeyWithMaintainers(
+                  encodedExe.getKeyWithMaintainers.toBuilder.setKeyVersioned(
+                    changeVersion(encodedExe.getKeyWithMaintainers.getKeyVersioned, encodeVersion)
+                  )
+                )
+                .build() :: cases
+            cases.foreach(node =>
+              TransactionCoder.decodeVersionedNode(
+                TransactionCoder.NidDecoder,
+                ValueCoder.CidDecoder,
+                nodeVersion,
+                encodedNode.toBuilder.setExercise(node).build(),
+              ) shouldBe a[Left[_, _]]
+            )
+          }
         }
       }
     }
@@ -532,16 +553,18 @@ class TransactionCoderSpec
       forAll(gen, minSuccessful(5)) { case ((nodeVersion, txVersion), (nodeId, node)) =>
         val normalizedNode = normalizeNode(updateVersion(node, nodeVersion))
 
-        val Right(encoded) = TransactionCoder
-          .encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            nodeVersion,
-            nodeId,
-            normalizedNode,
-          )
-
-        TransactionCoder.decodeNodeVersion(txVersion, encoded) shouldBe Right(nodeVersion)
+        inside(
+          TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              nodeVersion,
+              nodeId,
+              normalizedNode,
+            )
+        ) { case Right(encoded) =>
+          TransactionCoder.decodeNodeVersion(txVersion, encoded) shouldBe Right(nodeVersion)
+        }
       }
     }
 
@@ -554,16 +577,18 @@ class TransactionCoderSpec
       ) { case ((nodeId, node), (v1, v2)) =>
         val normalizedNode = normalizeNode(updateVersion(node, v2))
 
-        val Right(encoded) = TransactionCoder
-          .encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            v2,
-            nodeId,
-            normalizedNode,
-          )
-
-        TransactionCoder.decodeNodeVersion(v1, encoded) shouldBe a[Left[_, _]]
+        inside(
+          TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              v2,
+              nodeId,
+              normalizedNode,
+            )
+        ) { case Right(encoded) =>
+          TransactionCoder.decodeNodeVersion(v1, encoded) shouldBe a[Left[_, _]]
+        }
       }
     }
 
@@ -572,17 +597,19 @@ class TransactionCoderSpec
       forAll(danglingRefGenActionNode, minSuccessful(5)) { case (nodeId, node) =>
         val normalizedNode = normalizeNode(updateVersion(node, V10))
 
-        val Right(encoded) = TransactionCoder
-          .encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            V10,
-            nodeId,
-            normalizedNode,
-          )
-
-        assert(encoded.getVersion.isEmpty)
-        TransactionCoder.decodeNodeVersion(V10, encoded) shouldBe Right(V10)
+        inside(
+          TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              V10,
+              nodeId,
+              normalizedNode,
+            )
+        ) { case Right(encoded) =>
+          assert(encoded.getVersion.isEmpty)
+          TransactionCoder.decodeNodeVersion(V10, encoded) shouldBe Right(V10)
+        }
       }
     }
 
@@ -594,18 +621,20 @@ class TransactionCoderSpec
 
           val normalizedNode = normalizeNode(updateVersion(node, V10))
 
-          val Right(encoded) = TransactionCoder
-            .encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              V10,
-              nodeId,
-              normalizedNode,
-            )
+          inside(
+            TransactionCoder
+              .encodeNode(
+                TransactionCoder.NidEncoder,
+                ValueCoder.CidEncoder,
+                V10,
+                nodeId,
+                normalizedNode,
+              )
+          ) { case Right(encoded) =>
+            encoded.newBuilderForType().setVersion(nonEmptyString)
 
-          encoded.newBuilderForType().setVersion(nonEmptyString)
-
-          TransactionCoder.decodeNodeVersion(V10, encoded) shouldBe Right(V10)
+            TransactionCoder.decodeNodeVersion(V10, encoded) shouldBe Right(V10)
+          }
       }
     }
 
@@ -619,7 +648,7 @@ class TransactionCoderSpec
         case ((nodeId, node), str) =>
           val normalizedNode = normalizeNode(updateVersion(node, V10))
 
-          val Right(encoded) = for {
+          inside(for {
             encoded <- TransactionCoder
               .encodeNode(
                 TransactionCoder.NidEncoder,
@@ -628,14 +657,14 @@ class TransactionCoderSpec
                 nodeId,
                 normalizedNode,
               )
-          } yield encoded.toBuilder.setVersion(str).build()
-
-          TransactionCoder.decodeVersionedNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            V10,
-            encoded,
-          ) shouldBe Right(nodeId -> normalizedNode)
+          } yield encoded.toBuilder.setVersion(str).build()) { case Right(encoded) =>
+            TransactionCoder.decodeVersionedNode(
+              TransactionCoder.NidDecoder,
+              ValueCoder.CidDecoder,
+              V10,
+              encoded,
+            ) shouldBe Right(nodeId -> normalizedNode)
+          }
       }
     }
 
@@ -652,21 +681,23 @@ class TransactionCoderSpec
       forAll(gen) { case ((txVersion, nodeVersion), (nodeId, node)) =>
         val normalizedNode = normalizeNode(updateVersion(node, nodeVersion))
 
-        val Right(encoded) = TransactionCoder
-          .encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            nodeVersion,
-            nodeId,
-            normalizedNode,
-          )
-
-        TransactionCoder.decodeVersionedNode(
-          TransactionCoder.NidDecoder,
-          ValueCoder.CidDecoder,
-          txVersion,
-          encoded,
-        ) shouldBe Symbol("left")
+        inside(
+          TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              nodeVersion,
+              nodeId,
+              normalizedNode,
+            )
+        ) { case Right(encoded) =>
+          TransactionCoder.decodeVersionedNode(
+            TransactionCoder.NidDecoder,
+            ValueCoder.CidDecoder,
+            txVersion,
+            encoded,
+          ) shouldBe Symbol("left")
+        }
 
       }
     }
@@ -675,7 +706,7 @@ class TransactionCoderSpec
       forAll(danglingRefRollbackNodeGen) { node =>
         forEvery(transactionVersions) { txVersion =>
           val normalizedNode = normalizeNode(node)
-          val Right(encodedNode) =
+          inside(
             TransactionCoder
               .encodeNode(
                 TransactionCoder.NidEncoder,
@@ -685,15 +716,17 @@ class TransactionCoderSpec
                 normalizedNode,
                 disableVersionCheck = true, // so the bad proto can be created
               )
-          val result =
-            TransactionCoder
-              .decodeVersionedNode(
-                TransactionCoder.NidDecoder,
-                ValueCoder.CidDecoder,
-                txVersion,
-                encodedNode,
-              )
-          result.isLeft shouldBe (txVersion < minExceptions)
+          ) { case Right(encodedNode) =>
+            val result =
+              TransactionCoder
+                .decodeVersionedNode(
+                  TransactionCoder.NidDecoder,
+                  ValueCoder.CidDecoder,
+                  txVersion,
+                  encodedNode,
+                )
+            result.isLeft shouldBe (txVersion < minExceptions)
+          }
         }
       }
     }
@@ -705,7 +738,7 @@ class TransactionCoderSpec
             .copy(
               exerciseResult = None
             )
-        val Right(encodedNode) =
+        inside(
           TransactionCoder
             .encodeNode(
               TransactionCoder.NidEncoder,
@@ -715,15 +748,17 @@ class TransactionCoderSpec
               normalizedNode,
               disableVersionCheck = true, // so the bad proto can be created
             )
-        val result =
-          TransactionCoder
-            .decodeVersionedNode(
-              TransactionCoder.NidDecoder,
-              ValueCoder.CidDecoder,
-              v2,
-              encodedNode,
-            )
-        result.isLeft shouldBe (v1 < minExceptions)
+        ) { case Right(encodedNode) =>
+          val result =
+            TransactionCoder
+              .decodeVersionedNode(
+                TransactionCoder.NidDecoder,
+                ValueCoder.CidDecoder,
+                v2,
+                encodedNode,
+              )
+          result.isLeft shouldBe (v1 < minExceptions)
+        }
       }
     }
 
@@ -739,7 +774,7 @@ class TransactionCoderSpec
         val normalizedNode = normalizeExe(node.updateVersion(V10))
 
         forEvery(transactionVersions) { txVersion =>
-          val Right(encoded) =
+          inside(
             for {
               encoded <- TransactionCoder
                 .encodeNode(
@@ -752,14 +787,15 @@ class TransactionCoderSpec
             } yield encoded.toBuilder
               .setExercise(encoded.getExercise.toBuilder.addAllObservers(strings.asJava).build)
               .build()
-
-          val result = TransactionCoder.decodeVersionedNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            txVersion,
-            encoded,
-          )
-          result shouldBe Right(nodeId -> normalizedNode)
+          ) { case Right(encoded) =>
+            val result = TransactionCoder.decodeVersionedNode(
+              TransactionCoder.NidDecoder,
+              ValueCoder.CidDecoder,
+              txVersion,
+              encoded,
+            )
+            result shouldBe Right(nodeId -> normalizedNode)
+          }
         }
       }
     }

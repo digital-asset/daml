@@ -281,8 +281,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
     }
   """)
 
-  private[this] val List(alice, bob, charlie) =
-    List("alice", "bob", "charlie").map(Ref.Party.assertFromString)
+  private val alice = Ref.Party.assertFromString("alice")
+  private val bob = Ref.Party.assertFromString("bob")
+  private val charlie = Ref.Party.assertFromString("charlie")
 
   private[this] val T = t"M:T" match {
     case TTyCon(tycon) => tycon
