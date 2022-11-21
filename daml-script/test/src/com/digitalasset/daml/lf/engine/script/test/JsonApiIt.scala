@@ -93,7 +93,10 @@ trait JsonApiFixture
 
   override protected def darFile = new File(rlocation("daml-script/test/script-test.dar"))
 
+  protected val darFileDev = new File(rlocation("daml-script/test/script-test-1.dev.dar"))
   protected val darFileNoLedger = new File(rlocation("daml-script/test/script-test-no-ledger.dar"))
+
+  override protected def packageFiles: List[File] = List(darFile, darFileDev)
 
   override protected def serverPort: Port = suiteResource.value._1
   override protected def channel: Channel = suiteResource.value._2
@@ -239,6 +242,7 @@ final class JsonApiIt
 
   val (dar, envIface) = readDar(darFile)
   val (darNoLedger, envIfaceNoLedger) = readDar(darFileNoLedger)
+  val (darDev, envIfaceDev) = readDar(darFileDev)
 
   private def getClients(
       parties: List[String] = List(party),
@@ -529,6 +533,18 @@ final class JsonApiIt
       for {
         clients <- getClients()
         result <- run(clients, QualifiedName.assertFromString("ScriptTest:jsonQueryContractId"))
+      } yield {
+        assert(result == SUnit)
+      }
+    }
+    "queryInterface" in {
+      for {
+        clients <- getClients(envIface = envIfaceDev)
+        result <- run(
+          clients,
+          QualifiedName.assertFromString("TestInterfaces:jsonQueryInterface"),
+          dar = darDev,
+        )
       } yield {
         assert(result == SUnit)
       }

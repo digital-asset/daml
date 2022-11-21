@@ -31,6 +31,7 @@ import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.script.Converter
+import com.daml.lf.language.Ast
 import com.daml.lf.speedy.{SValue, svalue}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -139,7 +140,11 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     }
   }
 
-  override def queryInterface(parties: OneAnd[Set, Ref.Party], interfaceId: Identifier)(implicit
+  override def queryInterface(
+      parties: OneAnd[Set, Ref.Party],
+      interfaceId: Identifier,
+      viewType: Ast.Type,
+  )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Seq[(ContractId, Option[Value])]] = {
@@ -176,13 +181,14 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   override def queryInterfaceContractId(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
+      viewType: Ast.Type,
       cid: ContractId,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[Value]] = {
     for {
-      activeViews <- queryInterface(parties, interfaceId)
+      activeViews <- queryInterface(parties, interfaceId, viewType)
     } yield {
       activeViews.collectFirst {
         case (k, Some(v)) if (k == cid) => v
