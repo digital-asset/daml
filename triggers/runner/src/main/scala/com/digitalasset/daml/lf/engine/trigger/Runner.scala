@@ -9,7 +9,7 @@ import akka.stream.scaladsl._
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.commands.{Command, Commands}
+import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -19,6 +19,7 @@ import com.daml.ledger.api.v1.transaction_filter.{
   InterfaceFilter,
   TransactionFilter,
 }
+import com.daml.ledger.api.v1.{value => api}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement._
 import com.daml.lf.archive.Dar
@@ -28,7 +29,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.trigger.Runner.triggerUserState
+import com.daml.lf.engine.trigger.Runner.{logger, SeenMsgs, triggerUserState}
 import com.daml.lf.engine.trigger.Runner.Implicits._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
@@ -95,7 +96,6 @@ private[lf] final case class Trigger(
 
 // Utilities for interacting with the speedy machine.
 private[lf] object Machine {
-  import Runner.logger
 
   // Run speedy until we arrive at a value.
   def stepToValue(
@@ -367,7 +367,6 @@ private[lf] class Runner private (
     applicationId: ApplicationId,
     parties: TriggerParties,
 )(implicit loggingContext: LoggingContextOf[Trigger]) {
-  import Runner.{SeenMsgs, logger}
 
   // Compiles LF expressions into Speedy expressions.
   private val compiler = compiledPackages.compiler
@@ -393,20 +392,25 @@ private[lf] class Runner private (
       inFlight.intValue()
     }
 
-    def update(uuid: UUID, seeOne: SeenMsgs): Unit = {
+    def update(uuid: UUID, seeOne: SeenMsgs)(implicit
+        loggingContext: LoggingContextOf[Trigger]
+    ): Unit = {
       val inFlightState = pendingIds.put(uuid, seeOne)
 
       (inFlightState, seeOne) match {
         case (None, SeenMsgs.Neither) =>
+          logger.info("New in-flight command")
           discard(inFlight.incrementAndGet())
 
         case (None, _) | (Some(SeenMsgs.Neither), SeenMsgs.Neither) =>
         // no work required
 
         case (Some(SeenMsgs.Neither), _) =>
+          logger.info("In-flight command completed")
           discard(inFlight.decrementAndGet())
 
         case (Some(_), SeenMsgs.Neither) =>
+          logger.info("New in-flight command")
           discard(inFlight.incrementAndGet())
 
         case (Some(_), _) =>
@@ -414,10 +418,11 @@ private[lf] class Runner private (
       }
     }
 
-    def remove(uuid: UUID): Unit = {
+    def remove(uuid: UUID)(implicit loggingContext: LoggingContextOf[Trigger]): Unit = {
       val inFlightState = pendingIds.remove(uuid)
 
       if (inFlightState.contains(SeenMsgs.Neither)) {
+        logger.info("In-flight command completed")
         discard(inFlight.decrementAndGet())
       }
     }
@@ -429,40 +434,53 @@ private[lf] class Runner private (
     TransactionFilter(parties.readers.map(p => (p.unwrap, trigger.filters)).toMap)
 
   // return whether uuid *was* present in pendingCommandIds
-  private[this] def useCommandId(uuid: UUID, seeOne: SeenMsgs.One): Boolean = {
-    inFlightCommands.get(uuid) match {
-      case None =>
-        false
+  private[this] def useCommandId(uuid: UUID, seeOne: SeenMsgs.One)(implicit
+      loggingContext: LoggingContextOf[Trigger]
+  ): Boolean = {
+    loggingContext.withEnrichedTriggerContext(
+      "commandId" -> uuid
+    ) { implicit loggingContext: LoggingContextOf[Trigger] =>
+      inFlightCommands.get(uuid) match {
+        case None =>
+          false
 
-      case Some(seenOne) =>
-        seenOne.see(seeOne) match {
-          case Some(v) =>
-            inFlightCommands.update(uuid, v)
-          case None =>
-            inFlightCommands.remove(uuid)
-        }
-        true
+        case Some(seenOne) =>
+          seenOne.see(seeOne) match {
+            case Some(v) =>
+              inFlightCommands.update(uuid, v)
+            case None =>
+              inFlightCommands.remove(uuid)
+          }
+          true
+      }
     }
   }
 
   import Runner.{DamlFun, SingleCommandFailure, overloadedRetryDelay, retrying}
 
   @throws[RuntimeException]
-  private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
+  private def handleCommands(
+      commands: Seq[Command]
+  )(implicit loggingContext: LoggingContextOf[Trigger]): (UUID, SubmitRequest) = {
     val commandUUID = UUID.randomUUID
-    inFlightCommands.update(commandUUID, SeenMsgs.Neither)
-    val commandsArg = Commands(
-      ledgerId = client.ledgerId.unwrap,
-      applicationId = applicationId.unwrap,
-      commandId = commandUUID.toString,
-      party = parties.actAs.unwrap,
-      readAs = Party.unsubst(parties.readAs).toList,
-      commands = commands,
-    )
-    logger.debug(
-      s"submitting command ID ${commandUUID: UUID}, commands ${commands.map(_.command.value)}"
-    )
-    (commandUUID, SubmitRequest(commands = Some(commandsArg)))
+
+    loggingContext.withEnrichedTriggerContext(
+      "commandId" -> commandUUID,
+      "commands" -> commands,
+    ) { implicit loggingContext: LoggingContextOf[Trigger] =>
+      inFlightCommands.update(commandUUID, SeenMsgs.Neither)
+
+      val commandsArg = Commands(
+        ledgerId = client.ledgerId.unwrap,
+        applicationId = applicationId.unwrap,
+        commandId = commandUUID.toString,
+        party = parties.actAs.unwrap,
+        readAs = Party.unsubst(parties.readAs).toList,
+        commands = commands,
+      )
+
+      (commandUUID, SubmitRequest(commands = Some(commandsArg)))
+    }
   }
 
   private def freeTriggerSubmits(
@@ -580,13 +598,6 @@ private[lf] class Runner private (
     completionSource merge transactionSource merge heartbeatSource
   }
 
-  private def logReceivedMsg(tm: TriggerMsg): Unit = tm match {
-    case TriggerMsg.Completion(c) => logger.debug(s"trigger received completion message $c")
-    case TriggerMsg.Transaction(t) =>
-      logger.debug(s"trigger received transaction, ID ${t.transactionId}")
-    case TriggerMsg.Heartbeat => ()
-  }
-
   private[this] def getInitialStateFreeAndUpdate(acs: Seq[CreatedEvent]): (SValue, SValue) = {
     // Compile the trigger initialState and Update LF functions to
     // speedy expressions.
@@ -693,11 +704,6 @@ private[lf] class Runner private (
         )
     }
 
-    val logInitialState =
-      Flow[SValue].wireTap(evaluatedInitialState =>
-        logger.debug(s"Initial state: $evaluatedInitialState")
-      )
-
     // The flow that we return:
     //  - Maps incoming trigger messages to new trigger messages
     //    replacing ledger command IDs with the IDs used internally;
@@ -709,14 +715,14 @@ private[lf] class Runner private (
     val graph = GraphDSL.createGraph(Sink.last[SValue]) { implicit gb => saveLastState =>
       import GraphDSL.Implicits._
 
-      val msgIn = gb add Flow[TriggerMsg].wireTap(logReceivedMsg _)
+      val msgIn = gb add Flow[TriggerMsg]
       val initialState = gb add runInitialState
       val initialStateOut = gb add Broadcast[SValue](2)
       val rule = gb add runRuleOnMsgs
       val submissions = gb add Merge[SubmitRequest](2)
       val finalStateIn = gb add Concat[SValue](2)
       // format: off
-      initialState.finalState ~> logInitialState ~> initialStateOut ~> rule.initState
+      initialState.finalState                    ~> initialStateOut ~> rule.initState
       initialState.elemsOut                          ~> submissions
                           msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> rule.elemsIn
                                                         submissions <~ rule.elemsOut
@@ -1088,9 +1094,66 @@ object Runner {
 
     implicit def `UUID to LoggingValue`: ToLoggingValue[UUID] = ToStringToLoggingValue
 
+    implicit def `api.Identifier to LoggingValue`: ToLoggingValue[api.Identifier] = {
+      case api.Identifier(packageId, moduleName, entityName) =>
+        s"$moduleName:$entityName@$packageId"
+    }
+
     implicit def `Identifier to LoggingValue`: ToLoggingValue[Identifier] = {
       case Identifier(packageId, qualifiedName) =>
         s"$qualifiedName@$packageId"
+    }
+
+    implicit def `api.Value to LoggingValue`: ToLoggingValue[api.Value] = value =>
+      PrettyPrint.prettyApiValue(verbose = true)(value).render(80)
+
+    implicit def `CreateCommand to LoggingValue`: ToLoggingValue[CreateCommand] = create =>
+      LoggingValue.Nested(
+        LoggingEntries("type" -> "CreateCommand", "templateId" -> create.getTemplateId)
+      )
+
+    implicit def `ExerciseCommand to LoggingValue`: ToLoggingValue[ExerciseCommand] = exercise =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "type" -> "ExerciseCommand",
+          "templateId" -> exercise.getTemplateId,
+          "contractId" -> exercise.contractId,
+          "choice" -> exercise.choice,
+        )
+      )
+
+    implicit def `ExerciseByKeyCommand to LoggingValue`: ToLoggingValue[ExerciseByKeyCommand] =
+      exerciseByKey =>
+        LoggingValue.Nested(
+          LoggingEntries(
+            "type" -> "ExerciseByKeyCommand",
+            "templateId" -> exerciseByKey.getTemplateId,
+            "contractKey" -> exerciseByKey.getContractKey,
+            "choice" -> exerciseByKey.choice,
+          )
+        )
+
+    implicit def `CreateAndExerciseCommand to LoggingValue`
+        : ToLoggingValue[CreateAndExerciseCommand] = createAndExercise =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "type" -> "CreateAndExerciseCommand",
+          "templateId" -> createAndExercise.getTemplateId,
+          "choice" -> createAndExercise.choice,
+        )
+      )
+
+    implicit def `Command to LoggingValue`: ToLoggingValue[Command] = {
+      case Command(Command.Command.Empty) =>
+        LoggingValue.Nested(LoggingEntries("type" -> "EmptyCommand"))
+      case Command(Command.Command.Create(cmd)) =>
+        `CreateCommand to LoggingValue`.toLoggingValue(cmd)
+      case Command(Command.Command.Exercise(cmd)) =>
+        `ExerciseCommand to LoggingValue`.toLoggingValue(cmd)
+      case Command(Command.Command.ExerciseByKey(cmd)) =>
+        `ExerciseByKeyCommand to LoggingValue`.toLoggingValue(cmd)
+      case Command(Command.Command.CreateAndExercise(cmd)) =>
+        `CreateAndExerciseCommand to LoggingValue`.toLoggingValue(cmd)
     }
   }
 }
