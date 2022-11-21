@@ -9,6 +9,7 @@ import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -87,6 +88,7 @@ trait ScriptLedgerClient {
   def queryInterface(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
+      viewType: Ast.Type,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -95,6 +97,7 @@ trait ScriptLedgerClient {
   def queryInterfaceContractId(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
+      viewType: Ast.Type,
       cid: ContractId,
   )(implicit
       ec: ExecutionContext,
