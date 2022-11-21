@@ -565,7 +565,7 @@ private[lf] class Runner private (
         : Flow[TriggerContext[SingleCommandFailure], TriggerContext[TriggerMsg], NotUsed] = {
       Flow[TriggerContext[SingleCommandFailure]]
         .map { case ctx @ Ctx(context, failure, _) =>
-          context.nextSpan("failure") { implicit triggerContext: TriggerLogContext =>
+          context.childSpan("failure") { implicit triggerContext: TriggerLogContext =>
             triggerContext.logInfo(
               "Received command submission failure from ledger API client",
               "error" -> failure,
@@ -613,11 +613,14 @@ private[lf] class Runner private (
       client.transactionClient
         .getTransactions(offset, None, filter)
         .map { transaction =>
-          triggerContext.childSpan("source") { implicit triggerContext: TriggerLogContext =>
+          triggerContext.childSpan("update") { implicit triggerContext: TriggerLogContext =>
             triggerContext.logInfo("Transaction source")
-          }
 
-          Ctx(triggerContext, TriggerMsg.Transaction(transaction))
+
+            triggerContext.childSpan("evaluation") { implicit triggerContext: TriggerLogContext =>
+              Ctx(triggerContext, TriggerMsg.Transaction(transaction))
+            }
+          }
         }
     }
 
@@ -628,11 +631,13 @@ private[lf] class Runner private (
         // Completions only take actAs into account so no need to include readAs.
         .completionSource(List(parties.actAs.unwrap), offset)
         .collect { case CompletionElement(completion, _) =>
-          triggerContext.childSpan("source") { implicit triggerContext: TriggerLogContext =>
+          triggerContext.childSpan("update") { implicit triggerContext: TriggerLogContext =>
             triggerContext.logInfo("Completion source", "message" -> completion)
-          }
 
-          Ctx(triggerContext, TriggerMsg.Completion(completion))
+            triggerContext.childSpan("evaluation") { implicit triggerContext: TriggerLogContext =>
+              Ctx(triggerContext, TriggerMsg.Completion(completion))
+            }
+          }
         }
     }
 
@@ -645,11 +650,13 @@ private[lf] class Runner private (
           .tick[TriggerMsg](interval, interval, TriggerMsg.Heartbeat)
           .mapMaterializedValue(_ => NotUsed)
           .map { heartbeat =>
-            triggerContext.childSpan("source") { implicit triggerContext: TriggerLogContext =>
+            triggerContext.childSpan("update") { implicit triggerContext: TriggerLogContext =>
               triggerContext.logInfo("Heartbeat source", "message" -> "Heartbeat")
-            }
 
-            Ctx(triggerContext, heartbeat)
+              triggerContext.childSpan("evaluation") { implicit triggerContext: TriggerLogContext =>
+                Ctx(triggerContext, heartbeat)
+              }
+            }
           }
 
       case None =>
@@ -741,7 +748,6 @@ private[lf] class Runner private (
     import UnfoldState.{flatMapConcatNode, flatMapConcatNodeOps, toSource, toSourceOps}
 
     val runInitialState = {
-      triggerContext.childSpan("initialization") { implicit triggerContext: TriggerLogContext =>
         toSource(
           freeTriggerSubmits(clientTime, initialStateFree)
             .leftMap { state =>
@@ -754,10 +760,9 @@ private[lf] class Runner private (
             }
         )
       }
-    }
 
     val runRuleOnMsgs = flatMapConcatNode { (state: SValue, messageVal: TriggerContext[SValue]) =>
-      messageVal.context.childSpan("update") { implicit triggerContext: TriggerLogContext =>
+      messageVal.context.enrichTriggerContext() { implicit triggerContext: TriggerLogContext =>
         triggerContext.logDebug(
           "Trigger rule evaluation",
           "state" -> triggerUserState(state, trigger.defn.level),
@@ -986,10 +991,13 @@ private[lf] class Runner private (
   ): (T, Future[SValue]) = {
     triggerContext.nextSpan("rule") { implicit triggerContext: TriggerLogContext =>
       val source = msgSource(client, offset, trigger.heartbeat, parties, transactionFilter)
+      val triggerRuleEvaluator = triggerContext.childSpan("initialization") { implicit triggerContext: TriggerLogContext =>
+        getTriggerEvaluator(acs)
+      }
 
       Flow
         .fromGraph(msgFlow)
-        .viaMat(getTriggerEvaluator(acs))(Keep.both)
+        .viaMat(triggerRuleEvaluator)(Keep.both)
         .via(submitOrFail)
         .join(source)
         .run()
