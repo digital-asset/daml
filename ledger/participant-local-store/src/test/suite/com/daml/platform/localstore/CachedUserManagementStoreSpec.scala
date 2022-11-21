@@ -18,7 +18,12 @@ class CachedUserManagementStoreSpec
     with MockitoSugar
     with ArgumentMatchersSugar {
 
-  override def newStore() = new InMemoryUserManagementStore(createAdmin = false)
+  override def newStore() = new CachedUserManagementStore(
+    new InMemoryUserManagementStore(createAdmin = false),
+    expiryAfterWriteInSeconds = 1,
+    maximumCacheSize = 10,
+    Metrics.ForTesting,
+  )
 
   private val user = User(
     id = Ref.UserId.assertFromString("user_id1"),

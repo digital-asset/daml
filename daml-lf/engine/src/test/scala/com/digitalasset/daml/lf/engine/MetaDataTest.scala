@@ -126,10 +126,7 @@ class MetaDataTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
 object MetaDataTest {
 
-  private[this] val langVersion =
-    // TODO https://github.com/digital-asset/daml/issues/12051:
-    //  replace by LanguageVersion.default once LF 1.15 is make stable
-    language.LanguageVersion.v1_dev
+  private[this] val langVersion = language.LanguageVersion.v1_15
 
   private def newBuilder = new TransactionBuilder(_ =>
     transaction.TransactionVersion.assignNodeVersion(langVersion)

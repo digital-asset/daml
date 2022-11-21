@@ -404,6 +404,11 @@ Java Bindings
 
 An idiomatic Java library for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`/app-dev/bindings-java/index`.
 
+Python Bindings
+---------------
+
+A Python library (formerly known as DAZL) for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`Python Bindings </app-dev/bindings-python>`.
+
 Reading From the Ledger
 =======================
 
