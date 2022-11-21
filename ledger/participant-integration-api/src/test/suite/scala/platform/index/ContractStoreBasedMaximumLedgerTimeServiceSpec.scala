@@ -17,6 +17,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.LoggingContext
+import org.scalatest.Inside.inside
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -177,10 +178,12 @@ class ContractStoreBasedMaximumLedgerTimeServiceSpec extends AsyncFlatSpec with 
         contractId3,
         contractId4,
       )
-    ).collect { case MaximumLedgerTime.Archived(archivedResults) =>
-      archivedResults.size shouldBe 1
-      val archivedResult = archivedResults.head
-      Set(contractId1, contractId3) should contain(archivedResult)
+    ).map { result =>
+      inside(result) { case MaximumLedgerTime.Archived(archivedResults) =>
+        archivedResults.size shouldBe 1
+        val archivedResult = archivedResults.head
+        Set(contractId1, contractId3) should contain(archivedResult)
+      }
     }
   }
 
@@ -197,10 +200,12 @@ class ContractStoreBasedMaximumLedgerTimeServiceSpec extends AsyncFlatSpec with 
         contractId3,
         contractId4,
       )
-    ).collect { case MaximumLedgerTime.Archived(archivedResults) =>
-      archivedResults.size shouldBe 1
-      val archivedResult = archivedResults.head
-      Set(contractId1, contractId2, contractId3, contractId4) should contain(archivedResult)
+    ).map { result =>
+      inside(result) { case MaximumLedgerTime.Archived(archivedResults) =>
+        archivedResults.size shouldBe 1
+        val archivedResult = archivedResults.head
+        Set(contractId1, contractId2, contractId3, contractId4) should contain(archivedResult)
+      }
     }
   }
 
@@ -217,10 +222,12 @@ class ContractStoreBasedMaximumLedgerTimeServiceSpec extends AsyncFlatSpec with 
         contractId3,
         contractId4,
       )
-    ).collect { case MaximumLedgerTime.Archived(archivedResults) =>
-      archivedResults.size shouldBe 1
-      val archivedResult = archivedResults.head
-      Set(contractId1, contractId3) should contain(archivedResult)
+    ).map { result =>
+      inside(result) { case MaximumLedgerTime.Archived(archivedResults) =>
+        archivedResults.size shouldBe 1
+        val archivedResult = archivedResults.head
+        Set(contractId1, contractId3) should contain(archivedResult)
+      }
     }
   }
 

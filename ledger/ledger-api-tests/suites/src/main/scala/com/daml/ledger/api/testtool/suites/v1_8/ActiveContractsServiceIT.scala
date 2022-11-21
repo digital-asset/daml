@@ -399,6 +399,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       _ <- ledger.create(alice, WithObservers(alice, Seq(alice, bob)))
       contracts <- ledger.activeContracts(alice)
     } yield {
+      assert(contracts.nonEmpty)
       contracts.foreach(ce =>
         assert(
           ce.observers == Seq(bob),

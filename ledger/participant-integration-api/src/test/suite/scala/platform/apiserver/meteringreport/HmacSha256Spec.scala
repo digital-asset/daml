@@ -7,8 +7,9 @@ import com.daml.platform.apiserver.meteringreport.HmacSha256.{Bytes, Key, genera
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
-
 import java.nio.charset.StandardCharsets
+
+import org.scalatest.Inside.inside
 
 class HmacSha256Spec extends AnyWordSpec with Matchers {
 
@@ -30,9 +31,10 @@ class HmacSha256Spec extends AnyWordSpec with Matchers {
     "compute MAC" in {
       val expected = "uFfrKWtNvoMl-GdCBrotl33cTFOqLeF8EjaooomUKOw="
       val key = MeteringReportKey.communityKey()
-      HmacSha256.compute(key, "some message".getBytes(StandardCharsets.UTF_8)).map { mac =>
-        val actual = toBase64(mac)
-        actual shouldBe expected
+      inside(HmacSha256.compute(key, "some message".getBytes(StandardCharsets.UTF_8))) {
+        case Right(mac) =>
+          val actual = toBase64(mac)
+          actual shouldBe expected
       }
     }
 
