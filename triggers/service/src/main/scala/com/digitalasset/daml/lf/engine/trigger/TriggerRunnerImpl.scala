@@ -23,9 +23,10 @@ import com.daml.lf.engine.trigger.TriggerRunner.{QueryingACS, Running, TriggerSt
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import io.grpc.Status.Code
 import scalaz.syntax.tag._
-import java.util.UUID
 
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 object TriggerRunnerImpl {
@@ -45,7 +46,13 @@ object TriggerRunnerImpl {
       readAs: Set[Party],
   ) {
     private[trigger] def withLoggingContext[T]: (LoggingContextOf[Trigger with Config] => T) => T =
-      Trigger.newLoggingContext(trigger.defn.id, party, readAs, Some(triggerInstance))
+      Trigger.newLoggingContext(
+        trigger.defn.id,
+        party,
+        readAs,
+        triggerInstance.toString,
+        applicationId,
+      )
   }
 
   sealed trait Message
@@ -110,7 +117,6 @@ object TriggerRunnerImpl {
                 acs,
                 offset,
                 msgFlow = KillSwitches.single[TriggerMsg],
-                name,
               )
 
               // If we are stopped we will end up causing the future
@@ -131,7 +137,7 @@ object TriggerRunnerImpl {
               logger.info(s"Trigger $name is starting")
               running(killSwitch)
             } catch {
-              case cause: Throwable =>
+              case NonFatal(cause) =>
                 // Report the failure to the server.
                 config.server ! Server.TriggerInitializationFailure(triggerInstance, cause.toString)
                 logger.error(s"Trigger $name failed during initialization", cause)
@@ -188,7 +194,7 @@ object TriggerRunnerImpl {
           clientConfig,
           channelConfig,
         )
-        runner = new Runner(
+        runner = Runner(
           config.compiledPackages,
           config.trigger,
           config.triggerConfig,
