@@ -462,19 +462,19 @@ object domain {
         Ref.LedgerString.fromString(id).map(Id.apply)
       }
 
-      def assertFromString(id: String) = {
+      def assertFromString(id: String): Id = {
         Id(Ref.LedgerString.assertFromString(id))
       }
     }
 
     def apply(identityProviderId: String): IdentityProviderId =
-      Option(identityProviderId).filter(_.nonEmpty) match {
+      Some(identityProviderId).filter(_.nonEmpty) match {
         case Some(id) => Id(Ref.LedgerString.assertFromString(id))
         case None => Default
       }
 
     def fromString(identityProviderId: String): Either[String, IdentityProviderId] =
-      Option(identityProviderId).filter(_.nonEmpty) match {
+      Some(identityProviderId).filter(_.nonEmpty) match {
         case Some(id) => Ref.LedgerString.fromString(id).map(Id.apply)
         case None => Right(Default)
       }
@@ -489,7 +489,7 @@ object domain {
   final case class IdentityProviderConfig(
       identityProviderId: IdentityProviderId.Id,
       isDeactivated: Boolean = false,
-      jwksURL: JwksUrl,
+      jwksUrl: JwksUrl,
       issuer: String,
   )
 }

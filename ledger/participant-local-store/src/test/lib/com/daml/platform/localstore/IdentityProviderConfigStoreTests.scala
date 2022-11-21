@@ -24,7 +24,7 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
     IdentityProviderConfig(
       identityProviderId = randomId(),
       isDeactivated = false,
-      jwksURL = JwksUrl.assertFromString("http://example.com/jwks.json"),
+      jwksUrl = JwksUrl.assertFromString("http://example.com/jwks.json"),
       issuer = UUID.randomUUID().toString,
     )
 
@@ -37,13 +37,10 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
     "allows to create and load unchanged an identity provider config" in {
       testIt { tested =>
         val cfg1 = config()
-        val cfg2 = config()
         for {
           res1 <- tested.createIdentityProviderConfig(cfg1)
-          res2 <- tested.createIdentityProviderConfig(cfg2)
         } yield {
           res1 shouldBe Right(cfg1)
-          res2 shouldBe Right(cfg2)
         }
       }
     }
@@ -161,15 +158,17 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
               isDeactivatedUpdate = Some(true),
             )
           )
+          res3 <- tested.getIdentityProviderConfig(cfg.identityProviderId)
         } yield {
           res2 shouldBe Right(cfg.copy(isDeactivated = true))
+          res3 shouldBe Right(cfg.copy(isDeactivated = true))
         }
       }
     }
 
     "allows to update existing identity provider config's jwksUrl attribute" in {
       testIt { tested =>
-        val cfg = config().copy(jwksURL = JwksUrl.assertFromString("http://daml.com/jwks1.json"))
+        val cfg = config().copy(jwksUrl = JwksUrl.assertFromString("http://daml.com/jwks1.json"))
         for {
           _ <- tested.createIdentityProviderConfig(cfg)
           res2 <- tested.updateIdentityProviderConfig(
@@ -178,10 +177,11 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
               jwksUrlUpdate = Some(JwksUrl.assertFromString("http://daml.com/jwks2.json")),
             )
           )
+          res3 <- tested.getIdentityProviderConfig(cfg.identityProviderId)
         } yield {
-          res2 shouldBe Right(
-            cfg.copy(jwksURL = JwksUrl.assertFromString("http://daml.com/jwks2.json"))
-          )
+          val expected = cfg.copy(jwksUrl = JwksUrl.assertFromString("http://daml.com/jwks2.json"))
+          res2 shouldBe Right(expected)
+          res3 shouldBe Right(expected)
         }
       }
     }
@@ -197,8 +197,10 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
               issuerUpdate = Some("issuer2"),
             )
           )
+          res3 <- tested.getIdentityProviderConfig(cfg.identityProviderId)
         } yield {
           res2 shouldBe Right(cfg.copy(issuer = "issuer2"))
+          res3 shouldBe Right(cfg.copy(issuer = "issuer2"))
         }
       }
     }
@@ -209,7 +211,7 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
         val cfg = IdentityProviderConfig(
           identityProviderId = id,
           isDeactivated = false,
-          jwksURL = JwksUrl.assertFromString("http://example.com/jwks.json"),
+          jwksUrl = JwksUrl.assertFromString("http://example.com/jwks.json"),
           issuer = UUID.randomUUID().toString,
         )
         for {
@@ -222,15 +224,16 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
               isDeactivatedUpdate = Some(true),
             )
           )
+          res3 <- tested.getIdentityProviderConfig(cfg.identityProviderId)
         } yield {
-          res shouldBe Right(
-            IdentityProviderConfig(
-              identityProviderId = id,
-              isDeactivated = true,
-              jwksURL = JwksUrl.assertFromString("http://daml.com/jwks2.json"),
-              issuer = "issuer2",
-            )
+          val expected = IdentityProviderConfig(
+            identityProviderId = id,
+            isDeactivated = true,
+            jwksUrl = JwksUrl.assertFromString("http://daml.com/jwks2.json"),
+            issuer = "issuer2",
           )
+          res shouldBe Right(expected)
+          res3 shouldBe Right(expected)
         }
       }
     }

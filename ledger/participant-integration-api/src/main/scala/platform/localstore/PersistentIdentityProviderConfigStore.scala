@@ -32,7 +32,7 @@ class PersistentIdentityProviderConfigStore(
   override def createIdentityProviderConfig(identityProviderConfig: domain.IdentityProviderConfig)(
       implicit loggingContext: LoggingContext
   ): Future[Result[domain.IdentityProviderConfig]] = {
-    inTransaction(_.createIDPConfig) { implicit connection =>
+    inTransaction(_.createIdpConfig) { implicit connection =>
       val id = identityProviderConfig.identityProviderId
       for {
         _ <- idpConfigDoesNotExist(id)
@@ -52,7 +52,7 @@ class PersistentIdentityProviderConfigStore(
   override def getIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
   ): Future[Result[domain.IdentityProviderConfig]] = {
-    inTransaction(_.getIDPConfig) { implicit connection =>
+    inTransaction(_.getIdpConfig) { implicit connection =>
       backend
         .getIdentityProviderConfig(id)(connection)
         .toRight(IdentityProviderConfigNotFound(id))
@@ -62,7 +62,7 @@ class PersistentIdentityProviderConfigStore(
   override def deleteIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
   ): Future[Result[Unit]] = {
-    inTransaction(_.deleteIDPConfig) { implicit connection =>
+    inTransaction(_.deleteIdpConfig) { implicit connection =>
       if (!backend.deleteIdentityProviderConfig(id)(connection)) {
         Left(IdentityProviderConfigNotFound(id))
       } else {
@@ -78,7 +78,7 @@ class PersistentIdentityProviderConfigStore(
   override def listIdentityProviderConfigs()(implicit
       loggingContext: LoggingContext
   ): Future[Result[Seq[domain.IdentityProviderConfig]]] = {
-    inTransaction(_.listIDPConfigs) { implicit connection =>
+    inTransaction(_.listIdpConfigs) { implicit connection =>
       Right(backend.listIdentityProviderConfigs()(connection))
     }
   }
@@ -86,7 +86,7 @@ class PersistentIdentityProviderConfigStore(
   override def updateIdentityProviderConfig(update: IdentityProviderConfigUpdate)(implicit
       loggingContext: LoggingContext
   ): Future[Result[domain.IdentityProviderConfig]] = {
-    inTransaction(_.updateIDPConfig) { implicit connection =>
+    inTransaction(_.updateIdpConfig) { implicit connection =>
       val id = update.identityProviderId
       for {
         _ <- idpConfigExists(id)
@@ -96,7 +96,7 @@ class PersistentIdentityProviderConfigStore(
             backend.updateIssuer(update.identityProviderId, _)(connection)
           )
           update.jwksUrlUpdate.foreach(
-            backend.updateJwksURL(update.identityProviderId, _)(connection)
+            backend.updateJwksUrl(update.identityProviderId, _)(connection)
           )
           update.isDeactivatedUpdate.foreach(
             backend.updateIsDeactivated(update.identityProviderId, _)(connection)
@@ -134,7 +134,7 @@ class PersistentIdentityProviderConfigStore(
   )(implicit connection: Connection): Result[Unit] = issuer match {
     case Some(value) =>
       Either.cond(
-        !backend.idpConfigByIssuerExists(value)(connection),
+        !backend.identityProviderConfigByIssuerExists(value)(connection),
         (),
         IdentityProviderConfigWithIssuerExists(value),
       )
@@ -164,9 +164,9 @@ object PersistentIdentityProviderConfigStore {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ) = new CachedIdentityProviderConfigStore(
-    new PersistentIdentityProviderConfigStore(dbSupport, metrics),
-    expiryAfterWriteInSeconds,
-    maximumCacheSize,
-    metrics,
+    delegate = new PersistentIdentityProviderConfigStore(dbSupport, metrics),
+    expiryAfterWriteInSeconds = expiryAfterWriteInSeconds,
+    maximumCacheSize = maximumCacheSize,
+    metrics = metrics,
   )
 }
