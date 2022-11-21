@@ -85,7 +85,6 @@ object ClassForType extends StrictLogging {
             className,
             typeVars.map(JavaEscaper.escapeString),
             record,
-            packagePrefixes,
           )
         javaFiles(packageName, recordClass)
       case Normal(DefDataType(typeVars, variant: Variant.FWT)) =>

@@ -56,7 +56,6 @@ object VariantValueDecodersMethods {
             typeArgs,
             s"valueDecoder${child.name}",
             FromValueGenerator.variantCheck(child.name, _, _),
-            packagePrefixes,
           )
         case t =>
           val c = s"${typeWithContext.name}.${child.name}"
@@ -88,7 +87,6 @@ object VariantValueDecodersMethods {
             fieldType,
             "body",
             CodeBlock.of("variantValue$$"),
-            packagePrefixes,
           )
       )
       .addStatement("return new $T(body)", className)

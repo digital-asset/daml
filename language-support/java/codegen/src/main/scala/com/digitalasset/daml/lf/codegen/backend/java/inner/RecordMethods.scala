@@ -34,7 +34,6 @@ private[inner] object RecordMethods {
               inVar,
             )
             .build(),
-        packagePrefixes,
       )
       val toValue = ToValueGenerator.generateToValueForRecordLike(
         params,

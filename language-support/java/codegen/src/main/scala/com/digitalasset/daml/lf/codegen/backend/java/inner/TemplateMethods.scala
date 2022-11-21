@@ -6,17 +6,14 @@ package com.daml.lf.codegen.backend.java.inner
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.ContractFilter
 import com.daml.lf.codegen.backend.java.ObjectMethods
-import com.daml.lf.data.Ref.PackageId
 import com.squareup.javapoet._
 
 import javax.lang.model.element.Modifier
 
 private[inner] object TemplateMethods {
 
-  def apply(
-      fields: Fields,
-      className: ClassName,
-      packagePrefixes: Map[PackageId, String],
+  def apply(fields: Fields, className: ClassName)(implicit
+      packagePrefixes: PackagePrefixes
   ): Vector[MethodSpec] = {
     val constructor = ConstructorGenerator.generateConstructor(fields)
     val conversionMethods = distinctTypeVars(fields, IndexedSeq.empty[String]).flatMap { params =>
@@ -49,7 +46,6 @@ private[inner] object TemplateMethods {
               inVar,
             )
             .build(),
-        packagePrefixes,
         isPublic = false,
       )
       List(deprecatedFromValue, valueDecoder, toValue, privateGetValueDecoder)

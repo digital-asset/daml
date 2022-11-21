@@ -51,7 +51,6 @@ private[inner] object VariantClass extends StrictLogging {
             typeArguments,
             variant,
             typeWithContext,
-            packagePrefixes,
             subPackage,
           ).asJava
         )
