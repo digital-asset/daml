@@ -124,7 +124,7 @@ da_scala_test(
         "src/test/**/MinVersionTest.scala",
     ]),
     data = [
-        "//ledger/test-common:dar-files-1.14",
+        "//ledger/test-common:dar-files-latest",
     ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",

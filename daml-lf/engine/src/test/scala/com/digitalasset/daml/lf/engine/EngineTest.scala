@@ -33,7 +33,7 @@ import com.daml.lf.command._
 import com.daml.lf.crypto.Hash
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.engine.Error.Interpretation.DamlException
-import com.daml.lf.language.PackageInterface
+import com.daml.lf.language.{LanguageVersion, PackageInterface, StablePackage}
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import org.scalactic.Equality
@@ -2322,6 +2322,30 @@ class EngineTest
 
     }
 
+    "accept stable packages even if version is smaller than min version" in {
+      LanguageVersion.All.foreach { lv =>
+        val eng = engine(min = lv, LanguageVersion.v1_dev)
+        StablePackage.values.foreach(pkg =>
+          eng.preloadPackage(pkg.packageId, allPackages(pkg.packageId)) shouldBe a[ResultDone[_]]
+        )
+      }
+    }
+
+    "reject stable packages if version is greater than max version" in {
+      LanguageVersion.All.foreach { lv =>
+        val eng = engine(LanguageVersion.v1_6, max = lv)
+        StablePackage.values.foreach(pkg =>
+          eng.preloadPackage(pkg.packageId, allPackages(pkg.packageId)) match {
+            case ResultDone(_) =>
+              pkg.languageVersion shouldBe <=(lv)
+            case ResultError(_) =>
+              pkg.languageVersion shouldBe >(lv)
+            case _ =>
+              fail("unexpected SResult")
+          }
+        )
+      }
+    }
   }
 }
 
