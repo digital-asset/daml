@@ -866,7 +866,7 @@ class Runner(
 
 object Runner extends StrictLogging {
 
-  def triggerUserState(state: SValue, level: Trigger.Level): SValue = {
+  private def triggerUserState(state: SValue, level: Trigger.Level): SValue = {
     level match {
       case Trigger.Level.High =>
         state
