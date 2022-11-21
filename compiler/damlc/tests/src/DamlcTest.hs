@@ -367,14 +367,14 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
             assertBool
                 ("template creation coverage is reported correctly: " <> stdout)
                 (unlines
-                     [ "  never created: 1"
+                     [ "  internal templates never created: 1"
                      , "    Foo:S"
                      ] `isInfixOf`
                  stdout)
             assertBool
                 ("template choice coverage is reported correctly: " <> stdout)
                 (unlines
-                     [ "  never exercised: 2"
+                     [ "  internal template choices never exercised: 2"
                      , "    Foo:S:Archive"
                      , "    Foo:T:Archive"
                      ] `isInfixOf`
@@ -529,12 +529,12 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
                  , "- Internal templates"
                  , "  2 defined"
                  , "  1 ( 50.0%) created"
-                 , "  never created: 1"
+                 , "  internal templates never created: 1"
                  , "    B:S"
                  , "- Internal template choices"
                  , "  3 defined"
                  , "  1 ( 33.3%) exercised"
-                 , "  never exercised: 2"
+                 , "  internal template choices never exercised: 2"
                  , "    B:S:Archive"
                  , "    B:T:Archive"
                  ] `isInfixOf`
@@ -547,13 +547,13 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
                  , "  1 (100.0%) created in any tests"
                  , "  0 (  0.0%) created in internal tests"
                  , "  1 (100.0%) created in external tests"
-                 , "  never created: 0"
+                 , "  external templates never created: 0"
                  , "- External template choices"
                  , "  2 defined"
                  , "  1 ( 50.0%) exercised in any tests"
                  , "  0 (  0.0%) exercised in internal tests"
                  , "  1 ( 50.0%) exercised in external tests"
-                 , "  never exercised: 1"
+                 , "  external template choices never exercised: 1"
                  , "    a:A:U:Archive"
                  ] `isInfixOf`
              stdout)
@@ -690,12 +690,12 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
                  , "- Internal templates"
                  , "  2 defined"
                  , "  1 ( 50.0%) created"
-                 , "  never created: 1"
+                 , "  internal templates never created: 1"
                  , "    B:S"
                  , "- Internal template choices"
                  , "  3 defined"
                  , "  1 ( 33.3%) exercised"
-                 , "  never exercised: 2"
+                 , "  internal template choices never exercised: 2"
                  , "    B:S:Archive"
                  , "    B:T:Archive"
                  ] `isInfixOf`
