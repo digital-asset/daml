@@ -129,7 +129,7 @@ package object inner {
 
   // TODO #15227 SC remove with...
   type PackagePrefixes = (Map[PackageId, String] @@ PackagePrefixesTag) with Map[PackageId, String]
-  private[inner] val PackagePrefixes = scalaz.Tag.of[PackagePrefixesTag]
+  private[codegen] val PackagePrefixes = scalaz.Tag.of[PackagePrefixesTag]
 
   def fullyQualifiedName(
       identifier: Identifier,

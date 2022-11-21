@@ -80,13 +80,14 @@ private final class CodeGenRunner(
     }
 
   private def createTypeDefinitionClasses(module: ModuleWithContext): Iterable[JavaFile] = {
+    import scope.packagePrefixes
     MDC.put("packageId", module.packageId)
     MDC.put("packageIdShort", module.packageId.take(7))
     MDC.put("moduleName", module.name)
     val javaFiles =
       for {
         typeWithContext <- module.typesLineages
-        javaFile <- ClassForType(typeWithContext, scope.packagePrefixes, scope.toBeGenerated)
+        javaFile <- ClassForType(typeWithContext, scope.toBeGenerated)
       } yield javaFile
     MDC.remove("packageId")
     MDC.remove("packageIdShort")
@@ -177,17 +178,18 @@ object CodeGenRunner extends StrictLogging {
 
     val resolvedSignatures = resolveRetroInterfaces(signatures)
 
-    val resolvedPrefixes =
-      resolvePackagePrefixes(
-        packagePrefixes,
-        modulePrefixes,
-        resolvedSignatures,
-        generatedModuleIds,
+    implicit val resolvedPrefixes: PackagePrefixes =
+      PackagePrefixes(
+        resolvePackagePrefixes(
+          packagePrefixes,
+          modulePrefixes,
+          resolvedSignatures,
+          generatedModuleIds,
+        )
       )
 
     new CodeGenRunner.Scope(
       resolvedSignatures,
-      resolvedPrefixes,
       transitiveClosure.serializableTypes,
     )
   }

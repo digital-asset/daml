@@ -110,7 +110,6 @@ object ClassForType extends StrictLogging {
             record,
             template,
             typeWithContext,
-            packagePrefixes,
           )
         javaFiles(packageName, typeSpec)
     }
