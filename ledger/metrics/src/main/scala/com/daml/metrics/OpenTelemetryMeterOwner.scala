@@ -5,6 +5,7 @@ package com.daml.metrics
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.OpenTelemetryMeterOwner.buildProviderWithViews
+import com.daml.metrics.api.MetricHandle.Histogram
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.metrics.api.reporters.MetricsReporter.Prometheus
@@ -29,7 +30,7 @@ case class OpenTelemetryMeterOwner(enabled: Boolean, reporter: Option[MetricsRep
 
     /* To integrate with prometheus we're using the deprecated [[PrometheusCollector]].
      * More details about the deprecation here: https://github.com/open-telemetry/opentelemetry-java/issues/4284
-     * This forces us to keep the current opentelemetry version (see ticket for paths forward)
+     * This forces us to keep the current OpenTelemetry version (see ticket for potential paths forward).
      */
     val meterProvider = if (enabled && reporter.exists(_.isInstanceOf[Prometheus])) {
       meterProviderBuilder.registerMetricReader(PrometheusCollector.create()).build()
@@ -46,6 +47,7 @@ case class OpenTelemetryMeterOwner(enabled: Boolean, reporter: Option[MetricsRep
   }
 
 }
+
 object OpenTelemetryMeterOwner {
 
   def buildProviderWithViews: SdkMeterProviderBuilder = {
@@ -54,8 +56,25 @@ object OpenTelemetryMeterOwner {
       .registerView(
         histogramSelectorEndingWith(OpenTelemetryTimer.TimerUnitAndSuffix),
         explicitHistogramBucketsView(
-          Seq(0.01d, 0.025d, 0.050d, 0.075d, 0.1d, 0.15d, 0.2d, 0.25d, 0.35d, 0.5d, 0.75d, 1d, 2.5d,
-            5d, 10d)
+          Seq(
+            0.01d, 0.025d, 0.050d, 0.075d, 0.1d, 0.15d, 0.2d, 0.25d, 0.35d, 0.5d, 0.75d, 1d, 2.5d,
+            5d, 10d,
+          )
+        ),
+      )
+      .registerView(
+        histogramSelectorEndingWith(Histogram.Bytes),
+        explicitHistogramBucketsView(
+          Seq(
+            kilobytes(10),
+            kilobytes(50),
+            kilobytes(100),
+            kilobytes(500),
+            megabytes(1),
+            megabytes(5),
+            megabytes(10),
+            megabytes(50),
+          )
         ),
       )
   }
@@ -74,5 +93,9 @@ object OpenTelemetryMeterOwner {
       )
     )
     .build()
+
+  private def kilobytes(value: Int): Double = value * 1024d
+
+  private def megabytes(value: Int): Double = value * 1024d * 1024d
 
 }

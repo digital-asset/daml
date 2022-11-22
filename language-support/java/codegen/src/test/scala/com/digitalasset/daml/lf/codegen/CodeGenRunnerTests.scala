@@ -61,8 +61,9 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> Some("PREFIX")), Map.empty)
 
     scope.signatures.map(_.packageId).length should ===(dar.all.length)
-    scope.packagePrefixes.size should ===(dar.all.length)
-    all(scope.packagePrefixes.values) should ===("PREFIX")
+    val prefixes = backend.java.inner.PackagePrefixes unwrap scope.packagePrefixes
+    prefixes.size should ===(dar.all.length)
+    all(prefixes.values) should ===("PREFIX")
     scope.toBeGenerated should ===(Set.empty)
   }
 

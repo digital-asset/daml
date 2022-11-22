@@ -8,10 +8,11 @@ import akka.stream.scaladsl.{Flow, Sink}
 import akka.util.ByteString
 import com.daml.metrics.api.MetricHandle.Meter
 import com.daml.metrics.api.MetricsContext
+import com.daml.metrics.http.WebSocketMetrics
 import com.google.common.base.Utf8
 
 // Support to capture metrics on websockets on akka http
-object WebSocketMetrics {
+object WebSocketMetricsInterceptor {
 
   // Wraps the given flow, to capture in the given metrics, the following signals:
   //  - total number of received messages
@@ -19,16 +20,25 @@ object WebSocketMetrics {
   //  - total number of sent messages
   //  - size of the sent messages
   def withRateSizeMetrics[M](
-      receivedTotal: Meter,
-      receivedBytesTotal: Meter,
-      sentTotal: Meter,
-      sentBytesTotal: Meter,
+      metrics: WebSocketMetrics,
       flow: Flow[Message, Message, M],
   )(implicit mc: MetricsContext): Flow[Message, Message, M] = {
     Flow[Message]
-      .map(messageCountAndSizeReportMetric(_, receivedTotal, receivedBytesTotal))
+      .map(
+        messageCountAndSizeReportMetric(
+          _,
+          metrics.messagesReceivedTotal,
+          metrics.messagesReceivedBytesTotal,
+        )
+      )
       .viaMat(flow)((_, mat2) => mat2)
-      .map(messageCountAndSizeReportMetric(_, sentTotal, sentBytesTotal))
+      .map(
+        messageCountAndSizeReportMetric(
+          _,
+          metrics.messagesSentTotal,
+          metrics.messagesSentBytesTotal,
+        )
+      )
   }
 
   // support for message counting, and computation and report of the size of a message

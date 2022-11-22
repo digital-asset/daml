@@ -1,18 +1,16 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.http.metrics.api.reporters
+package com.daml.metrics.api.reporters
 
 import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.jmx.JmxReporter
 import com.codahale.metrics.{MetricRegistry, Reporter, Slf4jReporter}
-import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
-import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.metrics.{JvmMetricSet, OpenTelemetryMeterOwner}
+import io.opentelemetry.api.metrics.{Meter => OtelMeter}
 
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
@@ -33,12 +31,13 @@ import scala.concurrent.duration.Duration
   * Note that metrics are in general light-weight and add negligible overhead.
   * They are not visible to everyday users so they can be safely enabled all the time.
   */
-final class MetricsReporting(
+final class MetricsReporting[M](
     jmxDomain: String,
     extraMetricsReporter: Option[MetricsReporter],
     extraMetricsReportingInterval: Duration,
-) extends ResourceOwner[HttpJsonApiMetrics] {
-  def acquire()(implicit context: ResourceContext): Resource[HttpJsonApiMetrics] = {
+)(metrics: (MetricRegistry, OtelMeter) => M)
+    extends ResourceOwner[M] {
+  def acquire()(implicit context: ResourceContext): Resource[M] = {
     val registry = new MetricRegistry
     registry.registerAll(new JvmMetricSet)
     for {
@@ -54,7 +53,7 @@ final class MetricsReporting(
       _ <- Resource(Future.successful(slf4JReporter))(reporter =>
         Future.successful(reporter.report())
       )
-    } yield new HttpJsonApiMetrics(registry, new OpenTelemetryFactory(openTelemetryMeter))
+    } yield metrics(registry, openTelemetryMeter)
   }
 
   private def newJmxReporter(registry: MetricRegistry): JmxReporter =

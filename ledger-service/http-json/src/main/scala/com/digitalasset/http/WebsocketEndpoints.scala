@@ -23,7 +23,7 @@ import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.api.MetricsContext
-import com.daml.metrics.akkahttp.{AkkaHttpMetricLabels, WebSocketMetrics}
+import com.daml.metrics.akkahttp.{MetricLabelsExtractor, WebSocketMetricsInterceptor}
 
 import scala.collection.immutable.Seq
 import scalaz.std.scalaFuture._
@@ -102,7 +102,7 @@ class WebsocketEndpoints(
                 )
                 (jwt, jwtPayload) = payload
               } yield {
-                MetricsContext.withMetricLabels(AkkaHttpMetricLabels.labelsFromRequest(req): _*) {
+                MetricsContext.withMetricLabels(MetricLabelsExtractor.labelsFromRequest(req): _*) {
                   implicit mc: MetricsContext =>
                     handleWebsocketRequest[domain.SearchForeverRequest](
                       jwt,
@@ -133,7 +133,7 @@ class WebsocketEndpoints(
                 )
                 (jwt, jwtPayload) = payload
               } yield {
-                MetricsContext.withMetricLabels(AkkaHttpMetricLabels.labelsFromRequest(req): _*) {
+                MetricsContext.withMetricLabels(MetricLabelsExtractor.labelsFromRequest(req): _*) {
                   implicit mc: MetricsContext =>
                     handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
                       jwt,
@@ -172,11 +172,8 @@ class WebsocketEndpoints(
       mc: MetricsContext,
   ): HttpResponse = {
     val handler: Flow[Message, Message, _] =
-      WebSocketMetrics.withRateSizeMetrics(
-        metrics.websocketReceivedTotal,
-        metrics.websocketReceivedBytesTotal,
-        metrics.websocketSentTotal,
-        metrics.websocketSentBytesTotal,
+      WebSocketMetricsInterceptor.withRateSizeMetrics(
+        metrics.websocket,
         webSocketService.transactionMessageHandler[A](jwt, jwtPayload),
       )
     req.handleMessages(handler, Some(protocol))

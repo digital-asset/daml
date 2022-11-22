@@ -5,6 +5,11 @@ package com.daml.metrics.api
 
 import io.opentelemetry.api.common.Attributes
 
+/** *
+  * Represents labels that are added to metrics.
+  * Please note that labels are only being supported by the OpenTelemetry metrics implementation,
+  * the Dropwizard implementation just ignores them as it supports metric names only.
+  */
 case class MetricsContext(labels: Map[String, String]) {
 
   lazy val asAttributes: Attributes = {
@@ -15,6 +20,11 @@ case class MetricsContext(labels: Map[String, String]) {
       .build()
   }
 
+  /** Merges the current metric context with the given context.
+    * The produced labels represent a union of the labels defined by the two contexts,
+    * with the label value found in the given context overriding any values with the same key in
+    * the current context.
+    */
   def merge(context: MetricsContext): MetricsContext = this.copy(labels = labels ++ context.labels)
 
 }
