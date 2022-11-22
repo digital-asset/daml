@@ -18,7 +18,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 /** An RxJava version of {@link com.daml.ledger.api.v1.CommandServiceGrpc} */
 public interface CommandClient {
-  Single<Empty> submitAndWait(CommandsSubmission params);
+  Single<Empty> submitAndWait(CommandsSubmission submission);
 
   /** @deprecated since 2.5. Please use {@link #submitAndWait(CommandsSubmission)} instead */
   @Deprecated
@@ -112,7 +112,7 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
-  Single<String> submitAndWaitForTransactionId(CommandsSubmission params);
+  Single<String> submitAndWaitForTransactionId(CommandsSubmission submission);
 
   /**
    * @deprecated since 2.5. Please use {@link #submitAndWaitForTransactionId(CommandsSubmission)}
@@ -230,7 +230,7 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
-  Single<Transaction> submitAndWaitForTransaction(CommandsSubmission params);
+  Single<Transaction> submitAndWaitForTransaction(CommandsSubmission submission);
 
   /**
    * @deprecated since 2.5. Please use {@link #submitAndWaitForTransaction(CommandsSubmission)}
@@ -348,7 +348,7 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
-  Single<TransactionTree> submitAndWaitForTransactionTree(CommandsSubmission params);
+  Single<TransactionTree> submitAndWaitForTransactionTree(CommandsSubmission submission);
 
   /**
    * @deprecated since 2.5. Please use {@link #submitAndWaitForTransactionTree(CommandsSubmission)}
@@ -466,7 +466,7 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
-  <U> Single<U> submitAndWaitForResult(CommandsSubmission params, @NonNull Update<U> update);
+  <U> Single<U> submitAndWaitForResult(CommandsSubmission submission, @NonNull Update<U> update);
 
   /**
    * @deprecated since 2.5. Please use {@link #submitAndWaitForResult(CommandsSubmission, Update)}

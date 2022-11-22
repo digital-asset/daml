@@ -265,15 +265,15 @@ public final class SubmitCommandsRequest {
   private static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull Optional<String> submissionId,
-      @NonNull CommandsSubmission commandsSubmission) {
+      @NonNull CommandsSubmission submission) {
 
-    if (commandsSubmission.getActAs().size() == 0) {
+    if (submission.getActAs().size() == 0) {
       throw new IllegalArgumentException("actAs must have at least one element");
     }
     ArrayList<CommandsOuterClass.Command> commandsConverted =
-        new ArrayList<>(commandsSubmission.getCommands().size());
+        new ArrayList<>(submission.getCommands().size());
 
-    List<Command> commands = toCommands(commandsSubmission.getCommands());
+    List<Command> commands = toCommands(submission.getCommands());
 
     for (Command command : commands) {
       commandsConverted.add(command.toProtoCommand());
@@ -282,14 +282,14 @@ public final class SubmitCommandsRequest {
     CommandsOuterClass.Commands.Builder builder =
         CommandsOuterClass.Commands.newBuilder()
             .setLedgerId(ledgerId)
-            .setApplicationId(commandsSubmission.getApplicationId())
-            .setCommandId(commandsSubmission.getCommandId())
-            .setParty(commandsSubmission.getActAs().get(0))
-            .addAllActAs(commandsSubmission.getActAs())
-            .addAllReadAs(commandsSubmission.getReadAs())
+            .setApplicationId(submission.getApplicationId())
+            .setCommandId(submission.getCommandId())
+            .setParty(submission.getActAs().get(0))
+            .addAllActAs(submission.getActAs())
+            .addAllReadAs(submission.getReadAs())
             .addAllCommands(commandsConverted);
 
-    commandsSubmission
+    submission
         .getMinLedgerTimeAbs()
         .ifPresent(
             abs ->
@@ -298,7 +298,7 @@ public final class SubmitCommandsRequest {
                         .setSeconds(abs.getEpochSecond())
                         .setNanos(abs.getNano())));
 
-    commandsSubmission
+    submission
         .getMinLedgerTimeRel()
         .ifPresent(
             rel ->
@@ -307,7 +307,7 @@ public final class SubmitCommandsRequest {
                         .setSeconds(rel.getSeconds())
                         .setNanos(rel.getNano())));
 
-    commandsSubmission
+    submission
         .getDeduplicationTime()
         .ifPresent(
             dedup -> {
@@ -319,26 +319,26 @@ public final class SubmitCommandsRequest {
                           .setNanos(dedup.getNano()));
             });
 
-    commandsSubmission.getWorkflowId().ifPresent(builder::setWorkflowId);
+    submission.getWorkflowId().ifPresent(builder::setWorkflowId);
     submissionId.ifPresent(builder::setSubmissionId);
 
     return builder.build();
   }
 
   public static CommandsOuterClass.Commands toProto(
-      @NonNull String ledgerId, @NonNull CommandsSubmission commandsSubmission) {
+      @NonNull String ledgerId, @NonNull CommandsSubmission submission) {
     return toProto(
         ledgerId,
-        commandsSubmission.getWorkflowId().orElse(""),
-        commandsSubmission.getApplicationId(),
-        commandsSubmission.getCommandId(),
-        commandsSubmission.getActAs(),
-        commandsSubmission.getReadAs(),
-        commandsSubmission.getMinLedgerTimeAbs(),
-        commandsSubmission.getMinLedgerTimeRel(),
-        commandsSubmission.getDeduplicationTime(),
+        submission.getWorkflowId().orElse(""),
+        submission.getApplicationId(),
+        submission.getCommandId(),
+        submission.getActAs(),
+        submission.getReadAs(),
+        submission.getMinLedgerTimeAbs(),
+        submission.getMinLedgerTimeRel(),
+        submission.getDeduplicationTime(),
         Optional.empty(),
-        toCommands(commandsSubmission.getCommands()));
+        toCommands(submission.getCommands()));
   }
 
   /**
@@ -376,19 +376,19 @@ public final class SubmitCommandsRequest {
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String submissionId,
-      @NonNull CommandsSubmission commandsSubmission) {
+      @NonNull CommandsSubmission submission) {
     return toProto(
         ledgerId,
-        commandsSubmission.getWorkflowId().orElse(""),
-        commandsSubmission.getApplicationId(),
-        commandsSubmission.getCommandId(),
-        commandsSubmission.getActAs(),
-        commandsSubmission.getReadAs(),
-        commandsSubmission.getMinLedgerTimeAbs(),
-        commandsSubmission.getMinLedgerTimeRel(),
-        commandsSubmission.getDeduplicationTime(),
+        submission.getWorkflowId().orElse(""),
+        submission.getApplicationId(),
+        submission.getCommandId(),
+        submission.getActAs(),
+        submission.getReadAs(),
+        submission.getMinLedgerTimeAbs(),
+        submission.getMinLedgerTimeRel(),
+        submission.getDeduplicationTime(),
         Optional.of(submissionId),
-        toCommands(commandsSubmission.getCommands()));
+        toCommands(submission.getCommands()));
   }
 
   /**

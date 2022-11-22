@@ -13,18 +13,18 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 public final class SubmitAndWaitRequest {
 
   public static CommandServiceOuterClass.SubmitAndWaitRequest toProto(
-      @NonNull String ledgerId, @NonNull CommandsSubmission commandsSubmission) {
+      @NonNull String ledgerId, @NonNull CommandsSubmission submission) {
     return CommandServiceOuterClass.SubmitAndWaitRequest.newBuilder()
-        .setCommands(SubmitCommandsRequest.toProto(ledgerId, commandsSubmission))
+        .setCommands(SubmitCommandsRequest.toProto(ledgerId, submission))
         .build();
   }
 
   public static CommandServiceOuterClass.SubmitAndWaitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String submissionId,
-      @NonNull CommandsSubmission commandsSubmission) {
+      @NonNull CommandsSubmission submission) {
     return CommandServiceOuterClass.SubmitAndWaitRequest.newBuilder()
-        .setCommands(SubmitCommandsRequest.toProto(ledgerId, submissionId, commandsSubmission))
+        .setCommands(SubmitCommandsRequest.toProto(ledgerId, submissionId, submission))
         .build();
   }
 

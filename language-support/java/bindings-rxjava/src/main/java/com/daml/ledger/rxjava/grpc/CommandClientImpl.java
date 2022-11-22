@@ -39,12 +39,12 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<Empty> submitAndWait(CommandsSubmission params) {
+  public Single<Empty> submitAndWait(CommandsSubmission submission) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
-        SubmitAndWaitRequest.toProto(this.ledgerId, params);
+        SubmitAndWaitRequest.toProto(this.ledgerId, submission);
 
     return Single.fromFuture(
-        StubHelper.authenticating(this.serviceStub, params.getAccessToken())
+        StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
             .submitAndWait(request));
   }
 
@@ -265,11 +265,11 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<String> submitAndWaitForTransactionId(CommandsSubmission params) {
+  public Single<String> submitAndWaitForTransactionId(CommandsSubmission submission) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
-        SubmitAndWaitRequest.toProto(this.ledgerId, params);
+        SubmitAndWaitRequest.toProto(this.ledgerId, submission);
     return Single.fromFuture(
-            StubHelper.authenticating(this.serviceStub, params.getAccessToken())
+            StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
                 .submitAndWaitForTransactionId(request))
         .map(CommandServiceOuterClass.SubmitAndWaitForTransactionIdResponse::getTransactionId);
   }
@@ -493,12 +493,12 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<Transaction> submitAndWaitForTransaction(CommandsSubmission params) {
+  public Single<Transaction> submitAndWaitForTransaction(CommandsSubmission submission) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
-        SubmitAndWaitRequest.toProto(this.ledgerId, params);
+        SubmitAndWaitRequest.toProto(this.ledgerId, submission);
 
     return Single.fromFuture(
-            StubHelper.authenticating(this.serviceStub, params.getAccessToken())
+            StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
                 .submitAndWaitForTransaction(request))
         .map(CommandServiceOuterClass.SubmitAndWaitForTransactionResponse::getTransaction)
         .map(Transaction::fromProto);
@@ -724,12 +724,12 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<TransactionTree> submitAndWaitForTransactionTree(CommandsSubmission params) {
+  public Single<TransactionTree> submitAndWaitForTransactionTree(CommandsSubmission submission) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
-        SubmitAndWaitRequest.toProto(this.ledgerId, params);
+        SubmitAndWaitRequest.toProto(this.ledgerId, submission);
 
     return Single.fromFuture(
-            StubHelper.authenticating(this.serviceStub, params.getAccessToken())
+            StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
                 .submitAndWaitForTransactionTree(request))
         .map(CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse::getTransaction)
         .map(TransactionTree::fromProto);
@@ -956,12 +956,12 @@ public class CommandClientImpl implements CommandClient {
 
   @Override
   public <U> Single<U> submitAndWaitForResult(
-      CommandsSubmission params, @NonNull Update<U> update) {
+      CommandsSubmission submission, @NonNull Update<U> update) {
     return update.foldUpdate(
         new Update.FoldUpdate<>() {
           @Override
           public <CtId> Single<U> created(Update.CreateUpdate<CtId, U> create) {
-            var transaction = submitAndWaitForTransaction(params);
+            var transaction = submitAndWaitForTransaction(submission);
             return transaction.map(
                 tx -> {
                   var createdEvent = singleCreatedEvent(tx.getEvents());
@@ -971,7 +971,7 @@ public class CommandClientImpl implements CommandClient {
 
           @Override
           public <R> Single<U> exercised(Update.ExerciseUpdate<R, U> exercise) {
-            var transactionTree = submitAndWaitForTransactionTree(params);
+            var transactionTree = submitAndWaitForTransactionTree(submission);
             return transactionTree.map(
                 txTree -> {
                   var exercisedEvent = firstExercisedEvent(txTree);

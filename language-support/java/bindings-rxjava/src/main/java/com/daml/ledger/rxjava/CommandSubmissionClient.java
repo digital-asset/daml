@@ -16,7 +16,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 /** An RxJava version of {@link com.daml.ledger.api.v1.CommandSubmissionServiceGrpc} */
 public interface CommandSubmissionClient {
 
-  Single<Empty> submit(CommandsSubmission params);
+  Single<Empty> submit(CommandsSubmission submission);
 
   /**
    * Use {@link #submit(CommandsSubmission)} instead
