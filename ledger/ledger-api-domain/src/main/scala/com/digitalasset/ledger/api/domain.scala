@@ -10,8 +10,6 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Ref.LedgerString.ordering
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging._
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value.{ContractId => LfContractId}
 import com.daml.lf.value.{Value => Lf}
 import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
@@ -167,85 +165,6 @@ object domain {
       offset: LedgerOffset.Absolute,
   ) extends TransactionBase
 
-  sealed trait CompletionEvent extends Product with Serializable {
-    def offset: LedgerOffset.Absolute
-    def recordTime: Timestamp
-  }
-
-  object CompletionEvent {
-
-    final case class Checkpoint(offset: LedgerOffset.Absolute, recordTime: Timestamp)
-        extends CompletionEvent
-
-    final case class CommandAccepted(
-        offset: LedgerOffset.Absolute,
-        recordTime: Timestamp,
-        commandId: CommandId,
-        transactionId: TransactionId,
-    ) extends CompletionEvent
-
-    final case class CommandRejected(
-        offset: LedgerOffset.Absolute,
-        recordTime: Timestamp,
-        commandId: CommandId,
-        reason: RejectionReason,
-    ) extends CompletionEvent
-  }
-
-  sealed trait RejectionReason {
-    val description: String
-  }
-
-  object RejectionReason {
-    final case class ContractsNotFound(missingContractIds: Set[String]) extends RejectionReason {
-      override val description =
-        s"Unknown contracts: ${missingContractIds.mkString("[", ", ", "]")}"
-    }
-
-    final case class InconsistentContractKeys(
-        lookupResult: Option[LfContractId],
-        currentResult: Option[LfContractId],
-    ) extends RejectionReason {
-      override val description: String =
-        s"Contract key lookup with different results: expected [$lookupResult], actual [$currentResult]"
-    }
-
-    final case class DuplicateContractKey(key: GlobalKey) extends RejectionReason {
-      override val description: String = "DuplicateKey: contract key is not unique"
-    }
-
-    /** The ledger time of the submission violated some constraint on the ledger time. */
-    final case class InvalidLedgerTime(description: String) extends RejectionReason
-
-    /** The transaction relied on contracts being active that were no longer
-      * active at the point where it was sequenced.
-      */
-    final case class Inconsistent(description: String) extends RejectionReason
-
-    /** The Participant node did not have sufficient resource quota with the
-      * to submit the transaction.
-      *
-      * NOTE: Only used in Scala flyway migration scripts
-      */
-    final case class OutOfQuota(description: String) extends RejectionReason
-
-    /** The transaction submission was disputed.
-      *
-      * This means that the underlying ledger and its validation logic
-      * considered the transaction potentially invalid. This can be due to a bug
-      * in the submission or validation logic, or due to malicious behaviour.
-      *
-      * NOTE: Only used in Scala flyway migration scripts
-      */
-    final case class Disputed(description: String) extends RejectionReason
-
-    @deprecated
-    final case class SubmitterCannotActViaParticipant(description: String) extends RejectionReason
-
-    @deprecated
-    final case class PartyNotKnownOnLedger(description: String) extends RejectionReason
-  }
-
   type Value = Lf
 
   final case class RecordField(label: Option[Label], value: Value)
@@ -254,11 +173,6 @@ object domain {
 
   type Label = String @@ LabelTag
   val Label: Tag.TagOf[LabelTag] = Tag.of[LabelTag]
-
-  sealed trait VariantConstructorTag
-
-  type VariantConstructor = String @@ VariantConstructorTag
-  val VariantConstructor: Tag.TagOf[VariantConstructorTag] = Tag.of[VariantConstructorTag]
 
   sealed trait WorkflowIdTag
 
