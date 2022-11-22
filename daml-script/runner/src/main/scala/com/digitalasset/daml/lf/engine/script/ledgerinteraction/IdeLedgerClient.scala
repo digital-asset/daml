@@ -12,6 +12,7 @@ import com.daml.ledger.api.domain.{ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
+import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.SResult._
@@ -176,6 +177,7 @@ class IdeLedgerClient(
   override def queryInterface(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
+      viewType: Ast.Type,
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Option[Value])]] = {
 
     val acs: Seq[ScenarioLedger.LookupOk] = ledger.query(
@@ -205,6 +207,7 @@ class IdeLedgerClient(
   override def queryInterfaceContractId(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
+      viewType: Ast.Type,
       cid: ContractId,
   )(implicit
       ec: ExecutionContext,
