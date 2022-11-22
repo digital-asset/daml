@@ -352,3 +352,8 @@ HTTP Response
 -------------
 
 A status code of ``200`` indicates a successful readiness check.
+
+
+Metrics
+*******
+If a Prometheus metrics reporter is configured for it, the Trigger Service exposes the :doc:`common HTTP metrics </json-api/production-setup/metrics>` for all endpoints.
