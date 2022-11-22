@@ -138,7 +138,6 @@ bos/attoparsec 0.14.4 : BSD 3-clause "New" or "Revised" License
 Bouncy Castle 1.70 : MIT License
 Bouncy Castle PKIX, CMS, EAC, TSP, PKCS, OCSP, CMP, and CRMF APIs 1.70 : MIT License
 brace-expansion 1.1.11 : MIT License
-braces 3.0.2 : MIT License
 brorand 1.1.0 : MIT License
 browser-pack 6.1.0 : MIT License
 browserify-aes 1.2.0 : MIT License
@@ -702,6 +701,7 @@ Metrics Core 4.1.33 : Apache License 2.0
 Metrics Integration with JMX 4.1.33 : Apache License 2.0
 micromark 2.11.4 : MIT License
 micromatch 4.0.4 : MIT License
+micromatch/braces 3.0.2 : MIT License
 Microsoft/tslib 1.14.1 : BSD Zero Clause License
 Microsoft/tslib 2.2.0 : Apache License 2.0
 miller-rabin 4.0.1 : MIT License
@@ -861,7 +861,6 @@ parse-passwd 1.0.0 : MIT License
 parse5 6.0.1 : MIT License
 parser 1.0.0 : MIT License
 parser-combinators 1.3.0 : BSD 3-clause "New" or "Revised" License
-parseurl 1.3.3 : MIT License
 path 0.9.2 : BSD 3-clause "New" or "Revised" License
 path-browserify 1.0.1 : MIT License
 path-exists 4.0.0 : MIT License
@@ -880,6 +879,7 @@ performance-now 2.1.0 : MIT License
 phadej/cabal-doctest 1.0.9 : BSD 3-clause "New" or "Revised" License
 picomatch 2.2.3 : MIT License
 picomatch 2.3.0 : MIT License
+pillarjs/parseurl 1.3.3 : MIT License
 pip 21.2.4 : MIT License
 pip 21.3.1 : MIT License
 polyparse 1.13 : GNU Lesser General Public License v3.0 or later
@@ -1044,7 +1044,7 @@ semigroups 0.19.2 : BSD 3-clause "New" or "Revised" License
 semirings 0.6 : BSD 3-clause "New" or "Revised" License
 semver 0.4.0.1 : Mozilla Public License 2.0
 senchalabs / connect 3.7.0 : MIT License
-send 0.17.1 : MIT License
+Send for Node.js 0.17.1 : MIT License
 serve-index 1.9.1 : MIT License
 serve-static v1.14.1 : MIT License
 set-blocking 2.0.0 : ISC License
@@ -1061,7 +1061,6 @@ shallowequal 1.1.0 : MIT License
 shama/gaze 1.1.3 : MIT License
 shasum-object 1.0.0 : Apache License 2.0
 side-channel 1.0.4 : MIT License
-signal-exit 3.0.7 : ISC License
 silently 1.2.5.2 : BSD 3-clause "New" or "Revised" License
 simonmar/async 2.2.4 : BSD 3-clause "New" or "Revised" License
 simple-concat 1.0.1 : MIT License
@@ -1122,6 +1121,7 @@ system-fileio 0.3.16.4 : MIT License
 system-filepath 0.4.14 : MIT License
 t-digest 3.1 : Apache License 2.0
 tagged v0.8.6.1 : BSD 3-clause "New" or "Revised" License
+tapjs/signal-exit 3.0.7 : ISC License
 tar-conduit 0.3.2 : MIT License
 tasty-ant-xml 1.1.8 : BSD 3-clause "New" or "Revised" License
 tasty-golden 2.3.5 : MIT License
@@ -6642,7 +6642,7 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE
 ---
 
 ISC License
-(signal-exit 3.0.7)
+(tapjs/signal-exit 3.0.7)
 
 The ISC License
 
@@ -11378,6 +11378,34 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
+(JSONStream 1.3.5)
+
+License: Expat
+
+Permission is hereby granted, free of charge,
+ to any person obtaining a copy of this software and
+ associated documentation files (the "Software"), to
+ deal in the Software without restriction, including
+ without limitation the rights to use, copy, modify,
+ merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom
+ the Software is furnished to do so,
+ subject to the following conditions:
+ .
+ The above copyright notice and this permission notice
+ shall be included in all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR
+ ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
+
+---
+
+MIT License
 (node-findup-sync 4.0.0)
 
 License: Expat
@@ -12384,7 +12412,7 @@ SOFTWARE
 ---
 
 MIT License
-(binary-extensions v2.2.0)
+(binary-extensions v2.2.0, is-binary-path v2.1.0)
 
 MIT License
 
@@ -12937,7 +12965,7 @@ THE SOFTWARE
 ---
 
 MIT License
-(JSONStream 0.10.0, JSONStream 1.3.5, through 2.3.8)
+(JSONStream 0.10.0, through 2.3.8)
 
 The MIT License
 
@@ -16685,7 +16713,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(parseurl 1.3.3)
+(pillarjs/parseurl 1.3.3)
 
 Upstream-Contact: https://github.com/expressjs/parseurl/issues
 Source: https://github.com/expressjs/parseurl
@@ -16875,7 +16903,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(braces 3.0.2)
+(micromatch/braces 3.0.2)
 
 Upstream-Contact: https://github.com/jonschlinkert/braces/issues
 Source: https://github.com/jonschlinkert/braces
@@ -17228,7 +17256,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(send 0.17.1)
+(Send for Node.js 0.17.1)
 
 Upstream-Contact: https://github.com/pillarjs/send/issues
 Source: https://github.com/pillarjs/send
@@ -17431,44 +17459,6 @@ MIT License
 
 Upstream-Contact: https://github.com/sindresorhus/gzip-size/issues
 Source: https://github.com/sindresorhus/gzip-size
-
-Files: *
-Copyright: 2017 Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
-License: Expat
-
-Files: debian/*
-Copyright: 2017 Pirate Praveen <praveen@debian.org>
-License: Expat
-
-License: Expat
-
-Permission is hereby granted, free of charge, to any person
- obtaining a copy of this software and associated documentation files
- (the "Software"), to deal in the Software without restriction,
- including without limitation the rights to use, copy, modify, merge,
- publish, distribute, sublicense, and/or sell copies of the Software,
- and to permit persons to whom the Software is furnished to do so,
- subject to the following conditions:
- .
- The above copyright notice and this permission notice shall be
- included in all copies or substantial portions of the Software.
- .
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- SOFTWARE
-
----
-
-MIT License
-(is-binary-path v2.1.0)
-
-Upstream-Contact: https://github.com/sindresorhus/is-binary-path/issues
-Source: https://github.com/sindresorhus/is-binary-path#readme
 
 Files: *
 Copyright: 2017 Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
