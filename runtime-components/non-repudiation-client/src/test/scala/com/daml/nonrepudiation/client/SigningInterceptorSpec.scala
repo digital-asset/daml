@@ -81,6 +81,7 @@ final class SigningInterceptorSpec extends AsyncFlatSpec with Matchers with Insi
           expectedCommandId,
           singletonList(Command.fromProtoCommand(command)),
         )
+        .withWorkflowId(expectedWorkflowId)
         .withActAs(expectedParty)
 
       client.getCommandClient
