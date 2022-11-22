@@ -36,7 +36,7 @@ class IdentityProviderAwareAuthService(
   ): IdentityProviderAuthService.Entry =
     IdentityProviderAuthService.Entry(
       identityProviderConfig.identityProviderId,
-      identityProviderConfig.jwksURL,
+      identityProviderConfig.jwksUrl,
       identityProviderConfig.issuer,
     )
 

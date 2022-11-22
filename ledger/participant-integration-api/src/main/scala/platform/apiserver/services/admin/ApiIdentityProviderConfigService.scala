@@ -163,6 +163,12 @@ class ApiIdentityProviderConfigService(
           .Reject(operation, issuer)
           .asGrpcError
       )
+    case Left(IdentityProviderConfigStore.TooManyIdentityProviderConfigs()) =>
+      Future.failed(
+        LedgerApiErrors.Admin.IdentityProviderConfig.TooManyIdentityProviderConfigs
+          .Reject(operation)
+          .asGrpcError
+      )
     case scala.util.Right(t) =>
       Future.successful(t)
   }
@@ -195,7 +201,7 @@ object ApiIdentityProviderConfigService {
     proto.IdentityProviderConfig(
       identityProviderId = identityProviderConfig.identityProviderId.toRequestString,
       isDeactivated = identityProviderConfig.isDeactivated,
-      jwksUrl = identityProviderConfig.jwksURL.toString,
+      jwksUrl = identityProviderConfig.jwksUrl.value,
       issuer = identityProviderConfig.issuer,
     )
 

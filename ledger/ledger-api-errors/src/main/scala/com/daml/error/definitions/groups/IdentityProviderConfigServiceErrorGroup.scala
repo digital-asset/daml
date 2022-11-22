@@ -98,4 +98,24 @@ object IdentityProviderConfigServiceErrorGroup
       )
     }
   }
+
+  @Explanation(
+    """|A system can have only a limited number of identity provider configurations.
+       |There was an attempt to create an identity provider configuration."""
+  )
+  @Resolution(
+    """|Delete some of the already existing identity provider configurations.
+       |Contact the participant operator if the limit is too low."""
+  )
+  object TooManyIdentityProviderConfigs
+      extends ErrorCode(
+        id = "TOO_MANY_IDENTITY_PROVIDER_CONFIGS",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    case class Reject(operation: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = s"${operation} failed."
+        ) {}
+  }
 }

@@ -151,6 +151,7 @@ class LedgerApiServer(
         metrics = metrics,
         expiryAfterWriteInSeconds = apiServerConfig.userManagement.cacheExpiryAfterWriteInSeconds,
         maximumCacheSize = apiServerConfig.userManagement.maxCacheSize,
+        maxIdentityProviderConfigs = 10,
       )(servicesExecutionContext, loggingContext)
     ApiServiceOwner(
       indexService = indexService,

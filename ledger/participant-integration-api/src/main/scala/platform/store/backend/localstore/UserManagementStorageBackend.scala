@@ -8,9 +8,7 @@ import com.daml.ledger.api.domain.{IdentityProviderId, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.platform.UserId
 
-trait UserManagementStorageBackend
-    extends ResourceVersionOps
-    with IdentityProviderCheckStorageBackend {
+trait UserManagementStorageBackend extends ResourceVersionOps {
 
   def createUser(user: UserManagementStorageBackend.DbUserPayload)(connection: Connection): Int
 
@@ -63,6 +61,8 @@ trait UserManagementStorageBackend
       internalId: Int,
       identityProviderId: Option[IdentityProviderId.Id],
   )(connection: Connection): Boolean
+
+  def idpConfigByIdExists(id: IdentityProviderId.Id)(connection: Connection): Boolean
 }
 
 object UserManagementStorageBackend {
