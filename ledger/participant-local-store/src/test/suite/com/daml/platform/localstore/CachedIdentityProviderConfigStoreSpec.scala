@@ -102,7 +102,7 @@ class CachedIdentityProviderConfigStoreSpec
       order.verifyNoMoreInteractions()
       res1.value shouldBe cfg
       res2.value shouldBe cfg.copy(isDeactivated = true)
-      res3.value shouldBe cfg
+      res3.value shouldBe cfg.copy(isDeactivated = true)
       res4.value shouldBe ()
       res5 shouldBe Left(IdentityProviderConfigNotFound(cfg.identityProviderId))
     }
