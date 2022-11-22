@@ -44,7 +44,6 @@ def phase_write_scalatest_runpath(ctx, p):
                     for sub_target in suite_target[TestSuiteInfo].tests:
                         files = sub_target.files.to_list()
                         test_jar = files[0]
-                        print("SUITE JAR:", test_jar)
                         test_jars.append(test_jar.short_path)
                         runfiles_ext.append(test_jar)
 
@@ -64,7 +63,6 @@ def phase_write_scalatest_runpath(ctx, p):
     for target in ctx.attr.tests:
         if JavaInfo in target:
             deps = target[JavaInfo].transitive_runtime_jars
-            print(target, ", ".join([f.short_path for f in deps.to_list()]))
 
     ctx.actions.write(
         output = runpath_file,
