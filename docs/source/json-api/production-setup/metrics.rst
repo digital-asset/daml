@@ -8,7 +8,7 @@ Enable and Configure Reporting
 ******************************
 
 
-To enable metrics and configure reporting, you can use the below config block in application config
+To enable metrics and configure reporting, you can use the below config block in application config:
 
 .. code-block:: none
 
@@ -36,8 +36,8 @@ or the two following CLI options (deprecated):
     is omitted, the default value ``55001`` will be used. The metrics will be
     available under the address ``http://<server_host>:<server_port>/metrics``.
 
-- ``--metrics-reporting-interval``: metrics are pre-aggregated on the *HTTP JSON API* and sent to
-  the reporter, this option allows the user to set the interval. The formats accepted are based
+- ``--metrics-reporting-interval``: allows the user to set the interval at which metrics are pre-aggregated on the *HTTP JSON API* and sent to
+  the reporter. The formats accepted are based
   on the ISO 8601 duration format ``PnDTnHnMn.nS`` with days considered to be exactly 24 hours.
   The default interval is 10 seconds.
 

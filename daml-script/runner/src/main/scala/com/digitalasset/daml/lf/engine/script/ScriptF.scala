@@ -19,7 +19,7 @@ import com.daml.lf.speedy.SExpr.{SEAppAtomic, SEValue}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.speedy.Speedy.OffLedgerMachine
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import scalaz.{Foldable, OneAnd}
@@ -60,7 +60,7 @@ object ScriptF {
       val scriptIds: ScriptIds,
       val timeMode: ScriptTimeMode,
       private var _clients: Participants[ScriptLedgerClient],
-      machine: Machine,
+      machine: OffLedgerMachine,
   ) {
     def clients = _clients
     def compiledPackages = machine.compiledPackages
@@ -282,7 +282,7 @@ object ScriptF {
       for {
         viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
-        list <- client.queryInterface(parties, interfaceId)
+        list <- client.queryInterface(parties, interfaceId, viewType)
         list <- Converter.toFuture(
           list
             .to(FrontStack)
@@ -324,7 +324,7 @@ object ScriptF {
       for {
         viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
-        optR <- client.queryInterfaceContractId(parties, interfaceId, cid)
+        optR <- client.queryInterfaceContractId(parties, interfaceId, viewType, cid)
         optR <- Converter.toFuture(
           optR.traverse(Converter.fromInterfaceView(env.valueTranslator, viewType, _))
         )

@@ -33,6 +33,7 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/cli-opts",
         "//ledger/ledger-api-common",
+        "//ledger/metrics",
         "//libs-scala/auth-utils",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",

@@ -5,6 +5,7 @@ package com.daml.metrics
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.OpenTelemetryMeterOwner.buildProviderWithViews
+import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.metrics.api.reporters.MetricsReporter.Prometheus
 import io.opentelemetry.api.metrics.Meter
@@ -47,23 +48,31 @@ case class OpenTelemetryMeterOwner(enabled: Boolean, reporter: Option[MetricsRep
 }
 object OpenTelemetryMeterOwner {
 
-  def buildProviderWithViews: SdkMeterProviderBuilder =
+  def buildProviderWithViews: SdkMeterProviderBuilder = {
     SdkMeterProvider
       .builder()
       .registerView(
-        InstrumentSelector
-          .builder()
-          .setType(InstrumentType.HISTOGRAM)
-          .setName((t: String) => t.endsWith("duration.ms"))
-          .build(),
-        View
-          .builder()
-          .setAggregation(
-            Aggregation.explicitBucketHistogram(
-              Seq(5d, 10d, 15d, 25d, 35d, 50d, 75d, 100d, 150d, 200d, 250d, 350d, 500d, 750d,
-                1_000d, 2_500d, 5_000d, 7_500d, 10_000d, 25_000d, 50_000d).map(Double.box).asJava
-            )
-          )
-          .build(),
+        histogramSelectorEndingWith(OpenTelemetryTimer.TimerUnitAndSuffix),
+        explicitHistogramBucketsView(
+          Seq(0.01d, 0.025d, 0.050d, 0.075d, 0.1d, 0.15d, 0.2d, 0.25d, 0.35d, 0.5d, 0.75d, 1d, 2.5d,
+            5d, 10d)
+        ),
       )
+  }
+
+  private def histogramSelectorEndingWith(endingWith: String) = InstrumentSelector
+    .builder()
+    .setType(InstrumentType.HISTOGRAM)
+    .setName((t: String) => t.endsWith(endingWith))
+    .build()
+
+  private def explicitHistogramBucketsView(buckets: Seq[Double]) = View
+    .builder()
+    .setAggregation(
+      Aggregation.explicitBucketHistogram(
+        buckets.map(Double.box).asJava
+      )
+    )
+    .build()
+
 }
