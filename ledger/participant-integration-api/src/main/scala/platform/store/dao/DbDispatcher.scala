@@ -9,14 +9,14 @@ import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.metrics.api.MetricHandle.Timer
+import com.daml.metrics.api.MetricName
+import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import java.sql.Connection
 import java.util.concurrent.{Executor, Executors, TimeUnit}
-import com.daml.metrics.api.MetricName
 import javax.sql.DataSource
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -26,6 +26,20 @@ private[platform] trait DbDispatcher {
   def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
       loggingContext: LoggingContext
   ): Future[T]
+
+  def executeSqlEither[E, T](databaseMetrics: DatabaseMetrics)(sql: Connection => Either[E, T])(
+      implicit
+      loggingContext: LoggingContext,
+      executionContext: ExecutionContext,
+  ): Future[Either[E, T]] =
+    executeSql(databaseMetrics) { connection =>
+      sql(connection) match {
+        case Right(value) => Right(value)
+        case Left(error) => throw new DbDispatcher.LeftException(error)
+      }
+    }.recover { case e: DbDispatcher.LeftException[_] =>
+      Left[E, T](e.error.asInstanceOf[E])
+    }
 }
 
 private[dao] final class DbDispatcherImpl private[dao] (
@@ -102,6 +116,8 @@ private[dao] final class DbDispatcherImpl private[dao] (
 }
 
 object DbDispatcher {
+  class LeftException[E](val error: E) extends Throwable
+
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def owner(
