@@ -3,12 +3,11 @@
 
 package com.daml.ledger.javaapi.data;
 
+import static com.daml.ledger.javaapi.data.codegen.HasCommands.toCommands;
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
-import static java.util.stream.Collectors.toList;
 
 import com.daml.ledger.api.v1.CommandsOuterClass;
-import com.daml.ledger.javaapi.data.codegen.HasCommands;
 import com.google.protobuf.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
@@ -609,9 +608,5 @@ public final class SubmitCommandsRequest {
         deduplicationTime,
         submissionId,
         commands);
-  }
-
-  private static List<Command> toCommands(List<? extends HasCommands> hasCommands) {
-    return hasCommands.stream().map(c -> (Command) c).collect(toList());
   }
 }
