@@ -26,6 +26,21 @@ private[platform] trait DbDispatcher {
   def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
       loggingContext: LoggingContext
   ): Future[T]
+
+  def executeSqlEither[E, T](databaseMetrics: DatabaseMetrics)(sql: Connection => Either[E, T])(
+      implicit
+      loggingContext: LoggingContext,
+      executionContext: ExecutionContext,
+  ): Future[Either[E, T]] =
+    executeSql(databaseMetrics) { connection =>
+      sql(connection) match {
+        case Right(value) => Right(value)
+        case Left(error) => throw new DbDispatcher.LeftException(error)
+      }
+    }.recover { case e: DbDispatcher.LeftException[_] =>
+      Left[E, T](e.error.asInstanceOf[E])
+    }
+
 }
 
 private[dao] final class DbDispatcherImpl private[dao] (
@@ -102,6 +117,8 @@ private[dao] final class DbDispatcherImpl private[dao] (
 }
 
 object DbDispatcher {
+  class LeftException[E](val error: E) extends Throwable
+
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def owner(
