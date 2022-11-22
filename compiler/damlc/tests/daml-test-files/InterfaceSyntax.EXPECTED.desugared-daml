@@ -222,9 +222,9 @@ _method_T_I_T_m0
       \ this@T {..}
         -> let _ = this in
            let
-             m0 False = p0
-             m0 True = p1
-           in m0
+             $m0 False = p0
+             $m0 True = p1
+           in $m0
 _method_T_I_T_m1 : DA.Internal.Desugar.Method T I T "m1"
 _method_T_I_T_m1
   = DA.Internal.Desugar.mkMethod
@@ -235,12 +235,12 @@ _method_T_I_T_m1
       \ this@T {..}
         -> let _ = this in
            let
-             m1 (Left n)
+             $m1 (Left n)
                | n >= 0 = "non-negative number"
                | otherwise = "negative number"
-             m1 (Right True) = "true"
-             m1 (Right False) = "false"
-           in m1
+             $m1 (Right True) = "true"
+             $m1 (Right False) = "false"
+           in $m1
 _view_T_I_T : DA.Internal.Desugar.InterfaceView T I T
 _view_T_I_T
   = DA.Internal.Desugar.mkInterfaceView
@@ -248,7 +248,7 @@ _view_T_I_T
       @I
       @T
       \ this@T {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
+        -> let _ = this in let $view = EmptyInterfaceView in $view
 instance DA.Internal.Desugar.HasToInterface T I where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T I where
@@ -265,7 +265,7 @@ _view_T_J_T
       @J
       @T
       \ this@T {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
+        -> let _ = this in let $view = EmptyInterfaceView in $view
 instance DA.Internal.Desugar.HasToInterface T J where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T J where

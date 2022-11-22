@@ -329,6 +329,7 @@ jobs:
     demands: assignment -equals default
   steps:
     - checkout: self
+      fetchTags: true
     - bash: ci/check-protobuf-stability.sh
     - template: tell-slack-failed.yml
 
