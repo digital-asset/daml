@@ -3,7 +3,7 @@
 
 package com.daml.metrics.grpc
 
-import com.daml.metrics.api.MetricHandle.Factory
+import com.daml.metrics.api.MetricHandle.{Factory, Histogram}
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 
 class DamlGrpcServerMetrics(metricsFactory: Factory, component: String) extends GrpcServerMetrics {
@@ -21,10 +21,10 @@ class DamlGrpcServerMetrics(metricsFactory: Factory, component: String) extends 
     grpcServerMetricsPrefix :+ "messages" :+ "received"
   )
   override val messagesSentSize: MetricHandle.Histogram = metricsFactory.histogram(
-    grpcServerMetricsPrefix :+ "messages" :+ "sent" :+ "bytes"
+    grpcServerMetricsPrefix :+ "messages" :+ "sent" :+ Histogram.Bytes
   )
   override val messagesReceivedSize: MetricHandle.Histogram = metricsFactory.histogram(
-    grpcServerMetricsPrefix :+ "messages" :+ "received" :+ "bytes"
+    grpcServerMetricsPrefix :+ "messages" :+ "received" :+ Histogram.Bytes
   )
   override val callsStarted: MetricHandle.Meter = metricsFactory.meter(
     grpcServerMetricsPrefix :+ "started"
