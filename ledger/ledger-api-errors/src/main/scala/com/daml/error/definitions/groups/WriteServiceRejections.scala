@@ -59,7 +59,10 @@ object WriteServiceRejections extends LedgerApiErrors.WriteServiceRejections {
         parties.map((ErrorResource.Party, _)).toSeq
     }
 
-    @deprecated
+    @deprecated(
+      "Corresponds to transaction submission rejections that are not produced anymore.",
+      since = "1.18.0",
+    )
     case class RejectDeprecated(
         description: String
     )(implicit loggingContext: ContextualizedErrorLogger)
@@ -70,7 +73,10 @@ object WriteServiceRejections extends LedgerApiErrors.WriteServiceRejections {
 
   @Explanation("An invalid transaction submission was not detected by the participant.")
   @Resolution("Contact support.")
-  @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
+  @deprecated(
+    "Corresponds to transaction submission rejections that are not produced anymore.",
+    since = "1.18.0",
+  )
   object Disputed
       extends ErrorCode(
         id = "DISPUTED",
@@ -90,7 +96,10 @@ object WriteServiceRejections extends LedgerApiErrors.WriteServiceRejections {
   @Resolution(
     "Inspect the error message and retry after after correcting the underlying issue."
   )
-  @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
+  @deprecated(
+    "Corresponds to transaction submission rejections that are not produced anymore.",
+    since = "1.18.0",
+  )
   object OutOfQuota
       extends ErrorCode(id = "OUT_OF_QUOTA", ErrorCategory.ContentionOnSharedResources) {
     case class Reject(reason: String)(implicit
