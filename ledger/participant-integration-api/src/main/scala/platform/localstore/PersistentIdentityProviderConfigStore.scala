@@ -33,7 +33,7 @@ class PersistentIdentityProviderConfigStore(
 
   override def createIdentityProviderConfig(identityProviderConfig: domain.IdentityProviderConfig)(
       implicit loggingContext: LoggingContext
-  ): Future[Result[domain.IdentityProviderConfig]] = {
+  ): Future[Result[domain.IdentityProviderConfig]] =
     inTransaction(_.createIdpConfig) { implicit connection =>
       val id = identityProviderConfig.identityProviderId
       for {
@@ -53,21 +53,19 @@ class PersistentIdentityProviderConfigStore(
         s"Created new identity provider configuration: $cfg"
       )
     })
-  }
 
   override def getIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
-  ): Future[Result[domain.IdentityProviderConfig]] = {
+  ): Future[Result[domain.IdentityProviderConfig]] =
     inTransaction(_.getIdpConfig) { implicit connection =>
       backend
         .getIdentityProviderConfig(id)(connection)
         .toRight(IdentityProviderConfigNotFound(id))
     }
-  }
 
   override def deleteIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Unit]] = {
+  ): Future[Result[Unit]] =
     inTransaction(_.deleteIdpConfig) { implicit connection =>
       if (!backend.deleteIdentityProviderConfig(id)(connection)) {
         Left(IdentityProviderConfigNotFound(id))
@@ -79,7 +77,6 @@ class PersistentIdentityProviderConfigStore(
         s"Deleted identity provider configuration with id $id"
       )
     })
-  }
 
   override def listIdentityProviderConfigs()(implicit
       loggingContext: LoggingContext
@@ -97,17 +94,9 @@ class PersistentIdentityProviderConfigStore(
       for {
         _ <- idpConfigExists(id)
         _ <- idpConfigByIssuerDoesNotExist(update.issuerUpdate, update.identityProviderId)
-        _ = {
-          update.issuerUpdate.foreach(
-            backend.updateIssuer(update.identityProviderId, _)(connection)
-          )
-          update.jwksUrlUpdate.foreach(
-            backend.updateJwksUrl(update.identityProviderId, _)(connection)
-          )
-          update.isDeactivatedUpdate.foreach(
-            backend.updateIsDeactivated(update.identityProviderId, _)(connection)
-          )
-        }
+        _ <- updateIssuer(update)(connection)
+        _ <- updateJwksUrl(update)(connection)
+        _ <- updateIsDeactivated(update)(connection)
         identityProviderConfig <- backend
           .getIdentityProviderConfig(id)(connection)
           .toRight(IdentityProviderConfigNotFound(id))
@@ -119,15 +108,39 @@ class PersistentIdentityProviderConfigStore(
     })
   }
 
+  private def updateIssuer(
+      update: IdentityProviderConfigUpdate
+  )(connection: Connection): Result[Unit] = {
+    val execute =
+      update.issuerUpdate.forall(backend.updateIssuer(update.identityProviderId, _)(connection))
+    Either.cond(execute, (), IdentityProviderConfigNotFound(update.identityProviderId))
+  }
+  private def updateJwksUrl(
+      update: IdentityProviderConfigUpdate
+  )(connection: Connection): Result[Unit] = {
+    val execute = update.jwksUrlUpdate.forall(
+      backend.updateJwksUrl(update.identityProviderId, _)(connection)
+    )
+    Either.cond(execute, (), IdentityProviderConfigNotFound(update.identityProviderId))
+  }
+
+  private def updateIsDeactivated(
+      update: IdentityProviderConfigUpdate
+  )(connection: Connection): Result[Unit] = {
+    val execute = update.isDeactivatedUpdate.forall(
+      backend.updateIsDeactivated(update.identityProviderId, _)(connection)
+    )
+    Either.cond(execute, (), IdentityProviderConfigNotFound(update.identityProviderId))
+  }
+
   private def tooManyIdentityProviderConfigs()(
       connection: Connection
-  ): Result[Unit] = {
+  ): Result[Unit] =
     Either.cond(
       backend.countIdentityProviderConfigs()(connection) <= maxIdentityProviderConfigs,
       (),
       TooManyIdentityProviderConfigs(),
     )
-  }
 
   private def idpConfigExists(
       id: IdentityProviderId.Id
