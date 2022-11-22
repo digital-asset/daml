@@ -456,6 +456,12 @@ da_haskell_test(
         "//compiler/damlc/tests:generate-simple-dalf",
         # Feel free to update this to 0.13.55 once that is frozen.
         ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
+        "//daml-script/daml:daml-script-1.14",
+        "//daml-script/daml:daml-script-1.15",
+        "//daml-script/daml:daml-script-1.dev",
+        "//triggers/daml:daml-trigger-1.14",
+        "//triggers/daml:daml-trigger-1.15",
+        "//triggers/daml:daml-trigger-1.dev",
     ],
     hackage_deps = [
         "base",

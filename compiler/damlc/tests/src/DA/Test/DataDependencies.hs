@@ -35,13 +35,33 @@ main = do
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
     oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
-    defaultMain $ tests Tools{..}
+    withSdkPath $ \sdkPath ->
+      defaultMain $ tests Tools{..}
+
+withSdkPath :: (FilePath -> IO a) -> IO a
+withSdkPath k = do
+  withTempDir $ \sdkPath -> do
+    createDirectoryIfMissing True (sdkPath </> "daml-libs")
+    forM_ bazelDars $ \bazelDar -> do
+      path <- locateRunfiles bazelDar
+      copyFile path (sdkPath </> "daml-libs" </> takeFileName bazelDar)
+    k sdkPath
+  where
+    bazelDars =
+      [ mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.14.dar"
+      , mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.15.dar"
+      , mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar"
+      , mainWorkspace </> "triggers" </> "daml" </> "daml-trigger-1.14.dar"
+      , mainWorkspace </> "triggers" </> "daml" </> "daml-trigger-1.15.dar"
+      , mainWorkspace </> "triggers" </> "daml" </> "daml-trigger-1.dev.dar"
+      ]
 
 data Tools = Tools -- and places
   { damlc :: FilePath
   , damlcLegacy :: FilePath
   , validate :: FilePath -> IO ()
   , oldProjDar :: FilePath
+  , sdkPath :: FilePath
   }
 
 damlcForTarget :: Tools -> LF.Version -> FilePath
@@ -351,6 +371,75 @@ tests tools = testGroup "Data Dependencies" $
             step "Validating DAR"
             validate $ projb </> "projb.dar"
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
+    ] <>
+    [ testCaseSteps ("Cross Daml-LF version with daml-script: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer) $ \step ->
+        -- regression test for https://github.com/digital-asset/daml/issues/15654
+        withTempDir $ \tmpDir -> do
+            let projdd = tmpDir </> "projdd"
+            let projmain = tmpDir </> "projmain"
+
+            step "Build projdd"
+            createDirectoryIfMissing True (projdd </> "src")
+            writeFileUTF8 (projdd </> "src" </> "DD.daml") $ unlines
+              [ "module DD where"
+
+              , "import Daml.Script qualified"
+              , "newtype Script a = Script (Daml.Script.Script a)"
+              ]
+            writeFileUTF8 (projdd </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: projdd"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib, daml-script]"
+              ]
+            callProcessSilentWithEnv
+              [ ("DAML_SDK", sdkPath) ]
+              damlc
+              [ "build"
+              , "--project-root", projdd
+              , "--target", LF.renderVersion depLfVer
+              , "-o", projdd </> "projdd.dar"
+              ]
+
+            step "Build projmain"
+            createDirectoryIfMissing True (projmain </> "src")
+            writeFileUTF8 (projmain </> "src" </> "Main.daml") $ unlines
+              [ "module Main where"
+
+              , "import Daml.Script qualified"
+              , "import DD qualified"
+
+              , "script : Daml.Script.Script ()"
+              , "script = pure ()"
+
+              , "ddscript : DD.Script ()"
+              , "ddscript = DD.Script (pure ())"
+              ]
+            writeFileUTF8 (projmain </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: projmain"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib, daml-script]"
+              , "data-dependencies: [" <> show (projdd </> "projdd.dar") <> "]"
+              ]
+            callProcessSilentWithEnv
+              [ ("DAML_SDK", sdkPath) ]
+              damlc
+              [ "build"
+              , "--project-root", projmain
+              , "--target", LF.renderVersion targetLfVer
+              , "-o", projmain </> "projmain.dar"
+              ]
+
+            step "Validating DAR"
+            validate $ projmain </> "projmain.dar"
+
+    | (depLfVer, targetLfVer) <- lfVersionTestPairs
+    , depLfVer `elem` LF.supportedOutputVersions
+      -- This test needs the `daml-script` dar for each dep LF version, so
+      -- we limit `depLfVer` to the supported output versions.
     ] <>
     [ testCaseSteps "Mixed dependencies and data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'lib'"
@@ -2657,6 +2746,7 @@ tests tools = testGroup "Data Dependencies" $
       { damlc
       , validate
       , oldProjDar
+      , sdkPath
       } = tools
 
     simpleImportTest :: String -> [String] -> [String] -> TestTree
