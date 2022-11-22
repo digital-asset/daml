@@ -17,7 +17,7 @@ def _test_suite_info_aspect_impl(target, ctx):
         tests = []
     return [TestSuiteInfo(tests = tests)]
 
-_test_suite_info_aspect = aspect(implementation = _test_suite_info_aspect_impl)
+_test_suite_info_aspect = aspect(implementation = _test_suite_info_aspect_impl, attr_aspects = ["tests"])
 
 _write_scalatest_runpath_phase = {
     "attrs": {
@@ -35,9 +35,18 @@ def phase_write_scalatest_runpath(ctx, p):
     for target in ctx.attr.tests:
         if TestSuiteInfo in target:
             for suite_target in target[TestSuiteInfo].tests:
-                test_jar = suite_target.files.to_list()[0]
-                test_jars.append(test_jar.short_path)
-                runfiles_ext.append(test_jar)
+                files = suite_target.files.to_list()
+                if files:
+                    test_jar = files[0]
+                    test_jars.append(test_jar.short_path)
+                    runfiles_ext.append(test_jar)
+                elif TestSuiteInfo in suite_target:
+                    for sub_target in suite_target[TestSuiteInfo].tests:
+                        files = sub_target.files.to_list()
+                        test_jar = files[0]
+                        print("SUITE JAR:", test_jar)
+                        test_jars.append(test_jar.short_path)
+                        runfiles_ext.append(test_jar)
 
         files = target.files.to_list()
 
