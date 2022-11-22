@@ -29,7 +29,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class AkkaHttpMetricsSpec
+class HttpMetricsInterseptorSpec
     extends AnyWordSpec
     with Matchers
     with ScalatestRouteTest

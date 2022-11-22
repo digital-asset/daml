@@ -11,7 +11,7 @@ class DamlWebSocketMetrics(metricsFactory: Factory, component: String) extends W
   private val httpMetricsPrefix = MetricName.Daml :+ "http"
 
   private implicit val metricsContext: MetricsContext = MetricsContext(
-    Map("service" -> component)
+    Map(Labels.ServiceLabel -> component)
   )
 
   override val messagesReceivedTotal: Meter =

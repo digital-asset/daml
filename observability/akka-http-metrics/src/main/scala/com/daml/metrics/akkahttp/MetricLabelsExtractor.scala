@@ -4,7 +4,7 @@
 package com.daml.metrics.akkahttp
 
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import com.daml.metrics.http.HttpMetricLabels._
+import com.daml.metrics.http.Labels._
 
 object MetricLabelsExtractor {
 

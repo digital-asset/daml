@@ -11,7 +11,7 @@ class DamlHttpMetrics(metricsFactory: Factory, component: String) extends HttpMe
   private val httpMetricsPrefix = MetricName.Daml :+ "http"
 
   private implicit val metricsContext: MetricsContext = MetricsContext(
-    Map("service" -> component)
+    Map(Labels.ServiceLabel -> component)
   )
 
   override val requestsTotal: Meter = metricsFactory.meter(httpMetricsPrefix :+ "requests")

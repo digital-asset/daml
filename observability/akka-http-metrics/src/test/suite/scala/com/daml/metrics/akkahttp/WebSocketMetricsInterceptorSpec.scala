@@ -18,7 +18,10 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-class WebSocketMetricsSpec extends AsyncWordSpec with AkkaBeforeAndAfterAll with Matchers {
+class WebSocketMetricsInterceptorSpec
+    extends AsyncWordSpec
+    with AkkaBeforeAndAfterAll
+    with Matchers {
 
   import WebSocketMetricsSpec._
 

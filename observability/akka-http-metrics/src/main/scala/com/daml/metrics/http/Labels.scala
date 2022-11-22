@@ -3,9 +3,10 @@
 
 package com.daml.metrics.http
 
-object HttpMetricLabels {
+object Labels {
   final val HostLabel = "host"
   final val HttpStatusLabel = "http_status"
   final val HttpVerbLabel = "http_verb"
   final val PathLabel = "path"
+  final val ServiceLabel = "service"
 }

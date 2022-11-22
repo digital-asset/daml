@@ -3,7 +3,7 @@
 
 package com.daml.metrics.http
 
-import com.daml.metrics.api.MetricHandle.{Meter}
+import com.daml.metrics.api.MetricHandle.Meter
 
 trait WebSocketMetrics {
   val messagesReceivedTotal: Meter

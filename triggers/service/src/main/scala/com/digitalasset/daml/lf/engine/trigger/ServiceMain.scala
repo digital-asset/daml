@@ -37,7 +37,7 @@ object ServiceMain {
   implicit val timeout: Timeout = 30.seconds
 
   // Used by the test fixture
-  def startServer(
+  private[trigger] def startServerForTest(
       host: String,
       port: Int,
       maxAuthCallbacks: Int,
