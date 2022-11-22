@@ -144,6 +144,7 @@ class EngineTest
     )
 
     def id(templateId: String) = Identifier(basicTestsPkgId, templateId)
+
     def command(templateId: String, signatories: Set[(String, Party)]) = {
       val templateArgs: Set[(Some[Name], ValueParty)] = signatories.map { case (label, party) =>
         Some[Name](label) -> ValueParty(party)
@@ -1642,6 +1643,7 @@ class EngineTest
 
   "getTime set dependsOnTime flag" in {
     val templateId = Identifier(basicTestsPkgId, "BasicTests:TimeGetter")
+
     def run(choiceName: ChoiceName) = {
       val submissionSeed = hash(s"getTime set dependsOnTime flag: ($choiceName)")
       val command =
@@ -1838,6 +1840,7 @@ class EngineTest
     val submissionSeed = hash("wrongly-typed cid")
     val submitters = Set(alice)
     val readAs = (Set.empty: Set[Party])
+
     def run(cmds: ImmArray[ApiCommand]) =
       suffixLenientEngine
         .submit(
@@ -1982,6 +1985,7 @@ class EngineTest
       )
     )
     val lookupContract = contracts.get _
+
     def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
       (key.globalKey.templateId, key.globalKey.key) match {
         case (
@@ -1992,6 +1996,7 @@ class EngineTest
         case _ =>
           None
       }
+
     def run(cmd: ApiCommand) = {
       val submitters = Set(party)
       val Right(cmds) = preprocessor
@@ -2017,6 +2022,7 @@ class EngineTest
           lookupKey,
         )
     }
+
     "rolled-back archive of transient contract does not prevent consuming choice after rollback" in {
       val command = ApiCommand.CreateAndExercise(
         tId,
@@ -2131,6 +2137,7 @@ class EngineTest
       )
     )
     val lookupContract = contracts.get _
+
     def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
       (key.globalKey.templateId, key.globalKey.key) match {
         case (
@@ -2141,6 +2148,7 @@ class EngineTest
         case _ =>
           None
       }
+
     def run(cmd: ApiCommand) = {
       val submitters = Set(party)
       val Right(cmds) = preprocessor
@@ -2209,6 +2217,7 @@ class EngineTest
       )
     )
     val lookupContract = contracts.get _
+
     def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
       (key.globalKey.templateId, key.globalKey.key) match {
         case (
@@ -2219,13 +2228,16 @@ class EngineTest
         case _ =>
           None
       }
+
     def run(cmd: ApiCommand): Int = {
       val submitters = Set(party)
       var keyLookups = 0
+
       def mockedKeyLookup(key: GlobalKeyWithMaintainers) = {
         keyLookups += 1
         lookupKey(key)
       }
+
       val Right(cmds) = preprocessor
         .preprocessApiCommands(ImmArray(cmd))
         .consume(
@@ -2252,6 +2264,7 @@ class EngineTest
         keyLookups
       }
     }
+
     val cidArg = ValueRecord(None, ImmArray((None, ValueContractId(cid))))
     val emptyArg = ValueRecord(None, ImmArray.empty)
     "Lookup a global key at most once" in {
@@ -2323,27 +2336,25 @@ class EngineTest
     }
 
     "accept stable packages even if version is smaller than min version" in {
-      LanguageVersion.All.foreach { lv =>
-        val eng = engine(min = lv, LanguageVersion.v1_dev)
-        StablePackage.values.foreach(pkg =>
-          eng.preloadPackage(pkg.packageId, allPackages(pkg.packageId)) shouldBe a[ResultDone[_]]
-        )
-      }
+      for {
+        lv <- LanguageVersion.All
+        eng = engine(min = lv, LanguageVersion.v1_dev)
+        pkg <- StablePackage.values
+        pkgId = pkg.packageId
+        pkg <- allPackages.get(pkgId).toList
+      } yield eng.preloadPackage(pkgId, pkg) shouldBe a[ResultDone[_]]
     }
 
     "reject stable packages if version is greater than max version" in {
-      LanguageVersion.All.foreach { lv =>
-        val eng = engine(LanguageVersion.v1_6, max = lv)
-        StablePackage.values.foreach(pkg =>
-          eng.preloadPackage(pkg.packageId, allPackages(pkg.packageId)) match {
-            case ResultDone(_) =>
-              pkg.languageVersion shouldBe <=(lv)
-            case ResultError(_) =>
-              pkg.languageVersion shouldBe >(lv)
-            case _ =>
-              fail("unexpected SResult")
-          }
-        )
+      for {
+        lv <- LanguageVersion.All
+        eng = engine(LanguageVersion.v1_6, max = lv)
+        pkg <- StablePackage.values
+        pkgId = pkg.packageId
+        pkg <- allPackages.get(pkgId).toList
+      } yield inside(eng.preloadPackage(pkgId, pkg)) {
+        case ResultDone(_) => pkg.languageVersion shouldBe <=(lv)
+        case ResultError(_) => pkg.languageVersion shouldBe >(lv)
       }
     }
   }
