@@ -63,22 +63,14 @@ object OpenTelemetryMeterOwner {
         histogramSelectorEndingWith(Histogram.Bytes),
         explicitHistogramBucketsView(
           Seq(
-            50,
-            250,
-            500,
-            kilobytes(1),
-            kilobytes(5),
-            kilobytes(15),
-            kilobytes(30),
+            kilobytes(10),
             kilobytes(50),
             kilobytes(100),
-            kilobytes(250),
             kilobytes(500),
             megabytes(1),
-            megabytes(2),
             megabytes(5),
             megabytes(10),
-            megabytes(100),
+            megabytes(50),
           )
         ),
       )
