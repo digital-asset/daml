@@ -86,10 +86,14 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
               tested.createIdentityProviderConfig(config())
             )
           )
-          res2 <- tested.createIdentityProviderConfig(config())
+          last = config()
+          res2 <- tested.createIdentityProviderConfig(last)
+          res3 <- tested.getIdentityProviderConfig(last.identityProviderId)
         } yield {
           res1.forall(_.isRight) shouldBe true
           res2 shouldBe Left(TooManyIdentityProviderConfigs())
+          // check res3 has not been created
+          res3 shouldBe Left(IdentityProviderConfigNotFound(last.identityProviderId))
         }
       }
     }

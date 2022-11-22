@@ -175,7 +175,7 @@ class PersistentIdentityProviderConfigStore(
       dbMetric: metrics.daml.identityProviderConfigStore.type => DatabaseMetrics
   )(thunk: Connection => Result[T])(implicit loggingContext: LoggingContext): Future[Result[T]] =
     dbDispatcher
-      .executeSql(dbMetric(metrics.daml.identityProviderConfigStore))(thunk)
+      .executeSqlEither(dbMetric(metrics.daml.identityProviderConfigStore))(thunk)
 
   private def tapSuccess[T](f: T => Unit)(r: Result[T]): Result[T] = {
     r.foreach(f)
