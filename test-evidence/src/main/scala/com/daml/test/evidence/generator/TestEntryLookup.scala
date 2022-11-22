@@ -29,24 +29,12 @@ object TestEntryLookup {
   private def collectEntries[TT: ClassTag, TS: ClassTag, TE](
       testEntry: (String, String, TT, Boolean, Option[TS]) => TE
   ): List[TE] = {
-//    println(sys.process.Process("env").!!)
     val runpathList: List[String] =
       Source
         .fromFile(BazelRunfiles.rlocation("test-evidence/generator.runpath"))
         .getLines()
         .map(BazelRunfiles.rlocation)
         .toList
-    for { path <- runpathList } {
-      println(path + ": " + java.nio.file.Files.exists(java.nio.file.Paths.get(path)))
-    }
-//    for {
-//      cp <- Option(System.getProperty("java.class.path"))
-//      entry <- cp.split(":")
-//      if !java.nio.file.Files.exists(java.nio.file.Paths.get(entry))
-//    } {
-//      println(s"$entry does not exist!")
-//    }
-//    println(runpathList.mkString(", "))
     val ledgerApiTests = List()
       .concat(suites.v1_14.default(timeoutScaleFactor = 0L))
       .concat(suites.v1_14.optional(tlsConfig = None))
