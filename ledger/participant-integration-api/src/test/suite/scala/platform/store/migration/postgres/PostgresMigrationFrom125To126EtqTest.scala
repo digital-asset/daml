@@ -4,290 +4,301 @@
 package com.daml
 package platform.store.migration.postgres
 
+import com.daml.platform.store.migration.MigrationTestSupport.{Row, row}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-class PostgresMigrationFrom111To116Test
+class PostgresMigrationFrom125To126EtqTest
     extends AnyFlatSpec
     with Matchers
     with PostgresConnectionSupport {
   import com.daml.platform.store.migration.MigrationTestSupport._
+  import PostgresMigrationFrom125To126EtqTest._
 
-  behavior of "Data migrations from version 125 to version 126 (ETQ: Efficient Transaction Queries)"
+  behavior of "Data migrations from v125 to v126 (ETQ)"
 
-  private val baseEvent = row(
-    "event_sequential_id" -> 0L, // to be overridden
-    "workflow_id" -> None,
-    "command_id" -> None,
-    "application_id" -> None,
-    "submitters" -> None, // to be overridden
-    "contract_id" -> "contract id",
-    "tree_event_witnesses" -> Vector(), // to be overridden
-  )
-
-  private val baseDivulgenceEvent = row(
-    "event_offset" -> None,
-    "template_id" -> None, // to be overridden
-    "create_argument" -> None,
-    "create_argument_compression" -> None,
-  ) ++ baseEvent
-
-  private val baseTransactionEvent = row(
-    "ledger_effective_time" -> 0L,
-    "event_offset" -> "some offset",
-    "node_index" -> 0,
-    "transaction_id" -> "some tx id",
-    "event_id" -> "some event id",
-    "template_id" -> "some template id", // to be overridden
-    "flat_event_witnesses" -> Vector(), // to be overridden
-  ) ++ baseEvent
-
-  private val baseCreateEvent = row(
-    "create_argument" -> Vector(1.toByte, 2.toByte, 3.toByte),
-    "create_argument_compression" -> None,
-    "create_key_value" -> None,
-    "create_key_value_compression" -> None,
-    "create_signatories" -> Vector(), // to be overridden
-    "create_observers" -> Vector(), // to be overridden
-    "create_agreement_text" -> None,
-    "create_key_hash" -> None,
-  ) ++ baseTransactionEvent
-
-  it should "migrate correctly data for a database with transactions" in {
+  it should "migrate 1 - create, consuming, non-consuming and divulgence (w/ event offset) events; and distinct flat and tree witnesses" in {
     migrateTo("125")
-
-    val baseExerciseEvent = row(
-      "exercise_argument" -> Vector(3.toByte, 2.toByte, 1.toByte),
-      "exercise_argument_compression" -> None,
-      "exercise_result" -> None,
-      "exercise_result_compression" -> None,
-      "create_key_value" -> None,
-      "create_key_value_compression" -> None,
-      "exercise_choice" -> "some choice",
-      "exercise_actors" -> Vector(), // to be overridden
-      "exercise_child_event_ids" -> Vector(),
-    ) ++ baseTransactionEvent
-
-    def newDivulgenceEvent_125(
-        event_sequential_id: Long,
-        contract_id: String,
-        event_offset: Option[String],
-    ): Row = {
-      baseDivulgenceEvent ++ row(
-        "event_sequential_id" -> event_sequential_id,
-        "contract_id" -> contract_id,
-        "event_offset" -> event_offset,
-      )
-    }
-
-    def newCreateEvent_125(
-        transaction_id: String,
-        contract_id: String,
-        event_sequential_id: Long,
-        event_offset: String,
-        flat_event_witnesses: Vector[Int],
-        tree_event_witnesses: Vector[Int],
-    ): Row = {
-      baseCreateEvent ++ row(
-        "transaction_id" -> transaction_id,
-        "contract_id" -> contract_id,
-        "event_sequential_id" -> event_sequential_id,
-        "event_offset" -> event_offset,
-        "flat_event_witnesses" -> flat_event_witnesses,
-        "tree_event_witnesses" -> tree_event_witnesses,
-      )
-    }
-
-    insert(
-      Schema125.divulgenceEvents,
-      newDivulgenceEvent_125(
-        event_sequential_id = 1L,
-        contract_id = "cid1",
-        event_offset = Some("eventOffset1"),
+    insertMany(
+      Schema125.createEvents ->
+        // 1. a create event that matches a divulgence event by the contract id
+        // 2. differing sets of tree and flat witnesses
+        Seq(
+          newCreateEvent_125(
+            transaction_id = "txId1",
+            contract_id = "cId1",
+            event_offset = "eventOffset1",
+            event_sequential_id = 101L,
+            flat_event_witnesses = Vector(111),
+            tree_event_witnesses = Vector(111, 112, 113),
+            template_id = 121,
+          )
+        ),
+      Schema125.nonConsumingExerciseEvents -> Seq(
+        newNonConsumingEvent_125(
+          transaction_id = "txId1",
+          event_offset = "eventOffset1",
+          event_sequential_id = 102L,
+          tree_event_witnesses = Vector(114, 115),
+          template_id = 122,
+        )
       ),
-      newDivulgenceEvent_125(
-        event_sequential_id = 2L,
-        contract_id = "cid2NullEventOffset",
-        event_offset = None,
-      ),
-      newDivulgenceEvent_125(
-        event_sequential_id = 2L,
-        contract_id = "cid3NonExistent",
-        event_offset = None,
+      Schema125.consumingExerciseEvents ->
+        Seq(
+          newConsumingEvent_125(
+            transaction_id = "txId1",
+            event_offset = "eventOffset1",
+            event_sequential_id = 103L,
+            flat_event_witnesses = Vector(116, 117),
+            tree_event_witnesses = Vector(116, 117, 118, 119),
+            template_id = 123,
+          )
+        ),
+      Schema125.divulgenceEvents -> Seq(
+        // 1. a divulgence event that matches a create event by the contract id
+        // 2. present event offset
+        newDivulgenceEvent_125(
+          event_sequential_id = 104L,
+          contract_id = "cId1",
+          event_offset = Some("eventOffset1"),
+        )
       ),
     )
-
-    insert(
-      Schema111.createEvents,
-      newCreateEvent_125(
-        transaction_id = "txId1",
-        contract_id = "cid1",
-        event_offset = "eventOffset1",
-        event_sequential_id = 3L,
-        flat_event_witnesses = Vector(1, 2),
-        tree_event_witnesses = Vector(1, 2, 3, 4),
-      ),
-      newCreateEvent_125(
-        transaction_id = "txId2",
-        contract_id = "cid2",
-        event_offset = "eventOffset2",
-        event_sequential_id = 4L,
-        flat_event_witnesses = Vector(1, 2),
-        tree_event_witnesses = Vector(1, 2),
-      ),
-    )
-
-    def newConsumingEvent_125(
-        transaction_id: String,
-        event_sequential_id: Long,
-        event_offset: String,
-        flat_event_witnesses: Vector[Int],
-        tree_event_witnesses: Vector[Int],
-    ): Row = {
-      baseExerciseEvent ++ row(
-        "transaction_id" -> transaction_id,
-        "event_sequential_id" -> event_sequential_id,
-        "event_offset" -> event_offset,
-        "flat_event_witnesses" -> flat_event_witnesses,
-        "tree_event_witnesses" -> tree_event_witnesses,
-      )
-    }
-
-    def newNonConsumingEvent_125(
-        transaction_id: String,
-        event_sequential_id: Long,
-        event_offset: String,
-        flat_event_witnesses: Vector[Int],
-        tree_event_witnesses: Vector[Int],
-    ): Row = {
-      baseExerciseEvent ++ row(
-        "transaction_id" -> transaction_id,
-        "event_sequential_id" -> event_sequential_id,
-        "event_offset" -> event_offset,
-        "flat_event_witnesses" -> flat_event_witnesses,
-        "tree_event_witnesses" -> tree_event_witnesses,
-      )
-    }
-
-    insert(
-      Schema111.consumingExerciseEvents,
-      newConsumingEvent_125(
-        transaction_id = "txId2",
-        event_offset = "eventOffset2",
-        event_sequential_id = 4L,
-        flat_event_witnesses = Vector(1, 2),
-        tree_event_witnesses = Vector(1, 2),
-      ),
-    )
-
-    insert(
-      Schema111.nonConsumingExerciseEvents,
-      newNonConsumingEvent_125(
-        transaction_id = "txId2",
-        event_offset = "eventOffset2",
-        event_sequential_id = 4L,
-        flat_event_witnesses = Vector(1, 2),
-        tree_event_witnesses = Vector(1, 2),
-      ),
-    )
-
     migrateTo("126")
-
-//    val (unInternParty, unInternTemplate) = fetchTable(Schema116.stringInterning)
-//      .foldLeft((Map.empty[Int, String], Map.empty[Int, String])) {
-//        case ((partyMap, templateIdMap), dbEntry) =>
-//          val id = dbEntry("internal_id").asInstanceOf[Int]
-//          dbEntry("external_string").asInstanceOf[String].split("\\|").toList match {
-//            case "p" :: party :: Nil => (partyMap + (id -> party), templateIdMap)
-//            case "t" :: templateId :: Nil => (partyMap, templateIdMap + (id -> templateId))
-//            case _ =>
-//              throw new Exception(s"external_string ${dbEntry("external_string")} is invalid")
-//          }
-//      }
-//
-//    fetchTable(Schema116.parameters) shouldBe Vector(
-//      params + ("ledger_end_string_interning_id" -> Some(
-//        unInternParty.size + unInternTemplate.size
-//      ))
-//    )
-//
-//    fetchTable(Schema116.partyEntries)
-//      .updateInAll[Option[Int]]("party_id")(_.map(unInternParty)) shouldBe Vector(
-//      partyEntry + ("party_id" -> Some("party1")),
-//      partyRejected + ("party_id" -> None),
-//    )
-//
-//    fetchTable(Schema116.commandCompletions)
-//      .updateInAll[Vector[Int]]("submitters")(_.map(unInternParty)) shouldBe completions
-//
-//    fetchTable(Schema116.divulgenceEvents)
-//      .updateInAll[Option[Vector[Int]]]("submitters")(_.map(_.map(unInternParty)))
-//      .updateInAll[Option[Int]]("template_id")(_.map(unInternTemplate))
-//      .updateInAll[Vector[Int]]("tree_event_witnesses")(_.map(unInternParty)) shouldBe divulgences
-//
-//    fetchTable(Schema116.createEvents)
-//      .updateInAll[Option[Vector[Int]]]("submitters")(_.map(_.map(unInternParty)))
-//      .updateInAll[Int]("template_id")(unInternTemplate)
-//      .updateInAll[Vector[Int]]("tree_event_witnesses")(_.map(unInternParty))
-//      .updateInAll[Vector[Int]]("flat_event_witnesses")(_.map(unInternParty))
-//      .updateInAll[Vector[Int]]("create_signatories")(_.map(unInternParty))
-//      .updateInAll[Vector[Int]]("create_observers")(_.map(unInternParty)) shouldBe createEvents
-//
-//    fetchTable(Schema116.createEventsFilter)
-//      .updateInAll[Int]("template_id")(unInternTemplate)
-//      .updateInAll[Int]("party_id")(unInternParty)
-//      .toSet shouldBe createEvents
-//      .flatMap(createEvent =>
-//        createEvent("flat_event_witnesses")
-//          .asInstanceOf[Vector[String]]
-//          .map(flatWitness =>
-//            row(
-//              "event_sequential_id" -> createEvent("event_sequential_id"),
-//              "template_id" -> createEvent("template_id"),
-//              "party_id" -> flatWitness,
-//            )
-//          )
-//      )
-//      .toSet
-//
-//    fetchTable(Schema116.consumingExerciseEvents)
-//      .updateInAll[Option[Vector[Int]]]("submitters")(_.map(_.map(unInternParty)))
-//      .updateInAll[Int]("template_id")(unInternTemplate)
-//      .updateInAll[Vector[Int]]("tree_event_witnesses")(_.map(unInternParty))
-//      .updateInAll[Vector[Int]]("flat_event_witnesses")(_.map(unInternParty))
-//      .updateInAll[Vector[Int]]("exercise_actors")(
-//        _.map(unInternParty)
-//      ) shouldBe consumingExerciseEvents
-//
-//    fetchTable(Schema116.nonConsumingExerciseEvents)
-//      .updateInAll[Option[Vector[Int]]]("submitters")(_.map(_.map(unInternParty)))
-//      .updateInAll[Int]("template_id")(unInternTemplate)
-//      .updateInAll[Vector[Int]]("tree_event_witnesses")(_.map(unInternParty))
-//      .updateInAll[Vector[Int]]("flat_event_witnesses")(_.map(unInternParty))
-//      .updateInAll[Vector[Int]]("exercise_actors")(
-//        _.map(unInternParty)
-//      ) shouldBe nonConsumingExerciseEvents
+    fetchTable(
+      Schema126.idFilterCreateStakeholder
+    ) shouldBe empty
+    fetchTable(
+      Schema126.idFilterCreateNonStakeholderInformee
+    ) shouldBe Seq(
+      row("event_sequential_id" -> 101L, "party_id" -> 112),
+      row("event_sequential_id" -> 101L, "party_id" -> 113),
+    )
+    fetchTable(
+      Schema126.idFilterNonConsumingInformee
+    ) shouldBe Seq(
+      row("event_sequential_id" -> 102L, "party_id" -> 114),
+      row("event_sequential_id" -> 102L, "party_id" -> 115),
+    )
+    fetchTable(
+      Schema126.idFilterConsumingStakeholder
+    ) shouldBe Seq(
+      row("event_sequential_id" -> 103L, "template_id" -> 123, "party_id" -> 116),
+      row("event_sequential_id" -> 103L, "template_id" -> 123, "party_id" -> 117),
+    )
+    fetchTable(
+      Schema126.idFilterConsumingNonStakeholderInformee
+    ) shouldBe Seq(
+      row("event_sequential_id" -> 103L, "party_id" -> 118),
+      row("event_sequential_id" -> 103L, "party_id" -> 119),
+    )
+    fetchTable(
+      Schema126.transactionMeta
+    ) shouldBe Seq(
+      row(
+        "transaction_id" -> "txId1",
+        "event_offset" -> "eventOffset1",
+        "event_sequential_id_from" -> 101L,
+        "event_sequential_id_to" -> 104L,
+      )
+    )
   }
 
-  // TODO pbatko
-//  it should "migrate correctly data for a database without transactions" in {
-//    migrateTo("111")
-//
-//    val params = row(
-//      "ledger_id" -> "lid",
-//      "participant_id" -> "pid",
-//      "ledger_end" -> Some("abcdefg"),
-//      "ledger_end_sequential_id" -> Some(200L),
-//      "participant_pruned_up_to_inclusive" -> None,
-//      "participant_all_divulged_contracts_pruned_up_to_inclusive" -> None,
-//    )
-//    insert(Schema111.parameters, params)
-//
-//    migrateTo("116")
-//    fetchTable(Schema116.parameters) shouldBe Vector(
-//      params + ("ledger_end_string_interning_id" -> Some(0))
-//    )
-//  }
+  it should "migrate 2 - create, consuming and divulgence (w/o event offset) events; and identical flat and tree witnesses" in {
+    migrateTo("125")
+    insertMany(
+      Schema125.createEvents ->
+        // 1. a create event that matches a divulgence event by the contract id
+        // 2. equal sets of tree and flat witnesses
+        Seq(
+          newCreateEvent_125(
+            transaction_id = "txId2",
+            contract_id = "cId2",
+            event_offset = "eventOffset2",
+            event_sequential_id = 201L,
+            flat_event_witnesses = Vector(211, 212),
+            tree_event_witnesses = Vector(211, 212),
+            template_id = 221,
+          )
+        ),
+      Schema125.consumingExerciseEvents ->
+        Seq(
+          newConsumingEvent_125(
+            transaction_id = "txId2",
+            event_offset = "eventOffset2",
+            event_sequential_id = 202L,
+            flat_event_witnesses = Vector(213, 214),
+            tree_event_witnesses = Vector(213, 214),
+            template_id = 222,
+          )
+        ),
+      Schema125.divulgenceEvents -> Seq(
+        // 1. a divulgence event that matches a create event by the contract id
+        // 2. missing event offset
+        newDivulgenceEvent_125(
+          event_sequential_id = 203L,
+          contract_id = "cId2",
+          event_offset = None,
+        )
+      ),
+    )
+    migrateTo("126")
+    fetchTable(
+      Schema126.idFilterCreateStakeholder
+    ) shouldBe empty
+    fetchTable(
+      Schema126.idFilterCreateNonStakeholderInformee
+    ) shouldBe empty
+    fetchTable(
+      Schema126.idFilterNonConsumingInformee
+    ) shouldBe empty
+    fetchTable(
+      Schema126.idFilterConsumingStakeholder
+    ) shouldBe Seq(
+      row("event_sequential_id" -> 202L, "template_id" -> 222, "party_id" -> 213),
+      row("event_sequential_id" -> 202L, "template_id" -> 222, "party_id" -> 214),
+    )
+    fetchTable(
+      Schema126.idFilterConsumingNonStakeholderInformee
+    ) shouldBe empty
+    fetchTable(
+      Schema126.transactionMeta
+    ) shouldBe Seq(
+      row(
+        "transaction_id" -> "txId2",
+        "event_offset" -> "eventOffset2",
+        "event_sequential_id_from" -> 201L,
+        "event_sequential_id_to" -> 203L,
+      )
+    )
+  }
+
+  it should "migrate 3 - divulgence events without corresponding create events; w/ and w/o event offset" in {
+    migrateTo("125")
+    insertMany(
+      Schema125.divulgenceEvents -> Seq(
+        // 1. divulgence contract id not matching an create event
+        // 2. event offset is present
+        newDivulgenceEvent_125(
+          event_sequential_id = 301L,
+          contract_id = "cId301notExistent",
+          event_offset = Some("eventOffset3"),
+        )
+      ),
+      Schema125.divulgenceEvents -> Seq(
+        // 1. divulgence contract id not matching an create event
+        // 2. event offset is missing
+        newDivulgenceEvent_125(
+          event_sequential_id = 302L,
+          contract_id = "cId302notExistent",
+          event_offset = None,
+        )
+      ),
+    )
+    migrateTo("126")
+    // Testing that all new tables are still empty we didn't crash
+    fetchTable(
+      Schema126.idFilterCreateStakeholder
+    ) shouldBe empty
+    fetchTable(
+      Schema126.idFilterCreateNonStakeholderInformee
+    ) shouldBe empty
+    fetchTable(
+      Schema126.idFilterNonConsumingInformee
+    ) shouldBe empty
+    fetchTable(
+      Schema126.idFilterConsumingStakeholder
+    ) shouldBe empty
+    fetchTable(
+      Schema126.idFilterConsumingNonStakeholderInformee
+    ) shouldBe empty
+    fetchTable(
+      Schema126.transactionMeta
+    ) shouldBe empty
+  }
+
+  it should "migrate 4 - id filter for event create stakeholders" in {
+    migrateTo("125")
+    insertMany(
+      Schema125.createEventsFilter -> Seq(
+        createEventsFilter_125(
+          event_sequential_id = 401L,
+          template_id = 411,
+          party_id = 421,
+        )
+      )
+    )
+    migrateTo("126")
+    fetchTable(
+      Schema126.idFilterCreateStakeholder
+    ) shouldBe Seq(
+      row(
+        "event_sequential_id" -> 401L,
+        "template_id" -> 411,
+        "party_id" -> 421,
+      )
+    )
+  }
+
+  it should "migrate 5 - two transactions" in {
+    migrateTo("125")
+    insertMany(
+      Schema125.createEvents ->
+        Seq(
+          newCreateEvent_125(
+            transaction_id = "txId501",
+            contract_id = "cId501",
+            event_offset = "eventOffset501",
+            event_sequential_id = 501L,
+            flat_event_witnesses = Vector.empty,
+            tree_event_witnesses = Vector.empty,
+            template_id = 0,
+          ),
+          newCreateEvent_125(
+            transaction_id = "txId502",
+            contract_id = "cId502",
+            event_offset = "eventOffset502",
+            event_sequential_id = 502L,
+            flat_event_witnesses = Vector.empty,
+            tree_event_witnesses = Vector.empty,
+            template_id = 0,
+          ),
+        )
+    )
+    migrateTo("126")
+    fetchTable(
+      Schema126.idFilterCreateStakeholder
+    ) shouldBe empty
+    fetchTable(
+      Schema126.idFilterCreateNonStakeholderInformee
+    ) shouldBe empty
+    fetchTable(
+      Schema126.idFilterNonConsumingInformee
+    ) shouldBe empty
+    fetchTable(
+      Schema126.idFilterConsumingStakeholder
+    ) shouldBe empty
+    fetchTable(
+      Schema126.idFilterConsumingNonStakeholderInformee
+    ) shouldBe empty
+    fetchTable(
+      Schema126.transactionMeta
+    ) shouldBe Seq(
+      row(
+        "transaction_id" -> "txId501",
+        "event_offset" -> "eventOffset501",
+        "event_sequential_id_from" -> 501L,
+        "event_sequential_id_to" -> 501L,
+      ),
+      row(
+        "transaction_id" -> "txId502",
+        "event_offset" -> "eventOffset502",
+        "event_sequential_id_from" -> 502L,
+        "event_sequential_id_to" -> 502L,
+      ),
+    )
+  }
+
 }
 
 object Schema125 {
@@ -393,4 +404,195 @@ object Schema125 {
       "template_id" -> Integer,
       "party_id" -> Integer,
     )
+
+}
+
+object Schema126 {
+  import PostgresDbDataType._
+  import com.daml.platform.store.migration.MigrationTestSupport._
+
+  val idFilterCreateStakeholder: TableSchema =
+    TableSchema("participant_events_create_filter", "event_sequential_id, template_id, party_id")(
+      "event_sequential_id" -> BigInt,
+      "template_id" -> Integer,
+      "party_id" -> Integer,
+    )
+
+  val idFilterCreateNonStakeholderInformee: TableSchema = {
+    TableSchema("pe_create_filter_nonstakeholder_informees", "event_sequential_id, party_id")(
+      "event_sequential_id" -> BigInt,
+      "party_id" -> Integer,
+    )
+  }
+
+  val idFilterConsumingStakeholder: TableSchema = {
+    TableSchema(
+      "pe_consuming_exercise_filter_stakeholders",
+      "event_sequential_id, template_id, party_id",
+    )(
+      "event_sequential_id" -> BigInt,
+      "template_id" -> Integer,
+      "party_id" -> Integer,
+    )
+  }
+
+  val idFilterConsumingNonStakeholderInformee: TableSchema = {
+    TableSchema(
+      "pe_consuming_exercise_filter_nonstakeholder_informees",
+      "event_sequential_id, party_id",
+    )(
+      "event_sequential_id" -> BigInt,
+      "party_id" -> Integer,
+    )
+  }
+
+  val idFilterNonConsumingInformee: TableSchema = {
+    TableSchema("pe_non_consuming_exercise_filter_informees", "event_sequential_id, party_id")(
+      "event_sequential_id" -> BigInt,
+      "party_id" -> Integer,
+    )
+  }
+
+  val transactionMeta: TableSchema = {
+    TableSchema("participant_transaction_meta", "transaction_id, event_offset")(
+      "transaction_id" -> Str,
+      "event_offset" -> Str,
+      "event_sequential_id_from" -> BigInt,
+      "event_sequential_id_to" -> BigInt,
+    )
+  }
+
+}
+
+private object PostgresMigrationFrom125To126EtqTest {
+
+  val baseEvent: Row = row(
+    "event_sequential_id" -> 0L,
+    "workflow_id" -> None,
+    "command_id" -> None,
+    "application_id" -> None,
+    "submitters" -> None,
+    "contract_id" -> "contract id",
+    "tree_event_witnesses" -> Vector(),
+  )
+
+  val baseDivulgenceEvent: Row = row(
+    "event_offset" -> None,
+    "template_id" -> None,
+    "create_argument" -> None,
+    "create_argument_compression" -> None,
+  ) ++ baseEvent
+
+  val baseTransactionEvent: Row = row(
+    "ledger_effective_time" -> 0L,
+    "event_offset" -> "some offset",
+    "node_index" -> 0,
+    "transaction_id" -> "some tx id",
+    "event_id" -> "some event id",
+    "template_id" -> 1,
+    "flat_event_witnesses" -> Vector(),
+  ) ++ baseEvent
+
+  val baseCreateEvent: Row = row(
+    "create_argument" -> Vector(1.toByte, 2.toByte, 3.toByte),
+    "create_argument_compression" -> None,
+    "create_key_value" -> None,
+    "create_key_value_compression" -> None,
+    "create_signatories" -> Vector(),
+    "create_observers" -> Vector(),
+    "create_agreement_text" -> None,
+    "create_key_hash" -> None,
+  ) ++ baseTransactionEvent
+
+  val baseExerciseEvent: Row = row(
+    "exercise_argument" -> Vector(3.toByte, 2.toByte, 1.toByte),
+    "exercise_argument_compression" -> None,
+    "exercise_result" -> None,
+    "exercise_result_compression" -> None,
+    "create_key_value" -> None,
+    "create_key_value_compression" -> None,
+    "exercise_choice" -> "some choice",
+    "exercise_actors" -> Vector(),
+    "exercise_child_event_ids" -> Vector(),
+  ) ++ baseTransactionEvent
+
+  def newDivulgenceEvent_125(
+      event_sequential_id: Long,
+      contract_id: String,
+      event_offset: Option[String],
+  ): Row = {
+    baseDivulgenceEvent ++ row(
+      "event_sequential_id" -> event_sequential_id,
+      "contract_id" -> contract_id,
+      "event_offset" -> event_offset,
+    )
+  }
+
+  def newCreateEvent_125(
+      transaction_id: String,
+      contract_id: String,
+      event_sequential_id: Long,
+      event_offset: String,
+      flat_event_witnesses: Vector[Int],
+      tree_event_witnesses: Vector[Int],
+      template_id: Int,
+  ): Row = {
+    baseCreateEvent ++ row(
+      "transaction_id" -> transaction_id,
+      "contract_id" -> contract_id,
+      "event_sequential_id" -> event_sequential_id,
+      "event_offset" -> event_offset,
+      "flat_event_witnesses" -> flat_event_witnesses,
+      "tree_event_witnesses" -> tree_event_witnesses,
+      "template_id" -> template_id,
+    )
+  }
+
+  def newConsumingEvent_125(
+      transaction_id: String,
+      event_sequential_id: Long,
+      event_offset: String,
+      flat_event_witnesses: Vector[Int],
+      tree_event_witnesses: Vector[Int],
+      template_id: Int,
+  ): Row = {
+    baseExerciseEvent ++ row(
+      "transaction_id" -> transaction_id,
+      "event_sequential_id" -> event_sequential_id,
+      "event_offset" -> event_offset,
+      "flat_event_witnesses" -> flat_event_witnesses,
+      "tree_event_witnesses" -> tree_event_witnesses,
+      "template_id" -> template_id,
+    )
+  }
+
+  def newNonConsumingEvent_125(
+      transaction_id: String,
+      event_sequential_id: Long,
+      event_offset: String,
+      tree_event_witnesses: Vector[Int],
+      template_id: Int,
+  ): Row = {
+    baseExerciseEvent ++ row(
+      "transaction_id" -> transaction_id,
+      "event_sequential_id" -> event_sequential_id,
+      "event_offset" -> event_offset,
+      "flat_event_witnesses" -> Vector.empty,
+      "tree_event_witnesses" -> tree_event_witnesses,
+      "template_id" -> template_id,
+    )
+  }
+
+  def createEventsFilter_125(
+      event_sequential_id: Long,
+      template_id: Int,
+      party_id: Int,
+  ): Row = {
+    row(
+      "event_sequential_id" -> event_sequential_id,
+      "template_id" -> template_id,
+      "party_id" -> party_id,
+    )
+  }
+
 }

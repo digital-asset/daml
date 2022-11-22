@@ -143,6 +143,8 @@ input1 AS (
             event_sequential_id AS i
         FROM participant_events_non_consuming_exercise
     UNION ALL
+        -- NOTE: Divulgence offsets with no corresponding create events will not
+        --       have an entry in transaction_meta table
         SELECT
             c.transaction_id AS t,
             c.event_offset AS o,

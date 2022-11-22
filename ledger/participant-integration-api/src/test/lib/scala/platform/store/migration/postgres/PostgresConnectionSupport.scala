@@ -15,6 +15,8 @@ import org.scalatest.Suite
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
+/** Creates a fresh data source and connection for each test case
+  */
 trait PostgresConnectionSupport extends PostgresAroundEach {
   self: Suite =>
 
