@@ -67,7 +67,7 @@ CREATE OR REPLACE FUNCTION array_diff(a int[], b int[])
 RETURNS int[]
 AS
 $$
-	  SELECT coalesce(array_agg(el), '{}')
+      SELECT coalesce(array_agg(el), '{}')
       FROM unnest(a) as el
       WHERE el <> all(b)
 $$
@@ -75,45 +75,49 @@ LANGUAGE SQL;
 
 -- Populate pe_create_filter_nonstakeholder_informees
 WITH
-input1 AS (
-	SELECT
-		event_sequential_id AS i,
-		array_diff(tree_event_witnesses, flat_event_witnesses) AS ps
-	FROM participant_events_create
+input1 AS
+(
+    SELECT
+        event_sequential_id AS i,
+        array_diff(tree_event_witnesses, flat_event_witnesses) AS ps
+    FROM participant_events_create
 )
 INSERT INTO pe_create_filter_nonstakeholder_informees(event_sequential_id, party_id)
 SELECT i, unnest(ps) FROM input1;
 
 -- Populate pe_consuming_exercise_filter_stakeholders
 WITH
-input1 AS (
-	SELECT
-		event_sequential_id AS i,
-		template_id AS t,
-		flat_event_witnesses AS ps
-	FROM participant_events_consuming_exercise
+input1 AS
+(
+    SELECT
+        event_sequential_id AS i,
+        template_id AS t,
+        flat_event_witnesses AS ps
+    FROM participant_events_consuming_exercise
 )
 INSERT INTO pe_consuming_exercise_filter_stakeholders(event_sequential_id, template_id, party_id)
 SELECT i, t, unnest(ps) FROM input1;
 
 -- Populate pe_consuming_exercise_filter_nonstakeholder_informees
 WITH
-input1 AS (
-	SELECT
-		event_sequential_id AS i,
-		array_diff(tree_event_witnesses, flat_event_witnesses) AS ps
-	FROM participant_events_consuming_exercise
+input1 AS
+(
+    SELECT
+        event_sequential_id AS i,
+        array_diff(tree_event_witnesses, flat_event_witnesses) AS ps
+    FROM participant_events_consuming_exercise
 )
 INSERT INTO pe_consuming_exercise_filter_nonstakeholder_informees(event_sequential_id, party_id)
 SELECT i, unnest(ps) FROM input1;
 
 -- Populate pe_non_consuming_exercise_filter_nonstakeholder_informees
 WITH
-input1 AS (
-	SELECT
-		event_sequential_id AS i,
-		tree_event_witnesses AS ps
-	FROM participant_events_non_consuming_exercise
+input1 AS
+(
+    SELECT
+        event_sequential_id AS i,
+        tree_event_witnesses AS ps
+    FROM participant_events_non_consuming_exercise
 )
 INSERT INTO pe_non_consuming_exercise_filter_informees(event_sequential_id, party_id)
 SELECT i, unnest(ps) FROM input1;
@@ -121,39 +125,39 @@ SELECT i, unnest(ps) FROM input1;
 -- Populate participant_transaction_meta
 WITH
 input1 AS (
-		SELECT
-			transaction_id AS t,
-			event_offset AS o,
-	        event_sequential_id AS i
-		FROM participant_events_create
-	UNION ALL
-		SELECT
-			transaction_id AS t,
-			event_offset AS o,
-	        event_sequential_id AS i
-		FROM participant_events_consuming_exercise
-	UNION ALL
-		SELECT
-			transaction_id AS t,
-			event_offset AS o,
-	        event_sequential_id AS i
-		FROM participant_events_non_consuming_exercise
-	UNION ALL
-		SELECT
-			c.transaction_id AS t,
-			d.event_offset AS o,
-	        d.event_sequential_id AS i
-		FROM participant_events_divulgence d
-	    JOIN participant_events_create c ON d.contract_id = c.contract_id
+        SELECT
+            transaction_id AS t,
+            event_offset AS o,
+            event_sequential_id AS i
+        FROM participant_events_create
+    UNION ALL
+        SELECT
+            transaction_id AS t,
+            event_offset AS o,
+            event_sequential_id AS i
+        FROM participant_events_consuming_exercise
+    UNION ALL
+        SELECT
+            transaction_id AS t,
+            event_offset AS o,
+            event_sequential_id AS i
+        FROM participant_events_non_consuming_exercise
+    UNION ALL
+        SELECT
+            c.transaction_id AS t,
+            c.event_offset AS o,
+            d.event_sequential_id AS i
+        FROM participant_events_divulgence d
+        JOIN participant_events_create c ON d.contract_id = c.contract_id
 ),
 input2 AS (
-	SELECT
-		t,
-	    o,
-	    min(i) as first_i,
-	    max(i) as last_i
-	FROM input1
-	GROUP BY t, o
+    SELECT
+        t,
+        o,
+        min(i) as first_i,
+        max(i) as last_i
+    FROM input1
+    GROUP BY t, o
 )
 INSERT INTO participant_transaction_meta(transaction_id, event_offset, event_sequential_id_from, event_sequential_id_to)
 SELECT t, o, first_i, last_i FROM input2;
