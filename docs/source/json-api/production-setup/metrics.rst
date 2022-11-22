@@ -87,12 +87,12 @@ service
     Daml service's name (``json-api`` for the HTTP JSON API Service)
 
 daml.http.requests.duration.seconds
------------------------------------
+===================================
 - **Description**: Records the durations of serving HTTP requests.
 - **Type**: Histogram
 
 daml.http.requests.total
-------------------------
+========================
 - **Description**: Counts number of HTTP requests completed.
 - **Labels**:
 
@@ -101,32 +101,32 @@ daml.http.requests.total
 - **Type**: Counter
 
 daml.http.websocket.messages.received.total
--------------------------------------------
+===========================================
 - **Description**: Counts number of WebSocket messages received.
 - **Type**: Counter
 
 daml.http.websocket.messages.sent.total
----------------------------------------
+=======================================
 - **Description**: Counts number of WebSocket messages sent.
 - **Type**: Counter
 
 daml.http.requests.payload.bytes
---------------------------------
+================================
 - **Description**: Records payload sizes of HTTP requests received.
 - **Type**: Histogram
 
 daml.http.responses.payload.bytes
----------------------------------
+=================================
 - **Description**: Records payload sizes of HTTP responses sent.
 - **Type**: Histogram
 
 daml.http.websocket.messages.received.bytes
-------------------------------------------
+===========================================
 - **Description**: Records payload sizes of WebSocket messages received.
 - **Type**: Histogram
 
 daml.http.websocket.messages.sent.bytes
----------------------------------
+=======================================
 - **Description**: Records payload sizes of WebSocket messages sent.
 - **Type**: Histogram
 
