@@ -5,6 +5,7 @@ module DA.Test.Process
   ( ShouldSucceed(..)
   , callProcessSilent
   , callProcessSilentError
+  , callProcessSilentWithEnv
   , callProcessForStdout
   , callCommandSilent
   , callCommandSilentIn
@@ -28,6 +29,11 @@ callProcessSilent cmd args =
 callProcessSilentError :: FilePath -> [String] -> IO ()
 callProcessSilentError cmd args =
   void $ run (ShouldSucceed False) (proc cmd args)
+
+callProcessSilentWithEnv :: [(String, String)] -> FilePath -> [String] -> IO ()
+callProcessSilentWithEnv envChanges cmd args = do
+  newEnv <- subprocessEnv envChanges
+  void $ run (ShouldSucceed True) (proc cmd args) { env = Just newEnv }
 
 callProcessForStdout :: FilePath -> [String] -> IO String
 callProcessForStdout cmd args =
