@@ -35,8 +35,7 @@ message TransferCommand {
   string application_id = ;
 
   // Uniquely identifies the command.
-  // The triple (application_id, party + act_as, command_id) constitutes the change ID for the intended ledger change,
-  // where party + act_as is interpreted as a set of party names.
+  // The triple (application_id, submitter, command_id) constitutes the change ID for the intended ledger change.
   // The change ID can be used for matching the intended ledger changes with all their completions.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
@@ -152,7 +151,7 @@ message TransferOutCommand {
 
 // Transfer-in a contract
 message TransferInCommand {
-  // The ID of the transfer-out event. This needs to be used as an input for a transfer in TransferCommand.
+  // The ID of the transfer-out event to be completed by this transfer-in.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string transfer_out_id = 1;

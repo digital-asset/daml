@@ -76,7 +76,7 @@ service UpdateService {
   rpc GetFlatUpdateById (GetUpdateByIdRequest) returns (GetFlatUpdateResponse);
 
   // Get the current ledger end.
-  // Subscriptions started with the returned offset will serve transactions created after this RPC was called.
+  // Subscriptions started with the returned offset will serve updates created after this RPC was called.
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
