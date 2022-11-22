@@ -27,7 +27,8 @@ class StablePackageTest
 
   "DA.StablePackages" should {
 
-    lazy val darFile = resource(rlocation("daml-lf/archive/DarReaderTest.dar"))
+    // We rely on the fact a dar generated with targer 1.dev contains all the stable packages
+    lazy val darFile = resource(rlocation("daml-lf/archive/DarReaderTest-dev.dar"))
     lazy val libPkgs = {
       val dar = UniversalArchiveDecoder.assertReadFile(darFile)
       dar.all.view.filter { case (pkgId, _) => pkgId != dar.main._1 }.toMap
