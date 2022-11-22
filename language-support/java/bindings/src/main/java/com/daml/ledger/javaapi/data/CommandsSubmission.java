@@ -41,15 +41,15 @@ public final class CommandsSubmission {
   private Optional<String> accessToken;
 
   private CommandsSubmission(
-      Optional<String> workflowId,
       String applicationId,
       String commandId,
+      List<@NonNull ? extends HasCommands> commands,
       List<@NonNull String> actAs,
       List<@NonNull String> readAs,
+      Optional<String> workflowId,
       Optional<Instant> minLedgerTimeAbs,
       Optional<Duration> minLedgerTimeRel,
       Optional<Duration> deduplicationTime,
-      List<@NonNull ? extends HasCommands> commands,
       Optional<String> accessToken) {
     this.workflowId = workflowId;
     this.applicationId = applicationId;
@@ -66,15 +66,15 @@ public final class CommandsSubmission {
   public static CommandsSubmission create(
       String applicationId, String commandId, List<@NonNull ? extends HasCommands> commands) {
     return new CommandsSubmission(
-        Optional.empty(),
         applicationId,
         commandId,
-        emptyList(),
-        emptyList(),
-        empty(),
-        empty(),
-        empty(),
         commands,
+        emptyList(),
+        emptyList(),
+        empty(),
+        empty(),
+        Optional.empty(),
+        empty(),
         empty());
   }
 
@@ -120,127 +120,127 @@ public final class CommandsSubmission {
 
   public CommandsSubmission withWorkflowId(String workflowId) {
     return new CommandsSubmission(
-        Optional.of(workflowId),
         applicationId,
         commandId,
+        commands,
         actAs,
         readAs,
+        Optional.of(workflowId),
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        commands,
         accessToken);
   }
 
   public CommandsSubmission withActAs(String actAs) {
     return new CommandsSubmission(
-        workflowId,
         applicationId,
         commandId,
+        commands,
         List.of(actAs),
         readAs,
+        workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        commands,
         accessToken);
   }
 
   public CommandsSubmission withActAs(List<@NonNull String> actAs) {
     return new CommandsSubmission(
-        workflowId,
         applicationId,
         commandId,
+        commands,
         actAs,
         readAs,
+        workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        commands,
         accessToken);
   }
 
   public CommandsSubmission withReadAs(List<@NonNull String> readAs) {
     return new CommandsSubmission(
-        workflowId,
         applicationId,
         commandId,
+        commands,
         actAs,
         readAs,
+        workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        commands,
         accessToken);
   }
 
   public CommandsSubmission withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
     return new CommandsSubmission(
-        workflowId,
         applicationId,
         commandId,
+        commands,
         actAs,
         readAs,
+        workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        commands,
         accessToken);
   }
 
   public CommandsSubmission withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
     return new CommandsSubmission(
-        workflowId,
         applicationId,
         commandId,
+        commands,
         actAs,
         readAs,
+        workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        commands,
         accessToken);
   }
 
   public CommandsSubmission withDeduplicationTime(Optional<Duration> deduplicationTime) {
     return new CommandsSubmission(
-        workflowId,
         applicationId,
         commandId,
+        commands,
         actAs,
         readAs,
+        workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        commands,
         accessToken);
   }
 
   public CommandsSubmission withCommands(List<@NonNull ? extends HasCommands> commands) {
     return new CommandsSubmission(
-        workflowId,
         applicationId,
         commandId,
+        commands,
         actAs,
         readAs,
+        workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        commands,
         accessToken);
   }
 
   public CommandsSubmission withAccessToken(Optional<String> accessToken) {
     return new CommandsSubmission(
-        workflowId,
         applicationId,
         commandId,
+        commands,
         actAs,
         readAs,
+        workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
         deduplicationTime,
-        commands,
         accessToken);
   }
 }
