@@ -119,7 +119,7 @@ da_scala_test_suite(
     data = [
         ":DarReaderTest.dalf",
         ":DarReaderTest.dar",
-            ":DarReaderTest-dev.dar",
+        ":DarReaderTest-dev.dar",
     ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
@@ -150,13 +150,11 @@ daml_compile_with_dalf(
     srcs = ["src/test/daml/DarReaderTest.daml"],
 )
 
-
 daml_compile(
     name = "DarReaderTest-dev",
     srcs = ["src/test/daml/DarReaderTest.daml"],
     target = "1.dev",
 )
-
 
 # An ad-hoc tool for testing, benchmarking and profiling package decoding performance in isolation.
 da_scala_binary(
