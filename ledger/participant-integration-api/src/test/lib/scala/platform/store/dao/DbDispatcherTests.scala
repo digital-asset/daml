@@ -10,9 +10,8 @@ import com.daml.platform.localstore.PersistentStoreSpecBase
 import com.daml.platform.store.backend.StorageBackendProvider
 import com.daml.platform.store.backend.localstore.PartyRecordStorageBackend.DbPartyRecordPayload
 import com.daml.platform.store.backend.localstore.PartyRecordStorageBackendImpl
-import com.daml.platform.store.dao.DbDispatcherTests.GeneratedId
+import com.daml.platform.store.dao.DbDispatcherTests.Result
 import io.opentelemetry.api.GlobalOpenTelemetry
-import org.scalatest.Inside.inside
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{EitherValues, OptionValues}
@@ -29,40 +28,31 @@ trait DbDispatcherTests
 
   private def party = Ref.Party.assertFromString("Alice")
   private def payload = DbPartyRecordPayload(party, 1, 1)
+  private def dispatcher = dbSupport.dbDispatcher
 
   "rollback transaction if Left is received in the execute" in {
     for {
-      value1 <- dbSupport.dbDispatcher
-        .executeSqlEither(dbMetric) { connection =>
-          val generatedId = PartyRecordStorageBackendImpl.createPartyRecord(payload)(connection)
-          Left(GeneratedId(generatedId))
-        }
-      loadedObject1 <- dbSupport.dbDispatcher
-        .executeSqlEither(dbMetric) { connection =>
-          val partyRecord = PartyRecordStorageBackendImpl.getPartyRecord(party)(connection)
-          Right(partyRecord)
-        }
-      value2 <- dbSupport.dbDispatcher
-        .executeSqlEither(dbMetric) { connection =>
-          val generatedId = PartyRecordStorageBackendImpl.createPartyRecord(payload)(connection)
-          Right(GeneratedId(generatedId))
-        }
-      loadedObject2 <- dbSupport.dbDispatcher
-        .executeSqlEither(dbMetric) { connection =>
-          val partyRecord = PartyRecordStorageBackendImpl.getPartyRecord(party)(connection)
-          Right(partyRecord)
-        }
-    } yield {
-      value1.isLeft shouldBe true
-      loadedObject1 shouldBe Right(None) // actually an objection has not been stored
-      value2.isRight shouldBe true
-      inside(loadedObject2) { case Right(Some(record)) =>
-        record.payload shouldBe payload // loading previously stored object
+      value1 <- dispatcher.executeSqlEither(dbMetric) { connection =>
+        Left(Result(PartyRecordStorageBackendImpl.createPartyRecord(payload)(connection) > 0))
       }
+      loadedParty1 <- dispatcher.executeSqlEither(dbMetric) { connection =>
+        Right(PartyRecordStorageBackendImpl.getPartyRecord(party)(connection))
+      }
+      value2 <- dispatcher.executeSqlEither(dbMetric) { connection =>
+        Right(Result(PartyRecordStorageBackendImpl.createPartyRecord(payload)(connection) > 0))
+      }
+      loadedParty2 <- dispatcher.executeSqlEither(dbMetric) { connection =>
+        Right(PartyRecordStorageBackendImpl.getPartyRecord(party)(connection))
+      }
+    } yield {
+      value1 shouldBe Left(Result(true)) // simulating an error in Left channel
+      loadedParty1.value shouldBe None // party record has not been stored, i.e. transaction has been rolled back
+      value2 shouldBe Right(Result(true)) // simulating success in Right channel
+      loadedParty2.value.value.payload shouldBe payload // loading previously stored object
     }
   }
 }
 
 object DbDispatcherTests {
-  case class GeneratedId(createdId: Int)
+  case class Result(valid: Boolean)
 }

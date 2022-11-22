@@ -33,9 +33,8 @@ private[platform] trait DbDispatcher {
       executionContext: ExecutionContext,
   ): Future[Either[E, T]] =
     executeSql(databaseMetrics) { connection =>
-      sql(connection) match {
-        case Right(value) => Right(value)
-        case Left(error) => throw new DbDispatcher.LeftException(error)
+      sql(connection).left.map { error =>
+        throw new DbDispatcher.LeftException(error)
       }
     }.recover { case e: DbDispatcher.LeftException[_] =>
       Left[E, T](e.error.asInstanceOf[E])
