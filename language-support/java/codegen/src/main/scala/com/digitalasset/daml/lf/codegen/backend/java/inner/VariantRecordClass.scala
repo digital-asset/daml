@@ -18,7 +18,8 @@ private[inner] object VariantRecordClass extends StrictLogging {
       fields: Fields,
       name: String,
       superclass: TypeName,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ): TypeSpec =
     TrackLineage.of("variant-record", name) {
       logger.info("Start")
@@ -36,7 +37,6 @@ private[inner] object VariantRecordClass extends StrictLogging {
             superclass,
             className.parameterized(typeParameters),
             typeParameters,
-            packagePrefixes,
           ).asJava
         )
         .build()

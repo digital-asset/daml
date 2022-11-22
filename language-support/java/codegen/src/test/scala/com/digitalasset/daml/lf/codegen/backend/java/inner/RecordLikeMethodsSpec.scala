@@ -137,15 +137,16 @@ final class RecordLikeMethodsSpec
   }
 
   private val name = ClassName.bestGuess("Test")
-  private val methods = RecordMethods(
-    getFieldsWithTypes(
-      ImmArraySeq(Ref.Name.assertFromString("bool") -> TypePrim(PrimTypeBool, ImmArraySeq.empty)),
-      Map(),
-    ),
-    name,
-    IndexedSeq.empty,
-    Map(),
-  )
+  private val methods = {
+    implicit val packagePrefixes: PackagePrefixes = PackagePrefixes(Map.empty)
+    RecordMethods(
+      getFieldsWithTypes(
+        ImmArraySeq(Ref.Name.assertFromString("bool") -> TypePrim(PrimTypeBool, ImmArraySeq.empty))
+      ),
+      name,
+      IndexedSeq.empty,
+    )
+  }
   private val Vector(constructor, deprecatedFromValue, valueDecoder, toValue) = methods.take(4)
 
 }

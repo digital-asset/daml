@@ -24,13 +24,14 @@ object VariantConstructorClass extends StrictLogging {
       constructorName: String,
       javaName: String,
       body: Type,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ): TypeSpec = {
     TrackLineage.of("variant constructor", constructorName) {
       logger.info("Start")
 
       val className = ClassName.bestGuess(javaName).parameterized(typeArgs)
-      val javaType = toJavaTypeName(body, packagePrefixes)
+      val javaType = toJavaTypeName(body)
       val variantFieldName = lowerCaseFieldName(body match {
         case TypeVar(typeArg) =>
           JavaEscaper.escapeString(typeArg)
@@ -45,15 +46,15 @@ object VariantConstructorClass extends StrictLogging {
       val conversionMethods = distinctTypeVars(body, typeArgs) match {
         case IndexedSeq(params) =>
           List(
-            toValue(constructorName, params, body, variantFieldName, packagePrefixes),
+            toValue(constructorName, params, body, variantFieldName),
             deprecatedFromValue(params, params, variant, className),
           )
         case IndexedSeq(usedParams, allParams) =>
           // usedParams is always subset of allParams
           List(
-            toValue(constructorName, usedParams, body, variantFieldName, packagePrefixes),
+            toValue(constructorName, usedParams, body, variantFieldName),
             deprecatedFromValue(usedParams, allParams, variant, className),
-            toValue(constructorName, allParams, body, variantFieldName, packagePrefixes),
+            toValue(constructorName, allParams, body, variantFieldName),
             deprecatedFromValue(allParams, allParams, variant, className),
           )
       }
@@ -81,7 +82,8 @@ object VariantConstructorClass extends StrictLogging {
       typeArgs: IndexedSeq[String],
       body: Type,
       fieldName: String,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ) = {
     val extractorParameters = ToValueExtractorParameters.generate(typeArgs)
 
@@ -99,7 +101,6 @@ object VariantConstructorClass extends StrictLogging {
             body,
             CodeBlock.of("this.$L", fieldName),
             newNameGenerator,
-            packagePrefixes,
           ),
       )
       .build()
