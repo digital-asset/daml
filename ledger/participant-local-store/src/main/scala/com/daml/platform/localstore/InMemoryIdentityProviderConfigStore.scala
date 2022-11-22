@@ -21,10 +21,13 @@ class InMemoryIdentityProviderConfigStore(maxIdentityProviderConfigs: Int = 10)
       implicit loggingContext: LoggingContext
   ): Future[Result[domain.IdentityProviderConfig]] = withState {
     for {
-      _ <- checkIssuerDoNotExists(identityProviderConfig.issuer)
+      _ <- checkIssuerDoNotExists(
+        identityProviderConfig.issuer,
+        identityProviderConfig.identityProviderId,
+      )
       _ <- checkIdDoNotExists(identityProviderConfig.identityProviderId)
-      _ = state.put(identityProviderConfig.identityProviderId, identityProviderConfig)
       _ <- tooManyIdentityProviderConfigs()
+      _ = state.put(identityProviderConfig.identityProviderId, identityProviderConfig)
     } yield identityProviderConfig
   }
 
@@ -57,7 +60,9 @@ class InMemoryIdentityProviderConfigStore(maxIdentityProviderConfigs: Int = 10)
     val id = update.identityProviderId
     for {
       currentState <- checkIdExists(id)
-      _ <- update.issuerUpdate.map(checkIssuerDoNotExists).getOrElse(Right(()))
+      _ <- update.issuerUpdate
+        .map(checkIssuerDoNotExists(_, update.identityProviderId))
+        .getOrElse(Right(()))
     } yield {
       val updatedValue = currentState
         .copy(isDeactivated = update.isDeactivatedUpdate.getOrElse(currentState.isDeactivated))
@@ -68,14 +73,14 @@ class InMemoryIdentityProviderConfigStore(maxIdentityProviderConfigs: Int = 10)
     }
   }
 
-  def checkIssuerDoNotExists(issuer: String): Result[Unit] =
+  private def checkIssuerDoNotExists(issuer: String, idToIgnore: IdentityProviderId.Id): Result[Unit] =
     Either.cond(
-      !state.values.exists(_.issuer == issuer),
+      !state.values.exists(cfg => cfg.issuer == issuer && cfg.identityProviderId != idToIgnore),
       (),
       IdentityProviderConfigWithIssuerExists(issuer),
     )
 
-  def checkIdDoNotExists(id: IdentityProviderId.Id): Result[Unit] =
+  private def checkIdDoNotExists(id: IdentityProviderId.Id): Result[Unit] =
     Either.cond(
       !state.isDefinedAt(id),
       (),
@@ -84,13 +89,13 @@ class InMemoryIdentityProviderConfigStore(maxIdentityProviderConfigs: Int = 10)
 
   private def tooManyIdentityProviderConfigs(): Result[Unit] = {
     Either.cond(
-      state.size <= maxIdentityProviderConfigs,
+      state.size + 1 <= maxIdentityProviderConfigs,
       (),
       TooManyIdentityProviderConfigs(),
     )
   }
 
-  def checkIdExists(id: IdentityProviderId.Id): Result[IdentityProviderConfig] =
+  private def checkIdExists(id: IdentityProviderId.Id): Result[IdentityProviderConfig] =
     state.get(id).toRight(IdentityProviderConfigNotFound(id))
 
   private def withState[T](t: => T): Future[T] =
