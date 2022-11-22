@@ -932,9 +932,9 @@ PACKAGE_VALIDATION_FAILED
     
     **Explanation**: This error occurs if a package referred to by a command fails validation. This should not happen as packages are validated when being uploaded.
 
-    **Category**: MaliciousOrFaultyBehaviour
+    **Category**: SecurityAlert
 
-    **Conveyance**: This error is logged with log-level WARN on the server side. It is exposed on the API with grpc-status UNKNOWN without any details for security reasons.
+    **Conveyance**: This error is logged with log-level WARN on the server side. It is exposed on the API with grpc-status INVALID_ARGUMENT without any details for security reasons.
 
     **Resolution**: Contact support.
 

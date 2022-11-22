@@ -85,7 +85,7 @@ object CommandExecution extends LedgerApiErrors.CommandExecutionErrorGroup {
     object PackageValidationFailed
         extends ErrorCode(
           id = "PACKAGE_VALIDATION_FAILED",
-          ErrorCategory.MaliciousOrFaultyBehaviour,
+          ErrorCategory.SecurityAlert,
         ) {
       case class Reject(validationErrorCause: String)(implicit
           loggingContext: ContextualizedErrorLogger
