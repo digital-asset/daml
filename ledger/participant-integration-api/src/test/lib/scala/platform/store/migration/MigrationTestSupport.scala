@@ -107,7 +107,12 @@ object MigrationTestSupport {
         s"""INSERT INTO ${tableSchema.tableName}
          |(${tableSchema.columnsList.mkString(", ")})
          |VALUES (${values.mkString(", ")})""".stripMargin
-      Using.resource(connection.createStatement())(_.execute(insertStatement))
+      try
+        Using.resource(connection.createStatement())(_.execute(insertStatement))
+      catch {
+        case NonFatal(e) =>
+          throw new RuntimeException(s"Error while executing query: $insertStatement", e)
+      }
       ()
     }
 
