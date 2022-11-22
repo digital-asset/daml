@@ -217,7 +217,7 @@ class JsonLedgerClient(
       viewType: Ast.Type,
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Option[Value])]] = {
     for {
-      parties <- validateTokenParties(parties, "queryinterface")
+      parties <- validateTokenParties(parties, "queryInterface")
       queryResponse <- queryRequestSuccess[QueryArgs, QueryResponse](
         uri.path./("v1")./("query"),
         QueryArgs(interfaceId),
@@ -245,27 +245,31 @@ class JsonLedgerClient(
       viewType: Ast.Type,
       cid: ContractId,
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Option[Value]] = {
-    // Unfortunately, queryInterfaceContractId is linear in the ACS, since it must use the "query"
-    // interface, unlike queryContractId which makes use of the "fetch" interface.
-    for {
-      parties <- validateTokenParties(parties, "queryinterfaceContractId")
-      queryResponse <- queryRequestSuccess[QueryArgs, QueryResponse](
-        uri.path./("v1")./("query"),
-        QueryArgs(interfaceId),
-        parties,
-      )
-    } yield {
-      val ctx = interfaceId.qualifiedName
-      val ifaceType = Converter.toIfaceType(ctx, viewType).toOption.get
-      queryResponse.results.collectFirst(Function.unlift { r =>
-        if (ContractId.assertFromString(r.contractId) != cid) None
-        else {
-          val payload = r.payload.convertTo[Value](
+    recoverInternalServerError {
+      for {
+        parties <- validateTokenParties(parties, "queryInterfaceContractId")
+        response <- queryRequestSuccess[FetchInterfaceArgs, FetchInterfaceResponse](
+          uri.path./("v1")./("fetch"),
+          FetchInterfaceArgs(cid, interfaceId),
+          parties,
+        )
+      } yield {
+        val ctx = interfaceId.qualifiedName
+        val ifaceType = Converter.toIfaceType(ctx, viewType).toOption.get
+        response.results.map { r =>
+          r.payload.convertTo[Value](
             LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
           )
-          Some(payload)
         }
-      })
+      }
+    }
+  }
+
+  // TODO https://github.com/digital-asset/daml/issues/14830
+  // fetching failed-view contracts by interfaceId/cid cause InternalServerError from Json API
+  def recoverInternalServerError[A](e: Future[Option[A]]): Future[Option[A]] = {
+    e.recover { case FailedJsonApiRequest(_, _, StatusCodes.InternalServerError, _) =>
+      None
     }
   }
 
@@ -807,6 +811,9 @@ object JsonLedgerClient {
   final case class FetchKeyArgs(templateId: Identifier, key: Value)
   final case class FetchResponse(result: Option[ActiveContract])
 
+  final case class FetchInterfaceArgs(contractId: ContractId, interfaceId: Identifier)
+  final case class FetchInterfaceResponse(results: Option[ActiveContract])
+
   final case class CreateArgs(templateId: Identifier, payload: JsValue)
   final case class CreateResponse(contractId: String)
 
@@ -913,6 +920,15 @@ object JsonLedgerClient {
       )
     implicit val fetchReader: RootJsonReader[FetchResponse] = v =>
       FetchResponse(v.convertTo[Option[ActiveContract]])
+
+    implicit val fetchInterfaceWriter: JsonWriter[FetchInterfaceArgs] = args =>
+      JsObject(
+        "contractId" -> args.contractId.coid.toString.toJson,
+        "templateId" -> args.interfaceId.toJson,
+      )
+
+    implicit val fetchInterfaceReader: RootJsonReader[FetchInterfaceResponse] = v =>
+      FetchInterfaceResponse(v.convertTo[Option[ActiveContract]])
 
     implicit val activeContractReader: RootJsonReader[ActiveContract] = v => {
       v.asJsObject.getFields("contractId", "payload") match {
