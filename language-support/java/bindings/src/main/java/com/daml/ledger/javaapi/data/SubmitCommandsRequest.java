@@ -207,9 +207,8 @@ public final class SubmitCommandsRequest {
         listOfCommands);
   }
 
-  // TODO: Refactor this to take Optional for workflowId when deprecated methods using it below are
-  // removed.
-  @Deprecated
+  // TODO: Refactor this to take CommmandsSubmission when deprecated methods using it below are
+  // removed
   private static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -341,12 +340,7 @@ public final class SubmitCommandsRequest {
         toCommands(submission.getCommands()));
   }
 
-  /**
-   * Please use {@link #toProto(String, CommandsSubmission)}
-   *
-   * @deprecated
-   * @since 2.5
-   */
+  /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
   @Deprecated
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
@@ -391,12 +385,7 @@ public final class SubmitCommandsRequest {
         toCommands(submission.getCommands()));
   }
 
-  /**
-   * Please use {@link #toProto(String, String, CommandsSubmission)}
-   *
-   * @deprecated
-   * @since 2.5
-   */
+  /** @deprecated since 2.5. Please use {@link #toProto(String, String, CommandsSubmission)} */
   @Deprecated
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
@@ -424,12 +413,7 @@ public final class SubmitCommandsRequest {
         commands);
   }
 
-  /**
-   * Please use {@link #toProto(String, String, CommandsSubmission)}
-   *
-   * @deprecated
-   * @since 2.5
-   */
+  /** @deprecated since 2.5. Please use {@link #toProto(String, String, CommandsSubmission)} */
   @Deprecated
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
@@ -459,12 +443,7 @@ public final class SubmitCommandsRequest {
         commands);
   }
 
-  /**
-   * Please use {@link #toProto(String, CommandsSubmission)}
-   *
-   * @deprecated
-   * @since 2.5
-   */
+  /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
   @Deprecated
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,

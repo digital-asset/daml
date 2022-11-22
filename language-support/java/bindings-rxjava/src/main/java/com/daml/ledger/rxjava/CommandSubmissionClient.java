@@ -18,12 +18,7 @@ public interface CommandSubmissionClient {
 
   Single<Empty> submit(CommandsSubmission submission);
 
-  /**
-   * Use {@link #submit(CommandsSubmission)} instead
-   *
-   * @deprecated
-   * @since 2.5
-   */
+  /** @deprecated since 2.5. PLease use {@link #submit(CommandsSubmission)} instead */
   @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,
@@ -35,12 +30,7 @@ public interface CommandSubmissionClient {
       @NonNull Optional<Duration> deduplicationTime,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
-  /**
-   * This method has been deprecated as of [???]. Please use {@link #submit(CommandsSubmission)}
-   * instead
-   *
-   * @deprecated
-   */
+  /** @deprecated since 2.5. PLease use {@link #submit(CommandsSubmission)} instead */
   @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,
@@ -53,12 +43,7 @@ public interface CommandSubmissionClient {
       @NonNull Optional<Duration> deduplicationTime,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
-  /**
-   * This method has been deprecated as of [???]. Please use {@link #submit(CommandsSubmission)}
-   * instead
-   *
-   * @deprecated
-   */
+  /** @deprecated since 2.5. PLease use {@link #submit(CommandsSubmission)} instead */
   @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,
@@ -71,12 +56,7 @@ public interface CommandSubmissionClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
-  /**
-   * This method has been deprecated as of [???]. Please use {@link #submit(CommandsSubmission)}
-   * instead
-   *
-   * @deprecated
-   */
+  /** @deprecated since 2.5. PLease use {@link #submit(CommandsSubmission)} instead */
   @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,
@@ -90,12 +70,7 @@ public interface CommandSubmissionClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
-  /**
-   * This method has been deprecated as of [???]. Please use {@link #submit(CommandsSubmission)}
-   * instead
-   *
-   * @deprecated
-   */
+  /** @deprecated since 2.5. PLease use {@link #submit(CommandsSubmission)} instead */
   @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,
@@ -104,12 +79,7 @@ public interface CommandSubmissionClient {
       @NonNull String party,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
-  /**
-   * This method has been deprecated as of [???]. Please use {@link #submit(CommandsSubmission)}
-   * instead
-   *
-   * @deprecated
-   */
+  /** @deprecated since 2.5. PLease use {@link #submit(CommandsSubmission)} instead */
   @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,
@@ -119,12 +89,7 @@ public interface CommandSubmissionClient {
       @NonNull List<@NonNull String> readAs,
       @NonNull List<@NonNull ? extends HasCommands> commands);
 
-  /**
-   * This method has been deprecated as of [???]. Please use {@link #submit(CommandsSubmission)}
-   * instead
-   *
-   * @deprecated
-   */
+  /** @deprecated since 2.5. PLease use {@link #submit(CommandsSubmission)} instead */
   @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,
@@ -134,12 +99,7 @@ public interface CommandSubmissionClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
-  /**
-   * This method has been deprecated as of [???]. Please use {@link #submit(CommandsSubmission)}
-   * instead
-   *
-   * @deprecated
-   */
+  /** @deprecated since 2.5. PLease use {@link #submit(CommandsSubmission)} instead */
   @Deprecated
   Single<Empty> submit(
       @NonNull String workflowId,

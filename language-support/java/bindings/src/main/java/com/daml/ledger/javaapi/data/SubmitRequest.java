@@ -28,12 +28,7 @@ public final class SubmitRequest {
         .build();
   }
 
-  /**
-   * Please use {@link #toProto(String, CommandsSubmission)}
-   *
-   * @deprecated
-   * @since 2.5
-   */
+  /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
   @Deprecated
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,
@@ -60,12 +55,7 @@ public final class SubmitRequest {
         .build();
   }
 
-  /**
-   * Please use {@link #toProto(String, CommandsSubmission)}
-   *
-   * @deprecated
-   * @since 2.5
-   */
+  /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
   @Deprecated
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,
@@ -94,12 +84,7 @@ public final class SubmitRequest {
         .build();
   }
 
-  /**
-   * Please use {@link #toProto(String, String, CommandsSubmission)}
-   *
-   * @deprecated
-   * @since 2.5
-   */
+  /** @deprecated since 2.5. Please use {@link #toProto(String, String, CommandsSubmission)} */
   @Deprecated
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,
@@ -128,12 +113,7 @@ public final class SubmitRequest {
         .build();
   }
 
-  /**
-   * Please use {@link #toProto(String, String, CommandsSubmission)}
-   *
-   * @deprecated
-   * @since 2.5
-   */
+  /** @deprecated since 2.5. Please use {@link #toProto(String, String, CommandsSubmission)} */
   @Deprecated
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,
