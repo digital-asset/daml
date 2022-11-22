@@ -580,21 +580,21 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
-      :lines: 42-47
+      :lines: 46-49
       :dedent: 4
 
 #. An in-memory contract store is initialized. This is intended to provide a live view of all active contracts, with mappings between ledger and external Ids.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
-      :lines: 53-56
+      :lines: 56-59
       :dedent: 4
 
 #. The Active Contracts Service (ACS) is used to quickly build up the contract store to a recent state.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
-      :lines: 58-70
+      :lines: 61-73
       :dedent: 4
 
    ``blockingForEach`` is used to ensure that the contract store is consistent with the ledger state at the latest offset observed by the client.
@@ -604,7 +604,7 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
-      :lines: 73-94
+      :lines: 76-97
       :dedent: 4
 
 #. Commands are submitted via the Command Submission Service.
@@ -619,13 +619,13 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :caption: Exercise a choice
       :language: java
-      :lines: 118-120
+      :lines: 119-121
       :dedent: 10
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :caption: Create a contract
       :language: java
-      :lines: 107-109
+      :lines: 109-111
       :dedent: 10
 
 The rest of the application sets up the REST services using `Spark Java <http://sparkjava.com/>`_, and does dynamic package Id detection using the Package Service. The latter is useful during development when package Ids change frequently.
