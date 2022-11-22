@@ -9,6 +9,6 @@ class InMemoryIdentityProviderConfigStoreSpec
     extends AsyncFreeSpec
     with IdentityProviderConfigStoreTests {
 
-  override def newStore() = new InMemoryIdentityProviderConfigStore()
+  override def newStore() = new InMemoryIdentityProviderConfigStore(MaxIdentityProviderConfigs)
 
 }

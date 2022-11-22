@@ -12,8 +12,6 @@ trait PersistentIdentityProviderConfigStoreTests
     with IdentityProviderConfigStoreTests {
   self: AsyncFreeSpec with StorageBackendProvider =>
 
-  val MaxIdentityProviderConfigs = 10
-
   override def newStore() = new PersistentIdentityProviderConfigStore(
     dbSupport = dbSupport,
     metrics = Metrics.ForTesting,

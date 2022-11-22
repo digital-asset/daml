@@ -22,6 +22,8 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
   self: AsyncFreeSpec =>
   implicit val lc: LoggingContext = LoggingContext.ForTesting
 
+  val MaxIdentityProviderConfigs = 10
+
   def config(): IdentityProviderConfig =
     IdentityProviderConfig(
       identityProviderId = randomId(),
@@ -76,10 +78,14 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
       }
     }
 
-    s"disallow to create more than 10 configs" in {
+    s"disallow to create more than $MaxIdentityProviderConfigs configs" in {
       testIt { tested =>
         for {
-          res1 <- Future.sequence((1 to 10).map(_ => tested.createIdentityProviderConfig(config())))
+          res1 <- Future.sequence(
+            (1 to MaxIdentityProviderConfigs).map(_ =>
+              tested.createIdentityProviderConfig(config())
+            )
+          )
           res2 <- tested.createIdentityProviderConfig(config())
         } yield {
           res1.forall(_.isRight) shouldBe true
