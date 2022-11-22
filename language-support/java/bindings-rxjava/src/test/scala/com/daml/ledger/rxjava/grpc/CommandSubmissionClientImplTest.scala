@@ -3,7 +3,13 @@
 
 package com.daml.ledger.rxjava.grpc
 
-import com.daml.ledger.javaapi.data.{Command, CommandsSubmission, CreateCommand, DamlRecord, Identifier}
+import com.daml.ledger.javaapi.data.{
+  Command,
+  CommandsSubmission,
+  CreateCommand,
+  DamlRecord,
+  Identifier,
+}
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.google.protobuf.empty.Empty
