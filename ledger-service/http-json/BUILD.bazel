@@ -404,6 +404,7 @@ alias(
             "@maven//:org_scalaz_scalaz_core",
         ],
         scalacopts = hj_scalacopts,
+        visibility = ["//test-evidence:__pkg__"] if edition == "ce" else None,
         deps = [
             ":http-json-{}".format(edition),
             ":integration-tests-lib-{}".format(edition),

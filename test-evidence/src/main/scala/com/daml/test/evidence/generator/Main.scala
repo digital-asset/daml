@@ -43,7 +43,6 @@ object Main {
       val csvFileName = args(0)
       val jsonFileName = args(1)
 
-//      println("entries: " + securityTestEntries.mkString(", "))
       writeEvidenceToCsvFile(csvFileName, csvEntries)
       writeEvidenceToJsonFile(jsonFileName, securityTestEntries)
 
