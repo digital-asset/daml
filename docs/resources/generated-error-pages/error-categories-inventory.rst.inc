@@ -58,21 +58,6 @@ SystemInternalAssumptionViolated
     **Retry strategy**: Retry after operator intervention.
 
 
-MaliciousOrFaultyBehaviour
-========================================================================================================================
-    **Category id**: 5
-
-    **gRPC status code**: UNKNOWN
-
-    **Default log level**: WARN
-
-    **Description**: Request processing failed due to unrecoverable data loss or corruption (e.g. detected via checksums). This error is exposed on the API with grpc-status UNKNOWN without any details for security reasons
-
-    **Resolution**: Expectation: this can be a severe issue that requires operator attention or intervention, and potentially vendor support.
-
-    **Retry strategy**: Retry after operator intervention.
-
-
 AuthInterceptorInvalidAuthenticationCredentials
 ========================================================================================================================
     **Category id**: 6
@@ -105,15 +90,15 @@ InsufficientPermission
 
 SecurityAlert
 ========================================================================================================================
-    **Category id**: 15
+    **Category id**: 5
 
     **gRPC status code**: INVALID_ARGUMENT
 
     **Default log level**: WARN
 
-    **Description**: A potential attack has been detected.  This error is exposed on the API with grpc-status INVALID_ARGUMENT without any details for security reasons.
+    **Description**: A potential attack or a faulty peer component has been detected.  This error is exposed on the API with grpc-status INVALID_ARGUMENT without any details for security reasons.
 
-    **Resolution**: Expectation: this can be a severe issue that requires operator attention or intervention, and potentially vendor support.
+    **Resolution**: Expectation: this can be a severe issue that requires operator attention or intervention, and potentially vendor support. It means that the system has detected invalid information that can be attributed to either faulty or malicious manipulation of data coming from a peer source.
 
     **Retry strategy**: Errors in this category are non-retryable.
 
