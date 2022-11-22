@@ -611,7 +611,7 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
-      :lines: 134-143
+      :lines: 137-141
       :dedent: 2
 
    You can find examples of ``Update`` instantiations for creating contract and exercising a choice in the bodies of the ``transfer`` and ``iou`` endpoints, respectively.
