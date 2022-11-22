@@ -65,7 +65,6 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
       ),
     )
     migrateTo(dstMigration)
-    migrateTo(dstMigration)
     fetchTable(
       Schema126.idFilterCreateStakeholder
     ) shouldBe empty

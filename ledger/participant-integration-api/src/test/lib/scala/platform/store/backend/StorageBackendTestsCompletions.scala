@@ -3,6 +3,7 @@
 
 package com.daml.platform.store.backend
 
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.google.protobuf.duration.Duration
 import org.scalatest.Inside
@@ -92,10 +93,10 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
     executeSql(ingest(dtos, _))
     executeSql(updateLedgerEnd(offset(3), 2L))
-    val completions = executeSql(
+    val completions: Seq[CompletionStreamResponse] = executeSql(
       backend.completion
         .commandCompletions(offset(1), offset(3), someApplicationId, Set(party), limit = 10)
-    )
+    ).toList
 
     completions should have length 2
     inside(completions) { case List(completionWithSubmissionId, completionWithoutSubmissionId) =>
@@ -127,7 +128,7 @@ private[backend] trait StorageBackendTestsCompletions
     val completions = executeSql(
       backend.completion
         .commandCompletions(offset(1), offset(3), someApplicationId, Set(party), limit = 10)
-    )
+    ).toList
 
     completions should have length 2
     inside(completions) {
@@ -170,7 +171,7 @@ private[backend] trait StorageBackendTestsCompletions
     val completions = executeSql(
       backend.completion
         .commandCompletions(offset(1), offset(3), someApplicationId, Set(party), limit = 10)
-    )
+    ).toList
 
     completions should have length 2
     inside(completions) {
