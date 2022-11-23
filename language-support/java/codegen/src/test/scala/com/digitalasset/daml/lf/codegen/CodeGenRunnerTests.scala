@@ -58,18 +58,32 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   it should "read interfaces from a single DAR file with a prefix" in {
 
-    val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> Some("PREFIX")), Map.empty)
+    val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> Some("prefix")), Map.empty)
 
     assert(scope.signatures.map(_.packageId).length === dar.all.length)
     assert(scope.packagePrefixes.size === dar.all.length)
-    assert(scope.packagePrefixes.values.forall(_ === "PREFIX"))
+    assert(scope.packagePrefixes.values.forall(_ === "prefix"))
     assert(scope.toBeGenerated === Set.empty)
   }
 
-  it should "fail if read interfaces from a 2 same DAR files with different prefixes" in {
+  it should "read interfaces from 2 DAR files with same content and same prefixes" in {
+
+    val scope =
+      CodeGenRunner.configureCodeGenScope(
+        Map(testDar -> Some("prefix"), testDarWithSameSrcAndProjectNamePathDar -> Some("prefix")),
+        Map.empty,
+      )
+
+    assert(scope.signatures.length === dar.all.length)
+    assert(scope.packagePrefixes.size === dar.all.length)
+    assert(scope.packagePrefixes.values.forall(_ === "prefix"))
+    assert(scope.toBeGenerated === Set.empty)
+  }
+
+  it should "fail if read interfaces from 2 DAR files with same content but different prefixes" in {
     assertThrows[IllegalArgumentException] {
       CodeGenRunner.configureCodeGenScope(
-        Map(testTemplateDar -> Some("PREFIX1"), testTemplateDar -> Some("PREFIX2")),
+        Map(testDar -> Some("prefix1"), testDarWithSameSrcAndProjectNamePathDar -> Some("prefix2")),
         Map.empty,
       )
     }
@@ -194,16 +208,20 @@ object CodeGenRunnerTests {
   private[this] val testDarPath = "language-support/java/codegen/test-daml.dar"
   private[this] val testDarWithSameDependenciesPath =
     "language-support/java/codegen/test-daml-with-same-dependencies.dar"
+  private[this] val testDarWithSameSrcAndProjectNamePath =
+    "language-support/java/codegen/test-daml-with-same-source-project-name.dar"
   private[this] val testDarWithSameDependenciesButDifferentTargetVersionPath =
     "language-support/java/codegen/test-daml-with-same-dependencies-but-different-target-version.dar"
-  private[this] val testTemplateDarPath = "language-support/java/codegen/test-template.dar"
+//  private[this] val testTemplateDarPath = "language-support/java/codegen/test-template.dar"
 //  private[this] val testTemplateDar2Path = "language-support/java/codegen/test-template2.dar"
   private val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
   private val testDarWithSameDependencies =
     Path.of(BazelRunfiles.rlocation(testDarWithSameDependenciesPath))
+  private val testDarWithSameSrcAndProjectNamePathDar =
+    Path.of(BazelRunfiles.rlocation(testDarWithSameSrcAndProjectNamePath))
   private val testDarWithSameDependenciesButDifferentTargetVersion =
     Path.of(BazelRunfiles.rlocation(testDarWithSameDependenciesButDifferentTargetVersionPath))
-  private val testTemplateDar = Path.of(BazelRunfiles.rlocation(testTemplateDarPath))
+//  private val testTemplateDar = Path.of(BazelRunfiles.rlocation(testTemplateDarPath))
 //  private val testTemplate2Dar = Path.of(BazelRunfiles.rlocation(testTemplateDar2Path))
 
   private val dar = DarReader.assertReadArchiveFromFile(testDar.toFile)

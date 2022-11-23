@@ -76,6 +76,7 @@ da_scala_test(
     data = [
         ":test-daml.dar",
         ":test-daml-with-same-dependencies.dar",
+        ":test-daml-with-same-source-project-name.dar",
         ":test-daml-with-same-dependencies-but-different-target-version.dar",
         ":test-template.dar",
         ":test-template2.dar",
@@ -117,6 +118,12 @@ daml_compile(
 daml_compile(
     name = "test-daml-with-same-dependencies",
     srcs = ["src/test/daml/Foo2.daml"],
+)
+
+daml_compile(
+    name = "test-daml-with-same-source-project-name",
+    project_name = "test-daml",
+    srcs = ["src/test/daml/Foo.daml"],
 )
 
 daml_compile(
