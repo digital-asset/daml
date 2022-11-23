@@ -5,13 +5,16 @@ package com.daml.ledger.javaapi.data;
 
 import static com.daml.ledger.javaapi.data.codegen.HasCommands.toCommands;
 import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableList;
 
 import com.daml.ledger.api.v1.CommandsOuterClass;
 import com.google.protobuf.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 public final class SubmitCommandsRequest {
@@ -141,8 +144,8 @@ public final class SubmitCommandsRequest {
     this.applicationId = applicationId;
     this.commandId = commandId;
     this.party = actAs.get(0);
-    this.actAs = unmodifiableList(new ArrayList<>(actAs));
-    this.readAs = unmodifiableList(new ArrayList<>(readAs));
+    this.actAs = List.copyOf(actAs);
+    this.readAs = List.copyOf(readAs);
     this.minLedgerTimeAbsolute = minLedgerTimeAbsolute;
     this.minLedgerTimeRelative = minLedgerTimeRelative;
     this.deduplicationTime = deduplicationTime;
@@ -224,10 +227,8 @@ public final class SubmitCommandsRequest {
     if (actAs.size() == 0) {
       throw new IllegalArgumentException("actAs must have at least one element");
     }
-    ArrayList<CommandsOuterClass.Command> commandsConverted = new ArrayList<>(commands.size());
-    for (Command command : commands) {
-      commandsConverted.add(command.toProtoCommand());
-    }
+    List<CommandsOuterClass.Command> commandsConverted =
+        commands.stream().map(Command::toProtoCommand).collect(Collectors.toList());
     CommandsOuterClass.Commands.Builder builder =
         CommandsOuterClass.Commands.newBuilder()
             .setLedgerId(ledgerId)
@@ -269,14 +270,10 @@ public final class SubmitCommandsRequest {
     if (submission.getActAs().size() == 0) {
       throw new IllegalArgumentException("actAs must have at least one element");
     }
-    ArrayList<CommandsOuterClass.Command> commandsConverted =
-        new ArrayList<>(submission.getCommands().size());
 
     List<Command> commands = toCommands(submission.getCommands());
-
-    for (Command command : commands) {
-      commandsConverted.add(command.toProtoCommand());
-    }
+    List<CommandsOuterClass.Command> commandsConverted =
+        commands.stream().map(Command::toProtoCommand).collect(Collectors.toList());
 
     CommandsOuterClass.Commands.Builder builder =
         CommandsOuterClass.Commands.newBuilder()
