@@ -24,51 +24,39 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
 
 private final class CodeGenRunner(
-    scopeByPackagePrefix: Map[Option[String], CodeGenRunner.Scope],
+    scope: CodeGenRunner.Scope,
     outputDirectory: Path,
     decoderPackageAndClass: Option[(String, String)],
 ) extends StrictLogging {
 
   def runWith(executionContext: ExecutionContext): Future[Unit] = {
     implicit val ec: ExecutionContext = executionContext
-    Future
-      .traverse(scopeByPackagePrefix.toSeq) { case (maybePrefix, scope) =>
-        val packageIds = scope.signatures.map(_.packageId).mkString(", ")
-        val prefix = maybePrefix.fold("")(p => s" with prefix '$p'")
-        logger.info(
-          s"Start processing packageIds '$packageIds'$prefix"
-        )
-        for {
-          _ <- generateDecoder()
-          interfaceTrees = scope.signatures.map(InterfaceTree.fromInterface)
-          _ <- Future.traverse(interfaceTrees)(processInterfaceTree(scope, _))
-        } yield logger.info(s"Finished processing packageIds '$packageIds'$prefix")
-      }
-      .map(_ => ())
+    val packageIds = scope.signatures.map(_.packageId).mkString(", ")
+    logger.info(s"Start processing packageIds '$packageIds'")
+    for {
+      _ <- generateDecoder()
+      interfaceTrees = scope.signatures.map(InterfaceTree.fromInterface)
+      _ <- Future.traverse(interfaceTrees)(processInterfaceTree(_))
+    } yield logger.info(s"Finished processing packageIds '$packageIds'")
   }
 
   private def generateDecoder()(implicit ec: ExecutionContext): Future[Unit] =
     decoderPackageAndClass.fold(Future.unit) { case (decoderPackage, decoderClassName) =>
-      val decoderClass = DecoderClass.generateCode(
-        decoderClassName,
-        scopeByPackagePrefix.view.values.flatMap(_.templateClassNames),
-      )
+      val decoderClass = DecoderClass.generateCode(decoderClassName, scope.templateClassNames)
       val decoderFile = JavaFile.builder(decoderPackage, decoderClass).build()
       Future(decoderFile.writeTo(outputDirectory))
     }
 
   private def processInterfaceTree(
-      scope: CodeGenRunner.Scope,
-      interfaceTree: InterfaceTree,
+      interfaceTree: InterfaceTree
   )(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info(s"Start processing packageId '${interfaceTree.interface.packageId}'")
-    for (_ <- interfaceTree.process(process(scope, _)))
+    for (_ <- interfaceTree.process(process))
       yield logger.info(s"Finished processing packageId '${interfaceTree.interface.packageId}'")
   }
 
   private def process(
-      scope: CodeGenRunner.Scope,
-      nodeWithContext: NodeWithContext,
+      nodeWithContext: NodeWithContext
   )(implicit ec: ExecutionContext): Future[Unit] =
     nodeWithContext match {
       case moduleWithContext: ModuleWithContext =>
@@ -76,7 +64,7 @@ private final class CodeGenRunner(
         val moduleName = moduleWithContext.lineage.map(_._1).toSeq.mkString(".")
         Future {
           logger.info(s"Generating code for module $moduleName")
-          for (javaFile <- createTypeDefinitionClasses(scope, moduleWithContext)) {
+          for (javaFile <- createTypeDefinitionClasses(moduleWithContext)) {
             val javaFileFullName = s"${javaFile.packageName}.${javaFile.typeSpec.name}"
             logger.info(s"Writing $javaFileFullName to directory $outputDirectory")
             javaFile.writeTo(outputDirectory)
@@ -87,8 +75,7 @@ private final class CodeGenRunner(
     }
 
   private def createTypeDefinitionClasses(
-      scope: CodeGenRunner.Scope,
-      module: ModuleWithContext,
+      module: ModuleWithContext
   ): Iterable[JavaFile] = {
     MDC.put("packageId", module.packageId)
     MDC.put("packageIdShort", module.packageId.take(7))
@@ -140,7 +127,7 @@ object CodeGenRunner extends StrictLogging {
     checkAndCreateOutputDir(conf.outputDirectory)
 
     val scopeByPackagePrefix =
-      configureCodeGenScopeByPackagePrefix(conf.darFiles, conf.modulePrefixes)
+      configureCodeGenScope(conf.darFiles, conf.modulePrefixes)
 
     val codegen =
       new CodeGenRunner(scopeByPackagePrefix, conf.outputDirectory, conf.decoderPkgAndClass)
@@ -152,26 +139,23 @@ object CodeGenRunner extends StrictLogging {
     ()
   }
 
-  private[codegen] def configureCodeGenScopeByPackagePrefix(
+  private[codegen] def configureCodeGenScope(
       darFiles: Iterable[(Path, Option[String])],
       modulePrefixes: Map[PackageReference, String],
-  ): Map[Option[String], CodeGenRunner.Scope] = {
-    val pathsByPackagePrefix = darFiles.groupMap(_._2)(_._1)
-    pathsByPackagePrefix.map { case (maybePrefix, paths) =>
-      maybePrefix -> configureCodeGenScope(maybePrefix, paths, modulePrefixes)
-    }
-  }
-
-  private[codegen] def configureCodeGenScope(
-      packagePrefix: Option[String],
-      darFiles: Iterable[Path],
-      modulePrefixes: Map[PackageReference, String],
   ): CodeGenRunner.Scope = {
-    val signatureMap = (for {
-      path <- darFiles
-      signature <- decodeDarAt(path)
-    } yield signature.packageId -> signature).toMap
-
+    val signaturesAndPackagePrefixes =
+      for {
+        (path, packagePrefix) <- darFiles.view
+        interface <- decodeDarAt(path)
+      } yield (interface, packagePrefix)
+    val (signatureMap, packagePrefixes) =
+      signaturesAndPackagePrefixes.foldLeft(
+        (Map.empty[PackageId, PackageSignature], Map.empty[PackageId, String])
+      ) { case ((signatures, prefixes), (signature, prefix)) =>
+        val updatedSignatures = signatures.updated(signature.packageId, signature)
+        val updatedPrefixes = prefix.fold(prefixes)(prefixes.updated(signature.packageId, _))
+        (updatedSignatures, updatedPrefixes)
+      }
     val signatures = signatureMap.values.toSeq
     val environmentInterface = EnvironmentSignature.fromPackageSignatures(signatures)
 
@@ -193,7 +177,7 @@ object CodeGenRunner extends StrictLogging {
 
     val resolvedPrefixes =
       resolvePackagePrefixes(
-        packagePrefix,
+        packagePrefixes,
         modulePrefixes,
         resolvedSignatures,
         generatedModuleIds,
@@ -242,7 +226,7 @@ object CodeGenRunner extends StrictLogging {
     * daml.yaml, produce the combined prefixes per package id.
     */
   private[codegen] def resolvePackagePrefixes(
-      packagePrefix: Option[String],
+      packagePrefixes: Map[PackageId, String],
       modulePrefixes: Map[PackageReference, String],
       signatures: Seq[PackageSignature],
       generatedModules: Set[Reference.Module],
@@ -268,10 +252,8 @@ object CodeGenRunner extends StrictLogging {
       resolveRef(k) -> v.toLowerCase
     }
     val resolvedPackagePrefixes =
-      (packagePrefix.fold(Set.empty[PackageId])(_ =>
-        signatures.map(_.packageId).toSet
-      ) union resolvedModulePrefixes.keySet).view.map { k =>
-        val prefix = (packagePrefix, resolvedModulePrefixes.get(k)) match {
+      (packagePrefixes.keySet union resolvedModulePrefixes.keySet).view.map { k =>
+        val prefix = (packagePrefixes.get(k), resolvedModulePrefixes.get(k)) match {
           case (None, None) =>
             throw new RuntimeException(
               "Internal error: key in pkgPrefixes and resolvedModulePrefixes could not be found in either of them"
