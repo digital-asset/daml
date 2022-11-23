@@ -23,7 +23,7 @@ import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.dao.events.Raw
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.EventStorageBackend.RawTransactionEvent
-import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
+import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interning.StringInterning
 
@@ -399,9 +399,9 @@ object EventStorageBackendTemplate {
   ).mkString(", ")
 
   val EventSequentailIdFromTo: RowParser[(Long, Long)] =
-    long("event_sequential_id_from") ~ long("event_sequential_id_to") map {
-      case event_sequential_id_from ~ event_sequential_id_to =>
-        (event_sequential_id_from, event_sequential_id_to)
+    long("event_sequential_id_first") ~ long("event_sequential_id_last") map {
+      case event_sequential_id_first ~ event_sequential_id_last =>
+        (event_sequential_id_first, event_sequential_id_last)
     }
 
 }
@@ -463,7 +463,6 @@ abstract class EventStorageBackendTemplate(
       .asVectorOf(rawFlatEventParser(allInternedFilterParties, stringInterning))(connection)
   }
 
-  // TODO pbatko: Consider renaming filter tables from '...filter...' tables to  '...id_filter_...'
   // TODO etq: Implement pruning queries in terms of event sequential id in order to be able to drop offset based indices.
   /** Deletes a subset of the indexed data (up to the pruning offset) in the following order and in the manner specified:
     * 1.a if pruning-all-divulged-contracts is enabled: all divulgence events (retroactive divulgence),
@@ -800,7 +799,7 @@ abstract class EventStorageBackendTemplate(
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
          SELECT
-            event_sequential_id_to
+            event_sequential_id_last
          FROM
             participant_transaction_meta
          WHERE
@@ -860,9 +859,9 @@ abstract class EventStorageBackendTemplate(
           NOT EXISTS (
             SELECT 1 FROM participant_events_create c
             WHERE
-              c.event_sequential_id >= m.event_sequential_id_from
+              c.event_sequential_id >= m.event_sequential_id_first
               AND
-              c.event_sequential_id <= m.event_sequential_id_to
+              c.event_sequential_id <= m.event_sequential_id_last
           )
        """
   }

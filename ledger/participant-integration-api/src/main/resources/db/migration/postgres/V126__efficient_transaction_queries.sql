@@ -56,8 +56,8 @@ CREATE INDEX pe_non_consuming_id_filter_informee_s_idx ON pe_non_consuming_id_fi
 CREATE TABLE participant_transaction_meta(
     transaction_id TEXT NOT NULL,
     event_offset TEXT NOT NULL,
-    event_sequential_id_from BIGINT NOT NULL,
-    event_sequential_id_to BIGINT NOT NULL
+    event_sequential_id_first BIGINT NOT NULL,
+    event_sequential_id_last BIGINT NOT NULL
 );
 CREATE INDEX participant_transaction_meta_tid_idx ON participant_transaction_meta(transaction_id);
 CREATE INDEX participant_transaction_meta_event_offset_idx ON participant_transaction_meta(event_offset);
@@ -169,5 +169,5 @@ input2 AS (
     FROM input1
     GROUP BY t, o
 )
-INSERT INTO participant_transaction_meta(transaction_id, event_offset, event_sequential_id_from, event_sequential_id_to)
+INSERT INTO participant_transaction_meta(transaction_id, event_offset, event_sequential_id_first, event_sequential_id_last)
 SELECT t, o, first_i, last_i FROM input2;

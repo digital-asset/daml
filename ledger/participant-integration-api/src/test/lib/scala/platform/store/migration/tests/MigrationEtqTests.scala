@@ -98,8 +98,8 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
       row(
         "transaction_id" -> "txId1",
         "event_offset" -> "eventOffset1",
-        "event_sequential_id_from" -> 101L,
-        "event_sequential_id_to" -> 104L,
+        "event_sequential_id_first" -> 101L,
+        "event_sequential_id_last" -> 104L,
       )
     )
   }
@@ -167,8 +167,8 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
       row(
         "transaction_id" -> "txId2",
         "event_offset" -> "eventOffset2",
-        "event_sequential_id_from" -> 201L,
-        "event_sequential_id_to" -> 203L,
+        "event_sequential_id_first" -> 201L,
+        "event_sequential_id_last" -> 203L,
       )
     )
   }
@@ -287,14 +287,14 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
       row(
         "transaction_id" -> "txId501",
         "event_offset" -> "eventOffset501",
-        "event_sequential_id_from" -> 501L,
-        "event_sequential_id_to" -> 501L,
+        "event_sequential_id_first" -> 501L,
+        "event_sequential_id_last" -> 501L,
       ),
       row(
         "transaction_id" -> "txId502",
         "event_offset" -> "eventOffset502",
-        "event_sequential_id_from" -> 502L,
-        "event_sequential_id_to" -> 502L,
+        "event_sequential_id_first" -> 502L,
+        "event_sequential_id_last" -> 502L,
       ),
     )
   }
@@ -455,8 +455,8 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
       TableSchema("participant_transaction_meta", "transaction_id, event_offset")(
         "transaction_id" -> Str,
         "event_offset" -> Str,
-        "event_sequential_id_from" -> BigInt,
-        "event_sequential_id_to" -> BigInt,
+        "event_sequential_id_first" -> BigInt,
+        "event_sequential_id_last" -> BigInt,
       )
     }
 

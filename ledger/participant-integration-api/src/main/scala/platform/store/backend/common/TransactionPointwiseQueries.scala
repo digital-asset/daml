@@ -37,11 +37,10 @@ class TransactionPointwiseQueries(
     //              within the pruning offset. Such data shall not be retrieved from transaction based endpoints.
     //              Rather, such data shall be retrieved only by the ACS endpoint.
     val ledgerEndOffset: Offset = ledgerEndCache()._1
-    // TODO pbatko: ? rename from, to -> first, last
     SQL"""
          SELECT
-            t.event_sequential_id_from,
-            t.event_sequential_id_to
+            t.event_sequential_id_first,
+            t.event_sequential_id_last
          FROM
             participant_transaction_meta t
          JOIN parameters p
@@ -125,11 +124,9 @@ class TransactionPointwiseQueries(
       .map(stringInterning.party.tryInternalize)
       .flatMap(_.iterator)
       .toSet
-    // TODO pbatko: Consider implementing support for `fetchSizeHint` and `limit`.
-    // TODO pbatko: Note that we are checking against fetching data from the pruned offset
-    //              even though the same check has been done when fetching event seq ids from transaction_meta table.
-    //              Both checks are needed as fetching from transaction_meta and fetching events here
-    //              happens in two different transactions which can be interleaved by a pruning transaction.
+    // TODO etq: Consider implementing support for `fetchSizeHint` and `limit`.
+    // NOTE: We are checking the pruned offset in this query
+    // even though a pruning offset check has also been made when fetching the event sequential ids from transaction_meta table.
     def selectFrom(tableName: String, selectColumns: String) = cSQL"""
         (
           SELECT

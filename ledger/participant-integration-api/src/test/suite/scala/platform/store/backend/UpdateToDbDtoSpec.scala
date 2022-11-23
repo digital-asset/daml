@@ -955,7 +955,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         observers = List("observer"),
         key = None,
       )
-      // TODO pbatko: reproduce in Daml Script
       val exerciseNode = builder.exercise(
         contract = createNode,
         choice = "someChoice",

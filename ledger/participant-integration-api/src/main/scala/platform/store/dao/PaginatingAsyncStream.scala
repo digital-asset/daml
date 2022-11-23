@@ -6,14 +6,11 @@ package com.daml.platform.store.dao
 import akka.NotUsed
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.dao.events.FilterTableACSReader.IdQueryConfiguration
 
 import scala.concurrent.{ExecutionContext, Future}
 
 private[platform] object PaginatingAsyncStream {
-
-  private val logger = ContextualizedLogger.get(this.getClass)
 
   /** Concatenates the results of multiple asynchronous calls into
     * a single [[Source]], injecting the offset of the next page to
@@ -84,7 +81,7 @@ private[platform] object PaginatingAsyncStream {
 
   case class IdPaginationState(startOffset: Long, pageSize: Int)
 
-  // TODO pbatko: See also com.daml.platform.store.dao.events.FilterTableACSReader.sourceFromPaginationQuery
+  // TODO etq: Unify with com.daml.platform.store.dao.events.FilterTableACSReader.idSource
   def streamIdsFromSeekPagination(
       pageConfig: IdQueryConfiguration,
       pageBufferSize: Int,
@@ -99,10 +96,6 @@ private[platform] object PaginatingAsyncStream {
           pageSize = pageConfig.minPageSize,
         ): IdPaginationState
       ) { state: IdPaginationState =>
-        // TODO pbatko: Just for testing; remove me
-        logger.info(s"Id page size is: ${state.pageSize} at offset: ${state.startOffset}")(
-          LoggingContext.ForTesting
-        )
         fetchPage(state).map {
           case empty if empty.isEmpty => None
           case nonEmpty: Vector[Long] =>

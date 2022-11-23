@@ -57,8 +57,8 @@ CREATE INDEX pe_non_consuming_id_filter_informee_s_idx ON pe_non_consuming_id_fi
 CREATE TABLE participant_transaction_meta(
     transaction_id VARCHAR2(4000) NOT NULL,
     event_offset VARCHAR2(4000) NOT NULL,
-    event_sequential_id_from NUMBER NOT NULL,
-    event_sequential_id_to NUMBER NOT NULL
+    event_sequential_id_first NUMBER NOT NULL,
+    event_sequential_id_last NUMBER NOT NULL
 );
 CREATE INDEX participant_transaction_meta_tid_idx ON participant_transaction_meta(transaction_id);
 CREATE INDEX participant_transaction_meta_event_offset_idx ON participant_transaction_meta(event_offset);
@@ -150,7 +150,7 @@ SELECT i, p
 FROM input1, json_table(ps, '$[*]' columns (p NUMBER PATH '$'));
 
 -- Populate participant_transaction_meta
-INSERT INTO participant_transaction_meta(transaction_id, event_offset, event_sequential_id_from, event_sequential_id_to)
+INSERT INTO participant_transaction_meta(transaction_id, event_offset, event_sequential_id_first, event_sequential_id_last)
 WITH
 input1 AS (
         SELECT

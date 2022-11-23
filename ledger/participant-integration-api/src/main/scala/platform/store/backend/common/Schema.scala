@@ -333,8 +333,8 @@ private[backend] object AppendOnlySchema {
       fieldStrategy.insert("participant_transaction_meta")(
         "transaction_id" -> fieldStrategy.string(_ => _.transaction_id),
         "event_offset" -> fieldStrategy.string(_ => _.event_offset),
-        "event_sequential_id_from" -> fieldStrategy.bigint(_ => _.event_sequential_id_first),
-        "event_sequential_id_to" -> fieldStrategy.bigint(_ => _.event_sequential_id_last),
+        "event_sequential_id_first" -> fieldStrategy.bigint(_ => _.event_sequential_id_first),
+        "event_sequential_id_last" -> fieldStrategy.bigint(_ => _.event_sequential_id_last),
       )
 
     val transactionMetering: Table[DbDto.TransactionMetering] =

@@ -33,7 +33,6 @@ private[dao] final class CommandCompletionsReader(
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
-    // TODO pbatko: Use exponential ramp-up page sizes for completions?
     val pruneSafeQuery =
       (range: QueryRange[Offset]) => { implicit connection: Connection =>
         queryNonPruned.executeSql[Vector[CompletionStreamResponse]](
