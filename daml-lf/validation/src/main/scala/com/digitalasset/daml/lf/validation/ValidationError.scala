@@ -367,9 +367,7 @@ final case class EViewTypeMismatch(
     expr: Option[Expr],
 ) extends ValidationError {
   protected def prettyInternal: String =
-    s"""type mismatch for view of interface instance ${ifaceName.qualifiedName} for ${tplName.qualifiedName}
-       | * interface ${ifaceName.qualifiedName} expected viewtype: ${expectedType.pretty}
-       | * but got viewtype: ${foundType.pretty}""".stripMargin
+    s"""Tried to implement a view of type ${foundType.pretty} on interface ${ifaceName.qualifiedName} for template ${tplName.qualifiedName}, but the definition of interface ${ifaceName.qualifiedName} requires a view of type ${expectedType.pretty}"""
 }
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"

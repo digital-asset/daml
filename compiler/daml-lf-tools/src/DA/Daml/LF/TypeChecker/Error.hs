@@ -424,11 +424,11 @@ instance Pretty Error where
         ]
     EViewTypeMismatch { ifaceName, tplName, foundType, expectedType, expr } ->
       vcat $
-        [ "type mismatch for view of interface instance " <> pretty ifaceName <> " for " <> pretty tplName
-        , "* interface " <> pretty ifaceName <> " has expected viewtype:"
-        , nest 4 (pretty expectedType)
-        , "* but got viewtype:"
-        , nest 4 (pretty foundType)
+        [ text "Tried to implement a view of type " <> pretty foundType
+          <> text " on interface " <> pretty ifaceName
+          <> text " for template " <> pretty tplName
+          <> text ", but the definition of interface " <> pretty ifaceName
+          <> text " requires a view of type " <> pretty expectedType
         ] ++
         maybe [] (\e -> ["* in expression:", nest 4 (pretty e)]) expr
     EUnsupportedFeature Feature{..} ->
