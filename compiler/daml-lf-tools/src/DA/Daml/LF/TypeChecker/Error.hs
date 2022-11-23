@@ -129,6 +129,7 @@ data Error
   | EViewTypeHeadNotCon !Type !Type
   | EViewTypeHasVars !Type
   | EViewTypeConNotRecord !DataCons !Type
+  | EViewTypeMismatch { ifaceName :: !(Qualified TypeConName), tplName :: !(Qualified TypeConName), foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr) }
   | EEmptyCase
   | EClashingPatternVariables !ExprVarName
   | EExpectedTemplatableType !TypeConName
@@ -421,6 +422,15 @@ instance Pretty Error where
         , "record types are declared with one constructor using curly braces, i.e."
         , "data MyRecord = MyRecord { ... fields ... }"
         ]
+    EViewTypeMismatch { ifaceName, tplName, foundType, expectedType, expr } ->
+      vcat $
+        [ "type mismatch for view of interface instance " <> pretty ifaceName <> " for " <> pretty tplName
+        , "* interface " <> pretty ifaceName <> " has expected viewtype:"
+        , nest 4 (pretty expectedType)
+        , "* but got viewtype:"
+        , nest 4 (pretty foundType)
+        ] ++
+        maybe [] (\e -> ["* in expression:", nest 4 (pretty e)]) expr
     EUnsupportedFeature Feature{..} ->
       "unsupported feature:" <-> pretty featureName
       <-> "only supported in Daml-LF version" <-> pretty featureMinVersion <-> "and later"

@@ -651,7 +651,12 @@ private[validation] object Typing {
         }
       }
 
-      env.checkTopExpr(iiBody.view, view)
+      try env.checkTopExpr(iiBody.view, view)
+      catch {
+        case e: ETypeMismatch => {
+          throw EViewTypeMismatch(e.context, interfaceId, templateId, e.foundType, e.expectedType, e.expr)
+        }
+      }
     }
 
     private[Typing] def checkDefException(

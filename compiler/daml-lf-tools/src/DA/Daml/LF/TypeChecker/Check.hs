@@ -1016,7 +1016,12 @@ checkInterfaceInstance tmplParam iiHead iiBody = do
           checkExpr iiMethodExpr ifmType
 
     -- check view result type matches interface result type
-    checkExpr iiView intView
+    catchAndRethrow
+      (\case
+          ETypeMismatch { foundType, expectedType, expr } ->
+            EViewTypeMismatch { ifaceName = iiInterface, tplName = iiTemplate, foundType, expectedType, expr }
+          e -> e)
+      (checkExpr iiView intView)
 
 checkFeature :: MonadGamma m => Feature -> m ()
 checkFeature feature = do

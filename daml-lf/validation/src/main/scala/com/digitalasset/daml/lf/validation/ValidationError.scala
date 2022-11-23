@@ -358,6 +358,19 @@ final case class EViewTypeConNotRecord(context: Context, badCons: DataCons, typ:
     s"expected monomorphic record type in view type, but found ${prettyCons} instead: ${typ.pretty}"
   }
 }
+final case class EViewTypeMismatch(
+    context: Context,
+    ifaceName: TypeConName,
+    tplName: TypeConName,
+    foundType: Type,
+    expectedType: Type,
+    expr: Option[Expr],
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"""type mismatch for view of interface instance ${ifaceName.qualifiedName} for ${tplName.qualifiedName}
+       | * interface ${ifaceName.qualifiedName} expected viewtype: ${expectedType.pretty}
+       | * but got viewtype: ${foundType.pretty}""".stripMargin
+}
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"
 }
