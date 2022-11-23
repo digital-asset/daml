@@ -104,7 +104,7 @@ data Error
   | EExpectedVariantType   !(Qualified TypeConName)
   | EExpectedEnumType      !(Qualified TypeConName)
   | EUnknownDataCon        !VariantConName
-  | EUnknownField          !FieldName
+  | EUnknownField          !FieldName !Type
   | EExpectedStructType    !Type
   | EKindMismatch          {foundKind :: !Kind, expectedKind :: !Kind}
   | ETypeMismatch          {foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr)}
@@ -283,7 +283,9 @@ instance Pretty Error where
     EExpectedVariantType qname -> "expected variant type: " <> pretty qname
     EExpectedEnumType qname -> "expected enum type: " <> pretty qname
     EUnknownDataCon name -> "unknown data constructor: " <> pretty name
-    EUnknownField name -> "unknown field: " <> pretty name
+    EUnknownField fieldName recordType ->
+      text "Tried to access nonexistent field " <> pretty fieldName
+      text " on value of type " <> pretty recordType
     EExpectedStructType foundType ->
       "expected struct type, but found: " <> pretty foundType
 
