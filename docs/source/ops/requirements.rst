@@ -12,7 +12,7 @@ Unless otherwise stated, all Daml runtime components require the following depen
 2. Java 11 or greater.
 3. An RDBMS system,
   
-  1. Either PostgreSQL 10.0 or greater.
+  1. Either PostgreSQL 11.0 or greater.
   2. Or Oracle Database 19.11 or greater.
 
 4. JDBC drivers compatible with the chosen RDBMS.
@@ -26,7 +26,7 @@ Daml is tested using the following specific dependencies in default installation
   3. MacOS 10.15 Catalina
 
 2. `Eclipse Adoptium <https://adoptium.net>`_ version 11 for Java.
-3. PostgreSQL 10.0
+3. PostgreSQL 11.0
 4. Oracle Database 19.11
 
 In terms of hardware requirements, minimal deployments running simple Daml applications
