@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE LambdaCase #-}
 
 -- | This module contains the Daml-LF type checker.
 --
