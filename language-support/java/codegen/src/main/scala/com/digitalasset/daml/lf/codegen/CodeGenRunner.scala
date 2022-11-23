@@ -158,8 +158,8 @@ object CodeGenRunner extends StrictLogging {
   ): Map[PackageId, String] = {
     val packageIdsAndPackagePrefixes = (for {
       (packagePrefix, signatures) <- signaturesAndPrefixes
-      signature <- signatures
       if packagePrefix.isDefined
+      signature <- signatures
     } yield signature.packageId -> packagePrefix.get)
 
     val packageIdToPrefixes =
