@@ -128,8 +128,8 @@ daml.http.websocket.messages.sent.bytes
 - **Type**: Histogram
 
 
-List of Metrics
-***************
+Metrics Reference
+*****************
 
 The following is a list of selected metrics that can be particularly
 important to track.
