@@ -101,7 +101,7 @@ abstract class FailureTests
     } yield succeed
   }
 
-  "Command submission timeouts is applied" taggedAs availabilitySecurity in withHttpService {
+  "Command submission timeout is applied" taggedAs availabilitySecurity in withHttpService {
     (uri, encoder, _, client) =>
       import json.JsonProtocol._
       for {
