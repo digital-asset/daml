@@ -21,7 +21,7 @@ class TestGeneratedDefaultConfigIsUpToDate
 
   it should "generated default config should be up-to-date" in {
     val actual = readFromResource("generated-default.conf")
-    val expected = DefaultConfigGenApp.genText()
+    val expected = DefaultConfigGenApp.genText().replaceAll("\\r", "")
     actual.value shouldBe expected withClue (clue)
   }
 
