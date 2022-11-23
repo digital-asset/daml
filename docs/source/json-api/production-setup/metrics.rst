@@ -67,9 +67,7 @@ points are kept and reported by any meter.
 Timers
 ======
 
-A timer records all metrics registered by a meter and by a histogram, where
-the histogram records the time necessary to execute a given operation (
-in fractional milliseconds).
+A timer records the time necessary to execute a given operation (in fractional milliseconds).
 
 Common HTTP Metrics
 *******************
