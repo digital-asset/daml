@@ -310,9 +310,11 @@ final class SemanticTests extends LedgerTestSuite {
           .mustFail("fetching the offer with the wrong party")
 
         tree <- alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(iou))
-        (newIouEvent +: _, agreementEvent +: _) = createdEvents(tree).partition(
+        (newIouEvents, agreementEvents) = createdEvents(tree).partition(
           _.getTemplateId == Tag.unwrap(Iou.id)
         )
+        newIouEvent <- Future(newIouEvents.head)
+        agreementEvent <- Future(agreementEvents.head)
         newIou = Primitive.ContractId[Iou](newIouEvent.contractId)
         agreement = Primitive.ContractId[PaintAgree](agreementEvent.contractId)
         _ <- synchronize(alpha, beta)

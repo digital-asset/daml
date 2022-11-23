@@ -27,6 +27,7 @@ import scalaz.syntax.traverse._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.language.postfixOps
 import scala.sys.ShutdownHookThread
 import scala.util.{Failure, Success, Try}
 
@@ -36,7 +37,7 @@ object ServiceMain {
   implicit val timeout: Timeout = 30.seconds
 
   // Used by the test fixture
-  def startServer(
+  private[trigger] def startServerForTest(
       host: String,
       port: Int,
       maxAuthCallbacks: Int,
@@ -75,6 +76,8 @@ object ServiceMain {
           allowExistingSchema,
           compilerConfig,
           triggerConfig,
+          None,
+          10 seconds,
           logTriggerStatus,
         ),
         "TriggerService",
@@ -177,6 +180,8 @@ object ServiceMain {
               config.allowExistingSchema,
               config.compilerConfig,
               config.triggerConfig,
+              config.metricsReporter,
+              config.metricsReportingInterval,
             ),
             "TriggerService",
           )

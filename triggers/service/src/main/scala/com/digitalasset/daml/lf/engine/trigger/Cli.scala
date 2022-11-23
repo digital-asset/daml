@@ -17,6 +17,7 @@ import scala.concurrent.duration.FiniteDuration
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.dbutils.{DBConfig, JdbcConfig}
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
+import com.daml.metrics.api.reporters.MetricsReporter
 import com.typesafe.scalalogging.StrictLogging
 import pureconfig.ConfigSource
 import pureconfig.error.ConfigReaderFailures
@@ -55,6 +56,8 @@ private[trigger] final case class Cli(
     triggerConfig: TriggerRunnerConfig,
     rootLoggingLevel: Option[Level],
     logEncoder: LogEncoder,
+    metricsReporter: Option[MetricsReporter] = None,
+    metricsReportingInterval: FiniteDuration = FiniteDuration(10, duration.SECONDS),
 ) extends StrictLogging {
 
   def loadFromConfigFile: Option[Either[ConfigReaderFailures, TriggerServiceAppConf]] =
@@ -89,6 +92,8 @@ private[trigger] final case class Cli(
       triggerConfig = triggerConfig,
       rootLoggingLevel = rootLoggingLevel,
       logEncoder = logEncoder,
+      metricsReporter = metricsReporter,
+      metricsReportingInterval = metricsReportingInterval,
     )
   }
 
@@ -357,6 +362,11 @@ private[trigger] object Cli {
       .text(
         "Do not abort if there are existing tables in the database schema. EXPERT ONLY. Defaults to false."
       )
+
+    cliopts.Metrics.metricsReporterParse(this)(
+      (f, c) => c.copy(metricsReporter = f(c.metricsReporter)),
+      (f, c) => c.copy(metricsReportingInterval = f(c.metricsReportingInterval)),
+    )
 
     checkConfig { cfg =>
       if (

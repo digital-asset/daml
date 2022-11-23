@@ -13,6 +13,24 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 public final class SubmitRequest {
 
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
+      @NonNull String ledgerId, @NonNull CommandsSubmission submission) {
+    return CommandSubmissionServiceOuterClass.SubmitRequest.newBuilder()
+        .setCommands(SubmitCommandsRequest.toProto(ledgerId, submission))
+        .build();
+  }
+
+  public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
+      @NonNull String ledgerId,
+      @NonNull String submissionId,
+      @NonNull CommandsSubmission submission) {
+    return CommandSubmissionServiceOuterClass.SubmitRequest.newBuilder()
+        .setCommands(SubmitCommandsRequest.toProto(ledgerId, submissionId, submission))
+        .build();
+  }
+
+  /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
+  @Deprecated
+  public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -37,6 +55,8 @@ public final class SubmitRequest {
         .build();
   }
 
+  /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
+  @Deprecated
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -64,6 +84,8 @@ public final class SubmitRequest {
         .build();
   }
 
+  /** @deprecated since 2.5. Please use {@link #toProto(String, String, CommandsSubmission)} */
+  @Deprecated
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -91,6 +113,8 @@ public final class SubmitRequest {
         .build();
   }
 
+  /** @deprecated since 2.5. Please use {@link #toProto(String, String, CommandsSubmission)} */
+  @Deprecated
   public static CommandSubmissionServiceOuterClass.SubmitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,

@@ -22,8 +22,11 @@ import scala.concurrent.Future
 class RunnerSpec extends AsyncWordSpec with Matchers with AsyncForAll with AkkaBeforeAndAfterAll {
   import Runner.retrying
 
-  implicit val loggingContext: LoggingContextOf[Trigger] =
+  val loggingContext: LoggingContextOf[Trigger] =
     LoggingContextOf.newLoggingContext(LoggingContextOf.label)(identity)
+
+  implicit val triggerContext: TriggerLogContext =
+    TriggerLogContext.newRootSpan("trigger.setup")(identity)(loggingContext)
 
   "retrying" should {
     import Future.{successful => okf}
@@ -33,7 +36,7 @@ class RunnerSpec extends AsyncWordSpec with Matchers with AsyncForAll with AkkaB
     def runItThrough[A, B](xs: Seq[A])(
         flow: Flow[TriggerContext[A], TriggerContext[B], _]
     ): Future[Seq[B]] =
-      Source(xs).map(Ctx(loggingContext, _)).via(flow).runWith(Sink.seq).map(_.map(_.value))
+      Source(xs).map(Ctx(triggerContext, _)).via(flow).runWith(Sink.seq).map(_.map(_.value))
 
     "terminate immediately on empty input" in {
       Source

@@ -93,11 +93,12 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     completions should have length 2
-    val List(completionWithSubmissionId, completionWithoutSubmissionId) = completions
-    completionWithSubmissionId.completions should have length 1
-    completionWithSubmissionId.completions.head.submissionId should be(someSubmissionId)
-    completionWithoutSubmissionId.completions should have length 1
-    completionWithoutSubmissionId.completions.head.submissionId should be("")
+    inside(completions) { case List(completionWithSubmissionId, completionWithoutSubmissionId) =>
+      completionWithSubmissionId.completions should have length 1
+      completionWithSubmissionId.completions.head.submissionId should be(someSubmissionId)
+      completionWithoutSubmissionId.completions should have length 1
+      completionWithoutSubmissionId.completions.head.submissionId should be("")
+    }
   }
 
   it should "correctly persist and retrieve command deduplication offsets" in {
@@ -123,14 +124,15 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     completions should have length 2
-    val List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =
-      completions
-    completionWithDeduplicationOffset.completions should have length 1
-    completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should be(
-      Some(anOffsetHex)
-    )
-    completionWithoutDeduplicationOffset.completions should have length 1
-    completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should not be defined
+    inside(completions) {
+      case List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =>
+        completionWithDeduplicationOffset.completions should have length 1
+        completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should be(
+          Some(anOffsetHex)
+        )
+        completionWithoutDeduplicationOffset.completions should have length 1
+        completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should not be defined
+    }
   }
 
   it should "correctly persist and retrieve command deduplication durations" in {
@@ -164,14 +166,15 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     completions should have length 2
-    val List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =
-      completions
-    completionWithDeduplicationOffset.completions should have length 1
-    completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationDuration should be(
-      Some(expectedDuration)
-    )
-    completionWithoutDeduplicationOffset.completions should have length 1
-    completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationDuration should not be defined
+    inside(completions) {
+      case List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =>
+        completionWithDeduplicationOffset.completions should have length 1
+        completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationDuration should be(
+          Some(expectedDuration)
+        )
+        completionWithoutDeduplicationOffset.completions should have length 1
+        completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationDuration should not be defined
+    }
   }
 
   it should "fail on broken command deduplication durations in DB" in {

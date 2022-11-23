@@ -34,7 +34,7 @@ import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.akkahttp.AkkaHttpMetrics
+import com.daml.metrics.akkahttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import scalaz.Scalaz._
@@ -215,12 +215,8 @@ object HttpService {
         client.identityClient,
       )
 
-      rateDurationSizeMetrics = AkkaHttpMetrics.rateDurationSizeMetrics(
-        metrics.httpRequestsTotal,
-        metrics.httpErrorsTotal,
-        metrics.httpLatency,
-        metrics.httpRequestsPayloadBytesTotal,
-        metrics.httpResponsesPayloadBytesTotal,
+      rateDurationSizeMetrics = HttpMetricsInterceptor.rateDurationSizeMetrics(
+        metrics.http
       )
 
       defaultEndpoints =

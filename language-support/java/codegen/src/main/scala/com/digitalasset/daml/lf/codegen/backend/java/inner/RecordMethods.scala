@@ -5,16 +5,12 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
 import com.daml.lf.codegen.backend.java.ObjectMethods
-import com.daml.lf.data.Ref.PackageId
 import com.squareup.javapoet._
 
 private[inner] object RecordMethods {
 
-  def apply(
-      fields: Fields,
-      className: ClassName,
-      typeParameters: IndexedSeq[String],
-      packagePrefixes: Map[PackageId, String],
+  def apply(fields: Fields, className: ClassName, typeParameters: IndexedSeq[String])(implicit
+      packagePrefixes: PackagePrefixes
   ): Vector[MethodSpec] = {
 
     val constructor = ConstructorGenerator.generateConstructor(fields)
@@ -38,12 +34,10 @@ private[inner] object RecordMethods {
               inVar,
             )
             .build(),
-        packagePrefixes,
       )
       val toValue = ToValueGenerator.generateToValueForRecordLike(
         params,
         fields,
-        packagePrefixes,
         ClassName.get(classOf[javaapi.data.DamlRecord]),
         name => CodeBlock.of("return new $T($L)", classOf[javaapi.data.DamlRecord], name),
       )

@@ -11,6 +11,7 @@ import com.daml.ledger.test.model.Test._
 import scalaz.Tag
 
 import scala.collection.immutable.Seq
+import scala.concurrent.Future
 
 class TransactionServiceStakeholdersIT extends LedgerTestSuite {
   test("TXStakeholders", "Expose the correct stakeholders", allocate(SingleParty, SingleParty))(
@@ -34,12 +35,10 @@ class TransactionServiceStakeholdersIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
     for {
       _ <- ledger.create(alice, WithObservers(alice, Seq(alice, bob)))
-      flat <- ledger.flatTransactions(alice)
-      Seq(flatTx) = flat
-      Seq(flatWo) = createdEvents(flatTx)
-      tree <- ledger.transactionTrees(alice)
-      Seq(treeTx) = tree
-      Seq(treeWo) = createdEvents(treeTx)
+      flatTx <- ledger.flatTransactions(alice).flatMap(fs => Future(fs.head))
+      flatWo <- Future(createdEvents(flatTx).head)
+      treeTx <- ledger.transactionTrees(alice).flatMap(fs => Future(fs.head))
+      treeWo <- Future(createdEvents(treeTx).head)
     } yield {
       assert(
         flatWo.observers == Seq(bob),

@@ -10,7 +10,6 @@ import org.apache.commons.io.IOUtils
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-
 import java.io.{File, InputStream}
 import java.net.ConnectException
 import java.nio.charset.StandardCharsets
@@ -24,21 +23,6 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
 
   private val Enabled = "true"
   private val Disabled = "false"
-
-  private val List(
-    certChainFilePath,
-    privateKeyFilePath,
-    trustCertCollectionFilePath,
-    clientCertChainFilePath,
-    clientPrivateKeyFilePath,
-  ) = {
-    List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
-      new File(rlocation("ledger/test-common/test-certificates/" + src))
-    }
-  }
-
-  println(clientCertChainFilePath)
-  println(clientPrivateKeyFilePath)
 
   override def beforeEach(): Unit = {
     super.beforeEach()
@@ -154,18 +138,31 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
     }
   }
 
-  private def configWithProtocols(minTls: Option[TlsVersion]): TlsConfiguration = {
-    TlsConfiguration(
-      enabled = true,
-      certChainFile = Some(certChainFilePath),
-      privateKeyFile = Some(privateKeyFilePath),
-      trustCollectionFile = Some(trustCertCollectionFilePath),
-      minimumServerProtocolVersion = minTls,
-    )
+  private def configWithProtocols(minTls: Option[TlsVersion]): Option[TlsConfiguration] = {
+    List("server.crt", "server.pem", "ca.crt").map { src =>
+      new File(rlocation("ledger/test-common/test-certificates/" + src))
+    } match {
+      case List(
+            certChainFilePath,
+            privateKeyFilePath,
+            trustCertCollectionFilePath,
+          ) =>
+        Some(
+          TlsConfiguration(
+            enabled = true,
+            certChainFile = Some(certChainFilePath),
+            privateKeyFile = Some(privateKeyFilePath),
+            trustCollectionFile = Some(trustCertCollectionFilePath),
+            minimumServerProtocolVersion = minTls,
+          )
+        )
+      case _ => None
+    }
+
   }
 
   private def getServerEnabledProtocols(minTls: Option[TlsVersion]): Seq[String] = {
-    val sslContext: Option[SslContext] = configWithProtocols(minTls).server
+    val sslContext: Option[SslContext] = configWithProtocols(minTls).flatMap(_.server)
     assume(sslContext.isDefined)
     assume(sslContext.get.isInstanceOf[OpenSslServerContext])
     TlsInfo.fromSslContext(sslContext.get).enabledProtocols

@@ -9,6 +9,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.daml.ledger.api.v1.CommandSubmissionServiceGrpc;
 import com.daml.ledger.api.v1.CommandSubmissionServiceOuterClass;
+import com.daml.ledger.javaapi.data.CommandsSubmission;
 import com.daml.ledger.javaapi.data.SubmitRequest;
 import com.daml.ledger.javaapi.data.codegen.HasCommands;
 import com.daml.ledger.rxjava.CommandSubmissionClient;
@@ -39,7 +40,20 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         StubHelper.authenticating(CommandSubmissionServiceGrpc.newFutureStub(channel), accessToken);
   }
 
-  public Single<com.google.protobuf.Empty> submit(
+  @Override
+  public Single<Empty> submit(CommandsSubmission submission) {
+    CommandSubmissionServiceOuterClass.SubmitRequest request =
+        SubmitRequest.toProto(ledgerId, submission);
+    CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub stubWithTimeout =
+        this.timeout
+            .map(t -> this.serviceStub.withDeadlineAfter(t.toMillis(), MILLISECONDS))
+            .orElse(this.serviceStub);
+    return Single.fromFuture(
+        StubHelper.authenticating(stubWithTimeout, submission.getAccessToken()).submit(request));
+  }
+
+  @Deprecated
+  public Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -70,7 +84,8 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         StubHelper.authenticating(stubWithTimeout, accessToken).submit(request));
   }
 
-  public Single<com.google.protobuf.Empty> submit(
+  @Deprecated
+  public Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -93,8 +108,9 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         accessToken);
   }
 
+  @Deprecated
   @Override
-  public Single<com.google.protobuf.Empty> submit(
+  public Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -112,6 +128,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
@@ -133,8 +150,9 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
-  public Single<com.google.protobuf.Empty> submit(
+  public Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -156,6 +174,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
@@ -181,6 +200,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
@@ -203,6 +223,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
@@ -227,6 +248,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
@@ -247,6 +269,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,

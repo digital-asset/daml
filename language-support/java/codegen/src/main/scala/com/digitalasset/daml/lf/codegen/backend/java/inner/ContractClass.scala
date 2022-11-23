@@ -5,7 +5,6 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
 import ClassGenUtils.{companionFieldName, optional, optionalString, setOfStrings}
-import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.typesig.Type
 import com.squareup.javapoet._
 import scalaz.syntax.std.option._
@@ -15,11 +14,9 @@ import javax.lang.model.element.Modifier
 
 object ContractClass {
 
-  def builder(
-      templateClassName: ClassName,
-      key: Option[Type],
-      packagePrefixes: Map[PackageId, String],
-  ) = Builder.create(templateClassName, key, packagePrefixes)
+  def builder(templateClassName: ClassName, key: Option[Type])(implicit
+      packagePrefixes: PackagePrefixes
+  ) = Builder.create(templateClassName, key)
 
   case class Builder private (
       classBuilder: TypeSpec.Builder,
@@ -28,7 +25,6 @@ object ContractClass {
       contractIdClassName: ClassName,
       contractKeyClassName: Option[TypeName],
       key: Option[Type],
-      packagePrefixes: Map[PackageId, String],
   ) {
     def addGenerateFromMethods(): Builder = {
       classBuilder
@@ -120,14 +116,12 @@ object ContractClass {
       )
     }
 
-    def create(
-        templateClassName: ClassName,
-        key: Option[Type],
-        packagePrefixes: Map[PackageId, String],
+    def create(templateClassName: ClassName, key: Option[Type])(implicit
+        packagePrefixes: PackagePrefixes
     ) = {
       val classBuilder =
         TypeSpec.classBuilder("Contract").addModifiers(Modifier.STATIC, Modifier.PUBLIC)
-      val contractKeyClassName = key.map(toJavaTypeName(_, packagePrefixes))
+      val contractKeyClassName = key.map(toJavaTypeName(_))
 
       import scala.language.existentials
       val (contractSuperclass, keyTparams) = contractKeyClassName.cata(
@@ -180,7 +174,6 @@ object ContractClass {
         contractIdClassName,
         contractKeyClassName,
         key,
-        packagePrefixes,
       )
     }
   }

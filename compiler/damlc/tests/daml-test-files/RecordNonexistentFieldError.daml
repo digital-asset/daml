@@ -1,0 +1,16 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR range=14:17-14:25; Tried to access nonexistent field ‘c’ with type ‘Int’ on value of type ‘Record’
+
+module RecordNonexistentFieldError where
+
+data Record = Record { a, b : Int }
+
+f =
+  let record = Record 0 0
+      _ : Int = record.a
+      _ : Int = record.b
+      _ : Int = record.c
+  in
+  ()

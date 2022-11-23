@@ -3,7 +3,10 @@
 
 package com.daml.quickstart.iou;
 
+import static java.util.UUID.randomUUID;
+
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.CommandsSubmission;
 import com.daml.ledger.javaapi.data.codegen.Update;
 import com.daml.ledger.rxjava.DamlLedgerClient;
 import com.daml.ledger.rxjava.LedgerClient;
@@ -131,15 +134,10 @@ public class IouMain {
   }
 
   private static <U> U submit(LedgerClient client, String party, Update<U> update) {
-    return client
-        .getCommandClient()
-        .submitAndWaitForResult(
-            UUID.randomUUID().toString(),
-            "IouApp",
-            UUID.randomUUID().toString(),
-            List.of(party),
-            List.of(),
-            update)
-        .blockingGet();
+    var params =
+        CommandsSubmission.create(APP_ID, randomUUID().toString(), update.commands())
+            .withActAs(party);
+
+    return client.getCommandClient().submitAndWaitForResult(params, update).blockingGet();
   }
 }
