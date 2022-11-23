@@ -66,6 +66,15 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     assert(scope.toBeGenerated === Set.empty)
   }
 
+  it should "fail if read interfaces from a 2 same DAR files with different prefixes" in {
+    assertThrows[IllegalArgumentException] {
+      CodeGenRunner.configureCodeGenScope(
+        Map(testTemplateDar -> Some("PREFIX1"), testTemplateDar -> Some("PREFIX2")),
+        Map.empty,
+      )
+    }
+  }
+
   behavior of "detectModuleCollisions"
 
   private def moduleIdSet(signatures: Seq[PackageSignature]): Set[Reference.Module] = {
@@ -188,17 +197,14 @@ object CodeGenRunnerTests {
   private[this] val testDarWithSameDependenciesButDifferentTargetVersionPath =
     "language-support/java/codegen/test-daml-with-same-dependencies-but-different-target-version.dar"
   private[this] val testTemplateDarPath = "language-support/java/codegen/test-template.dar"
-  private[this] val testTemplateDar2Path = "language-support/java/codegen/test-template2.dar"
+//  private[this] val testTemplateDar2Path = "language-support/java/codegen/test-template2.dar"
   private val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
   private val testDarWithSameDependencies =
     Path.of(BazelRunfiles.rlocation(testDarWithSameDependenciesPath))
   private val testDarWithSameDependenciesButDifferentTargetVersion =
     Path.of(BazelRunfiles.rlocation(testDarWithSameDependenciesButDifferentTargetVersionPath))
   private val testTemplateDar = Path.of(BazelRunfiles.rlocation(testTemplateDarPath))
-  private val testTemplate2Dar = Path.of(BazelRunfiles.rlocation(testTemplateDar2Path))
-
-  // TODO delete
-  println(testTemplateDar, testTemplate2Dar)
+//  private val testTemplate2Dar = Path.of(BazelRunfiles.rlocation(testTemplateDar2Path))
 
   private val dar = DarReader.assertReadArchiveFromFile(testDar.toFile)
 
