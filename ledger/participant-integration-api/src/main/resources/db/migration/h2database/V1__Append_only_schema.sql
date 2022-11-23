@@ -343,45 +343,44 @@ CREATE TABLE string_interning (
 -----------------------------
 
 -- create stakeholders
-CREATE TABLE participant_events_create_filter (
+CREATE TABLE pe_create_id_filter_stakeholder (
     event_sequential_id BIGINT NOT NULL,
     template_id INTEGER NOT NULL,
     party_id INTEGER NOT NULL
 );
-CREATE INDEX idx_participant_events_create_filter_party_template_seq_id_idx ON participant_events_create_filter(party_id, template_id, event_sequential_id);
-CREATE INDEX idx_participant_events_create_filter_party_seq_id_idx ON participant_events_create_filter(party_id, event_sequential_id);
-CREATE INDEX idx_participant_events_create_seq_id_idx ON participant_events_create_filter(event_sequential_id);
+CREATE INDEX pe_create_id_filter_stakeholder_pts_idx ON pe_create_id_filter_stakeholder(party_id, template_id, event_sequential_id);
+CREATE INDEX pe_create_id_filter_stakeholder_pt_idx ON pe_create_id_filter_stakeholder(party_id, event_sequential_id);
+CREATE INDEX pe_create_id_filter_stakeholder_s_idx ON pe_create_id_filter_stakeholder(event_sequential_id);
 
-CREATE TABLE pe_create_filter_nonstakeholder_informees (
+CREATE TABLE pe_create_id_filter_non_stakeholder_informee (
    event_sequential_id BIGINT NOT NULL,
    party_id INTEGER NOT NULL
 );
-CREATE INDEX pe_create_filter_nonstakeholder_informees_ps_idx ON pe_create_filter_nonstakeholder_informees(party_id, event_sequential_id);
-CREATE INDEX pe_create_filter_nonstakeholder_informees_s_idx ON pe_create_filter_nonstakeholder_informees(event_sequential_id);
+CREATE INDEX pe_create_id_filter_non_stakeholder_informee_ps_idx ON pe_create_id_filter_non_stakeholder_informee(party_id, event_sequential_id);
+CREATE INDEX pe_create_id_filter_non_stakeholder_informee_s_idx ON pe_create_id_filter_non_stakeholder_informee(event_sequential_id);
 
-CREATE TABLE pe_consuming_exercise_filter_stakeholders (
+CREATE TABLE pe_consuming_id_filter_stakeholder (
    event_sequential_id BIGINT NOT NULL,
    template_id INTEGER NOT NULL,
    party_id INTEGER NOT NULL
 );
-CREATE INDEX pe_consuming_exercise_filter_stakeholders_pts_idx ON pe_consuming_exercise_filter_stakeholders(party_id, template_id, event_sequential_id);
-CREATE INDEX pe_consuming_exercise_filter_stakeholders_ps_idx  ON pe_consuming_exercise_filter_stakeholders(party_id, event_sequential_id);
-CREATE INDEX pe_consuming_exercise_filter_stakeholders_s_idx   ON pe_consuming_exercise_filter_stakeholders(event_sequential_id);
+CREATE INDEX pe_consuming_id_filter_stakeholder_pts_idx ON pe_consuming_id_filter_stakeholder(party_id, template_id, event_sequential_id);
+CREATE INDEX pe_consuming_id_filter_stakeholder_ps_idx  ON pe_consuming_id_filter_stakeholder(party_id, event_sequential_id);
+CREATE INDEX pe_consuming_id_filter_stakeholder_s_idx   ON pe_consuming_id_filter_stakeholder(event_sequential_id);
 
-CREATE TABLE pe_consuming_exercise_filter_nonstakeholder_informees (
+CREATE TABLE pe_consuming_id_filter_non_stakeholder_informee (
    event_sequential_id BIGINT NOT NULL,
    party_id INTEGER NOT NULL
 );
-CREATE INDEX pe_consuming_exercise_filter_nonstakeholder_informees_ps_idx ON pe_consuming_exercise_filter_nonstakeholder_informees(party_id, event_sequential_id);
-CREATE INDEX pe_consuming_exercise_filter_nonstakeholder_informees_s_idx ON pe_consuming_exercise_filter_nonstakeholder_informees(event_sequential_id);
+CREATE INDEX pe_consuming_id_filter_non_stakeholder_informee_ps_idx ON pe_consuming_id_filter_non_stakeholder_informee(party_id, event_sequential_id);
+CREATE INDEX pe_consuming_id_filter_non_stakeholder_informee_s_idx ON pe_consuming_id_filter_non_stakeholder_informee(event_sequential_id);
 
-CREATE TABLE pe_non_consuming_exercise_filter_informees (
+CREATE TABLE pe_non_consuming_id_filter_informee (
    event_sequential_id BIGINT NOT NULL,
    party_id INTEGER NOT NULL
 );
-CREATE INDEX pe_non_consuming_exercise_filter_informees_ps_idx ON pe_non_consuming_exercise_filter_informees(party_id, event_sequential_id);
-CREATE INDEX pe_non_consuming_exercise_filter_informees_s_idx ON pe_non_consuming_exercise_filter_informees(event_sequential_id);
-
+CREATE INDEX pe_non_consuming_id_filter_informee_ps_idx ON pe_non_consuming_id_filter_informee(party_id, event_sequential_id);
+CREATE INDEX pe_non_consuming_id_filter_informee_s_idx ON pe_non_consuming_id_filter_informee(event_sequential_id);
 
 CREATE TABLE participant_transaction_meta(
     transaction_id VARCHAR NOT NULL,
@@ -390,8 +389,7 @@ CREATE TABLE participant_transaction_meta(
     event_sequential_id_to BIGINT NOT NULL
 );
 CREATE INDEX participant_transaction_meta_tid_idx ON participant_transaction_meta(transaction_id);
-CREATE INDEX participant_transaction_meta_eventoffset_idx ON participant_transaction_meta(event_offset);
-
+CREATE INDEX participant_transaction_meta_event_offset_idx ON participant_transaction_meta(event_offset);
 
 CREATE TABLE transaction_metering (
     application_id VARCHAR NOT NULL,

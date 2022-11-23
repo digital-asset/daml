@@ -53,7 +53,7 @@ class TransactionStreamingQueries(
       limit: Int,
   )(connection: Connection): Vector[Long] = target match {
     case EventIdSourceForStakeholders.Consuming =>
-      fetchIdsOfConsumingEventsForStakeholders(
+      fetchIdsOfConsumingEventsForStakeholder(
         stakeholder,
         templateIdO,
         startExclusive,
@@ -61,7 +61,7 @@ class TransactionStreamingQueries(
         limit,
       )(connection)
     case EventIdSourceForStakeholders.Create =>
-      fetchIdsOfCreateEventsForStakeholders(
+      fetchIdsOfCreateEventsForStakeholder(
         stakeholder,
         templateIdO,
         startExclusive,
@@ -70,19 +70,19 @@ class TransactionStreamingQueries(
       )(connection)
   }
 
-  def fetchEventIdsForInformees(target: EventIdSourceForInformees)(
+  def fetchEventIdsForInformee(target: EventIdSourceForInformees)(
       informee: Party,
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
   )(connection: Connection): Vector[Long] = target match {
     case EventIdSourceForInformees.ConsumingStakeholder =>
-      fetchIdsOfConsumingEventsForStakeholders(informee, None, startExclusive, endInclusive, limit)(
+      fetchIdsOfConsumingEventsForStakeholder(informee, None, startExclusive, endInclusive, limit)(
         connection
       )
     case EventIdSourceForInformees.ConsumingNonStakeholder =>
       fetchEventIds(
-        tableName = "pe_consuming_exercise_filter_nonstakeholder_informees",
+        tableName = "pe_consuming_id_filter_non_stakeholder_informee",
         witness = informee,
         templateIdO = None,
         startExclusive = startExclusive,
@@ -90,12 +90,12 @@ class TransactionStreamingQueries(
         limit = limit,
       )(connection)
     case EventIdSourceForInformees.CreateStakeholder =>
-      fetchIdsOfCreateEventsForStakeholders(informee, None, startExclusive, endInclusive, limit)(
+      fetchIdsOfCreateEventsForStakeholder(informee, None, startExclusive, endInclusive, limit)(
         connection
       )
     case EventIdSourceForInformees.CreateNonStakeholder =>
       fetchEventIds(
-        tableName = "pe_create_filter_nonstakeholder_informees",
+        tableName = "pe_create_id_filter_non_stakeholder_informee",
         witness = informee,
         templateIdO = None,
         startExclusive = startExclusive,
@@ -104,7 +104,7 @@ class TransactionStreamingQueries(
       )(connection)
     case EventIdSourceForInformees.NonConsumingInformee =>
       fetchEventIds(
-        tableName = "pe_non_consuming_exercise_filter_informees",
+        tableName = "pe_non_consuming_id_filter_informee",
         witness = informee,
         templateIdO = None,
         startExclusive = startExclusive,
@@ -167,7 +167,7 @@ class TransactionStreamingQueries(
     }
   }
 
-  def fetchIdsOfCreateEventsForStakeholders(
+  def fetchIdsOfCreateEventsForStakeholder(
       stakeholder: Ref.Party,
       templateIdO: Option[Ref.Identifier],
       startExclusive: Long,
@@ -175,7 +175,7 @@ class TransactionStreamingQueries(
       limit: Int,
   )(connection: Connection): Vector[Long] = {
     fetchEventIds(
-      tableName = "participant_events_create_filter",
+      tableName = "pe_create_id_filter_stakeholder",
       witness = stakeholder,
       templateIdO = templateIdO,
       startExclusive = startExclusive,
@@ -184,7 +184,7 @@ class TransactionStreamingQueries(
     )(connection)
   }
 
-  private def fetchIdsOfConsumingEventsForStakeholders(
+  private def fetchIdsOfConsumingEventsForStakeholder(
       stakeholder: Ref.Party,
       templateIdO: Option[Ref.Identifier],
       startExclusive: Long,
@@ -192,7 +192,7 @@ class TransactionStreamingQueries(
       limit: Int,
   )(connection: Connection): Vector[Long] = {
     fetchEventIds(
-      tableName = "pe_consuming_exercise_filter_stakeholders",
+      tableName = "pe_consuming_id_filter_stakeholder",
       witness = stakeholder,
       templateIdO = templateIdO,
       startExclusive = startExclusive,

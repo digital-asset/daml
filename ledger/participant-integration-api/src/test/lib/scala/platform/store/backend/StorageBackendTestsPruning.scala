@@ -129,7 +129,7 @@ private[backend] trait StorageBackendTestsPruning
     def fetchIdsNonConsuming_streaming: Seq[Long] = {
       executeSql(
         backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformees(
+          .fetchEventIdsForInformee(
             target = EventIdSourceForInformees.NonConsumingInformee
           )(informee = signatoryParty, startExclusive = 0, endInclusive = endId, limit = 10)
       )
@@ -138,7 +138,7 @@ private[backend] trait StorageBackendTestsPruning
     def fetchIdsConsumingStakeholder_streaming: Seq[Long] = {
       executeSql(
         backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformees(
+          .fetchEventIdsForInformee(
             target = EventIdSourceForInformees.ConsumingStakeholder
           )(informee = signatoryParty, startExclusive = 0, endInclusive = endId, limit = 10)
       )
@@ -146,7 +146,7 @@ private[backend] trait StorageBackendTestsPruning
     def fetchIdsConsumingNonStakeholder_streaming: Seq[Long] = {
       executeSql(
         backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformees(
+          .fetchEventIdsForInformee(
             target = EventIdSourceForInformees.ConsumingNonStakeholder
           )(informee = actorParty, startExclusive = 0, endInclusive = endId, limit = 10)
       )
@@ -297,7 +297,7 @@ private[backend] trait StorageBackendTestsPruning
     def fetchIdsSignatory_streaming: Seq[Long] = {
       executeSql(
         backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformees(
+          .fetchEventIdsForInformee(
             target = EventIdSourceForInformees.CreateStakeholder
           )(informee = signatoryParty, startExclusive = 0, endInclusive = 2L, limit = 10)
       )
@@ -306,7 +306,7 @@ private[backend] trait StorageBackendTestsPruning
     def fetchIdsObserver_streaming: Seq[Long] = {
       executeSql(
         backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformees(
+          .fetchEventIdsForInformee(
             target = EventIdSourceForInformees.CreateStakeholder
           )(informee = observerParty, startExclusive = 0, endInclusive = 2L, limit = 10)
       )
@@ -315,7 +315,7 @@ private[backend] trait StorageBackendTestsPruning
     def fetchIdsNonStakeholders_streaming: Seq[Long] = {
       executeSql(
         backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformees(
+          .fetchEventIdsForInformee(
             target = EventIdSourceForInformees.CreateNonStakeholder
           )(
             informee = nonStakeholderInformeeParty,
@@ -392,7 +392,7 @@ private[backend] trait StorageBackendTestsPruning
     val after2_idsObserver = fetchIdsObserver_streaming
     val after3_idsNonStakeholders = executeSql(
       backend.event.transactionStreamingQueries
-        .fetchEventIdsForInformees(
+        .fetchEventIdsForInformee(
           target = EventIdSourceForInformees.CreateNonStakeholder
         )(informee = signatoryParty, startExclusive = 0, endInclusive = 2L, limit = 10)
     )
@@ -463,7 +463,7 @@ private[backend] trait StorageBackendTestsPruning
     def fetchIdsSignatory_streaming: Seq[Long] = {
       executeSql(
         backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformees(
+          .fetchEventIdsForInformee(
             target = EventIdSourceForInformees.CreateStakeholder
           )(informee = signatoryParty, startExclusive = 0, endInclusive = 1L, limit = 10)
       )
@@ -472,7 +472,7 @@ private[backend] trait StorageBackendTestsPruning
     def fetchIdsObserver_streaming: Seq[Long] = {
       executeSql(
         backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformees(
+          .fetchEventIdsForInformee(
             target = EventIdSourceForInformees.CreateStakeholder
           )(informee = observerParty, startExclusive = 0, endInclusive = 1L, limit = 10)
       )
@@ -481,7 +481,7 @@ private[backend] trait StorageBackendTestsPruning
     def fetchIdsNonStakeholders_streaming: Seq[Long] = {
       executeSql(
         backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformees(
+          .fetchEventIdsForInformee(
             target = EventIdSourceForInformees.CreateNonStakeholder
           )(
             informee = nonStakeholderInformeeParty,

@@ -410,14 +410,14 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
     import dbDataTypes._
 
     val idFilterCreateStakeholder: TableSchema =
-      TableSchema("participant_events_create_filter", "event_sequential_id, template_id, party_id")(
+      TableSchema("pe_create_id_filter_stakeholder", "event_sequential_id, template_id, party_id")(
         "event_sequential_id" -> BigInt,
         "template_id" -> Integer,
         "party_id" -> Integer,
       )
 
     val idFilterCreateNonStakeholderInformee: TableSchema = {
-      TableSchema("pe_create_filter_nonstakeholder_informees", "event_sequential_id, party_id")(
+      TableSchema("pe_create_id_filter_non_stakeholder_informee", "event_sequential_id, party_id")(
         "event_sequential_id" -> BigInt,
         "party_id" -> Integer,
       )
@@ -425,7 +425,7 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
 
     val idFilterConsumingStakeholder: TableSchema = {
       TableSchema(
-        "pe_consuming_exercise_filter_stakeholders",
+        "pe_consuming_id_filter_stakeholder",
         "event_sequential_id, template_id, party_id",
       )(
         "event_sequential_id" -> BigInt,
@@ -436,7 +436,7 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
 
     val idFilterConsumingNonStakeholderInformee: TableSchema = {
       TableSchema(
-        "pe_consuming_exercise_filter_nonstakeholder_informees",
+        "pe_consuming_id_filter_non_stakeholder_informee",
         "event_sequential_id, party_id",
       )(
         "event_sequential_id" -> BigInt,
@@ -445,7 +445,7 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
     }
 
     val idFilterNonConsumingInformee: TableSchema = {
-      TableSchema("pe_non_consuming_exercise_filter_informees", "event_sequential_id, party_id")(
+      TableSchema("pe_non_consuming_id_filter_informee", "event_sequential_id, party_id")(
         "event_sequential_id" -> BigInt,
         "party_id" -> Integer,
       )

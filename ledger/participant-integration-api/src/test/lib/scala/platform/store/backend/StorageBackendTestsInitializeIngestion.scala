@@ -104,7 +104,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       )
     )
     val filterIds1 = executeSql(
-      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholder = someParty,
         templateIdO = None,
         startExclusive = 0,
@@ -140,7 +140,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       )
     )
     val filterIds2 = executeSql(
-      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholder = someParty,
         templateIdO = None,
         startExclusive = 0,
@@ -235,7 +235,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       )
     )
     val filterIds2 = executeSql(
-      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholder = someParty,
         templateIdO = None,
         startExclusive = 0,

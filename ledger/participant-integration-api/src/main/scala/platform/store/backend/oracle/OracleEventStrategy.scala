@@ -30,40 +30,40 @@ object OracleEventStrategy extends EventStrategy {
     cSQL"( ($clause) AND (template_id IN ($internedTemplates)) )"
   }
 
-  override def pruneIdFilterCreateStakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] =
+  override def pruneIdFilterCreateStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row] =
     pruneIdFilterCreate(
-      tableName = "participant_events_create_filter",
+      tableName = "pe_create_id_filter_stakeholder",
       pruneUpToInclusive = pruneUpToInclusive,
     )
 
-  override def pruneIdFilterCreateNonStakeholderInformees(
+  override def pruneIdFilterCreateNonStakeholderInformee(
       pruneUpToInclusive: Offset
   ): SimpleSql[Row] =
     pruneIdFilterCreate(
-      tableName = "pe_create_filter_nonstakeholder_informees",
+      tableName = "pe_create_id_filter_non_stakeholder_informee",
       pruneUpToInclusive = pruneUpToInclusive,
     )
 
-  override def pruneIdFilterConsumingStakeholders(pruneUpToInclusive: Offset): SimpleSql[Row] =
+  override def pruneIdFilterConsumingStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row] =
     pruneIdFilterConsumingOrNonConsuming(
-      idFilterTableName = "pe_consuming_exercise_filter_stakeholders",
+      idFilterTableName = "pe_consuming_id_filter_stakeholder",
       eventsTableName = "participant_events_consuming_exercise",
       pruneUpToInclusive = pruneUpToInclusive,
     )
 
-  override def pruneIdFilterConsumingNonStakeholderInformees(
+  override def pruneIdFilterConsumingNonStakeholderInformee(
       pruneUpToInclusive: Offset
   ): SimpleSql[Row] = {
     pruneIdFilterConsumingOrNonConsuming(
-      idFilterTableName = "pe_consuming_exercise_filter_nonstakeholder_informees",
+      idFilterTableName = "pe_consuming_id_filter_non_stakeholder_informee",
       eventsTableName = "participant_events_consuming_exercise",
       pruneUpToInclusive = pruneUpToInclusive,
     )
   }
 
-  override def pruneIdFilterNonConsumingInformees(pruneUpToInclusive: Offset): SimpleSql[Row] =
+  override def pruneIdFilterNonConsumingInformee(pruneUpToInclusive: Offset): SimpleSql[Row] =
     pruneIdFilterConsumingOrNonConsuming(
-      idFilterTableName = "pe_non_consuming_exercise_filter_informees",
+      idFilterTableName = "pe_non_consuming_id_filter_informee",
       eventsTableName = "participant_events_non_consuming_exercise",
       pruneUpToInclusive = pruneUpToInclusive,
     )

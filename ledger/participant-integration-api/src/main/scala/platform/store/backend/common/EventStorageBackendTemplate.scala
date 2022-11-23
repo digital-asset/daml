@@ -586,23 +586,23 @@ abstract class EventStorageBackendTemplate(
       loggingContext: LoggingContext,
   ): Unit = {
     pruneWithLogging(queryDescription = "Pruning id filter table for create stakeholders") {
-      eventStrategy.pruneIdFilterCreateStakeholders(pruneUpToInclusive)
+      eventStrategy.pruneIdFilterCreateStakeholder(pruneUpToInclusive)
     }(connection, loggingContext)
     pruneWithLogging(queryDescription =
       "Pruning id filter table for create non-stakeholder informees"
     ) {
-      eventStrategy.pruneIdFilterCreateNonStakeholderInformees(pruneUpToInclusive)
+      eventStrategy.pruneIdFilterCreateNonStakeholderInformee(pruneUpToInclusive)
     }(connection, loggingContext)
     pruneWithLogging(queryDescription = "Pruning filter table for consuming stakeholders") {
-      eventStrategy.pruneIdFilterConsumingStakeholders(pruneUpToInclusive)
+      eventStrategy.pruneIdFilterConsumingStakeholder(pruneUpToInclusive)
     }(connection, loggingContext)
     pruneWithLogging(queryDescription =
       "Pruning filter table for consuming non-stakeholders informees"
     ) {
-      eventStrategy.pruneIdFilterConsumingNonStakeholderInformees(pruneUpToInclusive)
+      eventStrategy.pruneIdFilterConsumingNonStakeholderInformee(pruneUpToInclusive)
     }(connection, loggingContext)
     pruneWithLogging(queryDescription = "Pruning filter table for non-consuming informees") {
-      eventStrategy.pruneIdFilterNonConsumingInformees(pruneUpToInclusive)
+      eventStrategy.pruneIdFilterNonConsumingInformee(pruneUpToInclusive)
     }(connection, loggingContext)
   }
 
@@ -847,18 +847,18 @@ trait EventStrategy {
       internedTemplates: Set[Int],
   ): CompositeSql
 
-  /** Pruning participant_events_create_filter entries.
+  /** Pruning pe_create_id_filter_stakeholder entries.
     *
     * @param pruneUpToInclusive create and archive events must be earlier or equal to this offset
     * @return the executable anorm query
     */
-  def pruneIdFilterCreateStakeholders(pruneUpToInclusive: Offset): SimpleSql[Row]
-  def pruneIdFilterCreateNonStakeholderInformees(pruneUpToInclusive: Offset): SimpleSql[Row]
+  def pruneIdFilterCreateStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row]
+  def pruneIdFilterCreateNonStakeholderInformee(pruneUpToInclusive: Offset): SimpleSql[Row]
 
-  def pruneIdFilterConsumingStakeholders(pruneUpToInclusive: Offset): SimpleSql[Row]
-  def pruneIdFilterConsumingNonStakeholderInformees(pruneUpToInclusive: Offset): SimpleSql[Row]
+  def pruneIdFilterConsumingStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row]
+  def pruneIdFilterConsumingNonStakeholderInformee(pruneUpToInclusive: Offset): SimpleSql[Row]
 
-  def pruneIdFilterNonConsumingInformees(pruneUpToInclusive: Offset): SimpleSql[Row]
+  def pruneIdFilterNonConsumingInformee(pruneUpToInclusive: Offset): SimpleSql[Row]
 
   /** Callers can call it only once pruning of create, consuming and non-consuming event tables has already finished.
     * Implementors can assume that these tables have already been pruned.

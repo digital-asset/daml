@@ -75,7 +75,7 @@ class FilterTableACSReader(
         idQueryLimiter.execute {
           dispatcher.executeSql(metrics.daml.index.db.getActiveContractIds) { connection =>
             val result =
-              eventStorageBackend.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholders(
+              eventStorageBackend.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
                 stakeholder = filter.party,
                 templateIdO = filter.templateId,
                 startExclusive = idQuery.fromExclusiveEventSeqId,
