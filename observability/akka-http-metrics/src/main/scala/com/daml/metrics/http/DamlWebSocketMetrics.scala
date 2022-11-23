@@ -3,7 +3,7 @@
 
 package com.daml.metrics.http
 
-import com.daml.metrics.api.MetricHandle.{Factory, Meter}
+import com.daml.metrics.api.MetricHandle.{Factory, Histogram, Meter}
 import com.daml.metrics.api.{MetricName, MetricsContext}
 
 class DamlWebSocketMetrics(metricsFactory: Factory, component: String) extends WebSocketMetrics {
@@ -16,11 +16,15 @@ class DamlWebSocketMetrics(metricsFactory: Factory, component: String) extends W
 
   override val messagesReceivedTotal: Meter =
     metricsFactory.meter(httpMetricsPrefix :+ "websocket" :+ "messages" :+ "received")
-  override val messagesReceivedBytesTotal: Meter =
-    metricsFactory.meter(httpMetricsPrefix :+ "websocket" :+ "messages" :+ "received" :+ "bytes")
+  override val messagesReceivedBytes: Histogram =
+    metricsFactory.histogram(
+      httpMetricsPrefix :+ "websocket" :+ "messages" :+ "received" :+ Histogram.Bytes
+    )
   override val messagesSentTotal: Meter =
     metricsFactory.meter(httpMetricsPrefix :+ "websocket" :+ "messages" :+ "sent")
-  override val messagesSentBytesTotal: Meter =
-    metricsFactory.meter(httpMetricsPrefix :+ "websocket" :+ "messages" :+ "sent" :+ "bytes")
+  override val messagesSentBytes: Histogram =
+    metricsFactory.histogram(
+      httpMetricsPrefix :+ "websocket" :+ "messages" :+ "sent" :+ Histogram.Bytes
+    )
 
 }

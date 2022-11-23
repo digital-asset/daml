@@ -8,7 +8,7 @@ import akka.util.ByteString
 import akka.http.scaladsl.model.{RequestEntity, ResponseEntity, HttpEntity}
 import akka.http.scaladsl.server.{Directive, Route}
 import akka.http.scaladsl.server.RouteResult._
-import com.daml.metrics.api.MetricHandle.Meter
+import com.daml.metrics.api.MetricHandle.Histogram
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.http.HttpMetrics
 import scala.concurrent.ExecutionContext
@@ -35,7 +35,7 @@ object HttpMetricsInterceptor {
         ctx.request.withEntity(
           requestEntityContentLengthReportMetric(
             ctx.request.entity,
-            metrics.requestsPayloadBytesTotal,
+            metrics.requestsPayloadBytes,
           )
         )
       )
@@ -48,15 +48,13 @@ object HttpMetricsInterceptor {
               MetricLabelsExtractor.labelsFromResponse(httpResponse): _*
             ) { implicit metricsContext: MetricsContext =>
               metrics.requestsTotal.mark()
-              if (httpResponse.status.isFailure)
-                metrics.errorsTotal.mark()
               // return a copy of the httpResponse, with size metric computation
               Success(
                 Complete(
                   httpResponse.withEntity(
                     responseEntityContentLengthReportMetric(
                       httpResponse.entity,
-                      metrics.responsesPayloadBytesTotal,
+                      metrics.responsesPayloadBytes,
                     )
                   )
                 )
@@ -65,7 +63,6 @@ object HttpMetricsInterceptor {
             }
           case _ =>
             metrics.requestsTotal.mark()
-            metrics.errorsTotal.mark()
             result
         }
       }
@@ -76,13 +73,13 @@ object HttpMetricsInterceptor {
   // For non-strict content, creates a copy of the requestEntity, with embedded support.
   private def requestEntityContentLengthReportMetric(
       requestEntity: RequestEntity,
-      metric: Meter,
+      metric: Histogram,
   )(implicit mc: MetricsContext): RequestEntity =
     requestEntity match {
       case e: HttpEntity.Default =>
         e.copy(data = byteStringSourceLengthReportMetric(e.data, metric))
       case e: HttpEntity.Strict =>
-        metric.mark(e.data.length.toLong)
+        metric.update(e.data.length.toLong)
         e
       case e: HttpEntity.Chunked =>
         e.copy(chunks = chunkStreamPartSourceLengthReportMetric(e.chunks, metric))
@@ -92,13 +89,13 @@ object HttpMetricsInterceptor {
   // For non-strict content, creates a copy of the responseEntity, with embedded support.
   private def responseEntityContentLengthReportMetric(
       responseEntity: ResponseEntity,
-      metric: Meter,
+      metric: Histogram,
   )(implicit mc: MetricsContext): ResponseEntity =
     responseEntity match {
       case e: HttpEntity.Default =>
         e.copy(data = byteStringSourceLengthReportMetric(e.data, metric))
       case e: HttpEntity.Strict =>
-        metric.mark(e.data.length.toLong)
+        metric.update(e.data.length.toLong)
         e
       case e: HttpEntity.Chunked =>
         e.copy(chunks = chunkStreamPartSourceLengthReportMetric(e.chunks, metric))
@@ -109,21 +106,21 @@ object HttpMetricsInterceptor {
   // adds a side flow to the source, to compute and report the total size of the ByteString elements
   private def byteStringSourceLengthReportMetric[Mat](
       source: Source[ByteString, Mat],
-      metric: Meter,
+      metric: Histogram,
   )(implicit mc: MetricsContext): Source[ByteString, Mat] =
     source.alsoTo(
-      Flow[ByteString].fold(0L)((acc, d) => acc + d.length).to(Sink.foreach(metric.mark(_)))
+      Flow[ByteString].fold(0L)((acc, d) => acc + d.length).to(Sink.foreach(metric.update(_)))
     )
 
   // Adds a side flow to the source, to compute and report the total size of the ChunkStreamPart elements.
   private def chunkStreamPartSourceLengthReportMetric[Mat](
       source: Source[HttpEntity.ChunkStreamPart, Mat],
-      metric: Meter,
+      metric: Histogram,
   )(implicit mc: MetricsContext): Source[HttpEntity.ChunkStreamPart, Mat] =
     source.alsoTo(
       Flow[HttpEntity.ChunkStreamPart]
         .fold(0L)((acc, c) => acc + c.data.length)
-        .to(Sink.foreach(metric.mark(_)))
+        .to(Sink.foreach(metric.update(_)))
     )
 
 }
