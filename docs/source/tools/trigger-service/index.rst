@@ -86,18 +86,20 @@ alongside a few annotations with regards to the meaning of the configuration key
         // The number of ledger client command invocations each trigger will attempt to execute in parallel. Defaults to 8.
         parallelism = 8
 
-        // Maximum number of retries for a failing ledger API command submission. Defaults to 6.
+        // Maximum number of retries for a failing ledger API command submission. Failed submission requests may be
+        // handled by trigger rules. Defaults to 6.
         max-retries = 6
 
         // Maximum number of in-flight commands that we shall allow *before* the ledger client automatically fails
-        // ledger client submission requests. Defaults to 30.
+        // ledger client submission requests. Failed submission requests may be handled by trigger rules. Defaults to 30.
         max-in-flight-commands = 50
 
-        // Used to control rate at which we throttle ledger client submission requests.
+        // Used to control maximum rate at which we perform ledger client submission requests.
         max-submission-requests = 100 // Defaults to 100.
         max-submission-duration = 5s  // Defaults to 5s.
 
-        // Size of the queue holding ledger API command submission failures. Defaults to 264.
+        // Size of the queue holding ledger API command submission failures. When queue is filled, submission requests
+        // are dropped. Defaults to 264.
         submission-failure-queue-size = 264
       }
 
