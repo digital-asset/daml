@@ -10,6 +10,7 @@ load(
 load("//ledger/ledger-api-tests:conformance.bzl", "conformance_test", "generate_conf", "server_conformance_test")
 load("@oracle//:index.bzl", "oracle_tags")
 load("@os_info//:os_info.bzl", "is_windows")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 
 da_scala_library(
     name = "sandbox-on-x",
@@ -132,7 +133,7 @@ da_scala_test_suite(
     name = "sandbox-on-x-unit-tests",
     size = "small",
     srcs = glob(["src/test/suite/**/*.scala"]),
-    resources = glob(["src/test/resources/**/*"]),
+    resources = glob(["src/test/resources/**/*"]) + glob(["resources/*"]),
     scala_deps = [
         "@maven//:org_mockito_mockito_scala",
     ],
@@ -155,6 +156,7 @@ da_scala_test_suite(
         "//ledger/participant-state-index",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
+        "@maven//:commons_io_commons_io",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
     ],
@@ -338,6 +340,53 @@ da_scala_binary(
         ":sandbox-on-x-app-lib",
     ],
 )
+
+# An app that outputs the default config
+da_scala_binary(
+    name = "generate-default-config-app",
+    main_class = "com.daml.ledger.sandbox.DefaultConfigGenApp",
+    tags = [
+        "fat_jar",
+        "maven_coordinates=com.daml:sandbox-on-x-app-jar:__VERSION__",
+        "no_scala_version_suffix",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sandbox-on-x-app-lib",
+    ],
+)
+
+# A rule that writes the default config to a file
+genrule(
+    name = "generate-default.conf",
+    srcs = [],
+    outs = ["generated-default.conf"],
+    cmd = "$(location //ledger/sandbox-on-x:generate-default-config-app) $(location generated-default.conf)",
+    tools = ["//ledger/sandbox-on-x:generate-default-config-app"],
+    visibility = ["//visibility:public"],
+)
+
+# A rule that writes a script file for copying the generated default config file into the source tree
+write_file(
+    name = "write-update-generated-sources-script",
+    out = "update-generated-sources.sh",
+    content = [
+        "#!/usr/bin/env bash",
+        "cd $BUILD_WORKSPACE_DIRECTORY",
+        "mkdir -p ledger/sandbox-on-x/resources",
+        "cp -fv bazel-bin/ledger/sandbox-on-x/generated-default.conf ledger/sandbox-on-x/resources/generated-default.conf",
+        "",
+    ],
+) if not is_windows else None
+
+# A rule that copies the generated default config file into the source tree
+sh_binary(
+    name = "update-generated-sources",
+    srcs = ["update-generated-sources.sh"],
+    data = [
+        "generate-default.conf",
+    ],
+) if not is_windows else None
 
 alias(
     name = "conformance-test-postgres-bin",
