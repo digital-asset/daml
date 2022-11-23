@@ -15,7 +15,7 @@ version=$(grep '^version' daml.yaml | cut -d " " -f 2)
 curl -L# \
   -H 'Cache-Control: no-cache, no-store' \
   -o .lib/${version}.conf \
-  https://raw.githubusercontent.com/digital-asset/daml-finance/quickstart-enhancement/docs/code-samples/getting-started-config/${version}.conf
+  https://raw.githubusercontent.com/digital-asset/daml-finance/main/docs/code-samples/getting-started-config/${version}.conf
 
 # For each dependency, download and install
 while IFS=" " read -r url out
