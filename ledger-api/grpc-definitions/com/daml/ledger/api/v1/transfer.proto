@@ -23,7 +23,7 @@ message Transfer {
   // TODO this field (whether it is populated) can signal whether it is originates from the same participant or not (
   //  so additional retry etc procedures are in order or not), on the other hand with multi-hosted parties this is not
   //  so obvious.
-  // The ID of the command which resulted in this transfer. Missing for everyone except the submitting party.
+  // The ID of the command which resulted in this transfer. Missing for everyone except the submitting party on the submitting participant.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
   string command_id = 2;
