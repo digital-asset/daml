@@ -27,15 +27,6 @@ private[platform] trait DbDispatcher {
       loggingContext: LoggingContext
   ): Future[T]
 
-  def executeSqlEither[E, T](databaseMetrics: DatabaseMetrics)(sql: Connection => Either[E, T])(
-      implicit loggingContext: LoggingContext
-  ): Future[Either[E, T]] =
-    executeSql(databaseMetrics) { connection =>
-      sql(connection).left.map { error =>
-        connection.rollback()
-        error
-      }
-    }
 }
 
 private[dao] final class DbDispatcherImpl private[dao] (
