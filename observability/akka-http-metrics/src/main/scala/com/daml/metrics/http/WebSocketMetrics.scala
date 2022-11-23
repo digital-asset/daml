@@ -3,11 +3,11 @@
 
 package com.daml.metrics.http
 
-import com.daml.metrics.api.MetricHandle.Meter
+import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
 
 trait WebSocketMetrics {
   val messagesReceivedTotal: Meter
-  val messagesReceivedBytesTotal: Meter
+  val messagesReceivedBytes: Histogram
   val messagesSentTotal: Meter
-  val messagesSentBytesTotal: Meter
+  val messagesSentBytes: Histogram
 }

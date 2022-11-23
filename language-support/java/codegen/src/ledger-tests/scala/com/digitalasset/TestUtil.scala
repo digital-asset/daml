@@ -30,7 +30,6 @@ import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}
 
 import java.io.File
-import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
 import java.util.{Optional, UUID}
@@ -92,6 +91,11 @@ object TestUtil {
   )
 
   def sendCmd(channel: Channel, partyName: String, hasCmds: HasCommands*): Empty = {
+    val submission = CommandsSubmission
+      .create(randomId, randomId, HasCommands.toCommands(hasCmds.asJava))
+      .withWorkflowId(randomId)
+      .withActAs(partyName)
+
     CommandServiceGrpc
       .newBlockingStub(channel)
       .withDeadlineAfter(40, TimeUnit.SECONDS)
@@ -101,14 +105,7 @@ object TestUtil {
           .setCommands(
             SubmitCommandsRequest.toProto(
               LedgerID,
-              randomId,
-              randomId,
-              randomId,
-              partyName,
-              Optional.empty[Instant],
-              Optional.empty[Duration],
-              Optional.empty[Duration],
-              HasCommands.toCommands(hasCmds.asJava),
+              submission,
             )
           )
           .build
@@ -121,6 +118,12 @@ object TestUtil {
       readAs: java.util.List[String],
       hasCmds: HasCommands*
   ): Empty = {
+    val submission = CommandsSubmission
+      .create(randomId, randomId, HasCommands.toCommands(hasCmds.asJava))
+      .withWorkflowId(randomId)
+      .withActAs(actAs)
+      .withReadAs(readAs)
+
     CommandServiceGrpc
       .newBlockingStub(channel)
       .withDeadlineAfter(40, TimeUnit.SECONDS)
@@ -130,15 +133,7 @@ object TestUtil {
           .setCommands(
             SubmitCommandsRequest.toProto(
               LedgerID,
-              randomId,
-              randomId,
-              randomId,
-              actAs,
-              readAs,
-              Optional.empty[Instant],
-              Optional.empty[Duration],
-              Optional.empty[Duration],
-              HasCommands.toCommands(hasCmds.asJava),
+              submission,
             )
           )
           .build

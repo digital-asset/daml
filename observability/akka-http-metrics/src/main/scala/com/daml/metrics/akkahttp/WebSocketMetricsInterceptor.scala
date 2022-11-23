@@ -6,7 +6,7 @@ package com.daml.metrics.akkahttp
 import akka.http.scaladsl.model.ws.{Message, TextMessage, BinaryMessage}
 import akka.stream.scaladsl.{Flow, Sink}
 import akka.util.ByteString
-import com.daml.metrics.api.MetricHandle.Meter
+import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.http.WebSocketMetrics
 import com.google.common.base.Utf8
@@ -28,7 +28,7 @@ object WebSocketMetricsInterceptor {
         messageCountAndSizeReportMetric(
           _,
           metrics.messagesReceivedTotal,
-          metrics.messagesReceivedBytesTotal,
+          metrics.messagesReceivedBytes,
         )
       )
       .viaMat(flow)((_, mat2) => mat2)
@@ -36,7 +36,7 @@ object WebSocketMetricsInterceptor {
         messageCountAndSizeReportMetric(
           _,
           metrics.messagesSentTotal,
-          metrics.messagesSentBytesTotal,
+          metrics.messagesSentBytes,
         )
       )
   }
@@ -46,28 +46,28 @@ object WebSocketMetricsInterceptor {
   private def messageCountAndSizeReportMetric(
       message: Message,
       totalMetric: Meter,
-      bytesTotalMetric: Meter,
+      bytesMetric: Histogram,
   )(implicit mc: MetricsContext): Message = {
     totalMetric.mark()
     message match {
       case m: BinaryMessage.Strict =>
-        bytesTotalMetric.mark(m.data.length.toLong)
+        bytesMetric.update(m.data.length.toLong)
         m
       case m: BinaryMessage.Streamed =>
         val newStream = m.dataStream.alsoTo(
           Flow[ByteString]
             .fold(0L)((acc, d) => acc + d.length)
-            .to(Sink.foreach(bytesTotalMetric.mark(_)))
+            .to(Sink.foreach(bytesMetric.update(_)))
         )
         BinaryMessage.Streamed(newStream)
       case m: TextMessage.Strict =>
-        bytesTotalMetric.mark(Utf8.encodedLength(m.text).toLong)
+        bytesMetric.update(Utf8.encodedLength(m.text).toLong)
         m
       case m: TextMessage.Streamed =>
         val newStream = m.textStream.alsoTo(
           Flow[String]
             .fold(0L)((acc, t) => acc + Utf8.encodedLength(t))
-            .to(Sink.foreach(bytesTotalMetric.mark(_)))
+            .to(Sink.foreach(bytesMetric.update(_)))
         )
         TextMessage.Streamed(newStream)
     }

@@ -80,13 +80,6 @@ trait MetricValues {
         throw new IllegalArgumentException(s"Snapshot not supported for $other")
     }
 
-    def valuesWithContext: Map[MetricsContext, Seq[Long]] = histogram match {
-      case histogram: InMemoryHistogram =>
-        histogram.values.toMap
-      case other =>
-        throw new IllegalArgumentException(s"Values not supported for $other")
-    }
-
     def values: Seq[Long] = histogram match {
       case histogram: InMemoryHistogram =>
         singleValueFromContexts(histogram.values.toMap)
@@ -94,6 +87,15 @@ trait MetricValues {
         throw new IllegalArgumentException(s"Values not supported for $other")
     }
 
+    def valuesWithContext: Map[MetricsContext, Seq[Long]] = histogram match {
+      case histogram: InMemoryHistogram =>
+        histogram.values.toMap
+      case other =>
+        throw new IllegalArgumentException(s"Values not supported for $other")
+    }
+
+    def valuesFilteredOnLabels(labelFilters: LabelFilter*): Seq[Long] =
+      singleValueFromContextsFilteredOnLabels(valuesWithContext, labelFilters: _*)
   }
 
   class TimerValues(timer: Timer) {

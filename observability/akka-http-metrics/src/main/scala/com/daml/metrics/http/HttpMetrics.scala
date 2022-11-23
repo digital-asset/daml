@@ -3,12 +3,11 @@
 
 package com.daml.metrics.http
 
-import com.daml.metrics.api.MetricHandle.{Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{Histogram, Meter, Timer}
 
 trait HttpMetrics {
   val requestsTotal: Meter
-  val errorsTotal: Meter
   val latency: Timer
-  val requestsPayloadBytesTotal: Meter
-  val responsesPayloadBytesTotal: Meter
+  val requestsPayloadBytes: Histogram
+  val responsesPayloadBytes: Histogram
 }
