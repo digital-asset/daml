@@ -73,7 +73,10 @@ class InMemoryIdentityProviderConfigStore(maxIdentityProviderConfigs: Int = 10)
     }
   }
 
-  private def checkIssuerDoNotExists(issuer: String, idToIgnore: IdentityProviderId.Id): Result[Unit] =
+  private def checkIssuerDoNotExists(
+      issuer: String,
+      idToIgnore: IdentityProviderId.Id,
+  ): Result[Unit] =
     Either.cond(
       !state.values.exists(cfg => cfg.issuer == issuer && cfg.identityProviderId != idToIgnore),
       (),
