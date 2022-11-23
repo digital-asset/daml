@@ -407,7 +407,6 @@ object EventStorageBackendTemplate {
 }
 
 abstract class EventStorageBackendTemplate(
-    eventStrategy: EventStrategy,
     queryStrategy: QueryStrategy,
     ledgerEndCache: LedgerEndCache,
     stringInterning: StringInterning,
@@ -574,10 +573,8 @@ abstract class EventStorageBackendTemplate(
             delete_events.event_offset <= $pruneUpToInclusive"""
     }(connection, loggingContext)
 
-    // NOTE: This must be done after pruning create events
-    // TODO pbatko: Why?
     pruneWithLogging(queryDescription = "transaction meta pruning") {
-      eventStrategy.pruneTransactionMeta(pruneUpToInclusive = pruneUpToInclusive)
+      pruneTransactionMeta(pruneUpToInclusive = pruneUpToInclusive)
     }(connection, loggingContext)
   }
 
@@ -585,24 +582,20 @@ abstract class EventStorageBackendTemplate(
       connection: Connection,
       loggingContext: LoggingContext,
   ): Unit = {
-    pruneWithLogging(queryDescription = "Pruning id filter table for create stakeholders") {
-      eventStrategy.pruneIdFilterCreateStakeholder(pruneUpToInclusive)
+    pruneWithLogging("Pruning id filter create stakeholder table") {
+      pruneIdFilterCreateStakeholder(pruneUpToInclusive)
     }(connection, loggingContext)
-    pruneWithLogging(queryDescription =
-      "Pruning id filter table for create non-stakeholder informees"
-    ) {
-      eventStrategy.pruneIdFilterCreateNonStakeholderInformee(pruneUpToInclusive)
+    pruneWithLogging("Pruning id filter create non-stakeholder informee table") {
+      pruneIdFilterCreateNonStakeholderInformee(pruneUpToInclusive)
     }(connection, loggingContext)
-    pruneWithLogging(queryDescription = "Pruning filter table for consuming stakeholders") {
-      eventStrategy.pruneIdFilterConsumingStakeholder(pruneUpToInclusive)
+    pruneWithLogging("Pruning id filter consuming stakeholder table") {
+      pruneIdFilterConsumingStakeholder(pruneUpToInclusive)
     }(connection, loggingContext)
-    pruneWithLogging(queryDescription =
-      "Pruning filter table for consuming non-stakeholders informees"
-    ) {
-      eventStrategy.pruneIdFilterConsumingNonStakeholderInformee(pruneUpToInclusive)
+    pruneWithLogging("Pruning id filter consuming non-stakeholders informee table") {
+      pruneIdFilterConsumingNonStakeholderInformee(pruneUpToInclusive)
     }(connection, loggingContext)
-    pruneWithLogging(queryDescription = "Pruning filter table for non-consuming informees") {
-      eventStrategy.pruneIdFilterNonConsumingInformee(pruneUpToInclusive)
+    pruneWithLogging("Pruning id filter non-consuming informee table") {
+      pruneIdFilterNonConsumingInformee(pruneUpToInclusive)
     }(connection, loggingContext)
   }
 
@@ -815,6 +808,115 @@ abstract class EventStorageBackendTemplate(
        """.as(get[Long](1).singleOpt)(connection)
   }
 
+  private def pruneIdFilterCreateStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row] =
+    pruneIdFilterCreate(
+      tableName = "pe_create_id_filter_stakeholder",
+      pruneUpToInclusive = pruneUpToInclusive,
+    )
+
+  private def pruneIdFilterCreateNonStakeholderInformee(
+      pruneUpToInclusive: Offset
+  ): SimpleSql[Row] =
+    pruneIdFilterCreate(
+      tableName = "pe_create_id_filter_non_stakeholder_informee",
+      pruneUpToInclusive = pruneUpToInclusive,
+    )
+
+  private def pruneIdFilterConsumingStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row] =
+    pruneIdFilterConsumingOrNonConsuming(
+      idFilterTableName = "pe_consuming_id_filter_stakeholder",
+      eventsTableName = "participant_events_consuming_exercise",
+      pruneUpToInclusive = pruneUpToInclusive,
+    )
+
+  private def pruneIdFilterConsumingNonStakeholderInformee(
+      pruneUpToInclusive: Offset
+  ): SimpleSql[Row] = {
+    pruneIdFilterConsumingOrNonConsuming(
+      idFilterTableName = "pe_consuming_id_filter_non_stakeholder_informee",
+      eventsTableName = "participant_events_consuming_exercise",
+      pruneUpToInclusive = pruneUpToInclusive,
+    )
+  }
+
+  private def pruneIdFilterNonConsumingInformee(pruneUpToInclusive: Offset): SimpleSql[Row] =
+    pruneIdFilterConsumingOrNonConsuming(
+      idFilterTableName = "pe_non_consuming_id_filter_informee",
+      eventsTableName = "participant_events_non_consuming_exercise",
+      pruneUpToInclusive = pruneUpToInclusive,
+    )
+
+  /** Callers can call it only once pruning of create, consuming and non-consuming event tables has already finished.
+    * The implementation assumes that these tables have already been pruned.
+    */
+  private def pruneTransactionMeta(pruneUpToInclusive: Offset): SimpleSql[Row] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+         DELETE FROM
+            participant_transaction_meta m
+         WHERE
+          m.event_offset <= $pruneUpToInclusive
+          AND
+          NOT EXISTS (
+            SELECT 1 FROM participant_events_create c
+            WHERE
+              c.event_sequential_id >= m.event_sequential_id_from
+              AND
+              c.event_sequential_id <= m.event_sequential_id_to
+          )
+       """
+  }
+
+  // TODO etq: Currently we query two additional tables: create and consuming events tables.
+  //           This can be simplified to query only the create events table if we impose the ordering
+  //           that create events tables has already been pruned.
+  /** Prunes create events id filter table only for contracts archived before the specified offset
+    */
+  private def pruneIdFilterCreate(tableName: String, pruneUpToInclusive: Offset): SimpleSql[Row] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+          DELETE FROM
+            #$tableName id_filter
+          WHERE EXISTS (
+            SELECT * from participant_events_create c
+            WHERE
+            c.event_offset <= $pruneUpToInclusive
+            AND
+            EXISTS (
+              SELECT 1 FROM participant_events_consuming_exercise archive
+              WHERE
+                archive.event_offset <= $pruneUpToInclusive
+                AND
+                archive.contract_id = c.contract_id
+              )
+            AND
+            c.event_sequential_id = id_filter.event_sequential_id
+          )"""
+  }
+
+  // TODO etq: Currently we query an events table to discover the event offset corresponding
+  //           to a row from the id filter table.
+  //           This query can simplified not to query the events table at all if we pruned up to
+  //           a given event sequential id rather than an event offset.
+  private def pruneIdFilterConsumingOrNonConsuming(
+      idFilterTableName: String,
+      eventsTableName: String,
+      pruneUpToInclusive: Offset,
+  ): SimpleSql[Row] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+          DELETE FROM
+            #$idFilterTableName id_filter
+          WHERE EXISTS (
+            SELECT * FROM #$eventsTableName events
+          WHERE
+            events.event_offset <= $pruneUpToInclusive
+            AND
+            events.event_sequential_id = id_filter.event_sequential_id
+          )"""
+
+  }
+
 }
 
 /** This encapsulates the moving part as composing various Events queries.
@@ -847,21 +949,4 @@ trait EventStrategy {
       internedTemplates: Set[Int],
   ): CompositeSql
 
-  /** Pruning pe_create_id_filter_stakeholder entries.
-    *
-    * @param pruneUpToInclusive create and archive events must be earlier or equal to this offset
-    * @return the executable anorm query
-    */
-  def pruneIdFilterCreateStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row]
-  def pruneIdFilterCreateNonStakeholderInformee(pruneUpToInclusive: Offset): SimpleSql[Row]
-
-  def pruneIdFilterConsumingStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row]
-  def pruneIdFilterConsumingNonStakeholderInformee(pruneUpToInclusive: Offset): SimpleSql[Row]
-
-  def pruneIdFilterNonConsumingInformee(pruneUpToInclusive: Offset): SimpleSql[Row]
-
-  /** Callers can call it only once pruning of create, consuming and non-consuming event tables has already finished.
-    * Implementors can assume that these tables have already been pruned.
-    */
-  def pruneTransactionMeta(pruneUpToInclusive: Offset): SimpleSql[Row]
 }
