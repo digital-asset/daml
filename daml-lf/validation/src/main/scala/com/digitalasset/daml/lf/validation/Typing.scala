@@ -810,8 +810,9 @@ private[validation] object Typing {
     private def typeOfRecProj(typ0: TypeConApp, field: FieldName, record: Expr): Work[Type] =
       checkTypConApp(typ0) match {
         case DataRecord(recordType) =>
-          val fieldType = recordType.lookup(field, EUnknownField(ctx, field))
-          checkExpr(record, typeConAppToType(typ0)) {
+          val typ1 = typeConAppToType(typ0)
+          val fieldType = recordType.lookup(field, EUnknownField(ctx, field, typ1))
+          checkExpr(record, typ1) {
             Ret(fieldType)
           }
         case _ =>
@@ -828,7 +829,7 @@ private[validation] object Typing {
         case DataRecord(recordType) =>
           val typ1 = typeConAppToType(typ0)
           checkExpr(record, typ1) {
-            checkExpr(update, recordType.lookup(field, EUnknownField(ctx, field))) {
+            checkExpr(update, recordType.lookup(field, EUnknownField(ctx, field, typ1))) {
               Ret(typ1)
             }
           }
@@ -850,7 +851,7 @@ private[validation] object Typing {
       typeOf(proj.struct) { ty =>
         toStruct(ty).fields.get(proj.field) match {
           case Some(typ) => Ret(typ)
-          case None => throw EUnknownField(ctx, proj.field)
+          case None => throw EUnknownField(ctx, proj.field, ty)
         }
       }
 
@@ -862,7 +863,7 @@ private[validation] object Typing {
             checkExpr(upd.update, updateType) {
               Ret(structType)
             }
-          case None => throw EUnknownField(ctx, upd.field)
+          case None => throw EUnknownField(ctx, upd.field, ty)
         }
       }
 

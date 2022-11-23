@@ -225,8 +225,8 @@ final case class EUnknownVariantCon(context: Context, conName: VariantConName)
 final case class EUnknownEnumCon(context: Context, conName: EnumConName) extends ValidationError {
   protected def prettyInternal: String = s"unknown enum constructor: $conName"
 }
-final case class EUnknownField(context: Context, fieldName: FieldName) extends ValidationError {
-  protected def prettyInternal: String = s"unknown field: $fieldName"
+final case class EUnknownField(context: Context, fieldName: FieldName, targetType: Type) extends ValidationError {
+  protected def prettyInternal: String = s"Tried to access nonexistent field $fieldName on value of type $targetType"
 }
 final case class EExpectedStructType(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String = s"expected struct type, but found: ${typ.pretty}"

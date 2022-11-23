@@ -347,16 +347,17 @@ typeOfRecProj :: MonadGamma m => TypeConApp -> FieldName -> Expr -> m Type
 typeOfRecProj typ0 field record = do
   dataCons <- checkTypeConApp typ0
   recordType <- match _DataRecord (EExpectedRecordType typ0) dataCons
-  fieldType <- match _Just (EUnknownField field recordType) (lookup field recordType)
-  checkExpr record (typeConAppToType typ0)
+  let typ1 = typeConAppToType typ0
+  fieldType <- match _Just (EUnknownField field typ1) (lookup field recordType)
+  checkExpr record typ1
   pure fieldType
 
 typeOfRecUpd :: MonadGamma m => TypeConApp -> FieldName -> Expr -> Expr -> m Type
 typeOfRecUpd typ0 field record update = do
   dataCons <- checkTypeConApp typ0
   recordType <- match _DataRecord (EExpectedRecordType typ0) dataCons
-  fieldType <- match _Just (EUnknownField field recordType) (lookup field recordType)
   let typ1 = typeConAppToType typ0
+  fieldType <- match _Just (EUnknownField field typ1) (lookup field recordType)
   checkExpr record typ1
   checkExpr update fieldType
   pure typ1
@@ -370,13 +371,13 @@ typeOfStructProj :: MonadGamma m => FieldName -> Expr -> m Type
 typeOfStructProj field expr = do
   typ <- typeOf expr
   structType <- match _TStruct (EExpectedStructType typ) typ
-  match _Just (EUnknownField field structType) (lookup field structType)
+  match _Just (EUnknownField field typ) (lookup field structType)
 
 typeOfStructUpd :: MonadGamma m => FieldName -> Expr -> Expr -> m Type
 typeOfStructUpd field struct update = do
   typ <- typeOf struct
   structType <- match _TStruct (EExpectedStructType typ) typ
-  fieldType <- match _Just (EUnknownField field structType) (lookup field structType)
+  fieldType <- match _Just (EUnknownField field typ) (lookup field structType)
   checkExpr update fieldType
   pure typ
 
