@@ -59,7 +59,7 @@ class CachedIdentityProviderConfigStoreSpec
       res5 <- tested.listIdentityProviderConfigs()
     } yield {
       verify(delegate, times(1)).getIdentityProviderConfig(cfg.identityProviderId)
-      verify(delegate, times(1)).listIdentityProviderConfigs()
+      verify(delegate, times(2)).listIdentityProviderConfigs()
       res1.value shouldBe cfg
       res2.value shouldBe cfg
       res3.value shouldBe cfg
@@ -108,7 +108,7 @@ class CachedIdentityProviderConfigStoreSpec
     }
   }
 
-  "listing all users should also be cached" in {
+  "listing all users should not be cached" in {
     val delegate = spy(new InMemoryIdentityProviderConfigStore())
     val tested = createTested(delegate)
     val cfg1 = config()
@@ -120,7 +120,7 @@ class CachedIdentityProviderConfigStoreSpec
       res2 <- tested.listIdentityProviderConfigs()
       res3 <- tested.listIdentityProviderConfigs()
     } yield {
-      verify(delegate, times(1)).listIdentityProviderConfigs()
+      verify(delegate, times(3)).listIdentityProviderConfigs()
       res1.value should contain theSameElementsAs Vector(cfg1, cfg2)
       res2.value should contain theSameElementsAs Vector(cfg1, cfg2)
       res3.value should contain theSameElementsAs Vector(cfg1, cfg2)
