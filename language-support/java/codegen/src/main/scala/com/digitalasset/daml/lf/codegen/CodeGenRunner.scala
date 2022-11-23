@@ -182,9 +182,9 @@ object CodeGenRunner extends StrictLogging {
       signatures = decodeDarAt(path)
     } yield maybePrefix -> signatures).toSeq
 
-    val packagePrefixes = uniquePackageIdSetToPrefix(signaturesToPrefixes) ++ mainPackageIdToPrefix(
-      signaturesToPrefixes
-    )
+    val packagePrefixes = uniquePackageIdToPrefix(signaturesToPrefixes) ++
+      mainPackageIdToPrefix(signaturesToPrefixes)
+
     val signatureMap = (for {
       (_, signatures) <- signaturesToPrefixes
       signature <- signatures
@@ -192,7 +192,7 @@ object CodeGenRunner extends StrictLogging {
     signatureMap -> packagePrefixes
   }
 
-  private def uniquePackageIdSetToPrefix(
+  private def uniquePackageIdToPrefix(
       signaturesAndPrefixes: Seq[(Option[String], Seq[PackageSignature])]
   ): Map[PackageId, String] = {
     val packageIdsAndPackagePrefixes = (for {
