@@ -74,9 +74,7 @@ private final class CodeGenRunner(
         Future.unit
     }
 
-  private def createTypeDefinitionClasses(
-      module: ModuleWithContext
-  ): Iterable[JavaFile] = {
+  private def createTypeDefinitionClasses(module: ModuleWithContext): Iterable[JavaFile] = {
     MDC.put("packageId", module.packageId)
     MDC.put("packageIdShort", module.packageId.take(7))
     MDC.put("moduleName", module.name)
@@ -126,11 +124,9 @@ object CodeGenRunner extends StrictLogging {
     }
     checkAndCreateOutputDir(conf.outputDirectory)
 
-    val scopeByPackagePrefix =
-      configureCodeGenScope(conf.darFiles, conf.modulePrefixes)
+    val scope = configureCodeGenScope(conf.darFiles, conf.modulePrefixes)
 
-    val codegen =
-      new CodeGenRunner(scopeByPackagePrefix, conf.outputDirectory, conf.decoderPkgAndClass)
+    val codegen = new CodeGenRunner(scope, conf.outputDirectory, conf.decoderPkgAndClass)
     val executionContext: ExecutionContextExecutorService = createExecutionContext()
     val result = codegen.runWith(executionContext)
     Await.result(result, 10.minutes)
@@ -156,6 +152,7 @@ object CodeGenRunner extends StrictLogging {
         val updatedPrefixes = prefix.fold(prefixes)(prefixes.updated(signature.packageId, _))
         (updatedSignatures, updatedPrefixes)
       }
+
     val signatures = signatureMap.values.toSeq
     val environmentInterface = EnvironmentSignature.fromPackageSignatures(signatures)
 
