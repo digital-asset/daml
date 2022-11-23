@@ -23,8 +23,9 @@ import scalaz.{-\/, EitherT, \/, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.Timed
 
 private[http] final class CreateAndExercise(
     routeSetup: RouteSetup,
@@ -40,7 +41,7 @@ private[http] final class CreateAndExercise(
   def create(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       ec: ExecutionContext,
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): ET[domain.SyncResponse[JsValue]] =
     handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimer) => implicit lc =>
       for {
@@ -54,7 +55,7 @@ private[http] final class CreateAndExercise(
 
         response <- eitherT(
           Timed.future(
-            metrics.daml.HttpJsonApi.commandSubmissionLedgerTimer,
+            metrics.commandSubmissionLedgerTimer,
             handleFutureEitherFailure(commandService.create(jwt, jwtPayload, cmd)),
           )
         ): ET[domain.CreateCommandResponse[ApiValue]]
@@ -64,7 +65,7 @@ private[http] final class CreateAndExercise(
   def exercise(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       ec: ExecutionContext,
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): ET[domain.SyncResponse[JsValue]] =
     handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimer) => implicit lc =>
       for {
@@ -85,7 +86,7 @@ private[http] final class CreateAndExercise(
 
         resp <- eitherT(
           Timed.future(
-            metrics.daml.HttpJsonApi.commandSubmissionLedgerTimer,
+            metrics.commandSubmissionLedgerTimer,
             handleFutureEitherFailure(
               commandService.exercise(jwt, jwtPayload, resolvedCmd)
             ),
@@ -97,7 +98,7 @@ private[http] final class CreateAndExercise(
 
   def createAndExercise(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): ET[domain.SyncResponse[JsValue]] =
     handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimer) => implicit lc =>
       for {
@@ -111,7 +112,7 @@ private[http] final class CreateAndExercise(
 
         resp <- eitherT(
           Timed.future(
-            metrics.daml.HttpJsonApi.commandSubmissionLedgerTimer,
+            metrics.commandSubmissionLedgerTimer,
             handleFutureEitherFailure(
               commandService.createAndExercise(jwt, jwtPayload, cmd)
             ),
@@ -127,7 +128,7 @@ private[http] final class CreateAndExercise(
       reference: domain.ContractLocator[LfValue],
   )(implicit
       lc: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
       .resolveContractReference(

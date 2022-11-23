@@ -12,7 +12,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.{SError, SErrorCrash, SErrorDamlException}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.SValue.SContractId
-import com.daml.lf.speedy.Speedy.{CachedContract, OnLedger}
+import com.daml.lf.speedy.Speedy.CachedContract
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value
@@ -573,7 +573,7 @@ object CompilerTest {
     (SValue, Map[ContractId, CachedContract], Map[crypto.Hash, SValue.SContractId]),
   ] = {
     val machine =
-      Speedy.Machine(
+      Speedy.OnLedgerMachine(
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey("CompilerTest")),
@@ -583,15 +583,11 @@ object CompilerTest {
         readAs = Set.empty,
       )
 
-    SpeedyTestLib.run(machine, getContract = getContract).map { value =>
-      machine.ledgerMode match {
-        case onLedger: OnLedger =>
-          (value, onLedger.getCachedContracts, onLedger.disclosureKeyTable.toMap)
-
-        case _ =>
-          (value, Map.empty, Map.empty)
-      }
-    }
+    SpeedyTestLib
+      .run(machine, getContract = getContract)
+      .map(
+        (_, machine.getCachedContracts, machine.disclosureKeyTable.toMap)
+      )
   }
 
   def buildDisclosedContract(

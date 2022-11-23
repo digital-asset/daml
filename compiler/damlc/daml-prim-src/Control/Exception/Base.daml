@@ -21,6 +21,7 @@ import GHC.CString (fromString)
 import GHC.Err
 import GHC.Tuple()
 import GHC.Types
+import GHC.Tuple.Check()
 
 -- List of errors inserted by GHC, copied from
 -- https://hackage.haskell.org/package/base-4.12.0.0/docs/Control-Exception-Base.html#g:13

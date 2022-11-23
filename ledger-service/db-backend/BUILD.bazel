@@ -37,6 +37,7 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/transaction",
+        "//ledger-service/metrics",
         "//ledger-service/utils",
         "//ledger/caching",
         "//ledger/metrics",

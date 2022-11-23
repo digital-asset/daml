@@ -71,18 +71,18 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         transaction.transactionId shouldBe tx.transactionId
         transaction.workflowId shouldBe tx.workflowId.getOrElse("")
         inside(transaction.events.loneElement.event.created) { case Some(created) =>
-          val (nodeId, createNode: Node.Create) =
-            tx.transaction.nodes.head
-          created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
-          created.witnessParties should contain only (tx.actAs: _*)
-          created.agreementText.getOrElse("") shouldBe createNode.agreementText
-          created.contractKey shouldBe None
-          created.createArguments shouldNot be(None)
-          created.signatories should contain theSameElementsAs createNode.signatories
-          created.observers should contain theSameElementsAs createNode.stakeholders.diff(
-            createNode.signatories
-          )
-          created.templateId shouldNot be(None)
+          inside(tx.transaction.nodes.headOption) { case Some((nodeId, createNode: Node.Create)) =>
+            created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
+            created.witnessParties should contain only (tx.actAs: _*)
+            created.agreementText.getOrElse("") shouldBe createNode.agreementText
+            created.contractKey shouldBe None
+            created.createArguments shouldNot be(None)
+            created.signatories should contain theSameElementsAs createNode.signatories
+            created.observers should contain theSameElementsAs createNode.stakeholders.diff(
+              createNode.signatories
+            )
+            created.templateId shouldNot be(None)
+          }
         }
       }
     }
@@ -105,12 +105,13 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         ) shouldBe exercise.ledgerEffectiveTime
         transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
         inside(transaction.events.loneElement.event.archived) { case Some(archived) =>
-          val (nodeId, exerciseNode: Node.Exercise) =
-            exercise.transaction.nodes.head
-          archived.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
-          archived.witnessParties should contain only (exercise.actAs: _*)
-          archived.contractId shouldBe exerciseNode.targetCoid.coid
-          archived.templateId shouldNot be(None)
+          inside(exercise.transaction.nodes.headOption) {
+            case Some((nodeId, exerciseNode: Node.Exercise)) =>
+              archived.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
+              archived.witnessParties should contain only (exercise.actAs: _*)
+              archived.contractId shouldBe exerciseNode.targetCoid.coid
+              archived.templateId shouldNot be(None)
+          }
         }
       }
     }

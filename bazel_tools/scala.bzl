@@ -147,6 +147,7 @@ lf_scalacopts = [
 
 lf_scalacopts_stricter = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+    "-Xlint:_",
 ]
 
 default_compile_arguments = {

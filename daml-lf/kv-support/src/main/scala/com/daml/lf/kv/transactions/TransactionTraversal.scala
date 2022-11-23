@@ -4,7 +4,7 @@
 package com.daml.lf.kv.transactions
 
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.{FrontStack, FrontStackCons, ImmArray, Ref}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.kv.ConversionError
 import com.daml.lf.transaction.TransactionOuterClass.Node
 import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass, TransactionVersion}
@@ -62,9 +62,9 @@ object TransactionTraversal {
       toVisit: FrontStack[(RawTransaction.NodeId, Set[Ref.Party])],
       packagesToParties: Map[String, Set[Ref.Party]] = Map.empty,
   ): Either[ConversionError, Map[String, Set[Ref.Party]]] = {
-    toVisit match {
-      case FrontStack() => Right(packagesToParties)
-      case FrontStackCons((nodeId, parentWitnesses), toVisit) =>
+    toVisit.pop match {
+      case None => Right(packagesToParties)
+      case Some(((nodeId, parentWitnesses), toVisit)) =>
         val node = nodes(nodeId.value)
         lazy val witnesses = informeesOfNode(txVersion, node).map(_ ++ parentWitnesses)
         node.getNodeTypeCase match {
@@ -165,9 +165,9 @@ object TransactionTraversal {
       nodes: Map[String, Node],
       toVisit: FrontStack[(RawTransaction.NodeId, Set[Ref.Party])],
   ): Either[ConversionError, Unit] = {
-    toVisit match {
-      case FrontStack() => Right(())
-      case FrontStackCons((nodeId, parentWitnesses), toVisit) =>
+    toVisit.pop match {
+      case None => Right(())
+      case Some(((nodeId, parentWitnesses), toVisit)) =>
         val node = nodes(nodeId.value)
         informeesOfNode(txVersion, node) match {
           case Left(error) => Left(error)

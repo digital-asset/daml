@@ -25,7 +25,7 @@ public abstract class TransactionFilter {
   public abstract Set<String> getParties();
 
   public static TransactionFilter transactionFilter(
-      ContractTypeCompanion<?, ?> contractCompanion, Set<String> parties) {
+      ContractTypeCompanion<?, ?, ?, ?> contractCompanion, Set<String> parties) {
     Filter filter =
         (contractCompanion instanceof ContractCompanion)
             ? new InclusiveFilter(Set.of(contractCompanion.TEMPLATE_ID), Collections.emptyMap())

@@ -33,6 +33,7 @@ import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, DamlEnum,
   )
 -- Not reexported
 import GHC.Types (primitive)
+import GHC.Tuple.Check()
 
 import DA.Internal.Down
 

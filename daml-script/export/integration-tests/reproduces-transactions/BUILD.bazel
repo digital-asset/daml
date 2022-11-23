@@ -5,6 +5,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
+    "lf_scalacopts_stricter",
 )
 
 da_scala_library(
@@ -27,6 +28,7 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
     ],
+    scalacopts = lf_scalacopts_stricter,
     deps = [
         "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",

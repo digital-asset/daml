@@ -4,6 +4,8 @@ module DamlcLint
    ( main
    ) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Data.List.Extra (isSuffixOf)
 import System.Environment.Blank
 import System.Directory

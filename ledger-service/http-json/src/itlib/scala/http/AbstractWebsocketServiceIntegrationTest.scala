@@ -158,15 +158,11 @@ abstract class AbstractWebsocketServiceIntegrationTest
       Source.single(TextMessage.Strict("""[{"templateId": "AA:BB", "key": ["k", "v"]}]""")),
     ),
   ).foreach { scenario =>
-    s"${scenario.id} report UnknownTemplateIds and error when cannot resolve any template ID" in withHttpService {
+    s"${scenario.id} report error when cannot resolve any template ID" in withHttpService {
       fixture =>
         immediateQuery(fixture, scenario)
           .flatMap { msgs =>
-            inside(msgs) { case Seq(warningMsg, errorMsg) =>
-              val warning = decodeServiceWarning(warningMsg)
-              inside(warning) { case domain.UnknownTemplateIds(ids) =>
-                ids shouldBe List(domain.ContractTypeId(None, "AA", "BB"))
-              }
+            inside(msgs) { case Seq(errorMsg) =>
               val error = decodeErrorResponse(errorMsg)
               error shouldBe domain.ErrorResponse(
                 List(ErrorMessages.cannotResolveAnyTemplateId),
@@ -1646,13 +1642,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
     import json.JsonProtocol._
     inside(SprayJson.decode[domain.ErrorResponse](str)) { case \/-(e) =>
       e
-    }
-  }
-
-  private def decodeServiceWarning(str: String): domain.ServiceWarning = {
-    import json.JsonProtocol._
-    inside(SprayJson.decode[domain.AsyncWarningsWrapper](str)) { case \/-(w) =>
-      w.warnings
     }
   }
 }

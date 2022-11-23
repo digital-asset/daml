@@ -18,14 +18,12 @@ data Revoke
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
 _templateLet_T this@T {..}
   = let revokeRetVal = () in
-    let (sig, obs) = (p, q) in
+    let (sig, obs) = userWrittenTuple (p, q) in
     let assertion = True in
     let plainEnglish = "Chop wood, carry water." in
     let ident = "123" in
     let _ = this
-    in
-      DA.Internal.Desugar.codeGenAllowLargeTuples
-        (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
+    in (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
 instance DA.Internal.Desugar.HasSignatory T where
   signatory this@T {..}
     = DA.Internal.Desugar.toParties (sig)
@@ -159,7 +157,7 @@ instance DA.Internal.Desugar.HasExerciseByKey T (Party,
   _exerciseByKey = GHC.Types.primitive @"UExerciseByKey"
 instance DA.Internal.Desugar.HasKey T (Party, Text) where
   key this@T {..}
-    = (sig, ident)
+    = userWrittenTuple (sig, ident)
     where
         (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
           = _templateLet_T this

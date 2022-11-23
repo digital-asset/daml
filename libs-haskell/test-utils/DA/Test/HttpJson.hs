@@ -9,6 +9,8 @@ module DA.Test.HttpJson
   , defaultHttpJsonConf
   ) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Control.Exception
 import DA.Bazel.Runfiles
 import DA.PortFile

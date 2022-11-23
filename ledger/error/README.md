@@ -5,17 +5,17 @@
 1. [Error categories](#error-categories)
 1. [Error groups](#error-groups)
 
-# Overview
+## Overview
 
 Error codes are typically returned as part of gRPC calls.  
 
 The users mentioned later in this document might be participant operators, application developers or application users.
 
-# Error codes
+## Error codes
 
 Base class: `com.daml.error.ErrorCode`
 
-## Error code definition
+### Error code definition
 
 Example:
 ```
@@ -65,7 +65,7 @@ In practice you will also need to provide some additional implicit values. Look 
 
 
 
-# Error categories
+## Error categories
 
 Base class: `com.daml.error.ErrorCategory`.
 
@@ -82,7 +82,7 @@ generate sections of the official Daml documentation. Make sure they are clear a
 NOTE: Currently we have a unique mapping from error categories to gRPC status codes. 
 This is incidental and might change in the future.
 
-# Error groups
+## Error groups
 
 Base class: `com.daml.error.ErrorGroup.ErrorGroup`.
 
@@ -90,6 +90,14 @@ Error groups are NOT part of the public API.
 They only influence how we render error codes sections in the official Daml documentation.
 
 
-# Handling errors on the client side
+## Handling errors on the client side
 
 See `com.daml.error.samples.SampleUserSide`.
+
+## Error definitions
+
+The error definitions defined in this target (see `com.daml.error.definitions.CommonErrors`)
+are generic errors that can be used across various Daml components (e.g. Ledger API test tool, Ledger API client, Ledger API server etc.).
+
+**TODO** (https://github.com/digital-asset/daml/issues/15453): The error definitions can be moved in the dedicated `//ledger/ledger-api-errors` target once
+that target does not depend anymore on the deep Daml-LF dependencies (such as the Daml engine).

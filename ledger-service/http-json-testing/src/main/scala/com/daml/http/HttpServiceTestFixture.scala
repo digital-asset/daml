@@ -15,6 +15,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.HttpService.doLoad
 import com.daml.http.dbbackend.{ContractDao, JdbcConfig}
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.ClientUtil.boxedRecord
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.util.TestUtil.getResponseDataBytes
@@ -44,7 +45,6 @@ import com.daml.ledger.runner.common
 import com.daml.ledger.sandbox.SandboxOnXForTest._
 import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.services.time.TimeProviderType
@@ -91,7 +91,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       ec: ExecutionContext,
   ): Future[A] = {
     implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
-    implicit val metrics: Metrics = Metrics.ForTesting
+    implicit val metrics: HttpJsonApiMetrics = HttpJsonApiMetrics.ForTesting
     val ledgerId = ledgerIdOverwrite.getOrElse(LedgerId(testName))
     val applicationId = ApplicationId(testName)
 
@@ -285,7 +285,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   private def initializeDb(c: JdbcConfig)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Future[ContractDao] =
     for {
       dao <- Future(ContractDao(c))

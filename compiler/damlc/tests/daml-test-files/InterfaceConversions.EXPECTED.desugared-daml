@@ -293,7 +293,7 @@ _method_Template1_Iface_Template1_getOwner
       @Template1
       @"getOwner"
       \ this@Template1 {..}
-        -> let _ = this in let getOwner = owner1 in getOwner
+        -> let _ = this in let $getOwner = owner1 in $getOwner
 _view_Template1_Iface_Template1 :
   DA.Internal.Desugar.InterfaceView Template1 Iface Template1
 _view_Template1_Iface_Template1
@@ -302,7 +302,7 @@ _view_Template1_Iface_Template1
       @Iface
       @Template1
       \ this@Template1 {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
+        -> let _ = this in let $view = EmptyInterfaceView in $view
 instance DA.Internal.Desugar.HasToInterface Template1 Iface where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Template1 Iface where
@@ -391,7 +391,7 @@ _method_Template2_Iface_Template2_getOwner
       @Template2
       @"getOwner"
       \ this@Template2 {..}
-        -> let _ = this in let getOwner = owner2 in getOwner
+        -> let _ = this in let $getOwner = owner2 in $getOwner
 _view_Template2_Iface_Template2 :
   DA.Internal.Desugar.InterfaceView Template2 Iface Template2
 _view_Template2_Iface_Template2
@@ -400,7 +400,7 @@ _view_Template2_Iface_Template2
       @Iface
       @Template2
       \ this@Template2 {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
+        -> let _ = this in let $view = EmptyInterfaceView in $view
 instance DA.Internal.Desugar.HasToInterface Template2 Iface where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Template2 Iface where
@@ -428,10 +428,10 @@ main
                 x2 <- fetchFromInterface @Template2 ifaceCid1
                 x3 <- fetchFromInterface @Template1 ifaceCid2
                 x4 <- fetchFromInterface @Template2 ifaceCid2
-                x1 === Some (templateCid1, template1)
+                x1 === Some userWrittenTuple (templateCid1, template1)
                 x2 === None
                 x3 === None
-                x4 === Some (templateCid2, template2)
+                x4 === Some userWrittenTuple (templateCid2, template2)
          let useAction : (ContractId Template2 -> Update ()) -> Update ()
              useAction action
                = do cid <- create (toInterface @Iface (Template1 p 10))

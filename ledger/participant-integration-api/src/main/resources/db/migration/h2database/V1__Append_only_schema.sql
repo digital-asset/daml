@@ -208,7 +208,10 @@ CREATE TABLE participant_events_create (
 
     -- * compression flags
     create_argument_compression SMALLINT,
-    create_key_value_compression SMALLINT
+    create_key_value_compression SMALLINT,
+
+    -- * contract driver metadata
+    driver_metadata BINARY LARGE OBJECT
 );
 
 -- offset index: used to translate to sequential_id

@@ -38,6 +38,17 @@ public class CommandClientImpl implements CommandClient {
         StubHelper.authenticating(CommandServiceGrpc.newFutureStub(channel), accessToken);
   }
 
+  @Override
+  public Single<Empty> submitAndWait(CommandsSubmission submission) {
+    CommandServiceOuterClass.SubmitAndWaitRequest request =
+        SubmitAndWaitRequest.toProto(this.ledgerId, submission);
+
+    return Single.fromFuture(
+        StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
+            .submitAndWait(request));
+  }
+
+  @Deprecated
   private Single<Empty> submitAndWait(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -65,6 +76,7 @@ public class CommandClientImpl implements CommandClient {
         StubHelper.authenticating(this.serviceStub, accessToken).submitAndWait(request));
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submitAndWait(
       @NonNull String workflowId,
@@ -88,6 +100,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submitAndWait(
       @NonNull String workflowId,
@@ -112,6 +125,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submitAndWait(
       @NonNull String workflowId,
@@ -136,6 +150,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submitAndWait(
       @NonNull String workflowId,
@@ -161,6 +176,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submitAndWait(
       @NonNull String workflowId,
@@ -181,6 +197,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submitAndWait(
       @NonNull String workflowId,
@@ -202,6 +219,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submitAndWait(
       @NonNull String workflowId,
@@ -223,6 +241,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submitAndWait(
       @NonNull String workflowId,
@@ -245,6 +264,17 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Override
+  public Single<String> submitAndWaitForTransactionId(CommandsSubmission submission) {
+    CommandServiceOuterClass.SubmitAndWaitRequest request =
+        SubmitAndWaitRequest.toProto(this.ledgerId, submission);
+    return Single.fromFuture(
+            StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
+                .submitAndWaitForTransactionId(request))
+        .map(CommandServiceOuterClass.SubmitAndWaitForTransactionIdResponse::getTransactionId);
+  }
+
+  @Deprecated
   private Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -274,6 +304,7 @@ public class CommandClientImpl implements CommandClient {
         .map(CommandServiceOuterClass.SubmitAndWaitForTransactionIdResponse::getTransactionId);
   }
 
+  @Deprecated
   @Override
   public Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
@@ -297,6 +328,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
@@ -321,6 +353,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
@@ -345,6 +378,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
@@ -370,6 +404,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
@@ -390,6 +425,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
@@ -411,6 +447,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
@@ -432,6 +469,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<String> submitAndWaitForTransactionId(
       @NonNull String workflowId,
@@ -454,6 +492,19 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Override
+  public Single<Transaction> submitAndWaitForTransaction(CommandsSubmission submission) {
+    CommandServiceOuterClass.SubmitAndWaitRequest request =
+        SubmitAndWaitRequest.toProto(this.ledgerId, submission);
+
+    return Single.fromFuture(
+            StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
+                .submitAndWaitForTransaction(request))
+        .map(CommandServiceOuterClass.SubmitAndWaitForTransactionResponse::getTransaction)
+        .map(Transaction::fromProto);
+  }
+
+  @Deprecated
   private Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -484,6 +535,7 @@ public class CommandClientImpl implements CommandClient {
         .map(Transaction::fromProto);
   }
 
+  @Deprecated
   @Override
   public Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
@@ -507,6 +559,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
@@ -531,6 +584,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
@@ -555,6 +609,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
@@ -580,6 +635,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
@@ -600,6 +656,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
@@ -621,6 +678,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
@@ -642,6 +700,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<Transaction> submitAndWaitForTransaction(
       @NonNull String workflowId,
@@ -664,6 +723,19 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Override
+  public Single<TransactionTree> submitAndWaitForTransactionTree(CommandsSubmission submission) {
+    CommandServiceOuterClass.SubmitAndWaitRequest request =
+        SubmitAndWaitRequest.toProto(this.ledgerId, submission);
+
+    return Single.fromFuture(
+            StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
+                .submitAndWaitForTransactionTree(request))
+        .map(CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse::getTransaction)
+        .map(TransactionTree::fromProto);
+  }
+
+  @Deprecated
   private Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -694,6 +766,7 @@ public class CommandClientImpl implements CommandClient {
         .map(TransactionTree::fromProto);
   }
 
+  @Deprecated
   @Override
   public Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
@@ -717,6 +790,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
@@ -741,6 +815,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
@@ -765,6 +840,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
@@ -790,6 +866,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
@@ -810,6 +887,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
@@ -831,6 +909,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
@@ -852,6 +931,7 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<TransactionTree> submitAndWaitForTransactionTree(
       @NonNull String workflowId,
@@ -874,6 +954,35 @@ public class CommandClientImpl implements CommandClient {
         Optional.of(accessToken));
   }
 
+  @Override
+  public <U> Single<U> submitAndWaitForResult(
+      CommandsSubmission submission, @NonNull Update<U> update) {
+    return update.foldUpdate(
+        new Update.FoldUpdate<>() {
+          @Override
+          public <CtId> Single<U> created(Update.CreateUpdate<CtId, U> create) {
+            var transaction = submitAndWaitForTransaction(submission);
+            return transaction.map(
+                tx -> {
+                  var createdEvent = singleCreatedEvent(tx.getEvents());
+                  return create.k.apply(Created.fromEvent(create.createdContractId, createdEvent));
+                });
+          }
+
+          @Override
+          public <R> Single<U> exercised(Update.ExerciseUpdate<R, U> exercise) {
+            var transactionTree = submitAndWaitForTransactionTree(submission);
+            return transactionTree.map(
+                txTree -> {
+                  var exercisedEvent = firstExercisedEvent(txTree);
+                  return exercise.k.apply(
+                      Exercised.fromEvent(exercise.returnTypeDecoder, exercisedEvent));
+                });
+          }
+        });
+  }
+
+  @Deprecated
   private <U> Single<U> submitAndWaitForResult(
       @NonNull String workflowId,
       @NonNull String applicationId,
@@ -929,6 +1038,7 @@ public class CommandClientImpl implements CommandClient {
         });
   }
 
+  @Deprecated
   @Override
   public <U> Single<U> submitAndWaitForResult(
       @NonNull String workflowId,
@@ -941,6 +1051,7 @@ public class CommandClientImpl implements CommandClient {
         workflowId, applicationId, commandId, actAs, readAs, update, Optional.empty());
   }
 
+  @Deprecated
   @Override
   public <U> Single<U> submitAndWaitForResult(
       @NonNull String workflowId,

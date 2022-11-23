@@ -8,11 +8,11 @@ import json.JsonProtocol.LfValueCodec.{apiValueToJsValue, jsValueToApiValue}
 import com.daml.lf.data.{Decimal, ImmArray, Numeric, Ref, SortedLookupList, Time}
 import ImmArray.ImmArraySeq
 import com.daml.http.dbbackend.SurrogateTemplateIdCache
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.lf.typesig
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, ValueAddend => VA}
 import com.daml.lf.value.test.ValueGenerators.coidGen
-import com.daml.metrics.Metrics
 import org.scalacheck.Arbitrary
 import org.scalactic.source
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -296,7 +296,7 @@ class ValuePredicateTest
       ) { (backend, sql: doobie.Fragment) =>
         // we aren't running the SQL, just looking at it
         import org.scalatest.EitherValues._
-        implicit val metrics: Metrics = Metrics.ForTesting
+        implicit val metrics: HttpJsonApiMetrics = HttpJsonApiMetrics.ForTesting
         implicit val sjd: dbbackend.SupportedJdbcDriver.TC =
           backend.configure("", Map.empty, SurrogateTemplateIdCache.MaxEntries).value
         val frag = vp.toSqlWhereClause

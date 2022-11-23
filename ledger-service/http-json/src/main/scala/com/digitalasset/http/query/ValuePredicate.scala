@@ -11,10 +11,11 @@ import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.typesig
 import com.daml.lf.value.json.JsonVariant
 import com.daml.lf.value.{Value => V}
+import com.daml.nonempty.NonEmpty
 import typesig.{Type => Ty}
 import dbbackend.Queries.joinFragment
 import json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => dbApiValueToJsValue}
-import scalaz.{OneAnd, Order, \&/, \/, \/-}
+import scalaz.{Order, \&/, \/, \/-}
 import scalaz.Digit._0
 import scalaz.Tags.Conjunction
 import scalaz.std.anyVal._
@@ -184,8 +185,8 @@ sealed abstract class ValuePredicate extends Product with Serializable {
     val outerRec = go(basePath, this)
     outerRec flush_== basePath getOrElse {
       val preds = outerRec.raw ++ outerRec.flush_@>(basePath).toList match {
-        case hd +: tl => OneAnd(hd, tl)
-        case _ => OneAnd(sql"1 = 1", Vector.empty)
+        case NonEmpty(p) => p
+        case _ => NonEmpty(Vector, sql"1 = 1")
       }
       joinFragment(preds, sql" AND ")
     }

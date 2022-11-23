@@ -2,6 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Assistant.QuickstartTests (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Conduit hiding (connect)
 import Control.Concurrent
 import qualified Data.ByteString.Lazy.Char8 as LBS8

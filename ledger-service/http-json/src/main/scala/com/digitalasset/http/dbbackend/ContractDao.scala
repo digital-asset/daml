@@ -10,10 +10,10 @@ import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.dbbackend.Queries.SurrogateTpId
 import com.daml.http.domain
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.lf.crypto.Hash
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Metrics
 import com.daml.nonempty.{+-:, NonEmpty, NonEmptyF}
 import domain.Offset.`Offset ordering`
 import doobie.LogHandler
@@ -94,7 +94,7 @@ object ContractDao {
       tpIdCacheMaxEntries: Option[Long] = None,
   )(implicit
       ec: ExecutionContext,
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): ContractDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)
     val setup = for {
@@ -124,7 +124,7 @@ object ContractDao {
       driver: SupportedJdbcDriver.Available,
       tpIdCacheMaxEntries: Long,
   )(implicit
-      metrics: Metrics
+      metrics: HttpJsonApiMetrics
   ) =
     driver.configure(
       tablePrefix = cfg.baseConfig.tablePrefix,

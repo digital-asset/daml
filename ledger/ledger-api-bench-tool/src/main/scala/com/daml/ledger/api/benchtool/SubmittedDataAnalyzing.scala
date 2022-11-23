@@ -78,10 +78,13 @@ object SubmittedDataAnalyzing {
       if (candidatesPackageIds.size > 1) {
         logger.warn(s"Found more than one Daml package with name '$BenchtoolTestsPackageName'")
       }
-      val packageId = candidatesPackageIds.headOption.getOrElse(
-        sys.error(s"Could not find a Daml package with name '$BenchtoolTestsPackageName'")
-      )
-      BenchtoolTestsPackageInfo(packageId = packageId)
+      val detectedPackageInfoO = candidatesPackageIds.headOption.map(BenchtoolTestsPackageInfo(_))
+      detectedPackageInfoO.getOrElse {
+        logger.info(
+          s"Could not find a Daml package with name '$BenchtoolTestsPackageName'; defaulting its packageId to the static one"
+        )
+        BenchtoolTestsPackageInfo.StaticDefault
+      }
     }
   }
 

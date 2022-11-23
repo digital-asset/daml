@@ -10,7 +10,7 @@ import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{InitialSeeding, Pretty, SError, SValue}
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
-import com.daml.lf.speedy.Speedy.{Machine, OnLedger}
+import com.daml.lf.speedy.Speedy.{Machine, OffLedgerMachine, OnLedgerMachine}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{
   Node,
@@ -58,6 +58,7 @@ import com.daml.scalautil.Statement.discard
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
+@scala.annotation.nowarn("msg=return statement uses an exception to pass control to the caller")
 class Engine(val config: EngineConfig = Engine.StableConfig) {
 
   config.profileDir.foreach(Files.createDirectories(_))
@@ -317,7 +318,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
-    val machine = Machine(
+    val machine = OnLedgerMachine(
       compiledPackages = compiledPackages,
       submissionTime = submissionTime,
       initialSeeding = seeding,
@@ -364,11 +365,11 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
-      machine: Machine,
+      machine: OnLedgerMachine,
       time: Time.Timestamp,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     def detailMsg = Some(
-      s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${onLedger.nodesToString}"
+      s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${machine.nodesToString}"
     )
     def versionDisclosedContract(d: speedy.DisclosedContract): Versioned[DisclosedContract] =
       Versioned(
@@ -437,40 +438,28 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       }
     }
 
-    machine.ledgerMode match {
-      case onLedger: OnLedger =>
-        onLedger.finish match {
-          case Right(OnLedger.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedContracts)) =>
-            deps(tx).flatMap { deps =>
-              val meta = Tx.Metadata(
-                submissionSeed = None,
-                submissionTime = onLedger.submissionTime,
-                usedPackages = deps,
-                dependsOnTime = onLedger.getDependsOnTime,
-                nodeSeeds = nodeSeeds,
-                globalKeyMapping = globalKeyMapping,
-                disclosures = disclosedContracts.map(versionDisclosedContract),
-              )
-              config.profileDir.foreach { dir =>
-                val desc = Engine.profileDesc(tx)
-                val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
-                machine.profile.name = s"${meta.submissionTime}-$desc"
-                machine.profile.writeSpeedscopeJson(profileFile)
-              }
-              ResultDone((tx, meta))
-            }
-          case Left(err) =>
-            handleError(err)
-        }
-      case _ =>
-        ResultError(
-          Error.Interpretation.Internal(
-            NameOf.qualifiedNameOfCurrentFunc,
-            "unexpected off-ledger machine",
-            None,
+    machine.finish match {
+      case Right(OnLedgerMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedContracts)) =>
+        deps(tx).flatMap { deps =>
+          val meta = Tx.Metadata(
+            submissionSeed = None,
+            submissionTime = machine.submissionTime,
+            usedPackages = deps,
+            dependsOnTime = machine.getDependsOnTime,
+            nodeSeeds = nodeSeeds,
+            globalKeyMapping = globalKeyMapping,
+            disclosures = disclosedContracts.map(versionDisclosedContract),
           )
-        )
-
+          config.profileDir.foreach { dir =>
+            val desc = Engine.profileDesc(tx)
+            val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
+            machine.profile.name = s"${meta.submissionTime}-$desc"
+            machine.profile.writeSpeedscopeJson(profileFile)
+          }
+          ResultDone((tx, meta))
+        }
+      case Left(err) =>
+        handleError(err)
     }
   }
 
@@ -542,7 +531,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       argument: Value,
       interfaceId: Identifier,
   )(implicit loggingContext: LoggingContext): Result[Versioned[Value]] = {
-    def interpret(machine: Machine): Result[SValue] = {
+    def interpret(machine: OffLedgerMachine): Result[SValue] = {
       machine.run() match {
         case SResultFinal(v) => ResultDone(v)
         case SResultError(err) => handleError(err, None)

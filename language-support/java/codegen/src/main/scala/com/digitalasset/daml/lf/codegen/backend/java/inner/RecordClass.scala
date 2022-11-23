@@ -19,11 +19,12 @@ private[inner] object RecordClass extends StrictLogging {
       className: ClassName,
       typeParameters: IndexedSeq[String],
       record: Record.FWT,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ): TypeSpec = {
     TrackLineage.of("record", className.simpleName()) {
       logger.info("Start")
-      val fields = getFieldsWithTypes(record.fields, packagePrefixes)
+      val fields = getFieldsWithTypes(record.fields)
       val recordType = TypeSpec
         .classBuilder(className)
         .addModifiers(Modifier.PUBLIC)
@@ -38,7 +39,7 @@ private[inner] object RecordClass extends StrictLogging {
         .addTypeVariables(typeParameters.map(TypeVariableName.get).asJava)
         .addFields(RecordFields(fields).asJava)
         .addField(createPackageIdField(packageId))
-        .addMethods(RecordMethods(fields, className, typeParameters, packagePrefixes).asJava)
+        .addMethods(RecordMethods(fields, className, typeParameters).asJava)
         .build()
       logger.debug("End")
       recordType

@@ -19,14 +19,24 @@ object MetricHandle {
 
   trait Factory {
 
+    /** A timer can be represented by either a summary or a histogram.
+      *  - For `Dropwizard` the timer is represented as a summary.
+      *  - For `OpenTelemetry` the timer is represented by a histogram.
+      */
     def timer(name: MetricName)(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Timer
 
+    /** A gauge represents the current value being monitored, such as queue size, requests in flight, etc.
+      * The values being monitored should be numeric for compatibility with multiple metric systems
+      * (e.g. Prometheus).
+      */
     def gauge[T](name: MetricName, initial: T)(implicit
         context: MetricsContext
     ): Gauge[T]
 
+    /** Same as a gauge, but the value is read using the `gaugeSupplier` only when the metrics are observed.
+      */
     def gaugeWithSupplier[T](
         name: MetricName,
         gaugeSupplier: () => T,
@@ -34,14 +44,25 @@ object MetricHandle {
         context: MetricsContext = MetricsContext.Empty
     ): Unit
 
+    /** A meter represents a monotonically increasing value.
+      * In Prometheus this is actually represented by a `Counter`.
+      * Note that meters should never decrease as the data is then skewed and unusable!
+      */
     def meter(name: MetricName)(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Meter
 
+    /** A counter represents a value that can go up and down.
+      *  For both `Dropwizard` and `OpenTelemetry` a counter is actually represented as a gauge.
+      *  We can think of a counter as a gauge with a richer API.
+      */
     def counter(name: MetricName)(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Counter
 
+    /** A histogram represents a `bucketized` view of the data.
+      *  In most cases the boundaries of the buckets should be manually configured for the monitored data.
+      */
     def histogram(name: MetricName)(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Histogram
@@ -80,8 +101,12 @@ object MetricHandle {
 
   object Timer {
 
-    trait TimerHandle extends AutoCloseable {
-      def stop(): Unit = close()
+    trait TimerHandle {
+
+      def stop()(implicit
+          context: MetricsContext = MetricsContext.Empty
+      ): Unit
+
     }
 
   }
@@ -113,13 +138,13 @@ object MetricHandle {
     override def metricType: String = "Counter"
     def inc()(implicit
         context: MetricsContext = MetricsContext.Empty
-    ): Unit
+    ): Unit = inc(1)
     def inc(n: Long)(implicit
         context: MetricsContext
     ): Unit
     def dec()(implicit
         context: MetricsContext = MetricsContext.Empty
-    ): Unit
+    ): Unit = dec(1)
     def dec(n: Long)(implicit
         context: MetricsContext
     ): Unit
@@ -136,6 +161,10 @@ object MetricHandle {
         context: MetricsContext
     ): Unit
 
+  }
+
+  object Histogram {
+    val Bytes: MetricName = MetricName("bytes")
   }
 
 }

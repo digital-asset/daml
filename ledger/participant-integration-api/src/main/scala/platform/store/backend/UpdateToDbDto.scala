@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.backend
 
-import java.util.UUID
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
@@ -13,13 +12,12 @@ import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.daml.platform.{Create, Exercise, Key, Node, NodeId}
 import com.daml.platform.index.index.StatusDetails
-import com.daml.platform.store.ChoiceCoder
 import com.daml.platform.store.dao.JdbcLedgerDao
 import com.daml.platform.store.dao.events._
+import com.daml.platform._
 
-import scala.annotation.nowarn
+import java.util.UUID
 
 object UpdateToDbDto {
 
@@ -180,6 +178,10 @@ object UpdateToDbDto {
                       createKeyValue.isDefined
                     ),
                   event_sequential_id = 0, // this is filled later
+                  driver_metadata =
+                    // Allow None as the original participant might be running
+                    // with a version predating the introduction of contract driver metadata
+                    u.contractMetadata.get(create.coid).map(_.toByteArray),
                 )
               ) ++ stakeholders.iterator.map(
                 DbDto.CreateFilter(
@@ -213,9 +215,7 @@ object UpdateToDbDto {
                     blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
                   create_key_value = createKeyValue
                     .map(compressionStrategy.createKeyValueCompression.compress),
-                  exercise_choice = Some(
-                    ChoiceCoder.encode(exercise.interfaceId, exercise.choiceId)
-                  ): @nowarn("msg=deprecated"),
+                  exercise_choice = Some(exercise.qualifiedChoideName.toString),
                   exercise_argument = Some(exerciseArgument)
                     .map(compressionStrategy.exerciseArgumentCompression.compress),
                   exercise_result = exerciseResult

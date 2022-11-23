@@ -12,6 +12,7 @@ load(
     "da_scala_library",
     "da_scala_test",
     "da_scala_test_suite",
+    "lf_scalacopts_stricter",
 )
 
 triggerMain = "src/main/scala/com/digitalasset/daml/lf/engine/trigger/ServiceMain.scala"
@@ -55,6 +56,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_slf4j",
         "@maven//:org_tpolecat_doobie_postgres",
     ],
+    scalacopts = lf_scalacopts_stricter,
     # Uncomment this if/when the target is published to maven.
     # tags = ["maven_coordinates=com.daml:trigger-service:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -74,16 +76,25 @@ da_scala_library(
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/cli-opts",
+        "//ledger-service/metrics",
         "//ledger-service/pureconfig-utils",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-resources",
+        "//ledger/metrics",
         "//libs-scala/contextualized-logging",
         "//libs-scala/db-utils",
         "//libs-scala/doobie-slf4j",
+        "//libs-scala/resources",
         "//libs-scala/scala-utils",
+        "//observability/akka-http-metrics",
+        "//triggers/metrics",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
+        "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_typesafe_config",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -109,8 +120,10 @@ binary_deps = [
     "//libs-scala/db-utils",
     "//libs-scala/ports",
     "//libs-scala/scala-utils",
+    "//triggers/runner:trigger-runner-lib",
     "//triggers/service/auth:middleware-api",
     "@maven//:org_slf4j_slf4j_api",
+    "@maven//:ch_qos_logback_logback_classic",
 ]
 
 trigger_service_runtime_deps = {
@@ -126,9 +139,11 @@ trigger_service_runtime_deps = {
         resource_strip_prefix = "triggers/service/release/trigger-service-",
         resources = ["release/trigger-service-logback.xml"],
         scala_deps = scala_binary_deps,
+        scalacopts = lf_scalacopts_stricter,
         visibility = ["//visibility:public"],
         runtime_deps = trigger_service_runtime_deps.get(edition),
         deps = binary_deps + [
+            "//ledger/metrics",
             "//runtime-components/jdbc-drivers:jdbc-drivers-{}".format(edition),
         ],
     )
@@ -194,6 +209,7 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
+        "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-middleware",
         "//triggers/service/auth:oauth2-test-server",
@@ -249,6 +265,7 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
+        "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",

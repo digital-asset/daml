@@ -228,13 +228,99 @@ RECORD_TIME_OUT_OF_RANGE
 
 
 
-2.1. ParticipantErrorGroup / IndexErrors
+2.1. ParticipantErrorGroup / CommonErrors
+===================================================================================================================
+
+Common errors raised in Daml services and components.
+
+
+
+.. _error_code_REQUEST_TIME_OUT:
+
+REQUEST_TIME_OUT
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This rejection is given when a request processing status is not known and a time-out is reached.
+
+    **Category**: DeadlineExceededRequestStateUnknown
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status DEADLINE_EXCEEDED including a detailed error message.
+
+    **Resolution**: Retry for transient problems. If non-transient contact the operator as the time-out limit might be too short.
+
+
+
+
+.. _error_code_SERVER_IS_SHUTTING_DOWN:
+
+SERVER_IS_SHUTTING_DOWN
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This rejection is given when the participant server is shutting down.
+
+    **Category**: TransientServerFailure
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status UNAVAILABLE including a detailed error message.
+
+    **Resolution**: Contact the participant operator.
+
+
+
+
+.. _error_code_SERVICE_INTERNAL_ERROR:
+
+SERVICE_INTERNAL_ERROR
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error occurs if one of the services encountered an unexpected exception.
+
+    **Category**: SystemInternalAssumptionViolated
+
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
+
+    **Resolution**: Contact support.
+
+
+
+
+.. _error_code_SERVICE_NOT_RUNNING:
+
+SERVICE_NOT_RUNNING
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This rejection is given when the requested service has already been closed.
+
+    **Category**: TransientServerFailure
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status UNAVAILABLE including a detailed error message.
+
+    **Resolution**: Retry re-submitting the request. If the error persists, contact the participant operator.
+
+
+
+
+.. _error_code_UNSUPPORTED_OPERATION:
+
+UNSUPPORTED_OPERATION
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request.
+
+    **Category**: InternalUnsupportedOperation
+
+    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status UNIMPLEMENTED without any details for security reasons.
+
+    **Resolution**: This error is caused by a participant node misconfiguration or by an implementation bug. Resolution requires participant operator intervention.
+
+
+
+2.2. ParticipantErrorGroup / IndexErrors
 ===================================================================================================================
 
 Errors raised by the Participant Index persistence layer.
 
 
-2.1.1. ParticipantErrorGroup / IndexErrors / DatabaseErrors
+2.2.1. ParticipantErrorGroup / IndexErrors / DatabaseErrors
 ===================================================================================================================
 
 
@@ -288,7 +374,7 @@ INDEX_DB_SQL_TRANSIENT_ERROR
 
 
 
-2.2. ParticipantErrorGroup / LedgerApiErrors
+2.3. ParticipantErrorGroup / LedgerApiErrors
 ===================================================================================================================
 
 Errors raised by or forwarded by the Ledger API.
@@ -359,54 +445,6 @@ PARTICIPANT_BACKPRESSURE
 
 
 
-.. _error_code_REQUEST_TIME_OUT:
-
-REQUEST_TIME_OUT
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This rejection is given when a request processing status is not known and a time-out is reached.
-
-    **Category**: DeadlineExceededRequestStateUnknown
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status DEADLINE_EXCEEDED including a detailed error message.
-
-    **Resolution**: Retry for transient problems. If non-transient contact the operator as the time-out limit might be too short.
-
-
-
-
-.. _error_code_SERVER_IS_SHUTTING_DOWN:
-
-SERVER_IS_SHUTTING_DOWN
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This rejection is given when the participant server is shutting down.
-
-    **Category**: TransientServerFailure
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status UNAVAILABLE including a detailed error message.
-
-    **Resolution**: Contact the participant operator.
-
-
-
-
-.. _error_code_SERVICE_NOT_RUNNING:
-
-SERVICE_NOT_RUNNING
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This rejection is given when the requested service has already been closed.
-
-    **Category**: TransientServerFailure
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status UNAVAILABLE including a detailed error message.
-
-    **Resolution**: Retry re-submitting the request. If the error persists, contact the participant operator.
-
-
-
-
 .. _error_code_THREADPOOL_OVERLOADED:
 
 THREADPOOL_OVERLOADED
@@ -418,27 +456,11 @@ THREADPOOL_OVERLOADED
 
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
-    **Resolution**: The following actions can be taken: Here the 'queue size' for the threadpool = 'submitted tasks' - 'completed tasks' - 'running tasks' 1. Review the historical 'queue size' growth by inspecting the metric given in the message. 2. Review the maximum 'queue size' limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require a lot of CPU or database power.       
+    **Resolution**: The following actions can be taken: Here the 'queue size' for the threadpool = 'submitted tasks' - 'completed tasks' - 'running tasks' 1. Review the historical 'queue size' growth by inspecting the metric given in the message. 2. Review the maximum 'queue size' limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require a lot of CPU or database power.      
 
 
 
-
-.. _error_code_UNSUPPORTED_OPERATION:
-
-UNSUPPORTED_OPERATION
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request.
-
-    **Category**: InternalUnsupportedOperation
-
-    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status UNIMPLEMENTED without any details for security reasons.
-
-    **Resolution**: This error is caused by a participant node misconfiguration or by an implementation bug. Resolution requires participant operator intervention.
-
-
-
-2.2.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices
+2.3.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices
 ===================================================================================================================
 
 Errors raised by Ledger API admin services.
@@ -492,7 +514,7 @@ PACKAGE_UPLOAD_REJECTED
 
 
 
-2.2.1.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices / PartyManagementServiceErrorGroup
+2.3.1.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices / PartyManagementServiceErrorGroup
 ===================================================================================================================
 
 
@@ -594,7 +616,7 @@ PARTY_NOT_FOUND
 
 
 
-2.2.1.2. ParticipantErrorGroup / LedgerApiErrors / AdminServices / UserManagementServiceErrorGroup
+2.3.1.2. ParticipantErrorGroup / LedgerApiErrors / AdminServices / UserManagementServiceErrorGroup
 ===================================================================================================================
 
 
@@ -696,7 +718,7 @@ USER_NOT_FOUND
 
 
 
-2.2.2. ParticipantErrorGroup / LedgerApiErrors / AuthorizationChecks
+2.3.2. ParticipantErrorGroup / LedgerApiErrors / AuthorizationChecks
 ===================================================================================================================
 
 Authentication and authorization errors.
@@ -766,7 +788,7 @@ UNAUTHENTICATED
 
 
 
-2.2.3. ParticipantErrorGroup / LedgerApiErrors / CommandExecution
+2.3.3. ParticipantErrorGroup / LedgerApiErrors / CommandExecution
 ===================================================================================================================
 
 Errors raised during the command execution phase of the command submission evaluation.
@@ -788,7 +810,7 @@ FAILED_TO_DETERMINE_LEDGER_TIME
 
 
 
-2.2.3.1. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Interpreter
+2.3.3.1. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Interpreter
 ===================================================================================================================
 
 Errors raised during the command interpretation phase of the command submission evaluation.
@@ -858,7 +880,7 @@ DAML_INTERPRETER_INVALID_ARGUMENT
 
 
 
-2.2.3.1.1. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Interpreter / LookupErrors
+2.3.3.1.1. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Interpreter / LookupErrors
 ===================================================================================================================
 
 Errors raised in lookups during the command interpretation phase.
@@ -880,7 +902,7 @@ CONTRACT_KEY_NOT_FOUND
 
 
 
-2.2.3.2. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Package
+2.3.3.2. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Package
 ===================================================================================================================
 
 Command execution errors raised due to invalid packages.
@@ -910,15 +932,15 @@ PACKAGE_VALIDATION_FAILED
     
     **Explanation**: This error occurs if a package referred to by a command fails validation. This should not happen as packages are validated when being uploaded.
 
-    **Category**: MaliciousOrFaultyBehaviour
+    **Category**: SecurityAlert
 
-    **Conveyance**: This error is logged with log-level WARN on the server side. It is exposed on the API with grpc-status UNKNOWN without any details for security reasons.
+    **Conveyance**: This error is logged with log-level WARN on the server side. It is exposed on the API with grpc-status INVALID_ARGUMENT without any details for security reasons.
 
     **Resolution**: Contact support.
 
 
 
-2.2.3.3. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Preprocessing
+2.3.3.3. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Preprocessing
 ===================================================================================================================
 
 Errors raised during command conversion to the internal data representation.
@@ -940,7 +962,7 @@ COMMAND_PREPROCESSING_FAILED
 
 
 
-2.2.4. ParticipantErrorGroup / LedgerApiErrors / ConsistencyErrors
+2.3.4. ParticipantErrorGroup / LedgerApiErrors / ConsistencyErrors
 ===================================================================================================================
 
 Potential consistency errors raised due to race conditions during command submission or returned as submission rejections by the backing ledger.
@@ -1090,7 +1112,7 @@ SUBMISSION_ALREADY_IN_FLIGHT
 
 
 
-2.2.5. ParticipantErrorGroup / LedgerApiErrors / PackageServiceError
+2.3.5. ParticipantErrorGroup / LedgerApiErrors / PackageServiceError
 ===================================================================================================================
 
 Errors raised by the Package Management Service on package uploads.
@@ -1144,7 +1166,7 @@ PACKAGE_SERVICE_INTERNAL_ERROR
 
 
 
-2.2.5.1. ParticipantErrorGroup / LedgerApiErrors / PackageServiceError / Reading
+2.3.5.1. ParticipantErrorGroup / LedgerApiErrors / PackageServiceError / Reading
 ===================================================================================================================
 
 Package parsing errors raised during package upload.
@@ -1246,7 +1268,7 @@ ZIP_BOMB
 
 
 
-2.2.6. ParticipantErrorGroup / LedgerApiErrors / RequestValidation
+2.3.6. ParticipantErrorGroup / LedgerApiErrors / RequestValidation
 ===================================================================================================================
 
 Validation errors raised when evaluating requests in the Ledger API.
@@ -1396,7 +1418,7 @@ PARTICIPANT_PRUNED_DATA_ACCESSED
 
 
 
-2.2.6.1. ParticipantErrorGroup / LedgerApiErrors / RequestValidation / NotFound
+2.3.6.1. ParticipantErrorGroup / LedgerApiErrors / RequestValidation / NotFound
 ===================================================================================================================
 
 
@@ -1466,7 +1488,7 @@ TRANSACTION_NOT_FOUND
 
 
 
-2.2.7. ParticipantErrorGroup / LedgerApiErrors / WriteServiceRejections
+2.3.7. ParticipantErrorGroup / LedgerApiErrors / WriteServiceRejections
 ===================================================================================================================
 
 Generic submission rejection errors returned by the backing ledger's write service.
@@ -1556,7 +1578,7 @@ SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER
 
 
 
-2.2.7.1. ParticipantErrorGroup / LedgerApiErrors / WriteServiceRejections / Internal
+2.3.7.1. ParticipantErrorGroup / LedgerApiErrors / WriteServiceRejections / Internal
 ===================================================================================================================
 
 Errors that arise from an internal system misbehavior.

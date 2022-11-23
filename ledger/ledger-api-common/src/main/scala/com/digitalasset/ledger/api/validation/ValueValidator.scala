@@ -15,9 +15,12 @@ import io.grpc.StatusRuntimeException
 import scalaz.std.either._
 import scalaz.syntax.bifunctor._
 
-object ValueValidator {
+abstract class ValueValidator {
+
   import ValidationErrors._
   import FieldValidations._
+
+  protected def validateNumeric(s: String): Option[Numeric]
 
   private[validation] def validateRecordFields(
       recordFields: Seq[api.RecordField]
@@ -45,9 +48,6 @@ object ValueValidator {
       fields <- validateRecordFields(rec.fields)
     } yield Lf.ValueRecord(recId, fields)
 
-  private val validNumericString =
-    """[+-]?\d{1,38}(\.\d{0,37})?""".r.pattern
-
   def validateValue(v0: api.Value)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.Value] = v0.sum match {
@@ -56,15 +56,12 @@ object ValueValidator {
         .fromString(cId)
         .bimap(invalidArgument, Lf.ValueContractId(_))
     case Sum.Numeric(value) =>
-      def err =
-        invalidArgument(s"""Could not read Numeric string "$value"""")
-      if (validNumericString.matcher(value).matches())
-        Numeric
-          .fromUnscaledBigDecimal(new java.math.BigDecimal(value))
-          .left map (_ => err) map Lf.ValueNumeric
-      else
-        Left(err)
-
+      validateNumeric(value) match {
+        case Some(numeric) =>
+          Right(Lf.ValueNumeric(numeric))
+        case None =>
+          Left(invalidArgument(s"""Could not read Numeric string "$value""""))
+      }
     case Sum.Party(party) =>
       Ref.Party
         .fromString(party)
@@ -159,6 +156,25 @@ object ValueValidator {
   ): Either[StatusRuntimeException, Option[Ref.Identifier]] =
     variantIdO.map(validateIdentifier(_).map(Some.apply)).getOrElse(Right(None))
 
+}
+
+// Standard version of the Validator use by the ledger API
+object ValueValidator extends ValueValidator {
+  private[this] val validNumericPattern =
+    """[+-]?\d{1,38}(\.\d{0,37})?""".r.pattern
+
+  protected override def validateNumeric(s: String): Option[Numeric] =
+    if (validNumericPattern.matcher(s).matches())
+      Numeric.fromUnscaledBigDecimal(new java.math.BigDecimal(s)).toOption
+    else
+      None
+}
+
+// Version of the ValueValidator that is stricter for syntax for Numeric but preserves their precision.
+// Use by canton's Repair service
+object StricterValueValidator extends ValueValidator {
+  protected override def validateNumeric(s: String): Option[Numeric] =
+    Numeric.fromString(s).toOption
 }
 
 object NoLoggingValueValidator {

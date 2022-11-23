@@ -1,8 +1,8 @@
 module Scripts.Lifecycling where
 
 import DA.Date (toDateUTC)
-import DA.Map (empty, fromList)
-import DA.Set (singleton)
+import DA.Map qualified as M (empty)
+import DA.Set qualified as S (empty, fromList, singleton)
 import Daml.Script
 
 -- INTERFACE DEPENDENCIES --
@@ -16,13 +16,14 @@ import Daml.Finance.Interface.Settlement.Types (Allocation(..), Approval(..))
 import Daml.Finance.Interface.Types.Common (Id(..))
 
 -- IMPLEMENTATION DEPENDENCIES --
-import Daml.Finance.Instrument.Base.Instrument (Instrument(..))
+import Daml.Finance.Data.Time.DateClock (DateClock(..))
+import Daml.Finance.Instrument.Token.Instrument (Instrument(..))
 import Daml.Finance.Lifecycle.Event.Distribution qualified as Distribution (Event(..))
 import Daml.Finance.Lifecycle.Rule.Claim qualified as Claim (Rule(..))
 import Daml.Finance.Lifecycle.Rule.Distribution qualified as Distribution (Rule(..))
-import Daml.Finance.RefData.Time.DateClock (DateClock(..), Unit(..))
+import Daml.Finance.Lifecycle.Types (Unit(..))
 
-import Scripts.Settlement (runSettlement)
+import Scripts.Settlement (SettlementState(..), runSettlement)
 
 -- | Test script that
 -- 1. executes the `runSettlement` script
@@ -36,7 +37,17 @@ runLifecycling = do
 
   -- Execute the `runSettlement` script.
   -- Bob now holds 10 tokens in his account.
-  (alice, bank, bob, public, aliceAccount, bobAccount, usdInstrument, tokenInstrument, settlementFactoryCid, aliceHoldingCid, bobHoldingCid) <- runSettlement
+  SettlementState{alice
+    , bank
+    , bob
+    , public
+    , aliceAccount
+    , bobAccount
+    , usdInstrument
+    , tokenInstrument
+    , settlementFactoryCid
+    , aliceHoldingCid
+    , bobHoldingCid} <- runSettlement
 
   -- The bank creates a new version of the token instrument (the "ex-distribution" version)
   -- This is the version Bob will hold after claiming the effect further down below.
@@ -44,54 +55,56 @@ runLifecycling = do
   let newTokenInstrument = tokenInstrument with version = "1"
   now <- getTime
   tokenInstrumentCid <- toInterfaceContractId @Instrument.I <$> submit bank do
-    createCmd Instrument
-      with
-        depository = bank
-        issuer = bank
-        id = tokenInstrument.id
-        description = "Instrument representing units of a generic token"
-        version = "1"
-        observers = empty
-        validAsOf = now
+    createCmd Instrument with
+      depository = bank
+      issuer = bank
+      id = tokenInstrument.id
+      description = "Instrument representing units of a generic token"
+      version = "1"
+      observers = M.empty
+      validAsOf = now
   -- NEW_VERSION_END
 
   -- Create clock
   -- CREATE_CLOCK_BEGIN
+  let today = toDateUTC now
   clockCid <- toInterfaceContractId <$> submit bank do
     createCmd DateClock with
-      u = Unit $ toDateUTC now
+      providers = S.singleton bank
+      date = Unit $ toDateUTC now
       id = Id "CLOCK"
-      provider = bank
-      observers = empty
+      description = show today
+      observers = S.empty
   -- CREATE_CLOCK_END
 
   -- Create lifecycle rules
   -- LIFECYCLE_RULES_BEGIN
   distributionRuleCid <- toInterfaceContractId @Lifecycle.I <$> submit bank do
     createCmd Distribution.Rule with
-      provider = bank
-      observers = fromList [("Distribution", singleton $ singleton bob)]
+      providers = S.singleton bank
+      lifecycler = bank
+      observers = S.singleton bob
   lifecycleClaimRuleCid <- toInterfaceContractId @Claim.I <$> submitMulti [bank, bob] [] do
     createCmd Claim.Rule with
-      custodian = bank
-      owner = bob
-      claimers = singleton bob
-      settler = bob
-      factoryCid = settlementFactoryCid
+      providers = S.fromList [bank, bob]
+      claimers = S.singleton bob
+      settlers = S.singleton bob
+      settlementFactoryCid
+      netInstructions = False
   -- LIFECYCLE_RULES_END
 
   -- Create cash distribution event
   -- CREATE_EVENT_BEGIN
   distributionEventCid <- toInterfaceContractId @Event.I <$> submit bank do
     createCmd Distribution.Event with
-      provider = bank
+      providers = S.singleton bank
       id = Id "DISTRIBUTION"
       description = "Profit distribution"
       effectiveDate = toDateUTC now
       targetInstrument = tokenInstrument
       newInstrument = newTokenInstrument
       perUnitDistribution = [Instrument.qty 0.02 usdInstrument]
-      observers = empty
+      observers = S.empty
   -- CREATE_EVENT_END
 
   -- Lifecycle distribution event
@@ -99,10 +112,9 @@ runLifecycling = do
   (_, [effectCid]) <- submit bank do
     exerciseCmd distributionRuleCid Lifecycle.Evolve with
       ruleName = "Distribution"
-      settler = bank
-      observableCids = []
       eventCid = distributionEventCid
-      clockCid
+      timeObservableCid = clockCid
+      observableCids = []
   -- LIFECYCLE_EVENT_END
 
   -- Claim effect
@@ -112,18 +124,47 @@ runLifecycling = do
       claimer = bob
       holdingCids = [bobHoldingCid]
       effectCid
-  let [instructionCid] = result.instructionCids
+      batchId = Id "DistributionSettlement"
+  let [bobInstructionCid, bankInstructionCid, couponInstructionCid] = result.instructionCids
   -- CLAIM_EVENT_END
 
   -- EFFECT_SETTLEMENT_BEGIN
   -- Allocate instruction
-  instructionCid <- submit bank do exerciseCmd instructionCid Instruction.Allocate with allocation = CreditReceiver
+  (bobInstructionCid, _) <- submit bob do
+    exerciseCmd bobInstructionCid Instruction.Allocate with
+      actors = S.singleton bob
+      allocation = Pledge bobHoldingCid
+
+  (bankInstructionCid, _) <- submit bank do
+    exerciseCmd bankInstructionCid Instruction.Allocate with
+      actors = S.singleton bank
+      allocation = CreditReceiver
+
+  (couponInstructionCid, _) <- submit bank do
+    exerciseCmd couponInstructionCid Instruction.Allocate with
+      actors = S.singleton bank
+      allocation = CreditReceiver
 
   -- Approve instruction
-  instructionCid <- submit bob do exerciseCmd instructionCid Instruction.Approve with approval = TakeDelivery bobAccount
+  bobInstructionCid <- submit bank do
+    exerciseCmd bobInstructionCid Instruction.Approve with
+      actors = S.singleton bank
+      approval = DebitSender
+
+  bankInstructionCid <- submit bob do
+    exerciseCmd bankInstructionCid Instruction.Approve with
+      actors = S.singleton bob
+      approval = TakeDelivery bobAccount
+
+  couponInstructionCid <- submit bob do
+    exerciseCmd couponInstructionCid Instruction.Approve with
+      actors = S.singleton bob
+      approval = TakeDelivery bobAccount
 
   -- Settle batch
-  submitMulti [bob] [public] do exerciseCmd result.batchCid Batch.Settle
+  submitMulti [bob] [public] do
+    exerciseCmd result.batchCid Batch.Settle with
+      actors = S.singleton bob
   -- EFFECT_SETTLEMENT_END
 
   pure ()

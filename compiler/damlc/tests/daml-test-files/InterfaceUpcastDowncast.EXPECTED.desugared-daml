@@ -292,7 +292,7 @@ _method_T1_A_T1_getOwner
       @A
       @T1
       @"getOwner"
-      \ this@T1 {..} -> let _ = this in let getOwner = p1 in getOwner
+      \ this@T1 {..} -> let _ = this in let $getOwner = p1 in $getOwner
 _view_T1_A_T1 : DA.Internal.Desugar.InterfaceView T1 A T1
 _view_T1_A_T1
   = DA.Internal.Desugar.mkInterfaceView
@@ -300,7 +300,7 @@ _view_T1_A_T1
       @A
       @T1
       \ this@T1 {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
+        -> let _ = this in let $view = EmptyInterfaceView in $view
 instance DA.Internal.Desugar.HasToInterface T1 A where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T1 A where
@@ -319,7 +319,7 @@ _method_T1_B_T1_getCoolness
       @T1
       @"getCoolness"
       \ this@T1 {..}
-        -> let _ = this in let getCoolness = 20 in getCoolness
+        -> let _ = this in let $getCoolness = 20 in $getCoolness
 _view_T1_B_T1 : DA.Internal.Desugar.InterfaceView T1 B T1
 _view_T1_B_T1
   = DA.Internal.Desugar.mkInterfaceView
@@ -327,7 +327,7 @@ _view_T1_B_T1
       @B
       @T1
       \ this@T1 {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
+        -> let _ = this in let $view = EmptyInterfaceView in $view
 instance DA.Internal.Desugar.HasToInterface T1 B where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T1 B where
@@ -406,7 +406,7 @@ _method_T2_A_T2_getOwner
       @A
       @T2
       @"getOwner"
-      \ this@T2 {..} -> let _ = this in let getOwner = p2 in getOwner
+      \ this@T2 {..} -> let _ = this in let $getOwner = p2 in $getOwner
 _view_T2_A_T2 : DA.Internal.Desugar.InterfaceView T2 A T2
 _view_T2_A_T2
   = DA.Internal.Desugar.mkInterfaceView
@@ -414,7 +414,7 @@ _view_T2_A_T2
       @A
       @T2
       \ this@T2 {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
+        -> let _ = this in let $view = EmptyInterfaceView in $view
 instance DA.Internal.Desugar.HasToInterface T2 A where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T2 A where
@@ -448,7 +448,7 @@ main
               fetchPair2 <- fetchFromInterface @B cidt2a
               assertMsg
                 "fetchPair1 != Some (cidt1b, t1b)"
-                (fetchPair1 == Some (cidt1b, t1b))
+                (fetchPair1 == Some userWrittenTuple (cidt1b, t1b))
               assertMsg "fetchPair2 != None" (isNone fetchPair2)
               exercise cidt1a ChoiceA
               exercise cidt1b ChoiceB

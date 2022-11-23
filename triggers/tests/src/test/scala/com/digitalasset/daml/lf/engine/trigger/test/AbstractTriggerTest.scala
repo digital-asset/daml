@@ -25,6 +25,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref._
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
@@ -32,6 +33,7 @@ import com.daml.platform.sandbox.services.TestCommands
 import org.scalatest._
 import scalaz.syntax.tag._
 import com.daml.platform.sandbox.fixture.SandboxFixture
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -98,20 +100,28 @@ trait AbstractTriggerTest
       readAs: Set[String] = Set.empty,
   ): Runner = {
     val triggerId = Identifier(packageId, name)
-    Trigger.newLoggingContext(triggerId, Party(party), Party.subst(readAs)) {
-      implicit loggingContext =>
-        val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
-        new Runner(
-          compiledPackages,
-          trigger,
-          client,
-          config.participants(ParticipantId).apiServer.timeProviderType,
-          applicationId,
-          TriggerParties(
-            actAs = Party(party),
-            readAs = Party.subst(readAs),
-          ),
-        )
+
+    Trigger.newTriggerLogContext(
+      triggerId,
+      Party(party),
+      Party.subst(readAs),
+      "test-trigger",
+      ApplicationId("test-trigger-app"),
+    ) { implicit triggerContext: TriggerLogContext =>
+      val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
+
+      Runner(
+        compiledPackages,
+        trigger,
+        DefaultTriggerRunnerConfig,
+        client,
+        config.participants(ParticipantId).apiServer.timeProviderType,
+        applicationId,
+        TriggerParties(
+          actAs = Party(party),
+          readAs = Party.subst(readAs),
+        ),
+      )
     }
   }
 

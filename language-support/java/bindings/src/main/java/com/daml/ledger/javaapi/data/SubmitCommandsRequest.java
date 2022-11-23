@@ -3,8 +3,8 @@
 
 package com.daml.ledger.javaapi.data;
 
+import static com.daml.ledger.javaapi.data.codegen.HasCommands.toCommands;
 import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableList;
 
 import com.daml.ledger.api.v1.CommandsOuterClass;
 import com.google.protobuf.Timestamp;
@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 public final class SubmitCommandsRequest {
@@ -143,8 +144,8 @@ public final class SubmitCommandsRequest {
     this.applicationId = applicationId;
     this.commandId = commandId;
     this.party = actAs.get(0);
-    this.actAs = unmodifiableList(new ArrayList<>(actAs));
-    this.readAs = unmodifiableList(new ArrayList<>(readAs));
+    this.actAs = List.copyOf(actAs);
+    this.readAs = List.copyOf(readAs);
     this.minLedgerTimeAbsolute = minLedgerTimeAbsolute;
     this.minLedgerTimeRelative = minLedgerTimeRelative;
     this.deduplicationTime = deduplicationTime;
@@ -209,6 +210,8 @@ public final class SubmitCommandsRequest {
         listOfCommands);
   }
 
+  // TODO: Refactor this to take CommmandsSubmission when deprecated methods using it below are
+  // removed
   private static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -224,10 +227,8 @@ public final class SubmitCommandsRequest {
     if (actAs.size() == 0) {
       throw new IllegalArgumentException("actAs must have at least one element");
     }
-    ArrayList<CommandsOuterClass.Command> commandsConverted = new ArrayList<>(commands.size());
-    for (Command command : commands) {
-      commandsConverted.add(command.toProtoCommand());
-    }
+    List<CommandsOuterClass.Command> commandsConverted =
+        commands.stream().map(Command::toProtoCommand).collect(Collectors.toList());
     CommandsOuterClass.Commands.Builder builder =
         CommandsOuterClass.Commands.newBuilder()
             .setLedgerId(ledgerId)
@@ -261,6 +262,83 @@ public final class SubmitCommandsRequest {
     return builder.build();
   }
 
+  private static CommandsOuterClass.Commands toProto(
+      @NonNull String ledgerId,
+      @NonNull Optional<String> submissionId,
+      @NonNull CommandsSubmission submission) {
+
+    if (submission.getActAs().size() == 0) {
+      throw new IllegalArgumentException("actAs must have at least one element");
+    }
+
+    List<Command> commands = toCommands(submission.getCommands());
+    List<CommandsOuterClass.Command> commandsConverted =
+        commands.stream().map(Command::toProtoCommand).collect(Collectors.toList());
+
+    CommandsOuterClass.Commands.Builder builder =
+        CommandsOuterClass.Commands.newBuilder()
+            .setLedgerId(ledgerId)
+            .setApplicationId(submission.getApplicationId())
+            .setCommandId(submission.getCommandId())
+            .setParty(submission.getActAs().get(0))
+            .addAllActAs(submission.getActAs())
+            .addAllReadAs(submission.getReadAs())
+            .addAllCommands(commandsConverted);
+
+    submission
+        .getMinLedgerTimeAbs()
+        .ifPresent(
+            abs ->
+                builder.setMinLedgerTimeAbs(
+                    Timestamp.newBuilder()
+                        .setSeconds(abs.getEpochSecond())
+                        .setNanos(abs.getNano())));
+
+    submission
+        .getMinLedgerTimeRel()
+        .ifPresent(
+            rel ->
+                builder.setMinLedgerTimeRel(
+                    com.google.protobuf.Duration.newBuilder()
+                        .setSeconds(rel.getSeconds())
+                        .setNanos(rel.getNano())));
+
+    submission
+        .getDeduplicationTime()
+        .ifPresent(
+            dedup -> {
+              @SuppressWarnings("deprecation")
+              var unused =
+                  builder.setDeduplicationTime(
+                      com.google.protobuf.Duration.newBuilder()
+                          .setSeconds(dedup.getSeconds())
+                          .setNanos(dedup.getNano()));
+            });
+
+    submission.getWorkflowId().ifPresent(builder::setWorkflowId);
+    submissionId.ifPresent(builder::setSubmissionId);
+
+    return builder.build();
+  }
+
+  public static CommandsOuterClass.Commands toProto(
+      @NonNull String ledgerId, @NonNull CommandsSubmission submission) {
+    return toProto(
+        ledgerId,
+        submission.getWorkflowId().orElse(""),
+        submission.getApplicationId(),
+        submission.getCommandId(),
+        submission.getActAs(),
+        submission.getReadAs(),
+        submission.getMinLedgerTimeAbs(),
+        submission.getMinLedgerTimeRel(),
+        submission.getDeduplicationTime(),
+        Optional.empty(),
+        toCommands(submission.getCommands()));
+  }
+
+  /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
+  @Deprecated
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -288,6 +366,26 @@ public final class SubmitCommandsRequest {
 
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
+      @NonNull String submissionId,
+      @NonNull CommandsSubmission submission) {
+    return toProto(
+        ledgerId,
+        submission.getWorkflowId().orElse(""),
+        submission.getApplicationId(),
+        submission.getCommandId(),
+        submission.getActAs(),
+        submission.getReadAs(),
+        submission.getMinLedgerTimeAbs(),
+        submission.getMinLedgerTimeRel(),
+        submission.getDeduplicationTime(),
+        Optional.of(submissionId),
+        toCommands(submission.getCommands()));
+  }
+
+  /** @deprecated since 2.5. Please use {@link #toProto(String, String, CommandsSubmission)} */
+  @Deprecated
+  public static CommandsOuterClass.Commands toProto(
+      @NonNull String ledgerId,
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -312,6 +410,8 @@ public final class SubmitCommandsRequest {
         commands);
   }
 
+  /** @deprecated since 2.5. Please use {@link #toProto(String, String, CommandsSubmission)} */
+  @Deprecated
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -340,6 +440,8 @@ public final class SubmitCommandsRequest {
         commands);
   }
 
+  /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
+  @Deprecated
   public static CommandsOuterClass.Commands toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,

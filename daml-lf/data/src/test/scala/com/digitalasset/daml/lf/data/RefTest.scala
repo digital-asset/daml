@@ -7,8 +7,9 @@ import com.daml.lf.data.Ref._
 import org.scalatest.EitherValues
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 
-class RefTest extends AnyFreeSpec with Matchers with EitherValues {
+class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with EitherValues {
 
   "Name.fromString" - {
     "reject" - {
@@ -17,9 +18,17 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
       }
 
       "bad symbols" in {
-        Name.fromString("test%") shouldBe a[Left[_, _]]
-        Name.fromString("test-") shouldBe a[Left[_, _]]
-        Name.fromString("test@") shouldBe a[Left[_, _]]
+        val testCases =
+          Table(
+            "non valid Name",
+            "test%",
+            "test-",
+            "test@",
+            "test:", // used for QualifiedName string encoding
+            "test.", // used for DottedName string encoding
+            "test#", // used for QualifiedChoiceName string encoding
+          )
+        forEvery(testCases)(Name.fromString(_) shouldBe a[Left[_, _]])
       }
 
       "unicode" in {
@@ -290,6 +299,51 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
       LedgerString.fromString("p" * 256) shouldBe a[Left[_, _]]
       ApplicationId.fromString("p" * 255) shouldBe a[Right[_, _]]
       ApplicationId.fromString("p" * 256) shouldBe a[Left[_, _]]
+    }
+  }
+
+  "QualifiedChoiceName.fromString" - {
+
+    val errorMessageBeginning =
+      "Separator ':' between package identifier and qualified name not found in "
+
+    "rejects strings without any colon" in {
+      Identifier.fromString("foo").left.value should startWith(errorMessageBeginning)
+    }
+
+    "rejects strings with empty segments but the error is caught further down the stack" in {
+      val testCases = Table(
+        "invalid qualified choice Name",
+        "#",
+        "##",
+        "###",
+        "##ChName",
+        "-pkgId-:Mod:Name#ChName",
+        "-pkgId-:Mod:Name#ChName#",
+        "#-pkgId-:Mod:Name",
+        "#-pkgId-:Mod:Name#",
+        "#-pkgId-:Mod:Name#ChName#",
+      )
+
+      forEvery(testCases)(s =>
+        if (QualifiedChoiceName.fromString(s).isRight)
+          QualifiedChoiceName.fromString(s) shouldBe Left(s)
+        else
+          QualifiedChoiceName.fromString(s) shouldBe a[Left[_, _]]
+      )
+    }
+
+    "accepts valid identifiers" in {
+      QualifiedChoiceName.fromString("ChName") shouldBe
+        Right(QualifiedChoiceName(None, ChoiceName.assertFromString("ChName")))
+
+      QualifiedChoiceName.fromString("#-pkgId-:Mod:Name#ChName") shouldBe
+        Right(
+          QualifiedChoiceName(
+            Some(Identifier.assertFromString("-pkgId-:Mod:Name")),
+            ChoiceName.assertFromString("ChName"),
+          )
+        )
     }
   }
 

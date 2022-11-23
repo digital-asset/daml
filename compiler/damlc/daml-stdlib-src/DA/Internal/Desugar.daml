@@ -28,7 +28,7 @@ module DA.Internal.Desugar (
     mkMethod,
     InterfaceView,
     mkInterfaceView,
-    codeGenAllowLargeTuples
+    userWrittenTuple
 ) where
 
 import DA.Internal.Prelude
@@ -43,6 +43,7 @@ import DA.Internal.Exception ()
 import DA.Internal.Exception
 #endif
 import GHC.Types (magic, Symbol)
+import GHC.Tuple.Check (userWrittenTuple)
 
 -- These are only used as markers by desugaring, we do not translate them to LF.
 data NonConsuming t = NonConsuming {}
@@ -145,6 +146,3 @@ newtype InterfaceView p i t = InterfaceView ()
 -- it's extracted unmodified.
 mkInterfaceView : forall p i t v. (Implements t i, HasInterfaceView i v) => (t -> v) -> InterfaceView p i t
 mkInterfaceView = magic @"mkInterfaceView"
-
-codeGenAllowLargeTuples : forall a. a -> a
-codeGenAllowLargeTuples = magic @"codeGenAllowLargeTuples"
