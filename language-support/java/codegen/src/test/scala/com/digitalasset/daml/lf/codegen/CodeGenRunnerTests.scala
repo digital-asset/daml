@@ -89,6 +89,18 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     }
   }
 
+  it should "read interfaces from 2 DAR files with one is depending on another one using data_dependencies" in {
+
+    val scope = CodeGenRunner.configureCodeGenScope(
+      Map(testTemplateDar -> Some("prefix1"), testDependsOnBarTplDar -> Some("prefix2")),
+      Map.empty,
+    )
+
+    assert(scope.signatures.length === 26)
+    assert(scope.packagePrefixes.size === 2)
+    assert(scope.packagePrefixes.values.toSet == Set("prefix1", "prefix2"))
+  }
+
   behavior of "detectModuleCollisions"
 
   private def moduleIdSet(signatures: Seq[PackageSignature]): Set[Reference.Module] = {
@@ -212,8 +224,10 @@ object CodeGenRunnerTests {
     "language-support/java/codegen/test-daml-with-same-source-project-name.dar"
   private[this] val testDarWithSameDependenciesButDifferentTargetVersionPath =
     "language-support/java/codegen/test-daml-with-same-dependencies-but-different-target-version.dar"
-//  private[this] val testTemplateDarPath = "language-support/java/codegen/test-template.dar"
-//  private[this] val testTemplateDar2Path = "language-support/java/codegen/test-template2.dar"
+  private[this] val testTemplateDarPath = "language-support/java/codegen/test-template.dar"
+  private[this] val testDependsOnBarTplDarPath =
+    "language-support/java/codegen/test-depending-on-bar-template.dar"
+
   private val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
   private val testDarWithSameDependencies =
     Path.of(BazelRunfiles.rlocation(testDarWithSameDependenciesPath))
@@ -221,9 +235,8 @@ object CodeGenRunnerTests {
     Path.of(BazelRunfiles.rlocation(testDarWithSameSrcAndProjectNamePath))
   private val testDarWithSameDependenciesButDifferentTargetVersion =
     Path.of(BazelRunfiles.rlocation(testDarWithSameDependenciesButDifferentTargetVersionPath))
-//  private val testTemplateDar = Path.of(BazelRunfiles.rlocation(testTemplateDarPath))
-//  private val testTemplate2Dar = Path.of(BazelRunfiles.rlocation(testTemplateDar2Path))
-
+  private val testTemplateDar = Path.of(BazelRunfiles.rlocation(testTemplateDarPath))
+  private val testDependsOnBarTplDar = Path.of(BazelRunfiles.rlocation(testDependsOnBarTplDarPath))
   private val dar = DarReader.assertReadArchiveFromFile(testDar.toFile)
 
   private def interface(pkgId: String, modNames: String*): PackageSignature =

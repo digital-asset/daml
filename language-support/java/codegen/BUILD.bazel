@@ -76,10 +76,10 @@ da_scala_test(
     data = [
         ":test-daml.dar",
         ":test-daml-with-same-dependencies.dar",
-        ":test-daml-with-same-source-project-name.dar",
         ":test-daml-with-same-dependencies-but-different-target-version.dar",
+        ":test-daml-with-same-source-project-name.dar",
+        ":test-depending-on-bar-template.dar",
         ":test-template.dar",
-        ":test-template2.dar",
     ],
     resource_strip_prefix = "language-support/java/codegen/src/test/resources/",
     resources = glob(["src/test/resources/**/*"]),
@@ -122,8 +122,8 @@ daml_compile(
 
 daml_compile(
     name = "test-daml-with-same-source-project-name",
-    project_name = "test-daml",
     srcs = ["src/test/daml/Foo.daml"],
+    project_name = "test-daml",
 )
 
 daml_compile(
@@ -138,8 +138,9 @@ daml_compile(
 )
 
 daml_compile(
-    name = "test-template2",
-    srcs = ["src/test/daml/Bar.daml"],
+    name = "test-depending-on-bar-template",
+    srcs = ["src/test/daml/UsingBar.daml"],
+    data_dependencies = ["//language-support/java/codegen:test-template.dar"],
 )
 
 daml_compile(
