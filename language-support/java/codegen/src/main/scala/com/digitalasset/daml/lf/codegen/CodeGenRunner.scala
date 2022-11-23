@@ -135,6 +135,45 @@ object CodeGenRunner extends StrictLogging {
     ()
   }
 
+  private[codegen] def configureCodeGenScope(
+      darFiles: Iterable[(Path, Option[String])],
+      modulePrefixes: Map[PackageReference, String],
+  ): CodeGenRunner.Scope = {
+    val (signatureMap, packagePrefixes) = signatureMapAndPackagePrefixes(darFiles)
+    val signatures = signatureMap.values.toSeq
+    val environmentInterface = EnvironmentSignature.fromPackageSignatures(signatures)
+
+    val transitiveClosure = DependencyGraph.transitiveClosure(
+      environmentInterface.typeDecls,
+      environmentInterface.interfaces,
+    )
+    for (error <- transitiveClosure.errors) {
+      logger.error(error.msg)
+    }
+    val generatedModuleIds: Set[Reference.Module] = (
+      transitiveClosure.serializableTypes.map(_._1) ++
+        transitiveClosure.interfaces.map(_._1)
+    ).toSet.map { id: Identifier =>
+      Reference.Module(id.packageId, id.qualifiedName.module)
+    }
+
+    val resolvedSignatures = resolveRetroInterfaces(signatures)
+
+    val resolvedPrefixes =
+      resolvePackagePrefixes(
+        packagePrefixes,
+        modulePrefixes,
+        resolvedSignatures,
+        generatedModuleIds,
+      )
+
+    new CodeGenRunner.Scope(
+      resolvedSignatures,
+      resolvedPrefixes,
+      transitiveClosure.serializableTypes,
+    )
+  }
+
   private def signatureMapAndPackagePrefixes(
       darFiles: Iterable[(Path, Option[String])]
   ): (Map[PackageId, PackageSignature], Map[PackageId, String]) = {
@@ -191,45 +230,6 @@ object CodeGenRunner extends StrictLogging {
         )
       }
     }
-  }
-
-  private[codegen] def configureCodeGenScope(
-      darFiles: Iterable[(Path, Option[String])],
-      modulePrefixes: Map[PackageReference, String],
-  ): CodeGenRunner.Scope = {
-    val (signatureMap, packagePrefixes) = signatureMapAndPackagePrefixes(darFiles)
-    val signatures = signatureMap.values.toSeq
-    val environmentInterface = EnvironmentSignature.fromPackageSignatures(signatures)
-
-    val transitiveClosure = DependencyGraph.transitiveClosure(
-      environmentInterface.typeDecls,
-      environmentInterface.interfaces,
-    )
-    for (error <- transitiveClosure.errors) {
-      logger.error(error.msg)
-    }
-    val generatedModuleIds: Set[Reference.Module] = (
-      transitiveClosure.serializableTypes.map(_._1) ++
-        transitiveClosure.interfaces.map(_._1)
-    ).toSet.map { id: Identifier =>
-      Reference.Module(id.packageId, id.qualifiedName.module)
-    }
-
-    val resolvedSignatures = resolveRetroInterfaces(signatures)
-
-    val resolvedPrefixes =
-      resolvePackagePrefixes(
-        packagePrefixes,
-        modulePrefixes,
-        resolvedSignatures,
-        generatedModuleIds,
-      )
-
-    new CodeGenRunner.Scope(
-      resolvedSignatures,
-      resolvedPrefixes,
-      transitiveClosure.serializableTypes,
-    )
   }
 
   private def createExecutionContext(): ExecutionContextExecutorService =
