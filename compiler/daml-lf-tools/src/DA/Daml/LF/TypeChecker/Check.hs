@@ -1017,7 +1017,14 @@ checkInterfaceInstance tmplParam iiHead iiBody = do
           catchAndRethrow
             (\case
               ETypeMismatch { foundType, expectedType, expr } ->
-                EMethodTypeMismatch { ifaceName = iiInterface, tplName = iiTemplate, methodName = iiMethodName, foundType, expectedType, expr }
+                EMethodTypeMismatch
+                  { emtmIfaceName = iiInterface
+                  , emtmTplName = iiTemplate
+                  , emtmMethodName = iiMethodName
+                  , emtmFoundType = foundType
+                  , emtmExpectedType = expectedType
+                  , emtmExpr = expr
+                  }
               e -> e)
             (checkExpr iiMethodExpr ifmType)
 
@@ -1025,7 +1032,13 @@ checkInterfaceInstance tmplParam iiHead iiBody = do
     catchAndRethrow
       (\case
           ETypeMismatch { foundType, expectedType, expr } ->
-            EViewTypeMismatch { ifaceName = iiInterface, tplName = iiTemplate, foundType, expectedType, expr }
+            EViewTypeMismatch
+              { evtmIfaceName = iiInterface
+              , evtmTplName = iiTemplate
+              , evtmFoundType = foundType
+              , evtmExpectedType = expectedType
+              , evtmExpr = expr
+              }
           e -> e)
       (checkExpr iiView intView)
 

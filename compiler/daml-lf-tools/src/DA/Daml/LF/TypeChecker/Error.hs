@@ -129,8 +129,8 @@ data Error
   | EViewTypeHeadNotCon !Type !Type
   | EViewTypeHasVars !Type
   | EViewTypeConNotRecord !DataCons !Type
-  | EViewTypeMismatch { ifaceName :: !(Qualified TypeConName), tplName :: !(Qualified TypeConName), foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr) }
-  | EMethodTypeMismatch { ifaceName :: !(Qualified TypeConName), tplName :: !(Qualified TypeConName), methodName :: !MethodName, foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr) }
+  | EViewTypeMismatch { evtmIfaceName :: !(Qualified TypeConName), evtmTplName :: !(Qualified TypeConName), evtmFoundType :: !Type, evtmExpectedType :: !Type, evtmExpr :: !(Maybe Expr) }
+  | EMethodTypeMismatch { emtmIfaceName :: !(Qualified TypeConName), emtmTplName :: !(Qualified TypeConName), emtmMethodName :: !MethodName, emtmFoundType :: !Type, emtmExpectedType :: !Type, emtmExpr :: !(Maybe Expr) }
   | EEmptyCase
   | EClashingPatternVariables !ExprVarName
   | EExpectedTemplatableType !TypeConName
@@ -423,18 +423,18 @@ instance Pretty Error where
         , "record types are declared with one constructor using curly braces, i.e."
         , "data MyRecord = MyRecord { ... fields ... }"
         ]
-    EViewTypeMismatch { ifaceName, tplName, foundType, expectedType, expr } ->
+    EViewTypeMismatch { evtmIfaceName, evtmTplName, evtmFoundType, evtmExpectedType, evtmExpr } ->
       vcat $
-        [ text "Tried to implement a view of type " <> pretty foundType
-          <> text " on interface " <> pretty ifaceName
-          <> text " for template " <> pretty tplName
-          <> text ", but the definition of interface " <> pretty ifaceName
-          <> text " requires a view of type " <> pretty expectedType
+        [ text "Tried to implement a view of type " <> pretty evtmFoundType
+          <> text " on interface " <> pretty evtmIfaceName
+          <> text " for template " <> pretty evtmTplName
+          <> text ", but the definition of interface " <> pretty evtmIfaceName
+          <> text " requires a view of type " <> pretty evtmExpectedType
         ] ++
-        maybe [] (\e -> ["* in expression:", nest 4 (pretty e)]) expr
-    EMethodTypeMismatch { ifaceName, methodName, foundType, expectedType } ->
-      text "Implementation of method " <> pretty methodName <> text " on interface " <> pretty ifaceName
-      <> text " should return " <> pretty expectedType <> text " but instead returns " <> pretty foundType
+        maybe [] (\e -> ["* in expression:", nest 4 (pretty e)]) evtmExpr
+    EMethodTypeMismatch { emtmIfaceName, emtmMethodName, emtmFoundType, emtmExpectedType } ->
+      text "Implementation of method " <> pretty emtmMethodName <> text " on interface " <> pretty emtmIfaceName
+      <> text " should return " <> pretty emtmExpectedType <> text " but instead returns " <> pretty emtmFoundType
     EUnsupportedFeature Feature{..} ->
       "unsupported feature:" <-> pretty featureName
       <-> "only supported in Daml-LF version" <-> pretty featureMinVersion <-> "and later"
