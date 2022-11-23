@@ -18,23 +18,20 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest.wordspec.AsyncWordSpec
-
 import java.io.File
+
 import scala.concurrent.Future
 
 class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManagementAroundAll {
 
-  private val List(
-    certChainFilePath,
-    privateKeyFilePath,
-    trustCertCollectionFilePath,
-    clientCertChainFilePath,
-    clientPrivateKeyFilePath,
-  ) = {
-    List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
-      new File(rlocation("ledger/test-common/test-certificates/" + src))
-    }
-  }
+  private def getFilePath(fileName: String) = new File(
+    rlocation("ledger/test-common/test-certificates/" + fileName)
+  )
+  private val certChainFilePath = getFilePath("server.crt")
+  private val privateKeyFilePath = getFilePath("server.pem")
+  private val trustCertCollectionFilePath = getFilePath("ca.crt")
+  private val clientCertChainFilePath = getFilePath("client.crt")
+  private val clientPrivateKeyFilePath = getFilePath("client.pem")
 
   private lazy val baseConfig: LedgerClientConfiguration =
     LedgerClientConfiguration(

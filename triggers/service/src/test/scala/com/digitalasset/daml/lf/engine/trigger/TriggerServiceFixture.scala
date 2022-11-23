@@ -558,7 +558,7 @@ trait TriggerServiceFixture
               Cli.DefaultMaxRestartInterval,
             )
             for {
-              r <- ServiceMain.startServer(
+              r <- ServiceMain.startServerForTest(
                 host.getHostName,
                 Port.Dynamic.value,
                 Cli.DefaultMaxAuthCallbacks,

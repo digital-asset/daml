@@ -282,7 +282,7 @@ object ScriptF {
       for {
         viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
-        list <- client.queryInterface(parties, interfaceId)
+        list <- client.queryInterface(parties, interfaceId, viewType)
         list <- Converter.toFuture(
           list
             .to(FrontStack)
@@ -324,7 +324,7 @@ object ScriptF {
       for {
         viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
-        optR <- client.queryInterfaceContractId(parties, interfaceId, cid)
+        optR <- client.queryInterfaceContractId(parties, interfaceId, viewType, cid)
         optR <- Converter.toFuture(
           optR.traverse(Converter.fromInterfaceView(env.valueTranslator, viewType, _))
         )

@@ -100,21 +100,28 @@ trait AbstractTriggerTest
       readAs: Set[String] = Set.empty,
   ): Runner = {
     val triggerId = Identifier(packageId, name)
-    Trigger.newLoggingContext(triggerId, Party(party), Party.subst(readAs)) {
-      implicit loggingContext =>
-        val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
-        new Runner(
-          compiledPackages,
-          trigger,
-          DefaultTriggerRunnerConfig,
-          client,
-          config.participants(ParticipantId).apiServer.timeProviderType,
-          applicationId,
-          TriggerParties(
-            actAs = Party(party),
-            readAs = Party.subst(readAs),
-          ),
-        )
+
+    Trigger.newTriggerLogContext(
+      triggerId,
+      Party(party),
+      Party.subst(readAs),
+      "test-trigger",
+      ApplicationId("test-trigger-app"),
+    ) { implicit triggerContext: TriggerLogContext =>
+      val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
+
+      Runner(
+        compiledPackages,
+        trigger,
+        DefaultTriggerRunnerConfig,
+        client,
+        config.participants(ParticipantId).apiServer.timeProviderType,
+        applicationId,
+        TriggerParties(
+          actAs = Party(party),
+          readAs = Party.subst(readAs),
+        ),
+      )
     }
   }
 

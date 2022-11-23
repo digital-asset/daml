@@ -17,7 +17,8 @@ import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
 import com.daml.cliopts.{GlobalLogLevel, Logging}
-import com.daml.http.metrics.api.reporters.MetricsReporting
+import com.daml.metrics.api.reporters.MetricsReporting
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
@@ -97,7 +98,7 @@ object Main {
       getClass.getName,
       config.metricsReporter,
       config.metricsReportingInterval,
-    )
+    )(new HttpJsonApiMetrics(_, _))
     val metricsResource = metricsReporting.acquire()
 
     def terminate(): Unit = discard {

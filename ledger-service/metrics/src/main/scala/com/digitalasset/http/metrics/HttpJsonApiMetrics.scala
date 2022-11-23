@@ -9,19 +9,21 @@ import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.dropwizard.DropwizardFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
+import com.daml.metrics.http.{DamlHttpMetrics, DamlWebSocketMetrics}
 import io.opentelemetry.api.GlobalOpenTelemetry
+import io.opentelemetry.api.metrics.{Meter => OtelMeter}
 
 object HttpJsonApiMetrics {
   lazy val ForTesting =
     new HttpJsonApiMetrics(
       new MetricRegistry,
-      new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("test")),
+      GlobalOpenTelemetry.getMeter("test"),
     )
 }
 
 class HttpJsonApiMetrics(
     val registry: MetricRegistry,
-    val openTelemetryFactory: OpenTelemetryFactory,
+    val otelMeter: OtelMeter,
 ) {
   val prefix: MetricName = MetricName.Daml :+ "http_json_api"
 
@@ -92,21 +94,8 @@ class HttpJsonApiMetrics(
   val allocatePartyThroughput: Meter =
     dropwizardFactory.meter(prefix :+ "allocation_party_throughput")
 
-  // golden signals
-  val httpRequestsTotal: Meter = openTelemetryFactory.meter(prefix :+ "requests_total")
-  val httpErrorsTotal: Meter = openTelemetryFactory.meter(prefix :+ "errors_total")
-  val httpLatency: Timer = openTelemetryFactory.timer(prefix :+ "requests_duration_seconds")
-  val httpRequestsPayloadBytesTotal: Meter =
-    openTelemetryFactory.meter(prefix :+ "requests_payload_bytes_total")
-  val httpResponsesPayloadBytesTotal: Meter =
-    openTelemetryFactory.meter(prefix :+ "responses_payload_bytes_total")
+  val openTelemetryFactory: OpenTelemetryFactory = new OpenTelemetryFactory(otelMeter)
 
-  val websocketReceivedTotal: Meter =
-    openTelemetryFactory.meter(prefix :+ "websocket_messages_received_total")
-  val websocketReceivedBytesTotal: Meter =
-    openTelemetryFactory.meter(prefix :+ "websocket_messages_received_bytes_total")
-  val websocketSentTotal: Meter =
-    openTelemetryFactory.meter(prefix :+ "websocket_messages_sent_total")
-  val websocketSentBytesTotal: Meter =
-    openTelemetryFactory.meter(prefix :+ "websocket_messages_sent_bytes_total")
+  val http = new DamlHttpMetrics(openTelemetryFactory, "json-api")
+  val websocket = new DamlWebSocketMetrics(openTelemetryFactory, "json-api")
 }

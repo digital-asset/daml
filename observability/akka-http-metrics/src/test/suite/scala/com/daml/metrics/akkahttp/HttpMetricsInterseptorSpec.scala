@@ -20,15 +20,16 @@ import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.stream.scaladsl.Source
 import com.daml.metrics.akkahttp.AkkaUtils._
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.MetricHandle.{Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{Histogram, Meter, Timer}
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
+import com.daml.metrics.http.HttpMetrics
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class AkkaHttpMetricsSpec
+class HttpMetricsInterseptorSpec
     extends AnyWordSpec
     with Matchers
     with ScalatestRouteTest
@@ -96,12 +97,8 @@ class AkkaHttpMetricsSpec
   )
 
   private def routeWithRateDurationSizeMetrics(route: Route, metrics: TestMetrics): Route = {
-    AkkaHttpMetrics.rateDurationSizeMetrics(
-      metrics.httpRequestsTotal,
-      metrics.httpErrorsTotal,
-      metrics.httpLatency,
-      metrics.httpRequestsBytesTotal,
-      metrics.httpResponsesBytesTotal,
+    HttpMetricsInterceptor.rateDurationSizeMetrics(
+      metrics
     ) apply route
   }
 
@@ -118,9 +115,9 @@ class AkkaHttpMetricsSpec
         Get() ~> route
         Get("/simple") ~> route
         Get("/a/bit/deeper") ~> route ~> check {
-          metrics.httpRequestsTotalValue("GET", "/") should be(1L)
-          metrics.httpRequestsTotalValue("GET", "/simple") should be(1L)
-          metrics.httpRequestsTotalValue("GET", "/a/bit/deeper") should be(1L)
+          metrics.requestsTotalValue("GET", "/") should be(1L)
+          metrics.requestsTotalValue("GET", "/simple") should be(1L)
+          metrics.requestsTotalValue("GET", "/a/bit/deeper") should be(1L)
         }
       }
     }
@@ -129,8 +126,8 @@ class AkkaHttpMetricsSpec
       withRouteAndMetrics { (route, metrics) =>
         Get("/undefined") ~> route
         Get("/otherUndefined") ~> route ~> check {
-          metrics.httpRequestsTotalValue("GET", "/undefined") should be(1L)
-          metrics.httpRequestsTotalValue("GET", "/otherUndefined") should be(1L)
+          metrics.requestsTotalValue("GET", "/undefined") should be(1L)
+          metrics.requestsTotalValue("GET", "/otherUndefined") should be(1L)
         }
       }
     }
@@ -138,7 +135,7 @@ class AkkaHttpMetricsSpec
     "collect unauthorized requests" in {
       withRouteAndMetrics { (route, metrics) =>
         Get("/unauthorized") ~> route ~> check {
-          metrics.httpRequestsTotalValue should be(1L)
+          metrics.requestsTotalValue should be(1L)
         }
       }
     }
@@ -146,7 +143,7 @@ class AkkaHttpMetricsSpec
     "collect bad requests" in {
       withRouteAndMetrics { (route, metrics) =>
         Get("/badrequest") ~> route ~> check {
-          metrics.httpRequestsTotalValue should be(1L)
+          metrics.requestsTotalValue should be(1L)
         }
       }
     }
@@ -154,7 +151,7 @@ class AkkaHttpMetricsSpec
     "collect requests resulting in exceptions" in {
       withRouteAndMetrics { (route, metrics) =>
         Get("/exception") ~> route ~> check {
-          metrics.httpRequestsTotalValue should be(1L)
+          metrics.requestsTotalValue should be(1L)
         }
       }
     }
@@ -163,13 +160,13 @@ class AkkaHttpMetricsSpec
       withRouteAndMetrics { (route, metrics) =>
         Get("/simple") ~> route
         Post("/badrequest") ~> route ~> check {
-          metrics.httpRequestsTotal.valueFilteredOnLabels(
+          metrics.requestsTotal.valueFilteredOnLabels(
             LabelFilter("host", "example.com"),
             LabelFilter("http_status", "200"),
             LabelFilter("http_verb", "GET"),
             LabelFilter("path", "/simple"),
           ) should be(1L)
-          metrics.httpRequestsTotal.valueFilteredOnLabels(
+          metrics.requestsTotal.valueFilteredOnLabels(
             LabelFilter("host", "example.com"),
             LabelFilter("http_status", "400"),
             LabelFilter("http_verb", "POST"),
@@ -181,79 +178,11 @@ class AkkaHttpMetricsSpec
 
   }
 
-  "errors_total" should {
-    "collect missing routes" in {
-      withRouteAndMetrics { (route, metrics) =>
-        Get("/undefined") ~> route
-        Get("/otherUndefined") ~> route ~> check {
-          metrics.httpErrorsTotalValue("GET", "/undefined") should be(1L)
-          metrics.httpErrorsTotalValue("GET", "/otherUndefined") should be(1L)
-        }
-      }
-    }
-
-    "collect unauthorized requests" in {
-      withRouteAndMetrics { (route, metrics) =>
-        Get("/unauthorized") ~> route ~> check {
-          metrics.httpErrorsTotalValue should be(1L)
-        }
-      }
-    }
-
-    "collect bad requests" in {
-      withRouteAndMetrics { (route, metrics) =>
-        Get("/badrequest") ~> route ~> check {
-          metrics.httpErrorsTotalValue should be(1L)
-        }
-      }
-    }
-
-    "collect requests resulting in exceptions" in {
-      withRouteAndMetrics { (route, metrics) =>
-        Get("/exception") ~> route ~> check {
-          metrics.httpErrorsTotalValue should be(1L)
-        }
-      }
-    }
-
-    "not collect successful requests" in {
-      withRouteAndMetrics { (route, metrics) =>
-        Get() ~> route
-        Get("/simple") ~> route
-        // needs one failing request, otherwise no value can be found for the metric
-        Get("/undefined") ~> route
-        Get("/a/bit/deeper") ~> route ~> check {
-          metrics.httpErrorsTotalValue should be(1L)
-        }
-      }
-    }
-
-    "contains all the labels" in {
-      withRouteAndMetrics { (route, metrics) =>
-        Get("/exception") ~> route
-        Post("/badrequest") ~> route ~> check {
-          metrics.httpErrorsTotal.valueFilteredOnLabels(
-            LabelFilter("host", "example.com"),
-            LabelFilter("http_status", "500"),
-            LabelFilter("http_verb", "GET"),
-            LabelFilter("path", "/exception"),
-          ) should be(1L)
-          metrics.httpErrorsTotal.valueFilteredOnLabels(
-            LabelFilter("host", "example.com"),
-            LabelFilter("http_status", "400"),
-            LabelFilter("http_verb", "POST"),
-            LabelFilter("path", "/badrequest"),
-          ) should be(1L)
-        }
-      }
-    }
-  }
-
-  "requests_bytes_total" should {
+  "requests_bytes" should {
     "record successful request without payload" in {
       withRouteAndMetrics { (route, metrics) =>
         Get("/a/bit/deeper") ~> route ~> check {
-          metrics.httpRequestsBytesTotalValue should be(0L)
+          metrics.requestsPayloadBytesValues should be(Seq(0L))
         }
       }
     }
@@ -264,7 +193,7 @@ class AkkaHttpMetricsSpec
           "/mirror/200",
           HttpEntity.Strict(ContentTypes.`text/plain(UTF-8)`, byteStringText),
         ) ~> route ~> check {
-          metrics.httpRequestsBytesTotalValue should be(byteStringTextSize)
+          metrics.requestsPayloadBytesValues should be(Seq(byteStringTextSize))
         }
       }
     }
@@ -275,7 +204,7 @@ class AkkaHttpMetricsSpec
           "/mirror/200",
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, byteString1),
         ) ~> route ~> check {
-          metrics.httpRequestsBytesTotalValue should be(byteString1Size)
+          metrics.requestsPayloadBytesValues should be(Seq(byteString1Size))
         }
       }
     }
@@ -290,7 +219,7 @@ class AkkaHttpMetricsSpec
             Source.single(byteString1),
           ),
         ) ~> route ~> check {
-          metrics.httpRequestsBytesTotalValue should be(byteString1Size)
+          metrics.requestsPayloadBytesValues should be(Seq(byteString1Size))
         }
       }
     }
@@ -305,7 +234,7 @@ class AkkaHttpMetricsSpec
           ),
         ) ~> route ~> check {
           responseAs[String] // force processing the request
-          metrics.httpRequestsBytesTotalValue should be(byteString1Size + byteString2Size)
+          metrics.requestsPayloadBytesValues should be(Seq(byteString1Size + byteString2Size))
         }
       }
     }
@@ -316,7 +245,7 @@ class AkkaHttpMetricsSpec
           "/undefined",
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, byteString1),
         ) ~> route ~> check {
-          metrics.httpRequestsBytesTotalValue should be(byteString1Size)
+          metrics.requestsPayloadBytesValues should be(Seq(byteString1Size))
         }
       }
     }
@@ -327,7 +256,7 @@ class AkkaHttpMetricsSpec
           "/unauthorized",
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, byteString1),
         ) ~> route ~> check {
-          metrics.httpRequestsBytesTotalValue should be(byteString1Size)
+          metrics.requestsPayloadBytesValues should be(Seq(byteString1Size))
         }
       }
     }
@@ -338,7 +267,7 @@ class AkkaHttpMetricsSpec
           "/badrequest",
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, byteString1),
         ) ~> route ~> check {
-          metrics.httpRequestsBytesTotalValue should be(byteString1Size)
+          metrics.requestsPayloadBytesValues should be(Seq(byteString1Size))
         }
       }
     }
@@ -349,7 +278,7 @@ class AkkaHttpMetricsSpec
           "/exception",
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, byteString1),
         ) ~> route ~> check {
-          metrics.httpRequestsBytesTotalValue should be(byteString1Size)
+          metrics.requestsPayloadBytesValues should be(Seq(byteString1Size))
         }
       }
     }
@@ -370,11 +299,11 @@ class AkkaHttpMetricsSpec
           "/exception",
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, byteString1),
         ) ~> route ~> check {
-          metrics.httpRequestsBytesTotalValue("GET", "/") should be(byteStringTextSize)
-          metrics.httpRequestsBytesTotalValue("GET", "/mirror/200") should be(
-            byteString1Size + byteString2Size
+          metrics.requestsPayloadBytesValues("GET", "/") should be(Seq(byteStringTextSize))
+          metrics.requestsPayloadBytesValues("GET", "/mirror/200") should be(
+            Seq(byteString1Size + byteString2Size)
           )
-          metrics.httpRequestsBytesTotalValue("GET", "/exception") should be(byteString1Size)
+          metrics.requestsPayloadBytesValues("GET", "/exception") should be(Seq(byteString1Size))
         }
       }
     }
@@ -389,27 +318,27 @@ class AkkaHttpMetricsSpec
           "/badrequest",
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, byteString2),
         ) ~> route ~> check {
-          metrics.httpRequestsBytesTotal.valueFilteredOnLabels(
+          metrics.requestsPayloadBytes.valuesFilteredOnLabels(
             LabelFilter("host", "example.com"),
             LabelFilter("http_verb", "GET"),
             LabelFilter("path", "/simple"),
-          ) should be(byteString1Size)
-          metrics.httpRequestsBytesTotal.valueFilteredOnLabels(
+          ) should be(Seq(byteString1Size))
+          metrics.requestsPayloadBytes.valuesFilteredOnLabels(
             LabelFilter("host", "example.com"),
             LabelFilter("http_verb", "POST"),
             LabelFilter("path", "/badrequest"),
-          ) should be(byteString2Size)
+          ) should be(Seq(byteString2Size))
         }
       }
     }
   }
 
-  "responses_bytes_total" should {
+  "responses_bytes" should {
     "record successful response without payload" in {
       withRouteAndMetrics { (route, metrics) =>
         Get("/mirror/200") ~> route ~> check {
           responseAs[String] // force processing the response
-          metrics.httpResponsesBytesTotalValue should be(0L)
+          metrics.responsesPayloadBytesValues should be(Seq(0L))
         }
       }
     }
@@ -421,7 +350,7 @@ class AkkaHttpMetricsSpec
           HttpEntity.Strict(ContentTypes.`text/plain(UTF-8)`, byteStringText),
         ) ~> route ~> check {
           responseAs[String] // force processing the response
-          metrics.httpResponsesBytesTotalValue should be(byteStringTextSize)
+          metrics.responsesPayloadBytesValues should be(Seq(byteStringTextSize))
         }
       }
     }
@@ -433,7 +362,7 @@ class AkkaHttpMetricsSpec
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, byteString1),
         ) ~> route ~> check {
           responseAs[String] // force processing the response
-          metrics.httpResponsesBytesTotalValue should be(byteString1Size)
+          metrics.responsesPayloadBytesValues should be(Seq(byteString1Size))
         }
       }
     }
@@ -449,7 +378,7 @@ class AkkaHttpMetricsSpec
           ),
         ) ~> route ~> check {
           responseAs[String] // force processing the response
-          metrics.httpResponsesBytesTotalValue should be(byteString1Size)
+          metrics.responsesPayloadBytesValues should be(Seq(byteString1Size))
         }
       }
     }
@@ -464,7 +393,7 @@ class AkkaHttpMetricsSpec
           ),
         ) ~> route ~> check {
           responseAs[String] // force processing the response
-          metrics.httpResponsesBytesTotalValue should be(byteString1Size + byteString2Size)
+          metrics.responsesPayloadBytesValues should be(Seq(byteString1Size + byteString2Size))
         }
       }
     }
@@ -476,8 +405,8 @@ class AkkaHttpMetricsSpec
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, byteString1),
         ) ~> route ~> check {
           val response = responseAs[String]
-          metrics.httpResponsesBytesTotalValue should be(
-            response.length.toLong
+          metrics.responsesPayloadBytesValues should be(
+            Seq(response.length.toLong)
           )
         }
       }
@@ -490,8 +419,8 @@ class AkkaHttpMetricsSpec
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, byteString1),
         ) ~> route ~> check {
           val response = responseAs[String]
-          metrics.httpResponsesBytesTotalValue should be(
-            response.length.toLong
+          metrics.responsesPayloadBytesValues should be(
+            Seq(response.length.toLong)
           )
         }
       }
@@ -504,8 +433,8 @@ class AkkaHttpMetricsSpec
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, byteString1),
         ) ~> route ~> check {
           val response = responseAs[String]
-          metrics.httpResponsesBytesTotalValue should be(
-            response.length.toLong
+          metrics.responsesPayloadBytesValues should be(
+            Seq(response.length.toLong)
           )
         }
       }
@@ -518,8 +447,8 @@ class AkkaHttpMetricsSpec
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, byteString1),
         ) ~> route ~> check {
           val response = responseAs[String]
-          metrics.httpResponsesBytesTotalValue should be(
-            response.length.toLong
+          metrics.responsesPayloadBytesValues should be(
+            Seq(response.length.toLong)
           )
         }
       }
@@ -547,12 +476,12 @@ class AkkaHttpMetricsSpec
           HttpEntity.Strict(ContentTypes.`application/octet-stream`, byteString1),
         ) ~> route ~> check {
           val response = responseAs[String]
-          metrics.httpResponsesBytesTotalValue("GET", "/") should be(4L)
-          metrics.httpResponsesBytesTotalValue("GET", "/mirror/200") should be(
-            byteString1Size + byteString2Size
+          metrics.responsesPayloadBytesValues("GET", "/") should be(Seq(4L))
+          metrics.responsesPayloadBytesValues("GET", "/mirror/200") should be(
+            Seq(byteString1Size + byteString2Size)
           )
-          metrics.httpResponsesBytesTotalValue("GET", "/exception") should be(
-            response.length.toLong
+          metrics.responsesPayloadBytesValues("GET", "/exception") should be(
+            Seq(response.length.toLong)
           )
         }
       }
@@ -570,18 +499,18 @@ class AkkaHttpMetricsSpec
         ) ~> route ~> check {
           val response = responseAs[String]
 
-          metrics.httpResponsesBytesTotal.valueFilteredOnLabels(
+          metrics.responsesPayloadBytes.valuesFilteredOnLabels(
             LabelFilter("host", "example.com"),
             LabelFilter("http_status", "200"),
             LabelFilter("http_verb", "GET"),
             LabelFilter("path", "/mirror/200"),
-          ) should be(byteString1Size)
-          metrics.httpResponsesBytesTotal.valueFilteredOnLabels(
+          ) should be(Seq(byteString1Size))
+          metrics.responsesPayloadBytes.valuesFilteredOnLabels(
             LabelFilter("host", "example.com"),
             LabelFilter("http_status", "400"),
             LabelFilter("http_verb", "POST"),
             LabelFilter("path", "/badrequest"),
-          ) should be(response.length.toLong)
+          ) should be(Seq(response.length.toLong))
         }
       }
     }
@@ -634,7 +563,7 @@ class AkkaHttpMetricsSpec
     "record duration of any request" in {
       withRouteAndMetrics { (route, metrics) =>
         Get("/") ~> route ~> check {
-          val values = metrics.httpLatencyValues
+          val values = metrics.latencyValues
           values.size should be(1L)
           values(0) should be >= 0L
         }
@@ -644,7 +573,7 @@ class AkkaHttpMetricsSpec
     "record meaningful duration for a request" in {
       withRouteAndMetrics { (route, metrics) =>
         Get("/delay/300") ~> route ~> check {
-          val values = metrics.httpLatencyValues
+          val values = metrics.latencyValues
           values.size should be(1L)
           values(0) should be >= 300L
         }
@@ -656,11 +585,11 @@ class AkkaHttpMetricsSpec
         Get("/delay/300") ~> route
         Get("/delay/300") ~> route
         Get("/delay/500") ~> route ~> check {
-          val values300 = metrics.httpLatencyValues("GET", "/delay/300")
+          val values300 = metrics.latencyValues("GET", "/delay/300")
           values300.size should be(2L)
           values300(0) should be >= 300L
           values300(1) should be >= 300L
-          val values500 = metrics.httpLatencyValues("GET", "/delay/500")
+          val values500 = metrics.latencyValues("GET", "/delay/500")
           values500.size should be(1L)
           values500(0) should be >= 500L
         }
@@ -670,7 +599,7 @@ class AkkaHttpMetricsSpec
     "contains all the labels" in {
       withRouteAndMetrics { (route, metrics) =>
         Get("/delay/300") ~> route ~> check {
-          metrics.httpLatency
+          metrics.latency
             .valuesFilteredOnLabels(
               LabelFilter("host", "example.com"),
               LabelFilter("http_verb", "GET"),
@@ -704,28 +633,24 @@ object AkkaHttpMetricsSpec extends MetricValues {
   private val metricsFactory = InMemoryMetricsFactory
   // The metrics being tested
   case class TestMetrics(
-      httpRequestsTotal: Meter,
-      httpErrorsTotal: Meter,
-      httpLatency: Timer,
-      httpRequestsBytesTotal: Meter,
-      httpResponsesBytesTotal: Meter,
-  ) {
+      requestsTotal: Meter,
+      latency: Timer,
+      requestsPayloadBytes: Histogram,
+      responsesPayloadBytes: Histogram,
+  ) extends HttpMetrics {
 
-    def httpRequestsTotalValue: Long = httpRequestsTotal.value
-    def httpRequestsTotalValue(method: String, path: String): Long =
-      httpRequestsTotal.valueFilteredOnLabels(labelFilters(method, path): _*)
-    def httpErrorsTotalValue: Long = httpErrorsTotal.value
-    def httpErrorsTotalValue(method: String, path: String): Long =
-      httpErrorsTotal.valueFilteredOnLabels(labelFilters(method, path): _*)
-    def httpLatencyValues: Seq[Long] = httpLatency.values
-    def httpLatencyValues(method: String, path: String): Seq[Long] =
-      httpLatency.valuesFilteredOnLabels(labelFilters(method, path): _*)
-    def httpRequestsBytesTotalValue: Long = httpRequestsBytesTotal.value
-    def httpRequestsBytesTotalValue(method: String, path: String): Long =
-      httpRequestsBytesTotal.valueFilteredOnLabels(labelFilters(method, path): _*)
-    def httpResponsesBytesTotalValue: Long = httpResponsesBytesTotal.value
-    def httpResponsesBytesTotalValue(method: String, path: String): Long =
-      httpResponsesBytesTotal.valueFilteredOnLabels(labelFilters(method, path): _*)
+    def requestsTotalValue: Long = requestsTotal.value
+    def requestsTotalValue(method: String, path: String): Long =
+      requestsTotal.valueFilteredOnLabels(labelFilters(method, path): _*)
+    def latencyValues: Seq[Long] = latency.values
+    def latencyValues(method: String, path: String): Seq[Long] =
+      latency.valuesFilteredOnLabels(labelFilters(method, path): _*)
+    def requestsPayloadBytesValues: Seq[Long] = requestsPayloadBytes.values
+    def requestsPayloadBytesValues(method: String, path: String): Seq[Long] =
+      requestsPayloadBytes.valuesFilteredOnLabels(labelFilters(method, path): _*)
+    def responsesPayloadBytesValues: Seq[Long] = responsesPayloadBytes.values
+    def responsesPayloadBytesValues(method: String, path: String): Seq[Long] =
+      responsesPayloadBytes.valuesFilteredOnLabels(labelFilters(method, path): _*)
 
     private def labelFilters(method: String, path: String): Seq[LabelFilter] =
       Seq(LabelFilter("http_verb", method), LabelFilter("path", path))
@@ -736,18 +661,16 @@ object AkkaHttpMetricsSpec extends MetricValues {
     // Creates a new set of metrics, for one test
     def apply(): TestMetrics = {
       val baseName = MetricName("test")
-      val httpRequestsTotal = metricsFactory.meter(baseName)
-      val httpErrorsTotal = metricsFactory.meter(baseName)
-      val httpLatency = metricsFactory.timer(baseName)
-      val httpRequestsBytesTotal = metricsFactory.meter(baseName)
-      val httpResponsesBytesTotal = metricsFactory.meter(baseName)
+      val requestsTotal = metricsFactory.meter(baseName :+ "requests")
+      val latency = metricsFactory.timer(baseName :+ "duration")
+      val requestsPayloadBytes = metricsFactory.histogram(baseName :+ "requests" + "payload")
+      val responsesPayloadBytes = metricsFactory.histogram(baseName :+ "responses" + "payload")
 
       TestMetrics(
-        httpRequestsTotal,
-        httpErrorsTotal,
-        httpLatency,
-        httpRequestsBytesTotal,
-        httpResponsesBytesTotal,
+        requestsTotal,
+        latency,
+        requestsPayloadBytes,
+        responsesPayloadBytes,
       )
     }
   }
