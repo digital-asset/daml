@@ -369,6 +369,18 @@ final case class EViewTypeMismatch(
   protected def prettyInternal: String =
     s"""Tried to implement a view of type ${foundType.pretty} on interface ${ifaceName.qualifiedName} for template ${tplName.qualifiedName}, but the definition of interface ${ifaceName.qualifiedName} requires a view of type ${expectedType.pretty}"""
 }
+final case class EMethodTypeMismatch(
+    context: Context,
+    ifaceName: TypeConName,
+    tplName: TypeConName,
+    methodName: MethodName,
+    foundType: Type,
+    expectedType: Type,
+    expr: Option[Expr],
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Implementation of method $methodName on interface $ifaceName should return ${expectedType.pretty} but instead returns ${foundType.pretty}"
+}
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"
 }

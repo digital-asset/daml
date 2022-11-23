@@ -130,6 +130,7 @@ data Error
   | EViewTypeHasVars !Type
   | EViewTypeConNotRecord !DataCons !Type
   | EViewTypeMismatch { ifaceName :: !(Qualified TypeConName), tplName :: !(Qualified TypeConName), foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr) }
+  | EMethodTypeMismatch { ifaceName :: !(Qualified TypeConName), tplName :: !(Qualified TypeConName), methodName :: !MethodName, foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr) }
   | EEmptyCase
   | EClashingPatternVariables !ExprVarName
   | EExpectedTemplatableType !TypeConName
@@ -431,6 +432,9 @@ instance Pretty Error where
           <> text " requires a view of type " <> pretty expectedType
         ] ++
         maybe [] (\e -> ["* in expression:", nest 4 (pretty e)]) expr
+    EMethodTypeMismatch { ifaceName, methodName, foundType, expectedType } ->
+      text "Implementation of method " <> pretty methodName <> text " on interface " <> pretty ifaceName
+      <> text " should return " <> pretty expectedType <> text " but instead returns " <> pretty foundType
     EUnsupportedFeature Feature{..} ->
       "unsupported feature:" <-> pretty featureName
       <-> "only supported in Daml-LF version" <-> pretty featureMinVersion <-> "and later"

@@ -1014,7 +1014,12 @@ checkInterfaceInstance tmplParam iiHead iiBody = do
       case NM.lookup iiMethodName intMethods of
         Nothing -> throwWithContext (EUnknownMethodInInterfaceInstance iiInterface iiTemplate iiMethodName)
         Just InterfaceMethod{ifmType} ->
-          checkExpr iiMethodExpr ifmType
+          catchAndRethrow
+            (\case
+              ETypeMismatch { foundType, expectedType, expr } ->
+                EMethodTypeMismatch { ifaceName = iiInterface, tplName = iiTemplate, methodName = iiMethodName, foundType, expectedType, expr }
+              e -> e)
+            (checkExpr iiMethodExpr ifmType)
 
     -- check view result type matches interface result type
     catchAndRethrow
