@@ -1,7 +1,7 @@
 module Scripts.Settlement where
 
 import DA.Map as M (empty)
-import DA.Set as S (fromList)
+import DA.Set as S (fromList, singleton)
 import Daml.Script
 
 -- INTERFACE DEPENDENCIES --
@@ -14,13 +14,29 @@ import Daml.Finance.Interface.Settlement.Types (Allocation(..), Approval(..))
 import Daml.Finance.Interface.Types.Common (AccountKey, Id(..), InstrumentKey(..))
 
 -- IMPLEMENTATION DEPENDENCIES --
-import Daml.Finance.Instrument.Base.Instrument (Instrument(..))
+import Daml.Finance.Instrument.Token.Instrument (Instrument(..))
 import Daml.Finance.Settlement.Factory (Factory(..))
 
 import Workflow.CreditAccount qualified as CreditAccount
 import Workflow.DvP qualified as DvP
 
-import Scripts.Transfer (runTransfer)
+import Scripts.Transfer (TransferState(..), runTransfer)
+
+-- | Helper container used to transfer state from one script to another.
+data SettlementState = SettlementState
+  with
+    alice : Party
+    bank : Party
+    bob : Party
+    public : Party
+    aliceAccount : AccountKey
+    bobAccount : AccountKey
+    usdInstrument : InstrumentKey
+    tokenInstrument : InstrumentKey
+    settlementFactoryCid : ContractId Factory.I
+    aliceHoldingCid : ContractId Holding.I
+    bobHoldingCid : ContractId Holding.I
+  deriving (Eq, Show)
 
 -- | Test script that
 -- 1. executes the `runTransfer` script
@@ -31,14 +47,27 @@ runSettlement : Script SettlementState
 runSettlement = do
 
   -- Execute the `runTransfer` script.
-  -- Bob now holds 1'000 USD in his account
-  (alice, bank, bob, public, aliceAccount, bobAccount, usdInstrument, holdingFactoryCid, bobHoldingCid) <- runTransfer
+  -- Bob now holds USD 1'000 in his account
+  TransferState{alice
+    , bank
+    , bob
+    , public
+    , aliceAccount
+    , bobAccount
+    , cashInstrument = usdInstrument
+    , holdingFactoryCid
+    , newHoldingCid = bobHoldingCid} <- runTransfer
 
   -- Bank creates a token instrument
   let
     instrumentId = Id "TOKEN"
     instrumentVersion = "0"
-    tokenInstrument = InstrumentKey with issuer = bank; depository = bank; id = instrumentId; version = instrumentVersion
+    tokenInstrument = InstrumentKey
+      with
+        issuer = bank
+        depository = bank
+        id = instrumentId
+        version = instrumentVersion
 
   now <- getTime
 
@@ -70,6 +99,7 @@ runSettlement = do
       with
         provider = bank
         observers = S.fromList [alice, bob]
+        custodian = bank
   -- SETTLEMENT_FACTORY_END
 
   -- Alice proposes an FX trade to Bob
@@ -92,32 +122,46 @@ runSettlement = do
   -- Settle the DvP Trade
 
   -- i. Bob allocates his asset, Alice approves by providing her account.
-  allocatedPaySettleInstructionCid <- submit bob do
+  (allocatedPaySettleInstructionCid, _) <- submit bob do
     exerciseCmd paySettleInstructionCid Instruction.Allocate with
+      actors = S.singleton bob
       allocation = Pledge $ coerceContractId bobHoldingCid
 
   approvedPaySettleInstructionCid <- submit alice do
     exerciseCmd allocatedPaySettleInstructionCid Instruction.Approve with
+      actors = S.singleton alice
       approval = TakeDelivery aliceAccount
 
   -- ii. Alice allocates her asset, Bob approves by providing his account.
   -- ALLOCATE_APPROVE_BEGIN
-  allocatedRecSettleInstructionCid <- submit alice do
+  (allocatedRecSettleInstructionCid, _) <- submit alice do
     exerciseCmd recSettleInstructionCid Instruction.Allocate with
+      actors = S.singleton alice
       allocation = Pledge $ coerceContractId aliceHoldingCid
 
   approvedRecSettleInstructionCid <- submit bob do
     exerciseCmd allocatedRecSettleInstructionCid Instruction.Approve with
+      actors = S.singleton bob
       approval = TakeDelivery bobAccount
   -- ALLOCATE_APPROVE_END
 
   -- iii. Bob executes the settlement.
   -- SETTLE_BEGIN
   [bobHoldingCid, aliceHoldingCid] <- submitMulti [bob] [public] do
-    exerciseCmd batchCid Batch.Settle
+    exerciseCmd batchCid Batch.Settle with
+      actors = singleton bob
   -- SETTLE_END
 
-  pure (alice, bank, bob, public, aliceAccount, bobAccount, usdInstrument, tokenInstrument, settlementFactoryCid, toInterfaceContractId aliceHoldingCid, toInterfaceContractId bobHoldingCid)
-
--- | Helper container used to transfer state from one script to another.
-type SettlementState = (Party, Party, Party, Party, AccountKey, AccountKey, InstrumentKey, InstrumentKey, ContractId Factory.I, ContractId Holding.I, ContractId Holding.I)
+  pure $ SettlementState
+    with
+      alice
+      bank
+      bob
+      public
+      aliceAccount
+      bobAccount
+      usdInstrument
+      tokenInstrument
+      settlementFactoryCid
+      aliceHoldingCid = toInterfaceContractId aliceHoldingCid
+      bobHoldingCid = toInterfaceContractId bobHoldingCid

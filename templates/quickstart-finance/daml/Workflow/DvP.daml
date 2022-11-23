@@ -1,6 +1,6 @@
 module Workflow.DvP where
 
-import DA.Set (fromList)
+import DA.Set (fromList, singleton)
 import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument (Q)
 import Daml.Finance.Interface.Settlement.Factory qualified as Factory (I, Instruct(..))
 import Daml.Finance.Interface.Settlement.Batch qualified as Batch (I)
@@ -46,12 +46,14 @@ template Proposal
             quantity = payQuantity
 
         -- INSTRUCT_BEGIN
-        (containerCid, [recInstructionCid, payInstructionCid]) <- exercise settlementFactoryCid Factory.Instruct with
-          instructors = fromList [proposer, counterparty]
-          settler = proposer
-          id = Id id
-          steps = [recStep, payStep]
-          description = "Settlement for " <> id
+        (containerCid, [recInstructionCid, payInstructionCid]) <-
+          exercise settlementFactoryCid Factory.Instruct with
+            instructors = fromList [proposer, counterparty]
+            settlers = singleton proposer
+            contextId = None
+            id = Id id
+            steps = [recStep, payStep]
+            description = "Settlement for " <> id
         -- INSTRUCT_END
 
         pure (containerCid, recInstructionCid, payInstructionCid)
