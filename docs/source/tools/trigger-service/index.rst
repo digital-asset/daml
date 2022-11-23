@@ -374,4 +374,4 @@ To enable metrics and configure reporting, you can use the below config block in
 Reported Metrics
 ================
 
-If a Prometheus metrics reporter is configured, the Trigger Service exposes the `common HTTP metrics </json-api/production-setup.html#common-http-metrics>`_ for all endpoints.
+If a Prometheus metrics reporter is configured, the Trigger Service exposes the :doc:`common HTTP metrics </ops/common-metrics>` for all endpoints.

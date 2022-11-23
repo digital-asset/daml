@@ -72,7 +72,7 @@ A timer records the time necessary to execute a given operation (in fractional m
 Metrics Reference
 *****************
 
-The HTTP JSON API Service supports :doc:`/ops/common-metrics`.
+The HTTP JSON API Service supports :doc:`common HTTP metrics </ops/common-metrics>`.
 In addition, see the following list of selected metrics that can be particularly
 important to track.
 
