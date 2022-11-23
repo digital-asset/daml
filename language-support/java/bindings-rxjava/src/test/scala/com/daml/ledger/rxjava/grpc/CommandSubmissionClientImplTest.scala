@@ -3,19 +3,24 @@
 
 package com.daml.ledger.rxjava.grpc
 
-import java.util.Optional
-import java.util.concurrent.TimeUnit
-import com.daml.ledger.javaapi.data.{Command, CreateCommand, DamlRecord, Identifier}
+import com.daml.ledger.javaapi.data.{
+  Command,
+  CommandsSubmission,
+  CreateCommand,
+  DamlRecord,
+  Identifier,
+}
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.google.protobuf.empty.Empty
-
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.time.Duration
 import java.time.temporal.ChronoUnit
+import java.util.Optional
+import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 
@@ -43,16 +48,17 @@ class CommandSubmissionClientImplTest
     ) { (client, _) =>
       val commands = genCommands(List.empty)
 
+      val params = CommandsSubmission
+        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
+        .withActAs(commands.getParty)
+        .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
+        .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
+        .withDeduplicationTime(commands.getDeduplicationTime)
+
       withClue("The first command should be stuck") {
         expectDeadlineExceeded(
           client
-            .submit(
-              commands.getWorkflowId,
-              commands.getApplicationId,
-              commands.getCommandId,
-              commands.getParty,
-              commands.getCommands,
-            )
+            .submit(params)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingGet()
         )
@@ -61,13 +67,7 @@ class CommandSubmissionClientImplTest
       withClue("The second command should go through") {
         val res = Option(
           client
-            .submit(
-              commands.getWorkflowId,
-              commands.getApplicationId,
-              commands.getCommandId,
-              commands.getParty,
-              commands.getCommands,
-            )
+            .submit(params)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingGet()
         )
@@ -79,20 +79,22 @@ class CommandSubmissionClientImplTest
   it should "send a commands to the ledger" in {
     ledgerServices.withCommandSubmissionClient(alwaysSucceed) { (client, serviceImpl) =>
       val commands = genCommands(List.empty)
+
+      val params = CommandsSubmission
+        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
+        .withWorkflowId(commands.getWorkflowId)
+        .withActAs(commands.getParty)
+        .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
+        .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
+        .withDeduplicationTime(commands.getDeduplicationTime)
+
       client
-        .submit(
-          commands.getWorkflowId,
-          commands.getApplicationId,
-          commands.getCommandId,
-          commands.getParty,
-          commands.getMinLedgerTimeAbsolute,
-          commands.getMinLedgerTimeRelative,
-          commands.getDeduplicationTime,
-          commands.getCommands,
-        )
+        .submit(params)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
+
       val receivedCommands = serviceImpl.getSubmittedRequest.value.getCommands
+
       receivedCommands.ledgerId shouldBe ledgerServices.ledgerId
       receivedCommands.applicationId shouldBe commands.getApplicationId
       receivedCommands.workflowId shouldBe commands.getWorkflowId
@@ -134,33 +136,17 @@ class CommandSubmissionClientImplTest
     val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
     val command = new CreateCommand(new Identifier("a", "a", "b"), record)
     val commands = genCommands(List[Command](command), Option(someParty))
-    accessToken
-      .fold(
-        client
-          .submit(
-            commands.getWorkflowId,
-            commands.getApplicationId,
-            commands.getCommandId,
-            commands.getParty,
-            commands.getMinLedgerTimeAbsolute,
-            commands.getMinLedgerTimeRelative,
-            commands.getDeduplicationTime,
-            commands.getCommands,
-          )
-      )(
-        client
-          .submit(
-            commands.getWorkflowId,
-            commands.getApplicationId,
-            commands.getCommandId,
-            commands.getParty,
-            commands.getMinLedgerTimeAbsolute,
-            commands.getMinLedgerTimeRelative,
-            commands.getDeduplicationTime,
-            commands.getCommands,
-            _,
-          )
-      )
+
+    val params = CommandsSubmission
+      .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
+      .withActAs(commands.getParty)
+      .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
+      .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
+      .withDeduplicationTime(commands.getDeduplicationTime)
+      .withAccessToken(Optional.ofNullable(accessToken.orNull))
+
+    client
+      .submit(params)
       .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
       .blockingGet()
   }
