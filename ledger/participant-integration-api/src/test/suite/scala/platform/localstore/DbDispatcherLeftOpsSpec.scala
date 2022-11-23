@@ -11,7 +11,7 @@ import java.sql.Connection
 
 class DbDispatcherLeftOpsSpec extends AnyFreeSpec with MockitoSugar with Matchers {
 
-  "rollbackOnLeft should rollback on left" in new {
+  "rollbackOnLeft should rollback on left" in {
     val conn = mock[Connection]
     DbDispatcherLeftOps
       .rollbackOnLeft(_ => Left(""))(conn) shouldBe Left("")

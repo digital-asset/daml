@@ -20,7 +20,7 @@ object DbDispatcherLeftOps {
       error
     }
 
-  implicit class DbDispatcherLeftOps(dbDispatcher: DbDispatcher) {
+  implicit class DbDispatcherLeftOps(val dbDispatcher: DbDispatcher) extends AnyVal {
     /*
       This method extends DbDispatcher.executeSql to accept a closure which returns Either.
       In case of Left value on that Either - transaction is rolled back.
