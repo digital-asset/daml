@@ -115,7 +115,7 @@ class Server(
   )(implicit ec: ExecutionContext, sys: ActorSystem): Future[Either[String, Unit]] = {
     import cats.implicits._
     triggers.toList.traverse(runningTrigger =>
-      runningTrigger.withLoggingContext(implicit loggingContext =>
+      runningTrigger.withTriggerLogContext(implicit triggerContext =>
         Trigger
           .fromIdentifier(compiledPackages, runningTrigger.triggerName)
           .map(trigger => (trigger, runningTrigger))
@@ -171,7 +171,7 @@ class Server(
         auth.flatMap(_.refreshToken),
         config.readAs,
       )
-    runningTrigger.withLoggingContext(implicit loggingContext =>
+    runningTrigger.withTriggerLogContext(implicit loggingContext =>
       // Validate trigger id before persisting to DB
       Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName) match {
         case Left(value) => Future.successful(Left(value))
