@@ -489,7 +489,7 @@ private class JdbcLedgerDao(
     idFetchingParallelism = acsIdFetchingParallelism,
     acsFetchingparallelism = acsContractFetchingParallelism,
     metrics = metrics,
-    acsEventFetchingQueryLimiter = acsEventFetchingQueryLimiter,
+    querylimiter = acsEventFetchingQueryLimiter,
     executionContext = servicesExecutionContext,
   )
 

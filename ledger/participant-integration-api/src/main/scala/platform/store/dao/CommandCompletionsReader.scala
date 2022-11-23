@@ -15,6 +15,8 @@ import com.daml.platform.{ApiOffset, ApplicationId, Party}
 import com.daml.platform.store.dao.events.QueryNonPruned
 import com.daml.platform.store.backend.CompletionStorageBackend
 
+/** @param pageSize a single DB fetch query is guaranteed to fetch no more than this many results.
+  */
 private[dao] final class CommandCompletionsReader(
     dispatcher: DbDispatcher,
     storageBackend: CompletionStorageBackend,
@@ -23,8 +25,6 @@ private[dao] final class CommandCompletionsReader(
     pageSize: Int,
 ) extends LedgerDaoCommandCompletionsReader {
 
-  /** @param pageSize a single DB fetch query is guaranteed to fetch no more than this many results.
-    */
   override def getCommandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,

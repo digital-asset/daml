@@ -262,7 +262,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
   behavior of "seqMapper"
 
   it should "assign sequence ids correctly, and populate string-interning entries correctly in happy path case" in {
-    val result: Batch[Vector[DbDto]] = ParallelIndexerSubscription.seqMapper(
+    val result = ParallelIndexerSubscription.seqMapper(
       internize = _.zipWithIndex.map(x => x._2 -> x._2.toString).take(2),
       metrics,
     )(

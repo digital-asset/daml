@@ -16,7 +16,6 @@ import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.utils.{ConcurrencyLimiter, QueueBasedConcurrencyLimiter}
 
 import scala.annotation.tailrec
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining._
 
@@ -40,7 +39,7 @@ class FilterTableACSReader(
     idFetchingParallelism: Int,
     acsFetchingparallelism: Int,
     metrics: Metrics,
-    acsEventFetchingQueryLimiter: ConcurrencyLimiter,
+    querylimiter: ConcurrencyLimiter,
     executionContext: ExecutionContext,
 ) extends ACSReader {
   import FilterTableACSReader._
@@ -93,7 +92,7 @@ class FilterTableACSReader(
       )
 
     def fetchAcs(ids: Iterable[Long]): Future[Vector[EventStorageBackend.Entry[Raw.FlatEvent]]] =
-      acsEventFetchingQueryLimiter.execute(
+      querylimiter.execute(
         dispatcher.executeSql(metrics.daml.index.db.getActiveContractBatch) { connection =>
           val result = queryNonPruned.executeSql(
             eventStorageBackend.activeContractEventBatch(
@@ -114,7 +113,7 @@ class FilterTableACSReader(
         }
       )
 
-    val x: Source[ArrayBuffer[Long], NotUsed] = filters
+    filters
       .map(toIdSource)
       .pipe(mergeSort[Long])
       .statefulMapConcat(statefulDeduplicate)
@@ -128,7 +127,7 @@ class FilterTableACSReader(
       .addAttributes(
         Attributes.inputBuffer(initial = acsFetchingparallelism, max = acsFetchingparallelism)
       )
-    x.mapAsync(acsFetchingparallelism)(fetchAcs)
+      .mapAsync(acsFetchingparallelism)(fetchAcs)
   }
 
 }
@@ -208,7 +207,6 @@ object FilterTableACSReader {
       pageBufferSize: Int,
   )(getPage: IdQuery => Future[Array[Long]]): Source[Long, NotUsed] = {
     assert(pageBufferSize > 0)
-    // com.daml.platform.store.dao.PaginatingAsyncStream.streamFromSeekPagination
     Source
       .unfoldAsync(
         IdQuery(0L, idQueryConfiguration.minPageSize)
