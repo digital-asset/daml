@@ -4,15 +4,14 @@
 # TODO Once daml_compile uses build instead of package we should use
 # daml_compile instead of a genrule.
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_configuration")
 
 # Build one DAR per LF version to bundle with the SDK.
-# Also build one DAR with the default LF version for test-cases.
 [
     genrule(
-        name = "daml-script{}".format(suffix),
+        name = "daml-script-{}".format(lf_version),
         srcs = glob(["**/*.daml"]),
-        outs = ["daml-script{}.dar".format(suffix)],
+        outs = ["daml-script-{}.dar".format(lf_version)],
         cmd = """
           set -eou pipefail
           TMP_DIR=$$(mktemp -d)
@@ -36,19 +35,26 @@ EOF
                 "--ghc-option",
                 "-Werror",
                 "--log-level=WARNING",
-            ] + [
                 "--target",
                 lf_version,
-            ] if lf_version else []),
+            ]),
             sdk = sdk_version,
             ghc = ghc_version,
         ),
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
-    for lf_version in COMPILER_LF_VERSIONS + [""]
-    for suffix in [("-" + lf_version) if lf_version else ""]
+    for lf_version in COMPILER_LF_VERSIONS
 ]
+
+# Also build one DAR with the default LF version for test-cases.
+genrule(
+    name = "daml-script",
+    srcs = ["daml-script-{}".format(lf_version_configuration.get("default"))],
+    outs = ["daml-script.dar"],
+    cmd = "cp $< $@",
+    visibility = ["//visibility:public"],
+)
 
 filegroup(
     name = "daml-script-dars",
