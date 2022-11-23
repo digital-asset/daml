@@ -77,14 +77,13 @@ If a Prometheus metrics reporter is configured, we also expose the below metrics
 (i.e., helping you to measure `the four golden signals <https://sre.google/sre-book/monitoring-distributed-systems/#xref_monitoring_golden-signals>`__).
 These metrics have the following common labels attached:
 
-http_verb
-    HTTP verb used for a given call (e.g. ``GET`` or ``PUT``)
-host
-    fully qualified hostname of the HTTP endpoint (e.g. ``example.com``)
-path
-    path of the HTTP endpoint (e.g. ``/parties/create``)
-service
-    Daml service's name (``json-api`` for the HTTP JSON API Service)
+- **http_verb**: HTTP verb used for a given call (e.g. ``GET`` or ``PUT``)
+
+- **host**: fully qualified hostname of the HTTP endpoint (e.g. ``example.com``)
+
+- **path**: path of the HTTP endpoint (e.g. ``/parties/create``)
+
+- **service**: Daml service's name (``json-api`` for the HTTP JSON API Service)
 
 daml.http.requests.duration.seconds
 ===================================
