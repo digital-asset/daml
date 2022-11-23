@@ -647,7 +647,13 @@ private[validation] object Typing {
         methods.get(name) match {
           case None =>
             throw EUnknownMethodInInterfaceInstance(ctx, name, interfaceId, templateId)
-          case Some(method) => env.checkTopExpr(value, method.returnType)
+          case Some(method) =>
+            try env.checkTopExpr(value, method.returnType)
+            catch {
+              case e: ETypeMismatch => {
+                throw EMethodTypeMismatch(e.context, interfaceId, templateId, name, e.foundType, e.expectedType, e.expr)
+              }
+            }
         }
       }
 
