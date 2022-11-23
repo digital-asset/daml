@@ -918,35 +918,3 @@ abstract class EventStorageBackendTemplate(
   }
 
 }
-
-/** This encapsulates the moving part as composing various Events queries.
-  */
-trait EventStrategy {
-
-  /** Generates a clause that checks whether any of the given wildcard parties is a witness
-    *
-    * @param witnessesColumnName name of the Array column holding witnesses
-    * @param internedWildcardParties List of all wildcard parties (their interned names).
-    *                                Guaranteed to be non-empty.
-    * @return the composable SQL
-    */
-  def wildcardPartiesClause(
-      witnessesColumnName: String,
-      internedWildcardParties: Set[Int],
-  ): CompositeSql
-
-  /** Generates a clause that checks whether the given parties+templates filter matches the contract,
-    *  i.e., whether any of the template ids matches AND any of the parties is a witness
-    *
-    * @param witnessesColumnName Name of the Array column holding witnesses
-    * @param internedParties The non-empty list of interned party names
-    * @param internedTemplates The non-empty list of interned template names
-    * @return the composable SQL for this filter
-    */
-  def partiesAndTemplatesClause(
-      witnessesColumnName: String,
-      internedParties: Set[Int],
-      internedTemplates: Set[Int],
-  ): CompositeSql
-
-}
