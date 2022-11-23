@@ -5,15 +5,14 @@
 # daml_compile instead of a genrule.
 
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_configuration")
 
 # Build one DAR per LF version to bundle with the SDK.
-# Also build one DAR with the default LF version for test-cases.
 [
     genrule(
-        name = "daml-trigger{}".format(suffix),
-        srcs = glob(["**/*.daml"]) + ["//daml-script/daml:daml-script{}".format(suffix)],
-        outs = ["daml-trigger{}.dar".format(suffix)],
+        name = "daml-trigger-{}".format(lf_version),
+        srcs = glob(["**/*.daml"]) + ["//daml-script/daml:daml-script-{}".format(lf_version)],
+        outs = ["daml-trigger-{}.dar".format(lf_version)],
         cmd = """
           set -eou pipefail
           TMP_DIR=$$(mktemp -d)
@@ -41,8 +40,8 @@ EOF
             build_options = str([
                 "--target",
                 lf_version,
-            ] if lf_version else []),
-            daml_script = "//daml-script/daml:daml-script{}".format(suffix),
+            ]),
+            daml_script = "//daml-script/daml:daml-script-{}".format(lf_version),
             sdk = sdk_version,
             ghc = ghc_version,
         ),
@@ -51,9 +50,17 @@ EOF
         ],
         visibility = ["//visibility:public"],
     )
-    for lf_version in COMPILER_LF_VERSIONS + [""]
-    for suffix in [("-" + lf_version) if lf_version else ""]
+    for lf_version in COMPILER_LF_VERSIONS
 ]
+
+# Also build one DAR with the default LF version for test-cases.
+genrule(
+    name = "daml-trigger",
+    srcs = ["daml-trigger-{}".format(lf_version_configuration.get("default"))],
+    outs = ["daml-trigger.dar"],
+    cmd = "cp $< $@",
+    visibility = ["//visibility:public"],
+)
 
 filegroup(
     name = "daml-trigger-dars",
