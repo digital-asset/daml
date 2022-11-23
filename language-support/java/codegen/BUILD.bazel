@@ -138,9 +138,17 @@ daml_compile(
 )
 
 daml_compile(
+    name = "test-another-bar",
+    srcs = ["src/test/daml/AnotherBar.daml"],
+)
+
+daml_compile(
     name = "test-depending-on-bar-template",
     srcs = ["src/test/daml/UsingBar.daml"],
-    data_dependencies = ["//language-support/java/codegen:test-template.dar"],
+    data_dependencies = [
+        "//language-support/java/codegen:test-template.dar",
+        "//language-support/java/codegen:test-another-bar.dar",
+    ],
 )
 
 daml_compile(

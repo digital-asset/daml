@@ -89,16 +89,20 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     }
   }
 
-  it should "read interfaces from 2 DAR files with one is depending on another one using data_dependencies" in {
+  it should "read interfaces from 2 DAR files with one is depending on other packages using data_dependencies" in {
 
     val scope = CodeGenRunner.configureCodeGenScope(
       Map(testTemplateDar -> Some("prefix1"), testDependsOnBarTplDar -> Some("prefix2")),
       Map.empty,
     )
 
-    assert(scope.signatures.length === 26)
-    assert(scope.packagePrefixes.size === 2)
-    assert(scope.packagePrefixes.values.toSet == Set("prefix1", "prefix2"))
+    assert(scope.signatures.length === 27)
+    assert(scope.packagePrefixes.size === 3)
+    // prefix1 is applied to the main package containing template Bar
+    assert(scope.packagePrefixes.values.count(_ == "prefix1") == 1)
+    // prefix2 is applied to the main package containing template UsingBar
+    // and the unique package containing template AnotherBar
+    assert(scope.packagePrefixes.values.count(_ == "prefix2") == 2)
   }
 
   behavior of "detectModuleCollisions"
