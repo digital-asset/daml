@@ -646,7 +646,7 @@ private[validation] object Typing {
       iiBody.methods.values.foreach { case InterfaceInstanceMethod(name, value) =>
         methods.get(name) match {
           case None =>
-            throw EUnknownMethodInInterfaceInstance(ctx, name)
+            throw EUnknownMethodInInterfaceInstance(ctx, name, interfaceId, templateId)
           case Some(method) => env.checkTopExpr(value, method.returnType)
         }
       }

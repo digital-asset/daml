@@ -1012,7 +1012,7 @@ checkInterfaceInstance tmplParam iiHead iiBody = do
       throwWithContext (EMissingMethodInInterfaceInstance methodName)
     forM_ iiMethods \InterfaceInstanceMethod{iiMethodName, iiMethodExpr} -> do
       case NM.lookup iiMethodName intMethods of
-        Nothing -> throwWithContext (EUnknownMethodInInterfaceInstance iiMethodName)
+        Nothing -> throwWithContext (EUnknownMethodInInterfaceInstance iiInterface iiTemplate iiMethodName)
         Just InterfaceMethod{ifmType} ->
           checkExpr iiMethodExpr ifmType
 

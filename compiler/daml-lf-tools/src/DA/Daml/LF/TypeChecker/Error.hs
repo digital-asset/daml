@@ -156,7 +156,7 @@ data Error
   | EBadInheritedChoices { ebicInterface :: !(Qualified TypeConName), ebicExpected :: ![ChoiceName], ebicGot :: ![ChoiceName] }
   | EMissingInterfaceChoice !ChoiceName
   | EMissingMethodInInterfaceInstance !MethodName
-  | EUnknownMethodInInterfaceInstance !MethodName
+  | EUnknownMethodInInterfaceInstance { eumiiIface :: !(Qualified TypeConName), eumiiTpl :: !(Qualified TypeConName), eumiiMethodName :: !MethodName }
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
   | EUnknownExperimental !T.Text !Type
 
@@ -480,12 +480,8 @@ instance Pretty Error where
     EMissingInterfaceChoice ch -> "Missing interface choice implementation for " <> pretty ch
     EMissingMethodInInterfaceInstance method ->
       "Interface instance lacks an implementation for method" <-> quotes (pretty method)
-    EUnknownMethodInInterfaceInstance method ->
-      hsep
-        [ "Interface instance has an implementation for method"
-        , quotes (pretty method) <> ","
-        , "but this method is not part of the interface."
-        ]
+    EUnknownMethodInInterfaceInstance { eumiiIface, eumiiMethodName } ->
+      text "Tried to implement method " <> quotes (pretty eumiiMethodName) <> text ", but interface " <> pretty eumiiIface <> text " does not have a method with that name."
     EWrongInterfaceRequirement requiringIface requiredIface ->
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
     EUnknownExperimental name ty ->

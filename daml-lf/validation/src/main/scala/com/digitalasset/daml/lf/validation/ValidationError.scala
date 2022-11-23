@@ -432,9 +432,11 @@ final case class EMissingMethodInInterfaceInstance(
 final case class EUnknownMethodInInterfaceInstance(
     context: Context,
     method: MethodName,
+    iface: TypeConName,
+    tpl: TypeConName,
 ) extends ValidationError {
   override protected def prettyInternal: String =
-    s"Interface instance has an implementation for method '$method', but this method is not part of the interface."
+    s"Tried to implement method $method but interface $iface does not have a method with that name."
 }
 
 final case class EMissingInterfaceInstance(
