@@ -366,8 +366,8 @@ To enable metrics and configure reporting, you can use the below config block in
 
     metrics {
       // Start a metrics reporter. Must be one of "console", "csv:///PATH", "graphite://HOST[:PORT][/METRIC_PREFIX]", or "prometheus://HOST[:PORT]".
-      reporter = "console"
-      // Set metric reporting interval , examples : 1s, 30s, 1m, 1h
+      reporter = "prometheus://localhost:9000"
+      // Set metric reporting interval, examples: 1s, 30s, 1m, 1h
       reporting-interval = 30s
     }
 
