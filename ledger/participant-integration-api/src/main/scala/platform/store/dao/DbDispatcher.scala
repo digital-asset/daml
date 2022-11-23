@@ -28,16 +28,13 @@ private[platform] trait DbDispatcher {
   ): Future[T]
 
   def executeSqlEither[E, T](databaseMetrics: DatabaseMetrics)(sql: Connection => Either[E, T])(
-      implicit
-      loggingContext: LoggingContext,
-      executionContext: ExecutionContext,
+      implicit loggingContext: LoggingContext
   ): Future[Either[E, T]] =
     executeSql(databaseMetrics) { connection =>
       sql(connection).left.map { error =>
-        throw new DbDispatcher.LeftException(error)
+        connection.rollback()
+        error
       }
-    }.recover { case e: DbDispatcher.LeftException[_] =>
-      Left[E, T](e.error.asInstanceOf[E])
     }
 }
 
@@ -115,7 +112,6 @@ private[dao] final class DbDispatcherImpl private[dao] (
 }
 
 object DbDispatcher {
-  class LeftException[E](val error: E) extends Throwable
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
