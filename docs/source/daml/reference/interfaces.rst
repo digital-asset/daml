@@ -17,7 +17,7 @@ interface instead of the concrete template.
 Configuration
 *************
 
-In order to test this new feature, your Daml project needs to
+In order to use this new feature, your Daml project needs to
 explicitly target Daml-LF version ``1.15``, which is specificed by
 adding the following line to the project's ``daml.yaml`` file:
 
