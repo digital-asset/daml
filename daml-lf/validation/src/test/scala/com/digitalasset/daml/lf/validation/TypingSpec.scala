@@ -1360,6 +1360,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         "PositiveTestCase_KeyBodyShouldBeProperType",
         "PositiveTestCase_MaintainersShouldBeProperType",
         "PositiveTestCase_MaintainersShouldBeListParty",
+      )
+
+      val methodTypeMismatch = Table(
+        "moduleName",
         "PositiveCase_InterfaceMethodShouldBeProperType",
       )
 
@@ -1385,6 +1389,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         checkModule("PositiveTestCase_TemplateTypeShouldExists")
       )
       forEvery(typeMismatchCases)(mod => an[ETypeMismatch] shouldBe thrownBy(checkModule(mod)))
+      forEvery(methodTypeMismatch)(mod => an[EMethodTypeMismatch] shouldBe thrownBy(checkModule(mod)))
       forEvery(kindMismatchCases)(mod => an[EKindMismatch] shouldBe thrownBy(checkModule(mod)))
       an[EUnknownExprVar] shouldBe thrownBy(
         checkModule("PositiveTestCase_MaintainersShouldNotUseThis")
