@@ -15,7 +15,7 @@ class PostgresRemovalOfJavaMigrations
     extends AsyncFlatSpec
     with Matchers
     with TestResourceContext
-    with PostgresConnectionSupport {
+    with PostgresAroundEachForMigrations {
   import com.daml.platform.store.migration.MigrationTestSupport._
 
   implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
