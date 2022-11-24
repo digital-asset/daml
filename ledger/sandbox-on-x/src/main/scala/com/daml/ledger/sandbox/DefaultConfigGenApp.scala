@@ -6,6 +6,8 @@ package com.daml.ledger.sandbox
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths, StandardOpenOption}
 
+import com.daml.platform.config.ParticipantConfig
+
 // Outputs the default config to a file or to the stdout
 object DefaultConfigGenApp {
 
@@ -25,7 +27,15 @@ object DefaultConfigGenApp {
 
   def genText(): String = {
     val config = SandboxOnXConfig()
-    val text = ConfigRenderer.render(config)
+    val participantConfig = config.ledger.participants(ParticipantConfig.DefaultParticipantId)
+    val updatedParticipantConfig = participantConfig.copy(servicesThreadPoolSize = 1337)
+    val updatedConfig = config.copy(
+      ledger = config.ledger.copy(
+        participants = config.ledger.participants
+          .updated(ParticipantConfig.DefaultParticipantId, updatedParticipantConfig)
+      )
+    )
+    val text = ConfigRenderer.render(updatedConfig)
     text
   }
 }
