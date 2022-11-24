@@ -4,6 +4,7 @@
 package com.daml.ledger.api.auth
 
 import com.daml.jwt.JwtTimestampLeeway
+import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.lf.data.Ref
 
 import java.time.{Duration, Instant}
@@ -14,6 +15,7 @@ import java.time.{Duration, Instant}
   * The existing cases should be treated as immutable in order to guarantee backwards compatibility for
   * [[AuthService]] implementations.
   */
+//TODO DPP-1299 Include Additional claim for admin IdentityProviderConfig
 sealed abstract class Claim
 
 /** Authorized to use all admin services.
@@ -71,6 +73,7 @@ object ClaimSet {
     * @param applicationId  If set, the claims will only be valid on the given application identifier.
     * @param expiration     If set, the claims will cease to be valid at the given time.
     * @param resolvedFromUser  If set, then the claims were resolved from a user in the user management service.
+    * @param identityProviderId  If set, the claims will only be valid on the given Identity Provider configuration.
     */
   final case class Claims(
       claims: Seq[Claim],
@@ -78,6 +81,7 @@ object ClaimSet {
       participantId: Option[String],
       applicationId: Option[String],
       expiration: Option[Instant],
+      identityProviderId: String,
       resolvedFromUser: Boolean,
   ) extends ClaimSet {
     def validForLedger(id: String): Either[AuthorizationError, Unit] =
@@ -118,6 +122,14 @@ object ClaimSet {
     def isAdmin: Either[AuthorizationError, Unit] =
       Either.cond(claims.contains(ClaimAdmin), (), AuthorizationError.MissingAdminClaim)
 
+    /** Returns true if the set of claims authorizes the user to use admin services or Identity Provider admin services, unless the claims expired */
+    def isAdminOrIDPAdmin: Either[AuthorizationError, Unit] =
+      Either.cond(
+        claims.contains(ClaimIdentityProviderAdmin) || claims.contains(ClaimAdmin),
+        (),
+        AuthorizationError.MissingAdminClaim,
+      )
+
     /** Returns true if the set of claims authorizes the user to use public services, unless the claims expired */
     def isPublic: Either[AuthorizationError, Unit] =
       Either.cond(claims.contains(ClaimPublic), (), AuthorizationError.MissingPublicClaim)
@@ -152,6 +164,7 @@ object ClaimSet {
 
   /** The representation of a user that was authenticated, but whose [[Claims]] have not yet been resolved. */
   final case class AuthenticatedUser(
+      identityProviderId: IdentityProviderId,
       userId: String,
       participantId: Option[String],
       expiration: Option[Instant],
@@ -167,6 +180,7 @@ object ClaimSet {
       applicationId = None,
       expiration = None,
       resolvedFromUser = false,
+      identityProviderId = IdentityProviderId.Default.toRequestString,
     )
 
     /** A set of [[Claims]] that has all possible authorizations */

@@ -7,6 +7,7 @@ import com.daml.jwt.{Error, JwtFromBearerHeader, JwtVerifier, JwtVerifierBase}
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.IdentityProviderId
 import io.grpc.Metadata
 import org.slf4j.{Logger, LoggerFactory}
 import spray.json._
@@ -82,10 +83,12 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
         applicationId = payload.applicationId,
         expiration = payload.exp,
         resolvedFromUser = false,
+        identityProviderId = IdentityProviderId.Default.toRequestString,
       )
 
     case payload: StandardJWTPayload =>
       ClaimSet.AuthenticatedUser(
+        identityProviderId = IdentityProviderId.Default,
         participantId = payload.participantId,
         userId = payload.userId,
         expiration = payload.exp,
@@ -94,6 +97,7 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
 }
 
 object AuthServiceJWT {
+
   def apply(verifier: com.auth0.jwt.interfaces.JWTVerifier) =
     new AuthServiceJWT(new JwtVerifier(verifier))
 

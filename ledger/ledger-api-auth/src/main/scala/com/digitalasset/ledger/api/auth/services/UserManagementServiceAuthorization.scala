@@ -29,39 +29,99 @@ private[daml] final class UserManagementServiceAuthorization(
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   override def createUser(request: CreateUserRequest): Future[CreateUserResponse] =
-    authorizer.requireAdminClaims(service.createUser)(request)
+    authorizer.requireIDPContext(
+      request.user.map(_.identityProviderId).getOrElse(""),
+      authorizer.requireAdminOrIDPAdminClaims(service.createUser),
+    )((identityProviderId, request) =>
+      request.copy(user = request.user.map(_.copy(identityProviderId = identityProviderId)))
+    )(
+      request
+    )
 
-  override def getUser(request: GetUserRequest): Future[GetUserResponse] =
+  override def getUser(request: GetUserRequest): Future[GetUserResponse] = {
     defaultToAuthenticatedUser(request.userId) match {
       case Failure(ex) => Future.failed(ex)
-      case Success(Some(userId)) => service.getUser(request.copy(userId = userId))
-      case Success(None) => authorizer.requireAdminClaims(service.getUser)(request)
+      case Success(Some(userId)) =>
+        authorizer.requireIDPContext(
+          request.identityProviderId,
+          { request: GetUserRequest => service.getUser(request.copy(userId = userId)) },
+        )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+          request
+        )
+      case Success(None) =>
+        authorizer.requireIDPContext(
+          request.identityProviderId,
+          authorizer.requireAdminOrIDPAdminClaims(service.getUser),
+        )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+          request
+        )
     }
+  }
 
   override def deleteUser(request: DeleteUserRequest): Future[DeleteUserResponse] =
-    authorizer.requireAdminClaims(service.deleteUser)(request)
+    authorizer.requireIDPContext(
+      request.identityProviderId,
+      authorizer.requireAdminOrIDPAdminClaims(service.deleteUser),
+    )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+      request
+    )
 
   override def listUsers(request: ListUsersRequest): Future[ListUsersResponse] =
-    authorizer.requireAdminClaims(service.listUsers)(request)
+    authorizer.requireIDPContext(
+      request.identityProviderId,
+      authorizer.requireAdminOrIDPAdminClaims(service.listUsers),
+    )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+      request
+    )
 
   override def grantUserRights(request: GrantUserRightsRequest): Future[GrantUserRightsResponse] =
-    authorizer.requireAdminClaims(service.grantUserRights)(request)
+    authorizer.requireIDPContext(
+      request.identityProviderId,
+      authorizer.requireAdminOrIDPAdminClaims(service.grantUserRights),
+    )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+      request
+    )
 
   override def revokeUserRights(
       request: RevokeUserRightsRequest
   ): Future[RevokeUserRightsResponse] =
-    authorizer.requireAdminClaims(service.revokeUserRights)(request)
+    authorizer.requireIDPContext(
+      request.identityProviderId,
+      authorizer.requireAdminOrIDPAdminClaims(service.revokeUserRights),
+    )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+      request
+    )
 
   override def listUserRights(request: ListUserRightsRequest): Future[ListUserRightsResponse] =
     defaultToAuthenticatedUser(request.userId) match {
       case Failure(ex) => Future.failed(ex)
-      case Success(Some(userId)) => service.listUserRights(request.copy(userId = userId))
-      case Success(None) => authorizer.requireAdminClaims(service.listUserRights)(request)
+      case Success(Some(userId)) =>
+        authorizer.requireIDPContext(
+          request.identityProviderId,
+          { request: ListUserRightsRequest =>
+            service.listUserRights(request.copy(userId = userId))
+          },
+        )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+          request
+        )
+      case Success(None) =>
+        authorizer.requireIDPContext(
+          request.identityProviderId,
+          authorizer.requireAdminOrIDPAdminClaims(service.listUserRights),
+        )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
+          request
+        )
     }
 
-  override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] = {
-    authorizer.requireAdminClaims(service.updateUser)(request)
-  }
+  override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] =
+    authorizer.requireIDPContext(
+      request.user.map(_.identityProviderId).getOrElse(""),
+      authorizer.requireAdminOrIDPAdminClaims(service.updateUser),
+    )((identityProviderId, request) =>
+      request.copy(user = request.user.map(_.copy(identityProviderId = identityProviderId)))
+    )(
+      request
+    )
 
   override def bindService(): ServerServiceDefinition =
     UserManagementServiceGrpc.bindService(this, executionContext)
