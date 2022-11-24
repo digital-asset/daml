@@ -47,7 +47,6 @@ da_scala_library(
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/cli-opts",
-        "//ledger-service/jwt",
         "//ledger-service/lf-value-json",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
@@ -55,6 +54,7 @@ da_scala_library(
         "//ledger/participant-local-store",
         "//libs-scala/auth-utils",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/jwt",
     ],
 )
 
