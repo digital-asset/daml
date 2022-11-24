@@ -127,7 +127,7 @@ CREATE TABLE participant_command_completions (
     rejection_status_details BINARY LARGE OBJECT
 );
 
-CREATE INDEX participant_command_completion_offset_application_idx ON participant_command_completions (completion_offset, application_id);
+CREATE INDEX participant_command_completions_application_id_offset_idx ON participant_command_completions USING btree (application_id, completion_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: divulgence
