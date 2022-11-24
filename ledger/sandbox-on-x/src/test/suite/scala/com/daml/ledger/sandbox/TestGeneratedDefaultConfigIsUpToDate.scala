@@ -20,8 +20,9 @@ class TestGeneratedDefaultConfigIsUpToDate
     "Generated default config is not up-to-date. \nPlease run: bazel run //ledger/sandbox-on-x:update-generated-sources"
 
   it should "generated default config should be up-to-date" in {
-    val actual = readFromResource("generated-default.conf")
-    val expected = DefaultConfigGenApp.genText().replaceAll("\\r", "")
+    val actual =
+      readFromResource("generated-default.conf").map(_.replaceAll("\\r", "").replaceAll("\\e", ""))
+    val expected = DefaultConfigGenApp.genText().replaceAll("\\r", "").replaceAll("\\e", "")
     actual.value shouldBe expected withClue (clue)
   }
 
