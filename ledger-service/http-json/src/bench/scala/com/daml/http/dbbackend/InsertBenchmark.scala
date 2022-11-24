@@ -44,7 +44,7 @@ trait InsertBenchmark extends ContractDaoBenchmark {
   }
 
   @TearDown(Level.Invocation)
-  def dropContracts: Unit = {
+  def dropContracts(): Unit = {
     val deleted = dao.transact(queries.deleteContracts(Map(tpid -> contractCids))).unsafeRunSync()
     assert(deleted == numContracts)
   }
