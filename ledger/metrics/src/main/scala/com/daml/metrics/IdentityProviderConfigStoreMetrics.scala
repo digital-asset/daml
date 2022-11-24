@@ -17,6 +17,8 @@ class IdentityProviderConfigStoreMetrics(
 ) extends FactoryWithDBMetrics {
 
   val cache = new CacheMetrics(prefix :+ "cache", registry)
+  val verifierCache = new CacheMetrics(prefix :+ "verifier_cache", registry)
+
   val createIdpConfig: DatabaseMetrics = createDbMetrics("create_identity_provider_config")
   val getIdpConfig: DatabaseMetrics = createDbMetrics("get_identity_provider_config")
   val deleteIdpConfig: DatabaseMetrics = createDbMetrics("delete_identity_provider_config")

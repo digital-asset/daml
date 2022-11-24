@@ -8,7 +8,6 @@ import com.daml.caching.CaffeineCache.FutureAsyncCacheLoader
 import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.localstore.CachedIdentityProviderConfigStore.SingletonCacheKey
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.Result
 import com.daml.platform.localstore.api.{IdentityProviderConfigStore, IdentityProviderConfigUpdate}
 import com.github.benmanes.caffeine.{cache => caffeine}
@@ -42,19 +41,18 @@ class CachedIdentityProviderConfigStore(
       metrics.daml.identityProviderConfigStore.cache,
     )
 
-  // todo remove the cache
-  private val idpListCache: CaffeineCache.AsyncLoadingCaffeineCache[
-    SingletonCacheKey.type,
-    Result[Seq[IdentityProviderConfig]],
+  private val idpByIssuer: CaffeineCache.AsyncLoadingCaffeineCache[
+    String,
+    Result[IdentityProviderConfig],
   ] =
     new CaffeineCache.AsyncLoadingCaffeineCache(
       caffeine.Caffeine
         .newBuilder()
         .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
-        .maximumSize(1)
+        .maximumSize(maximumCacheSize.toLong)
         .buildAsync(
-          new FutureAsyncCacheLoader[SingletonCacheKey.type, Result[Seq[IdentityProviderConfig]]](
-            _ => delegate.listIdentityProviderConfigs()
+          new FutureAsyncCacheLoader[String, Result[IdentityProviderConfig]](issuer =>
+            delegate.getIdentityProviderConfig(issuer)
           )
         ),
       metrics.daml.identityProviderConfigStore.cache,
@@ -78,7 +76,7 @@ class CachedIdentityProviderConfigStore(
 
   override def listIdentityProviderConfigs()(implicit
       loggingContext: LoggingContext
-  ): Future[Result[Seq[IdentityProviderConfig]]] = idpListCache.get(SingletonCacheKey)
+  ): Future[Result[Seq[IdentityProviderConfig]]] = delegate.listIdentityProviderConfigs()
 
   override def updateIdentityProviderConfig(update: IdentityProviderConfigUpdate)(implicit
       loggingContext: LoggingContext
@@ -90,10 +88,11 @@ class CachedIdentityProviderConfigStore(
       id: IdentityProviderId.Id
   ): PartialFunction[Try[Result[Any]], Unit] = { case Success(Right(_)) =>
     idpCache.invalidate(id)
-    idpListCache.invalidate(SingletonCacheKey)
+    idpByIssuer.invalidateAll()
   }
-}
 
-object CachedIdentityProviderConfigStore {
-  case object SingletonCacheKey
+  override def getIdentityProviderConfig(issuer: String)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[IdentityProviderConfig]] =
+    idpByIssuer.get(issuer)
 }

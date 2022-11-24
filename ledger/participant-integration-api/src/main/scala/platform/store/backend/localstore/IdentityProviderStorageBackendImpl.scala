@@ -156,4 +156,23 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
     SQL"SELECT count(*) AS identity_provider_configs_count from participant_identity_provider_config"
       .as(SqlParser.int("identity_provider_configs_count").single)(connection)
   }
+
+  override def getIdentityProviderConfigByIssuer(
+      issuer: String
+  )(connection: Connection): Option[IdentityProviderConfig] = {
+    SQL"""
+       SELECT identity_provider_id, is_deactivated, jwks_url, issuer
+       FROM participant_identity_provider_config
+       WHERE issuer = ${issuer}
+       """
+      .as(IdpConfigRecordParser.singleOpt)(connection)
+      .map { case (identityProviderId, isDeactivated, jwksURL, issuer) =>
+        IdentityProviderConfig(
+          identityProviderId = IdentityProviderId.Id.assertFromString(identityProviderId),
+          isDeactivated = isDeactivated,
+          jwksUrl = JwksUrl.assertFromString(jwksURL),
+          issuer = issuer,
+        )
+      }
+  }
 }

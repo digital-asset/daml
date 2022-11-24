@@ -53,6 +53,22 @@ object IdentityProviderConfigServiceErrorGroup
     }
   }
 
+  @Explanation("The identity provider config referred to by the request was not found.")
+  @Resolution(
+    "Check that you are connecting to the right participant node and the identity provider config is spelled correctly, or create the configuration."
+  )
+  object IdentityProviderConfigByIssuerNotFound
+      extends ErrorCode(
+        id = "IDP_CONFIG_BY_ISSUER_NOT_FOUND",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      ) {
+    case class Reject(operation: String, issuer: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = s"${operation} failed for unknown identity provider issuer=\"${issuer}\""
+        )
+  }
+
   @Explanation(
     "There already exists a identity provider configuration with the same identity provider id."
   )

@@ -169,6 +169,12 @@ class ApiIdentityProviderConfigService(
           .Reject(operation)
           .asGrpcError
       )
+    case Left(IdentityProviderConfigStore.IdentityProviderConfigByIssuerNotFound(issuer)) =>
+      Future.failed(
+        LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigByIssuerNotFound
+          .Reject(operation, issuer)
+          .asGrpcError
+      )
     case scala.util.Right(t) =>
       Future.successful(t)
   }
