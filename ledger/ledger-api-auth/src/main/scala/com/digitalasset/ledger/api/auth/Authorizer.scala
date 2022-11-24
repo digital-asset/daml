@@ -82,6 +82,49 @@ final class Authorizer(
       }
     }
 
+  def requireAdminOrIDPAdminClaims[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
+    authorize(call) { claims =>
+      for {
+        _ <- valid(claims)
+        _ <- claims.isAdminOrIDPAdmin
+      } yield {
+        ()
+      }
+    }
+
+  def requireIDPContext[Req, Res](
+      identityProviderId: String,
+      call: Req => Future[Res],
+  )(addIdentityProvider: (String, Req) => Req): Req => Future[Res] =
+    authorizeWithReq(call) { (claims, req) =>
+      val validatedIdentityProviderId = validateIdentityProviderId(identityProviderId, claims)
+      authorizationErrorAsGrpc(validatedIdentityProviderId)
+        .map(id => addIdentityProvider(id, req))
+    }
+
+  private def validateIdentityProviderId(
+      identityProviderId: String,
+      claims: ClaimSet.Claims,
+  ): Either[AuthorizationError, String] = {
+    val requestIdentityProviderId = Option(identityProviderId).filter(_.nonEmpty)
+    if (claims.claims.contains(ClaimAdmin)) {
+      // admin should not need check - letting it through as is
+      Right(identityProviderId)
+    } else if (!claims.resolvedFromUser) {
+      // token is not being resolved from the user - letting it through as is
+      Right(identityProviderId)
+    } else if (
+      claims.resolvedFromUser && requestIdentityProviderId.isDefined && identityProviderId == claims.identityProviderId
+    ) {
+      // the user has provided idp_id, and it matches his issuer in the token
+      Right(claims.identityProviderId)
+    } else if (claims.resolvedFromUser && requestIdentityProviderId.isEmpty)
+      Right(claims.identityProviderId)
+    else {
+      Left(AuthorizationError.InvalidIdentityProviderId(claims.identityProviderId))
+    }
+  }
+
   private[this] def requireForAll[T](
       xs: IterableOnce[T],
       f: T => Either[AuthorizationError, Unit],

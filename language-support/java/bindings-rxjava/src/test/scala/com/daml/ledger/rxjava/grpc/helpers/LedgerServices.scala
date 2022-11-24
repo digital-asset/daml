@@ -6,7 +6,6 @@ package com.daml.ledger.rxjava.grpc.helpers
 import java.net.{InetSocketAddress, SocketAddress}
 import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
-
 import akka.actor.ActorSystem
 import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
@@ -32,7 +31,10 @@ import com.daml.ledger.api.v1.package_service.{
 }
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
 import com.daml.logging.LoggingContext
-import com.daml.platform.localstore.InMemoryUserManagementStore
+import com.daml.platform.localstore.{
+  InMemoryIdentityProviderConfigStore,
+  InMemoryUserManagementStore,
+}
 import com.google.protobuf.empty.Empty
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
@@ -100,6 +102,7 @@ final class LedgerServices(val ledgerId: String) {
     val authorizationInterceptor = AuthorizationInterceptor(
       authService,
       Some(new InMemoryUserManagementStore()),
+      Some(new InMemoryIdentityProviderConfigStore()),
       executionContext,
     )
     services

@@ -5,7 +5,6 @@ package com.daml.ledger.api.auth
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.actor.Scheduler
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.domain
