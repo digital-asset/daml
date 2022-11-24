@@ -112,17 +112,16 @@ in rec {
     chromedriver = pkgs.chromedriver;
 
     # Python development
-    pip3        = pkgs.python37Packages.pip;
-    python      = python37;
-    python3     = python37;
-    python37    = pkgs.python37Packages.python;
+    pip3        = pkgs.python38Packages.pip;
+    python      = pkgs.python38Packages.python;
+    python3     = python;
 
-    yapf = pkgs.python37Packages.yapf;
+    yapf = pkgs.python38Packages.yapf;
 
-    pex = pkgs.python37Packages.pex;
+    pex = pkgs.python38Packages.pex;
     pipenv = import ./tools/pipenv {
       lib = pkgs.lib;
-      python3 = python3;
+      python = python;
     };
 
     sphinx-build      = sphinx;
@@ -209,7 +208,6 @@ in rec {
       google-beta
       random
       secret
-      template
     ]);
     nix-store-gcs-proxy = pkgs.callPackage ./tools/nix-store-gcs-proxy {};
   };

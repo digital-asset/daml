@@ -142,12 +142,11 @@ testsForRemoteDataDependencies damlc dar =
                     exitCode @?= ExitSuccess
               , testCase "Caching" $ do
                     InspectInfo {mainPackageId, packages} <- getDarInfo dar
-                    let downloadPkg =
-                            \pkgId -> do
-                                let DalfInfo {dalfPackage} =
-                                        fromMaybe (error "DamlcPkgManager: can't find package id") $
-                                        HMS.lookup pkgId packages
-                                pure dalfPackage
+                    let downloadPkg pkgId
+                          = do let DalfInfo {dalfPackage}
+                                     = fromMaybe (error "DamlcPkgManager: can't find package id")
+                                         $ HMS.lookup pkgId packages
+                               pure dalfPackage
                     pkgs <- downloadAllReachablePackages downloadPkg [mainPackageId] []
                     (all isJust $ M.elems pkgs) @?= True
                   -- all packages need to be downloaded

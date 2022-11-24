@@ -133,7 +133,7 @@ class MultiUserQueryScenario
           .inject(atOnceUsers(numWriters))
           .andThen(
             // single fetch to populate the cache
-            currQueryScn(numIterations = 1, () => randomCurrency())
+            currQueryScn(numIterations = 1, randomCurrency _)
               .inject(
                 nothingFor(2.seconds),
                 atOnceUsers(1),
@@ -144,7 +144,7 @@ class MultiUserQueryScenario
           atOnceUsers(numReaders)
         )
       case FetchByQuery =>
-        currQueryScn(numQueries / numReaders, randomCurrency).inject(
+        currQueryScn(numQueries / numReaders, randomCurrency _).inject(
           atOnceUsers(numReaders)
         )
       case PopulateAndFetch =>
@@ -157,7 +157,7 @@ class MultiUserQueryScenario
                 atOnceUsers(numReaders),
               )
               .andThen(
-                currQueryScn(numQueries / numReaders, randomCurrency)
+                currQueryScn(numQueries / numReaders, randomCurrency _)
                   .inject(
                     nothingFor(2.seconds),
                     atOnceUsers(numReaders),

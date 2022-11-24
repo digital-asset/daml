@@ -3,10 +3,10 @@
 # then modified to disable check phase (line 46)
 
 { lib
-, python3
+, python
 }:
 
-with python3.pkgs;
+with python.pkgs;
 
 let
 
@@ -18,7 +18,7 @@ let
     virtualenv-clone
   ];
 
-  pythonEnv = python3.withPackages(ps: with ps; [ virtualenv ]);
+  pythonEnv = python.withPackages(ps: with ps; [ virtualenv ]);
 
 in buildPythonApplication rec {
   pname = "pipenv";

@@ -385,6 +385,17 @@ CREATE UNIQUE INDEX participant_metering_from_to_application ON participant_mete
 -- NOTE: We keep participant user and party record tables independent from indexer-based tables, such that
 --       we maintain a property that they can be moved to a separate database without any extra schema changes.
 ---------------------------------------------------------------------------------------------------
+-- Participant local store: identity provider configurations
+---------------------------------------------------------------------------------------------------
+CREATE TABLE participant_identity_provider_config
+(
+    identity_provider_id VARCHAR(255) PRIMARY KEY NOT NULL,
+    issuer               VARCHAR                  NOT NULL UNIQUE,
+    jwks_url             VARCHAR                  NOT NULL,
+    is_deactivated       BOOLEAN                  NOT NULL
+);
+
+---------------------------------------------------------------------------------------------------
 -- Participant local store: users
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_users (

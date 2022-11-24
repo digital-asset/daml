@@ -44,20 +44,22 @@ jobs:
                 setvar trigger_sha $(branch_sha)
                 setvar release_sha "$(added_line | awk '{print $1}')"
                 RELEASE_TAG="$(added_line | awk '{print $2}')"
-                setvar release_tag "$RELEASE_TAG"
                 if [ "$(added_line | awk '{print $3}')" == "SPLIT_RELEASE" ]; then
                   setvar split_release_process true
                 else
                   setvar split_release_process false
                 fi
             else
-                echo "Release commit should only add one version."
-                exit 1
+                echo "Not a release commit despite changes to LATEST."
+                setvar split_release_process false
+                setvar is_release false
+                RELEASE_TAG="0.0.0"
             fi
         else
             RELEASE_TAG="0.0.0"
             setvar is_release false
         fi
+        setvar release_tag "$RELEASE_TAG"
 
         # This is the last snapshot that does not support Scala 2.13.
         CMP="$(semver compare "$RELEASE_TAG" '1.11.0-snapshot.20210212.6300.0.ad161d7f')"

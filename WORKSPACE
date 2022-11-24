@@ -144,9 +144,9 @@ nixpkgs_package(
 
 dev_env_tool(
     name = "toxiproxy_dev_env",
-    nix_include = ["bin/toxiproxy-cmd"],
+    nix_include = ["bin/toxiproxy-server"],
     nix_label = "@toxiproxy_nix",
-    nix_paths = ["bin/toxiproxy-cmd"],
+    nix_paths = ["bin/toxiproxy-server"],
     tools = ["toxiproxy"],
     win_include = ["toxiproxy-server-windows-amd64.exe"],
     win_paths = ["toxiproxy-server-windows-amd64.exe"],
@@ -769,7 +769,7 @@ buildifier_dependencies()
 
 nixpkgs_package(
     name = "postgresql_nix",
-    attribute_path = "postgresql_10",
+    attribute_path = "postgresql_11",
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,

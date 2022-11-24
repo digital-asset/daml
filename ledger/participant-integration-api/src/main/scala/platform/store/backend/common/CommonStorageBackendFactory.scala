@@ -5,6 +5,8 @@ package com.daml.platform.store.backend.common
 
 import com.daml.platform.store.backend._
 import com.daml.platform.store.backend.localstore.{
+  IdentityProviderStorageBackend,
+  IdentityProviderStorageBackendImpl,
   PartyRecordStorageBackend,
   PartyRecordStorageBackendImpl,
   UserManagementStorageBackend,
@@ -28,6 +30,9 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
 
   override val createUserManagementStorageBackend: UserManagementStorageBackend =
     UserManagementStorageBackendImpl
+
+  override val createIdentityProviderConfigStorageBackend: IdentityProviderStorageBackend =
+    IdentityProviderStorageBackendImpl
 
   override def createMeteringStorageReadBackend(
       ledgerEndCache: LedgerEndCache

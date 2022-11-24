@@ -116,7 +116,7 @@ final class TransactionsServiceImpl(ledgerContent: Observable[LedgerItem])
           GetLedgerEndResponse(Option(LedgerOffset(Absolute(t.offset))))
         )
         .last(GetLedgerEndResponse(Option(LedgerOffset(Boundary(LEDGER_BEGIN)))))
-    result.subscribe(promise.success, promise.failure)
+    result.subscribe(promise.success _, promise.failure _)
     promise.future
   }
 

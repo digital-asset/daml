@@ -24,4 +24,5 @@ mkdir $BUILD_DIR
 bazel build //docs:docs-no-pdf
 tar -zxf ../../bazel-bin/docs/html-only.tar.gz -C $BUILD_DIR
 cd $BUILD_DIR/html
+find . -exec touch '{}' \;
 python -m http.server 8000 --bind 127.0.0.1

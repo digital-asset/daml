@@ -145,7 +145,7 @@ loadPackages Handle{..} packages = do
     r <- performRequest
         (Grpc.replServiceLoadPackages client)
         (Grpc.LoadPackagesRequest (V.fromList packages))
-    pure (() <$ r)
+    pure (void r)
 
 data ScriptResult
     = ScriptSuccess (Maybe T.Text) -- ^ Script succeeded, if it was of type Script Text include the result.
@@ -176,7 +176,7 @@ clearResults :: Handle -> IO (Either BackendError ())
 clearResults Handle{..} = do
     client <- hClient
     r <- performRequest (Grpc.replServiceClearResults client) Grpc.ClearResultsRequest
-    pure (() <$ r)
+    pure (void r)
 
 performRequest
   :: (ClientRequest 'Normal payload response -> IO (ClientResult 'Normal response))

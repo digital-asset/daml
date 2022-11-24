@@ -9,14 +9,14 @@ import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.metrics.api.MetricHandle.Timer
+import com.daml.metrics.api.MetricName
+import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import java.sql.Connection
 import java.util.concurrent.{Executor, Executors, TimeUnit}
-import com.daml.metrics.api.MetricName
 import javax.sql.DataSource
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -26,6 +26,7 @@ private[platform] trait DbDispatcher {
   def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
       loggingContext: LoggingContext
   ): Future[T]
+
 }
 
 private[dao] final class DbDispatcherImpl private[dao] (
@@ -102,6 +103,7 @@ private[dao] final class DbDispatcherImpl private[dao] (
 }
 
 object DbDispatcher {
+
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def owner(
