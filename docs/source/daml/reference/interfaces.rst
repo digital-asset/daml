@@ -17,17 +17,13 @@ interface instead of the concrete template.
 Configuration
 *************
 
-In order to test this experimental feature, your Daml project needs to target
-Daml-LF version ``1.15`` or higher, which is specificed by adding the following
-line to the project's ``daml.yaml`` file:
+In order to test this new feature, your Daml project needs to explicitly target Daml-LF
+version ``1.15``, which is specificed by adding the following line to the project's
+``daml.yaml`` file:
 
 .. code-block:: yaml
 
   build-options: [--target=1.15]
-
-If using Canton, it needs to run in dev mode (the protocol version of the domain should
-be `4` or `dev`), see :ref:`Canton: How do I enable unsupported features <how-do-i-enable-unsupported-features>`
-for instructions.
 
 Interface Declaration
 *********************
