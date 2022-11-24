@@ -146,6 +146,7 @@ trait JsonApiFixture
 
   protected def getUserToken(userId: UserId): String = {
     val payload = StandardJWTPayload(
+      issuer = None,
       userId = userId,
       participantId = None,
       exp = None,

@@ -80,6 +80,10 @@ private[apiserver] final class ApiUserManagementService(
           )
           pOptPrimaryParty <- optionalString(pUser.primaryParty)(requireParty)
           pRights <- fromProtoRights(request.rights)
+          identityProviderId <- optionalIdentityProviderId(
+            pUser.identityProviderId,
+            "identity_provider_id",
+          )
         } yield (
           User(
             id = pUserId,
@@ -89,6 +93,7 @@ private[apiserver] final class ApiUserManagementService(
               resourceVersionO = None,
               annotations = pAnnotations,
             ),
+            identityProviderId = identityProviderId,
           ),
           pRights,
         )
@@ -116,6 +121,10 @@ private[apiserver] final class ApiUserManagementService(
           )
           pFieldMask <- requirePresence(request.updateMask, "update_mask")
           pOptPrimaryParty <- optionalString(pUser.primaryParty)(requireParty)
+          identityProviderId <- optionalIdentityProviderId(
+            pUser.identityProviderId,
+            "identity_provider_id",
+          )
           pResourceVersion <- optionalString(pMetadata.resourceVersion)(
             FieldValidations.requireResourceVersion(_, "user.metadata.resource_version")
           )
@@ -133,6 +142,7 @@ private[apiserver] final class ApiUserManagementService(
               resourceVersionO = pResourceVersion,
               annotations = pAnnotations,
             ),
+            identityProviderId = identityProviderId,
           ),
           pFieldMask,
         )
@@ -193,25 +203,37 @@ private[apiserver] final class ApiUserManagementService(
   }
 
   override def getUser(request: proto.GetUserRequest): Future[GetUserResponse] =
-    withValidation(
-      requireUserId(request.userId, "user_id")
-    )(userId =>
+    withValidation {
+      for {
+        userId <- requireUserId(request.userId, "user_id")
+        identityProviderId <- optionalIdentityProviderId(
+          request.identityProviderId,
+          "identity_provider_id",
+        )
+      } yield (userId, identityProviderId)
+    } { case (userId, identityProviderId) =>
       userManagementStore
-        .getUser(userId)
+        .getUser(userId, identityProviderId)
         .flatMap(handleResult("getting user"))
         .map(u => GetUserResponse(Some(toProtoUser(u))))
-    )
+    }
 
   override def deleteUser(request: proto.DeleteUserRequest): Future[proto.DeleteUserResponse] =
     withSubmissionId { implicit loggingContext =>
-      withValidation(
-        requireUserId(request.userId, "user_id")
-      )(userId =>
+      withValidation {
+        for {
+          userId <- requireUserId(request.userId, "user_id")
+          identityProviderId <- optionalIdentityProviderId(
+            request.identityProviderId,
+            "identity_provider_id",
+          )
+        } yield (userId, identityProviderId)
+      } { case (userId, identityProviderId) =>
         userManagementStore
-          .deleteUser(userId)
+          .deleteUser(userId, identityProviderId)
           .flatMap(handleResult("deleting user"))
           .map(_ => proto.DeleteUserResponse())
-      )
+      }
     }
 
   override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] = {
@@ -225,15 +247,19 @@ private[apiserver] final class ApiUserManagementService(
             .Reject("Max page size must be non-negative")
             .asGrpcError,
         )
+        identityProviderId <- optionalIdentityProviderId(
+          request.identityProviderId,
+          "identity_provider_id",
+        )
         pageSize =
           if (rawPageSize == 0) maxUsersPageSize
           else Math.min(request.pageSize, maxUsersPageSize)
       } yield {
-        (fromExcl, pageSize)
+        (fromExcl, pageSize, identityProviderId)
       }
-    ) { case (fromExcl, pageSize) =>
+    ) { case (fromExcl, pageSize, identityProviderId) =>
       userManagementStore
-        .listUsers(fromExcl, pageSize)
+        .listUsers(fromExcl, pageSize, identityProviderId)
         .flatMap(handleResult("listing users"))
         .map { page: UserManagementStore.UsersPage =>
           val protoUsers = page.users.map(toProtoUser)
@@ -252,12 +278,17 @@ private[apiserver] final class ApiUserManagementService(
       for {
         userId <- requireUserId(request.userId, "user_id")
         rights <- fromProtoRights(request.rights)
-      } yield (userId, rights)
-    ) { case (userId, rights) =>
+        identityProviderId <- optionalIdentityProviderId(
+          request.identityProviderId,
+          "identity_provider_id",
+        )
+      } yield (userId, rights, identityProviderId)
+    ) { case (userId, rights, identityProviderId) =>
       userManagementStore
         .grantRights(
           id = userId,
           rights = rights,
+          identityProviderId = identityProviderId,
         )
         .flatMap(handleResult("grant user rights"))
         .map(_.view.map(toProtoRight).toList)
@@ -272,12 +303,17 @@ private[apiserver] final class ApiUserManagementService(
       for {
         userId <- FieldValidations.requireUserId(request.userId, "user_id")
         rights <- fromProtoRights(request.rights)
-      } yield (userId, rights)
-    ) { case (userId, rights) =>
+        identityProviderId <- optionalIdentityProviderId(
+          request.identityProviderId,
+          "identity_provider_id",
+        )
+      } yield (userId, rights, identityProviderId)
+    ) { case (userId, rights, identityProviderId) =>
       userManagementStore
         .revokeRights(
           id = userId,
           rights = rights,
+          identityProviderId = identityProviderId,
         )
         .flatMap(handleResult("revoke user rights"))
         .map(_.view.map(toProtoRight).toList)
@@ -288,15 +324,21 @@ private[apiserver] final class ApiUserManagementService(
   override def listUserRights(
       request: proto.ListUserRightsRequest
   ): Future[proto.ListUserRightsResponse] =
-    withValidation(
-      requireUserId(request.userId, "user_id")
-    )(userId =>
+    withValidation {
+      for {
+        userId <- requireUserId(request.userId, "user_id")
+        identityProviderId <- optionalIdentityProviderId(
+          request.identityProviderId,
+          "identity_provider_id",
+        )
+      } yield (userId, identityProviderId)
+    } { case (userId, identityProviderId) =>
       userManagementStore
-        .listUserRights(userId)
+        .listUserRights(userId, identityProviderId)
         .flatMap(handleResult("list user rights"))
         .map(_.view.map(toProtoRight).toList)
         .map(proto.ListUserRightsResponse(_))
-    )
+    }
 
   private def handleUpdatePathResult[T](userId: Ref.UserId, result: update.Result[T]): Future[T] =
     result match {
@@ -346,6 +388,13 @@ private[apiserver] final class ApiUserManagementService(
             .asGrpcError
         )
 
+      case Left(e: UserManagementStore.IdentityProviderConfigNotFound) =>
+        Future.failed(
+          LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigNotFound
+            .Reject(operation, identityProviderId = e.identityProviderId.value)
+            .asGrpcError
+        )
+
       case scala.util.Right(t) =>
         Future.successful(t)
     }
@@ -358,6 +407,9 @@ private[apiserver] final class ApiUserManagementService(
   private val fromProtoRight: proto.Right => Either[StatusRuntimeException, UserRight] = {
     case proto.Right(_: proto.Right.Kind.ParticipantAdmin) =>
       Right(UserRight.ParticipantAdmin)
+
+    case proto.Right(_: proto.Right.Kind.IdentityProviderAdmin) =>
+      Right(UserRight.IdentityProviderAdmin)
 
     case proto.Right(proto.Right.Kind.CanActAs(r)) =>
       requireParty(r.party).map(UserRight.CanActAs(_))
@@ -393,11 +445,14 @@ object ApiUserManagementService {
       primaryParty = user.primaryParty.getOrElse(""),
       isDeactivated = user.isDeactivated,
       metadata = Some(Utils.toProtoObjectMeta(user.metadata)),
+      identityProviderId = user.identityProviderId.toRequestString,
     )
 
   private val toProtoRight: UserRight => proto.Right = {
     case UserRight.ParticipantAdmin =>
       proto.Right(proto.Right.Kind.ParticipantAdmin(proto.Right.ParticipantAdmin()))
+    case UserRight.IdentityProviderAdmin =>
+      proto.Right(proto.Right.Kind.IdentityProviderAdmin(proto.Right.IdentityProviderAdmin()))
     case UserRight.CanActAs(party) =>
       proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs(party)))
     case UserRight.CanReadAs(party) =>

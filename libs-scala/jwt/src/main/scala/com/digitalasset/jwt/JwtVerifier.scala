@@ -40,6 +40,16 @@ object JwtVerifier {
     implicit val showInstance: Show[Error] =
       Show.shows(e => s"JwtVerifier.Error: ${e.what}, ${e.message}")
   }
+
+  private val BearerTokenRegex = "Bearer (.*)".r
+
+  def fromHeader(header: String): Either[Error, String] = BearerTokenRegex
+    .findFirstMatchIn(header)
+    .map(_.group(1))
+    .toRight(
+      JwtVerifier
+        .Error(Symbol("fromHeader"), "Authorization header does not use Bearer format")
+    )
 }
 
 // HMAC256 validator factory

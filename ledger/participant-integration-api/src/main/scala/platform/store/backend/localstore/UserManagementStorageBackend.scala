@@ -4,8 +4,7 @@
 package com.daml.platform.store.backend.localstore
 
 import java.sql.Connection
-
-import com.daml.ledger.api.domain.UserRight
+import com.daml.ledger.api.domain.{IdentityProviderId, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.platform.UserId
 
@@ -25,7 +24,11 @@ trait UserManagementStorageBackend extends ResourceVersionOps {
 
   def getUser(id: UserId)(connection: Connection): Option[UserManagementStorageBackend.DbUserWithId]
 
-  def getUsersOrderedById(fromExcl: Option[UserId] = None, maxResults: Int)(
+  def getUsersOrderedById(
+      fromExcl: Option[UserId] = None,
+      maxResults: Int,
+      identityProviderId: IdentityProviderId,
+  )(
       connection: Connection
   ): Vector[UserManagementStorageBackend.DbUserWithId]
 
@@ -54,12 +57,19 @@ trait UserManagementStorageBackend extends ResourceVersionOps {
       isDeactivated: Boolean,
   )(connection: Connection): Boolean
 
+  def updateUserIdentityProviderId(
+      internalId: Int,
+      identityProviderId: Option[IdentityProviderId.Id],
+  )(connection: Connection): Boolean
+
+  def idpConfigByIdExists(id: IdentityProviderId.Id)(connection: Connection): Boolean
 }
 
 object UserManagementStorageBackend {
   case class DbUserPayload(
       id: Ref.UserId,
       primaryPartyO: Option[Ref.Party],
+      identityProviderId: Option[IdentityProviderId.Id],
       isDeactivated: Boolean,
       resourceVersion: Long,
       createdAt: Long,

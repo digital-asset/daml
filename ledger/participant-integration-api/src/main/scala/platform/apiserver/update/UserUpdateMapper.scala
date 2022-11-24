@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver.update
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.User
+import com.daml.ledger.api.domain.{IdentityProviderId, User}
 import com.daml.lf.data.Ref
 import com.daml.platform.localstore.api.{ObjectMetaUpdate, UserUpdate}
 
@@ -22,6 +22,7 @@ object UserUpdateMapper extends UpdateMapperBase {
       annotationsUpdate <- resolveAnnotationsUpdate(updateTrie, user.metadata.annotations)
       primaryPartyUpdate <- resolvePrimaryPartyUpdate(updateTrie, user.primaryParty)
       isDeactivatedUpdate <- isDeactivatedUpdateResult(updateTrie, user.isDeactivated)
+      isIdentityProviderIdUpdate <- isIdentityProviderIdUpdate(updateTrie, user.identityProviderId)
     } yield {
       UserUpdate(
         id = user.id,
@@ -31,6 +32,7 @@ object UserUpdateMapper extends UpdateMapperBase {
           resourceVersionO = user.metadata.resourceVersionO,
           annotationsUpdateO = annotationsUpdate,
         ),
+        identityProviderIdUpdate = isIdentityProviderIdUpdate,
       )
     }
   }
@@ -69,6 +71,20 @@ object UserUpdateMapper extends UpdateMapperBase {
         makePrimitiveFieldUpdate(
           updateMatch = matchResult,
           defaultValue = false,
+          newValue = newValue,
+        )
+      )
+
+  def isIdentityProviderIdUpdate(
+      updateTrie: UpdatePathsTrie,
+      newValue: IdentityProviderId,
+  ): Result[Option[IdentityProviderId]] =
+    updateTrie
+      .findMatch(UserPaths.identityProviderId)
+      .fold(noUpdate[IdentityProviderId])(matchResult =>
+        makePrimitiveFieldUpdate(
+          updateMatch = matchResult,
+          defaultValue = IdentityProviderId.Default,
           newValue = newValue,
         )
       )

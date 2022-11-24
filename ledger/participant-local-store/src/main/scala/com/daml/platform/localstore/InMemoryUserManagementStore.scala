@@ -3,7 +3,7 @@
 
 package com.daml.platform.localstore
 
-import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, User, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.LoggingContext
@@ -15,6 +15,7 @@ import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 import scala.collection.mutable
 import scala.concurrent.Future
 
+//TODO DPP-1299 Include IdentityProviderAdmin
 class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManagementStore {
   import InMemoryUserManagementStore._
 
@@ -27,10 +28,10 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
     state.put(AdminUser.user.id, AdminUser)
   }
 
-  override def getUserInfo(id: UserId)(implicit
+  override def getUserInfo(id: UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserManagementStore.UserInfo]] =
-    withUser(id)(info => Right(toDomainUserInfo(info)))
+    withUser(id, identityProviderId)(info => Right(toDomainUserInfo(info)))
 
   override def createUser(user: User, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
@@ -46,6 +47,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
             isDeactivated = user.isDeactivated,
             resourceVersion = 0,
             annotations = user.metadata.annotations,
+            identityProviderId = user.identityProviderId,
           )
         }
         state.update(user.id, InMemUserInfo(userWithResourceVersion, rights))
@@ -56,50 +58,56 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def updateUser(
       userUpdate: UserUpdate
   )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
-    withUser(userUpdate.id) { userInfo =>
-      val updatedPrimaryParty = userUpdate.primaryPartyUpdateO.getOrElse(userInfo.user.primaryParty)
-      val updatedIsDeactivated =
-        userUpdate.isDeactivatedUpdateO.getOrElse(userInfo.user.isDeactivated)
-      val existingAnnotations = userInfo.user.annotations
-      val updatedAnnotations =
-        userUpdate.metadataUpdate.annotationsUpdateO.fold(existingAnnotations) { newAnnotations =>
-          LocalAnnotationsUtils.calculateUpdatedAnnotations(
-            newValue = newAnnotations,
-            existing = existingAnnotations,
-          )
-        }
-      val currentResourceVersion = userInfo.user.resourceVersion
-      val newResourceVersionEither = userUpdate.metadataUpdate.resourceVersionO match {
-        case None => Right(currentResourceVersion + 1)
-        case Some(requestResourceVersion) =>
-          if (requestResourceVersion == currentResourceVersion) {
-            Right(currentResourceVersion + 1)
-          } else {
-            Left(UserManagementStore.ConcurrentUserUpdate(userUpdate.id))
+    withUser(userUpdate.id, IdentityProviderId.Default) {
+      userInfo => // TODO DPP-1299  we should check if the user is allowed to edit
+        val updatedPrimaryParty =
+          userUpdate.primaryPartyUpdateO.getOrElse(userInfo.user.primaryParty)
+        val updatedIsDeactivated =
+          userUpdate.isDeactivatedUpdateO.getOrElse(userInfo.user.isDeactivated)
+        val identityProviderId =
+          userUpdate.identityProviderIdUpdate.getOrElse(userInfo.user.identityProviderId)
+        val existingAnnotations = userInfo.user.annotations
+        val updatedAnnotations =
+          userUpdate.metadataUpdate.annotationsUpdateO.fold(existingAnnotations) { newAnnotations =>
+            LocalAnnotationsUtils.calculateUpdatedAnnotations(
+              newValue = newAnnotations,
+              existing = existingAnnotations,
+            )
           }
-      }
-      for {
-        _ <- validateAnnotationsSize(updatedAnnotations, userUpdate.id)
-        newResourceVersion <- newResourceVersionEither
-      } yield {
-        val updatedUserInfo = userInfo.copy(
-          user = userInfo.user.copy(
-            primaryParty = updatedPrimaryParty,
-            isDeactivated = updatedIsDeactivated,
-            resourceVersion = newResourceVersion,
-            annotations = updatedAnnotations,
+        val currentResourceVersion = userInfo.user.resourceVersion
+        val newResourceVersionEither = userUpdate.metadataUpdate.resourceVersionO match {
+          case None => Right(currentResourceVersion + 1)
+          case Some(requestResourceVersion) =>
+            if (requestResourceVersion == currentResourceVersion) {
+              Right(currentResourceVersion + 1)
+            } else {
+              Left(UserManagementStore.ConcurrentUserUpdate(userUpdate.id))
+            }
+        }
+        for {
+          _ <- validateAnnotationsSize(updatedAnnotations, userUpdate.id)
+          newResourceVersion <- newResourceVersionEither
+        } yield {
+          val updatedUserInfo = userInfo.copy(
+            user = userInfo.user.copy(
+              primaryParty = updatedPrimaryParty,
+              isDeactivated = updatedIsDeactivated,
+              resourceVersion = newResourceVersion,
+              annotations = updatedAnnotations,
+              identityProviderId = identityProviderId,
+            )
           )
-        )
-        state.update(userUpdate.id, updatedUserInfo)
-        toDomainUser(updatedUserInfo.user)
-      }
+          state.update(userUpdate.id, updatedUserInfo)
+          toDomainUser(updatedUserInfo.user)
+        }
     }
   }
 
   override def deleteUser(
-      id: Ref.UserId
+      id: Ref.UserId,
+      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Unit]] =
-    withUser(id) { _ =>
+    withUser(id, identityProviderId) { _ =>
       state.remove(id)
       Right(())
     }
@@ -107,8 +115,9 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def grantRights(
       id: Ref.UserId,
       granted: Set[UserRight],
+      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[UserRight]]] =
-    withUser(id) { userInfo =>
+    withUser(id, identityProviderId) { userInfo =>
       val newlyGranted = granted.diff(userInfo.rights) // faster than filter
       // we're not doing concurrent updates -- assert as backstop and a reminder to handle the collision case in the future
       assert(
@@ -120,8 +129,9 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def revokeRights(
       id: Ref.UserId,
       revoked: Set[UserRight],
+      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[UserRight]]] =
-    withUser(id) { userInfo =>
+    withUser(id, identityProviderId) { userInfo =>
       val effectivelyRevoked = revoked.intersect(userInfo.rights) // faster than filter
       // we're not doing concurrent updates -- assert as backstop and a reminder to handle the collision case in the future
       assert(
@@ -133,6 +143,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
+      identityProviderId: IdentityProviderId,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]] = {
@@ -144,6 +155,9 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       val users: Seq[User] = iter
         .take(maxResults)
         .map(info => toDomainUser(info.user))
+        .filter { item =>
+          identityProviderId != IdentityProviderId.Default && item.identityProviderId == identityProviderId || identityProviderId == IdentityProviderId.Default
+        }
         .toSeq
       Right(UsersPage(users = users))
     }
@@ -158,11 +172,15 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       Future.successful(t)
     )
 
-  private def withUser[T](id: Ref.UserId)(f: InMemUserInfo => Result[T]): Future[Result[T]] =
+  private def withUser[T](id: Ref.UserId, identityProviderId: IdentityProviderId)(
+      f: InMemUserInfo => Result[T]
+  ): Future[Result[T]] =
     withState(
       state.get(id) match {
-        case Some(user) => f(user)
-        case None => Left(UserNotFound(id))
+        case Some(user) if identityProviderId == IdentityProviderId.Default =>
+          f(user)
+        case Some(user) if user.user.identityProviderId == identityProviderId => f(user)
+        case _ => Left(UserNotFound(id))
       }
     )
 
@@ -207,6 +225,7 @@ object InMemoryUserManagementStore {
       isDeactivated: Boolean = false,
       resourceVersion: Long,
       annotations: Map[String, String],
+      identityProviderId: IdentityProviderId,
   )
   case class InMemUserInfo(user: InMemUser, rights: Set[UserRight])
 
@@ -236,6 +255,7 @@ object InMemoryUserManagementStore {
       isDeactivated = false,
       resourceVersion = 0,
       annotations = Map.empty,
+      identityProviderId = IdentityProviderId.Default,
     ),
     rights = Set(UserRight.ParticipantAdmin),
   )

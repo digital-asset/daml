@@ -3,27 +3,27 @@
 
 package com.daml.platform.localstore
 
-import java.sql.Connection
-
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.User
-import com.daml.platform.localstore.api.UserManagementStore._
+import com.daml.ledger.api.domain.{IdentityProviderId, User}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.localstore.PersistentUserManagementStore.{
   ConcurrentUserUpdateDetectedRuntimeException,
+  IdentityProviderConfigNotFound,
   MaxAnnotationsSizeExceededException,
   TooManyUserRightsRuntimeException,
 }
+import com.daml.platform.localstore.api.UserManagementStore._
 import com.daml.platform.localstore.api.{UserManagementStore, UserUpdate}
 import com.daml.platform.localstore.utils.LocalAnnotationsUtils
 import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.backend.localstore.UserManagementStorageBackend
 
+import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}
 
 object UserManagementConfig {
@@ -60,6 +60,9 @@ object PersistentUserManagementStore {
       extends RuntimeException
 
   final case class MaxAnnotationsSizeExceededException(userId: Ref.UserId) extends RuntimeException
+
+  final case class IdentityProviderConfigNotFound(identityProviderId: IdentityProviderId.Id)
+      extends RuntimeException
 
   def cached(
       dbSupport: DbSupport,
@@ -98,11 +101,11 @@ class PersistentUserManagementStore(
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  override def getUserInfo(id: UserId)(implicit
+  override def getUserInfo(id: UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserInfo]] = {
     inTransaction(_.getUserInfo) { implicit connection =>
-      withUser(id) { dbUser =>
+      withUser(id, identityProviderId) { dbUser =>
         val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
         val annotations = backend.getUserAnnotations(internalId = dbUser.internalId)(connection)
         val domainUser = toDomainUser(dbUser, annotations)
@@ -127,10 +130,12 @@ class PersistentUserManagementStore(
         val dbUser = UserManagementStorageBackend.DbUserPayload(
           id = user.id,
           primaryPartyO = user.primaryParty,
+          identityProviderId = user.identityProviderId.toDb,
           isDeactivated = user.isDeactivated,
           resourceVersion = 0,
           createdAt = now,
         )
+        checkIdentityProviderExists(user.identityProviderId)(connection)
         val internalId = backend.createUser(user = dbUser)(connection)
         user.metadata.annotations.foreach { case (key, value) =>
           backend.addUserAnnotation(
@@ -165,79 +170,89 @@ class PersistentUserManagementStore(
   )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
     inTransaction(_.updateUser) { implicit connection =>
       for {
-        _ <- withUser(id = userUpdate.id) { dbUser =>
-          val now = epochMicroseconds()
-          // Step 1: Update resource version
-          // NOTE: We starts by writing to the 'resource_version' attribute
-          //       of 'participant_users' to effectively obtain an exclusive lock for
-          //       updating this user for the rest of the transaction.
-          userUpdate.metadataUpdate.resourceVersionO match {
-            case Some(expectedResourceVersion) =>
-              if (
-                !backend.compareAndIncreaseResourceVersion(
-                  internalId = dbUser.internalId,
-                  expectedResourceVersion = expectedResourceVersion,
+        _ <- withUser(id = userUpdate.id, IdentityProviderId.Default) {
+          dbUser => // todo provide identityProviderId
+            val now = epochMicroseconds()
+            // Step 1: Update resource version
+            // NOTE: We starts by writing to the 'resource_version' attribute
+            //       of 'participant_users' to effectively obtain an exclusive lock for
+            //       updating this user for the rest of the transaction.
+            userUpdate.metadataUpdate.resourceVersionO match {
+              case Some(expectedResourceVersion) =>
+                if (
+                  !backend.compareAndIncreaseResourceVersion(
+                    internalId = dbUser.internalId,
+                    expectedResourceVersion = expectedResourceVersion,
+                  )(connection)
+                ) {
+                  throw ConcurrentUserUpdateDetectedRuntimeException(
+                    userUpdate.id
+                  )
+                }
+              case None =>
+                backend.increaseResourceVersion(
+                  internalId = dbUser.internalId
                 )(connection)
+            }
+            // Step 2: Update annotations
+            userUpdate.metadataUpdate.annotationsUpdateO.foreach { newAnnotations =>
+              val existingAnnotations =
+                backend.getUserAnnotations(dbUser.internalId)(connection)
+              val updatedAnnotations = LocalAnnotationsUtils.calculateUpdatedAnnotations(
+                newValue = newAnnotations,
+                existing = existingAnnotations,
+              )
+              if (
+                !ResourceAnnotationValidation
+                  .isWithinMaxAnnotationsByteSize(updatedAnnotations)
               ) {
-                throw ConcurrentUserUpdateDetectedRuntimeException(
-                  userUpdate.id
-                )
+                throw MaxAnnotationsSizeExceededException(userId = userUpdate.id)
               }
-            case None =>
-              backend.increaseResourceVersion(
-                internalId = dbUser.internalId
-              )(connection)
-          }
-          // Step 2: Update annotations
-          userUpdate.metadataUpdate.annotationsUpdateO.foreach { newAnnotations =>
-            val existingAnnotations =
-              backend.getUserAnnotations(dbUser.internalId)(connection)
-            val updatedAnnotations = LocalAnnotationsUtils.calculateUpdatedAnnotations(
-              newValue = newAnnotations,
-              existing = existingAnnotations,
-            )
-            if (
-              !ResourceAnnotationValidation
-                .isWithinMaxAnnotationsByteSize(updatedAnnotations)
-            ) {
-              throw MaxAnnotationsSizeExceededException(userId = userUpdate.id)
+              backend.deleteUserAnnotations(internalId = dbUser.internalId)(connection)
+              updatedAnnotations.iterator.foreach { case (key, value) =>
+                backend.addUserAnnotation(
+                  internalId = dbUser.internalId,
+                  key = key,
+                  value = value,
+                  updatedAt = now,
+                )(connection)
+              }
             }
-            backend.deleteUserAnnotations(internalId = dbUser.internalId)(connection)
-            updatedAnnotations.iterator.foreach { case (key, value) =>
-              backend.addUserAnnotation(
+            // update is_deactivated
+            userUpdate.isDeactivatedUpdateO.foreach { newValue =>
+              backend.updateUserIsDeactivated(
                 internalId = dbUser.internalId,
-                key = key,
-                value = value,
-                updatedAt = now,
+                isDeactivated = newValue,
               )(connection)
             }
-          }
-          // update is_deactivated
-          userUpdate.isDeactivatedUpdateO.foreach { newValue =>
-            backend.updateUserIsDeactivated(
-              internalId = dbUser.internalId,
-              isDeactivated = newValue,
-            )(connection)
-          }
-          // update primary_party
-          userUpdate.primaryPartyUpdateO.foreach { newValue =>
-            backend.updateUserPrimaryParty(
-              internalId = dbUser.internalId,
-              primaryPartyO = newValue,
-            )(connection)
-          }
+            // update primary_party
+            userUpdate.primaryPartyUpdateO.foreach { newValue =>
+              backend.updateUserPrimaryParty(
+                internalId = dbUser.internalId,
+                primaryPartyO = newValue,
+              )(connection)
+            }
+            userUpdate.identityProviderIdUpdate.foreach { newValue =>
+              checkIdentityProviderExists(newValue)(connection)
+              backend.updateUserIdentityProviderId(
+                internalId = dbUser.internalId,
+                identityProviderId = newValue.toDb,
+              )(connection)
+            }
         }
-        domainUser <- withUser(id = userUpdate.id) { dbUserAfterUpdates =>
-          val annotations =
-            backend.getUserAnnotations(internalId = dbUserAfterUpdates.internalId)(connection)
-          toDomainUser(dbUser = dbUserAfterUpdates, annotations = annotations)
+        domainUser <- withUser(id = userUpdate.id, IdentityProviderId.Default) {
+          dbUserAfterUpdates => // todo provide identityProviderId
+            val annotations =
+              backend.getUserAnnotations(internalId = dbUserAfterUpdates.internalId)(connection)
+            toDomainUser(dbUser = dbUserAfterUpdates, annotations = annotations)
         }
       } yield domainUser
     }
   }
 
   override def deleteUser(
-      id: UserId
+      id: UserId,
+      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Unit]] = {
     inTransaction(_.deleteUser) { implicit connection =>
       if (!backend.deleteUser(id = id)(connection)) {
@@ -253,9 +268,10 @@ class PersistentUserManagementStore(
   override def grantRights(
       id: UserId,
       rights: Set[domain.UserRight],
+      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     inTransaction(_.grantRights) { implicit connection =>
-      withUser(id = id) { user =>
+      withUser(id, identityProviderId) { user =>
         val now = epochMicroseconds()
         val addedRights = rights.filter { right =>
           if (!backend.userRightExists(internalId = user.internalId, right = right)(connection)) {
@@ -285,9 +301,10 @@ class PersistentUserManagementStore(
   override def revokeRights(
       id: UserId,
       rights: Set[domain.UserRight],
+      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     inTransaction(_.revokeRights) { implicit connection =>
-      withUser(id = id) { user =>
+      withUser(id, identityProviderId) { user =>
         val revokedRights = rights.filter { right =>
           backend.deleteUserRight(internalId = user.internalId, right = right)(connection)
         }
@@ -304,13 +321,15 @@ class PersistentUserManagementStore(
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
+      identityProviderId: IdentityProviderId,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]] = {
     inTransaction(_.listUsers) { connection =>
       val dbUsers = fromExcl match {
-        case None => backend.getUsersOrderedById(None, maxResults)(connection)
-        case Some(fromExcl) => backend.getUsersOrderedById(Some(fromExcl), maxResults)(connection)
+        case None => backend.getUsersOrderedById(None, maxResults, identityProviderId)(connection)
+        case Some(fromExcl) =>
+          backend.getUsersOrderedById(Some(fromExcl), maxResults, identityProviderId)(connection)
       }
       val users = dbUsers.map { dbUser =>
         val annotations = backend.getUserAnnotations(dbUser.internalId)(connection)
@@ -331,6 +350,8 @@ class PersistentUserManagementStore(
           Left(UserManagementStore.ConcurrentUserUpdate(userId))
         case MaxAnnotationsSizeExceededException(userId) =>
           Left(UserManagementStore.MaxAnnotationsSizeExceeded(userId))
+        case IdentityProviderConfigNotFound(identityProviderId) =>
+          Left(UserManagementStore.IdentityProviderConfigNotFound(identityProviderId))
       }(ExecutionContext.parasitic)
   }
 
@@ -353,6 +374,7 @@ class PersistentUserManagementStore(
       id = payload.id,
       primaryParty = payload.primaryPartyO,
       isDeactivated = payload.isDeactivated,
+      identityProviderId = IdentityProviderId.fromDb(payload.identityProviderId),
       metadata = domain.ObjectMeta(
         resourceVersionO = Some(payload.resourceVersion),
         annotations = annotations,
@@ -361,13 +383,16 @@ class PersistentUserManagementStore(
   }
 
   private def withUser[T](
-      id: Ref.UserId
+      id: Ref.UserId,
+      identityProviderId: IdentityProviderId,
   )(
       f: UserManagementStorageBackend.DbUserWithId => T
   )(implicit connection: Connection): Result[T] = {
     backend.getUser(id = id)(connection) match {
-      case Some(user) => Right(f(user))
-      case None => Left(UserNotFound(userId = id))
+      case Some(user) if identityProviderId == IdentityProviderId.Default => Right(f(user))
+      case Some(user) if user.payload.identityProviderId.contains(identityProviderId) =>
+        Right(f(user))
+      case _ => Left(UserNotFound(userId = id))
     }
   }
 
@@ -394,4 +419,14 @@ class PersistentUserManagementStore(
     val now = timeProvider.getCurrentTime
     (now.getEpochSecond * 1000 * 1000) + (now.getNano / 1000)
   }
+
+  private def checkIdentityProviderExists(
+      identityProviderId: IdentityProviderId
+  )(connection: Connection) =
+    identityProviderId match {
+      case identityProviderId: IdentityProviderId.Id
+          if !backend.idpConfigByIdExists(identityProviderId)(connection) =>
+        throw IdentityProviderConfigNotFound(identityProviderId)
+      case _ =>
+    }
 }

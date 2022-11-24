@@ -16,7 +16,6 @@ import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
 }
 import com.daml.platform.localstore.api.{IdentityProviderConfigStore, IdentityProviderConfigUpdate}
 import com.daml.platform.store.DbSupport
-import com.daml.platform.store.dao.DbDispatcher
 import Ops._
 
 import java.sql.Connection
@@ -30,7 +29,7 @@ class PersistentIdentityProviderConfigStore(
     extends IdentityProviderConfigStore {
 
   private val backend = dbSupport.storageBackendFactory.createIdentityProviderConfigStorageBackend
-  private val dbDispatcher: DbDispatcher = dbSupport.dbDispatcher
+  private val dbDispatcher = dbSupport.dbDispatcher
   private val logger = ContextualizedLogger.get(getClass)
 
   override def createIdentityProviderConfig(identityProviderConfig: domain.IdentityProviderConfig)(

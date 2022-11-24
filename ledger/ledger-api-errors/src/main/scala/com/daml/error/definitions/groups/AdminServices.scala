@@ -12,6 +12,8 @@ object AdminServices extends LedgerApiErrors.AdminServicesErrorGroup {
 
   val UserManagement: groups.UserManagementServiceErrorGroup.type =
     groups.UserManagementServiceErrorGroup
+  val IdentityProviderConfig: groups.IdentityProviderConfigServiceErrorGroup.type =
+    groups.IdentityProviderConfigServiceErrorGroup
   val PartyManagement: groups.PartyManagementServiceErrorGroup.type =
     groups.PartyManagementServiceErrorGroup
 

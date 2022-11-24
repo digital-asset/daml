@@ -399,12 +399,13 @@ CREATE TABLE participant_identity_provider_config
 -- Participant local store: users
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_users (
-    internal_id         INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id             VARCHAR(256)        NOT NULL UNIQUE,
-    primary_party       VARCHAR(512),
-    is_deactivated      BOOLEAN             NOT NULL,
-    resource_version    BIGINT              NOT NULL,
-    created_at          BIGINT              NOT NULL
+    internal_id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id              VARCHAR(256) NOT NULL UNIQUE,
+    primary_party        VARCHAR(512),
+    identity_provider_id VARCHAR(255) REFERENCES participant_identity_provider_config (identity_provider_id),
+    is_deactivated       BOOLEAN      NOT NULL,
+    resource_version     BIGINT       NOT NULL,
+    created_at           BIGINT       NOT NULL
 );
 CREATE TABLE participant_user_rights (
     user_internal_id    INTEGER             NOT NULL REFERENCES participant_users (internal_id) ON DELETE CASCADE,
@@ -426,8 +427,8 @@ CREATE TABLE participant_user_annotations (
     updated_at          BIGINT              NOT NULL,
     UNIQUE (internal_id, name)
 );
-INSERT INTO participant_users(user_id, primary_party, is_deactivated, resource_version, created_at)
-    VALUES ('participant_admin', NULL, false, 0,  0);
+INSERT INTO participant_users(user_id, primary_party, identity_provider_id, is_deactivated, resource_version, created_at)
+    VALUES ('participant_admin', NULL, NULL, false, 0,  0);
 INSERT INTO participant_user_rights(user_internal_id, user_right, for_party, granted_at)
     SELECT internal_id, 1, NULL, 0
     FROM participant_users
@@ -437,10 +438,11 @@ INSERT INTO participant_user_rights(user_internal_id, user_right, for_party, gra
 -- Participant local store: party records
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_party_records (
-    internal_id         INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    party               VARCHAR(512)        NOT NULL UNIQUE,
-    resource_version    BIGINT              NOT NULL,
-    created_at          BIGINT              NOT NULL
+    internal_id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    party                VARCHAR(512) NOT NULL UNIQUE,
+    identity_provider_id VARCHAR(255) REFERENCES participant_identity_provider_config (identity_provider_id),
+    resource_version     BIGINT       NOT NULL,
+    created_at           BIGINT       NOT NULL
 );
 CREATE TABLE participant_party_record_annotations (
     internal_id         INTEGER             NOT NULL REFERENCES participant_party_records (internal_id) ON DELETE CASCADE,

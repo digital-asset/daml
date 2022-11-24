@@ -8,6 +8,7 @@ import java.util.Objects;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
+// TODO DPP-1299 Include IdentityProviderConfig
 public final class User {
 
   private final String id;

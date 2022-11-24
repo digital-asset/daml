@@ -6,7 +6,7 @@ package com.daml.platform
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
-import com.daml.ledger.api.auth.AuthService
+import com.daml.ledger.api.auth.{AuthService, IdentityProviderAuthService}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
@@ -26,6 +26,7 @@ import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.index.{InMemoryStateUpdater, IndexServiceOwner}
 import com.daml.platform.indexer.IndexerServiceOwner
 import com.daml.platform.localstore.{
+  PersistentIdentityProviderConfigStore,
   PersistentPartyRecordStore,
   PersistentUserManagementStore,
   UserManagementConfig,
@@ -143,7 +144,15 @@ class LedgerApiServer(
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
-  ): ResourceOwner[ApiService] =
+  ): ResourceOwner[ApiService] = {
+    val identityProviderStore =
+      PersistentIdentityProviderConfigStore.cached(
+        dbSupport = dbSupport,
+        metrics = metrics,
+        expiryAfterWriteInSeconds = apiServerConfig.userManagement.cacheExpiryAfterWriteInSeconds,
+        maximumCacheSize = apiServerConfig.userManagement.maxCacheSize,
+        maxIdentityProviderConfigs = 10,
+      )(servicesExecutionContext, loggingContext)
     ApiServiceOwner(
       indexService = indexService,
       ledgerId = ledgerId,
@@ -164,6 +173,7 @@ class LedgerApiServer(
         maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
         timeProvider = TimeProvider.UTC,
       )(servicesExecutionContext, loggingContext),
+      identityProviderConfigStore = identityProviderStore,
       partyRecordStore = new PersistentPartyRecordStore(
         dbSupport = dbSupport,
         metrics = metrics,
@@ -172,10 +182,19 @@ class LedgerApiServer(
       ),
       ledgerFeatures = ledgerFeatures,
       participantId = participantId,
-      authService = authService,
+      authService = new IdentityProviderAwareAuthService(
+        authService,
+        new IdentityProviderAuthService(
+          IdentityProviderAuthService.Config(
+            jwtTimestampLeeway = participantConfig.jwtTimestampLeeway
+          )
+        ),
+        identityProviderStore,
+      )(servicesExecutionContext, loggingContext),
       jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
       explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
     )
+  }
 }
 
 object LedgerApiServer {
