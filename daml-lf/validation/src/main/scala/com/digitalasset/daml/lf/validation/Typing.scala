@@ -850,13 +850,14 @@ private[validation] object Typing {
               }
             catch {
               case e: ETypeMismatch =>
-                throw EFieldTypeMismatch( ctx
-                        , fieldName = field
-                        , targetRecord = typ1
-                        , foundType = e.foundType
-                        , expectedType = e.expectedType
-                        , expr = e.expr
-                        )
+                throw EFieldTypeMismatch(
+                  ctx,
+                  fieldName = field,
+                  targetRecord = typ1,
+                  foundType = e.foundType,
+                  expectedType = e.expectedType,
+                  expr = e.expr,
+                )
             }
           }
         case _ =>
@@ -1535,14 +1536,16 @@ private[validation] object Typing {
         if (!alphaEquiv(exprType, typ))
           expr match {
             case e: ERecProj =>
-              throw EFieldTypeMismatch( ctx
-                      , fieldName = e.field
-                      , targetRecord = typeConAppToType(e.tycon)
-                      , foundType = exprType
-                      , expectedType = typ
-                      , expr = Some(expr)
-                      )
-            case _ => throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
+              throw EFieldTypeMismatch(
+                ctx,
+                fieldName = e.field,
+                targetRecord = typeConAppToType(e.tycon),
+                foundType = exprType,
+                expectedType = typ,
+                expr = Some(expr),
+              )
+            case _ =>
+              throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
           }
         k(exprType)
       }
