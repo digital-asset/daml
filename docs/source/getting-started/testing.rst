@@ -18,7 +18,7 @@ Of course there are more to choose from, but this is one combination that works.
 To install Puppeteer and some other testing utilities we are going to use,
 run the following command in the ``ui`` directory::
 
-    npm i --save-dev puppeteer@~18.1.0 wait-on@~6.0.1 @types/jest@~29.2.3 @types/node@~18.11.9 @types/puppeteer@~7.0.4 @types/wait-on@~5.3.1
+    npm i --save-dev puppeteer@~10.0.0 wait-on@~6.0.1 @types/jest@~29.2.3 @types/node@~18.11.9 @types/puppeteer@~7.0.4 @types/wait-on@~5.3.1
 
 You may need to run ``npm install`` again afterwards.
 
