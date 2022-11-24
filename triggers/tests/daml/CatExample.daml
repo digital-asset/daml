@@ -1,0 +1,63 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module CatExample where
+
+import Daml.Trigger
+import DA.Foldable (forA_)
+
+
+template Cat
+  with
+    owner : Party
+    isin : Int
+  where
+    signatory owner
+    key (owner, isin) : (Party, Int)
+    maintainer key._1
+
+    choice Feed : ()
+      with
+       foodCid : ContractId Food
+      controller owner
+      do
+        exercise foodCid Food_FeedCat
+
+template Food
+  with
+    owner : Party
+    isin : Int
+  where
+    signatory owner
+    key (owner, isin) : (Party, Int)
+    maintainer key._1
+
+    choice Food_FeedCat : ()
+      controller owner
+      do
+        pure ()
+
+trigger : Trigger ()
+trigger = Trigger
+  { initialize = pure ()
+  , updateState = \_ -> pure ()
+  , rule = const feedTheCats
+  , registeredTemplates =  RegisteredTemplates [ registeredTemplate @Cat, registeredTemplate @Food ]
+  , heartbeat = None
+  }
+
+feedTheCats : TriggerA s ()
+feedTheCats = do
+  cats <- query @Cat
+  debugRaw $ "Feeding " <> show (length cats) <> " cats"
+  forA_ cats \(catCid, Cat{..}) -> do
+--    debug $ "Processing cat with isin " <> (show isin)
+    queryContractKey @Food (owner, isin) >>= \case
+      Some (foodCid, _) -> do
+        debugRaw $ "Found food for cat with isin " <> (show isin)
+        dedupExercise catCid (Feed foodCid)
+--        emitCommands [exerciseCmd catCid (Feed foodCid)] [toAnyContractId catId]
+      None ->
+        debugRaw $ "Not found food for cat with isin " <> (show isin)
+
+
