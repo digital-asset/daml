@@ -844,8 +844,19 @@ private[validation] object Typing {
         case DataRecord(recordType) =>
           val typ1 = typeConAppToType(typ0)
           checkExpr(record, typ1) {
-            checkExpr(update, recordType.lookup(field, EUnknownField(ctx, field, typ1))) {
-              Ret(typ1)
+            try
+              checkExpr(update, recordType.lookup(field, EUnknownField(ctx, field, typ1))) {
+                Ret(typ1)
+              }
+            catch {
+              case e: ETypeMismatch =>
+                throw EFieldTypeMismatch( ctx
+                        , fieldName = field
+                        , targetRecord = typ1
+                        , foundType = e.foundType
+                        , expectedType = e.expectedType
+                        , expr = e.expr
+                        )
             }
           }
         case _ =>
@@ -1522,7 +1533,17 @@ private[validation] object Typing {
     private def resolveExprType[T](expr: Expr, typ: Type)(k: Type => Work[T]): Work[T] = {
       typeOf(expr) { exprType =>
         if (!alphaEquiv(exprType, typ))
-          throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
+          expr match {
+            case e: ERecProj =>
+              throw EFieldTypeMismatch( ctx
+                      , fieldName = e.field
+                      , targetRecord = typeConAppToType(e.tycon)
+                      , foundType = exprType
+                      , expectedType = typ
+                      , expr = Some(expr)
+                      )
+            case _ => throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
+          }
         k(exprType)
       }
     }

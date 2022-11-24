@@ -358,7 +358,16 @@ typeOfRecUpd typ0 field record update = do
   let typ1 = typeConAppToType typ0
   fieldType <- match _Just (EUnknownField field typ1) (lookup field recordType)
   checkExpr record typ1
-  checkExpr update fieldType
+  catchAndRethrow
+    (\case
+      ETypeMismatch { foundType, expectedType, expr } ->
+        EFieldTypeMismatch
+          { targetRecord = typ1
+          , fieldName = field
+          , foundType, expectedType, expr
+          }
+      e -> e)
+    (checkExpr update fieldType)
   pure typ1
 
 typeOfStructCon :: MonadGamma m => [(FieldName, Expr)] -> m Type
@@ -850,7 +859,18 @@ checkExpr' expr typ = do
   exprType <- typeOf expr
   typX <- expandTypeSynonyms typ
   unless (alphaType exprType typX) $
-    throwWithContext ETypeMismatch{foundType = exprType, expectedType = typX, expr = Just expr}
+    throwWithContext $
+      case expr of
+        ERecProj { recTypeCon, recField } ->
+          EFieldTypeMismatch
+            { targetRecord = typeConAppToType recTypeCon
+            , fieldName = recField
+            , foundType = exprType
+            , expectedType = typX
+            , expr = Just expr
+            }
+        _ ->
+          ETypeMismatch{foundType = exprType, expectedType = typX, expr = Just expr}
   pure exprType
 
 checkExpr :: MonadGamma m => Expr -> Type -> m ()

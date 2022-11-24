@@ -251,6 +251,17 @@ final case class ETypeMismatch(
        | * expected type: ${expectedType.pretty}
        | * found type: ${foundType.pretty}""".stripMargin
 }
+final case class EFieldTypeMismatch(
+    context: Context,
+    fieldName: FieldName,
+    targetRecord: Type,
+    foundType: Type,
+    expectedType: Type,
+    expr: Option[Expr],
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"""Tried to use field $fieldName with type ${foundType.pretty} on value of type ${targetRecord.pretty}, but that field has type ${expectedType.pretty}"""
+}
 final case class EPatternTypeMismatch(
     context: Context,
     pattern: CasePat,

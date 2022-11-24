@@ -108,6 +108,7 @@ data Error
   | EExpectedStructType    !Type
   | EKindMismatch          {foundKind :: !Kind, expectedKind :: !Kind}
   | ETypeMismatch          {foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr)}
+  | EFieldTypeMismatch     {fieldName :: !FieldName, targetRecord :: !Type, foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr)}
   | EPatternTypeMismatch   {pattern :: !CasePattern, scrutineeType :: !Type}
   | ENonExhaustivePatterns {missingPattern :: !CasePattern, scrutineeType :: !Type}
   | EExpectedHigherKind    !Kind
@@ -298,6 +299,16 @@ instance Pretty Error where
       , nest 4 (pretty foundType)
       ] ++
       maybe [] (\e -> ["* expression:", nest 4 (pretty e)]) expr
+
+    EFieldTypeMismatch { fieldName, targetRecord, foundType, expectedType, expr } ->
+      vcat $
+      [ text "Tried to use field " <> pretty fieldName
+         <> text " with type " <> pretty foundType
+         <> text " on value of type " <> pretty targetRecord
+         <> text ", but that field has type " <> pretty expectedType
+      ] ++
+      maybe [] (\e -> ["* expression:", nest 4 (pretty e)]) expr
+
     EKindMismatch{foundKind, expectedKind} ->
       vcat
       [ "kind mismatch:"
