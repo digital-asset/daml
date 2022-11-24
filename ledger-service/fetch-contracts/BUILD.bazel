@@ -59,12 +59,10 @@ da_scala_test(
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
-        "@maven//:org_tpolecat_doobie_core",
     ],
     scalacopts = hj_scalacopts,
     deps = [
         ":fetch-contracts",
-        "//ledger-service/db-backend",
         "//libs-scala/scalatest-utils",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

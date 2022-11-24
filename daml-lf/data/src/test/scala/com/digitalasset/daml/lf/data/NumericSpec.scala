@@ -549,7 +549,7 @@ class NumericSpec
 
       forEvery(testCases) { numerics =>
         val suffled = random.shuffle(numerics)
-        suffled.sorted(compareTo).map(BigDec(_)) shouldBe suffled.map(BigDec(_)).sorted
+        suffled.sorted(compareTo _).map(BigDec(_)) shouldBe suffled.map(BigDec(_)).sorted
       }
     }
   }
