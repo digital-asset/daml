@@ -651,7 +651,15 @@ private[validation] object Typing {
             try env.checkTopExpr(value, method.returnType)
             catch {
               case e: ETypeMismatch => {
-                throw EMethodTypeMismatch(e.context, interfaceId, templateId, name, e.foundType, e.expectedType, e.expr)
+                throw EMethodTypeMismatch(
+                  e.context,
+                  interfaceId,
+                  templateId,
+                  name,
+                  e.foundType,
+                  e.expectedType,
+                  e.expr,
+                )
               }
             }
         }
@@ -660,7 +668,14 @@ private[validation] object Typing {
       try env.checkTopExpr(iiBody.view, view)
       catch {
         case e: ETypeMismatch => {
-          throw EViewTypeMismatch(e.context, interfaceId, templateId, e.foundType, e.expectedType, e.expr)
+          throw EViewTypeMismatch(
+            e.context,
+            interfaceId,
+            templateId,
+            e.foundType,
+            e.expectedType,
+            e.expr,
+          )
         }
       }
     }
