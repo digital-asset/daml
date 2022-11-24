@@ -662,7 +662,7 @@ execLint inputFiles opts =
              diags <- forM inputFiles $ \inputFile -> do
                void $ runActionSync ide $ getDlintIdeas inputFile
                getDiagnostics ide
-             if null $ concat diags then
+             if all null diags then
                hPutStrLn stderr "No hints"
              else
                exitFailure

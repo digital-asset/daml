@@ -161,7 +161,7 @@ da_scala_library(
         for lf_version in target_lf_versions
     ] + [":test-model.dar"] + (
         [
-            "@toxiproxy_dev_env//:bin/toxiproxy-cmd",
+            "@toxiproxy_dev_env//:bin/toxiproxy-server",
         ] if not is_windows else [
             "@toxiproxy_dev_env//:toxiproxy-server-windows-amd64.exe",
         ]
