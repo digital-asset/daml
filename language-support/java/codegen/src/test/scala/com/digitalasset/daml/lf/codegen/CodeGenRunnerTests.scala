@@ -75,10 +75,11 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
         Map.empty,
       )
 
-    assert(scope.signatures.length === dar.all.length)
-    assert(scope.packagePrefixes.size === dar.all.length)
-    assert(scope.packagePrefixes.values.forall(_ === "prefix"))
-    assert(scope.toBeGenerated === Set.empty)
+    scope.signatures.map(_.packageId).length should ===(dar.all.length)
+    val prefixes = backend.java.inner.PackagePrefixes unwrap scope.packagePrefixes
+    prefixes.size should ===(dar.all.length)
+    all(prefixes.values) should ===("prefix")
+    scope.toBeGenerated should ===(Set.empty)
   }
 
   it should "fail if read interfaces from 2 DAR files with same content but different prefixes" in {
@@ -97,13 +98,14 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       Map.empty,
     )
 
-    assert(scope.signatures.length === 27)
-    assert(scope.packagePrefixes.size === 3)
+    scope.signatures.map(_.packageId).length should ===(27)
+    val prefixes = backend.java.inner.PackagePrefixes unwrap scope.packagePrefixes
+    prefixes.size should ===(3)
     // prefix1 is applied to the main package containing template Bar
-    assert(scope.packagePrefixes.values.count(_ == "prefix1") == 1)
+    prefixes.values.count(_ == "prefix1") should ===(1)
     // prefix2 is applied to the main package containing template UsingBar
     // and the unique package containing template AnotherBar
-    assert(scope.packagePrefixes.values.count(_ == "prefix2") == 2)
+    prefixes.values.count(_ == "prefix2") should ===(2)
   }
 
   behavior of "detectModuleCollisions"
