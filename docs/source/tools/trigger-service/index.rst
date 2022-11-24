@@ -91,7 +91,7 @@ alongside a few annotations with regards to the meaning of the configuration key
         max-retries = 6
 
         // Maximum number of in-flight commands that we shall allow *before* the ledger client automatically fails
-        // ledger client submission requests. Failed submission requests may be handled by trigger rules. Defaults to 30.
+        // ledger client submission requests. Failed submission requests may be handled by trigger rules. Defaults to 50.
         max-in-flight-commands = 50
 
         // Used to control maximum rate at which we perform ledger client submission requests.
