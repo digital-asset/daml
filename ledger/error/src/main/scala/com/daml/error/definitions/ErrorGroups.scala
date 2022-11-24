@@ -17,6 +17,7 @@ object ErrorGroups {
       abstract class AdminServicesErrorGroup extends ErrorGroup() {
         abstract class UserManagementServiceErrorGroup extends ErrorGroup()
         abstract class PartyManagementServiceErrorGroup extends ErrorGroup()
+        abstract class IdentityProviderConfigServiceErrorGroup extends ErrorGroup()
       }
       abstract class AuthorizationChecks extends ErrorGroup()
       abstract class CommandExecutionErrorGroup extends ErrorGroup()

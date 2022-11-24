@@ -73,6 +73,8 @@ compile_deps = [
     "//libs-scala/timer-utils",
     "//libs-scala/nameof",
     "//libs-scala/struct-json",
+    "@maven//:com_github_ben_manes_caffeine_caffeine",
+    "@maven//:com_auth0_jwks_rsa",
     "@maven//:com_google_guava_guava",
     "@maven//:com_zaxxer_HikariCP",
     "@maven//:io_dropwizard_metrics_metrics_core",

@@ -27,6 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+//TODO DPP-1299 Include IdentityProviderConfig
 class HttpServiceIntegrationTestUserManagementNoAuth
     extends AbstractHttpServiceIntegrationTestQueryStoreIndependent
     with AbstractHttpServiceIntegrationTestFuns
@@ -69,11 +70,13 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       domain.CanActAs(ham),
       domain.CanReadAs(spam),
       domain.ParticipantAdmin,
+      domain.IdentityProviderAdmin,
     ).toJson shouldBe
       List(
         Map("type" -> "CanActAs", "party" -> ham.unwrap),
         Map("type" -> "CanReadAs", "party" -> spam.unwrap),
         Map("type" -> "ParticipantAdmin"),
+        Map("type" -> "IdentityProviderAdmin"),
       ).toJson
   }
 

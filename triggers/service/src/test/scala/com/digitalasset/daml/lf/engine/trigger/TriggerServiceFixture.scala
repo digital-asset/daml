@@ -175,6 +175,7 @@ trait AuthMiddlewareFixture
     val payload =
       if (sandboxClientTakesUserToken)
         StandardJWTPayload(
+          issuer = None,
           userId = "",
           participantId = None,
           exp = None,

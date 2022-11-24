@@ -43,8 +43,15 @@ import com.daml.platform.localstore.api.{
   PartyRecordStore,
   PartyRecordUpdate,
 }
-import com.daml.platform.server.api.validation.FieldValidations
-import com.daml.platform.server.api.validation.FieldValidations._
+import com.daml.platform.server.api.validation.FieldValidations.{
+  optionalIdentityProviderId,
+  optionalString,
+  requireEmptyString,
+  requireParty,
+  requirePresence,
+  requireResourceVersion,
+  verifyMetadataAnnotations,
+}
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either._
@@ -103,18 +110,31 @@ private[apiserver] final class ApiPartyManagementService private (
       logger.info("Getting parties")
       withValidation {
         for {
-          parties <- request.parties.toList.traverse(FieldValidations.requireParty)
-        } yield parties
-      } { parties: Seq[Party] =>
+          identityProviderId <- optionalIdentityProviderId(
+            request.identityProviderId,
+            "identity_provider_id",
+          )
+          parties <- request.parties.toList.traverse(requireParty)
+        } yield (parties, identityProviderId)
+      } { case (parties: Seq[Party], identityProviderId) =>
         for {
           partyDetailsSeq <- partyManagementService.getParties(parties)
           partyRecordOptions <- fetchPartyRecords(partyDetailsSeq)
         } yield {
           val protoDetails =
             partyDetailsSeq.zip(partyRecordOptions).map { case (details, recordO) =>
-              toProtoPartyDetails(partyDetails = details, metadataO = recordO.map(_.metadata))
+              toProtoPartyDetails(
+                partyDetails = details,
+                metadataO = recordO.map(_.metadata),
+                identityProviderId = recordO.map(_.identityProviderId),
+              )
             }
-          GetPartiesResponse(partyDetails = protoDetails)
+          identityProviderId match {
+            case IdentityProviderId.Id(id) =>
+              GetPartiesResponse(partyDetails = protoDetails.filter(_.identityProviderId == id))
+            case IdentityProviderId.Default =>
+              GetPartiesResponse(partyDetails = protoDetails)
+          }
         }
       }
     }
@@ -125,15 +145,33 @@ private[apiserver] final class ApiPartyManagementService private (
     logger.info("Listing known parties")
     implicit val errorLogger: DamlContextualizedErrorLogger =
       new DamlContextualizedErrorLogger(logger, loggingContext, None)
-    (for {
-      partyDetailsSeq <- partyManagementService.listKnownParties()
-      partyRecords <- fetchPartyRecords(partyDetailsSeq)
-    } yield {
-      val protoDetails = partyDetailsSeq.zip(partyRecords).map { case (details, recordO) =>
-        toProtoPartyDetails(partyDetails = details, metadataO = recordO.map(_.metadata))
+    withValidation {
+      optionalIdentityProviderId(
+        request.identityProviderId,
+        "identity_provider_id",
+      )
+    } { identityProviderId =>
+      for {
+        partyDetailsSeq <- partyManagementService.listKnownParties()
+        partyRecords <- fetchPartyRecords(partyDetailsSeq)
+      } yield {
+        val protoDetails = partyDetailsSeq.zip(partyRecords).map { case (details, recordO) =>
+          toProtoPartyDetails(
+            partyDetails = details,
+            metadataO = recordO.map(_.metadata),
+            recordO.map(_.identityProviderId),
+          )
+        }
+        identityProviderId match {
+          case id: IdentityProviderId.Id =>
+            ListKnownPartiesResponse(
+              protoDetails.filter(_.identityProviderId == id.toRequestString)
+            )
+          case IdentityProviderId.Default =>
+            ListKnownPartiesResponse(protoDetails)
+        }
       }
-      ListKnownPartiesResponse(protoDetails)
-    })
+    }
   }
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
@@ -147,11 +185,12 @@ private[apiserver] final class ApiPartyManagementService private (
         DefaultTelemetry.contextFromGrpcThreadLocalContext()
       implicit val errorLogger: DamlContextualizedErrorLogger =
         new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
       withValidation {
         for {
-          partyIdHintO <- FieldValidations.optionalString(
+          partyIdHintO <- optionalString(
             request.partyIdHint
-          )(FieldValidations.requireParty)
+          )(requireParty)
           metadata = request.localMetadata.getOrElse(ProtoObjectMeta())
           _ <- requireEmptyString(
             metadata.resourceVersion,
@@ -162,9 +201,13 @@ private[apiserver] final class ApiPartyManagementService private (
             allowEmptyValues = false,
             "party_details.local_metadata.annotations",
           )
-          displayNameO <- FieldValidations.optionalString(request.displayName)(Right(_))
-        } yield (partyIdHintO, displayNameO, annotations)
-      } { case (partyIdHintO, displayNameO, annotations) =>
+          displayNameO <- optionalString(request.displayName)(Right(_))
+          identityProviderId <- optionalIdentityProviderId(
+            request.identityProviderId,
+            "identity_provider_id",
+          )
+        } yield (partyIdHintO, displayNameO, annotations, identityProviderId)
+      } { case (partyIdHintO, displayNameO, annotations, identityProviderId) =>
         (for {
           allocated <- synchronousResponse.submitAndWait(
             submissionId,
@@ -175,8 +218,7 @@ private[apiserver] final class ApiPartyManagementService private (
               PartyRecord(
                 party = allocated.partyDetails.party,
                 metadata = domain.ObjectMeta(resourceVersionO = None, annotations = annotations),
-                identityProviderId =
-                  IdentityProviderId.Default, // TODO IDP: replace with the value coming from API
+                identityProviderId = identityProviderId,
               )
             )
             .flatMap(handlePartyRecordStoreResult("creating a party record")(_))
@@ -185,6 +227,7 @@ private[apiserver] final class ApiPartyManagementService private (
           val details = toProtoPartyDetails(
             partyDetails = allocated.partyDetails,
             metadataO = Some(partyRecord.metadata),
+            identityProviderId = Some(identityProviderId),
           )
           AllocatePartyResponse(Some(details))
         })
@@ -211,7 +254,7 @@ private[apiserver] final class ApiPartyManagementService private (
           party <- requireParty(partyDetails.party)
           metadata = partyDetails.localMetadata.getOrElse(ProtoObjectMeta())
           resourceVersionNumberO <- optionalString(metadata.resourceVersion)(
-            FieldValidations.requireResourceVersion(
+            requireResourceVersion(
               _,
               "party_details.local_metadata",
             )
@@ -225,7 +268,11 @@ private[apiserver] final class ApiPartyManagementService private (
             request.updateMask,
             "update_mask",
           )
-          displayNameO <- FieldValidations.optionalString(partyDetails.displayName)(Right(_))
+          displayNameO <- optionalString(partyDetails.displayName)(Right(_))
+          identityProviderId <- optionalIdentityProviderId(
+            partyDetails.identityProviderId,
+            "identity_provider_id",
+          )
           partyRecord = PartyDetails(
             party = party,
             displayName = displayNameO,
@@ -234,8 +281,7 @@ private[apiserver] final class ApiPartyManagementService private (
               resourceVersionO = resourceVersionNumberO,
               annotations = annotations,
             ),
-            identityProviderId =
-              IdentityProviderId.Default, // TODO IDP: replace with the value coming from API
+            identityProviderId = identityProviderId,
           )
         } yield (partyRecord, updateMask)
       } { case (partyRecord, updateMask) =>
@@ -312,6 +358,7 @@ private[apiserver] final class ApiPartyManagementService private (
             toProtoPartyDetails(
               partyDetails = fetchedPartyDetails,
               metadataO = Some(updatedPartyRecord.metadata),
+              identityProviderId = Some(updatedPartyRecord.identityProviderId),
             )
           )
         )
@@ -417,12 +464,14 @@ private[apiserver] object ApiPartyManagementService {
   private def toProtoPartyDetails(
       partyDetails: IndexerPartyDetails,
       metadataO: Option[ObjectMeta],
+      identityProviderId: Option[IdentityProviderId],
   ): ProtoPartyDetails =
     ProtoPartyDetails(
       party = partyDetails.party,
       displayName = partyDetails.displayName.getOrElse(""),
       isLocal = partyDetails.isLocal,
       localMetadata = Some(Utils.toProtoObjectMeta(metadataO.getOrElse(ObjectMeta.empty))),
+      identityProviderId = identityProviderId.map(_.toRequestString).getOrElse(""),
     )
 
   def createApiService(
