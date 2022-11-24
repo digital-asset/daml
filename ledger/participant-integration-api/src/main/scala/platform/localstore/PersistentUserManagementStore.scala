@@ -135,7 +135,6 @@ class PersistentUserManagementStore(
           resourceVersion = 0,
           createdAt = now,
         )
-        checkIdentityProviderExists(user.identityProviderId)(connection)
         val internalId = backend.createUser(user = dbUser)(connection)
         user.metadata.annotations.foreach { case (key, value) =>
           backend.addUserAnnotation(
@@ -233,7 +232,6 @@ class PersistentUserManagementStore(
               )(connection)
             }
             userUpdate.identityProviderIdUpdate.foreach { newValue =>
-              checkIdentityProviderExists(newValue)(connection)
               backend.updateUserIdentityProviderId(
                 internalId = dbUser.internalId,
                 identityProviderId = newValue.toDb,
@@ -241,7 +239,7 @@ class PersistentUserManagementStore(
             }
         }
         domainUser <- withUser(id = userUpdate.id, IdentityProviderId.Default) {
-          dbUserAfterUpdates => // todo provide identityProviderId
+          dbUserAfterUpdates =>
             val annotations =
               backend.getUserAnnotations(internalId = dbUserAfterUpdates.internalId)(connection)
             toDomainUser(dbUser = dbUserAfterUpdates, annotations = annotations)
@@ -420,13 +418,4 @@ class PersistentUserManagementStore(
     (now.getEpochSecond * 1000 * 1000) + (now.getNano / 1000)
   }
 
-  private def checkIdentityProviderExists(
-      identityProviderId: IdentityProviderId
-  )(connection: Connection) =
-    identityProviderId match {
-      case identityProviderId: IdentityProviderId.Id
-          if !backend.idpConfigByIdExists(identityProviderId)(connection) =>
-        throw IdentityProviderConfigNotFound(identityProviderId)
-      case _ =>
-    }
 }

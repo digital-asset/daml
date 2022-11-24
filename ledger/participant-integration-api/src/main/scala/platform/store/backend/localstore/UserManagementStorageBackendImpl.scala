@@ -354,16 +354,4 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     rowsUpdated == 1
   }
 
-  override def idpConfigByIdExists(id: IdentityProviderId.Id)(connection: Connection): Boolean = {
-    import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-    val res: Seq[_] =
-      SQL"""
-           SELECT 1 AS dummy
-           FROM participant_identity_provider_config t
-           WHERE t.identity_provider_id = ${id.value: String}
-           """.asVectorOf(IntParser0)(connection)
-    assert(res.length <= 1)
-    res.length == 1
-  }
-
 }

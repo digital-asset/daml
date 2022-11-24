@@ -3,10 +3,11 @@
 
 package com.daml.platform.store.backend.localstore
 
-import java.sql.Connection
 import com.daml.ledger.api.domain.{IdentityProviderId, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.platform.UserId
+
+import java.sql.Connection
 
 trait UserManagementStorageBackend extends ResourceVersionOps {
 
@@ -61,8 +62,6 @@ trait UserManagementStorageBackend extends ResourceVersionOps {
       internalId: Int,
       identityProviderId: Option[IdentityProviderId.Id],
   )(connection: Connection): Boolean
-
-  def idpConfigByIdExists(id: IdentityProviderId.Id)(connection: Connection): Boolean
 }
 
 object UserManagementStorageBackend {

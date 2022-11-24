@@ -3,9 +3,6 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.nio.charset.StandardCharsets
-import java.util.Base64
-
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.SubmissionIdGenerator
@@ -34,11 +31,14 @@ import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
+import java.nio.charset.StandardCharsets
+import java.util.Base64
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 private[apiserver] final class ApiUserManagementService(
     userManagementStore: UserManagementStore,
+    identityProviderConfigValidation: IdentityProviderConfigValidation,
     maxUsersPageSize: Int,
     submissionIdGenerator: SubmissionIdGenerator,
 )(implicit
@@ -98,10 +98,14 @@ private[apiserver] final class ApiUserManagementService(
           pRights,
         )
       } { case (user, pRights) =>
-        userManagementStore
-          .createUser(
-            user = user,
-            rights = pRights,
+        identityProviderConfigValidation
+          .identityProviderConfigExists(user.identityProviderId)
+          .flatMap(_ =>
+            userManagementStore
+              .createUser(
+                user = user,
+                rights = pRights,
+              )
           )
           .flatMap(handleResult("creating user"))
           .map(createdUser => CreateUserResponse(Some(toProtoUser(createdUser))))
@@ -149,6 +153,9 @@ private[apiserver] final class ApiUserManagementService(
       } { case (user, fieldMask) =>
         for {
           userUpdate <- handleUpdatePathResult(user.id, UserUpdateMapper.toUpdate(user, fieldMask))
+          _ <- identityProviderConfigValidation.identityProviderConfigExists(
+            user.identityProviderId
+          )
           authorizedUserIdO <- authorizedUserIdFO
           _ <-
             if (

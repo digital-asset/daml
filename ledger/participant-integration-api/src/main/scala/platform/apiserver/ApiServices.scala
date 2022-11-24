@@ -205,9 +205,12 @@ private[daml] object ApiServices {
         if (userManagementConfig.enabled) {
           val apiUserManagementService =
             new ApiUserManagementService(
-              userManagementStore,
+              userManagementStore = userManagementStore,
               maxUsersPageSize = userManagementConfig.maxUsersPageSize,
               submissionIdGenerator = SubmissionIdGenerator.Random,
+              identityProviderConfigValidation = new IdentityProviderConfigValidationImpl(
+                identityProviderConfigStore
+              ),
             )
           val identityProvider =
             new ApiIdentityProviderConfigService(identityProviderConfigStore)
