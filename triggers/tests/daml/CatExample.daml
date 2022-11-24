@@ -55,8 +55,9 @@ feedTheCats = do
     queryContractKey @Food (owner, isin) >>= \case
       Some (foodCid, _) -> do
         debugRaw $ "Found food for cat with isin " <> (show isin)
-        dedupExercise catCid (Feed foodCid)
---        emitCommands [exerciseCmd catCid (Feed foodCid)] [toAnyContractId catId]
+--        dedupExercise catCid (Feed foodCid)
+        _ <- emitCommands [exerciseCmd catCid (Feed foodCid)] [toAnyContractId catCid]
+        pure ()
       None ->
         debugRaw $ "Not found food for cat with isin " <> (show isin)
 

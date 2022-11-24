@@ -91,21 +91,27 @@ abstract class AbstractFuncTests
           client <- ledgerClient()
           party <- allocateParty(client)
           _ <- Future.sequence(
-            (0 to n).map { i =>
+            (0 until n).map { i =>
               create(client, party, cat(party, i))
             }
           )
           _ <- Future.sequence(
-            (0 to n).map { i =>
+            (0 until n).map { i =>
               create(client, party, food(party, i))
             }
           )
           runner = getRunner(client, QualifiedName.assertFromString("CatExample:trigger"), party)
           (acs, offset) <- runner.queryACS()
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(7))._2
+          _ <- runner
+            .runWithACS(
+              acs,
+              offset,
+              msgFlow = Flow[TriggerContext[TriggerMsg]].take((n * 5).toLong),
+            )
+            ._2
           acs <- queryACS(client, party)
         } yield {
-          fail(s"DEBUGGY: ${acs.size}")
+          fail(s"DEBUGGY - ${acs.view.mapValues(_.map(_.fields.last)).toMap}")
         }
       }
 
