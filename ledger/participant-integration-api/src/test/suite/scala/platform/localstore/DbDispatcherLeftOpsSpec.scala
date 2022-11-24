@@ -13,7 +13,7 @@ class DbDispatcherLeftOpsSpec extends AnyFreeSpec with MockitoSugar with Matcher
 
   "rollbackOnLeft should rollback on left" in {
     val conn = mock[Connection]
-    DbDispatcherLeftOps
+    Ops
       .rollbackOnLeft(_ => Left(""))(conn) shouldBe Left("")
 
     verify(conn, times(1)).rollback()
@@ -22,7 +22,7 @@ class DbDispatcherLeftOpsSpec extends AnyFreeSpec with MockitoSugar with Matcher
 
   "rollbackOnLeft should not rollback on right" in {
     val conn = mock[Connection]
-    DbDispatcherLeftOps
+    Ops
       .rollbackOnLeft(_ => Right(""))(conn) shouldBe Right("")
 
     verifyZeroInteractions(conn)
