@@ -153,7 +153,7 @@ class JwtTimestampLeewaySpec extends AnyWordSpec with Matchers with TableDrivenP
           val now = new Date()
           val token: String = JWT
             .create()
-            .withIssuedAt(fiveSecondsLaterFrom(now))
+            .withIssuedAt(oneSecondLaterFrom(now))
             .sign(algorithm)
 
           assertThrows[InvalidClaimException] {
