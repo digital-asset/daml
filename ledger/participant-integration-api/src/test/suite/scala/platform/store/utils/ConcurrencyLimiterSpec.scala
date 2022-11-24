@@ -6,12 +6,12 @@ package com.daml.platform.store.utils
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.{Assertion, Assertions}
 import org.scalatest.flatspec.AsyncFlatSpec
-
+import org.scalatest.matchers.should.Matchers
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.concurrent.{ExecutionContext, Future}
 
-final class ConcurrencyLimiterSpec extends AsyncFlatSpec {
+final class ConcurrencyLimiterSpec extends AsyncFlatSpec with Matchers {
   behavior of "QueueBasedConcurrencyLimiter"
 
   it should "work with parallelism of 1" in {
@@ -69,6 +69,47 @@ final class ConcurrencyLimiterSpec extends AsyncFlatSpec {
     )
   }
 
+  it should "work with two local and one global limiter" in {
+    val tasks = 100
+    val globalConcurrencyLimit = 6
+    val localConcurrencyLimit = 4
+    val parentLimiterRef = new AtomicReference[QueueBasedConcurrencyLimiter](null)
+    val currentRunningTasks: AtomicInteger = new AtomicInteger(0)
+    val maxRunningTasks: AtomicInteger = new AtomicInteger(0)
+
+    def makeLocalLimiter: Future[Assertion] = {
+      ConcurrencyLimiterSpec.runTest(
+        createLimiter = ec => {
+          parentLimiterRef
+            .compareAndSet(null, new QueueBasedConcurrencyLimiter(globalConcurrencyLimit, ec))
+          new QueueBasedConcurrencyLimiter(
+            localConcurrencyLimit,
+            ec,
+            parentO = Some(parentLimiterRef.get()),
+          )
+        },
+        waitTimeMillis = 1,
+        threads = 32,
+        items = tasks,
+        parallelism = 4,
+        expectedParallelism = Some(4),
+        taskStartedCallbackO = Some(() => {
+          currentRunningTasks.incrementAndGet(): Unit
+        }),
+        taskFinishedCallbackO = Some(() => {
+          val maybeMax = currentRunningTasks.getAndDecrement()
+          maxRunningTasks.accumulateAndGet(maybeMax, Math.max(_, _)): Unit
+        }),
+      )
+    }
+
+    for {
+      _ <- Future.sequence(Seq(makeLocalLimiter, makeLocalLimiter))
+    } yield {
+      maxRunningTasks.get shouldBe globalConcurrencyLimit
+    }
+  }
+
   behavior of "NoConcurrencyLimiter"
 
   it should "not work" in {
@@ -93,6 +134,8 @@ object ConcurrencyLimiterSpec extends Assertions {
       items: Int,
       parallelism: Int,
       expectedParallelism: Option[Int],
+      taskStartedCallbackO: Option[() => Unit] = None,
+      taskFinishedCallbackO: Option[() => Unit] = None,
   ): Future[Assertion] = {
     // EC for running the test Futures
     val threadPoolExecutor: ExecutionContext =
@@ -115,10 +158,12 @@ object ConcurrencyLimiterSpec extends Assertions {
             s"Task $i started although already $before tasks were running",
           )
 
+          taskStartedCallbackO.foreach(_.apply())
           // Simulate some work
           if (waitTimeMillis > 0) {
             Thread.sleep(waitTimeMillis)
           }
+          taskFinishedCallbackO.foreach(_.apply())
 
           val after = running.decrementAndGet()
           assert(after < parallelism, s"Task $i finished while $after other tasks are running")
