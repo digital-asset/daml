@@ -10,7 +10,7 @@ import com.daml.platform.store.dao.DbDispatcher
 import java.sql.Connection
 import scala.concurrent.Future
 
-object DbDispatcherLeftOps {
+object Ops {
 
   private[localstore] def rollbackOnLeft[E, T](sql: Connection => Either[E, T])(
       connection: Connection
