@@ -1,6 +1,6 @@
 {
   "devDependencies": {
-    "@types/jest": "~26.0.23,
+    "@types/jest": "~26.0.23",
     "@types/node": "~13.11.1",
     "@types/puppeteer": "~3.0.1",
     "@types/wait-on": "~4.0.0",
