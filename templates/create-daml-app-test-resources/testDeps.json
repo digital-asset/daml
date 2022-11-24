@@ -4,7 +4,7 @@
     "@types/node": "~18.11.9",
     "@types/puppeteer": "~7.0.4",
     "@types/wait-on": "~5.3.1",
-    "puppeteer": "~4.0.2",
+    "puppeteer": "~16.2.0",
     "wait-on": "~6.0.1"
   }
 }
