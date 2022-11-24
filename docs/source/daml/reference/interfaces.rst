@@ -18,15 +18,16 @@ Configuration
 *************
 
 In order to use this new feature, your Daml project needs to
-explicitly target Daml-LF version ``1.15``, which is specificed by
-adding the following line to the project's ``daml.yaml`` file:
+explicitly target Daml-LF version ``1.15`` or higher which is
+specificed by adding the following line to the project's ``daml.yaml``
+file:
 
 .. code-block:: yaml
 
   build-options: [--target=1.15]
 
-If using Canton, the protocol version of the domain should be at least
-`4`, see :ref:`Canton protocol version <protocol_version>` for more
+If using Canton, the protocol version of the domain should be `4` or
+higher, see :ref:`Canton protocol version <protocol_version>` for more
 details.
 
 Interface Declaration
