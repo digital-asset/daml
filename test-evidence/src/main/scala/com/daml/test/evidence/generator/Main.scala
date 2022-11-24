@@ -10,6 +10,8 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import com.daml.test.evidence.scalatest.JsonCodec.SecurityJson._
 
+import scala.util.Try
+
 object Main {
 
   private def writeEvidenceToJsonFile[TE: Encoder](fileName: String, entries: List[TE]): Unit = {
@@ -38,17 +40,21 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     if (args.length == 2) {
-      val securityTestEntries = TestEntryLookup.securityTestEntries
-      val csvEntries = securityTestEntries.map(SecurityTestEntryCsv.apply)
-      val csvFileName = args(0)
-      val jsonFileName = args(1)
+      val exitCode = Try {
+        val securityTestEntries = TestEntryLookup.securityTestEntries
+        val csvEntries = securityTestEntries.map(SecurityTestEntryCsv.apply)
+        val csvFileName = args(0)
+        val jsonFileName = args(1)
 
-      //      println("entries: " + securityTestEntries.mkString(", "))
-      writeEvidenceToCsvFile(csvFileName, csvEntries)
-      writeEvidenceToJsonFile(jsonFileName, securityTestEntries)
+        writeEvidenceToCsvFile(csvFileName, csvEntries)
+        writeEvidenceToJsonFile(jsonFileName, securityTestEntries)
+      } fold (e => {
+        e.printStackTrace()
+        1
+      }, _ => 0)
 
-      // explicitly stop here, since some suites have started non-daemon threads that prevent JVM shutdown
-      sys.exit(0)
+      // explicitly exit, since some test suites have started non-daemon threads that prevent JVM shutdown
+      sys.exit(exitCode)
     } else {
       throw new IllegalArgumentException(
         s"Invalid number of arguments, was ${args.length}, should be 2"
