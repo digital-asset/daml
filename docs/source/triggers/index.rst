@@ -304,9 +304,9 @@ Let's walk through the ``rule`` code line-by-line:
 - We print the list of users we just fetched, as a debug message.
 - We create a function ``isSender`` to identify the user we are looking for.
 - We get the user contract by applying our ``isSender`` function as a
-  `filter <https://docs.daml.com/daml/stdlib/Prelude.html#function-da-internal-prelude-filter-41317>`_
+  `filter </daml/stdlib/Prelude.html#function-da-internal-prelude-filter-41317>`_
   on the list of users, and then taking the
-  `head <https://docs.daml.com/daml/stdlib/DA-List-Total.html#function-da-list-total-head-26095>`_
+  `head </daml/stdlib/DA-List-Total.html#function-da-list-total-head-26095>`_
   of that list, i.e. its first element.
 - Just like  ``maximumOn``, ``head`` will return an ``Optional a``, so the next
   step is to check whether we have actually found the relevant ``User``
@@ -316,7 +316,7 @@ Let's walk through the ``rule`` code line-by-line:
 - If we did find some ``User`` contract to reply to, we extract the
   corresponding contract id (first element of the tuple, ``sender``) and
   discard the payload (second element, ``_``), and we
-  `exercise <https://docs.daml.com/triggers/api/Daml-Trigger.html#function-daml-trigger-dedupexercise-2238>`_
+  `exercise </triggers/api/Daml-Trigger.html#function-daml-trigger-dedupexercise-2238>`_
   the ``SendMessage`` choice, passing in the current party ``p`` as the sender.
   See below for additional information on what that ``dedup`` in the name of the
   command means.
