@@ -85,8 +85,8 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = hashCid("#1"),
       signatory = someParty,
     )
-    val createFilter1 = DbDto.CreateFilter(1L, someTemplateId.toString, "signatory")
-    val createFilter2 = DbDto.CreateFilter(1L, someTemplateId.toString, "observer")
+    val createFilter1 = DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, "signatory")
+    val createFilter2 = DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, "observer")
     val createTransactionId = dtoTransactionId(create)
     val archive = dtoExercise(
       offset = offset(2),
@@ -170,8 +170,8 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = hashCid("#1"),
       signatory = someParty,
     )
-    val createFilter1 = DbDto.CreateFilter(1L, someTemplateId.toString, "signatory")
-    val createFilter2 = DbDto.CreateFilter(1L, someTemplateId.toString, "observer")
+    val createFilter1 = DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, "signatory")
+    val createFilter2 = DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, "observer")
     val createTransactionId = dtoTransactionId(create)
     val range = RangeParams(0L, 1L, None, None)
     val filter = FilterParams(Set(someParty), Set.empty)

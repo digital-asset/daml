@@ -4,13 +4,10 @@
 package com.daml.platform.store.migration.oracle
 
 import com.daml.platform.store.migration.tests.MigrationEtqTests
-import org.scalatest.Ignore
 
-// TODO etq: Enable when data migration is added
-@Ignore
-class OracleMigrationFrom015To016EtqTest
+class OracleMigrationFrom017To019EtqTest
     extends MigrationEtqTests
     with OracleAroundEachForMigrations {
-  override def srcMigration: String = "16"
-  override def dstMigration: String = "17"
+  override def srcMigration: String = "17"
+  override def dstMigration: String = "19"
 }

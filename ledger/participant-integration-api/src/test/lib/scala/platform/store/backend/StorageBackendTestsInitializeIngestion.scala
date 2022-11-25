@@ -39,7 +39,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoPackageEntry(offset(3)),
       // 4: transaction with create node
       dtoCreate(offset(4), 1L, hashCid("#4"), signatory = signatory),
-      DbDto.CreateFilter(1L, someTemplateId.toString, someParty.toString),
+      DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, someParty.toString),
       dtoCompletion(offset(4)),
       // 5: transaction with exercise node and retroactive divulgence
       dtoExercise(offset(5), 2L, false, hashCid("#4")),
@@ -60,7 +60,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoPackageEntry(offset(8)),
       // 9: transaction with create node
       dtoCreate(offset(9), 4L, hashCid("#9"), signatory = signatory),
-      DbDto.CreateFilter(4L, someTemplateId.toString, someParty.toString),
+      DbDto.IdFilterCreateStakeholder(4L, someTemplateId.toString, someParty.toString),
       dtoCompletion(offset(9)),
       // 10: transaction with exercise node and retroactive divulgence
       dtoExercise(offset(10), 5L, false, hashCid("#9")),
@@ -187,7 +187,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoPackageEntry(offset(3)),
       // 4: transaction with create node
       dtoCreate(offset(4), 1L, hashCid("#4"), signatory = signatory),
-      DbDto.CreateFilter(1L, someTemplateId.toString, someParty.toString),
+      DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, someParty.toString),
       dtoCompletion(offset(4)),
       // 5: transaction with exercise node and retroactive divulgence
       dtoExercise(offset(5), 2L, false, hashCid("#4")),

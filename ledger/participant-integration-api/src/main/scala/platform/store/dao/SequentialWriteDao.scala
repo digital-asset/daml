@@ -79,11 +79,13 @@ private[dao] case class SequentialWriteDaoImpl[DB_BATCH](
   private var lastEventSeqId: Long = _
   private var lastStringInterningId: Int = _
   private var lastEventSeqIdInitialized = false
+  private var previousTransactionMetaToEventSeqId: Long = _
 
   private def lazyInit(connection: Connection): Unit =
     if (!lastEventSeqIdInitialized) {
       val ledgerEnd = parameterStorageBackend.ledgerEnd(connection)
       lastEventSeqId = ledgerEnd.lastEventSeqId
+      previousTransactionMetaToEventSeqId = ledgerEnd.lastEventSeqId
       lastStringInterningId = ledgerEnd.lastStringInterningId
       lastEventSeqIdInitialized = true
     }
@@ -98,7 +100,23 @@ private[dao] case class SequentialWriteDaoImpl[DB_BATCH](
       case e: DbDto.EventCreate => e.copy(event_sequential_id = nextEventSeqId)
       case e: DbDto.EventDivulgence => e.copy(event_sequential_id = nextEventSeqId)
       case e: DbDto.EventExercise => e.copy(event_sequential_id = nextEventSeqId)
-      case e: DbDto.CreateFilter => e.copy(event_sequential_id = lastEventSeqId)
+      case e: DbDto.IdFilterCreateStakeholder =>
+        e.copy(event_sequential_id = lastEventSeqId)
+      case e: DbDto.IdFilterCreateNonStakeholderInformee =>
+        e.copy(event_sequential_id = lastEventSeqId)
+      case e: DbDto.IdFilterConsumingStakeholder =>
+        e.copy(event_sequential_id = lastEventSeqId)
+      case e: DbDto.IdFilterConsumingNonStakeholderInformee =>
+        e.copy(event_sequential_id = lastEventSeqId)
+      case e: DbDto.IdFilterNonConsumingInformee =>
+        e.copy(event_sequential_id = lastEventSeqId)
+      case e: DbDto.TransactionMeta =>
+        val dto = e.copy(
+          event_sequential_id_first = (previousTransactionMetaToEventSeqId + 1),
+          event_sequential_id_last = lastEventSeqId,
+        )
+        previousTransactionMetaToEventSeqId = lastEventSeqId
+        dto
       case notEvent => notEvent
     }.toVector
 
