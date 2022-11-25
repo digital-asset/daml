@@ -10,8 +10,6 @@ import scala.concurrent.duration._
   *                    way bound the number of already-submitted, but not completed,
   *                    commands that may be pending.
   * @param maxRetries Maximum number of retries for a failing ledger API command submission.
-  * @param maxInFlightCommands Maximum number of in-flight commands that we shall allow
-  *                            *before* the ledger client automatically fails ledger client submission requests.
   * @param maxSubmissionRequests Used to control rate at which we throttle ledger client submission requests.
   * @param maxSubmissionDuration Used to control rate at which we throttle ledger client submission requests.
   * @param submissionFailureQueueSize Size of the queue holding ledger API command submission failures.
@@ -19,7 +17,6 @@ import scala.concurrent.duration._
 final case class TriggerRunnerConfig(
     parallelism: Int,
     maxRetries: Int,
-    maxInFlightCommands: Int,
     maxSubmissionRequests: Int,
     maxSubmissionDuration: FiniteDuration,
     submissionFailureQueueSize: Int,
@@ -32,7 +29,6 @@ object TriggerRunnerConfig {
     TriggerRunnerConfig(
       parallelism = parallelism,
       maxRetries = 6,
-      maxInFlightCommands = 1000000,
       maxSubmissionRequests = 100,
       maxSubmissionDuration = 5.seconds,
       // 256 here comes from the default ExecutionContext.
