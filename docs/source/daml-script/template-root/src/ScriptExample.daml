@@ -42,7 +42,7 @@ interface Asset where
   viewtype AssetInfo
 
   interface instance Asset for Coin where
-    view = AssetInfo { info = "A Coin issued by " <> show issuer }
+    view = AssetInfo { info = "A Coin" }
 
 -- ASSET_INTERFACE_END
 
@@ -105,7 +105,7 @@ test = do
 
 -- TEST_INTERFACE_BEGIN
   aliceAssets <- queryInterface @Asset alice
-  assertEq [Some $ AssetInfo "A Coin issued by 'Bank'"] (map snd aliceAssets)
+  assertEq [Some $ AssetInfo "A Coin"] (map snd aliceAssets)
 -- TEST_INTERFACE_END
 
 
