@@ -22,7 +22,12 @@ class TestGeneratedDefaultConfigIsUpToDate
   it should "generated default config should be up-to-date" in {
     val actual =
       readFromResource("generated-default.conf").map(_.replaceAll("\\r", "").replaceAll("\\e", ""))
-    val expected = DefaultConfigGenApp.genText().replaceAll("\\r", "").replaceAll("\\e", "")
+    val expected = CliSandboxOnXRunner
+      .genDefaultConfigText(overrides =
+        Map("ledger.participants.default.services-thread-pool-size" -> "1337")
+      )
+      .replaceAll("\\r", "")
+      .replaceAll("\\e", "")
     actual.value shouldBe expected withClue (clue)
   }
 

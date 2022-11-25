@@ -20,6 +20,7 @@ import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OParser
 import java.io.File
+import java.nio.file.Paths
 import java.time.Duration
 import java.util.UUID
 import com.daml.metrics.api.reporters.MetricsReporter
@@ -133,6 +134,7 @@ object CliConfig {
       commandDumpIndexMetadata,
       commandRunHocon(name),
       commandConvertConfig(getEnvVar, extraOptions),
+      commandPrintDefaultConfig(),
       builder.checkConfig(checkNoEmptyParticipant),
     )
 
@@ -212,6 +214,26 @@ object CliConfig {
       )
       .action((_, config) => config.copy(mode = Mode.ConvertConfig))
       .children(legacyCommand(getEnvVar, extraOptions))
+
+  private def commandPrintDefaultConfig[Extra](): OParser[_, CliConfig[Extra]] = {
+    val builder = OParser.builder[CliConfig[Extra]]
+    builder
+      .cmd("print-default-config")
+      .text(
+        "Prints default config to stdout or to a file"
+      )
+      .action((_, config) => config.copy(mode = Mode.PrintDefaultConfig(None)))
+      .children(
+        builder
+          .arg[String]("<output-file-path>")
+          .minOccurs(0)
+          .text("An optional output file")
+          .action((outputFilePath, config) =>
+            config.copy(mode = Mode.PrintDefaultConfig(Some(Paths.get(outputFilePath))))
+          ),
+        configKeyValueOption,
+      )
+  }
 
   def legacyCommand[Extra](
       getEnvVar: String => Option[String],

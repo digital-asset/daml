@@ -341,28 +341,13 @@ da_scala_binary(
     ],
 )
 
-# An app that outputs the default config
-da_scala_binary(
-    name = "generate-default-config-app",
-    main_class = "com.daml.ledger.sandbox.DefaultConfigGenApp",
-    tags = [
-        "fat_jar",
-        "maven_coordinates=com.daml:sandbox-on-x-app-jar:__VERSION__",
-        "no_scala_version_suffix",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":sandbox-on-x-app-lib",
-    ],
-)
-
 # A rule that writes the default config to a file
 genrule(
     name = "generate-default.conf",
     srcs = [],
     outs = ["generated-default.conf"],
-    cmd = "$(location //ledger/sandbox-on-x:generate-default-config-app) $(location generated-default.conf)",
-    tools = ["//ledger/sandbox-on-x:generate-default-config-app"],
+    cmd = "$(location //ledger/sandbox-on-x:app) print-default-config $(location generated-default.conf) -C ledger.participants.default.services-thread-pool-size=1337",
+    tools = ["//ledger/sandbox-on-x:app"],
     visibility = ["//visibility:public"],
 )
 
