@@ -148,9 +148,9 @@ lookupTpl cid acs = do
 -- | HIDE
 applyEvent : Event -> ACS -> ACS
 applyEvent ev acs = case ev of
-  CreatedEvent (Created eventId cid (Some tpl) _) -> trace ("Add new contract to ACS: { \"eventId\"=" <> (show eventId) <> ", \"contractId\"=" <> (show cid) <> " }") (insertTpl cid tpl acs)
+  CreatedEvent (Created eventId cid (Some tpl) _) -> trace ("Add new active contract to ACS: { \"eventId\"=" <> (show eventId) <> ", \"contractId\"=" <> (show cid) <> " }") (insertTpl cid tpl acs)
   CreatedEvent _ -> acs
-  ArchivedEvent (Archived eventId cid) -> trace ("Remove archived contract from ACS: { \"eventId\"=" <> (show eventId) <> ", \"contractId\"=" <> (show cid) <> " }") (deleteTpl cid acs)
+  ArchivedEvent (Archived eventId cid) -> trace ("Remove archived active contract from ACS: { \"eventId\"=" <> (show eventId) <> ", \"contractId\"=" <> (show cid) <> " }") (deleteTpl cid acs)
 
 -- | HIDE
 applyTransaction : Transaction -> ACS -> ACS

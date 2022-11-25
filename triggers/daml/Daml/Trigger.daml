@@ -195,7 +195,7 @@ emitCommands cmds pending = do
   let commands = Commands id cmds
   liftTriggerRule $ modify $ \s -> s
     { commandsInFlight = addCommands s.commandsInFlight commands
-    , pendingContracts = Map.insert id pending s.pendingContracts
+    , pendingContracts = trace ("Add pending contract to ACS for command: " <> (show id)) (Map.insert id pending s.pendingContracts)
     }
   pure id
 
@@ -300,7 +300,7 @@ runTrigger userTrigger = LowLevel.Trigger
               put $ state { userState }
             Failed {} -> do
                 let commandsInFlight = Map.delete completion.commandId state.commandsInFlight
-                    acs = state.acs { pendingContracts = Map.delete completion.commandId state.acs.pendingContracts }
+                    acs = state.acs { pendingContracts = trace ("Remove pending contract from ACS for command: " <> (show completion.commandId)) (Map.delete completion.commandId state.acs.pendingContracts) }
                 put $ state { commandsInFlight, userState, acs }
                 runRule userTrigger.rule
         MTransaction transaction -> do
@@ -310,7 +310,7 @@ runTrigger userTrigger = LowLevel.Trigger
               -- See the comment above for why we delete this here instead of when we receive the completion.
               (acs', commandsInFlight) = case transaction.commandId of
                 None -> (acs, state.commandsInFlight)
-                Some commandId -> (acs { pendingContracts = Map.delete commandId acs.pendingContracts }, Map.delete commandId state.commandsInFlight)
+                Some commandId -> (acs { pendingContracts = trace ("Remove pending contract from ACS for command: " <> (show commandId)) (Map.delete commandId acs.pendingContracts) }, Map.delete commandId state.commandsInFlight)
           put $ state { acs = acs', userState, commandsInFlight }
           runRule userTrigger.rule
         MHeartbeat -> do
