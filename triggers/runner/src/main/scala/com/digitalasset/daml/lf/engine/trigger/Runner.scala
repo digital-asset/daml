@@ -411,18 +411,18 @@ private[lf] class Runner private (
 
       (inFlightState, seeOne) match {
         case (None, SeenMsgs.Neither) =>
-          triggerContext.logInfo("New in-flight command")
+          triggerContext.logDebug("New in-flight command")
           discard(inFlight.incrementAndGet())
 
         case (None, _) | (Some(SeenMsgs.Neither), SeenMsgs.Neither) =>
         // no work required
 
         case (Some(SeenMsgs.Neither), _) =>
-          triggerContext.logInfo("In-flight command completed")
+          triggerContext.logDebug("In-flight command completed")
           discard(inFlight.decrementAndGet())
 
         case (Some(_), SeenMsgs.Neither) =>
-          triggerContext.logInfo("New in-flight command")
+          triggerContext.logDebug("New in-flight command")
           discard(inFlight.incrementAndGet())
 
         case (Some(_), _) =>
@@ -434,7 +434,7 @@ private[lf] class Runner private (
       val inFlightState = pendingIds.remove(uuid)
 
       if (inFlightState.contains(SeenMsgs.Neither)) {
-        triggerContext.logInfo("In-flight command completed")
+        triggerContext.logDebug("In-flight command completed")
         discard(inFlight.decrementAndGet())
       }
     }
@@ -611,7 +611,7 @@ private[lf] class Runner private (
         .getTransactions(offset, None, filter)
         .map { transaction =>
           triggerContext.childSpan("update") { implicit triggerContext: TriggerLogContext =>
-            triggerContext.logInfo("Transaction source")
+            triggerContext.logDebug("Transaction source")
 
             triggerContext.childSpan("evaluation") { implicit triggerContext: TriggerLogContext =>
               Ctx(triggerContext, TriggerMsg.Transaction(transaction))
@@ -628,7 +628,7 @@ private[lf] class Runner private (
         .completionSource(List(parties.actAs.unwrap), offset)
         .collect { case CompletionElement(completion, _) =>
           triggerContext.childSpan("update") { implicit triggerContext: TriggerLogContext =>
-            triggerContext.logInfo("Completion source", "message" -> completion)
+            triggerContext.logDebug("Completion source", "message" -> completion)
 
             triggerContext.childSpan("evaluation") { implicit triggerContext: TriggerLogContext =>
               Ctx(triggerContext, TriggerMsg.Completion(completion))
@@ -647,7 +647,7 @@ private[lf] class Runner private (
           .mapMaterializedValue(_ => NotUsed)
           .map { heartbeat =>
             triggerContext.childSpan("update") { implicit triggerContext: TriggerLogContext =>
-              triggerContext.logInfo("Heartbeat source", "message" -> "Heartbeat")
+              triggerContext.logDebug("Heartbeat source", "message" -> "Heartbeat")
 
               triggerContext.childSpan("evaluation") { implicit triggerContext: TriggerLogContext =>
                 Ctx(triggerContext, heartbeat)
@@ -1075,7 +1075,7 @@ object Runner {
 
     Flow[TriggerContext[A]].mapAsync(parallelism) { ctx =>
       ctx.context.childSpan("submission") { implicit triggerContext: TriggerLogContext =>
-        triggerContext.logInfo("Submitting request to ledger API")
+        triggerContext.logDebug("Submitting request to ledger API")
 
         trial(initialTries, ctx.copy(context = triggerContext)).map(b => ctx.copy(value = b))
       }
