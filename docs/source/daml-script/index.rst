@@ -22,7 +22,7 @@ You can also use Daml Script interactively using :doc:`/daml-repl/index`.
 
 .. hint::
 
-  Remember that you can load all the example code by running ``daml new script-example --template script-example``
+  Remember that you can access all the example code by running ``daml new script-example --template script-example``
 
 Usage
 =====
@@ -77,7 +77,7 @@ script so that we can easily swap them out.
 
 Let us now write a function to initialize the ledger with 3
 ``CoinProposal`` contracts and accept 2 of them. This function takes the
-``LedgerParties`` as an argument and return something of type ``Script
+``LedgerParties`` as an argument and returns a value of type ``Script
 ()`` which is Daml script’s equivalent of ``Scenario ()``.
 
 .. literalinclude:: ./template-root/src/ScriptExample.daml
