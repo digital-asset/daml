@@ -177,6 +177,29 @@ them away using ``map snd``.
    :start-after: -- TEST_QUERIES_BEGIN
    :end-before: -- TEST_QUERIES_END
 
+Interfaces
+----------
+
+To use interfaces within Daml code, the target language version must be at least ``1.15``.
+
+.. literalinclude:: ./template-root/daml.yaml.template
+   :start-after: # script-build-options-begin
+   :end-before: # script-build-options-end
+
+Now we can define an ``Asset`` interface which can be implemented by the ``Coin`` template. We also define ``AssetInfo`` for use as the viewtype.
+
+.. literalinclude:: ./template-root/src/ScriptExample.daml
+   :language: daml
+   :start-after: -- ASSET_INTERFACE_BEGIN
+   :end-before: -- ASSET_INTERFACE_END
+
+Now we use the ``queryInterface`` function. We pass it the type of the interface and a party. It will return a list of active contract views for the given interface type. As before we throw away the contract ids using ``map snd``.
+
+.. literalinclude:: ./template-root/src/ScriptExample.daml
+   :language: daml
+   :start-after: -- TEST_INTERFACE_BEGIN
+   :end-before: -- TEST_INTERFACE_END
+
 Run a Script
 ------------
 
