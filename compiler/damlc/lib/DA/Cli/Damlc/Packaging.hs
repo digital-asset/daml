@@ -165,7 +165,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
         forM_ (topSort $ transposeG depGraph) $ \vertex -> do
           let (pkgNode, pkgId) = vertexToNode vertex
           case pkgNode of
-            MkStableDependencyPackageNode ->
+            MkStableDependencyPackageNode {} ->
               -- stable packages are mapped to the current version of daml-prim/daml-stdlib
               -- so we don’t need to generate interface files for them.
               pure ()
@@ -183,7 +183,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
                   | (depPkgNode, depPkgId) <- vertexToNode <$> reachable depGraph vertex
                   , pkgId /= depPkgId
                   , unitId <- case depPkgNode of
-                      MkStableDependencyPackageNode -> []
+                      MkStableDependencyPackageNode {} -> []
                       MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {unitId} -> [unitId]
                       MkDependencyPackageNode DependencyPackageNode {unitId} -> [unitId]
                       MkDataDependencyPackageNode DataDependencyPackageNode {unitId} -> [unitId]
@@ -593,6 +593,7 @@ buildLfPackageGraph =
       , getDecodedDalfPkg = decodedDalfPkg . snd
       , getDalfPkgId = LF.dalfPackageId
       , getDalfPkgRefs = dalfPackageRefs
+      , getDalfPkgLfVersion = LF.packageLfVersion . LF.extPackagePkg . LF.dalfPackagePkg
       }
   where
     dalfPackageRefs :: LF.DalfPackage -> [LF.PackageId]
@@ -620,6 +621,7 @@ data BuildLfPackageGraphMetaArgs decodedDalfWithPath dalfPackage = BuildLfPackag
   , getDecodedDalfPkg :: decodedDalfWithPath -> dalfPackage
   , getDalfPkgId :: dalfPackage -> LF.PackageId
   , getDalfPkgRefs :: dalfPackage -> [LF.PackageId]
+  , getDalfPkgLfVersion :: dalfPackage -> LF.Version
   }
 
 buildLfPackageGraph' ::
@@ -630,13 +632,19 @@ buildLfPackageGraph' BuildLfPackageGraphMetaArgs {..} BuildLfPackageGraphArgs {.
   where
     (depGraph, vertexToNode, keyToVertex) =
         graphFromEdges
-          [ (node, key, deps <> etc)
+          [ (node, key, filter (notNewerThan (packageNodeLfVersion node)) (deps <> etc))
           | v <- vertices depGraph0
           , let (node, key, deps) = vertexToNode0 v
           , let etc = case node of
                   MkDataDependencyPackageNode {} -> depsWithoutDataDeps
                   _ -> []
           ]
+        where
+          notNewerThan version pid = case keyToVertex0 pid of
+            Just vertex -> case vertexToNode0 vertex of
+              (packageNodeLfVersion -> depVersion, _, _) ->
+                depVersion <= version
+            Nothing -> False
 
     depsWithoutDataDeps =
       [ key
@@ -647,7 +655,7 @@ buildLfPackageGraph' BuildLfPackageGraphMetaArgs {..} BuildLfPackageGraphArgs {.
       ]
 
     -- order the packages in topological order
-    (depGraph0, vertexToNode0, _keyToVertex0) =
+    (depGraph0, vertexToNode0, keyToVertex0) =
         graphFromEdges $
           -- We might have multiple copies of the same package if, for example,
           -- the project we're building has multiple data-dependencies from older
@@ -660,10 +668,11 @@ buildLfPackageGraph' BuildLfPackageGraphMetaArgs {..} BuildLfPackageGraphArgs {.
                 unitId = getDecodedDalfUnitId decodedDalfWithPath
                 dalfPackage = getDecodedDalfPkg decodedDalfWithPath
                 pid = getDalfPkgId dalfPackage
+                lfVersion = getDalfPkgLfVersion dalfPackage
                 pkgRefs = getDalfPkgRefs dalfPackage
                 node
                   | pid `elem` builtinDeps = MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {..}
-                  | pid `elem` stablePkgs = MkStableDependencyPackageNode
+                  | pid `elem` stablePkgs = MkStableDependencyPackageNode StableDependencyPackageNode {..}
                   | isDataDep = MkDataDependencyPackageNode DataDependencyPackageNode {..}
                   | otherwise = MkDependencyPackageNode DependencyPackageNode {..}
             ]
@@ -676,7 +685,7 @@ data PackageNode' dalfPackage
   = MkDependencyPackageNode (DependencyPackageNode' dalfPackage)
   | MkDataDependencyPackageNode (DataDependencyPackageNode' dalfPackage)
   | MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode
-  | MkStableDependencyPackageNode
+  | MkStableDependencyPackageNode StableDependencyPackageNode
 
 type PackageNode = PackageNode' LF.DalfPackage
 
@@ -698,22 +707,36 @@ packageNodeDecodedDalf = \case
     Just $ DecodedDalf dalfPackage unitId
   MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {} ->
     Nothing
-  MkStableDependencyPackageNode ->
+  MkStableDependencyPackageNode StableDependencyPackageNode {} ->
     Nothing
+
+packageNodeLfVersion :: PackageNode' dalfPackage -> LF.Version
+packageNodeLfVersion = \case
+  MkDependencyPackageNode DependencyPackageNode { lfVersion } -> lfVersion
+  MkDataDependencyPackageNode DataDependencyPackageNode { lfVersion } -> lfVersion
+  MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode { lfVersion } -> lfVersion
+  MkStableDependencyPackageNode StableDependencyPackageNode { lfVersion } -> lfVersion
 
 data DependencyPackageNode' dalfPackage = DependencyPackageNode
   { dalf :: FilePath
   , unitId :: UnitId
   , dalfPackage :: dalfPackage
+  , lfVersion :: LF.Version
   }
 
 data DataDependencyPackageNode' dalfPackage = DataDependencyPackageNode
   { unitId :: UnitId
   , dalfPackage :: dalfPackage
+  , lfVersion :: LF.Version
   }
 
 data BuiltinDependencyPackageNode = BuiltinDependencyPackageNode
   { unitId :: UnitId
+  , lfVersion :: LF.Version
+  }
+
+data StableDependencyPackageNode = StableDependencyPackageNode
+  { lfVersion :: LF.Version
   }
 
 currentSdkPrefix :: String
