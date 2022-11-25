@@ -212,7 +212,7 @@ dedupCreate t = do
   -- We probably want to change this to express the commands in flight as some kind of
   -- map to make these lookups cheaper.
   let cmds = concat $ map snd (Map.toList aState.commandsInFlight)
-  unless (any ((Some t ==) . fromCreate) (trace "Trigger in-flight command size is " <> (show (length cmds) cmds)) $
+  unless (any ((Some t ==) . fromCreate) (trace ("Trigger in-flight command size is " <> (show (length cmds))) cmds)) $
     void $ emitCommands [createCmd t] []
 
 -- | Create the template and exercise a choice on it if it’s not already in the list of commands
@@ -230,7 +230,7 @@ dedupCreateAndExercise t c = do
   -- the commands in flight as some kind of map to make these lookups
   -- cheaper.
   let cmds = concat $ map snd (Map.toList aState.commandsInFlight)
-  unless (any ((Some (t, c) ==) . fromCreateAndExercise) (trace "Trigger in-flight command size is " <> (show (length cmds) cmds)) $
+  unless (any ((Some (t, c) ==) . fromCreateAndExercise) (trace ("Trigger in-flight command size is " <> (show (length cmds))) cmds)) $
     void $ emitCommands [createAndExerciseCmd t c] []
 
 -- | Exercise the choice on the given contract if it is not already
@@ -249,7 +249,7 @@ dedupExercise cid c = do
   -- We probably want to change this to express the commands in flight as some kind of
   -- map to make these lookups cheaper.
   let cmds = concat $ map snd (Map.toList aState.commandsInFlight)
-  unless (any ((Some (cid, c) ==) . fromExercise) (trace "Trigger in-flight command size is " <> (show (length cmds) cmds)) $
+  unless (any ((Some (cid, c) ==) . fromExercise) (trace ("Trigger in-flight command size is " <> (show (length cmds))) cmds)) $
     void $ emitCommands [exerciseCmd cid c] []
 
 -- | Exercise the choice on the given contract if it is not already
@@ -265,7 +265,7 @@ dedupExerciseByKey k c = do
   -- We probably want to change this to express the commands in flight as some kind of
   -- map to make these lookups cheaper.
   let cmds = concat $ map snd (Map.toList aState.commandsInFlight)
-  unless (any ((Some (k, c) ==) . fromExerciseByKey @t) (trace "Trigger in-flight command size is " <> (show (length cmds) cmds)) $
+  unless (any ((Some (k, c) ==) . fromExerciseByKey @t) (trace ("Trigger in-flight command size is " <> (show (length cmds))) cmds)) $
     void $ emitCommands [exerciseByKeyCmd @t k c] []
 
 -- | Transform the high-level trigger type into the one from `Daml.Trigger.LowLevel`.
