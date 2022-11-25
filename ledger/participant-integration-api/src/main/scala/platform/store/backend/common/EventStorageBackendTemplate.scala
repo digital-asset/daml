@@ -363,6 +363,7 @@ abstract class EventStorageBackendTemplate(
     "NULL as exercise_actors",
     "NULL as exercise_child_event_ids",
     "submitters",
+    "driver_metadata",
   ).mkString(", ")
 
   private val selectColumnsForTransactionTreeExercise = Seq(
@@ -391,6 +392,7 @@ abstract class EventStorageBackendTemplate(
     "exercise_actors",
     "exercise_child_event_ids",
     "submitters",
+    "NULL as driver_metadata",
   ).mkString(", ")
 
   private def events[T](
