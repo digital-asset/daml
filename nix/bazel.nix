@@ -21,7 +21,6 @@ let shared = rec {
     jekyll
     jq
     netcat-gnu
-    nodejs
     openssl
     patchelf
     protobuf3_8
@@ -146,8 +145,7 @@ let shared = rec {
 
   # rules_nodejs expects nodejs in a subdirectory of a repository rule.
   # We use a linkFarm to fulfill this requirement.
-  nodejsNested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs14; }];
-  nodejs14Nested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs14; }];
+  nodejsNested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs-16_x; }];
 
   sass = pkgs.sass;
 

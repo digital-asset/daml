@@ -110,6 +110,8 @@ genrule(
 
     # Webpack needs the HOME variable to be set
     export HOME="$$IN"
+    # Node 18 requires this
+    export NODE_OPTIONS=--openssl-legacy-provider
 
     PREV=$$PWD
 

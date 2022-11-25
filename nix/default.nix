@@ -95,10 +95,10 @@ in rec {
     pypi2nix  = pkgs.pypi2nix;
 
     # Web development
-    node        = bazel_dependencies.nodejs;
-    npm         = bazel_dependencies.nodejs;
+    node        = pkgs.nodejs-18_x;
+    npm         = pkgs.nodejs-18_x;
     yarn        = (pkgs.yarn.override {
-      nodejs = bazel_dependencies.nodejs;
+      nodejs = pkgs.nodejs-18_x;
     }).overrideAttrs (oldAttrs: rec {
       version = "1.12.3";
       src = pkgs.fetchzip {

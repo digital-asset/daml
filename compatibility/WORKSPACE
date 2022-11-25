@@ -214,7 +214,7 @@ nixpkgs_package(
 
 nixpkgs_package(
     name = "node_nix",
-    attribute_path = "nodejs14Nested",
+    attribute_path = "nodejsNested",
     build_file_content = 'exports_files(glob(["node_nix/**"]))',
     fail_not_supported = False,
     nix_file = "@daml//nix:bazel.nix",
