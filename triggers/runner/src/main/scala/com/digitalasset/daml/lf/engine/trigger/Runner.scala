@@ -62,7 +62,6 @@ import com.daml.script.converter.ConverterException
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
-import io.grpc.Status.UNAVAILABLE
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
@@ -906,68 +905,22 @@ private[lf] class Runner private (
         case z => Some(z)
       }
 
-    val throttleFlow: TriggerContextualFlow[SubmitRequest, SubmitRequest, NotUsed] =
-      TriggerContextualFlow[SubmitRequest]
-        .throttle(triggerConfig.maxSubmissionRequests, triggerConfig.maxSubmissionDuration)
-    val submitFlow: TriggerContextualFlow[SubmitRequest, SingleCommandFailure, NotUsed] =
-      TriggerContextualFlow[SubmitRequest]
-        .filter { _ =>
-          inFlightCommands.count <= triggerConfig.maxInFlightCommands
-        }
-        .via(
-          retrying(
-            initialTries = triggerConfig.maxRetries,
-            backoff = overloadedRetryDelay,
-            parallelism = triggerConfig.parallelism,
-            retryableSubmit,
-            submit,
-          )
-            .collect { case ctx @ Ctx(context, Some(err), _) =>
-              context.logWarning("Ledger API command submission request failed", "error" -> err)
-
-              ctx.copy(value = err)
-            }
+    TriggerContextualFlow[SubmitRequest]
+      .throttle(triggerConfig.maxSubmissionRequests, triggerConfig.maxSubmissionDuration)
+      .via(
+        retrying(
+          initialTries = triggerConfig.maxRetries,
+          backoff = overloadedRetryDelay,
+          parallelism = triggerConfig.parallelism,
+          retryableSubmit,
+          submit,
         )
-    val failureFlow: TriggerContextualFlow[SubmitRequest, SingleCommandFailure, NotUsed] =
-      TriggerContextualFlow[SubmitRequest]
-        .filterNot { _ =>
-          inFlightCommands.count <= triggerConfig.maxInFlightCommands
-        }
-        .map { case Ctx(context, request, _) =>
-          context.logWarning(
-            "Due to excessive in-flight commands, failing submission request",
-            "commandId" -> request.getCommands.commandId,
-            "in-flight-commands" -> inFlightCommands.count,
-            "max-in-flight-commands" -> triggerConfig.maxInFlightCommands,
-          )
+          .collect { case ctx @ Ctx(context, Some(err), _) =>
+            context.logWarning("Ledger API command submission request failed", "error" -> err)
 
-          Ctx(
-            context,
-            SingleCommandFailure(
-              request.getCommands.commandId,
-              new StatusRuntimeException(UNAVAILABLE),
-            ),
-          )
-        }
-    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-    val graph = GraphDSL.create() { implicit gb =>
-      import GraphDSL.Implicits._
-
-      val broadcast = gb.add(Broadcast[TriggerContext[SubmitRequest]](2))
-      val merge = gb.add(Merge[TriggerContext[SingleCommandFailure]](2))
-      val throttle = gb.add(throttleFlow)
-      val submit = gb.add(submitFlow)
-      val failure = gb.add(failureFlow)
-
-      // format: off
-      throttle ~> broadcast ~> submit  ~> merge
-                  broadcast ~> failure ~> merge
-      // format: on
-
-      FlowShape(throttle.in, merge.out)
-    }
-
-    Flow.fromGraph(graph)
+            ctx.copy(value = err)
+          }
+      )
   }
 
   // Run the trigger given the state of the ACS. The msgFlow argument

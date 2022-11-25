@@ -152,7 +152,7 @@ object PrettyPrint {
       str(value)
 
     case SValue.SText(value) =>
-      text(value)
+      text(s"$value")
 
     case SValue.STimestamp(value) =>
       str(value)
