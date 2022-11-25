@@ -90,7 +90,7 @@ Independently of how the outcome is communicated, command deduplication generate
 
 For deduplication to work as intended, all submissions for the same ledger change must be submitted via the same participant.
 Whether a submission is considered a duplicate is determined by completion events, and by default a participant outputs only the completion events for submissions that were requested via the very same participant.
-At this time, only `Daml driver for VMware Blockchain <https://docs.vmware.com/en/VMware-Blockchain/index.html>`__ supports command deduplication across participants.
+At this time, only the Daml driver for VMware Blockchain supports command deduplication across participants.
 
 .. _command-dedup-usage:
 
