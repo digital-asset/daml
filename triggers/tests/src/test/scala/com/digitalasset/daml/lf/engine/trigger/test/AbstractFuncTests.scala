@@ -70,7 +70,7 @@ abstract class AbstractFuncTests
       }
 
       "cat example" in {
-        val n = 100
+        val n = 500
 
         def command(template: String, owner: String, i: Int): CreateCommand =
           CreateCommand(
@@ -106,7 +106,7 @@ abstract class AbstractFuncTests
             .runWithACS(
               acs,
               offset,
-              msgFlow = Flow[TriggerContext[TriggerMsg]].take((n * 5).toLong),
+              msgFlow = Flow[TriggerContext[TriggerMsg]],
             )
             ._2
           acs <- queryACS(client, party)

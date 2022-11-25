@@ -32,7 +32,7 @@ object TriggerRunnerConfig {
     TriggerRunnerConfig(
       parallelism = parallelism,
       maxRetries = 6,
-      maxInFlightCommands = 50,
+      maxInFlightCommands = 1000,
       maxSubmissionRequests = 100,
       maxSubmissionDuration = 5.seconds,
       // 256 here comes from the default ExecutionContext.
