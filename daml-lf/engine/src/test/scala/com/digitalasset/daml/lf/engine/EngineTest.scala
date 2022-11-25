@@ -2341,7 +2341,7 @@ class EngineTest
         eng = engine(min = lv, LanguageVersion.v1_dev)
         pkg <- StablePackage.values
         pkgId = pkg.packageId
-        pkg <- allPackages.get(pkgId).toList
+        pkg <- allPackagesDev.get(pkgId).toList
       } yield eng.preloadPackage(pkgId, pkg) shouldBe a[ResultDone[_]]
     }
 
@@ -2351,7 +2351,7 @@ class EngineTest
         eng = engine(LanguageVersion.v1_6, max = lv)
         pkg <- StablePackage.values
         pkgId = pkg.packageId
-        pkg <- allPackages.get(pkgId).toList
+        pkg <- allPackagesDev.get(pkgId).toList
       } yield inside(eng.preloadPackage(pkgId, pkg)) {
         case ResultDone(_) => pkg.languageVersion shouldBe <=(lv)
         case ResultError(_) => pkg.languageVersion shouldBe >(lv)
@@ -2381,6 +2381,10 @@ object EngineTest {
 
   val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
     "daml-lf/tests/BasicTests.dar"
+  )
+
+  val (_, _, allPackagesDev) = loadPackage(
+    "daml-lf/tests/BasicTests-dev.dar"
   )
 
   val basicTestsSignatures: PackageInterface =
