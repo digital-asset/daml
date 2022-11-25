@@ -124,6 +124,8 @@ private[backend] object StorageBackendTestValues {
       observer: String = "observer",
       commandId: String = UUID.randomUUID().toString,
       ledgerEffectiveTime: Option[Timestamp] = Some(someTime),
+      driverMetadata: Option[Array[Byte]] = None,
+      keyHash: Option[String] = None,
   ): DbDto.EventCreate = {
     val transactionId = transactionIdFromOffset(offset)
     DbDto.EventCreate(
@@ -145,11 +147,11 @@ private[backend] object StorageBackendTestValues {
       create_observers = Some(Set(observer)),
       create_agreement_text = None,
       create_key_value = None,
-      create_key_hash = None,
+      create_key_hash = keyHash,
       create_argument_compression = None,
       create_key_value_compression = None,
       event_sequential_id = eventSequentialId,
-      driver_metadata = None,
+      driver_metadata = driverMetadata,
     )
   }
 
