@@ -20,7 +20,7 @@ load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_confi
           cp -L $(location Daml/Script/Free.daml) $$TMP_DIR/daml/Daml/Script/
           cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
-name: daml-script
+name: daml-script-{mangled_lf_version}
 source: daml
 version: {ghc}
 dependencies:
@@ -38,6 +38,7 @@ EOF
                 "--target",
                 lf_version,
             ]),
+            mangled_lf_version = "lf" + lf_version.replace(".", "x"),
             sdk = sdk_version,
             ghc = ghc_version,
         ),
