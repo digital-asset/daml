@@ -12,7 +12,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.localstore.PersistentUserManagementStore.{
   ConcurrentUserUpdateDetectedRuntimeException,
-  IdentityProviderConfigNotFound,
   MaxAnnotationsSizeExceededException,
   TooManyUserRightsRuntimeException,
 }
@@ -60,9 +59,6 @@ object PersistentUserManagementStore {
       extends RuntimeException
 
   final case class MaxAnnotationsSizeExceededException(userId: Ref.UserId) extends RuntimeException
-
-  final case class IdentityProviderConfigNotFound(identityProviderId: IdentityProviderId.Id)
-      extends RuntimeException
 
   def cached(
       dbSupport: DbSupport,
@@ -348,8 +344,6 @@ class PersistentUserManagementStore(
           Left(UserManagementStore.ConcurrentUserUpdate(userId))
         case MaxAnnotationsSizeExceededException(userId) =>
           Left(UserManagementStore.MaxAnnotationsSizeExceeded(userId))
-        case IdentityProviderConfigNotFound(identityProviderId) =>
-          Left(UserManagementStore.IdentityProviderConfigNotFound(identityProviderId))
       }(ExecutionContext.parasitic)
   }
 
