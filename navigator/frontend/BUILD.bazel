@@ -110,6 +110,10 @@ genrule(
 
     # Webpack needs the HOME variable to be set
     export HOME="$$IN"
+    # Node 18 requires this; Node 16 requires this on macOS and Linux but
+    # rejects the option on Windows. Node 18 doesn't work with Navigator but we
+    # really want it to work with GSG.
+    {openssl}
 
     PREV=$$PWD
 
@@ -122,21 +126,12 @@ genrule(
     # -d --progress --display-error-details --verbose
     WP_IN={WP_IN}
     WP_OUT={WP_OUT}
-
-    # Can't figure out what moons need to be aligned for this option to be
-    # needed/accepted, so let's try it both ways.
-    cmd() (
-      $$WEBPACK \\
+    $$WEBPACK \\
       --config="webpack.config.js" \\
       --env prod \\
       --env paths_case_check="{PATHS_CASE_CHECK}" \\
       --env bazel_in_dir="{WP_IN_ESCAPED}" \\
       --env bazel_out_dir="{WP_OUT_ESCAPED}"
-    )
-    if ! cmd; then
-      NODE_OPTIONS=--openssl-legacy-provider cmd
-    fi
-
 
     cd $$PREV
 
@@ -155,6 +150,7 @@ genrule(
         WP_IN_ESCAPED = "'$$WP_IN'" if is_windows else "$$WP_IN",
         WP_OUT = "$$(cygpath -w $$OUT/frontend)" if is_windows else "$$OUT/frontend",
         WP_OUT_ESCAPED = "'$$WP_OUT'" if is_windows else "$$WP_OUT",
+        openssl = "" if is_windows else "export NODE_OPTIONS=--openssl-legacy-provider",
     ),
     toolchains = ["@rules_sh//sh/posix:make_variables"],
     tools = [
