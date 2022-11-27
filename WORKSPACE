@@ -668,7 +668,7 @@ dev_env_tool(
         ".",
     ],
     win_paths = [],
-    win_tool = "nodejs",
+    win_tool = "nodejs-16",
 )
 
 # Setup the Node.js toolchain
@@ -680,7 +680,7 @@ node_repositories(
     # Occasionally, this can cause build failures on CI if a build is not
     # invalidated despite a change of an original source. To avoid such issues
     # we use the `nixpkgs_package` directly.
-    node_version = "16.13.0",
+    node_version = "16.18.1",
     package_json = ["//:package.json"],
     vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
 )
