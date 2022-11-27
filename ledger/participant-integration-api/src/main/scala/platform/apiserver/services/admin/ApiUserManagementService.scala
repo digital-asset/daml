@@ -98,8 +98,7 @@ private[apiserver] final class ApiUserManagementService(
           pRights,
         )
       } { case (user, pRights) =>
-        identityProviderConfigValidation
-          .identityProviderConfigExists(user.identityProviderId)
+        identityProviderConfigExists(user.identityProviderId)
           .flatMap(_ =>
             userManagementStore
               .createUser(
@@ -153,9 +152,7 @@ private[apiserver] final class ApiUserManagementService(
       } { case (user, fieldMask) =>
         for {
           userUpdate <- handleUpdatePathResult(user.id, UserUpdateMapper.toUpdate(user, fieldMask))
-          _ <- identityProviderConfigValidation.identityProviderConfigExists(
-            user.identityProviderId
-          )
+          _ <- identityProviderConfigExists(user.identityProviderId)
           authorizedUserIdO <- authorizedUserIdFO
           _ <-
             if (
@@ -358,6 +355,23 @@ private[apiserver] final class ApiUserManagementService(
       case scala.util.Right(t) =>
         Future.successful(t)
     }
+
+  private def identityProviderConfigExists(id: IdentityProviderId): Future[Unit] =
+    identityProviderConfigValidation
+      .identityProviderConfigExists(id)
+      .flatMap(handleIdpExists(id))
+
+  private def handleIdpExists(id: IdentityProviderId)(idpExists: Boolean): Future[Unit] =
+    if (idpExists)
+      Future.successful(())
+    else
+      Future.failed(
+        LedgerApiErrors.RequestValidation.InvalidArgument
+          .Reject(
+            s"identity_provider_id $id is not recognized."
+          )
+          .asGrpcError
+      )
 
   private def handleResult[T](operation: String)(result: UserManagementStore.Result[T]): Future[T] =
     result match {

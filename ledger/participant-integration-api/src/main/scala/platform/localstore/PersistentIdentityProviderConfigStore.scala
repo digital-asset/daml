@@ -113,6 +113,14 @@ class PersistentIdentityProviderConfigStore(
     } yield identityProviderConfig
   }
 
+  def identityProviderConfigExists(id: IdentityProviderId.Id)(implicit
+      loggingContext: LoggingContext
+  ): Future[Boolean] = {
+    dbDispatcher.executeSql(metrics.daml.identityProviderConfigStore.getIdpConfig) { connection =>
+      backend.idpConfigByIdExists(id)(connection)
+    }
+  }
+
   private def updateIssuer(
       update: IdentityProviderConfigUpdate
   )(connection: Connection): Result[Unit] = {

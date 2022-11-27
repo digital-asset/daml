@@ -35,6 +35,10 @@ trait IdentityProviderConfigStore {
       loggingContext: LoggingContext
   ): Future[Result[IdentityProviderConfig]]
 
+  def identityProviderConfigExists(id: IdentityProviderId.Id)(implicit
+      loggingContext: LoggingContext
+  ): Future[Boolean]
+
 }
 object IdentityProviderConfigStore {
   type Result[T] = Either[Error, T]

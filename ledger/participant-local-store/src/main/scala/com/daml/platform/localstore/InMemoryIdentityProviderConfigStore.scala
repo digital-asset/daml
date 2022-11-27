@@ -81,6 +81,12 @@ class InMemoryIdentityProviderConfigStore(maxIdentityProviderConfigs: Int = 10)
       .getOrElse(Left(IdentityProviderConfigByIssuerNotFound(issuer)))
   }
 
+  override def identityProviderConfigExists(id: IdentityProviderId.Id)(implicit
+      loggingContext: LoggingContext
+  ): Future[Boolean] = withState {
+    state.isDefinedAt(id)
+  }
+
   private def checkIssuerDoNotExists(
       issuer: String,
       idToIgnore: IdentityProviderId.Id,
