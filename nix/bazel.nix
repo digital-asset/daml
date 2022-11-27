@@ -147,6 +147,7 @@ let shared = rec {
   # We use a linkFarm to fulfill this requirement.
   nodejs = pkgs.nodejs-16_x;
   nodejsNested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = nodejs; }];
+  nodejs14Nested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs-14_x; }];
 
   sass = pkgs.sass;
 
