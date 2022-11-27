@@ -14,7 +14,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.localstore.api.IdentityProviderConfigStore
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.Result
 import io.grpc.Metadata
-import scalaz.\/
 import spray.json._
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
@@ -72,7 +71,7 @@ class IdentityProviderAwareAuthService(
       header: String
   ): Future[ClaimSet] =
     for {
-      token <- toFuture(\/.fromEither(JwtVerifier.fromHeader(header)))
+      token <- toFuture(JwtVerifier.fromHeader(header))
       decodedJWT <- Future(JWT.decode(token))
       claims <- extractClaims(
         token,
@@ -105,9 +104,9 @@ class IdentityProviderAwareAuthService(
   }
 
   private def verifyToken(token: String, verifier: JwtVerifier): Future[DecodedJwt[String]] =
-    toFuture(verifier.verify(com.daml.jwt.domain.Jwt(token)))
+    toFuture(verifier.verify(com.daml.jwt.domain.Jwt(token)).toEither)
 
-  private def toFuture[T](e: \/[JwtVerifier.Error, T]): Future[T] =
+  private def toFuture[T](e: Either[JwtVerifier.Error, T]): Future[T] =
     e.fold(err => Future.failed(new Exception(err.message)), Future.successful)
 
   private def parsePayload(

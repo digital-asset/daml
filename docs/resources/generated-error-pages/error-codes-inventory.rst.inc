@@ -537,6 +537,22 @@ IDP_CONFIG_ALREADY_EXISTS
 
 
 
+.. _error_code_IDP_CONFIG_BY_ISSUER_NOT_FOUND:
+
+IDP_CONFIG_BY_ISSUER_NOT_FOUND
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: The identity provider config referred to by the request was not found.
+
+    **Category**: InvalidGivenCurrentSystemStateResourceMissing
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
+
+    **Resolution**: Check that you are connecting to the right participant node and the identity provider config is spelled correctly, or create the configuration.
+
+
+
+
 .. _error_code_IDP_CONFIG_ISSUER_ALREADY_EXISTS:
 
 IDP_CONFIG_ISSUER_ALREADY_EXISTS
@@ -581,6 +597,22 @@ INVALID_IDENTITY_PROVIDER_UPDATE_REQUEST
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
 
     **Resolution**: Inspect the error details for specific information on what made the request invalid. Retry with an adjusted update request.
+
+
+
+
+.. _error_code_TOO_MANY_IDENTITY_PROVIDER_CONFIGS:
+
+TOO_MANY_IDENTITY_PROVIDER_CONFIGS
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: A system can have only a limited number of identity provider configurations. There was an attempt to create an identity provider configuration.
+
+    **Category**: InvalidGivenCurrentSystemStateOther
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
+
+    **Resolution**: Delete some of the already existing identity provider configurations. Contact the participant operator if the limit is too low.
 
 
 
