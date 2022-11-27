@@ -131,7 +131,7 @@ genrule(
       --env paths_case_check="{PATHS_CASE_CHECK}" \\
       --env bazel_in_dir="{WP_IN_ESCAPED}" \\
       --env bazel_out_dir="{WP_OUT_ESCAPED}"
-    if ! $cmd; then
+    if ! $$cmd; then
       NODE_OPTIONS=--openssl-legacy-provider $cmd
     fi
 
