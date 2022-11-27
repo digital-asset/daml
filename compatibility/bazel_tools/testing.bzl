@@ -1018,7 +1018,7 @@ def create_daml_app_test(
             "$(rootpath %s)" % daml_react,
             "$(rootpath %s)" % messaging_patch,
             "$(rootpath @nodejs//:npm_bin)",
-            "$(rootpath @nodejs//:node)",
+            "$(rootpath @nodejs//:node_bin)",
             "$(rootpath @patch_dev_env//:patch)",
             "$(rootpath //bazel_tools/create-daml-app:testDeps.json)",
             "$(rootpath //bazel_tools/create-daml-app:index.test.ts)",
@@ -1028,7 +1028,7 @@ def create_daml_app_test(
         data = data + depset(direct = [
             "//bazel_tools/create-daml-app:runner",
             "@nodejs//:npm_bin",
-            "@nodejs//:node",
+            "@nodejs//:node_bin",
             "@patch_dev_env//:patch",
             "//bazel_tools/create-daml-app:testDeps.json",
             "//bazel_tools/create-daml-app:index.test.ts",

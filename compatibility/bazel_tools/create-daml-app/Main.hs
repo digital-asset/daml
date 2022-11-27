@@ -220,12 +220,12 @@ main = withTempDir $ \npmCache -> do
           addTestDependencies "package.json" testDepsPath
           patchTsDependencies uiDir "package.json"
           -- use '--scripts-prepend-node-path' to make sure we are using the correct 'node' binary
+          setEnv "PATH" (takeDirectory npmPath <> (searchPathSeparator : fromMaybe "" mbOldPath)) True
           retry 3 (callProcessSilent npmPath ["install", "--scripts-prepend-node-path"])
           step "Run Puppeteer end-to-end tests"
           copyFile testTsPath (uiDir </> "src" </> "index.test.ts")
           -- we need 'npm-cli.js' in the path for the following test
           mbOldPath <- getEnv "PATH"
-          setEnv "PATH" (takeDirectory npmPath <> (searchPathSeparator : fromMaybe "" mbOldPath)) True
           callProcess npmPath ["run", "test", "--ci", "--all", "--scripts-prepend-node-path"]
 
 addTestDependencies :: FilePath -> FilePath -> IO ()
