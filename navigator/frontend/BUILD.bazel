@@ -125,14 +125,16 @@ genrule(
 
     # Can't figure out what moons need to be aligned for this option to be
     # needed/accepted, so let's try it both ways.
-    cmd=$$WEBPACK \\
+    cmd() (
+      $$WEBPACK \\
       --config="webpack.config.js" \\
       --env prod \\
       --env paths_case_check="{PATHS_CASE_CHECK}" \\
       --env bazel_in_dir="{WP_IN_ESCAPED}" \\
       --env bazel_out_dir="{WP_OUT_ESCAPED}"
-    if ! $$cmd; then
-      NODE_OPTIONS=--openssl-legacy-provider $$cmd
+    )
+    if ! cmd; then
+      NODE_OPTIONS=--openssl-legacy-provider cmd
     fi
 
 
