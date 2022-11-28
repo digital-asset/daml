@@ -11,6 +11,7 @@ fi
 mkdir .lib
 
 # Get the dependency list
+echo "Downloading the list of dependencies"
 version=$(grep '^version' daml.yaml | cut -d " " -f 2)
 curl -L# \
   -H 'Cache-Control: no-cache, no-store' \

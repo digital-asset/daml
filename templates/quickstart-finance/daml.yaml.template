@@ -48,5 +48,4 @@ data-dependencies:
 start-navigator: no
 build-options:
   - --target=1.15
-sandbox-options:
-  - --config=canton.config
+

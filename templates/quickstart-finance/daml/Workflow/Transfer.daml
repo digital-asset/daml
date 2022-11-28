@@ -38,10 +38,9 @@ template Request
         -- DO_TRANSFER_BEGIN
         let transferableCid : ContractId Transferable.I = coerceContractId holdingCid
 
-        newTransferableCid <- exercise transferableCid Transferable.Transfer
-          with
-            actors = fromList [currentOwner, receiverAccount.owner]
-            newOwnerAccount = receiverAccount
+        newTransferableCid <- exercise transferableCid Transferable.Transfer with
+          actors = fromList [currentOwner, receiverAccount.owner]
+          newOwnerAccount = receiverAccount
 
         pure $ toInterfaceContractId @Holding.I newTransferableCid
         -- DO_TRANSFER_END
