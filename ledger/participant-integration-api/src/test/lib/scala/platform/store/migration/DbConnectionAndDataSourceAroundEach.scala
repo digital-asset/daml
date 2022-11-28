@@ -1,34 +1,42 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.migration.postgres
+package com.daml.platform.store.migration
 
 import java.sql.Connection
+import javax.sql.DataSource
+
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.DbType
 import com.daml.platform.store.backend.{DataSourceStorageBackend, StorageBackendFactory}
-import com.daml.testing.postgresql.PostgresAroundEach
-
-import javax.sql.DataSource
-import org.scalatest.Suite
+import org.scalatest.{BeforeAndAfterEach, Suite}
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
-trait PostgresConnectionSupport extends PostgresAroundEach {
+trait DbConnectionAroundEachBase {
+  implicit def connection: Connection
+  implicit def dbType: DbType
+  implicit def dataSource: DataSource
+  protected def jdbcUrl: String
+}
+
+trait DbConnectionAndDataSourceAroundEach
+    extends BeforeAndAfterEach
+    with DbConnectionAroundEachBase {
   self: Suite =>
 
-  implicit var conn: Connection = _
-  implicit val dbType: DbType = DbType.Postgres
+  implicit var connection: Connection = _
+
   private val dataSourceBackend = StorageBackendFactory.of(dbType).createDataSourceStorageBackend
   implicit var dataSource: DataSource = _
 
-  override def beforeEach(): Unit = {
+  override protected def beforeEach(): Unit = {
     super.beforeEach()
     dataSource = dataSourceBackend.createDataSource(
-      dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(postgresDatabase.url)
+      dataSourceConfig = DataSourceStorageBackend.DataSourceConfig(jdbcUrl)
     )(LoggingContext.ForTesting)
-    conn = retry(20, 1000) {
+    connection = retry(20, 1000) {
       val c = dataSource.getConnection
       dataSourceBackend.checkDatabaseAvailable(c)
       c
@@ -36,7 +44,7 @@ trait PostgresConnectionSupport extends PostgresAroundEach {
   }
 
   override protected def afterEach(): Unit = {
-    conn.close()
+    connection.close()
     super.afterEach()
   }
 
