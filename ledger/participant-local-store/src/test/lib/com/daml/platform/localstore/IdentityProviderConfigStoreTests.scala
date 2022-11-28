@@ -7,6 +7,7 @@ import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId, J
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
+  IdentityProviderConfigByIssuerNotFound,
   IdentityProviderConfigExists,
   IdentityProviderConfigNotFound,
   IdentityProviderConfigWithIssuerExists,
@@ -125,6 +126,38 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
           res1 shouldBe Right(cfg)
           res2 shouldBe Right(cfg)
           res3 shouldBe Left(IdentityProviderConfigNotFound(id))
+        }
+      }
+    }
+
+    "allow to get identity provider config by issuer" in {
+      testIt { tested =>
+        val cfg = config()
+        val nonExistingIssuer = "issuer_which_does_not_exist"
+        for {
+          res1 <- tested.createIdentityProviderConfig(cfg)
+          res2 <- tested.getIdentityProviderConfig(cfg.issuer)
+          res3 <- tested.getIdentityProviderConfig(nonExistingIssuer)
+        } yield {
+          res1 shouldBe Right(cfg)
+          res2 shouldBe Right(cfg)
+          res3 shouldBe Left(IdentityProviderConfigByIssuerNotFound(nonExistingIssuer))
+        }
+      }
+    }
+
+    "allow to check if identity provider config by id exists" in {
+      testIt { tested =>
+        val cfg = config()
+        val id = randomId()
+        for {
+          res1 <- tested.createIdentityProviderConfig(cfg)
+          res2 <- tested.identityProviderConfigExists(cfg.identityProviderId)
+          res3 <- tested.identityProviderConfigExists(id)
+        } yield {
+          res1 shouldBe Right(cfg)
+          res2 shouldBe true
+          res3 shouldBe false
         }
       }
     }
