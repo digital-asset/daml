@@ -23,7 +23,7 @@ object MetricHandle {
       *  - For `Dropwizard` the timer is represented as a summary.
       *  - For `OpenTelemetry` the timer is represented by a histogram.
       */
-    def timer(name: MetricName)(implicit
+    def timer(name: MetricName, description: String = "")(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Timer
 
@@ -31,7 +31,7 @@ object MetricHandle {
       * The values being monitored should be numeric for compatibility with multiple metric systems
       * (e.g. Prometheus).
       */
-    def gauge[T](name: MetricName, initial: T)(implicit
+    def gauge[T](name: MetricName, initial: T, description: String = "")(implicit
         context: MetricsContext
     ): Gauge[T]
 
@@ -40,6 +40,7 @@ object MetricHandle {
     def gaugeWithSupplier[T](
         name: MetricName,
         gaugeSupplier: () => T,
+        description: String = "",
     )(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Unit
@@ -48,7 +49,7 @@ object MetricHandle {
       * In Prometheus this is actually represented by a `Counter`.
       * Note that meters should never decrease as the data is then skewed and unusable!
       */
-    def meter(name: MetricName)(implicit
+    def meter(name: MetricName, description: String = "")(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Meter
 
@@ -56,14 +57,14 @@ object MetricHandle {
       *  For both `Dropwizard` and `OpenTelemetry` a counter is actually represented as a gauge.
       *  We can think of a counter as a gauge with a richer API.
       */
-    def counter(name: MetricName)(implicit
+    def counter(name: MetricName, description: String = "")(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Counter
 
     /** A histogram represents a `bucketized` view of the data.
       *  In most cases the boundaries of the buckets should be manually configured for the monitored data.
       */
-    def histogram(name: MetricName)(implicit
+    def histogram(name: MetricName, description: String = "")(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Histogram
 
