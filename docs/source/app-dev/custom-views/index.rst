@@ -107,7 +107,7 @@ or to create a ``BatchSource`` from simple values, which is convenient for unit 
 Batch
 -----
 
-A ``BatchSource`` reads events into `Batches`. A ``Batch`` consists of 1 to many events, and optionally contains a marker that indicates that a transaction has been committed on the Ledger.
+A ``BatchSource`` reads events into ``Batch`` es. A ``Batch`` consists of 1 to many events, and optionally contains a marker that indicates that a transaction has been committed on the Ledger.
 `Batches` make it possible to process larger than memory transactions, while tracking transactions as they occur on the ledger, and making it possible for downstream
 database transactions to only commit when these transaction markers have been detected.
 
