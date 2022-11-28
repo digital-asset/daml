@@ -4,13 +4,13 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.command.OutputDisclosedContract
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.ledger.FailedAuthorization
+import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.lf.command.DisclosedContract
-import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
@@ -250,7 +250,7 @@ final case class Transaction(
 
 sealed abstract class HasTxNodes {
 
-  import Transaction.{KeyInput, KeyInputError, ChildrenRecursion}
+  import Transaction.{ChildrenRecursion, KeyInput, KeyInputError}
 
   def nodes: Map[NodeId, Node]
 
@@ -699,7 +699,7 @@ object Transaction {
       dependsOnTime: Boolean,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      disclosures: ImmArray[Versioned[DisclosedContract]],
+      disclosures: ImmArray[Versioned[OutputDisclosedContract]],
   )
 
   def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =

@@ -6,7 +6,7 @@ package com.daml.ledger.sandbox.domain
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
-import com.daml.lf.command.DisclosedContract
+import com.daml.lf.command.OutputDisclosedContract
 import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.{SubmittedTransaction, Versioned}
@@ -23,7 +23,7 @@ private[sandbox] object Submission {
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-      disclosedContracts: ImmArray[Versioned[DisclosedContract]],
+      disclosedContracts: ImmArray[Versioned[OutputDisclosedContract]],
   )(implicit val loggingContext: LoggingContext)
       extends Submission {
     val submissionId: SubmissionId = {

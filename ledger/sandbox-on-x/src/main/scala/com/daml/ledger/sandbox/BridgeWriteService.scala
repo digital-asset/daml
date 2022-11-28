@@ -16,16 +16,16 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2._
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
 import com.daml.ledger.sandbox.domain.{Rejection, Submission}
-import com.daml.lf.command.DisclosedContract
+import com.daml.lf.command.OutputDisclosedContract
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Versioned}
+import com.daml.lf.value.Value
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.InstrumentedGraph
 import com.daml.telemetry.TelemetryContext
 
 import java.time.Duration
 import java.util.concurrent.{CompletableFuture, CompletionStage}
-import com.daml.lf.value.Value
 
 class BridgeWriteService(
     feedSink: Sink[(Offset, Update), NotUsed],
@@ -50,7 +50,7 @@ class BridgeWriteService(
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      disclosedContracts: ImmArray[Versioned[DisclosedContract]],
+      disclosedContracts: ImmArray[Versioned[OutputDisclosedContract]],
   )(implicit
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,
@@ -165,7 +165,7 @@ class BridgeWriteService(
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
       deduplicationDuration: Duration,
-      disclosedContracts: ImmArray[Versioned[DisclosedContract]],
+      disclosedContracts: ImmArray[Versioned[OutputDisclosedContract]],
   )(implicit errorLogger: ContextualizedErrorLogger): CompletionStage[SubmissionResult] = {
     val maxDeduplicationDuration = submitterInfo.ledgerConfiguration.maxDeduplicationDuration
     if (deduplicationDuration.compareTo(maxDeduplicationDuration) > 0)

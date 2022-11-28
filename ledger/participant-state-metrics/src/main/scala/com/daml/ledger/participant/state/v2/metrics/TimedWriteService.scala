@@ -3,25 +3,20 @@
 
 package com.daml.ledger.participant.state.v2.metrics
 
-import java.util.concurrent.CompletionStage
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v2.{
-  PruningResult,
-  SubmissionResult,
-  SubmitterInfo,
-  TransactionMeta,
-  WriteService,
-}
-import com.daml.lf.command.DisclosedContract
+import com.daml.ledger.participant.state.v2._
+import com.daml.lf.command.OutputDisclosedContract
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Versioned}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.telemetry.TelemetryContext
+
+import java.util.concurrent.CompletionStage
 
 final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends WriteService {
 
@@ -31,7 +26,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      explicitlyDisclosedContracts: ImmArray[Versioned[DisclosedContract]],
+      explicitlyDisclosedContracts: ImmArray[Versioned[OutputDisclosedContract]],
   )(implicit
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,

@@ -20,9 +20,11 @@ import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
   GlobalKey,
+  GlobalKeyWithMaintainers,
   Node,
   NodeId,
   SubmittedTransaction,
+  Versioned,
   IncompleteTransaction => IncompleteTx,
   TransactionVersion => TxVersion,
 }
@@ -308,9 +310,29 @@ private[lf] object Speedy {
         ptx.locationInfo(),
         seeds zip ptx.actionNodeSeeds.toImmArray,
         ptx.contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
-        ptx.disclosedContracts.filter(disclosedContract =>
-          inputContracts(disclosedContract.contractId.value)
-        ),
+        ptx.disclosedContracts
+          .collect {
+            case disclosedContract if inputContracts(disclosedContract.contractId.value) =>
+              val cachedContract = getCachedContract(disclosedContract.contractId.value).getOrElse(
+                throw SErrorCrash(
+                  NameOf.qualifiedNameOfCurrentFunc,
+                  s"contract ${disclosedContract.contractId.value.coid} not in cachedContracts",
+                )
+              )
+              val transactionVersion = tmplId2TxVersion(cachedContract.templateId)
+              val maybeKeyWithMaintainers =
+                cachedContract.key
+                  .map(_.toNormalizedKeyWithMaintainers(transactionVersion))
+                  .map { k =>
+                    GlobalKeyWithMaintainers(
+                      GlobalKey.assertBuild(disclosedContract.templateId, k.key),
+                      k.maintainers,
+                    )
+                  }
+                  .map(Versioned(transactionVersion, _))
+
+              disclosedContract -> (cachedContract.signatories, cachedContract.stakeholders, maybeKeyWithMaintainers)
+          },
       )
     }
 
@@ -426,7 +448,9 @@ private[lf] object Speedy {
         locationInfo: Map[NodeId, Location],
         seeds: NodeSeeds,
         globalKeyMapping: Map[GlobalKey, KeyMapping],
-        disclosedContracts: ImmArray[DisclosedContract],
+        disclosedContracts: ImmArray[
+          (DisclosedContract, (Set[Party], Set[Party], Option[Versioned[GlobalKeyWithMaintainers]]))
+        ],
     )
   }
 

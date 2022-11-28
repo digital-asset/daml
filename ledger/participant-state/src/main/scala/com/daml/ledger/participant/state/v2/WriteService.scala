@@ -3,14 +3,15 @@
 
 package com.daml.ledger.participant.state.v2
 
-import java.util.concurrent.CompletionStage
 import com.daml.ledger.api.health.ReportsHealth
-import com.daml.lf.command.DisclosedContract
+import com.daml.lf.command.OutputDisclosedContract
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Versioned}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.telemetry.TelemetryContext
+
+import java.util.concurrent.CompletionStage
 
 /** An interface to change a ledger via a participant.
   * '''Please note that this interface is unstable and may significantly change.'''
@@ -108,7 +109,7 @@ trait WriteService
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      explicitlyDisclosedContracts: ImmArray[Versioned[DisclosedContract]],
+      explicitlyDisclosedContracts: ImmArray[Versioned[OutputDisclosedContract]],
   )(implicit
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,

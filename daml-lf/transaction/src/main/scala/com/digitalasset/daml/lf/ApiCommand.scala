@@ -7,6 +7,7 @@ package command
 import com.daml.lf.data.Ref._
 import com.daml.lf.value.Value
 import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Versioned}
 
 /** Accepted commands coming from API */
 sealed abstract class ApiCommand extends Product with Serializable {
@@ -97,6 +98,27 @@ final case class DisclosedContract(
     contractId: Value.ContractId,
     argument: Value,
     metadata: ContractMetadata,
+)
+
+final case class OutputDisclosedContract(
+    templateId: Identifier,
+    contractId: Value.ContractId,
+    argument: Value,
+    metadata: OutputContractMetadata,
+)
+
+/** Contract metadata attached to disclosed contracts.
+  *
+  * @param createdAt   ledger effective time of the transaction that created the contract
+  * @param keyHash     hash of the contract key, if present
+  * @param driverMeta  opaque bytestring used by the underlying ledger implementation
+  */
+final case class OutputContractMetadata(
+    createdAt: Time.Timestamp,
+    driverMetadata: ImmArray[Byte],
+    signatories: Set[Party],
+    stakeholders: Set[Party],
+    maybeKeyWithMaintainersVersioned: Option[Versioned[GlobalKeyWithMaintainers]],
 )
 
 /** Contract metadata attached to disclosed contracts.

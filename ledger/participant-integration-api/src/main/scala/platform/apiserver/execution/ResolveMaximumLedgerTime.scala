@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver.execution
 
 import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, MaximumLedgerTimeService}
-import com.daml.lf.command.DisclosedContract
+import com.daml.lf.command.OutputDisclosedContract
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.value.Value.ContractId
@@ -21,7 +21,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class ResolveMaximumLedgerTime(maximumLedgerTimeService: MaximumLedgerTimeService) {
   def apply(
-      usedDisclosedContracts: ImmArray[DisclosedContract],
+      usedDisclosedContracts: ImmArray[OutputDisclosedContract],
       usedContractIds: Set[ContractId],
   )(implicit lc: LoggingContext): Future[MaximumLedgerTime] = {
     val usedDisclosedContractIds = usedDisclosedContracts.iterator.map(_.contractId).toSet
@@ -35,7 +35,7 @@ class ResolveMaximumLedgerTime(maximumLedgerTimeService: MaximumLedgerTimeServic
 
   private def adjustTimeForDisclosedContracts(
       lookupMaximumLet: MaximumLedgerTime,
-      disclosedContracts: ImmArray[DisclosedContract],
+      disclosedContracts: ImmArray[OutputDisclosedContract],
   ): MaximumLedgerTime =
     disclosedContracts.iterator
       .map(_.metadata.createdAt)
