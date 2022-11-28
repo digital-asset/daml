@@ -7,11 +7,7 @@ import anorm.SqlParser.{bool, int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.{ListUsersFilter, domain}
 import com.daml.ledger.api.domain.{IdentityProviderId, UserRight}
-import com.daml.ledger.api.domain.UserRight.{
-  CanActAs,
-  CanReadAs,
-  ParticipantAdmin,
-}
+import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.ledger.api.v1.admin.user_management_service.Right
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.backend.common.{ComposableQuery, QueryStrategy}

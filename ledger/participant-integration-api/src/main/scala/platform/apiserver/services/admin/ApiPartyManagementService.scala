@@ -408,7 +408,7 @@ private[apiserver] object ApiPartyManagementService {
 
   private def toProtoPartyDetails(
       partyDetails: IndexerPartyDetails,
-      metadataO: Option[ObjectMeta]
+      metadataO: Option[ObjectMeta],
   ): ProtoPartyDetails =
     ProtoPartyDetails(
       party = partyDetails.party,

@@ -16,7 +16,12 @@ import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload, CustomDamlJWTPayload, StandardJWTPayload}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  CustomDamlJWTPayload,
+  StandardJWTPayload,
+}
 import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
@@ -890,7 +895,7 @@ object JsonLedgerClient {
             optName.map(_.convertTo[String]),
             isLocal.convertTo[Boolean],
             ObjectMeta.empty,
-            IdentityProviderId.Default
+            IdentityProviderId.Default,
           )
         case _ => deserializationError(s"Expected PartyDetails but got $v")
       }
