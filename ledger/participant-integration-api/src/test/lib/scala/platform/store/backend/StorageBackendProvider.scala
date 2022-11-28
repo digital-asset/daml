@@ -13,9 +13,10 @@ import com.daml.platform.store.interning.MockStringInterning
 import com.daml.testing.oracle.OracleAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.Suite
-import java.sql.Connection
 
+import java.sql.Connection
 import com.daml.platform.store.backend.localstore.{
+  IdentityProviderStorageBackend,
   PartyRecordStorageBackend,
   UserManagementStorageBackend,
 }
@@ -96,6 +97,7 @@ case class TestBackend(
     userManagement: UserManagementStorageBackend,
     participantPartyStorageBackend: PartyRecordStorageBackend,
     metering: TestMeteringBackend,
+    identityProviderStorageBackend: IdentityProviderStorageBackend,
 )
 
 case class TestMeteringBackend(
@@ -136,6 +138,8 @@ object TestBackend {
       userManagement = storageBackendFactory.createUserManagementStorageBackend,
       participantPartyStorageBackend = storageBackendFactory.createPartyRecordStorageBackend,
       metering = createTestMeteringBackend,
+      identityProviderStorageBackend =
+        storageBackendFactory.createIdentityProviderConfigStorageBackend,
     )
   }
 

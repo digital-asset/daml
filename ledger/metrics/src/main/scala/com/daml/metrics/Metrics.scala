@@ -41,6 +41,12 @@ final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMe
     object partyRecordStore
         extends PartyRecordStoreMetrics(prefix :+ "party_record_store", registry)
 
+    object identityProviderConfigStore
+        extends IdentityProviderConfigStoreMetrics(
+          prefix :+ "identity_provider_config_store",
+          registry,
+        )
+
     object index extends IndexMetrics(prefix :+ "index", registry)
 
     object indexer extends IndexerMetrics(prefix :+ "indexer", registry)

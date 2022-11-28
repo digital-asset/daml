@@ -259,12 +259,13 @@ packagingTests tmpDir =
               callCommandSilentIn projDir "daml build"
               let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
               assertFileExists dar
-        , testCase "Build Daml script example with LF version 1.dev" $ do
+        -- TODO: re-enable this test when the script-example template no longer specifies 1.15
+        {- , testCase "Build Daml script example with LF version 1.dev" $ do
               let projDir = tmpDir </> "script-example1"
               callCommandSilent $ unwords ["daml", "new", projDir, "--template=script-example"]
               callCommandSilentIn projDir "daml build --target 1.dev"
               let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
-              assertFileExists dar
+              assertFileExists dar -}
         , testCase "Package depending on daml-script and daml-trigger can use data-dependencies" $ do
               callCommandSilent $ unwords ["daml", "new", tmpDir </> "data-dependency"]
               callCommandSilentIn (tmpDir </> "data-dependency") "daml build -o data-dependency.dar"

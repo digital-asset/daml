@@ -16,7 +16,7 @@ genrule(
     name = "script-test",
     srcs =
         glob(["**/*.daml"]) + [
-            "//daml-script/daml:daml-script.dar",
+            "//daml-script/daml:daml-script-1.15.dar",
             "//docs:source/daml-script/template-root/src/ScriptExample.daml",
         ],
     outs = ["script-test.dar"],
@@ -36,7 +36,7 @@ initializeFixed = do
   let parties = LedgerParties{{..}}
   initialize parties
 EOF
-      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/daml:daml-script-1.15.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: script-test
@@ -45,7 +45,9 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml-script.dar
+  - daml-script-1.15.dar
+build-options:
+  - --target=1.15
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test.dar)
       rm -rf $$TMP_DIR
@@ -150,7 +152,6 @@ da_scala_library(
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
-        "//ledger-service/jwt",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-resources",
@@ -158,6 +159,7 @@ da_scala_library(
         "//ledger/participant-integration-api",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
+        "//libs-scala/jwt",
         "//libs-scala/ports",
         "//libs-scala/ports:ports-testing",
         "//libs-scala/resources",
@@ -211,7 +213,6 @@ da_scala_test_suite(
         "//ledger-service/cli-opts",
         "//ledger-service/http-json:http-json-ce",
         "//ledger-service/http-json-cli:ce",
-        "//ledger-service/jwt",
         "//ledger-service/lf-value-json",
         "//ledger-service/metrics",
         "//ledger-service/utils",
@@ -229,6 +230,7 @@ da_scala_test_suite(
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/jwt",
         "//libs-scala/logging-entries",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",

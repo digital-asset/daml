@@ -4,12 +4,15 @@
 package com.daml.caching
 
 import com.daml.metrics.CacheMetrics
+import com.github.benmanes.caffeine.cache.AsyncCacheLoader
 import com.github.benmanes.caffeine.{cache => caffeine}
 
+import java.util.concurrent.{CompletableFuture, Executor}
+import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 import scala.jdk.FutureConverters.CompletionStageOps
 import scala.jdk.OptionConverters.{RichOptional, RichOptionalLong}
-import scala.concurrent.Future
-import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success}
 
 object CaffeineCache {
 
@@ -83,6 +86,19 @@ object CaffeineCache {
     metrics.registerWeightGauge(() =>
       cache.policy().eviction().toScala.flatMap(_.weightedSize.toScala).getOrElse(0)
     )
+  }
+
+  class FutureAsyncCacheLoader[K, V](func: K => Future[V])(implicit
+      executionContext: ExecutionContext
+  ) extends AsyncCacheLoader[K, V] {
+    override def asyncLoad(key: K, executor: Executor): CompletableFuture[_ <: V] = {
+      val cf = new CompletableFuture[V]
+      func(key).onComplete {
+        case Success(value) => cf.complete(value)
+        case Failure(e) => cf.completeExceptionally(e)
+      }
+      cf
+    }
   }
 
 }

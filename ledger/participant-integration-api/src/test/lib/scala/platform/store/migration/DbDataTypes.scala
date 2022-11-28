@@ -1,13 +1,15 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.migration.postgres
+package com.daml.platform.store.migration
 
 import java.sql.ResultSet
 
+import com.daml.platform.store.DbType
 import com.daml.platform.store.migration.MigrationTestSupport.DbDataType
 
-object PostgresDbDataType {
+class DbDataTypes(dbType: DbType) {
+
   case object Integer extends DbDataType {
     override def get(resultSet: ResultSet, index: Int): Any = resultSet.getInt(index)
     override def put(value: Any): String = value.asInstanceOf[Int].toString
@@ -30,14 +32,20 @@ object PostgresDbDataType {
 
   case object Bytea extends DbDataType {
     override def get(resultSet: ResultSet, index: Int): Any = resultSet.getBytes(index).toVector
-    override def put(value: Any): String = value
-      .asInstanceOf[Vector[Byte]]
-      .map(_.toInt.toHexString)
-      .map {
-        case hexByte if hexByte.length == 1 => s"0$hexByte"
-        case hexByte => hexByte
+    override def put(value: Any): String = {
+      val hexes = value
+        .asInstanceOf[Vector[Byte]]
+        .map(_.toInt.toHexString)
+        .map {
+          case hexByte if hexByte.length == 1 => s"0$hexByte"
+          case hexByte => hexByte
+        }
+      dbType match {
+        case DbType.Postgres => hexes.mkString("E'\\\\x", "", "'")
+        case DbType.Oracle => hexes.mkString("hextoraw('", "", "')")
+        case other => sys.error(s"Unsupported db type: $other")
       }
-      .mkString("E'\\\\x", "", "'")
+    }
   }
 
   case object StringArray extends DbDataType {
@@ -48,11 +56,14 @@ object PostgresDbDataType {
         .asInstanceOf[Array[String]]
         .toVector
 
-    override def put(value: Any): String =
-      value
-        .asInstanceOf[Vector[String]]
-        .map(x => s"'$x'")
-        .mkString("ARRAY[", ", ", "]::TEXT[]")
+    override def put(value: Any): String = {
+      val array = value.asInstanceOf[Vector[String]]
+      dbType match {
+        case DbType.Postgres => array.map(x => s"'$x'").mkString("ARRAY[", ", ", "]::TEXT[]")
+        case DbType.Oracle => array.map(x => s"\"$x\"").mkString("'[", ", ", "]'")
+        case other => sys.error(s"Unsupported db type: $other")
+      }
+    }
   }
 
   case object IntArray extends DbDataType {
@@ -64,10 +75,15 @@ object PostgresDbDataType {
         .toVector
         .map(_.intValue())
 
-    override def put(value: Any): String =
-      value
+    override def put(value: Any): String = {
+      val array = value
         .asInstanceOf[Vector[Int]]
         .map(_.toString)
-        .mkString("ARRAY[", ", ", "]::INTEGER[]")
+      dbType match {
+        case DbType.Postgres => array.mkString("ARRAY[", ", ", "]::INTEGER[]")
+        case DbType.Oracle => array.mkString("'[", ", ", "]'")
+        case other => sys.error(s"Unsupported db type: $other")
+      }
+    }
   }
 }

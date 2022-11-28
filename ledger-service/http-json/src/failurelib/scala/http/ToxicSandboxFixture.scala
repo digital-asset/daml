@@ -42,7 +42,8 @@ trait ToxicSandboxFixture
       ): Resource[(Port, ToxiproxyClient, Proxy)] = {
         def start(): Future[(Port, ToxiproxyClient, Proxy, Process)] = {
           val toxiproxyExe =
-            if (!isWindows) BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-cmd")
+            if (!isWindows)
+              BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-server")
             else
               BazelRunfiles.rlocation(
                 "external/toxiproxy_dev_env/toxiproxy-server-windows-amd64.exe"

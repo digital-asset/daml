@@ -81,6 +81,24 @@ alongside a few annotations with regards to the meaning of the configuration key
       // Do not abort if there are existing tables in the database schema. EXPERT ONLY. Defaults to false.
       allow-existing-schema = "false"
 
+      // Configuration of trigger runners.
+      trigger-config {
+        // The number of ledger client command invocations each trigger will attempt to execute in parallel. Defaults to 8.
+        parallelism = 8
+
+        // Maximum number of retries for a failing ledger API command submission. Failed submission requests may be
+        // handled by trigger rules. Defaults to 6.
+        max-retries = 6
+
+        // Used to control maximum rate at which we perform ledger client submission requests.
+        max-submission-requests = 100 // Defaults to 100.
+        max-submission-duration = 5s  // Defaults to 5s.
+
+        // Size of the queue holding ledger API command submission failures. When queue is filled, submission requests
+        // are dropped. Defaults to 264.
+        submission-failure-queue-size = 264
+      }
+
       // Configuration for the persistent store that will be used to keep track of running triggers across restarts.
       // Mandatory if `init-db` is true. Otherwise optional. If not provided, the trigger state will not be persisted
       // and restored across restarts.

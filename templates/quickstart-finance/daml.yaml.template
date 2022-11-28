@@ -25,8 +25,27 @@ data-dependencies:
   - .lib/daml-finance-instrument-token.dar
   - .lib/daml-finance-lifecycle.dar
   - .lib/daml-finance-settlement.dar
+  # UNUSED INTERFACES DEPENDENCIES - UNCOMMENT TO ENABLE
+  # - .lib/daml-finance-interface-claims.dar
+  # - .lib/daml-finance-interface-data.dar
+  # - .lib/daml-finance-interface-instrument-bond.dar
+  # - .lib/daml-finance-interface-instrument-equity.dar
+  # - .lib/daml-finance-interface-instrument-generic.dar
+  # - .lib/daml-finance-interface-instrument-swap.dar
+  # - .lib/daml-finance-interface-instrument-token.dar
+  # - .lib/daml-finance-interface-util.dar
+  # UNUSED IMPLEMENTATIONS DEPENDENCIES - UNCOMMENT TO ENABLE
+  # - .lib/daml-finance-claims.dar
+  # - .lib/daml-finance-instrument-bond.dar
+  # - .lib/daml-finance-instrument-equity.dar
+  # - .lib/daml-finance-instrument-generic.dar
+  # - .lib/daml-finance-instrument-swap.dar
+  # - .lib/daml-finance-util.dar
+  # UNUSED CONTINGENT CLAIMS DEPENDENCIES - UNCOMMENT TO ENABLE
+  # - .lib/contingent-claims-core.dar
+  # - .lib/contingent-claims-lifecycle.dar
+  # - .lib/contingent-claims-valuation.dar
 start-navigator: no
 build-options:
   - --target=1.15
-sandbox-options:
-  - --config=canton.config
+
