@@ -30,6 +30,7 @@ object UserManagementConfig {
   val DefaultMaxCacheSize = 100
   val DefaultCacheExpiryAfterWriteInSeconds = 5
   val DefaultMaxUsersPageSize = 1000
+  val DefaultMaxIdentityProviders = 16
 
   val MaxRightsPerUser = 1000
 
@@ -46,6 +47,7 @@ final case class UserManagementConfig(
     cacheExpiryAfterWriteInSeconds: Int =
       UserManagementConfig.DefaultCacheExpiryAfterWriteInSeconds,
     maxUsersPageSize: Int = UserManagementConfig.DefaultMaxUsersPageSize,
+    maxIdentityProviders: Int = UserManagementConfig.DefaultMaxIdentityProviders
 )
 
 object PersistentUserManagementStore {
