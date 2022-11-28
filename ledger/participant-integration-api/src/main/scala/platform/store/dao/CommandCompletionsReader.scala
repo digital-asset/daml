@@ -25,6 +25,11 @@ private[dao] final class CommandCompletionsReader(
     pageSize: Int,
 ) extends LedgerDaoCommandCompletionsReader {
 
+  private def offsetFor(response: CompletionStreamResponse): Offset = {
+    // It would nice to obtain the offset such that it's obvious that it always exists (rather then relaying on calling .get)
+    ApiOffset.assertFromString(response.checkpoint.get.offset.get.getAbsolute)
+  }
+
   override def getCommandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,
@@ -65,8 +70,5 @@ private[dao] final class CommandCompletionsReader(
       }
     source.map(response => offsetFor(response) -> response)
   }
-
-  private def offsetFor(response: CompletionStreamResponse): Offset =
-    ApiOffset.assertFromString(response.checkpoint.get.offset.get.getAbsolute)
 
 }
