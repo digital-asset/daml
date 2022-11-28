@@ -220,6 +220,7 @@ message DisclosedContract {
   string contract_id = 2;
 
   // The contract arguments
+  // Required
   oneof arguments {
     // The contract arguments as typed Record
     Record create_arguments = 3;
