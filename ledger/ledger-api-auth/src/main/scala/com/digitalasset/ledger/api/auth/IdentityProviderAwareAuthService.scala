@@ -1,18 +1,12 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-
-package com.daml.platform
+package com.daml.ledger.api.auth
 
 import com.auth0.jwt.JWT
-import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.jwt.JwtVerifier
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.ledger.api.auth._
-import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
+import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.localstore.api.IdentityProviderConfigStore
-import com.daml.platform.localstore.api.IdentityProviderConfigStore.Result
 import io.grpc.Metadata
 import spray.json._
 
@@ -23,7 +17,7 @@ import scala.jdk.FutureConverters.FutureOps
 //TODO DPP-1299 Move to a package
 class IdentityProviderAwareAuthService(
     defaultAuthService: AuthService,
-    identityProviderConfigStore: IdentityProviderConfigStore,
+    configLoader: ConfigLoader,
     jwtVerifierLoader: JwtVerifierLoader,
 )(implicit
     executionContext: ExecutionContext,
@@ -31,9 +25,6 @@ class IdentityProviderAwareAuthService(
 ) extends AuthService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-
-  private implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   override def decodeMetadata(headers: Metadata): CompletionStage[ClaimSet] = {
     (getAuthorizationHeader(headers) match {
@@ -45,14 +36,6 @@ class IdentityProviderAwareAuthService(
         }
     }).asJava
       .thenCompose(defaultAuth(headers))
-  }
-
-  private def handleResult(
-      result: Result[IdentityProviderConfig]
-  ): Future[IdentityProviderConfig] = result match {
-    case Right(value) => Future.successful(value)
-    case Left(error) =>
-      Future.failed(LedgerApiErrors.InternalError.Generic(error.toString).asGrpcError)
   }
 
   def defaultAuth(
@@ -89,9 +72,8 @@ class IdentityProviderAwareAuthService(
       case None => Future.successful(ClaimSet.Unauthenticated)
       case Some(issuer) =>
         for {
-          identityProviderConfig <- identityProviderConfigStore
+          identityProviderConfig <- configLoader
             .getIdentityProviderConfig(issuer)
-            .flatMap(handleResult)
           verifier <- jwtVerifierLoader.loadJwtVerifier(
             jwksUrl = identityProviderConfig.jwksUrl,
             keyId,

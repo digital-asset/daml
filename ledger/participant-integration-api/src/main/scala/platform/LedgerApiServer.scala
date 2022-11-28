@@ -6,7 +6,7 @@ package com.daml.platform
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
-import com.daml.ledger.api.auth.AuthService
+import com.daml.ledger.api.auth.{AuthService, ConfigLoader, IdentityProviderAwareAuthService}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
@@ -34,7 +34,7 @@ import com.daml.platform.localstore.{
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
 
 class LedgerApiServer(
     authService: AuthService,
@@ -184,7 +184,20 @@ class LedgerApiServer(
       participantId = participantId,
       authService = new IdentityProviderAwareAuthService(
         defaultAuthService = authService,
-        identityProviderConfigStore = identityProviderStore,
+        configLoader = new ConfigLoader {
+          override def getIdentityProviderConfig(issuer: LedgerId)(implicit
+              loggingContext: LoggingContext
+          ): Future[domain.IdentityProviderConfig] = {
+            identityProviderStore
+              .getIdentityProviderConfig(issuer)
+              .flatMap {
+                case Right(value) => Future.successful(value)
+                case Left(error) =>
+                  Future.failed(new Exception(error.toString))
+              }(servicesExecutionContext)
+
+          }
+        },
         jwtVerifierLoader = new CachedJwtVerifierLoader(
           config = CachedJwtVerifierLoader.Config(
             jwtTimestampLeeway = participantConfig.jwtTimestampLeeway

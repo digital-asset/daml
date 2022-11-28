@@ -7,6 +7,7 @@ import com.auth0.jwk.UrlJwkProvider
 import com.daml.caching.CaffeineCache
 import com.daml.caching.CaffeineCache.FutureAsyncCacheLoader
 import com.daml.jwt.{JwtTimestampLeeway, JwtVerifier, RSA256Verifier}
+import com.daml.ledger.api.auth.JwtVerifierLoader
 import com.daml.ledger.api.domain.JwksUrl
 import com.daml.metrics.Metrics
 import com.daml.platform.CachedJwtVerifierLoader.CacheKey
@@ -16,10 +17,6 @@ import scalaz.\/
 import java.security.interfaces.RSAPublicKey
 import java.util.concurrent.TimeUnit
 import scala.concurrent.{ExecutionContext, Future}
-
-trait JwtVerifierLoader {
-  def loadJwtVerifier(jwksUrl: JwksUrl, keyId: Option[String]): Future[JwtVerifier]
-}
 
 class CachedJwtVerifierLoader(
     config: CachedJwtVerifierLoader.Config,
