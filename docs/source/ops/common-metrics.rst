@@ -5,7 +5,7 @@ Common Metrics
 ##############
 
 The below sections contain the list of common metrics we expose for Daml services supporting a Prometheus metrics reporter.
-These may help you to measure `the four golden signals <https://sre.google/sre-book/monitoring-distributed-systems/#xref_monitoring_golden-signals>`__.
+These may help you to measure `the four golden signals <https://sre.google/sre-book/monitoring-distributed-systems/#xref_monitoring_golden-signals>`_.
 
 For the metric types referenced below, see the `relevant Prometheus documentation <https://prometheus.io/docs/tutorials/understanding_metric_types/>`_.
 
@@ -136,5 +136,3 @@ daml.http.websocket.messages.sent.bytes
 =======================================
 - **Description**: Tracks payload sizes of WebSocket messages sent.
 - **Type**: Histogram
-
-
