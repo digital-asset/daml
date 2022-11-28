@@ -5,21 +5,93 @@ Common Metrics
 ##############
 
 The below sections contain the list of common metrics we expose for Daml services supporting a Prometheus metrics reporter.
+These may help you to measure `the four golden signals <https://sre.google/sre-book/monitoring-distributed-systems/#xref_monitoring_golden-signals>`__.
+
 For the metric types referenced below, see the `relevant Prometheus documentation <https://prometheus.io/docs/tutorials/understanding_metric_types/>`_.
+
+gRPC Metrics
+************
+We expose the below metrics for all gRPC endpoints.
+These metrics have the following common labels attached:
+
+- **grpc_service_name**:
+    fully qualified name of the gRPC service (e.g. ``com.daml.ledger.api.v1.ActiveContractsService``)
+
+- **grpc_method_name**:
+    name of the gRPC method (e.g. ``GetActiveContracts``)
+
+- **grpc_client_type**:
+    type of client connection (``unary`` or ``streaming``)
+
+- **grpc_server_type**:
+    type of server connection (``unary`` or ``streaming``)
+
+- **service**:
+    Canton service's name (e.g. ``participant``, ``sequencer``, etc.)
+
+.. latency
+
+daml.grpc.server.duration.seconds
+=================================
+- **Description**: Records the durations of serving gRPC requests.
+- **Type**: Histogram
+
+.. traffic
+
+daml.grpc.server.messages.sent.total
+====================================
+- **Description**: Counts number of gRPC messages sent (on either type of connection).
+- **Type**: Counter
+
+daml.grpc.server.messages.received.total
+========================================
+- **Description**: Counts number of gRPC messages received (on either type of connection).
+- **Type**: Counter
+
+daml.grpc.server.started.total
+==============================
+- **Description**: Counts number of started gRPC requests (on either type of connection).
+- **Type**: Counter
+
+.. errors
+
+daml.grpc.server.handled.total
+==============================
+- **Description**: Counts number of handled gRPC requests.
+- **Labels**:
+
+  - **grpc_code**: returned `gRPC status code <https://grpc.github.io/grpc/core/md_doc_statuscodes.html>`_ for the call (``OK``, ``CANCELLED``, ``INVALID_ARGUMENT``, etc.)
+
+- **Type**: Counter
+
+.. saturation
+
+daml.grpc.server.messages.sent.bytes
+====================================
+- **Description**: Records payload sizes of gRPC messages sent (both unary and streaming).
+- **Type**: Histogram
+
+daml.grpc.server.messages.received.bytes
+========================================
+- **Description**: Records payload sizes of gRPC messages received (both unary and streaming).
+- **Type**: Histogram
 
 HTTP Metrics
 ************
-If a Prometheus metrics reporter is configured, we also expose the below metrics for all HTTP endpoints
-(i.e., helping you to measure `the four golden signals <https://sre.google/sre-book/monitoring-distributed-systems/#xref_monitoring_golden-signals>`__).
+We expose the below metrics for all HTTP endpoints.
 These metrics have the following common labels attached:
 
-- **http_verb**: HTTP verb used for a given call (e.g. ``GET`` or ``PUT``)
+- **http_verb**:
+    HTTP verb used for a given call (e.g. ``GET`` or ``PUT``)
 
-- **host**: fully qualified hostname of the HTTP endpoint (e.g. ``example.com``)
+- **host**:
+    fully qualified hostname of the HTTP endpoint (e.g. ``example.com``)
 
-- **path**: path of the HTTP endpoint (e.g. ``/parties/create``)
+- **path**:
+    path of the HTTP endpoint (e.g. ``/parties/create``)
 
-- **service**: Daml service's name (``json-api`` for the HTTP JSON API Service)
+- **service**:
+    Daml service's name (``json-api`` for the HTTP JSON API Service)
 
 daml.http.requests.duration.seconds
 ===================================
