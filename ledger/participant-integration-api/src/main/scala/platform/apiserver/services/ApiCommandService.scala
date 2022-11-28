@@ -12,7 +12,11 @@ import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands
-import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionByIdRequest, GetTransactionResponse}
+import com.daml.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionByIdRequest,
+  GetTransactionResponse,
+}
 import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}

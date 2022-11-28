@@ -124,7 +124,6 @@ object InMemoryStateUpdaterSpec {
 
   trait Scope extends Matchers with ScalaFutures with IntegrationPatience {
 
-
     val templateId: Identifier = Identifier.assertFromString("noPkgId:Mod:I")
     val templateId2: Identifier = Identifier.assertFromString("noPkgId:Mod:I2")
 
@@ -147,15 +146,16 @@ object InMemoryStateUpdaterSpec {
       update = cachesUpdateCaptor,
     )(LoggingContext.empty)
 
-    val txLogUpdate1: TransactionLogUpdate.TransactionAccepted = TransactionLogUpdate.TransactionAccepted(
-      transactionId = "tx1",
-      commandId = "",
-      workflowId = workflowId,
-      effectiveAt = Timestamp.Epoch,
-      offset = offset(1L),
-      events = Vector(),
-      completionDetails = None,
-    )
+    val txLogUpdate1: TransactionLogUpdate.TransactionAccepted =
+      TransactionLogUpdate.TransactionAccepted(
+        transactionId = "tx1",
+        commandId = "",
+        workflowId = workflowId,
+        effectiveAt = Timestamp.Epoch,
+        offset = offset(1L),
+        events = Vector(),
+        completionDetails = None,
+      )
 
     def runFlow(input: Seq[(Vector[(Offset, Update)], Long)])(implicit mat: Materializer): Done =
       Source(input)

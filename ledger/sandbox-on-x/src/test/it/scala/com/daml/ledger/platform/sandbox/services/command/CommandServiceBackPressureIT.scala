@@ -4,7 +4,11 @@
 package com.daml.platform.sandbox.services.command
 
 import com.daml.grpc.{GrpcException, GrpcStatus}
-import com.daml.ledger.api.testing.utils.{IsStatusException, MockMessages, SuiteResourceManagementAroundAll}
+import com.daml.ledger.api.testing.utils.{
+  IsStatusException,
+  MockMessages,
+  SuiteResourceManagementAroundAll,
+}
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.commands.CreateCommand

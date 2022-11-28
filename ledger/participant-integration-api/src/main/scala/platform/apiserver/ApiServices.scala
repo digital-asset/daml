@@ -18,8 +18,16 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.configuration.{LedgerConfigurationInitializer, LedgerConfigurationSubscription}
-import com.daml.platform.apiserver.execution.{LedgerTimeAwareCommandExecutor, ResolveMaximumLedgerTime, StoreBackedCommandExecutor, TimedCommandExecutor}
+import com.daml.platform.apiserver.configuration.{
+  LedgerConfigurationInitializer,
+  LedgerConfigurationSubscription,
+}
+import com.daml.platform.apiserver.execution.{
+  LedgerTimeAwareCommandExecutor,
+  ResolveMaximumLedgerTime,
+  StoreBackedCommandExecutor,
+  TimedCommandExecutor,
+}
 import com.daml.platform.apiserver.meteringreport.MeteringReportKey
 import com.daml.platform.apiserver.services._
 import com.daml.platform.apiserver.services.admin._

@@ -26,7 +26,11 @@ import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.index.{InMemoryStateUpdater, IndexServiceOwner}
 import com.daml.platform.indexer.IndexerServiceOwner
-import com.daml.platform.localstore.{PersistentPartyRecordStore, PersistentUserManagementStore, UserManagementConfig}
+import com.daml.platform.localstore.{
+  PersistentPartyRecordStore,
+  PersistentUserManagementStore,
+  UserManagementConfig,
+}
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 
