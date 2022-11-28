@@ -22,7 +22,7 @@ You can also use Daml Script interactively using :doc:`/daml-repl/index`.
 
 .. hint::
 
-  Remember that you can load all the example code by running ``daml new script-example --template script-example``
+  Remember that you can access all the example code by running ``daml new script-example --template script-example``
 
 Usage
 =====
@@ -77,7 +77,7 @@ script so that we can easily swap them out.
 
 Let us now write a function to initialize the ledger with 3
 ``CoinProposal`` contracts and accept 2 of them. This function takes the
-``LedgerParties`` as an argument and return something of type ``Script
+``LedgerParties`` as an argument and returns a value of type ``Script
 ()`` which is Daml script’s equivalent of ``Scenario ()``.
 
 .. literalinclude:: ./template-root/src/ScriptExample.daml
@@ -176,6 +176,29 @@ them away using ``map snd``.
    :language: daml
    :start-after: -- TEST_QUERIES_BEGIN
    :end-before: -- TEST_QUERIES_END
+
+Interfaces
+----------
+
+To use interfaces within Daml code, the target language version must be at least ``1.15``.
+
+.. literalinclude:: ./template-root/daml.yaml.template
+   :start-after: # script-build-options-begin
+   :end-before: # script-build-options-end
+
+Now we can define an ``Asset`` interface which can be implemented by the ``Coin`` template. We also define ``AssetInfo`` for use as the viewtype.
+
+.. literalinclude:: ./template-root/src/ScriptExample.daml
+   :language: daml
+   :start-after: -- ASSET_INTERFACE_BEGIN
+   :end-before: -- ASSET_INTERFACE_END
+
+Now we use the ``queryInterface`` function. We pass it the type of the interface and a party. It will return a list of active contract views for the given interface type. As before we throw away the contract ids using ``map snd``.
+
+.. literalinclude:: ./template-root/src/ScriptExample.daml
+   :language: daml
+   :start-after: -- TEST_INTERFACE_BEGIN
+   :end-before: -- TEST_INTERFACE_END
 
 Run a Script
 ------------

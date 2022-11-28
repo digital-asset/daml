@@ -16,7 +16,7 @@ genrule(
     name = "script-test",
     srcs =
         glob(["**/*.daml"]) + [
-            "//daml-script/daml:daml-script.dar",
+            "//daml-script/daml:daml-script-1.15.dar",
             "//docs:source/daml-script/template-root/src/ScriptExample.daml",
         ],
     outs = ["script-test.dar"],
@@ -36,7 +36,7 @@ initializeFixed = do
   let parties = LedgerParties{{..}}
   initialize parties
 EOF
-      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/daml:daml-script-1.15.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: script-test
@@ -45,7 +45,9 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml-script.dar
+  - daml-script-1.15.dar
+build-options:
+  - --target=1.15
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test.dar)
       rm -rf $$TMP_DIR
