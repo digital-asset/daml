@@ -43,6 +43,8 @@ The below lists with which Daml version a new Ledger API version was introduced.
 
    * - Ledger API Version
      - Daml Version
+   * - 2.2
+     - 2.5
    * - 2.1
      - 2.4
    * - 2.0
@@ -68,6 +70,11 @@ Summary of Ledger API Changes
 
    * - Ledger API Version
      - Changes
+   * - 2.2
+     - | Remove the inlined error documentation from gRPC calls in favor of rich error details documentation under :doc:`error-codes`.
+       | Extend the User Management Service by adding is_deactivated and metadata fields to the User record and by providing an UpdateUser method allowing modifications of the existing users.
+       | Extend the Party Management Service by adding participant specific local_metadata field to the PartyDetails record and by providing an UpdatePartyDetails method that allows changing existing parties' details.
+       | Extend the Labs feature of contract disclosure by adding support for opaque contract argument blobs. The message types of DisclosedContract and ContractMetadata should continue being ignored.
    * - 2.1
      - | Establish the order of child events in ExercisedEvent to agree with the order of events in transaction.
        | Indicate an exercise done on an interface through the interface_id field on the ExercisedEvent message.
