@@ -4,7 +4,7 @@ module DA.Daml.Assistant.CreateDamlAppTests (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
-import Conduit
+--import Conduit
 import Control.Exception.Extra
 import Control.Monad
 import Data.Aeson
@@ -13,7 +13,7 @@ import qualified Data.Aeson.KeyMap as KM
 import Data.Aeson.Extra.Merge
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString as BS
-import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
+--import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import Data.List.Extra
 import Data.Proxy (Proxy (..))
 import Data.Tagged (Tagged (..))
@@ -95,9 +95,13 @@ tests =
           step "Install dependencies for UI"
           createDirectoryIfMissing True "node_modules"
           cachedDeps <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "integration-tests" </> "create_daml_app_deps.tar")
-          runConduitRes
-              $ sourceFileBS cachedDeps
-              .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile (\a b -> fail (T.unpack $ a <> " " <> b)) ".")
+          -- This crashes when updating NodeJS and I don't have time or
+          -- interest to debug it.
+          --runConduitRes
+          --    $ sourceFileBS t grep sourceFileBS
+          --    cachedDeps
+          --    .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile (\a b -> fail (T.unpack $ a <> " " <> b)) ".")
+          callCommandSilent ("tar --strip-components=1 -x -f " <> cachedDeps)
           retry 3 (callCommandSilent "npm-cli.js install")
           step "Run linter"
           callCommandSilent "npm-cli.js run-script lint -- --max-warnings 0"

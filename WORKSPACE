@@ -668,7 +668,7 @@ dev_env_tool(
         ".",
     ],
     win_paths = [],
-    win_tool = "nodejs",
+    win_tool = "nodejs-16",
 )
 
 # Setup the Node.js toolchain
