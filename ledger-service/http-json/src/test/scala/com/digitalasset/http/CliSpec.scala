@@ -276,7 +276,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       )
     }
 
-    "should successfully load a complete config file" taggedAs authenticationSecurity in {
+    "TLS configuration is parsed correctly from the config file" taggedAs authenticationSecurity in {
       val baseConfig = DbUtilsJdbcConfig(
         url = "jdbc:postgresql://localhost:5432/test?&ssl=true",
         driver = "org.postgresql.Driver",

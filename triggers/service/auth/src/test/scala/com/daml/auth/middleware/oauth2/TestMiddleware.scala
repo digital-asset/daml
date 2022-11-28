@@ -399,7 +399,7 @@ class TestMiddlewareCallbackUriOverride
     SecurityTest(property = Authentication, asset = "TBD")
 
   override protected val middlewareCallbackUri = Some(Uri("http://localhost/MIDDLEWARE_CALLBACK"))
-  "the /login endpoint" should {
+  "the /login endpoint with an oauth server checking claims" should {
     "redirect to the configured middleware callback URI" taggedAs authenticationSecurity in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
       val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
@@ -432,7 +432,7 @@ class TestMiddlewareLimitedCallbackStore
     SecurityTest(property = Authentication, asset = "TBD")
 
   override protected val maxMiddlewareLogins = 2
-  "the /login endpoint" should {
+  "the /login endpoint with an oauth server checking claims" should {
     "refuse requests when max capacity is reached" taggedAs authenticationSecurity in {
       def login(actAs: Party) = {
         val claims = Request.Claims(actAs = List(actAs))
@@ -484,7 +484,7 @@ class TestMiddlewareClientLimitedCallbackStore
     SecurityTest(property = Authentication, asset = "TBD")
 
   override protected val maxClientAuthCallbacks = 2
-  "the /login client" should {
+  "the /login client with an oauth server checking claims" should {
     "refuse requests when max capacity is reached" taggedAs authenticationSecurity in {
       def login(actAs: Party) = {
         val claims = Request.Claims(actAs = List(actAs))
@@ -547,7 +547,7 @@ class TestMiddlewareClientNoRedirectToLogin
     SecurityTest(property = Authentication, asset = "TBD")
 
   override protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.No
-  "the authorize client" should {
+  "the TestMiddlewareClientNoRedirectToLogin client" should {
     "not redirect to /login" taggedAs authenticationSecurity in {
       import com.daml.auth.middleware.api.JsonProtocol.responseAuthenticateChallengeFormat
       val claims = Request.Claims(actAs = List(Party("Alice")))
@@ -598,7 +598,7 @@ class TestMiddlewareClientYesRedirectToLogin
     SecurityTest(property = Authentication, asset = "TBD")
 
   override protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.Yes
-  "the authorize client" should {
+  "the TestMiddlewareClientYesRedirectToLogin client" should {
     "redirect to /login" taggedAs authenticationSecurity in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
       val host = middlewareClientBinding.localAddress
@@ -634,7 +634,7 @@ class TestMiddlewareClientAutoRedirectToLogin
     SecurityTest(property = Authentication, asset = "TBD")
 
   override protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.Auto
-  "the authorize client" should {
+  "the TestMiddlewareClientAutoRedirectToLogin client" should {
     "redirect to /login for HTML request" taggedAs authenticationSecurity in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
       val host = middlewareClientBinding.localAddress
