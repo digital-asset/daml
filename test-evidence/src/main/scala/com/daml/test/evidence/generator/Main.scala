@@ -31,9 +31,9 @@ object Main {
       fileName: String,
       entries: List[TE],
   ): Unit = {
-    println(s"Writing inventory to $fileName...")
     val file = targetDir / fileName
     val path = file.path.toAbsolutePath
+    println(s"Writing inventory to $file...")
     TestEntryCsvEncoder.write(file, entries)
     println(s"Wrote to $path")
   }
