@@ -5,7 +5,7 @@ package com.daml.platform.store.backend.localstore
 
 import anorm.SqlParser.{bool, int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
-import com.daml.ledger.api.domain
+import com.daml.ledger.api.{ListUsersFilter, domain}
 import com.daml.ledger.api.domain.{IdentityProviderId, UserRight}
 import com.daml.ledger.api.domain.UserRight.{
   CanActAs,
@@ -147,18 +147,18 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   override def getUsersOrderedById(
       fromExcl: Option[UserId],
       maxResults: Int,
-      identityProviderId: IdentityProviderId,
+      filter: ListUsersFilter,
   )(
       connection: Connection
   ): Vector[UserManagementStorageBackend.DbUserWithId] = {
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-    val whereClause = (fromExcl, identityProviderId) match {
-      case (None, IdentityProviderId.Default) => cSQL""
-      case (Some(id: String), IdentityProviderId.Id(idpId: String)) =>
-        cSQL"WHERE user_id > ${id} AND identity_provider_id=${idpId}"
-      case (Some(id: String), IdentityProviderId.Default) => cSQL"WHERE user_id > ${id}"
-      case (None, IdentityProviderId.Id(idpId: String)) =>
-        cSQL"WHERE identity_provider_id=${idpId}"
+    val whereClause = (fromExcl, filter) match {
+      case (None, ListUsersFilter.Wildcard) => cSQL""
+      case (Some(id: String), ListUsersFilter.ByIdentityProviderId(identityProviderId)) =>
+        cSQL"WHERE user_id > ${id} AND identity_provider_id=${identityProviderId.value: String}"
+      case (Some(id: String), ListUsersFilter.Wildcard) => cSQL"WHERE user_id > ${id}"
+      case (None, ListUsersFilter.ByIdentityProviderId(identityProviderId)) =>
+        cSQL"WHERE identity_provider_id=${identityProviderId.value: String}"
     }
     SQL"""SELECT internal_id, user_id, primary_party, identity_provider_id, is_deactivated, resource_version, created_at
           FROM participant_users

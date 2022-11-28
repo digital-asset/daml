@@ -3,8 +3,8 @@
 
 package com.daml.ledger.api.auth.interceptor
 
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.auth._
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{IdentityProviderId, User, UserRight}
@@ -15,8 +15,8 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.localstore.api.{IdentityProviderConfigStore, UserManagementStore}
 import io.grpc._
 
-import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.util.{Failure, Success, Try}
 
 /** This interceptor uses the given [[AuthService]] to get [[Claims]] for the current request,
@@ -93,10 +93,7 @@ final class AuthorizationInterceptor(
             user,
             identityProviderStore,
           )
-          userRightsResult <- userManagementStore.listUserRights(
-            userId,
-            IdentityProviderId.Default,
-          )
+          userRightsResult <- userManagementStore.listUserRights(userId)
           claimsSet <- userRightsResult match {
             case Left(msg) =>
               Future.failed(
@@ -164,7 +161,7 @@ final class AuthorizationInterceptor(
       userId: UserId,
   ): Future[User] =
     for {
-      userResult <- userManagementStore.getUser(id = userId, IdentityProviderId.Default)
+      userResult <- userManagementStore.getUser(id = userId)
       value <- userResult match {
         case Left(msg) =>
           Future.failed(

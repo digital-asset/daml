@@ -469,7 +469,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[User]] =
     userManagementStore
-      .getUser(id, IdentityProviderId.Default)(LoggingContext.empty)
+      .getUser(id)(LoggingContext.empty)
       .map(_.toOption)
 
   override def deleteUser(id: UserId)(implicit
@@ -478,7 +478,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[Unit]] =
     userManagementStore
-      .deleteUser(id, IdentityProviderId.Default)(LoggingContext.empty)
+      .deleteUser(id)(LoggingContext.empty)
       .map(_.toOption)
 
   override def listAllUsers()(implicit
@@ -497,7 +497,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .grantRights(id, rights.toSet, IdentityProviderId.Default)(
+      .grantRights(id, rights.toSet)(
         LoggingContext.empty
       )
       .map(_.toOption.map(_.toList))
@@ -511,7 +511,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .revokeRights(id, rights.toSet, IdentityProviderId.Default)(
+      .revokeRights(id, rights.toSet)(
         LoggingContext.empty
       )
       .map(_.toOption.map(_.toList))
@@ -522,7 +522,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .listUserRights(id, IdentityProviderId.Default)(
+      .listUserRights(id)(
         LoggingContext.empty
       )
       .map(_.toOption.map(_.toList))

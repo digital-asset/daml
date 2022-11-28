@@ -5,8 +5,8 @@ package com.daml.platform.localstore
 
 import com.daml.caching.CaffeineCache
 import com.daml.caching.CaffeineCache.FutureAsyncCacheLoader
-import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{IdentityProviderId, User}
+import com.daml.ledger.api.{ListUsersFilter, domain}
+import com.daml.ledger.api.domain.User
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.LoggingContext
@@ -34,25 +34,15 @@ class CachedUserManagementStore(
         .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
         .maximumSize(maximumCacheSize.toLong)
         .buildAsync(
-          new FutureAsyncCacheLoader[UserId, Result[UserInfo]](key =>
-            delegate.getUserInfo(key, IdentityProviderId.Default)
-          )
+          new FutureAsyncCacheLoader[UserId, Result[UserInfo]](key => delegate.getUserInfo(key))
         ),
       metrics.daml.userManagement.cache,
     )
 
-  override def getUserInfo(id: UserId, identityProviderId: IdentityProviderId)(implicit
+  override def getUserInfo(id: UserId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserManagementStore.UserInfo]] = {
-    cache
-      .get(id)
-      .map(_.flatMap {
-        case user if identityProviderId == IdentityProviderId.Default => Right(user)
-        case user if identityProviderId == user.user.identityProviderId =>
-          Right(user)
-        case _ =>
-          Left(UserManagementStore.UserNotFound(id))
-      })
+    cache.get(id)
   }
 
   override def createUser(user: User, rights: Set[domain.UserRight])(implicit
@@ -71,42 +61,39 @@ class CachedUserManagementStore(
   }
 
   override def deleteUser(
-      id: UserId,
-      identityProviderId: IdentityProviderId,
+      id: UserId
   )(implicit loggingContext: LoggingContext): Future[Result[Unit]] = {
     delegate
-      .deleteUser(id, identityProviderId)
+      .deleteUser(id)
       .andThen(invalidateOnSuccess(id))
   }
 
   override def grantRights(
       id: UserId,
       rights: Set[domain.UserRight],
-      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     delegate
-      .grantRights(id, rights, identityProviderId)
+      .grantRights(id, rights)
       .andThen(invalidateOnSuccess(id))
   }
 
   override def revokeRights(
       id: UserId,
       rights: Set[domain.UserRight],
-      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     delegate
-      .revokeRights(id, rights, identityProviderId)
+      .revokeRights(id, rights)
       .andThen(invalidateOnSuccess(id))
   }
 
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
-      identityProviderId: IdentityProviderId,
+      listUsersFilter: ListUsersFilter,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserManagementStore.UsersPage]] =
-    delegate.listUsers(fromExcl, maxResults, identityProviderId)
+    delegate.listUsers(fromExcl, maxResults, listUsersFilter)
 
   private def invalidateOnSuccess(id: UserId): PartialFunction[Try[Result[Any]], Unit] = {
     case Success(Right(_)) => cache.invalidate(id)

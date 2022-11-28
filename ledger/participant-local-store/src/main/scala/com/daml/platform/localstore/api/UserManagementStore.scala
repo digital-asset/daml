@@ -3,6 +3,7 @@
 
 package com.daml.platform.localstore.api
 
+import com.daml.ledger.api.ListUsersFilter
 import com.daml.ledger.api.domain.{IdentityProviderId, User, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
@@ -36,7 +37,7 @@ trait UserManagementStore {
 
   // read access
 
-  def getUserInfo(id: Ref.UserId, identityProviderId: IdentityProviderId)(implicit
+  def getUserInfo(id: Ref.UserId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserInfo]]
 
@@ -46,7 +47,7 @@ trait UserManagementStore {
   def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
-      identityProviderId: IdentityProviderId,
+      listUsersFilter: ListUsersFilter,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]]
@@ -61,38 +62,28 @@ trait UserManagementStore {
       loggingContext: LoggingContext
   ): Future[Result[User]]
 
-  def deleteUser(id: Ref.UserId, identityProviderId: IdentityProviderId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Result[Unit]]
+  def deleteUser(id: Ref.UserId)(implicit loggingContext: LoggingContext): Future[Result[Unit]]
 
-  def grantRights(
-      id: Ref.UserId,
-      rights: Set[UserRight],
-      identityProviderId: IdentityProviderId,
-  )(implicit
+  def grantRights(id: Ref.UserId, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]]
 
-  def revokeRights(
-      id: Ref.UserId,
-      rights: Set[UserRight],
-      identityProviderId: IdentityProviderId,
-  )(implicit
+  def revokeRights(id: Ref.UserId, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]]
 
   // read helpers
 
-  final def getUser(id: Ref.UserId, identityProviderId: IdentityProviderId)(implicit
+  final def getUser(id: Ref.UserId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[User]] = {
-    getUserInfo(id, identityProviderId).map(_.map(_.user))(ExecutionContext.parasitic)
+    getUserInfo(id).map(_.map(_.user))(ExecutionContext.parasitic)
   }
 
-  final def listUserRights(id: Ref.UserId, identityProviderId: IdentityProviderId)(implicit
+  final def listUserRights(id: Ref.UserId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]] = {
-    getUserInfo(id, identityProviderId).map(_.map(_.rights))(ExecutionContext.parasitic)
+    getUserInfo(id).map(_.map(_.rights))(ExecutionContext.parasitic)
   }
 
 }
@@ -102,7 +93,6 @@ object UserManagementStore {
   val DefaultParticipantAdminUserId = "participant_admin"
 
   type Result[T] = Either[Error, T]
-  type Users = Seq[User]
 
   case class UsersPage(users: Seq[User]) {
     def lastUserIdOption: Option[Ref.UserId] = users.lastOption.map(_.id)

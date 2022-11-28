@@ -5,7 +5,7 @@ package com.daml.platform.apiserver.services.admin
 
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.ledger.api.SubmissionIdGenerator
+import com.daml.ledger.api.{ListUsersFilter, SubmissionIdGenerator}
 import com.daml.ledger.api.auth.ClaimSet.Claims
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.domain._
@@ -215,9 +215,9 @@ private[apiserver] final class ApiUserManagementService(
           "identity_provider_id",
         )
       } yield (userId, identityProviderId)
-    } { case (userId, identityProviderId) =>
+    } { case (userId, _) =>
       userManagementStore
-        .getUser(userId, identityProviderId)
+        .getUser(userId)
         .flatMap(handleResult("getting user"))
         .map(u => GetUserResponse(Some(toProtoUser(u))))
     }
@@ -232,9 +232,9 @@ private[apiserver] final class ApiUserManagementService(
             "identity_provider_id",
           )
         } yield (userId, identityProviderId)
-      } { case (userId, identityProviderId) =>
+      } { case (userId, _) =>
         userManagementStore
-          .deleteUser(userId, identityProviderId)
+          .deleteUser(userId)
           .flatMap(handleResult("deleting user"))
           .map(_ => proto.DeleteUserResponse())
       }
@@ -261,9 +261,9 @@ private[apiserver] final class ApiUserManagementService(
       } yield {
         (fromExcl, pageSize, identityProviderId)
       }
-    ) { case (fromExcl, pageSize, identityProviderId) =>
+    ) { case (fromExcl, pageSize, _) =>
       userManagementStore
-        .listUsers(fromExcl, pageSize, identityProviderId)
+        .listUsers(fromExcl, pageSize, ListUsersFilter.Wildcard)
         .flatMap(handleResult("listing users"))
         .map { page: UserManagementStore.UsersPage =>
           val protoUsers = page.users.map(toProtoUser)
@@ -287,12 +287,11 @@ private[apiserver] final class ApiUserManagementService(
           "identity_provider_id",
         )
       } yield (userId, rights, identityProviderId)
-    ) { case (userId, rights, identityProviderId) =>
+    ) { case (userId, rights, _) =>
       userManagementStore
         .grantRights(
           id = userId,
           rights = rights,
-          identityProviderId = identityProviderId,
         )
         .flatMap(handleResult("grant user rights"))
         .map(_.view.map(toProtoRight).toList)
@@ -312,12 +311,11 @@ private[apiserver] final class ApiUserManagementService(
           "identity_provider_id",
         )
       } yield (userId, rights, identityProviderId)
-    ) { case (userId, rights, identityProviderId) =>
+    ) { case (userId, rights, _) =>
       userManagementStore
         .revokeRights(
           id = userId,
           rights = rights,
-          identityProviderId = identityProviderId,
         )
         .flatMap(handleResult("revoke user rights"))
         .map(_.view.map(toProtoRight).toList)
@@ -336,9 +334,9 @@ private[apiserver] final class ApiUserManagementService(
           "identity_provider_id",
         )
       } yield (userId, identityProviderId)
-    } { case (userId, identityProviderId) =>
+    } { case (userId, _) =>
       userManagementStore
-        .listUserRights(userId, identityProviderId)
+        .listUserRights(userId)
         .flatMap(handleResult("list user rights"))
         .map(_.view.map(toProtoRight).toList)
         .map(proto.ListUserRightsResponse(_))
