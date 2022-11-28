@@ -35,7 +35,11 @@ import com.daml.platform.apiserver.services.admin._
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
 import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
 import com.daml.platform.localstore.UserManagementConfig
-import com.daml.platform.localstore.api.{PartyRecordStore, UserManagementStore}
+import com.daml.platform.localstore.api.{
+  IdentityProviderConfigStore,
+  PartyRecordStore,
+  UserManagementStore,
+}
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.{GrpcHealthService, GrpcTransactionService}
 import com.daml.platform.services.time.TimeProviderType
@@ -69,6 +73,7 @@ private[daml] object ApiServices {
       optWriteService: Option[state.WriteService],
       indexService: IndexService,
       userManagementStore: UserManagementStore,
+      identityProviderConfigStore: IdentityProviderConfigStore,
       partyRecordStore: PartyRecordStore,
       authorizer: Authorizer,
       engine: Engine,
@@ -203,6 +208,9 @@ private[daml] object ApiServices {
               userManagementStore,
               maxUsersPageSize = userManagementConfig.maxUsersPageSize,
               submissionIdGenerator = SubmissionIdGenerator.Random,
+              identityProviderConfigValidation = new IdentityProviderConfigValidationImpl(
+                identityProviderConfigStore
+              ),
             )
           val authorized =
             new UserManagementServiceAuthorization(apiUserManagementService, authorizer)

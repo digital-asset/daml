@@ -312,6 +312,7 @@ object domain {
       primaryParty: Option[Ref.Party],
       isDeactivated: Boolean = false,
       metadata: ObjectMeta = ObjectMeta.empty,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   )
 
   case class PartyDetails(
@@ -319,6 +320,7 @@ object domain {
       displayName: Option[String],
       isLocal: Boolean,
       metadata: ObjectMeta,
+      identityProviderId: IdentityProviderId,
   )
 
   sealed abstract class UserRight extends Product with Serializable

@@ -26,12 +26,13 @@ import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.index.{InMemoryStateUpdater, IndexServiceOwner}
 import com.daml.platform.indexer.IndexerServiceOwner
 import com.daml.platform.localstore.{
+  PersistentIdentityProviderConfigStore,
   PersistentPartyRecordStore,
   PersistentUserManagementStore,
   UserManagementConfig,
 }
-import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.DbSupport
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
@@ -143,7 +144,15 @@ class LedgerApiServer(
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
-  ): ResourceOwner[ApiService] =
+  ): ResourceOwner[ApiService] = {
+    val identityProviderStore =
+      PersistentIdentityProviderConfigStore.cached(
+        dbSupport = dbSupport,
+        metrics = metrics,
+        expiryAfterWriteInSeconds = apiServerConfig.userManagement.cacheExpiryAfterWriteInSeconds,
+        maximumCacheSize = apiServerConfig.userManagement.maxCacheSize,
+        maxIdentityProviderConfigs = 10,
+      )(servicesExecutionContext, loggingContext)
     ApiServiceOwner(
       indexService = indexService,
       ledgerId = ledgerId,
@@ -164,6 +173,7 @@ class LedgerApiServer(
         maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
         timeProvider = TimeProvider.UTC,
       )(servicesExecutionContext, loggingContext),
+      identityProviderConfigStore = identityProviderStore,
       partyRecordStore = new PersistentPartyRecordStore(
         dbSupport = dbSupport,
         metrics = metrics,
@@ -176,6 +186,7 @@ class LedgerApiServer(
       jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
       explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
     )
+  }
 }
 
 object LedgerApiServer {

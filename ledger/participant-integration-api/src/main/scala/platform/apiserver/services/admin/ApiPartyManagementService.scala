@@ -4,13 +4,12 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.util.UUID
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{LedgerOffset, ObjectMeta, PartyDetails}
+import com.daml.ledger.api.domain.{IdentityProviderId, LedgerOffset, ObjectMeta, PartyDetails}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
@@ -187,6 +186,7 @@ private[apiserver] final class ApiPartyManagementService private (
               PartyRecord(
                 party = allocated.partyDetails.party,
                 metadata = domain.ObjectMeta(resourceVersionO = None, annotations = annotations),
+                identityProviderId = IdentityProviderId.Default,
               )
             )
             .flatMap(handlePartyRecordStoreResult("creating a party record")(_))
@@ -243,6 +243,7 @@ private[apiserver] final class ApiPartyManagementService private (
               resourceVersionO = resourceVersionNumberO,
               annotations = annotations,
             ),
+            identityProviderId = IdentityProviderId.Default,
           )
         } yield (partyRecord, updateMask)
       } { case (partyRecord, updateMask) =>
@@ -299,6 +300,7 @@ private[apiserver] final class ApiPartyManagementService private (
                 PartyRecordUpdate(
                   party = partyDetailsUpdate.party,
                   metadataUpdate = partyDetailsUpdate.metadataUpdate,
+                  identityProviderIdUpdate = partyDetailsUpdate.identityProviderIdUpdate,
                 )
               )
             }
@@ -406,7 +408,7 @@ private[apiserver] object ApiPartyManagementService {
 
   private def toProtoPartyDetails(
       partyDetails: IndexerPartyDetails,
-      metadataO: Option[ObjectMeta],
+      metadataO: Option[ObjectMeta]
   ): ProtoPartyDetails =
     ProtoPartyDetails(
       party = partyDetails.party,

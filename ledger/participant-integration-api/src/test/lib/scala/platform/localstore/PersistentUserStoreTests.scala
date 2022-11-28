@@ -44,6 +44,7 @@ trait PersistentUserStoreTests
       DbUserPayload(
         id = id,
         primaryPartyO = None,
+        identityProviderId = None,
         isDeactivated = false,
         resourceVersion = initialResourceVersion,
         createdAt = 0,

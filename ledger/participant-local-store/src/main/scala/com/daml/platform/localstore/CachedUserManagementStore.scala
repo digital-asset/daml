@@ -5,7 +5,7 @@ package com.daml.platform.localstore
 
 import com.daml.caching.CaffeineCache
 import com.daml.caching.CaffeineCache.FutureAsyncCacheLoader
-import com.daml.ledger.api.domain
+import com.daml.ledger.api.{ListUsersFilter, domain}
 import com.daml.ledger.api.domain.User
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
@@ -89,10 +89,11 @@ class CachedUserManagementStore(
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
+      listUsersFilter: ListUsersFilter,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserManagementStore.UsersPage]] =
-    delegate.listUsers(fromExcl, maxResults)
+    delegate.listUsers(fromExcl, maxResults, listUsersFilter)
 
   private def invalidateOnSuccess(id: UserId): PartialFunction[Try[Result[Any]], Unit] = {
     case Success(Right(_)) => cache.invalidate(id)

@@ -32,6 +32,7 @@ object PartyRecordUpdateMapper extends UpdateMapperBase {
           resourceVersionO = partyRecord.metadata.resourceVersionO,
           annotationsUpdateO = annotationsUpdate,
         ),
+        identityProviderIdUpdate = None,
       )
     }
   }

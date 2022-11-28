@@ -18,6 +18,10 @@ trait IdentityProviderStorageBackend {
       connection: Connection
   ): Option[IdentityProviderConfig]
 
+  def getIdentityProviderConfigByIssuer(issuer: String)(
+      connection: Connection
+  ): Option[IdentityProviderConfig]
+
   def listIdentityProviderConfigs()(
       connection: Connection
   ): Vector[IdentityProviderConfig]

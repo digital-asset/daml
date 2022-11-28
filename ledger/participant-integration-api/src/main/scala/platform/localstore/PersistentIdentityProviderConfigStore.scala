@@ -4,20 +4,13 @@
 package com.daml.platform.localstore
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.IdentityProviderId
+import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
-import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
-  IdentityProviderConfigExists,
-  IdentityProviderConfigNotFound,
-  IdentityProviderConfigWithIssuerExists,
-  Result,
-  TooManyIdentityProviderConfigs,
-}
+import com.daml.platform.localstore.Ops._
+import com.daml.platform.localstore.api.IdentityProviderConfigStore._
 import com.daml.platform.localstore.api.{IdentityProviderConfigStore, IdentityProviderConfigUpdate}
 import com.daml.platform.store.DbSupport
-import com.daml.platform.store.dao.DbDispatcher
-import Ops._
 
 import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,7 +23,7 @@ class PersistentIdentityProviderConfigStore(
     extends IdentityProviderConfigStore {
 
   private val backend = dbSupport.storageBackendFactory.createIdentityProviderConfigStorageBackend
-  private val dbDispatcher: DbDispatcher = dbSupport.dbDispatcher
+  private val dbDispatcher = dbSupport.dbDispatcher
   private val logger = ContextualizedLogger.get(getClass)
 
   override def createIdentityProviderConfig(identityProviderConfig: domain.IdentityProviderConfig)(
@@ -108,6 +101,24 @@ class PersistentIdentityProviderConfigStore(
         s"Updated identity provider configuration with id ${update.identityProviderId}"
       )
     })
+  }
+
+  override def getIdentityProviderConfig(issuer: String)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[IdentityProviderConfig]] = inTransaction(_.getIdpConfig) { implicit connection =>
+    for {
+      identityProviderConfig <- backend
+        .getIdentityProviderConfigByIssuer(issuer)(connection)
+        .toRight(IdentityProviderConfigByIssuerNotFound(issuer))
+    } yield identityProviderConfig
+  }
+
+  def identityProviderConfigExists(id: IdentityProviderId.Id)(implicit
+      loggingContext: LoggingContext
+  ): Future[Boolean] = {
+    dbDispatcher.executeSql(metrics.daml.identityProviderConfigStore.getIdpConfig) { connection =>
+      backend.idpConfigByIdExists(id)(connection)
+    }
   }
 
   private def updateIssuer(

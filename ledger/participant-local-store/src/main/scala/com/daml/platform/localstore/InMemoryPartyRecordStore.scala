@@ -4,7 +4,7 @@
 package com.daml.platform.localstore
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.ObjectMeta
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -25,11 +25,13 @@ import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
+//TODO IMPLEMENT
 object InMemoryPartyRecordStore {
   case class PartyRecordInfo(
       party: Ref.Party,
       resourceVersion: Long,
       annotations: Map[String, String],
+      identityProviderId: IdentityProviderId,
   )
 
   def toPartyRecord(info: PartyRecordInfo): PartyRecord =
@@ -39,6 +41,7 @@ object InMemoryPartyRecordStore {
         resourceVersionO = Some(info.resourceVersion),
         annotations = info.annotations,
       ),
+      identityProviderId = info.identityProviderId,
     )
 
 }
@@ -101,6 +104,7 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
                     Map.empty[String, String]
                   ),
                 ),
+                identityProviderId = IdentityProviderId.Default,
               )
               for {
                 info <- doCreatePartyRecord(newPartyRecord)
@@ -147,6 +151,7 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
         party = party,
         resourceVersion = newResourceVersion,
         annotations = updatedAnnotations,
+        identityProviderId = IdentityProviderId.Default,
       )
       state.put(party, updatedInfo)
       updatedInfo
@@ -163,6 +168,7 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
         party = partyRecord.party,
         resourceVersion = 0,
         annotations = partyRecord.metadata.annotations,
+        identityProviderId = partyRecord.identityProviderId,
       )
       state.update(partyRecord.party, info)
       info

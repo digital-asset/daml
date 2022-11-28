@@ -3,16 +3,17 @@
 
 package com.daml.platform.store.backend
 
-import java.sql.SQLException
-import java.util.UUID
-
-import com.daml.ledger.api.domain.UserRight
+import com.daml.ledger.api.ListUsersFilter
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
+import com.daml.ledger.api.domain.{IdentityProviderId, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.localstore.UserManagementStorageBackend
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, OptionValues}
+
+import java.sql.SQLException
+import java.util.UUID
 
 private[backend] trait StorageBackendTestsUserManagement
     extends Matchers
@@ -199,16 +200,34 @@ private[backend] trait StorageBackendTestsUserManagement
     val user1 = newDbUser(userId = "user_id_1")
     val user2 = newDbUser(userId = "user_id_2")
     val user3 = newDbUser(userId = "user_id_3")
-    executeSql(tested.getUsersOrderedById(fromExcl = None, maxResults = 10)) shouldBe empty
+    executeSql(
+      tested.getUsersOrderedById(
+        fromExcl = None,
+        maxResults = 10,
+        filter = ListUsersFilter.Wildcard,
+      )
+    ) shouldBe empty
     val _ = executeSql(tested.createUser(user3))
     val _ = executeSql(tested.createUser(user1))
-    executeSql(tested.getUsersOrderedById(fromExcl = None, maxResults = 10))
+    executeSql(
+      tested.getUsersOrderedById(
+        fromExcl = None,
+        maxResults = 10,
+        filter = ListUsersFilter.Wildcard,
+      )
+    )
       .map(_.payload) shouldBe Seq(
       user1,
       user3,
     )
     val _ = executeSql(tested.createUser(user2))
-    executeSql(tested.getUsersOrderedById(fromExcl = None, maxResults = 10))
+    executeSql(
+      tested.getUsersOrderedById(
+        fromExcl = None,
+        maxResults = 10,
+        filter = ListUsersFilter.Wildcard,
+      )
+    )
       .map(_.payload) shouldBe Seq(
       user1,
       user2,
@@ -225,7 +244,13 @@ private[backend] trait StorageBackendTestsUserManagement
     val user6 = newDbUser(userId = "_a")
     val users = Seq(user1, user2, user3, user4, user5, user6)
     users.foreach(user => executeSql(tested.createUser(user)))
-    executeSql(tested.getUsersOrderedById(fromExcl = None, maxResults = 10))
+    executeSql(
+      tested.getUsersOrderedById(
+        fromExcl = None,
+        maxResults = 10,
+        filter = ListUsersFilter.Wildcard,
+      )
+    )
       .map(_.payload.id) shouldBe Seq("!a", "_a", "a", "a!", "a_", "b")
   }
 
@@ -237,7 +262,13 @@ private[backend] trait StorageBackendTestsUserManagement
     val user5 = newDbUser(userId = "user_id_5")
     val user6 = newDbUser(userId = "user_id_6")
     val user7 = newDbUser(userId = "user_id_7")
-    executeSql(tested.getUsersOrderedById(fromExcl = None, maxResults = 10)) shouldBe empty
+    executeSql(
+      tested.getUsersOrderedById(
+        fromExcl = None,
+        maxResults = 10,
+        filter = ListUsersFilter.Wildcard,
+      )
+    ) shouldBe empty
     // Creating users in a random order
     val _ = executeSql(tested.createUser(user5))
     val _ = executeSql(tested.createUser(user1))
@@ -246,13 +277,25 @@ private[backend] trait StorageBackendTestsUserManagement
     val _ = executeSql(tested.createUser(user6))
     val _ = executeSql(tested.createUser(user2))
     // Get first 2 elements
-    executeSql(tested.getUsersOrderedById(fromExcl = None, maxResults = 2))
+    executeSql(
+      tested.getUsersOrderedById(
+        fromExcl = None,
+        maxResults = 2,
+        filter = ListUsersFilter.Wildcard,
+      )
+    )
       .map(_.payload) shouldBe Seq(
       user1,
       user2,
     )
     // Get 3 users after user1
-    executeSql(tested.getUsersOrderedById(maxResults = 3, fromExcl = Some(user1.id)))
+    executeSql(
+      tested.getUsersOrderedById(
+        maxResults = 3,
+        fromExcl = Some(user1.id),
+        filter = ListUsersFilter.Wildcard,
+      )
+    )
       .map(_.payload) shouldBe Seq(
       user2,
       user3,
@@ -260,7 +303,11 @@ private[backend] trait StorageBackendTestsUserManagement
     )
     // Get up to 10000 users after user1
     executeSql(
-      tested.getUsersOrderedById(maxResults = 10000, fromExcl = Some(user1.id))
+      tested.getUsersOrderedById(
+        maxResults = 10000,
+        fromExcl = Some(user1.id),
+        filter = ListUsersFilter.Wildcard,
+      )
     ) map (_.payload) shouldBe Seq(
       user2,
       user3,
@@ -273,22 +320,36 @@ private[backend] trait StorageBackendTestsUserManagement
       tested.getUsersOrderedById(
         maxResults = 2,
         fromExcl = Some(Ref.UserId.assertFromString("user_id_4")),
+        filter = ListUsersFilter.Wildcard,
       )
     ).map(_.payload) shouldBe Seq(user5, user6)
     // Get no users when requesting with after set the last existing user
-    executeSql(tested.getUsersOrderedById(maxResults = 2, fromExcl = Some(user7.id))) shouldBe empty
+    executeSql(
+      tested.getUsersOrderedById(
+        maxResults = 2,
+        fromExcl = Some(user7.id),
+        filter = ListUsersFilter.Wildcard,
+      )
+    ) shouldBe empty
     // Get no users when requesting with after set beyond the last existing user
     executeSql(
       tested.getUsersOrderedById(
         maxResults = 2,
         fromExcl = Some(Ref.UserId.assertFromString("user_id_8")),
+        filter = ListUsersFilter.Wildcard,
       )
     ) shouldBe empty
   }
 
   it should "handle adding rights to non-existent user" in {
     val nonExistentUserInternalId = 123
-    val allUsers = executeSql(tested.getUsersOrderedById(maxResults = 10, fromExcl = None))
+    val allUsers = executeSql(
+      tested.getUsersOrderedById(
+        maxResults = 10,
+        fromExcl = None,
+        filter = ListUsersFilter.Wildcard,
+      )
+    )
     val rightExists = executeSql(tested.userRightExists(nonExistentUserInternalId, right2))
     allUsers shouldBe empty
     rightExists shouldBe false
@@ -377,6 +438,8 @@ private[backend] trait StorageBackendTestsUserManagement
       userId: String = "",
       isDeactivated: Boolean = false,
       primaryPartyOverride: Option[Option[Ref.Party]] = None,
+      identityProviderId: com.daml.ledger.api.domain.IdentityProviderId =
+        IdentityProviderId.Default,
       resourceVersion: Long = 0,
       createdAt: Long = zeroMicros,
   ): UserManagementStorageBackend.DbUserPayload = {
@@ -390,6 +453,7 @@ private[backend] trait StorageBackendTestsUserManagement
       primaryPartyO = primaryParty,
       isDeactivated = isDeactivated,
       resourceVersion = resourceVersion,
+      identityProviderId = identityProviderId.toDb,
       createdAt = createdAt,
     )
   }

@@ -4,10 +4,9 @@
 package com.daml.platform.localstore
 
 import java.sql.Connection
-
 import com.daml.api.util.TimeProvider
-import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.User
+import com.daml.ledger.api.{ListUsersFilter, domain}
+import com.daml.ledger.api.domain.{IdentityProviderId, User}
 import com.daml.platform.localstore.api.UserManagementStore._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
@@ -127,6 +126,7 @@ class PersistentUserManagementStore(
         val dbUser = UserManagementStorageBackend.DbUserPayload(
           id = user.id,
           primaryPartyO = user.primaryParty,
+          identityProviderId = user.identityProviderId.toDb,
           isDeactivated = user.isDeactivated,
           resourceVersion = 0,
           createdAt = now,
@@ -226,6 +226,12 @@ class PersistentUserManagementStore(
               primaryPartyO = newValue,
             )(connection)
           }
+          userUpdate.identityProviderIdUpdate.foreach { newValue =>
+            backend.updateUserIdentityProviderId(
+              internalId = dbUser.internalId,
+              identityProviderId = newValue.toDb,
+            )(connection)
+          }
         }
         domainUser <- withUser(id = userUpdate.id) { dbUserAfterUpdates =>
           val annotations =
@@ -304,13 +310,15 @@ class PersistentUserManagementStore(
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
+      filter: ListUsersFilter,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]] = {
     inTransaction(_.listUsers) { connection =>
       val dbUsers = fromExcl match {
-        case None => backend.getUsersOrderedById(None, maxResults)(connection)
-        case Some(fromExcl) => backend.getUsersOrderedById(Some(fromExcl), maxResults)(connection)
+        case None => backend.getUsersOrderedById(None, maxResults, filter)(connection)
+        case Some(fromExcl) =>
+          backend.getUsersOrderedById(Some(fromExcl), maxResults, filter)(connection)
       }
       val users = dbUsers.map { dbUser =>
         val annotations = backend.getUserAnnotations(dbUser.internalId)(connection)
@@ -353,6 +361,7 @@ class PersistentUserManagementStore(
       id = payload.id,
       primaryParty = payload.primaryPartyO,
       isDeactivated = payload.isDeactivated,
+      identityProviderId = IdentityProviderId.fromDb(payload.identityProviderId),
       metadata = domain.ObjectMeta(
         resourceVersionO = Some(payload.resourceVersion),
         annotations = annotations,

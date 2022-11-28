@@ -3,7 +3,8 @@
 
 package com.daml.platform.localstore
 
-import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
+import com.daml.ledger.api.ListUsersFilter
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, User, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.LoggingContext
@@ -46,6 +47,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
             isDeactivated = user.isDeactivated,
             resourceVersion = 0,
             annotations = user.metadata.annotations,
+            identityProviderId = user.identityProviderId,
           )
         }
         state.update(user.id, InMemUserInfo(userWithResourceVersion, rights))
@@ -61,6 +63,8 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       val updatedIsDeactivated =
         userUpdate.isDeactivatedUpdateO.getOrElse(userInfo.user.isDeactivated)
       val existingAnnotations = userInfo.user.annotations
+      val identityProviderId =
+        userUpdate.identityProviderIdUpdate.getOrElse(userInfo.user.identityProviderId)
       val updatedAnnotations =
         userUpdate.metadataUpdate.annotationsUpdateO.fold(existingAnnotations) { newAnnotations =>
           LocalAnnotationsUtils.calculateUpdatedAnnotations(
@@ -88,6 +92,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
             isDeactivated = updatedIsDeactivated,
             resourceVersion = newResourceVersion,
             annotations = updatedAnnotations,
+            identityProviderId = identityProviderId,
           )
         )
         state.update(userUpdate.id, updatedUserInfo)
@@ -133,6 +138,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
+      listUsersFilter: ListUsersFilter,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]] = {
@@ -144,6 +150,13 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       val users: Seq[User] = iter
         .take(maxResults)
         .map(info => toDomainUser(info.user))
+        .filter { item =>
+          listUsersFilter match {
+            case ListUsersFilter.Wildcard => true
+            case ListUsersFilter.ByIdentityProviderId(identityProviderId) =>
+              identityProviderId == item.identityProviderId
+          }
+        }
         .toSeq
       Right(UsersPage(users = users))
     }
@@ -207,6 +220,7 @@ object InMemoryUserManagementStore {
       isDeactivated: Boolean = false,
       resourceVersion: Long,
       annotations: Map[String, String],
+      identityProviderId: IdentityProviderId,
   )
   case class InMemUserInfo(user: InMemUser, rights: Set[UserRight])
 
@@ -236,6 +250,7 @@ object InMemoryUserManagementStore {
       isDeactivated = false,
       resourceVersion = 0,
       annotations = Map.empty,
+      identityProviderId = IdentityProviderId.Default,
     ),
     rights = Set(UserRight.ParticipantAdmin),
   )

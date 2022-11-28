@@ -41,6 +41,23 @@ class CachedIdentityProviderConfigStore(
       metrics.daml.identityProviderConfigStore.cache,
     )
 
+  private val idpByIssuer: CaffeineCache.AsyncLoadingCaffeineCache[
+    String,
+    Result[IdentityProviderConfig],
+  ] =
+    new CaffeineCache.AsyncLoadingCaffeineCache(
+      caffeine.Caffeine
+        .newBuilder()
+        .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
+        .maximumSize(maximumCacheSize.toLong)
+        .buildAsync(
+          new FutureAsyncCacheLoader[String, Result[IdentityProviderConfig]](issuer =>
+            delegate.getIdentityProviderConfig(issuer)
+          )
+        ),
+      metrics.daml.identityProviderConfigStore.cache,
+    )
+
   override def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig)(implicit
       loggingContext: LoggingContext
   ): Future[Result[IdentityProviderConfig]] =
@@ -67,9 +84,20 @@ class CachedIdentityProviderConfigStore(
     .updateIdentityProviderConfig(update)
     .andThen(invalidateOnSuccess(update.identityProviderId))
 
+  override def getIdentityProviderConfig(issuer: String)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[IdentityProviderConfig]] =
+    idpByIssuer.get(issuer)
+
+  override def identityProviderConfigExists(id: IdentityProviderId.Id)(implicit
+      loggingContext: LoggingContext
+  ): Future[Boolean] =
+    delegate.identityProviderConfigExists(id)
+
   private def invalidateOnSuccess(
       id: IdentityProviderId.Id
   ): PartialFunction[Try[Result[Any]], Unit] = { case Success(Right(_)) =>
     idpCache.invalidate(id)
+    idpByIssuer.invalidateAll()
   }
 }

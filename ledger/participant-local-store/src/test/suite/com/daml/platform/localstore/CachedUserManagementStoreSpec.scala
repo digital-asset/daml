@@ -3,6 +3,7 @@
 
 package com.daml.platform.localstore
 
+import com.daml.ledger.api.ListUsersFilter
 import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
@@ -47,6 +48,7 @@ class CachedUserManagementStoreSpec
   private val rights = Set(right1, right2)
   private val userInfo = UserInfo(user, rights)
   private val createdUserInfo = UserInfo(createdUser1, rights)
+  private val filter: ListUsersFilter = ListUsersFilter.Wildcard
 
   "test user-not-found cache result gets invalidated after user creation" in {
     val delegate = spy(new InMemoryUserManagementStore())
@@ -137,12 +139,22 @@ class CachedUserManagementStoreSpec
 
     for {
       res0 <- tested.createUser(user, rights)
-      res1 <- tested.listUsers(fromExcl = None, maxResults = 100)
-      res2 <- tested.listUsers(fromExcl = None, maxResults = 100)
+      res1 <- tested.listUsers(
+        fromExcl = None,
+        maxResults = 100,
+        listUsersFilter = filter,
+      )
+      res2 <- tested.listUsers(
+        fromExcl = None,
+        maxResults = 100,
+        listUsersFilter = filter,
+      )
     } yield {
       val order = inOrder(delegate)
       order.verify(delegate, times(1)).createUser(user, rights)
-      order.verify(delegate, times(2)).listUsers(fromExcl = None, maxResults = 100)
+      order
+        .verify(delegate, times(2))
+        .listUsers(fromExcl = None, maxResults = 100, listUsersFilter = filter)
       order.verifyNoMoreInteractions()
       res0 shouldBe Right(createdUser1)
       res1 shouldBe Right(UsersPage(Seq(createdUser1)))

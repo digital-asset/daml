@@ -5,7 +5,7 @@ package com.daml.ledger.client.services.admin
 
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
-import com.daml.ledger.api.domain.{ParticipantId, PartyDetails, ObjectMeta}
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, ParticipantId, PartyDetails}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementServiceStub
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
@@ -27,6 +27,7 @@ object PartyManagementClient {
       if (d.displayName.isEmpty) None else Some(d.displayName),
       d.isLocal,
       ObjectMeta.empty,
+      IdentityProviderId.Default,
     )
 
   private val getParticipantIdRequest = GetParticipantIdRequest()

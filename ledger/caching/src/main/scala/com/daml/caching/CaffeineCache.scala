@@ -53,6 +53,8 @@ object CaffeineCache {
     def get(key: Key): Future[Value] = cache.get(key).asScala
 
     def invalidate(key: Key): Unit = cache.synchronous().invalidate(key)
+
+    def invalidateAll(): Unit = cache.synchronous().invalidateAll()
   }
 
   private final class InstrumentedCaffeineCache[Key <: AnyRef, Value <: AnyRef](
