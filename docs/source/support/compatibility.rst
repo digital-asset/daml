@@ -71,7 +71,7 @@ Summary of Ledger API Changes
    * - Ledger API Version
      - Changes
    * - 2.2
-     - | Remove the inlined error documentation from gRPC calls in favor of rich error details documentation under :doc:`error-codes`.
+     - | Remove the inlined error documentation from gRPC calls in favor of rich error details documentation under :doc:`/app-dev/grpc/error-codes`.
        | Extend the User Management Service by adding is_deactivated and metadata fields to the User record and by providing an UpdateUser method allowing modifications of the existing users.
        | Extend the Party Management Service by adding participant specific local_metadata field to the PartyDetails record and by providing an UpdatePartyDetails method that allows changing existing parties' details.
        | Extend the Labs feature of contract disclosure by adding support for opaque contract argument blobs. The message types of DisclosedContract and ContractMetadata should continue being ignored.
