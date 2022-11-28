@@ -89,7 +89,7 @@ object Security {
     object Property {
 
       /** Privacy of an asset. We use privacy in a broad sense and also include data confidentiality here. */
-      case object Privacy extends Property  // This is also known as Confidentiality.
+      case object Privacy extends Property // This is also known as Confidentiality.
 
       case object Integrity extends Property
 
@@ -100,7 +100,7 @@ object Security {
         */
       case object Finality extends Property
 
-      case object Authenticity extends Property  // This is also known as Authentication.
+      case object Authenticity extends Property // This is also known as Authentication.
 
       case object Authorization extends Property
 
