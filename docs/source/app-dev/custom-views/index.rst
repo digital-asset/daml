@@ -88,7 +88,7 @@ The Ledger API provides the following types of events:
 The projection library uses the ``com.daml.ledger.javaapi.data`` ``Event``, ``ExercisedEvent`` and ``TreeEvent`` classes from the :doc:`Java Bindings</app-dev/bindings-java/index>`
 to represent these events.
 
-The following `BatchSources` are available:
+The following ``BatchSource`` s are available:
 
 - ``BatchSource.events`` creates a ``BatchSource`` that reads ``Event``\s from the ledger.
 - ``BatchSource.exercisedEvents`` creates a ``BatchSource`` that reads ``ExercisedEvent``\s from the ledger.
