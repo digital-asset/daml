@@ -40,17 +40,17 @@ daml.grpc.server.duration.seconds
 
 daml.grpc.server.messages.sent.total
 ====================================
-- **Description**: Counts number of gRPC messages sent (on either type of connection).
+- **Description**: Total number of gRPC messages sent (on either type of connection).
 - **Type**: Counter
 
 daml.grpc.server.messages.received.total
 ========================================
-- **Description**: Counts number of gRPC messages received (on either type of connection).
+- **Description**: Total number of gRPC messages received (on either type of connection).
 - **Type**: Counter
 
 daml.grpc.server.started.total
 ==============================
-- **Description**: Counts number of started gRPC requests (on either type of connection).
+- **Description**: Total number of started gRPC requests (on either type of connection).
 - **Type**: Counter
 
 .. errors
@@ -100,7 +100,7 @@ daml.http.requests.duration.seconds
 
 daml.http.requests.total
 ========================
-- **Description**: Counts number of HTTP requests completed.
+- **Description**: Total number of HTTP requests completed.
 - **Labels**:
 
   - **http_status**: returned `HTTP status code <https://en.wikipedia.org/wiki/List_of_HTTP_status_codes>`_ for the call
@@ -109,12 +109,12 @@ daml.http.requests.total
 
 daml.http.websocket.messages.received.total
 ===========================================
-- **Description**: Counts number of WebSocket messages received.
+- **Description**: Total number of WebSocket messages received.
 - **Type**: Counter
 
 daml.http.websocket.messages.sent.total
 =======================================
-- **Description**: Counts number of WebSocket messages sent.
+- **Description**: Total number of WebSocket messages sent.
 - **Type**: Counter
 
 daml.http.requests.payload.bytes
