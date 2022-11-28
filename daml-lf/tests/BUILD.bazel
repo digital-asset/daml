@@ -33,6 +33,14 @@ TEST_FILES = \
 ]
 
 daml_compile(
+    name = "BasicTests-dev",
+    srcs = ["BasicTests.daml"],
+    enable_scenarios = True,
+    target = "1.dev",
+    visibility = ["//daml-lf:__subpackages__"],
+)
+
+daml_compile(
     name = "Optional",
     srcs = ["Optional.daml"],
     visibility = ["//daml-lf:__subpackages__"],

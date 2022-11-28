@@ -48,6 +48,7 @@ da_scala_test_suite(
     data = [
         "//daml-lf/tests:AuthTests.dar",
         "//daml-lf/tests:BasicTests.dar",
+        "//daml-lf/tests:BasicTests-dev.dar",
         "//daml-lf/tests:Exceptions.dar",
         "//daml-lf/tests:InterfaceRetro.dar",
         "//daml-lf/tests:InterfaceViews.dar",
@@ -124,7 +125,7 @@ da_scala_test(
         "src/test/**/MinVersionTest.scala",
     ]),
     data = [
-        "//ledger/test-common:dar-files-1.14",
+        "//ledger/test-common:dar-files-latest",
     ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
@@ -147,7 +148,7 @@ da_scala_test(
         "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
         "//ledger/sandbox-on-x",
-        "//ledger/test-common:dar-files-1.14-lib",
+        "//ledger/test-common:dar-files-latest-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
