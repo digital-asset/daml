@@ -33,7 +33,7 @@ These metrics have the following common labels attached:
 
 daml.grpc.server.duration.seconds
 =================================
-- **Description**: Records the durations of serving gRPC requests.
+- **Description**: Tracks the durations of serving gRPC requests.
 - **Type**: Histogram
 
 .. traffic
@@ -68,12 +68,12 @@ daml.grpc.server.handled.total
 
 daml.grpc.server.messages.sent.bytes
 ====================================
-- **Description**: Records payload sizes of gRPC messages sent (both unary and streaming).
+- **Description**: Tracks payload sizes of gRPC messages sent (both unary and streaming).
 - **Type**: Histogram
 
 daml.grpc.server.messages.received.bytes
 ========================================
-- **Description**: Records payload sizes of gRPC messages received (both unary and streaming).
+- **Description**: Tracks payload sizes of gRPC messages received (both unary and streaming).
 - **Type**: Histogram
 
 HTTP Metrics
@@ -95,7 +95,7 @@ These metrics have the following common labels attached:
 
 daml.http.requests.duration.seconds
 ===================================
-- **Description**: Records the durations of serving HTTP requests.
+- **Description**: Tracks the durations of serving HTTP requests.
 - **Type**: Histogram
 
 daml.http.requests.total
@@ -119,22 +119,22 @@ daml.http.websocket.messages.sent.total
 
 daml.http.requests.payload.bytes
 ================================
-- **Description**: Records payload sizes of HTTP requests received.
+- **Description**: Tracks payload sizes of HTTP requests received.
 - **Type**: Histogram
 
 daml.http.responses.payload.bytes
 =================================
-- **Description**: Records payload sizes of HTTP responses sent.
+- **Description**: Tracks payload sizes of HTTP responses sent.
 - **Type**: Histogram
 
 daml.http.websocket.messages.received.bytes
 ===========================================
-- **Description**: Records payload sizes of WebSocket messages received.
+- **Description**: Tracks payload sizes of WebSocket messages received.
 - **Type**: Histogram
 
 daml.http.websocket.messages.sent.bytes
 =======================================
-- **Description**: Records payload sizes of WebSocket messages sent.
+- **Description**: Tracks payload sizes of WebSocket messages sent.
 - **Type**: Histogram
 
 
