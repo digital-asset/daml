@@ -490,7 +490,7 @@ scrapeInterfaceBinds lfVersion tyThings binds =
           HasMethodDFunId interface methodName retTy ->
             Just (interface, insertInterfaceMethod methodName retTy (convNameLoc name))
           name
-            | "_requires_" `T.isPrefixOf` getOccText name
+            | "_requires$_" `T.isPrefixOf` getOccText name
             , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- varType name
             , NameIn DA_Internal_Desugar "RequiresT" <- requiresT
             -> Just (iface1, insertInterfaceRequires iface2 (convNameLoc name))
@@ -1289,7 +1289,7 @@ convertBind env mc (name, x)
     -- These are only used as markers for the LF conversion.
     | "_interface_instance_" `T.isPrefixOf` getOccText name
     = pure []
-    | "_requires_" `T.isPrefixOf` getOccText name
+    | "_requires$_" `T.isPrefixOf` getOccText name
     = pure []
     -- These are moved into interface implementations so we can drop them
     | "_method_" `T.isPrefixOf` getOccText name

@@ -241,7 +241,7 @@ getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
     guard (exportsFunction dc_exports fct_name)
     guard (not $ "_choice_" `T.isPrefixOf` packRdrName name)
     guard (not $ "_interface_instance_" `T.isPrefixOf` packRdrName name)
-    guard (not $ "_requires_" `T.isPrefixOf` packRdrName name)
+    guard (not $ "_requires$_" `T.isPrefixOf` packRdrName name)
     guard (not $ "_method_" `T.isPrefixOf` packRdrName name)
     guard (not $ "_view_" `T.isPrefixOf` packRdrName name)
     Just FunctionDoc {..}
