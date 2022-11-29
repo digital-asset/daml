@@ -4,10 +4,10 @@
 package com.daml.platform.localstore
 
 import java.sql.Connection
-
 import com.daml.api.util.TimeProvider
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
+import com.daml.platform.localstore.UserStoreSpecBase.StoreContainer
 import com.daml.platform.store.backend.StorageBackendProvider
 import com.daml.platform.store.backend.localstore.UserManagementStorageBackend.DbUserPayload
 import com.daml.platform.store.backend.localstore.{
@@ -23,12 +23,17 @@ trait PersistentUserStoreTests
     with ConcurrentChangeControlTests {
   self: AsyncFreeSpec with StorageBackendProvider =>
 
-  override def newStore() = new PersistentUserManagementStore(
-    dbSupport = dbSupport,
-    metrics = Metrics.ForTesting,
-    timeProvider = TimeProvider.UTC,
-    maxRightsPerUser = 100,
-  )
+  override def newStore(): StoreContainer = {
+    StoreContainer(
+      new PersistentUserManagementStore(
+        dbSupport = dbSupport,
+        metrics = Metrics.ForTesting,
+        timeProvider = TimeProvider.UTC,
+        maxRightsPerUser = 100,
+      ),
+      new PersistentIdentityProviderConfigStore(dbSupport, Metrics.ForTesting, 10),
+    )
+  }
 
   override private[localstore] def testedResourceVersionBackend: ResourceVersionOps =
     UserManagementStorageBackendImpl

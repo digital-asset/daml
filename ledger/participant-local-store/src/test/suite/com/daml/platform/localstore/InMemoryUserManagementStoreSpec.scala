@@ -3,10 +3,14 @@
 
 package com.daml.platform.localstore
 
+import com.daml.platform.localstore.UserStoreSpecBase.StoreContainer
 import org.scalatest.freespec.AsyncFreeSpec
 
 class InMemoryUserManagementStoreSpec extends AsyncFreeSpec with UserStoreTests {
 
-  override def newStore() = new InMemoryUserManagementStore(createAdmin = false)
+  override def newStore(): StoreContainer = StoreContainer(
+    new InMemoryUserManagementStore(createAdmin = false),
+    new InMemoryIdentityProviderConfigStore(),
+  )
 
 }

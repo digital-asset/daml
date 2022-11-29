@@ -8,6 +8,7 @@ import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.localstore.UserStoreSpecBase.StoreContainer
 import com.daml.platform.localstore.api.UserManagementStore.{UserInfo, UserNotFound, UsersPage}
 import com.daml.platform.localstore.api.{ObjectMetaUpdate, UserUpdate}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -19,12 +20,17 @@ class CachedUserManagementStoreSpec
     with MockitoSugar
     with ArgumentMatchersSugar {
 
-  override def newStore() = new CachedUserManagementStore(
-    new InMemoryUserManagementStore(createAdmin = false),
-    expiryAfterWriteInSeconds = 1,
-    maximumCacheSize = 10,
-    Metrics.ForTesting,
-  )
+  override def newStore() = {
+    StoreContainer(
+      new CachedUserManagementStore(
+        new InMemoryUserManagementStore(createAdmin = false),
+        expiryAfterWriteInSeconds = 1,
+        maximumCacheSize = 10,
+        Metrics.ForTesting,
+      ),
+      new InMemoryIdentityProviderConfigStore(),
+    )
+  }
 
   private val user = User(
     id = Ref.UserId.assertFromString("user_id1"),
