@@ -112,17 +112,15 @@ in rec {
     chromedriver = pkgs.chromedriver;
 
     # Python development
-    pip3        = pkgs.python38Packages.pip;
-    python      = pkgs.python38Packages.python;
+    pip3        = pkgs.python37Packages.pip;
+    python      = pkgs.python37Packages.python;
     python3     = python;
+    python37 = python;
 
     yapf = pkgs.python38Packages.yapf;
 
     pex = pkgs.python38Packages.pex;
-    pipenv = import ./tools/pipenv {
-      lib = pkgs.lib;
-      python = python;
-    };
+    pipenv = pkgs.pipenv;
 
     sphinx-build      = sphinx;
     sphinx-quickstart = sphinx;
