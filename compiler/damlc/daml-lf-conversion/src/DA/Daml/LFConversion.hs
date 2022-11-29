@@ -256,7 +256,7 @@ extractModuleContents env@Env{..} coreModule modIface details = do
     mcChoiceData = MS.fromListWith (++)
         [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
         | (name, v) <- mcBinds
-        , "_choice_" `T.isPrefixOf` getOccText name
+        , "_choice$_" `T.isPrefixOf` getOccText name
         , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
         ]
     mcTemplateBinds = scrapeTemplateBinds mcBinds
@@ -1281,10 +1281,10 @@ convertBinds env mc =
 convertBind :: Env -> ModuleContents -> (Var, GHC.Expr Var) -> ConvertM [Definition]
 convertBind env mc (name, x)
     -- This is inlined in the choice in the template so we can just drop this.
-    | "_choice_" `T.isPrefixOf` getOccText name
+    | "_choice$_" `T.isPrefixOf` getOccText name
     = pure []
     -- We only need this to get additional info for interface choices.
-    | "_interface_choice_" `T.isPrefixOf` getOccText name
+    | "_interface_choice$_" `T.isPrefixOf` getOccText name
     = pure []
     -- These are only used as markers for the LF conversion.
     | "_interface_instance_" `T.isPrefixOf` getOccText name
