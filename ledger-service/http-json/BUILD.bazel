@@ -368,6 +368,7 @@ alias(
             "//runtime-components/non-repudiation-postgresql",
             "//runtime-components/non-repudiation-testing",
             "@maven//:com_google_guava_guava",
+            "@maven//:org_reactivestreams_reactive_streams",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
