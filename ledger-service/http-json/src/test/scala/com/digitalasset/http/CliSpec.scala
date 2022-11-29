@@ -13,6 +13,9 @@ import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authentication
+import com.daml.test.evidence.tag.Security.SecurityTest
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import java.io.File
 import java.nio.file.Paths
 import com.daml.metrics.api.reporters.MetricsReporter
@@ -33,6 +36,8 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       getEnvVar: String => Option[String] = (_ => None),
   ): Option[Config] =
     Cli.parseConfig(parameters, Set("org.postgresql.Driver"), getEnvVar)
+
+  private val authenticationSecurity = SecurityTest(property = Authentication, asset = "TBD")
 
   val jdbcConfig = JdbcConfig(
     dbutils.JdbcConfig(
@@ -271,8 +276,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       )
     }
 
-    // TEST_EVIDENCE: Authentication: TLS configuration is parsed correctly from the config file
-    "should successfully load a complete config file" in {
+    "TLS configuration is parsed correctly from the config file" taggedAs authenticationSecurity in {
       val baseConfig = DbUtilsJdbcConfig(
         url = "jdbc:postgresql://localhost:5432/test?&ssl=true",
         driver = "org.postgresql.Driver",

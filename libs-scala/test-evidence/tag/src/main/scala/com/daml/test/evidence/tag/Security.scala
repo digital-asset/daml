@@ -89,7 +89,7 @@ object Security {
     object Property {
 
       /** Privacy of an asset. We use privacy in a broad sense and also include data confidentiality here. */
-      case object Privacy extends Property
+      case object Privacy extends Property // This is also known as Confidentiality.
 
       case object Integrity extends Property
 
@@ -100,12 +100,26 @@ object Security {
         */
       case object Finality extends Property
 
-      case object Authenticity extends Property
+      case object Authenticity extends Property // This is also known as Authentication.
 
       case object Authorization extends Property
 
       /** Whether a secure configuration can effectively be enforced */
       case object SecureConfiguration extends Property
+
+      /** Privacy of an asset. */
+      case object Confidentiality extends Property
+
+      /** Verification of identities */
+      case object Authentication extends Property
+
+      /** Assurance that the sender of information is provided with proof of delivery and the recipient is provided
+        * with proof of the sender’s identity, so neither can later deny having processed the information.
+        */
+      case object NonRepudiation extends Property
+
+      /** Ability to withstand and recover from attacks, threats or incidents */
+      case object Resilience extends Property
     }
 
     private def apply(

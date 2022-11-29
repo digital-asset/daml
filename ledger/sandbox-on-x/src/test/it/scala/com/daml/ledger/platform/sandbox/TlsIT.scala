@@ -27,11 +27,11 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
   private def getFilePath(fileName: String) = new File(
     rlocation("ledger/test-common/test-certificates/" + fileName)
   )
-  private val certChainFilePath = getFilePath("server.crt")
-  private val privateKeyFilePath = getFilePath("server.pem")
-  private val trustCertCollectionFilePath = getFilePath("ca.crt")
-  private val clientCertChainFilePath = getFilePath("client.crt")
-  private val clientPrivateKeyFilePath = getFilePath("client.pem")
+  lazy private val certChainFilePath = getFilePath("server.crt")
+  lazy private val privateKeyFilePath = getFilePath("server.pem")
+  lazy private val trustCertCollectionFilePath = getFilePath("ca.crt")
+  lazy private val clientCertChainFilePath = getFilePath("client.crt")
+  lazy private val clientPrivateKeyFilePath = getFilePath("client.pem")
 
   private lazy val baseConfig: LedgerClientConfiguration =
     LedgerClientConfiguration(

@@ -181,6 +181,7 @@ da_scala_test(
         ":src/test/resources/oauth2-middleware-minimal.conf",
     ],
     scala_deps = [
+        "@maven//:com_lihaoyi_sourcecode",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_http",
         "@maven//:com_typesafe_akka_akka_http_core",
@@ -196,6 +197,7 @@ da_scala_test(
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_stream_testkit",
     ],
+    visibility = ["//test-evidence:__pkg__"],
     deps = [
         ":middleware-api",
         ":oauth2-api",
@@ -213,6 +215,8 @@ da_scala_test(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/scala-utils",
+        "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+        "//libs-scala/test-evidence/tag:test-evidence-tag",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_config",
     ],

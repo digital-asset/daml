@@ -26,6 +26,9 @@ import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.auth.oauth2.api.{Response => OAuthResponse}
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.{Authentication, Authorization}
+import com.daml.test.evidence.tag.Security.SecurityTest
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import org.scalatest.{OptionValues, TryValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.{AnyWordSpec, AsyncWordSpec}
@@ -43,6 +46,13 @@ abstract class TestMiddleware
     with SuiteResourceManagementAroundAll
     with Matchers
     with OptionValues {
+
+  val authenticationSecurity: SecurityTest =
+    SecurityTest(property = Authentication, asset = "TBD")
+
+  val authorizationSecurity: SecurityTest =
+    SecurityTest(property = Authorization, asset = "TBD")
+
   protected[this] def makeJwt(
       claims: Request.Claims,
       expiresIn: Option[Duration],
@@ -84,8 +94,7 @@ abstract class TestMiddleware
     }
   }
   "the /auth endpoint" should {
-    // TEST_EVIDENCE: Authorization: return unauthorized without cookie
-    "return unauthorized without cookie" in {
+    "return unauthorized without cookie" taggedAs authorizationSecurity in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
       for {
         result <- middlewareClient.requestAuth(claims, Nil)
@@ -93,8 +102,7 @@ abstract class TestMiddleware
         result should ===(None)
       }
     }
-    // TEST_EVIDENCE: Authorization: return the token from a cookie
-    "return the token from a cookie" in {
+    "return the token from a cookie" taggedAs authorizationSecurity in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
       val token = makeToken(claims)
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
@@ -106,8 +114,7 @@ abstract class TestMiddleware
         auth.refreshToken should ===(token.refreshToken)
       }
     }
-    // TEST_EVIDENCE: Authorization: return unauthorized on insufficient app id claims
-    "return unauthorized on insufficient app id claims" in {
+    "return unauthorized on insufficient app id claims" taggedAs authorizationSecurity in {
       val claims = Request.Claims(
         actAs = List(ApiTypes.Party("Alice")),
         applicationId = Some(ApiTypes.ApplicationId("other-id")),
@@ -125,8 +132,7 @@ abstract class TestMiddleware
         result should ===(None)
       }
     }
-    // TEST_EVIDENCE: Authorization: return unauthorized on an invalid token
-    "return unauthorized on an invalid token" in {
+    "return unauthorized on an invalid token" taggedAs authorizationSecurity in {
       val claims = Request.Claims(actAs = List(ApiTypes.Party("Alice")))
       val token = makeToken(claims, "wrong-secret")
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
@@ -136,8 +142,7 @@ abstract class TestMiddleware
         result should ===(None)
       }
     }
-    // TEST_EVIDENCE: Authorization: return unauthorized on an expired token
-    "return unauthorized on an expired token" in {
+    "return unauthorized on an expired token" taggedAs authorizationSecurity in {
       val claims = Request.Claims(actAs = List(ApiTypes.Party("Alice")))
       val token = makeToken(claims, expiresIn = Some(Duration.ZERO))
       val _ = clock.fastForward(Duration.ofSeconds(1))
@@ -149,8 +154,7 @@ abstract class TestMiddleware
       }
     }
 
-    // TEST_EVIDENCE: Authorization: accept user tokens
-    "accept user tokens" in {
+    "accept user tokens" taggedAs authorizationSecurity in {
       import com.daml.auth.middleware.oauth2.Server.rightsProvideClaims
       rightsProvideClaims(
         StandardJWTPayload("foo", None, None, StandardJWTTokenFormat.Scope),
@@ -164,8 +168,7 @@ abstract class TestMiddleware
     }
   }
   "the /login endpoint" should {
-    // TEST_EVIDENCE: Authentication: the /login endpoint should redirect and set the cookie
-    "redirect and set cookie" in {
+    "redirect and set cookie" taggedAs authenticationSecurity in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
       val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
       for {
@@ -193,8 +196,7 @@ abstract class TestMiddleware
         token.tokenType should ===("bearer")
       }
     }
-    // TEST_EVIDENCE: Authentication: the /login endpoint should return OK and set cookie without redirectUri
-    "return OK and set cookie without redirectUri" in {
+    "return OK and set cookie without redirectUri" taggedAs authenticationSecurity in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
       val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None, redirect = false))
       for {
@@ -223,8 +225,7 @@ abstract class TestMiddleware
     }
   }
   "the /refresh endpoint" should {
-    // TEST_EVIDENCE: Authorization: the /refresh endpoint should return a new access token
-    "return a new access token" in {
+    "return a new access token" taggedAs authorizationSecurity in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
       val loginReq = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
       for {
@@ -258,8 +259,7 @@ abstract class TestMiddleware
         authorize.refreshToken.value should !==(refreshToken)
       }
     }
-    // TEST_EVIDENCE: Authorization: the /refresh endpoint should fail on an invalid refresh token
-    "fail on an invalid refresh token" in {
+    "fail on an invalid refresh token" taggedAs authorizationSecurity in {
       for {
         exception <- middlewareClient.requestRefresh(RefreshToken("made-up-token")).transform {
           case Failure(exception: Client.RefreshException) => Success(exception)
@@ -289,8 +289,7 @@ class TestMiddlewareClaimsToken extends TestMiddleware {
     )
 
   "the /auth endpoint given claim token" should {
-    // TEST_EVIDENCE: Authorization: the /auth endpoint given claim token should return unauthorized on insufficient party claims
-    "return unauthorized on insufficient party claims" in {
+    "return unauthorized on insufficient party claims" taggedAs authorizationSecurity in {
       val claims = Request.Claims(actAs = List(Party("Bob")))
       def r(actAs: String*)(readAs: String*) =
         middlewareClient
@@ -333,15 +332,13 @@ class TestMiddlewareClaimsToken extends TestMiddleware {
   }
 
   "the /login endpoint with an oauth server checking claims" should {
-    // TEST_EVIDENCE: Authorization: the /login endpoint with an oauth server checking claims should not authorize unauthorized parties
-    "not authorize unauthorized parties" in {
+    "not authorize unauthorized parties" taggedAs authorizationSecurity in {
       server.revokeParty(Party("Eve"))
       val claims = Request.Claims(actAs = List(Party("Eve")))
       ensureDisallowed(claims)
     }
 
-    // TEST_EVIDENCE: Authorization: the /login endpoint with an oauth server checking claims should not authorize disallowed admin claims
-    "not authorize disallowed admin claims" in {
+    "not authorize disallowed admin claims" taggedAs authorizationSecurity in {
       server.revokeAdmin()
       val claims = Request.Claims(admin = true)
       ensureDisallowed(claims)
@@ -398,10 +395,12 @@ class TestMiddlewareCallbackUriOverride
     with OptionValues
     with TestFixture
     with SuiteResourceManagementAroundAll {
+  val authenticationSecurity: SecurityTest =
+    SecurityTest(property = Authentication, asset = "TBD")
+
   override protected val middlewareCallbackUri = Some(Uri("http://localhost/MIDDLEWARE_CALLBACK"))
-  "the /login endpoint" should {
-    // TEST_EVIDENCE: Authentication: the /login endpoint with an oauth server checking claims should redirect to the configured middleware callback URI
-    "redirect to the configured middleware callback URI" in {
+  "the /login endpoint with an oauth server checking claims" should {
+    "redirect to the configured middleware callback URI" taggedAs authenticationSecurity in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
       val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
       for {
@@ -429,10 +428,12 @@ class TestMiddlewareLimitedCallbackStore
     with OptionValues
     with TestFixture
     with SuiteResourceManagementAroundAll {
+  val authenticationSecurity: SecurityTest =
+    SecurityTest(property = Authentication, asset = "TBD")
+
   override protected val maxMiddlewareLogins = 2
-  "the /login endpoint" should {
-    // TEST_EVIDENCE: Authentication: the /login endpoint with an oauth server checking claims should refuse requests when max capacity is reached
-    "refuse requests when max capacity is reached" in {
+  "the /login endpoint with an oauth server checking claims" should {
+    "refuse requests when max capacity is reached" taggedAs authenticationSecurity in {
       def login(actAs: Party) = {
         val claims = Request.Claims(actAs = List(actAs))
         val uri = middlewareClientRoutes.loginUri(claims, None)
@@ -479,10 +480,12 @@ class TestMiddlewareClientLimitedCallbackStore
     with OptionValues
     with TestFixture
     with SuiteResourceManagementAroundAll {
+  val authenticationSecurity: SecurityTest =
+    SecurityTest(property = Authentication, asset = "TBD")
+
   override protected val maxClientAuthCallbacks = 2
-  "the /login client" should {
-    // TEST_EVIDENCE: Authentication: the /login endpoint with an oauth server checking claims should refuse requests when max capacity is reached
-    "refuse requests when max capacity is reached" in {
+  "the /login client with an oauth server checking claims" should {
+    "refuse requests when max capacity is reached" taggedAs authenticationSecurity in {
       def login(actAs: Party) = {
         val claims = Request.Claims(actAs = List(actAs))
         val host = middlewareClientBinding.localAddress
@@ -540,10 +543,12 @@ class TestMiddlewareClientNoRedirectToLogin
     with TryValues
     with TestFixture
     with SuiteResourceManagementAroundAll {
+  val authenticationSecurity: SecurityTest =
+    SecurityTest(property = Authentication, asset = "TBD")
+
   override protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.No
-  "the authorize client" should {
-    // TEST_EVIDENCE: Authentication: the TestMiddlewareClientNoRedirectToLogin client should not redirect to /login
-    "not redirect to /login" in {
+  "the TestMiddlewareClientNoRedirectToLogin client" should {
+    "not redirect to /login" taggedAs authenticationSecurity in {
       import com.daml.auth.middleware.api.JsonProtocol.responseAuthenticateChallengeFormat
       val claims = Request.Claims(actAs = List(Party("Alice")))
       val host = middlewareClientBinding.localAddress
@@ -589,10 +594,12 @@ class TestMiddlewareClientYesRedirectToLogin
     with OptionValues
     with TestFixture
     with SuiteResourceManagementAroundAll {
+  val authenticationSecurity: SecurityTest =
+    SecurityTest(property = Authentication, asset = "TBD")
+
   override protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.Yes
-  "the authorize client" should {
-    // TEST_EVIDENCE: Authentication: the TestMiddlewareClientYesRedirectToLogin client should redirect to /login
-    "redirect to /login" in {
+  "the TestMiddlewareClientYesRedirectToLogin client" should {
+    "redirect to /login" taggedAs authenticationSecurity in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
       val host = middlewareClientBinding.localAddress
       val uri = Uri()
@@ -623,10 +630,12 @@ class TestMiddlewareClientAutoRedirectToLogin
     with Matchers
     with TestFixture
     with SuiteResourceManagementAroundAll {
+  val authenticationSecurity: SecurityTest =
+    SecurityTest(property = Authentication, asset = "TBD")
+
   override protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.Auto
-  "the authorize client" should {
-    // TEST_EVIDENCE: Authentication: the TestMiddlewareClientAutoRedirectToLogin client should redirect to /login for HTML request
-    "redirect to /login for HTML request" in {
+  "the TestMiddlewareClientAutoRedirectToLogin client" should {
+    "redirect to /login for HTML request" taggedAs authenticationSecurity in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
       val host = middlewareClientBinding.localAddress
       val uri = Uri()
@@ -643,8 +652,7 @@ class TestMiddlewareClientAutoRedirectToLogin
         resp.status should ===(StatusCodes.Found)
       }
     }
-    // TEST_EVIDENCE: Authentication: the TestMiddlewareClientAutoRedirectToLogin client should not redirect to /login for JSON request
-    "not redirect to /login for JSON request" in {
+    "not redirect to /login for JSON request" taggedAs authenticationSecurity in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
       val host = middlewareClientBinding.localAddress
       val uri = Uri()
