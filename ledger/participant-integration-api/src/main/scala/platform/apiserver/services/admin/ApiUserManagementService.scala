@@ -27,6 +27,7 @@ import com.daml.platform.localstore.api.UserManagementStore
 import com.daml.platform.server.api.validation.FieldValidations
 import com.google.protobuf.InvalidProtocolBufferException
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
+import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
