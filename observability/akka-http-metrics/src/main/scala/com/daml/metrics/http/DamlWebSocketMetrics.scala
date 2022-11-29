@@ -17,22 +17,22 @@ class DamlWebSocketMetrics(metricsFactory: Factory, component: String) extends W
   override val messagesReceivedTotal: Meter =
     metricsFactory.meter(
       httpMetricsPrefix :+ "websocket" :+ "messages" :+ "received",
-      "Total number of received WebSocket messages",
+      "Total number of received WebSocket messages.",
     )
   override val messagesReceivedBytes: Histogram =
     metricsFactory.histogram(
       httpMetricsPrefix :+ "websocket" :+ "messages" :+ "received" :+ Histogram.Bytes,
-      "The size of the received WebSocket messages",
+      "Distribution of the size of received WebSocket messages.",
     )
   override val messagesSentTotal: Meter =
     metricsFactory.meter(
       httpMetricsPrefix :+ "websocket" :+ "messages" :+ "sent",
-      "Total number of sent WebSocket messages",
+      "Total number of sent WebSocket messages.",
     )
   override val messagesSentBytes: Histogram =
     metricsFactory.histogram(
       httpMetricsPrefix :+ "websocket" :+ "messages" :+ "sent" :+ Histogram.Bytes,
-      "The size of the sent WebSocket messages",
+      "Distribution of the size of sent WebSocket messages.",
     )
 
 }

@@ -15,18 +15,18 @@ class DamlHttpMetrics(metricsFactory: Factory, component: String) extends HttpMe
   )
 
   override val requestsTotal: Meter =
-    metricsFactory.meter(httpMetricsPrefix :+ "requests", "Total number of HTTP requests received")
+    metricsFactory.meter(httpMetricsPrefix :+ "requests", "Total number of HTTP requests received.")
   override val latency: Timer =
-    metricsFactory.timer(httpMetricsPrefix :+ "requests", "The duration of the HTTP requests")
+    metricsFactory.timer(httpMetricsPrefix :+ "requests", "The duration of the HTTP requests.")
   override val requestsPayloadBytes: Histogram =
     metricsFactory.histogram(
       httpMetricsPrefix :+ "requests" :+ "payload" :+ Histogram.Bytes,
-      "The size of the payloads received in the HTTP requests",
+      "Distribution of the sizes of payloads received in HTTP requests.",
     )
   override val responsesPayloadBytes: Histogram =
     metricsFactory.histogram(
       httpMetricsPrefix :+ "responses" :+ "payload" :+ Histogram.Bytes,
-      "The size of the payload sent in the HTTP responses",
+      "Distribution of the sizes of payloads sent in HTTP responses.",
     )
 
 }
