@@ -68,7 +68,7 @@ PATH=$PATH:$GRPCURL
 
 # Build, lint, test.
 cd build-and-lint-test
-$YARN install --frozen-lockfile > /dev/null
+$YARN install --pure-lockfile > /dev/null
 $YARN run build
 $YARN run lint
 # Invoke 'yarn test'. Control is thereby passed to
