@@ -36,9 +36,8 @@ message Value {
 
         sint64 int64 = 5;
 
-        // Between v1 and v5 this field expressed a number in base-10 with up
-        // to 28 digits before the decimal point and up to 10 after the decimal
-        // point.
+        // Between v1 and v5 this field expressed a number in base-10 with a
+        // fixed point anywhere within the digits except at the start.
         //
         // Starting from v5 this field expressed a number in base-10 with at most
         // 38 digits from which at most 37 can be used in the right hand side
