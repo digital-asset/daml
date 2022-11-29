@@ -22,6 +22,7 @@ import com.daml.http.HttpServiceTestFixture.{
 import AbstractHttpServiceIntegrationTestFuns.UriFixture
 import com.daml.http.json.SprayJson
 import com.daml.ledger.api.v1.admin.{participant_pruning_service => PruneGrpc}
+import com.daml.nonempty.NonEmpty
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
@@ -1575,32 +1576,38 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
   "very many streams can be opened and closed" - {
     "via websocket query" in withHttpService { fixture =>
+      import com.daml.platform.store.dao.JdbcLedgerDaoSuite.`TraverseFM Ops`
       for {
         jwt <- jwt(fixture.uri)
-        // how many would cause failure if not cleaned up?
+        // how many would cause failure if not cleaned up? total = seq*par
         // 10000 causes OOM; have to slow down to test that
         // 5000 passes locally
-        wsCount = 5000
+        sequentialCount = 10
+        parallelCount = 1000
         scenario = SimpleScenario("query", Uri.Path("/v1/stream/query"), baseQueryInput)
         request = WebSocketRequest(
           uri = fixture.uri.copy(scheme = "ws").withPath(scenario.path),
           subprotocol = validSubprotocol(jwt),
         )
-        allRuns <- Future.traverse(1 to wsCount) { _ =>
-          val webSocketFlow =
-            Http().webSocketClientFlow(request)
-          val ran =
-            scenario.input via webSocketFlow runWith collectResultsAsTextMessageSkipOffsetTicks
-          import scala.util.control.NonFatal
-          ran.map(_ => none[Throwable]).recover {
-            // you get 5 or so of these a run; this isn't the error we're
-            // interested in and probably has something to do with the weird way
-            // we test websockets, so just ignore it -SC
-            case akka.stream.SubscriptionWithCancelException.StageWasCompleted => none
-            case NonFatal(e) => some(e)
+        allRuns <- (1 to sequentialCount).toVector.traverseFM(_ =>
+          Future.traverse(1 to parallelCount) { _ =>
+            val webSocketFlow =
+              Http().webSocketClientFlow(request)
+            val ran =
+              scenario.input via webSocketFlow runWith collectResultsAsTextMessageSkipOffsetTicks
+            import scala.util.control.NonFatal
+            ran.map(_ => none[Throwable]).recover {
+              // you get some of these a run; this isn't the error we're
+              // interested in and probably has something to do with the weird way
+              // we test websockets, so just ignore it -SC
+              case akka.stream.SubscriptionWithCancelException.StageWasCompleted => none
+              case NonFatal(e) => some(e)
+            }
           }
-        }
-      } yield allRuns.collect { case Some(e) => e }.take(5) should ===(Seq.empty)
+        )
+      } yield allRuns.collect(
+        Function unlift (parSet => NonEmpty from (parSet collect { case Some(e) => e }))
+      ) should ===(Seq.empty)
     }
   }
 
