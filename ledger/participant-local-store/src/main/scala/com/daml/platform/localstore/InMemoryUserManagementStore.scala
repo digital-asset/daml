@@ -148,15 +148,15 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
         case Some(after) => state.valuesIteratorFrom(start = after).dropWhile(_.user.id == after)
       }
       val users: Seq[User] = iter
-        .take(maxResults)
-        .map(info => toDomainUser(info.user))
         .filter { item =>
           listUsersFilter match {
             case ListUsersFilter.Wildcard => true
             case ListUsersFilter.ByIdentityProviderId(identityProviderId) =>
-              identityProviderId == item.identityProviderId
+              identityProviderId == item.user.identityProviderId
           }
         }
+        .take(maxResults)
+        .map(info => toDomainUser(info.user))
         .toSeq
       Right(UsersPage(users = users))
     }
@@ -240,6 +240,7 @@ object InMemoryUserManagementStore {
         resourceVersionO = Some(user.resourceVersion),
         annotations = user.annotations,
       ),
+      identityProviderId = user.identityProviderId,
     )
   }
 
