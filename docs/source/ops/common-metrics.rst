@@ -31,31 +31,31 @@ These metrics have the following common labels attached:
 
 .. latency
 
-daml.grpc.server.duration.seconds
+daml_grpc_server_duration_seconds
 =================================
 - **Description**: Distribution of the durations of serving gRPC requests.
 - **Type**: Histogram
 
 .. traffic
 
-daml.grpc.server.messages.sent.total
+daml_grpc_server_messages_sent_total
 ====================================
 - **Description**: Total number of gRPC messages sent (on either type of connection).
 - **Type**: Counter
 
-daml.grpc.server.messages.received.total
+daml_grpc_server_messages_received_total
 ========================================
 - **Description**: Total number of gRPC messages received (on either type of connection).
 - **Type**: Counter
 
-daml.grpc.server.started.total
+daml_grpc_server_started_total
 ==============================
 - **Description**: Total number of started gRPC requests (on either type of connection).
 - **Type**: Counter
 
 .. errors
 
-daml.grpc.server.handled.total
+daml_grpc_server_handled_total
 ==============================
 - **Description**: Total number of handled gRPC requests.
 - **Labels**:
@@ -66,12 +66,12 @@ daml.grpc.server.handled.total
 
 .. saturation
 
-daml.grpc.server.messages.sent.bytes
+daml_grpc_server_messages_sent_bytes
 ====================================
 - **Description**: Distribution of payload sizes in gRPC messages sent (both unary and streaming).
 - **Type**: Histogram
 
-daml.grpc.server.messages.received.bytes
+daml_grpc_server_messages_received_bytes
 ========================================
 - **Description**: Distribution of payload sizes in gRPC messages received (both unary and streaming).
 - **Type**: Histogram
@@ -93,12 +93,12 @@ These metrics have the following common labels attached:
 - **service**:
     Daml service's name (``json-api`` for the HTTP JSON API Service)
 
-daml.http.requests.duration.seconds
+daml_http_requests_duration_seconds
 ===================================
 - **Description**: Distribution of the durations of serving HTTP requests.
 - **Type**: Histogram
 
-daml.http.requests.total
+daml_http_requests_total
 ========================
 - **Description**: Total number of HTTP requests completed.
 - **Labels**:
@@ -107,32 +107,32 @@ daml.http.requests.total
 
 - **Type**: Counter
 
-daml.http.websocket.messages.received.total
+daml_http_websocket_messages_received_total
 ===========================================
 - **Description**: Total number of WebSocket messages received.
 - **Type**: Counter
 
-daml.http.websocket.messages.sent.total
+daml_http_websocket_messages_sent_total
 =======================================
 - **Description**: Total number of WebSocket messages sent.
 - **Type**: Counter
 
-daml.http.requests.payload.bytes
+daml_http_requests_payload_bytes
 ================================
 - **Description**: Distribution of payload sizes in HTTP requests received.
 - **Type**: Histogram
 
-daml.http.responses.payload.bytes
+daml_http_responses_payload_bytes
 =================================
 - **Description**: Distribution of payload sizes in HTTP responses sent.
 - **Type**: Histogram
 
-daml.http.websocket.messages.received.bytes
+daml_http_websocket_messages_received_bytes
 ===========================================
 - **Description**: Distribution of payload sizes in WebSocket messages received.
 - **Type**: Histogram
 
-daml.http.websocket.messages.sent.bytes
+daml_http_websocket_messages_sent_bytes
 =======================================
 - **Description**: Distribution of payload sizes in WebSocket messages sent.
 - **Type**: Histogram
