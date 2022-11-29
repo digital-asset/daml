@@ -10,8 +10,8 @@ import com.daml.lf.archive.DarParser
 import com.daml.lf.codegen.backend.java.inner.{
   ClassForType,
   DecoderClass,
-  fullyQualifiedName,
   PackagePrefixes,
+  fullyQualifiedName,
 }
 import com.daml.lf.codegen.conf.{Conf, PackageReference}
 import com.daml.lf.codegen.dependencygraph.DependencyGraph
@@ -20,6 +20,7 @@ import com.daml.lf.typesig.reader.{Errors, SignatureReader}
 import com.daml.lf.typesig.{EnvironmentSignature, PackageSignature}
 import PackageSignature.TypeDecl
 import com.daml.lf.language.Reference
+import com.daml.nonempty.NonEmpty
 import com.squareup.javapoet.{ClassName, JavaFile}
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory, MDC}
@@ -110,7 +111,6 @@ object CodeGenRunner extends StrictLogging {
       case id -> (_: TypeDecl.Template) =>
         ClassName.bestGuess(fullyQualifiedName(id))
     }
-
   }
 
   def run(conf: Conf): Unit = {
@@ -145,20 +145,7 @@ object CodeGenRunner extends StrictLogging {
       darFiles: Iterable[(Path, Option[String])],
       modulePrefixes: Map[PackageReference, String],
   ): CodeGenRunner.Scope = {
-    val signaturesAndPackagePrefixes =
-      for {
-        (path, packagePrefix) <- darFiles.view
-        interface <- decodeDarAt(path)
-      } yield (interface, packagePrefix)
-    val (signatureMap, packagePrefixes) =
-      signaturesAndPackagePrefixes.foldLeft(
-        (Map.empty[PackageId, PackageSignature], Map.empty[PackageId, String])
-      ) { case ((signatures, prefixes), (signature, prefix)) =>
-        val updatedSignatures = signatures.updated(signature.packageId, signature)
-        val updatedPrefixes = prefix.fold(prefixes)(prefixes.updated(signature.packageId, _))
-        (updatedSignatures, updatedPrefixes)
-      }
-
+    val (signatureMap, packagePrefixes) = signatureMapAndPackagePrefixes(darFiles)
     val signatures = signatureMap.values.toSeq
     val environmentInterface = EnvironmentSignature.fromPackageSignatures(signatures)
 
@@ -192,6 +179,65 @@ object CodeGenRunner extends StrictLogging {
       resolvedSignatures,
       transitiveClosure.serializableTypes,
     )
+  }
+
+  private def signatureMapAndPackagePrefixes(
+      darFiles: Iterable[(Path, Option[String])]
+  ): (Map[PackageId, PackageSignature], Map[PackageId, String]) = {
+    val signaturesToPrefixes: Seq[(Option[String], Seq[PackageSignature])] = (for {
+      (path, maybePrefix) <- darFiles
+      signatures = decodeDarAt(path)
+    } yield maybePrefix -> signatures).toSeq
+
+    val packagePrefixes = uniquePackageIdToPrefix(signaturesToPrefixes) ++
+      mainPackageIdToPrefix(signaturesToPrefixes)
+
+    val signatureMap = (for {
+      (_, signatures) <- signaturesToPrefixes
+      signature <- signatures
+    } yield signature.packageId -> signature).toMap
+    signatureMap -> packagePrefixes
+  }
+
+  private def uniquePackageIdToPrefix(
+      signaturesAndPrefixes: Seq[(Option[String], Seq[PackageSignature])]
+  ): Map[PackageId, String] = {
+    val packageIdsAndPackagePrefixes = for {
+      (Some(packagePrefix), signatures) <- signaturesAndPrefixes
+      signature <- signatures
+    } yield signature.packageId -> packagePrefix
+
+    val packageIdToPrefixes =
+      packageIdsAndPackagePrefixes.groupMapReduce(_._1)(p => Set(p._2))(_ ++ _)
+    packageIdToPrefixes.collect {
+      case (packageId, prefixes) if prefixes.size == 1 =>
+        packageId -> prefixes.head
+    }
+  }
+
+  private def mainPackageIdToPrefix(
+      signaturesAndPrefixes: Seq[(Option[String], Seq[PackageSignature])]
+  ): Map[PackageId, String] = {
+    val mainPackageIdToPrefixes = (for {
+      (Some(prefix), mainSignature +: _) <- signaturesAndPrefixes
+    } yield mainSignature.packageId -> prefix)
+      .groupMapReduce(_._1)(x => NonEmpty(Set, x._2))(_ ++ _)
+
+    detectDifferentPrefixConfiguredOnSameMainPackage(mainPackageIdToPrefixes)
+    mainPackageIdToPrefixes.view.mapValues(_.head1).toMap
+  }
+
+  private def detectDifferentPrefixConfiguredOnSameMainPackage(
+      prefixesByMainPackageIds: Map[PackageId, NonEmpty[Set[String]]]
+  ) = {
+    prefixesByMainPackageIds.foreach { case (mainPackageId, prefixes) =>
+      if (prefixes.size > 1) {
+        val collidedPrefixes = prefixes.mkString(", ")
+        throw new IllegalArgumentException(
+          s"""Different prefixes $collidedPrefixes are applied to the same main package $mainPackageId from separated Dar files. Please check if 2 identical dar files are configured with different package prefixes."""
+        )
+      }
+    }
   }
 
   private def createExecutionContext(): ExecutionContextExecutorService =

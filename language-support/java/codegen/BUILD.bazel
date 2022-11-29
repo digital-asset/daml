@@ -59,6 +59,7 @@ da_scala_library(
         "//daml-lf/language",
         "//language-support/codegen-common",
         "//language-support/java/bindings:bindings-java",
+        "//libs-scala/nonempty",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -77,6 +78,9 @@ da_scala_test(
         ":test-daml.dar",
         ":test-daml-with-same-dependencies.dar",
         ":test-daml-with-same-dependencies-but-different-target-version.dar",
+        ":test-daml-with-same-source-project-name.dar",
+        ":test-depending-on-bar-template.dar",
+        ":test-template.dar",
     ],
     resource_strip_prefix = "language-support/java/codegen/src/test/resources/",
     resources = glob(["src/test/resources/**/*"]),
@@ -118,9 +122,34 @@ daml_compile(
 )
 
 daml_compile(
+    name = "test-daml-with-same-source-project-name",
+    srcs = ["src/test/daml/Foo.daml"],
+    project_name = "test-daml",
+)
+
+daml_compile(
     name = "test-daml-with-same-dependencies-but-different-target-version",
     srcs = ["src/test/daml/Foo2.daml"],
     target = "1.13",
+)
+
+daml_compile(
+    name = "test-template",
+    srcs = ["src/test/daml/Bar.daml"],
+)
+
+daml_compile(
+    name = "test-another-bar",
+    srcs = ["src/test/daml/AnotherBar.daml"],
+)
+
+daml_compile(
+    name = "test-depending-on-bar-template",
+    srcs = ["src/test/daml/UsingBar.daml"],
+    data_dependencies = [
+        "//language-support/java/codegen:test-template.dar",
+        "//language-support/java/codegen:test-another-bar.dar",
+    ],
 )
 
 daml_compile(
