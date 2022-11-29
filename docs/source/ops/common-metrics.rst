@@ -57,7 +57,7 @@ daml.grpc.server.started.total
 
 daml.grpc.server.handled.total
 ==============================
-- **Description**: Counts number of handled gRPC requests.
+- **Description**: Total number of handled gRPC requests.
 - **Labels**:
 
   - **grpc_code**: returned `gRPC status code <https://grpc.github.io/grpc/core/md_doc_statuscodes.html>`_ for the call (``OK``, ``CANCELLED``, ``INVALID_ARGUMENT``, etc.)
