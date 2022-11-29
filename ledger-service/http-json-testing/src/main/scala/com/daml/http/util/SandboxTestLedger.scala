@@ -59,7 +59,7 @@ trait SandboxTestLedger extends SandboxFixture with SandboxRequiringAuthorizatio
       token = token,
     )
 
-  private val clientChannelCfg: LedgerClientChannelConfiguration =
+  lazy private val clientChannelCfg: LedgerClientChannelConfiguration =
     LedgerClientChannelConfiguration(
       sslContext = if (useTls) clientTlsConfig.client() else None
     )

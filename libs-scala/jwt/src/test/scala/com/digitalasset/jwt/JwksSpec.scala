@@ -5,7 +5,7 @@ package com.daml.jwt
 
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
-import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authenticity
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authentication
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}
 import com.daml.testing.SimpleHttpServer
 import org.scalatest.flatspec.AnyFlatSpec
@@ -19,7 +19,7 @@ import java.security.interfaces.{RSAPrivateKey, RSAPublicKey}
 class JwksSpec extends AnyFlatSpec with Matchers {
 
   val securityAsset: SecurityTest =
-    SecurityTest(property = Authenticity, asset = "JWKS-configured Resource")
+    SecurityTest(property = Authentication, asset = "JWKS-configured Resource")
 
   def attack(threat: String): Attack = Attack(
     actor = s"JWKS-configured Resource User",
