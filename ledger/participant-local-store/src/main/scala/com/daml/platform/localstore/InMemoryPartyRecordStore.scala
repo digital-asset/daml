@@ -104,7 +104,8 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
                     Map.empty[String, String]
                   ),
                 ),
-                identityProviderId = IdentityProviderId.Default,
+                identityProviderId =
+                  partyRecordUpdate.identityProviderIdUpdate.getOrElse(IdentityProviderId.Default),
               )
               for {
                 info <- doCreatePartyRecord(newPartyRecord)
@@ -151,7 +152,8 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
         party = party,
         resourceVersion = newResourceVersion,
         annotations = updatedAnnotations,
-        identityProviderId = IdentityProviderId.Default,
+        identityProviderId =
+          partyRecordUpdate.identityProviderIdUpdate.getOrElse(IdentityProviderId.Default),
       )
       state.put(party, updatedInfo)
       updatedInfo
