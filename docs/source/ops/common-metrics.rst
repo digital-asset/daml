@@ -29,14 +29,10 @@ These metrics have the following common labels attached:
 - **service**:
     Canton service's name (e.g. ``participant``, ``sequencer``, etc.)
 
-.. latency
-
 daml_grpc_server_duration_seconds
 =================================
 - **Description**: Distribution of the durations of serving gRPC requests.
 - **Type**: Histogram
-
-.. traffic
 
 daml_grpc_server_messages_sent_total
 ====================================
@@ -53,8 +49,6 @@ daml_grpc_server_started_total
 - **Description**: Total number of started gRPC requests (on either type of connection).
 - **Type**: Counter
 
-.. errors
-
 daml_grpc_server_handled_total
 ==============================
 - **Description**: Total number of handled gRPC requests.
@@ -63,8 +57,6 @@ daml_grpc_server_handled_total
   - **grpc_code**: returned `gRPC status code <https://grpc.github.io/grpc/core/md_doc_statuscodes.html>`_ for the call (``OK``, ``CANCELLED``, ``INVALID_ARGUMENT``, etc.)
 
 - **Type**: Counter
-
-.. saturation
 
 daml_grpc_server_messages_sent_bytes
 ====================================
