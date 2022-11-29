@@ -4,7 +4,8 @@
 package com.daml.platform.localstore
 
 import com.daml.ledger.resources.TestResourceContext
-import com.daml.platform.localstore.api.PartyRecordStore
+import com.daml.platform.localstore.PartyRecordStoreSpecBase.StoreContainer
+import com.daml.platform.localstore.api.{IdentityProviderConfigStore, PartyRecordStore}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, AsyncTestSuite, EitherValues, OptionValues}
 
@@ -16,12 +17,19 @@ trait PartyRecordStoreSpecBase
     with OptionValues
     with EitherValues { self: AsyncTestSuite =>
 
-  def newStore(): PartyRecordStore
+  def newStore(): StoreContainer
 
   final protected def testIt(
-      f: PartyRecordStore => Future[Assertion]
+      f: StoreContainer => Future[Assertion]
   ): Future[Assertion] = f(
     newStore()
   )
 
+}
+
+object PartyRecordStoreSpecBase {
+  case class StoreContainer(
+      partyRecordStore: PartyRecordStore,
+      identityProviderConfigStore: IdentityProviderConfigStore,
+  )
 }

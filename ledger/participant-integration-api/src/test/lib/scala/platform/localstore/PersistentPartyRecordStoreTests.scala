@@ -3,11 +3,10 @@
 
 package com.daml.platform.localstore
 
-import java.sql.Connection
-
 import com.daml.api.util.TimeProvider
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
+import com.daml.platform.localstore.PartyRecordStoreSpecBase.StoreContainer
 import com.daml.platform.store.backend.StorageBackendProvider
 import com.daml.platform.store.backend.localstore.{
   PartyRecordStorageBackend,
@@ -16,18 +15,24 @@ import com.daml.platform.store.backend.localstore.{
 }
 import org.scalatest.freespec.AsyncFreeSpec
 
+import java.sql.Connection
+
 trait PersistentPartyRecordStoreTests
     extends PersistentStoreSpecBase
     with PartyRecordStoreTests
     with ConcurrentChangeControlTests {
   self: AsyncFreeSpec with StorageBackendProvider =>
 
-  override def newStore() = new PersistentPartyRecordStore(
-    dbSupport = dbSupport,
-    metrics = Metrics.ForTesting,
-    timeProvider = TimeProvider.UTC,
-    executionContext = executionContext,
-  )
+  override def newStore(): StoreContainer =
+    StoreContainer(
+      new PersistentPartyRecordStore(
+        dbSupport = dbSupport,
+        metrics = Metrics.ForTesting,
+        timeProvider = TimeProvider.UTC,
+        executionContext = executionContext,
+      ),
+      new PersistentIdentityProviderConfigStore(dbSupport, Metrics.ForTesting, 10)(executionContext),
+    )
 
   override private[localstore] def testedResourceVersionBackend: ResourceVersionOps =
     PartyRecordStorageBackendImpl

@@ -4,7 +4,8 @@
 package com.daml.platform.localstore
 
 import com.daml.ledger.resources.TestResourceContext
-import com.daml.platform.localstore.api.UserManagementStore
+import com.daml.platform.localstore.UserStoreSpecBase.StoreContainer
+import com.daml.platform.localstore.api.{IdentityProviderConfigStore, UserManagementStore}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, AsyncTestSuite, EitherValues, OptionValues}
 
@@ -16,10 +17,17 @@ trait UserStoreSpecBase
     with OptionValues
     with EitherValues { self: AsyncTestSuite =>
 
-  def newStore(): UserManagementStore
+  def newStore(): StoreContainer
 
-  final protected def testIt(f: UserManagementStore => Future[Assertion]): Future[Assertion] = f(
+  final protected def testIt(f: StoreContainer => Future[Assertion]): Future[Assertion] = f(
     newStore()
   )
 
+}
+
+object UserStoreSpecBase {
+  case class StoreContainer(
+      userManagementStore: UserManagementStore,
+      identityProviderConfigStore: IdentityProviderConfigStore,
+  )
 }

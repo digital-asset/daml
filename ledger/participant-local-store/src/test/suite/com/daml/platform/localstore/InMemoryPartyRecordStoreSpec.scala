@@ -3,13 +3,16 @@
 
 package com.daml.platform.localstore
 
-import com.daml.platform.localstore.api.PartyRecordStore
+import com.daml.platform.localstore.PartyRecordStoreSpecBase.StoreContainer
 import org.scalatest.freespec.AsyncFreeSpec
 
 class InMemoryPartyRecordStoreSpec extends AsyncFreeSpec with PartyRecordStoreTests {
 
-  override def newStore(): PartyRecordStore = new InMemoryPartyRecordStore(
-    executionContext = executionContext
+  override def newStore(): StoreContainer = StoreContainer(
+    new InMemoryPartyRecordStore(
+      executionContext = executionContext
+    ),
+    new InMemoryIdentityProviderConfigStore(),
   )
 
 }
