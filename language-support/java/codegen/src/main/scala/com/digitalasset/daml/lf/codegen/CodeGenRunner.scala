@@ -10,8 +10,8 @@ import com.daml.lf.archive.DarParser
 import com.daml.lf.codegen.backend.java.inner.{
   ClassForType,
   DecoderClass,
-  fullyQualifiedName,
   PackagePrefixes,
+  fullyQualifiedName,
 }
 import com.daml.lf.codegen.conf.{Conf, PackageReference}
 import com.daml.lf.codegen.dependencygraph.DependencyGraph
@@ -20,6 +20,7 @@ import com.daml.lf.typesig.reader.{Errors, SignatureReader}
 import com.daml.lf.typesig.{EnvironmentSignature, PackageSignature}
 import PackageSignature.TypeDecl
 import com.daml.lf.language.Reference
+import com.daml.nonempty.NonEmpty
 import com.squareup.javapoet.{ClassName, JavaFile}
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory, MDC}
@@ -201,32 +202,33 @@ object CodeGenRunner extends StrictLogging {
   private def uniquePackageIdToPrefix(
       signaturesAndPrefixes: Seq[(Option[String], Seq[PackageSignature])]
   ): Map[PackageId, String] = {
-    val packageIdsAndPackagePrefixes = (for {
-      (packagePrefix, signatures) <- signaturesAndPrefixes
-      if packagePrefix.isDefined
+    val packageIdsAndPackagePrefixes = for {
+      (Some(packagePrefix), signatures) <- signaturesAndPrefixes
       signature <- signatures
-    } yield signature.packageId -> packagePrefix.get)
+    } yield signature.packageId -> packagePrefix
 
     val packageIdToPrefixes =
       packageIdsAndPackagePrefixes.groupMapReduce(_._1)(p => Set(p._2))(_ ++ _)
-    packageIdToPrefixes.filter(_._2.size == 1).view.mapValues(_.head).toMap
+    packageIdToPrefixes.collect {
+      case (packageId, prefixes) if prefixes.size == 1 =>
+        packageId -> prefixes.head
+    }
   }
 
   private def mainPackageIdToPrefix(
       signaturesAndPrefixes: Seq[(Option[String], Seq[PackageSignature])]
   ): Map[PackageId, String] = {
     val mainPackageIdToPrefixes = (for {
-      (maybePrefix, signatures) <- signaturesAndPrefixes
-      if maybePrefix.isDefined && signatures.nonEmpty
-    } yield signatures.head.packageId -> maybePrefix.get)
-      .groupMapReduce(_._1)(x => Set(x._2))(_ ++ _)
+      (Some(prefix), mainSignature +: _) <- signaturesAndPrefixes
+    } yield mainSignature.packageId -> prefix)
+      .groupMapReduce(_._1)(x => NonEmpty(Set, x._2))(_ ++ _)
 
     detectDifferentPrefixConfiguredOnSameMainPackage(mainPackageIdToPrefixes)
-    mainPackageIdToPrefixes.view.mapValues(_.head).toMap
+    mainPackageIdToPrefixes.view.mapValues(_.head1).toMap
   }
 
   private def detectDifferentPrefixConfiguredOnSameMainPackage(
-      prefixesByMainPackageIds: Map[PackageId, Set[String]]
+      prefixesByMainPackageIds: Map[PackageId, NonEmpty[Set[String]]]
   ) = {
     prefixesByMainPackageIds.foreach { case (mainPackageId, prefixes) =>
       if (prefixes.size > 1) {
