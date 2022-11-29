@@ -5,7 +5,6 @@ package com.daml.platform.apiserver.services.admin
 
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.ledger.api.{ListUsersFilter, SubmissionIdGenerator}
 import com.daml.ledger.api.auth.ClaimSet.Claims
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.domain._
@@ -16,6 +15,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   UpdateUserResponse,
 }
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
+import com.daml.ledger.api.{ListUsersFilter, SubmissionIdGenerator}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -27,7 +27,6 @@ import com.daml.platform.localstore.api.UserManagementStore
 import com.daml.platform.server.api.validation.FieldValidations
 import com.google.protobuf.InvalidProtocolBufferException
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
-import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
@@ -98,16 +97,15 @@ private[apiserver] final class ApiUserManagementService(
           pRights,
         )
       } { case (user, pRights) =>
-        identityProviderConfigExists(user.identityProviderId)
-          .flatMap(_ =>
-            userManagementStore
-              .createUser(
-                user = user,
-                rights = pRights,
-              )
-          )
-          .flatMap(handleResult("creating user"))
-          .map(createdUser => CreateUserResponse(Some(toProtoUser(createdUser))))
+        for {
+          _ <- identityProviderConfigExists(user.identityProviderId)
+          result <- userManagementStore
+            .createUser(
+              user = user,
+              rights = pRights,
+            )
+          createdUser <- handleResult("creating user")(result)
+        } yield CreateUserResponse(Some(toProtoUser(createdUser)))
       }
     }
 
@@ -357,16 +355,18 @@ private[apiserver] final class ApiUserManagementService(
   private def identityProviderConfigExists(id: IdentityProviderId): Future[Unit] =
     identityProviderConfigValidation
       .identityProviderConfigExists(id)
-      .flatMap(handleIdpExists(id))
+      .flatMap(handleIdentityProviderConfigExists(id))
 
-  private def handleIdpExists(id: IdentityProviderId)(idpExists: Boolean): Future[Unit] =
+  private def handleIdentityProviderConfigExists(
+      id: IdentityProviderId
+  )(idpExists: Boolean): Future[Unit] =
     if (idpExists)
       Future.successful(())
     else
       Future.failed(
         LedgerApiErrors.RequestValidation.InvalidArgument
           .Reject(
-            s"identity_provider_id $id is not recognized."
+            s"Provided identity_provider_id $id has not been found."
           )
           .asGrpcError
       )
