@@ -225,8 +225,10 @@ final case class EUnknownVariantCon(context: Context, conName: VariantConName)
 final case class EUnknownEnumCon(context: Context, conName: EnumConName) extends ValidationError {
   protected def prettyInternal: String = s"unknown enum constructor: $conName"
 }
-final case class EUnknownField(context: Context, fieldName: FieldName) extends ValidationError {
-  protected def prettyInternal: String = s"unknown field: $fieldName"
+final case class EUnknownField(context: Context, fieldName: FieldName, targetType: Type)
+    extends ValidationError {
+  protected def prettyInternal: String =
+    s"Tried to access nonexistent field $fieldName on value of type $targetType"
 }
 final case class EExpectedStructType(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String = s"expected struct type, but found: ${typ.pretty}"
@@ -248,6 +250,17 @@ final case class ETypeMismatch(
     s"""type mismatch:
        | * expected type: ${expectedType.pretty}
        | * found type: ${foundType.pretty}""".stripMargin
+}
+final case class EFieldTypeMismatch(
+    context: Context,
+    fieldName: FieldName,
+    targetRecord: Type,
+    foundType: Type,
+    expectedType: Type,
+    expr: Option[Expr],
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"""Tried to use field $fieldName with type ${foundType.pretty} on value of type ${targetRecord.pretty}, but that field has type ${expectedType.pretty}"""
 }
 final case class EPatternTypeMismatch(
     context: Context,
@@ -358,6 +371,29 @@ final case class EViewTypeConNotRecord(context: Context, badCons: DataCons, typ:
     s"expected monomorphic record type in view type, but found ${prettyCons} instead: ${typ.pretty}"
   }
 }
+final case class EViewTypeMismatch(
+    context: Context,
+    ifaceName: TypeConName,
+    tplName: TypeConName,
+    foundType: Type,
+    expectedType: Type,
+    expr: Option[Expr],
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"""Tried to implement a view of type ${foundType.pretty} on interface ${ifaceName.qualifiedName} for template ${tplName.qualifiedName}, but the definition of interface ${ifaceName.qualifiedName} requires a view of type ${expectedType.pretty}"""
+}
+final case class EMethodTypeMismatch(
+    context: Context,
+    ifaceName: TypeConName,
+    tplName: TypeConName,
+    methodName: MethodName,
+    foundType: Type,
+    expectedType: Type,
+    expr: Option[Expr],
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"Implementation of method $methodName on interface $ifaceName should return ${expectedType.pretty} but instead returns ${foundType.pretty}"
+}
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"
 }
@@ -421,9 +457,11 @@ final case class EMissingMethodInInterfaceInstance(
 final case class EUnknownMethodInInterfaceInstance(
     context: Context,
     method: MethodName,
+    iface: TypeConName,
+    tpl: TypeConName,
 ) extends ValidationError {
   override protected def prettyInternal: String =
-    s"Interface instance has an implementation for method '$method', but this method is not part of the interface."
+    s"Tried to implement method $method but interface $iface does not have a method with that name."
 }
 
 final case class EMissingInterfaceInstance(

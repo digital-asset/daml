@@ -104,10 +104,11 @@ data Error
   | EExpectedVariantType   !(Qualified TypeConName)
   | EExpectedEnumType      !(Qualified TypeConName)
   | EUnknownDataCon        !VariantConName
-  | EUnknownField          !FieldName
+  | EUnknownField          !FieldName !Type
   | EExpectedStructType    !Type
   | EKindMismatch          {foundKind :: !Kind, expectedKind :: !Kind}
   | ETypeMismatch          {foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr)}
+  | EFieldTypeMismatch     {fieldName :: !FieldName, targetRecord :: !Type, foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr)}
   | EPatternTypeMismatch   {pattern :: !CasePattern, scrutineeType :: !Type}
   | ENonExhaustivePatterns {missingPattern :: !CasePattern, scrutineeType :: !Type}
   | EExpectedHigherKind    !Kind
@@ -129,6 +130,8 @@ data Error
   | EViewTypeHeadNotCon !Type !Type
   | EViewTypeHasVars !Type
   | EViewTypeConNotRecord !DataCons !Type
+  | EViewTypeMismatch { evtmIfaceName :: !(Qualified TypeConName), evtmTplName :: !(Qualified TypeConName), evtmFoundType :: !Type, evtmExpectedType :: !Type, evtmExpr :: !(Maybe Expr) }
+  | EMethodTypeMismatch { emtmIfaceName :: !(Qualified TypeConName), emtmTplName :: !(Qualified TypeConName), emtmMethodName :: !MethodName, emtmFoundType :: !Type, emtmExpectedType :: !Type, emtmExpr :: !(Maybe Expr) }
   | EEmptyCase
   | EClashingPatternVariables !ExprVarName
   | EExpectedTemplatableType !TypeConName
@@ -155,7 +158,7 @@ data Error
   | EBadInheritedChoices { ebicInterface :: !(Qualified TypeConName), ebicExpected :: ![ChoiceName], ebicGot :: ![ChoiceName] }
   | EMissingInterfaceChoice !ChoiceName
   | EMissingMethodInInterfaceInstance !MethodName
-  | EUnknownMethodInInterfaceInstance !MethodName
+  | EUnknownMethodInInterfaceInstance { eumiiIface :: !(Qualified TypeConName), eumiiTpl :: !(Qualified TypeConName), eumiiMethodName :: !MethodName }
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
   | EUnknownExperimental !T.Text !Type
 
@@ -281,7 +284,9 @@ instance Pretty Error where
     EExpectedVariantType qname -> "expected variant type: " <> pretty qname
     EExpectedEnumType qname -> "expected enum type: " <> pretty qname
     EUnknownDataCon name -> "unknown data constructor: " <> pretty name
-    EUnknownField name -> "unknown field: " <> pretty name
+    EUnknownField fieldName targetType ->
+      text "Tried to access nonexistent field " <> pretty fieldName <>
+      text " on value of type " <> pretty targetType
     EExpectedStructType foundType ->
       "expected struct type, but found: " <> pretty foundType
 
@@ -294,6 +299,16 @@ instance Pretty Error where
       , nest 4 (pretty foundType)
       ] ++
       maybe [] (\e -> ["* expression:", nest 4 (pretty e)]) expr
+
+    EFieldTypeMismatch { fieldName, targetRecord, foundType, expectedType, expr } ->
+      vcat $
+      [ text "Tried to use field " <> pretty fieldName
+         <> text " with type " <> pretty foundType
+         <> text " on value of type " <> pretty targetRecord
+         <> text ", but that field has type " <> pretty expectedType
+      ] ++
+      maybe [] (\e -> ["* expression:", nest 4 (pretty e)]) expr
+
     EKindMismatch{foundKind, expectedKind} ->
       vcat
       [ "kind mismatch:"
@@ -421,6 +436,18 @@ instance Pretty Error where
         , "record types are declared with one constructor using curly braces, i.e."
         , "data MyRecord = MyRecord { ... fields ... }"
         ]
+    EViewTypeMismatch { evtmIfaceName, evtmTplName, evtmFoundType, evtmExpectedType, evtmExpr } ->
+      vcat $
+        [ text "Tried to implement a view of type " <> pretty evtmFoundType
+          <> text " on interface " <> pretty evtmIfaceName
+          <> text " for template " <> pretty evtmTplName
+          <> text ", but the definition of interface " <> pretty evtmIfaceName
+          <> text " requires a view of type " <> pretty evtmExpectedType
+        ] ++
+        maybe [] (\e -> ["* in expression:", nest 4 (pretty e)]) evtmExpr
+    EMethodTypeMismatch { emtmIfaceName, emtmMethodName, emtmFoundType, emtmExpectedType } ->
+      text "Implementation of method " <> pretty emtmMethodName <> text " on interface " <> pretty emtmIfaceName
+      <> text " should return " <> pretty emtmExpectedType <> text " but instead returns " <> pretty emtmFoundType
     EUnsupportedFeature Feature{..} ->
       "unsupported feature:" <-> pretty featureName
       <-> "only supported in Daml-LF version" <-> pretty featureMinVersion <-> "and later"
@@ -470,12 +497,8 @@ instance Pretty Error where
     EMissingInterfaceChoice ch -> "Missing interface choice implementation for " <> pretty ch
     EMissingMethodInInterfaceInstance method ->
       "Interface instance lacks an implementation for method" <-> quotes (pretty method)
-    EUnknownMethodInInterfaceInstance method ->
-      hsep
-        [ "Interface instance has an implementation for method"
-        , quotes (pretty method) <> ","
-        , "but this method is not part of the interface."
-        ]
+    EUnknownMethodInInterfaceInstance { eumiiIface, eumiiMethodName } ->
+      text "Tried to implement method " <> quotes (pretty eumiiMethodName) <> text ", but interface " <> pretty eumiiIface <> text " does not have a method with that name."
     EWrongInterfaceRequirement requiringIface requiredIface ->
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
     EUnknownExperimental name ty ->
