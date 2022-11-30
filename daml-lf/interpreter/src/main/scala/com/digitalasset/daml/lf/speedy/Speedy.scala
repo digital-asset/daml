@@ -1075,7 +1075,7 @@ private[lf] object Speedy {
         transactionSeed: crypto.Hash,
         updateSE: SExpr,
         committers: Set[Party],
-        checkAuthorization: Boolean = true,
+        checkAuthorization: Boolean,
         disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
         traceLog: TraceLog = newTraceLog,
