@@ -23,7 +23,7 @@ trait DropwizardFactory extends Factory {
       context: MetricsContext = MetricsContext.Empty
   ): Gauge[T] = {
     val registeredGauge = reRegisterGauge[T, VarGauge[T]](name, Gauges.VarGauge(initial))
-    DropwizardGauge(name, registeredgauge)
+    DropwizardGauge(name, registeredGauge)
   }
 
   override def gaugeWithSupplier[T](
