@@ -13,24 +13,33 @@ class DamlGrpcServerMetrics(metricsFactory: Factory, component: String) extends 
     Map("service" -> component)
   )
 
-  override val callTimer: MetricHandle.Timer = metricsFactory.timer(grpcServerMetricsPrefix)
+  override val callTimer: MetricHandle.Timer = metricsFactory.timer(
+    grpcServerMetricsPrefix,
+    "Distribution of the durations of serving gRPC requests.",
+  )
   override val messagesSent: MetricHandle.Meter = metricsFactory.meter(
-    grpcServerMetricsPrefix :+ "messages" :+ "sent"
+    grpcServerMetricsPrefix :+ "messages" :+ "sent",
+    "Total number of gRPC messages sent (on either type of connection).",
   )
   override val messagesReceived: MetricHandle.Meter = metricsFactory.meter(
-    grpcServerMetricsPrefix :+ "messages" :+ "received"
+    grpcServerMetricsPrefix :+ "messages" :+ "received",
+    "Total number of gRPC messages received (on either type of connection).",
   )
   override val messagesSentSize: MetricHandle.Histogram = metricsFactory.histogram(
-    grpcServerMetricsPrefix :+ "messages" :+ "sent" :+ Histogram.Bytes
+    grpcServerMetricsPrefix :+ "messages" :+ "sent" :+ Histogram.Bytes,
+    "Distribution of payload sizes in gRPC messages sent (both unary and streaming).",
   )
   override val messagesReceivedSize: MetricHandle.Histogram = metricsFactory.histogram(
-    grpcServerMetricsPrefix :+ "messages" :+ "received" :+ Histogram.Bytes
+    grpcServerMetricsPrefix :+ "messages" :+ "received" :+ Histogram.Bytes,
+    "Distribution of payload sizes in gRPC messages received (both unary and streaming).",
   )
   override val callsStarted: MetricHandle.Meter = metricsFactory.meter(
-    grpcServerMetricsPrefix :+ "started"
+    grpcServerMetricsPrefix :+ "started",
+    "Total number of started gRPC requests (on either type of connection).",
   )
   override val callsHandled: MetricHandle.Meter = metricsFactory.meter(
-    grpcServerMetricsPrefix :+ "handled"
+    grpcServerMetricsPrefix :+ "handled",
+    "Total number of handled gRPC requests.",
   )
 
 }

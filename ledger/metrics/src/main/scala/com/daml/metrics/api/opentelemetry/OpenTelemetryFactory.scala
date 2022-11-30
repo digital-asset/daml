@@ -31,38 +31,42 @@ class OpenTelemetryFactory(otelMeter: OtelMeter) extends Factory {
     Map("daml_version" -> BuildInfo.Version)
   )
 
-  override def timer(
-      name: MetricName
-  )(implicit
+  override def timer(name: MetricName, description: String)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Timer = {
     val nameWithSuffix = name :+ TimerUnitAndSuffix
     OpenTelemetryTimer(
       nameWithSuffix,
-      otelMeter.histogramBuilder(nameWithSuffix).setUnit(TimerUnit).build(),
+      otelMeter
+        .histogramBuilder(nameWithSuffix)
+        .setUnit(TimerUnit)
+        .setDescription(description)
+        .build(),
       globalMetricsContext.merge(context),
     )
   }
-  override def gauge[T](name: MetricName, initial: T)(implicit
+  override def gauge[T](name: MetricName, initial: T, description: String)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Gauge[T] = {
     val attributes = globalMetricsContext.merge(context).asAttributes
     initial match {
       case longInitial: Int =>
         val varGauge = new VarGauge[Int](longInitial)
-        otelMeter.gaugeBuilder(name).ofLongs().buildWithCallback { consumer =>
-          consumer.record(varGauge.getValue.toLong, attributes)
+        otelMeter.gaugeBuilder(name).ofLongs().setDescription(description).buildWithCallback {
+          consumer =>
+            consumer.record(varGauge.getValue.toLong, attributes)
         }
         OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
       case longInitial: Long =>
         val varGauge = new VarGauge[Long](longInitial)
-        otelMeter.gaugeBuilder(name).ofLongs().buildWithCallback { consumer =>
-          consumer.record(varGauge.getValue, attributes)
+        otelMeter.gaugeBuilder(name).ofLongs().setDescription(description).buildWithCallback {
+          consumer =>
+            consumer.record(varGauge.getValue, attributes)
         }
         OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
       case doubleInitial: Double =>
         val varGauge = new VarGauge[Double](doubleInitial)
-        otelMeter.gaugeBuilder(name).buildWithCallback { consumer =>
+        otelMeter.gaugeBuilder(name).setDescription(description).buildWithCallback { consumer =>
           consumer.record(varGauge.getValue, attributes)
         }
         OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
@@ -75,6 +79,7 @@ class OpenTelemetryFactory(otelMeter: OtelMeter) extends Factory {
   override def gaugeWithSupplier[T](
       name: MetricName,
       valueSupplier: () => T,
+      description: String,
   )(implicit
       context: MetricsContext = MetricsContext.Empty
   ): Unit = {
@@ -85,6 +90,7 @@ class OpenTelemetryFactory(otelMeter: OtelMeter) extends Factory {
         otelMeter
           .gaugeBuilder(name)
           .ofLongs()
+          .setDescription(description)
           .buildWithCallback { consumer =>
             val value = valueSupplier()
             consumer.record(value.asInstanceOf[Int].toLong, attributes)
@@ -94,6 +100,7 @@ class OpenTelemetryFactory(otelMeter: OtelMeter) extends Factory {
         otelMeter
           .gaugeBuilder(name)
           .ofLongs()
+          .setDescription(description)
           .buildWithCallback { consumer =>
             val value = valueSupplier()
             consumer.record(value.asInstanceOf[Long], attributes)
@@ -102,6 +109,7 @@ class OpenTelemetryFactory(otelMeter: OtelMeter) extends Factory {
       case _: Double =>
         otelMeter
           .gaugeBuilder(name)
+          .setDescription(description)
           .buildWithCallback { consumer =>
             val value = valueSupplier()
             consumer.record(value.asInstanceOf[Double], attributes)
@@ -112,27 +120,27 @@ class OpenTelemetryFactory(otelMeter: OtelMeter) extends Factory {
     }
   }
 
-  override def meter(name: MetricName)(implicit
+  override def meter(name: MetricName, description: String)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): Meter = OpenTelemetryMeter(
     name,
-    otelMeter.counterBuilder(name).build(),
+    otelMeter.counterBuilder(name).setDescription(description).build(),
     globalMetricsContext.merge(context),
   )
 
-  override def counter(name: MetricName)(implicit
+  override def counter(name: MetricName, description: String)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Counter = OpenTelemetryCounter(
     name,
-    otelMeter.upDownCounterBuilder(name).build(),
+    otelMeter.upDownCounterBuilder(name).setDescription(description).build(),
     globalMetricsContext.merge(context),
   )
 
-  override def histogram(name: MetricName)(implicit
+  override def histogram(name: MetricName, description: String)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Histogram = OpenTelemetryHistogram(
     name,
-    otelMeter.histogramBuilder(name).ofLongs().build(),
+    otelMeter.histogramBuilder(name).ofLongs().setDescription(description).build(),
     globalMetricsContext.merge(context),
   )
 
