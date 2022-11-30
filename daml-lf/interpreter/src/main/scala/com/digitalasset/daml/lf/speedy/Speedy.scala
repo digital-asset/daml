@@ -4,6 +4,8 @@
 package com.daml.lf
 package speedy
 
+import com.daml.lf.command.{EngineEnrichedContractMetadata, ProcessedDisclosedContract}
+
 import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
@@ -20,9 +22,11 @@ import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
   GlobalKey,
+  GlobalKeyWithMaintainers,
   Node,
   NodeId,
   SubmittedTransaction,
+  Versioned,
   IncompleteTransaction => IncompleteTx,
   TransactionVersion => TxVersion,
 }
@@ -308,9 +312,46 @@ private[lf] object Speedy {
         ptx.locationInfo(),
         seeds zip ptx.actionNodeSeeds.toImmArray,
         ptx.contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
-        ptx.disclosedContracts.filter(disclosedContract =>
-          inputContracts(disclosedContract.contractId.value)
-        ),
+        // TODO(#15745) Improve test coverage for disclosed contracts with metadata extraction
+        ptx.disclosedContracts
+          .collect {
+            case disclosedContract if inputContracts(disclosedContract.contractId.value) =>
+              val lfContractId = disclosedContract.contractId.value
+              val cachedContract = getCachedContract(lfContractId).getOrElse(
+                throw SErrorCrash(
+                  NameOf.qualifiedNameOfCurrentFunc,
+                  s"contract ${lfContractId.coid} not in cachedContracts",
+                )
+              )
+              val transactionVersion = tmplId2TxVersion(cachedContract.templateId)
+              val maybeKeyWithMaintainers =
+                cachedContract.key
+                  .map(_.toNormalizedKeyWithMaintainers(transactionVersion))
+                  .map { case Node.KeyWithMaintainers(key, maintainers) =>
+                    GlobalKeyWithMaintainers(
+                      globalKey = GlobalKey.assertBuild(disclosedContract.templateId, key),
+                      maintainers = maintainers,
+                    )
+                  }
+                  .map(Versioned(transactionVersion, _))
+
+              val engineEnrichedContractMetadata = EngineEnrichedContractMetadata(
+                createdAt = disclosedContract.metadata.createdAt,
+                driverMetadata = disclosedContract.metadata.driverMetadata,
+                signatories = cachedContract.signatories,
+                stakeholders = cachedContract.stakeholders,
+                maybeKeyWithMaintainers = maybeKeyWithMaintainers,
+              )
+              val engineEnrichedDisclosedContract =
+                ProcessedDisclosedContract(
+                  templateId = disclosedContract.templateId,
+                  contractId = disclosedContract.contractId.value,
+                  argument = disclosedContract.argument.toNormalizedValue(transactionVersion),
+                  metadata = engineEnrichedContractMetadata,
+                )
+
+              Versioned(transactionVersion, engineEnrichedDisclosedContract)
+          },
       )
     }
 
@@ -428,7 +469,7 @@ private[lf] object Speedy {
         locationInfo: Map[NodeId, Location],
         seeds: NodeSeeds,
         globalKeyMapping: Map[GlobalKey, KeyMapping],
-        disclosedContracts: ImmArray[DisclosedContract],
+        disclosedContracts: ImmArray[Versioned[ProcessedDisclosedContract]],
     )
   }
 

@@ -14,7 +14,7 @@ import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge._
 import com.daml.ledger.sandbox.domain.Rejection
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission.Transaction
-import com.daml.lf.command.DisclosedContract
+import com.daml.lf.command.ProcessedDisclosedContract
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.daml.lf.transaction.{Versioned, Transaction => LfTransaction}
@@ -154,7 +154,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
     }.invertToEitherT
 
   private def validateExplicitDisclosure(
-      disclosedContracts: ImmArray[Versioned[DisclosedContract]],
+      disclosedContracts: ImmArray[Versioned[ProcessedDisclosedContract]],
       completionInfo: CompletionInfo,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger,
@@ -171,7 +171,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
     }.invertToEitherT
 
   private def validateDisclosedContractPayload(
-      provided: Versioned[DisclosedContract],
+      provided: Versioned[ProcessedDisclosedContract],
       completionInfo: CompletionInfo,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger,
@@ -195,7 +195,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
 
   private def validateDriverMetadataContractId(
       completionInfo: CompletionInfo,
-      provided: Versioned[DisclosedContract],
+      provided: Versioned[ProcessedDisclosedContract],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): EitherT[Future, Rejection, Unit] =
@@ -221,7 +221,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
   private def sameContractData(
       actualContractInstance: Value.VersionedContractInstance,
       actualLedgerEffectiveTime: Timestamp,
-      provided: Versioned[DisclosedContract],
+      provided: Versioned[ProcessedDisclosedContract],
   ): Either[String, Unit] = {
     val providedContractId = provided.unversioned.contractId
 

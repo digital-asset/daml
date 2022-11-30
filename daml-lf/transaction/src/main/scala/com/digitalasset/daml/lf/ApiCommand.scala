@@ -7,6 +7,7 @@ package command
 import com.daml.lf.data.Ref._
 import com.daml.lf.value.Value
 import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Versioned}
 
 /** Accepted commands coming from API */
 sealed abstract class ApiCommand extends Product with Serializable {
@@ -99,14 +100,48 @@ final case class DisclosedContract(
     metadata: ContractMetadata,
 )
 
+/** An explicitly-disclosed contract that has been used during command interpretation
+  * and enriched with additional contract metadata.
+  *
+  * @param   templateId   identifier of the template of disclosed contract
+  * @param   contractId   the contract id of the disclosed contract
+  * @param   argument     the payload of the disclosed contract
+  * @param   metadata     metadata enriched after interpretation. See [[EngineEnrichedContractMetadata]].
+  */
+final case class ProcessedDisclosedContract(
+    templateId: Identifier,
+    contractId: Value.ContractId,
+    argument: Value,
+    metadata: EngineEnrichedContractMetadata,
+)
+
 /** Contract metadata attached to disclosed contracts.
   *
   * @param createdAt   ledger effective time of the transaction that created the contract
   * @param keyHash     hash of the contract key, if present
-  * @param driverMeta  opaque bytestring used by the underlying ledger implementation
+  * @param driverMetadata  opaque bytestring used by the underlying ledger implementation
   */
 final case class ContractMetadata(
     createdAt: Time.Timestamp,
     keyHash: Option[crypto.Hash],
     driverMetadata: ImmArray[Byte],
+)
+
+/** Contract metadata attached to disclosed contracts after command interpretation.
+  * Additionally to [[ContractMetadata]], the [[signatories]], [[stakeholders]] and [[maybeKeyWithMaintainers]]
+  * fields are extracted from the contract instance during interpretation and added here. These additional
+  * metadata fields are used directly in the ledger-side contract store.
+  *
+  * @param createdAt ledger effective time of the transaction that created the contract
+  * @param driverMetadata opaque bytestring used by the underlying ledger implementation
+  * @param signatories the contract's stakeholders, as derived by the Engine from the provided contract instance.
+  * @param stakeholders the contract's signatories, as derived by the Engine from the provided contract instance.
+  * @param maybeKeyWithMaintainers the versioned contract key with maintainers, if available,
+  */
+final case class EngineEnrichedContractMetadata(
+    createdAt: Time.Timestamp,
+    driverMetadata: ImmArray[Byte],
+    signatories: Set[Party],
+    stakeholders: Set[Party],
+    maybeKeyWithMaintainers: Option[Versioned[GlobalKeyWithMaintainers]],
 )

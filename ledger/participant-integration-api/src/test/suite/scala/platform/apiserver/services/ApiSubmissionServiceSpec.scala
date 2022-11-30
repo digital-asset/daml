@@ -13,7 +13,13 @@ import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
 import com.daml.ledger.participant.state.v2.{SubmissionResult, SubmitterInfo, TransactionMeta}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf
-import com.daml.lf.command.{ContractMetadata, DisclosedContract, ApiCommands => LfCommands}
+import com.daml.lf.command.{
+  ContractMetadata,
+  DisclosedContract,
+  EngineEnrichedContractMetadata,
+  ProcessedDisclosedContract,
+  ApiCommands => LfCommands,
+}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.Time.Timestamp
@@ -203,6 +209,18 @@ class ApiSubmissionServiceSpec
         driverMetadata = ImmArray.empty,
       ),
     )
+    val engineEnrichedDisclosedContract = ProcessedDisclosedContract(
+      templateId = Identifier.assertFromString("some:pkg:identifier"),
+      contractId = TransactionBuilder.newCid,
+      argument = Value.ValueNil,
+      metadata = EngineEnrichedContractMetadata(
+        createdAt = Timestamp.Epoch,
+        driverMetadata = ImmArray.empty,
+        signatories = Set.empty,
+        stakeholders = Set.empty,
+        maybeKeyWithMaintainers = None,
+      ),
+    )
     val commands = Commands(
       ledgerId = None,
       workflowId = None,
@@ -245,7 +263,7 @@ class ApiSubmissionServiceSpec
     )
     val estimatedInterpretationCost = 5L
     val explicitlyDisclosedContracts =
-      ImmArray(Versioned(TransactionVersion.VDev, disclosedContract))
+      ImmArray(Versioned(TransactionVersion.VDev, engineEnrichedDisclosedContract))
     val commandExecutionResult = CommandExecutionResult(
       submitterInfo = submitterInfo,
       transactionMeta = transactionMeta,
