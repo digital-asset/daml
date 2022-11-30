@@ -87,7 +87,7 @@ private[oauth2] final case class Cli(
         case Right(cfg) => Some(cfg)
         case Left(ex) =>
           logger.error(
-            s"Error loading oauth2-middleware config from file ${configFile}",
+            s"Error loading oauth2-middleware config from file $configFile",
             ex.prettyPrint(),
           )
           None
