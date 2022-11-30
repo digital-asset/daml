@@ -3,16 +3,19 @@
 
 package com.daml.platform.localstore
 
-import com.daml.platform.localstore.PartyRecordStoreSpecBase.StoreContainer
+import com.daml.ledger.api.domain
+import com.daml.platform.localstore.api.PartyRecordStore
 import org.scalatest.freespec.AsyncFreeSpec
+
+import scala.concurrent.Future
 
 class InMemoryPartyRecordStoreSpec extends AsyncFreeSpec with PartyRecordStoreTests {
 
-  override def newStore(): StoreContainer = StoreContainer(
-    new InMemoryPartyRecordStore(
-      executionContext = executionContext
-    ),
-    new InMemoryIdentityProviderConfigStore(),
+  override def newStore(): PartyRecordStore = new InMemoryPartyRecordStore(
+    executionContext = executionContext
   )
 
+  override def createIdentityProviderConfig(
+      identityProviderConfig: domain.IdentityProviderConfig
+  ): Future[Unit] = Future.unit
 }

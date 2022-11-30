@@ -110,10 +110,10 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
     "allow creating a fresh user" in {
       testIt { tested =>
         for {
-          res1 <- tested.userManagementStore.createUser(newUser(s"user1"), Set.empty)
-          res2 <- tested.userManagementStore.createUser(newUser("user2"), Set.empty)
-          _ <- tested.identityProviderConfigStore.createIdentityProviderConfig(idp1)
-          res3 <- tested.userManagementStore.createUser(
+          res1 <- tested.createUser(newUser(s"user1"), Set.empty)
+          res2 <- tested.createUser(newUser("user2"), Set.empty)
+          _ <- createIdentityProviderConfig(idp1)
+          res3 <- tested.createUser(
             newUser("user3", identityProviderId = persistedIdentityProviderId),
             Set.empty,
           )
@@ -131,8 +131,8 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       testIt { tested =>
         val user = newUser("user1")
         for {
-          res1 <- tested.userManagementStore.createUser(user, Set.empty)
-          res2 <- tested.userManagementStore.createUser(user, Set.empty)
+          res1 <- tested.createUser(user, Set.empty)
+          res2 <- tested.createUser(user, Set.empty)
         } yield {
           res1 shouldBe Right(createdUser("user1"))
           res2 shouldBe Left(UserExists(user.id))
@@ -144,8 +144,8 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       testIt { tested =>
         val user = newUser("user1")
         for {
-          res1 <- tested.userManagementStore.createUser(user, Set.empty)
-          user1 <- tested.userManagementStore.getUser(user.id)
+          res1 <- tested.createUser(user, Set.empty)
+          user1 <- tested.getUser(user.id)
         } yield {
           res1 shouldBe Right(createdUser("user1"))
           user1 shouldBe res1
@@ -157,7 +157,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       testIt { tested =>
         val userId: Ref.UserId = "user1"
         for {
-          user1 <- tested.userManagementStore.getUser(userId)
+          user1 <- tested.getUser(userId)
         } yield {
           user1 shouldBe Left(UserNotFound(userId))
         }
@@ -167,10 +167,10 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       testIt { tested =>
         val user = newUser("user1")
         for {
-          res1 <- tested.userManagementStore.createUser(user, Set.empty)
-          user1 <- tested.userManagementStore.getUser("user1")
-          res2 <- tested.userManagementStore.deleteUser("user1")
-          user2 <- tested.userManagementStore.getUser("user1")
+          res1 <- tested.createUser(user, Set.empty)
+          user1 <- tested.getUser("user1")
+          res2 <- tested.deleteUser("user1")
+          user2 <- tested.getUser("user1")
         } yield {
           res1 shouldBe Right(createdUser("user1"))
           user1 shouldBe res1
@@ -183,9 +183,9 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       testIt { tested =>
         val user = newUser("user1")
         for {
-          res1 <- tested.userManagementStore.createUser(user, Set.empty)
-          res2 <- tested.userManagementStore.deleteUser(user.id)
-          res3 <- tested.userManagementStore.createUser(user, Set.empty)
+          res1 <- tested.createUser(user, Set.empty)
+          res2 <- tested.deleteUser(user.id)
+          res3 <- tested.createUser(user, Set.empty)
         } yield {
           res1 shouldBe Right(createdUser("user1"))
           res2 shouldBe Right(())
@@ -197,7 +197,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
     "fail to delete a non-existent user" in {
       testIt { tested =>
         for {
-          res1 <- tested.userManagementStore.deleteUser("user1")
+          res1 <- tested.deleteUser("user1")
         } yield {
           res1 shouldBe Left(UserNotFound("user1"))
         }
@@ -207,11 +207,11 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
     "list created users" in {
       testIt { tested =>
         for {
-          _ <- tested.userManagementStore.createUser(newUser("user1"), Set.empty)
-          _ <- tested.userManagementStore.createUser(newUser("user2"), Set.empty)
-          _ <- tested.userManagementStore.createUser(newUser("user3"), Set.empty)
-          _ <- tested.userManagementStore.createUser(newUser("user4"), Set.empty)
-          list1 <- tested.userManagementStore.listUsers(
+          _ <- tested.createUser(newUser("user1"), Set.empty)
+          _ <- tested.createUser(newUser("user2"), Set.empty)
+          _ <- tested.createUser(newUser("user3"), Set.empty)
+          _ <- tested.createUser(newUser("user4"), Set.empty)
+          list1 <- tested.listUsers(
             fromExcl = None,
             maxResults = 3,
             listUsersFilter = ListUsersFilter.Wildcard,
@@ -225,7 +225,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
               )
             )
           )
-          list2 <- tested.userManagementStore.listUsers(
+          list2 <- tested.listUsers(
             fromExcl = list1.getOrElse(fail("Expecting a Right()")).lastUserIdOption,
             maxResults = 4,
             listUsersFilter = ListUsersFilter.Wildcard,
@@ -239,15 +239,15 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
     "not list deleted users" in {
       testIt { tested =>
         for {
-          res1 <- tested.userManagementStore.createUser(newUser("user1"), Set.empty)
-          res2 <- tested.userManagementStore.createUser(newUser("user2"), Set.empty)
-          users1 <- tested.userManagementStore.listUsers(
+          res1 <- tested.createUser(newUser("user1"), Set.empty)
+          res2 <- tested.createUser(newUser("user2"), Set.empty)
+          users1 <- tested.listUsers(
             fromExcl = None,
             maxResults = 10000,
             listUsersFilter = ListUsersFilter.Wildcard,
           )
-          res3 <- tested.userManagementStore.deleteUser("user1")
-          users2 <- tested.userManagementStore.listUsers(
+          res3 <- tested.deleteUser("user1")
+          users2 <- tested.listUsers(
             fromExcl = None,
             maxResults = 10000,
             listUsersFilter = ListUsersFilter.Wildcard,
@@ -272,18 +272,18 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
     "list users within idp" in {
       testIt { tested =>
         for {
-          _ <- tested.identityProviderConfigStore.createIdentityProviderConfig(idp1)
-          _ <- tested.userManagementStore.createUser(
+          _ <- createIdentityProviderConfig(idp1)
+          _ <- tested.createUser(
             newUser("user1", identityProviderId = persistedIdentityProviderId),
             Set.empty,
           )
-          _ <- tested.userManagementStore.createUser(newUser("user2"), Set.empty)
-          _ <- tested.userManagementStore.createUser(newUser("user3"), Set.empty)
-          _ <- tested.userManagementStore.createUser(
+          _ <- tested.createUser(newUser("user2"), Set.empty)
+          _ <- tested.createUser(newUser("user3"), Set.empty)
+          _ <- tested.createUser(
             newUser("user4", identityProviderId = persistedIdentityProviderId),
             Set.empty,
           )
-          list1 <- tested.userManagementStore.listUsers(
+          list1 <- tested.listUsers(
             fromExcl = None,
             maxResults = 3,
             listUsersFilter = ListUsersFilter.ByIdentityProviderId(persistedIdentityProviderId),
@@ -296,7 +296,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
               )
             )
           )
-          list2 <- tested.userManagementStore.listUsers(
+          list2 <- tested.listUsers(
             fromExcl = None,
             maxResults = 4,
             listUsersFilter = ListUsersFilter.Wildcard,
@@ -323,13 +323,13 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
     "listUserRights should find the rights of a freshly created user" in {
       testIt { tested =>
         for {
-          res1 <- tested.userManagementStore.createUser(newUser("user1"), Set.empty)
-          rights1 <- tested.userManagementStore.listUserRights("user1")
-          user2 <- tested.userManagementStore.createUser(
+          res1 <- tested.createUser(newUser("user1"), Set.empty)
+          rights1 <- tested.listUserRights("user1")
+          user2 <- tested.createUser(
             newUser("user2"),
             Set(ParticipantAdmin, CanActAs("party1"), CanReadAs("party2")),
           )
-          rights2 <- tested.userManagementStore.listUserRights("user2")
+          rights2 <- tested.listUserRights("user2")
         } yield {
           res1 shouldBe Right(createdUser("user1"))
           rights1 shouldBe Right(Set.empty)
@@ -343,7 +343,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
     "listUserRights should fail on non-existent user" in {
       testIt { tested =>
         for {
-          rights1 <- tested.userManagementStore.listUserRights("user1")
+          rights1 <- tested.listUserRights("user1")
         } yield {
           rights1 shouldBe Left(UserNotFound("user1"))
         }
@@ -352,14 +352,14 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
     "grantUserRights should add new rights" in {
       testIt { tested =>
         for {
-          res1 <- tested.userManagementStore.createUser(newUser("user1"), Set.empty)
-          rights1 <- tested.userManagementStore.grantRights("user1", Set(ParticipantAdmin))
-          rights2 <- tested.userManagementStore.grantRights("user1", Set(ParticipantAdmin))
-          rights3 <- tested.userManagementStore.grantRights(
+          res1 <- tested.createUser(newUser("user1"), Set.empty)
+          rights1 <- tested.grantRights("user1", Set(ParticipantAdmin))
+          rights2 <- tested.grantRights("user1", Set(ParticipantAdmin))
+          rights3 <- tested.grantRights(
             "user1",
             Set(CanActAs("party1"), CanReadAs("party2")),
           )
-          rights4 <- tested.userManagementStore.listUserRights("user1")
+          rights4 <- tested.listUserRights("user1")
         } yield {
           res1 shouldBe Right(createdUser("user1"))
           rights1 shouldBe Right(Set(ParticipantAdmin))
@@ -376,7 +376,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
     "grantRights should fail on non-existent user" in {
       testIt { tested =>
         for {
-          rights1 <- tested.userManagementStore.grantRights("user1", Set.empty)
+          rights1 <- tested.grantRights("user1", Set.empty)
         } yield {
           rights1 shouldBe Left(UserNotFound("user1"))
         }
@@ -386,19 +386,19 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
     "revokeRights should revoke rights" in {
       testIt { tested =>
         for {
-          res1 <- tested.userManagementStore.createUser(
+          res1 <- tested.createUser(
             newUser("user1"),
             Set(ParticipantAdmin, CanActAs("party1"), CanReadAs("party2")),
           )
-          rights1 <- tested.userManagementStore.listUserRights("user1")
-          rights2 <- tested.userManagementStore.revokeRights("user1", Set(ParticipantAdmin))
-          rights3 <- tested.userManagementStore.revokeRights("user1", Set(ParticipantAdmin))
-          rights4 <- tested.userManagementStore.listUserRights("user1")
-          rights5 <- tested.userManagementStore.revokeRights(
+          rights1 <- tested.listUserRights("user1")
+          rights2 <- tested.revokeRights("user1", Set(ParticipantAdmin))
+          rights3 <- tested.revokeRights("user1", Set(ParticipantAdmin))
+          rights4 <- tested.listUserRights("user1")
+          rights5 <- tested.revokeRights(
             "user1",
             Set(CanActAs("party1"), CanReadAs("party2")),
           )
-          rights6 <- tested.userManagementStore.listUserRights("user1")
+          rights6 <- tested.listUserRights("user1")
         } yield {
           res1 shouldBe Right(createdUser("user1"))
           rights1 shouldBe Right(
@@ -417,7 +417,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
     "revokeRights should fail on non-existent user" in {
       testIt { tested =>
         for {
-          rights1 <- tested.userManagementStore.revokeRights("user1", Set.empty)
+          rights1 <- tested.revokeRights("user1", Set.empty)
         } yield {
           rights1 shouldBe Left(UserNotFound("user1"))
         }
@@ -430,9 +430,9 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       testIt { tested =>
         val pr1 = newUser("user1", isDeactivated = true, primaryParty = None)
         for {
-          create1 <- tested.userManagementStore.createUser(pr1, Set.empty)
+          create1 <- tested.createUser(pr1, Set.empty)
           _ = create1.value shouldBe createdUser("user1", isDeactivated = true)
-          update1 <- tested.userManagementStore.updateUser(
+          update1 <- tested.updateUser(
             userUpdate = UserUpdate(
               id = pr1.id,
               primaryPartyUpdateO = Some(Some(Ref.Party.assertFromString("party123"))),
@@ -457,8 +457,8 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       testIt { tested =>
         val user = newUser("user1", annotations = Map("k1" -> "v1", "k2" -> "v2", "k3" -> "v3"))
         for {
-          _ <- tested.userManagementStore.createUser(user, Set.empty)
-          update1 <- tested.userManagementStore.updateUser(
+          _ <- tested.createUser(user, Set.empty)
+          update1 <- tested.updateUser(
             UserUpdate(
               id = user.id,
               metadataUpdate = ObjectMetaUpdate(
@@ -488,7 +488,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       testIt { tested =>
         val userId = Ref.UserId.assertFromString("user")
         for {
-          res1 <- tested.userManagementStore.updateUser(
+          res1 <- tested.updateUser(
             UserUpdate(
               id = userId,
               metadataUpdate = ObjectMetaUpdate(
@@ -506,8 +506,8 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       testIt { tested =>
         val user = newUser("user1")
         for {
-          _ <- tested.userManagementStore.createUser(user, Set.empty)
-          res1 <- tested.userManagementStore.updateUser(
+          _ <- tested.createUser(user, Set.empty)
+          res1 <- tested.updateUser(
             UserUpdate(
               id = user.id,
               metadataUpdate = ObjectMetaUpdate(
@@ -529,7 +529,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
         testIt { tested =>
           val user = newUser(annotations = Map("k1" -> bigValue, "k2" -> bigValue))
           for {
-            res1 <- tested.userManagementStore.createUser(user, Set.empty)
+            res1 <- tested.createUser(user, Set.empty)
             _ = res1.left.value shouldBe MaxAnnotationsSizeExceeded(user.id)
           } yield succeed
         }
@@ -539,8 +539,8 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
         testIt { tested =>
           val user = newUser(annotations = Map("k1" -> bigValue))
           for {
-            _ <- tested.userManagementStore.createUser(user, Set.empty)
-            res1 <- tested.userManagementStore.updateUser(
+            _ <- tested.createUser(user, Set.empty)
+            res1 <- tested.updateUser(
               makeUserUpdate(annotationsUpdateO = Some(Map("k2" -> bigValue)))
             )
             _ = res1.left.value shouldBe MaxAnnotationsSizeExceeded(user.id)

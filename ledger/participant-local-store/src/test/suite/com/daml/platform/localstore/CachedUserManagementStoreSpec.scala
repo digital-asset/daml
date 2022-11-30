@@ -4,15 +4,16 @@
 package com.daml.platform.localstore
 
 import com.daml.ledger.api.ListUsersFilter
-import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
+import com.daml.ledger.api.domain.{IdentityProviderConfig, ObjectMeta, User, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.localstore.UserStoreSpecBase.StoreContainer
 import com.daml.platform.localstore.api.UserManagementStore.{UserInfo, UserNotFound, UsersPage}
-import com.daml.platform.localstore.api.{ObjectMetaUpdate, UserUpdate}
+import com.daml.platform.localstore.api.{ObjectMetaUpdate, UserManagementStore, UserUpdate}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.freespec.AsyncFreeSpec
+
+import scala.concurrent.Future
 
 class CachedUserManagementStoreSpec
     extends AsyncFreeSpec
@@ -20,17 +21,11 @@ class CachedUserManagementStoreSpec
     with MockitoSugar
     with ArgumentMatchersSugar {
 
-  override def newStore() = {
-    StoreContainer(
-      new CachedUserManagementStore(
-        new InMemoryUserManagementStore(createAdmin = false),
-        expiryAfterWriteInSeconds = 1,
-        maximumCacheSize = 10,
-        Metrics.ForTesting,
-      ),
-      new InMemoryIdentityProviderConfigStore(),
-    )
-  }
+  override def newStore(): UserManagementStore =
+    createTested(new InMemoryUserManagementStore(createAdmin = false))
+
+  def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig): Future[Unit] =
+    Future.unit
 
   private val user = User(
     id = Ref.UserId.assertFromString("user_id1"),
