@@ -1575,6 +1575,12 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "very many streams can be opened and closed" - {
+    /*
+    "via transaction client" in withLedger { (client, ledgerId) =>
+      client.transactionClient
+    }
+     */
+
     "via websocket query" in withHttpService { fixture =>
       import com.daml.platform.store.dao.JdbcLedgerDaoSuite.`TraverseFM Ops`
       for {
