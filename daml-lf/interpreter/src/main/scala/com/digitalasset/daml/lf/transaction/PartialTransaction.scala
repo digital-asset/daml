@@ -175,6 +175,7 @@ private[lf] object PartialTransaction {
       initialSeeds: InitialSeeding,
       committers: Set[Party],
       disclosedContracts: ImmArray[DisclosedContract],
+      checkAuthorization: Boolean,
   ) = PartialTransaction(
     nextNodeIdx = 0,
     nodes = HashMap.empty,
@@ -183,6 +184,7 @@ private[lf] object PartialTransaction {
     contractState = new ContractStateMachine[NodeId](contractKeyUniqueness).initial,
     actionNodeLocations = BackStack.empty,
     disclosedContracts = disclosedContracts,
+    checkAuthorization = checkAuthorization,
   )
 
   @throws[SError.SErrorDamlException]
@@ -217,6 +219,7 @@ private[speedy] case class PartialTransaction(
     contractState: ContractStateMachine[NodeId]#State,
     actionNodeLocations: BackStack[Option[Location]],
     disclosedContracts: ImmArray[DisclosedContract],
+    checkAuthorization: Boolean,
 ) {
 
   import PartialTransaction._
@@ -365,7 +368,10 @@ private[speedy] case class PartialTransaction(
       nodes = nodes.updated(nid, createNode),
       actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
     )
-    CheckAuthorization.authorizeCreate(optLocation, createNode)(auth) match {
+    val authorizationErrors =
+      if (checkAuthorization) CheckAuthorization.authorizeCreate(optLocation, createNode)(auth)
+      else Nil
+    authorizationErrors match {
       case fa :: _ => Left((ptx, Tx.AuthFailureDuringExecution(nid, fa)))
       case Nil =>
         ptx.contractState.visitCreate(templateId, cid, key.map(_.key)) match {
@@ -408,7 +414,9 @@ private[speedy] case class PartialTransaction(
         // evaluation order tests require visitFetch proceeds authorizeFetch
         contractState.visitFetch(templateId, coid, key.map(_.key), byKey)
       )
-      CheckAuthorization.authorizeFetch(optLocation, node)(auth) match {
+      val authorizationErrors =
+        if (checkAuthorization) CheckAuthorization.authorizeFetch(optLocation, node)(auth) else Nil
+      authorizationErrors match {
         case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
         case Nil =>
           Right(insertLeafNode(node, version, optLocation, newContractState))
@@ -438,7 +446,10 @@ private[speedy] case class PartialTransaction(
     val newContractState = assertRightKey(
       contractState.visitLookup(templateId, key.key, keyInput.toKeyMapping, result)
     )
-    CheckAuthorization.authorizeLookupByKey(optLocation, node)(auth) match {
+    val authorizationErrors =
+      if (checkAuthorization) CheckAuthorization.authorizeLookupByKey(optLocation, node)(auth)
+      else Nil
+    authorizationErrors match {
       case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
       case Nil =>
         Right(insertLeafNode(node, version, optLocation, newContractState))
@@ -490,7 +501,11 @@ private[speedy] case class PartialTransaction(
       val newContractState = assertRightKey(
         contractState.visitExercise(nid, templateId, targetId, mbKey.map(_.key), byKey, consuming)
       )
-      CheckAuthorization.authorizeExercise(optLocation, makeExNode(ec))(auth) match {
+      val authorizationErrors =
+        if (checkAuthorization)
+          CheckAuthorization.authorizeExercise(optLocation, makeExNode(ec))(auth)
+        else Nil
+      authorizationErrors match {
         case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
         case Nil =>
           Right(
