@@ -3,12 +3,12 @@
 
 package com.daml.platform.store.backend.localstore
 
-import java.sql.Connection
 import anorm.SqlParser.{int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.lf.data.Ref
 
+import java.sql.Connection
 import scala.util.Try
 
 object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
@@ -109,7 +109,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
       internalId: Int,
       identityProviderId: Option[IdentityProviderId.Id],
   )(connection: Connection): Boolean =
-    ParticipantMetadataBackend.updateIdentityProviderId("participant_party_records")(
+    IdentityProviderAwareBackend.updateIdentityProviderId("participant_party_records")(
       internalId,
       identityProviderId,
     )(

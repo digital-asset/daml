@@ -92,7 +92,10 @@ class CachedIdentityProviderConfigStore(
   override def identityProviderConfigExists(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
   ): Future[Boolean] =
-    delegate.identityProviderConfigExists(id)
+    idpCache.get(id).map {
+      case Right(_) => true
+      case _ => false
+    }
 
   private def invalidateOnSuccess(
       id: IdentityProviderId.Id

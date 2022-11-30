@@ -21,8 +21,8 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
     str("identity_provider_id") ~
       bool("is_deactivated") ~
       str("jwks_url") ~
-      str("issuer") map { case identityProviderId ~ isDeactivated ~ jwksURL ~ issuer =>
-        (identityProviderId, isDeactivated, jwksURL, issuer)
+      str("issuer") map { case identityProviderId ~ isDeactivated ~ jwksUrl ~ issuer =>
+        (identityProviderId, isDeactivated, jwksUrl, issuer)
       }
   }
 

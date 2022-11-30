@@ -38,7 +38,7 @@ import scala.util.Try
 
 private[apiserver] final class ApiUserManagementService(
     userManagementStore: UserManagementStore,
-    identityProviderConfigValidation: IdentityProviderConfigValidation,
+    identityProviderConfigExists: IdentityProviderConfigExists,
     maxUsersPageSize: Int,
     submissionIdGenerator: SubmissionIdGenerator,
 )(implicit
@@ -99,7 +99,7 @@ private[apiserver] final class ApiUserManagementService(
         )
       } { case (user, pRights) =>
         for {
-          _ <- identityProviderConfigExists(user.identityProviderId)
+          _ <- identityProviderConfigExistsOrError(user.identityProviderId)
           result <- userManagementStore
             .createUser(
               user = user,
@@ -151,7 +151,7 @@ private[apiserver] final class ApiUserManagementService(
       } { case (user, fieldMask) =>
         for {
           userUpdate <- handleUpdatePathResult(user.id, UserUpdateMapper.toUpdate(user, fieldMask))
-          _ <- identityProviderConfigExists(user.identityProviderId)
+          _ <- identityProviderConfigExistsOrError(user.identityProviderId)
           authorizedUserIdO <- authorizedUserIdFO
           _ <-
             if (
@@ -353,24 +353,18 @@ private[apiserver] final class ApiUserManagementService(
         Future.successful(t)
     }
 
-  private def identityProviderConfigExists(id: IdentityProviderId): Future[Unit] =
-    identityProviderConfigValidation
-      .identityProviderConfigExists(id)
-      .flatMap(handleIdentityProviderConfigExists(id))
-
-  private def handleIdentityProviderConfigExists(
-      id: IdentityProviderId
-  )(idpExists: Boolean): Future[Unit] =
-    if (idpExists)
-      Future.successful(())
-    else
-      Future.failed(
-        LedgerApiErrors.RequestValidation.InvalidArgument
-          .Reject(
-            s"Provided identity_provider_id $id has not been found."
+  private def identityProviderConfigExistsOrError(id: IdentityProviderId): Future[Unit] =
+    identityProviderConfigExists(id)
+      .flatMap { idpExists =>
+        if (idpExists)
+          Future.successful(())
+        else
+          Future.failed(
+            LedgerApiErrors.RequestValidation.InvalidArgument
+              .Reject(s"Provided identity_provider_id $id has not been found.")
+              .asGrpcError
           )
-          .asGrpcError
-      )
+      }
 
   private def handleResult[T](operation: String)(result: UserManagementStore.Result[T]): Future[T] =
     result match {

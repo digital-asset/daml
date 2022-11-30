@@ -439,8 +439,7 @@ private[backend] trait StorageBackendTestsUserManagement
       userId: String = "",
       isDeactivated: Boolean = false,
       primaryPartyOverride: Option[Option[Ref.Party]] = None,
-      identityProviderId: com.daml.ledger.api.domain.IdentityProviderId =
-        IdentityProviderId.Default,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
       resourceVersion: Long = 0,
       createdAt: Long = zeroMicros,
   ): UserManagementStorageBackend.DbUserPayload = {

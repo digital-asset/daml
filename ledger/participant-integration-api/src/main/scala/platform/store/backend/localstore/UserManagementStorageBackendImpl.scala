@@ -13,7 +13,10 @@ import com.daml.ledger.api.domain.UserRight.{
   IdentityProviderAdmin,
   ParticipantAdmin,
 }
+import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
+import com.daml.ledger.api.domain.{IdentityProviderId, UserRight}
 import com.daml.ledger.api.v1.admin.user_management_service.Right
+import com.daml.ledger.api.{ListUsersFilter, domain}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.backend.common.{ComposableQuery, QueryStrategy}
 import com.daml.platform.{LedgerString, Party, UserId}
@@ -344,14 +347,12 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       internalId: Int,
       identityProviderId: Option[IdentityProviderId.Id],
   )(connection: Connection): Boolean = {
-    val rowsUpdated =
-      SQL"""
-         UPDATE participant_users
-         SET identity_provider_id  = ${identityProviderId.map(_.value): Option[String]}
-         WHERE
-             internal_id = ${internalId}
-       """.executeUpdate()(connection)
-    rowsUpdated == 1
+    IdentityProviderAwareBackend.updateIdentityProviderId("participant_users")(
+      internalId,
+      identityProviderId,
+    )(
+      connection
+    )
   }
 
 }

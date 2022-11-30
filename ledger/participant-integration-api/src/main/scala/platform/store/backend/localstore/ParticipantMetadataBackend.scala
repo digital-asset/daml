@@ -3,11 +3,11 @@
 
 package com.daml.platform.store.backend.localstore
 
-import java.sql.Connection
 import anorm.SqlParser.{long, str}
 import anorm.{RowParser, SqlStringInterpolation, ~}
-import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
+
+import java.sql.Connection
 
 /** Provides primitive backend operations for managing:
   * - annotations of a resource,
@@ -103,21 +103,6 @@ object ParticipantMetadataBackend {
     val rowsUpdated = SQL"""
          UPDATE #$tableName
          SET resource_version  = resource_version + 1
-         WHERE
-             internal_id = ${internalId}
-       """.executeUpdate()(connection)
-    rowsUpdated == 1
-  }
-
-  def updateIdentityProviderId(
-      tableName: String
-  )(internalId: Int, identityProviderId: Option[IdentityProviderId.Id])(
-      connection: Connection
-  ): Boolean = {
-    val rowsUpdated =
-      SQL"""
-         UPDATE #$tableName
-         SET identity_provider_id  = ${identityProviderId.map(_.value): Option[String]}
          WHERE
              internal_id = ${internalId}
        """.executeUpdate()(connection)
