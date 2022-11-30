@@ -147,14 +147,26 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       connection: Connection
   ): Vector[UserManagementStorageBackend.DbUserWithId] = {
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-    val whereClause = (fromExcl, filter) match {
-      case (None, ListUsersFilter.Wildcard) => cSQL""
-      case (Some(id: String), ListUsersFilter.ByIdentityProviderId(identityProviderId)) =>
-        cSQL"WHERE user_id > ${id} AND identity_provider_id=${identityProviderId.value: String}"
-      case (Some(id: String), ListUsersFilter.Wildcard) => cSQL"WHERE user_id > ${id}"
-      case (None, ListUsersFilter.ByIdentityProviderId(identityProviderId)) =>
-        cSQL"WHERE identity_provider_id=${identityProviderId.value: String}"
+
+    val userIdWhereClause = fromExcl match {
+      case None => Nil
+      case Some(id: String) => List(cSQL"user_id > ${id}")
     }
+
+    val identityProviderIdWhereClause = filter match {
+      case ListUsersFilter.Wildcard => Nil
+      case ListUsersFilter.ByIdentityProviderId(identityProviderId) =>
+        List(cSQL"identity_provider_id=${identityProviderId.value: String}")
+    }
+
+    val whereClause = {
+      val clauses = userIdWhereClause ++ identityProviderIdWhereClause
+      if (clauses.nonEmpty) {
+        cSQL"WHERE ${clauses.mkComposite("", "AND", "")}"
+      } else
+        cSQL""
+    }
+
     SQL"""SELECT internal_id, user_id, primary_party, identity_provider_id, is_deactivated, resource_version, created_at
           FROM participant_users
           $whereClause
