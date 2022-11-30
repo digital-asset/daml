@@ -6,11 +6,11 @@
 Custom Views
 ############
 
-Custom views provides convenient features to continuously ingest data from a Ledger into a database,
+The Custom Views library provides convenient features to continuously ingest data from a ledger into a database,
 into tables of your choice, optimized for your querying requirements.
 
-Custom views is a Java library for **projecting** Ledger events into a SQL database.
-It is currently available in Labs early access, and only supports PostgreSQL right now.
+Custom Views is a Java library for **projecting** ledger events into a SQL database.
+It is currently available in :doc:`Labs</support/status-definitions>` early access, and only supports PostgreSQL right now.
 
 Use the following Maven dependency to use the Custom Views library:
 
@@ -30,14 +30,14 @@ Overview
 
 A **Projection** is a resumable process that continuously reads ledger events and transforms these into rows in SQL tables.
 A projection ensures that rows are committed according to ledger transactions,
-ensuring that isolation and atomicity of changes perceived by database users is consistent with committed transactions on the ledger.
+ensuring that the isolation and atomicity of changes perceived by database users are consistent with committed transactions on the ledger.
 
 At a high level, the following types are needed to run a projection process:
 
-- A ``BatchSource`` connects to the Ledger and reads events from it.
+- A ``BatchSource`` connects to the ledger and reads events from it.
 - A ``Projection`` defines which events to process from the ``BatchSource``, from which ``Offset`` to start processing, optionally up to an end ``Offset``.
-- A ``Project`` function converts the events into database actions. A ``JdbcAction`` type can be used to define which SQL statements should be executed.
-- A ``Projector`` takes a ``BatchSource``, a ``Projection``, and a ``Project`` function, to read and transform events into actions, and executes these. Database transactions are committed as they occurred on the ledger.
+- A ``Project`` function converts the events into database actions. A ``JdbcAction`` type defines which SQL statements should be executed.
+- The ``project`` method on ``Projector`` takes a ``BatchSource``, a ``Projection``, and a ``Project`` function. The ``project`` method starts the projection process. Database transactions are committed as they occur on the ledger.
 
 A common workflow for setting up a projection process follows:
 
@@ -46,10 +46,10 @@ A common workflow for setting up a projection process follows:
 - Choose the type of event you want to project and create a ``BatchSource`` for it.
 - Create a ``Projection``. If the projection already exists, it will continue where it left off.
 - Create a ``Project`` function that transforms an event into (0 to N) database actions.
-- invoke ``project`` on the ``Projector``, passing in the ``BatchSource``, the ``Projection``, and the ``Project`` function. This starts the projection process, and returns a ``Control`` to control the process.
-- cancel the projection by invoking ``control.cancel`` on shutdown of your application.
+- Invoke ``project`` on the ``Projector``, passing in the ``BatchSource``, the ``Projection``, and the ``Project`` function. This starts the projection process, and returns a ``Control`` to control the process.
+- Cancel the projection by invoking ``control.cancel`` on shutdown of your application.
 
-The next sections will explain the most important objects in the Custom Views library in more detail.
+The next sections explain the most important objects in the Custom Views library in more detail.
 
 Projector
 *********
@@ -69,79 +69,79 @@ A ``Projector`` provides ``project`` methods to start a projection process.
 The `ConnectionSupplier` is used to create database connections when required.
 The ``project`` methods return a ``Control`` which can be used to:
 
-- cancel the projection
-- find out if the projection has completed or failed
-- wait for the projection process to close all its resources.
+- Cancel the projection.
+- Find out if the projection has completed or failed.
+- Wait for the projection process to close all its resources.
 
-A projection only completes if an end ``Offset`` is set, otherwise it will continuously run and project events as they occur on the Ledger.
+A projection only completes if an end ``Offset`` is set, otherwise it continuously runs and projects events as they occur on the ledger.
 The ``project`` methods take a ``BatchSource``, a ``Projection`` and a ``Project`` function, which are explained in the next sections.
 
 BatchSource
 ===========
-A projection connects to the Ledger and reads events using a ``BatchSource``, which internally uses the Ledger gRPC client API.
+A projection connects to the ledger and reads events using a ``BatchSource``, which internally uses :doc:`the Ledger API with gRPC</app-dev/grpc/index>`.
 The Ledger API provides the following types of events:
 
 - ``Event`` (``CreatedEvent`` or ``ArchivedEvent``)
 - ``ExercisedEvent``
 - ``TreeEvent``
 
-The projection library uses the ``com.daml.ledger.javaapi.data`` ``Event``, ``ExercisedEvent`` and ``TreeEvent`` classes from the :doc:`Java Bindings</app-dev/bindings-java/index>`
-to represent these events.
+The projection library uses the ``Event``, ``ExercisedEvent`` and ``TreeEvent`` classes from the :doc:`Java Bindings</app-dev/bindings-java/index>`
+in the ``com.daml.ledger.javaapi.data`` package to represent these events.
 
-The following ``BatchSource`` s are available:
+The following ``BatchSource``\s are available:
 
 - ``BatchSource.events`` creates a ``BatchSource`` that reads ``Event``\s from the ledger.
 - ``BatchSource.exercisedEvents`` creates a ``BatchSource`` that reads ``ExercisedEvent``\s from the ledger.
 - ``BatchSource.treeEvents`` creates a ``BatchSource`` that reads ``TreeEvent``\s from the ledger.
 
-The example below shows how to create a ``BatchSource`` that will read ``CreatedEvent``\s and ``ArchivedEvent``\s from the Ledger at ``localhost``, port ``6865``:
+The example below shows how to create a ``BatchSource`` that reads ``CreatedEvent``\s and ``ArchivedEvent``\s from the ledger at ``localhost``, port ``6865``:
 
 .. code-block:: java
 
     var grpcClientSettings = GrpcClientSettings.connectToServiceAt("localhost", 6865, system);
     var source = BatchSource.events(grpcClientSettings);
 
-Additionally ``BatchSource.create`` can be used to create a ``BatchSource`` of a code-generated ``Contract`` types from ``CreateEvent``\s,
-or to create a ``BatchSource`` from simple values, which is convenient for unit testing.
+Additionally ``BatchSource.create`` creates a ``BatchSource`` from code-generated ``Contract`` types from ``CreateEvent``\s,
+or creates a ``BatchSource`` from simple values, which is convenient for unit testing.
 
 Batch
 -----
 
-A ``BatchSource`` reads events into ``Batch``\es. A ``Batch`` consists of 1 to many events, and optionally contains a marker that indicates that a transaction has been committed on the Ledger.
+A ``BatchSource`` reads events into ``Batch``\es. A ``Batch`` consists of 1 to many events, and optionally contains a marker that indicates that a transaction has been committed on the ledger.
 `Batches` make it possible to process larger than memory transactions, while tracking transactions as they occur on the ledger, and making it possible for downstream
 database transactions to only commit when these transaction markers have been detected.
 
 Envelope
 --------
 
-The events in `Batches` are wrapped in `Envelopes`. An ``Envelope`` provides additional fields providing more context about what occurred on the Ledger.
+The events in `Batches` are wrapped in `Envelopes`. An ``Envelope`` provides additional fields providing more context about what occurred on the ledger.
 It has the following fields:
 
-- event: The wrapped value. ``getEvent`` and ``unwrap()`` both provide this value.
-- offset: The offset of the event.
-- table: The (main) ``ProjectionTable`` that is projected to.
-- workflowId (optional)
-- ledgerEffectiveTime (optional)
-- transactionId (optional)
+- ``event``: The wrapped value. ``getEvent`` and ``unwrap()`` both provide this value.
+- ``offset``: The offset of the event.
+- ``table``: The (main) ``ProjectionTable`` that is projected to.
+- ``workflowId`` (optional)
+- ``ledgerEffectiveTime`` (optional)
+- ``transactionId`` (optional)
 
 Projection
 ==========
 
-The Projection keeps track of the projection process and decides which events will be projected from the BatchSource.
+The ``Projection`` keeps track of the projection process and decides which events will be projected from the ``BatchSource``.
 
 A Projection:
 
 - has a `ProjectionId` that must uniquely identify the projection process.
 - has an ``Offset`` which is used as a starting point to read from the ledger.
-- has a ``ProjectionFilter``. The ``BatchSource`` uses this filter to select events from the Ledger. (If you are familiar with the gRPC service, the ``ProjectionFilter`` translates to a ``TransactionFilter``)
+- has a ``ProjectionFilter``. The ``BatchSource`` uses this filter to select events from the ledger. (If you are familiar with the gRPC service, the ``ProjectionFilter`` translates to a ``TransactionFilter``)
 - specifies an SQL table to project to with a ``ProjectionTable``.
-- optionally has a ``Predicate`` to filter events that were read from the Ledger.
-- optionally has an end ``Offset``, if set the projection will end when a transaction for the ``Offset`` has been read from the Ledger.
+- optionally has a ``Predicate`` to filter events that were read from the ledger.
+- optionally has an end ``Offset``, if set the projection ends when a transaction for the ``Offset`` has been read from the ledger.
 - is stored in the ``projection`` SQL table.
 
-A newly created projection by default has no offset, which means a projection will start from the beginning of the Ledger.
-A projection is updated when it successfully commits transactions into the SQL database according to transactions that were committed on the Ledger.
-A projection will be resumed from its stored offset automatically, if it can be found by its `ProjectionId`.
+A newly created projection by default has no offset, which means a projection starts from the beginning of the ledger.
+A projection updates when it successfully commits transactions into the SQL database according to transactions that were committed on the ledger.
+A projection resumes from its stored offset automatically, if it can be found by its `ProjectionId`.
 
 The code below shows an example of how to create a `Projection`:
 
@@ -210,7 +210,7 @@ The `JdbcAction` is an interface with one method, shown in the example below:
     public int execute(java.sql.Connection con);
 
 All ``JdbcAction``\s extend ``JdbcAction``. ``execute`` should return the number of rows affected by the action.
-The ``ExecuteUpdate`` action can be used to create an insert, delete or update statement.
+The ``ExecuteUpdate`` action creates an insert, delete, or update statement.
 The example below shows how an insert statement can be created, and how arguments can be bound to the statement:
 
 .. code-block:: java
@@ -243,7 +243,7 @@ Projecting rows in batches
 --------------------------
 
 The `ExecuteUpdate` action internally creates a new ``java.sql.PreparedStatement`` when it is executed.
-Use `UpdateMany` If you want to reuse the ``java.sql.PreparedStatement`` and add statements in batches, which can make a considerable difference in performance.
+Use `UpdateMany` if you want to reuse the ``java.sql.PreparedStatement`` and add statements in batches, which can make a considerable difference to performance.
 The example below shows how you can use ``projectRows`` to project using ``UpdateMany``.
 In this case we are using a code generated ``Iou.Contract`` class to function as a `Row`, which we use to bind to a SQL statement
 which is executed in batches.
@@ -298,9 +298,9 @@ You can override the configuration by using an ``application.conf`` file, see `u
 Batcher configuration
 =====================
 
-A ``Batch`` consists of 1 to many events, and optionally contains a marker that indicates that a transaction has been committed on the Ledger.
+A ``Batch`` consists of 1 to many events, and optionally contains a marker that indicates that a transaction has been committed on the ledger.
 
-Both the ``batch-size`` and the ``batch-interval`` is configured in the reference.conf
+Both the ``batch-size`` and the ``batch-interval`` are configured in the reference.conf:
 
 .. code-block:: none
 
