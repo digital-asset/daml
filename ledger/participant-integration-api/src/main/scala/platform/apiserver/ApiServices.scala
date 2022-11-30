@@ -208,7 +208,7 @@ private[daml] object ApiServices {
               userManagementStore,
               maxUsersPageSize = userManagementConfig.maxUsersPageSize,
               submissionIdGenerator = SubmissionIdGenerator.Random,
-              identityProviderConfigValidation = new IdentityProviderConfigValidationImpl(
+              identityProviderConfigExists = new IdentityProviderConfigExists(
                 identityProviderConfigStore
               ),
             )

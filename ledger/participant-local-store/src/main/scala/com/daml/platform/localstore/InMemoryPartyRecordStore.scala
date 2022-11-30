@@ -25,7 +25,6 @@ import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-//TODO IMPLEMENT
 object InMemoryPartyRecordStore {
   case class PartyRecordInfo(
       party: Ref.Party,
