@@ -131,7 +131,7 @@ private[lf] final class Compiler(
   @throws[CompilationError]
   def unsafeCompileWithContractDisclosures(
       compiledCommands: t.SExpr,
-      disclosures: ImmArray[DisclosedContract],
+      disclosures: ImmArray[DisclosedContract[_]],
   ): t.SExpr =
     compileWithContractDisclosures(compiledCommands, disclosures)
 
@@ -338,7 +338,7 @@ private[lf] final class Compiler(
 
   private[this] def compileWithContractDisclosures(
       sexpr: t.SExpr,
-      disclosures: ImmArray[DisclosedContract],
+      disclosures: ImmArray[DisclosedContract[_]],
   ): t.SExpr = {
     val disclosureLambda = pipeline(
       translateContractDisclosureLambda(Env.Empty, disclosures)
@@ -1011,7 +1011,7 @@ private[lf] final class Compiler(
   private[this] def translateDisclosedContractWithTemplateChecked(
       env: Env,
       templateId: Identifier,
-      disclosedContract: DisclosedContract,
+      disclosedContract: DisclosedContract[_],
   ): s.SExpr = {
     let(env, s.SEApp(s.SEBuiltin(SBCheckTemplateKey(templateId)), List(s.SEValue.Unit))) {
       (templateKeyCheck, env) =>
@@ -1052,7 +1052,7 @@ private[lf] final class Compiler(
 
   private[this] def translateDisclosedContract(
       env: Env,
-      disclosedContract: DisclosedContract,
+      disclosedContract: DisclosedContract[_],
   ): s.SExpr = {
     val templateId = disclosedContract.templateId
     val contract = s.SEValue(disclosedContract.argument)
@@ -1086,7 +1086,7 @@ private[lf] final class Compiler(
 
   private[this] def translateContractDisclosureLambda(
       env: Env,
-      disclosures: ImmArray[DisclosedContract],
+      disclosures: ImmArray[DisclosedContract[_]],
   ): s.SExpr = {
     // The next free environment variable will be the bound variable in the contract disclosure lambda
     val baseIndex = env.nextPosition.idx

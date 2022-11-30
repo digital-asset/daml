@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.v2
 
 import com.daml.ledger.api.health.ReportsHealth
-import com.daml.lf.command.OutputDisclosedContract
+import com.daml.lf.command.{DisclosedContract, EngineEnrichedContractMetadata}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Versioned}
 import com.daml.lf.value.Value
@@ -109,7 +109,9 @@ trait WriteService
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      explicitlyDisclosedContracts: ImmArray[Versioned[OutputDisclosedContract]],
+      explicitlyDisclosedContracts: ImmArray[
+        Versioned[DisclosedContract[EngineEnrichedContractMetadata]]
+      ],
   )(implicit
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,

@@ -13,7 +13,7 @@ import com.daml.ledger.api.validation.ValueValidator.{
   validateOptionalIdentifier,
   validateRecordFields,
 }
-import com.daml.lf.command.{ContractMetadata, DisclosedContract}
+import com.daml.lf.command.{ClientProvidedContractMetadata, DisclosedContract}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.value.Value.ValueRecord
 import com.daml.lf.value.ValueOuterClass.VersionedValue
@@ -28,7 +28,7 @@ import scala.util.Try
 class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
   def apply(commands: ProtoCommands)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] =
+  ): Either[StatusRuntimeException, ImmArray[DisclosedContract[ClientProvidedContractMetadata]]] =
     for {
       _ <- Either.cond(
         explicitDisclosureFeatureEnabled || commands.disclosedContracts.isEmpty,
@@ -47,11 +47,13 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       disclosedContracts: Seq[ProtoDisclosedContract]
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] = {
+  ): Either[StatusRuntimeException, ImmArray[DisclosedContract[ClientProvidedContractMetadata]]] = {
     type ZeroType =
       Either[
         StatusRuntimeException,
-        mutable.Builder[DisclosedContract, ImmArray[DisclosedContract]],
+        mutable.Builder[DisclosedContract[ClientProvidedContractMetadata], ImmArray[
+          DisclosedContract[ClientProvidedContractMetadata]
+        ]],
       ]
 
     disclosedContracts
@@ -104,7 +106,7 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       disclosedContract: ProtoDisclosedContract
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, DisclosedContract] =
+  ): Either[StatusRuntimeException, DisclosedContract[ClientProvidedContractMetadata]] =
     for {
       templateId <- requirePresence(disclosedContract.templateId, "DisclosedContract.template_id")
       validatedTemplateId <- validateIdentifier(templateId)
@@ -130,7 +132,7 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       contractId = contractId,
       templateId = validatedTemplateId,
       argument = argument,
-      metadata = ContractMetadata(
+      metadata = ClientProvidedContractMetadata(
         createdAt = validatedCreatedAt,
         keyHash = keyHash,
         driverMetadata = ImmArray.from(metadata.driverMetadata.toByteArray),

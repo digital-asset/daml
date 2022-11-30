@@ -4,7 +4,7 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.command.ContractMetadata
+import com.daml.lf.command.ClientProvidedContractMetadata
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.interpretation.Error.{ContractKeyNotFound, ContractNotActive}
@@ -386,7 +386,8 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
   def ledgerQueriedWhenContractNotDisclosed(
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
-      disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
+      disclosedContracts: ImmArray[DisclosedContract[ClientProvidedContractMetadata]] =
+        ImmArray.Empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -407,9 +408,10 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
 
   def disclosureTableQueriedWhenContractDisclosed(
       sexpr: SExpr.SExpr,
-      disclosedContract: DisclosedContract,
+      disclosedContract: DisclosedContract[ClientProvidedContractMetadata],
       committers: Set[Party] = Set.empty,
-      disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
+      disclosedContracts: ImmArray[DisclosedContract[ClientProvidedContractMetadata]] =
+        ImmArray.Empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -433,7 +435,8 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
       contractId: ContractId,
       action: String,
       committers: Set[Party] = Set.empty,
-      disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
+      disclosedContracts: ImmArray[DisclosedContract[ClientProvidedContractMetadata]] =
+        ImmArray.Empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -459,11 +462,12 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
 
   def disclosureTableQueryFailsWhenContractDisclosed(
       sexpr: SExpr.SExpr,
-      disclosedContract: DisclosedContract,
+      disclosedContract: DisclosedContract[ClientProvidedContractMetadata],
       contractToDestroy: ContractId,
       action: String,
       committers: Set[Party] = Set.empty,
-      disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
+      disclosedContracts: ImmArray[DisclosedContract[ClientProvidedContractMetadata]] =
+        ImmArray.Empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -492,7 +496,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
   )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
     val houseContractKey: GlobalKey = buildContractKey(maintainerParty)
     // Here the disclosed contract has a caveTemplateType, but its key has a houseTemplateType
-    val malformedDisclosedContract: DisclosedContract =
+    val malformedDisclosedContract =
       DisclosedContract(
         caveTemplateType,
         SContractId(disclosureContractId),
@@ -504,7 +508,11 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
           ),
           ArrayList(SValue.SParty(disclosureParty), SValue.SParty(maintainerParty)),
         ),
-        ContractMetadata(Time.Timestamp.now(), Some(houseContractKey.hash), ImmArray.Empty),
+        ClientProvidedContractMetadata(
+          Time.Timestamp.now(),
+          Some(houseContractKey.hash),
+          ImmArray.Empty,
+        ),
       )
     val (result, ledger) =
       evaluateSExpr(

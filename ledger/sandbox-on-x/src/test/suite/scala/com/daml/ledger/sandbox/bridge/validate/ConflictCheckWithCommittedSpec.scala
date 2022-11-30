@@ -4,7 +4,6 @@
 package com.daml.ledger.sandbox.bridge.validate
 
 import java.time.Duration
-
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -15,7 +14,7 @@ import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckWithCommittedSpec._
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission
-import com.daml.lf.command.{ContractMetadata, DisclosedContract}
+import com.daml.lf.command.{DisclosedContract, EngineEnrichedContractMetadata}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref, Time}
@@ -302,17 +301,18 @@ class ConflictCheckWithCommittedSpec
     val informeesSet: Set[Ref.Party] = transactionInformees.toSet
     val blindingInfo: BlindingInfo = BlindingInfo(Map(), Map(divulgedContract -> Set(informee1)))
 
-    val disclosedContract: DisclosedContract = {
+    val disclosedContract: DisclosedContract[EngineEnrichedContractMetadata] = {
       val contractId = cid(1)
       DisclosedContract(
         templateId = templateId,
         contractId = contractId,
         argument = Value.ValueText("Some contract value"),
-        metadata = ContractMetadata(
+        metadata = EngineEnrichedContractMetadata(
           createdAt = Time.Timestamp.now(),
-          keyHash = None, // Not affected by this validation
-          driverMetadata =
-            ImmArray.from(contractId.toBytes.toByteArray), // Not affected by this validation
+          driverMetadata = ImmArray.from(contractId.toBytes.toByteArray),
+          signatories = Set.empty, // Not used in this validation
+          stakeholders = Set.empty, // Not used in this validation
+          maybeKeyWithMaintainersVersioned = None, // Not used in this validation
         ),
       )
     }

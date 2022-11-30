@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver.execution
 
 import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, MaximumLedgerTimeService}
-import com.daml.lf.command.{ContractMetadata, DisclosedContract}
+import com.daml.lf.command.{ClientProvidedContractMetadata, DisclosedContract}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{ImmArray, Time}
@@ -75,7 +75,7 @@ class ResolveMaximumLedgerTimeSpec
       templateId = Identifier.assertFromString("some:pkg:identifier"),
       contractId = cId,
       argument = Value.ValueNil,
-      metadata = ContractMetadata(
+      metadata = ClientProvidedContractMetadata(
         createdAt = createdAt,
         keyHash = None,
         driverMetadata = ImmArray.empty,

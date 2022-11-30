@@ -76,11 +76,11 @@ private[lf] object Command {
 
 }
 
-final case class DisclosedContract(
+final case class DisclosedContract[Metadata <: ContractMetadata](
     templateId: Identifier,
     contractId: SContractId,
     argument: SValue,
-    metadata: ContractMetadata,
+    metadata: Metadata,
 )
 
 final case class InterfaceView(

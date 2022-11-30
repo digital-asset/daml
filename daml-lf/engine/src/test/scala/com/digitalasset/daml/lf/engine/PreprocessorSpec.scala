@@ -4,7 +4,7 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.command.ContractMetadata
+import com.daml.lf.command.ClientProvidedContractMetadata
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
@@ -157,20 +157,20 @@ object PreprocessorSpec {
     ),
   )
   val keyHash: Hash = crypto.Hash.assertHashContractKey(templateType, key)
-  val normalizedContract: command.DisclosedContract =
+  val normalizedContract: command.DisclosedContract[ClientProvidedContractMetadata] =
     buildDisclosedContract(keyHash, withNormalization = true, withFieldsReversed = false)
-  val nonNormalizedContract: command.DisclosedContract =
+  val nonNormalizedContract: command.DisclosedContract[ClientProvidedContractMetadata] =
     buildDisclosedContract(keyHash, withNormalization = false, withFieldsReversed = false)
-  val altNormalizedContract: command.DisclosedContract =
+  val altNormalizedContract: command.DisclosedContract[ClientProvidedContractMetadata] =
     buildDisclosedContract(keyHash, withNormalization = true, withFieldsReversed = true)
-  val altNonNormalizedContract: command.DisclosedContract =
+  val altNonNormalizedContract: command.DisclosedContract[ClientProvidedContractMetadata] =
     buildDisclosedContract(keyHash, withNormalization = false, withFieldsReversed = true)
 
   def buildDisclosedContract(
       keyHash: Hash,
       withNormalization: Boolean,
       withFieldsReversed: Boolean,
-  ): command.DisclosedContract = {
+  ): command.DisclosedContract[ClientProvidedContractMetadata] = {
     val recordFields = ImmArray(
       (if (withNormalization) None else Some(Ref.Name.assertFromString("owners"))) -> parties,
       (if (withNormalization) None else Some(Ref.Name.assertFromString("data"))) -> Value
@@ -183,7 +183,7 @@ object PreprocessorSpec {
         if (withNormalization) None else Some(templateId),
         if (withFieldsReversed) recordFields.reverse else recordFields,
       ),
-      ContractMetadata(Time.Timestamp.now(), Some(keyHash), ImmArray.Empty),
+      ClientProvidedContractMetadata(Time.Timestamp.now(), Some(keyHash), ImmArray.Empty),
     )
   }
 
@@ -194,7 +194,9 @@ object PreprocessorSpec {
       "org.wartremover.warts.JavaSerializable",
     )
   )
-  def acceptDisclosedContract(result: Either[Error, ImmArray[DisclosedContract]]): Assertion = {
+  def acceptDisclosedContract(
+      result: Either[Error, ImmArray[DisclosedContract[ClientProvidedContractMetadata]]]
+  ): Assertion = {
     import Inside._
     import Inspectors._
     import Matchers._

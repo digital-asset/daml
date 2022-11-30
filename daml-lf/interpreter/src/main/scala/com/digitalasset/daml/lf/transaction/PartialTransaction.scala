@@ -4,6 +4,7 @@
 package com.daml.lf
 package speedy
 
+import com.daml.lf.command.ClientProvidedContractMetadata
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.daml.lf.ledger.Authorize
@@ -174,7 +175,7 @@ private[lf] object PartialTransaction {
       contractKeyUniqueness: ContractKeyUniquenessMode,
       initialSeeds: InitialSeeding,
       committers: Set[Party],
-      disclosedContracts: ImmArray[DisclosedContract],
+      disclosedContracts: ImmArray[DisclosedContract[ClientProvidedContractMetadata]],
   ) = PartialTransaction(
     nextNodeIdx = 0,
     nodes = HashMap.empty,
@@ -216,7 +217,7 @@ private[speedy] case class PartialTransaction(
     context: PartialTransaction.Context,
     contractState: ContractStateMachine[NodeId]#State,
     actionNodeLocations: BackStack[Option[Location]],
-    disclosedContracts: ImmArray[DisclosedContract],
+    disclosedContracts: ImmArray[DisclosedContract[ClientProvidedContractMetadata]],
 ) {
 
   import PartialTransaction._

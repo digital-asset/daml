@@ -4,7 +4,7 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.command.ContractMetadata
+import com.daml.lf.command.ClientProvidedContractMetadata
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
 import com.daml.lf.interpretation.Error.TemplatePreconditionViolated
@@ -595,7 +595,7 @@ object CompilerTest {
       maintainer: Party,
       templateId: Ref.Identifier,
       keyLabel: String = "",
-  ): DisclosedContract = {
+  ): DisclosedContract[ClientProvidedContractMetadata] = {
     val withKey = keyLabel.nonEmpty
     val key = SValue.SRecord(
       templateId,
@@ -624,7 +624,7 @@ object CompilerTest {
       templateId,
       SContractId(contractId),
       contract(keyLabel),
-      ContractMetadata(Time.Timestamp.now(), keyHash, ImmArray.Empty),
+      ClientProvidedContractMetadata(Time.Timestamp.now(), keyHash, ImmArray.Empty),
     )
 
     disclosedContract
@@ -634,12 +634,12 @@ object CompilerTest {
       contractId: ContractId,
       templateId: Ref.Identifier,
       precondition: Boolean,
-  ): DisclosedContract = {
+  ): DisclosedContract[ClientProvidedContractMetadata] = {
     DisclosedContract(
       templateId,
       SContractId(contractId),
       preCondContract(precondition = precondition),
-      ContractMetadata(Time.Timestamp.now(), None, ImmArray.Empty),
+      ClientProvidedContractMetadata(Time.Timestamp.now(), None, ImmArray.Empty),
     )
   }
 }

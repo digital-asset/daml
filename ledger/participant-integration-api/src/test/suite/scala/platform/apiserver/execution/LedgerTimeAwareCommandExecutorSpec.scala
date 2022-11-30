@@ -10,7 +10,11 @@ import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.MaximumLedgerTime
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
-import com.daml.lf.command.{ContractMetadata, DisclosedContract, ApiCommands => LfCommands}
+import com.daml.lf.command.{
+  DisclosedContract,
+  EngineEnrichedContractMetadata,
+  ApiCommands => LfCommands,
+}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{ImmArray, Ref, Time}
@@ -64,17 +68,19 @@ class LedgerTimeAwareCommandExecutorSpec
     )
   )
 
-  private val disclosedContracts = ImmArray(
+  private val engineOutputDisclosedContracts = ImmArray(
     Versioned(
       TransactionVersion.V15,
       DisclosedContract(
         templateId = Identifier.assertFromString("some:pkg:identifier"),
         contractId = cid,
         argument = Value.ValueNil,
-        metadata = ContractMetadata(
+        metadata = EngineEnrichedContractMetadata(
           createdAt = Time.Timestamp.Epoch,
-          keyHash = None,
           driverMetadata = ImmArray.empty,
+          signatories = Set.empty,
+          stakeholders = Set.empty,
+          maybeKeyWithMaintainersVersioned = None,
         ),
       ),
     )
@@ -101,7 +107,7 @@ class LedgerTimeAwareCommandExecutorSpec
       dependsOnLedgerTime,
       5L,
       Map.empty,
-      disclosedContracts,
+      engineOutputDisclosedContracts,
     )
 
     val mockExecutor = mock[CommandExecutor]
@@ -118,7 +124,7 @@ class LedgerTimeAwareCommandExecutorSpec
     resolveMaximumLedgerTimeResults.tail.foldLeft(
       when(
         mockResolveMaximumLedgerTime(
-          eqTo(disclosedContracts.map(_.unversioned)),
+          eqTo(engineOutputDisclosedContracts.map(_.unversioned)),
           any[Set[ContractId]],
         )(
           any[LoggingContext]
@@ -171,7 +177,7 @@ class LedgerTimeAwareCommandExecutorSpec
           dependsOnLedgerTime,
           5L,
           Map.empty,
-          disclosedContracts,
+          engineOutputDisclosedContracts,
         )
       )
 

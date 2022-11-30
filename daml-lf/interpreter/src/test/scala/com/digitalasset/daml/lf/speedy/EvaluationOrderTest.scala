@@ -4,7 +4,7 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.command.ContractMetadata
+import com.daml.lf.command.ClientProvidedContractMetadata
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.data.Ref.{Location, Party}
 import com.daml.lf.interpretation.{Error => IE}
@@ -345,7 +345,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       ),
     )
 
-  private[this] def buildDisclosedContract(signatory: Party): Versioned[DisclosedContract] =
+  private[this] def buildDisclosedContract(
+      signatory: Party
+  ): Versioned[DisclosedContract[ClientProvidedContractMetadata]] =
     Versioned(
       TransactionVersion.minExplicitDisclosure,
       DisclosedContract(
@@ -356,7 +358,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           ImmArray(Ref.Name.assertFromString("signatory")),
           ArrayList(SParty(signatory)),
         ),
-        ContractMetadata(Time.Timestamp.now(), None, ImmArray.Empty),
+        ClientProvidedContractMetadata(Time.Timestamp.now(), None, ImmArray.Empty),
       ),
     )
 
@@ -420,7 +422,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       e: Expr,
       args: Array[SValue],
       parties: Set[Party],
-      disclosedContracts: ImmArray[Versioned[DisclosedContract]] = ImmArray.Empty,
+      disclosedContracts: ImmArray[Versioned[DisclosedContract[ClientProvidedContractMetadata]]] =
+        ImmArray.Empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,

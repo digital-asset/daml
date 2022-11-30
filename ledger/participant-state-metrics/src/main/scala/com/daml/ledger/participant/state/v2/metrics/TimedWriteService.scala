@@ -8,7 +8,7 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2._
-import com.daml.lf.command.OutputDisclosedContract
+import com.daml.lf.command.{DisclosedContract, EngineEnrichedContractMetadata}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Versioned}
 import com.daml.lf.value.Value
@@ -26,7 +26,9 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      explicitlyDisclosedContracts: ImmArray[Versioned[OutputDisclosedContract]],
+      explicitlyDisclosedContracts: ImmArray[
+        Versioned[DisclosedContract[EngineEnrichedContractMetadata]]
+      ],
   )(implicit
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,

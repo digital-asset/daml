@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver.execution
 
 import com.daml.ledger.participant.state.{v2 => state}
-import com.daml.lf.command.OutputDisclosedContract
+import com.daml.lf.command.{DisclosedContract, EngineEnrichedContractMetadata}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Versioned}
 import com.daml.lf.value.Value
@@ -36,5 +36,5 @@ private[apiserver] final case class CommandExecutionResult(
     dependsOnLedgerTime: Boolean,
     interpretationTimeNanos: Long,
     globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-    usedDisclosedContracts: ImmArray[Versioned[OutputDisclosedContract]],
+    usedDisclosedContracts: ImmArray[Versioned[DisclosedContract[EngineEnrichedContractMetadata]]],
 )

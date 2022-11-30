@@ -13,7 +13,12 @@ import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
 import com.daml.ledger.participant.state.v2.{SubmissionResult, SubmitterInfo, TransactionMeta}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf
-import com.daml.lf.command.{ContractMetadata, DisclosedContract, ApiCommands => LfCommands}
+import com.daml.lf.command.{
+  ClientProvidedContractMetadata,
+  DisclosedContract,
+  EngineEnrichedContractMetadata,
+  ApiCommands => LfCommands,
+}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.Time.Timestamp
@@ -193,11 +198,11 @@ class ApiSubmissionServiceSpec
     val commandExecutor = mock[CommandExecutor]
     val metrics = Metrics.ForTesting
 
-    val disclosedContract = DisclosedContract(
+    val inputDisclosedContract = DisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
       contractId = TransactionBuilder.newCid,
       argument = Value.ValueNil,
-      metadata = ContractMetadata(
+      metadata = ClientProvidedContractMetadata(
         createdAt = Timestamp.Epoch,
         keyHash = None,
         driverMetadata = ImmArray.empty,
@@ -218,9 +223,7 @@ class ApiSubmissionServiceSpec
         ledgerEffectiveTime = Timestamp.Epoch,
         commandsReference = "",
       ),
-      disclosedContracts = ImmArray(
-        disclosedContract
-      ),
+      disclosedContracts = ImmArray(inputDisclosedContract),
     )
 
     val ledgerConfiguration = Configuration.reasonableInitialConfiguration.copy(generation = 7L)
@@ -244,8 +247,21 @@ class ApiSubmissionServiceSpec
       optByKeyNodes = None,
     )
     val estimatedInterpretationCost = 5L
-    val explicitlyDisclosedContracts =
-      ImmArray(Versioned(TransactionVersion.VDev, disclosedContract))
+    val engineOutputDisclosedContract =
+      ImmArray(
+        Versioned(
+          TransactionVersion.VDev,
+          inputDisclosedContract.copy(metadata =
+            EngineEnrichedContractMetadata(
+              createdAt = Time.Timestamp.Epoch,
+              driverMetadata = ImmArray.empty,
+              signatories = Set.empty,
+              stakeholders = Set.empty,
+              maybeKeyWithMaintainersVersioned = None,
+            )
+          ),
+        )
+      )
     val commandExecutionResult = CommandExecutionResult(
       submitterInfo = submitterInfo,
       transactionMeta = transactionMeta,
@@ -253,7 +269,7 @@ class ApiSubmissionServiceSpec
       dependsOnLedgerTime = false,
       interpretationTimeNanos = estimatedInterpretationCost,
       globalKeyMapping = Map.empty,
-      usedDisclosedContracts = explicitlyDisclosedContracts,
+      usedDisclosedContracts = engineOutputDisclosedContract,
     )
 
     when(ledgerConfigurationSubscription.latestConfiguration())
@@ -271,7 +287,7 @@ class ApiSubmissionServiceSpec
         transaction,
         estimatedInterpretationCost,
         Map.empty,
-        explicitlyDisclosedContracts,
+        engineOutputDisclosedContract,
       )
     ).thenReturn(CompletableFuture.completedFuture(SubmissionResult.Acknowledged))
 

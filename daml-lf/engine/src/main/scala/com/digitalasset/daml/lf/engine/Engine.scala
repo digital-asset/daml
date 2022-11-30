@@ -105,7 +105,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       cmds: ApiCommands,
-      disclosures: ImmArray[DisclosedContract] = ImmArray.empty,
+      disclosures: ImmArray[DisclosedContract[ClientProvidedContractMetadata]] = ImmArray.empty,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
@@ -278,7 +278,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       commands: ImmArray[speedy.Command],
-      disclosures: ImmArray[speedy.DisclosedContract] = ImmArray.empty,
+      disclosures: ImmArray[speedy.DisclosedContract[ClientProvidedContractMetadata]] =
+        ImmArray.empty,
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
@@ -313,7 +314,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       sexpr: SExpr,
-      disclosures: ImmArray[speedy.DisclosedContract],
+      disclosures: ImmArray[speedy.DisclosedContract[ClientProvidedContractMetadata]],
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
@@ -435,7 +436,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
               _,
               nodeSeeds,
               globalKeyMapping,
-              disclosedContractsWithMetadata,
+              disclosedContracts,
             )
           ) =>
         deps(tx).flatMap { deps =>
@@ -446,24 +447,19 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             dependsOnTime = machine.getDependsOnTime,
             nodeSeeds = nodeSeeds,
             globalKeyMapping = globalKeyMapping,
-            disclosures = disclosedContractsWithMetadata.map {
-              case (disclosedContractS, (signatories, stakeholders, maybeKeyWithMaintainers)) =>
-                Versioned(
-                  machine.tmplId2TxVersion(disclosedContractS.templateId),
-                  OutputDisclosedContract(
+            disclosures = disclosedContracts.map {
+              disclosedContract: Versioned[
+                speedy.DisclosedContract[EngineEnrichedContractMetadata]
+              ] =>
+                val transactionVersion = disclosedContract.version
+
+                disclosedContract.map(disclosedContractS =>
+                  command.DisclosedContract(
                     templateId = disclosedContractS.templateId,
                     contractId = disclosedContractS.contractId.value,
-                    argument = disclosedContractS.argument.toNormalizedValue(
-                      machine.tmplId2TxVersion(disclosedContractS.templateId)
-                    ),
-                    metadata = OutputContractMetadata(
-                      createdAt = disclosedContractS.metadata.createdAt,
-                      driverMetadata = disclosedContractS.metadata.driverMetadata,
-                      signatories = signatories,
-                      stakeholders = stakeholders,
-                      maybeKeyWithMaintainersVersioned = maybeKeyWithMaintainers,
-                    ),
-                  ),
+                    argument = disclosedContractS.argument.toNormalizedValue(transactionVersion),
+                    metadata = disclosedContractS.metadata,
+                  )
                 )
             },
           )

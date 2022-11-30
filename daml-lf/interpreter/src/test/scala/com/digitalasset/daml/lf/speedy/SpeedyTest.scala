@@ -18,6 +18,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import defaultParserParameters.{defaultPackageId => pkgId}
 import SpeedyTestLib.loggingContext
+import com.daml.lf.command.ClientProvidedContractMetadata
 import com.daml.lf.speedy.Speedy.CachedContract
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
@@ -631,7 +632,7 @@ object SpeedyTest {
       buildHouseCachedContract(alice, alice, label = "global-label")
     val disclosedContractId: ContractId =
       ContractId.V1(crypto.Hash.hashPrivateKey("test-disclosed-contract-id"))
-    val disclosedContract: DisclosedContract =
+    val disclosedContract: DisclosedContract[ClientProvidedContractMetadata] =
       buildDisclosedHouseContract(disclosedContractId, alice, alice, label = "disclosed-label")
     val disclosedContractKey: GlobalKey = buildContractKey(alice, "disclosed-label")
     val disclosedCachedContract: CachedContract =

@@ -4,7 +4,7 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.command.OutputDisclosedContract
+import com.daml.lf.command.{DisclosedContract, EngineEnrichedContractMetadata}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.ledger.FailedAuthorization
@@ -699,7 +699,7 @@ object Transaction {
       dependsOnTime: Boolean,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      disclosures: ImmArray[Versioned[OutputDisclosedContract]],
+      disclosures: ImmArray[Versioned[DisclosedContract[EngineEnrichedContractMetadata]]],
   )
 
   def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =

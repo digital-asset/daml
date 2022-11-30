@@ -4,7 +4,7 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.command.ContractMetadata
+import com.daml.lf.command.ClientProvidedContractMetadata
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{Ref, _}
@@ -22,8 +22,8 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.Speedy.{
   CachedContract,
-  OnLedgerMachine,
   OffLedgerMachine,
+  OnLedgerMachine,
   SKeyWithMaintainers,
 }
 import com.daml.lf.testing.parser.Implicits._
@@ -1914,7 +1914,7 @@ object SBuiltinTest {
       maintainer: Party,
       templateId: Ref.Identifier,
       withKey: Boolean,
-  ): (DisclosedContract, Option[(SValue, SValue, crypto.Hash)]) = {
+  ): (DisclosedContract[ClientProvidedContractMetadata], Option[(SValue, SValue, crypto.Hash)]) = {
     val key = SValue.SRecord(
       templateId,
       ImmArray(
@@ -1967,7 +1967,7 @@ object SBuiltinTest {
         fields.map(Ref.Name.assertFromString),
         values,
       ),
-      ContractMetadata(Time.Timestamp.now(), keyHash, ImmArray.Empty),
+      ClientProvidedContractMetadata(Time.Timestamp.now(), keyHash, ImmArray.Empty),
     )
 
     (disclosedContract, if (withKey) Some((key, keyWithMaintainers, keyHash.get)) else None)

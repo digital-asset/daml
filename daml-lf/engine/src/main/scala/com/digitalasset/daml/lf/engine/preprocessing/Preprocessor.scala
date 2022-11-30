@@ -5,6 +5,7 @@ package com.daml.lf
 package engine
 package preprocessing
 
+import com.daml.lf.command.ContractMetadata
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
@@ -40,7 +41,6 @@ private[engine] final class Preprocessor(
 ) {
 
   import Preprocessor._
-
   import compiledPackages.pkgInterface
 
   val commandPreprocessor =
@@ -150,9 +150,9 @@ private[engine] final class Preprocessor(
       commandPreprocessor.unsafePreprocessApiCommands(cmds)
     }
 
-  def preprocessDisclosedContracts(
-      discs: data.ImmArray[command.DisclosedContract]
-  ): Result[ImmArray[speedy.DisclosedContract]] =
+  def preprocessDisclosedContracts[Metadata <: ContractMetadata](
+      discs: data.ImmArray[command.DisclosedContract[Metadata]]
+  ): Result[ImmArray[speedy.DisclosedContract[Metadata]]] =
     safelyRun(pullTemplatePackage(discs.toSeq.view.map(_.templateId))) {
       commandPreprocessor.unsafePreprocessDisclosedContracts(discs)
     }

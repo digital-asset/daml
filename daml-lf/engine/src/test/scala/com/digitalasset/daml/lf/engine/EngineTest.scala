@@ -738,7 +738,7 @@ class EngineTest
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        ContractMetadata(
+        ClientProvidedContractMetadata(
           now,
           Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
           ImmArray.empty,
@@ -752,7 +752,7 @@ class EngineTest
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
-        ContractMetadata(
+        ClientProvidedContractMetadata(
           now,
           Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
           ImmArray.empty,
@@ -1571,7 +1571,7 @@ class EngineTest
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        ContractMetadata(
+        ClientProvidedContractMetadata(
           now,
           Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
           ImmArray.empty,
@@ -1585,7 +1585,7 @@ class EngineTest
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
-        ContractMetadata(
+        ClientProvidedContractMetadata(
           now,
           Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
           ImmArray.empty,
@@ -1614,7 +1614,7 @@ class EngineTest
         ImmArray(Ref.Name.assertFromString("p")),
         ArrayList(SValue.SParty(alice)),
       ),
-      ContractMetadata(Time.Timestamp.now(), None, ImmArray.empty),
+      ClientProvidedContractMetadata(Time.Timestamp.now(), None, ImmArray.empty),
     )
     val unusedDisclosedContract = DisclosedContract(
       templateId,
@@ -1624,7 +1624,7 @@ class EngineTest
         ImmArray(Ref.Name.assertFromString("p")),
         ArrayList(SValue.SParty(alice)),
       ),
-      ContractMetadata(Time.Timestamp.now(), None, ImmArray.empty),
+      ClientProvidedContractMetadata(Time.Timestamp.now(), None, ImmArray.empty),
     )
 
     "unused disclosed contracts not saved to ledger" in {
@@ -2610,8 +2610,8 @@ object EngineTest {
   object ExplicitDisclosureTesting {
     def unusedDisclosedContractsNotSavedToLedger(
         cmd: speedy.Command,
-        unusedDisclosedContract: DisclosedContract,
-        usedDisclosedContract: DisclosedContract,
+        unusedDisclosedContract: DisclosedContract[ClientProvidedContractMetadata],
+        usedDisclosedContract: DisclosedContract[ClientProvidedContractMetadata],
     ): Assertion = {
       val result = suffixLenientEngine
         .interpretCommands(
@@ -2640,7 +2640,7 @@ object EngineTest {
       )
     )
     def haveDisclosedContracts(
-        disclosedContracts: DisclosedContract*
+        disclosedContracts: DisclosedContract[ClientProvidedContractMetadata]*
     )(preprocessor: preprocessing.Preprocessor): Matcher[Tx.Metadata] =
       Matcher { metadata =>
         val expectedResult = ImmArray(disclosedContracts: _*)
@@ -2660,7 +2660,7 @@ object EngineTest {
       }
 
     def haveDisclosedInputContracts(
-        disclosedContracts: DisclosedContract*
+        disclosedContracts: DisclosedContract[ClientProvidedContractMetadata]*
     ): Matcher[VersionedTransaction] =
       Matcher { transaction =>
         val expectedResult = Set(disclosedContracts: _*).map(_.contractId.value)

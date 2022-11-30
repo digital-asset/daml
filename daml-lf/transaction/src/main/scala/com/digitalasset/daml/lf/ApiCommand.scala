@@ -93,42 +93,43 @@ case class ApiCommands(
   * @param   argument     the payload of the disclosed contract
   * @param   metadata     metatdata attached to this disclosure. See [ContractMetadata].
   */
-final case class DisclosedContract(
+final case class DisclosedContract[Metadata <: ContractMetadata](
     templateId: Identifier,
     contractId: Value.ContractId,
     argument: Value,
-    metadata: ContractMetadata,
+    metadata: Metadata,
 )
 
-final case class OutputDisclosedContract(
-    templateId: Identifier,
-    contractId: Value.ContractId,
-    argument: Value,
-    metadata: OutputContractMetadata,
-)
+sealed trait ContractMetadata extends Product with Serializable {
+  def createdAt: Time.Timestamp
+  def driverMetadata: ImmArray[Byte]
+}
 
-/** Contract metadata attached to disclosed contracts.
+/** Contract metadata attached to disclosed contracts after command interpretation. This metadata
+  * contains interpretation-derived fields which will be used for ledger-side validation.
   *
   * @param createdAt   ledger effective time of the transaction that created the contract
-  * @param keyHash     hash of the contract key, if present
-  * @param driverMeta  opaque bytestring used by the underlying ledger implementation
+  * @param driverMetadata  opaque bytestring used by the underlying ledger implementation
+  * @param signatories The contract's stakeholders, as derived by the Engine from the provided contract instance.
+  * @param stakeholders The contract's signatories, as derived by the Engine from the provided contract instance.
+  * @param maybeKeyWithMaintainersVersioned The versioned contract key with maintainers, if available,
   */
-final case class OutputContractMetadata(
+final case class EngineEnrichedContractMetadata(
     createdAt: Time.Timestamp,
     driverMetadata: ImmArray[Byte],
     signatories: Set[Party],
     stakeholders: Set[Party],
     maybeKeyWithMaintainersVersioned: Option[Versioned[GlobalKeyWithMaintainers]],
-)
+) extends ContractMetadata
 
-/** Contract metadata attached to disclosed contracts.
+/** Contract metadata attached to disclosed contracts in command submissions.
   *
   * @param createdAt   ledger effective time of the transaction that created the contract
   * @param keyHash     hash of the contract key, if present
-  * @param driverMeta  opaque bytestring used by the underlying ledger implementation
+  * @param driverMetadata  opaque bytestring used by the underlying ledger implementation
   */
-final case class ContractMetadata(
+final case class ClientProvidedContractMetadata(
     createdAt: Time.Timestamp,
     keyHash: Option[crypto.Hash],
     driverMetadata: ImmArray[Byte],
-)
+) extends ContractMetadata

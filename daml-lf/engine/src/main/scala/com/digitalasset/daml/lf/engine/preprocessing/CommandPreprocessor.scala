@@ -5,6 +5,7 @@ package com.daml.lf
 package engine
 package preprocessing
 
+import com.daml.lf.command.ContractMetadata
 import com.daml.lf.data._
 import com.daml.lf.engine.Error.Preprocessing.DuplicateDisclosedContractId
 import com.daml.lf.language.Ast
@@ -27,9 +28,9 @@ private[lf] final class CommandPreprocessor(
   import Preprocessor._
 
   @throws[Error.Preprocessing.Error]
-  def unsafePreprocessDisclosedContract(
-      disc: command.DisclosedContract
-  ): speedy.DisclosedContract = {
+  def unsafePreprocessDisclosedContract[Metadata <: ContractMetadata](
+      disc: command.DisclosedContract[Metadata]
+  ): speedy.DisclosedContract[Metadata] = {
     discard(handleLookup(pkgInterface.lookupTemplate(disc.templateId)))
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(disc.templateId), disc.argument)
     val coid = valueTranslator.unsafeTranslateCid(disc.contractId)
@@ -214,9 +215,9 @@ private[lf] final class CommandPreprocessor(
     cmds.map(unsafePreprocessApiCommand)
 
   @throws[Error.Preprocessing.Error]
-  def unsafePreprocessDisclosedContracts(
-      discs: ImmArray[command.DisclosedContract]
-  ): ImmArray[speedy.DisclosedContract] = {
+  def unsafePreprocessDisclosedContracts[Metadata <: ContractMetadata](
+      discs: ImmArray[command.DisclosedContract[Metadata]]
+  ): ImmArray[speedy.DisclosedContract[Metadata]] = {
     val contractIds: mutable.Set[Value.ContractId] = mutable.Set.empty
 
     discs.map { disclosedContract =>

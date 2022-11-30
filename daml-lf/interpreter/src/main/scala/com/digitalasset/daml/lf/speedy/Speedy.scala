@@ -4,6 +4,8 @@
 package com.daml.lf
 package speedy
 
+import com.daml.lf.command.{ClientProvidedContractMetadata, EngineEnrichedContractMetadata}
+
 import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
@@ -313,25 +315,36 @@ private[lf] object Speedy {
         ptx.disclosedContracts
           .collect {
             case disclosedContract if inputContracts(disclosedContract.contractId.value) =>
-              val cachedContract = getCachedContract(disclosedContract.contractId.value).getOrElse(
+              val lfContractId = disclosedContract.contractId.value
+              val cachedContract = getCachedContract(lfContractId).getOrElse(
                 throw SErrorCrash(
                   NameOf.qualifiedNameOfCurrentFunc,
-                  s"contract ${disclosedContract.contractId.value.coid} not in cachedContracts",
+                  s"contract ${lfContractId.coid} not in cachedContracts",
                 )
               )
               val transactionVersion = tmplId2TxVersion(cachedContract.templateId)
               val maybeKeyWithMaintainers =
                 cachedContract.key
                   .map(_.toNormalizedKeyWithMaintainers(transactionVersion))
-                  .map { k =>
+                  .map { case Node.KeyWithMaintainers(key, maintainers) =>
                     GlobalKeyWithMaintainers(
-                      GlobalKey.assertBuild(disclosedContract.templateId, k.key),
-                      k.maintainers,
+                      globalKey = GlobalKey.assertBuild(disclosedContract.templateId, key),
+                      maintainers = maintainers,
                     )
                   }
                   .map(Versioned(transactionVersion, _))
 
-              disclosedContract -> (cachedContract.signatories, cachedContract.stakeholders, maybeKeyWithMaintainers)
+              val processedDisclosedContract = disclosedContract.copy(metadata =
+                EngineEnrichedContractMetadata(
+                  createdAt = disclosedContract.metadata.createdAt,
+                  driverMetadata = disclosedContract.metadata.driverMetadata,
+                  signatories = cachedContract.signatories,
+                  stakeholders = cachedContract.stakeholders,
+                  maybeKeyWithMaintainersVersioned = maybeKeyWithMaintainers,
+                )
+              )
+
+              Versioned(transactionVersion, processedDisclosedContract)
           },
       )
     }
@@ -414,7 +427,7 @@ private[lf] object Speedy {
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
         commitLocation: Option[Location] = None,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
-        disclosedContracts: ImmArray[speedy.DisclosedContract],
+        disclosedContracts: ImmArray[speedy.DisclosedContract[ClientProvidedContractMetadata]],
     )(implicit loggingContext: LoggingContext): OnLedgerMachine = {
       val exprWithDisclosures =
         compiledPackages.compiler.unsafeCompileWithContractDisclosures(expr, disclosedContracts)
@@ -448,9 +461,7 @@ private[lf] object Speedy {
         locationInfo: Map[NodeId, Location],
         seeds: NodeSeeds,
         globalKeyMapping: Map[GlobalKey, KeyMapping],
-        disclosedContracts: ImmArray[
-          (DisclosedContract, (Set[Party], Set[Party], Option[Versioned[GlobalKeyWithMaintainers]]))
-        ],
+        disclosedContracts: ImmArray[Versioned[DisclosedContract[EngineEnrichedContractMetadata]]],
     )
   }
 
@@ -1072,7 +1083,8 @@ private[lf] object Speedy {
         transactionSeed: crypto.Hash,
         updateE: Expr,
         committers: Set[Party],
-        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
+        disclosedContracts: ImmArray[speedy.DisclosedContract[ClientProvidedContractMetadata]] =
+          ImmArray.Empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
     )(implicit loggingContext: LoggingContext): OnLedgerMachine = {
       val updateSE: SExpr = compiledPackages.compiler.unsafeCompile(updateE)
@@ -1095,7 +1107,8 @@ private[lf] object Speedy {
         transactionSeed: crypto.Hash,
         updateSE: SExpr,
         committers: Set[Party],
-        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
+        disclosedContracts: ImmArray[speedy.DisclosedContract[ClientProvidedContractMetadata]] =
+          ImmArray.Empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
         traceLog: TraceLog = newTraceLog,
     )(implicit loggingContext: LoggingContext): OnLedgerMachine = {

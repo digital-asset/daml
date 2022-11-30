@@ -8,7 +8,12 @@ import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
-import com.daml.lf.command.{ContractMetadata, DisclosedContract, ApiCommands => LfCommands}
+import com.daml.lf.command.{
+  ClientProvidedContractMetadata,
+  DisclosedContract,
+  EngineEnrichedContractMetadata,
+  ApiCommands => LfCommands,
+}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, ParticipantId}
 import com.daml.lf.data.{ImmArray, Ref, Time}
@@ -28,17 +33,19 @@ class StoreBackedCommandExecutorSpec
     with MockitoSugar
     with ArgumentMatchersSugar {
 
-  private val disclosedContracts = ImmArray(
+  private val engineOutputDisclosedContracts = ImmArray(
     Versioned(
       TransactionVersion.V15,
       DisclosedContract(
         templateId = Identifier.assertFromString("some:pkg:identifier"),
         contractId = TransactionBuilder.newCid,
         argument = Value.ValueNil,
-        metadata = ContractMetadata(
+        metadata = EngineEnrichedContractMetadata(
           createdAt = Time.Timestamp.Epoch,
-          keyHash = None,
           driverMetadata = ImmArray.empty,
+          signatories = Set.empty,
+          stakeholders = Set.empty,
+          maybeKeyWithMaintainersVersioned = None,
         ),
       ),
     )
@@ -51,7 +58,7 @@ class StoreBackedCommandExecutorSpec
     dependsOnTime = false,
     nodeSeeds = ImmArray.Empty,
     globalKeyMapping = Map.empty,
-    disclosures = disclosedContracts,
+    disclosures = engineOutputDisclosedContracts,
   )
 
   "execute" should {
@@ -64,7 +71,7 @@ class StoreBackedCommandExecutorSpec
           cmds = any[com.daml.lf.command.ApiCommands],
           participantId = any[ParticipantId],
           submissionSeed = any[Hash],
-          disclosures = any[ImmArray[DisclosedContract]],
+          disclosures = any[ImmArray[DisclosedContract[ClientProvidedContractMetadata]]],
         )(any[LoggingContext])
       )
         .thenReturn(
@@ -113,7 +120,7 @@ class StoreBackedCommandExecutorSpec
         instance.execute(commands, submissionSeed, configuration).map { actual =>
           actual.foreach { actualResult =>
             actualResult.interpretationTimeNanos should be > 0L
-            actualResult.usedDisclosedContracts shouldBe disclosedContracts
+            actualResult.usedDisclosedContracts shouldBe engineOutputDisclosedContracts
           }
           succeed
         }

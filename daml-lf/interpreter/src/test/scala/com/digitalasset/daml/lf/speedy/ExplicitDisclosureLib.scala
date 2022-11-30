@@ -4,7 +4,7 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.command.ContractMetadata
+import com.daml.lf.command.ClientProvidedContractMetadata
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{IdString, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct, Time}
@@ -102,11 +102,11 @@ object ExplicitDisclosureLib {
     buildContract(ledgerParty, maintainerParty)
   val ledgerCaveContract: Value.VersionedContractInstance =
     buildContract(ledgerParty, maintainerParty, caveTemplateId)
-  val disclosedCaveContractNoHash: DisclosedContract =
+  val disclosedCaveContractNoHash: DisclosedContract[ClientProvidedContractMetadata] =
     buildDisclosedCaveContract(contractId, disclosureParty)
-  val disclosedHouseContract: DisclosedContract =
+  val disclosedHouseContract: DisclosedContract[ClientProvidedContractMetadata] =
     buildDisclosedHouseContract(disclosureContractId, disclosureParty, maintainerParty)
-  val disclosedCaveContract: DisclosedContract =
+  val disclosedCaveContract: DisclosedContract[ClientProvidedContractMetadata] =
     buildDisclosedCaveContract(contractId, disclosureParty)
 
   def buildDisclosedHouseContract(
@@ -116,7 +116,7 @@ object ExplicitDisclosureLib {
       templateId: Ref.Identifier = houseTemplateId,
       withHash: Boolean = true,
       label: String = testKeyName,
-  ): DisclosedContract = {
+  ): DisclosedContract[ClientProvidedContractMetadata] = {
     val key = Value.ValueRecord(
       None,
       ImmArray(
@@ -135,7 +135,7 @@ object ExplicitDisclosureLib {
         ImmArray(Ref.Name.assertFromString("owner"), Ref.Name.assertFromString("key_maintainer")),
         ArrayList(SValue.SParty(owner), SValue.SParty(maintainer)),
       ),
-      ContractMetadata(Time.Timestamp.now(), keyHash, ImmArray.Empty),
+      ClientProvidedContractMetadata(Time.Timestamp.now(), keyHash, ImmArray.Empty),
     )
   }
 
@@ -143,7 +143,7 @@ object ExplicitDisclosureLib {
       contractId: ContractId,
       owner: Party,
       templateId: Ref.Identifier = caveTemplateId,
-  ): DisclosedContract = {
+  ): DisclosedContract[ClientProvidedContractMetadata] = {
     DisclosedContract(
       templateId,
       SContractId(contractId),
@@ -152,7 +152,7 @@ object ExplicitDisclosureLib {
         ImmArray(Ref.Name.assertFromString("owner")),
         ArrayList(SValue.SParty(owner)),
       ),
-      ContractMetadata(Time.Timestamp.now(), None, ImmArray.Empty),
+      ClientProvidedContractMetadata(Time.Timestamp.now(), None, ImmArray.Empty),
     )
   }
 
@@ -260,7 +260,8 @@ object ExplicitDisclosureLib {
   )(
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
-      disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
+      disclosedContracts: ImmArray[DisclosedContract[ClientProvidedContractMetadata]] =
+        ImmArray.Empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -301,7 +302,8 @@ object ExplicitDisclosureLib {
   def evaluateSExpr(
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
-      disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
+      disclosedContracts: ImmArray[DisclosedContract[ClientProvidedContractMetadata]] =
+        ImmArray.Empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -342,7 +344,7 @@ object ExplicitDisclosureLib {
   }
 
   def haveDisclosedContracts(
-      disclosedContracts: DisclosedContract*
+      disclosedContracts: DisclosedContract[ClientProvidedContractMetadata]*
   ): Matcher[Speedy.OnLedgerMachine] =
     Matcher { machine =>
       val expectedResult = ImmArray(disclosedContracts: _*)
