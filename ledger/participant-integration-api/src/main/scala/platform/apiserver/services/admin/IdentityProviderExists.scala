@@ -9,14 +9,13 @@ import com.daml.platform.localstore.api.IdentityProviderConfigStore
 
 import scala.concurrent.Future
 
-class IdentityProviderConfigExists(identityProviderConfigStore: IdentityProviderConfigStore) {
+class IdentityProviderExists(identityProviderConfigStore: IdentityProviderConfigStore) {
   def apply(id: IdentityProviderId)(implicit
       loggingContext: LoggingContext
-  ): Future[Boolean] = {
+  ): Future[Boolean] =
     id match {
       case IdentityProviderId.Default => Future.successful(true)
       case id: IdentityProviderId.Id =>
         identityProviderConfigStore.identityProviderConfigExists(id)
     }
-  }
 }

@@ -38,7 +38,7 @@ import scala.util.Try
 
 private[apiserver] final class ApiUserManagementService(
     userManagementStore: UserManagementStore,
-    identityProviderConfigExists: IdentityProviderConfigExists,
+    identityProviderExists: IdentityProviderExists,
     maxUsersPageSize: Int,
     submissionIdGenerator: SubmissionIdGenerator,
 )(implicit
@@ -95,7 +95,7 @@ private[apiserver] final class ApiUserManagementService(
         )
       } { case (user, pRights) =>
         for {
-          _ <- identityProviderConfigExistsOrError(user.identityProviderId)
+          _ <- identityProviderExistsOrError(user.identityProviderId)
           result <- userManagementStore
             .createUser(
               user = user,
@@ -143,7 +143,7 @@ private[apiserver] final class ApiUserManagementService(
       } { case (user, fieldMask) =>
         for {
           userUpdate <- handleUpdatePathResult(user.id, UserUpdateMapper.toUpdate(user, fieldMask))
-          _ <- identityProviderConfigExistsOrError(user.identityProviderId)
+          _ <- identityProviderExistsOrError(user.identityProviderId)
           authorizedUserIdO <- authorizedUserIdFO
           _ <-
             if (
@@ -315,8 +315,8 @@ private[apiserver] final class ApiUserManagementService(
         Future.successful(t)
     }
 
-  private def identityProviderConfigExistsOrError(id: IdentityProviderId): Future[Unit] =
-    identityProviderConfigExists(id)
+  private def identityProviderExistsOrError(id: IdentityProviderId): Future[Unit] =
+    identityProviderExists(id)
       .flatMap { idpExists =>
         if (idpExists)
           Future.successful(())
