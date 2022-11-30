@@ -11,6 +11,7 @@ final class WebsocketServiceIntegrationTestCustomToken
     extends WebsocketServiceIntegrationTest
     with AbstractHttpServiceIntegrationTestFunsCustomToken
 
+/* TODO SC uncomment
 abstract class WebsocketServiceWithPostgresIntTest
     extends AbstractWebsocketServiceIntegrationTest
     with HttpServicePostgresInt
@@ -18,3 +19,4 @@ abstract class WebsocketServiceWithPostgresIntTest
 final class WebsocketServiceWithPostgresIntTestCustomToken
     extends WebsocketServiceWithPostgresIntTest
     with AbstractHttpServiceIntegrationTestFunsCustomToken
+ */
