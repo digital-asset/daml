@@ -24,6 +24,7 @@ Here’s a deeper look at the problem via the example of a transfer of $100 from
 In legacy systems, each bank keeps track of cash holdings independently of the other banks. Each bank stores data in its own private database. Each bank performs its own processes to validate, secure, modify and regulate the workflows that transfer money. The coordination between multiple banks is highly complex. The banks have an obligation to limit their counterparty risk - the probability that the other party in the transaction may not fulfill its part of the deal and may default on the contractual obligations.
 
 Today’s common, albeit highly inefficient and costly, solution for a bank account transfer involves the following steps:
+
 #. Bank A sends a message to Bank B via a messaging standard and provider like SWIFT or SEPA.
 #. Bank A and Bank B determine a settlement plan, possibly including several intermediaries. Gaining an agreement on the settlement plan is time-consuming and often includes additional fees.
 #. The settlement process entails (i) debiting $100 from Alice’s account at Bank A, (ii) crediting the commercial account at Bank B, and (iii) once Bank B has the money, crediting Bob’s account at Bank B.
@@ -108,6 +109,7 @@ Transfer Example Using Daml
 ***************************
 
 Consider the transfer example described above with Alice and Bob. Using Daml, the process looks like this:
+
 #. Alice logs into her online banking at Bank A and enters a transfer to Bob at Bank B.
 #. The online banking backend creates a transaction that deducts $100 from Alice’s account and creates a transfer to Bob at Bank B.
 #. When Bank B accepts the transfer, Bank A credits $100 to Bank B’s account at Bank A and Bank B simultaneously credits Bob’s account by $100.
