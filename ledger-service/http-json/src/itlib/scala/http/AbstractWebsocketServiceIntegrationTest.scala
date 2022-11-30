@@ -1580,10 +1580,10 @@ abstract class AbstractWebsocketServiceIntegrationTest
       for {
         jwt <- jwt(fixture.uri)
         // how many would cause failure if not cleaned up? total = seq*par
-        // 10000 causes OOM; have to slow down to test that
+        // 10000 fails; we partially de-parallelize to get that error
         // 5000 passes locally
-        sequentialCount = 10
-        parallelCount = 1000
+        sequentialCount = 20
+        parallelCount = 500
         scenario = SimpleScenario("query", Uri.Path("/v1/stream/query"), baseQueryInput)
         request = WebSocketRequest(
           uri = fixture.uri.copy(scheme = "ws").withPath(scenario.path),
@@ -1595,13 +1595,13 @@ abstract class AbstractWebsocketServiceIntegrationTest
               Http().webSocketClientFlow(request)
             val ran =
               scenario.input via webSocketFlow runWith collectResultsAsTextMessageSkipOffsetTicks
-            import scala.util.control.NonFatal
+            // import scala.util.control.NonFatal
             ran.map(_ => none[Throwable]).recover {
               // you get some of these a run; this isn't the error we're
-              // interested in and probably has something to do with the weird way
-              // we test websockets, so just ignore it -SC
+              // interested in and probably has something to do with the weird
+              // way we test websockets, so just ignore it -SC
               case akka.stream.SubscriptionWithCancelException.StageWasCompleted => none
-              case NonFatal(e) => some(e)
+              // TODO SC case NonFatal(e) => some(e)
             }
           }
         )
