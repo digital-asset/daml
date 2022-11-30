@@ -13,9 +13,12 @@ import akka.http.scaladsl.model.headers.{HttpCookie, HttpCookiePair}
 import akka.http.scaladsl.server.{Directive1, Route}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
+import com.daml.auth.oauth2.api.{JsonProtocol => OAuthJsonProtocol, Response => OAuthResponse}
 import com.daml.ledger.api.{auth => lapiauth}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.auth.oauth2.api.{JsonProtocol => OAuthJsonProtocol, Response => OAuthResponse}
+import com.daml.ledger.resources.ResourceContext
+import com.daml.metrics.api.reporters.MetricsReporting
+import com.daml.metrics.akkahttp.HttpMetricsInterceptor
 import com.typesafe.scalalogging.StrictLogging
 
 import java.util.UUID
@@ -318,8 +321,27 @@ class Server(config: Config) extends StrictLogging {
 object Server extends StrictLogging {
   def start(config: Config)(implicit sys: ActorSystem): Future[ServerBinding] = {
     implicit val ec: ExecutionContext = sys.getDispatcher
+
+    implicit val rc: ResourceContext = ResourceContext(ec)
+
+    val metricsReporting = new MetricsReporting(
+      getClass.getName,
+      config.metricsReporter,
+      config.metricsReportingInterval,
+    )((_, otelMeter) => Oauth2MiddlewareMetrics(otelMeter))
+    val metricsResource = metricsReporting.acquire()
+
+    val rateDurationSizeMetrics = metricsResource.asFuture.map { implicit metrics =>
+      HttpMetricsInterceptor.rateDurationSizeMetrics(
+        metrics.http
+      )
+    }
+
     for {
-      binding <- Http().newServerAt(config.address, config.port).bind(new Server(config).route)
+      metricsInterceptor <- rateDurationSizeMetrics
+      binding <- Http()
+        .newServerAt(config.address, config.port)
+        .bind(metricsInterceptor apply (new Server(config).route))
       _ <- config.portFile match {
         case Some(portFile) =>
           PortFiles.write(portFile, Port(binding.localAddress.getPort)) match {
