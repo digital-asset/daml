@@ -369,7 +369,7 @@ private[dao] final class TransactionsReader(
   )(range: EventsRange[A])(implicit
       loggingContext: LoggingContext
   ): Source[EventStorageBackend.Entry[E], NotUsed] =
-    PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
+    PaginatingAsyncStream.streamFromSeekPagination(range, getNextPageRange) { range1 =>
       if (EventsRange.isEmpty(range1))
         Future.successful(Vector.empty)
       else {
