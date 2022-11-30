@@ -853,13 +853,20 @@ class WebSocketService(
             jwtPayload.parties,
             offPrefix,
             rq.q: q,
-          )
+          ).watchTermination() { (m, fd) =>
+            fd.onComplete(_ => logger.info("S11 finished in FMM"))
+            m
+          }
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
       .map(
         _.fold(e => extendWithRequestIdLogCtx(implicit lc1 => wsErrorMessage(e)), identity): Message
       )
+      .watchTermination() { (m, fd) =>
+        fd.onComplete(_ => logger.info("S11 finished in wsMessageHandler"))
+        m
+      }
   }
 
   private def parseJson(x: Message): Future[InvalidUserInput \/ JsValue] = x match {
