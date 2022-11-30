@@ -52,7 +52,7 @@ private[backend] trait StorageBackendTestsIDPConfig
     ).value.isDeactivated shouldBe false
   }
 
-  it should "update existing identity provider config's jwksURL attribute" in {
+  it should "update existing identity provider config's jwksUrl attribute" in {
     val cfg = config()
     executeSql(tested.createIdentityProviderConfig(cfg))
     val newJwksUrl = JwksUrl("http://example.com/jwks2.json")

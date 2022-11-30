@@ -58,11 +58,11 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
        WHERE identity_provider_id = ${id.value: String}
        """
       .as(IdpConfigRecordParser.singleOpt)(connection)
-      .map { case (identityProviderId, isDeactivated, jwksURL, issuer) =>
+      .map { case (identityProviderId, isDeactivated, jwksUrl, issuer) =>
         IdentityProviderConfig(
           identityProviderId = IdentityProviderId.Id.assertFromString(identityProviderId),
           isDeactivated = isDeactivated,
-          jwksUrl = JwksUrl.assertFromString(jwksURL),
+          jwksUrl = JwksUrl.assertFromString(jwksUrl),
           issuer = issuer,
         )
       }
@@ -77,11 +77,11 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
        ORDER BY identity_provider_id
        """
       .asVectorOf(IdpConfigRecordParser)(connection)
-      .map { case (identityProviderId, isDeactivated, jwksURL, issuer) =>
+      .map { case (identityProviderId, isDeactivated, jwksUrl, issuer) =>
         IdentityProviderConfig(
           identityProviderId = IdentityProviderId.Id.assertFromString(identityProviderId),
           isDeactivated = isDeactivated,
-          jwksUrl = JwksUrl.assertFromString(jwksURL),
+          jwksUrl = JwksUrl.assertFromString(jwksUrl),
           issuer = issuer,
         )
       }
@@ -166,11 +166,11 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
        WHERE issuer = ${issuer}
        """
       .as(IdpConfigRecordParser.singleOpt)(connection)
-      .map { case (identityProviderId, isDeactivated, jwksURL, issuer) =>
+      .map { case (identityProviderId, isDeactivated, jwksUrl, issuer) =>
         IdentityProviderConfig(
           identityProviderId = IdentityProviderId.Id.assertFromString(identityProviderId),
           isDeactivated = isDeactivated,
-          jwksUrl = JwksUrl.assertFromString(jwksURL),
+          jwksUrl = JwksUrl.assertFromString(jwksUrl),
           issuer = issuer,
         )
       }
