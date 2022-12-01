@@ -5,6 +5,7 @@ package com.daml.platform.apiserver.services
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement
@@ -16,9 +17,11 @@ import com.daml.ledger.participant.state.index.v2.{IndexActiveContractsService =
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.ApiOffset
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.ActiveContractsServiceValidation
+import com.daml.platform.server.api.validation.FieldValidations
 import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, ServerServiceDefinition}
 
@@ -40,20 +43,35 @@ private[apiserver] final class ApiActiveContractsService private (
   protected implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  def getActiveContracts(
+  override def getActiveContracts(
       request: GetActiveContractsRequest,
       responseObserver: StreamObserver[GetActiveContractsResponse],
   ): Unit = registerStream(responseObserver) {
-    TransactionFilterValidator
-      .validate(request.getFilter)
-      .fold(
-        t => Source.failed(ValidationLogger.logFailure(request, t)),
-        filters =>
-          withEnrichedLoggingContext(logging.filters(filters)) { implicit loggingContext =>
-            logger.info(s"Received request for active contracts: $request")
-            backend.getActiveContracts(filters, request.verbose)
-          },
+    val result = for {
+      filters <- TransactionFilterValidator.validate(request.getFilter)
+      activeAtO <- FieldValidations.optionalString(request.activeAtOffset)(str =>
+        ApiOffset.fromString(str).left.map { errorMsg =>
+          LedgerApiErrors.RequestValidation.NonHexOffset
+            .Error(
+              fieldName = "active_at_offset",
+              offsetValue = request.activeAtOffset,
+              message = s"Reason: $errorMsg",
+            )
+            .asGrpcError
+        }
       )
+    } yield {
+      withEnrichedLoggingContext(logging.filters(filters)) { implicit loggingContext =>
+        logger.info(s"Received request for active contracts: $request")
+        backend.getActiveContracts(
+          filter = filters,
+          verbose = request.verbose,
+          activeAtO = activeAtO,
+        )
+      }
+    }
+    result
+      .fold(t => Source.failed(ValidationLogger.logFailure(request, t)), identity)
       .via(logger.logErrorsOnStream)
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.acs))
   }

@@ -14,15 +14,18 @@ private[daml] object ApiOffset {
 
   val begin: Offset = Offset.fromByteArray(Array(0: Byte))
 
-  def fromString(s: String): Try[Offset] =
+  def tryFromString(s: String): Try[Offset] =
+    fromString(s) match {
+      case Left(msg) => Failure(new IllegalArgumentException(msg))
+      case Right(offset) => Success(offset)
+    }
+
+  def fromString(s: String): Either[String, Offset] =
     Ref.HexString
       .fromString(s)
-      .fold(
-        err => Failure(new IllegalArgumentException(err)),
-        b => Success(Offset.fromHexString(b)),
-      )
+      .map(Offset.fromHexString)
 
-  def assertFromString(s: String): Offset = fromString(s).get
+  def assertFromString(s: String): Offset = tryFromString(s).get
 
   def toApiString(offset: Offset): Ref.LedgerString =
     offset.toHexString

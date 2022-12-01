@@ -6,6 +6,7 @@ package com.daml.platform.apiserver.services
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.v1.experimental_features.{
+  AcsActiveAtOffsetFeature,
   ExperimentalFeatures,
   ExperimentalOptionalLedgerId,
   ExperimentalSelfServiceErrorCodes,
@@ -78,6 +79,7 @@ private[apiserver] final class ApiVersionService private (
           explicitDisclosure = Some(ledgerFeatures.explicitDisclosure),
           userAndPartyLocalMetadataExtensions =
             Some(ExperimentalUserAndPartyLocalMetadataExtensions(supported = true)),
+          acsActiveAtOffset = Some(AcsActiveAtOffsetFeature(supported = true)),
         )
       ),
     )

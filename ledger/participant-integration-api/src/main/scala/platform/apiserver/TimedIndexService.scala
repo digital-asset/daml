@@ -127,10 +127,11 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
   override def getActiveContracts(
       filter: domain.TransactionFilter,
       verbose: Boolean,
+      activeAtO: Option[Offset],
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] =
     Timed.source(
       metrics.daml.services.index.getActiveContracts,
-      delegate.getActiveContracts(filter, verbose),
+      delegate.getActiveContracts(filter, verbose, activeAtO),
     )
 
   override def lookupActiveContract(

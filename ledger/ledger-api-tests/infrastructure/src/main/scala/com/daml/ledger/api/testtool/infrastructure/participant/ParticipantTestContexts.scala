@@ -162,6 +162,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
       parties: Seq[Primitive.Party],
       templateIds: Seq[TemplateId] = Seq.empty,
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+      activeAtOffset: String = "",
   ): GetActiveContractsRequest
   def activeContracts(parties: Primitive.Party*): Future[Vector[CreatedEvent]]
   def activeContractsByTemplateId(
