@@ -505,7 +505,7 @@ data InterfaceInstanceBinds = InterfaceInstanceBinds
   { iibInterface :: GHC.TyCon
   , iibTemplate :: GHC.TyCon
   , iibLoc :: Maybe SourceLoc
-      -- ^ Location associated to the @_interface_instance_@ marker, which should
+      -- ^ Location associated to the @_interface_instance$_@ marker, which should
       -- point to the @interface instance@ line in the daml file.
   , iibMethods :: MS.Map MethodName (GHC.Expr GHC.CoreBndr)
       -- ^ Method implementations.
@@ -597,7 +597,7 @@ scrapeInterfaceInstanceBinds env binds =
         , singletonInterfaceInstanceGroup interface template (convNameLoc name)
         )
       | (name, _val) <- binds
-      , "_interface_instance_" `T.isPrefixOf` getOccText name
+      , "_interface_instance$_" `T.isPrefixOf` getOccText name
       , TypeCon (NameIn DA_Internal_Desugar "InterfaceInstance")
           [ TypeCon parent []
           , TypeCon interface []
@@ -1287,14 +1287,14 @@ convertBind env mc (name, x)
     | "_interface_choice$_" `T.isPrefixOf` getOccText name
     = pure []
     -- These are only used as markers for the LF conversion.
-    | "_interface_instance_" `T.isPrefixOf` getOccText name
+    | "_interface_instance$_" `T.isPrefixOf` getOccText name
     = pure []
     | "_requires$_" `T.isPrefixOf` getOccText name
     = pure []
     -- These are moved into interface implementations so we can drop them
-    | "_method_" `T.isPrefixOf` getOccText name
+    | "_method$_" `T.isPrefixOf` getOccText name
     = pure []
-    | "_view_" `T.isPrefixOf` getOccText name
+    | "_view$_" `T.isPrefixOf` getOccText name
     = pure []
 
     -- Remove guarded exercise when Extended Interfaces are unsupported

@@ -205,7 +205,7 @@ getInterfaceInstanceMap ctx@DocCtx{..} decls =
         , name <- case unLoc decl of
             SigD _ (TypeSig _ (L _ n :_) _) -> [packRdrName n]
             _ -> []
-        , Just _ <- [T.stripPrefix "_interface_instance_" name]
+        , Just _ <- [T.stripPrefix "_interface_instance$_" name]
         , Just id <- [MS.lookup (Fieldname name) dc_ids]
         , TypeApp _ (Typename "InterfaceInstance")
             [ TypeApp _ parent []
@@ -240,10 +240,10 @@ getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
 
     guard (exportsFunction dc_exports fct_name)
     guard (not $ "_choice$_" `T.isPrefixOf` packRdrName name)
-    guard (not $ "_interface_instance_" `T.isPrefixOf` packRdrName name)
+    guard (not $ "_interface_instance$_" `T.isPrefixOf` packRdrName name)
     guard (not $ "_requires$_" `T.isPrefixOf` packRdrName name)
-    guard (not $ "_method_" `T.isPrefixOf` packRdrName name)
-    guard (not $ "_view_" `T.isPrefixOf` packRdrName name)
+    guard (not $ "_method$_" `T.isPrefixOf` packRdrName name)
+    guard (not $ "_view$_" `T.isPrefixOf` packRdrName name)
     Just FunctionDoc {..}
 
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc
