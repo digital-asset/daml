@@ -186,7 +186,8 @@ private[apiserver] final class ApiPartyManagementService private (
               PartyRecord(
                 party = allocated.partyDetails.party,
                 metadata = domain.ObjectMeta(resourceVersionO = None, annotations = annotations),
-                identityProviderId = IdentityProviderId.Default,
+                identityProviderId =
+                  IdentityProviderId.Default, // TODO replace with the value coming from API
               )
             )
             .flatMap(handlePartyRecordStoreResult("creating a party record")(_))
@@ -243,7 +244,8 @@ private[apiserver] final class ApiPartyManagementService private (
               resourceVersionO = resourceVersionNumberO,
               annotations = annotations,
             ),
-            identityProviderId = IdentityProviderId.Default,
+            identityProviderId =
+              IdentityProviderId.Default, // TODO replace with the value coming from API
           )
         } yield (partyRecord, updateMask)
       } { case (partyRecord, updateMask) =>

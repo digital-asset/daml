@@ -8,7 +8,7 @@ import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
 import com.daml.ledger.api.domain.{IdentityProviderId, UserRight}
 import com.daml.ledger.api.v1.admin.user_management_service.Right
-import com.daml.ledger.api.{ListUsersFilter, domain}
+import com.daml.ledger.api.{IdentityProviderIdFilter, domain}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.backend.common.{ComposableQuery, QueryStrategy}
 import com.daml.platform.{LedgerString, Party, UserId}
@@ -142,7 +142,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   override def getUsersOrderedById(
       fromExcl: Option[UserId],
       maxResults: Int,
-      filter: ListUsersFilter,
+      filter: IdentityProviderIdFilter,
   )(
       connection: Connection
   ): Vector[UserManagementStorageBackend.DbUserWithId] = {
@@ -154,8 +154,8 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     }
 
     val identityProviderIdWhereClause = filter match {
-      case ListUsersFilter.Wildcard => Nil
-      case ListUsersFilter.ByIdentityProviderId(identityProviderId) =>
+      case IdentityProviderIdFilter.All => Nil
+      case IdentityProviderIdFilter.ByValue(identityProviderId) =>
         List(cSQL"identity_provider_id=${identityProviderId.value: String}")
     }
 
