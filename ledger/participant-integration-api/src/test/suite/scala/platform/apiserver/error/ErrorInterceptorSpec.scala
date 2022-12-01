@@ -11,6 +11,7 @@ import com.daml.error._
 import com.daml.error.definitions.{CommonErrors, DamlError}
 import com.daml.error.utils.ErrorDetails
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement
 import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingServerInterceptors}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
@@ -313,15 +314,17 @@ object ErrorInterceptorSpec {
     * @param errorInsideFutureOrStream - whether to signal the exception inside a Future or a Stream, or outside to them
     */
   class HelloServiceFailing(useSelfService: Boolean, errorInsideFutureOrStream: Boolean)(implicit
-      protected val esf: ExecutionSequencerFactory,
-      protected val mat: Materializer,
-  ) extends HelloServiceAkkaGrpc
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ) extends HelloService
+      with StreamingServiceLifecycleManagement
       with HelloServiceResponding
       with HelloServiceBase {
 
-    override protected def serverStreamingSource(
-        request: HelloRequest
-    ): Source[HelloResponse, NotUsed] = {
+    override def serverStreaming(
+        request: HelloRequest,
+        responseObserver: StreamObserver[HelloResponse],
+    ): Unit = registerStream(responseObserver) {
       val where = if (errorInsideFutureOrStream) "inside" else "outside"
       val t: Throwable = if (useSelfService) {
         FooMissingErrorCode

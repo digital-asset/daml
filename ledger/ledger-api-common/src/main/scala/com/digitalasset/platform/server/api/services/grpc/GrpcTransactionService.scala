@@ -3,11 +3,11 @@
 
 package com.daml.platform.server.api.services.grpc
 
-import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_service._
@@ -18,6 +18,7 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.services.domain.TransactionService
 import io.grpc.ServerServiceDefinition
+import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -26,11 +27,12 @@ final class GrpcTransactionService(
     val ledgerId: LedgerId,
     partyNameChecker: PartyNameChecker,
 )(implicit
-    protected val esf: ExecutionSequencerFactory,
-    protected val mat: Materializer,
+    esf: ExecutionSequencerFactory,
+    mat: Materializer,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
-) extends TransactionServiceAkkaGrpc
+) extends TransactionServiceGrpc.TransactionService
+    with StreamingServiceLifecycleManagement
     with GrpcApiService {
 
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
@@ -40,9 +42,10 @@ final class GrpcTransactionService(
   private val validator =
     new TransactionServiceRequestValidator(ledgerId, partyNameChecker)
 
-  override protected def getTransactionsSource(
-      request: GetTransactionsRequest
-  ): Source[GetTransactionsResponse, NotUsed] = {
+  def getTransactions(
+      request: GetTransactionsRequest,
+      responseObserver: StreamObserver[GetTransactionsResponse],
+  ): Unit = registerStream(responseObserver) {
     logger.debug(s"Received new transaction request $request")
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
       val validation = validator.validate(request, ledgerEnd)
@@ -56,9 +59,12 @@ final class GrpcTransactionService(
     }
   }
 
-  override protected def getTransactionTreesSource(
-      request: GetTransactionsRequest
-  ): Source[GetTransactionTreesResponse, NotUsed] = {
+  def getTransactionTrees(
+      request: com.daml.ledger.api.v1.transaction_service.GetTransactionsRequest,
+      responseObserver: _root_.io.grpc.stub.StreamObserver[
+        com.daml.ledger.api.v1.transaction_service.GetTransactionTreesResponse
+      ],
+  ): Unit = registerStream(responseObserver) {
     logger.debug(s"Received new transaction tree request $request")
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
       val validation = validator.validateTree(request, ledgerEnd)

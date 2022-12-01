@@ -3,11 +3,11 @@
 
 package com.daml.platform.server.api.services.grpc
 
-import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -15,12 +15,8 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.DropRepeated
 import com.daml.platform.server.api.services.grpc.GrpcHealthService._
 import io.grpc.ServerServiceDefinition
-import io.grpc.health.v1.health.{
-  HealthAkkaGrpc,
-  HealthCheckRequest,
-  HealthCheckResponse,
-  HealthGrpc,
-}
+import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
+import io.grpc.stub.StreamObserver
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,11 +26,12 @@ class GrpcHealthService(
     healthChecks: HealthChecks,
     maximumWatchFrequency: FiniteDuration = 1.second,
 )(implicit
-    protected val esf: ExecutionSequencerFactory,
-    protected val mat: Materializer,
+    esf: ExecutionSequencerFactory,
+    mat: Materializer,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
-) extends HealthAkkaGrpc
+) extends HealthGrpc.Health
+    with StreamingServiceLifecycleManagement
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(getClass)
@@ -47,11 +44,15 @@ class GrpcHealthService(
   override def check(request: HealthCheckRequest): Future[HealthCheckResponse] =
     Future.fromTry(matchResponse(serviceFrom(request)))
 
-  override def watchSource(request: HealthCheckRequest): Source[HealthCheckResponse, NotUsed] =
+  override def watch(
+      request: HealthCheckRequest,
+      responseObserver: StreamObserver[HealthCheckResponse],
+  ): Unit = registerStream(responseObserver) {
     Source
       .fromIterator(() => Iterator.continually(matchResponse(serviceFrom(request)).get))
       .throttle(1, per = maximumWatchFrequency)
       .via(DropRepeated())
+  }
 
   private def matchResponse(componentName: Option[String]): Try[HealthCheckResponse] =
     componentName
