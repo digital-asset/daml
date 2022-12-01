@@ -14,7 +14,7 @@ object ScalaTestAdapter {
 
   val IgnoreTagName: String = Suite.IgnoreTagName
 
-  def loadTestSuites(runpathList: List[String]): List[Suite] = {
+  def loadTestSuites(runpathList: List[String], fatalWarnings: Boolean = false): List[Suite] = {
     val loader = Runner.getRunpathClassLoader(runpathList)
     val testSuiteNames = SuiteDiscoveryHelper.discoverSuiteNames(runpathList, loader, None)
     val suites = for {
@@ -26,7 +26,7 @@ object ScalaTestAdapter {
       throwable.printStackTrace()
       suiteClassName
     }
-    if (abortedSuites.nonEmpty) {
+    if (fatalWarnings && abortedSuites.nonEmpty) {
       sys.error(s"Could not load test suites: ${abortedSuites.mkString(", ")}")
     } else {
       suites
