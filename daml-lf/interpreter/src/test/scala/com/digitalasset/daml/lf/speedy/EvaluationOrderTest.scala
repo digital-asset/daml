@@ -437,6 +437,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             parties,
             disclosedContracts = disclosedContracts.map(_.unversioned),
             traceLog = traceLog,
+            checkAuthorization = true,
           ),
         getContract = traceLog.tracePF("queries contract", getContract),
         getKey = traceLog.tracePF("queries key", getKey),

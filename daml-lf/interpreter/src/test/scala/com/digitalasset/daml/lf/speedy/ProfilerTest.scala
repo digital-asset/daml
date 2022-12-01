@@ -70,7 +70,7 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
     val se = compiledPackages.compiler.unsafeCompile(e)
     val example: SExpr = SEApp(se, Array(SParty(party)))
     val machine =
-      Speedy.Machine.fromUpdateSExpr(compiledPackages, transactionSeed, example, Set(party))
+      Speedy.Machine.fromUpdateSExpr(compiledPackages, transactionSeed, example, Set(party), checkAuthorization = true)
     val res = machine.run()
     res match {
       case SResultFinal(_) =>

@@ -645,6 +645,7 @@ object SpeedyTest {
         // As committers is empty, our readers will be empty and so contracts and contract keys will *always* be non-visible to stakeholders
         committers = Set.empty,
         disclosedContracts = ImmArray(disclosedContract),
+        checkAuthorization = true,
       )
       .withWarningLog(testLogger)
       .withCachedContracts(

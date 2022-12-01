@@ -397,6 +397,7 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
         limits = limits,
       ),
       getContract = contracts,
+      checkAuthorization = true,
     )
 
 }

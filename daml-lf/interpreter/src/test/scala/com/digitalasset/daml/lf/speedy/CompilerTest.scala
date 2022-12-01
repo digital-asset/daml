@@ -581,6 +581,7 @@ object CompilerTest {
         committers = committers,
         disclosedContracts = ImmArray.Empty,
         readAs = Set.empty,
+        checkAuthorization = true,
       )
 
     SpeedyTestLib

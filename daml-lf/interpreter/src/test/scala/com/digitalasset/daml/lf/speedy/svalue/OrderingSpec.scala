@@ -192,6 +192,7 @@ class OrderingSpec
       updateSE =
         SELet1(SEImportValue(toAstType(typ), v), SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
       committers = committers,
+      checkAuthorization = true,
     )
 
     machine.run() match {

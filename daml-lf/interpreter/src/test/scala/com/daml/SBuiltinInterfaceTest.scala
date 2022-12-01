@@ -354,6 +354,7 @@ object SBuiltinInterfaceTest {
           transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
           updateSE = SELet1(e, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
           committers = Set(alice),
+          checkAuthorization = true,
         )
       else
         Speedy.Machine.fromPureSExpr(compiledBasePkgs, e)
