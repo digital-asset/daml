@@ -157,7 +157,7 @@ private[lf] object PartialTransaction {
   ) extends ContextInfo {
     val actionNodeSeed = parent.nextActionChildSeed
     val actionChildSeed = crypto.Hash.deriveNodeSeed(actionNodeSeed, _)
-    override val authorizers: Set[Party] = actingParties union stakeholders
+    override val authorizers: Set[Party] = actingParties union signatories
   }
 
   final case class TryContextInfo(
@@ -389,7 +389,8 @@ private[speedy] case class PartialTransaction(
       version: TxVersion,
   ): Either[Tx.TransactionError, PartialTransaction] = {
     val stakeholders = observers union signatories
-    val actingParties = Set.empty[Party]
+    val contextActors = context.info.authorizers
+    val actingParties = contextActors intersect stakeholders
     val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
     val node = Node.Fetch(
