@@ -1050,7 +1050,7 @@ private[lf] object Speedy {
         transactionSeed: crypto.Hash,
         updateE: Expr,
         committers: Set[Party],
-        authorizationChecker: AuthorizationChecker,
+        authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
         disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
     )(implicit loggingContext: LoggingContext): OnLedgerMachine = {
