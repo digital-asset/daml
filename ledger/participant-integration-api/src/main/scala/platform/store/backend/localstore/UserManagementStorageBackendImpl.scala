@@ -147,18 +147,15 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       connection: Connection
   ): Vector[UserManagementStorageBackend.DbUserWithId] = {
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-
     val userIdWhereClause = fromExcl match {
       case None => Nil
       case Some(id: String) => List(cSQL"user_id > ${id}")
     }
-
     val identityProviderIdWhereClause = filter match {
       case IdentityProviderIdFilter.All => Nil
       case IdentityProviderIdFilter.ByValue(identityProviderId) =>
         List(cSQL"identity_provider_id=${identityProviderId.value: String}")
     }
-
     val whereClause = {
       val clauses = userIdWhereClause ++ identityProviderIdWhereClause
       if (clauses.nonEmpty) {
@@ -166,7 +163,6 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       } else
         cSQL""
     }
-
     SQL"""SELECT internal_id, user_id, primary_party, identity_provider_id, is_deactivated, resource_version, created_at
           FROM participant_users
           $whereClause
