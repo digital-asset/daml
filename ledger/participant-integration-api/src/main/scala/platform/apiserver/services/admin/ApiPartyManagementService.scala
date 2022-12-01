@@ -285,7 +285,7 @@ private[apiserver] final class ApiPartyManagementService private (
               resourceVersionO = resourceVersionNumberO,
               annotations = annotations,
             ),
-            identityProviderId = identityProviderId,
+            identityProviderId = IdentityProviderId.Default,
           )
         } yield (partyRecord, updateMask)
       } { case (partyRecord, updateMask) =>

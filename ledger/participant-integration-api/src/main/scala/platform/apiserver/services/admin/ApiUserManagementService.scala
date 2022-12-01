@@ -15,7 +15,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   UpdateUserResponse,
 }
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
-import com.daml.ledger.api.{ListUsersFilter, SubmissionIdGenerator}
+import com.daml.ledger.api.{IdentityProviderIdFilter, SubmissionIdGenerator}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -262,7 +262,7 @@ private[apiserver] final class ApiUserManagementService(
       }
     ) { case (fromExcl, pageSize, _) =>
       userManagementStore
-        .listUsers(fromExcl, pageSize, ListUsersFilter.Wildcard)
+        .listUsers(fromExcl, pageSize, IdentityProviderIdFilter.All)
         .flatMap(handleResult("listing users"))
         .map { page: UserManagementStore.UsersPage =>
           val protoUsers = page.users.map(toProtoUser)

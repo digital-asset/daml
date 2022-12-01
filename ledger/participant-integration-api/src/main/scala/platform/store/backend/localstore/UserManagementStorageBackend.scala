@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.backend.localstore
 
-import com.daml.ledger.api.ListUsersFilter
+import com.daml.ledger.api.IdentityProviderIdFilter
 import com.daml.ledger.api.domain.{IdentityProviderId, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.platform.UserId
@@ -29,7 +29,7 @@ trait UserManagementStorageBackend extends ResourceVersionOps {
   def getUsersOrderedById(
       fromExcl: Option[UserId] = None,
       maxResults: Int,
-      filter: ListUsersFilter,
+      filter: IdentityProviderIdFilter,
   )(
       connection: Connection
   ): Vector[UserManagementStorageBackend.DbUserWithId]

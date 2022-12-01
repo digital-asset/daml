@@ -207,12 +207,13 @@ class PersistentPartyRecordStore(
           internalId = dbPartyRecord.internalId
         )(connection)
     }
+    // Step 2: Update identity_provider_id
     partyRecordUpdate.identityProviderIdUpdate.foreach { identityProviderId =>
       backend.updateIdentityProviderId(dbPartyRecord.internalId, identityProviderId.toDb)(
         connection
       )
     }
-    // Step 2: Update annotations
+    // Step 3: Update annotations
     partyRecordUpdate.metadataUpdate.annotationsUpdateO.foreach { newAnnotations =>
       val existingAnnotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
       val updatedAnnotations = LocalAnnotationsUtils.calculateUpdatedAnnotations(

@@ -3,7 +3,7 @@
 
 package com.daml.platform.localstore
 
-import com.daml.ledger.api.ListUsersFilter
+import com.daml.ledger.api.IdentityProviderIdFilter
 import com.daml.ledger.api.domain.{
   IdentityProviderConfig,
   IdentityProviderId,
@@ -214,7 +214,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           list1 <- tested.listUsers(
             fromExcl = None,
             maxResults = 3,
-            listUsersFilter = ListUsersFilter.Wildcard,
+            identityProviderIdFilter = IdentityProviderIdFilter.All,
           )
           _ = list1 shouldBe Right(
             UsersPage(
@@ -228,7 +228,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           list2 <- tested.listUsers(
             fromExcl = list1.getOrElse(fail("Expecting a Right()")).lastUserIdOption,
             maxResults = 4,
-            listUsersFilter = ListUsersFilter.Wildcard,
+            identityProviderIdFilter = IdentityProviderIdFilter.All,
           )
           _ = list2 shouldBe Right(UsersPage(Seq(createdUser("user4"))))
         } yield {
@@ -244,13 +244,13 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           users1 <- tested.listUsers(
             fromExcl = None,
             maxResults = 10000,
-            listUsersFilter = ListUsersFilter.Wildcard,
+            identityProviderIdFilter = IdentityProviderIdFilter.All,
           )
           res3 <- tested.deleteUser("user1")
           users2 <- tested.listUsers(
             fromExcl = None,
             maxResults = 10000,
-            listUsersFilter = ListUsersFilter.Wildcard,
+            identityProviderIdFilter = IdentityProviderIdFilter.All,
           )
         } yield {
           res1 shouldBe Right(createdUser("user1"))
@@ -286,7 +286,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           list1 <- tested.listUsers(
             fromExcl = None,
             maxResults = 3,
-            listUsersFilter = ListUsersFilter.ByIdentityProviderId(persistedIdentityProviderId),
+            identityProviderIdFilter = IdentityProviderIdFilter.ByValue(persistedIdentityProviderId),
           )
           _ = list1 shouldBe Right(
             UsersPage(
@@ -299,7 +299,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           list2 <- tested.listUsers(
             fromExcl = None,
             maxResults = 4,
-            listUsersFilter = ListUsersFilter.Wildcard,
+            identityProviderIdFilter = IdentityProviderIdFilter.All,
           )
           _ = list2 shouldBe Right(
             UsersPage(

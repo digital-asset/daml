@@ -5,9 +5,9 @@ package com.daml.ledger.api
 
 import com.daml.ledger.api.domain.IdentityProviderId
 
-sealed trait ListUsersFilter
+sealed trait IdentityProviderIdFilter
 
-object ListUsersFilter {
-  final case class ByIdentityProviderId(id: IdentityProviderId.Id) extends ListUsersFilter
-  final case object Wildcard extends ListUsersFilter
+object IdentityProviderIdFilter {
+  final case class ByValue(id: IdentityProviderId.Id) extends IdentityProviderIdFilter
+  final case object All extends IdentityProviderIdFilter
 }

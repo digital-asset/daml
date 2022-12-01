@@ -3,7 +3,7 @@
 
 package com.daml.platform.localstore
 
-import com.daml.ledger.api.ListUsersFilter
+import com.daml.ledger.api.IdentityProviderIdFilter
 import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, User, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
@@ -138,7 +138,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
-      listUsersFilter: ListUsersFilter,
+      identityProviderIdFilter: IdentityProviderIdFilter,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]] = {
@@ -149,9 +149,9 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       }
       val users: Seq[User] = iter
         .filter { item =>
-          listUsersFilter match {
-            case ListUsersFilter.Wildcard => true
-            case ListUsersFilter.ByIdentityProviderId(identityProviderId) =>
+          identityProviderIdFilter match {
+            case IdentityProviderIdFilter.All => true
+            case IdentityProviderIdFilter.ByValue(identityProviderId) =>
               identityProviderId == item.user.identityProviderId
           }
         }
