@@ -9,7 +9,7 @@ import com.daml.lf.ledger.Authorize
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.Node
 
-trait AuthorizationChecker {
+abstract class AuthorizationChecker {
 
   private[lf] def authorizeCreate(
       optLocation: Option[Location],

@@ -110,13 +110,15 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
     // TEST_EVIDENCE: Authorization: well-authorized lookup is accepted
     "ok" in {
       val auth = Authorize(Set("Alice", "Bob", "Mary"))
-      val fails = DefaultAuthorizationChecker.authorizeLookupByKey(optLocation = None, lookupNode)(auth)
+      val fails =
+        DefaultAuthorizationChecker.authorizeLookupByKey(optLocation = None, lookupNode)(auth)
       fails shouldBe Nil
     }
     // TEST_EVIDENCE: Authorization: badly-authorized lookup is rejected
     "LookupByKeyMissingAuthorization" in {
       val auth = Authorize(Set("Alice", "Mary"))
-      val fails = DefaultAuthorizationChecker.authorizeLookupByKey(optLocation = None, lookupNode)(auth)
+      val fails =
+        DefaultAuthorizationChecker.authorizeLookupByKey(optLocation = None, lookupNode)(auth)
       inside(fails) { case List(oneFail) =>
         inside(oneFail) { case x: LookupByKeyMissingAuthorization =>
           x.maintainers shouldBe Set("Alice", "Bob")
