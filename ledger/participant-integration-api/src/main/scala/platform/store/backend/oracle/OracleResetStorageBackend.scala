@@ -25,7 +25,7 @@ object OracleResetStorageBackend extends ResetStorageBackend {
       "participant_party_records",
       "participant_party_record_annotations",
       "string_interning",
-      "participant_events_create_filter",
+      "pe_create_id_filter_stakeholder",
       "participant_users",
       "participant_user_rights",
       "participant_user_annotations",
