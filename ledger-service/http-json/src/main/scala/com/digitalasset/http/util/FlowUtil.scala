@@ -5,6 +5,8 @@ package com.daml.http.util
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
+import Logging.InstanceUUID
+import com.daml.logging.{LoggingContextOf, ContextualizedLogger}
 import scalaz.{-\/, \/}
 import scala.concurrent.ExecutionContext
 
@@ -32,15 +34,31 @@ object FlowUtil {
     def flatMapMergeCancellable[T, M](
         breadth: Int,
         f: Out => Graph[SourceShape[T], M],
-    )(implicit ec: ExecutionContext): Flow[In, T, Mat] = {
+    )(implicit ec: ExecutionContext, lc: LoggingContextOf[InstanceUUID]): Flow[In, T, Mat] = {
       val ks = KillSwitches.shared("flatMapMerge")
       val inner = ks.flow[T]
       self
         .flatMapMerge(breadth, f andThen (gss => Source fromGraph gss via inner))
         .watchTermination() { (mat, fd) =>
-          fd.onComplete(_.fold(ks.abort, _ => ks.shutdown()))
+          fd.onComplete(
+            _.fold(
+              { t =>
+                logger.info(s"S11 trying to abort ${t.getMessage}")
+                ks.abort(t)
+              },
+              { _ =>
+                logger.info(s"S11 trying to shutdown")
+                ks.shutdown()
+              },
+            )
+          )
           mat
         }
     }
   }
+
+  private[http] def showTryDone(t: scala.util.Try[akka.Done]) =
+    t.fold(_.getMessage, _ => "Done")
+
+  private val logger = ContextualizedLogger.get(getClass)
 }

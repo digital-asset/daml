@@ -854,7 +854,7 @@ class WebSocketService(
             offPrefix,
             rq.q: q,
           ).watchTermination() { (m, fd) =>
-            fd.onComplete(_ => logger.info("S11 finished in FMM"))
+            fd.onComplete(td => logger.info(s"S11 finished in FMM ${showTryDone(td)}"))
             m
           }
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
@@ -864,7 +864,7 @@ class WebSocketService(
         _.fold(e => extendWithRequestIdLogCtx(implicit lc1 => wsErrorMessage(e)), identity): Message
       )
       .watchTermination() { (m, fd) =>
-        fd.onComplete(_ => logger.info("S11 finished in wsMessageHandler"))
+        fd.onComplete(td => logger.info(s"S11 finished in wsMessageHandler ${showTryDone(td)}"))
         m
       }
   }
