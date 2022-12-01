@@ -11,6 +11,7 @@ import com.daml.platform.localstore.api.IdentityProviderConfigStore.{
 }
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.freespec.AsyncFreeSpec
+import scala.concurrent.duration._
 
 class CachedIdentityProviderConfigStoreSpec
     extends AsyncFreeSpec
@@ -27,7 +28,7 @@ class CachedIdentityProviderConfigStoreSpec
   ): CachedIdentityProviderConfigStore =
     new CachedIdentityProviderConfigStore(
       delegate,
-      expiryAfterWriteInSeconds = 1,
+      cacheExpiryAfterWrite = 1.second,
       maximumCacheSize = 10,
       Metrics.ForTesting,
     )

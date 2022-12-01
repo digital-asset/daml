@@ -94,6 +94,7 @@ class PureConfigReaderWriterSpec
     )
     testReaderWriterIsomorphism(secure, ArbitraryConfig.clientAuth)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.userManagementConfig)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.identityProviderManagementConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.connectionPoolConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.postgresDataSourceConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.dataSourceProperties)

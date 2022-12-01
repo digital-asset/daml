@@ -13,6 +13,7 @@ import com.daml.platform.localstore.api.{IdentityProviderConfigStore, IdentityPr
 import com.daml.platform.store.DbSupport
 
 import java.sql.Connection
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 class PersistentIdentityProviderConfigStore(
@@ -201,8 +202,7 @@ object PersistentIdentityProviderConfigStore {
   def cached(
       dbSupport: DbSupport,
       metrics: Metrics,
-      expiryAfterWriteInSeconds: Int,
-      maximumCacheSize: Int,
+      cacheExpiryAfterWrite: FiniteDuration,
       maxIdentityProviderConfigs: Int,
   )(implicit
       executionContext: ExecutionContext,
@@ -210,8 +210,8 @@ object PersistentIdentityProviderConfigStore {
   ) = new CachedIdentityProviderConfigStore(
     delegate =
       new PersistentIdentityProviderConfigStore(dbSupport, metrics, maxIdentityProviderConfigs),
-    expiryAfterWriteInSeconds = expiryAfterWriteInSeconds,
-    maximumCacheSize = maximumCacheSize,
+    cacheExpiryAfterWrite = cacheExpiryAfterWrite,
+    maximumCacheSize = maxIdentityProviderConfigs,
     metrics = metrics,
   )
 }
