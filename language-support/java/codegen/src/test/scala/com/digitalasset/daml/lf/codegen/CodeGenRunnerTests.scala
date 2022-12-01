@@ -58,13 +58,54 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   it should "read interfaces from a single DAR file with a prefix" in {
 
-    val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> Some("PREFIX")), Map.empty)
+    val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> Some("prefix")), Map.empty)
 
     scope.signatures.map(_.packageId).length should ===(dar.all.length)
     val prefixes = backend.java.inner.PackagePrefixes unwrap scope.packagePrefixes
     prefixes.size should ===(dar.all.length)
-    all(prefixes.values) should ===("PREFIX")
+    all(prefixes.values) should ===("prefix")
     scope.toBeGenerated should ===(Set.empty)
+  }
+
+  it should "read interfaces from 2 DAR files with same content and same prefixes" in {
+
+    val scope =
+      CodeGenRunner.configureCodeGenScope(
+        Map(testDar -> Some("prefix"), testDarWithSameSrcAndProjectNamePathDar -> Some("prefix")),
+        Map.empty,
+      )
+
+    scope.signatures.map(_.packageId).length should ===(dar.all.length)
+    val prefixes = backend.java.inner.PackagePrefixes unwrap scope.packagePrefixes
+    prefixes.size should ===(dar.all.length)
+    all(prefixes.values) should ===("prefix")
+    scope.toBeGenerated should ===(Set.empty)
+  }
+
+  it should "fail if read interfaces from 2 DAR files with same content but different prefixes" in {
+    assertThrows[IllegalArgumentException] {
+      CodeGenRunner.configureCodeGenScope(
+        Map(testDar -> Some("prefix1"), testDarWithSameSrcAndProjectNamePathDar -> Some("prefix2")),
+        Map.empty,
+      )
+    }
+  }
+
+  it should "read interfaces from 2 DAR files with one is depending on other packages using data_dependencies" in {
+
+    val scope = CodeGenRunner.configureCodeGenScope(
+      Map(testTemplateDar -> Some("prefix1"), testDependsOnBarTplDar -> Some("prefix2")),
+      Map.empty,
+    )
+
+    scope.signatures.map(_.packageId).length should ===(27)
+    val prefixes = backend.java.inner.PackagePrefixes unwrap scope.packagePrefixes
+    prefixes.size should ===(3)
+    // prefix1 is applied to the main package containing template Bar
+    prefixes.values.count(_ == "prefix1") should ===(1)
+    // prefix2 is applied to the main package containing template UsingBar
+    // and the unique package containing template AnotherBar
+    prefixes.values.count(_ == "prefix2") should ===(2)
   }
 
   behavior of "detectModuleCollisions"
@@ -158,6 +199,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       moduleIdSet(Seq(interface1, interface2, interface3)),
     ) should ===(Map(pkg1 -> "com.pkg1", pkg2 -> "com.pkg2.a.b", pkg3 -> "c.d"))
   }
+
   it should "fail if module-prefixes references non-existing package" in {
     val name2 = PackageName.assertFromString("name2")
     val version = PackageVersion.assertFromString("1.0.0")
@@ -174,13 +216,23 @@ object CodeGenRunnerTests {
   private[this] val testDarPath = "language-support/java/codegen/test-daml.dar"
   private[this] val testDarWithSameDependenciesPath =
     "language-support/java/codegen/test-daml-with-same-dependencies.dar"
+  private[this] val testDarWithSameSrcAndProjectNamePath =
+    "language-support/java/codegen/test-daml-with-same-source-project-name.dar"
   private[this] val testDarWithSameDependenciesButDifferentTargetVersionPath =
     "language-support/java/codegen/test-daml-with-same-dependencies-but-different-target-version.dar"
+  private[this] val testTemplateDarPath = "language-support/java/codegen/test-template.dar"
+  private[this] val testDependsOnBarTplDarPath =
+    "language-support/java/codegen/test-depending-on-bar-template.dar"
+
   private val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
   private val testDarWithSameDependencies =
     Path.of(BazelRunfiles.rlocation(testDarWithSameDependenciesPath))
+  private val testDarWithSameSrcAndProjectNamePathDar =
+    Path.of(BazelRunfiles.rlocation(testDarWithSameSrcAndProjectNamePath))
   private val testDarWithSameDependenciesButDifferentTargetVersion =
     Path.of(BazelRunfiles.rlocation(testDarWithSameDependenciesButDifferentTargetVersionPath))
+  private val testTemplateDar = Path.of(BazelRunfiles.rlocation(testTemplateDarPath))
+  private val testDependsOnBarTplDar = Path.of(BazelRunfiles.rlocation(testDependsOnBarTplDarPath))
   private val dar = DarReader.assertReadArchiveFromFile(testDar.toFile)
 
   private def interface(pkgId: String, modNames: String*): PackageSignature =

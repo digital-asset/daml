@@ -33,9 +33,17 @@ import com.daml.lf.command._
 import com.daml.lf.crypto.Hash
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.engine.Error.Interpretation.DamlException
-import com.daml.lf.language.PackageInterface
+import com.daml.lf.language.{LanguageVersion, PackageInterface, StablePackage}
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
+import com.daml.test.evidence.tag.Security.{
+  Attack,
+  SecurityTest,
+  SecurityTestLayer,
+  SecurityTestSuite,
+}
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Assertion, EitherValues}
@@ -58,9 +66,12 @@ class EngineTest
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
-    with EitherValues {
+    with EitherValues
+    with SecurityTestSuite {
 
   import EngineTest._
+
+  override def securityTestLayer = SecurityTestLayer.LedgerModel
 
   "minimal create command" should {
     val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
@@ -144,6 +155,7 @@ class EngineTest
     )
 
     def id(templateId: String) = Identifier(basicTestsPkgId, templateId)
+
     def command(templateId: String, signatories: Set[(String, Party)]) = {
       val templateArgs: Set[(Some[Name], ValueParty)] = signatories.map { case (label, party) =>
         Some[Name](label) -> ValueParty(party)
@@ -1193,6 +1205,13 @@ class EngineTest
       (Some[Name]("fetcher"), ValueParty(clara)),
     )
 
+    val fetcher3Cid = toContractId("4")
+    val fetcher3TArgs = ImmArray(
+      (Some[Name]("sig"), ValueParty(clara)),
+      (Some[Name]("obs"), ValueParty(alice)),
+      (Some[Name]("fetcher"), ValueParty(party)),
+    )
+
     def makeContract(
         tid: Ref.QualifiedName,
         targs: ImmArray[(Option[Name], Value)],
@@ -1210,6 +1229,7 @@ class EngineTest
         case `fetchedCid` => Some(makeContract(fetchedStrTid, fetchedTArgs))
         case `fetcher1Cid` => Some(makeContract(fetcherStrTid, fetcher1TArgs))
         case `fetcher2Cid` => Some(makeContract(fetcherStrTid, fetcher2TArgs))
+        case `fetcher3Cid` => Some(makeContract(fetcherStrTid, fetcher3TArgs))
         case _ => None
       }
     }
@@ -1264,16 +1284,49 @@ class EngineTest
 
     }
 
-    "propagate the parent's signatories and actors (but not observers) when stakeholders" in {
+    "propagate the parent's signatories and actors (but not observers) when stakeholders" taggedAs SecurityTest(
+      Authorization,
+      "ledger",
+      Attack(
+        "ledger api user",
+        "try to authorize an action through exercise observers", // i.e. bob
+        "only record signatories and actors as fetch actors",
+      ),
+    ) in {
+
+      // fetch stakeholders: alice, bob, clara
+
+      // alice: parent signatory
+      // bob: parent observer
+      // clara: parent actor
 
       val Right((tx, _)) = runExample(fetcher1Cid, clara)
       txFetchActors(tx.transaction) shouldBe Set(alice, clara)
     }
 
-    "not propagate the parent's signatories nor actors when not stakeholders" in {
+    "not propagate the parent's signatories nor actors when not stakeholders" taggedAs SecurityTest(
+      Authorization,
+      "ledger",
+      Attack(
+        "ledger api user",
+        "try to fetch a contract without authorization from a stakeholder of the fetched contract",
+        "only record stakeholders of the fetched contract as fetch actors", // i.e., clara
+      ),
+    ) in {
 
-      val Right((tx, _)) = runExample(fetcher2Cid, clara)
-      txFetchActors(tx.transaction) shouldBe Set(clara)
+      // fetch stakeholders: alice, bob, clara
+
+      // party: parent signatory
+      // alice: parent observer
+      // clara: parent actor
+      val Right((tx1, _)) = runExample(fetcher2Cid, clara)
+      txFetchActors(tx1.transaction) shouldBe Set(clara)
+
+      // clara: parent signatory
+      // alice: parent observer
+      // party: parent actor
+      val Right((tx2, _)) = runExample(fetcher3Cid, party)
+      txFetchActors(tx2.transaction) shouldBe Set(clara)
     }
 
     "be retained when reinterpreting single fetch nodes" in {
@@ -1642,6 +1695,7 @@ class EngineTest
 
   "getTime set dependsOnTime flag" in {
     val templateId = Identifier(basicTestsPkgId, "BasicTests:TimeGetter")
+
     def run(choiceName: ChoiceName) = {
       val submissionSeed = hash(s"getTime set dependsOnTime flag: ($choiceName)")
       val command =
@@ -1838,6 +1892,7 @@ class EngineTest
     val submissionSeed = hash("wrongly-typed cid")
     val submitters = Set(alice)
     val readAs = (Set.empty: Set[Party])
+
     def run(cmds: ImmArray[ApiCommand]) =
       suffixLenientEngine
         .submit(
@@ -1982,6 +2037,7 @@ class EngineTest
       )
     )
     val lookupContract = contracts.get _
+
     def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
       (key.globalKey.templateId, key.globalKey.key) match {
         case (
@@ -1992,6 +2048,7 @@ class EngineTest
         case _ =>
           None
       }
+
     def run(cmd: ApiCommand) = {
       val submitters = Set(party)
       val Right(cmds) = preprocessor
@@ -2017,6 +2074,7 @@ class EngineTest
           lookupKey,
         )
     }
+
     "rolled-back archive of transient contract does not prevent consuming choice after rollback" in {
       val command = ApiCommand.CreateAndExercise(
         tId,
@@ -2131,6 +2189,7 @@ class EngineTest
       )
     )
     val lookupContract = contracts.get _
+
     def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
       (key.globalKey.templateId, key.globalKey.key) match {
         case (
@@ -2141,6 +2200,7 @@ class EngineTest
         case _ =>
           None
       }
+
     def run(cmd: ApiCommand) = {
       val submitters = Set(party)
       val Right(cmds) = preprocessor
@@ -2209,6 +2269,7 @@ class EngineTest
       )
     )
     val lookupContract = contracts.get _
+
     def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
       (key.globalKey.templateId, key.globalKey.key) match {
         case (
@@ -2219,13 +2280,16 @@ class EngineTest
         case _ =>
           None
       }
+
     def run(cmd: ApiCommand): Int = {
       val submitters = Set(party)
       var keyLookups = 0
+
       def mockedKeyLookup(key: GlobalKeyWithMaintainers) = {
         keyLookups += 1
         lookupKey(key)
       }
+
       val Right(cmds) = preprocessor
         .preprocessApiCommands(ImmArray(cmd))
         .consume(
@@ -2252,6 +2316,7 @@ class EngineTest
         keyLookups
       }
     }
+
     val cidArg = ValueRecord(None, ImmArray((None, ValueContractId(cid))))
     val emptyArg = ValueRecord(None, ImmArray.empty)
     "Lookup a global key at most once" in {
@@ -2322,6 +2387,28 @@ class EngineTest
 
     }
 
+    "accept stable packages even if version is smaller than min version" in {
+      for {
+        lv <- LanguageVersion.All
+        eng = engine(min = lv, LanguageVersion.v1_dev)
+        pkg <- StablePackage.values
+        pkgId = pkg.packageId
+        pkg <- allPackagesDev.get(pkgId).toList
+      } yield eng.preloadPackage(pkgId, pkg) shouldBe a[ResultDone[_]]
+    }
+
+    "reject stable packages if version is greater than max version" in {
+      for {
+        lv <- LanguageVersion.All
+        eng = engine(LanguageVersion.v1_6, max = lv)
+        pkg <- StablePackage.values
+        pkgId = pkg.packageId
+        pkg <- allPackagesDev.get(pkgId).toList
+      } yield inside(eng.preloadPackage(pkgId, pkg)) {
+        case ResultDone(_) => pkg.languageVersion shouldBe <=(lv)
+        case ResultError(_) => pkg.languageVersion shouldBe >(lv)
+      }
+    }
   }
 }
 
@@ -2346,6 +2433,10 @@ object EngineTest {
 
   val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
     "daml-lf/tests/BasicTests.dar"
+  )
+
+  val (_, _, allPackagesDev) = loadPackage(
+    "daml-lf/tests/BasicTests-dev.dar"
   )
 
   val basicTestsSignatures: PackageInterface =

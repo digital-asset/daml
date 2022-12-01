@@ -325,6 +325,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       expr = SEApp(sexpr, Array(SValue.SToken)),
       committers = submitters,
       readAs = readAs,
+      authorizationChecker = config.authorizationChecker,
       validating = validating,
       contractKeyUniqueness = config.contractKeyUniqueness,
       limits = config.limits,

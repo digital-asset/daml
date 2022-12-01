@@ -4,12 +4,12 @@
 package com.daml.ledger.client
 
 import java.io.Closeable
-
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.auth.client.LedgerCallCredentials.authenticatingStub
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
+import com.daml.ledger.api.v1.admin.participant_pruning_service.ParticipantPruningServiceGrpc
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
 import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
@@ -26,6 +26,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.client.services.acs.ActiveContractSetClient
 import com.daml.ledger.client.services.admin.{
   PackageManagementClient,
+  ParticipantPruningManagementClient,
   PartyManagementClient,
   UserManagementClient,
 }
@@ -91,6 +92,11 @@ final class LedgerClient private (
   val userManagementClient: UserManagementClient =
     new UserManagementClient(
       LedgerClient.stub(UserManagementServiceGrpc.stub(channel), config.token)
+    )
+
+  val participantPruningManagementClient: ParticipantPruningManagementClient =
+    new ParticipantPruningManagementClient(
+      LedgerClient.stub(ParticipantPruningServiceGrpc.stub(channel), config.token)
     )
 
   override def close(): Unit = GrpcChannel.close(channel)

@@ -8,12 +8,10 @@ import Daml.Finance.Interface.Holding.Factory qualified as Holding (F)
 import Daml.Finance.Interface.Types.Common (AccountKey(..), Id(..))
 
 -- | Initiate / Accept template to open an account.
--- The account is created using an `Account.Factory` template.
--- By doing so, our workflow is generic and does not depend on the specific
--- account implementation.
--- For the same reason, we need to provide a `Holding.Factory` that will be
--- used by the account to create holdings without depending on the specific
--- implementation.
+-- The account is created using an `Account.Factory` template. By doing so, our workflow is generic
+-- and does not depend on the specific account implementation. For the same reason, we need to
+-- provide a `Holding.Factory` that will be used by the account to create holdings without depending
+-- on the specific implementation.
 template Request
   with
     custodian : Party
@@ -37,7 +35,6 @@ template Request
           -- ^ The holding factory. This is used within an account to create holdings.
         observers : [Party]
           -- ^ Observers of the account to be created.
-
       controller custodian
       do
         let
@@ -48,10 +45,9 @@ template Request
           account = accountKey
           description = description
           holdingFactoryCid = holdingFactoryCid
-          controllers = Account.Controllers
-            with
-              instructors = S.singleton owner
-              approvers = S.singleton owner
+          controllers = Account.Controllers with
+            outgoing = S.singleton owner
+            incoming = S.singleton owner
           observers = M.fromList [("AccountObservers", observersSet)]
 
         pure accountKey

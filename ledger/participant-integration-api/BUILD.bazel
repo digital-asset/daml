@@ -59,7 +59,7 @@ compile_deps = [
     "//ledger/participant-state-index",
     "//ledger/participant-local-store:participant-local-store",
     "//ledger/participant-state-metrics",
-    "//ledger-service/jwt",
+    "//libs-scala/jwt",
     "//libs-scala/crypto:crypto",
     "//libs-scala/build-info",
     "//libs-scala/contextualized-logging",

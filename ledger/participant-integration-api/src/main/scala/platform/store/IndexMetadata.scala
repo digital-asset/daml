@@ -81,6 +81,7 @@ object IndexMetadata {
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
+          completionsMaxPayloadsPerPayloadsPage = 1000,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           engine = None,

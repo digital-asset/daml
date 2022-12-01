@@ -90,7 +90,7 @@ object SandboxOnXRunner {
       timeServiceBackendO = configAdaptor.timeServiceBackend(participantConfig.apiServer)
       (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
 
-      servicesThreadPoolSize = Runtime.getRuntime.availableProcessors()
+      servicesThreadPoolSize = participantConfig.servicesThreadPoolSize
       servicesExecutionContext <- buildServicesExecutionContext(metrics, servicesThreadPoolSize)
 
       buildWriteServiceLambda = buildWriteService(

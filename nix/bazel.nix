@@ -21,7 +21,6 @@ let shared = rec {
     jekyll
     jq
     netcat-gnu
-    nodejs
     openssl
     patchelf
     protobuf3_8
@@ -57,16 +56,16 @@ let shared = rec {
       ignoreCollisions = stdenv.isDarwin;
     };
 
-    postgresql_10 = if pkgs.buildPlatform.libc == "glibc"
-      then pkgs.runCommand "postgresql_10_wrapper" { buildInputs = [ pkgs.makeWrapper ]; } ''
+    postgresql_11 = if pkgs.buildPlatform.libc == "glibc"
+      then pkgs.runCommand "postgresql_11_wrapper" { buildInputs = [ pkgs.makeWrapper ]; } ''
       mkdir -p $out/bin
-      for tool in ${pkgs.postgresql_10}/bin/*; do
+      for tool in ${pkgs.postgresql_11}/bin/*; do
         makeWrapper $tool $out/bin/$(basename $tool) --set LOCALE_ARCHIVE ${pkgs.glibcLocales}/lib/locale/locale-archive
       done
-      ln -s ${pkgs.postgresql_10}/include $out/include
-      ln -s ${pkgs.postgresql_10}/lib $out/lib
-      ln -s ${pkgs.postgresql_10}/share $out/share
-    '' else pkgs.postgresql_10;
+      ln -s ${pkgs.postgresql_11}/include $out/include
+      ln -s ${pkgs.postgresql_11}/lib $out/lib
+      ln -s ${pkgs.postgresql_11}/share $out/share
+    '' else pkgs.postgresql_11;
 
 
     scala_2_13 = (pkgs.scala_2_13.override { }).overrideAttrs (attrs: {
@@ -146,8 +145,9 @@ let shared = rec {
 
   # rules_nodejs expects nodejs in a subdirectory of a repository rule.
   # We use a linkFarm to fulfill this requirement.
-  nodejsNested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs; }];
-  nodejs14Nested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs14; }];
+  nodejs = pkgs.nodejs-16_x;
+  nodejsNested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = nodejs; }];
+  nodejs14Nested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs-14_x; }];
 
   sass = pkgs.sass;
 

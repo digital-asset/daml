@@ -1500,7 +1500,7 @@ Generic submission rejection errors returned by the backing ledger's write servi
 DISPUTED
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Deprecation**: Corresponds to transaction submission rejections that are not produced anymore.
+    **Deprecation**: Corresponds to transaction submission rejections that are not produced anymore. Since: 1.18.0
     
     **Explanation**: An invalid transaction submission was not detected by the participant.
 
@@ -1518,7 +1518,7 @@ DISPUTED
 OUT_OF_QUOTA
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Deprecation**: Corresponds to transaction submission rejections that are not produced anymore.
+    **Deprecation**: Corresponds to transaction submission rejections that are not produced anymore. Since: 1.18.0
     
     **Explanation**: The Participant node did not have sufficient resource quota to submit the transaction.
 

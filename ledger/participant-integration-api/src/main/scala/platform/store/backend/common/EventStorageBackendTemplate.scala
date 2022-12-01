@@ -363,6 +363,7 @@ abstract class EventStorageBackendTemplate(
     "NULL as exercise_actors",
     "NULL as exercise_child_event_ids",
     "submitters",
+    "driver_metadata",
   ).mkString(", ")
 
   private val selectColumnsForTransactionTreeExercise = Seq(
@@ -391,6 +392,7 @@ abstract class EventStorageBackendTemplate(
     "exercise_actors",
     "exercise_child_event_ids",
     "submitters",
+    "NULL as driver_metadata",
   ).mkString(", ")
 
   private def events[T](
@@ -523,7 +525,7 @@ abstract class EventStorageBackendTemplate(
         SQL"""
          SELECT filters.event_sequential_id
          FROM
-           participant_events_create_filter filters
+           pe_create_id_filter_stakeholder filters
          WHERE
            filters.party_id = $internedPartyFilter
            $templateIdFilterClause
@@ -998,7 +1000,7 @@ trait EventStrategy {
       internedTemplates: Set[Int],
   ): CompositeSql
 
-  /** Pruning participant_events_create_filter entries.
+  /** Pruning pe_create_id_filter_stakeholder entries.
     *
     * @param pruneUpToInclusive create and archive events must be earlier or equal to this offset
     * @return the executable anorm query

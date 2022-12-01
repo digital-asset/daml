@@ -439,6 +439,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
         offset(1),
         applicationId,
         Set(someParty),
+        limit = 10,
       )
     )
 
@@ -453,6 +454,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
         offset(1),
         applicationId,
         Set(someParty),
+        limit = 10,
       )
     )
 

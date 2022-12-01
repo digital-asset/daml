@@ -375,7 +375,7 @@ trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
     val host = InetAddress.getLoopbackAddress
     val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
     val exe =
-      if (!isWindows) BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-cmd")
+      if (!isWindows) BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-server")
       else BazelRunfiles.rlocation("external/toxiproxy_dev_env/toxiproxy-server-windows-amd64.exe")
     val port = LockedFreePort.find()
     val proc = Process(Seq(exe, "--port", port.port.value.toString)).run()

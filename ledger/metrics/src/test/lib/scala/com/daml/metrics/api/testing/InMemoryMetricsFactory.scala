@@ -22,28 +22,29 @@ import scala.collection.concurrent.{TrieMap, Map => ConcurrentMap}
 
 trait InMemoryMetricsFactory extends Factory {
 
-  override def timer(name: MetricName)(implicit
+  override def timer(name: MetricName, description: String)(implicit
       context: MetricsContext
   ): MetricHandle.Timer = InMemoryTimer(context)
 
-  override def gauge[T](name: MetricName, initial: T)(implicit
+  override def gauge[T](name: MetricName, initial: T, description: String)(implicit
       context: MetricsContext
   ): MetricHandle.Gauge[T] = InMemoryGauge(context)
 
   override def gaugeWithSupplier[T](
       name: MetricName,
       gaugeSupplier: () => T,
+      description: String,
   )(implicit context: MetricsContext): Unit = ()
 
-  override def meter(name: MetricName)(implicit
+  override def meter(name: MetricName, description: String)(implicit
       context: MetricsContext
   ): MetricHandle.Meter = InMemoryMeter(context)
 
-  override def counter(name: MetricName)(implicit
+  override def counter(name: MetricName, description: String)(implicit
       context: MetricsContext
   ): MetricHandle.Counter = InMemoryCounter(context)
 
-  override def histogram(name: MetricName)(implicit
+  override def histogram(name: MetricName, description: String)(implicit
       context: MetricsContext
   ): MetricHandle.Histogram = InMemoryHistogram(context)
 

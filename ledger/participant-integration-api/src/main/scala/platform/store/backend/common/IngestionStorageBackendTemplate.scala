@@ -36,7 +36,7 @@ private[backend] class IngestionStorageBackendTemplate(
           .offsetIsGreater("event_offset", ledgerOffset)}",
       SQL"DELETE FROM party_entries WHERE ${queryStrategy.offsetIsGreater("ledger_offset", ledgerOffset)}",
       SQL"DELETE FROM string_interning WHERE internal_id > $lastStringInterningId",
-      SQL"DELETE FROM participant_events_create_filter WHERE event_sequential_id > $lastEventSequentialId",
+      SQL"DELETE FROM pe_create_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
       SQL"DELETE FROM transaction_metering WHERE ${queryStrategy.offsetIsGreater("ledger_offset", ledgerOffset)}",
     ).map(_.execute()(connection))
 

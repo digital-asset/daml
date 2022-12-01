@@ -109,7 +109,7 @@ class NonStakeholderInformeesITSpec
         val flatFoo1 = flatResults_divulgee1.numberOfCreatesPerTemplateName("Foo1")
         // This assertion will fail once in ~37k test executions with number of observed items being 0
         // because for 100 instances and 10% chance of divulging to divulgee1, divulgee1 won't be disclosed any contracts once in 1/(0.9**100) ~= 37649
-        treeFoo1 should ((be > 0) and (be < submissionConfig.numberOfInstances / 5))
+        treeFoo1 should ((be > 0) and (be < 30))
         flatFoo1 shouldBe 0
         val divulger = treeResults_divulgee1.numberOfCreatesPerTemplateName("Divulger")
         divulger shouldBe 4

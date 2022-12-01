@@ -54,7 +54,10 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
     ],
     tags = ["maven_coordinates=com.daml:error-test-lib:__VERSION__"],
-    visibility = ["//ledger:__subpackages__"],
+    visibility = [
+        "//ledger:__subpackages__",
+        "//test-evidence:__pkg__",
+    ],
     deps = [
         "//ledger/error",
         "//ledger/test-common",

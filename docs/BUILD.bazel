@@ -98,11 +98,14 @@ genrule(
 
 genrule(
     name = "index",
-    srcs = glob(["source/**"]),
+    srcs = [":sources"],
     outs = ["index.rst"],
     cmd = """
 set -euo pipefail
 
+DIR=$$(mktemp -d)
+mkdir -p $$DIR/docs
+tar xf $(location :sources) -C $$DIR/docs
 cat << EOF >> $@
 Daml Files
 ----------
@@ -113,7 +116,7 @@ Daml Files
    :hidden:
 
    self
-$$(cd docs/source; find . -name \\*.rst | sed 's:\\./\\(.*\\).rst:    \\1 <\\1>:')
+$$(cd $$DIR/docs/source; find . -name \\*.rst | sed 's:\\./\\(.*\\).rst:    \\1 <\\1>:')
 
 Canton References
 -----------------

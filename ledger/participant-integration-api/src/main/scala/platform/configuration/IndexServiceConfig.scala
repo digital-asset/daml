@@ -25,6 +25,7 @@ final case class IndexServiceConfig(
     inMemoryFanOutThreadPoolSize: Int = IndexServiceConfig.DefaultInMemoryFanOutThreadPoolSize,
     preparePackageMetadataTimeOutWarning: FiniteDuration =
       IndexServiceConfig.PreparePackageMetadataTimeOutWarning,
+    completionsMaxPayloadsPerPayloadsPage: Int = 1000,
 )
 
 object IndexServiceConfig {

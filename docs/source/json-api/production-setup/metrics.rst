@@ -67,14 +67,13 @@ points are kept and reported by any meter.
 Timers
 ======
 
-A timer records all metrics registered by a meter and by a histogram, where
-the histogram records the time necessary to execute a given operation (
-in fractional milliseconds).
+A timer records the time necessary to execute a given operation (in fractional milliseconds).
 
-List of Metrics
-***************
+Metrics Reference
+*****************
 
-The following is a list of selected metrics that can be particularly
+The HTTP JSON API Service supports :doc:`common HTTP metrics </ops/common-metrics>`.
+In addition, see the following list of selected metrics that can be particularly
 important to track.
 
 ``daml.http_json_api.command_submission_timing``
