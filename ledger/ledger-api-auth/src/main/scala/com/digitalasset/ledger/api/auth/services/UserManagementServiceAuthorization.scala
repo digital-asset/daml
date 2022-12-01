@@ -6,20 +6,19 @@ package com.daml.ledger.api.auth.services
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.auth._
-import com.daml.ledger.api.v1.admin.user_management_service._
+import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
-import io.grpc.ServerServiceDefinition
+import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
 
 private[daml] final class UserManagementServiceAuthorization(
-    protected val service: UserManagementServiceGrpc.UserManagementService with AutoCloseable,
+    protected val service: proto.UserManagementServiceGrpc.UserManagementService with AutoCloseable,
     private val authorizer: Authorizer,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
-    extends UserManagementServiceGrpc.UserManagementService
+    extends proto.UserManagementServiceGrpc.UserManagementService
     with ProxyCloseable
     with GrpcApiService {
 
@@ -28,60 +27,66 @@ private[daml] final class UserManagementServiceAuthorization(
   private implicit val errorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  override def createUser(request: CreateUserRequest): Future[CreateUserResponse] =
+  override def createUser(request: proto.CreateUserRequest): Future[proto.CreateUserResponse] =
     authorizer.requireAdminClaims(service.createUser)(request)
 
-  override def getUser(request: GetUserRequest): Future[GetUserResponse] =
+  override def getUser(request: proto.GetUserRequest): Future[proto.GetUserResponse] =
     defaultToAuthenticatedUser(request.userId) match {
-      case Failure(ex) => Future.failed(ex)
-      case Success(Some(userId)) => service.getUser(request.copy(userId = userId))
-      case Success(None) => authorizer.requireAdminClaims(service.getUser)(request)
+      case Left(e: StatusRuntimeException) => Future.failed(e)
+      case Right(Some(userId)) => service.getUser(request.copy(userId = userId))
+      case Right(None) => authorizer.requireAdminClaims(service.getUser)(request)
     }
 
-  override def deleteUser(request: DeleteUserRequest): Future[DeleteUserResponse] =
+  override def deleteUser(request: proto.DeleteUserRequest): Future[proto.DeleteUserResponse] =
     authorizer.requireAdminClaims(service.deleteUser)(request)
 
-  override def listUsers(request: ListUsersRequest): Future[ListUsersResponse] =
+  override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] =
     authorizer.requireAdminClaims(service.listUsers)(request)
 
-  override def grantUserRights(request: GrantUserRightsRequest): Future[GrantUserRightsResponse] =
+  override def grantUserRights(
+      request: proto.GrantUserRightsRequest
+  ): Future[proto.GrantUserRightsResponse] =
     authorizer.requireAdminClaims(service.grantUserRights)(request)
 
   override def revokeUserRights(
-      request: RevokeUserRightsRequest
-  ): Future[RevokeUserRightsResponse] =
+      request: proto.RevokeUserRightsRequest
+  ): Future[proto.RevokeUserRightsResponse] =
     authorizer.requireAdminClaims(service.revokeUserRights)(request)
 
-  override def listUserRights(request: ListUserRightsRequest): Future[ListUserRightsResponse] =
+  override def listUserRights(
+      request: proto.ListUserRightsRequest
+  ): Future[proto.ListUserRightsResponse] =
     defaultToAuthenticatedUser(request.userId) match {
-      case Failure(ex) => Future.failed(ex)
-      case Success(Some(userId)) => service.listUserRights(request.copy(userId = userId))
-      case Success(None) => authorizer.requireAdminClaims(service.listUserRights)(request)
+      case Left(e: StatusRuntimeException) => Future.failed(e)
+      case Right(Some(userId)) => service.listUserRights(request.copy(userId = userId))
+      case Right(None) => authorizer.requireAdminClaims(service.listUserRights)(request)
     }
 
-  override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] = {
+  override def updateUser(request: proto.UpdateUserRequest): Future[proto.UpdateUserResponse] = {
     authorizer.requireAdminClaims(service.updateUser)(request)
   }
 
   override def bindService(): ServerServiceDefinition =
-    UserManagementServiceGrpc.bindService(this, executionContext)
+    proto.UserManagementServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
 
-  private def defaultToAuthenticatedUser(userId: String): Try[Option[String]] =
+  private def defaultToAuthenticatedUser(
+      userId: String
+  ): Either[StatusRuntimeException, Option[String]] =
     authorizer.authenticatedUserId().flatMap {
       case Some(authUserId) if userId.isEmpty || userId == authUserId =>
         // We include the case where the request userId is equal to the authenticated userId in the defaulting.
-        Success(Some(authUserId))
+        Right(Some(authUserId))
       case None if userId.isEmpty =>
         // This case can be hit both when running without authentication and when using custom Daml tokens.
-        Failure(
+        Left(
           LedgerApiErrors.RequestValidation.InvalidArgument
             .Reject(
               "requests with an empty user-id are only supported if there is an authenticated user"
             )
             .asGrpcError
         )
-      case _ => Success(None)
+      case _ => Right(None)
     }
 }

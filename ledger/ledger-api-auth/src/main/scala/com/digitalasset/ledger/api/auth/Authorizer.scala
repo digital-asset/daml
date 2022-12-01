@@ -19,7 +19,6 @@ import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import scalapb.lenses.Lens
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
 
 /** A simple helper that allows services to use authorization claims
   * that have been stored by [[AuthorizationInterceptor]].
@@ -173,14 +172,14 @@ final class Authorizer(
       call,
     )
 
-  def authenticatedUserId(): Try[Option[String]] =
+  def authenticatedUserId(): Either[StatusRuntimeException, Option[String]] =
     authenticatedClaimsFromContext()
       .flatMap(claims =>
         if (claims.resolvedFromUser)
           claims.applicationId match {
-            case Some(applicationId) => Success(Some(applicationId))
+            case Some(applicationId) => Right(Some(applicationId))
             case None =>
-              Failure(
+              Left(
                 LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
                   .Reject(
                     "unexpectedly the user-id is not set in the authenticated claims",
@@ -190,7 +189,7 @@ final class Authorizer(
               )
           }
         else
-          Success(None)
+          Right(None)
       )
 
   /** Compute the application-id for a request, defaulting to the one in the claims in
@@ -249,18 +248,18 @@ final class Authorizer(
     * Prefer to use the more specialized methods of [[Authorizer]] instead of this
     * method to avoid skipping required authorization checks.
     */
-  private def authenticatedClaimsFromContext(): Try[ClaimSet.Claims] =
+  private def authenticatedClaimsFromContext(): Either[StatusRuntimeException, ClaimSet.Claims] =
     AuthorizationInterceptor
       .extractClaimSetFromContext()
-      .flatMap({
+      .flatMap {
         case ClaimSet.Unauthenticated =>
-          Failure(
+          Left(
             LedgerApiErrors.AuthorizationChecks.Unauthenticated
               .MissingJwtToken()
               .asGrpcError
           )
         case authenticatedUser: ClaimSet.AuthenticatedUser =>
-          Failure(
+          Left(
             LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
               .Reject(
                 s"Unexpected unresolved authenticated user claim",
@@ -270,32 +269,31 @@ final class Authorizer(
               )
               .asGrpcError
           )
-        case claims: ClaimSet.Claims => Success(claims)
-      })
+        case claims: ClaimSet.Claims => Right(claims)
+      }
 
   private def authorizeWithReq[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
       authorized: (ClaimSet.Claims, Req) => Either[StatusRuntimeException, Req]
   ): (Req, StreamObserver[Res]) => Unit = (request, observer) => {
     val serverCallStreamObserver = assertServerCall(observer)
-    authenticatedClaimsFromContext()
-      .fold(
-        ex => {
-          observer.onError(ex)
-        },
-        claims =>
-          authorized(claims, request) match {
-            case Right(modifiedRequest) =>
-              call(
-                modifiedRequest,
-                if (claims.expiration.isDefined || claims.resolvedFromUser)
-                  ongoingAuthorization(serverCallStreamObserver, claims)
-                else
-                  serverCallStreamObserver,
-              )
-            case Left(ex) =>
-              observer.onError(ex)
-          },
-      )
+    authenticatedClaimsFromContext() match {
+      case Left(e: StatusRuntimeException) => observer.onError(e)
+      case Right(claims) =>
+        authorized(claims, request) match {
+          case Right(modifiedRequest) =>
+            // Uncaught exceptions from the `call` function will bubble up
+            // and are expected to be handled in `com.daml.platform.apiserver.error.ErrorInterceptor`
+            call(
+              modifiedRequest,
+              if (claims.expiration.isDefined || claims.resolvedFromUser)
+                ongoingAuthorization(serverCallStreamObserver, claims)
+              else
+                serverCallStreamObserver,
+            )
+          case Left(e: StatusRuntimeException) =>
+            observer.onError(e)
+        }
+    }
   }
 
   private def authorize[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
@@ -309,8 +307,8 @@ final class Authorizer(
       authorized: (ClaimSet.Claims, Req) => Either[StatusRuntimeException, Req]
   ): Req => Future[Res] = request =>
     authenticatedClaimsFromContext() match {
-      case Failure(ex) => Future.failed(ex)
-      case Success(claims) =>
+      case Left(e: StatusRuntimeException) => Future.failed(e)
+      case Right(claims) =>
         authorized(claims, request) match {
           case Right(modifiedReq) => call(modifiedReq)
           case Left(ex) =>
