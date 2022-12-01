@@ -18,7 +18,7 @@ object IdentityProviderAwareBackend {
     val rowsUpdated =
       SQL"""
          UPDATE #$tableName
-         SET identity_provider_id  = ${identityProviderId.map(_.value): Option[String]}
+         SET identity_provider_id = ${identityProviderId.map(_.value): Option[String]}
          WHERE
              internal_id = ${internalId}
        """.executeUpdate()(connection)

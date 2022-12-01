@@ -19,7 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class PersistentIdentityProviderConfigStore(
     dbSupport: DbSupport,
     metrics: Metrics,
-    maxIdentityProviderConfigs: Int,
+    maxIdentityProviders: Int,
 )(implicit executionContext: ExecutionContext)
     extends IdentityProviderConfigStore {
 
@@ -151,7 +151,7 @@ class PersistentIdentityProviderConfigStore(
       connection: Connection
   ): Result[Unit] =
     Either.cond(
-      backend.countIdentityProviderConfigs()(connection) <= maxIdentityProviderConfigs,
+      backend.countIdentityProviderConfigs()(connection) <= maxIdentityProviders,
       (),
       TooManyIdentityProviderConfigs(),
     )
@@ -203,15 +203,14 @@ object PersistentIdentityProviderConfigStore {
       dbSupport: DbSupport,
       metrics: Metrics,
       cacheExpiryAfterWrite: FiniteDuration,
-      maxIdentityProviderConfigs: Int,
+      maxIdentityProviders: Int,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ) = new CachedIdentityProviderConfigStore(
-    delegate =
-      new PersistentIdentityProviderConfigStore(dbSupport, metrics, maxIdentityProviderConfigs),
+    delegate = new PersistentIdentityProviderConfigStore(dbSupport, metrics, maxIdentityProviders),
     cacheExpiryAfterWrite = cacheExpiryAfterWrite,
-    maximumCacheSize = maxIdentityProviderConfigs,
+    maximumCacheSize = maxIdentityProviders,
     metrics = metrics,
   )
 }

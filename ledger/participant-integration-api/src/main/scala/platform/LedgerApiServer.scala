@@ -145,7 +145,7 @@ class LedgerApiServer(
         dbSupport = dbSupport,
         metrics = metrics,
         cacheExpiryAfterWrite = apiServerConfig.identityProviderManagement.cacheExpiryAfterWrite,
-        maxIdentityProviderConfigs = IdentityProviderManagementConfig.MaxIdentityProviders,
+        maxIdentityProviders = IdentityProviderManagementConfig.MaxIdentityProviders,
       )(servicesExecutionContext, loggingContext)
     ApiServiceOwner(
       indexService = indexService,

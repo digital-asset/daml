@@ -15,7 +15,7 @@ trait PersistentIdentityProviderConfigStoreTests
   override def newStore() = new PersistentIdentityProviderConfigStore(
     dbSupport = dbSupport,
     metrics = Metrics.ForTesting,
-    maxIdentityProviderConfigs = MaxIdentityProviderConfigs,
+    maxIdentityProviders = MaxIdentityProviderConfigs,
   )
 
 }
