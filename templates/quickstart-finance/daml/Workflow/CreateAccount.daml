@@ -46,8 +46,8 @@ template Request
           description = description
           holdingFactoryCid = holdingFactoryCid
           controllers = Account.Controllers with
-            instructors = S.singleton owner
-            approvers = S.singleton owner
+            outgoing = S.singleton owner
+            incoming = S.singleton owner
           observers = M.fromList [("AccountObservers", observersSet)]
 
         pure accountKey
