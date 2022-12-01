@@ -31,7 +31,8 @@ case class ApiServerConfig(
     timeProviderType: TimeProviderType = ApiServerConfig.DefaultTimeProviderType,
     tls: Option[TlsConfiguration] = ApiServerConfig.DefaultTls,
     userManagement: UserManagementConfig = ApiServerConfig.DefaultUserManagement,
-    identityProviderManagement: IdentityProviderManagementConfig = ApiServerConfig.DefaultIdentityProviderManagementConfig,
+    identityProviderManagement: IdentityProviderManagementConfig =
+      ApiServerConfig.DefaultIdentityProviderManagementConfig,
 )
 
 object ApiServerConfig {
@@ -47,7 +48,8 @@ object ApiServerConfig {
   val DefaultSeeding: Seeding = Seeding.Strong
   val DefaultManagementServiceTimeout: FiniteDuration = 2.minutes
   val DefaultUserManagement: UserManagementConfig = UserManagementConfig.default(enabled = false)
-  val DefaultIdentityProviderManagementConfig: IdentityProviderManagementConfig = IdentityProviderManagementConfig()
+  val DefaultIdentityProviderManagementConfig: IdentityProviderManagementConfig =
+    IdentityProviderManagementConfig()
   val DefaultCommand: CommandConfiguration = CommandConfiguration.Default
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
   val DefaultApiStreamShutdownTimeout: FiniteDuration = FiniteDuration(5, "seconds")
