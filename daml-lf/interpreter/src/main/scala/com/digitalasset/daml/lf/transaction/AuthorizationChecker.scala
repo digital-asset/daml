@@ -9,7 +9,7 @@ import com.daml.lf.ledger.Authorize
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.Node
 
-abstract class AuthorizationChecker {
+private[lf] abstract class AuthorizationChecker {
 
   private[lf] def authorizeCreate(
       optLocation: Option[Location],
@@ -148,7 +148,7 @@ private[lf] object DefaultAuthorizationChecker extends AuthorizationChecker {
 }
 
 /** Dummy authorization checker that does not check anything. Should only be used for testing. */
-object NoopAuthorizationChecker extends AuthorizationChecker {
+private[lf] object NoopAuthorizationChecker extends AuthorizationChecker {
   override private[lf] def authorizeCreate(optLocation: Option[Location], create: Node.Create)(
       auth: Authorize
   ): List[FailedAuthorization] = Nil
