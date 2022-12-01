@@ -17,12 +17,20 @@ import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
-import com.daml.platform.configuration.{CommandConfiguration, IndexServiceConfig, InitialLedgerConfiguration}
+import com.daml.platform.configuration.{
+  CommandConfiguration,
+  IndexServiceConfig,
+  InitialLedgerConfiguration,
+}
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
 import com.daml.platform.localstore.{IdentityProviderManagementConfig, UserManagementConfig}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DataSourceProperties, ParticipantDataSourceConfig}
+import com.daml.platform.store.DbSupport.{
+  ConnectionPoolConfig,
+  DataSourceProperties,
+  ParticipantDataSourceConfig,
+}
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
 import com.daml.ports.Port
@@ -193,7 +201,8 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val identityProviderManagementConfigHint =
     ProductHint[IdentityProviderManagementConfig](allowUnknownKeys = false)
 
-  implicit val identityProviderManagementConfigConvert: ConfigConvert[IdentityProviderManagementConfig] =
+  implicit val identityProviderManagementConfigConvert
+      : ConfigConvert[IdentityProviderManagementConfig] =
     deriveConvert[IdentityProviderManagementConfig]
 
   implicit val jwtTimestampLeewayConfigHint: OptConfigValue.OptProductHint[JwtTimestampLeeway] =
