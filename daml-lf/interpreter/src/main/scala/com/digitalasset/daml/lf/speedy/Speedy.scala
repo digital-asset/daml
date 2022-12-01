@@ -386,7 +386,7 @@ private[lf] object Speedy {
         expr: SExpr,
         committers: Set[Party],
         readAs: Set[Party],
-        checkAuthorization: Boolean,
+        authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
         validating: Boolean = false,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
@@ -408,7 +408,7 @@ private[lf] object Speedy {
             initialSeeding,
             committers,
             disclosedContracts,
-            checkAuthorization,
+            authorizationChecker,
           ),
         committers = committers,
         readAs = readAs,
@@ -1050,7 +1050,7 @@ private[lf] object Speedy {
         transactionSeed: crypto.Hash,
         updateE: Expr,
         committers: Set[Party],
-        checkAuthorization: Boolean,
+        authorizationChecker: AuthorizationChecker,
         disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
     )(implicit loggingContext: LoggingContext): OnLedgerMachine = {
@@ -1061,7 +1061,7 @@ private[lf] object Speedy {
         transactionSeed,
         updateSE,
         committers,
-        checkAuthorization,
+        authorizationChecker,
         disclosedContracts,
         limits,
       )
@@ -1075,7 +1075,7 @@ private[lf] object Speedy {
         transactionSeed: crypto.Hash,
         updateSE: SExpr,
         committers: Set[Party],
-        checkAuthorization: Boolean,
+        authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
         disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
         traceLog: TraceLog = newTraceLog,
@@ -1090,7 +1090,7 @@ private[lf] object Speedy {
         limits = limits,
         traceLog = traceLog,
         disclosedContracts = disclosedContracts,
-        checkAuthorization = checkAuthorization,
+        authorizationChecker = authorizationChecker,
       )
     }
 

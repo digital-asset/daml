@@ -325,7 +325,6 @@ object TransactionVersionTest {
           ),
         ),
         committers = committers,
-        checkAuthorization = true,
       )
 
     SpeedyTestLib.buildTransaction(machine, getContract = getContract)

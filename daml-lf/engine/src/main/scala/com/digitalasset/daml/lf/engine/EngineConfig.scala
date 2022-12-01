@@ -4,6 +4,12 @@
 package com.daml.lf
 package engine
 
+import com.daml.lf.speedy.{
+  AuthorizationChecker,
+  DefaultAuthorizationChecker,
+  NoopAuthorizationChecker,
+}
+
 import java.nio.file.Path
 import com.daml.lf.transaction.ContractKeyUniquenessMode
 
@@ -60,4 +66,6 @@ final case class EngineConfig(
           speedy.Compiler.NoProfile,
     )
 
+  private[lf] def authorizationChecker: AuthorizationChecker =
+    if (checkAuthorization) DefaultAuthorizationChecker else NoopAuthorizationChecker
 }

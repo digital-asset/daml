@@ -278,7 +278,6 @@ object ExplicitDisclosureLib {
           else SExpr.SEApp(contextSExpr, setupArgs),
         committers = committers,
         disclosedContracts = disclosedContracts,
-        checkAuthorization = true,
       )
     val setupResult = SpeedyTestLib.run(
       machine = machine,
@@ -316,7 +315,6 @@ object ExplicitDisclosureLib {
         updateSE = runUpdateSExpr(sexpr),
         committers = committers,
         disclosedContracts = disclosedContracts,
-        checkAuthorization = true,
       )
     val result = SpeedyTestLib.run(
       machine = machine,

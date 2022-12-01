@@ -1873,7 +1873,6 @@ object SBuiltinTest {
           transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
           updateSE = SELet1(sexpr, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
           committers = committers,
-          checkAuthorization = true,
         )
       } else {
         Speedy.Machine.fromPureSExpr(compiledPackages, sexpr)

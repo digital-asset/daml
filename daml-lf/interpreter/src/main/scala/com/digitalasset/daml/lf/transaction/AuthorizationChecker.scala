@@ -9,7 +9,39 @@ import com.daml.lf.ledger.Authorize
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.Node
 
-private[lf] object CheckAuthorization {
+trait AuthorizationChecker {
+
+  private[lf] def authorizeCreate(
+      optLocation: Option[Location],
+      create: Node.Create,
+  )(
+      auth: Authorize
+  ): List[FailedAuthorization]
+
+  private[lf] def authorizeFetch(
+      optLocation: Option[Location],
+      fetch: Node.Fetch,
+  )(
+      auth: Authorize
+  ): List[FailedAuthorization]
+
+  private[lf] def authorizeLookupByKey(
+      optLocation: Option[Location],
+      lbk: Node.LookupByKey,
+  )(
+      auth: Authorize
+  ): List[FailedAuthorization]
+
+  private[lf] def authorizeExercise(
+      optLocation: Option[Location],
+      ex: Node.Exercise,
+  )(
+      auth: Authorize
+  ): List[FailedAuthorization]
+}
+
+/** Default AuthorizationChecker intended for production usage. */
+private[lf] object DefaultAuthorizationChecker extends AuthorizationChecker {
 
   @inline
   private[this] def authorize(
@@ -22,7 +54,7 @@ private[lf] object CheckAuthorization {
       List(failWith)
   }
 
-  private[lf] def authorizeCreate(
+  override private[lf] def authorizeCreate(
       optLocation: Option[Location],
       create: Node.Create,
   )(
@@ -57,7 +89,7 @@ private[lf] object CheckAuthorization {
       })
   }
 
-  private[lf] def authorizeFetch(
+  override private[lf] def authorizeFetch(
       optLocation: Option[Location],
       fetch: Node.Fetch,
   )(
@@ -74,7 +106,7 @@ private[lf] object CheckAuthorization {
     )
   }
 
-  private[lf] def authorizeLookupByKey(
+  override private[lf] def authorizeLookupByKey(
       optLocation: Option[Location],
       lbk: Node.LookupByKey,
   )(
@@ -91,7 +123,7 @@ private[lf] object CheckAuthorization {
     )
   }
 
-  private[lf] def authorizeExercise(
+  override private[lf] def authorizeExercise(
       optLocation: Option[Location],
       ex: Node.Exercise,
   )(
@@ -113,4 +145,24 @@ private[lf] object CheckAuthorization {
       )
   }
 
+}
+
+/** Dummy authorization checker that does not check anything. Should only be used for testing. */
+object NoopAuthorizationChecker extends AuthorizationChecker {
+  override private[lf] def authorizeCreate(optLocation: Option[Location], create: Node.Create)(
+      auth: Authorize
+  ): List[FailedAuthorization] = Nil
+
+  override private[lf] def authorizeFetch(optLocation: Option[Location], fetch: Node.Fetch)(
+      auth: Authorize
+  ): List[FailedAuthorization] = Nil
+
+  override private[lf] def authorizeLookupByKey(
+      optLocation: Option[Location],
+      lbk: Node.LookupByKey,
+  )(auth: Authorize): List[FailedAuthorization] = Nil
+
+  override private[lf] def authorizeExercise(optLocation: Option[Location], ex: Node.Exercise)(
+      auth: Authorize
+  ): List[FailedAuthorization] = Nil
 }
