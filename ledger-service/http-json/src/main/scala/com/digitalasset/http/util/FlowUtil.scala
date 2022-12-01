@@ -30,6 +30,7 @@ object FlowUtil {
   ) extends AnyVal {
     import akka.stream.{Graph, SourceShape, KillSwitches}
     import akka.stream.scaladsl.Source
+    import concurrent.duration._
 
     def flatMapMergeCancellable[T, M](
         breadth: Int,
@@ -54,6 +55,7 @@ object FlowUtil {
           )
           mat
         }
+        .completionTimeout(2.seconds)
     }
   }
 

@@ -1596,20 +1596,27 @@ abstract class AbstractWebsocketServiceIntegrationTest
           subprotocol = validSubprotocol(jwt),
         )
         allRuns <- (1 to sequentialCount).toVector.traverseFM(_ =>
-          Future.traverse(1 to parallelCount) { _ =>
-            val webSocketFlow =
-              Http().webSocketClientFlow(request)
-            val ran =
-              scenario.input via webSocketFlow runWith collectResultsAsTextMessageSkipOffsetTicks
-            // import scala.util.control.NonFatal
-            ran.map(_ => none[Throwable]).recover {
-              // you get some of these a run; this isn't the error we're
-              // interested in and probably has something to do with the weird
-              // way we test websockets, so just ignore it -SC
-              case akka.stream.SubscriptionWithCancelException.StageWasCompleted => none
-              // TODO SC case NonFatal(e) => some(e)
+          Future
+            .traverse(1 to parallelCount) { _ =>
+              val webSocketFlow =
+                Http().webSocketClientFlow(request)
+              val ran =
+                scenario.input via webSocketFlow runWith collectResultsAsTextMessageSkipOffsetTicks
+              // import scala.util.control.NonFatal
+              ran.map(_ => none[Throwable]).recover {
+                // you get some of these a run; this isn't the error we're
+                // interested in and probably has something to do with the weird
+                // way we test websockets, so just ignore it -SC
+                case akka.stream.SubscriptionWithCancelException.StageWasCompleted => none
+                // TODO SC case NonFatal(e) => some(e)
+              }
             }
-          }
+            .flatMap(s =>
+              Future {
+                Thread.sleep(3000)
+                s
+              }
+            )
         )
       } yield allRuns.collect(
         Function unlift (parSet => NonEmpty from (parSet collect { case Some(e) => e }))
