@@ -389,8 +389,7 @@ private[speedy] case class PartialTransaction(
       version: TxVersion,
   ): Either[Tx.TransactionError, PartialTransaction] = {
     val stakeholders = observers union signatories
-    val contextActors = context.info.authorizers
-    val actingParties = Set.empty
+    val actingParties = Set.empty[Party]
     val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
     val node = Node.Fetch(
