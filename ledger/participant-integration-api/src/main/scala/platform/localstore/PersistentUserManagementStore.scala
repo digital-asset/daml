@@ -3,11 +3,9 @@
 
 package com.daml.platform.localstore
 
-import java.sql.Connection
 import com.daml.api.util.TimeProvider
-import com.daml.ledger.api.{ListUsersFilter, domain}
 import com.daml.ledger.api.domain.{IdentityProviderId, User}
-import com.daml.platform.localstore.api.UserManagementStore._
+import com.daml.ledger.api.{ListUsersFilter, domain}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -17,12 +15,14 @@ import com.daml.platform.localstore.PersistentUserManagementStore.{
   MaxAnnotationsSizeExceededException,
   TooManyUserRightsRuntimeException,
 }
+import com.daml.platform.localstore.api.UserManagementStore._
 import com.daml.platform.localstore.api.{UserManagementStore, UserUpdate}
 import com.daml.platform.localstore.utils.LocalAnnotationsUtils
 import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.backend.localstore.UserManagementStorageBackend
 
+import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}
 
 object UserManagementConfig {
@@ -30,7 +30,6 @@ object UserManagementConfig {
   val DefaultMaxCacheSize = 100
   val DefaultCacheExpiryAfterWriteInSeconds = 5
   val DefaultMaxUsersPageSize = 1000
-  val DefaultMaxIdentityProviders = 16
 
   val MaxRightsPerUser = 1000
 
@@ -47,7 +46,6 @@ final case class UserManagementConfig(
     cacheExpiryAfterWriteInSeconds: Int =
       UserManagementConfig.DefaultCacheExpiryAfterWriteInSeconds,
     maxUsersPageSize: Int = UserManagementConfig.DefaultMaxUsersPageSize,
-    maxIdentityProviders: Int = UserManagementConfig.DefaultMaxIdentityProviders,
 )
 
 object PersistentUserManagementStore {
@@ -228,6 +226,7 @@ class PersistentUserManagementStore(
               primaryPartyO = newValue,
             )(connection)
           }
+          // update identity_provider_id
           userUpdate.identityProviderIdUpdate.foreach { newValue =>
             backend.updateUserIdentityProviderId(
               internalId = dbUser.internalId,

@@ -12,13 +12,14 @@ import com.daml.platform.localstore.api.IdentityProviderConfigStore.Result
 import com.daml.platform.localstore.api.{IdentityProviderConfigStore, IdentityProviderConfigUpdate}
 import com.github.benmanes.caffeine.{cache => caffeine}
 
-import java.time.Duration
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.DurationConverters._
 import scala.util.{Success, Try}
 
 class CachedIdentityProviderConfigStore(
     delegate: IdentityProviderConfigStore,
-    expiryAfterWriteInSeconds: Int,
+    cacheExpiryAfterWrite: FiniteDuration,
     maximumCacheSize: Int,
     metrics: Metrics,
 )(implicit val executionContext: ExecutionContext, loggingContext: LoggingContext)
@@ -31,14 +32,14 @@ class CachedIdentityProviderConfigStore(
     new CaffeineCache.AsyncLoadingCaffeineCache(
       caffeine.Caffeine
         .newBuilder()
-        .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
+        .expireAfterWrite(cacheExpiryAfterWrite.toJava)
         .maximumSize(maximumCacheSize.toLong)
         .buildAsync(
           new FutureAsyncCacheLoader[IdentityProviderId.Id, Result[IdentityProviderConfig]](
             delegate.getIdentityProviderConfig
           )
         ),
-      metrics.daml.identityProviderConfigStore.cache,
+      metrics.daml.identityProviderConfigStore.cacheById,
     )
 
   private val idpByIssuer: CaffeineCache.AsyncLoadingCaffeineCache[
@@ -48,14 +49,14 @@ class CachedIdentityProviderConfigStore(
     new CaffeineCache.AsyncLoadingCaffeineCache(
       caffeine.Caffeine
         .newBuilder()
-        .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
+        .expireAfterWrite(cacheExpiryAfterWrite.toJava)
         .maximumSize(maximumCacheSize.toLong)
         .buildAsync(
           new FutureAsyncCacheLoader[String, Result[IdentityProviderConfig]](issuer =>
             delegate.getIdentityProviderConfig(issuer)
           )
         ),
-      metrics.daml.identityProviderConfigStore.cache,
+      metrics.daml.identityProviderConfigStore.cacheByIssuer,
     )
 
   override def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig)(implicit

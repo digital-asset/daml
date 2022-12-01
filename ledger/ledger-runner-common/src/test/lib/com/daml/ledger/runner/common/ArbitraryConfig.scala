@@ -24,7 +24,7 @@ import com.daml.platform.configuration.{
 }
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
 import com.daml.platform.indexer.ha.HaConfig
-import com.daml.platform.localstore.UserManagementConfig
+import com.daml.platform.localstore.{IdentityProviderManagementConfig, UserManagementConfig}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.DbSupport.DataSourceProperties
@@ -32,6 +32,7 @@ import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
+
 import java.io.File
 import java.net.InetSocketAddress
 import java.nio.file.Paths
@@ -179,6 +180,12 @@ object ArbitraryConfig {
     maxCacheSize = maxCacheSize,
     cacheExpiryAfterWriteInSeconds = cacheExpiryAfterWriteInSeconds,
     maxUsersPageSize = maxUsersPageSize,
+  )
+
+  val identityProviderManagementConfig = for {
+    cacheExpiryAfterWrite <- Gen.finiteDuration
+  } yield IdentityProviderManagementConfig(
+    cacheExpiryAfterWrite = cacheExpiryAfterWrite
   )
 
   def jwtTimestampLeewayGen: Gen[JwtTimestampLeeway] = {
