@@ -39,7 +39,7 @@ object TestEntryLookup {
       .concat(suites.v1_14.default(timeoutScaleFactor = 0L))
       .concat(suites.v1_14.optional(tlsConfig = None))
 
-    val testSuites: List[Suite] = ScalaTestAdapter.loadTestSuites(runpathList)
+    val testSuites: List[Suite] = ScalaTestAdapter.loadTestSuites(runpathList, fatalWarnings = true)
 
     collectTestEvidence[TT, TS, TE](
       testSuites,
