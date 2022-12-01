@@ -53,13 +53,13 @@ class CachedIdentityProviderConfigStoreSpec
     val cfg = config()
     for {
       _ <- tested.createIdentityProviderConfig(cfg)
-      res1 <- tested.getIdentityProviderConfig(cfg.identityProviderId)
-      res2 <- tested.getIdentityProviderConfig(cfg.identityProviderId)
-      res3 <- tested.getIdentityProviderConfig(cfg.identityProviderId)
+      res1 <- tested.getIdentityProviderConfig(cfg.issuer)
+      res2 <- tested.getIdentityProviderConfig(cfg.issuer)
+      res3 <- tested.getIdentityProviderConfig(cfg.issuer)
       res4 <- tested.listIdentityProviderConfigs()
       res5 <- tested.listIdentityProviderConfigs()
     } yield {
-      verify(delegate, times(1)).getIdentityProviderConfig(cfg.identityProviderId)
+      verify(delegate, times(1)).getIdentityProviderConfig(cfg.issuer)
       verify(delegate, times(2)).listIdentityProviderConfigs()
       res1.value shouldBe cfg
       res2.value shouldBe cfg
