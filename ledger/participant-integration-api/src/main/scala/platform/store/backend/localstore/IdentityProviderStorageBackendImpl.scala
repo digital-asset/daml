@@ -21,8 +21,8 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
     str("identity_provider_id") ~
       bool("is_deactivated") ~
       str("jwks_url") ~
-      str("issuer") map { case identityProviderId ~ isDeactivated ~ jwksURL ~ issuer =>
-        (identityProviderId, isDeactivated, jwksURL, issuer)
+      str("issuer") map { case identityProviderId ~ isDeactivated ~ jwksUrl ~ issuer =>
+        (identityProviderId, isDeactivated, jwksUrl, issuer)
       }
   }
 
@@ -58,11 +58,11 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
        WHERE identity_provider_id = ${id.value: String}
        """
       .as(IdpConfigRecordParser.singleOpt)(connection)
-      .map { case (identityProviderId, isDeactivated, jwksURL, issuer) =>
+      .map { case (identityProviderId, isDeactivated, jwksUrl, issuer) =>
         IdentityProviderConfig(
           identityProviderId = IdentityProviderId.Id.assertFromString(identityProviderId),
           isDeactivated = isDeactivated,
-          jwksUrl = JwksUrl.assertFromString(jwksURL),
+          jwksUrl = JwksUrl.assertFromString(jwksUrl),
           issuer = issuer,
         )
       }
@@ -77,11 +77,11 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
        ORDER BY identity_provider_id
        """
       .asVectorOf(IdpConfigRecordParser)(connection)
-      .map { case (identityProviderId, isDeactivated, jwksURL, issuer) =>
+      .map { case (identityProviderId, isDeactivated, jwksUrl, issuer) =>
         IdentityProviderConfig(
           identityProviderId = IdentityProviderId.Id.assertFromString(identityProviderId),
           isDeactivated = isDeactivated,
-          jwksUrl = JwksUrl.assertFromString(jwksURL),
+          jwksUrl = JwksUrl.assertFromString(jwksUrl),
           issuer = issuer,
         )
       }
@@ -155,5 +155,24 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
   override def countIdentityProviderConfigs()(connection: Connection): Int = {
     SQL"SELECT count(*) AS identity_provider_configs_count from participant_identity_provider_config"
       .as(SqlParser.int("identity_provider_configs_count").single)(connection)
+  }
+
+  override def getIdentityProviderConfigByIssuer(
+      issuer: String
+  )(connection: Connection): Option[IdentityProviderConfig] = {
+    SQL"""
+       SELECT identity_provider_id, is_deactivated, jwks_url, issuer
+       FROM participant_identity_provider_config
+       WHERE issuer = ${issuer}
+       """
+      .as(IdpConfigRecordParser.singleOpt)(connection)
+      .map { case (identityProviderId, isDeactivated, jwksUrl, issuer) =>
+        IdentityProviderConfig(
+          identityProviderId = IdentityProviderId.Id.assertFromString(identityProviderId),
+          isDeactivated = isDeactivated,
+          jwksUrl = JwksUrl.assertFromString(jwksUrl),
+          issuer = issuer,
+        )
+      }
   }
 }

@@ -31,6 +31,14 @@ trait IdentityProviderConfigStore {
       loggingContext: LoggingContext
   ): Future[Result[IdentityProviderConfig]]
 
+  def getIdentityProviderConfig(issuer: String)(implicit
+      loggingContext: LoggingContext
+  ): Future[Result[IdentityProviderConfig]]
+
+  def identityProviderConfigExists(id: IdentityProviderId.Id)(implicit
+      loggingContext: LoggingContext
+  ): Future[Boolean]
+
 }
 object IdentityProviderConfigStore {
   type Result[T] = Either[Error, T]
@@ -42,4 +50,5 @@ object IdentityProviderConfigStore {
       extends Error
   final case class IdentityProviderConfigWithIssuerExists(issuer: String) extends Error
   final case class TooManyIdentityProviderConfigs() extends Error
+  final case class IdentityProviderConfigByIssuerNotFound(issuer: String) extends Error
 }

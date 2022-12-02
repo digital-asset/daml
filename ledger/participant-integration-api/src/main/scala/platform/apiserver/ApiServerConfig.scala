@@ -8,7 +8,7 @@ import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.localstore.UserManagementConfig
+import com.daml.platform.localstore.{IdentityProviderManagementConfig, UserManagementConfig}
 import com.daml.ports.Port
 
 import java.nio.file.Path
@@ -31,6 +31,8 @@ case class ApiServerConfig(
     timeProviderType: TimeProviderType = ApiServerConfig.DefaultTimeProviderType,
     tls: Option[TlsConfiguration] = ApiServerConfig.DefaultTls,
     userManagement: UserManagementConfig = ApiServerConfig.DefaultUserManagement,
+    identityProviderManagement: IdentityProviderManagementConfig =
+      ApiServerConfig.DefaultIdentityProviderManagementConfig,
 )
 
 object ApiServerConfig {
@@ -46,6 +48,8 @@ object ApiServerConfig {
   val DefaultSeeding: Seeding = Seeding.Strong
   val DefaultManagementServiceTimeout: FiniteDuration = 2.minutes
   val DefaultUserManagement: UserManagementConfig = UserManagementConfig.default(enabled = false)
+  val DefaultIdentityProviderManagementConfig: IdentityProviderManagementConfig =
+    IdentityProviderManagementConfig()
   val DefaultCommand: CommandConfiguration = CommandConfiguration.Default
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
   val DefaultApiStreamShutdownTimeout: FiniteDuration = FiniteDuration(5, "seconds")

@@ -3,6 +3,7 @@
 
 package com.daml.platform.localstore
 
+import com.daml.ledger.api.domain.IdentityProviderConfig
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.platform.localstore.api.UserManagementStore
 import org.scalatest.matchers.should.Matchers
@@ -17,6 +18,8 @@ trait UserStoreSpecBase
     with EitherValues { self: AsyncTestSuite =>
 
   def newStore(): UserManagementStore
+
+  def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig): Future[Unit]
 
   final protected def testIt(f: UserManagementStore => Future[Assertion]): Future[Assertion] = f(
     newStore()

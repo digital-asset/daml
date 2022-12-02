@@ -4,7 +4,6 @@
 package com.daml.lf.engine.script.ledgerinteraction
 
 import java.time.Instant
-
 import akka.util.ByteString
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -23,7 +22,7 @@ import com.daml.ledger.api.auth.{
   CustomDamlJWTPayload,
   StandardJWTPayload,
 }
-import com.daml.ledger.api.domain.{ObjectMeta, PartyDetails, User, UserRight}
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
@@ -896,6 +895,7 @@ object JsonLedgerClient {
             optName.map(_.convertTo[String]),
             isLocal.convertTo[Boolean],
             ObjectMeta.empty,
+            IdentityProviderId.Default,
           )
         case _ => deserializationError(s"Expected PartyDetails but got $v")
       }

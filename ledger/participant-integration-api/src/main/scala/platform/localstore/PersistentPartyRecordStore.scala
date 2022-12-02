@@ -4,9 +4,9 @@
 package com.daml.platform.localstore
 
 import java.sql.Connection
-
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.platform.localstore.api.PartyRecordStore.{
   ConcurrentPartyUpdate,
   MaxAnnotationsSizeExceeded,
@@ -98,6 +98,9 @@ class PersistentPartyRecordStore(
                 _ <- withoutPartyRecord(party) {
                   val newPartyRecord = PartyRecord(
                     party = party,
+                    identityProviderId = partyRecordUpdate.identityProviderIdUpdate.getOrElse(
+                      IdentityProviderId.Default
+                    ),
                     metadata = domain.ObjectMeta(
                       resourceVersionO = None,
                       annotations = partyRecordUpdate.metadataUpdate.annotationsUpdateO.getOrElse(
@@ -161,6 +164,7 @@ class PersistentPartyRecordStore(
     val now = epochMicroseconds()
     val dbParty = PartyRecordStorageBackend.DbPartyRecordPayload(
       party = partyRecord.party,
+      identityProviderId = partyRecord.identityProviderId.toDb,
       resourceVersion = 0,
       createdAt = now,
     )
@@ -203,7 +207,13 @@ class PersistentPartyRecordStore(
           internalId = dbPartyRecord.internalId
         )(connection)
     }
-    // Step 2: Update annotations
+    // Step 2: Update identity_provider_id
+    partyRecordUpdate.identityProviderIdUpdate.foreach { identityProviderId =>
+      backend.updateIdentityProviderId(dbPartyRecord.internalId, identityProviderId.toDb)(
+        connection
+      )
+    }
+    // Step 3: Update annotations
     partyRecordUpdate.metadataUpdate.annotationsUpdateO.foreach { newAnnotations =>
       val existingAnnotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
       val updatedAnnotations = LocalAnnotationsUtils.calculateUpdatedAnnotations(
@@ -234,6 +244,7 @@ class PersistentPartyRecordStore(
   ): PartyRecord = {
     PartyRecord(
       party = payload.party,
+      identityProviderId = IdentityProviderId.fromDb(payload.identityProviderId),
       metadata = domain.ObjectMeta(
         resourceVersionO = Some(payload.resourceVersion),
         annotations = annotations,

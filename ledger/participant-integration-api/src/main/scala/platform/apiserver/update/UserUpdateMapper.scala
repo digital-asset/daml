@@ -31,6 +31,7 @@ object UserUpdateMapper extends UpdateMapperBase {
           resourceVersionO = user.metadata.resourceVersionO,
           annotationsUpdateO = annotationsUpdate,
         ),
+        identityProviderIdUpdate = None,
       )
     }
   }

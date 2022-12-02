@@ -3,8 +3,9 @@
 
 package com.daml.platform.store.backend.localstore
 
-import java.sql.Connection
+import com.daml.ledger.api.domain.IdentityProviderId
 
+import java.sql.Connection
 import com.daml.lf.data.Ref
 
 trait PartyRecordStorageBackend extends ResourceVersionOps {
@@ -25,11 +26,17 @@ trait PartyRecordStorageBackend extends ResourceVersionOps {
 
   def deletePartyAnnotations(internalId: Int)(connection: Connection): Unit
 
+  def updateIdentityProviderId(
+      internalId: Int,
+      identityProviderId: Option[IdentityProviderId.Id],
+  )(connection: Connection): Boolean
+
 }
 
 object PartyRecordStorageBackend {
   case class DbPartyRecordPayload(
       party: Ref.Party,
+      identityProviderId: Option[IdentityProviderId.Id],
       resourceVersion: Long,
       createdAt: Long,
   )

@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.update
 
-import com.daml.ledger.api.domain.{ObjectMeta, PartyDetails}
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails}
 import com.daml.lf.data.Ref
 import com.daml.platform.localstore.api.{ObjectMetaUpdate, PartyDetailsUpdate}
 import com.google.protobuf.field_mask.FieldMask
@@ -20,6 +20,7 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       isLocal: Boolean = false,
       displayNameO: Option[String] = None,
       annotations: Map[String, String] = Map.empty,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): PartyDetails = PartyDetails(
     party = party,
     displayName = displayNameO,
@@ -28,6 +29,7 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       resourceVersionO = None,
       annotations = annotations,
     ),
+    identityProviderId = identityProviderId,
   )
 
   def makePartyDetailsUpdate(
