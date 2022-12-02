@@ -426,6 +426,35 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
   }
 
   "updating" - {
+    "update a identity_provider_id for the user" in {
+      val id2 =
+        IdentityProviderId.Id(LedgerString.assertFromString("idp2"))
+      val idp2 = IdentityProviderConfig(
+        identityProviderId = id2,
+        jwksUrl = JwksUrl("http://domain.com/"),
+        issuer = "issuer2",
+      )
+      testIt { tested =>
+        val pr1 = newUser("user1", identityProviderId = persistedIdentityProviderId)
+        for {
+          _ <- createIdentityProviderConfig(idp1)
+          _ <- createIdentityProviderConfig(idp2)
+          _ <- tested.createUser(pr1, Set.empty)
+          update1 <- tested.updateUser(
+            userUpdate = UserUpdate(
+              id = pr1.id,
+              metadataUpdate = ObjectMetaUpdate.empty,
+              identityProviderIdUpdate = Some(id2),
+            )
+          )
+          _ = resetResourceVersion(update1.value) shouldBe newUser(
+            "user1",
+            identityProviderId = id2,
+          )
+        } yield succeed
+      }
+    }
+
     "update an existing user's annotations" in {
       testIt { tested =>
         val pr1 = newUser("user1", isDeactivated = true, primaryParty = None)

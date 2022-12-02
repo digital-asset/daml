@@ -43,8 +43,11 @@ class ApiPartyManagementServiceSpec
     "propagate trace context" in {
       val mockIndexTransactionsService = mock[IndexTransactionsService]
       val mockPartyRecordStore = mock[PartyRecordStore]
+      val mockIdentityProviderExists = mock[IdentityProviderExists]
       when(mockIndexTransactionsService.currentLedgerEnd())
         .thenReturn(Future.successful(Absolute(Ref.LedgerString.assertFromString("0"))))
+      when(mockIdentityProviderExists.apply(IdentityProviderId.Default))
+        .thenReturn(Future.successful(true))
       val mockIndexPartyManagementService = mock[IndexPartyManagementService]
       val party = Ref.Party.assertFromString("aParty")
       when(
@@ -71,6 +74,7 @@ class ApiPartyManagementServiceSpec
 
       val apiService = ApiPartyManagementService.createApiService(
         mockIndexPartyManagementService,
+        mockIdentityProviderExists,
         mockPartyRecordStore,
         mockIndexTransactionsService,
         TestWritePartyService,

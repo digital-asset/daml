@@ -90,7 +90,7 @@ private[apiserver] final class ApiUserManagementService(
               annotations = pAnnotations,
             ),
             identityProviderId =
-              IdentityProviderId.Default, // TODO replace with the value coming from API
+              IdentityProviderId.Default, // TODO IDP: replace with the value coming from API
           ),
           pRights,
         )
@@ -138,7 +138,7 @@ private[apiserver] final class ApiUserManagementService(
               annotations = pAnnotations,
             ),
             identityProviderId =
-              IdentityProviderId.Default, // TODO replace with the value coming from API
+              IdentityProviderId.Default, // TODO IDP: replace with the value coming from API
           ),
           pFieldMask,
         )
