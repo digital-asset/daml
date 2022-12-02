@@ -208,9 +208,7 @@ private[daml] object ApiServices {
               userManagementStore = userManagementStore,
               maxUsersPageSize = userManagementConfig.maxUsersPageSize,
               submissionIdGenerator = SubmissionIdGenerator.Random,
-              identityProviderExists = new IdentityProviderExists(
-                identityProviderConfigStore
-              ),
+              identityProviderExists = new IdentityProviderExists(identityProviderConfigStore),
             )
           val identityProvider =
             new ApiIdentityProviderConfigService(identityProviderConfigStore)
@@ -304,6 +302,7 @@ private[daml] object ApiServices {
 
         val apiPartyManagementService = ApiPartyManagementService.createApiService(
           partyManagementService,
+          new IdentityProviderExists(identityProviderConfigStore),
           partyRecordStore,
           transactionsService,
           writeService,

@@ -3,13 +3,13 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.util.UUID
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{IdentityProviderId, LedgerOffset, ObjectMeta, PartyDetails}
+import com.daml.ledger.api.v1.admin.object_meta.{ObjectMeta => ProtoObjectMeta}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
@@ -23,17 +23,10 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   PartyManagementServiceGrpc,
   UpdatePartyDetailsRequest,
   UpdatePartyDetailsResponse,
+  PartyDetails => ProtoPartyDetails,
 }
-import com.daml.ledger.api.v1.admin.party_management_service.{PartyDetails => ProtoPartyDetails}
-import com.daml.ledger.api.v1.admin.object_meta.{ObjectMeta => ProtoObjectMeta}
 import com.daml.ledger.api.validation.ValidationErrors
-import com.daml.ledger.participant.state.index.v2.{
-  IndexPartyManagementService,
-  IndexTransactionsService,
-  IndexerPartyDetails,
-  LedgerEndService,
-  PartyEntry,
-}
+import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
@@ -61,16 +54,18 @@ import com.daml.platform.server.api.validation.FieldValidations.{
 }
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
-
-import scala.concurrent.duration.FiniteDuration
-import scala.jdk.FutureConverters.CompletionStageOps
-import scala.concurrent.{ExecutionContext, Future}
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
+import java.util.UUID
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.FutureConverters.CompletionStageOps
+
 private[apiserver] final class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
+    identityProviderExists: IdentityProviderExists,
     partyRecordStore: PartyRecordStore,
     transactionService: IndexTransactionsService,
     writeService: state.WritePartyService,
@@ -227,6 +222,7 @@ private[apiserver] final class ApiPartyManagementService private (
               )
             )
             .flatMap(handlePartyRecordStoreResult("creating a party record")(_))
+          _ <- identityProviderExistsOrError(partyRecord.identityProviderId)
         } yield {
           val details = toProtoPartyDetails(
             partyDetails = allocated.partyDetails,
@@ -285,11 +281,12 @@ private[apiserver] final class ApiPartyManagementService private (
               resourceVersionO = resourceVersionNumberO,
               annotations = annotations,
             ),
-            identityProviderId = IdentityProviderId.Default,
+            identityProviderId = identityProviderId
           )
         } yield (partyRecord, updateMask)
       } { case (partyRecord, updateMask) =>
         for {
+          _ <- identityProviderExistsOrError(partyRecord.identityProviderId)
           partyDetailsUpdate: PartyDetailsUpdate <- handleUpdatePathResult(
             party = partyRecord.party,
             PartyRecordUpdateMapper.toUpdate(
@@ -445,6 +442,21 @@ private[apiserver] final class ApiPartyManagementService private (
         Future.successful(t)
     }
 
+  private def identityProviderExistsOrError(
+      id: IdentityProviderId
+  )(implicit errorLogger: DamlContextualizedErrorLogger): Future[Unit] =
+    identityProviderExists(id)
+      .flatMap { idpExists =>
+        if (idpExists)
+          Future.successful(())
+        else
+          Future.failed(
+            LedgerApiErrors.RequestValidation.InvalidArgument
+              .Reject(s"Provided identity_provider_id $id has not been found.")
+              .asGrpcError
+          )
+      }
+
 }
 
 private[apiserver] object ApiPartyManagementService {
@@ -464,6 +476,7 @@ private[apiserver] object ApiPartyManagementService {
 
   def createApiService(
       partyManagementServiceBackend: IndexPartyManagementService,
+      identityProviderExists: IdentityProviderExists,
       partyRecordStore: PartyRecordStore,
       transactionsService: IndexTransactionsService,
       writeBackend: state.WritePartyService,
@@ -476,6 +489,7 @@ private[apiserver] object ApiPartyManagementService {
   ): PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
     new ApiPartyManagementService(
       partyManagementServiceBackend,
+      identityProviderExists,
       partyRecordStore,
       transactionsService,
       writeBackend,
