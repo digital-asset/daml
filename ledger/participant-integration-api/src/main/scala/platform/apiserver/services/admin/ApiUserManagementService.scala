@@ -144,8 +144,7 @@ private[apiserver] final class ApiUserManagementService(
               resourceVersionO = pResourceVersion,
               annotations = pAnnotations,
             ),
-            identityProviderId =
-              IdentityProviderId.Default, // TODO replace with the value coming from API
+            identityProviderId = identityProviderId,
           ),
           pFieldMask,
         )
