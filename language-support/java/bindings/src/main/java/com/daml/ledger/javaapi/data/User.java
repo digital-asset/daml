@@ -109,9 +109,9 @@ public final class User {
       @Override
       UserManagementServiceOuterClass.Right toProto() {
         return UserManagementServiceOuterClass.Right.newBuilder()
-                .setIdentityProviderAdmin(
-                        UserManagementServiceOuterClass.Right.IdentityProviderAdmin.getDefaultInstance())
-                .build();
+            .setIdentityProviderAdmin(
+                UserManagementServiceOuterClass.Right.IdentityProviderAdmin.getDefaultInstance())
+            .build();
       }
     }
 
