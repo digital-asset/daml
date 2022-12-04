@@ -149,6 +149,7 @@ private[apiserver] final class ApiUserManagementService(
           pFieldMask,
         )
       } { case (user, fieldMask) =>
+        // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
         for {
           userUpdate <- handleUpdatePathResult(user.id, UserUpdateMapper.toUpdate(user, fieldMask))
           _ <- identityProviderExistsOrError(user.identityProviderId)
@@ -215,6 +216,7 @@ private[apiserver] final class ApiUserManagementService(
         )
       } yield (userId, identityProviderId)
     } { case (userId, _) =>
+      // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
       userManagementStore
         .getUser(userId)
         .flatMap(handleResult("getting user"))
@@ -232,6 +234,7 @@ private[apiserver] final class ApiUserManagementService(
           )
         } yield (userId, identityProviderId)
       } { case (userId, _) =>
+        // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
         userManagementStore
           .deleteUser(userId)
           .flatMap(handleResult("deleting user"))
@@ -261,6 +264,7 @@ private[apiserver] final class ApiUserManagementService(
         (fromExcl, pageSize, identityProviderId)
       }
     ) { case (fromExcl, pageSize, _) =>
+      // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
       userManagementStore
         .listUsers(fromExcl, pageSize, IdentityProviderIdFilter.All)
         .flatMap(handleResult("listing users"))
@@ -287,6 +291,7 @@ private[apiserver] final class ApiUserManagementService(
         )
       } yield (userId, rights, identityProviderId)
     ) { case (userId, rights, _) =>
+      // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
       userManagementStore
         .grantRights(
           id = userId,
@@ -311,6 +316,7 @@ private[apiserver] final class ApiUserManagementService(
         )
       } yield (userId, rights, identityProviderId)
     ) { case (userId, rights, _) =>
+      // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
       userManagementStore
         .revokeRights(
           id = userId,
@@ -334,6 +340,7 @@ private[apiserver] final class ApiUserManagementService(
         )
       } yield (userId, identityProviderId)
     } { case (userId, _) =>
+      // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
       userManagementStore
         .listUserRights(userId)
         .flatMap(handleResult("list user rights"))

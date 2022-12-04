@@ -209,6 +209,7 @@ private[apiserver] final class ApiPartyManagementService private (
         } yield (partyIdHintO, displayNameO, annotations, identityProviderId)
       } { case (partyIdHintO, displayNameO, annotations, identityProviderId) =>
         (for {
+          _ <- identityProviderExistsOrError(identityProviderId)
           allocated <- synchronousResponse.submitAndWait(
             submissionId,
             (partyIdHintO, displayNameO),
@@ -222,7 +223,6 @@ private[apiserver] final class ApiPartyManagementService private (
               )
             )
             .flatMap(handlePartyRecordStoreResult("creating a party record")(_))
-          _ <- identityProviderExistsOrError(partyRecord.identityProviderId)
         } yield {
           val details = toProtoPartyDetails(
             partyDetails = allocated.partyDetails,
@@ -294,6 +294,7 @@ private[apiserver] final class ApiPartyManagementService private (
               updateMask = updateMask,
             ),
           )
+          // TODO IDP: Check if party belongs to the same `identityProviderId` or is ParticipantAdmin
           fetchedPartyDetailsO <- partyManagementService
             .getParties(parties = Seq(partyRecord.party))
             .map(_.headOption)
