@@ -12,6 +12,7 @@ import "google/protobuf/field_mask.proto";
 option java_outer_classname = "PartyManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+option go_package = "digitalasset.com/daml/ledger/api/v1/admin";
 
 // This service allows inspecting the party management state of the ledger known to the participant
 // and managing the participant-local party metadata.

@@ -11,6 +11,7 @@ import "com/daml/ledger/api/v1/value.proto";
 option java_outer_classname = "TransactionFilterOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option go_package = "digitalasset.com/daml/ledger/api/v1";
 
 // A filter both for filtering create and archive events as well as for
 // filtering transaction trees.

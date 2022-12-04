@@ -8,6 +8,7 @@ package com.daml.ledger.api.v1;
 option java_outer_classname = "LedgerIdentityServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option go_package = "digitalasset.com/daml/ledger/api/v1";
 
 // DEPRECATED: This service is now deprecated and ledger identity string is optional for all Ledger API requests.
 //

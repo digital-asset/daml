@@ -11,6 +11,7 @@ import "google/protobuf/timestamp.proto";
 option java_outer_classname = "TransactionOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option go_package = "digitalasset.com/daml/ledger/api/v1";
 
 // Complete view of an on-ledger transaction.
 message TransactionTree {

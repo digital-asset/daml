@@ -11,6 +11,7 @@ import "com/daml/ledger/api/v1/transaction_filter.proto";
 option java_outer_classname = "ActiveContractsServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option go_package = "digitalasset.com/daml/ledger/api/v1";
 
 // Allows clients to initialize themselves according to a fairly recent state of the ledger without reading through all transactions that were committed since the ledger's creation.
 service ActiveContractsService {

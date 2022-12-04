@@ -12,6 +12,7 @@ import "google/protobuf/timestamp.proto";
 option java_outer_classname = "CommandCompletionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option go_package = "digitalasset.com/daml/ledger/api/v1";
 
 // Allows clients to observe the status of their submissions.
 // Commands may be submitted via the Command Submission Service.
