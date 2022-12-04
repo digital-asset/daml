@@ -22,8 +22,8 @@ sealed abstract class Claim
 case object ClaimAdmin extends Claim
 
 /** Authorized to use admin services for the configured identity provider.
- * Does not authorize to use non-admin services.
- */
+  * Does not authorize to use non-admin services.
+  */
 case object ClaimIdentityProviderAdmin extends Claim
 
 /** Authorized to use all "public" services, i.e.,
