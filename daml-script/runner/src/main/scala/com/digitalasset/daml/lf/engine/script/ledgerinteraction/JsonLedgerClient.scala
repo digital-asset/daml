@@ -1051,11 +1051,14 @@ object JsonLedgerClient {
           JsObject("type" -> JsString("CanActAs"), "party" -> JsString(party))
         case UserRight.ParticipantAdmin =>
           JsObject("type" -> JsString("ParticipantAdmin"))
+        case UserRight.IdentityProviderAdmin =>
+          JsObject("type" -> JsString("IdentityProviderAdmin"))
       }
       override def read(json: JsValue) = {
         val obj = json.asJsObject
         obj.fields.get("type") match {
           case Some(JsString("ParticipantAdmin")) => UserRight.ParticipantAdmin
+          case Some(JsString("IdentityProviderAdmin")) => UserRight.IdentityProviderAdmin
           case Some(JsString("CanReadAs")) =>
             obj.fields.get("party") match {
               case None => deserializationError("UserRight.CanReadAs")

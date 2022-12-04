@@ -90,10 +90,29 @@ public final class User {
           // since this is a singleton so far we simply ignore the actual object
           right = ParticipantAdmin.INSTANCE;
           break;
+        case IDENTITY_PROVIDER_ADMIN:
+          // since this is a singleton so far we simply ignore the actual object
+          right = IdentityProviderAdmin.INSTANCE;
+          break;
         default:
           throw new IllegalArgumentException("Unrecognized user right case: " + kindCase.name());
       }
       return right;
+    }
+
+    public static final class IdentityProviderAdmin extends Right {
+      // empty private constructor, singleton object
+      private IdentityProviderAdmin() {}
+      // not built lazily on purpose, close to no overhead here
+      public static final IdentityProviderAdmin INSTANCE = new IdentityProviderAdmin();
+
+      @Override
+      UserManagementServiceOuterClass.Right toProto() {
+        return UserManagementServiceOuterClass.Right.newBuilder()
+                .setIdentityProviderAdmin(
+                        UserManagementServiceOuterClass.Right.IdentityProviderAdmin.getDefaultInstance())
+                .build();
+      }
     }
 
     public static final class ParticipantAdmin extends Right {
