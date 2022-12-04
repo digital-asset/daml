@@ -19,6 +19,7 @@ import com.daml.lf.transaction.{
   ReplayMismatch,
   SubmittedTransaction,
   Validation,
+  Versioned,
   VersionedTransaction,
   Transaction => Tx,
   TransactionVersion => TxVersions,
@@ -774,10 +775,37 @@ class EngineTest
         key = usedContractSKey,
       )
 
+      val transactionVersion = {
+        // TODO https://github.com/digital-asset/daml/issues/15745
+        //      Do not hard code the transaction version
+        TxVersions.V14
+      }
+      val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
+        templateId = usedDisclosedContract.templateId,
+        contractId = usedDisclosedContract.contractId.value,
+        argument = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
+        metadata = EngineEnrichedContractMetadata(
+          createdAt = usedDisclosedContract.metadata.createdAt,
+          driverMetadata = usedDisclosedContract.metadata.driverMetadata,
+          signatories = Set(alice),
+          stakeholders = Set(alice),
+          maybeKeyWithMaintainers = Some(
+            Versioned(
+              transactionVersion,
+              GlobalKeyWithMaintainers(
+                GlobalKey.assertBuild(usedDisclosedContract.templateId, usedContractKey),
+                Set(alice),
+              ),
+            )
+          ),
+        ),
+      )
+
       ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
         fetchByKeyCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
+        expectedProcessedDisclosedContract,
       )
     }
   }
@@ -1648,10 +1676,34 @@ class EngineTest
         contractKey = usedContractSKey,
       )
 
+      val transactionVersion =
+        TxVersions.V14 // TODO(#15745) Do not hard code the transaction version
+      val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
+        templateId = usedDisclosedContract.templateId,
+        contractId = usedDisclosedContract.contractId.value,
+        argument = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
+        metadata = EngineEnrichedContractMetadata(
+          createdAt = usedDisclosedContract.metadata.createdAt,
+          driverMetadata = usedDisclosedContract.metadata.driverMetadata,
+          signatories = Set(alice),
+          stakeholders = Set(alice),
+          maybeKeyWithMaintainers = Some(
+            Versioned(
+              transactionVersion,
+              GlobalKeyWithMaintainers(
+                GlobalKey.assertBuild(templateId, usedContractKey),
+                Set(alice),
+              ),
+            )
+          ),
+        ),
+      )
+
       ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
         lookupByKeyCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
+        expectedProcessedDisclosedContract,
       )
     }
   }
@@ -1685,10 +1737,26 @@ class EngineTest
         coid = usedDisclosedContract.contractId,
       )
 
+      val transactionVersion =
+        TxVersions.V14 // TODO(#15745) Do not hard code the transaction version
+      val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
+        templateId = usedDisclosedContract.templateId,
+        contractId = usedDisclosedContract.contractId.value,
+        argument = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
+        metadata = EngineEnrichedContractMetadata(
+          createdAt = usedDisclosedContract.metadata.createdAt,
+          driverMetadata = usedDisclosedContract.metadata.driverMetadata,
+          signatories = Set(alice),
+          stakeholders = Set(alice),
+          maybeKeyWithMaintainers = None,
+        ),
+      )
+
       ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
         fetchTemplateCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
+        expectedProcessedDisclosedContract,
       )
     }
   }
@@ -2664,6 +2732,7 @@ object EngineTest {
         cmd: speedy.Command,
         unusedDisclosedContract: DisclosedContract,
         usedDisclosedContract: DisclosedContract,
+        expectedDisclosedContractMetadata: ProcessedDisclosedContract,
     ): Assertion = {
       val result = suffixLenientEngine
         .interpretCommands(
@@ -2680,7 +2749,7 @@ object EngineTest {
 
       inside(result) { case Right((transaction, metadata)) =>
         transaction should haveDisclosedInputContracts(usedDisclosedContract)
-        metadata should haveDisclosedContracts(usedDisclosedContract)(preprocessor)
+        metadata should haveDisclosedContracts(expectedDisclosedContractMetadata)
       }
     }
 
@@ -2692,15 +2761,14 @@ object EngineTest {
       )
     )
     def haveDisclosedContracts(
-        disclosedContracts: DisclosedContract*
-    )(preprocessor: preprocessing.Preprocessor): Matcher[Tx.Metadata] =
+        expectedProcessedDisclosedContracts: ProcessedDisclosedContract*
+    ): Matcher[Tx.Metadata] =
       Matcher { metadata =>
-        val expectedResult = ImmArray(disclosedContracts: _*)
-        val actualResult = metadata.disclosures
-          .map(_.unversioned)
-          .map(preprocessor.commandPreprocessor.unsafePreprocessDisclosedContract)
+        val expectedResult = ImmArray(expectedProcessedDisclosedContracts: _*)
+        val actualResult = metadata.disclosures.map(_.unversioned)
+
         val debugMessage = Seq(
-          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId.value)}",
+          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId)}",
           s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.contractId)}",
         ).mkString("\n  ", "\n  ", "")
 

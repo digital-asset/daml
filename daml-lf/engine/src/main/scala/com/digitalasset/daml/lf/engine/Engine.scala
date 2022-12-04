@@ -372,16 +372,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     def detailMsg = Some(
       s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${machine.nodesToString}"
     )
-    def versionDisclosedContract(d: speedy.DisclosedContract): Versioned[DisclosedContract] =
-      Versioned(
-        machine.tmplId2TxVersion(d.templateId),
-        DisclosedContract(
-          templateId = d.templateId,
-          contractId = d.contractId.value,
-          argument = d.argument.toNormalizedValue(machine.tmplId2TxVersion(d.templateId)),
-          metadata = d.metadata,
-        ),
-      )
 
     var finished: Boolean = false
     var finalValue: SResultFinal = null
@@ -449,7 +439,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
             dependsOnTime = machine.getDependsOnTime,
             nodeSeeds = nodeSeeds,
             globalKeyMapping = globalKeyMapping,
-            disclosures = disclosedContracts.map(versionDisclosedContract),
+            disclosures = disclosedContracts,
           )
           config.profileDir.foreach { dir =>
             val desc = Engine.profileDesc(tx)
