@@ -63,14 +63,19 @@ common_scalacopts = version_specific.get(scala_major_version, []) + [
     # catch missing string interpolators
     "-Xlint:missing-interpolator",
     "-Xlint:constant",  # / 0
+    "-Xlint:delayedinit-select",  # uses deprecated DelayedInit
     "-Xlint:deprecation",  # deprecated annotations without 'message' or 'since' fields
     "-Xlint:doc-detached",  # floating Scaladoc comment
+    "-Xlint:eta-sam",  # missing @FunctionalInterface for lambda
+    "-Xlint:eta-zero",  # ambiguous nullary method delay
+    "-Xlint:implicit-not-found",  # messages well-formed
     "-Xlint:inaccessible",  # method uses invisible types
     "-Xlint:infer-any",  # less thorough but less buggy version of the Any wart
     "-Xlint:option-implicit",  # implicit conversion arg might be null
     "-Xlint:package-object-classes",  # put them directly in the package
     "-Xlint:poly-implicit-overload",  # implicit conversions don't mix with overloads
     "-Xlint:private-shadow",  # name shadowing
+    "-Xlint:serial",  # spurious @SerialVersionUID
     "-Xlint:type-parameter-shadow",  # name shadowing
     "-Ywarn-dead-code",
     # Warn about implicit conversion between numerical types
