@@ -17,10 +17,7 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "lf_version_configuration",
 )
-
-scalacopts = lf_scalacopts + [
-    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-]
+load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
 
 perf_runtime_deps = {
     "ce": [],
@@ -48,7 +45,7 @@ perf_runtime_deps = {
             "@maven//:org_scalatest_scalatest_core",
             "@maven//:org_scalaz_scalaz_core",
         ],
-        scalacopts = scalacopts,
+        scalacopts = hj_scalacopts,
         tags = ["maven_coordinates=com.daml:http-json-perf-{}:__VERSION__".format(edition)],
         visibility = ["//visibility:public"],
         runtime_deps = [
@@ -118,7 +115,7 @@ daml_compile(
             "@maven//:org_scalatest_scalatest_wordspec",
             "@maven//:org_scalaz_scalaz_core",
         ],
-        scalacopts = scalacopts,
+        scalacopts = hj_scalacopts,
         visibility = ["//visibility:public"],
         runtime_deps = [
             "@maven//:ch_qos_logback_logback_classic",
