@@ -6,9 +6,9 @@ package platform.store.migration.postgres
 
 import com.daml.platform.store.migration.tests.MigrationEtqTests
 
-class PostgresMigrationFrom127To129EtqTest
+class PostgresMigrationFrom127To130EtqTest
     extends MigrationEtqTests
     with PostgresAroundEachForMigrations {
   override def srcMigration: String = "127"
-  override def dstMigration: String = "129"
+  override def dstMigration: String = "130"
 }
