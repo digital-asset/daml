@@ -9,8 +9,9 @@ load(
 )
 load("//rules_daml:daml.bzl", "daml_compile")
 load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration")
+load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
 
-scalacopts = lf_scalacopts + ["-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements"]
+scalacopts = hj_scalacopts
 
 da_scala_library(
     name = "api-type-signature",
