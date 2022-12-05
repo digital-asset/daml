@@ -35,16 +35,17 @@ final class ErrorInterceptor extends ServerInterceptor {
 
       /** Here we are trying to detect status/trailers pairs that:
         * - originated from the server implementation (i.e. Participant services as opposed to internal to gRPC implementation) AND
-        * - did not originate from self-service errors infrastructure.
+        * - did not originate from LAPI error codes.
         * NOTE: We are not attempting to detect if a status/trailers pair originates from exceptional conditions within gRPC implementation itself.
         *
-        * We are handling unary endpoints that returned failed Futures,
+        * We are handling unary endpoints that returned failed Futures or other direct invocation of [[io.grpc.stub.StreamObserver#onError]].
         * We are NOT handling here exceptions thrown outside of Futures or Akka streams. These are handled separately in
         * [[com.daml.platform.apiserver.error.ErrorListener]].
         * We are NOT handling here exceptions thrown inside Akka streaming. These are handled in
         * [[com.daml.grpc.adapter.server.akka.ServerAdapter.toSink]]
         *
         * Details:
+        * 1. Handling of Status.INTERNAL:
         * The gRPC services that we generate via scalapb are using [[scalapb.grpc.Grpc.completeObserver]]
         * when bridging from Future[T] and into io.grpc.stub.StreamObserver[T].
         * [[scalapb.grpc.Grpc.completeObserver]] does the following:
@@ -54,24 +55,25 @@ final class ErrorInterceptor extends ServerInterceptor {
         * Knowing that Status.INTERNAL is used only by [[com.daml.error.ErrorCategory.SystemInternalAssumptionViolated]],
         * which is marked a security sensitive, we have the following heuristic: check whether gRPC status is Status.INTERNAL
         * and gRPC status description is not security sanitized.
+        * 2. Handling of Status.UNKNOWN:
+        * We do not have an error category that uses UNKNOWN so there is no risk of catching a legitimate Ledger API error code.
+        * A Status.UNKNOWN can arise when someone (us or a library):
+        * - calls [[io.grpc.stub.StreamObserver#onError]] providing an exception that is not a Status(Runtime)Exception
+        *   (see [[io.grpc.stub.ServerCalls.ServerCallStreamObserverImpl#onError]] and [[io.grpc.Status#fromThrowable]]),
+        * - calls [[io.grpc.ServerCall#close]] providing status.UNKNOWN.
         */
       override def close(status: Status, trailers: Metadata): Unit = {
-        if (
-          status.getCode == Status.Code.INTERNAL &&
-          (status.getDescription == null || !BaseError.isSanitizedSecuritySensitiveMessage(
-            status.getDescription
-          ))
-        ) {
+        if (isUnsanitizedInternal(status) || status.getCode == Status.Code.UNKNOWN) {
           val recreatedException = status.asRuntimeException(trailers)
-          val selfServiceException = LedgerApiErrors.InternalError
+          val errorCodeException = LedgerApiErrors.InternalError
             .UnexpectedOrUnknownException(t = recreatedException)(
               new DamlContextualizedErrorLogger(logger, emptyLoggingContext, None)
             )
             .asGrpcError
           // Retrieving status and metadata in the same way as in `io.grpc.stub.ServerCalls.ServerCallStreamObserverImpl.onError`.
           val newMetadata =
-            Option(Status.trailersFromThrowable(selfServiceException)).getOrElse(new Metadata())
-          val newStatus = Status.fromThrowable(selfServiceException)
+            Option(Status.trailersFromThrowable(errorCodeException)).getOrElse(new Metadata())
+          val newStatus = Status.fromThrowable(errorCodeException)
           LogOnUnhandledFailureInClose(superClose(newStatus, newMetadata))
         } else {
           LogOnUnhandledFailureInClose(superClose(status, trailers))
@@ -96,7 +98,15 @@ final class ErrorInterceptor extends ServerInterceptor {
     )
   }
 
+  private def isUnsanitizedInternal[RespT, ReqT](status: Status): Boolean =
+    status.getCode == Status.Code.INTERNAL &&
+      (status.getDescription == null ||
+        !BaseError.isSanitizedSecuritySensitiveMessage(
+          status.getDescription
+        ))
 }
+
+object ErrorInterceptor
 
 class ErrorListener[ReqT, RespT](delegate: ServerCall.Listener[ReqT], call: ServerCall[ReqT, RespT])
     extends ForwardingServerCallListener.SimpleForwardingServerCallListener[ReqT](delegate) {
