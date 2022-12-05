@@ -331,7 +331,7 @@ Ledger API Authorization
 ========================
 
 The client must provide an access token when authorization is required by the Ledger.
-For details of ledger authorization, please refer to [Ledger Authorization documentation](https://docs.daml.com/app-dev/authorization.html).
+For details of ledger authorization, please refer to `Ledger Authorization documentation <https://docs.daml.com/app-dev/authorization.html>`_.
 
 Provide access token to custom-view library
 -------------------------------------------
@@ -350,7 +350,7 @@ Provide a newly retrieved access token when the existing one expired
 --------------------------------------------------------------------
 
 When an access token is expired, an application can retrieve a new access token with the stored refresh token.
-For details on the refresh token, please refer to [Ledger auth-middleware documentation](https://docs.daml.com/tools/auth-middleware/index.html#refresh-access-token).
+For details on the refresh token, please refer to `Ledger auth-middleware documentation <https://docs.daml.com/tools/auth-middleware/index.html#refresh-access-token>`_.
 With the new access token, an application can cancel the running projection and re-create a new one using the new token.
 
 .. code-block:: scala
