@@ -28,6 +28,7 @@ da_scala_library(
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/resources",
+        "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_dropwizard_metrics_metrics_graphite",

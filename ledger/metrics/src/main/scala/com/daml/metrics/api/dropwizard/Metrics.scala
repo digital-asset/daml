@@ -82,3 +82,8 @@ sealed case class DropwizardHistogram(name: String, metric: codahale.Histogram)
       context: MetricsContext
   ): Unit = metric.update(value)
 }
+
+sealed case class AsyncGauge[T](valueSupplier: () => T) extends codahale.Gauge[T] {
+
+  override def getValue: T = valueSupplier()
+}
