@@ -187,7 +187,7 @@ object ErrorCategory {
   object AuthInterceptorInvalidAuthenticationCredentials
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.UNAUTHENTICATED),
-        logLevel = Level.WARN,
+        logLevel = Level.INFO,
         retryable = None,
         securitySensitive = true,
         asInt = 6,

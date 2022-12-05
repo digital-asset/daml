@@ -64,7 +64,7 @@ AuthInterceptorInvalidAuthenticationCredentials
 
     **gRPC status code**: UNAUTHENTICATED
 
-    **Default log level**: WARN
+    **Default log level**: INFO
 
     **Description**: The request does not have valid authentication credentials for the operation. This error is exposed on the API with grpc-status UNAUTHENTICATED without any details for security reasons
 
