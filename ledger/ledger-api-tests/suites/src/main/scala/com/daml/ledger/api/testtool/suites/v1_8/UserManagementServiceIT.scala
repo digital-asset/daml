@@ -34,7 +34,6 @@ import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-//TODO DPP-1299 Include additional tests for IdentityProviderConfig
 final class UserManagementServiceIT extends UserManagementServiceITBase {
 
   private val adminPermission =

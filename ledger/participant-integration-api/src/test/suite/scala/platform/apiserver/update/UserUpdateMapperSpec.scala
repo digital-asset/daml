@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.update
 
-import com.daml.ledger.api.domain.{ObjectMeta, User}
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, User}
 import com.daml.lf.data.Ref
 import com.daml.platform.localstore.api.{ObjectMetaUpdate, UserUpdate}
 import com.google.protobuf.field_mask.FieldMask
@@ -21,6 +21,7 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
       primaryParty: Option[Ref.Party] = None,
       isDeactivated: Boolean = false,
       annotations: Map[String, String] = Map.empty,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): User = User(
     id = id,
     primaryParty = primaryParty,
@@ -29,6 +30,7 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
       resourceVersionO = None,
       annotations = annotations,
     ),
+    identityProviderId = identityProviderId
   )
 
   def makeUserUpdate(
@@ -36,6 +38,7 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
       primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
       isDeactivatedUpdateO: Option[Boolean] = None,
       annotationsUpdateO: Option[Map[String, String]] = None,
+      identityProviderIdUpdate: Option[IdentityProviderId] = None,
   ): UserUpdate = UserUpdate(
     id = id,
     primaryPartyUpdateO = primaryPartyUpdateO,
@@ -44,6 +47,7 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
       resourceVersionO = None,
       annotationsUpdateO = annotationsUpdateO,
     ),
+    identityProviderIdUpdate = identityProviderIdUpdate,
   )
 
   val emptyUserUpdate: UserUpdate = makeUserUpdate()
@@ -54,17 +58,21 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
         primaryParty = None,
         isDeactivated = false,
         annotations = Map("a" -> "b"),
+        identityProviderId = IdentityProviderId("abc123"),
       )
       val expected = makeUserUpdate(
         primaryPartyUpdateO = Some(None),
         isDeactivatedUpdateO = Some(false),
         annotationsUpdateO = Some(Map("a" -> "b")),
+        identityProviderIdUpdate = Some(IdentityProviderId("abc123")),
       )
       "1) with all individual fields to update listed in the update mask" in {
         UserUpdateMapper
           .toUpdate(
             user,
-            FieldMask(Seq("is_deactivated", "primary_party", "metadata.annotations")),
+            FieldMask(
+              Seq("is_deactivated", "primary_party", "metadata.annotations", "identity_provider_id")
+            ),
           )
           .value shouldBe expected
       }
@@ -72,7 +80,7 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
         UserUpdateMapper
           .toUpdate(
             user,
-            FieldMask(Seq("is_deactivated", "primary_party", "metadata")),
+            FieldMask(Seq("is_deactivated", "primary_party", "metadata", "identity_provider_id")),
           )
           .value shouldBe expected
       }

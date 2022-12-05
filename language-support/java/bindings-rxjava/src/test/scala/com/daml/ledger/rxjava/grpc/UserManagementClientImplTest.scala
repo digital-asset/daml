@@ -12,7 +12,6 @@ import org.scalatest.matchers.should.Matchers
 
 import java.util.Optional
 
-//TODO DPP-1299 Include IdentityProviderConfig
 class UserManagementClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers {
 
   private val ledgerServices = new LedgerServices("user-management-service-ledger")

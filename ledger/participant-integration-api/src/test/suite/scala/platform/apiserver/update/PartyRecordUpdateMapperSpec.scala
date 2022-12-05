@@ -11,7 +11,6 @@ import org.scalatest.EitherValues
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-//TODO DPP-1299 Add tests handling identity_provider_config path
 class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
 
   private val party1 = Ref.Party.assertFromString("party")
@@ -38,6 +37,7 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       isLocalUpdate: Option[Boolean] = None,
       displayNameUpdate: Option[Option[String]] = None,
       annotationsUpdateO: Option[Map[String, String]] = None,
+      identityProviderIdUpdate: Option[IdentityProviderId] = None,
   ): PartyDetailsUpdate = PartyDetailsUpdate(
     party = party,
     isLocalUpdate = isLocalUpdate,
@@ -46,6 +46,7 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       resourceVersionO = None,
       annotationsUpdateO = annotationsUpdateO,
     ),
+    identityProviderIdUpdate = identityProviderIdUpdate
   )
 
   val emptyUpdate: PartyDetailsUpdate = makePartyDetailsUpdate()
@@ -88,6 +89,16 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       testedMapper
         .toUpdate(newResourceUnset, FieldMask(Seq("is_local")))
         .value shouldBe makePartyDetailsUpdate(isLocalUpdate = Some(false))
+    }
+    "for identity_provider_id" in {
+      val newResourceSet = makePartyDetails(identityProviderId = IdentityProviderId("abc"))
+      val newResourceUnset = makePartyDetails(identityProviderId = IdentityProviderId.Default)
+      testedMapper
+        .toUpdate(newResourceSet, FieldMask(Seq("identity_provider_id")))
+        .value shouldBe makePartyDetailsUpdate(identityProviderIdUpdate = Some(IdentityProviderId("abc")))
+      testedMapper
+        .toUpdate(newResourceUnset, FieldMask(Seq("identity_provider_id")))
+        .value shouldBe makePartyDetailsUpdate(identityProviderIdUpdate = Some(IdentityProviderId.Default))
     }
     "when exact path match on the metadata annotations field" in {
       val prWithAnnotations = makePartyDetails(annotations = Map("a" -> "b"))

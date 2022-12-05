@@ -27,7 +27,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-//TODO DPP-1299 Include IdentityProviderConfig
 class HttpServiceIntegrationTestUserManagementNoAuth
     extends AbstractHttpServiceIntegrationTestQueryStoreIndependent
     with AbstractHttpServiceIntegrationTestFuns
