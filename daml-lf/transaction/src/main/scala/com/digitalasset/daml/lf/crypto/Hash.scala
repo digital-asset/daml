@@ -33,7 +33,9 @@ final class Hash private (val bytes: Bytes) {
 
 object Hash {
 
+  // canton-user-manual-entry-begin: version
   val version = 0.toByte
+  // canton-user-manual-entry-end: version
   val underlyingHashLength = 32
 
   private case class HashingError(msg: String) extends Exception with NoStackTrace
@@ -221,7 +223,12 @@ object Hash {
 
   // The purpose of a hash serves to avoid hash collisions due to equal encodings for different objects.
   // Each purpose should be used at most once.
+  // canton-user-manual-entry-begin: Purpose
   private[crypto] case class Purpose(id: Byte)
+  // canton-user-manual-entry-end: Purpose
+  {
+    require(id != 0, "Purpose 0 must not be used to prevent clashes with Canton's hash purpose.")
+  }
 
   private[crypto] object Purpose {
     val Testing = Purpose(1)
