@@ -56,28 +56,28 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         .lookupTransactionTreeById(tx.transactionId, tx.actAs.toSet)
     } yield {
       inside(result.value.transaction) { case Some(transaction) =>
-        val (nodeId, createNode: Node.Create) =
-          tx.transaction.nodes.head
-        transaction.commandId shouldBe tx.commandId.get
-        transaction.offset shouldBe ApiOffset.toApiString(offset)
-        TimestampConversion.toLf(
-          transaction.effectiveAt.value,
-          TimestampConversion.ConversionMode.Exact,
-        ) shouldBe tx.ledgerEffectiveTime
-        transaction.transactionId shouldBe tx.transactionId
-        transaction.workflowId shouldBe tx.workflowId.getOrElse("")
-        val created = transaction.eventsById.values.loneElement.getCreated
-        transaction.rootEventIds.loneElement shouldEqual created.eventId
-        created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
-        created.witnessParties should contain only (tx.actAs: _*)
-        created.agreementText.getOrElse("") shouldBe createNode.agreementText
-        created.contractKey shouldBe None
-        created.createArguments shouldNot be(None)
-        created.signatories should contain theSameElementsAs createNode.signatories
-        created.observers should contain theSameElementsAs createNode.stakeholders.diff(
-          createNode.signatories
-        )
-        created.templateId shouldNot be(None)
+        inside(tx.transaction.nodes.headOption) { case Some((nodeId, createNode: Node.Create)) =>
+          transaction.commandId shouldBe tx.commandId.get
+          transaction.offset shouldBe ApiOffset.toApiString(offset)
+          TimestampConversion.toLf(
+            transaction.effectiveAt.value,
+            TimestampConversion.ConversionMode.Exact,
+          ) shouldBe tx.ledgerEffectiveTime
+          transaction.transactionId shouldBe tx.transactionId
+          transaction.workflowId shouldBe tx.workflowId.getOrElse("")
+          val created = transaction.eventsById.values.loneElement.getCreated
+          transaction.rootEventIds.loneElement shouldEqual created.eventId
+          created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
+          created.witnessParties should contain only (tx.actAs: _*)
+          created.agreementText.getOrElse("") shouldBe createNode.agreementText
+          created.contractKey shouldBe None
+          created.createArguments shouldNot be(None)
+          created.signatories should contain theSameElementsAs createNode.signatories
+          created.observers should contain theSameElementsAs createNode.stakeholders.diff(
+            createNode.signatories
+          )
+          created.templateId shouldNot be(None)
+        }
       }
     }
   }
@@ -90,28 +90,29 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         .lookupTransactionTreeById(exercise.transactionId, exercise.actAs.toSet)
     } yield {
       inside(result.value.transaction) { case Some(transaction) =>
-        val (nodeId, exerciseNode: Node.Exercise) =
-          exercise.transaction.nodes.head
-        transaction.commandId shouldBe exercise.commandId.get
-        transaction.offset shouldBe ApiOffset.toApiString(offset)
-        TimestampConversion.toLf(
-          transaction.effectiveAt.value,
-          TimestampConversion.ConversionMode.Exact,
-        ) shouldBe exercise.ledgerEffectiveTime
-        transaction.transactionId shouldBe exercise.transactionId
-        transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
-        val exercised = transaction.eventsById.values.loneElement.getExercised
-        transaction.rootEventIds.loneElement shouldEqual exercised.eventId
-        exercised.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
-        exercised.witnessParties should contain only (exercise.actAs: _*)
-        exercised.contractId shouldBe exerciseNode.targetCoid.coid
-        exercised.templateId shouldNot be(None)
-        exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
-        exercised.childEventIds shouldBe Seq.empty
-        exercised.choice shouldBe exerciseNode.choiceId
-        exercised.choiceArgument shouldNot be(None)
-        exercised.consuming shouldBe true
-        exercised.exerciseResult shouldNot be(None)
+        inside(exercise.transaction.nodes.headOption) {
+          case Some((nodeId, exerciseNode: Node.Exercise)) =>
+            transaction.commandId shouldBe exercise.commandId.get
+            transaction.offset shouldBe ApiOffset.toApiString(offset)
+            TimestampConversion.toLf(
+              transaction.effectiveAt.value,
+              TimestampConversion.ConversionMode.Exact,
+            ) shouldBe exercise.ledgerEffectiveTime
+            transaction.transactionId shouldBe exercise.transactionId
+            transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
+            val exercised = transaction.eventsById.values.loneElement.getExercised
+            transaction.rootEventIds.loneElement shouldEqual exercised.eventId
+            exercised.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
+            exercised.witnessParties should contain only (exercise.actAs: _*)
+            exercised.contractId shouldBe exerciseNode.targetCoid.coid
+            exercised.templateId shouldNot be(None)
+            exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
+            exercised.childEventIds shouldBe Seq.empty
+            exercised.choice shouldBe exerciseNode.choiceId
+            exercised.choiceArgument shouldNot be(None)
+            exercised.consuming shouldBe true
+            exercised.exerciseResult shouldNot be(None)
+        }
       }
     }
   }

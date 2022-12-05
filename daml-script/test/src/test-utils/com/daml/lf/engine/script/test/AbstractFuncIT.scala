@@ -15,6 +15,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import spray.json.{JsNumber, JsObject, JsString}
 
+import scala.annotation.nowarn
+
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 abstract class AbstractFuncIT
     extends AsyncWordSpec
     with SandboxParticipantFixture
@@ -277,7 +280,7 @@ abstract class AbstractFuncIT
     "traceOrder" should {
       "emit trace statements in correct order" in {
         val msgRegex = raw"""\[DA.Internal.Prelude:\d+]: (.*)""".r
-        def stripLoc(msg: String) = msg match {
+        def stripLoc(msg: String) = (msg: @nowarn("msg=match may not be exhaustive")) match {
           case msgRegex(msg_) => msg_
         }
         for {
@@ -321,6 +324,20 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("TestExceptions:test"),
+            dar = devDar,
+          )
+        } yield {
+          v shouldBe (SUnit)
+        }
+      }
+    }
+    "Interface:test_queryInterface" should {
+      "succeed" in {
+        for {
+          clients <- participantClients()
+          v <- run(
+            clients,
+            QualifiedName.assertFromString("TestInterfaces:test_queryInterface"),
             dar = devDar,
           )
         } yield {

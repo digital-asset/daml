@@ -9,11 +9,12 @@ import data.Ref.{PackageId, TypeConName}
 import data.Time
 import SResult._
 import com.daml.lf.language.{Ast, PackageInterface}
-import com.daml.lf.speedy.Speedy.{CachedContract, Machine, OffLedger, OnLedger}
+import com.daml.lf.speedy.Speedy.{CachedContract, OnLedgerMachine}
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
+import com.daml.nameof.NameOf
 import transaction.{GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
 import value.Value
 import scalautil.Statement.discard
@@ -47,7 +48,7 @@ private[speedy] object SpeedyTestLib {
   ): Either[SError.SError, SValue] = {
     runTx(machine, getPkg, getContract, getKey, getTime) match {
       case Left(e) => Left(e)
-      case Right(SResultFinal(v, _)) => Right(v)
+      case Right(SResultFinal(v)) => Right(v)
     }
   }
 
@@ -113,13 +114,8 @@ private[speedy] object SpeedyTestLib {
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SubmittedTransaction] =
     runTx(machine, getPkg, getContract, getKey, getTime) match {
-      case Right(SResultFinal(_, None)) =>
-        throw SError.SErrorCrash("buildTransaction", "unexpected missing transaction")
-      case Right(SResultFinal(_, Some(ctx))) =>
-        ctx match {
-          case PartialTransaction.Result(tx, _, _, _, _) =>
-            Right(tx)
-        }
+      case Right(SResultFinal(_)) =>
+        machine.asOnLedger(NameOf.qualifiedNameOfCurrentFunc)(_.finish.map(_.tx))
       case Left(err) =>
         Left(err)
     }
@@ -139,66 +135,57 @@ private[speedy] object SpeedyTestLib {
   ): PureCompiledPackages =
     typeAndCompile(Map(parserParameter.defaultPackageId -> pkg))
 
-  private[lf] object Implicits {
+  private[speedy] object Implicits {
 
-    implicit class AddTestMethodsToMachine(machine: Machine) {
+    implicit class AddTestMethodsToMachine(machine: OnLedgerMachine) {
 
-      private[lf] def withWarningLog(warningLog: WarningLog): Machine = {
-        new Machine(
+      private[lf] def withWarningLog(warningLog: WarningLog): OnLedgerMachine =
+        new OnLedgerMachine(
           sexpr = machine.sexpr,
           traceLog = machine.traceLog,
           warningLog = warningLog,
-          loggingContext = machine.loggingContext,
           compiledPackages = machine.compiledPackages,
           profile = machine.profile,
+          validating = machine.validating,
           submissionTime = machine.submissionTime,
-          ledgerMode = machine.ledgerMode,
+          contractKeyUniqueness = machine.contractKeyUniqueness,
+          ptx = machine.ptx,
+          committers = machine.committers,
+          readAs = machine.readAs,
+          commitLocation = machine.commitLocation,
+          limits = machine.limits,
+          disclosureKeyTable = machine.disclosureKeyTable,
         )
-      }
 
-      private[speedy] def withCachedContracts(
-          cachedContracts: (ContractId, CachedContract)*
-      ): Machine = {
-        machine.ledgerMode match {
-          case ledger: OnLedger =>
-            for ((contractId, cachedContract) <- cachedContracts) {
-              ledger.updateCachedContracts(contractId, cachedContract)
-            }
-
-          case OffLedger =>
-        }
-
+      def withCachedContracts(cachedContracts: (ContractId, CachedContract)*): OnLedgerMachine = {
+        for {
+          entry <- cachedContracts
+          (contractId, cachedContract) = entry
+        } machine.updateCachedContracts(contractId, cachedContract)
         machine
       }
 
-      private[speedy] def withLocalContractKey(contractId: ContractId, key: GlobalKey): Machine = {
-        machine.ledgerMode match {
-          case ledger: OnLedger =>
-            ledger.ptx = ledger.ptx.copy(
-              contractState = ledger.ptx.contractState.copy(
-                locallyCreated = ledger.ptx.contractState.locallyCreated + contractId,
-                activeState = ledger.ptx.contractState.activeState.createKey(key, contractId),
-              )
-            )
-
-          case OffLedger =>
-        }
-
+      private[speedy] def withLocalContractKey(
+          contractId: ContractId,
+          key: GlobalKey,
+      ): OnLedgerMachine = {
+        machine.ptx = machine.ptx.copy(
+          contractState = machine.ptx.contractState.copy(
+            locallyCreated = machine.ptx.contractState.locallyCreated + contractId,
+            activeState = machine.ptx.contractState.activeState.createKey(key, contractId),
+          )
+        )
         machine
       }
 
       private[speedy] def withDisclosedContractKeys(
           templateId: TypeConName,
           disclosedContractKeys: (crypto.Hash, ContractId)*
-      ): Machine = {
-        machine.ledgerMode match {
-          case ledger: OnLedger =>
-            for ((keyHash, contractId) <- disclosedContractKeys) {
-              ledger.disclosureKeyTable.addContractKey(templateId, keyHash, contractId)
-            }
-
-          case OffLedger =>
-        }
+      ): OnLedgerMachine = {
+        for {
+          entry <- disclosedContractKeys
+          (keyHash, contractId) = entry
+        } machine.disclosureKeyTable.addContractKey(templateId, keyHash, contractId)
 
         machine
       }

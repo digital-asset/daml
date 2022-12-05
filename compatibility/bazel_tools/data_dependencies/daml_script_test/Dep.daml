@@ -1,0 +1,25 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Dep (module Dep, Script) where
+
+import Daml.Script
+
+template T0
+  with
+    party : Party
+  where
+    signatory party
+
+    nonconsuming choice C0 : Bool
+     controller party
+        do pure True
+
+run : Script ()
+run = script do
+  alice <- allocateParty "alice"
+
+  t <- alice `submit` createCmd T0 with party = alice
+  b <- alice `submit` exerciseCmd t C0
+  debug b
+  alice `submit` archiveCmd t

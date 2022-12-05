@@ -203,7 +203,8 @@ trait CompletionStorageBackend {
       endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Party],
-  )(connection: Connection): List[CompletionStreamResponse]
+      limit: Int,
+  )(connection: Connection): Vector[CompletionStreamResponse]
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
@@ -330,7 +331,6 @@ object EventStorageBackend {
       eventId: EventId,
       contractId: ContractId,
       templateId: Option[Identifier],
-      interfaceId: Option[Identifier],
       ledgerEffectiveTime: Option[Timestamp],
       createSignatories: Option[Array[String]],
       createObservers: Option[Array[String]],
@@ -343,7 +343,7 @@ object EventStorageBackend {
       treeEventWitnesses: Set[String],
       flatEventWitnesses: Set[String],
       submitters: Set[String],
-      exerciseChoice: Option[String],
+      qualifiedChoiceName: Option[String],
       exerciseArgument: Option[Array[Byte]],
       exerciseArgumentCompression: Option[Int],
       exerciseResult: Option[Array[Byte]],

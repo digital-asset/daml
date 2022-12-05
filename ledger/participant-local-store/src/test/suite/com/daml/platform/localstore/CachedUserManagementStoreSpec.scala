@@ -3,14 +3,17 @@
 
 package com.daml.platform.localstore
 
-import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
+import com.daml.ledger.api.IdentityProviderIdFilter
+import com.daml.ledger.api.domain.{IdentityProviderConfig, ObjectMeta, User, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.localstore.api.UserManagementStore.{UserInfo, UserNotFound, UsersPage}
-import com.daml.platform.localstore.api.{ObjectMetaUpdate, UserUpdate}
+import com.daml.platform.localstore.api.{ObjectMetaUpdate, UserManagementStore, UserUpdate}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.freespec.AsyncFreeSpec
+
+import scala.concurrent.Future
 
 class CachedUserManagementStoreSpec
     extends AsyncFreeSpec
@@ -18,7 +21,11 @@ class CachedUserManagementStoreSpec
     with MockitoSugar
     with ArgumentMatchersSugar {
 
-  override def newStore() = new InMemoryUserManagementStore(createAdmin = false)
+  override def newStore(): UserManagementStore =
+    createTested(new InMemoryUserManagementStore(createAdmin = false))
+
+  def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig): Future[Unit] =
+    Future.unit
 
   private val user = User(
     id = Ref.UserId.assertFromString("user_id1"),
@@ -42,6 +49,7 @@ class CachedUserManagementStoreSpec
   private val rights = Set(right1, right2)
   private val userInfo = UserInfo(user, rights)
   private val createdUserInfo = UserInfo(createdUser1, rights)
+  private val filter: IdentityProviderIdFilter = IdentityProviderIdFilter.All
 
   "test user-not-found cache result gets invalidated after user creation" in {
     val delegate = spy(new InMemoryUserManagementStore())
@@ -132,12 +140,22 @@ class CachedUserManagementStoreSpec
 
     for {
       res0 <- tested.createUser(user, rights)
-      res1 <- tested.listUsers(fromExcl = None, maxResults = 100)
-      res2 <- tested.listUsers(fromExcl = None, maxResults = 100)
+      res1 <- tested.listUsers(
+        fromExcl = None,
+        maxResults = 100,
+        identityProviderIdFilter = filter,
+      )
+      res2 <- tested.listUsers(
+        fromExcl = None,
+        maxResults = 100,
+        identityProviderIdFilter = filter,
+      )
     } yield {
       val order = inOrder(delegate)
       order.verify(delegate, times(1)).createUser(user, rights)
-      order.verify(delegate, times(2)).listUsers(fromExcl = None, maxResults = 100)
+      order
+        .verify(delegate, times(2))
+        .listUsers(fromExcl = None, maxResults = 100, identityProviderIdFilter = filter)
       order.verifyNoMoreInteractions()
       res0 shouldBe Right(createdUser1)
       res1 shouldBe Right(UsersPage(Seq(createdUser1)))

@@ -3,11 +3,11 @@
 
 package com.daml.platform.store.backend.localstore
 
-import java.sql.Connection
-
 import anorm.SqlParser.{long, str}
 import anorm.{RowParser, SqlStringInterpolation, ~}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
+
+import java.sql.Connection
 
 /** Provides primitive backend operations for managing:
   * - annotations of a resource,

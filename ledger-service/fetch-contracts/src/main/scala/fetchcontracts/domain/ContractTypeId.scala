@@ -5,6 +5,7 @@ package com.daml.fetchcontracts.domain
 
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.lf.data.Ref
+import com.daml.nonempty.NonEmpty
 import scalaz.{-\/, Applicative, Traverse, \/, \/-}
 import scalaz.syntax.functor._
 
@@ -103,26 +104,26 @@ object ResolvedQuery {
       extends Unsupported("Cannot query more than one interface ID")
   final case object CannotBeEmpty extends Unsupported("Cannot resolve any template ID from request")
 
-  final case class ByTemplateIds(templateIds: Set[ContractTypeId.Template.Resolved])
+  final case class ByTemplateIds(templateIds: NonEmpty[Set[ContractTypeId.Template.Resolved]])
       extends ResolvedQuery {
-    def resolved: Set[ContractTypeId.Resolved] =
-      templateIds.toSet[ContractTypeId.Resolved]
+    def resolved: NonEmpty[Set[ContractTypeId.Resolved]] =
+      templateIds.map(id => id: ContractTypeId.Resolved)
   }
   final case class ByTemplateId(templateId: ContractTypeId.Template.Resolved)
       extends ResolvedQuery {
-    def resolved: Set[ContractTypeId.Resolved] =
-      Set(templateId).toSet[ContractTypeId.Resolved]
+    def resolved: NonEmpty[Set[ContractTypeId.Resolved]] =
+      NonEmpty(Set, templateId: ContractTypeId.Resolved)
   }
 
   final case class ByInterfaceId(interfaceId: ContractTypeId.Interface.Resolved)
       extends ResolvedQuery {
-    def resolved: Set[ContractTypeId.Resolved] =
-      Set(interfaceId).toSet[ContractTypeId.Resolved]
+    def resolved: NonEmpty[Set[ContractTypeId.Resolved]] =
+      NonEmpty(Set, interfaceId: ContractTypeId.Resolved)
   }
 }
 
 sealed abstract class ResolvedQuery extends Product with Serializable {
-  def resolved: Set[ContractTypeId.Resolved]
+  def resolved: NonEmpty[Set[ContractTypeId.Resolved]]
 }
 
 object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {

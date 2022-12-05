@@ -4,18 +4,21 @@
 package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
-import io.opentelemetry.api.GlobalOpenTelemetry
-import io.opentelemetry.api.metrics.{Meter => OtelMeter}
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
+import com.daml.metrics.grpc.DamlGrpcServerMetrics
+import io.opentelemetry.api.GlobalOpenTelemetry
+import io.opentelemetry.api.metrics.{Meter => OtelMeter}
 
 object Metrics {
   lazy val ForTesting = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
 }
 
-final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
+final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMeter)
     extends DropwizardFactory {
-  override val prefix = MetricName("")
+
+  val openTelemetryFactory: OpenTelemetryFactory = new OpenTelemetryFactory(otelMeter)
 
   object test {
     private val prefix: MetricName = MetricName("test")
@@ -24,7 +27,7 @@ final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
   }
 
   object daml extends DropwizardFactory {
-    override val prefix: MetricName = MetricName.Daml
+    val prefix: MetricName = MetricName.Daml
     override val registry = Metrics.this.registry
 
     object commands extends CommandMetrics(prefix :+ "commands", registry)
@@ -38,6 +41,12 @@ final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
     object partyRecordStore
         extends PartyRecordStoreMetrics(prefix :+ "party_record_store", registry)
 
+    object identityProviderConfigStore
+        extends IdentityProviderConfigStoreMetrics(
+          prefix :+ "identity_provider_config_store",
+          registry,
+        )
+
     object index extends IndexMetrics(prefix :+ "index", registry)
 
     object indexer extends IndexerMetrics(prefix :+ "indexer", registry)
@@ -46,7 +55,7 @@ final class Metrics(override val registry: MetricRegistry, val meter: OtelMeter)
 
     object services extends ServicesMetrics(prefix :+ "services", registry)
 
-    object HttpJsonApi extends HttpJsonApiMetrics(prefix :+ "http_json_api", registry)
+    object grpc extends DamlGrpcServerMetrics(openTelemetryFactory, "participant")
 
   }
 }

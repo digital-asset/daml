@@ -3,7 +3,8 @@
 
 package com.daml.platform.localstore.api
 
-import com.daml.ledger.api.domain.{User, UserRight}
+import com.daml.ledger.api.IdentityProviderIdFilter
+import com.daml.ledger.api.domain.{IdentityProviderId, User, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 
@@ -14,6 +15,7 @@ case class UserUpdate(
     primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
     isDeactivatedUpdateO: Option[Boolean] = None,
     metadataUpdate: ObjectMetaUpdate,
+    identityProviderIdUpdate: Option[IdentityProviderId] = None,
 )
 
 case class ObjectMetaUpdate(
@@ -42,7 +44,11 @@ trait UserManagementStore {
   /** Always returns `maxResults` if possible, i.e. if a call to this method
     * returned fewer than `maxResults` users, then the next page (as of calling this method) was empty.
     */
-  def listUsers(fromExcl: Option[Ref.UserId], maxResults: Int)(implicit
+  def listUsers(
+      fromExcl: Option[Ref.UserId],
+      maxResults: Int,
+      identityProviderIdFilter: IdentityProviderIdFilter,
+  )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]]
 
@@ -87,7 +93,6 @@ object UserManagementStore {
   val DefaultParticipantAdminUserId = "participant_admin"
 
   type Result[T] = Either[Error, T]
-  type Users = Seq[User]
 
   case class UsersPage(users: Seq[User]) {
     def lastUserIdOption: Option[Ref.UserId] = users.lastOption.map(_.id)

@@ -81,7 +81,7 @@ case class Participants[+T](
     participants: Map[Participant, T],
     party_participants: Map[Party, Participant],
 ) {
-  def getPartyParticipant(party: Party): Either[String, T] =
+  private def getPartyParticipant(party: Party): Either[String, T] =
     party_participants.get(party) match {
       case None =>
         default_participant.toRight(s"No participant for party $party and no default participant")
@@ -425,7 +425,7 @@ private[lf] class Runner(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Speedy.Machine, Future[SValue]) = {
+  ): (Speedy.OffLedgerMachine, Future[SValue]) = {
     val machine =
       Speedy.Machine.fromPureSExpr(
         extendedCompiledPackages,
@@ -436,7 +436,7 @@ private[lf] class Runner(
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {
-        case SResultFinal(v, _) =>
+        case SResultFinal(v) =>
           Right(v)
         case SResultError(err) =>
           Left(Runner.InterpretationError(err))

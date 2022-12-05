@@ -8,10 +8,11 @@ package ledgerinteraction
 
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{ObjectMeta, PartyDetails, User, UserRight}
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
+import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.SResult._
@@ -30,7 +31,6 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.InMemoryUserManagementStore
 import com.daml.script.converter.ConverterException
-
 import io.grpc.StatusRuntimeException
 import scalaz.OneAnd
 import scalaz.OneAnd._
@@ -154,7 +154,7 @@ class IdeLedgerClient(
         val machine = Machine.fromPureSExpr(compiledPackages, sexpr)(Script.DummyLoggingContext)
 
         machine.run() match {
-          case SResultFinal(svalue, _) =>
+          case SResultFinal(svalue) =>
             val version = machine.tmplId2TxVersion(templateId)
             Some(svalue.toNormalizedValue(version))
 
@@ -173,9 +173,10 @@ class IdeLedgerClient(
     compiledPackages.pkgInterface.lookupInterfaceInstance(interfaceId, templateId).isRight
   }
 
-  override def queryView(
+  override def queryInterface(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
+      viewType: Ast.Type,
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Option[Value])]] = {
 
     val acs: Seq[ScenarioLedger.LookupOk] = ledger.query(
@@ -202,9 +203,10 @@ class IdeLedgerClient(
     Future.successful(res)
   }
 
-  override def queryViewContractId(
+  override def queryInterfaceContractId(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
+      viewType: Ast.Type,
       cid: ContractId,
   )(implicit
       ec: ExecutionContext,
@@ -419,6 +421,7 @@ class IdeLedgerClient(
         displayName = Some(displayName),
         isLocal = true,
         metadata = ObjectMeta.empty,
+        identityProviderId = IdentityProviderId.Default,
       )
       _ = allocatedParties += (name -> partyDetails)
     } yield partyDetails.party)

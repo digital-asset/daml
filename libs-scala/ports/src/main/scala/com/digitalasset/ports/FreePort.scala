@@ -70,7 +70,7 @@ object FreePort {
         n - numLowerPorts + maxExcl + 1
       }
     }
-    genPort
+    () => genPort()
   }
 
   private def dynamicPortRange(): (Int, Int) = {

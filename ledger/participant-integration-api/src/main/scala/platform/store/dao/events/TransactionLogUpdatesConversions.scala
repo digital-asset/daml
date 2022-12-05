@@ -33,6 +33,8 @@ import com.google.protobuf.timestamp.Timestamp
 import scala.concurrent.{ExecutionContext, Future}
 import com.google.protobuf.ByteString
 
+import com.daml.platform.store.ScalaPbStreamingOptimizations._
+
 private[events] object TransactionLogUpdatesConversions {
   object ToFlatTransaction {
     def filter(
@@ -78,7 +80,9 @@ private[events] object TransactionLogUpdatesConversions {
         eventProjectionProperties,
         lfValueTranslation,
       )
-        .map(transaction => GetTransactionsResponse(Seq(transaction)))
+        .map(transaction =>
+          GetTransactionsResponse(Seq(transaction)).withPrecomputedSerializedSize()
+        )
 
     def toGetFlatTransactionResponse(
         transactionLogUpdate: TransactionLogUpdate,
@@ -247,7 +251,7 @@ private[events] object TransactionLogUpdatesConversions {
         executionContext: ExecutionContext,
     ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionTreesResponse] =
       toTransactionTree(_, requestingParties, eventProjectionProperties, lfValueTranslation)
-        .map(txTree => GetTransactionTreesResponse(Seq(txTree)))
+        .map(txTree => GetTransactionTreesResponse(Seq(txTree)).withPrecomputedSerializedSize())
 
     private def toTransactionTree(
         transactionAccepted: TransactionLogUpdate.TransactionAccepted,
@@ -440,8 +444,7 @@ private[events] object TransactionLogUpdatesConversions {
               createdAt = Some(TimestampConversion.fromLf(createdEvent.ledgerEffectiveTime)),
               contractKeyHash =
                 createdEvent.createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
-              // TODO ED: Store driver metadata in the database
-              driverMetadata = ByteString.EMPTY,
+              driverMetadata = createdEvent.driverMetadata.fold(ByteString.EMPTY)(_.toByteString),
             )
           ),
         )

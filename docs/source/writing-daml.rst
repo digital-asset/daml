@@ -11,11 +11,3 @@ The Writing Daml section will teach you how to write Daml applications that run 
 You can find the Daml code for the example application and features in each section `here <https://github.com/digital-asset/daml/tree/main/docs/source/daml/intro/daml>`_ or download it using the Daml assistant. For example, to load the sources for section 1 into a folder called ``intro1``, run ``daml new intro1 --template daml-intro-1``.
 
 To run the examples, you will first need to `install the Daml SDK <https://docs.daml.com/getting-started/installation.html>`_.
-
-.. toctree::
-  :maxdepth: 2
-
-  daml/intro/0_Intro
-  daml/reference/index
-  daml/stdlib/index
-  daml/patterns

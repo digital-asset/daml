@@ -135,7 +135,7 @@ class FilterTableACSReader(
   }
 }
 
-private[events] object FilterTableACSReader {
+object FilterTableACSReader {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   case class Filter(party: Party, templateId: Option[Identifier])

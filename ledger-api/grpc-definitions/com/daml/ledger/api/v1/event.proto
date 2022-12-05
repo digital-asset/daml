@@ -110,6 +110,7 @@ message CreatedEvent {
 
   // Metadata of the contract. Required for contracts created
   // after the introduction of explicit disclosure.
+  // Optional
   ContractMetadata metadata = 10;
 }
 

@@ -11,7 +11,6 @@ import com.daml.ledger.javaapi.data.codegen.{
 }
 import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.typesig._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
@@ -80,9 +79,8 @@ private[inner] object FromValueGenerator extends StrictLogging {
       typeParameters: IndexedSeq[String],
       methodName: String,
       recordValueExtractor: (String, String) => CodeBlock,
-      packagePrefixes: Map[PackageId, String],
       isPublic: Boolean = true,
-  ): MethodSpec = {
+  )(implicit packagePrefixes: PackagePrefixes): MethodSpec = {
     logger.debug(s"Generating value decoder method $methodName")
 
     val converterParams = FromValueExtractorParameters
@@ -93,27 +91,16 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .builder()
       .add(recordValueExtractor("value$", "recordValue$"))
       .addStatement(
-        "$T record$$ = recordValue$$.asRecord().orElseThrow(() -> new IllegalArgumentException($S))",
-        classOf[javaapi.data.DamlRecord],
-        "Contracts must be constructed from Records",
-      )
-      .addStatement(
-        "$T fields$$ = record$$.getFields()",
+        "$T fields$$ = $T.recordCheck($L,$WrecordValue$$)",
         ParameterizedTypeName
           .get(classOf[java.util.List[_]], classOf[javaapi.data.DamlRecord.Field]),
+        classOf[PrimitiveValueDecoders],
+        fields.size,
       )
-      .addStatement("int numberOfFields = fields$$.size()")
-      .beginControlFlow(s"if (numberOfFields != ${fields.size})")
-      .addStatement(
-        "throw new $T($S + numberOfFields)",
-        classOf[IllegalArgumentException],
-        s"Expected ${fields.size} arguments, got ",
-      )
-      .endControlFlow()
 
     fields.iterator.zip(accessors).foreach { case (FieldInfo(_, damlType, javaName, _), accessor) =>
       fromValueCode.addStatement(
-        generateFieldExtractor(damlType, javaName, accessor, packagePrefixes)
+        generateFieldExtractor(damlType, javaName, accessor)
       )
     }
 
@@ -165,33 +152,24 @@ private[inner] object FromValueGenerator extends StrictLogging {
     CodeBlock
       .builder()
       .addStatement(
-        "$T variant$$ = $L.asVariant().orElseThrow(() -> new IllegalArgumentException($S + $L.getClass().getName()))",
-        classOf[javaapi.data.Variant],
-        inputVar,
-        s"Expected: Variant. Actual: ",
-        inputVar,
-      )
-      .addStatement(
-        "if (!$S.equals(variant$$.getConstructor())) throw new $T($S + variant$$.getConstructor())",
+        "$T $L =$W$T.variantCheck($S,$W$L)",
+        classOf[javaapi.data.Value],
+        outputVar,
+        classOf[PrimitiveValueDecoders],
         constructorName,
-        classOf[IllegalArgumentException],
-        s"Invalid constructor. Expected: $constructorName. Actual: ",
+        inputVar,
       )
-      .addStatement("$T $L = variant$$.getValue()", classOf[javaapi.data.Value], outputVar)
       .build()
   }
 
-  def generateFieldExtractor(
-      fieldType: Type,
-      field: String,
-      accessor: CodeBlock,
-      packagePrefixes: Map[PackageId, String],
+  def generateFieldExtractor(fieldType: Type, field: String, accessor: CodeBlock)(implicit
+      packagePrefixes: PackagePrefixes
   ): CodeBlock =
     CodeBlock.of(
       "$T $L =$W$L",
-      toJavaTypeName(fieldType, packagePrefixes),
+      toJavaTypeName(fieldType),
       field,
-      extractor(fieldType, field, accessor, newNameGenerator, packagePrefixes),
+      extractor(fieldType, field, accessor, newNameGenerator),
     )
 
   private[this] val extractors =
@@ -269,19 +247,17 @@ private[inner] object FromValueGenerator extends StrictLogging {
       field: String,
       accessor: CodeBlock,
       args: Iterator[String],
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ): CodeBlock =
-    extractorRec(damlType, field, args, packagePrefixes) extract accessor
+    extractorRec(damlType, field, args) extract accessor
 
-  private[this] def extractorRec(
-      damlType: Type,
-      field: String,
-      args: Iterator[String],
-      packagePrefixes: Map[PackageId, String],
+  private[this] def extractorRec(damlType: Type, field: String, args: Iterator[String])(implicit
+      packagePrefixes: PackagePrefixes
   ): Extractor = {
 
     lazy val apiType = toAPITypeName(damlType)
-    lazy val javaType = toJavaTypeName(damlType, packagePrefixes)
+    lazy val javaType = toJavaTypeName(damlType)
     logger.debug(s"Generating composite extractor for $field of type $javaType")
 
     import Extractor._
@@ -289,7 +265,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
     // shorten recursive calls
     // we always want a ValueDecoder when recurring
     def go(recDamlType: Type): CodeBlock =
-      extractorRec(recDamlType, field, args, packagePrefixes) asDecoder args
+      extractorRec(recDamlType, field, args) asDecoder args
 
     def oneTypeArgPrim(primFun: String, param: Type): Extractor =
       Decoder(
@@ -359,17 +335,17 @@ private[inner] object FromValueGenerator extends StrictLogging {
       case TypeCon(_, typeParameters) =>
         val (targs, valueDecoders) = typeParameters.map {
           case targ @ TypeVar(tvName) =>
-            toJavaTypeName(targ, packagePrefixes) -> CodeBlock.of(
+            toJavaTypeName(targ) -> CodeBlock.of(
               "fromValue$L",
               JavaEscaper.escapeString(tvName),
             )
           case targ @ TypeCon(_, ImmArraySeq()) =>
-            toJavaTypeName(targ, packagePrefixes) -> CodeBlock.of(
+            toJavaTypeName(targ) -> CodeBlock.of(
               "$T.valueDecoder()",
-              toJavaTypeName(targ, packagePrefixes),
+              toJavaTypeName(targ),
             )
           case targ =>
-            toJavaTypeName(targ, packagePrefixes) -> go(targ)
+            toJavaTypeName(targ) -> go(targ)
         }.unzip
 
         val targsCode = CodeBlock.join(targs.map(CodeBlock.of("$L", _)).asJava, ",$W")

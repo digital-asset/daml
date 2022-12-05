@@ -3,10 +3,11 @@
 
 package com.daml.platform.localstore.api
 
-import com.daml.ledger.api.domain.ObjectMeta
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta}
 import com.daml.lf.data.Ref
 
 final case class PartyRecord(
     party: Ref.Party,
     metadata: ObjectMeta,
+    identityProviderId: IdentityProviderId,
 )

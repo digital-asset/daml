@@ -164,7 +164,7 @@ const newUiPage = async (): Promise<Page> => {
       `${message.type().substr(0, 3).toUpperCase()} ${message.text()}`,
     ),
   );
-  await page.goto(`http://localhost:${UI_PORT}`); // ignore the Response
+  await page.goto(`http://127.0.0.1:${UI_PORT}`); // ignore the Response
   return page;
 };
 

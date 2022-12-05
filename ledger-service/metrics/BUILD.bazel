@@ -1,0 +1,30 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+)
+
+da_scala_library(
+    name = "metrics",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [],
+    tags = ["maven_coordinates=com.daml:http-json-metrics:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        "//ledger/ledger-resources",
+        "//ledger/metrics",
+        "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
+        "//observability/akka-http-metrics",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_dropwizard_metrics_metrics_jmx",
+        "@maven//:io_netty_netty_transport",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+    ],
+)

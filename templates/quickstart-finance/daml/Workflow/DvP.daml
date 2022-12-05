@@ -1,10 +1,11 @@
 module Workflow.DvP where
 
-import DA.Set (fromList)
+import DA.Set (fromList, singleton)
 import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument (Q)
-import Daml.Finance.Interface.Settlement.Factory qualified as Factory (I, Instruct(..))
 import Daml.Finance.Interface.Settlement.Batch qualified as Batch (I)
+import Daml.Finance.Interface.Settlement.Factory qualified as Factory (I, Instruct(..))
 import Daml.Finance.Interface.Settlement.Instruction qualified as Instruction (I)
+import Daml.Finance.Interface.Settlement.RouteProvider qualified as RouteProvider (I, Discover(..))
 import Daml.Finance.Interface.Settlement.Types (Step(..))
 import Daml.Finance.Interface.Types.Common (Id(..))
 
@@ -16,9 +17,12 @@ template Proposal
     payQuantity : Instrument.Q
       -- ^ The pay leg (instrument and amount).
     proposer : Party
-      -- ^ The party proposing the trade. They receive the receiving leg in exchange for the pay leg.
+      -- ^ The party proposing the trade. They receive the receiving leg in exchange for the pay
+      --   leg.
     counterparty : Party
       -- ^ The trade counterparty. They receive the pay leg in exchange for the receiving leg.
+    routeProviderCid : ContractId RouteProvider.I
+      -- ^ The route provider to discover settlement paths.
     settlementFactoryCid : ContractId Factory.I
       -- ^ The factory contract for the settlement batch.
     id : Text
@@ -34,24 +38,26 @@ template Proposal
       do
         let
           -- Settlement of REC leg
-          recStep = Step with
-            sender = counterparty
-            receiver = proposer
-            quantity = recQuantity
+          recStep = Step with sender = counterparty; receiver = proposer; quantity = recQuantity
 
           -- Settlement of PAY leg
-          payStep = Step with
-            sender = proposer
-            receiver = counterparty
-            quantity = payQuantity
+          payStep = Step with sender = proposer; receiver = counterparty; quantity = payQuantity
+
+        -- Discover settlement routes for the steps
+        routedSteps <- exercise routeProviderCid RouteProvider.Discover with
+          discoverors = fromList [proposer, counterparty]
+          contextId = None
+          steps = [recStep, payStep]
 
         -- INSTRUCT_BEGIN
-        (containerCid, [recInstructionCid, payInstructionCid]) <- exercise settlementFactoryCid Factory.Instruct with
-          instructors = fromList [proposer, counterparty]
-          settler = proposer
-          id = Id id
-          steps = [recStep, payStep]
-          description = "Settlement for " <> id
+        (containerCid, [recInstructionCid, payInstructionCid]) <-
+          exercise settlementFactoryCid Factory.Instruct with
+            instructors = fromList [proposer, counterparty]
+            settlers = singleton proposer
+            contextId = None
+            id = Id id
+            routedSteps
+            description = "Settlement for " <> id
         -- INSTRUCT_END
 
         pure (containerCid, recInstructionCid, payInstructionCid)

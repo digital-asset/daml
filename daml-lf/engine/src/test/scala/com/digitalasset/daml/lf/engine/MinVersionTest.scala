@@ -25,7 +25,7 @@ import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigAdaptor, SandboxOnXRun
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.VersionRange
 import com.daml.lf.archive.DarDecoder
-import com.daml.lf.language.LanguageVersion.v1_14
+import com.daml.lf.language.LanguageVersion.v1_15
 import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
@@ -129,7 +129,7 @@ final class MinVersionTest
 
     val config = Config.Default.copy(
       engine = Config.DefaultEngineConfig
-        .copy(allowedLanguageVersions = VersionRange(min = v1_14, max = v1_14)),
+        .copy(allowedLanguageVersions = VersionRange(min = v1_15, max = v1_15)),
       dataSource = Config.Default.dataSource.map { case (participantId, _) =>
         participantId -> ParticipantDataSourceConfig(jdbcUrl)
       },

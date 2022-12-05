@@ -12,9 +12,9 @@ module Daml.Script
   , submitTree
   , submitTreeMulti
   , query
-  , queryView
+  , queryInterface
   , queryContractId
-  , queryViewContractId
+  , queryInterfaceContractId
   , queryContractKey
   , queryFilter
   , PartyIdHint (..)
@@ -129,8 +129,8 @@ data ScriptF a
   | SubmitTree (SubmitTreePayload a)
   | Query (QueryACS a)
   | QueryContractId (QueryContractIdPayload a)
-  | QueryView (QueryViewPayload a)
-  | QueryViewContractId (QueryViewContractIdPayload a)
+  | QueryInterface (QueryInterfacePayload a)
+  | QueryInterfaceContractId (QueryInterfaceContractIdPayload a)
   | QueryContractKey (QueryContractKeyPayload a)
   | AllocParty (AllocateParty a)
   | ListKnownParties (ListKnownPartiesPayload a)
@@ -220,23 +220,26 @@ queryContractId p c = lift $ Free $ QueryContractId QueryContractIdPayload with
   continue = pure . fmap (fromSome . fromAnyTemplate)
   locations = getCallStack callStack
 
-data QueryViewPayload a = QueryViewPayload
+data QueryInterfacePayload a = QueryInterfacePayload
   { parties : [Party]
   , interfaceId : TemplateTypeRep
   , continue : [LedgerValue] -> a
   , locations : [(Text, SrcLoc)]
   } deriving Functor
 
--- | Query the set of active contracts views for an interface
+-- | Query the set of active contract views for an interface
 -- that are visible to the given party.
-queryView : forall i v p. (TemplateOrInterface i, HasInterfaceView i v, IsParties p) => p -> Script [(ContractId i, Optional v)]
-queryView p = lift $ Free $ QueryView QueryViewPayload with
+-- If the view function fails for a given contract id, The `Optional v` will be `None`.
+--
+-- WARNING: Information about instances with failed-views is not currently returned over the JSON API: the `Optional v` will be `Some _` for every element in the returned list.
+queryInterface : forall i v p. (Template i, HasInterfaceView i v, IsParties p) => p -> Script [(ContractId i, Optional v)]
+queryInterface p = lift $ Free $ QueryInterface QueryInterfacePayload with
   parties = toParties p
   interfaceId = templateTypeRep @i
   continue = pure . map (fromLedgerValue @(ContractId i, Optional v))
   locations = getCallStack callStack
 
-data QueryViewContractIdPayload a = QueryViewContractIdPayload
+data QueryInterfaceContractIdPayload a = QueryInterfaceContractIdPayload
   { parties : [Party]
   , interfaceId : TemplateTypeRep
   , cid : ContractId ()
@@ -244,8 +247,20 @@ data QueryViewContractIdPayload a = QueryViewContractIdPayload
   , locations : [(Text, SrcLoc)]
   } deriving Functor
 
-queryViewContractId : forall i v p. (TemplateOrInterface i, HasInterfaceView i v, IsParties p) => HasCallStack => p -> ContractId i -> Script (Optional v)
-queryViewContractId p c = lift $ Free $ QueryViewContractId QueryViewContractIdPayload with
+-- | Query for the contract view with the given contract id.
+--
+-- Returns `None` if there is no active contract the party is a stakeholder on.
+--
+-- Returns `None` if the view function fails for the given contract id.
+--
+-- WARNING: Over the gRPC and with the JSON API
+-- in-memory backend this performs a linear search so only use this if the number of
+-- active contracts is small.
+--
+-- This is semantically equivalent to calling `queryInterface`
+-- and filtering on the client side.
+queryInterfaceContractId : forall i v p. (Template i, HasInterfaceView i v, IsParties p) => HasCallStack => p -> ContractId i -> Script (Optional v)
+queryInterfaceContractId p c = lift $ Free $ QueryInterfaceContractId QueryInterfaceContractIdPayload with
   parties = toParties p
   interfaceId = templateTypeRep @i
   cid = coerceContractId c
@@ -776,7 +791,7 @@ instance Show AnyContractId where
     where app_prec = 10
 
 -- | HIDE This is an early access feature.
-fromAnyContractId : forall t. TemplateOrInterface t => AnyContractId -> Optional (ContractId t)
+fromAnyContractId : forall t. Template t => AnyContractId -> Optional (ContractId t)
 fromAnyContractId cid
   | cid.templateId == templateTypeRep @t = Some (coerceContractId cid.contractId)
   | otherwise = None

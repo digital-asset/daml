@@ -10,7 +10,7 @@ import com.daml.metrics.api.dropwizard.DropwizardFactory
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class DatabaseMetrics private[metrics] (
-    override val prefix: MetricName,
+    val prefix: MetricName,
     val name: String,
     override val registry: MetricRegistry,
 ) extends DropwizardFactory {

@@ -3,6 +3,8 @@
 
 package com.daml.ledger.runner.common
 
+import java.nio.file.Path
+
 sealed abstract class Mode
 
 object Mode {
@@ -15,6 +17,8 @@ object Mode {
 
   /** Accepts legacy Cli parameters, but just prints configuration */
   case object ConvertConfig extends Mode
+
+  final case class PrintDefaultConfig(outputFilePath: Option[Path]) extends Mode
 
   /** Dump index metadata and exit */
   final case class DumpIndexMetadata(jdbcUrls: Vector[String]) extends Mode

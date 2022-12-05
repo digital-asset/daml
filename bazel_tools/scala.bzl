@@ -63,6 +63,7 @@ common_scalacopts = version_specific.get(scala_major_version, []) + [
     # catch missing string interpolators
     "-Xlint:missing-interpolator",
     "-Xlint:constant",  # / 0
+    "-Xlint:deprecation",  # deprecated annotations without 'message' or 'since' fields
     "-Xlint:doc-detached",  # floating Scaladoc comment
     "-Xlint:inaccessible",  # method uses invisible types
     "-Xlint:infer-any",  # less thorough but less buggy version of the Any wart
@@ -147,6 +148,7 @@ lf_scalacopts = [
 
 lf_scalacopts_stricter = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+    "-Xlint:_",
 ]
 
 default_compile_arguments = {

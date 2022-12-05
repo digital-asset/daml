@@ -149,6 +149,7 @@ private[backend] object AppendOnlySchema {
         "create_key_value_compression" -> fieldStrategy.smallintOptional(_ =>
           _.create_key_value_compression
         ),
+        "driver_metadata" -> fieldStrategy.byteaOptional(_ => _.driver_metadata),
       )
 
     val exerciseFields: Vector[(String, Field[DbDto.EventExercise, _, _])] =
@@ -281,7 +282,7 @@ private[backend] object AppendOnlySchema {
       )
 
     val createFilter: Table[DbDto.CreateFilter] =
-      fieldStrategy.insert("participant_events_create_filter")(
+      fieldStrategy.insert("pe_create_id_filter_stakeholder")(
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
         "template_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.templateId.unsafe.internalize(dto.template_id)

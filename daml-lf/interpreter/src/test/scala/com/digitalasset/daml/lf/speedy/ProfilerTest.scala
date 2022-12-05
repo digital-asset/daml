@@ -73,7 +73,7 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
       Speedy.Machine.fromUpdateSExpr(compiledPackages, transactionSeed, example, Set(party))
     val res = machine.run()
     res match {
-      case SResultFinal(_, Some(_)) =>
+      case SResultFinal(_) =>
         machine.profile.events.asScala.toList.map(ev => (ev.open, ev.rawLabel))
       case _ =>
         sys.error(s"Unexpected res: $res")

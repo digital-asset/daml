@@ -10,6 +10,7 @@ trait StorageBackendSuite
     with StorageBackendTestsInitializeIngestion
     with StorageBackendTestsIngestion
     with StorageBackendTestsEvents
+    with StorageBackendTestsTransactionStreamsEvents
     with StorageBackendTestsCompletions
     with StorageBackendTestsContracts
     with StorageBackendTestsReset
@@ -19,6 +20,7 @@ trait StorageBackendSuite
     with StorageBackendTestsTimestamps
     with StorageBackendTestsStringInterning
     with StorageBackendTestsUserManagement
+    with StorageBackendTestsIDPConfig
     with StorageBackendTestsPartyRecord
     with StorageBackendTestsMeteringParameters
     with StorageBackendTestsWriteMetering

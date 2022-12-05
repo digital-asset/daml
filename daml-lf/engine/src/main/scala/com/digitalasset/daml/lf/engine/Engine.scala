@@ -8,9 +8,9 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError, SValue}
+import com.daml.lf.speedy.{InitialSeeding, Pretty, SError, SValue}
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
-import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.speedy.Speedy.{Machine, OffLedgerMachine, OnLedgerMachine}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{
   Node,
@@ -58,6 +58,7 @@ import com.daml.scalautil.Statement.discard
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
+@scala.annotation.nowarn("msg=return statement uses an exception to pass control to the caller")
 class Engine(val config: EngineConfig = Engine.StableConfig) {
 
   config.profileDir.foreach(Files.createDirectories(_))
@@ -317,13 +318,14 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
-    val machine = Machine(
+    val machine = OnLedgerMachine(
       compiledPackages = compiledPackages,
       submissionTime = submissionTime,
       initialSeeding = seeding,
       expr = SEApp(sexpr, Array(SValue.SToken)),
       committers = submitters,
       readAs = readAs,
+      authorizationChecker = config.authorizationChecker,
       validating = validating,
       contractKeyUniqueness = config.contractKeyUniqueness,
       limits = config.limits,
@@ -352,7 +354,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     ResultDone(deps)
   }
 
-  private def handleError(err: SError.SError, detailMsg: Option[String]): ResultError = {
+  private def handleError(err: SError.SError, detailMsg: Option[String] = None): ResultError = {
     err match {
       case SError.SErrorDamlException(error) =>
         ResultError(Error.Interpretation.DamlException(error), detailMsg)
@@ -364,22 +366,12 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
-      machine: Machine,
+      machine: OnLedgerMachine,
       time: Time.Timestamp,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     def detailMsg = Some(
-      s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${onLedger.nodesToString}"
+      s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${machine.nodesToString}"
     )
-    def versionDisclosedContract(d: speedy.DisclosedContract): Versioned[DisclosedContract] =
-      Versioned(
-        machine.tmplId2TxVersion(d.templateId),
-        DisclosedContract(
-          templateId = d.templateId,
-          contractId = d.contractId.value,
-          argument = d.argument.toNormalizedValue(machine.tmplId2TxVersion(d.templateId)),
-          metadata = d.metadata,
-        ),
-      )
 
     var finished: Boolean = false
     var finalValue: SResultFinal = null
@@ -437,46 +429,28 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       }
     }
 
-    finalValue match {
-      case SResultFinal(
-            _,
-            Some(
-              PartialTransaction.Result(
-                tx,
-                _,
-                nodeSeeds,
-                globalKeyMapping,
-                disclosedContracts,
-              )
-            ),
-          ) =>
+    machine.finish match {
+      case Right(OnLedgerMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedContracts)) =>
         deps(tx).flatMap { deps =>
           val meta = Tx.Metadata(
             submissionSeed = None,
             submissionTime = machine.submissionTime,
             usedPackages = deps,
-            dependsOnTime = onLedger.getDependsOnTime,
+            dependsOnTime = machine.getDependsOnTime,
             nodeSeeds = nodeSeeds,
             globalKeyMapping = globalKeyMapping,
-            disclosures = disclosedContracts.map(versionDisclosedContract),
+            disclosures = disclosedContracts,
           )
           config.profileDir.foreach { dir =>
             val desc = Engine.profileDesc(tx)
-            machine.profile.name = s"${meta.submissionTime}-$desc"
             val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
+            machine.profile.name = s"${meta.submissionTime}-$desc"
             machine.profile.writeSpeedscopeJson(profileFile)
           }
           ResultDone((tx, meta))
         }
-
-      case SResultFinal(_, None) =>
-        ResultError(
-          Error.Interpretation.Internal(
-            NameOf.qualifiedNameOfCurrentFunc,
-            "Interpretation error: completed transaction expected",
-            None,
-          )
-        )
+      case Left(err) =>
+        handleError(err)
     }
   }
 
@@ -548,9 +522,9 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       argument: Value,
       interfaceId: Identifier,
   )(implicit loggingContext: LoggingContext): Result[Versioned[Value]] = {
-    def interpret(machine: Machine): Result[SValue] = {
+    def interpret(machine: OffLedgerMachine): Result[SValue] = {
       machine.run() match {
-        case SResultFinal(v, _) => ResultDone(v)
+        case SResultFinal(v) => ResultDone(v)
         case SResultError(err) => handleError(err, None)
         case err @ (_: SResultNeedPackage | _: SResultNeedContract | _: SResultNeedKey |
             _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioPassTime |

@@ -10,6 +10,7 @@ load(
 load("//ledger/ledger-api-tests:conformance.bzl", "conformance_test", "generate_conf", "server_conformance_test")
 load("@oracle//:index.bzl", "oracle_tags")
 load("@os_info//:os_info.bzl", "is_windows")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 
 da_scala_library(
     name = "sandbox-on-x",
@@ -35,11 +36,11 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
-        "//ledger-service/jwt",
         "//ledger/error",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-errors",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
@@ -52,6 +53,7 @@ da_scala_library(
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/jwt",
         "//libs-scala/logging-entries",
         "//libs-scala/ports",
         "//libs-scala/resources",
@@ -99,7 +101,6 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
-        "//ledger-service/jwt",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-auth-client",
         "//ledger/ledger-api-client",
@@ -112,6 +113,7 @@ da_scala_library(
         "//ledger/test-common",
         "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/grpc-utils",
+        "//libs-scala/jwt",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
@@ -131,7 +133,7 @@ da_scala_test_suite(
     name = "sandbox-on-x-unit-tests",
     size = "small",
     srcs = glob(["src/test/suite/**/*.scala"]),
-    resources = glob(["src/test/resources/**/*"]),
+    resources = glob(["src/test/resources/**/*"]) + glob(["resources/*"]),
     scala_deps = [
         "@maven//:org_mockito_mockito_scala",
     ],
@@ -144,6 +146,7 @@ da_scala_test_suite(
         "//ledger/error",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-errors",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
@@ -153,6 +156,7 @@ da_scala_test_suite(
         "//ledger/participant-state-index",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
+        "@maven//:commons_io_commons_io",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
     ],
@@ -336,6 +340,38 @@ da_scala_binary(
         ":sandbox-on-x-app-lib",
     ],
 )
+
+# A rule that writes the default config to a file
+genrule(
+    name = "generate-default.conf",
+    srcs = [],
+    outs = ["generated-default.conf"],
+    cmd = "$(location //ledger/sandbox-on-x:app) print-default-config $(location generated-default.conf) -C ledger.participants.default.services-thread-pool-size=1337",
+    tools = ["//ledger/sandbox-on-x:app"],
+    visibility = ["//visibility:public"],
+)
+
+# A rule that writes a script file for copying the generated default config file into the source tree
+write_file(
+    name = "write-update-generated-sources-script",
+    out = "update-generated-sources.sh",
+    content = [
+        "#!/usr/bin/env bash",
+        "cd $BUILD_WORKSPACE_DIRECTORY",
+        "mkdir -p ledger/sandbox-on-x/resources",
+        "cp -fv bazel-bin/ledger/sandbox-on-x/generated-default.conf ledger/sandbox-on-x/resources/generated-default.conf",
+        "",
+    ],
+) if not is_windows else None
+
+# A rule that copies the generated default config file into the source tree
+sh_binary(
+    name = "update-generated-sources",
+    srcs = ["update-generated-sources.sh"],
+    data = [
+        "generate-default.conf",
+    ],
+) if not is_windows else None
 
 alias(
     name = "conformance-test-postgres-bin",

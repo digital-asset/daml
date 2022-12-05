@@ -24,6 +24,6 @@ object MetricDoc {
 
   // The GroupTag can be defined for metrics that share similar names and should be grouped using a
   // wildcard (the representative).
-  case class GroupTag(representative: String) extends StaticAnnotation
+  case class GroupTag(representative: String, groupableClass: Class[_]) extends StaticAnnotation
 
 }

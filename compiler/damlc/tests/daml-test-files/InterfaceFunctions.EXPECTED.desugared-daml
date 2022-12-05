@@ -156,7 +156,7 @@ _method_Asset_Token_Asset_getAmount
       @Asset
       @"getAmount"
       \ this@Asset {..}
-        -> let _ = this in let getAmount = amount in getAmount
+        -> let _ = this in let $getAmount = amount in $getAmount
 _view_Asset_Token_Asset :
   DA.Internal.Desugar.InterfaceView Asset Token Asset
 _view_Asset_Token_Asset
@@ -165,7 +165,7 @@ _view_Asset_Token_Asset
       @Token
       @Asset
       \ this@Asset {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
+        -> let _ = this in let $view = EmptyInterfaceView in $view
 instance DA.Internal.Desugar.HasToInterface Asset Token where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Asset Token where

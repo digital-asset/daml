@@ -3,11 +3,11 @@
 
 package com.daml.quickstart.iou;
 
+import static java.util.UUID.randomUUID;
+
 import com.daml.ledger.javaapi.data.*;
-import com.daml.ledger.javaapi.data.codegen.ContractId;
-import com.daml.ledger.javaapi.data.codegen.Created;
+import com.daml.ledger.javaapi.data.CommandsSubmission;
 import com.daml.ledger.javaapi.data.codegen.Update;
-import com.daml.ledger.rxjava.ContractUtil;
 import com.daml.ledger.rxjava.DamlLedgerClient;
 import com.daml.ledger.rxjava.LedgerClient;
 import com.daml.quickstart.model.iou.Iou;
@@ -52,8 +52,6 @@ public class IouMain {
 
     logger.info("ledger-id: {}", ledgerId);
 
-    TransactionFilter iouFilter = filterFor(Iou.TEMPLATE_ID, party);
-
     AtomicLong idCounter = new AtomicLong(0);
     ConcurrentHashMap<Long, Iou> contracts = new ConcurrentHashMap<>();
     BiMap<Long, Iou.ContractId> idMap = Maps.synchronizedBiMap(HashBiMap.create());
@@ -62,26 +60,23 @@ public class IouMain {
 
     client
         .getActiveContractSetClient()
-        .getActiveContracts(ContractUtil.of(Iou.COMPANION), Collections.singleton(party), true)
+        .getActiveContracts(Iou.contractFilter(), Collections.singleton(party), true)
         .blockingForEach(
-            activeContracts -> {
-              activeContracts
-                  .getOffset()
-                  .ifPresent(offset -> acsOffset.set(new LedgerOffset.Absolute(offset)));
-              activeContracts
-                  .getContracts()
-                  .forEach(
-                      contract -> {
-                        long id = idCounter.getAndIncrement();
-                        contracts.put(id, contract.data);
-                        idMap.put(id, contract.id);
-                      });
+            response -> {
+              response.offset.ifPresent(offset -> acsOffset.set(new LedgerOffset.Absolute(offset)));
+              response.activeContracts.forEach(
+                  contract -> {
+                    long id = idCounter.getAndIncrement();
+                    contracts.put(id, contract.data);
+                    idMap.put(id, contract.id);
+                  });
             });
 
     Disposable ignore =
         client
             .getTransactionsClient()
-            .getTransactions(acsOffset.get(), iouFilter, true)
+            .getTransactions(
+                Iou.contractFilter(), acsOffset.get(), Collections.singleton(party), true)
             .forEach(
                 t -> {
                   for (Event event : t.getEvents()) {
@@ -112,7 +107,7 @@ public class IouMain {
         "/iou",
         (req, res) -> {
           Iou iou = g.fromJson(req.body(), Iou.class);
-          Update<Created<ContractId<Iou>>> iouCreate = iou.create();
+          var iouCreate = iou.create();
           var createdContractId = submit(client, party, iouCreate);
           return "Iou creation submitted: " + createdContractId;
         },
@@ -139,21 +134,10 @@ public class IouMain {
   }
 
   private static <U> U submit(LedgerClient client, String party, Update<U> update) {
-    return client
-        .getCommandClient()
-        .submitAndWaitForResult(
-            UUID.randomUUID().toString(),
-            "IouApp",
-            UUID.randomUUID().toString(),
-            List.of(party),
-            List.of(),
-            update)
-        .blockingGet();
-  }
+    var params =
+        CommandsSubmission.create(APP_ID, randomUUID().toString(), update.commands())
+            .withActAs(party);
 
-  private static TransactionFilter filterFor(Identifier templateId, String party) {
-    InclusiveFilter inclusiveFilter = new InclusiveFilter(Collections.singleton(templateId));
-    Map<String, Filter> filter = Collections.singletonMap(party, inclusiveFilter);
-    return new FiltersByParty(filter);
+    return client.getCommandClient().submitAndWaitForResult(params, update).blockingGet();
   }
 }

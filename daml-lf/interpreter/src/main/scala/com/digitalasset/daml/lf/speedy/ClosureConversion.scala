@@ -22,7 +22,11 @@ private[speedy] object ClosureConversion {
 
   private[speedy] def closureConvert(source0: source.SExpr): target.SExpr = {
 
-    case class Env(sourceDepth: Int, mapping: Map[SEVarLevel, target.SELoc], targetDepth: Int) {
+    final case class Env(
+        sourceDepth: Int,
+        mapping: Map[SEVarLevel, target.SELoc],
+        targetDepth: Int,
+    ) {
 
       def lookup(v: SEVarLevel): target.SELoc = {
         mapping.get(v) match {
@@ -71,7 +75,7 @@ private[speedy] object ClosureConversion {
       *
       *   In both cases we have a continuation ('List[Cont]') argument which says how to proceed.
       */
-    sealed abstract class Traversal
+    sealed abstract class Traversal extends Product with Serializable
     object Traversal {
       final case class Down(exp: source.SExpr, env: Env) extends Traversal
       final case class Up(exp: target.SExpr) extends Traversal
@@ -107,7 +111,7 @@ private[speedy] object ClosureConversion {
       *   'env' (or all components if there is no 'env') represent transform-(sub)-results
       *   which need combining into the final result.
       */
-    sealed abstract class Cont
+    sealed abstract class Cont extends Product with Serializable
     object Cont {
 
       final case class Location(loc: Ref.Location) extends Cont

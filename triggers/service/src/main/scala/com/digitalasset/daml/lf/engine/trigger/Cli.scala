@@ -4,6 +4,7 @@
 package com.daml.lf.engine.trigger
 
 import akka.http.scaladsl.model.Uri
+import ch.qos.logback.classic.Level
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.services.time.TimeProviderType
 
@@ -15,6 +16,8 @@ import com.daml.cliopts
 import scala.concurrent.duration.FiniteDuration
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.dbutils.{DBConfig, JdbcConfig}
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
+import com.daml.metrics.api.reporters.MetricsReporter
 import com.typesafe.scalalogging.StrictLogging
 import pureconfig.ConfigSource
 import pureconfig.error.ConfigReaderFailures
@@ -50,6 +53,11 @@ private[trigger] final case class Cli(
     portFile: Option[Path],
     allowExistingSchema: Boolean,
     compilerConfig: Compiler.Config,
+    triggerConfig: TriggerRunnerConfig,
+    rootLoggingLevel: Option[Level],
+    logEncoder: LogEncoder,
+    metricsReporter: Option[MetricsReporter] = None,
+    metricsReportingInterval: FiniteDuration = FiniteDuration(10, duration.SECONDS),
 ) extends StrictLogging {
 
   def loadFromConfigFile: Option[Either[ConfigReaderFailures, TriggerServiceAppConf]] =
@@ -81,6 +89,11 @@ private[trigger] final case class Cli(
       portFile = portFile,
       allowExistingSchema = allowExistingSchema,
       compilerConfig = compilerConfig,
+      triggerConfig = triggerConfig,
+      rootLoggingLevel = rootLoggingLevel,
+      logEncoder = logEncoder,
+      metricsReporter = metricsReporter,
+      metricsReportingInterval = metricsReportingInterval,
     )
   }
 
@@ -90,7 +103,7 @@ private[trigger] final case class Cli(
         case Right(cfg) => Some(cfg.toServiceConfig)
         case Left(ex) =>
           logger.error(
-            s"Error loading trigger service config from file ${configFile}",
+            s"Error loading trigger service config from file $configFile",
             ex.prettyPrint(),
           )
           None
@@ -152,6 +165,9 @@ private[trigger] object Cli {
     portFile = None,
     allowExistingSchema = false,
     compilerConfig = DefaultCompilerConfig,
+    triggerConfig = DefaultTriggerRunnerConfig,
+    rootLoggingLevel = None,
+    logEncoder = LogEncoder.Plain,
   )
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
@@ -288,6 +304,29 @@ private[trigger] object Cli {
       }
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
 
+    opt[Unit]('v', "verbose")
+      .text("Root logging level -> DEBUG")
+      .action((_, cli) => cli.copy(rootLoggingLevel = Some(Level.DEBUG)))
+
+    opt[Unit]("debug")
+      .text("Root logging level -> DEBUG")
+      .action((_, cli) => cli.copy(rootLoggingLevel = Some(Level.DEBUG)))
+
+    implicit val levelRead: scopt.Read[Level] = scopt.Read.reads(Level.valueOf)
+    opt[Level]("log-level-root")
+      .text("Log-level of the root logger")
+      .valueName("<LEVEL>")
+      .action((level, cli) => cli.copy(rootLoggingLevel = Some(level)))
+
+    opt[String]("log-encoder")
+      .text("Log encoder: plain|json")
+      .action {
+        case ("json", cli) => cli.copy(logEncoder = LogEncoder.Json)
+        case ("plain", cli) => cli.copy(logEncoder = LogEncoder.Plain)
+        case (other, _) =>
+          throw new IllegalArgumentException(s"Unsupported logging encoder $other")
+      }
+
     opt[Unit]("dev-mode-unsafe")
       .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev))
       .optional()
@@ -323,6 +362,11 @@ private[trigger] object Cli {
       .text(
         "Do not abort if there are existing tables in the database schema. EXPERT ONLY. Defaults to false."
       )
+
+    cliopts.Metrics.metricsReporterParse(this)(
+      (f, c) => c.copy(metricsReporter = f(c.metricsReporter)),
+      (f, c) => c.copy(metricsReportingInterval = f(c.metricsReportingInterval)),
+    )
 
     checkConfig { cfg =>
       if (

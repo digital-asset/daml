@@ -6,11 +6,8 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
+    "lf_scalacopts_stricter",
 )
-
-script_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
-    "NonUnitStatements",
-]]
 
 test_script_sources = [
     "src/main/scala/com/digitalasset/daml/lf/engine/script/TestMain.scala",
@@ -32,7 +29,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_paiges_core",
     ],
-    scalacopts = script_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
@@ -50,7 +47,6 @@ da_scala_library(
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/cli-opts",
-        "//ledger-service/jwt",
         "//ledger-service/lf-value-json",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
@@ -58,6 +54,7 @@ da_scala_library(
         "//ledger/participant-local-store",
         "//libs-scala/auth-utils",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/jwt",
     ],
 )
 
@@ -85,7 +82,7 @@ da_scala_binary(
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",
     ],
-    scalacopts = script_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",

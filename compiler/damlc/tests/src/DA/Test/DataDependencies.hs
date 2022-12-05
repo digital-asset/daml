@@ -2,6 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Test.DataDependencies (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
@@ -31,9 +33,7 @@ main = do
     setEnv "TASTY_NUM_THREADS" "3" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
-    damlScriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
     oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
-    libWithScriptDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "lib-with-script-0.0.1-sdk-2.2.0-lf-1.14.dar")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     defaultMain $ tests Tools{..}
 
@@ -41,9 +41,7 @@ data Tools = Tools -- and places
   { damlc :: FilePath
   , damlcLegacy :: FilePath
   , validate :: FilePath -> IO ()
-  , damlScriptDar :: FilePath
   , oldProjDar :: FilePath
-  , libWithScriptDar :: FilePath
   }
 
 damlcForTarget :: Tools -> LF.Version -> FilePath
@@ -777,7 +775,7 @@ tests tools = testGroup "Data Dependencies" $
 
               -- Regression for issue https://github.com/digital-asset/daml/issues/9663
               -- Constraint tuple functions
-              , "constraintTupleFn : (Template t, Show t) => t -> ()"
+              , "constraintTupleFn : (HasSignatory t, Show t) => t -> ()"
               , "constraintTupleFn = const ()"
               , "type BigConstraint a b c = (Show a, Show b, Show c, Additive c)"
               , "bigConstraintFn : BigConstraint a b c => a -> b -> c -> c -> Text"
@@ -856,7 +854,7 @@ tests tools = testGroup "Data Dependencies" $
               , "usesHasFieldEmptyIndirectly : HasField \"\" a b => a -> b"
               , "usesHasFieldEmptyIndirectly = usesHasFieldEmpty"
               -- use constraint tuple fn
-              , "useConstraintTupleFn : (Template t, Show t) => t -> ()"
+              , "useConstraintTupleFn : (HasSignatory t, Show t) => t -> ()"
               , "useConstraintTupleFn x = constraintTupleFn x"
               , "useBigConstraintFn : Text"
               , "useBigConstraintFn = bigConstraintFn True \"Hello\" 10 20"
@@ -2413,63 +2411,6 @@ tests tools = testGroup "Data Dependencies" $
         , "    m = ()"
         ]
 
-    , testCaseSteps "Cross-SDK data-dependency with daml-script" $ \step' -> withTempDir $ \tmpDir -> do
-        -- regression test for https://github.com/digital-asset/daml/issues/14291
-        let
-          mainProj = "main"
-
-          path proj = tmpDir </> proj
-          damlYaml proj = path proj </> "daml.yaml"
-          damlMod proj mod = path proj </> mod <.> "daml"
-          step proj = step' ("building '" <> proj <> "' project")
-
-        step mainProj >> do
-          createDirectoryIfMissing True (path mainProj)
-          writeFileUTF8 (damlYaml mainProj) $ unlines
-            [ "sdk-version: " <> sdkVersion
-            , "name: " <> mainProj
-            , "source: ."
-            , "version: 0.1.0"
-            , "dependencies: [daml-prim, daml-stdlib, " <> damlScriptDar <> "]"
-            , "data-dependencies: [" <> libWithScriptDar <> "]"
-            ]
-          writeFileUTF8 (damlMod mainProj "Main") $ unlines
-            [ "module Main where"
-            , "import Daml.Script"
-            , "import Lib qualified"
-
-            , "template T1"
-            , "  with"
-            , "    party : Party"
-            , "  where"
-            , "    signatory party"
-
-            , "    nonconsuming choice C1 : Bool"
-            , "     controller party"
-            , "        do pure False"
-
-            , "run1 : Lib.Script ()"
-            , "run1 = Lib.run"
-
-            , "run2 : Script ()"
-            , "run2 = script do"
-            , "  alice <- allocateParty \"alice\""
-
-            , "  t <- alice `submit` createCmd Lib.T0 with party = alice"
-            , "  b <- alice `submit` exerciseCmd t Lib.C0"
-            , "  debug b"
-            , "  alice `submit` archiveCmd t"
-
-            , "  t <- alice `submit` createCmd T1 with party = alice"
-            , "  b <- alice `submit` exerciseCmd t C1"
-            , "  debug b"
-            , "  alice `submit` archiveCmd t"
-            ]
-          callProcessSilent damlc
-            [ "test"
-            , "--project-root", path mainProj
-            ]
-
     , testCaseSteps "User-defined exceptions" $ \step -> withTempDir $ \tmpDir -> do
         step "building project to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")
@@ -2715,9 +2656,7 @@ tests tools = testGroup "Data Dependencies" $
     Tools
       { damlc
       , validate
-      , damlScriptDar
       , oldProjDar
-      , libWithScriptDar
       } = tools
 
     simpleImportTest :: String -> [String] -> [String] -> TestTree

@@ -30,6 +30,11 @@ class DarReaderTest
     f
   }
 
+  "should reject a zip bomb with the proper error" in {
+    DarReader
+      .readArchiveFromFile(darFile, entrySizeThreshold = 1024) shouldBe Left(Error.ZipBomb)
+  }
+
   s"should read dar file: $darFile, main archive: DarReaderTest returned first" in {
 
     val Right(dar) = DarReader.readArchiveFromFile(darFile)
@@ -85,6 +90,7 @@ class DarReaderTest
         "GHC.Err",
         "GHC.Base",
         "LibraryModules",
+        "GHC.Tuple.Check",
       )
     }
   }

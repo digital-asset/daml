@@ -14,7 +14,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.javaapi.data
-import com.daml.ledger.javaapi.data.codegen.Update
+import com.daml.ledger.javaapi.data.codegen.HasCommands
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
   ApiServerConfig,
@@ -30,7 +30,6 @@ import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}
 
 import java.io.File
-import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
 import java.util.{Optional, UUID}
@@ -91,15 +90,12 @@ object TestUtil {
     Map[String, Filter](partyName -> NoFilter.instance).asJava
   )
 
-  def sendCmd(channel: Channel, partyName: String, update: Update[_]): Empty = {
-    sendCmd(channel, partyName, List(update))
-  }
+  def sendCmd(channel: Channel, partyName: String, hasCmds: HasCommands*): Empty = {
+    val submission = CommandsSubmission
+      .create(randomId, randomId, HasCommands.toCommands(hasCmds.asJava))
+      .withWorkflowId(randomId)
+      .withActAs(partyName)
 
-  def sendCmd(channel: Channel, partyName: String, updates: List[Update[_]]): Empty = {
-    sendCmd(channel, partyName, updates.flatMap(_.commands().asScala): _*)
-  }
-
-  private def sendCmd(channel: Channel, partyName: String, cmds: Command*): Empty = {
     CommandServiceGrpc
       .newBlockingStub(channel)
       .withDeadlineAfter(40, TimeUnit.SECONDS)
@@ -109,14 +105,7 @@ object TestUtil {
           .setCommands(
             SubmitCommandsRequest.toProto(
               LedgerID,
-              randomId,
-              randomId,
-              randomId,
-              partyName,
-              Optional.empty[Instant],
-              Optional.empty[Duration],
-              Optional.empty[Duration],
-              cmds.asJava,
+              submission,
             )
           )
           .build
@@ -127,26 +116,14 @@ object TestUtil {
       channel: Channel,
       actAs: java.util.List[String],
       readAs: java.util.List[String],
-      update: Update[_],
+      hasCmds: HasCommands*
   ): Empty = {
-    sendCmd(channel, actAs, readAs, List(update))
-  }
+    val submission = CommandsSubmission
+      .create(randomId, randomId, HasCommands.toCommands(hasCmds.asJava))
+      .withWorkflowId(randomId)
+      .withActAs(actAs)
+      .withReadAs(readAs)
 
-  def sendCmd(
-      channel: Channel,
-      actAs: java.util.List[String],
-      readAs: java.util.List[String],
-      updates: List[Update[_]],
-  ): Empty = {
-    sendCmd(channel, actAs, readAs, updates.flatMap(_.commands().asScala): _*)
-  }
-
-  def sendCmd(
-      channel: Channel,
-      actAs: java.util.List[String],
-      readAs: java.util.List[String],
-      cmds: Command*
-  ): Empty = {
     CommandServiceGrpc
       .newBlockingStub(channel)
       .withDeadlineAfter(40, TimeUnit.SECONDS)
@@ -156,15 +133,7 @@ object TestUtil {
           .setCommands(
             SubmitCommandsRequest.toProto(
               LedgerID,
-              randomId,
-              randomId,
-              randomId,
-              actAs,
-              readAs,
-              Optional.empty[Instant],
-              Optional.empty[Duration],
-              Optional.empty[Duration],
-              cmds.asJava,
+              submission,
             )
           )
           .build

@@ -7,10 +7,13 @@ import com.daml.lf.speedy.Compiler
 
 import java.nio.file.Path
 import java.time.Duration
+import scala.concurrent.duration._
 import akka.http.scaladsl.model.Uri
+import ch.qos.logback.classic.Level
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.dbutils.JdbcConfig
+import com.daml.metrics.api.reporters.MetricsReporter
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -41,4 +44,9 @@ private[trigger] final case class ServiceConfig(
     portFile: Option[Path],
     allowExistingSchema: Boolean,
     compilerConfig: Compiler.Config,
+    triggerConfig: TriggerRunnerConfig,
+    rootLoggingLevel: Option[Level],
+    logEncoder: LogEncoder,
+    metricsReporter: Option[MetricsReporter] = None,
+    metricsReportingInterval: FiniteDuration = 10 seconds,
 )

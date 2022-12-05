@@ -3,7 +3,8 @@
 
 package com.daml.lf.codegen.backend.java.inner
 
-import com.daml.ledger.javaapi.data.codegen.InterfaceCompanion
+import com.daml.ledger.javaapi.data.ContractFilter
+import com.daml.ledger.javaapi.data.codegen.{Contract, InterfaceCompanion}
 import com.daml.lf.codegen.backend.java.inner.TemplateClass.toChoiceNameField
 import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.typesig
@@ -21,11 +22,10 @@ object InterfaceClass extends StrictLogging {
       interfaceName: ClassName,
       interfaceViewTypeName: ClassName,
       interface: DefInterface.FWT,
-      packagePrefixes: Map[PackageId, String],
       typeDeclarations: Map[QualifiedName, typesig.PackageSignature.TypeDecl],
       packageId: PackageId,
       interfaceId: QualifiedName,
-  ): TypeSpec =
+  )(implicit packagePrefixes: PackagePrefixes): TypeSpec =
     TrackLineage.of("interface", interfaceName.simpleName()) {
       logger.info("Start")
       val interfaceType = TypeSpec
@@ -36,11 +36,11 @@ object InterfaceClass extends StrictLogging {
           TemplateClass
             .generateChoicesMetadata(
               interfaceName,
-              packagePrefixes,
               interface.choices,
             )
             .asJava
         )
+        .addMethod(generateContractFilterMethod(interfaceViewTypeName))
         .addField(generateInterfaceCompanionField())
         .addType(
           ContractIdClass
@@ -48,7 +48,6 @@ object InterfaceClass extends StrictLogging {
               interfaceName,
               interface.choices,
               ContractIdClass.For.Interface,
-              packagePrefixes,
             )
             .build()
         )
@@ -57,19 +56,17 @@ object InterfaceClass extends StrictLogging {
             interface.choices,
             typeDeclarations,
             packageId,
-            packagePrefixes,
           )
         )
         .addType(
           TemplateClass.generateCreateAndClass(
             interfaceName,
             -\/(ContractIdClass.For.Interface),
-            packagePrefixes,
           )
         )
         .addType(
           TemplateClass
-            .generateByKeyClass(interfaceName, -\/(ContractIdClass.For.Interface), packagePrefixes)
+            .generateByKeyClass(interfaceName, -\/(ContractIdClass.For.Interface))
         )
         .addType(
           generateInterfaceCompanionClass(
@@ -152,4 +149,21 @@ object InterfaceClass extends StrictLogging {
       name.module.toString,
       name.name.toString,
     )
+
+  private def generateContractFilterMethod(interfaceViewTypeName: ClassName): MethodSpec =
+    MethodSpec
+      .methodBuilder("contractFilter")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(
+        ParameterizedTypeName.get(
+          ClassName.get(classOf[ContractFilter[_]]),
+          ParameterizedTypeName.get(
+            ClassName.get(classOf[Contract[_, _]]),
+            ClassName.bestGuess("ContractId"),
+            interfaceViewTypeName,
+          ),
+        )
+      )
+      .addStatement("return $T.of(INTERFACE)", classOf[ContractFilter[_]])
+      .build()
 }

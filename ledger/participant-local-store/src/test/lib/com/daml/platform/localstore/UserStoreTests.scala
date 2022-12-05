@@ -3,9 +3,17 @@
 
 package com.daml.platform.localstore
 
-import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
+import com.daml.ledger.api.IdentityProviderIdFilter
+import com.daml.ledger.api.domain.{
+  IdentityProviderConfig,
+  IdentityProviderId,
+  JwksUrl,
+  ObjectMeta,
+  User,
+  UserRight,
+}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Party, UserId}
+import com.daml.lf.data.Ref.{LedgerString, Party, UserId}
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.api.UserManagementStore.{
   MaxAnnotationsSizeExceeded,
@@ -32,11 +40,21 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
 
   private val userId1 = "user1"
 
+  val persistedIdentityProviderId =
+    IdentityProviderId.Id(LedgerString.assertFromString("idp1"))
+  val idp1 = IdentityProviderConfig(
+    identityProviderId = persistedIdentityProviderId,
+    isDeactivated = false,
+    jwksUrl = JwksUrl("http://domain.com/"),
+    issuer = "issuer",
+  )
+
   def newUser(
       name: String = userId1,
       primaryParty: Option[Ref.Party] = None,
       isDeactivated: Boolean = false,
       annotations: Map[String, String] = Map.empty,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): User = User(
     id = name,
     primaryParty = primaryParty,
@@ -45,6 +63,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       resourceVersionO = None,
       annotations = annotations,
     ),
+    identityProviderId = identityProviderId,
   )
 
   def createdUser(
@@ -53,6 +72,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       isDeactivated: Boolean = false,
       resourceVersion: Long = 0,
       annotations: Map[String, String] = Map.empty,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): User =
     User(
       id = name,
@@ -62,6 +82,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
         resourceVersionO = Some(resourceVersion),
         annotations = annotations,
       ),
+      identityProviderId = identityProviderId,
     )
 
   def makeUserUpdate(
@@ -91,9 +112,17 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
         for {
           res1 <- tested.createUser(newUser(s"user1"), Set.empty)
           res2 <- tested.createUser(newUser("user2"), Set.empty)
+          _ <- createIdentityProviderConfig(idp1)
+          res3 <- tested.createUser(
+            newUser("user3", identityProviderId = persistedIdentityProviderId),
+            Set.empty,
+          )
         } yield {
           res1 shouldBe Right(createdUser("user1"))
           res2 shouldBe Right(createdUser("user2"))
+          res3 shouldBe Right(
+            createdUser("user3", identityProviderId = persistedIdentityProviderId)
+          )
         }
       }
     }
@@ -182,7 +211,11 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           _ <- tested.createUser(newUser("user2"), Set.empty)
           _ <- tested.createUser(newUser("user3"), Set.empty)
           _ <- tested.createUser(newUser("user4"), Set.empty)
-          list1 <- tested.listUsers(fromExcl = None, maxResults = 3)
+          list1 <- tested.listUsers(
+            fromExcl = None,
+            maxResults = 3,
+            identityProviderIdFilter = IdentityProviderIdFilter.All,
+          )
           _ = list1 shouldBe Right(
             UsersPage(
               Seq(
@@ -195,6 +228,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           list2 <- tested.listUsers(
             fromExcl = list1.getOrElse(fail("Expecting a Right()")).lastUserIdOption,
             maxResults = 4,
+            identityProviderIdFilter = IdentityProviderIdFilter.All,
           )
           _ = list2 shouldBe Right(UsersPage(Seq(createdUser("user4"))))
         } yield {
@@ -207,9 +241,17 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
         for {
           res1 <- tested.createUser(newUser("user1"), Set.empty)
           res2 <- tested.createUser(newUser("user2"), Set.empty)
-          users1 <- tested.listUsers(fromExcl = None, maxResults = 10000)
+          users1 <- tested.listUsers(
+            fromExcl = None,
+            maxResults = 10000,
+            identityProviderIdFilter = IdentityProviderIdFilter.All,
+          )
           res3 <- tested.deleteUser("user1")
-          users2 <- tested.listUsers(fromExcl = None, maxResults = 10000)
+          users2 <- tested.listUsers(
+            fromExcl = None,
+            maxResults = 10000,
+            identityProviderIdFilter = IdentityProviderIdFilter.All,
+          )
         } yield {
           res1 shouldBe Right(createdUser("user1"))
           res2 shouldBe Right(createdUser("user2"))
@@ -224,6 +266,53 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           res3 shouldBe Right(())
           users2 shouldBe Right(UsersPage(Seq(createdUser("user2"))))
 
+        }
+      }
+    }
+    "list users within idp" in {
+      testIt { tested =>
+        for {
+          _ <- createIdentityProviderConfig(idp1)
+          _ <- tested.createUser(
+            newUser("user1", identityProviderId = persistedIdentityProviderId),
+            Set.empty,
+          )
+          _ <- tested.createUser(newUser("user2"), Set.empty)
+          _ <- tested.createUser(newUser("user3"), Set.empty)
+          _ <- tested.createUser(
+            newUser("user4", identityProviderId = persistedIdentityProviderId),
+            Set.empty,
+          )
+          list1 <- tested.listUsers(
+            fromExcl = None,
+            maxResults = 3,
+            identityProviderIdFilter = IdentityProviderIdFilter.ByValue(persistedIdentityProviderId),
+          )
+          _ = list1 shouldBe Right(
+            UsersPage(
+              Seq(
+                createdUser("user1", identityProviderId = persistedIdentityProviderId),
+                createdUser("user4", identityProviderId = persistedIdentityProviderId),
+              )
+            )
+          )
+          list2 <- tested.listUsers(
+            fromExcl = None,
+            maxResults = 4,
+            identityProviderIdFilter = IdentityProviderIdFilter.All,
+          )
+          _ = list2 shouldBe Right(
+            UsersPage(
+              Seq(
+                createdUser("user1", identityProviderId = persistedIdentityProviderId),
+                createdUser("user2"),
+                createdUser("user3"),
+                createdUser("user4", identityProviderId = persistedIdentityProviderId),
+              )
+            )
+          )
+        } yield {
+          succeed
         }
       }
     }
@@ -266,7 +355,10 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           res1 <- tested.createUser(newUser("user1"), Set.empty)
           rights1 <- tested.grantRights("user1", Set(ParticipantAdmin))
           rights2 <- tested.grantRights("user1", Set(ParticipantAdmin))
-          rights3 <- tested.grantRights("user1", Set(CanActAs("party1"), CanReadAs("party2")))
+          rights3 <- tested.grantRights(
+            "user1",
+            Set(CanActAs("party1"), CanReadAs("party2")),
+          )
           rights4 <- tested.listUserRights("user1")
         } yield {
           res1 shouldBe Right(createdUser("user1"))
@@ -302,7 +394,10 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           rights2 <- tested.revokeRights("user1", Set(ParticipantAdmin))
           rights3 <- tested.revokeRights("user1", Set(ParticipantAdmin))
           rights4 <- tested.listUserRights("user1")
-          rights5 <- tested.revokeRights("user1", Set(CanActAs("party1"), CanReadAs("party2")))
+          rights5 <- tested.revokeRights(
+            "user1",
+            Set(CanActAs("party1"), CanReadAs("party2")),
+          )
           rights6 <- tested.listUserRights("user1")
         } yield {
           res1 shouldBe Right(createdUser("user1"))
@@ -331,6 +426,35 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
   }
 
   "updating" - {
+    "update a identity_provider_id for the user" in {
+      val id2 =
+        IdentityProviderId.Id(LedgerString.assertFromString("idp2"))
+      val idp2 = IdentityProviderConfig(
+        identityProviderId = id2,
+        jwksUrl = JwksUrl("http://domain.com/"),
+        issuer = "issuer2",
+      )
+      testIt { tested =>
+        val pr1 = newUser("user1", identityProviderId = persistedIdentityProviderId)
+        for {
+          _ <- createIdentityProviderConfig(idp1)
+          _ <- createIdentityProviderConfig(idp2)
+          _ <- tested.createUser(pr1, Set.empty)
+          update1 <- tested.updateUser(
+            userUpdate = UserUpdate(
+              id = pr1.id,
+              metadataUpdate = ObjectMetaUpdate.empty,
+              identityProviderIdUpdate = Some(id2),
+            )
+          )
+          _ = resetResourceVersion(update1.value) shouldBe newUser(
+            "user1",
+            identityProviderId = id2,
+          )
+        } yield succeed
+      }
+    }
+
     "update an existing user's annotations" in {
       testIt { tested =>
         val pr1 = newUser("user1", isDeactivated = true, primaryParty = None)

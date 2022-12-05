@@ -11,25 +11,18 @@ object Gauges {
 
   trait GaugeWithUpdate[T] extends Gauge[T] {
 
-    def updateValue(x: T)(implicit
-        context: MetricsContext
-    ): Unit
+    def updateValue(x: T): Unit
   }
 
-  case class VarGauge[T](initial: T)(implicit context: MetricsContext) extends GaugeWithUpdate[T] {
-    private val ref = new AtomicReference[(T, MetricsContext)](initial -> context)
-    def updateValue(x: T)(implicit
-        context: MetricsContext
-    ): Unit = ref.set(x -> context)
-    def updateValue(up: T => T)(implicit
-        context: MetricsContext
-    ): Unit = {
-      val _ = ref.updateAndGet { case (value, _) =>
-        up(value) -> context
+  case class VarGauge[T](initial: T) extends GaugeWithUpdate[T] {
+    private val ref = new AtomicReference[T](initial)
+    def updateValue(x: T): Unit = ref.set(x)
+    def updateValue(up: T => T): Unit = {
+      val _ = ref.updateAndGet { value =>
+        up(value)
       }
     }
-    override def getValue: T = ref.get()._1
+    override def getValue: T = ref.get()
 
-    def getValueAndContext: (T, MetricsContext) = ref.get()
   }
 }

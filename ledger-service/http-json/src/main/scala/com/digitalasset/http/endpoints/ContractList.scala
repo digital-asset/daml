@@ -26,8 +26,8 @@ import scalaz.{-\/, EitherT, \/, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.Metrics
 
 private[http] final class ContractList(
     routeSetup: RouteSetup,
@@ -42,7 +42,7 @@ private[http] final class ContractList(
   def fetch(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       ec: ExecutionContext,
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): ET[domain.SyncResponse[JsValue]] =
     for {
       parseAndDecodeTimer <- getParseAndDecodeTimerCtx()
@@ -84,10 +84,10 @@ private[http] final class ContractList(
 
   def retrieveAll(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Future[Error \/ SearchResult[Error \/ JsValue]] = for {
     parseAndDecodeTimer <- Future(
-      metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.startAsync()
+      metrics.incomingJsonParsingAndValidationTimer.startAsync()
     )
     res <- inputAndJwtPayload[JwtPayload](req).run.map {
       _.map { case (jwt, jwtPayload, _) =>
@@ -110,7 +110,7 @@ private[http] final class ContractList(
 
   def query(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Future[Error \/ SearchResult[Error \/ JsValue]] = {
     for {
       it <- inputAndJwtPayload[JwtPayload](req).leftMap(identity[Error])

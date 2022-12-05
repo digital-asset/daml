@@ -28,8 +28,9 @@ import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.Timed
 import akka.http.scaladsl.server.Directives._
 import com.daml.http.endpoints.{MeteringReportEndpoint, RouteSetup}
 import com.daml.jwt.domain.Jwt
@@ -337,14 +338,14 @@ class Endpoints(
 
   def all(implicit
       lc0: LoggingContextOf[InstanceUUID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Route = extractRequest apply { req =>
     implicit val lc: LoggingContextOf[InstanceUUID with RequestID] =
       extendWithRequestIdLogCtx(identity)(lc0)
-    import metrics.daml.HttpJsonApi._
+    import metrics._
     val markThroughputAndLogProcessingTime: Directive0 = Directive { (fn: Unit => Route) =>
       val t0 = System.nanoTime
-      metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
+      metrics.httpRequestThroughput.mark()
       fn(()).andThen { res =>
         res.onComplete(_ => logger.trace(s"Processed request after ${System.nanoTime() - t0}ns"))
         res
@@ -466,11 +467,11 @@ class Endpoints(
     }
 
   private implicit def fullySync[A: JsonWriter](implicit
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
       lc: LoggingContextOf[InstanceUUID with RequestID],
   ): MkHttpResponse[ET[domain.SyncResponse[A]]] = MkHttpResponse { result =>
     Timed.future(
-      metrics.daml.HttpJsonApi.responseCreationTimer,
+      metrics.responseCreationTimer,
       result
         .flatMap { x =>
           either(SprayJson.encode1(x).map(y => (y, x.status)).liftErr(ServerError.fromMsg))

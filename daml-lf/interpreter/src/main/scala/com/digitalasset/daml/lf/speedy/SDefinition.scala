@@ -15,7 +15,7 @@ import com.daml.lf.speedy.SExpr.SExpr
 final case class SDefinition(
     body: SExpr
 ) {
-  private var _cached: Option[SValue] = None
+  private[this] var _cached: Option[SValue] = None
   private[speedy] def cached: Option[SValue] = _cached
   private[speedy] def setCached(sValue: SValue): Unit = _cached = Some(sValue)
 }

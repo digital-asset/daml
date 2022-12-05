@@ -9,11 +9,11 @@ import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Meter, Timer}
 import com.daml.metrics.api.dropwizard.{DropwizardFactory, DropwizardTimer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class ServicesMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
+class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegistry)
     extends DropwizardFactory {
 
   object index extends DropwizardFactory {
-    override val prefix: MetricName = ServicesMetrics.this.prefix :+ "index"
+    val prefix: MetricName = ServicesMetrics.this.prefix :+ "index"
     override val registry: MetricRegistry = ServicesMetrics.this.registry
 
     @MetricDoc.Tag(
@@ -54,7 +54,7 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
     val getTransactionMetering: Timer = timer(prefix :+ "get_transaction_metering")
 
     object InMemoryFanoutBuffer extends DropwizardFactory {
-      override val prefix: MetricName = index.prefix :+ "in_memory_fan_out_buffer"
+      val prefix: MetricName = index.prefix :+ "in_memory_fan_out_buffer"
       override val registry: MetricRegistry = index.registry
 
       @MetricDoc.Tag(
@@ -88,7 +88,7 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
     }
 
     case class BufferedReader(streamName: String) extends DropwizardFactory {
-      override val prefix: MetricName = index.prefix :+ s"${streamName}_buffer_reader"
+      val prefix: MetricName = index.prefix :+ s"${streamName}_buffer_reader"
       override val registry: MetricRegistry = index.registry
 
       @MetricDoc.Tag(
@@ -150,7 +150,7 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
   }
 
   object read extends DropwizardFactory {
-    override val prefix: MetricName = ServicesMetrics.this.prefix :+ "read"
+    val prefix: MetricName = ServicesMetrics.this.prefix :+ "read"
     override val registry: MetricRegistry = index.registry
 
     @MetricDoc.Tag(
@@ -167,7 +167,7 @@ class ServicesMetrics(override val prefix: MetricName, override val registry: Me
   }
 
   object write extends DropwizardFactory {
-    override val prefix: MetricName = ServicesMetrics.this.prefix :+ "write"
+    val prefix: MetricName = ServicesMetrics.this.prefix :+ "write"
     override val registry: MetricRegistry = index.registry
 
     @MetricDoc.Tag(

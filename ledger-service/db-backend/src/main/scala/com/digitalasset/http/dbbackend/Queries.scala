@@ -25,19 +25,19 @@ import cats.instances.list._
 import cats.Applicative
 import cats.syntax.applicative._
 import cats.syntax.functor._
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.lf.crypto.Hash
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Metrics
 import doobie.free.connection
 
 sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(implicit
-    metrics: Metrics
+    metrics: HttpJsonApiMetrics
 ) {
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
-  val schemaVersion = 3
+  val schemaVersion = 4
 
   private[http] val surrogateTpIdCache = new SurrogateTemplateIdCache(metrics, tpIdCacheMaxEntries)
 
@@ -69,13 +69,14 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     sql"""
       CREATE TABLE
         $contractTableName
-        (contract_id $contractIdType NOT NULL CONSTRAINT ${tablePrefixFr}contract_k PRIMARY KEY
+        (contract_id $contractIdType NOT NULL
         ,tpid $bigIntType NOT NULL REFERENCES $templateIdTableName (tpid)
         ,${jsonColumn(sql"key")}
         ,key_hash $keyHashColumn
         ,${jsonColumn(contractColumnName)}
         $contractsTableSignatoriesObservers
         ,agreement_text $agreementTextType
+        ,CONSTRAINT ${tablePrefixFr}contract_k PRIMARY KEY (contract_id, tpid)
         )
     """,
   )
@@ -303,24 +304,35 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
   )(implicit log: LogHandler): ConnectionIO[Int]
 
+  // ContractTypeId -> CId[String]
   final def deleteContracts(
-      cids: Set[String]
+      cids: Map[SurrogateTpId, Set[String]]
   )(implicit log: LogHandler): ConnectionIO[Int] = {
-    import cats.data.NonEmptyVector
     import cats.instances.vector._
-    import cats.instances.int._
-    import cats.syntax.foldable._
-    NonEmptyVector.fromVector(cids.toVector) match {
-      case None =>
-        free.connection.pure(0)
-      case Some(cids) =>
-        val chunks = maxListSize.fold(Vector(cids))(size => cids.grouped(size).toVector)
-        chunks
-          .map(chunk =>
-            (fr"DELETE FROM $contractTableName WHERE " ++ Fragments
-              .in(fr"contract_id", chunk)).update.run
+    import nonempty.catsinstances._
+    (cids: Iterable[(SurrogateTpId, Set[String])]).view.collect { case (k, NonEmpty(cids)) =>
+      (k, cids)
+    }.toMap match {
+      case NonEmpty(cids) =>
+        val del = fr"DELETE FROM $contractTableName WHERE " ++ {
+          val chunkMap =
+            maxListSize.fold(cids.transform((_, sv) => NonEmpty(Vector, sv)))(
+              chunkBySetSize(_, cids)
+            )
+          joinFragment(
+            chunkMap.toVector.map { case (tpid, chunks) =>
+              val inCids = joinFragment(
+                chunks.map(cids => Fragments.in(fr"contract_id", cids.toVector.toNEF)),
+                fr" OR ",
+              )
+              fr"(tpid = $tpid AND ($inCids))"
+            },
+            fr" OR ",
           )
-          .foldA
+        }
+        del.update.run
+      case _ =>
+        free.connection.pure(0)
     }
   }
 
@@ -361,7 +373,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     val NonEmpty(queryConditions) = queries.toVector
     val queriesCondition =
       joinFragment(
-        queryConditions.toOneAnd map { case (tpid, predicate) =>
+        queryConditions map { case (tpid, predicate) =>
           fr"($tpid = $tpidSelector AND ($predicate))"
         },
         fr" OR ",
@@ -508,8 +520,9 @@ object Queries {
     case object GTEQ extends OrderOperator
   }
 
-  private[http] def joinFragment(xs: OneAnd[Vector, Fragment], sep: Fragment): Fragment =
-    concatFragment(intersperse(xs, sep))
+  // XXX SC I'm pretty certain we can use NonEmpty all the way down
+  private[http] def joinFragment(xs: NonEmpty[Vector[Fragment]], sep: Fragment): Fragment =
+    concatFragment(intersperse(xs.toOneAnd, sep))
 
   private[http] def concatFragment[F[X] <: IndexedSeq[X]](xs: OneAnd[F, Fragment]): Fragment = {
     val OneAnd(hd, tl) = xs
@@ -533,7 +546,7 @@ object Queries {
       selector: Fragment,
   ): Fragment =
     fr"CASE" ++ {
-      assert(m.nonEmpty, "existing offsets must be non-empty")
+      require(m.nonEmpty, "existing offsets must be non-empty")
       val when +: whens = m.iterator.map { case (k, v) =>
         fr"WHEN ($selector = $k) THEN $v"
       }.toVector
@@ -580,6 +593,20 @@ object Queries {
     // lagging offsets still needs to consider the template IDs that weren't
     // returned by the offset table query
     (allTpids diff grouped.keySet).view.map((_, Map.empty[Party, Off])).toMap ++ grouped
+  }
+
+  // invariant: each element x of result has `x.values.forall(_.forall(_.size <= size))`
+  private[dbbackend] def chunkBySetSize[K, V](
+      size: Int,
+      groups: NonEmpty[Map[K, NonEmpty[Set[V]]]],
+  ): NonEmpty[Map[K, NonEmpty[Vector[NonEmpty[Set[V]]]]]] = {
+    require(size > 0, s"chunk size must be positive, not $size")
+    groups.transform { (_, nesv) =>
+      nesv.grouped(size).collect { case NonEmpty(sv) => sv }.toVector match {
+        case NonEmpty(svs) => svs
+        case _ => sys.error("impossible: non-empty input set was empty")
+      }
+    }
   }
 
   import doobie.util.invariant.InvalidValue
@@ -656,7 +683,7 @@ object Queries {
 
 private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Long)(implicit
     ipol: Queries.SqlInterpolation.StringArray,
-    metrics: Metrics,
+    metrics: HttpJsonApiMetrics,
 ) extends Queries(tablePrefix, tpIdCacheMaxEntries) {
   import Queries._, Queries.InitDdl.{Droppable, CreateIndex}
   import Implicits._
@@ -723,7 +750,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
       s"""
         INSERT INTO $contractTableNameRaw
         VALUES (?, ?, ?::jsonb, ?, ?::jsonb, ?, ?, ?)
-        ON CONFLICT (contract_id) DO NOTHING
+        ON CONFLICT (contract_id, tpid) DO NOTHING
       """
     ).updateMany(dbcs)
   }
@@ -788,7 +815,7 @@ private final class OracleQueries(
     tablePrefix: String,
     disableContractPayloadIndexing: DisableContractPayloadIndexing,
     tpIdCacheMaxEntries: Long,
-)(implicit metrics: Metrics)
+)(implicit metrics: HttpJsonApiMetrics)
     extends Queries(tablePrefix, tpIdCacheMaxEntries) {
   import Queries._, InitDdl._
   import Implicits._
@@ -888,7 +915,7 @@ private final class OracleQueries(
     import spray.json.DefaultJsonProtocol._
     Update[DBContract[SurrogateTpId, DBContractKey, JsValue, JsValue]](
       s"""
-        INSERT /*+ ignore_row_on_dupkey_index($contractTableNameRaw(contract_id)) */
+        INSERT /*+ ignore_row_on_dupkey_index($contractTableNameRaw(contract_id, tpid)) */
         INTO $contractTableNameRaw (contract_id, tpid, key, key_hash, payload, signatories, observers, agreement_text)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       """
@@ -919,7 +946,8 @@ private final class OracleQueries(
           sql"""SELECT c.contract_id contract_id, $tpid template_id, key, key_hash, payload,
                        signatories, observers, agreement_text ${rownum getOrElse fr""}
                 FROM $contractTableName c
-                     JOIN $contractStakeholdersViewName cst ON (c.contract_id = cst.contract_id)
+                     JOIN $contractStakeholdersViewName cst
+                     ON (c.contract_id = cst.contract_id AND c.tpid = cst.tpid)
                 WHERE (${Fragments.in(fr"cst.stakeholder", parties.toNEF)})
                       AND ($queriesCondition)"""
         rownum.fold(dupQ)(_ => sql"SELECT $outerSelectList FROM ($dupQ) WHERE rownumber = 1")
@@ -996,9 +1024,9 @@ private final class OracleQueries(
 
       case JsObject(fields) =>
         fields.toVector match {
-          case hp +: tp =>
+          case NonEmpty(fields) =>
             // this assertFromString is forced by the aforementioned too-big type
-            val fieldPreds = OneAnd(hp, tp).map { case (ok, ov) =>
+            val fieldPreds = fields.map { case (ok, ov) =>
               containsAtContractPath(path objectAt Ref.Name.assertFromString(ok), ov)
             }
             joinFragment(fieldPreds, sql" AND ")

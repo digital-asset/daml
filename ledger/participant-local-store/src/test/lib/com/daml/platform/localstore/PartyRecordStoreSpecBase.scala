@@ -3,6 +3,7 @@
 
 package com.daml.platform.localstore
 
+import com.daml.ledger.api.domain.IdentityProviderConfig
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.platform.localstore.api.PartyRecordStore
 import org.scalatest.matchers.should.Matchers
@@ -18,10 +19,11 @@ trait PartyRecordStoreSpecBase
 
   def newStore(): PartyRecordStore
 
+  def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig): Future[Unit]
+
   final protected def testIt(
       f: PartyRecordStore => Future[Assertion]
   ): Future[Assertion] = f(
     newStore()
   )
-
 }

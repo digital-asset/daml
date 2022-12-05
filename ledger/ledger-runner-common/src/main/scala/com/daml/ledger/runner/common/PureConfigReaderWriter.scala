@@ -24,7 +24,7 @@ import com.daml.platform.configuration.{
 }
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
-import com.daml.platform.localstore.UserManagementConfig
+import com.daml.platform.localstore.{IdentityProviderManagementConfig, UserManagementConfig}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.{
   ConnectionPoolConfig,
@@ -197,6 +197,13 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val userManagementConfigConvert: ConfigConvert[UserManagementConfig] =
     deriveConvert[UserManagementConfig]
+
+  implicit val identityProviderManagementConfigHint =
+    ProductHint[IdentityProviderManagementConfig](allowUnknownKeys = false)
+
+  implicit val identityProviderManagementConfigConvert
+      : ConfigConvert[IdentityProviderManagementConfig] =
+    deriveConvert[IdentityProviderManagementConfig]
 
   implicit val jwtTimestampLeewayConfigHint: OptConfigValue.OptProductHint[JwtTimestampLeeway] =
     optProductHint[JwtTimestampLeeway](allowUnknownKeys = false)

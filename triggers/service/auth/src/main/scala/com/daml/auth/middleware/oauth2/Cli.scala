@@ -72,7 +72,7 @@ private[oauth2] final case class Cli(
       clientSecret,
       tokenVerifier,
     )
-    cfg.validate
+    cfg.validate()
     cfg
   }
 
@@ -94,6 +94,7 @@ private[oauth2] final case class Cli(
   }
 }
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 private[oauth2] object Cli {
 
   private[oauth2] val Default =

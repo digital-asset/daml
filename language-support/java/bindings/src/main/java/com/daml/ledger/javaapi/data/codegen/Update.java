@@ -8,59 +8,86 @@ import java.util.List;
 import java.util.function.Function;
 
 public abstract class Update<U> implements HasCommands {
-  private final Command command;
+  final Command command;
 
   public Update(Command command) {
     this.command = command;
   }
 
   @Override
-  public List<Command> commands() {
+  public final List<Command> commands() {
     return List.of(command);
   }
 
   /**
-   * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
-   *     href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code
-   *     generator</a>, and <em>should not be instantiated directly</em>. Applications should only
-   *     obtain this {@link Update} instantiated generated java classes by calling create and
-   *     exercise methods.
+   * Map the result type.
+   *
+   * <pre>
+   *   // follows the functor laws
+   *   u = u.map(a -> a)
+   *   u.map(g.andThen(f)) = u.map(g).map(f)
+   * </pre>
+   */
+  public abstract <V> Update<V> map(Function<? super U, ? extends V> f);
+
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+   * and <em>should not be instantiated directly</em>. Applications should only obtain this {@link
+   * Update} instantiated generated java classes by calling create and exercise methods.
+   *
+   * @hidden
    */
   public static final class ExerciseUpdate<R, U> extends Update<U> {
     public final Function<Exercised<R>, U> k;
     public final ValueDecoder<R> returnTypeDecoder;
 
+    /** @hidden */
     public ExerciseUpdate(
         Command command, Function<Exercised<R>, U> k, ValueDecoder<R> returnTypeDecoder) {
       super(command);
       this.k = k;
       this.returnTypeDecoder = returnTypeDecoder;
     }
+
+    @Override
+    public <V> ExerciseUpdate<R, V> map(Function<? super U, ? extends V> f) {
+      return new ExerciseUpdate<>(command, k.andThen(f), returnTypeDecoder);
+    }
   }
 
   /**
-   * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
-   *     href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code
-   *     generator</a>, and <em>should not be instantiated directly</em>. Applications should only
-   *     obtain this {@link Update} instantiated generated java classes by calling create and
-   *     exercise methods.
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+   * and <em>should not be instantiated directly</em>. Applications should only obtain this {@link
+   * Update} instantiated generated java classes by calling create and exercise methods.
+   *
+   * @hidden
    */
   public static final class CreateUpdate<CtId, U> extends Update<U> {
     public final Function<Created<CtId>, U> k;
     public final Function<String, CtId> createdContractId;
 
+    /** @hidden */
     public CreateUpdate(
         Command command, Function<Created<CtId>, U> k, Function<String, CtId> createdContractId) {
       super(command);
       this.k = k;
       this.createdContractId = createdContractId;
     }
+
+    @Override
+    public <V> CreateUpdate<CtId, V> map(Function<? super U, ? extends V> f) {
+      return new CreateUpdate<>(command, k.andThen(f), createdContractId);
+    }
   }
 
   /**
-   * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
-   *     href="https://docs.daml.com/app-dev/bindings-java/index.html">the Java Bindings</a>, and
-   *     <em>should not be instantiated directly</em>.
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/index.html">the Java Bindings</a>, and
+   * <em>should not be instantiated directly</em>.
+   *
+   * @hidden
    */
   public abstract static class FoldUpdate<U, Z> {
     public abstract <CtId> Z created(CreateUpdate<CtId, U> create);
@@ -69,9 +96,11 @@ public abstract class Update<U> implements HasCommands {
   }
 
   /**
-   * @hidden <strong>INTERNAL API</strong>: this is meant for use by <a
-   *     href="https://docs.daml.com/app-dev/bindings-java/index.html">the Java Bindings</a>, and
-   *     <em>should not be called directly</em>.
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/index.html">the Java Bindings</a>, and
+   * <em>should not be called directly</em>.
+   *
+   * @hidden
    */
   public <Z> Z foldUpdate(FoldUpdate<U, Z> foldUpdate) {
     if (this instanceof CreateUpdate) {

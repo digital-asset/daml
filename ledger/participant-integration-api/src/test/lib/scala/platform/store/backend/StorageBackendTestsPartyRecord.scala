@@ -80,6 +80,7 @@ private[backend] trait StorageBackendTestsPartyRecord
     val party = if (partyId != "") partyId else s"party_id_$uuid"
     PartyRecordStorageBackend.DbPartyRecordPayload(
       party = Ref.Party.assertFromString(party),
+      identityProviderId = None,
       resourceVersion = resourceVersion,
       createdAt = createdAt,
     )

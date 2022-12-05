@@ -6,6 +6,7 @@ package com.daml.metrics.api.dropwizard
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
+import com.codahale.metrics.Timer.Context
 import com.codahale.{metrics => codahale}
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram, Meter, Timer}
@@ -27,11 +28,14 @@ case class DropwizardTimer(name: String, metric: codahale.Timer) extends Timer {
       context: MetricsContext = MetricsContext.Empty
   ): TimerHandle = {
     val ctx = metric.time()
-    () => {
-      ctx.stop()
-      ()
-    }
+    DropwizardTimerHandle(ctx)
   }
+}
+
+final case class DropwizardTimerHandle(ctx: Context) extends TimerHandle {
+
+  override def stop()(implicit context: MetricsContext): Unit = ctx.close()
+
 }
 
 sealed case class DropwizardMeter(name: String, metric: codahale.Meter) extends Meter {
@@ -47,12 +51,15 @@ sealed case class DropwizardCounter(name: String, metric: codahale.Counter) exte
   override def inc()(implicit
       context: MetricsContext = MetricsContext.Empty
   ): Unit = metric.inc
+
   override def inc(n: Long)(implicit
       context: MetricsContext
   ): Unit = metric.inc(n)
+
   override def dec()(implicit
       context: MetricsContext = MetricsContext.Empty
   ): Unit = metric.dec
+
   override def dec(n: Long)(implicit
       context: MetricsContext
   ): Unit = metric.dec(n)
@@ -61,9 +68,7 @@ sealed case class DropwizardCounter(name: String, metric: codahale.Counter) exte
 }
 
 sealed case class DropwizardGauge[T](name: String, metric: Gauges.VarGauge[T]) extends Gauge[T] {
-  def updateValue(newValue: T)(implicit
-      context: MetricsContext = MetricsContext.Empty
-  ): Unit = metric.updateValue(newValue)
+  def updateValue(newValue: T): Unit = metric.updateValue(newValue)
   override def getValue: T = metric.getValue
 }
 

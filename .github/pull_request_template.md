@@ -5,7 +5,6 @@
 - Include appropriate tests
 - Set a descriptive title and thorough description
 - Add a reference to the [issue this PR will solve](https://github.com/digital-asset/daml/issues), if appropriate
-- Include changelog additions in one or more commit message bodies between the `CHANGELOG_BEGIN` and `CHANGELOG_END` tags
 - Normal production system change, include purpose of change in description
 - If you mean to change the status of a component, please make sure you keep [the Component Status page](https://github.com/digital-asset/daml/blob/main/docs/source/support/component-statuses.rst) up to date.
 

@@ -94,6 +94,7 @@ class PureConfigReaderWriterSpec
     )
     testReaderWriterIsomorphism(secure, ArbitraryConfig.clientAuth)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.userManagementConfig)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.identityProviderManagementConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.connectionPoolConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.postgresDataSourceConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.dataSourceProperties)
@@ -215,8 +216,6 @@ class PureConfigReaderWriterSpec
     compare(LanguageVersion.DevVersions, "daml-lf-dev-mode-unsafe")
     compare(LanguageVersion.EarlyAccessVersions, "early-access")
     compare(LanguageVersion.LegacyVersions, "legacy")
-
-    versionRangeWriter.to(LanguageVersion.StableVersions) shouldBe fromAnyRef("stable")
 
     versionRangeReader
       .from(fromAnyRef("stable"))
@@ -598,11 +597,18 @@ class PureConfigReaderWriterSpec
       |  max-api-services-index-db-queue-size = 1000
       |  max-api-services-queue-size = 10000
       |  max-used-heap-space-percentage = 85
-      |  min-free-heap-space-bytes = 314572800""".stripMargin
+      |  min-free-heap-space-bytes = 300000""".stripMargin
 
   it should "support current defaults" in {
     val value = validRateLimitingConfig
-    convert(rateLimitingConfigConvert, value).value shouldBe Some(RateLimitingConfig())
+    val expected = RateLimitingConfig(
+      maxApiServicesQueueSize = 10000,
+      maxApiServicesIndexDbQueueSize = 1000,
+      maxUsedHeapSpacePercentage = 85,
+      minFreeHeapSpaceBytes = 300000,
+      maxStreams = 1000,
+    )
+    convert(rateLimitingConfigConvert, value).value shouldBe Some(expected)
   }
 
   it should "not support unknown keys" in {
@@ -638,8 +644,8 @@ class PureConfigReaderWriterSpec
       |  enabled = true
       |  max-api-services-index-db-queue-size = 1000
       |  max-api-services-queue-size = 10000
-      |  max-used-heap-space-percentage = 85
-      |  min-free-heap-space-bytes = 314572800
+      |  max-used-heap-space-percentage = 100
+      |  min-free-heap-space-bytes = 0
       |}
       |seeding = strong
       |time-provider-type = wall-clock

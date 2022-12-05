@@ -26,6 +26,9 @@ import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
+import com.daml.test.evidence.tag.Security.SecurityTest
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
@@ -57,6 +60,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
     with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns
     with BeforeAndAfterAll {
+
+  private val authorizationSecurity = SecurityTest(property = Authorization, asset = "TBD")
 
   import WebsocketTestFixture._
 
@@ -97,8 +102,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     SimpleScenario("query", Uri.Path("/v1/stream/query"), baseQueryInput),
     SimpleScenario("fetch", Uri.Path("/v1/stream/fetch"), baseFetchInput),
   ).foreach { scenario =>
-    // TEST_EVIDENCE: Authorization: websocket request with valid protocol token should allow client subscribe to stream
-    s"${scenario.id} request with valid protocol token should allow client subscribe to stream" in withHttpService {
+    s"${scenario.id} request with valid protocol token should allow client subscribe to stream" taggedAs authorizationSecurity in withHttpService {
       (uri, _, _, _) =>
         jwt(uri).flatMap(jwt =>
           wsConnectRequest(
@@ -109,8 +113,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         )
     }
 
-    // TEST_EVIDENCE: Authorization: websocket request with invalid protocol token should be denied
-    s"${scenario.id} request with invalid protocol token should be denied" in withHttpService {
+    s"${scenario.id} request with invalid protocol token should be denied" taggedAs authorizationSecurity in withHttpService {
       (uri, _, _, _) =>
         wsConnectRequest(
           uri.copy(scheme = "ws").withPath(scenario.path),
@@ -119,8 +122,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
     }
 
-    // TEST_EVIDENCE: Authorization: websocket request without protocol token should be denied
-    s"${scenario.id} request without protocol token should be denied" in withHttpService {
+    s"${scenario.id} request without protocol token should be denied" taggedAs authorizationSecurity in withHttpService {
       (uri, _, _, _) =>
         wsConnectRequest(
           uri.copy(scheme = "ws").withPath(scenario.path),
@@ -129,8 +131,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
     }
 
-    // TEST_EVIDENCE: Authorization: multiple websocket requests over the same WebSocket connection are NOT allowed
-    s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" in withHttpService {
+    s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" taggedAs authorizationSecurity in withHttpService {
       fixture =>
         immediateQuery(fixture, scenario.mapInput(_.mapConcat(x => List(x, x))))
           .flatMap { msgs =>
@@ -158,15 +159,11 @@ abstract class AbstractWebsocketServiceIntegrationTest
       Source.single(TextMessage.Strict("""[{"templateId": "AA:BB", "key": ["k", "v"]}]""")),
     ),
   ).foreach { scenario =>
-    s"${scenario.id} report UnknownTemplateIds and error when cannot resolve any template ID" in withHttpService {
+    s"${scenario.id} report error when cannot resolve any template ID" in withHttpService {
       fixture =>
         immediateQuery(fixture, scenario)
           .flatMap { msgs =>
-            inside(msgs) { case Seq(warningMsg, errorMsg) =>
-              val warning = decodeServiceWarning(warningMsg)
-              inside(warning) { case domain.UnknownTemplateIds(ids) =>
-                ids shouldBe List(domain.ContractTypeId(None, "AA", "BB"))
-              }
+            inside(msgs) { case Seq(errorMsg) =>
               val error = decodeErrorResponse(errorMsg)
               error shouldBe domain.ErrorResponse(
                 List(ErrorMessages.cannotResolveAnyTemplateId),
@@ -1646,13 +1643,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
     import json.JsonProtocol._
     inside(SprayJson.decode[domain.ErrorResponse](str)) { case \/-(e) =>
       e
-    }
-  }
-
-  private def decodeServiceWarning(str: String): domain.ServiceWarning = {
-    import json.JsonProtocol._
-    inside(SprayJson.decode[domain.AsyncWarningsWrapper](str)) { case \/-(w) =>
-      w.warnings
     }
   }
 }

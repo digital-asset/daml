@@ -4,12 +4,13 @@
 package com.daml.lf.engine.trigger
 
 import akka.NotUsed
+import akka.event.Logging
 import akka.stream._
 import akka.stream.scaladsl._
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.commands.{Command, Commands}
+import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -20,6 +21,7 @@ import com.daml.ledger.api.v1.transaction_filter.{
   InterfaceFilter,
   TransactionFilter,
 }
+import com.daml.ledger.api.v1.{value => api}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement._
 import com.daml.lf.archive.Dar
@@ -29,6 +31,16 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.trigger.Runner.{
+  SeenMsgs,
+  TriggerContext,
+  TriggerContextualFlow,
+  TriggerContextualSource,
+  logger,
+  triggerUserState,
+}
+import com.daml.lf.engine.trigger.Runner.Implicits._
+import com.daml.lf.engine.trigger.ToLoggingContext._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -37,7 +49,9 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{Compiler, Pretty, SValue, Speedy}
 import com.daml.lf.{CompiledPackages, PureCompiledPackages}
-import com.daml.logging.entries.LoggingEntry
+import com.daml.logging.LoggingContextOf.label
+import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingValue, ToLoggingValue}
+import com.daml.logging.entries.ToLoggingValue._
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
@@ -45,10 +59,9 @@ import com.daml.scalautil.Statement.discard
 import com.daml.script.converter.Converter.Implicits._
 import com.daml.script.converter.Converter.{DamlAnyModuleRecord, DamlTuple2, unrollFree}
 import com.daml.script.converter.ConverterException
+import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
-import com.typesafe.scalalogging.StrictLogging
-import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
@@ -58,17 +71,20 @@ import scalaz.{-\/, Tag, \/, \/-}
 
 import java.time.Instant
 import java.util.UUID
-import scala.annotation.tailrec
+import java.util.concurrent.atomic.AtomicLong
+import scala.annotation.{nowarn, tailrec}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
 
-sealed trait TriggerMsg
-final case class CompletionMsg(c: Completion) extends TriggerMsg
-final case class TransactionMsg(t: Transaction) extends TriggerMsg
-final case class HeartbeatMsg() extends TriggerMsg
+private[lf] sealed trait TriggerMsg
+private[lf] object TriggerMsg {
+  final case class Completion(c: com.daml.ledger.api.v1.completion.Completion) extends TriggerMsg
+  final case class Transaction(t: com.daml.ledger.api.v1.transaction.Transaction) extends TriggerMsg
+  final case object Heartbeat extends TriggerMsg
+}
 
-final case class TriggerDefinition(
+private[lf] final case class TriggerDefinition(
     id: Identifier,
     ty: TypeConApp,
     version: Trigger.Version,
@@ -78,7 +94,7 @@ final case class TriggerDefinition(
   val triggerIds = TriggerIds(ty.tycon.packageId)
 }
 
-final case class Trigger(
+private[lf] final case class Trigger(
     defn: TriggerDefinition,
     filters: Filters, // We store Filters rather than
     // TransactionFilter since the latter is
@@ -89,39 +105,50 @@ final case class Trigger(
 )
 
 // Utilities for interacting with the speedy machine.
-object Machine extends StrictLogging {
+private[lf] object Machine {
+
   // Run speedy until we arrive at a value.
-  def stepToValue(machine: Speedy.Machine): SValue = {
+  def stepToValue(
+      machine: Speedy.OffLedgerMachine
+  )(implicit triggerContext: TriggerLogContext): SValue = {
     machine.run() match {
-      case SResultFinal(v, _) => v
+      case SResultFinal(v) => v
       case SResultError(err) => {
-        logger.error(Pretty.prettyError(err).render(80))
+        triggerContext.logError(Pretty.prettyError(err).render(80))
         throw err
       }
       case res => {
         val errMsg = s"Unexpected speedy result: $res"
-        logger.error(errMsg)
+        triggerContext.logError(errMsg)
         throw new RuntimeException(errMsg)
       }
     }
   }
 }
 
-object Trigger extends StrictLogging {
+object Trigger {
 
-  private[trigger] def newLoggingContext[P, T](
+  private[trigger] def newTriggerLogContext[P, T](
       triggerDefinition: Identifier,
       actAs: Party,
       readAs: Set[Party],
-      triggerId: Option[UUID] = None,
-  ): (LoggingContextOf[Trigger with P] => T) => T = {
-    val entries0 = List[LoggingEntry](
-      "triggerDefinition" -> triggerDefinition.toString,
-      "triggerActAs" -> Tag.unwrap(actAs),
-      "triggerReadAs" -> Tag.unsubst(readAs),
-    )
-    val entries = triggerId.fold(entries0)(uuid => entries0.+:("triggerId" -> uuid.toString))
-    LoggingContextOf.newLoggingContext(LoggingContextOf.label[Trigger with P], entries: _*)
+      triggerId: String,
+      applicationId: ApplicationId,
+  )(f: TriggerLogContext => T): T = {
+    LoggingContextOf.newLoggingContext(
+      LoggingContextOf.label[Trigger with P],
+      "applicationId" -> applicationId.unwrap,
+    ) { implicit loggingContext: LoggingContextOf[Trigger] =>
+      TriggerLogContext.newRootSpan(
+        "setup",
+        "id" -> triggerId,
+        "definition" -> triggerDefinition,
+        "actAs" -> Tag.unwrap(actAs),
+        "readAs" -> Tag.unsubst(readAs),
+      ) { implicit triggerContext: TriggerLogContext =>
+        f(triggerContext)
+      }
+    }
   }
 
   private def detectHasReadAs(
@@ -186,14 +213,12 @@ object Trigger extends StrictLogging {
       case Right(DValueSignature(TApp(ty @ TTyCon(tyCon), tyArg), _, _)) =>
         val triggerIds = TriggerIds(tyCon.packageId)
         if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
-          logger.debug("Running low-level trigger")
           val expr = EVal(triggerId)
           val ty = TypeConApp(tyCon, ImmArray(tyArg))
           detectVersion(pkgInterface, triggerIds).map(
             TriggerDefinition(triggerId, ty, _, Level.Low, expr)
           )
         } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
-          logger.debug("Running high-level trigger")
           val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
           val expr = EApp(runTrigger, EVal(triggerId))
           val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
@@ -206,8 +231,10 @@ object Trigger extends StrictLogging {
         } else {
           error(triggerId, ty)
         }
+
       case Right(DValueSignature(ty, _, _)) =>
         error(triggerId, ty)
+
       case Left(err) =>
         Left(err.pretty)
     }
@@ -216,9 +243,9 @@ object Trigger extends StrictLogging {
   def fromIdentifier(
       compiledPackages: CompiledPackages,
       triggerId: Identifier,
-  )(implicit loggingContext: LoggingContextOf[Trigger]): Either[String, Trigger] = {
-
+  )(implicit triggerContext: TriggerLogContext): Either[String, Trigger] = {
     val compiler = compiledPackages.compiler
+
     for {
       triggerDef <- detectTriggerDefinition(compiledPackages.pkgInterface, triggerId)
       hasReadAs <- detectHasReadAs(compiledPackages.pkgInterface, triggerDef.triggerIds)
@@ -234,7 +261,7 @@ object Trigger extends StrictLogging {
       compiler: Compiler,
       converter: Converter,
       triggerDef: TriggerDefinition,
-  )(implicit loggingContext: LoggingContextOf[Trigger]): Either[String, Option[FiniteDuration]] = {
+  )(implicit triggerContext: TriggerLogContext): Either[String, Option[FiniteDuration]] = {
     val heartbeat = compiler.unsafeCompile(
       ERecProj(triggerDef.ty, Name.assertFromString("heartbeat"), triggerDef.expr)
     )
@@ -252,7 +279,7 @@ object Trigger extends StrictLogging {
       compiler: Compiler,
       converter: Converter,
       triggerDef: TriggerDefinition,
-  )(implicit loggingContext: LoggingContextOf[Trigger]): Either[String, Filters] = {
+  )(implicit triggerContext: TriggerLogContext): Either[String, Filters] = {
     val registeredTemplates = compiler.unsafeCompile(
       ERecProj(triggerDef.ty, Name.assertFromString("registeredTemplates"), triggerDef.expr)
     )
@@ -343,87 +370,145 @@ object Trigger extends StrictLogging {
   }
 }
 
-class Runner(
+private[lf] class Runner private (
     compiledPackages: CompiledPackages,
     trigger: Trigger,
+    triggerConfig: TriggerRunnerConfig,
     client: LedgerClient,
     timeProviderType: TimeProviderType,
     applicationId: ApplicationId,
     parties: TriggerParties,
-)(implicit loggingContext: LoggingContextOf[Trigger]) {
-  import Runner.SeenMsgs
+)(implicit triggerContext: TriggerLogContext) {
 
   // Compiles LF expressions into Speedy expressions.
   private val compiler = compiledPackages.compiler
   // Converts between various objects and SValues.
   private val converter: Converter = new Converter(compiledPackages, trigger.defn)
-  // These are the command IDs used on the ledger API to submit commands for
-  // this trigger for which we are awaiting either a completion or transaction
-  // message, or both.
-  // This is a data structure that is shared across (potentially) multiple async contexts
-  // - hence why we use a scala.concurrent.TrieMap here.
-  private[this] val pendingCommandIds = TrieMap.empty[UUID, SeenMsgs]
-  private val transactionFilter =
-    TransactionFilter(parties.readers.map(p => (p.unwrap, trigger.filters)).toMap)
 
-  private[this] def logger = ContextualizedLogger get getClass
+  private class InFlightCommands {
+    // These are the command IDs used on the ledger API to submit commands for
+    // this trigger for which we are awaiting either a completion or transaction
+    // message, or both.
+    // This is a data structure that is shared across (potentially) multiple async contexts
+    // - hence why we use a scala.concurrent.TrieMap here.
+    private[this] val pendingIds = TrieMap.empty[UUID, SeenMsgs]
+    // Due to concurrency, inFlight counts are eventually consistent (with pendingIds) and so only
+    // approximate the actual commands that are in-flight.
+    private[this] val inFlight: AtomicLong = new AtomicLong(0)
 
-  // return whether uuid *was* present in pendingCommandIds
-  private[this] def useCommandId(uuid: UUID, seeOne: SeenMsgs.One): Boolean = {
-    pendingCommandIds.get(uuid) match {
-      case None =>
-        false
+    def get(uuid: UUID): Option[SeenMsgs] = {
+      pendingIds.get(uuid)
+    }
 
-      case Some(seenOne) =>
-        seenOne.see(seeOne) match {
-          case Some(v) =>
-            pendingCommandIds.update(uuid, v)
-          case None =>
-            discard(pendingCommandIds.remove(uuid))
-        }
-        true
+    def count: Int = {
+      inFlight.intValue()
+    }
+
+    def update(uuid: UUID, seeOne: SeenMsgs)(implicit
+        triggerContext: TriggerLogContext
+    ): Unit = {
+      val inFlightState = pendingIds.put(uuid, seeOne)
+
+      (inFlightState, seeOne) match {
+        case (None, SeenMsgs.Neither) =>
+          triggerContext.logDebug("New in-flight command")
+          discard(inFlight.incrementAndGet())
+
+        case (None, _) | (Some(SeenMsgs.Neither), SeenMsgs.Neither) =>
+        // no work required
+
+        case (Some(SeenMsgs.Neither), _) =>
+          triggerContext.logDebug("In-flight command completed")
+          discard(inFlight.decrementAndGet())
+
+        case (Some(_), SeenMsgs.Neither) =>
+          triggerContext.logDebug("New in-flight command")
+          discard(inFlight.incrementAndGet())
+
+        case (Some(_), _) =>
+        // no work required
+      }
+    }
+
+    def remove(uuid: UUID)(implicit triggerContext: TriggerLogContext): Unit = {
+      val inFlightState = pendingIds.remove(uuid)
+
+      if (inFlightState.contains(SeenMsgs.Neither)) {
+        triggerContext.logDebug("In-flight command completed")
+        discard(inFlight.decrementAndGet())
+      }
     }
   }
 
-  import Runner.{
-    DamlFun,
-    SingleCommandFailure,
-    maxParallelSubmissionsPerTrigger,
-    maxTriesWhenOverloaded,
-    overloadedRetryDelay,
-    retrying,
+  private[this] val inFlightCommands = new InFlightCommands
+
+  private val transactionFilter =
+    TransactionFilter(parties.readers.map(p => (p.unwrap, trigger.filters)).toMap)
+
+  // return whether uuid *was* present in pendingCommandIds
+  private[this] def useCommandId(uuid: UUID, seeOne: SeenMsgs.One)(implicit
+      triggerContext: TriggerLogContext
+  ): Boolean = {
+    triggerContext.enrichTriggerContext(
+      "commandId" -> uuid
+    ) { implicit triggerContext: TriggerLogContext =>
+      inFlightCommands.get(uuid) match {
+        case None =>
+          false
+
+        case Some(seenOne) =>
+          seenOne.see(seeOne) match {
+            case Some(v) =>
+              inFlightCommands.update(uuid, v)
+            case None =>
+              inFlightCommands.remove(uuid)
+          }
+          true
+      }
+    }
   }
 
+  import Runner.{DamlFun, SingleCommandFailure, overloadedRetryDelay, retrying}
+
   @throws[RuntimeException]
-  private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
+  private def handleCommands(
+      commands: Seq[Command]
+  )(implicit triggerContext: TriggerLogContext): (UUID, SubmitRequest) = {
     val commandUUID = UUID.randomUUID
-    pendingCommandIds.update(commandUUID, SeenMsgs.Neither)
-    val commandsArg = Commands(
-      ledgerId = client.ledgerId.unwrap,
-      applicationId = applicationId.unwrap,
-      commandId = commandUUID.toString,
-      party = parties.actAs.unwrap,
-      readAs = Party.unsubst(parties.readAs).toList,
-      commands = commands,
-    )
-    logger.debug(
-      s"submitting command ID ${commandUUID: UUID}, commands ${commands.map(_.command.value)}"
-    )
-    (commandUUID, SubmitRequest(commands = Some(commandsArg)))
+
+    triggerContext.enrichTriggerContext(
+      "commandId" -> commandUUID,
+      "commands" -> commands,
+    ) { implicit triggerContext: TriggerLogContext =>
+      inFlightCommands.update(commandUUID, SeenMsgs.Neither)
+
+      val commandsArg = Commands(
+        ledgerId = client.ledgerId.unwrap,
+        applicationId = applicationId.unwrap,
+        commandId = commandUUID.toString,
+        party = parties.actAs.unwrap,
+        readAs = Party.unsubst(parties.readAs).toList,
+        commands = commands,
+      )
+
+      (commandUUID, SubmitRequest(commands = Some(commandsArg)))
+    }
   }
 
   private def freeTriggerSubmits(
       clientTime: Timestamp,
       v: SValue,
-  ): UnfoldState[SValue, SubmitRequest] = {
-    def evaluate(se: SExpr) = {
-      val machine: Speedy.Machine =
+  )(implicit
+      triggerContext: TriggerLogContext
+  ): UnfoldState[SValue, TriggerContext[SubmitRequest]] = {
+    def evaluate(se: SExpr): SValue = {
+      val machine: Speedy.OffLedgerMachine =
         Speedy.Machine.fromPureSExpr(compiledPackages, se)
       // Evaluate it.
       machine.setExpressionToEvaluate(se)
       Machine.stepToValue(machine)
     }
-    type Termination = SValue \/ (SubmitRequest, SValue)
+    type Termination = SValue \/ (TriggerContext[SubmitRequest], SValue)
     @tailrec def go(v: SValue): Termination = {
       val resumed: Termination Either SValue = unrollFree(v) match {
         case Right(Right(vvv @ (variant, vv))) =>
@@ -438,14 +523,16 @@ class Runner(
                 val (commandUUID, submitRequest) = handleCommands(commands)
                 Left(
                   \/-(
-                    (submitRequest, evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))))
+                    (
+                      Ctx(triggerContext, submitRequest),
+                      evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))),
+                    )
                   ): Termination
                 )
             }
             case _ =>
-              val msg = s"unrecognized TriggerF step $variant"
-              logger.error(msg)
-              throw new ConverterException(msg)
+              triggerContext.logError("Unrecognised TriggerF step", "variant" -> variant)
+              throw new ConverterException(s"unrecognized TriggerF step $variant")
           }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
         case Right(Left(newState)) => Left(-\/(newState))
         case Left(e) => throw new ConverterException(e)
@@ -468,12 +555,22 @@ class Runner(
       heartbeat: Option[FiniteDuration],
       parties: TriggerParties,
       filter: TransactionFilter,
-  ): Flow[SingleCommandFailure, TriggerMsg, NotUsed] = {
-
+  )(implicit
+      triggerContext: TriggerLogContext
+  ): TriggerContextualFlow[SingleCommandFailure, TriggerMsg, NotUsed] = {
     // A queue for command submission failures.
-    val submissionFailureQueue: Flow[SingleCommandFailure, Completion, NotUsed] =
-      Flow[SingleCommandFailure]
-        // 256 comes from the default ExecutionContext.
+    val submissionFailureQueue: TriggerContextualFlow[SingleCommandFailure, TriggerMsg, NotUsed] = {
+      TriggerContextualFlow[SingleCommandFailure]
+        .map { case ctx @ Ctx(context, failure, _) =>
+          context.childSpan("failure") { implicit triggerContext: TriggerLogContext =>
+            triggerContext.logInfo(
+              "Received command submission failure from ledger API client",
+              "error" -> failure,
+            )
+
+            ctx.copy(context = triggerContext)
+          }
+        }
         // Why `fail`?  Consider the most obvious alternatives.
         //
         // `backpressure`?  This feeds into the Free interpreter flow, which may produce
@@ -486,55 +583,90 @@ class Runner(
         // `fail`, on the other hand?  It far better fits the trigger model to go
         //   tabula rasa and notice the still-unhandled contract in the ACS again
         //   on init, as we expect triggers to be able to do anyhow.
-        .buffer(256 + maxParallelSubmissionsPerTrigger, OverflowStrategy.fail)
-        .map { case SingleCommandFailure(commandId, s) =>
-          Completion(
-            commandId,
-            Some(Status(s.getStatus.getCode.value(), s.getStatus.getDescription)),
+        .buffer(
+          triggerConfig.submissionFailureQueueSize,
+          OverflowStrategy.fail.withLogLevel(Logging.WarningLevel),
+        )
+        .map { case ctx @ Ctx(_, SingleCommandFailure(commandId, s), _) =>
+          val completion = TriggerMsg.Completion(
+            Completion(
+              commandId,
+              Some(Status(s.getStatus.getCode.value(), s.getStatus.getDescription)),
+            )
           )
+
+          ctx.context.logInfo(
+            "Rewrite command submission failure for trigger rules",
+            "message" -> completion,
+          )
+
+          ctx.copy(value = completion)
         }
+    }
 
     // The transaction source (ledger).
-    val transactionSource: Source[TriggerMsg, NotUsed] =
+    val transactionSource: TriggerContextualSource[TriggerMsg, NotUsed] = {
+      triggerContext.logInfo("Subscribing to ledger API transaction source", "filter" -> filter)
       client.transactionClient
         .getTransactions(offset, None, filter)
-        .map(TransactionMsg)
+        .map { transaction =>
+          triggerContext.childSpan("update") { implicit triggerContext: TriggerLogContext =>
+            triggerContext.logDebug("Transaction source")
 
-    // Command completion source (ledger completion stream +
-    // synchronous submission failures).
-    val completionSource: Flow[SingleCommandFailure, TriggerMsg, NotUsed] =
-      submissionFailureQueue
-        .merge(
-          client.commandClient
-            // Completions only take actAs into account so no need to include readAs.
-            .completionSource(List(parties.actAs.unwrap), offset)
-            .mapConcat {
-              case CheckpointElement(_) => List()
-              case CompletionElement(c, _) => List(c)
+            triggerContext.childSpan("evaluation") { implicit triggerContext: TriggerLogContext =>
+              Ctx(triggerContext, TriggerMsg.Transaction(transaction))
             }
-        )
-        .map(CompletionMsg)
+          }
+        }
+    }
+
+    // Command completion source (ledger completion stream)
+    val completionSource: TriggerContextualSource[TriggerMsg, NotUsed] = {
+      triggerContext.logInfo("Subscribing to ledger API completion source")
+      client.commandClient
+        // Completions only take actAs into account so no need to include readAs.
+        .completionSource(List(parties.actAs.unwrap), offset)
+        .collect { case CompletionElement(completion, _) =>
+          triggerContext.childSpan("update") { implicit triggerContext: TriggerLogContext =>
+            triggerContext.logDebug("Completion source", "message" -> completion)
+
+            triggerContext.childSpan("evaluation") { implicit triggerContext: TriggerLogContext =>
+              Ctx(triggerContext, TriggerMsg.Completion(completion))
+            }
+          }
+        }
+    }
 
     // Heartbeats source (we produce these repetitively on a timer with
     // the given delay interval).
-    val heartbeatSource: Source[TriggerMsg, NotUsed] = heartbeat match {
+    val heartbeatSource: TriggerContextualSource[TriggerMsg, NotUsed] = heartbeat match {
       case Some(interval) =>
+        triggerContext.logInfo("Heartbeat source configured", "heartbeat" -> interval)
         Source
-          .tick[TriggerMsg](interval, interval, HeartbeatMsg())
+          .tick[TriggerMsg](interval, interval, TriggerMsg.Heartbeat)
           .mapMaterializedValue(_ => NotUsed)
-      case None => Source.empty[TriggerMsg]
+          .map { heartbeat =>
+            triggerContext.childSpan("update") { implicit triggerContext: TriggerLogContext =>
+              triggerContext.logDebug("Heartbeat source", "message" -> "Heartbeat")
+
+              triggerContext.childSpan("evaluation") { implicit triggerContext: TriggerLogContext =>
+                Ctx(triggerContext, heartbeat)
+              }
+            }
+          }
+
+      case None =>
+        triggerContext.logInfo("No heartbeat source configured")
+        Source.empty[TriggerContext[TriggerMsg]]
     }
 
-    completionSource merge transactionSource merge heartbeatSource
+    submissionFailureQueue
+      .merge(completionSource merge transactionSource merge heartbeatSource)
   }
 
-  private def logReceivedMsg(tm: TriggerMsg): Unit = tm match {
-    case CompletionMsg(c) => logger.debug(s"trigger received completion message $c")
-    case TransactionMsg(t) => logger.debug(s"trigger received transaction, ID ${t.transactionId}")
-    case HeartbeatMsg() => ()
-  }
-
-  private[this] def getInitialStateFreeAndUpdate(acs: Seq[CreatedEvent]): (SValue, SValue) = {
+  private[this] def getInitialStateFreeAndUpdate(
+      acs: Seq[CreatedEvent]
+  )(implicit triggerContext: TriggerLogContext): (SValue, SValue) = {
     // Compile the trigger initialState and Update LF functions to
     // speedy expressions.
     val update: SExpr =
@@ -561,7 +693,7 @@ class Runner(
         initialStateArgs,
       )
     // Prepare a speedy machine for evaluating expressions.
-    val machine: Speedy.Machine =
+    val machine: Speedy.OffLedgerMachine =
       Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
     // Evaluate it.
     machine.setExpressionToEvaluate(initialState)
@@ -569,9 +701,9 @@ class Runner(
       .stepToValue(machine)
       .expect(
         "TriggerSetup",
-        { case DamlAnyModuleRecord("TriggerSetup", fts) =>
-          fts
-        },
+        { case DamlAnyModuleRecord("TriggerSetup", fts) => fts }: @nowarn(
+          "msg=A repeated case parameter or extracted sequence is not matched by a sequence wildcard"
+        ),
       )
       .orConverterException
     machine.setExpressionToEvaluate(update)
@@ -579,17 +711,16 @@ class Runner(
     (initialStateFree, evaluatedUpdate)
   }
 
-  private[this] def encodeMsgs: Flow[TriggerMsg, SValue, NotUsed] =
+  private[this] def encodeMsgs: TriggerContextualFlow[TriggerMsg, SValue, NotUsed] =
     Flow fromFunction {
-      case TransactionMsg(transaction) =>
-        converter.fromTransaction(transaction).orConverterException
-      case CompletionMsg(completion) =>
-        val status = completion.getStatus
-        if (status.code != 0) {
-          logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
-        }
-        converter.fromCompletion(completion).orConverterException
-      case HeartbeatMsg() => converter.fromHeartbeat
+      case ctx @ Ctx(_, TriggerMsg.Transaction(transaction), _) =>
+        ctx.copy(value = converter.fromTransaction(transaction).orConverterException)
+
+      case ctx @ Ctx(_, TriggerMsg.Completion(completion), _) =>
+        ctx.copy(value = converter.fromCompletion(completion).orConverterException)
+
+      case ctx @ Ctx(_, TriggerMsg.Heartbeat, _) =>
+        ctx.copy(value = converter.fromHeartbeat)
     }
 
   // A flow for trigger messages representing a process for the
@@ -597,56 +728,74 @@ class Runner(
   // messages given the starting state represented by the ACS
   // argument.
   private def getTriggerEvaluator(
-      name: String,
-      acs: Seq[CreatedEvent],
-  ): Flow[TriggerMsg, SubmitRequest, Future[SValue]] = {
-    logger.info(s"""Trigger ${name} is running as ${parties.actAs} with readAs=[${parties.readAs
-        .mkString(", ")}]""")
+      acs: Seq[CreatedEvent]
+  )(implicit
+      triggerContext: TriggerLogContext
+  ): TriggerContextualFlow[TriggerMsg, SubmitRequest, Future[SValue]] = {
+    triggerContext.logInfo("Trigger starting")
 
     val clientTime: Timestamp =
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     val (initialStateFree, evaluatedUpdate) = getInitialStateFreeAndUpdate(acs)
-
     // Prepare another speedy machine for evaluating expressions.
-    val machine: Speedy.Machine =
+    val machine: Speedy.OffLedgerMachine =
       Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
 
     import UnfoldState.{flatMapConcatNode, flatMapConcatNodeOps, toSource, toSourceOps}
 
-    val runInitialState = toSource(freeTriggerSubmits(clientTime, initialStateFree))
+    val runInitialState = {
+      toSource(
+        freeTriggerSubmits(clientTime, initialStateFree)
+          .leftMap { state =>
+            triggerContext.logDebug(
+              "Trigger rule initial state",
+              "state" -> triggerUserState(state, trigger.defn.level),
+            )
 
-    val runRuleOnMsgs = flatMapConcatNode { (state: SValue, messageVal: SValue) =>
-      val clientTime: Timestamp =
-        Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-      machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal))
-      val stateFun = Machine
-        .stepToValue(machine)
-        .expect(
-          "TriggerRule",
-          { case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) =>
-            fun
-          },
-        )
-        .orConverterException
-      machine.setExpressionToEvaluate(makeAppD(stateFun, state))
-      val updateWithNewState = Machine.stepToValue(machine)
-
-      freeTriggerSubmits(clientTime, v = updateWithNewState)
-        .leftMap(
-          _.expect(
-            "TriggerRule new state",
-            { case DamlTuple2(SUnit, newState) =>
-              logger.debug(s"New state: $newState")
-              newState
-            },
-          ).orConverterException
-        )
+            state
+          }
+      )
     }
 
-    val logInitialState =
-      Flow[SValue].wireTap(evaluatedInitialState =>
-        logger.debug(s"Initial state: $evaluatedInitialState")
-      )
+    val runRuleOnMsgs = flatMapConcatNode { (state: SValue, messageVal: TriggerContext[SValue]) =>
+      messageVal.context.enrichTriggerContext() { implicit triggerContext: TriggerLogContext =>
+        triggerContext.logDebug(
+          "Trigger rule evaluation",
+          "state" -> triggerUserState(state, trigger.defn.level),
+          "message" -> messageVal.value,
+        )
+
+        val clientTime: Timestamp =
+          Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+        machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal.value))
+        val stateFun = Machine
+          .stepToValue(machine)
+          .expect(
+            "TriggerRule",
+            { case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) =>
+              fun
+            }: @nowarn("msg=A repeated case parameter .* is not matched by a sequence wildcard"),
+          )
+          .orConverterException
+        machine.setExpressionToEvaluate(makeAppD(stateFun, state))
+        val updateWithNewState = Machine.stepToValue(machine)
+
+        freeTriggerSubmits(clientTime, v = updateWithNewState)
+          .leftMap(
+            _.expect(
+              "TriggerRule new state",
+              { case DamlTuple2(SUnit, newState) =>
+                triggerContext.logDebug(
+                  "Trigger rule state updated",
+                  "state" -> triggerUserState(state, trigger.defn.level),
+                )
+
+                newState
+              },
+            ).orConverterException
+          )
+      }
+    }
 
     // The flow that we return:
     //  - Maps incoming trigger messages to new trigger messages
@@ -658,14 +807,15 @@ class Runner(
     @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
     val graph = GraphDSL.createGraph(Sink.last[SValue]) { implicit gb => saveLastState =>
       import GraphDSL.Implicits._
-      val msgIn = gb add Flow[TriggerMsg].wireTap(logReceivedMsg _)
+
+      val msgIn = gb add TriggerContextualFlow[TriggerMsg]
       val initialState = gb add runInitialState
       val initialStateOut = gb add Broadcast[SValue](2)
       val rule = gb add runRuleOnMsgs
-      val submissions = gb add Merge[SubmitRequest](2)
+      val submissions = gb add Merge[TriggerContext[SubmitRequest]](2)
       val finalStateIn = gb add Concat[SValue](2)
       // format: off
-      initialState.finalState ~> logInitialState ~> initialStateOut ~> rule.initState
+      initialState.finalState                    ~> initialStateOut ~> rule.initState
       initialState.elemsOut                          ~> submissions
                           msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> rule.elemsIn
                                                         submissions <~ rule.elemsOut
@@ -674,37 +824,42 @@ class Runner(
       // format: on
       new FlowShape(msgIn.in, submissions.out)
     }
-    Flow fromGraph graph
+
+    Flow.fromGraph(graph)
   }
 
   private[this] def catchIAE[A](a: => A): Option[A] =
     try Some(a)
     catch { case _: IllegalArgumentException => None }
 
-  private[this] def hideIrrelevantMsgs: Flow[TriggerMsg, TriggerMsg, NotUsed] =
-    Flow[TriggerMsg].mapConcat[TriggerMsg] {
-      case msg @ CompletionMsg(c) =>
+  private[this] def hideIrrelevantMsgs: TriggerContextualFlow[TriggerMsg, TriggerMsg, NotUsed] =
+    TriggerContextualFlow[TriggerMsg].mapConcat[TriggerContext[TriggerMsg]] {
+      case ctx @ Ctx(_, msg @ TriggerMsg.Completion(c), _) =>
         // This happens for invalid UUIDs which we might get for
         // completions not emitted by the trigger.
         val ouuid = catchIAE(UUID.fromString(c.commandId))
         ouuid.flatMap { uuid =>
-          useCommandId(uuid, SeenMsgs.Completion) option msg
+          useCommandId(uuid, SeenMsgs.Completion)(ctx.context) option ctx.copy(value = msg)
         }.toList
-      case msg @ TransactionMsg(t) =>
+
+      case ctx @ Ctx(_, msg @ TriggerMsg.Transaction(t), _) =>
         // This happens for invalid UUIDs which we might get for
         // transactions not emitted by the trigger.
         val ouuid = catchIAE(UUID.fromString(t.commandId))
         List(ouuid flatMap { uuid =>
-          useCommandId(uuid, SeenMsgs.Transaction) option msg
-        } getOrElse TransactionMsg(t.copy(commandId = "")))
-      case x @ HeartbeatMsg() => List(x) // Heartbeats don't carry any information.
+          useCommandId(uuid, SeenMsgs.Transaction)(ctx.context) option ctx.copy(value = msg)
+        } getOrElse ctx.copy(value = TriggerMsg.Transaction(t.copy(commandId = ""))))
+
+      case ctx @ Ctx(_, msg @ TriggerMsg.Heartbeat, _) =>
+        List(ctx.copy(value = msg)) // Heartbeats don't carry any information.
     }
 
   def makeApp(func: SExpr, values: Array[SValue]): SExpr = {
     SEApp(func, values)
   }
 
-  private[this] def makeAppD(func: SValue, values: SValue*) = makeApp(SEValue(func), values.toArray)
+  private[this] def makeAppD(func: SValue, values: SValue*): SExpr =
+    makeApp(SEValue(func), values.toArray)
 
   // Query the ACS. This allows you to separate the initialization of
   // the initial state from the first run.
@@ -714,7 +869,7 @@ class Runner(
   ): Future[(Seq[CreatedEvent], LedgerOffset)] = {
     for {
       acsResponses <- client.activeContractSetClient
-        .getActiveContracts(transactionFilter, verbose = false)
+        .getActiveContracts(transactionFilter)
         .runWith(Sink.seq)
       offset = Array(acsResponses: _*).lastOption
         .fold(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))(resp =>
@@ -725,35 +880,47 @@ class Runner(
 
   private[this] def submitOrFail(implicit
       ec: ExecutionContext
-  ): Flow[SubmitRequest, SingleCommandFailure, NotUsed] = {
-    def submit(req: SubmitRequest) = {
-      val f: Future[Empty] = client.commandClient
-        .submitSingleCommand(req)
+  ): TriggerContextualFlow[SubmitRequest, SingleCommandFailure, NotUsed] = {
+    import io.grpc.Status.Code
+    import Code.RESOURCE_EXHAUSTED
+
+    def submit(req: TriggerContext[SubmitRequest]): Future[Option[SingleCommandFailure]] = {
+      val f: Future[Empty] = client.commandClient.submitSingleCommand(req.value)
       f.map(_ => None).recover {
         case s: StatusRuntimeException if s.getStatus.getCode != Code.UNAUTHENTICATED =>
           // Do not capture UNAUTHENTICATED errors.
           // The access token may be expired, let the trigger runner handle token refresh.
-          Some(SingleCommandFailure(req.getCommands.commandId, s))
+          Some(SingleCommandFailure(req.value.getCommands.commandId, s))
         // any other error will cause the trigger's stream to fail
       }
     }
-    import io.grpc.Status.Code
-    import Code.RESOURCE_EXHAUSTED
-    def retryableSubmit(req: SubmitRequest) =
+
+    def retryableSubmit(
+        req: TriggerContext[SubmitRequest]
+    ): Future[Option[Option[SingleCommandFailure]]] =
       submit(req).map {
         case Some(SingleCommandFailure(_, s))
             if (s.getStatus.getCode: Code) == (RESOURCE_EXHAUSTED: Code) =>
           None
         case z => Some(z)
       }
-    retrying(
-      initialTries = maxTriesWhenOverloaded,
-      backoff = overloadedRetryDelay,
-      parallelism = maxParallelSubmissionsPerTrigger,
-      retryableSubmit,
-      submit,
-    )
-      .collect { case Some(err) => err }
+
+    TriggerContextualFlow[SubmitRequest]
+      .throttle(triggerConfig.maxSubmissionRequests, triggerConfig.maxSubmissionDuration)
+      .via(
+        retrying(
+          initialTries = triggerConfig.maxRetries,
+          backoff = overloadedRetryDelay,
+          parallelism = triggerConfig.parallelism,
+          retryableSubmit,
+          submit,
+        )
+          .collect { case ctx @ Ctx(context, Some(err), _) =>
+            context.logWarning("Ledger API command submission request failed", "error" -> err)
+
+            ctx.copy(value = err)
+          }
+      )
   }
 
   // Run the trigger given the state of the ACS. The msgFlow argument
@@ -763,32 +930,85 @@ class Runner(
   def runWithACS[T](
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,
-      msgFlow: Graph[FlowShape[TriggerMsg, TriggerMsg], T] = Flow[TriggerMsg],
-      name: String = "",
+      msgFlow: Graph[FlowShape[TriggerContext[TriggerMsg], TriggerContext[TriggerMsg]], T] =
+        TriggerContextualFlow[TriggerMsg],
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
   ): (T, Future[SValue]) = {
-    val source =
-      msgSource(client, offset, trigger.heartbeat, parties, transactionFilter)
-    Flow
-      .fromGraph(msgFlow)
-      .viaMat(getTriggerEvaluator(name, acs))(Keep.both)
-      .via(submitOrFail)
-      .join(source)
-      .run()
+    triggerContext.nextSpan("rule") { implicit triggerContext: TriggerLogContext =>
+      val source = msgSource(client, offset, trigger.heartbeat, parties, transactionFilter)
+      val triggerRuleEvaluator = triggerContext.childSpan("initialization") {
+        implicit triggerContext: TriggerLogContext =>
+          getTriggerEvaluator(acs)
+      }
+
+      Flow
+        .fromGraph(msgFlow)
+        .viaMat(triggerRuleEvaluator)(Keep.both)
+        .via(submitOrFail)
+        .join(source)
+        .run()
+    }
   }
 }
 
-object Runner extends StrictLogging {
+object Runner {
 
-  /** The number of submitSingleCommand invocations each trigger will
-    * attempt to execute in parallel.  Note that this does not in any
-    * way bound the number of already-submitted, but not completed,
-    * commands that may be pending.
-    */
-  val maxParallelSubmissionsPerTrigger = 8
-  val maxTriesWhenOverloaded = 6
+  import Implicits._
+
+  private[trigger] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
+
+  type TriggerContext[+Value] = Ctx[TriggerLogContext, Value]
+
+  type TriggerContextualSource[+Out, +Mat] = Source[TriggerContext[Out], Mat]
+
+  type TriggerContextualFlow[-In, +Out, +Mat] = Flow[TriggerContext[In], TriggerContext[Out], Mat]
+
+  def TriggerContextualFlow[In]: TriggerContextualFlow[In, In, NotUsed] =
+    Flow.apply[TriggerContext[In]]
+
+  def apply(
+      compiledPackages: CompiledPackages,
+      trigger: Trigger,
+      triggerConfig: TriggerRunnerConfig,
+      client: LedgerClient,
+      timeProviderType: TimeProviderType,
+      applicationId: ApplicationId,
+      parties: TriggerParties,
+  )(implicit triggerContext: TriggerLogContext): Runner = {
+    triggerContext.enrichTriggerContext(
+      "level" -> trigger.defn.level.toString,
+      "version" -> trigger.defn.version.toString,
+    ) { implicit triggerContext: TriggerLogContext =>
+      new Runner(
+        compiledPackages,
+        trigger,
+        triggerConfig,
+        client,
+        timeProviderType,
+        applicationId,
+        parties,
+      )
+    }
+  }
+
+  private def triggerUserState(state: SValue, level: Trigger.Level): SValue = {
+    level match {
+      case Trigger.Level.High =>
+        state
+          .expect(
+            "SRecord",
+            { case SRecord(_, _, values) =>
+              values.get(3)
+            },
+          )
+          .orConverterException
+
+      case Trigger.Level.Low =>
+        state
+    }
+  }
 
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
     (250 * (1 << (afterTries - 1))).milliseconds
@@ -815,26 +1035,57 @@ object Runner extends StrictLogging {
       initialTries: Int,
       backoff: Int => FiniteDuration,
       parallelism: Int,
-      retryable: A => Future[Option[B]],
-      notRetryable: A => Future[B],
-  )(implicit ec: ExecutionContext): Flow[A, B, NotUsed] = {
-    def trial(tries: Int, value: A): Future[B] =
-      if (tries <= 1) notRetryable(value)
-      else
-        retryable(value).flatMap(
-          _.cata(
-            Future.successful, {
+      retryable: TriggerContext[A] => Future[Option[B]],
+      notRetryable: TriggerContext[A] => Future[B],
+  )(implicit ec: ExecutionContext): Flow[TriggerContext[A], TriggerContext[B], NotUsed] = {
+    def trial(tries: Int, value: TriggerContext[A]): Future[B] = {
+      value.context.enrichTriggerContext(
+        "max-retries" -> initialTries
+      ) { implicit triggerContext: TriggerLogContext =>
+        if (tries <= 1) {
+          notRetryable(value).recoverWith { case error: Throwable =>
+            triggerContext.logError(
+              "Failing permanently after exhausting submission retries",
+              "attempt" -> initialTries,
+            )
+
+            Future.failed(error)
+          }
+        } else {
+          retryable(value).flatMap(
+            _.cata(
+              Future.successful,
               Future {
-                try Thread.sleep(backoff(initialTries - tries + 1).toMillis)
-                catch { case _: InterruptedException => }
-              }.flatMap(_ => trial(tries - 1, value))
-            },
+                val attempt = initialTries - tries + 1
+                val backoffPeriod = backoff(attempt)
+
+                triggerContext.logWarning(
+                  "Submission failed, will retry again after backoff period expires",
+                  "attempt" -> attempt,
+                  "backoff-period" -> backoffPeriod,
+                )
+
+                Thread.sleep(backoffPeriod.toMillis)
+              }.flatMap(_ => trial(tries - 1, value)),
+            )
           )
-        )
-    Flow[A].mapAsync(parallelism)(trial(initialTries, _))
+        }
+      }
+    }
+
+    Flow[TriggerContext[A]].mapAsync(parallelism) { ctx =>
+      ctx.context.childSpan("submission") { implicit triggerContext: TriggerLogContext =>
+        triggerContext.logDebug("Submitting request to ledger API")
+
+        trial(initialTries, ctx.copy(context = triggerContext)).map(b => ctx.copy(value = b))
+      }
+    }
   }
 
-  private final case class SingleCommandFailure(commandId: String, s: StatusRuntimeException)
+  private[Runner] final case class SingleCommandFailure(
+      commandId: String,
+      s: StatusRuntimeException,
+  )
 
   private sealed abstract class SeenMsgs {
     import Runner.{SeenMsgs => S}
@@ -867,8 +1118,15 @@ object Runner extends StrictLogging {
       applicationId: ApplicationId,
       parties: TriggerParties,
       config: Compiler.Config,
+      triggerConfig: TriggerRunnerConfig,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] =
-    Trigger.newLoggingContext(triggerId, parties.actAs, parties.readAs) { implicit lc =>
+    Trigger.newTriggerLogContext(
+      triggerId,
+      parties.actAs,
+      parties.readAs,
+      triggerId.toString,
+      applicationId,
+    ) { implicit triggerContext: TriggerLogContext =>
       val darMap = dar.all.toMap
       val compiledPackages = PureCompiledPackages.build(darMap, config) match {
         case Left(err) => throw new RuntimeException(s"Failed to compile packages: $err")
@@ -879,10 +1137,225 @@ object Runner extends StrictLogging {
         case Right(trigger) => trigger
       }
       val runner =
-        new Runner(compiledPackages, trigger, client, timeProviderType, applicationId, parties)
+        Runner(
+          compiledPackages,
+          trigger,
+          triggerConfig,
+          client,
+          timeProviderType,
+          applicationId,
+          parties,
+        )
+
       for {
         (acs, offset) <- runner.queryACS()
         finalState <- runner.runWithACS(acs, offset)._2
       } yield finalState
     }
+
+  object Implicits {
+    implicit class EnrichTriggerLoggingContextOf(logContext: LoggingContextOf[Trigger]) {
+      def enrichTriggerContext(
+          entry: LoggingEntry,
+          entries: LoggingEntry*
+      ): LoggingContextOf[Trigger] = {
+        val triggerEntries = logContext.entries.contents.get("trigger") match {
+          case Some(LoggingValue.Nested(triggerContext)) =>
+            triggerContext ++ LoggingEntries(entry +: entries: _*)
+
+          case _ =>
+            LoggingEntries(entry +: entries: _*)
+        }
+
+        LoggingContextOf
+          .withEnrichedLoggingContext(
+            label[Trigger],
+            "trigger" -> LoggingValue.Nested(triggerEntries),
+          )(logContext)
+          .run(identity)
+      }
+
+      private[lf] def withEnrichedTriggerContext[A](
+          entry: LoggingEntry,
+          entries: LoggingEntry*
+      )(f: LoggingContextOf[Trigger] => A): A = {
+        f(logContext.enrichTriggerContext(entry, entries: _*))
+      }
+    }
+
+    implicit def `UUID to LoggingValue`: ToLoggingValue[UUID] = ToStringToLoggingValue
+
+    implicit def `api.Identifier to LoggingValue`: ToLoggingValue[api.Identifier] = {
+      case api.Identifier(packageId, moduleName, entityName) =>
+        s"$moduleName:$entityName@$packageId"
+    }
+
+    implicit def `Identifier to LoggingValue`: ToLoggingValue[Identifier] = {
+      case Identifier(packageId, qualifiedName) =>
+        s"$qualifiedName@$packageId"
+    }
+
+    implicit def `FiniteDuration to LoggingValue`: ToLoggingValue[FiniteDuration] =
+      ToStringToLoggingValue
+
+    implicit def `VariantConName to LoggingValue`: ToLoggingValue[VariantConName] =
+      ToStringToLoggingValue
+
+    implicit def `Status to LoggingValue`: ToLoggingValue[Status] = status =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "message" -> status.message,
+          "code" -> status.code,
+        )
+      )
+
+    implicit def `CompletionMsg to LoggingValue`: ToLoggingValue[TriggerMsg.Completion] =
+      completion =>
+        LoggingValue.Nested(
+          LoggingEntries(
+            "commandId" -> completion.c.commandId,
+            "status" -> completion.c.getStatus.code,
+            "message" -> completion.c.getStatus.message,
+          )
+        )
+
+    implicit def `SingleCommandFailure to LoggingValue`: ToLoggingValue[SingleCommandFailure] =
+      failure =>
+        LoggingValue.Nested(
+          LoggingEntries(
+            "commandId" -> failure.commandId,
+            "status" -> failure.s.getStatus.getCode.value(),
+            "message" -> failure.s.getStatus.getDescription,
+          )
+        )
+
+    implicit def `api.Value to LoggingValue`: ToLoggingValue[api.Value] = value =>
+      PrettyPrint.prettyApiValue(verbose = true)(value).render(80)
+
+    implicit def `SValue to LoggingValue`: ToLoggingValue[SValue] = value =>
+      PrettyPrint.prettySValue(value).render(80)
+
+    implicit def `TransactionFilter to LoggingValue`: ToLoggingValue[TransactionFilter] = filter =>
+      LoggingValue.Nested(LoggingEntries(filter.filtersByParty.view.mapValues { value =>
+        LoggingValue.Nested(
+          LoggingEntries(
+            "templateIds" -> value.getInclusive.templateIds,
+            "interfaceIds" -> value.getInclusive.interfaceFilters.map(_.getInterfaceId),
+          )
+        )
+      }.toSeq: _*))
+
+    implicit def `CreatedEvent to LoggingEvent`: ToLoggingValue[CreatedEvent] = created =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "type" -> "CreatedEvent",
+          "id" -> created.eventId,
+          "contractId" -> created.contractId,
+          "templateId" -> created.getTemplateId,
+          "interfaceViews" -> LoggingValue.OfIterable(
+            created.interfaceViews.map(view =>
+              LoggingValue.Nested(
+                LoggingEntries(
+                  "interfaceId" -> view.getInterfaceId,
+                  "viewStatus" -> view.getViewStatus,
+                )
+              )
+            )
+          ),
+          "witnessParties" -> created.witnessParties,
+          "signatories" -> created.signatories,
+          "observers" -> created.observers,
+        ) ++ created.contractKey.fold(LoggingEntries.empty) { contractKey =>
+          LoggingEntries(
+            "contractKey" -> contractKey
+          )
+        }
+      )
+
+    implicit def `ArchivedEvent to LoggingValue`: ToLoggingValue[ArchivedEvent] = archived =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "type" -> "ArchivedEvent",
+          "id" -> archived.eventId,
+          "contractId" -> archived.contractId,
+          "templateId" -> archived.getTemplateId,
+          "witnessParties" -> archived.witnessParties,
+        )
+      )
+
+    implicit def `Transaction to LoggingValue`: ToLoggingValue[Transaction] = transaction =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "transactionId" -> transaction.transactionId,
+          "commandId" -> transaction.commandId,
+          "workflowId" -> transaction.workflowId,
+          "offset" -> transaction.offset,
+          "events" -> LoggingValue.OfIterable(transaction.events.collect {
+            case Event(Event.Event.Created(created)) =>
+              created
+
+            case Event(Event.Event.Archived(archived)) =>
+              archived
+          }),
+        )
+      )
+
+    implicit def `Completion to LoggingValue`: ToLoggingValue[Completion] = completion =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "commandId" -> completion.commandId,
+          "status" -> completion.getStatus.code,
+          "message" -> completion.getStatus.message,
+        )
+      )
+
+    implicit def `CreateCommand to LoggingValue`: ToLoggingValue[CreateCommand] = create =>
+      LoggingValue.Nested(
+        LoggingEntries("type" -> "CreateCommand", "templateId" -> create.getTemplateId)
+      )
+
+    implicit def `ExerciseCommand to LoggingValue`: ToLoggingValue[ExerciseCommand] = exercise =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "type" -> "ExerciseCommand",
+          "templateId" -> exercise.getTemplateId,
+          "contractId" -> exercise.contractId,
+          "choice" -> exercise.choice,
+        )
+      )
+
+    implicit def `ExerciseByKeyCommand to LoggingValue`: ToLoggingValue[ExerciseByKeyCommand] =
+      exerciseByKey =>
+        LoggingValue.Nested(
+          LoggingEntries(
+            "type" -> "ExerciseByKeyCommand",
+            "templateId" -> exerciseByKey.getTemplateId,
+            "contractKey" -> exerciseByKey.getContractKey,
+            "choice" -> exerciseByKey.choice,
+          )
+        )
+
+    implicit def `CreateAndExerciseCommand to LoggingValue`
+        : ToLoggingValue[CreateAndExerciseCommand] = createAndExercise =>
+      LoggingValue.Nested(
+        LoggingEntries(
+          "type" -> "CreateAndExerciseCommand",
+          "templateId" -> createAndExercise.getTemplateId,
+          "choice" -> createAndExercise.choice,
+        )
+      )
+
+    implicit def `Command to LoggingValue`: ToLoggingValue[Command] = {
+      case Command(Command.Command.Empty) =>
+        LoggingValue.Nested(LoggingEntries("type" -> "EmptyCommand"))
+      case Command(Command.Command.Create(cmd)) =>
+        `CreateCommand to LoggingValue`.toLoggingValue(cmd)
+      case Command(Command.Command.Exercise(cmd)) =>
+        `ExerciseCommand to LoggingValue`.toLoggingValue(cmd)
+      case Command(Command.Command.ExerciseByKey(cmd)) =>
+        `ExerciseByKeyCommand to LoggingValue`.toLoggingValue(cmd)
+      case Command(Command.Command.CreateAndExercise(cmd)) =>
+        `CreateAndExerciseCommand to LoggingValue`.toLoggingValue(cmd)
+    }
+  }
 }

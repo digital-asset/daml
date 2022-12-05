@@ -3,12 +3,12 @@
 
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load(
-    "//bazel_tools/client_server:client_server_build.bzl",
-    "client_server_build",
+    "//bazel_tools/client_server:client_server_test.bzl",
+    "client_server_test",
 )
 load(
     "//bazel_tools/sh:sh.bzl",
-    "sh_inline_test",
+    "sh_inline_binary",
 )
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -20,60 +20,71 @@ def daml_ledger_export_test(
         expected_daml,
         expected_args_json,
         expected_daml_yaml,
-        out_daml,
-        out_args_json,
-        out_daml_yaml,
-        dev = False):
-    # Disabled on Windows since postgres gets unhappy in client_server_build.
+        dev = False,
+        timeout = "short"):
+    # Disabled on Windows since postgres gets unhappy in client_server_test.
     if not is_windows:
-        actual_daml = name + "/" + out_daml
-        actual_args_json = name + "/" + out_args_json
-        actual_daml_yaml = name + "/" + out_daml_yaml
         server_dev_args = ["-C ledger.engine.allowed-language-versions=daml-lf-dev-mode-unsafe"] if dev else []
+        client_name = name + "-client"
 
-        client_server_build(
+        daml_ledger_export_test_client(
+            name = client_name,
+            expected_daml = expected_daml,
+            expected_args_json = expected_args_json,
+            expected_daml_yaml = expected_daml_yaml,
+        )
+
+        client_server_test(
             name = name,
-            outs = [
-                actual_daml,
-                actual_args_json,
-                actual_daml_yaml,
-            ],
-            client = "//daml-script/export/integration-tests/example-export-client",
+            client = client_name,
             client_args = [
                 "--target-port=%PORT%",
-                "--script-identifier={}".format(script_identifier),
+                "--script-identifier=%s" % script_identifier,
                 "--party=" + ",".join(parties),
             ],
-            client_files = [dar],
+            client_files = ["$(rootpath %s)" % dar],
             data = [dar],
-            output_env = "EXPORT_OUT",
             server = "//ledger/sandbox-on-x:sandbox-on-x-ephemeral-postgresql",
             server_args = [
                 "run",
                 "-C ledger.participants.default.api-server.port=0",
                 "-C ledger.participants.default.api-server.port-file=%PORT_FILE%",
             ] + server_dev_args,
+            timeout = timeout,
         )
 
-        # Compare the generated Daml ledger export to the expected files.
-        # This is used both for golden tests on ledger exports and to
-        # make sure that the documentation stays up-to-date.
-        #
-        # Normalizes the expected output by removing the copyright header and any
-        # documentation import markers and normalizes the actual output by adding a
-        # newline to the last line if missing.
-        #
-        # Normalizes the data-dependencies by replacing the SDK version, package-id
-        # hashes with a placeholder, and Windows path separators by Unix separators.
-        sh_inline_test(
-            name = name + "-compare",
-            cmd = """\
+# Generate the Daml ledger export and compare to the expected files. This is
+# used both for golden tests on ledger exports and to make sure that the
+# documentation stays up-to-date.
+#
+# Normalizes the expected output by removing the copyright header and any
+# documentation import markers and normalizes the actual output by adding a
+# newline to the last line if missing.
+#
+# Normalizes the data-dependencies by replacing the SDK version, package-id
+# hashes with a placeholder, and Windows path separators by Unix separators.
+def daml_ledger_export_test_client(
+        name,
+        expected_daml,
+        expected_args_json,
+        expected_daml_yaml):
+    client = "//daml-script/export/integration-tests/example-export-client"
+    cmd = """\
+set -euo pipefail
+
+CLIENT=$$(canonicalize_rlocation $$(get_exe $(rootpaths {client})))
+
 EXPECTED_EXPORT=$$(canonicalize_rlocation $(rootpath {expected_daml}))
 EXPECTED_ARGS=$$(canonicalize_rlocation $(rootpath {expected_args_json}))
 EXPECTED_YAML=$$(canonicalize_rlocation $(rootpath {expected_daml_yaml}))
-ACTUAL_EXPORT=$$(canonicalize_rlocation $(rootpath :{actual_daml}))
-ACTUAL_ARGS=$$(canonicalize_rlocation $(rootpath :{actual_args_json}))
-ACTUAL_YAML=$$(canonicalize_rlocation $(rootpath :{actual_daml_yaml}))
+
+ACTUAL_DIR=$$(mktemp -d)
+ACTUAL_EXPORT="$$ACTUAL_DIR/out.daml"
+ACTUAL_ARGS="$$ACTUAL_DIR/args.json"
+ACTUAL_YAML="$$ACTUAL_DIR/daml.yaml"
+
+$$CLIENT $$@ --output="$$ACTUAL_EXPORT $$ACTUAL_ARGS $$ACTUAL_YAML"
+
 # Normalize the expected file by removing the copyright header and any documentation import markers.
 # Normalize the actual output by adding a newline to the last line if missing.
 $(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;/^-- EXPORT/d' $$EXPECTED_EXPORT) <($(POSIX_SED) '$$a\\' $$ACTUAL_EXPORT) || {{
@@ -90,23 +101,22 @@ $(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;s/[0-9a-f]\\{{64\\}
   echo "$$EXPECTED_YAML did not match $$ACTUAL_YAML"
   exit 1
 }}
-        """.format(
-                expected_daml = expected_daml,
-                expected_args_json = expected_args_json,
-                expected_daml_yaml = expected_daml_yaml,
-                actual_daml = actual_daml,
-                actual_args_json = actual_args_json,
-                actual_daml_yaml = actual_daml_yaml,
-                ghc_version = ghc_version,
-                sdk_version = sdk_version,
-            ),
-            data = [
-                expected_daml,
-                expected_args_json,
-                expected_daml_yaml,
-                actual_daml,
-                actual_args_json,
-                actual_daml_yaml,
-            ],
-            toolchains = ["@rules_sh//sh/posix:make_variables"],
-        )
+""".format(
+        client = client,
+        expected_daml = expected_daml,
+        expected_args_json = expected_args_json,
+        expected_daml_yaml = expected_daml_yaml,
+        ghc_version = ghc_version,
+        sdk_version = sdk_version,
+    )
+    sh_inline_binary(
+        name = name,
+        cmd = cmd,
+        data = [
+            client,
+            expected_daml,
+            expected_args_json,
+            expected_daml_yaml,
+        ],
+        toolchains = ["@rules_sh//sh/posix:make_variables"],
+    )

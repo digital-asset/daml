@@ -3,11 +3,9 @@
 
 package com.daml.platform.localstore
 
-import java.time.Duration
-import java.util.concurrent.{CompletableFuture, Executor}
-
 import com.daml.caching.CaffeineCache
-import com.daml.ledger.api.domain
+import com.daml.caching.CaffeineCache.FutureAsyncCacheLoader
+import com.daml.ledger.api.{IdentityProviderIdFilter, domain}
 import com.daml.ledger.api.domain.User
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
@@ -15,11 +13,11 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.localstore.api.UserManagementStore.{Result, UserInfo}
 import com.daml.platform.localstore.api.{UserManagementStore, UserUpdate}
-import com.github.benmanes.caffeine.cache.AsyncCacheLoader
 import com.github.benmanes.caffeine.{cache => caffeine}
 
+import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
 
 class CachedUserManagementStore(
     delegate: UserManagementStore,
@@ -36,19 +34,7 @@ class CachedUserManagementStore(
         .expireAfterWrite(Duration.ofSeconds(expiryAfterWriteInSeconds.toLong))
         .maximumSize(maximumCacheSize.toLong)
         .buildAsync(
-          new AsyncCacheLoader[UserId, Result[UserInfo]] {
-            override def asyncLoad(
-                key: UserId,
-                executor: Executor,
-            ): CompletableFuture[Result[UserInfo]] = {
-              val cf = new CompletableFuture[Result[UserInfo]]
-              delegate.getUserInfo(key).onComplete {
-                case Success(value) => cf.complete(value)
-                case Failure(e) => cf.completeExceptionally(e)
-              }
-              cf
-            }
-          }
+          new FutureAsyncCacheLoader[UserId, Result[UserInfo]](key => delegate.getUserInfo(key))
         ),
       metrics.daml.userManagement.cache,
     )
@@ -103,10 +89,11 @@ class CachedUserManagementStore(
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
+      identityProviderIdFilter: IdentityProviderIdFilter,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserManagementStore.UsersPage]] =
-    delegate.listUsers(fromExcl, maxResults)
+    delegate.listUsers(fromExcl, maxResults, identityProviderIdFilter)
 
   private def invalidateOnSuccess(id: UserId): PartialFunction[Try[Result[Any]], Unit] = {
     case Success(Right(_)) => cache.invalidate(id)

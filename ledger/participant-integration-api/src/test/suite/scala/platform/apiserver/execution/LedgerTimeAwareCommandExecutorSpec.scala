@@ -3,24 +3,28 @@
 
 package com.daml.platform.apiserver.execution
 
-import com.daml.error.definitions.ErrorCause
-import com.daml.error.definitions.ErrorCause.LedgerTime
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.MaximumLedgerTime
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
-import com.daml.lf.command.{ContractMetadata, DisclosedContract, ApiCommands => LfCommands}
+import com.daml.lf.command.{
+  EngineEnrichedContractMetadata,
+  ProcessedDisclosedContract,
+  ApiCommands => LfCommands,
+}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.transaction.{TransactionVersion, Versioned}
 import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.{TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.services.ErrorCause
+import com.daml.platform.apiserver.services.ErrorCause.LedgerTime
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
@@ -67,14 +71,16 @@ class LedgerTimeAwareCommandExecutorSpec
   private val disclosedContracts = ImmArray(
     Versioned(
       TransactionVersion.V15,
-      DisclosedContract(
+      ProcessedDisclosedContract(
         templateId = Identifier.assertFromString("some:pkg:identifier"),
         contractId = cid,
         argument = Value.ValueNil,
-        metadata = ContractMetadata(
+        metadata = EngineEnrichedContractMetadata(
           createdAt = Time.Timestamp.Epoch,
-          keyHash = None,
           driverMetadata = ImmArray.empty,
+          signatories = Set.empty,
+          stakeholders = Set.empty,
+          maybeKeyWithMaintainers = None,
         ),
       ),
     )

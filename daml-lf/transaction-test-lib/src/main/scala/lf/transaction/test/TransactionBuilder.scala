@@ -59,13 +59,13 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       case (_, node: Node.LeafOnlyAction) =>
         node
     }
-    val finalRoots = roots.toImmArray
-    val txVersion = finalRoots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
-      finalNodes(nodeId).optVersion match {
+    val txVersion = finalNodes.values.foldLeft(TransactionVersion.minVersion)((acc, node) =>
+      node.optVersion match {
         case Some(version) => acc max version
         case None => acc max TransactionVersion.minExceptions
       }
     )
+    val finalRoots = roots.toImmArray
     VersionedTransaction(txVersion, finalNodes, finalRoots)
   }
 
@@ -259,9 +259,9 @@ object TransactionBuilder {
       if (currentVersion >= supportedVersions.max) {
         Right(currentVersion)
       } else {
-        values0 match {
-          case FrontStack() => Right(currentVersion)
-          case FrontStackCons(value, values) =>
+        values0.pop match {
+          case None => Right(currentVersion)
+          case Some((value, values)) =>
             value match {
               // for things supported since version 1, we do not need to check
               case ValueRecord(_, fs) => go(currentVersion, fs.map(v => v._2) ++: values)

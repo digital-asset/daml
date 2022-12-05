@@ -55,7 +55,7 @@ ledger --help`` to get a list of available ledger commands:
 
    Available commands:
      list-parties             List parties known to ledger
-     allocate-parties         Allocate parties on ledger
+     allocate-parties         Allocate parties on ledger if they don't exist
      upload-dar               Upload DAR file to ledger
      fetch-dar                Fetch DAR from ledger into file
      metering-report          Report on Ledger Use

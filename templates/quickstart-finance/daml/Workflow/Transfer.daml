@@ -1,6 +1,7 @@
 module Workflow.Transfer where
 
 import DA.Assert ((===))
+import DA.Set (fromList)
 import Daml.Finance.Interface.Holding.Base qualified as Holding (I)
 import Daml.Finance.Interface.Holding.Transferable qualified as Transferable (I, Transfer(..))
 import Daml.Finance.Interface.Holding.Util (getAmount, getInstrument)
@@ -37,9 +38,9 @@ template Request
         -- DO_TRANSFER_BEGIN
         let transferableCid : ContractId Transferable.I = coerceContractId holdingCid
 
-        newTransferableCid <- exercise transferableCid Transferable.Transfer
-          with
-            newOwnerAccount = receiverAccount
+        newTransferableCid <- exercise transferableCid Transferable.Transfer with
+          actors = fromList [currentOwner, receiverAccount.owner]
+          newOwnerAccount = receiverAccount
 
         pure $ toInterfaceContractId @Holding.I newTransferableCid
         -- DO_TRANSFER_END

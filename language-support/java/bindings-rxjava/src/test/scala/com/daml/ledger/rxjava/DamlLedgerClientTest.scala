@@ -5,10 +5,15 @@ package com.daml.ledger.rxjava
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
-
 import com.daml.ledger.javaapi.data.LedgerOffset.Absolute
-import com.daml.ledger.javaapi.data.{Command, CreateCommand, DamlRecord, Identifier}
-import com.daml.ledger.rxjava.grpc.helpers.{CommandServiceImpl, _}
+import com.daml.ledger.javaapi.data.{
+  Command,
+  CommandsSubmission,
+  CreateCommand,
+  DamlRecord,
+  Identifier,
+}
+import com.daml.ledger.rxjava.grpc.helpers._
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.command_service.{
@@ -152,17 +157,16 @@ class DamlLedgerClientTest
       val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
       val commands = genCommands(List(command), Option(someParty))
+
+      val params = CommandsSubmission
+        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
+        .withActAs(commands.getParty)
+        .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
+        .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
+        .withDeduplicationTime(commands.getDeduplicationTime)
+
       commandClient
-        .submitAndWait(
-          commands.getWorkflowId,
-          commands.getApplicationId,
-          commands.getCommandId,
-          commands.getParty,
-          commands.getMinLedgerTimeAbsolute,
-          commands.getMinLedgerTimeRelative,
-          commands.getDeduplicationTime,
-          commands.getCommands,
-        )
+        .submitAndWait(params)
         .timeout(1L, TimeUnit.SECONDS)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
@@ -197,17 +201,16 @@ class DamlLedgerClientTest
       val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
       val commands = genCommands(List[Command](command), Option(someParty))
+
+      val params = CommandsSubmission
+        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
+        .withActAs(commands.getParty)
+        .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
+        .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
+        .withDeduplicationTime(commands.getDeduplicationTime)
+
       commandSubmissionClient
-        .submit(
-          commands.getWorkflowId,
-          commands.getApplicationId,
-          commands.getCommandId,
-          commands.getParty,
-          commands.getMinLedgerTimeAbsolute,
-          commands.getMinLedgerTimeRelative,
-          commands.getDeduplicationTime,
-          commands.getCommands,
-        )
+        .submit(params)
         .timeout(1L, TimeUnit.SECONDS)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()

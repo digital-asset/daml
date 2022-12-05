@@ -4,4 +4,5 @@
 exports_files(glob([
     "validate_dar.sh",
     "example/**",
+    "daml_script_test/**",
 ]))

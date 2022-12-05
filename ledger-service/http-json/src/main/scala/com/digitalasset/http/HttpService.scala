@@ -17,6 +17,7 @@ import com.daml.http.json.{
   DomainJsonEncoder,
   JsValueToApiValueConverter,
 }
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.ApiValueToLfValueConverter
 import com.daml.http.util.FutureUtil._
 import com.daml.http.util.Logging.InstanceUUID
@@ -33,7 +34,7 @@ import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.Metrics
+import com.daml.metrics.akkahttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import scalaz.Scalaz._
@@ -77,7 +78,7 @@ object HttpService {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Future[Error \/ (ServerBinding, Option[ContractDao])] = {
 
     logger.info("HTTP Server pre-startup")
@@ -214,8 +215,12 @@ object HttpService {
         client.identityClient,
       )
 
+      rateDurationSizeMetrics = HttpMetricsInterceptor.rateDurationSizeMetrics(
+        metrics.http
+      )
+
       defaultEndpoints =
-        concat(
+        rateDurationSizeMetrics apply concat(
           jsonEndpoints.all: Route,
           websocketEndpoints.transactionWebSocket,
         )

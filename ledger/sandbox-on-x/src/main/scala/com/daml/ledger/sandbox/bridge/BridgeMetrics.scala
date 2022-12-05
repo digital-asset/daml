@@ -13,7 +13,7 @@ class BridgeMetrics(metrics: Metrics) extends DropwizardFactory {
 
   override val registry: MetricRegistry = metrics.registry
 
-  override val prefix: MetricName = MetricName.Daml :+ "sandbox_ledger_bridge"
+  val prefix: MetricName = MetricName.Daml :+ "sandbox_ledger_bridge"
 
   val threadpool: MetricName = prefix :+ "threadpool"
 

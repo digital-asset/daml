@@ -960,6 +960,31 @@ message Expr {
     Expr interface_expr = 4;
   }
 
+  // Upcast from an interface payload to an interface it requires.
+  // *Available in versions >= 1.15*
+  message ToRequiredInterface {
+    TypeConName required_interface = 1;
+    TypeConName requiring_interface = 2;
+    Expr expr = 3;
+  }
+
+  // Downcast from an interface payload to an interface that requires it, if possible.
+  // *Available in versions >= 1.15*
+  message FromRequiredInterface {
+    TypeConName required_interface = 1;
+    TypeConName requiring_interface = 2;
+    Expr expr = 3;
+  }
+
+  // Downcast from an interface payload to an interface that requires it, or raises WronglyTypedContract if not possible.
+  // *Available in versions >= 1.15*
+  message UnsafeFromRequiredInterface {
+    TypeConName required_interface = 1;
+    TypeConName requiring_interface = 2;
+    Expr contract_id_expr = 3;
+    Expr interface_expr = 4;
+  }
+
   // Obtain the type representation of a contract through an interface
   // *Available in versions >= 1.15*
   message InterfaceTemplateTypeRep {
@@ -1108,6 +1133,12 @@ message Expr {
     // Obtain the type representation of a contract's template through an interface.
     // *Available in versions >= 1.15*
     InterfaceTemplateTypeRep interface_template_type_rep = 43;
+
+    // Upcast/downcast interface payloads.
+    // *Available in versions >= 1.15*
+    ToRequiredInterface to_required_interface = 44;
+    FromRequiredInterface from_required_interface = 45;
+    UnsafeFromRequiredInterface unsafe_from_required_interface = 46;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }
@@ -1609,6 +1640,8 @@ message DefInterface {
 
   // View type for this interface
   Type view = 8;
+
+  repeated TypeConName requires = 9;  // *Available in versions >= 1.15*
 }
 
 // Exception definition

@@ -17,7 +17,7 @@ This guide is based on the experience of porting an SBT project to Bazel.  If
 you are not porting an SBT project but a Maven project instead, then you should
 also have a look at the Maven porting guide in the [official Bazel
 documentation][bazel_maven_guide]. However, in order to arrive at a homogenous
-build system and project structure you shuold follow the suggestions in this
+build system and project structure you should follow the suggestions in this
 guide where possible.
 
 [bazel_maven_guide]: https://docs.bazel.build/versions/master/migrate-maven.html

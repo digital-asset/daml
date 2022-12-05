@@ -74,7 +74,7 @@ class CodegenLedgerTest
   it should "create correct exercise choice commands" in withUniqueParty {
     (alice, glookofly, sruquito, client) =>
       import java.util.Arrays.asList
-      sendCmd(client, asList(alice), asList[String](), List(glookofly.create(), sruquito.create()))
+      sendCmd(client, asList(alice), asList[String](), glookofly.create(), sruquito.create())
 
       val glookoflyContract :: sruquitoContract :: Nil =
         readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
@@ -145,7 +145,7 @@ class CodegenLedgerTest
 
   it should "be able to exercise by key" in withUniqueParty {
     (alice, glookofly, sruquito, client) =>
-      sendCmd(client, alice, List(glookofly.create(), sruquito.create()))
+      sendCmd(client, alice, glookofly.create(), sruquito.create())
 
       // We'll exercise by key, no need to get the handles
       val glookoflyContract :: sruquitoContract :: Nil =
