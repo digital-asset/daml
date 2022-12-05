@@ -16,6 +16,7 @@ import com.daml.ledger.api.domain.UserRight.{CanActAs, ParticipantAdmin}
 import com.daml.lf.data.Ref
 import com.daml.platform.sandbox.{SandboxRequiringAuthorization, SandboxRequiringAuthorizationFuns}
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
+import com.daml.test.evidence.tag.Security.Attack
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{Assertion, AsyncTestSuite, Inside}
 import org.scalatest.matchers.should.Matchers
@@ -80,7 +81,9 @@ class HttpServiceIntegrationTestUserManagementNoAuth
   }
 
   "create IOU" - {
-    "should work with correct user rights" taggedAs authorizationSecurity in withHttpService {
+    "should work with correct user rights" taggedAs authorizationSecurity.setHappyCase(
+      "A ledger client can create an IOU with correct user rights"
+    ) in withHttpService {
       fixture =>
         import fixture.{encoder, client => ledgerClient}
         for {
@@ -105,7 +108,9 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         }
     }
 
-    "should fail if user has no permission" taggedAs authorizationSecurity in withHttpService {
+    "should fail if user has no permission" taggedAs authorizationSecurity.setAttack(
+      Attack("Ledger client", "tries to create an IOU without permission", "refuse request with BAD_REQUEST")
+    ) in withHttpService {
       fixture =>
         import fixture.{encoder, client => ledgerClient}
         val alice = getUniqueParty("Alice")
@@ -131,7 +136,9 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         }
     }
 
-    "should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights" taggedAs authorizationSecurity in withHttpService {
+    "should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights" taggedAs authorizationSecurity.setAttack(
+      Attack("Ledger client", "tries to create an IOU but actAs & readAs result in missing permission", "refuse request with BAD_REQUEST")
+    ) in withHttpService {
       fixture =>
         import fixture.{encoder, client => ledgerClient}
         val alice = getUniqueParty("Alice")
@@ -554,7 +561,9 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       }
   }
 
-  "creating and listing 20K users should be possible" taggedAs availabilitySecurity in withHttpService {
+  "creating and listing 20K users should be possible" taggedAs availabilitySecurity.setHappyCase(
+    "A ledger client can create and list 20K users"
+  ) in withHttpService {
     fixture =>
       import fixture.uri
       import spray.json._

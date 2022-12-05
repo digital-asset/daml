@@ -23,7 +23,7 @@ abstract class TlsTest
     with AbstractHttpServiceIntegrationTestFuns {
   import json.JsonProtocol._
 
-  val authenticationSecurity: SecurityTest = SecurityTest(property = Authenticity, asset = "TBD")
+  val authenticationSecurity: SecurityTest = SecurityTest(property = Authenticity, asset = "HTTP JSON API Service")
 
   override def jdbcConfig = None
 
@@ -33,7 +33,9 @@ abstract class TlsTest
 
   override def wsConfig: Option[WebsocketConfig] = None
 
-  "connect normally with tls on" taggedAs authenticationSecurity in withHttpService { fixture =>
+  "connect normally with tls on" taggedAs authenticationSecurity.setHappyCase(
+    "A client request returns OK with enabled TLS"
+  ) in withHttpService { fixture =>
     fixture
       .getRequestWithMinimumAuth[Vector[JsValue]](Uri.Path("/v1/query"))
       .map(inside(_) { case domain.OkResponse(vector, None, StatusCodes.OK) =>

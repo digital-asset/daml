@@ -18,7 +18,7 @@ import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.service.MetadataReader
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.{Authorization, Availability}
-import com.daml.test.evidence.tag.Security.SecurityTest
+import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
@@ -140,10 +140,10 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   import AbstractHttpServiceIntegrationTestFuns.{ciouDar, riouDar}
 
   val authorizationSecurity: SecurityTest =
-    SecurityTest(property = Authorization, asset = "TBD")
+    SecurityTest(property = Authorization, asset = "HTTP JSON API Service")
 
   val availabilitySecurity: SecurityTest =
-    SecurityTest(property = Availability, asset = "TBD")
+    SecurityTest(property = Availability, asset = "HTTP JSON API Service")
 
   object CIou {
     val CIou: domain.ContractTypeId.Template.OptionalPkg =
@@ -930,7 +930,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       }
     }
 
-    "fails when readAs not authed, even if prior fetch succeeded" taggedAs authorizationSecurity in withHttpService {
+    "fails when readAs not authed, even if prior fetch succeeded" taggedAs authorizationSecurity.setAttack(
+      Attack("Ledger client", "fetches by contractId but readAs is not authorized", "refuse request with UNAUTHORIZED")
+    ) in withHttpService {
       fixture =>
         import fixture.uri
         for {
@@ -1047,7 +1049,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       }): Future[Assertion]
   }
 
-  "archiving a large number of contracts should succeed" taggedAs availabilitySecurity in withHttpService(
+  "archiving a large number of contracts should succeed" taggedAs availabilitySecurity.setHappyCase(
+    "A ledger client can archive a large number of contracts"
+  ) in withHttpService(
     maxInboundMessageSize = StartSettings.DefaultMaxInboundMessageSize * 10
   ) { fixture =>
     import fixture.encoder
@@ -1305,7 +1309,9 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
       }
     }
 
-    "fails if authorization header is missing" taggedAs authorizationSecurity in withHttpService {
+    "fails if authorization header is missing" taggedAs authorizationSecurity.setAttack(
+      Attack("Ledger client", "calls /create without authorization", "refuse request with UNAUTHORIZED")
+    ) in withHttpService {
       fixture =>
         import fixture.encoder
         val alice = getUniqueParty("Alice")
@@ -1609,7 +1615,9 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
         }): Future[Assertion]
     }
 
-    "return BadRequest error if party ID hint is invalid PartyIdString" taggedAs authorizationSecurity in withHttpService {
+    "return BadRequest error if party ID hint is invalid PartyIdString" taggedAs authorizationSecurity.setAttack(
+      Attack("Ledger client", "tries to allocate a party with invalid Party ID", "refuse request with BAD_REQUEST")
+    ) in withHttpService {
       fixture =>
         val request = domain.AllocatePartyRequest(
           Some(domain.Party(s"Carol-!")),
