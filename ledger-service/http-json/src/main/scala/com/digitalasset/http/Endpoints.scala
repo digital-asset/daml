@@ -115,7 +115,7 @@ class Endpoints(
       fn: (Jwt, Req) => ET[domain.SyncResponse[Res]],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Route = {
     val res = for {
       t <- routeSetup.inputJsVal(httpRequest): ET[(Jwt, JsValue)]
@@ -164,12 +164,12 @@ class Endpoints(
 
   private def toUploadDarFileRoute(httpRequest: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
       mkHttpResponse: MkHttpResponse[ET[domain.SyncResponse[Unit]]],
   ): Route = {
     val res: ET[domain.SyncResponse[Unit]] = for {
       parseAndDecodeTimer <- routeSetup.getParseAndDecodeTimerCtx()
-      _ <- EitherT.pure(metrics.daml.HttpJsonApi.uploadPackagesThroughput.mark())
+      _ <- EitherT.pure(metrics.uploadPackagesThroughput.mark())
       t2 <- eitherT(routeSetup.inputSource(httpRequest))
       (jwt, payload, source) = t2
       _ <- EitherT.pure(parseAndDecodeTimer.stop())
