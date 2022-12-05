@@ -337,11 +337,13 @@ object Server extends StrictLogging {
       )
     }
 
+    val route = new Server(config).route
+
     for {
       metricsInterceptor <- rateDurationSizeMetrics
       binding <- Http()
         .newServerAt(config.address, config.port)
-        .bind(metricsInterceptor apply (new Server(config).route))
+        .bind(metricsInterceptor apply route)
       _ <- config.portFile match {
         case Some(portFile) =>
           PortFiles.write(portFile, Port(binding.localAddress.getPort)) match {
