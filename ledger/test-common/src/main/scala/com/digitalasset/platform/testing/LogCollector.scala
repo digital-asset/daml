@@ -6,7 +6,7 @@ package com.daml.platform.testing
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.AppenderBase
-import com.daml.platform.testing.LogCollector.{Entry, ThrowableEntry}
+import com.daml.platform.testing.LogCollector.{Entry, ThrowableCause, ThrowableEntry}
 import com.daml.scalautil.Statement
 import org.scalatest.Checkpoints.Checkpoint
 import org.scalatest.{AppendedClues, OptionValues}
@@ -20,12 +20,17 @@ import scala.reflect.ClassTag
 
 object LogCollector {
 
-  case class ThrowableEntry(className: String, message: String)
+  case class ThrowableCause(className: String, message: String)
+  case class ThrowableEntry(
+      className: String,
+      message: String,
+      causeO: Option[ThrowableCause] = None,
+  )
   case class Entry(
       level: Level,
       msg: String,
       marker: Option[Marker],
-      throwableEntry: Option[ThrowableEntry] = None,
+      throwableEntryO: Option[ThrowableEntry] = None,
   )
   case class ExpectedLogEntry(level: Level, msg: String, markerRegex: Option[String])
 
@@ -75,12 +80,17 @@ final class LogCollector extends AppenderBase[ILoggingEvent] {
         .getOrElseUpdate(test, TrieMap.empty)
         .getOrElseUpdate(e.getLoggerName, Vector.newBuilder)
       val _ = log.synchronized {
+        val throwableO = Option(e.getThrowableProxy)
+        val causeEntryO = throwableO
+          .flatMap(t => Option(t.getCause))
+          .map(cause => ThrowableCause(cause.getClassName, cause.getMessage))
+        val throwableEntryO =
+          throwableO.map(t => ThrowableEntry(t.getClassName, t.getMessage, causeEntryO))
         log += Entry(
           e.getLevel,
           e.getMessage,
           Option(e.getMarker),
-          throwableEntry =
-            Option(e.getThrowableProxy).map(t => ThrowableEntry(t.getClassName, t.getMessage)),
+          throwableEntryO = throwableEntryO,
         )
       }
     }
@@ -106,7 +116,7 @@ trait LogCollectorAssertions extends OptionValues with AppendedClues { self: Mat
     cp { Statement.discard { actualEntry.level shouldBe expectedLogLevel } }
     cp { Statement.discard { actualEntry.msg shouldBe expectedMsg } }
     cp { Statement.discard { actualMarker shouldBe expectedMarkerAsString } }
-    cp { Statement.discard { actualEntry.throwableEntry shouldBe expectedThrowableEntry } }
+    cp { Statement.discard { actualEntry.throwableEntryO shouldBe expectedThrowableEntry } }
     cp.reportAll()
   }
 

@@ -57,16 +57,13 @@ final class ErrorInterceptor extends ServerInterceptor {
         * and gRPC status description is not security sanitized.
         * 2. Handling of Status.UNKNOWN:
         * We do not have an error category that uses UNKNOWN so there is no risk of catching a legitimate Ledger API error code.
-        * A Status.UNKNOWN can arise when someone calls [[io.grpc.stub.StreamObserver#onError]] directly
-        * providing an exception that is not a Status(Runtime)Exception (see [[io.grpc.stub.ServerCalls.ServerCallStreamObserverImpl#onError]]
-        * and [[io.grpc.Status#fromThrowable]]).
+        * A Status.UNKNOWN can arise when someone (us or a library):
+        * - calls [[io.grpc.stub.StreamObserver#onError]] providing an exception that is not a Status(Runtime)Exception
+        *   (see [[io.grpc.stub.ServerCalls.ServerCallStreamObserverImpl#onError]] and [[io.grpc.Status#fromThrowable]]),
+        * - calls [[io.grpc.ServerCall#close]] providing status.UNKNOWN.
         */
       override def close(status: Status, trailers: Metadata): Unit = {
-        if (
-          isInternalErrorThrownFromScalapbGrpcCompleteObserver(
-            status
-          ) || status.getCode == Status.Code.UNKNOWN
-        ) {
+        if (isInternalUnsanitizedOrUnknown(status)) {
           val recreatedException = status.asRuntimeException(trailers)
           val errorCodeException = LedgerApiErrors.InternalError
             .UnexpectedOrUnknownException(t = recreatedException)(
@@ -101,13 +98,16 @@ final class ErrorInterceptor extends ServerInterceptor {
     )
   }
 
-  private def isInternalErrorThrownFromScalapbGrpcCompleteObserver[RespT, ReqT](status: Status) = {
-    status.getCode == Status.Code.INTERNAL &&
-    (status.getDescription == null || !BaseError.isSanitizedSecuritySensitiveMessage(
-      status.getDescription
-    ))
-  }
+  private def isInternalUnsanitizedOrUnknown[RespT, ReqT](status: Status): Boolean =
+    status.getCode == Status.Code.UNKNOWN ||
+      (status.getCode == Status.Code.INTERNAL &&
+        (status.getDescription == null ||
+          !BaseError.isSanitizedSecuritySensitiveMessage(
+            status.getDescription
+          )))
 }
+
+object ErrorInterceptor
 
 class ErrorListener[ReqT, RespT](delegate: ServerCall.Listener[ReqT], call: ServerCall[ReqT, RespT])
     extends ForwardingServerCallListener.SimpleForwardingServerCallListener[ReqT](delegate) {
