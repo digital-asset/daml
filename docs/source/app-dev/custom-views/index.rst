@@ -326,3 +326,39 @@ A default dedicated dispatcher for blocking operations (e.g. db operation) is co
         throughput = 1
       }
     }
+
+Ledger API Authorization
+========================
+
+The client must provide an access token when authorization is required by the Ledger.
+For details of ledger authorization, please refer to [Ledger Authorization documentation](https://docs.daml.com/app-dev/authorization.html).
+
+Provide access token to custom-view library
+-------------------------------------------
+
+Applications can provide an access token when setting up the client.
+
+.. code-block:: scala
+
+    val clientSettings = GrpcClientSettings
+      .connectToServiceAt(host, port.value)
+      .withCallCredentials(new LedgerCallCredentials(accessToken))
+    val source = BatchSource.events(clientSettings)
+    val control = Projection.project(source, exercisedEvents)(f)
+
+Provide a newly retrieved access token when the existing one expired
+--------------------------------------------------------------------
+
+When an access token is expired, an application can retrieve a new access token with the stored refresh token.
+For details on the refresh token, please refer to [Ledger auth-middleware documentation](https://docs.daml.com/tools/auth-middleware/index.html#refresh-access-token).
+With the new access token, an application can cancel the running projection and re-create a new one using the new token.
+
+.. code-block:: scala
+
+    control.cancel().map(_ => {
+      val sourceWithNewToken = BatchSource.events(
+        clientSettings.withCallCredentials(new LedgerCallCredentials(newAccessToken))
+      )
+      val newControl = Projection.project(sourceWithNewToken, exercisedEvents)(f)
+      newControl
+    })
