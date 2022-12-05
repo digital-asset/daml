@@ -208,7 +208,7 @@ object ErrorCategory {
   object InsufficientPermission
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.PERMISSION_DENIED),
-        logLevel = Level.WARN,
+        logLevel = Level.INFO,
         retryable = None,
         securitySensitive = true,
         asInt = 7,
