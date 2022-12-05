@@ -12,7 +12,7 @@ import Daml.Finance.Interface.Settlement.Factory qualified as Factory (I)
 import Daml.Finance.Interface.Settlement.Instruction qualified as Instruction (Allocate(..), Approve(..))
 import Daml.Finance.Interface.Settlement.RouteProvider qualified as RouteProvider (I)
 import Daml.Finance.Interface.Settlement.Types (Allocation(..), Approval(..))
-import Daml.Finance.Interface.Types.Common (AccountKey, Id(..), InstrumentKey(..))
+import Daml.Finance.Interface.Types.Common.Types (AccountKey, Id(..), InstrumentKey(..))
 
 -- IMPLEMENTATION DEPENDENCIES --
 import Daml.Finance.Instrument.Token.Instrument (Instrument(..))
@@ -49,7 +49,7 @@ data SettlementState = SettlementState
 runSettlement : Script SettlementState
 runSettlement = do
 
-  -- Execute the `runTransfer` script. Bob now holds USD 1'000 in his account.
+  -- Execute the `runTransfer` script. Bob now holds USD 1000 in his account.
   TransferState{alice
     , bank
     , bob
@@ -131,7 +131,7 @@ runSettlement = do
   (allocatedPaySettleInstructionCid, _) <- submit bob do
     exerciseCmd paySettleInstructionCid Instruction.Allocate with
       actors = S.singleton bob
-      allocation = Pledge $ coerceContractId bobHoldingCid
+      allocation = Pledge bobHoldingCid
 
   approvedPaySettleInstructionCid <- submit alice do
     exerciseCmd allocatedPaySettleInstructionCid Instruction.Approve with
@@ -143,7 +143,7 @@ runSettlement = do
   (allocatedRecSettleInstructionCid, _) <- submit alice do
     exerciseCmd recSettleInstructionCid Instruction.Allocate with
       actors = S.singleton alice
-      allocation = Pledge $ coerceContractId aliceHoldingCid
+      allocation = Pledge aliceHoldingCid
 
   approvedRecSettleInstructionCid <- submit bob do
     exerciseCmd allocatedRecSettleInstructionCid Instruction.Approve with

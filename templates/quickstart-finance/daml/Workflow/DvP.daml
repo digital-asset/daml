@@ -7,7 +7,7 @@ import Daml.Finance.Interface.Settlement.Factory qualified as Factory (I, Instru
 import Daml.Finance.Interface.Settlement.Instruction qualified as Instruction (I)
 import Daml.Finance.Interface.Settlement.RouteProvider qualified as RouteProvider (I, Discover(..))
 import Daml.Finance.Interface.Settlement.Types (Step(..))
-import Daml.Finance.Interface.Types.Common (Id(..))
+import Daml.Finance.Interface.Types.Common.Types (Id(..))
 
 -- | Initiate / Accept template to exchange two holdings.
 template Proposal
