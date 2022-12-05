@@ -378,7 +378,7 @@ object ErrorInterceptorSpec {
     ): Source[HelloResponse, NotUsed] = Assertions.fail("This method should have been unreachable")
 
     override def single(request: HelloRequest): Future[HelloResponse] =
-      Assertions.fail("This class is not designed to test unary endpoints")
+      Assertions.fail("This class is not intended to test unary endpoints")
   }
 
 }
