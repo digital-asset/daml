@@ -75,6 +75,7 @@ common_scalacopts = version_specific.get(scala_major_version, []) + [
     "-Xlint:package-object-classes",  # put them directly in the package
     "-Xlint:poly-implicit-overload",  # implicit conversions don't mix with overloads
     "-Xlint:private-shadow",  # name shadowing
+    "-Xlint:recurse-with-default",  # optional settings not passed through
     "-Xlint:serial",  # spurious @SerialVersionUID
     "-Xlint:type-parameter-shadow",  # name shadowing
     "-Ywarn-dead-code",
