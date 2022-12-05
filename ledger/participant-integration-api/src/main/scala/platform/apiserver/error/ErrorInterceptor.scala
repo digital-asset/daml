@@ -63,7 +63,7 @@ final class ErrorInterceptor extends ServerInterceptor {
         * - calls [[io.grpc.ServerCall#close]] providing status.UNKNOWN.
         */
       override def close(status: Status, trailers: Metadata): Unit = {
-        if (isInternalUnsanitizedOrUnknown(status)) {
+        if (isUnsanitizedInternal(status) || status.getCode == Status.Code.UNKNOWN) {
           val recreatedException = status.asRuntimeException(trailers)
           val errorCodeException = LedgerApiErrors.InternalError
             .UnexpectedOrUnknownException(t = recreatedException)(
@@ -98,13 +98,12 @@ final class ErrorInterceptor extends ServerInterceptor {
     )
   }
 
-  private def isInternalUnsanitizedOrUnknown[RespT, ReqT](status: Status): Boolean =
-    status.getCode == Status.Code.UNKNOWN ||
-      (status.getCode == Status.Code.INTERNAL &&
-        (status.getDescription == null ||
-          !BaseError.isSanitizedSecuritySensitiveMessage(
-            status.getDescription
-          )))
+  private def isUnsanitizedInternal[RespT, ReqT](status: Status): Boolean =
+    status.getCode == Status.Code.INTERNAL &&
+      (status.getDescription == null ||
+        !BaseError.isSanitizedSecuritySensitiveMessage(
+          status.getDescription
+        ))
 }
 
 object ErrorInterceptor
