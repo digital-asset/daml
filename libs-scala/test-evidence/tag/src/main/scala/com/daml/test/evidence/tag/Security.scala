@@ -100,18 +100,13 @@ object Security {
         */
       case object Finality extends Property
 
+      /** Verification of identities */
       case object Authenticity extends Property // This is also known as Authentication.
 
       case object Authorization extends Property
 
       /** Whether a secure configuration can effectively be enforced */
       case object SecureConfiguration extends Property
-
-      /** Privacy of an asset. */
-      case object Confidentiality extends Property
-
-      /** Verification of identities */
-      case object Authentication extends Property
 
       /** Assurance that the sender of information is provided with proof of delivery and the recipient is provided
         * with proof of the sender’s identity, so neither can later deny having processed the information.

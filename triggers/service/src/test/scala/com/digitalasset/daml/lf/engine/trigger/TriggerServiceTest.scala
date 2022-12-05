@@ -42,10 +42,10 @@ import com.daml.ledger.client.services.commands.CompletionStreamElement
 import com.daml.lf.data.Ref.PackageId
 import com.daml.timer.RetryStrategy
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.{
-  Authentication,
+  Authenticity,
   Authorization,
   Availability,
-  Confidentiality,
+  Privacy,
 }
 import com.daml.test.evidence.tag.Security.SecurityTest
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
@@ -71,13 +71,13 @@ trait AbstractTriggerServiceTestHelper
     SecurityTest(property = Authorization, asset = "TBD")
 
   val authenticationSecurity: SecurityTest =
-    SecurityTest(property = Authentication, asset = "TBD")
+    SecurityTest(property = Authenticity, asset = "TBD")
 
   val availabilitySecurity: SecurityTest =
     SecurityTest(property = Availability, asset = "TBD")
 
   val confidentialitySecurity: SecurityTest =
-    SecurityTest(property = Confidentiality, asset = "TBD")
+    SecurityTest(property = Privacy, asset = "TBD")
 
   lazy protected val darPath: File = requiredResource("triggers/service/test-model.dar")
 

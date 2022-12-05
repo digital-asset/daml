@@ -13,7 +13,7 @@ import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authentication
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authenticity
 import com.daml.test.evidence.tag.Security.SecurityTest
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import java.io.File
@@ -37,7 +37,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
   ): Option[Config] =
     Cli.parseConfig(parameters, Set("org.postgresql.Driver"), getEnvVar)
 
-  private val authenticationSecurity = SecurityTest(property = Authentication, asset = "TBD")
+  private val authenticationSecurity = SecurityTest(property = Authenticity, asset = "TBD")
 
   val jdbcConfig = JdbcConfig(
     dbutils.JdbcConfig(

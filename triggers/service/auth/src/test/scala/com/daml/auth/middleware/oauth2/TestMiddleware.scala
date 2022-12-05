@@ -26,7 +26,7 @@ import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.auth.oauth2.api.{Response => OAuthResponse}
-import com.daml.test.evidence.tag.Security.SecurityTest.Property.{Authentication, Authorization}
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.{Authenticity, Authorization}
 import com.daml.test.evidence.tag.Security.SecurityTest
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import org.scalatest.{OptionValues, TryValues}
@@ -48,7 +48,7 @@ abstract class TestMiddleware
     with OptionValues {
 
   val authenticationSecurity: SecurityTest =
-    SecurityTest(property = Authentication, asset = "TBD")
+    SecurityTest(property = Authenticity, asset = "TBD")
 
   val authorizationSecurity: SecurityTest =
     SecurityTest(property = Authorization, asset = "TBD")
@@ -396,7 +396,7 @@ class TestMiddlewareCallbackUriOverride
     with TestFixture
     with SuiteResourceManagementAroundAll {
   val authenticationSecurity: SecurityTest =
-    SecurityTest(property = Authentication, asset = "TBD")
+    SecurityTest(property = Authenticity, asset = "TBD")
 
   override protected val middlewareCallbackUri = Some(Uri("http://localhost/MIDDLEWARE_CALLBACK"))
   "the /login endpoint with an oauth server checking claims" should {
@@ -429,7 +429,7 @@ class TestMiddlewareLimitedCallbackStore
     with TestFixture
     with SuiteResourceManagementAroundAll {
   val authenticationSecurity: SecurityTest =
-    SecurityTest(property = Authentication, asset = "TBD")
+    SecurityTest(property = Authenticity, asset = "TBD")
 
   override protected val maxMiddlewareLogins = 2
   "the /login endpoint with an oauth server checking claims" should {
@@ -481,7 +481,7 @@ class TestMiddlewareClientLimitedCallbackStore
     with TestFixture
     with SuiteResourceManagementAroundAll {
   val authenticationSecurity: SecurityTest =
-    SecurityTest(property = Authentication, asset = "TBD")
+    SecurityTest(property = Authenticity, asset = "TBD")
 
   override protected val maxClientAuthCallbacks = 2
   "the /login client with an oauth server checking claims" should {
@@ -544,7 +544,7 @@ class TestMiddlewareClientNoRedirectToLogin
     with TestFixture
     with SuiteResourceManagementAroundAll {
   val authenticationSecurity: SecurityTest =
-    SecurityTest(property = Authentication, asset = "TBD")
+    SecurityTest(property = Authenticity, asset = "TBD")
 
   override protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.No
   "the TestMiddlewareClientNoRedirectToLogin client" should {
@@ -595,7 +595,7 @@ class TestMiddlewareClientYesRedirectToLogin
     with TestFixture
     with SuiteResourceManagementAroundAll {
   val authenticationSecurity: SecurityTest =
-    SecurityTest(property = Authentication, asset = "TBD")
+    SecurityTest(property = Authenticity, asset = "TBD")
 
   override protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.Yes
   "the TestMiddlewareClientYesRedirectToLogin client" should {
@@ -631,7 +631,7 @@ class TestMiddlewareClientAutoRedirectToLogin
     with TestFixture
     with SuiteResourceManagementAroundAll {
   val authenticationSecurity: SecurityTest =
-    SecurityTest(property = Authentication, asset = "TBD")
+    SecurityTest(property = Authenticity, asset = "TBD")
 
   override protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.Auto
   "the TestMiddlewareClientAutoRedirectToLogin client" should {
