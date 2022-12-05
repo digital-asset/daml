@@ -41,6 +41,7 @@ message GetActiveContractsRequest {
 
   // The offset at which the snapshot of the active contracts will be computed.
   // Must be no greater than the current ledger end offset.
+  // Must be greater than or equal to the last pruning offset.
   // If not set the current ledger end offset will be used.
   // Optional
   string active_at_offset = 4;

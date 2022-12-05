@@ -158,6 +158,14 @@ trait ParticipantTestContext extends UserManagementTestContext {
   def activeContracts(
       request: GetActiveContractsRequest
   ): Future[(Option[LedgerOffset], Vector[CreatedEvent])]
+  def activeContractsIds(
+      request: GetActiveContractsRequest
+  ): Future[(Option[LedgerOffset], Vector[Primitive.ContractId[Any]])] = {
+    activeContracts(request).map { case (offset, createEvents: Seq[CreatedEvent]) =>
+      (offset, createEvents.map(c => Primitive.ContractId[Any](c.contractId)))
+    }
+  }
+
   def activeContractsRequest(
       parties: Seq[Primitive.Party],
       templateIds: Seq[TemplateId] = Seq.empty,

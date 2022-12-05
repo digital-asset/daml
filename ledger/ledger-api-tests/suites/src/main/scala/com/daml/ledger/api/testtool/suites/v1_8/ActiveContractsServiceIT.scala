@@ -617,50 +617,100 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     enabled = _.acsActiveAtOffsetFeature,
     disabledReason = "Requires ACS with active_at_offset",
     partyAllocation = allocate(SingleParty),
+    runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val transactionFilter = Some(TransactionFilter(filtersByParty = Map(party.unwrap -> Filters())))
     for {
-      // Populate participant with contracts from at least two transactions
-      (cId1a, cId1b, cId1c) <- createDummyContracts(party, ledger)
-      firstOffset <- ledger.currentEnd()
-      (cId2a, cId2b, cId2c) <- createDummyContracts(party, ledger)
-      secondOffset <- ledger.currentEnd()
-      cIds1: Set[String] = Set(cId1a, cId1b, cId1c).map(_.unwrap)
-      cIds2: Set[String] = Set(cId2a, cId2b, cId2c).map(_.unwrap)
-      // Fetch ACSs
-      acsAtOffset1 <- ledger
-        .activeContracts(
+      c1 <- ledger.create(party, Dummy(party))
+      offset1 <- ledger.currentEnd()
+      c2 <- ledger.create(party, Dummy(party))
+      offset2 <- ledger.currentEnd()
+      // acs at offset1
+      (acsOffset1, acs1) <- ledger
+        .activeContractsIds(
           GetActiveContractsRequest(
             filter = transactionFilter,
-            activeAtOffset = firstOffset.getAbsolute,
+            activeAtOffset = offset1.getAbsolute,
           )
         )
-        .map { case (_, createEvents: Seq[CreatedEvent]) =>
-          createEvents.map(c => c.contractId).filter(cIds1)
-        }
-      _ = assertEquals("ACS at the first offset", acsAtOffset1.toSet, cIds1)
-      acsAtOffset2 <- ledger
-        .activeContracts(
+      _ = assertEquals("acs1", acs1.toSet, Set(c1))
+      _ = assertEquals("acs1 offset", acsOffset1, Some(offset1))
+      // acs at offset2
+      (acsOffset2, acs2) <- ledger
+        .activeContractsIds(
           GetActiveContractsRequest(
             filter = transactionFilter,
-            activeAtOffset = secondOffset.getAbsolute,
+            activeAtOffset = offset2.getAbsolute,
           )
         )
-        .map { case (_, createEvents: Seq[CreatedEvent]) =>
-          createEvents.map(c => c.contractId).filter(cIds1 concat cIds2)
-        }
-      _ = assertEquals("ACS at the second offset", acsAtOffset2.toSet, cIds1 concat cIds2)
-      acsAtDefaultOffset <- ledger
-        .activeContracts(
+      _ = assertEquals("ACS at the second offset", acs2.toSet, Set(c1, c2))
+      _ = assertEquals("acs1 offset", acsOffset2, Some(offset2))
+      // acs at the default offset
+      (acsOffset3, acs3) <- ledger
+        .activeContractsIds(
           GetActiveContractsRequest(
             filter = transactionFilter,
             activeAtOffset = "",
           )
         )
-        .map { case (_, createEvents: Seq[CreatedEvent]) =>
-          createEvents.map(c => c.contractId).filter(cIds1 concat cIds2)
-        }
-      _ = assertEquals("ACS at the default offset", acsAtDefaultOffset.toSet, cIds1 concat cIds2)
+      endOffset <- ledger.currentEnd()
+      _ = assertEquals("ACS at the default offset", acs3.toSet, Set(c1, c2))
+      _ = assertEquals("acs1 offset", acsOffset3, Some(endOffset))
+    } yield ()
+  })
+
+  test(
+    "AcsAtPruningOffsetIsAllowed",
+    "Allow requesting ACS at the pruning offset",
+    enabled = _.acsActiveAtOffsetFeature,
+    disabledReason = "Requires ACS with active_at_offset",
+    partyAllocation = allocate(SingleParty),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val transactionFilter = Some(TransactionFilter(filtersByParty = Map(party.unwrap -> Filters())))
+    for {
+      c1 <- ledger.create(party, Dummy(party))
+      anOffset <- ledger.currentEnd()
+      _ <- ledger.create(party, Dummy(party))
+      _ <- ledger.prune(pruneUpTo = anOffset)
+      (acsOffset, acs) <- ledger
+        .activeContractsIds(
+          GetActiveContractsRequest(
+            filter = transactionFilter,
+            activeAtOffset = anOffset.getAbsolute,
+          )
+        )
+      _ = assertEquals("acs valid_at at pruning offset", acs.toSet, Set(c1))
+      _ = assertEquals("acs valid_at offset", acsOffset, Some(anOffset))
+    } yield ()
+  })
+
+  test(
+    "AcsBeforePruningOffsetIsDisallowed",
+    "Fail when requesting ACS before the pruning offset",
+    enabled = _.acsActiveAtOffsetFeature,
+    disabledReason = "Requires ACS with active_at_offset",
+    partyAllocation = allocate(SingleParty),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val transactionFilter = Some(TransactionFilter(filtersByParty = Map(party.unwrap -> Filters())))
+    for {
+      offset1 <- ledger.currentEnd()
+      _ <- ledger.create(party, Dummy(party))
+      offset2 <- ledger.currentEnd()
+      _ <- ledger.create(party, Dummy(party))
+      _ <- ledger.prune(pruneUpTo = offset2)
+      _ <- ledger
+        .activeContractsIds(
+          GetActiveContractsRequest(
+            filter = transactionFilter,
+            activeAtOffset = offset1.getAbsolute,
+          )
+        )
+        .mustFailWith(
+          "ACS before the pruning offset",
+          LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
+        )
     } yield ()
   })
 
