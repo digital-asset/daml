@@ -3,8 +3,10 @@
 
 package com.daml.logging
 
+import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
+import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import com.daml.grpc.GrpcException
 import com.daml.logging.entries.LoggingEntries
 import io.grpc.Status
@@ -33,6 +35,41 @@ object ContextualizedLogger {
     */
   def get(clazz: Class[_]): ContextualizedLogger =
     createFor(clazz.getName.stripSuffix("$"))
+
+  private[logging] class TerminationLogger[T](leveledLogger: LeveledLogger)(implicit
+      loggingContext: LoggingContext
+  ) extends GraphStage[FlowShape[T, T]] {
+
+    val in: Inlet[T] = Inlet[T]("in")
+    val out: Outlet[T] = Outlet[T]("out")
+
+    override def shape: FlowShape[T, T] = FlowShape(in, out)
+
+    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
+      new GraphStageLogic(shape) with OutHandler with InHandler {
+
+        override def onPush(): Unit = {
+          val elem = grab(in)
+          push(out, elem)
+        }
+
+        override def onPull(): Unit = {
+          pull(in)
+        }
+
+        override def onUpstreamFinish(): Unit = {
+          leveledLogger("The stream has been closed by upstream")
+          super.onUpstreamFinish()
+        }
+
+        override def onDownstreamFinish(cause: Throwable): Unit = {
+          leveledLogger("The stream has been closed by downstream")
+          super.onDownstreamFinish(cause)
+        }
+
+        setHandlers(in, out, this)
+      }
+  }
 
 }
 
@@ -91,5 +128,8 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
         item
       }
     }
+
+  def logTermination[T](implicit loggingContext: LoggingContext): GraphStage[FlowShape[T, T]] =
+    new ContextualizedLogger.TerminationLogger[T](info)
 
 }
