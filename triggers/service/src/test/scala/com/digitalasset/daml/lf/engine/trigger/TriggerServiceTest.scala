@@ -47,7 +47,7 @@ import com.daml.test.evidence.tag.Security.SecurityTest.Property.{
   Availability,
   Privacy,
 }
-import com.daml.test.evidence.tag.Security.SecurityTest
+import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import com.google.protobuf.empty.Empty
 import com.typesafe.scalalogging.StrictLogging
@@ -68,16 +68,16 @@ trait AbstractTriggerServiceTestHelper
     PatienceConfig(timeout = scaled(Span(30, Seconds)))
 
   val authorizationSecurity: SecurityTest =
-    SecurityTest(property = Authorization, asset = "TBD")
+    SecurityTest(property = Authorization, asset = "Trigger Service")
 
   val authenticationSecurity: SecurityTest =
-    SecurityTest(property = Authenticity, asset = "TBD")
+    SecurityTest(property = Authenticity, asset = "Trigger Service")
 
   val availabilitySecurity: SecurityTest =
-    SecurityTest(property = Availability, asset = "TBD")
+    SecurityTest(property = Availability, asset = "Trigger Service")
 
   val confidentialitySecurity: SecurityTest =
-    SecurityTest(property = Privacy, asset = "TBD")
+    SecurityTest(property = Privacy, asset = "Trigger Service")
 
   lazy protected val darPath: File = requiredResource("triggers/service/test-model.dar")
 
@@ -501,7 +501,9 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
-  it should "restart trigger on initialization failure due to failed connection" taggedAs availabilitySecurity inClaims withTriggerService(
+  it should "restart trigger on initialization failure due to failed connection" taggedAs availabilitySecurity.setHappyCase(
+    "A failed ledger connection will start the trigger later"
+  ) inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     for {
@@ -520,7 +522,9 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
-  it should "restart trigger on run-time failure due to dropped connection" taggedAs availabilitySecurity inClaims withTriggerService(
+  it should "restart trigger on run-time failure due to dropped connection" taggedAs availabilitySecurity.setHappyCase(
+    "A connection error during runtime of a trigger will restart the trigger"
+  ) inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     // Simulate the ledger being briefly unavailable due to network connectivity loss.
@@ -541,7 +545,9 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
-  it should "restart triggers with initialization errors" taggedAs availabilitySecurity in withTriggerService(
+  it should "restart triggers with initialization errors" taggedAs availabilitySecurity.setHappyCase(
+    ""
+  ) in withTriggerService(
     List(dar)
   ) { uri: Uri =>
     for {
@@ -678,9 +684,17 @@ trait AbstractTriggerServiceTestAuthMiddleware
     extends AbstractTriggerServiceTest
     with AuthMiddlewareFixture {
 
+  private def attackUnauthorized(threat: String): Attack = Attack(
+    actor = "Trigger Service client",
+    threat = threat,
+    mitigation = "Refuse request with FORBIDDEN",
+  )
+
   behavior of "authenticated service"
 
-  it should "redirect to the configured callback URI after login" taggedAs authenticationSecurity in withTriggerService(
+  it should "redirect to the configured callback URI after login" taggedAs authenticationSecurity.setHappyCase(
+    "An authenticated user gets redirected to callback URI after login"
+  ) in withTriggerService(
     Nil,
     authCallback = Some("http://localhost/TRIGGER_CALLBACK"),
   ) { uri: Uri =>
@@ -697,7 +711,10 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
-  it should "forbid a non-authorized party to start a trigger" taggedAs authorizationSecurity inClaims withTriggerService(
+  it should "forbid a non-authorized party to start a trigger" taggedAs authorizationSecurity
+    .setAttack(
+      attackUnauthorized("An unauthorized party requests to start a trigger")
+    ) inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     authServer.revokeParty(eve)
@@ -707,7 +724,10 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
-  it should "forbid a non-authorized party to list triggers" taggedAs authorizationSecurity inClaims withTriggerService(
+  it should "forbid a non-authorized party to list triggers" taggedAs authorizationSecurity
+    .setAttack(
+      attackUnauthorized("An unauthorized party requests to list triggers")
+    ) inClaims withTriggerService(
     Nil
   ) { uri: Uri =>
     authServer.revokeParty(eve)
@@ -717,7 +737,10 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
-  it should "forbid a non-authorized party to check the status of a trigger" taggedAs authorizationSecurity inClaims withTriggerService(
+  it should "forbid a non-authorized party to check the status of a trigger" taggedAs authorizationSecurity
+    .setAttack(
+      attackUnauthorized("An unauthorized party requests to check status of a trigger")
+    ) inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     for {
@@ -732,7 +755,10 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
-  it should "forbid a non-authorized party to stop a trigger" taggedAs authorizationSecurity inClaims withTriggerService(
+  it should "forbid a non-authorized party to stop a trigger" taggedAs authorizationSecurity
+    .setAttack(
+      attackUnauthorized("An unauthorized party requests to stop a trigger")
+    ) inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     for {
@@ -747,7 +773,9 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
-  it should "forbid a non-authorized user to upload a DAR" taggedAs authorizationSecurity inClaims withTriggerService(
+  it should "forbid a non-authorized user to upload a DAR" taggedAs authorizationSecurity.setAttack(
+    attackUnauthorized("An unauthorized party requests to upload a DAR")
+  ) inClaims withTriggerService(
     Nil
   ) { uri: Uri =>
     authServer.revokeAdmin()
@@ -757,7 +785,10 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
-  it should "request a fresh token after expiry on user request" taggedAs authorizationSecurity in withTriggerService(
+  it should "request a fresh token after expiry on user request" taggedAs authorizationSecurity
+    .setHappyCase(
+      "The token is refreshed for an authorized user with an expired token"
+    ) in withTriggerService(
     Nil
   ) { uri: Uri =>
     for {
@@ -772,7 +803,10 @@ trait AbstractTriggerServiceTestAuthMiddleware
     } yield succeed
   }
 
-  it should "refresh a token after expiry on the server side" taggedAs authorizationSecurity inClaims withTriggerService(
+  it should "refresh a token after expiry on the server side" taggedAs authorizationSecurity
+    .setHappyCase(
+      "The token is refreshed on the server side during trigger start-up and while running"
+    ) inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     for {
