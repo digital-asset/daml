@@ -70,6 +70,7 @@ genrule(
         "daml-stdlib/DA-Validation-Types.dalf",
         "daml-stdlib/DA-Internal-Down.dalf",
         "daml-stdlib/DA-Internal-Interface-AnyView-Types.dalf",
+        "daml-stdlib/DA-Action-State-Type.dalf",
     ],
     cmd = """
       $(location :generate-stable-package) --module GHC.Types -o $(location daml-prim/GHC-Types.dalf)
@@ -96,6 +97,8 @@ genrule(
       $(location :generate-stable-package) --module DA.Internal.Any -o $(location daml-stdlib/DA-Internal-Any.dalf)
       $(location :generate-stable-package) --module DA.Internal.Template -o $(location daml-stdlib/DA-Internal-Template.dalf)
       $(location :generate-stable-package) --module DA.Internal.Interface.AnyView.Types -o $(location daml-stdlib/DA-Internal-Interface-AnyView-Types.dalf)
+      # These types are not serializable but they need to be stable so users can reuse functions from data-dependencies.
+      $(location :generate-stable-package) --module DA.Action.State.Type -o $(location daml-stdlib/DA-Action-State-Type.dalf)
     """,
     tools = [":generate-stable-package"],
     visibility = ["//visibility:public"],
@@ -116,6 +119,7 @@ filegroup(
         "daml-prim/GHC-Prim.dalf",
         "daml-prim/GHC-Tuple.dalf",
         "daml-prim/GHC-Types.dalf",
+        "daml-stdlib/DA-Action-State-Type.dalf",
         "daml-stdlib/DA-Date-Types.dalf",
         "daml-stdlib/DA-Internal-Any.dalf",
         "daml-stdlib/DA-Internal-Down.dalf",

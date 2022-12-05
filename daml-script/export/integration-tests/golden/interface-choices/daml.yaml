@@ -33,6 +33,7 @@ data-dependencies:
 - deps/HASH.dalf
 - deps/HASH.dalf
 - deps/HASH.dalf
+- deps/HASH.dalf
 - deps/daml-prim-0.0.0-HASH.dalf
 - deps/daml-prim-DA-Exception-ArithmeticError-1.0.0-HASH.dalf
 - deps/daml-prim-DA-Exception-AssertionFailed-1.0.0-HASH.dalf

@@ -29,6 +29,17 @@ private[daml] sealed class StablePackage(
 private[daml] object StablePackage {
 
   object DA {
+    object Action {
+      object State {
+        object Type
+            extends StablePackage(
+              "DA.Action.State.Type",
+              "10e0333b52bba1ff147fc408a6b7d68465b157635ee230493bd6029b750dcb05",
+              "daml-stdlib",
+              v1_14,
+            )
+      }
+    }
     object Date {
       object Types
           extends StablePackage(
@@ -231,6 +242,7 @@ private[daml] object StablePackage {
 
   val values =
     List(
+      DA.Action.State.Type,
       DA.Date.Types,
       DA.Exception.ArithmeticError,
       DA.Exception.AssertionFailed,

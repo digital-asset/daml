@@ -44,6 +44,7 @@ allStablePackages =
     , daExceptionAssertionFailed
     , daExceptionPreconditionFailed
     , daInternalInterfaceAnyViewTypes
+    , daActionStateType (encodePackageHash daTypes)
     ]
 
 allStablePackagesForVersion :: Version -> MS.Map PackageId Package
@@ -227,6 +228,50 @@ daInternalInterfaceAnyViewTypes = Package
       , mkWorkerDef modName anyViewTyCon [] [(getAnyViewField, TAny), (getAnyViewInterfaceTypeRepField, interfaceTypeRepType)]
       , mkSelectorDef modName interfaceTypeRepTyCon [] getInterfaceTypeRepField TTypeRep
       , mkWorkerDef modName interfaceTypeRepTyCon [] [(getInterfaceTypeRepField, TTypeRep)]
+      ]
+
+daActionStateType :: PackageId -> Package
+daActionStateType daTypesPackageId = Package
+  { packageLfVersion = version1_14
+  , packageModules = NM.singleton (emptyModule modName)
+      { moduleDataTypes = types
+      , moduleValues = values
+      }
+  , packageMetadata = Just PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Action-State-Type"
+      , packageVersion = PackageVersion "1.0.0"
+      }
+  }
+  where
+    modName = mkModName ["DA", "Action", "State", "Type"]
+
+    tuple2QualTyCon = Qualified
+      { qualPackage = PRImport daTypesPackageId
+      , qualModule = mkModName ["DA", "Types"]
+      , qualObject = mkTypeCon ["Tuple2"]
+      }
+
+    stateTyCon = mkTypeCon ["State"]
+    sTyVar = mkTypeVar "s"
+    aTyVar = mkTypeVar "a"
+    tyVars = [(sTyVar, KStar), (aTyVar, KStar)]
+    runStateField = mkField "runState"
+    runStateFieldType =
+      TVar sTyVar :->
+        TCon tuple2QualTyCon `TApp` TVar aTyVar `TApp` TVar sTyVar
+
+    types = NM.fromList
+      [ DefDataType
+          { dataLocation = Nothing
+          , dataTypeCon = stateTyCon
+          , dataSerializable = IsSerializable False
+          , dataParams = tyVars
+          , dataCons = DataRecord [(runStateField, runStateFieldType)]
+          }
+      ]
+    values = NM.fromList
+      [ mkSelectorDef modName stateTyCon tyVars runStateField runStateFieldType
+      , mkWorkerDef modName stateTyCon tyVars [(runStateField, runStateFieldType)]
       ]
 
 daTimeTypes :: Package
