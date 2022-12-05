@@ -6,7 +6,11 @@ package com.daml.platform.store.backend
 import com.daml.ledger.api.v1.contract_metadata.ContractMetadata
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Bytes, Ref}
-import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
+import com.daml.platform.store.backend.EventStorageBackend.FilterParams
+import com.daml.platform.store.backend.common.{
+  EventPayloadSourceForFlatTx,
+  EventPayloadSourceForTreeTx,
+}
 import com.daml.platform.store.dao.events.Raw.{FlatEvent, TreeEvent}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
@@ -84,12 +88,19 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     executeSql(ingest(Vector(create), _))
     executeSql(updateLedgerEnd(offset(1), 1L))
 
-    val range = RangeParams(0L, 1L, None, None)
     val filter = FilterParams(Set(someParty), Set.empty)
 
-    val flatTransactionEvents = executeSql(backend.event.transactionEvents(range, filter))
+    val flatTransactionEvents = executeSql(
+      backend.event.transactionStreamingQueries.fetchEventPayloadsFlat(
+        EventPayloadSourceForFlatTx.Create
+      )(eventSequentialIds = Seq(1L), Set(someParty))
+    )
+    val transactionTreeEvents = executeSql(
+      backend.event.transactionStreamingQueries.fetchEventPayloadsTree(
+        EventPayloadSourceForTreeTx.Create
+      )(eventSequentialIds = Seq(1L), Set(someParty))
+    )
     val flatTransaction = executeSql(backend.event.flatTransaction(createTransactionId, filter))
-    val transactionTreeEvents = executeSql(backend.event.transactionTreeEvents(range, filter))
     val transactionTree = executeSql(backend.event.transactionTree(createTransactionId, filter))
     val acs = executeSql(backend.event.activeContractEventBatch(Seq(1L), Set(someParty), 1L))
 
