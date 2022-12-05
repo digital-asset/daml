@@ -102,7 +102,7 @@ class FilterTableACSReader(
             )(connection),
             activeAt._1,
             pruned =>
-              s"Active contracts request after ${activeAt._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+              s"Active contracts request at offset ${activeAt._1.toHexString} precedes pruned offset ${pruned.toHexString}",
           )(connection, implicitly)
           logger.debug(
             s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
