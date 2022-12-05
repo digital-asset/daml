@@ -354,7 +354,7 @@ class ErrorFactoriesSpec
         message = expectedInternalErrorMessage,
         details = expectedInternalErrorDetails,
         logEntry = ExpectedLogEntry(
-          Level.WARN,
+          Level.INFO,
           s"PERMISSION_DENIED(7,$truncatedCorrelationId): some cause",
           Some(expectedLocationLogMarkerRegex),
         ),

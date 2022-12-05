@@ -79,7 +79,7 @@ InsufficientPermission
 
     **gRPC status code**: PERMISSION_DENIED
 
-    **Default log level**: WARN
+    **Default log level**: INFO
 
     **Description**: The caller does not have permission to execute the specified operation. This error is exposed on the API with grpc-status PERMISSION_DENIED without any details for security reasons
 
