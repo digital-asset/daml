@@ -149,7 +149,6 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
           for {
             create1 <- tested.createPartyRecord(pr1)
             _ = create1.value shouldBe createdPartyRecord("party1")
-            _ <- createIdentityProviderConfig(idp1)
             update1 <- tested.updatePartyRecord(
               partyRecordUpdate = PartyRecordUpdate(
                 party = pr1.party,
@@ -157,14 +156,13 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                   resourceVersionO = create1.value.metadata.resourceVersionO,
                   annotationsUpdateO = Some(Map("k1" -> "v1")),
                 ),
-                identityProviderId = persistedIdentityProviderId,
+                identityProviderId = IdentityProviderId.Default,
               ),
               ledgerPartyExists = _ => Future.successful(true),
             )
             _ = resetResourceVersion(update1.value) shouldBe newPartyRecord(
               "party1",
               annotations = Map("k1" -> "v1"),
-              identityProviderId = persistedIdentityProviderId,
             )
           } yield succeed
         }
