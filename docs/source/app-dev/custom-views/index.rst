@@ -57,16 +57,17 @@ Projector
 A ``Projector`` executes the projection process. The code snippet below shows how to create a ``JdbcProjector``.
 
 .. code-block:: java
+    var config = new HikariConfig();
+    config.setJdbcUrl(url);
+    config.setUsername(user);
+    config.setPassword(password);
+    var ds = new HikariDataSource(config);
 
-    ConnectionSupplier connectionSupplier =
-      () -> {
-        return java.sql.DriverManager.getConnection(url, user, password);
-      };
     var system = ActorSystem.create("my-projection-app");
-    var projector = JdbcProjector.create(connectionSupplier, system);
+    var projector = JdbcProjector.create(ds, system);
 
 A ``Projector`` provides ``project`` methods to start a projection process.
-The `ConnectionSupplier` is used to create database connections when required.
+A `DataSource` is used to create database connections when required. In this example a `Hikari connection pool <https://github.com/brettwooldridge/HikariCP>`_ is used.
 The ``project`` methods return a ``Control`` which can be used to:
 
 - Cancel the projection.
