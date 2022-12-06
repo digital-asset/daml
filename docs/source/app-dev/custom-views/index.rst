@@ -346,7 +346,7 @@ Applications can provide an access token when setting up the client.
     val source = BatchSource.events(clientSettings)
     val control = Projection.project(source, exercisedEvents)(f)
 
-Provide a newly retrieved access token when the existing one expired
+Provide a newly retrieved access token when the existing one has expired
 --------------------------------------------------------------------
 
 When an access token is expired, an application can retrieve a new access token with the stored refresh token.
