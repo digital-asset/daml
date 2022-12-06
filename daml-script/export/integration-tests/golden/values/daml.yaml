@@ -38,7 +38,10 @@ data-dependencies:
 - deps/daml-prim-DA-Exception-PreconditionFailed-1.0.0-HASH.dalf
 - deps/daml-script-0.0.0-HASH.dalf
 - deps/daml-stdlib-0.0.0-HASH.dalf
+- deps/daml-stdlib-DA-Action-State-Type-1.0.0-HASH.dalf
+- deps/daml-stdlib-DA-Random-Types-1.0.0-HASH.dalf
 - deps/daml-stdlib-DA-Set-Types-1.0.0-HASH.dalf
+- deps/daml-stdlib-DA-Stack-Types-1.0.0-HASH.dalf
 - deps/values-1.0.0-HASH.dalf
 build-options:
 - --target=1.14

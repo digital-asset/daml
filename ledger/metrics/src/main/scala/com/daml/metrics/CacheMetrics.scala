@@ -3,11 +3,11 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.{Gauge, MetricRegistry}
+import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.Counter
 import com.daml.metrics.api.dropwizard.DropwizardFactory
-import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 final class CacheMetrics(val prefix: MetricName, override val registry: MetricRegistry)
     extends DropwizardFactory {
@@ -42,9 +42,9 @@ final class CacheMetrics(val prefix: MetricName, override val registry: MetricRe
   )
   val evictionWeight: Counter = counter(prefix :+ "evicted_weight")
 
-  def registerSizeGauge(sizeGauge: Gauge[Long]): Unit =
-    gaugeWithSupplier(prefix :+ "size", () => () => sizeGauge.getValue -> MetricsContext.Empty)
-  def registerWeightGauge(weightGauge: Gauge[Long]): Unit =
-    gaugeWithSupplier(prefix :+ "weight", () => () => weightGauge.getValue -> MetricsContext.Empty)
+  def registerSizeGauge(sizeSupplier: () => Long): Unit =
+    gaugeWithSupplier(prefix :+ "size", sizeSupplier)
+  def registerWeightGauge(weightSupplier: () => Long): Unit =
+    gaugeWithSupplier(prefix :+ "weight", weightSupplier)
 
 }

@@ -11,6 +11,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.typesig._
 import com.daml.lf.codegen.conf.PackageReference
 import com.daml.lf.language.Reference
+import com.daml.lf.language.StablePackage
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
@@ -20,11 +21,14 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   behavior of "configureCodeGenScope"
 
+  val stablePackageIds = StablePackage.values.map(_.packageId)
+
   it should "read interfaces from a single DAR file without a prefix" in {
 
     val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> None), Map.empty)
 
-    scope.signatures.length should ===(25)
+    // `daml-prim` + `daml-stdlib` + testDar
+    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(3)
     scope.packagePrefixes should ===(Map.empty)
     scope.toBeGenerated should ===(Set.empty)
   }
@@ -37,7 +41,8 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
         Map.empty,
       )
 
-    scope.signatures.length should ===(26)
+    // `daml-prim` + `daml-stdlib` + testDar + testDarWithSameDependencies
+    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(4)
     scope.packagePrefixes should ===(Map.empty)
     scope.toBeGenerated should ===(Set.empty)
   }
@@ -51,7 +56,13 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
         Map.empty,
       )
 
-    scope.signatures.length should ===(28)
+    // `daml-prim`
+    // + `daml-stdlib`
+    // + testDar
+    // + `daml-prim` from different LF version
+    // + `daml-stdlib` from different LF version
+    // + testDarWithSameDependenciesButDifferentTargetVersion
+    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(6)
     scope.packagePrefixes should ===(Map.empty)
     scope.toBeGenerated should ===(Set.empty)
   }
@@ -98,7 +109,12 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       Map.empty,
     )
 
-    scope.signatures.map(_.packageId).length should ===(27)
+    // `daml-prim`
+    //  + `daml-stdlib`
+    //  + testTemplateDar
+    //  + testDependsOnBarTplDar
+    //  + `test-another-bar.dar`
+    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(5)
     val prefixes = backend.java.inner.PackagePrefixes unwrap scope.packagePrefixes
     prefixes.size should ===(3)
     // prefix1 is applied to the main package containing template Bar
