@@ -133,7 +133,7 @@ message Right {
         CanActAs can_act_as = 2;
         // The user can read ledger data visible to a specific party.
         CanReadAs can_read_as = 3;
-        // The user can administer the identity provider which user belongs to.
+        // The user can administer users and parties assigned to the same identity provider.
         IdentityProviderAdmin identity_provider_admin = 4;
     }
 }
