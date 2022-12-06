@@ -82,8 +82,7 @@ object LanguageVersion {
   val DevVersions: VersionRange[LanguageVersion] =
     EarlyAccessVersions.copy(max = v1_dev)
 
-  val defaultV1: LanguageVersion = StableVersions.max
-
-  val default: LanguageVersion = defaultV1
+  // This refers to the default output LF version in the compiler
+  val default: LanguageVersion = v1_14
 
 }
