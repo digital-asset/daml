@@ -63,8 +63,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       val updatedIsDeactivated =
         userUpdate.isDeactivatedUpdateO.getOrElse(userInfo.user.isDeactivated)
       val existingAnnotations = userInfo.user.annotations
-      val identityProviderId =
-        userUpdate.identityProviderIdUpdate.getOrElse(userInfo.user.identityProviderId)
+      val identityProviderId = userInfo.user.identityProviderId
       val updatedAnnotations =
         userUpdate.metadataUpdate.annotationsUpdateO.fold(existingAnnotations) { newAnnotations =>
           LocalAnnotationsUtils.calculateUpdatedAnnotations(

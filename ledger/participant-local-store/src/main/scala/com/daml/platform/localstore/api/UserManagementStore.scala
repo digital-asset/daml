@@ -12,10 +12,10 @@ import scala.concurrent.{ExecutionContext, Future}
 
 case class UserUpdate(
     id: Ref.UserId,
+    identityProviderId: IdentityProviderId,
     primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
     isDeactivatedUpdateO: Option[Boolean] = None,
     metadataUpdate: ObjectMetaUpdate,
-    identityProviderIdUpdate: Option[IdentityProviderId] = None,
 )
 
 case class ObjectMetaUpdate(

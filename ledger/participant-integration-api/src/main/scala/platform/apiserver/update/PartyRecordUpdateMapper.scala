@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.update
 
-import com.daml.ledger.api.domain.{IdentityProviderId, PartyDetails}
+import com.daml.ledger.api.domain.PartyDetails
 import com.daml.platform.localstore.api.{ObjectMetaUpdate, PartyDetailsUpdate}
 
 object PartyRecordUpdateMapper extends UpdateMapperBase {
@@ -23,20 +23,16 @@ object PartyRecordUpdateMapper extends UpdateMapperBase {
       annotationsUpdate <- resolveAnnotationsUpdate(updateTrie, partyRecord.metadata.annotations)
       isLocalUpdate <- resolveIsLocalUpdate(updateTrie, partyRecord.isLocal)
       displayNameUpdate <- resolveDisplayNameUpdate(updateTrie, partyRecord.displayName)
-      identityProviderIdUpdate <- resolveIdentityProviderIdUpdate(
-        updateTrie,
-        partyRecord.identityProviderId,
-      )
     } yield {
       PartyDetailsUpdate(
         party = partyRecord.party,
+        identityProviderId = partyRecord.identityProviderId,
         displayNameUpdate = displayNameUpdate,
         isLocalUpdate = isLocalUpdate,
         metadataUpdate = ObjectMetaUpdate(
           resourceVersionO = partyRecord.metadata.resourceVersionO,
           annotationsUpdateO = annotationsUpdate,
         ),
-        identityProviderIdUpdate = identityProviderIdUpdate,
       )
     }
   }
@@ -65,20 +61,6 @@ object PartyRecordUpdateMapper extends UpdateMapperBase {
         makePrimitiveFieldUpdate(
           updateMatch = updateMatch,
           defaultValue = false,
-          newValue = newValue,
-        )
-      )
-
-  def resolveIdentityProviderIdUpdate(
-      updateTrie: UpdatePathsTrie,
-      newValue: IdentityProviderId,
-  ): Result[Option[IdentityProviderId]] =
-    updateTrie
-      .findMatch(PartyDetailsPaths.identityProviderId)
-      .fold(noUpdate[IdentityProviderId])(matchResult =>
-        makePrimitiveFieldUpdate(
-          updateMatch = matchResult,
-          defaultValue = IdentityProviderId.Default,
           newValue = newValue,
         )
       )

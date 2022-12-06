@@ -30,15 +30,15 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
       resourceVersionO = None,
       annotations = annotations,
     ),
-    identityProviderId = identityProviderId
+    identityProviderId = identityProviderId,
   )
 
   def makeUserUpdate(
       id: Ref.UserId = userId1,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
       primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
       isDeactivatedUpdateO: Option[Boolean] = None,
       annotationsUpdateO: Option[Map[String, String]] = None,
-      identityProviderIdUpdate: Option[IdentityProviderId] = None,
   ): UserUpdate = UserUpdate(
     id = id,
     primaryPartyUpdateO = primaryPartyUpdateO,
@@ -47,7 +47,7 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
       resourceVersionO = None,
       annotationsUpdateO = annotationsUpdateO,
     ),
-    identityProviderIdUpdate = identityProviderIdUpdate,
+    identityProviderId = identityProviderId,
   )
 
   val emptyUserUpdate: UserUpdate = makeUserUpdate()
@@ -64,14 +64,14 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
         primaryPartyUpdateO = Some(None),
         isDeactivatedUpdateO = Some(false),
         annotationsUpdateO = Some(Map("a" -> "b")),
-        identityProviderIdUpdate = Some(IdentityProviderId("abc123")),
+        identityProviderId = IdentityProviderId("abc123"),
       )
       "1) with all individual fields to update listed in the update mask" in {
         UserUpdateMapper
           .toUpdate(
             user,
             FieldMask(
-              Seq("is_deactivated", "primary_party", "metadata.annotations", "identity_provider_id")
+              Seq("is_deactivated", "primary_party", "metadata.annotations")
             ),
           )
           .value shouldBe expected
@@ -80,7 +80,7 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
         UserUpdateMapper
           .toUpdate(
             user,
-            FieldMask(Seq("is_deactivated", "primary_party", "metadata", "identity_provider_id")),
+            FieldMask(Seq("is_deactivated", "primary_party", "metadata")),
           )
           .value shouldBe expected
       }

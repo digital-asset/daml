@@ -4,7 +4,13 @@
 package com.daml.platform.localstore
 
 import com.daml.ledger.api.IdentityProviderIdFilter
-import com.daml.ledger.api.domain.{IdentityProviderConfig, ObjectMeta, User, UserRight}
+import com.daml.ledger.api.domain.{
+  IdentityProviderConfig,
+  IdentityProviderId,
+  ObjectMeta,
+  User,
+  UserRight,
+}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -101,6 +107,7 @@ class CachedUserManagementStoreSpec
       _ <- tested.updateUser(
         UserUpdate(
           id = user.id,
+          identityProviderId = IdentityProviderId.Default,
           primaryPartyUpdateO = Some(Some(Ref.Party.assertFromString("newPp"))),
           metadataUpdate = ObjectMetaUpdate.empty,
         )

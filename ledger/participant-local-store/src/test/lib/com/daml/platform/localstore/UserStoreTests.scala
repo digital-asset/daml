@@ -90,6 +90,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
       isDeactivatedUpdateO: Option[Boolean] = None,
       annotationsUpdateO: Option[Map[String, String]] = None,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): UserUpdate = UserUpdate(
     id = id,
     primaryPartyUpdateO = primaryPartyUpdateO,
@@ -98,6 +99,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       resourceVersionO = None,
       annotationsUpdateO = annotationsUpdateO,
     ),
+    identityProviderId = identityProviderId,
   )
 
   def resetResourceVersion(
@@ -444,7 +446,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
             userUpdate = UserUpdate(
               id = pr1.id,
               metadataUpdate = ObjectMetaUpdate.empty,
-              identityProviderIdUpdate = Some(id2),
+              identityProviderId = id2,
             )
           )
           _ = resetResourceVersion(update1.value) shouldBe newUser(
@@ -470,6 +472,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
                 resourceVersionO = create1.value.metadata.resourceVersionO,
                 annotationsUpdateO = Some(Map("k1" -> "v1")),
               ),
+              identityProviderId = pr1.identityProviderId,
             )
           )
           _ = resetResourceVersion(update1.value) shouldBe newUser(
@@ -500,6 +503,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
                   )
                 ),
               ),
+              identityProviderId = IdentityProviderId.Default,
             )
           )
           _ = update1.value shouldBe createdUser(
@@ -524,6 +528,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
                 resourceVersionO = None,
                 annotationsUpdateO = Some(Map("k1" -> "v1")),
               ),
+              identityProviderId = IdentityProviderId.Default,
             )
           )
           _ = res1.left.value shouldBe UserManagementStore.UserNotFound(userId)
@@ -543,6 +548,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
                 resourceVersionO = Some(100),
                 annotationsUpdateO = Some(Map("k1" -> "v1")),
               ),
+              identityProviderId = IdentityProviderId.Default,
             )
           )
           _ = res1.left.value shouldBe UserManagementStore.ConcurrentUserUpdate(user.id)
