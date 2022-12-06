@@ -14,12 +14,13 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // Identity Provider Config Service makes it possible for participant node administrators
 // to setup and manage additional identity providers at runtime.
 
-// This allows accepting JWTs from issuers which are provided using this API.
-// The user-id provided in the JWT token and `identity_provider_id` will be used to identity the user
-// against the user management database. Users and parties identified by the identity provider
-// created using this API will be isolated from other users and parties having other identity provider.
+// This allows using access tokens from identity providers unknown at deployment time. When an identity
+// provider is configured, dedicated IDP administrators can manage own set of parties and users.
+// Such parties and users will have a matching `identity_provider_id` defined and will be inaccessible to 
+// administrators from other identity providers. A user will only be authenticated if the corresponding JWT
+// token is issued by the appropriate identity provider.
 // Users and parties without `identity_provider_id` defined are assumed to be using default identity provider,
-// which is provided in the participant node configuration.
+// which is setup through the participant node configuration.
 
 // The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
 // (1) ``Optional`` denoting the client may leave the field unset when sending a request.
