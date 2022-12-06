@@ -336,7 +336,7 @@ For details of ledger authorization, please refer to `Ledger Authorization docum
 Provide access token to custom-view library
 -------------------------------------------
 
-Applications can provide an access token when setting up the client.
+Applications can provide an access token when setting up the client. The example below shows how to set `LedgerCallCredentials` on the `GrpcClientSettings`.
 
 .. code-block:: scala
 
