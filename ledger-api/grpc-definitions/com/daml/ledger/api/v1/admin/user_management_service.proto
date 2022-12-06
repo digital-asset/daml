@@ -100,7 +100,7 @@ message User {
     // The id of the identity provider configured by ``Identity Provider Config``
     // If not provided, it would be assumed a default identity provider.
     // Optional,
-    // Modifiable
+    // Required
     string identity_provider_id = 5;
 }
 
