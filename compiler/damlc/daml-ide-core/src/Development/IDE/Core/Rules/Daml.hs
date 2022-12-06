@@ -614,6 +614,8 @@ generateStablePackages lfVersion fp = do
                     , "DA-Internal-Down.dalf"
                     , "DA-Internal-Interface-AnyView-Types.dalf"
                     , "DA-Action-State-Type.dalf"
+                    , "DA-Random-Types.dalf"
+                    , "DA-Stack-Types.dalf"
                     ]
                 ]
         forM dalfs $ \dalf -> do

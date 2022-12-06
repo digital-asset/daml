@@ -169,6 +169,15 @@ private[daml] object StablePackage {
             v1_6,
           )
     }
+    object Random {
+      object Types
+          extends StablePackage(
+            "DA.Random.Types",
+            "e4cc67c3264eba4a19c080cac5ab32d87551578e0f5f58b6a9460f91c7abc254",
+            "daml-stdlib",
+            v1_14,
+          )
+    }
     object Semigroup {
       object Types
           extends StablePackage(
@@ -185,6 +194,15 @@ private[daml] object StablePackage {
             "97b883cd8a2b7f49f90d5d39c981cf6e110cf1f1c64427a28a6d58ec88c43657",
             "daml-stdlib",
             v1_11,
+          )
+    }
+    object Stack {
+      object Types
+          extends StablePackage(
+            "DA.Stack.Types",
+            "5921708ce82f4255deb1b26d2c05358b548720938a5a325718dc69f381ba47ff",
+            "daml-stdlib",
+            v1_14,
           )
     }
     object Time {
@@ -266,6 +284,8 @@ private[daml] object StablePackage {
       GHC.Tuple,
       GHC.Types,
       DA.Action.State.Type,
+      DA.Random.Types,
+      DA.Stack.Types,
     )
 
   def ids(allowedLanguageVersions: VersionRange[LanguageVersion]): Set[Ref.PackageId] = {

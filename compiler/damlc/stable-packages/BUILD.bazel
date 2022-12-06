@@ -71,6 +71,8 @@ genrule(
         "daml-stdlib/DA-Internal-Down.dalf",
         "daml-stdlib/DA-Internal-Interface-AnyView-Types.dalf",
         "daml-stdlib/DA-Action-State-Type.dalf",
+        "daml-stdlib/DA-Random-Types.dalf",
+        "daml-stdlib/DA-Stack-Types.dalf",
     ],
     cmd = """
       $(location :generate-stable-package) --module GHC.Types -o $(location daml-prim/GHC-Types.dalf)
@@ -99,6 +101,8 @@ genrule(
       $(location :generate-stable-package) --module DA.Internal.Interface.AnyView.Types -o $(location daml-stdlib/DA-Internal-Interface-AnyView-Types.dalf)
       # These types are not serializable but they need to be stable so users can reuse functions from data-dependencies.
       $(location :generate-stable-package) --module DA.Action.State.Type -o $(location daml-stdlib/DA-Action-State-Type.dalf)
+      $(location :generate-stable-package) --module DA.Random.Types -o $(location daml-stdlib/DA-Random-Types.dalf)
+      $(location :generate-stable-package) --module DA.Stack.Types -o $(location daml-stdlib/DA-Stack-Types.dalf)
     """,
     tools = [":generate-stable-package"],
     visibility = ["//visibility:public"],
@@ -128,8 +132,10 @@ filegroup(
         "daml-stdlib/DA-Logic-Types.dalf",
         "daml-stdlib/DA-Monoid-Types.dalf",
         "daml-stdlib/DA-NonEmpty-Types.dalf",
+        "daml-stdlib/DA-Random-Types.dalf",
         "daml-stdlib/DA-Semigroup-Types.dalf",
         "daml-stdlib/DA-Set-Types.dalf",
+        "daml-stdlib/DA-Stack-Types.dalf",
         "daml-stdlib/DA-Time-Types.dalf",
         "daml-stdlib/DA-Validation-Types.dalf",
     ],

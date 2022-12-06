@@ -43,7 +43,9 @@ data-dependencies:
 - deps/daml-stdlib-0.0.0-68a8ef91f10c283e1a5fc914bbf0addd41a089ad3625641966df2415e6010e2e.dalf
 - deps/daml-stdlib-DA-Action-State-Type-1.0.0-10e0333b52bba1ff147fc408a6b7d68465b157635ee230493bd6029b750dcb05.dalf
 - deps/daml-stdlib-DA-Internal-Interface-AnyView-Types-1.0.0-6df2d1fd8ea994ed048a79587b2722e3a887ac7592abf31ecf46fe09ac02d689.dalf
+- deps/daml-stdlib-DA-Random-Types-1.0.0-e4cc67c3264eba4a19c080cac5ab32d87551578e0f5f58b6a9460f91c7abc254.dalf
 - deps/daml-stdlib-DA-Set-Types-1.0.0-97b883cd8a2b7f49f90d5d39c981cf6e110cf1f1c64427a28a6d58ec88c43657.dalf
+- deps/daml-stdlib-DA-Stack-Types-1.0.0-5921708ce82f4255deb1b26d2c05358b548720938a5a325718dc69f381ba47ff.dalf
 - deps/script-test-0.0.1-87967f7d2b53db9652bd343a24db7cbe371c4b105005d57eed853bd309bac477.dalf
 build-options:
 - --target=1.15
