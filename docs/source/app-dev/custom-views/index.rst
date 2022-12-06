@@ -57,12 +57,12 @@ Projector
 A ``Projector`` executes the projection process. The code snippet below shows how to create a ``JdbcProjector``.
 
 .. code-block:: java
+
     var config = new HikariConfig();
     config.setJdbcUrl(url);
     config.setUsername(user);
     config.setPassword(password);
     var ds = new HikariDataSource(config);
-
     var system = ActorSystem.create("my-projection-app");
     var projector = JdbcProjector.create(ds, system);
 
