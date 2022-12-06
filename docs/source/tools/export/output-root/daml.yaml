@@ -26,7 +26,6 @@ data-dependencies:
 - deps/733e38d36a2759688a4b2c4cec69d48e7b55ecc8dedc8067b815926c917a182a.dalf
 - deps/76bf0fd12bd945762a01f8fc5bbcdfa4d0ff20f8762af490f8f41d6237c6524f.dalf
 - deps/8a7806365bbd98d88b4c13832ebfa305f6abaeaf32cfa2b7dd25c4fa489b79fb.dalf
-- deps/10e0333b52bba1ff147fc408a6b7d68465b157635ee230493bd6029b750dcb05.dalf
 - deps/99a2705ed38c1c26cbb8fe7acf36bbf626668e167a33335de932599219e0a235.dalf
 - deps/bfcd37bd6b84768e86e432f5f6c33e25d9e7724a9d42e33875ff74f6348e733f.dalf
 - deps/c1f1f00558799eec139fb4f4c76f95fb52fa1837a5dd29600baa1c8ed1bdccfd.dalf
@@ -42,6 +41,7 @@ data-dependencies:
 - deps/daml-prim-DA-Exception-PreconditionFailed-1.0.0-f20de1e4e37b92280264c08bf15eca0be0bc5babd7a7b5e574997f154c00cb78.dalf
 - deps/daml-script-0.0.0-024f7a831e04595b36c668121dce9209d63e5a6a46f01a4533fca5e4c521e7e4.dalf
 - deps/daml-stdlib-0.0.0-68a8ef91f10c283e1a5fc914bbf0addd41a089ad3625641966df2415e6010e2e.dalf
+- deps/daml-stdlib-DA-Action-State-Type-1.0.0-10e0333b52bba1ff147fc408a6b7d68465b157635ee230493bd6029b750dcb05.dalf
 - deps/daml-stdlib-DA-Internal-Interface-AnyView-Types-1.0.0-6df2d1fd8ea994ed048a79587b2722e3a887ac7592abf31ecf46fe09ac02d689.dalf
 - deps/daml-stdlib-DA-Set-Types-1.0.0-97b883cd8a2b7f49f90d5d39c981cf6e110cf1f1c64427a28a6d58ec88c43657.dalf
 - deps/script-test-0.0.1-87967f7d2b53db9652bd343a24db7cbe371c4b105005d57eed853bd309bac477.dalf
