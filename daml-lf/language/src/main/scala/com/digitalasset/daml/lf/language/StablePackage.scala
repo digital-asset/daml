@@ -242,7 +242,6 @@ private[daml] object StablePackage {
 
   val values =
     List(
-      DA.Action.State.Type,
       DA.Date.Types,
       DA.Exception.ArithmeticError,
       DA.Exception.AssertionFailed,
@@ -266,6 +265,7 @@ private[daml] object StablePackage {
       GHC.Prim,
       GHC.Tuple,
       GHC.Types,
+      DA.Action.State.Type,
     )
 
   def ids(allowedLanguageVersions: VersionRange[LanguageVersion]): Set[Ref.PackageId] = {
