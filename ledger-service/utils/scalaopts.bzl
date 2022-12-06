@@ -8,6 +8,7 @@ load(
 
 # Shared options for Ledger Clients code
 hj_scalacopts = lf_scalacopts + [
+    "-Xlint:implicit-recursion",
     "-Xlint:nonlocal-return",
     "-Xlint:nullary-unit",
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
