@@ -11,7 +11,6 @@ import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.google.protobuf.empty.Empty
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
-import shapeless.record.{Record => ShRecord}
 
 class EncodeValueSpec extends AnyFreeSpec with Matchers {
   private def assertMicrosFromInstant(i: Instant): Long =
@@ -19,7 +18,6 @@ class EncodeValueSpec extends AnyFreeSpec with Matchers {
 
   import Encode._
   "encodeValue" - {
-    val record2 = argToApi()
     val record = v.Record(
       Some(v.Identifier("pkg-id", "M", "R1")),
       Seq(
