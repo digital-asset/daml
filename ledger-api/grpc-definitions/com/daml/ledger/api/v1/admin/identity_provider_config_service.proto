@@ -100,8 +100,7 @@ message GetIdentityProviderConfigResponse {
 }
 
 message ListIdentityProviderConfigsRequest {
-  // Pagination is not supported as the number of identity provider configurations maintained
-  // is rather small and limited.
+  // Pagination is not required for this request as an entire dataset can be retrieved in a single call.
 }
 
 message ListIdentityProviderConfigsResponse {
