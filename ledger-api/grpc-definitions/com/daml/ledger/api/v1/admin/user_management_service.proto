@@ -120,9 +120,9 @@ message Right {
         string party = 1;
     }
 
-    // The right to administer the identity provider which user belongs to.
-    // Having this right, the user would be able to use some administrative services, but the scope
-    // of his change will be limited within the identity provided to which user belongs to.
+    // The right to administer the identity provider that the user is assigned to.
+    // It means, being able to manage users and parties that are also assigned
+    // to the same identity provider.
     message IdentityProviderAdmin {}
 
     // Required
