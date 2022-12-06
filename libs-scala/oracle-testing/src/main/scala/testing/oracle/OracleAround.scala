@@ -105,7 +105,7 @@ object OracleAround {
       case Success(t) => t
       case Failure(_) if times > 0 =>
         if (sleepMillisBeforeReTry > 0) Thread.sleep(sleepMillisBeforeReTry)
-        retry(times - 1, 0)(body)
+        retry(times - 1, sleepMillisBeforeReTry)(body)
       case Failure(t) => throw t
     }
 
