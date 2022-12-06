@@ -54,10 +54,12 @@ template Proposal
           exercise settlementFactoryCid Factory.Instruct with
             instructors = fromList [proposer, counterparty]
             settlers = singleton proposer
-            contextId = None
             id = Id id
-            routedSteps
             description = "Settlement for " <> id
+            contextId = None
+            routedSteps
+            settlementTime = None -- i.e., immediate settlement
+
         -- INSTRUCT_END
 
         pure (containerCid, recInstructionCid, payInstructionCid)

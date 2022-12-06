@@ -77,10 +77,10 @@ runSettlement = do
       depository = bank
       issuer = bank
       id = instrumentId
-      description = "Instrument representing units of a generic token"
       version = instrumentVersion
-      observers = empty
+      description = "Instrument representing units of a generic token"
       validAsOf = now
+      observers = empty
 
   -- Credit Alice's account with a token holding
   aliceRequestCid <- submit alice do
