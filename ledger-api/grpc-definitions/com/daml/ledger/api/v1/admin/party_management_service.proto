@@ -89,7 +89,7 @@ message GetPartiesRequest {
 
   // The id of the ``Identity Provider`` whose parties should be retrieved.
   // If not provided, assume the party is managed by the default identity provider or party is not hosted by the participant.
-  // Optional
+  // Required
   string identity_provider_id = 2;
 }
 
@@ -105,7 +105,7 @@ message GetPartiesResponse {
 message ListKnownPartiesRequest {
   // The id of the ``Identity Provider`` whose parties should be retrieved.
   // If not provided, assume the party is managed by the default identity provider or party is not hosted by the participant.
-  // Optional
+  // Required
   string identity_provider_id = 1;
 }
 
@@ -137,7 +137,7 @@ message AllocatePartyRequest {
 
   // The id of the ``Identity Provider``
   // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
-  // Optional
+  // Required
   string identity_provider_id = 4;
 }
 

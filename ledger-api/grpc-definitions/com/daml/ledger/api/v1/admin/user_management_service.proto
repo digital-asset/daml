@@ -101,7 +101,6 @@ message User {
 
     // The id of the identity provider configured by ``Identity Provider Config``
     // If not provided, it would be assumed a default identity provider.
-    // Optional,
     // Required
     string identity_provider_id = 5;
 }
@@ -171,7 +170,7 @@ message GetUserRequest {
 
     // The id of the ``Identity Provider``
     // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
-    // Optional
+    // Required
     string identity_provider_id = 2;
 }
 
@@ -218,7 +217,7 @@ message DeleteUserRequest {
 
     // The id of the ``Identity Provider``
     // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
-    // Optional
+    // Required
     string identity_provider_id = 2;
 }
 
@@ -241,7 +240,7 @@ message ListUsersRequest {
 
     // The id of the ``Identity Provider``
     // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
-    // Optional
+    // Required
     string identity_provider_id = 4;
 
 }
@@ -269,7 +268,7 @@ message GrantUserRightsRequest {
 
     // The id of the ``Identity Provider``
     // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
-    // Optional
+    // Required
     string identity_provider_id = 3;
 }
 
@@ -292,7 +291,7 @@ message RevokeUserRightsRequest {
 
     // The id of the ``Identity Provider``
     // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
-    // Optional
+    // Required
     string identity_provider_id = 3;
 }
 
@@ -312,7 +311,7 @@ message ListUserRightsRequest {
 
     // The id of the ``Identity Provider``
     // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
-    // Optional
+    // Required
     string identity_provider_id = 2;
 }
 
