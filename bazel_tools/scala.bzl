@@ -83,6 +83,7 @@ common_scalacopts = version_specific.get(scala_major_version, []) + [
     # "-Xlint:stars-align",
     # "-Xlint:strict-unsealed-patmat",
     "-Xlint:type-parameter-shadow",  # name shadowing
+    "-Xlint:unit-special",  # specializing for Unit is silly anyway
     # "-Xlint:valpattern"
     "-Ywarn-dead-code",
     # Warn about implicit conversion between numerical types
