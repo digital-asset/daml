@@ -8,6 +8,7 @@ import com.daml.metrics.DatabaseMetrics
 import com.daml.metrics.api.Gauges.VarGauge
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Histogram, Meter, Timer}
 import com.daml.metrics.api.{Gauges, MetricName, MetricsContext}
+import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.blocking
 
@@ -32,17 +33,12 @@ trait DropwizardFactory extends Factory {
       description: String = "",
   )(implicit
       context: MetricsContext = MetricsContext.Empty
-  ): Unit =
-    synchronized {
-      registry.remove(name)
-      val _ = registry.gauge(
-        name,
-        () => {
-          new codahale.Gauge[T] { override def getValue: T = gaugeSupplier() }
-        },
-      )
-      ()
-    }
+  ): Unit = discard {
+    reRegisterGauge[T, AsyncGauge[T]](
+      name,
+      AsyncGauge(gaugeSupplier),
+    )
+  }
 
   override def meter(name: MetricName, description: String = "")(implicit
       context: MetricsContext = MetricsContext.Empty
