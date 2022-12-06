@@ -57,10 +57,10 @@ runLifecycling = do
       depository = bank
       issuer = bank
       id = tokenInstrument.id
-      description = "Instrument representing units of a generic token"
       version = "1"
-      observers = M.empty
+      description = "Instrument representing units of a generic token"
       validAsOf = now
+      observers = M.empty
   -- NEW_VERSION_END
 
   -- Create lifecycle rules

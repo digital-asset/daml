@@ -93,10 +93,10 @@ runTransfer = do
       depository = bank
       issuer = bank
       id = instrumentId
-      description = "Instrument representing units of USD"
       version = instrumentVersion
-      observers = empty
+      description = "Instrument representing units of USD"
       validAsOf = now
+      observers = empty
   -- ISSUE_CASH_INSTRUMENT_END
 
   -- Alice deposits cash at the bank
