@@ -17,9 +17,11 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // served by a participant node.
 //
 // The authorization rules for its RPCs are specified on the ``<RpcName>Request``
-// messages as boolean expressions over these two facts:
+// messages as boolean expressions over these facts:
 // (1) ``HasRight(r)`` denoting whether the authenticated user has right ``r`` and
-// (2) ``IsAuthenticatedUser(uid)`` denoting whether ``uid`` is the empty string or equal to the id of the authenticated user.
+// (2) ``IsAuthenticatedUser(uid)`` denoting whether ``uid`` is equal to the id of the authenticated user.
+// (3) ``IsAuthenticatedIdentityProviderAdmin(idp)`` denoting whether ``idp`` is equal to the ``identity_provider_id``
+//       of the authenticated user.
 //
 // The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
 // (1) ``Optional`` denoting the client may leave the field unset when sending a request.
@@ -142,7 +144,7 @@ message Right {
 // RPC requests and responses
 /////////////////////////////
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message CreateUserRequest {
     // The user to create.
     // Required
@@ -159,7 +161,7 @@ message CreateUserResponse {
     User user = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin) OR IsAuthenticatedUser(user_id)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id) OR IsAuthenticatedUser(user_id)``
 message GetUserRequest {
     // The user whose data to retrieve.
     // If set to empty string (the default), then the data for the authenticated user will be retrieved.
@@ -178,7 +180,7 @@ message GetUserResponse {
     User user = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message UpdateUserRequest {
     // The user to update.
     // Required,
@@ -208,7 +210,7 @@ message UpdateUserResponse {
     User user = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message DeleteUserRequest {
     // The user to delete.
     // Required
@@ -224,7 +226,7 @@ message DeleteUserRequest {
 message DeleteUserResponse {
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message ListUsersRequest {
 
     // Pagination token to determine the specific page to fetch.
@@ -255,7 +257,7 @@ message ListUsersResponse {
 
 // Add the rights to the set of rights granted to the user.
 //
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message GrantUserRightsRequest {
     // The user to whom to grant rights.
     // Required
@@ -278,7 +280,7 @@ message GrantUserRightsResponse {
 
 // Remove the rights from the set of rights granted to the user.
 //
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message RevokeUserRightsRequest {
     // The user from whom to revoke rights.
     // Required
@@ -299,7 +301,7 @@ message RevokeUserRightsResponse {
     repeated Right newly_revoked_rights = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin) OR IsAuthenticatedUser(user_id)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id) OR IsAuthenticatedUser(user_id)``
 message ListUserRightsRequest {
     // The user for which to list the rights.
     // If set to empty string (the default), then the rights for the authenticated user will be listed.
