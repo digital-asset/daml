@@ -70,8 +70,10 @@ common_scalacopts = version_specific.get(scala_major_version, []) + [
     "-Xlint:eta-sam",  # missing @FunctionalInterface for lambda
     "-Xlint:eta-zero",  # ambiguous nullary method delay
     "-Xlint:implicit-not-found",  # messages well-formed
+    # "-Xlint:implicit-recursion",
     "-Xlint:inaccessible",  # method uses invisible types
     "-Xlint:infer-any",  # less thorough but less buggy version of the Any wart
+    # "-Xlint:multiarg-infix",
     "-Xlint:nonlocal-return",  # uses throwy return
     "-Xlint:nullary-unit",  # must put () if returning Unit
     "-Xlint:option-implicit",  # implicit conversion arg might be null
