@@ -1575,11 +1575,33 @@ abstract class AbstractWebsocketServiceIntegrationTest
   }
 
   "very many streams can be opened and closed" - {
-    /*
-    "via transaction client" in withLedger { (client, ledgerId) =>
-      client.transactionClient
+    "with shutdown test" in withHttpService { fixture =>
+      import com.daml.platform.store.dao.JdbcLedgerDaoSuite.`TraverseFM Ops`
+      import util.FlowUtil._
+      for {
+        jwt <- jwt(fixture.uri)
+        scenario = SimpleScenario(
+          "shutdown test",
+          Uri.Path("/v1/stream/shutdownTest"),
+          baseQueryInput,
+        )
+        request = WebSocketRequest(
+          uri = fixture.uri.copy(scheme = "ws").withPath(scenario.path),
+          subprotocol = validSubprotocol(jwt),
+        )
+        _ <- (1 to 3).toVector.traverseFM { _ =>
+          val webSocketFlow = Http().webSocketClientFlow(request)
+          import com.daml.logging.LoggingContextOf, LoggingContextOf.{label, newLoggingContext}
+          val ran = newLoggingContext(label[Any]) { implicit lc =>
+            scenario.input via (webSocketFlow logTermination "sdt client") runWith collectResultsAsTextMessageSkipOffsetTicks
+          }
+          ran.map(_ => ()).recover {
+            case akka.stream.SubscriptionWithCancelException.StageWasCompleted => ()
+          }
+        }
+        _ = Thread.sleep(3000)
+      } yield fail("got to the end") // succeed
     }
-     */
 
     "via websocket query" in withHttpService { fixture =>
       import com.daml.platform.store.dao.JdbcLedgerDaoSuite.`TraverseFM Ops`

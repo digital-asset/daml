@@ -145,6 +145,42 @@ class WebsocketEndpoints(
               })
                 .valueOr(httpResponseError)
         )
+
+      case req @ HttpRequest(GET, Uri.Path("/v1/stream/shutdownTest"), _, _, _) =>
+        implicit lc =>
+          (for {
+            upgradeReq <- EitherT.either(
+              req.attribute(AttributeKeys.webSocketUpgrade) \/> (InvalidUserInput(
+                s"Cannot upgrade client's connection to websocket"
+              ): Error)
+            )
+            payload <- preconnect(
+              decodeJwt,
+              upgradeReq,
+              wsProtocol,
+              userManagementClient,
+              ledgerIdentityClient,
+            )
+            (jwt, jwtPayload) = payload
+          } yield {
+            MetricsContext.withMetricLabels(MetricLabelsExtractor.labelsFromRequest(req): _*) { _ =>
+              import scala.concurrent.duration._, akka.http.scaladsl.model.ws.TextMessage.Strict,
+              akka.stream.scaladsl.Source, util.FlowUtil._
+              val handler: Flow[Message, Message, _] =
+                Flow[Message]
+                  .merge(
+                    Source.tick(
+                      0.seconds,
+                      1.second,
+                      Strict("""{"tick": true}"""),
+                    ),
+                    eagerComplete = false,
+                  )
+                  .logTermination("shutdownTest")
+              upgradeReq.handleMessages(handler, Some(wsProtocol))
+            }
+          })
+            .valueOr(httpResponseError)
     }
     import scalaz.std.partialFunction._, scalaz.syntax.arrow._
     dispatch

@@ -32,6 +32,23 @@ object FlowUtil {
     import akka.stream.scaladsl.Source
     import concurrent.duration._
 
+    def logTermination(
+        extraMessage: String
+    )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): Flow[In, Out, Mat] =
+      self.watchTermination() { (mat, fd) =>
+        fd.onComplete(
+          _.fold(
+            { t =>
+              logger.info(s"S11 $extraMessage trying to abort ${t.getMessage}")
+            },
+            { _ =>
+              logger.info(s"S11 $extraMessage trying to shutdown")
+            },
+          )
+        )
+        mat
+      }
+
     def flatMapMergeCancellable[T, M](
         breadth: Int,
         f: Out => Graph[SourceShape[T], M],
