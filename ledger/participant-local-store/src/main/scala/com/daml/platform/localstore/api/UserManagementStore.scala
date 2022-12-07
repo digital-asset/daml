@@ -3,7 +3,6 @@
 
 package com.daml.platform.localstore.api
 
-import com.daml.ledger.api.IdentityProviderIdFilter
 import com.daml.ledger.api.domain.{IdentityProviderId, User, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
@@ -47,7 +46,7 @@ trait UserManagementStore {
   def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
-      identityProviderIdFilter: IdentityProviderIdFilter,
+      identityProviderId: IdentityProviderId,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]]

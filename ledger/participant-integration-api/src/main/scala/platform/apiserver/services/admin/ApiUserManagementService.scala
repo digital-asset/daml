@@ -15,7 +15,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   UpdateUserResponse,
 }
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
-import com.daml.ledger.api.{IdentityProviderIdFilter, SubmissionIdGenerator}
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -263,10 +263,10 @@ private[apiserver] final class ApiUserManagementService(
       } yield {
         (fromExcl, pageSize, identityProviderId)
       }
-    ) { case (fromExcl, pageSize, _) =>
+    ) { case (fromExcl, pageSize, identityProviderId) =>
       // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
       userManagementStore
-        .listUsers(fromExcl, pageSize, IdentityProviderIdFilter.All)
+        .listUsers(fromExcl, pageSize, identityProviderId)
         .flatMap(handleResult("listing users"))
         .map { page: UserManagementStore.UsersPage =>
           val protoUsers = page.users.map(toProtoUser)

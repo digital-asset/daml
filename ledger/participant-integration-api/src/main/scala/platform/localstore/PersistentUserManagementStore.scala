@@ -5,7 +5,7 @@ package com.daml.platform.localstore
 
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain.{IdentityProviderId, User}
-import com.daml.ledger.api.{IdentityProviderIdFilter, domain}
+import com.daml.ledger.api.domain
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -304,16 +304,16 @@ class PersistentUserManagementStore(
   override def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
-      identityProviderIdFilter: IdentityProviderIdFilter,
+      identityProviderId: IdentityProviderId,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]] = {
     inTransaction(_.listUsers) { connection =>
       val dbUsers = fromExcl match {
         case None =>
-          backend.getUsersOrderedById(None, maxResults, identityProviderIdFilter)(connection)
+          backend.getUsersOrderedById(None, maxResults, identityProviderId)(connection)
         case Some(fromExcl) =>
-          backend.getUsersOrderedById(Some(fromExcl), maxResults, identityProviderIdFilter)(
+          backend.getUsersOrderedById(Some(fromExcl), maxResults, identityProviderId)(
             connection
           )
       }

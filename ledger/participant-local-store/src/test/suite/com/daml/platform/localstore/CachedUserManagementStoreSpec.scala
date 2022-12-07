@@ -3,7 +3,6 @@
 
 package com.daml.platform.localstore
 
-import com.daml.ledger.api.IdentityProviderIdFilter
 import com.daml.ledger.api.domain.{
   IdentityProviderConfig,
   IdentityProviderId,
@@ -55,7 +54,7 @@ class CachedUserManagementStoreSpec
   private val rights = Set(right1, right2)
   private val userInfo = UserInfo(user, rights)
   private val createdUserInfo = UserInfo(createdUser1, rights)
-  private val filter: IdentityProviderIdFilter = IdentityProviderIdFilter.All
+  private val filter: IdentityProviderId = IdentityProviderId.Default
 
   "test user-not-found cache result gets invalidated after user creation" in {
     val delegate = spy(new InMemoryUserManagementStore())
@@ -150,19 +149,19 @@ class CachedUserManagementStoreSpec
       res1 <- tested.listUsers(
         fromExcl = None,
         maxResults = 100,
-        identityProviderIdFilter = filter,
+        identityProviderId = filter,
       )
       res2 <- tested.listUsers(
         fromExcl = None,
         maxResults = 100,
-        identityProviderIdFilter = filter,
+        identityProviderId = filter,
       )
     } yield {
       val order = inOrder(delegate)
       order.verify(delegate, times(1)).createUser(user, rights)
       order
         .verify(delegate, times(2))
-        .listUsers(fromExcl = None, maxResults = 100, identityProviderIdFilter = filter)
+        .listUsers(fromExcl = None, maxResults = 100, identityProviderId = filter)
       order.verifyNoMoreInteractions()
       res0 shouldBe Right(createdUser1)
       res1 shouldBe Right(UsersPage(Seq(createdUser1)))

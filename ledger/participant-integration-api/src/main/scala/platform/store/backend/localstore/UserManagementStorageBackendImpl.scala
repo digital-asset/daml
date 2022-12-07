@@ -14,7 +14,6 @@ import com.daml.ledger.api.domain.UserRight.{
   ParticipantAdmin,
 }
 import com.daml.ledger.api.v1.admin.user_management_service.Right
-import com.daml.ledger.api.IdentityProviderIdFilter
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.backend.common.{ComposableQuery, QueryStrategy}
 import com.daml.platform.{LedgerString, Party, UserId}
@@ -148,7 +147,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   override def getUsersOrderedById(
       fromExcl: Option[UserId],
       maxResults: Int,
-      filter: IdentityProviderIdFilter,
+      identityProviderId: IdentityProviderId,
   )(
       connection: Connection
   ): Vector[UserManagementStorageBackend.DbUserWithId] = {
@@ -157,10 +156,11 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       case None => Nil
       case Some(id: String) => List(cSQL"user_id > ${id}")
     }
-    val identityProviderIdWhereClause = filter match {
-      case IdentityProviderIdFilter.All => Nil
-      case IdentityProviderIdFilter.ByValue(identityProviderId) =>
-        List(cSQL"identity_provider_id=${identityProviderId.value: String}")
+    val identityProviderIdWhereClause = identityProviderId match {
+      case IdentityProviderId.Default =>
+        List(cSQL"identity_provider_id is NULL")
+      case IdentityProviderId.Id(value) =>
+        List(cSQL"identity_provider_id=${value: String}")
     }
     val whereClause = {
       val clauses = userIdWhereClause ++ identityProviderIdWhereClause
