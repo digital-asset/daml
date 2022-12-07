@@ -1,6 +1,5 @@
 module Scripts.Lifecycling where
 
-import DA.Date (toDateUTC)
 import DA.Map qualified as M (empty)
 import DA.Set qualified as S (empty, fromList, singleton)
 import Daml.Script
@@ -90,7 +89,7 @@ runLifecycling = do
       providers = S.singleton bank
       id = Id "DISTRIBUTION"
       description = "Profit distribution"
-      effectiveDate = toDateUTC now
+      effectiveTime = now
       targetInstrument = tokenInstrument
       newInstrument = newTokenInstrument
       perUnitDistribution = [Instrument.qty 0.02 usdInstrument]
