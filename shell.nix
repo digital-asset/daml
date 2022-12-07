@@ -6,6 +6,6 @@ pkgs.mkShell {
 
   shellHook = ''
     # install pre-commit hook (opt-out by setting `DADE_NO_PRE_COMMIT`)
-    [ -v DADE_NO_PRE_COMMIT ] || pre-commit install
+    test "x$DADE_NO_PRE_COMMIT" = x && pre-commit install
   '';
 }
