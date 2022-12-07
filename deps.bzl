@@ -72,8 +72,8 @@ davl_v3_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
 davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
 
 # daml cheat sheet
-daml_cheat_sheet_version = "baa4d23a7f4e6365244c204b4e934737c32832be"  # 2022-11-09
-daml_cheat_sheet_sha256 = "d0ded22423e336d17cd3e788f5f9b6a652fbf720fd729a000c8a31eb2009537b"
+daml_cheat_sheet_version = "e65f725ef3b19c9ffdee0baa3eee623cbb115024"  # 2022-11-28
+daml_cheat_sheet_sha256 = "e7ef4def3b7c6bada4235603b314ab0b1874bb949cd3c8d974d5443337e89a8b"
 
 platforms_version = "0.0.4"
 platforms_sha256 = "2697e95e085c6e1f970637d178e9dfa1231dca3a099d584ff85a7cb9c0af3826"
