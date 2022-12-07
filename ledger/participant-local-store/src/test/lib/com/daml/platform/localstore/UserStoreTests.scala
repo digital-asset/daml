@@ -305,10 +305,8 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           _ = list2 shouldBe Right(
             UsersPage(
               Seq(
-                createdUser("user1", identityProviderId = persistedIdentityProviderId),
                 createdUser("user2"),
                 createdUser("user3"),
-                createdUser("user4", identityProviderId = persistedIdentityProviderId),
               )
             )
           )

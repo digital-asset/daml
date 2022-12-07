@@ -165,7 +165,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     val whereClause = {
       val clauses = userIdWhereClause ++ identityProviderIdWhereClause
       if (clauses.nonEmpty) {
-        cSQL"WHERE ${clauses.mkComposite("", "AND", "")}"
+        cSQL"WHERE ${clauses.mkComposite("", " AND ", "")}"
       } else
         cSQL""
     }
