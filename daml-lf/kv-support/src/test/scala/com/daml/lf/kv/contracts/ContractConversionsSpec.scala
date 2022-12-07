@@ -26,7 +26,7 @@ class ContractConversionsSpec extends AnyWordSpec with Matchers {
   "decodeContractInstance" should {
     "successfully decode a contract instance" in {
       ContractConversions.decodeContractInstance(aRawContractInstance) shouldBe Right(
-        aContractInstance
+        (aContractInstance, "agreement")
       )
     }
 
