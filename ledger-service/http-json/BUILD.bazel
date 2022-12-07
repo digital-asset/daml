@@ -15,10 +15,7 @@ load("//rules_daml:daml.bzl", "daml_compile")
 load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version")
-
-hj_scalacopts = lf_scalacopts + [
-    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-]
+load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
 
 [
     da_scala_library(

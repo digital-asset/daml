@@ -598,7 +598,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
               }
               .flatMap { statusCodes =>
                 all(statusCodes) shouldBe StatusCodes.OK
-                createUsers(remainingRequests)
+                createUsers(remainingRequests, chunkSize)
               }
         }
       }
