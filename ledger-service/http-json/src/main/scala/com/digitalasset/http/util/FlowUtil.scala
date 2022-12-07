@@ -39,7 +39,10 @@ object FlowUtil {
       val ks = KillSwitches.shared("flatMapMerge")
       val inner = ks.flow[T]
       self
-        .flatMapMerge(breadth, f andThen (gss => Source fromGraph gss via inner))
+        .flatMapMerge(
+          breadth,
+          f andThen (gss => Source fromGraph gss completionTimeout 2.seconds via inner),
+        )
         .watchTermination() { (mat, fd) =>
           fd.onComplete(
             _.fold(
