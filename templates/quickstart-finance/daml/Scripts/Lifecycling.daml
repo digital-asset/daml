@@ -1,6 +1,5 @@
 module Scripts.Lifecycling where
 
-import DA.Date (toDateUTC)
 import DA.Map qualified as M (empty)
 import DA.Set qualified as S (empty, fromList, singleton)
 import Daml.Script
@@ -13,7 +12,7 @@ import Daml.Finance.Interface.Lifecycle.Rule.Lifecycle qualified as Lifecycle (E
 import Daml.Finance.Interface.Settlement.Batch qualified as Batch (Settle(..))
 import Daml.Finance.Interface.Settlement.Instruction qualified as Instruction (Allocate(..), Approve(..))
 import Daml.Finance.Interface.Settlement.Types (Allocation(..), Approval(..))
-import Daml.Finance.Interface.Types.Common (Id(..))
+import Daml.Finance.Interface.Types.Common.Types (Id(..))
 
 -- IMPLEMENTATION DEPENDENCIES --
 import Daml.Finance.Instrument.Token.Instrument (Instrument(..))
@@ -57,10 +56,10 @@ runLifecycling = do
       depository = bank
       issuer = bank
       id = tokenInstrument.id
-      description = "Instrument representing units of a generic token"
       version = "1"
-      observers = M.empty
+      description = "Instrument representing units of a generic token"
       validAsOf = now
+      observers = M.empty
   -- NEW_VERSION_END
 
   -- Create lifecycle rules
@@ -90,7 +89,7 @@ runLifecycling = do
       providers = S.singleton bank
       id = Id "DISTRIBUTION"
       description = "Profit distribution"
-      effectiveDate = toDateUTC now
+      effectiveTime = now
       targetInstrument = tokenInstrument
       newInstrument = newTokenInstrument
       perUnitDistribution = [Instrument.qty 0.02 usdInstrument]
