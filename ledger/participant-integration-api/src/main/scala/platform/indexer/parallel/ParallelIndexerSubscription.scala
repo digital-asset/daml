@@ -187,7 +187,7 @@ object ParallelIndexerSubscription {
     Timed.value(
       metrics.daml.parallelIndexer.seqMapping.duration, {
         var eventSeqId = previous.lastSeqEventId
-        var lastTransactionMetaLastEventId = eventSeqId
+        var lastTransactionMetaEventSeqId = eventSeqId
         val batchWithSeqIds = current.batch.map {
           case dbDto: DbDto.EventCreate =>
             eventSeqId += 1
@@ -215,10 +215,10 @@ object ParallelIndexerSubscription {
           case dbDto: DbDto.TransactionMeta =>
             dbDto
               .copy(
-                event_sequential_id_first = lastTransactionMetaLastEventId + 1,
+                event_sequential_id_first = lastTransactionMetaEventSeqId + 1,
                 event_sequential_id_last = eventSeqId,
               )
-              .tap(_ => lastTransactionMetaLastEventId = eventSeqId)
+              .tap(_ => lastTransactionMetaEventSeqId = eventSeqId)
           case unChanged => unChanged
         }
 
