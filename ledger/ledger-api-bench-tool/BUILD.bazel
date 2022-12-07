@@ -60,12 +60,12 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-errors",
         "//ledger/ledger-resources",
-        "//ledger/metrics",
         "//ledger/participant-local-store",
         "//libs-scala/jwt",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
+        "//observability/metrics",
         "//libs-scala/timer-utils",
         "//ledger/test-common:benchtool-tests-%s.scala" % "1.15",  # TODO: make the LF version configurable
         "//ledger/test-common:dar-files-%s-lib" % "1.15",  # TODO: make the LF version configurable
@@ -159,6 +159,7 @@ da_scala_test_suite(
         "//libs-scala/adjustable-clock",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "//observability/metrics",
         "@maven//:com_typesafe_config",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_api",

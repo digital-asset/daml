@@ -17,10 +17,10 @@ da_scala_library(
     runtime_deps = [],
     deps = [
         "//ledger/ledger-resources",
-        "//ledger/metrics",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
+        "//observability/metrics",
         "//observability/akka-http-metrics",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_dropwizard_metrics_metrics_jmx",

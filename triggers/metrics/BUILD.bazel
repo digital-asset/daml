@@ -16,7 +16,7 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
-        "//ledger/metrics",
+        "//observability/metrics",
         "//observability/akka-http-metrics",
         "@maven//:io_opentelemetry_opentelemetry_api",
     ],

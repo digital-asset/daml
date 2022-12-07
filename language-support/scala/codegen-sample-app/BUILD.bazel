@@ -149,11 +149,11 @@ da_scala_test(
         "//ledger/ledger-api-common",
         "//ledger/ledger-resources",
         "//ledger/ledger-runner-common",
-        "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "//observability/telemetry",
     ],
 )
