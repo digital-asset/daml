@@ -9,7 +9,11 @@ RETURN CLOB
 IS
         arrayJson1 json_array_t := json_array_t.parse(arrayClob1);
         outputJsonArray json_array_t := json_array_t ('[]');
-        filterExpression varchar2(100);
+        -- Number type has
+        --  999...(38 9's) x10^125 maximum value
+        -- -999...(38 9's) x10^125 minimum value
+        -- so 200 characters should be enough to hold it together with the whole filter expression
+        filterExpression varchar2(200);
 BEGIN
     FOR i IN 0 .. arrayJson1.get_size - 1
     LOOP
