@@ -1,0 +1,1 @@
+CREATE INDEX participant_command_completions_application_id_offset_idx ON participant_command_completions(application_id, completion_offset);

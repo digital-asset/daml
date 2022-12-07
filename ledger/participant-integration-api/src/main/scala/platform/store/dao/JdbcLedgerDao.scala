@@ -53,6 +53,7 @@ private class JdbcLedgerDao(
     participantId: Ref.ParticipantId,
     readStorageBackend: ReadStorageBackend,
     parameterStorageBackend: ParameterStorageBackend,
+    completionsMaxPayloadsPerPayloadsPage: Int,
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -493,6 +494,7 @@ private class JdbcLedgerDao(
       readStorageBackend.completionStorageBackend,
       queryNonPruned,
       metrics,
+      pageSize = completionsMaxPayloadsPerPayloadsPage,
     )
 
   /** This is a combined store transaction method to support sandbox-classic and tests
@@ -578,6 +580,7 @@ private[platform] object JdbcLedgerDao {
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      completionsMaxPayloadsPerPayloadsPage: Int,
   ): LedgerReadDao =
     new JdbcLedgerDao(
       dbSupport.dbDispatcher,
@@ -596,6 +599,7 @@ private[platform] object JdbcLedgerDao {
       participantId,
       dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
       dbSupport.storageBackendFactory.createParameterStorageBackend,
+      completionsMaxPayloadsPerPayloadsPage = completionsMaxPayloadsPerPayloadsPage,
     )
 
   def write(
@@ -615,6 +619,7 @@ private[platform] object JdbcLedgerDao {
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      completionsMaxPayloadsPerPayloadsPage: Int,
   ): LedgerDao =
     new JdbcLedgerDao(
       dbSupport.dbDispatcher,
@@ -633,6 +638,7 @@ private[platform] object JdbcLedgerDao {
       participantId,
       dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
       dbSupport.storageBackendFactory.createParameterStorageBackend,
+      completionsMaxPayloadsPerPayloadsPage = completionsMaxPayloadsPerPayloadsPage,
     )
 
   val acceptType = "accept"

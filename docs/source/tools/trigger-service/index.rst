@@ -370,3 +370,26 @@ HTTP Response
 -------------
 
 A status code of ``200`` indicates a successful readiness check.
+
+
+Metrics
+*******
+
+Enable and Configure Reporting
+==============================
+
+To enable metrics and configure reporting, you can use the below config block in application config:
+
+.. code-block:: none
+
+    metrics {
+      // Start a metrics reporter. Must be one of "console", "csv:///PATH", "graphite://HOST[:PORT][/METRIC_PREFIX]", or "prometheus://HOST[:PORT]".
+      reporter = "prometheus://localhost:9000"
+      // Set metric reporting interval, examples: 1s, 30s, 1m, 1h
+      reporting-interval = 30s
+    }
+
+Reported Metrics
+================
+
+If a Prometheus metrics reporter is configured, the Trigger Service exposes the :doc:`common HTTP metrics </ops/common-metrics>` for all endpoints.
