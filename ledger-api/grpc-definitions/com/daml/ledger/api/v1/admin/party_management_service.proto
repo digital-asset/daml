@@ -136,7 +136,7 @@ message AllocatePartyRequest {
   ObjectMeta local_metadata = 3;
 
   // The id of the ``Identity Provider``
-  // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
+  // If not provided, assume the party is managed by the default identity provider or party is not hosted by the participant.
   // Required
   string identity_provider_id = 4;
 }
@@ -204,7 +204,7 @@ message PartyDetails {
   ObjectMeta local_metadata = 4;
 
   // The id of the ``Identity Provider``
-  // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
+  // If not provided, assume the party is managed by the default identity provider or party is not hosted by the participant.
   // Required
   string identity_provider_id = 5;
 }
