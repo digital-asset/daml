@@ -243,6 +243,19 @@ buildifier(
     verbose = True,
 )
 
+# Run by the git pre-commit hook
+genrule(
+    name = "buildifier-pre-commit",
+    outs = ["buildifier-hook"],
+    cmd = """cat <<'EOF' > "$@"
+# !/usr/bin/env bash
+exec "$(execpath @com_github_bazelbuild_buildtools//buildifier)" "$$@"
+EOF
+""",
+    executable = True,
+    tools = ["@com_github_bazelbuild_buildtools//buildifier"],
+)
+
 # Default target for da-ghci, da-ghcid.
 da_haskell_repl(
     name = "repl",
