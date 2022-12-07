@@ -17,9 +17,11 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // served by a participant node.
 //
 // The authorization rules for its RPCs are specified on the ``<RpcName>Request``
-// messages as boolean expressions over these two facts:
+// messages as boolean expressions over these facts:
 // (1) ``HasRight(r)`` denoting whether the authenticated user has right ``r`` and
-// (2) ``IsAuthenticatedUser(uid)`` denoting whether ``uid`` is the empty string or equal to the id of the authenticated user.
+// (2) ``IsAuthenticatedUser(uid)`` denoting whether ``uid`` is equal to the id of the authenticated user.
+// (3) ``IsAuthenticatedIdentityProviderAdmin(idp)`` denoting whether ``idp`` is equal to the ``identity_provider_id``
+//       of the authenticated user.
 //
 // The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
 // (1) ``Optional`` denoting the client may leave the field unset when sending a request.
@@ -98,15 +100,14 @@ message User {
     ObjectMeta metadata = 4;
 
     // The id of the identity provider configured by ``Identity Provider Config``
-    // If not provided, it would be assumed a default identity provider.
-    // Optional
+    // Optional, if not set, assume the user is managed by the default identity provider.
     string identity_provider_id = 5;
 }
 
 
 // A right granted to a user.
 message Right {
-    // The right to administrate the participant node.
+    // The right to administer the participant node.
     message ParticipantAdmin {}
 
     message CanActAs {
@@ -119,18 +120,20 @@ message Right {
         string party = 1;
     }
 
-    // The right to administrate the identity provider.
+    // The right to administer the identity provider that the user is assigned to.
+    // It means, being able to manage users and parties that are also assigned
+    // to the same identity provider.
     message IdentityProviderAdmin {}
 
     // Required
     oneof kind {
-        // The user can administrate the participant node.
+        // The user can administer the participant node.
         ParticipantAdmin participant_admin = 1;
         // The user can act as a specific party.
         CanActAs can_act_as = 2;
         // The user can read ledger data visible to a specific party.
         CanReadAs can_read_as = 3;
-        // The user can administrate the identity provider.
+        // The user can administer users and parties assigned to the same identity provider.
         IdentityProviderAdmin identity_provider_admin = 4;
     }
 }
@@ -139,7 +142,7 @@ message Right {
 // RPC requests and responses
 /////////////////////////////
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message CreateUserRequest {
     // The user to create.
     // Required
@@ -156,15 +159,16 @@ message CreateUserResponse {
     User user = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin) OR IsAuthenticatedUser(user_id)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id) OR IsAuthenticatedUser(user_id)``
 message GetUserRequest {
     // The user whose data to retrieve.
     // If set to empty string (the default), then the data for the authenticated user will be retrieved.
     // Required
+
     string user_id = 1;
+
     // The id of the ``Identity Provider``
-    // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
-    // Optional
+    // Optional, if not set, assume the user is managed by the default identity provider.
     string identity_provider_id = 2;
 }
 
@@ -173,7 +177,7 @@ message GetUserResponse {
     User user = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message UpdateUserRequest {
     // The user to update.
     // Required,
@@ -203,14 +207,14 @@ message UpdateUserResponse {
     User user = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message DeleteUserRequest {
     // The user to delete.
     // Required
     string user_id = 1;
+
     // The id of the ``Identity Provider``
-    // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
-    // Optional
+    // Optional, if not set, assume the user is managed by the default identity provider.
     string identity_provider_id = 2;
 }
 
@@ -218,7 +222,7 @@ message DeleteUserRequest {
 message DeleteUserResponse {
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message ListUsersRequest {
 
     // Pagination token to determine the specific page to fetch.
@@ -232,8 +236,7 @@ message ListUsersRequest {
     int32 page_size = 3;
 
     // The id of the ``Identity Provider``
-    // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
-    // Optional
+    // Optional, if not set, assume the user is managed by the default identity provider.
     string identity_provider_id = 4;
 
 }
@@ -249,7 +252,7 @@ message ListUsersResponse {
 
 // Add the rights to the set of rights granted to the user.
 //
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message GrantUserRightsRequest {
     // The user to whom to grant rights.
     // Required
@@ -260,8 +263,7 @@ message GrantUserRightsRequest {
     repeated Right rights = 2;
 
     // The id of the ``Identity Provider``
-    // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
-    // Optional
+    // Optional, if not set, assume the user is managed by the default identity provider.
     string identity_provider_id = 3;
 }
 
@@ -272,7 +274,7 @@ message GrantUserRightsResponse {
 
 // Remove the rights from the set of rights granted to the user.
 //
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message RevokeUserRightsRequest {
     // The user from whom to revoke rights.
     // Required
@@ -283,8 +285,7 @@ message RevokeUserRightsRequest {
     repeated Right rights = 2;
 
     // The id of the ``Identity Provider``
-    // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
-    // Optional
+    // Optional, if not set, assume the user is managed by the default identity provider.
     string identity_provider_id = 3;
 }
 
@@ -293,7 +294,7 @@ message RevokeUserRightsResponse {
     repeated Right newly_revoked_rights = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR HasRight(IdentityProviderAdmin) OR IsAuthenticatedUser(user_id)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id) OR IsAuthenticatedUser(user_id)``
 message ListUserRightsRequest {
     // The user for which to list the rights.
     // If set to empty string (the default), then the rights for the authenticated user will be listed.
@@ -303,8 +304,7 @@ message ListUserRightsRequest {
     // TODO (i12052): add pagination following https://cloud.google.com/apis/design/design_patterns#list_pagination
 
     // The id of the ``Identity Provider``
-    // If not provided, it would be assumed a default identity provider config or party is not hosted by the participant.
-    // Optional
+    // Optional, if not set, assume the user is managed by the default identity provider.
     string identity_provider_id = 2;
 }
 
