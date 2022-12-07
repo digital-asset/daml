@@ -68,7 +68,7 @@ service PartyManagementService {
   rpc UpdatePartyDetails (UpdatePartyDetailsRequest) returns (UpdatePartyDetailsResponse);
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
+// Required authorization: ``HasRight(ParticipantAdmin)``
 message GetParticipantIdRequest {
 }
 
@@ -88,8 +88,7 @@ message GetPartiesRequest {
   repeated string parties = 1;
 
   // The id of the ``Identity Provider`` whose parties should be retrieved.
-  // If not provided, assume the party is managed by the default identity provider or party is not hosted by the participant.
-  // Required
+  // Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
   string identity_provider_id = 2;
 }
 
@@ -103,9 +102,9 @@ message GetPartiesResponse {
 
 // Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message ListKnownPartiesRequest {
+
   // The id of the ``Identity Provider`` whose parties should be retrieved.
-  // If not provided, assume the party is managed by the default identity provider or party is not hosted by the participant.
-  // Required
+  // Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
   string identity_provider_id = 1;
 }
 
@@ -136,8 +135,7 @@ message AllocatePartyRequest {
   ObjectMeta local_metadata = 3;
 
   // The id of the ``Identity Provider``
-  // If not provided, assume the party is managed by the default identity provider or party is not hosted by the participant.
-  // Required
+  // Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
   string identity_provider_id = 4;
 }
 
@@ -204,7 +202,6 @@ message PartyDetails {
   ObjectMeta local_metadata = 4;
 
   // The id of the ``Identity Provider``
-  // If not provided, assume the party is managed by the default identity provider or party is not hosted by the participant.
-  // Required
+  // Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
   string identity_provider_id = 5;
 }

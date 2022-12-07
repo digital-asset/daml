@@ -100,8 +100,7 @@ message User {
     ObjectMeta metadata = 4;
 
     // The id of the identity provider configured by ``Identity Provider Config``
-    // If not provided, assume the user is managed by the default identity provider.
-    // Required
+    // Optional, if not set, assume the user is managed by the default identity provider.
     string identity_provider_id = 5;
 }
 
@@ -169,8 +168,7 @@ message GetUserRequest {
     string user_id = 1;
 
     // The id of the ``Identity Provider``
-    // If not provided, assume the user is managed by the default identity provider.
-    // Required
+    // Optional, if not set, assume the user is managed by the default identity provider.
     string identity_provider_id = 2;
 }
 
@@ -216,8 +214,7 @@ message DeleteUserRequest {
     string user_id = 1;
 
     // The id of the ``Identity Provider``
-    // If not provided, assume the user is managed by the default identity provider.
-    // Required
+    // Optional, if not set, assume the user is managed by the default identity provider.
     string identity_provider_id = 2;
 }
 
@@ -239,8 +236,7 @@ message ListUsersRequest {
     int32 page_size = 3;
 
     // The id of the ``Identity Provider``
-    // If not provided, assume the user is managed by the default identity provider.
-    // Required
+    // Optional, if not set, assume the user is managed by the default identity provider.
     string identity_provider_id = 4;
 
 }
@@ -267,8 +263,7 @@ message GrantUserRightsRequest {
     repeated Right rights = 2;
 
     // The id of the ``Identity Provider``
-    // If not provided, assume the user is managed by the default identity provider.
-    // Required
+    // Optional, if not set, assume the user is managed by the default identity provider.
     string identity_provider_id = 3;
 }
 
@@ -290,8 +285,7 @@ message RevokeUserRightsRequest {
     repeated Right rights = 2;
 
     // The id of the ``Identity Provider``
-    // If not provided, assume the user is managed by the default identity provider.
-    // Required
+    // Optional, if not set, assume the user is managed by the default identity provider.
     string identity_provider_id = 3;
 }
 
@@ -310,8 +304,7 @@ message ListUserRightsRequest {
     // TODO (i12052): add pagination following https://cloud.google.com/apis/design/design_patterns#list_pagination
 
     // The id of the ``Identity Provider``
-    // If not provided, assume the user is managed by the default identity provider.
-    // Required
+    // Optional, if not set, assume the user is managed by the default identity provider.
     string identity_provider_id = 2;
 }
 
