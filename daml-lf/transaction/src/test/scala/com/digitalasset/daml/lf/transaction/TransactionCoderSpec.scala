@@ -41,11 +41,14 @@ class TransactionCoderSpec
   "encode-decode" should {
 
     "do contractInstance" in {
-      forAll(versionedContractInstanceGen)(coinst =>
+      forAll(versionedContractInstanceGen, agreementGen)((coinst, agreement) =>
         TransactionCoder.decodeVersionedContractInstance(
           ValueCoder.CidDecoder,
-          TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, coinst).toOption.get,
-        ) shouldBe Right(normalizeContract(coinst))
+          TransactionCoder
+            .encodeContractInstance(ValueCoder.CidEncoder, coinst, agreement)
+            .toOption
+            .get,
+        ) shouldBe Right((normalizeContract(coinst), agreement))
       )
     }
 

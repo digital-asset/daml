@@ -13,16 +13,17 @@ import scala.util.{Failure, Success, Try}
 object ContractConversions {
 
   def encodeContractInstance(
-      coinst: Value.VersionedContractInstance
+      coinst: Value.VersionedContractInstance,
+      agreement: String,
   ): Either[ValueCoder.EncodeError, RawContractInstance] =
     for {
-      message <- TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, coinst)
+      message <- TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, coinst, agreement)
       bytes <- SafeProto.toByteString(message).left.map(ValueCoder.EncodeError(_))
     } yield RawContractInstance(bytes)
 
   def decodeContractInstance(
       rawContractInstance: RawContractInstance
-  ): Either[ConversionError, Value.VersionedContractInstance] =
+  ): Either[ConversionError, (Value.VersionedContractInstance, String)] =
     Try(TransactionOuterClass.ContractInstance.parseFrom(rawContractInstance.byteString)) match {
       case Success(contractInstance) =>
         TransactionCoder

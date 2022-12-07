@@ -341,7 +341,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             None -> emptyNestedValue,
           ),
         ),
-        "agreement",
       ),
     )
 
@@ -371,7 +370,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         None,
         ImmArray(None -> ValueParty(alice), None -> ValueParty(charlie)),
       ),
-      "",
     ),
   )
 
@@ -390,7 +388,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           None -> emptyNestedValue,
         ),
       ),
-      "agreement",
     ),
   )
 
@@ -405,11 +402,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
   private[this] val dummyContract = Versioned(
     TransactionVersion.StableVersions.max,
-    Value.ContractInstance(
-      Dummy,
-      ValueRecord(None, ImmArray(None -> ValueParty(alice))),
-      "",
-    ),
+    Value.ContractInstance(Dummy, ValueRecord(None, ImmArray(None -> ValueParty(alice)))),
   )
   private[this] val getWronglyTypedContract = Map(cId -> dummyContract)
 

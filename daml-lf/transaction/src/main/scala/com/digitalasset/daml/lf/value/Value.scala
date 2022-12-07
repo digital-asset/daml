@@ -166,11 +166,8 @@ object Value {
     new `Value Equal instance`
 
   /** A contract instance is a value plus the template that originated it. */
-  final case class ContractInstance(
-      template: Identifier,
-      arg: Value,
-      agreementText: String,
-  ) extends CidContainer[ContractInstance] {
+  final case class ContractInstance(template: Identifier, arg: Key)
+      extends CidContainer[ContractInstance] {
 
     override protected def self: this.type = this
 
@@ -184,20 +181,15 @@ object Value {
   type VersionedContractInstance = transaction.Versioned[ContractInstance]
 
   object VersionedContractInstance {
-    def apply(
-        template: Identifier,
-        arg: VersionedValue,
-        agreementText: String,
-    ): VersionedContractInstance =
-      arg.map(ContractInstance(template, _, agreementText))
+    def apply(template: Identifier, arg: VersionedValue): VersionedContractInstance =
+      arg.map((arg: Key) => ContractInstance(template, arg))
 
     def apply(
         version: transaction.TransactionVersion,
         template: Identifier,
-        arg: Value,
-        agreementText: String,
+        arg: Key,
     ): VersionedContractInstance =
-      transaction.Versioned(version, ContractInstance(template, arg, agreementText))
+      transaction.Versioned(version, ContractInstance(template, arg))
   }
 
   type NodeIdx = Int

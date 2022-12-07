@@ -75,7 +75,7 @@ class SBuiltinInterfaceTest
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(iouId, iouPayload, ""),
+                ContractInstance(iouId, iouPayload),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -92,7 +92,7 @@ class SBuiltinInterfaceTest
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(extraIouId, iouPayload, ""),
+                ContractInstance(extraIouId, iouPayload),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -109,7 +109,7 @@ class SBuiltinInterfaceTest
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(extraIouId, iouPayload, ""),
+                ContractInstance(extraIouId, iouPayload),
               )
             ),
             getPkg = { case `extraPkgId` =>

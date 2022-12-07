@@ -1703,7 +1703,6 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
                 version,
                 templateId,
                 disclosedContract.argument.toUnnormalizedValue,
-                "Agreement",
               )
             ),
             onLedger = true,
@@ -1747,7 +1746,6 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
                 version,
                 templateId,
                 disclosedContract.argument.toUnnormalizedValue,
-                "Agreement",
               )
             ),
             onLedger = true,

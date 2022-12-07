@@ -76,7 +76,6 @@ class ContractKeySpec
             (Some[Ref.Name]("k"), ValueInt64(42)),
           ),
         ),
-        "",
       )
     )
 
@@ -90,7 +89,6 @@ class ContractKeySpec
               Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
               ImmArray((Some[Name]("p"), ValueParty(party))),
             ),
-            "",
           )
         ),
       toContractId("BasicTests:CallablePayout:1") ->
@@ -104,7 +102,6 @@ class ContractKeySpec
                 (Some[Ref.Name]("receiver"), ValueParty(bob)),
               ),
             ),
-            "",
           )
         ),
       toContractId("BasicTests:WithKey:1") ->
@@ -287,7 +284,6 @@ class ContractKeySpec
         ContractInstance(
           TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
-          "",
         )
       )
       val contracts = Map(cid1 -> keyedInst, cid2 -> keyedInst)

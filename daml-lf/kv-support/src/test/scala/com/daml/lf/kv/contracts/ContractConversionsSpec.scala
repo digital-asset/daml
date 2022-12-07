@@ -17,7 +17,7 @@ class ContractConversionsSpec extends AnyWordSpec with Matchers {
 
   "encodeContractInstance" should {
     "successfully encode a contract instance" in {
-      ContractConversions.encodeContractInstance(aContractInstance) shouldBe Right(
+      ContractConversions.encodeContractInstance(aContractInstance, "agreement") shouldBe Right(
         aRawContractInstance
       )
     }
@@ -50,7 +50,6 @@ object ContractConversionsSpec {
       Ref.QualifiedName.assertFromString(s"$aModuleName:$aDummyName"),
     ),
     arg = Value.ValueUnit,
-    agreementText = "",
   )
 
   private val aRawContractInstance = RawContractInstance(
@@ -63,7 +62,7 @@ object ContractConversionsSpec {
           .addModuleName(aModuleName)
           .addName(aDummyName)
       )
-      .setAgreement("")
+      .setAgreement("agreement")
       .setArgVersioned(
         ValueOuterClass.VersionedValue
           .newBuilder()

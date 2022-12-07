@@ -27,7 +27,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
     } yield {
       // The agreement text is always empty when retrieved from the contract store
-      result shouldEqual Some(someVersionedContractInstance.map(_.copy(agreementText = "")))
+      result shouldEqual Some(someVersionedContractInstance)
     }
   }
 
@@ -42,7 +42,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       result <- contractsReader.lookupActiveContractAndLoadArgument(Set(charlie), create)
     } yield {
       // The agreement text is always empty when retrieved from the contract store
-      result shouldEqual Some(someVersionedContractInstance.map(_.copy(agreementText = "")))
+      result shouldEqual Some(someVersionedContractInstance)
     }
   }
 
@@ -130,7 +130,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     } yield {
       queryAfterCreate.value match {
         case LedgerDaoContractsReader.ActiveContract(contract, stakeholders, _) =>
-          contract shouldBe someVersionedContractInstance.map(_.copy(agreementText = ""))
+          contract shouldBe someVersionedContractInstance
           stakeholders should contain theSameElementsAs Set(alice)
         case LedgerDaoContractsReader.ArchivedContract(_) =>
           fail("Contract should appear as active")
