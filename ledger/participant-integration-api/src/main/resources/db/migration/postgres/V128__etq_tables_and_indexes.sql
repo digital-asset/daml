@@ -56,7 +56,3 @@ CREATE TABLE participant_transaction_meta(
 );
 CREATE INDEX participant_transaction_meta_tid_idx ON participant_transaction_meta(transaction_id);
 CREATE INDEX participant_transaction_meta_event_offset_idx ON participant_transaction_meta(event_offset);
-
-DROP INDEX participant_events_create_transaction_id_idx;
-DROP INDEX participant_events_consuming_exercise_transaction_id_idx;
-DROP INDEX participant_events_non_consuming_exercise_transaction_id_idx;

@@ -326,3 +326,38 @@ A default dedicated dispatcher for blocking operations (e.g. db operation) is co
         throughput = 1
       }
     }
+
+Ledger API Authorization
+========================
+
+The client must provide an access token when authorization is required by the Ledger.
+For details of ledger authorization, please refer to `Ledger Authorization documentation <https://docs.daml.com/app-dev/authorization.html>`_.
+
+Provide access token to custom-view library
+-------------------------------------------
+
+Applications can provide an access token when setting up the client. The example below shows how to set `LedgerCallCredentials` on the `GrpcClientSettings`.
+
+.. code-block:: java
+
+    var grpcClientSettings = GrpcClientSettings
+      .connectToServiceAt("localhost", 6865, system)
+      .withCallCredentials(new LedgerCallCredentials(accessToken));
+    var source = BatchSource.events(grpcClientSettings);
+    var control = projector.project(source, events, f);
+
+Provide a newly retrieved access token when the existing one has expired
+------------------------------------------------------------------------
+
+When an access token is expired, an application can retrieve a new access token with the stored refresh token.
+For details on the refresh token, please refer to `Ledger auth-middleware documentation <https://docs.daml.com/tools/auth-middleware/index.html#refresh-access-token>`_.
+With the new access token, an application can cancel the running projection and re-create a new one using the new token.
+
+.. code-block:: java
+
+    control.cancel().thenApply(done -> {
+      var sourceWithNewToken = BatchSource.events(
+        grpcClientSettings.withCallCredentials(new LedgerCallCredentials(newAccessToken))
+      );
+      return projector.project(sourceWithNewToken, events, f);
+    });

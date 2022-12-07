@@ -5,7 +5,7 @@ package com.daml.http
 
 import HttpServiceTestFixture.UseTls
 import akka.http.scaladsl.model.{StatusCodes, Uri}
-import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authentication
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authenticity
 import com.daml.test.evidence.tag.Security.SecurityTest
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import org.scalatest.{Assertion, Inside}
@@ -23,7 +23,7 @@ abstract class TlsTest
     with AbstractHttpServiceIntegrationTestFuns {
   import json.JsonProtocol._
 
-  val authenticationSecurity: SecurityTest = SecurityTest(property = Authentication, asset = "TBD")
+  val authenticationSecurity: SecurityTest = SecurityTest(property = Authenticity, asset = "TBD")
 
   override def jdbcConfig = None
 

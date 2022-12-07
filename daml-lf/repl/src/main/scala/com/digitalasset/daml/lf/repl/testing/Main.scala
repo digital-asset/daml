@@ -448,7 +448,7 @@ object Repl {
   implicit val parserParameters: parser.ParserParameters[Repl.this.type] =
     parser.ParserParameters(
       defaultPackageId = Ref.PackageId.assertFromString("-dummy-"),
-      languageVersion = LV.defaultV1,
+      languageVersion = LV.default,
     )
 
   // Invoke the given top-level function with given arguments.
