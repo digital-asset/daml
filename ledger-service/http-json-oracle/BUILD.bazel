@@ -9,10 +9,7 @@ load(
     "kind_projector_plugin",
     "lf_scalacopts",
 )
-
-hj_scalacopts = lf_scalacopts + [
-    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-]
+load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
 
 da_scala_library(
     name = "integration-tests-lib",
