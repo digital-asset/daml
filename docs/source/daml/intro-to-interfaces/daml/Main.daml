@@ -8,6 +8,8 @@ import Daml.Script
 import Cash qualified
 import NFT qualified
 
+import Asset qualified
+
 data Parties = Parties with
     alice
       , bob
@@ -192,3 +194,110 @@ archiveNftTransferProposalTest = do
 
   alice `submit` do
     archiveCmd bobMemeTransferProposal
+
+mkAssetTest : (Template t, Implements t Asset.Asset) => (Party -> t) -> Script ()
+mkAssetTest mkAsset = do
+  Parties {..} <- allocateParties
+
+  aliceAsset <-
+    alice `submit` do
+      toInterfaceContractId @Asset.Asset <$>
+        createCmd (mkAsset alice)
+
+  bobAssetTransferProposal <-
+    alice `submit` do
+      exerciseCmd aliceAsset Asset.ProposeTransfer with
+        newOwner = bob
+
+  bobAsset <-
+    bob `submit` do
+      exerciseCmd bobAssetTransferProposal Asset.AcceptTransfer
+
+  charlieAssetTransferProposal <-
+    bob `submit` do
+      exerciseCmd bobAsset Asset.ProposeTransfer with
+        newOwner = charlie
+
+  charlieAsset <-
+    charlie `submit` do
+      exerciseCmd charlieAssetTransferProposal Asset.AcceptTransfer
+
+  dominicAssetTransferProposal <-
+    charlie `submit` do
+      exerciseCmd charlieAsset Asset.ProposeTransfer with
+        newOwner = dominic
+
+  charlieAsset' <-
+    dominic `submit` do
+      exerciseCmd dominicAssetTransferProposal Asset.RejectTransfer
+
+  emilyAssetTransferProposal <-
+    charlie `submit` do
+      exerciseCmd charlieAsset' Asset.ProposeTransfer with
+        newOwner = emily
+
+  charlieAsset'' <-
+    charlie `submit` do
+      exerciseCmd emilyAssetTransferProposal Asset.WithdrawProposal
+
+  pure ()
+
+mkArchiveAssetTest : (Template t, Implements t Asset.Asset) => (Party -> t) -> Script ()
+mkArchiveAssetTest mkAsset = do
+  Parties {..} <- allocateParties
+
+  aliceAsset <-
+    alice `submit` do
+      toInterfaceContractId @Asset.Asset <$>
+        createCmd (mkAsset alice)
+
+  alice `submit` do
+    archiveCmd aliceAsset
+
+mkArchiveAssetTransferProposalTest : (Template t, Implements t Asset.Asset) => (Party -> t) -> Script ()
+mkArchiveAssetTransferProposalTest mkAsset = do
+  Parties {..} <- allocateParties
+
+  aliceAsset <-
+    alice `submit` do
+      toInterfaceContractId @Asset.Asset <$>
+        createCmd (mkAsset alice)
+
+  bobAssetTransferProposal <-
+    alice `submit` do
+      exerciseCmd aliceAsset Asset.ProposeTransfer with
+        newOwner = bob
+
+  alice `submit` do
+    archiveCmd bobAssetTransferProposal
+
+mkCash : Party -> Cash.Cash
+mkCash party = Cash.Cash with
+  issuer = party
+  owner = party
+  currency = "USD"
+  amount = 42.0
+
+cashAssetTest : Script ()
+cashAssetTest = mkAssetTest mkCash
+
+cashArchiveAssetTest : Script ()
+cashArchiveAssetTest = mkArchiveAssetTest mkCash
+
+cashArchiveAssetTransferProposalTest : Script ()
+cashArchiveAssetTransferProposalTest = mkArchiveAssetTransferProposalTest mkCash
+
+mkNft : Party -> NFT.NFT
+mkNft party = NFT.NFT with
+  issuer = party
+  owner = party
+  url = "https://nyan.feline/"
+
+nftAssetTest : Script ()
+nftAssetTest = mkAssetTest mkNft
+
+nftArchiveAssetTest : Script ()
+nftArchiveAssetTest = mkArchiveAssetTest mkNft
+
+nftArchiveAssetTransferProposalTest : Script ()
+nftArchiveAssetTransferProposalTest = mkArchiveAssetTransferProposalTest mkNft
