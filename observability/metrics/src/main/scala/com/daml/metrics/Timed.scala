@@ -8,7 +8,7 @@ import java.util.concurrent.CompletionStage
 import akka.Done
 import akka.stream.scaladsl.{Keep, Source}
 import com.daml.concurrent
-import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, Timer}
 import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -18,16 +18,16 @@ object Timed {
   def value[T](timer: Timer, value: => T): T =
     timer.time(value)
 
-  def trackedValue[T](meter: Meter, value: => T): T = withEmptyMetricsContext {
+  def trackedValue[T](counter: Counter, value: => T): T = withEmptyMetricsContext {
     implicit metricContext =>
-      meter.mark(+1)
+      counter.inc()
       val result = value
-      meter.mark(-1)
+      counter.dec()
       result
   }
 
-  def timedAndTrackedValue[T](timer: Timer, meter: Meter, value: => T): T = {
-    Timed.value(timer, trackedValue(meter, value))
+  def timedAndTrackedValue[T](timer: Timer, counter: Counter, value: => T): T = {
+    Timed.value(timer, trackedValue(counter, value))
   }
 
   def completionStage[T](timer: Timer, future: => CompletionStage[T]): CompletionStage[T] = {
@@ -38,21 +38,24 @@ object Timed {
     }
   }
 
-  def trackedCompletionStage[T](meter: Meter, future: => CompletionStage[T]): CompletionStage[T] =
+  def trackedCompletionStage[T](
+      counter: Counter,
+      future: => CompletionStage[T],
+  ): CompletionStage[T] =
     withEmptyMetricsContext { implicit metricsContext =>
-      meter.mark(+1)
+      counter.inc()
       future.whenComplete { (_, _) =>
-        meter.mark(-1)
+        counter.dec()
         ()
       }
     }
 
   def timedAndTrackedCompletionStage[T](
       timer: Timer,
-      meter: Meter,
+      counter: Counter,
       future: => CompletionStage[T],
   ): CompletionStage[T] = {
-    Timed.completionStage(timer, trackedCompletionStage(meter, future))
+    Timed.completionStage(timer, trackedCompletionStage(counter, future))
   }
 
   def future[T](timer: Timer, future: => Future[T]): Future[T] = {
@@ -71,18 +74,8 @@ object Timed {
     future.andThen { case _ => counter.dec() }(ExecutionContext.parasitic)
   }
 
-  def trackedFuture[T](meter: Meter, future: => Future[T]): Future[T] = withEmptyMetricsContext {
-    implicit metricsContext =>
-      meter.mark(+1)
-      future.andThen { case _ => meter.mark(-1) }(ExecutionContext.parasitic)
-  }
-
   def timedAndTrackedFuture[T](timer: Timer, counter: Counter, future: => Future[T]): Future[T] = {
     Timed.future(timer, trackedFuture(counter, future))
-  }
-
-  def timedAndTrackedFuture[T](timer: Timer, meter: Meter, future: => Future[T]): Future[T] = {
-    Timed.future(timer, trackedFuture(meter, future))
   }
 
   /** Be advised that this will time the source when it's created and not when it's actually run.
