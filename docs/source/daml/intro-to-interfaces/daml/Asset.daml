@@ -1,0 +1,57 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Asset where
+
+data AssetView = AssetView with
+    issuer : Party
+    owner : Party
+    description : Text
+  deriving (Eq, Ord, Show)
+
+interface Asset
+  where
+    viewtype AssetView
+
+    setOwner : Party -> Asset
+    toTransferProposal : Party -> TransferProposal
+
+    choice ProposeTransfer : ContractId TransferProposal
+      with newOwner : Party
+      controller (view this).owner
+      do
+        create (toTransferProposal this newOwner)
+
+    choice ArchiveAsset : ()
+      controller (signatory this)
+      do pure ()
+
+data TransferProposalView = TransferProposalView with
+    assetView : AssetView
+    newOwner : Party
+  deriving (Eq, Ord, Show)
+
+interface TransferProposal
+  where
+    viewtype TransferProposalView
+
+    asset : Asset
+
+    choice AcceptTransfer : ContractId Asset
+      controller (view this).newOwner
+      do
+        create $ setOwner (asset this) (view this).newOwner
+
+    choice RejectTransfer : ContractId Asset
+      controller (view this).newOwner
+      do
+        create (asset this)
+
+    choice WithdrawProposal : ContractId Asset
+      controller (view (asset this)).owner
+      do
+        create (asset this)
+
+    choice ArchiveAssetTransferProposal : ()
+      controller (signatory this)
+      do pure ()
