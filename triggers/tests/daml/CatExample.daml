@@ -4,7 +4,10 @@
 module CatExample where
 
 import Daml.Trigger
-import DA.Foldable (forA_)
+--import DA.Foldable (forA_)
+import DA.Time (seconds)
+import qualified DA.Map as Map
+import DA.Functor (void)
 
 
 template Cat
@@ -13,8 +16,8 @@ template Cat
     isin : Int
   where
     signatory owner
-    key (owner, isin) : (Party, Int)
-    maintainer key._1
+    key this : Cat
+    maintainer key.owner
 
     choice Feed : ()
       with
@@ -29,8 +32,8 @@ template Food
     isin : Int
   where
     signatory owner
-    key (owner, isin) : (Party, Int)
-    maintainer key._1
+    key this : Food
+    maintainer key.owner
 
     choice Food_FeedCat : ()
       controller owner
@@ -41,24 +44,65 @@ trigger : Trigger ()
 trigger = Trigger
   { initialize = pure ()
   , updateState = \_ -> pure ()
-  , rule = const feedTheCats
+  , rule = feedTheCats
   , registeredTemplates =  RegisteredTemplates [ registeredTemplate @Cat, registeredTemplate @Food ]
-  , heartbeat = None
+  , heartbeat = Some (seconds 1)
   }
 
-feedTheCats : TriggerA s ()
-feedTheCats = do
+limit = 100
+
+tooManyCommandsInFlight : TriggerA s Bool
+tooManyCommandsInFlight = do
+  cs <- getCommandsInFlight
+  pure $ Map.size cs >=limit
+
+--emitCommands' cmds pending =
+--  tooManyCommandsInFlight >>= \case
+--    False -> void $ emitCommands cmds pending
+--    True ->  pure ()
+
+for_ : [a] -> (a -> TriggerA c b) -> TriggerA c ()
+for_ (h :: t) f =
+  tooManyCommandsInFlight >>= \case
+    False -> do
+      f h
+      for_ t f
+    True ->
+      pure ()
+for_ _ _ = pure ()
+
+feedTheCats: Party -> TriggerA s ()
+feedTheCats _ = do
   cats <- query @Cat
   debugRaw $ "Feeding " <> show (length cats) <> " cats"
-  forA_ cats \(catCid, Cat{..}) -> do
---    debug $ "Processing cat with isin " <> (show isin)
-    queryContractKey @Food (owner, isin) >>= \case
-      Some (foodCid, _) -> do
-        debugRaw $ "Found food for cat with isin " <> (show isin)
---        dedupExercise catCid (Feed foodCid)
-        _ <- emitCommands [exerciseCmd catCid (Feed foodCid)] [toAnyContractId catCid]
-        pure ()
-      None ->
-        debugRaw $ "Not found food for cat with isin " <> (show isin)
+  for_ cats \(catCid, Cat{..}) -> do
+    -- debug $ "Processing cat with isin " <> (show isin)
+    tooManyCommandsInFlight >>= \case
+       True ->
+         debugRaw $ "Too many command in flight, skip isin " <> (show isin)
+       False -> do
+         queryContractKey @Food (Food owner isin) >>= \case
+           Some (foodCid, _) -> do
+--             debugRaw $ "Found food for cat with isin " <> (show isin)
+--             void $ dedupExercise catCid (Feed foodCid)
+             void $ emitCommands [exerciseCmd catCid (Feed foodCid)] [toAnyContractId catCid, toAnyContractId foodCid]
+           None -> do
+--             debugRaw $ "Not found food for cat with isin " <> (show isin)
+             pure ()
+
+--feedTheCats : TriggerA s ()
+--feedTheCats = do
+--  cats <- query @Cat
+--  debugRaw $ "Feeding " <> show (length cats) <> " cats"
+--  forA_ cats \(catCid, Cat{..}) -> do
+----    debug $ "Processing cat with isin " <> (show isin)
+--    queryContractKey @Food (owner, isin) >>= \case
+--      Some (foodCid, _) -> do
+--        debugRaw $ "Found food for cat with isin " <> (show isin)
+----        dedupExercise catCid (Feed foodCid)
+--        _ <- emitCommands [exerciseCmd catCid (Feed foodCid)] [toAnyContractId catCid]
+--        pure ()
+--      None ->
+--        debugRaw $ "Not found food for cat with isin " <> (show isin)
 
 
