@@ -15,7 +15,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // to setup and manage additional identity providers at runtime.
 //
 // This allows using access tokens from identity providers unknown at deployment time. When an identity
-// provider is configured, dedicated IDP administrators can manage own set of parties and users.
+// provider is configured, dedicated IDP administrators can manage their own set of parties and users.
 // Such parties and users will have a matching `identity_provider_id` defined and will be inaccessible to 
 // administrators from other identity providers. A user will only be authenticated if the corresponding JWT
 // token is issued by the appropriate identity provider.
