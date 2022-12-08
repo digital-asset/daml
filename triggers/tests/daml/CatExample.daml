@@ -4,7 +4,7 @@
 module CatExample where
 
 import Daml.Trigger
---import DA.Foldable (forA_)
+import DA.Foldable (forA_)
 import DA.Time (seconds)
 import qualified DA.Map as Map
 import DA.Functor (void)
@@ -40,11 +40,20 @@ template Food
       do
         pure ()
 
-trigger : Trigger ()
-trigger = Trigger
+boundedTrigger : Trigger ()
+boundedTrigger = Trigger
   { initialize = pure ()
   , updateState = \_ -> pure ()
-  , rule = feedTheCats
+  , rule = boundedFeedTheCats
+  , registeredTemplates =  RegisteredTemplates [ registeredTemplate @Cat, registeredTemplate @Food ]
+  , heartbeat = Some (seconds 1)
+  }
+
+unboundedTrigger : Trigger ()
+unboundedTrigger = Trigger
+  { initialize = pure ()
+  , updateState = \_ -> pure ()
+  , rule = unboundedFeedTheCats
   , registeredTemplates =  RegisteredTemplates [ registeredTemplate @Cat, registeredTemplate @Food ]
   , heartbeat = Some (seconds 1)
   }
@@ -71,8 +80,8 @@ for_ (h :: t) f =
       pure ()
 for_ _ _ = pure ()
 
-feedTheCats: Party -> TriggerA s ()
-feedTheCats _ = do
+boundedFeedTheCats: Party -> TriggerA s ()
+boundedFeedTheCats _ = do
   cats <- query @Cat
   debugRaw $ "Feeding " <> show (length cats) <> " cats"
   for_ cats \(catCid, Cat{..}) -> do
@@ -83,26 +92,19 @@ feedTheCats _ = do
        False -> do
          queryContractKey @Food (Food owner isin) >>= \case
            Some (foodCid, _) -> do
---             debugRaw $ "Found food for cat with isin " <> (show isin)
---             void $ dedupExercise catCid (Feed foodCid)
+             debugRaw $ "Found food for cat with isin " <> (show isin)
              void $ emitCommands [exerciseCmd catCid (Feed foodCid)] [toAnyContractId catCid, toAnyContractId foodCid]
            None -> do
---             debugRaw $ "Not found food for cat with isin " <> (show isin)
-             pure ()
+             debugRaw $ "Not found food for cat with isin " <> (show isin)
 
---feedTheCats : TriggerA s ()
---feedTheCats = do
---  cats <- query @Cat
---  debugRaw $ "Feeding " <> show (length cats) <> " cats"
---  forA_ cats \(catCid, Cat{..}) -> do
-----    debug $ "Processing cat with isin " <> (show isin)
---    queryContractKey @Food (owner, isin) >>= \case
---      Some (foodCid, _) -> do
---        debugRaw $ "Found food for cat with isin " <> (show isin)
-----        dedupExercise catCid (Feed foodCid)
---        _ <- emitCommands [exerciseCmd catCid (Feed foodCid)] [toAnyContractId catCid]
---        pure ()
---      None ->
---        debugRaw $ "Not found food for cat with isin " <> (show isin)
-
-
+unboundedFeedTheCats : Party -> TriggerA s ()
+unboundedFeedTheCats _ = do
+  cats <- query @Cat
+  debugRaw $ "Feeding " <> show (length cats) <> " cats"
+  forA_ cats \(catCid, Cat{..}) -> do
+    queryContractKey @Food (Food owner isin) >>= \case
+      Some (foodCid, _) -> do
+        debugRaw $ "Found food for cat with isin " <> (show isin)
+        void $ emitCommands [exerciseCmd catCid (Feed foodCid)] [toAnyContractId catCid, toAnyContractId foodCid]
+      None ->
+        debugRaw $ "Not found food for cat with isin " <> (show isin)

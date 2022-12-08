@@ -595,7 +595,7 @@ private[lf] class Runner private (
 
           submissionFailureQueue.offer(ctx).map {
             case QueueOfferResult.Enqueued =>
-              ()
+              triggerContext.logDebug("Command submission failure successfully queued")
 
             case QueueOfferResult.Dropped =>
               triggerContext
