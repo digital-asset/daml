@@ -5,6 +5,9 @@
 An Introduction To Multi-Party Applications and Daml
 ####################################################
 
+Multi-Party Applications
+************************
+
 Multi-party applications, and multi-party application platforms like Daml, solve problems that were nearly impossible to solve with the technologies and architectures that came before. Successfully building multi-party applications requires learning a few new concepts, including architectural principles and patterns. This document explains:
  - why multi-party applications matter
  - what a multi-party application is
