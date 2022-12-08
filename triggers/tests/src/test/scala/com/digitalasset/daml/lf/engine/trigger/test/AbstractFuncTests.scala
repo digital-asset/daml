@@ -71,7 +71,7 @@ abstract class AbstractFuncTests
 
       "cat example" in {
         val n = 500
-        val who = "bounded" // "bounded" or "unbounded"
+        val who = "unbounded" // "bounded" or "unbounded"
 
         def command(template: String, owner: String, i: Int): CreateCommand =
           CreateCommand(
