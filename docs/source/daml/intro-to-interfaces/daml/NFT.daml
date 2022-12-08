@@ -3,6 +3,8 @@
 
 module NFT where
 
+import Asset qualified
+
 template NFT
   with
     issuer : Party
@@ -18,6 +20,23 @@ template NFT
         create TransferProposal with
           nft = this
           newOwner = newOwner
+
+    interface instance Asset.Asset for NFT where
+      view = Asset.AssetView with
+        issuer
+        owner
+        description = show @NFT this
+
+      setOwner newOwner =
+        toInterface @Asset.Asset $
+          this with
+            owner = newOwner
+
+      toTransferProposal newOwner =
+        toInterface @Asset.TransferProposal $
+          TransferProposal with
+            nft = this
+            newOwner
 
 template TransferProposal
   with
@@ -42,3 +61,10 @@ template TransferProposal
       controller nft.owner
       do
         create nft
+
+    interface instance Asset.TransferProposal for TransferProposal where
+      view = Asset.TransferProposalView with
+        assetView = Prelude.view (toInterface @Asset.Asset nft)
+        newOwner
+
+      asset = toInterface @Asset.Asset nft
