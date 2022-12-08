@@ -5,7 +5,7 @@ package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation, Traffic}
-import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Timer}
 import com.daml.metrics.api.dropwizard.{DropwizardFactory, DropwizardTimer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
@@ -192,7 +192,7 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
       DropwizardTimer(prefix :+ "submit_transaction" :+ "count", null)
 
     val submitTransaction: Timer = timer(prefix :+ "submit_transaction")
-    val submitTransactionRunning: Meter = meter(prefix :+ "submit_transaction_running")
+    val submitTransactionRunning: Counter = counter(prefix :+ "submit_transaction_running")
     val uploadPackages: Timer = timer(prefix :+ "upload_packages")
     val allocateParty: Timer = timer(prefix :+ "allocate_party")
     val submitConfiguration: Timer = timer(prefix :+ "submit_configuration")
