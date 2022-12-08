@@ -675,7 +675,7 @@ private[lf] class Runner private (
     val graph = GraphDSL.create() { implicit gb =>
       val queue = gb.add(submissionFailureSink)
       val source = gb.add(
-        completionSource.delay(1.second) merge transactionSource merge heartbeatSource merge submissionFailureSource
+        completionSource merge transactionSource merge heartbeatSource merge submissionFailureSource
       )
 
       FlowShape(queue.in, source.out)
