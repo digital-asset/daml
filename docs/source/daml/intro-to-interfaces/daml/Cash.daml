@@ -3,6 +3,8 @@
 
 module Cash where
 
+import Asset qualified
+
 template Cash
   with
     issuer : Party
@@ -20,6 +22,23 @@ template Cash
         create TransferProposal with
           cash = this
           newOwner = newOwner
+
+    interface instance Asset.Asset for Cash where
+      view = Asset.AssetView with
+        issuer
+        owner
+        description = show @Cash this
+
+      setOwner newOwner =
+        toInterface @Asset.Asset $
+          this with
+            owner = newOwner
+
+      toTransferProposal newOwner =
+        toInterface @Asset.TransferProposal $
+          TransferProposal with
+            cash = this
+            newOwner
 
 template TransferProposal
   with
@@ -44,3 +63,10 @@ template TransferProposal
       controller cash.owner
       do
         create cash
+
+    interface instance Asset.TransferProposal for TransferProposal where
+      view = Asset.TransferProposalView with
+        assetView = Prelude.view (toInterface @Asset.Asset cash)
+        newOwner
+
+      asset = toInterface @Asset.Asset cash
