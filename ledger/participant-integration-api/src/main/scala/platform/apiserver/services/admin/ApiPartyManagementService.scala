@@ -116,25 +116,14 @@ private[apiserver] final class ApiPartyManagementService private (
           )
           parties <- request.parties.toList.traverse(requireParty)
         } yield (parties, identityProviderId)
-      } { case (parties: Seq[Party], identityProviderId) =>
+      } { case (parties: Seq[Party], identityProviderId: IdentityProviderId) =>
         for {
           partyDetailsSeq <- partyManagementService.getParties(parties)
           partyRecordOptions <- fetchPartyRecords(partyDetailsSeq)
         } yield {
           val protoDetails =
-            partyDetailsSeq.zip(partyRecordOptions).map { case (details, recordO) =>
-              toProtoPartyDetails(
-                partyDetails = details,
-                metadataO = recordO.map(_.metadata),
-                identityProviderId = recordO.map(_.identityProviderId),
-              )
-            }
-          identityProviderId match {
-            case IdentityProviderId.Id(id) =>
-              GetPartiesResponse(partyDetails = protoDetails.filter(_.identityProviderId == id))
-            case IdentityProviderId.Default =>
-              GetPartiesResponse(partyDetails = protoDetails)
-          }
+            partyDetailsSeq.zip(partyRecordOptions).collect(relevantParties(identityProviderId))
+          GetPartiesResponse(partyDetails = protoDetails)
         }
       }
     }
@@ -155,23 +144,23 @@ private[apiserver] final class ApiPartyManagementService private (
         partyDetailsSeq <- partyManagementService.listKnownParties()
         partyRecords <- fetchPartyRecords(partyDetailsSeq)
       } yield {
-        val protoDetails = partyDetailsSeq.zip(partyRecords).map { case (details, recordO) =>
-          toProtoPartyDetails(
-            partyDetails = details,
-            metadataO = recordO.map(_.metadata),
-            recordO.map(_.identityProviderId),
-          )
-        }
-        identityProviderId match {
-          case id: IdentityProviderId.Id =>
-            ListKnownPartiesResponse(
-              protoDetails.filter(_.identityProviderId == id.toRequestString)
-            )
-          case IdentityProviderId.Default =>
-            ListKnownPartiesResponse(protoDetails)
-        }
+        val protoDetails = partyDetailsSeq
+          .zip(partyRecords)
+          .collect(relevantParties(identityProviderId))
+        ListKnownPartiesResponse(protoDetails)
       }
     }
+  }
+
+  private def relevantParties(
+      identityProviderId: IdentityProviderId
+  ): PartialFunction[(IndexerPartyDetails, Option[PartyRecord]), ProtoPartyDetails] = {
+    case (details, recordO) if recordO.map(_.identityProviderId).contains(identityProviderId) =>
+      toProtoPartyDetails(
+        partyDetails = details,
+        metadataO = recordO.map(_.metadata),
+        recordO.map(_.identityProviderId),
+      )
   }
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
