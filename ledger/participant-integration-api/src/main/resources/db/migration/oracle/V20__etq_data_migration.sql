@@ -7,25 +7,21 @@ CREATE OR REPLACE FUNCTION etq_array_diff(
 )
 RETURN CLOB
 IS
-        arrayJson1 json_array_t := json_array_t.parse(arrayClob1);
-        outputJsonArray json_array_t := json_array_t ('[]');
-        -- Number type has
-        --  999...(38 9's) x10^125 maximum value
-        -- -999...(38 9's) x10^125 minimum value
-        -- so 200 characters should be enough to hold it together with the whole filter expression
-        filterExpression varchar2(200);
+     zz CLOB;
 BEGIN
-    FOR i IN 0 .. arrayJson1.get_size - 1
-    LOOP
-        -- `$[*]` selects each element of the array
-        -- `(@ == v)` is a filter expression that check whether each matched element is equal to some value `v`
-        filterExpression := '$[*]?(@ == ' || (arrayJson1.get(i).to_clob()) ||')';
-        IF NOT json_exists(arrayClob2, filterExpression)
-        THEN
-            outputJsonArray.append(arrayJson1.get(i));
-        END IF;
-    END LOOP;
-    RETURN outputJsonArray.to_clob();
+    SELECT coalesce(JSON_ARRAYAGG(x), '[]') foo
+    INTO zz
+    FROM
+        (
+                SELECT x FROM json_table(arrayClob1, '$[*]' columns (x NUMBER PATH '$'))
+        ) xx
+    LEFT JOIN
+        (
+                SELECT y FROM json_table(arrayClob2, '$[*]' columns (y NUMBER PATH '$'))
+        ) yy
+    ON x = y
+    WHERE y IS NULL;
+    RETURN zz;
 END;
 /
 
