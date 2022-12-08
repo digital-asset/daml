@@ -26,7 +26,6 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
         nonTransient(tx).loneElement,
       )
     } yield {
-      // The agreement text is always empty when retrieved from the contract store
       result shouldEqual Some(someVersionedContractInstance)
     }
   }
