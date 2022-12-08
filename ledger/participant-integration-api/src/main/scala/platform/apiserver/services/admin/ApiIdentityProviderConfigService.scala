@@ -58,7 +58,7 @@ class ApiIdentityProviderConfigService(
     } { config =>
       identityProviderConfigStore
         .createIdentityProviderConfig(config)
-        .flatMap(handleResult("creating identity_provider_config"))
+        .flatMap(handleResult("creating identity provider config"))
         .map(config => proto.CreateIdentityProviderConfigResponse(Some(toProto(config))))
     }
 
@@ -70,7 +70,7 @@ class ApiIdentityProviderConfigService(
     )(identityProviderId =>
       identityProviderConfigStore
         .getIdentityProviderConfig(identityProviderId)
-        .flatMap(handleResult("getting identity_provider_config"))
+        .flatMap(handleResult("getting identity provider config"))
         .map(cfg => proto.GetIdentityProviderConfigResponse(Some(toProto(cfg))))
     )
 
@@ -111,7 +111,7 @@ class ApiIdentityProviderConfigService(
         updateResult <- identityProviderConfigStore.updateIdentityProviderConfig(
           identityProviderConfigUpdate
         )
-        updatedIdentityProviderConfig <- handleResult("deleting identity_provider_config")(
+        updatedIdentityProviderConfig <- handleResult("deleting identity provider config")(
           updateResult
         )
       } yield proto.UpdateIdentityProviderConfigResponse(
@@ -124,7 +124,7 @@ class ApiIdentityProviderConfigService(
   ): Future[proto.ListIdentityProviderConfigsResponse] =
     identityProviderConfigStore
       .listIdentityProviderConfigs()
-      .flatMap(handleResult("listing identity_provider_configs"))
+      .flatMap(handleResult("listing identity provider configs"))
       .map(result => proto.ListIdentityProviderConfigsResponse(result.map(toProto).toSeq))
 
   override def deleteIdentityProviderConfig(
@@ -135,7 +135,7 @@ class ApiIdentityProviderConfigService(
     )(identityProviderId =>
       identityProviderConfigStore
         .deleteIdentityProviderConfig(identityProviderId)
-        .flatMap(handleResult("deleting identity_provider_config"))
+        .flatMap(handleResult("deleting identity provider config"))
         .map { _ =>
           proto.DeleteIdentityProviderConfigResponse()
         }

@@ -471,7 +471,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
                   )
                 ),
               ),
-              identityProviderId = IdentityProviderId.Default,
+              identityProviderId = user.identityProviderId,
             )
           )
           _ = update1.value shouldBe createdUser(
@@ -516,7 +516,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
                 resourceVersionO = Some(100),
                 annotationsUpdateO = Some(Map("k1" -> "v1")),
               ),
-              identityProviderId = IdentityProviderId.Default,
+              identityProviderId = user.identityProviderId,
             )
           )
           _ = res1.left.value shouldBe UserManagementStore.ConcurrentUserUpdate(user.id)
