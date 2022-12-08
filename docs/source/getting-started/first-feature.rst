@@ -199,7 +199,7 @@ Notice that each new message appears in the UI as soon as it is sent (due to the
       :scale: 50 %
       :alt: The sent message is now visible below the Send button.
 
-.. tip:: You completed the second part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your second of 3 badges <https://discuss.daml.com/badges/126/hey-look-what-i-can-do>`_! Get the third badge by `deploying to Daml Hub <https://digitalasset.com/developers/interactive-tutorials/getting-started/deploy-to-dabl/>`_
+.. tip:: You completed the second part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your second of 3 badges <https://discuss.daml.com/badges/126/hey-look-what-i-can-do>`_! Get the third badge by `deploying to Daml Hub <https://hub.daml.com/docs/quickstart/#deploy-your-own-daml-hub-sample-app>`_.
 
 Next Steps
 ==========
