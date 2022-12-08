@@ -58,15 +58,16 @@ A ``Projector`` executes the projection process. The code snippet below shows ho
 
 .. code-block:: java
 
-    ConnectionSupplier connectionSupplier =
-      () -> {
-        return java.sql.DriverManager.getConnection(url, user, password);
-      };
+    var config = new HikariConfig();
+    config.setJdbcUrl(url);
+    config.setUsername(user);
+    config.setPassword(password);
+    var ds = new HikariDataSource(config);
     var system = ActorSystem.create("my-projection-app");
-    var projector = JdbcProjector.create(connectionSupplier, system);
+    var projector = JdbcProjector.create(ds, system);
 
 A ``Projector`` provides ``project`` methods to start a projection process.
-The `ConnectionSupplier` is used to create database connections when required.
+A `DataSource` is used to create database connections when required. In this example a `Hikari connection pool <https://github.com/brettwooldridge/HikariCP>`_ is used.
 The ``project`` methods return a ``Control`` which can be used to:
 
 - Cancel the projection.
@@ -151,8 +152,7 @@ The code below shows an example of how to create a `Projection`:
     var eventsProjection =
       Projection.<Event>create(
         new ProjectionId("iou-projection-for-party"),
-        ProjectionFilter.parties(Set.of(partyId)),
-        projectionTable
+        ProjectionFilter.parties(Set.of(partyId))
       );
 
 The ``eventsProjection`` ``Projection`` selects ``Event``\s that occurred visible to the party ``partyId`` to the ``ious`` SQL table.
@@ -175,7 +175,7 @@ The code below shows an example of a ``Project`` function that handles `CreatedE
           var action =
             ExecuteUpdate.create(
               "insert into "
-              + envelope.getProjectionTable().getName()
+              + projectionTable.getName()
               + "(contract_id, event_id, amount, currency) "
               + "values (?, ?, ?, ?)"
             )
@@ -188,7 +188,7 @@ The code below shows an example of a ``Project`` function that handles `CreatedE
           var action =
             ExecuteUpdate.create(
               "delete from " +
-              envelope.getProjectionTable().getName() +
+              projectionTable.getName() +
               " where contract_id = ?"
             )
             .bind(1, event.getContractId());
@@ -196,20 +196,20 @@ The code below shows an example of a ``Project`` function that handles `CreatedE
         }
       };
 
-The Project function `f` creates an insert action for every ``CreatedEvent`` and a delete action for every ``ArchivedEvent``.
-The Jdbc actions are further explained in the next section.
+The ``Project`` function `f` creates an insert action for every ``CreatedEvent`` and a delete action for every ``ArchivedEvent``.
+The ``JdbcAction``\s are further explained in the next section.
 
 The JdbcAction
 --------------
 
 A database action captures a SQL statement that is executed by a ``Projector``.
-The `JdbcAction` is an interface with one method, shown in the example below:
+The ``JdbcAction`` is an interface with one method, shown in the example below:
 
 .. code-block:: java
 
     public int execute(java.sql.Connection con);
 
-All ``JdbcAction``\s extend ``JdbcAction``. ``execute`` should return the number of rows affected by the action.
+All actions extend ``JdbcAction``. ``execute`` should return the number of rows affected by the action.
 The ``ExecuteUpdate`` action creates an insert, delete, or update statement.
 The example below shows how an insert statement can be created, and how arguments can be bound to the statement:
 
@@ -217,7 +217,7 @@ The example below shows how an insert statement can be created, and how argument
 
     ExecuteUpdate.create(
         "insert into "
-        + envelope.getProjectionTable().getName()
+        + projectionTable.getName()
         + "(contract_id, event_id, amount, currency) "
         + "values (?, ?, ?, ?)")
         .bind(1, event.getContractId())
@@ -231,7 +231,7 @@ It is also possible to use named parameters, which is shown in the example below
 
     ExecuteUpdate.create(
         "insert into "
-        + envelope.getProjectionTable().getName()
+        + projectionTable.getName()
         + "(contract_id, event_id, amount, currency) "
         + "values (:cid, :eid, :amount, :currency)")
         .bind("cid", event.getContractId())
@@ -294,6 +294,39 @@ Configuration
 The Custom Views library uses the `Lightbend config library <https://github.com/lightbend/config>`_ for configuration.
 The library is packaged with a ``reference.conf`` file which specifies default settings. The next sections describe the default confguration settings.
 You can override the configuration by using an ``application.conf`` file, see `using the Lightbend config library <https://github.com/lightbend/config#using-the-library>`_ for more details.
+
+Database migration with Flyway
+==============================
+
+`Flyway <https://flywaydb.org/documentation/>`_ is used for database migration. Resources to create and migrate the database objects
+that the library needs internally are provided, for instance for the `projection` table that is used to persist `Projection`\s.
+
+The internal SQL scripts are provided in the jar at `/db/migration/projection`.
+
+The `reference.conf` file configures this by default, shown below:
+
+.. code-block:: none
+
+    projection {
+      # The name of the projection table which keeps track of all projections by projection-id
+      projection-table-name = "projection"
+      # database migration configuration
+      flyway {
+        # location of flyway migration schemas for internal bookkeeping (the projection-table).
+        internal-locations = ["db/migration/projection"]
+        # Override locations to provide your own flyway scripts.
+        locations = []
+        # If set to true, database migration is executed automatically.
+        migrate-on-start = true
+      }
+    }
+
+The `projection` table is created automatically when a projection process is started with the ``project``, ``projectRows``, or ``projectEvents`` method on ``Projector``.
+Provide additional flyway locations with the `projection.flyway.locations` configuration parameter and bundle your own resources as explained
+`in the Flyway documentation <https://flywaydb.org/documentation/concepts/migrations#discovery>`_. This makes it possible to create and migrate
+database tables and other database objects required for your projections automatically when a projection is (re-)started.
+
+If you do not want to use Flyway database migration, set `projection.flyway.migrate-on-start` to false. In that case you have to create the `projection` table yourself as well.
 
 Batcher configuration
 =====================
