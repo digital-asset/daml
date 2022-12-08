@@ -19,7 +19,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // Such parties and users will have a matching `identity_provider_id` defined and will be inaccessible to 
 // administrators from other identity providers. A user will only be authenticated if the corresponding JWT
 // token is issued by the appropriate identity provider.
-// Users and parties without `identity_provider_id` defined are assumed to be using default identity provider,
+// Users and parties without `identity_provider_id` defined are assumed to be using the default identity provider,
 // which is setup through the participant node configuration.
 //
 // The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
