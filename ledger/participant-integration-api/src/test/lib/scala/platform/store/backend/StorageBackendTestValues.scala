@@ -252,6 +252,17 @@ private[backend] object StorageBackendTestValues {
       deduplication_start = deduplicationStart.map(_.micros),
     )
 
+  def dtoTransactionMeta(
+      offset: Offset,
+      event_sequential_id_first: Long,
+      event_sequential_id_last: Long,
+  ): DbDto.TransactionMeta = DbDto.TransactionMeta(
+    transactionIdFromOffset(offset),
+    event_offset = offset.toHexString,
+    event_sequential_id_first = event_sequential_id_first,
+    event_sequential_id_last = event_sequential_id_last,
+  )
+
   def dtoTransactionMetering(
       metering: TransactionMetering
   ): DbDto.TransactionMetering = {

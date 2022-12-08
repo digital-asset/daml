@@ -38,7 +38,7 @@ private[backend] class IngestionStorageBackendTemplate(
       SQL"DELETE FROM string_interning WHERE internal_id > $lastStringInterningId",
       SQL"DELETE FROM pe_create_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
       SQL"DELETE FROM pe_create_id_filter_non_stakeholder_informee WHERE event_sequential_id > $lastEventSequentialId",
-      SQL"DELETE FROM pe_create_id_filter_non_stakeholder_informee WHERE event_sequential_id > $lastEventSequentialId",
+      SQL"DELETE FROM pe_consuming_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
       SQL"DELETE FROM pe_consuming_id_filter_non_stakeholder_informee WHERE event_sequential_id > $lastEventSequentialId",
       SQL"DELETE FROM pe_non_consuming_id_filter_informee WHERE event_sequential_id > $lastEventSequentialId",
       SQL"DELETE FROM participant_transaction_meta WHERE ${queryStrategy
