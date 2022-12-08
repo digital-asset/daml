@@ -174,8 +174,8 @@ da_scala_library(
             "//libs-scala/logging-entries",
             "//libs-scala/ports",
             "//libs-scala/resources",
-            "//observability/telemetry",
             "//libs-scala/scalatest-utils",
+            "//observability/telemetry",
             "//triggers/runner:trigger-runner-lib",
         ],
     )
