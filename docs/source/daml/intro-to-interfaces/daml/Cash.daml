@@ -1,0 +1,46 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Cash where
+
+template Cash
+  with
+    issuer : Party
+    owner : Party
+    currency : Text
+    amount : Decimal
+  where
+    signatory issuer, owner
+    ensure amount > 0.0
+
+    choice ProposeTransfer : ContractId TransferProposal
+      with newOwner : Party
+      controller owner
+      do
+        create TransferProposal with
+          cash = this
+          newOwner = newOwner
+
+template TransferProposal
+  with
+    cash : Cash
+    newOwner : Party
+  where
+    signatory (signatory cash)
+    observer newOwner
+
+    choice AcceptTransfer : ContractId Cash
+      controller newOwner
+      do
+        create cash with
+          owner = newOwner
+
+    choice RejectTransfer : ContractId Cash
+      controller newOwner
+      do
+        create cash
+
+    choice WithdrawProposal : ContractId Cash
+      controller cash.owner
+      do
+        create cash

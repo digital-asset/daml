@@ -2,3 +2,110 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main where
+
+import Daml.Script
+
+import Cash qualified
+
+data Parties = Parties with
+    alice
+      , bob
+      , charlie
+      , dominic
+      , emily
+      : Party
+  deriving (Eq, Ord, Show)
+
+allocateParties : Script Parties
+allocateParties = do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  charlie <- allocateParty "charlie"
+  dominic <- allocateParty "dominic"
+  emily <- allocateParty "emily"
+  pure Parties with ..
+
+cashTest : Script ()
+cashTest = do
+  Parties {..} <- allocateParties
+
+  aliceUsd <-
+    alice `submit` do
+      createCmd Cash.Cash with
+        issuer = alice
+        owner = alice
+        currency = "USD"
+        amount = 42.0
+
+  bobUsdTransferProposal <-
+    alice `submit` do
+      exerciseCmd aliceUsd Cash.ProposeTransfer with
+        newOwner = bob
+
+  bobUsd <-
+    bob `submit` do
+      exerciseCmd bobUsdTransferProposal Cash.AcceptTransfer
+
+  charlieUsdTransferProposal <-
+    bob `submit` do
+      exerciseCmd bobUsd Cash.ProposeTransfer with
+        newOwner = charlie
+
+  charlieUsd <-
+    charlie `submit` do
+      exerciseCmd charlieUsdTransferProposal Cash.AcceptTransfer
+
+  dominicUsdTransferProposal <-
+    charlie `submit` do
+      exerciseCmd charlieUsd Cash.ProposeTransfer with
+        newOwner = dominic
+
+  charlieUsd' <-
+    dominic `submit` do
+      exerciseCmd dominicUsdTransferProposal Cash.RejectTransfer
+
+  emilyUsdTransferProposal <-
+    charlie `submit` do
+      exerciseCmd charlieUsd' Cash.ProposeTransfer with
+        newOwner = emily
+
+  charlieUsd'' <-
+    charlie `submit` do
+      exerciseCmd emilyUsdTransferProposal Cash.WithdrawProposal
+
+  pure ()
+
+archiveCashTest : Script ()
+archiveCashTest = do
+  Parties {..} <- allocateParties
+
+  aliceUsd <-
+    alice `submit` do
+      createCmd Cash.Cash with
+        issuer = alice
+        owner = alice
+        currency = "USD"
+        amount = 42.0
+
+  alice `submit` do
+    archiveCmd aliceUsd
+
+archiveCashTransferProposalTest : Script ()
+archiveCashTransferProposalTest = do
+  Parties {..} <- allocateParties
+
+  aliceUsd <-
+    alice `submit` do
+      createCmd Cash.Cash with
+        issuer = alice
+        owner = alice
+        currency = "USD"
+        amount = 42.0
+
+  bobUsdTransferProposal <-
+    alice `submit` do
+      exerciseCmd aliceUsd Cash.ProposeTransfer with
+        newOwner = bob
+
+  alice `submit` do
+    archiveCmd bobUsdTransferProposal
