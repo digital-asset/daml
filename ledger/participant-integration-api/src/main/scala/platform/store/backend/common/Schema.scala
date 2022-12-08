@@ -281,7 +281,7 @@ private[backend] object AppendOnlySchema {
         "external_string" -> fieldStrategy.string(_ => _.externalString),
       )
 
-    val createFilter: Table[DbDto.CreateFilter] =
+    val idFilterCreateStakeholderTable: Table[DbDto.IdFilterCreateStakeholder] =
       fieldStrategy.insert("pe_create_id_filter_stakeholder")(
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
         "template_id" -> fieldStrategy.int(stringInterning =>
@@ -290,6 +290,51 @@ private[backend] object AppendOnlySchema {
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
+      )
+
+    val idFilterCreateNonStakeholderInformeeTable
+        : Table[DbDto.IdFilterCreateNonStakeholderInformee] =
+      fieldStrategy.insert("pe_create_id_filter_non_stakeholder_informee")(
+        "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
+        "party_id" -> fieldStrategy.int(stringInterning =>
+          dto => stringInterning.party.unsafe.internalize(dto.party_id)
+        ),
+      )
+
+    val idFilterConsumingStakeholderTable: Table[DbDto.IdFilterConsumingStakeholder] =
+      fieldStrategy.insert("pe_consuming_id_filter_stakeholder")(
+        "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
+        "template_id" -> fieldStrategy.int(stringInterning =>
+          dto => stringInterning.templateId.unsafe.internalize(dto.template_id)
+        ),
+        "party_id" -> fieldStrategy.int(stringInterning =>
+          dto => stringInterning.party.unsafe.internalize(dto.party_id)
+        ),
+      )
+
+    val idFilterConsumingNonStakeholderInformeeTable
+        : Table[DbDto.IdFilterConsumingNonStakeholderInformee] =
+      fieldStrategy.insert("pe_consuming_id_filter_non_stakeholder_informee")(
+        "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
+        "party_id" -> fieldStrategy.int(stringInterning =>
+          dto => stringInterning.party.unsafe.internalize(dto.party_id)
+        ),
+      )
+
+    val idFilterNonConsumingInformeeTable: Table[DbDto.IdFilterNonConsumingInformee] =
+      fieldStrategy.insert("pe_non_consuming_id_filter_informee")(
+        "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
+        "party_id" -> fieldStrategy.int(stringInterning =>
+          dto => stringInterning.party.unsafe.internalize(dto.party_id)
+        ),
+      )
+
+    val transactionMeta: Table[DbDto.TransactionMeta] =
+      fieldStrategy.insert("participant_transaction_meta")(
+        "transaction_id" -> fieldStrategy.string(_ => _.transaction_id),
+        "event_offset" -> fieldStrategy.string(_ => _.event_offset),
+        "event_sequential_id_first" -> fieldStrategy.bigint(_ => _.event_sequential_id_first),
+        "event_sequential_id_last" -> fieldStrategy.bigint(_ => _.event_sequential_id_last),
       )
 
     val transactionMetering: Table[DbDto.TransactionMetering] =
@@ -311,7 +356,12 @@ private[backend] object AppendOnlySchema {
       partyEntries.executeUpdate,
       commandCompletions.executeUpdate,
       stringInterningTable.executeUpdate,
-      createFilter.executeUpdate,
+      idFilterCreateStakeholderTable.executeUpdate,
+      idFilterCreateNonStakeholderInformeeTable.executeUpdate,
+      idFilterConsumingStakeholderTable.executeUpdate,
+      idFilterConsumingNonStakeholderInformeeTable.executeUpdate,
+      idFilterNonConsumingInformeeTable.executeUpdate,
+      transactionMeta.executeUpdate,
       transactionMetering.executeUpdate,
     )
 
@@ -337,7 +387,17 @@ private[backend] object AppendOnlySchema {
           partyEntries.prepareData(collect[PartyEntry], stringInterning),
           commandCompletions.prepareData(collect[CommandCompletion], stringInterning),
           stringInterningTable.prepareData(collect[StringInterningDto], stringInterning),
-          createFilter.prepareData(collect[CreateFilter], stringInterning),
+          idFilterCreateStakeholderTable
+            .prepareData(collect[IdFilterCreateStakeholder], stringInterning),
+          idFilterCreateNonStakeholderInformeeTable
+            .prepareData(collect[IdFilterCreateNonStakeholderInformee], stringInterning),
+          idFilterConsumingStakeholderTable
+            .prepareData(collect[IdFilterConsumingStakeholder], stringInterning),
+          idFilterConsumingNonStakeholderInformeeTable
+            .prepareData(collect[IdFilterConsumingNonStakeholderInformee], stringInterning),
+          idFilterNonConsumingInformeeTable
+            .prepareData(collect[IdFilterNonConsumingInformee], stringInterning),
+          transactionMeta.prepareData(collect[TransactionMeta], stringInterning),
           transactionMetering.prepareData(collect[TransactionMetering], stringInterning),
         )
       }
