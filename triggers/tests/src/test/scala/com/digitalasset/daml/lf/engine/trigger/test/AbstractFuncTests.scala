@@ -24,6 +24,7 @@ import scala.jdk.CollectionConverters._
 import com.daml.lf.engine.trigger.TriggerMsg
 
 import java.util.UUID
+import scala.concurrent.Future
 
 abstract class AbstractFuncTests
     extends AsyncWordSpec
@@ -68,7 +69,58 @@ abstract class AbstractFuncTests
         )
       }
 
-      "1 create" in {
+      "cat example" in {
+        val n = 500
+        val who = "bounded" // "bounded" or "unbounded"
+
+        def command(template: String, owner: String, i: Int): CreateCommand =
+          CreateCommand(
+            templateId = Some(LedgerApi.Identifier(packageId, "CatExample", template)),
+            createArguments = Some(
+              LedgerApi.Record(fields =
+                Seq(
+                  LedgerApi.RecordField("owner", Some(LedgerApi.Value().withParty(owner))),
+                  LedgerApi.RecordField("isin", Some(LedgerApi.Value().withInt64(i.toLong))),
+                )
+              )
+            ),
+          )
+        def cat(owner: String, i: Int): CreateCommand = command("Cat", owner, i)
+        def food(owner: String, i: Int): CreateCommand = command("Food", owner, i)
+
+        for {
+          client <- ledgerClient()
+          party <- allocateParty(client)
+          _ <- Future.sequence(
+            (0 until n).map { i =>
+              create(client, party, cat(party, i))
+            }
+          )
+          _ <- Future.sequence(
+            (0 until n).map { i =>
+              create(client, party, food(party, i))
+            }
+          )
+          runner = getRunner(
+            client,
+            QualifiedName.assertFromString(s"CatExample:${who}Trigger"),
+            party,
+          )
+          (acs, offset) <- runner.queryACS()
+          _ <- runner
+            .runWithACS(
+              acs,
+              offset,
+              msgFlow = Flow[TriggerContext[TriggerMsg]],
+            )
+            ._2
+          acs <- queryACS(client, party)
+        } yield {
+          fail(s"DEBUGGY - ${acs.view.mapValues(_.map(_.fields.last)).toMap}")
+        }
+      }
+
+      "1 create" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)

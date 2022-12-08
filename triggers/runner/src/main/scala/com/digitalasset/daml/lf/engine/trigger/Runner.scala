@@ -556,34 +556,15 @@ private[lf] class Runner private (
       parties: TriggerParties,
       filter: TransactionFilter,
   )(implicit
-      triggerContext: TriggerLogContext
+      triggerContext: TriggerLogContext,
+      executionContext: ExecutionContext,
+      materializer: Materializer,
   ): TriggerContextualFlow[SingleCommandFailure, TriggerMsg, NotUsed] = {
-    // A queue for command submission failures.
-    val submissionFailureQueue: TriggerContextualFlow[SingleCommandFailure, TriggerMsg, NotUsed] = {
-      TriggerContextualFlow[SingleCommandFailure]
-        .map { case ctx @ Ctx(context, failure, _) =>
-          context.childSpan("failure") { implicit triggerContext: TriggerLogContext =>
-            triggerContext.logInfo(
-              "Received command submission failure from ledger API client",
-              "error" -> failure,
-            )
-
-            ctx.copy(context = triggerContext)
-          }
-        }
-        // Why `fail`?  Consider the most obvious alternatives.
-        //
-        // `backpressure`?  This feeds into the Free interpreter flow, which may produce
-        //   many command failures for one event, hence deadlock.
-        //
-        // `drop*`?  A trigger will proceed as if everything was fine, without ever
-        //   getting the notification that its reaction to one contract and attempt to
-        //   advance its workflow failed.
-        //
-        // `fail`, on the other hand?  It far better fits the trigger model to go
-        //   tabula rasa and notice the still-unhandled contract in the ACS again
-        //   on init, as we expect triggers to be able to do anyhow.
-        .buffer(
+    // A queue for command submission failures
+    // - allows excessive submission failures to be delayed whilst other trigger work progresses
+    val (submissionFailureQueue, submissionFailureSource) =
+      Source
+        .queue[TriggerContext[SingleCommandFailure]](
           triggerConfig.submissionFailureQueueSize,
           OverflowStrategy.fail.withLogLevel(Logging.WarningLevel),
         )
@@ -601,6 +582,35 @@ private[lf] class Runner private (
           )
 
           ctx.copy(value = completion)
+        }
+        .preMaterialize()
+    val submissionFailureSink = Sink.foreachAsync[TriggerContext[SingleCommandFailure]](1) {
+      case ctx @ Ctx(context, failure, _) =>
+        context.childSpan("failure") { implicit triggerContext: TriggerLogContext =>
+          triggerContext.logInfo(
+            "Received command submission failure from ledger API client",
+            "error" -> failure,
+          )
+
+          submissionFailureQueue.offer(ctx).map {
+            case QueueOfferResult.Enqueued =>
+              triggerContext.logDebug("Command submission failure successfully queued")
+
+            case QueueOfferResult.Dropped =>
+              triggerContext
+                .logError("Failed to queue command submission failure", "reason" -> "dropped")
+
+            case QueueOfferResult.Failure(failure) =>
+              triggerContext.logError(
+                "Failed to queue command submission failure",
+                "reason" -> "queue failure",
+                "queue-failure" -> failure.toString,
+              )
+
+            case QueueOfferResult.QueueClosed =>
+              triggerContext
+                .logError("Failed to queue command submission failure", "reason" -> "queue closed")
+          }
         }
     }
 
@@ -660,8 +670,17 @@ private[lf] class Runner private (
         Source.empty[TriggerContext[TriggerMsg]]
     }
 
-    submissionFailureQueue
-      .merge(completionSource merge transactionSource merge heartbeatSource)
+    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+    val graph = GraphDSL.create() { implicit gb =>
+      val queue = gb.add(submissionFailureSink)
+      val source = gb.add(
+        completionSource merge transactionSource merge heartbeatSource merge submissionFailureSource
+      )
+
+      FlowShape(queue.in, source.out)
+    }
+
+    Flow.fromGraph(graph)
   }
 
   private[this] def getInitialStateFreeAndUpdate(
