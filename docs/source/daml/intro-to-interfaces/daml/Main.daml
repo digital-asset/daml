@@ -6,6 +6,7 @@ module Main where
 import Daml.Script
 
 import Cash qualified
+import NFT qualified
 
 data Parties = Parties with
     alice
@@ -109,3 +110,85 @@ archiveCashTransferProposalTest = do
 
   alice `submit` do
     archiveCmd bobUsdTransferProposal
+
+nftTest : Script ()
+nftTest = do
+  Parties {..} <- allocateParties
+
+  aliceMeme <-
+    alice `submit` do
+      createCmd NFT.NFT with
+        issuer = alice
+        owner = alice
+        url = "https://nyan.feline/"
+
+  bobMemeTransferProposal <-
+    alice `submit` do
+      exerciseCmd aliceMeme NFT.ProposeTransfer with
+        newOwner = bob
+
+  bobMeme <-
+    bob `submit` do
+      exerciseCmd bobMemeTransferProposal NFT.AcceptTransfer
+
+  charlieMemeTransferProposal <-
+    bob `submit` do
+      exerciseCmd bobMeme NFT.ProposeTransfer with
+        newOwner = charlie
+
+  charlieMeme <-
+    charlie `submit` do
+      exerciseCmd charlieMemeTransferProposal NFT.AcceptTransfer
+
+  dominicMemeTransferProposal <-
+    charlie `submit` do
+      exerciseCmd charlieMeme NFT.ProposeTransfer with
+        newOwner = dominic
+
+  charlieMeme' <-
+    dominic `submit` do
+      exerciseCmd dominicMemeTransferProposal NFT.RejectTransfer
+
+  emilyMemeTransferProposal <-
+    charlie `submit` do
+      exerciseCmd charlieMeme' NFT.ProposeTransfer with
+        newOwner = emily
+
+  charlieMeme'' <-
+    charlie `submit` do
+      exerciseCmd emilyMemeTransferProposal NFT.WithdrawProposal
+
+  pure ()
+
+archiveNftTest : Script ()
+archiveNftTest = do
+  Parties {..} <- allocateParties
+
+  aliceMeme <-
+    alice `submit` do
+      createCmd NFT.NFT with
+        issuer = alice
+        owner = alice
+        url = "https://nyan.feline/"
+
+  alice `submit` do
+    archiveCmd aliceMeme
+
+archiveNftTransferProposalTest : Script ()
+archiveNftTransferProposalTest = do
+  Parties {..} <- allocateParties
+
+  aliceMeme <-
+    alice `submit` do
+      createCmd NFT.NFT with
+        issuer = alice
+        owner = alice
+        url = "https://nyan.feline/"
+
+  bobMemeTransferProposal <-
+    alice `submit` do
+      exerciseCmd aliceMeme NFT.ProposeTransfer with
+        newOwner = bob
+
+  alice `submit` do
+    archiveCmd bobMemeTransferProposal

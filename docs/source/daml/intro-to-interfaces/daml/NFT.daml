@@ -1,0 +1,44 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module NFT where
+
+template NFT
+  with
+    issuer : Party
+    owner : Party
+    url : Text
+  where
+    signatory issuer, owner
+
+    choice ProposeTransfer : ContractId TransferProposal
+      with newOwner : Party
+      controller owner
+      do
+        create TransferProposal with
+          nft = this
+          newOwner = newOwner
+
+template TransferProposal
+  with
+    nft : NFT
+    newOwner : Party
+  where
+    signatory (signatory nft)
+    observer newOwner
+
+    choice AcceptTransfer : ContractId NFT
+      controller newOwner
+      do
+        create nft with
+          owner = newOwner
+
+    choice RejectTransfer : ContractId NFT
+      controller newOwner
+      do
+        create nft
+
+    choice WithdrawProposal : ContractId NFT
+      controller nft.owner
+      do
+        create nft
