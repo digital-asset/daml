@@ -273,28 +273,32 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
   test(
     "EDArchivedDisclosedContracts",
     "The ledger rejects archived disclosed contracts",
-    allocate(SingleParty),
+    allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
-  )(implicit ec => { case Participants(Participant(ledger, owner)) =>
-    for {
-      testContext <- initializeTest(
-        ownerParticipant = ledger,
-        delegateParticipant = ledger,
-        owner = owner,
-        delegate = owner,
-        transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
-      )
+  )(implicit ec => {
+    case Participants(
+          Participant(ownerParticipant, owner),
+          Participant(delegateParticipant, delegate),
+        ) =>
+      for {
+        testContext <- initializeTest(
+          ownerParticipant = ownerParticipant,
+          delegateParticipant = delegateParticipant,
+          owner = owner,
+          delegate = delegate,
+          transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
+        )
 
-      // Archive the disclosed contract
-      _ <- ledger.exercise(owner, testContext.delegatedCid.exerciseArchive())
+        // Archive the disclosed contract
+        _ <- ownerParticipant.exercise(owner, testContext.delegatedCid.exerciseArchive())
 
-      // Exercise the choice using the now inactive disclosed contract
-      _ <- testContext
-        .exerciseFetchDelegated(testContext.disclosedContract)
-        .mustFail("the contract is already archived")
-    } yield {
-      // TODO ED: Assert specific error codes once Canton error codes can be accessible from these suites
-    }
+        // Exercise the choice using the now inactive disclosed contract
+        _ <- testContext
+          .exerciseFetchDelegated(testContext.disclosedContract)
+          .mustFail("the contract is already archived")
+      } yield {
+        // TODO ED: Assert specific error codes once Canton error codes can be accessible from these suites
+      }
   })
 
   test(
