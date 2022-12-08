@@ -145,7 +145,7 @@ abstract class AbstractFuncTests
         }
       }
 
-      "2 creates" in {
+      "2 creates" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -174,7 +174,7 @@ abstract class AbstractFuncTests
         }
       }
 
-      "2 creates and 2 archives" in {
+      "2 creates and 2 archives" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -240,7 +240,7 @@ abstract class AbstractFuncTests
             )
           ),
         )
-      "1 original, 0 subscriber" in {
+      "1 original, 0 subscriber" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -260,7 +260,7 @@ abstract class AbstractFuncTests
           acs shouldNot contain key copyId
         }
       }
-      "1 original, 1 subscriber" in {
+      "1 original, 1 subscriber" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -284,7 +284,7 @@ abstract class AbstractFuncTests
           acs(copyId) should have length 1
         }
       }
-      "2 original, 1 subscriber" in {
+      "2 original, 1 subscriber" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -314,7 +314,7 @@ abstract class AbstractFuncTests
       val triggerId = QualifiedName.assertFromString("Retry:retryTrigger")
       val tId = LedgerApi.Identifier(packageId, "Retry", "T")
       val doneId = LedgerApi.Identifier(packageId, "Retry", "Done")
-      "3 retries" in {
+      "3 retries" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -338,7 +338,7 @@ abstract class AbstractFuncTests
       val triggerId = QualifiedName.assertFromString("ExerciseByKey:exerciseByKeyTrigger")
       val tId = LedgerApi.Identifier(packageId, "ExerciseByKey", "T")
       val tPrimeId = LedgerApi.Identifier(packageId, "ExerciseByKey", "T_")
-      "1 exerciseByKey" in {
+      "1 exerciseByKey" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -361,7 +361,7 @@ abstract class AbstractFuncTests
       val triggerId = QualifiedName.assertFromString("CreateAndExercise:createAndExerciseTrigger")
       val tId = LedgerApi.Identifier(packageId, "CreateAndExercise", "T")
       val uId = LedgerApi.Identifier(packageId, "CreateAndExercise", "U")
-      "createAndExercise" in {
+      "createAndExercise" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -381,7 +381,7 @@ abstract class AbstractFuncTests
     "MaxMessageSizeTests" should {
       val triggerId =
         QualifiedName.assertFromString("MaxInboundMessageTest:maxInboundMessageSizeTrigger")
-      "fail" in {
+      "fail" ignore {
         for {
           client <- ledgerClient(
             // Sufficiently low that the transaction is larger than the max inbound message size
@@ -405,7 +405,7 @@ abstract class AbstractFuncTests
     "NumericTests" should {
       val triggerId = QualifiedName.assertFromString("Numeric:test")
       val tId = LedgerApi.Identifier(packageId, "Numeric", "T")
-      "numeric" in {
+      "numeric" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -426,7 +426,7 @@ abstract class AbstractFuncTests
 
     "CommandIdTests" should {
       val triggerId = QualifiedName.assertFromString("CommandId:test")
-      "command-id" in {
+      "command-id" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -456,7 +456,7 @@ abstract class AbstractFuncTests
       val fooId = LedgerApi.Identifier(packageId, "PendingSet", "Foo")
       val booId = LedgerApi.Identifier(packageId, "PendingSet", "Boo")
       val doneId = LedgerApi.Identifier(packageId, "PendingSet", "Done")
-      "pending set" in {
+      "pending set" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -502,7 +502,7 @@ abstract class AbstractFuncTests
           ),
         )
 
-      "filter to One" in {
+      "filter to One" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -523,7 +523,7 @@ abstract class AbstractFuncTests
           acs shouldNot contain key doneTwoId
         }
       }
-      "filter to Two" in {
+      "filter to Two" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -548,7 +548,7 @@ abstract class AbstractFuncTests
 
     "HeartbeatTests" should {
       val triggerId = QualifiedName.assertFromString("Heartbeat:test")
-      "test" in {
+      "test" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -565,7 +565,7 @@ abstract class AbstractFuncTests
     }
 
     "TimeTests" should {
-      "test" in {
+      "test" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -611,7 +611,7 @@ abstract class AbstractFuncTests
           ),
         )
 
-      "respected by trigger runner" in {
+      "respected by trigger runner" ignore {
         for {
           client <- ledgerClient()
           public <- allocateParty(client)
@@ -636,7 +636,7 @@ abstract class AbstractFuncTests
       }
     }
     "getActAs" should {
-      "produce a consistent party" in {
+      "produce a consistent party" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -664,7 +664,7 @@ abstract class AbstractFuncTests
     }
 
     "queryFilter" should {
-      "return contracts matching predicates" in {
+      "return contracts matching predicates" ignore {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
