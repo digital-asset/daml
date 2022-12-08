@@ -353,14 +353,14 @@ private[data] final class IdStringImpl extends IdString {
     new ConcatenableMatchingStringModule("Application ID", "._:-#/!|@^$`+'~ ", 255)
 
   /** Identifiers for participant node users are non-empty strings with a length <= 128 that consist of
-    * lowercase ASCII alphanumeric characters and the symbols "@^$.!`-#+'~_|:".
-    * This character set is chosen such that it maximizes the ease of integration with IAM systems, while removing
-    * the ambiguity of allowing both "john" and "John" as separate user names.
-    * Concretely, the character set contains the Auth0 allowed characters (https://auth0.com/docs/authenticate/database-connections/require-username#allowed-characters)
-    * plus the pipe character used by Auth0 itself (see https://auth0.com/docs/manage-users/user-accounts/user-profiles/sample-user-profiles).
+    * ASCII alphanumeric characters and the symbols "@^$.!`-#+'~_|:".
+    * This character set is chosen such that it maximizes the ease of integration with IAM systems.
+    * Since the Ledger API needs to be compatible with JWT and uses the "sub" registered claim to
+    * represent participant node users, the definition and use of these identifiers must keep in
+    * consideration the definition of the aforementioned claim: https://www.rfc-editor.org/rfc/rfc7519#section-4.1.2
     */
   override type UserId = String
   override val UserId: StringModule[UserId] =
-    new MatchingStringModule("User ID", """[a-z0-9@^$.!`\-#+'~_|:]{1,128}""")
+    new MatchingStringModule("User ID", """[a-zA-Z0-9@^$.!`\-#+'~_|:]{1,128}""")
 
 }
