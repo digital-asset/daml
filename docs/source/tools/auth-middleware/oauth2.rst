@@ -264,8 +264,8 @@ You can pass the command-line flag ``--cookie-secure no`` for testing and develo
 Metrics
 *******
 
-You may configure the oauth2-middleware to expose the :doc:`common HTTP metrics </ops/common-metrics>` via Prometheus
-by adding the below section to the application config:
+You may configure the oauth2-middleware to expose the :doc:`common HTTP metrics </ops/common-metrics>` via a Prometheus
+reporter by adding the below section to the application config:
 
 .. code-block:: none
 
