@@ -1633,12 +1633,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
                 // TODO SC case NonFatal(e) => some(e)
               }
             }
-            .flatMap(s =>
-              Future {
-                Thread.sleep(5000)
-                s
-              }
-            )
         )
       } yield allRuns.collect(
         Function unlift (parSet => NonEmpty from (parSet collect { case Some(e) => e }))

@@ -74,7 +74,7 @@ object FlowUtil {
     ): Flow[In, T, Mat] = {
       val (ks, inner) = Source
         .never[T]
-        .viaMat(Flow fromGraph KillSwitches.single[T])(Keep.right)
+        .viaMat(KillSwitches.single)(Keep.right)
         .preMaterialize()
       self
         .flatMapMerge(
