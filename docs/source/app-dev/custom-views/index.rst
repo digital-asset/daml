@@ -179,10 +179,10 @@ The code below shows an example of a ``Project`` function that handles `CreatedE
               + "(contract_id, event_id, amount, currency) "
               + "values (?, ?, ?, ?)"
             )
-            .bind(1, event.getContractId())
-            .bind(2, event.getEventId())
-            .bind(3, iou.data.amount)
-            .bind(4, iou.data.currency);
+            .bind(1, event.getContractId(), Bind.String())
+            .bind(2, event.getEventId(), Bind.String())
+            .bind(3, iou.data.amount, Bind.BigDecimal())
+            .bind(4, iou.data.currency, Bind.String());
           return List.of(action);
         } else {
           var action =
@@ -220,10 +220,10 @@ The example below shows how an insert statement can be created, and how argument
         + projectionTable.getName()
         + "(contract_id, event_id, amount, currency) "
         + "values (?, ?, ?, ?)")
-        .bind(1, event.getContractId())
-        .bind(2, event.getEventId())
-        .bind(3, iou.data.amount)
-        .bind(4, iou.data.currency);
+        .bind(1, event.getContractId(), Bind.String())
+        .bind(2, event.getEventId(), Bind.String())
+        .bind(3, iou.data.amount, Bind.BigDecimal())
+        .bind(4, iou.data.currency, Bind.String());
 
 It is also possible to use named parameters, which is shown in the example below:
 
@@ -234,10 +234,10 @@ It is also possible to use named parameters, which is shown in the example below
         + projectionTable.getName()
         + "(contract_id, event_id, amount, currency) "
         + "values (:cid, :eid, :amount, :currency)")
-        .bind("cid", event.getContractId())
-        .bind("eid", event.getEventId())
-        .bind("amount", iou.data.amount)
-        .bind("currency", iou.data.currency);
+        .bind("cid", event.getContractId(), Bind.String())
+        .bind("eid", event.getEventId(), Bind.String())
+        .bind("amount", iou.data.amount, Bind.BigDecimal())
+        .bind("currency", iou.data.currency, Bind.String());
 
 Projecting rows in batches
 --------------------------
@@ -269,10 +269,10 @@ which is executed in batches.
         + projectionTable.getName()
         + "(contract_id, event_id, amount, currency) "
         + "values (:contract_id, :event_id, :amount, :currency)")
-        .bind("contract_id", iou -> iou.id.contractId)
-        .bind("event_id", iou -> null)
-        .bind("amount", iou -> iou.data.amount)
-        .bind("currency", iou -> iou.data.currency);
+        .bind("contract_id", iou -> iou.id.contractId, Bind.String())
+        .bind("event_id", iou -> null, Bind.String())
+        .bind("amount", iou -> iou.data.amount, Bind.BigDecimal())
+        .bind("currency", iou -> iou.data.currency, Bind.String());
     BatchRows<Iou.Contract, JdbcAction> batchRows =
         UpdateMany.create(binder);
     var control =
