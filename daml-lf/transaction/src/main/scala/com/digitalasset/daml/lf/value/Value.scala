@@ -178,6 +178,20 @@ object Value {
       copy(arg = arg.mapCid(f))
   }
 
+  final case class ContractInstanceWithAgreement(
+      contractInstance: ContractInstance,
+      agreementText: String,
+  ) extends CidContainer[ContractInstanceWithAgreement] {
+
+    override protected def self: this.type = this
+
+    def map(f: Value => Value): ContractInstanceWithAgreement =
+      copy(contractInstance = contractInstance.map(f))
+
+    def mapCid(f: ContractId => ContractId): ContractInstanceWithAgreement =
+      copy(contractInstance = contractInstance.mapCid(f))
+  }
+
   type VersionedContractInstance = transaction.Versioned[ContractInstance]
 
   object VersionedContractInstance {

@@ -254,9 +254,6 @@ object ValueGenerators {
 
   val genNonEmptyParties: Gen[Set[Party]] = ^(party, genMaybeEmptyParties)((hd, tl) => tl + hd)
 
-  val agreementGen: Gen[String] =
-    Arbitrary.arbitrary[String]
-
   val contractInstanceGen: Gen[ContractInstance] = {
     for {
       template <- idGen
@@ -276,6 +273,12 @@ object ValueGenerators {
       maintainers <- genNonEmptyParties
     } yield Node.KeyWithMaintainers(key, maintainers)
   }
+
+  val versionedContraactInstanceWithAgreement: Gen[Versioned[Value.ContractInstanceWithAgreement]] =
+    for {
+      coinst <- versionedContractInstanceGen
+      agrement <- Arbitrary.arbitrary[String]
+    } yield coinst.map(Value.ContractInstanceWithAgreement(_, agrement))
 
   /** Makes create nodes that violate the rules:
     *
