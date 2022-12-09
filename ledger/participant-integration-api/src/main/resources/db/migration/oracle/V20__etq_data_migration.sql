@@ -2,30 +2,26 @@
 
 -- Removes all elements from a that are present in b, essentially computes a - b.
 CREATE OR REPLACE FUNCTION etq_array_diff(
-    arrayClob1 IN CLOB,
-    arrayClob2 IN CLOB
+    clobA IN CLOB,
+    clobB IN CLOB
 )
 RETURN CLOB
 IS
-        arrayJson1 json_array_t := json_array_t.parse(arrayClob1);
-        outputJsonArray json_array_t := json_array_t ('[]');
-        -- Number type has
-        --  999...(38 9's) x10^125 maximum value
-        -- -999...(38 9's) x10^125 minimum value
-        -- so 200 characters should be enough to hold it together with the whole filter expression
-        filterExpression varchar2(200);
+     aDiffB CLOB;
 BEGIN
-    FOR i IN 0 .. arrayJson1.get_size - 1
-    LOOP
-        -- `$[*]` selects each element of the array
-        -- `(@ == v)` is a filter expression that check whether each matched element is equal to some value `v`
-        filterExpression := '$[*]?(@ == ' || (arrayJson1.get(i).to_clob()) ||')';
-        IF NOT json_exists(arrayClob2, filterExpression)
-        THEN
-            outputJsonArray.append(arrayJson1.get(i));
-        END IF;
-    END LOOP;
-    RETURN outputJsonArray.to_clob();
+    SELECT coalesce(JSON_ARRAYAGG(elemA), '[]') foo
+    INTO aDiffB
+    FROM
+        (
+                SELECT elemA FROM json_table(clobA, '$[*]' columns (elemA NUMBER PATH '$'))
+        ) arrayA
+    LEFT JOIN
+        (
+                SELECT elemB FROM json_table(clobB, '$[*]' columns (elemB NUMBER PATH '$'))
+        ) arrayB
+    ON elemA = elemB
+    WHERE elemB IS NULL;
+    RETURN aDiffB;
 END;
 /
 
