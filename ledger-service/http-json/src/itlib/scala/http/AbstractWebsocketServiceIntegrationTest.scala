@@ -1635,7 +1635,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
             }
             .flatMap(s =>
               Future {
-                Thread.sleep(3000)
+                Thread.sleep(5000)
                 s
               }
             )

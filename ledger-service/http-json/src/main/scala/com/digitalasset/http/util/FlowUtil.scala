@@ -4,7 +4,8 @@
 package com.daml.http.util
 
 import akka.NotUsed
-import akka.stream.scaladsl.Flow
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Keep, Flow, FlowOpsMat}
 import Logging.InstanceUUID
 import com.daml.logging.{LoggingContextOf, ContextualizedLogger}
 import scalaz.{-\/, \/}
@@ -25,16 +26,23 @@ object FlowUtil {
         x
       }
 
-  private[http] implicit final class `Flow flatMapMerge`[In, Out, Mat](
-      private val self: Flow[In, Out, Mat]
-  ) extends AnyVal {
-    import akka.stream.{Graph, SourceShape, KillSwitches}
-    import akka.stream.scaladsl.Source
-    import concurrent.duration._
+  type FlowOpsMatAux[+Out, +Mat, ReprMat0[+_, +_]] = FlowOpsMat[Out, Mat] {
+    type ReprMat[+O, +M] = ReprMat0[O, M]
+  }
 
+  import language.implicitConversions
+
+  private[http] implicit def `flowops logTermination`[O, M](
+      self: FlowOpsMat[O, M]
+  ): `flowops logTermination`[O, M, self.ReprMat] =
+    new `flowops logTermination`[O, M, self.ReprMat](self)
+
+  private[http] final class `flowops logTermination`[O, M, RM[+_, +_]](
+      private val self: FlowOpsMatAux[O, M, RM]
+  ) extends AnyVal {
     def logTermination(
         extraMessage: String
-    )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): Flow[In, Out, Mat] =
+    )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): RM[O, M] =
       self.watchTermination() { (mat, fd) =>
         fd.onComplete(
           _.fold(
@@ -48,17 +56,32 @@ object FlowUtil {
         )
         mat
       }
+  }
+
+  private[http] implicit final class `Flow flatMapMerge`[In, Out, Mat](
+      private val self: Flow[In, Out, Mat]
+  ) extends AnyVal {
+    import akka.stream.{Graph, SourceShape, KillSwitches}
+    import akka.stream.scaladsl.Source
 
     def flatMapMergeCancellable[T, M](
         breadth: Int,
         f: Out => Graph[SourceShape[T], M],
-    )(implicit ec: ExecutionContext, lc: LoggingContextOf[InstanceUUID]): Flow[In, T, Mat] = {
-      val ks = KillSwitches.shared("flatMapMerge")
-      val inner = ks.flow[T]
+    )(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        lc: LoggingContextOf[InstanceUUID],
+    ): Flow[In, T, Mat] = {
+      val (ks, inner) = Source
+        .never[T]
+        .viaMat(Flow fromGraph KillSwitches.single[T])(Keep.right)
+        .preMaterialize()
       self
         .flatMapMerge(
           breadth,
-          f andThen (gss => Source fromGraph gss completionTimeout 2.seconds via inner),
+          f andThen (gss =>
+            (Source fromGraph gss logTermination "fmm-inner").merge(inner, eagerComplete = true)
+          ),
         )
         .watchTermination() { (mat, fd) =>
           fd.onComplete(
@@ -75,7 +98,6 @@ object FlowUtil {
           )
           mat
         }
-        .completionTimeout(2.seconds)
     }
   }
 
