@@ -101,8 +101,5 @@ object FlowUtil {
     }
   }
 
-  private[http] def showTryDone(t: scala.util.Try[akka.Done]) =
-    t.fold(_.getMessage, _ => "Done")
-
   private val logger = ContextualizedLogger.get(getClass)
 }
