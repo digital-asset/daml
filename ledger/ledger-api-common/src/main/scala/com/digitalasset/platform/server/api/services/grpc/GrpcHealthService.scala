@@ -35,7 +35,7 @@ class GrpcHealthService(
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(getClass)
-  private val errorLogger: ContextualizedErrorLogger =
+  protected val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   override def bindService(): ServerServiceDefinition =
@@ -59,7 +59,7 @@ class GrpcHealthService(
       .collect {
         case component if !healthChecks.hasComponent(component) =>
           Failure(
-            invalidArgument(s"Component $component does not exist.")(errorLogger)
+            invalidArgument(s"Component $component does not exist.")(contextualizedErrorLogger)
           )
       }
       .getOrElse {

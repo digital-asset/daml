@@ -45,7 +45,7 @@ private[apiserver] final class ApiTimeService private (
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+  protected implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val dispatcher = SignalDispatcher[Instant]()

@@ -99,8 +99,6 @@
   type: jar-scala
 - target: //ledger/indexer-benchmark:indexer-benchmark-lib
   type: jar-scala
-- target: //ledger/ledger-api-akka:ledger-api-akka
-  type: jar-scala
 - target: //ledger/ledger-api-auth:ledger-api-auth
   type: jar-scala
 - target: //ledger/ledger-api-auth-client:ledger-api-auth-client

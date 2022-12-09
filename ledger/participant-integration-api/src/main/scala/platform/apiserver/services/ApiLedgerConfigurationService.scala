@@ -5,6 +5,7 @@ package com.daml.platform.apiserver.services
 
 import akka.stream.Materializer
 import com.daml.api.util.DurationConversion._
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement
 import com.daml.ledger.api.domain.LedgerId
@@ -30,6 +31,8 @@ private[apiserver] final class ApiLedgerConfigurationService private (
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
+  protected implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   def getLedgerConfiguration(
       request: GetLedgerConfigurationRequest,

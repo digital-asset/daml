@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver.error
 
-import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import ch.qos.logback.classic.Level
@@ -16,15 +15,15 @@ import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingServerInterceptors}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
-import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceAkkaGrpc, HelloServiceGrpc}
+import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.platform.testing.LogCollector.{ThrowableCause, ThrowableEntry}
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions, StreamConsumer}
 import io.grpc._
 import io.grpc.stub.StreamObserver
+import org.scalatest._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Assertion, Assertions, BeforeAndAfter, Checkpoints, OptionValues}
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
@@ -321,6 +320,9 @@ object ErrorInterceptorSpec {
       with HelloServiceResponding
       with HelloServiceBase {
 
+    override protected val contextualizedErrorLogger: ContextualizedErrorLogger =
+      DamlContextualizedErrorLogger.forTesting(getClass)
+
     override def serverStreaming(
         request: HelloRequest,
         responseObserver: StreamObserver[HelloResponse],
@@ -362,8 +364,7 @@ object ErrorInterceptorSpec {
   class HelloServiceFailingDirectlyObserverOnError(implicit
       protected val esf: ExecutionSequencerFactory,
       protected val mat: Materializer,
-  ) extends HelloServiceAkkaGrpc
-      with HelloServiceResponding
+  ) extends HelloServiceResponding
       with HelloServiceBase {
 
     override def serverStreaming(
@@ -375,10 +376,6 @@ object ErrorInterceptorSpec {
           s"Failing the stream by passing a non error-code based error directly to observer.onError"
         )
       )
-
-    override protected def serverStreamingSource(
-        request: HelloRequest
-    ): Source[HelloResponse, NotUsed] = Assertions.fail("This method should have been unreachable")
 
     override def single(request: HelloRequest): Future[HelloResponse] =
       Assertions.fail("This class is not intended to test unary endpoints")

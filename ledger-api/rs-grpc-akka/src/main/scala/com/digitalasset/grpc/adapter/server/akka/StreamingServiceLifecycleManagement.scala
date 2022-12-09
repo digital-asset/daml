@@ -6,7 +6,10 @@ package com.daml.grpc.adapter.server.akka
 import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.{KillSwitch, KillSwitches, Materializer}
+import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.CommonErrors
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
 
 import scala.collection.concurrent.TrieMap
@@ -16,10 +19,12 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable {
   @volatile private var _closed = false
   private val _killSwitches = TrieMap.empty[KillSwitch, Object]
 
+  protected val contextualizedErrorLogger: ContextualizedErrorLogger
+
   def close(): Unit = synchronized {
     if (!_closed) {
       _closed = true
-      _killSwitches.keySet.foreach(_.abort(ServerAdapter.closingError()))
+      _killSwitches.keySet.foreach(_.abort(closingError(contextualizedErrorLogger)))
       _killSwitches.clear()
     }
   }
@@ -31,7 +36,7 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable {
       executionSequencerFactory: ExecutionSequencerFactory,
   ): Unit = {
     def ifNotClosed(run: () => Unit): Unit =
-      if (_closed) responseObserver.onError(ServerAdapter.closingError())
+      if (_closed) responseObserver.onError(closingError(contextualizedErrorLogger))
       else run()
 
     ifNotClosed { () =>
@@ -56,4 +61,7 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable {
       }
     }
   }
+
+  def closingError(errorLogger: ContextualizedErrorLogger): StatusRuntimeException =
+    CommonErrors.ServerIsShuttingDown.Reject()(errorLogger).asGrpcError
 }

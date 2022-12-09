@@ -52,8 +52,4 @@ object ServerAdapter {
         promise.future
       })
   }
-
-  /** Used in [[com.daml.protoc.plugins.akka.AkkaGrpcServicePrinter]] */
-  def closingError(): StatusRuntimeException =
-    CommonErrors.ServerIsShuttingDown.Reject()(errorLogger).asGrpcError
 }

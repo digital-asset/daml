@@ -30,7 +30,7 @@ class GrpcCommandCompletionService(
     with StreamingServiceLifecycleManagement {
 
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
-  private implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
+  protected implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   def completionStream(

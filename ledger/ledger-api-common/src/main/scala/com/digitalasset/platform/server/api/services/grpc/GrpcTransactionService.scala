@@ -35,8 +35,8 @@ final class GrpcTransactionService(
     with StreamingServiceLifecycleManagement
     with GrpcApiService {
 
-  protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
+  protected implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val validator =
