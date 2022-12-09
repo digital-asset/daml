@@ -23,7 +23,8 @@ abstract class TlsTest
     with AbstractHttpServiceIntegrationTestFuns {
   import json.JsonProtocol._
 
-  val authenticationSecurity: SecurityTest = SecurityTest(property = Authenticity, asset = "HTTP JSON API Service")
+  val authenticationSecurity: SecurityTest =
+    SecurityTest(property = Authenticity, asset = "HTTP JSON API Service")
 
   override def jdbcConfig = None
 

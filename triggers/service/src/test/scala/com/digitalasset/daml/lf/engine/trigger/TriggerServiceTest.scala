@@ -501,9 +501,10 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
-  it should "restart trigger on initialization failure due to failed connection" taggedAs availabilitySecurity.setHappyCase(
-    "A failed ledger connection will start the trigger later"
-  ) inClaims withTriggerService(
+  it should "restart trigger on initialization failure due to failed connection" taggedAs availabilitySecurity
+    .setHappyCase(
+      "A failed ledger connection will start the trigger later"
+    ) inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     for {
@@ -522,9 +523,10 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
-  it should "restart trigger on run-time failure due to dropped connection" taggedAs availabilitySecurity.setHappyCase(
-    "A connection error during runtime of a trigger will restart the trigger"
-  ) inClaims withTriggerService(
+  it should "restart trigger on run-time failure due to dropped connection" taggedAs availabilitySecurity
+    .setHappyCase(
+      "A connection error during runtime of a trigger will restart the trigger"
+    ) inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
     // Simulate the ledger being briefly unavailable due to network connectivity loss.
@@ -545,9 +547,10 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
-  it should "restart triggers with initialization errors" taggedAs availabilitySecurity.setHappyCase(
-    ""
-  ) in withTriggerService(
+  it should "restart triggers with initialization errors" taggedAs availabilitySecurity
+    .setHappyCase(
+      ""
+    ) in withTriggerService(
     List(dar)
   ) { uri: Uri =>
     for {
@@ -692,9 +695,10 @@ trait AbstractTriggerServiceTestAuthMiddleware
 
   behavior of "authenticated service"
 
-  it should "redirect to the configured callback URI after login" taggedAs authenticationSecurity.setHappyCase(
-    "An authenticated user gets redirected to callback URI after login"
-  ) in withTriggerService(
+  it should "redirect to the configured callback URI after login" taggedAs authenticationSecurity
+    .setHappyCase(
+      "An authenticated user gets redirected to callback URI after login"
+    ) in withTriggerService(
     Nil,
     authCallback = Some("http://localhost/TRIGGER_CALLBACK"),
   ) { uri: Uri =>

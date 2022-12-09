@@ -80,22 +80,26 @@ final class AuthorizationTest
 
   behavior of "PackageService against an authenticated sandbox"
 
-  it should "fail updating the package service immediately with insufficient authorization" taggedAs authorizationSecurity.setAttack(
-    Attack("Ledger client", "does not provide an auth token", "refuse updating the package service with a failure")
-  ) in withLedger {
-    client => ledgerId =>
-      instanceUUIDLogCtx(implicit lc =>
-        packageService(client).reload(Jwt(emptyTokenValue), ledgerId).failed.map(_ => succeed)
+  it should "fail updating the package service immediately with insufficient authorization" taggedAs authorizationSecurity
+    .setAttack(
+      Attack(
+        "Ledger client",
+        "does not provide an auth token",
+        "refuse updating the package service with a failure",
       )
+    ) in withLedger { client => ledgerId =>
+    instanceUUIDLogCtx(implicit lc =>
+      packageService(client).reload(Jwt(emptyTokenValue), ledgerId).failed.map(_ => succeed)
+    )
   }
 
-  it should "succeed updating the package service with sufficient authorization" taggedAs authorizationSecurity.setHappyCase(
-    "A ledger client can update the package service when authorized"
-  ) in withLedger {
-    client => ledgerId =>
-      instanceUUIDLogCtx(implicit lc =>
-        packageService(client).reload(Jwt(publicTokenValue), ledgerId).map(_ => succeed)
-      )
+  it should "succeed updating the package service with sufficient authorization" taggedAs authorizationSecurity
+    .setHappyCase(
+      "A ledger client can update the package service when authorized"
+    ) in withLedger { client => ledgerId =>
+    instanceUUIDLogCtx(implicit lc =>
+      packageService(client).reload(Jwt(publicTokenValue), ledgerId).map(_ => succeed)
+    )
   }
 
 }

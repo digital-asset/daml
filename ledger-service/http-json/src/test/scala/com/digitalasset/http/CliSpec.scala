@@ -37,7 +37,8 @@ final class CliSpec extends AnyFreeSpec with Matchers {
   ): Option[Config] =
     Cli.parseConfig(parameters, Set("org.postgresql.Driver"), getEnvVar)
 
-  private val authenticationSecurity = SecurityTest(property = Authenticity, asset = "HTTP JSON API Service")
+  private val authenticationSecurity =
+    SecurityTest(property = Authenticity, asset = "HTTP JSON API Service")
 
   val jdbcConfig = JdbcConfig(
     dbutils.JdbcConfig(
@@ -276,9 +277,10 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       )
     }
 
-    "TLS configuration is parsed correctly from the config file" taggedAs authenticationSecurity.setHappyCase(
-      "A valid config file for TLS is parsed correctly"
-    ) in {
+    "TLS configuration is parsed correctly from the config file" taggedAs authenticationSecurity
+      .setHappyCase(
+        "A valid config file for TLS is parsed correctly"
+      ) in {
       val baseConfig = DbUtilsJdbcConfig(
         url = "jdbc:postgresql://localhost:5432/test?&ssl=true",
         driver = "org.postgresql.Driver",

@@ -15,7 +15,13 @@ import com.daml.auth.middleware.api.Request.Claims
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload, CustomDamlJWTPayload, StandardJWTPayload, StandardJWTTokenFormat}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  CustomDamlJWTPayload,
+  StandardJWTPayload,
+  StandardJWTTokenFormat,
+}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
@@ -402,9 +408,10 @@ class TestMiddlewareCallbackUriOverride
 
   override protected val middlewareCallbackUri = Some(Uri("http://localhost/MIDDLEWARE_CALLBACK"))
   "the /login endpoint with an oauth server checking claims" should {
-    "redirect to the configured middleware callback URI" taggedAs authenticationSecurity.setHappyCase(
-      "A valid request to /login redirects to middleware callback"
-    ) in {
+    "redirect to the configured middleware callback URI" taggedAs authenticationSecurity
+      .setHappyCase(
+        "A valid request to /login redirects to middleware callback"
+      ) in {
       val claims = Request.Claims(actAs = List(Party("Alice")))
       val req = HttpRequest(uri = middlewareClientRoutes.loginUri(claims, None))
       for {
@@ -438,7 +445,11 @@ class TestMiddlewareLimitedCallbackStore
   override protected val maxMiddlewareLogins = 2
   "the /login endpoint with an oauth server checking claims" should {
     "refuse requests when max capacity is reached" taggedAs authenticationSecurity.setAttack(
-      Attack("HTTP client", "Issues too many requests to the /login endpoint", "Refuse request with SERVICE_UNAVAILABLE")
+      Attack(
+        "HTTP client",
+        "Issues too many requests to the /login endpoint",
+        "Refuse request with SERVICE_UNAVAILABLE",
+      )
     ) in {
       def login(actAs: Party) = {
         val claims = Request.Claims(actAs = List(actAs))
@@ -492,7 +503,11 @@ class TestMiddlewareClientLimitedCallbackStore
   override protected val maxClientAuthCallbacks = 2
   "the /login client with an oauth server checking claims" should {
     "refuse requests when max capacity is reached" taggedAs authenticationSecurity.setAttack(
-      Attack("HTTP client", "Issues too many requests to the /login endpoint", "Refuse request with SERVICE_UNAVAILABLE")
+      Attack(
+        "HTTP client",
+        "Issues too many requests to the /login endpoint",
+        "Refuse request with SERVICE_UNAVAILABLE",
+      )
     ) in {
       def login(actAs: Party) = {
         val claims = Request.Claims(actAs = List(actAs))
