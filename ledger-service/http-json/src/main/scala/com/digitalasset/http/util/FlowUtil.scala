@@ -5,7 +5,7 @@ package com.daml.http.util
 
 import akka.NotUsed
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Keep, Flow, FlowOpsMat}
+import akka.stream.scaladsl.{Keep, Flow}
 import Logging.InstanceUUID
 import com.daml.logging.{LoggingContextOf, ContextualizedLogger}
 import scalaz.{-\/, \/}
@@ -25,38 +25,6 @@ object FlowUtil {
       .collect { case Some(x) =>
         x
       }
-
-  type FlowOpsMatAux[+Out, +Mat, ReprMat0[+_, +_]] = FlowOpsMat[Out, Mat] {
-    type ReprMat[+O, +M] = ReprMat0[O, M]
-  }
-
-  import language.implicitConversions
-
-  private[http] implicit def `flowops logTermination`[O, M](
-      self: FlowOpsMat[O, M]
-  ): `flowops logTermination`[O, M, self.ReprMat] =
-    new `flowops logTermination`[O, M, self.ReprMat](self)
-
-  private[http] final class `flowops logTermination`[O, M, RM[+_, +_]](
-      private val self: FlowOpsMatAux[O, M, RM]
-  ) extends AnyVal {
-    def logTermination(
-        extraMessage: String
-    )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): RM[O, M] =
-      self.watchTermination() { (mat, fd) =>
-        fd.onComplete(
-          _.fold(
-            { t =>
-              logger.info(s"S11 $extraMessage trying to abort ${t.getMessage}")
-            },
-            { _ =>
-              logger.info(s"S11 $extraMessage trying to shutdown")
-            },
-          )
-        )
-        mat
-      }
-  }
 
   private[http] implicit final class `Flow flatMapMerge`[In, Out, Mat](
       private val self: Flow[In, Out, Mat]
@@ -79,9 +47,7 @@ object FlowUtil {
       self
         .flatMapMerge(
           breadth,
-          f andThen (gss =>
-            (Source fromGraph gss logTermination "fmm-inner").merge(inner, eagerComplete = true)
-          ),
+          f andThen (gss => (Source fromGraph gss).merge(inner, eagerComplete = true)),
         )
         .watchTermination() { (mat, fd) =>
           fd.onComplete(
