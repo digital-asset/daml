@@ -31,7 +31,7 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable {
 
   protected def registerStream[RespT](
       responseObserver: StreamObserver[RespT]
-  )(source: => Source[RespT, NotUsed])(implicit
+  )(createSource: => Source[RespT, NotUsed])(implicit
       materializer: Materializer,
       executionSequencerFactory: ExecutionSequencerFactory,
   ): Unit = {
@@ -39,11 +39,13 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable {
       if (_closed) responseObserver.onError(closingError(contextualizedErrorLogger))
       else run()
 
+    // Double-checked locking to keep the (potentially expensive)
+    // by-name `source` evaluation out of the synchronized block
     ifNotClosed { () =>
       val sink = ServerAdapter.toSink(responseObserver)
+      // Force evaluation before synchronized block
+      val source = createSource
 
-      // Double-checked locking to keep the (potentially expensive)
-      // buildSource() step out of the synchronized block
       synchronized {
         ifNotClosed { () =>
           val (killSwitch, doneF) = source
