@@ -2,26 +2,26 @@
 
 -- Removes all elements from a that are present in b, essentially computes a - b.
 CREATE OR REPLACE FUNCTION etq_array_diff(
-    arrayClob1 IN CLOB,
-    arrayClob2 IN CLOB
+    clobA IN CLOB,
+    clobB IN CLOB
 )
 RETURN CLOB
 IS
-     zz CLOB;
+     aDiffB CLOB;
 BEGIN
-    SELECT coalesce(JSON_ARRAYAGG(x), '[]') foo
-    INTO zz
+    SELECT coalesce(JSON_ARRAYAGG(elemA), '[]') foo
+    INTO aDiffB
     FROM
         (
-                SELECT x FROM json_table(arrayClob1, '$[*]' columns (x NUMBER PATH '$'))
-        ) xx
+                SELECT elemA FROM json_table(clobA, '$[*]' columns (elemA NUMBER PATH '$'))
+        ) arrayA
     LEFT JOIN
         (
-                SELECT y FROM json_table(arrayClob2, '$[*]' columns (y NUMBER PATH '$'))
-        ) yy
-    ON x = y
-    WHERE y IS NULL;
-    RETURN zz;
+                SELECT elemB FROM json_table(clobB, '$[*]' columns (elemB NUMBER PATH '$'))
+        ) arrayB
+    ON elemA = elemB
+    WHERE elemB IS NULL;
+    RETURN aDiffB;
 END;
 /
 
