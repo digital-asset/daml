@@ -1610,8 +1610,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
         // how many would cause failure if not cleaned up? total = seq*par
         // 10000 fails; we partially de-parallelize to get that error
         // 5000 passes locally
-        sequentialCount = 20
-        parallelCount = 500
+        sequentialCount = 40
+        parallelCount = 250
         scenario = SimpleScenario("query", Uri.Path("/v1/stream/query"), baseQueryInput)
         request = WebSocketRequest(
           uri = fixture.uri.copy(scheme = "ws").withPath(scenario.path),
