@@ -5,8 +5,8 @@ package com.daml.platform.index
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.executors
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
@@ -29,7 +29,6 @@ import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import com.daml.platform.{Contract, InMemoryState, Key, Party}
 import com.daml.timer.FutureCheck._
 
-import java.util.concurrent.Executors
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -91,17 +90,19 @@ private[platform] object InMemoryStateUpdater {
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[UpdaterFlow] = for {
     prepareUpdatesExecutor <- ResourceOwner.forExecutorService(() =>
-      new InstrumentedExecutorService(
-        Executors.newWorkStealingPool(prepareUpdatesParallelism),
-        metrics.registry,
+      executors.Executors.newWorkStealingExecutor(
         metrics.daml.lapi.threadpool.indexBypass.prepareUpdates,
+        prepareUpdatesParallelism,
+        metrics.registry,
+        metrics.executorServiceMetrics,
       )
     )
     updateCachesExecutor <- ResourceOwner.forExecutorService(() =>
-      new InstrumentedExecutorService(
-        Executors.newFixedThreadPool(1),
-        metrics.registry,
+      executors.Executors.newFixedThreadPool(
         metrics.daml.lapi.threadpool.indexBypass.updateInMemoryState,
+        1,
+        metrics.registry,
+        metrics.executorServiceMetrics,
       )
     )
   } yield InMemoryStateUpdaterFlow(
