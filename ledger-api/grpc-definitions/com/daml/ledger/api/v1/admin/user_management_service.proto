@@ -163,8 +163,7 @@ message CreateUserResponse {
 message GetUserRequest {
     // The user whose data to retrieve.
     // If set to empty string (the default), then the data for the authenticated user will be retrieved.
-    // Required
-
+    // Optional
     string user_id = 1;
 
     // The id of the ``Identity Provider``
