@@ -205,6 +205,40 @@ main =
                 expectScriptSuccess rs (vr "test") $ \r ->
                   matchRegex r "Active contracts:"
 
+            , testCase "create by interface" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import Daml.Script"
+
+
+                    , "interface I"
+                    , "  where"
+                    , "    viewtype T"
+
+                    , "template T"
+                    , "  with"
+                    , "    p : Party"
+                    , "  where"
+                    , "    signatory p"
+
+                    , "    interface instance I for T where"
+                    , "      view = this"
+
+                    , "test : Script ()"
+                    , "test = do"
+                    , "  alice <- allocateParty \"alice\""
+                    , "  alice `submit` do"
+                    , "    createCmd $"
+                    , "      toInterface @I"
+                    , "        T with"
+                    , "          p = alice"
+                    , "  pure ()"
+                    ]
+
+                expectScriptSuccess rs (vr "test") $ \r ->
+                  matchRegex r "Active contracts: +#0:0"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
