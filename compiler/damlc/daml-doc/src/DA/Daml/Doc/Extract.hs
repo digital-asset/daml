@@ -41,6 +41,8 @@ import "ghc-lib-parser" DataCon
 import "ghc-lib-parser" Class
 import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" Bag (bagToList)
+import "ghc-lib-parser" RdrHsSyn (isDamlGenerated)
+import "ghc-lib-parser" RdrName (rdrNameOcc)
 
 import Control.Monad
 import Control.Monad.IO.Class
@@ -239,11 +241,7 @@ getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
         fct_descr = docs
 
     guard (exportsFunction dc_exports fct_name)
-    guard (not $ "_choice$_" `T.isPrefixOf` packRdrName name)
-    guard (not $ "_interface_instance$_" `T.isPrefixOf` packRdrName name)
-    guard (not $ "_requires$_" `T.isPrefixOf` packRdrName name)
-    guard (not $ "_method$_" `T.isPrefixOf` packRdrName name)
-    guard (not $ "_view$_" `T.isPrefixOf` packRdrName name)
+    guard (not $ isDamlGenerated $ rdrNameOcc name)
     Just FunctionDoc {..}
 
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc
