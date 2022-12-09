@@ -19,16 +19,16 @@ trait LedgerPartyExists {
 
 case class PartyDetailsUpdate(
     party: Ref.Party,
+    identityProviderId: IdentityProviderId,
     displayNameUpdate: Option[Option[String]],
     isLocalUpdate: Option[Boolean],
     metadataUpdate: ObjectMetaUpdate,
-    identityProviderIdUpdate: Option[IdentityProviderId] = None,
 )
 
 case class PartyRecordUpdate(
     party: Ref.Party,
+    identityProviderId: IdentityProviderId,
     metadataUpdate: ObjectMetaUpdate,
-    identityProviderIdUpdate: Option[IdentityProviderId],
 )
 
 trait PartyRecordStore {

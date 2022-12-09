@@ -1,0 +1,142 @@
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1.admin;
+
+import "google/protobuf/field_mask.proto";
+
+option java_outer_classname = "IdentityProviderConfigServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+
+// Identity Provider Config Service makes it possible for participant node administrators
+// to setup and manage additional identity providers at runtime.
+//
+// This allows using access tokens from identity providers unknown at deployment time. When an identity
+// provider is configured, dedicated IDP administrators can manage their own set of parties and users.
+// Such parties and users will have a matching `identity_provider_id` defined and will be inaccessible to 
+// administrators from other identity providers. A user will only be authenticated if the corresponding JWT
+// token is issued by the appropriate identity provider.
+// Users and parties without `identity_provider_id` defined are assumed to be using the default identity provider,
+// which is setup through the participant node configuration.
+//
+// The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
+// (1) ``Optional`` denoting the client may leave the field unset when sending a request.
+// (2) ``Required`` denoting the client must set the field to a non-default value when sending a request.
+//
+// An identity provider config resource is described by the ``IdentityProviderConfig`` message,
+// An identity provider config resource, once it has been created, can be modified.
+// In order to update the properties represented by the ``IdentityProviderConfig`` message use the ``UpdateIdentityProviderConfig`` RPC.
+// The only fields that can be modified are those marked as ``Modifiable``.
+service IdentityProviderConfigService {
+
+  // Create a new identity provider configuration.
+  // The request will fail if the maximum allowed number of separate configurations is reached.
+  rpc CreateIdentityProviderConfig (CreateIdentityProviderConfigRequest) returns (CreateIdentityProviderConfigResponse);
+
+  // Get the identity provider configuration data by id.
+  rpc GetIdentityProviderConfig (GetIdentityProviderConfigRequest) returns (GetIdentityProviderConfigResponse);
+
+  // Update selected modifiable attribute of a identity provider config resource described
+  // by the ``IdentityProviderConfig`` message.
+  rpc UpdateIdentityProviderConfig (UpdateIdentityProviderConfigRequest) returns (UpdateIdentityProviderConfigResponse);
+
+  // List all existing identity provider configurations.
+  rpc ListIdentityProviderConfigs (ListIdentityProviderConfigsRequest) returns (ListIdentityProviderConfigsResponse);
+
+  // Delete an existing identity provider configuration.
+  rpc DeleteIdentityProviderConfig (DeleteIdentityProviderConfigRequest) returns (DeleteIdentityProviderConfigResponse);
+
+}
+
+message IdentityProviderConfig {
+  // The identity provider identifier
+  // Must be a valid LedgerString (as describe in ``value.proto``).
+  // Required
+  string identity_provider_id = 1;
+
+  // When set, the callers using JWT tokens issued by this identity provider are denied all access
+  // to the Ledger API. Otherwise, the `sub` and `iss` claims provided in the JWT tokens will be 
+  // used to identify the users in the user management database and to grant access accordingly.
+  // Optional,
+  // Modifiable
+  bool is_deactivated = 2;
+
+  // Specifies the issuer of the JWT token that should be used in the "iss" claim of a JWT token to instruct the
+  // participant node to use this identity provider to authenticate the token.
+  // The issuer value is a case sensitive URL using the https scheme that contains scheme, host,
+  // and optionally, port number and path components and no query or fragment components.
+  // Required
+  // Modifiable
+  string issuer = 3;
+
+  // The JWKS (JSON Web Key Set) URL.
+  // The Ledger API will expect all tokens to be signed with RS256 (RSA Signature with SHA-256) with the public
+  // key loaded from the given URL.
+  // Required
+  // Modifiable
+  string jwks_url = 4;
+}
+
+
+message CreateIdentityProviderConfigRequest {
+  // Required
+  IdentityProviderConfig identity_provider_config = 1;
+}
+
+message CreateIdentityProviderConfigResponse {
+  IdentityProviderConfig identity_provider_config = 1;
+}
+
+message GetIdentityProviderConfigRequest {
+  // Required
+  string identity_provider_id = 1;
+}
+
+message GetIdentityProviderConfigResponse {
+  IdentityProviderConfig identity_provider_config = 1;
+}
+
+message ListIdentityProviderConfigsRequest {
+  // Pagination is not required for this request as an entire dataset can be retrieved in a single call.
+}
+
+message ListIdentityProviderConfigsResponse {
+  repeated IdentityProviderConfig identity_provider_configs = 1;
+}
+
+message UpdateIdentityProviderConfigRequest {
+  // The identity provider config to update.
+  // Required,
+  // Modifiable
+  IdentityProviderConfig identity_provider_config = 1;
+
+  // An update mask specifies how and which properties of the ``IdentityProviderConfig`` message are to be updated.
+  // An update mask consists of a set of update paths.
+  // A valid update path points to a field or a subfield relative to the ``IdentityProviderConfig`` message.
+  // A valid update mask must:
+  // (1) contain at least one update path,
+  // (2) contain only valid update paths.
+  // Fields that can be updated are marked as ``Modifiable``.
+  // For additional information see the documentation for standard protobuf3's ``google.protobuf.FieldMask``.
+  // Required
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdateIdentityProviderConfigResponse {
+  // Updated identity provider config
+  IdentityProviderConfig identity_provider_config = 1;
+}
+
+message DeleteIdentityProviderConfigRequest {
+  // The identity provider config to delete.
+  // Required
+  string identity_provider_id = 1;
+}
+
+// Does not (yet) contain any data.
+message DeleteIdentityProviderConfigResponse {
+
+}

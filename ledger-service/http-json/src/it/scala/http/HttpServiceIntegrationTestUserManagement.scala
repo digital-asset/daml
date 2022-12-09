@@ -69,11 +69,13 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       domain.CanActAs(ham),
       domain.CanReadAs(spam),
       domain.ParticipantAdmin,
+      domain.IdentityProviderAdmin,
     ).toJson shouldBe
       List(
         Map("type" -> "CanActAs", "party" -> ham.unwrap),
         Map("type" -> "CanReadAs", "party" -> spam.unwrap),
         Map("type" -> "ParticipantAdmin"),
+        Map("type" -> "IdentityProviderAdmin"),
       ).toJson
   }
 

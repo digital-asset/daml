@@ -7,7 +7,7 @@ import com.daml.api.util.TimestampConversion
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.domain.{IdentityProviderId, JwksUrl, LedgerId}
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.lf.crypto.Hash
@@ -99,6 +99,13 @@ object FieldValidations {
     }
   }
 
+  def requireJwksUrl(raw: String, fieldName: String)(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, JwksUrl] =
+    JwksUrl.fromString(raw).left.map { error =>
+      invalidField(fieldName = fieldName, message = s"Malformed URL: $error")
+    }
+
   def requireParties(parties: Set[String])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Set[Party]] =
@@ -133,6 +140,25 @@ object FieldValidations {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.LedgerString] =
     requireNonEmptyParsedId(Ref.LedgerString.fromString)(s, fieldName)
+
+  def requireIdentityProviderId(
+      s: String,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, IdentityProviderId.Id] =
+    IdentityProviderId.Id.fromString(s).left.map(invalidField(fieldName, _))
+
+  def optionalIdentityProviderId(
+      s: String,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, IdentityProviderId] = {
+    if (s.isEmpty) Right(IdentityProviderId.Default)
+    else
+      IdentityProviderId.Id.fromString(s).left.map(invalidField(fieldName, _))
+  }
 
   def requireLedgerString(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

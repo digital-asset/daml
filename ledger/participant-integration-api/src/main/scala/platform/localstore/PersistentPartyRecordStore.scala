@@ -98,9 +98,7 @@ class PersistentPartyRecordStore(
                 _ <- withoutPartyRecord(party) {
                   val newPartyRecord = PartyRecord(
                     party = party,
-                    identityProviderId = partyRecordUpdate.identityProviderIdUpdate.getOrElse(
-                      IdentityProviderId.Default
-                    ),
+                    identityProviderId = partyRecordUpdate.identityProviderId,
                     metadata = domain.ObjectMeta(
                       resourceVersionO = None,
                       annotations = partyRecordUpdate.metadataUpdate.annotationsUpdateO.getOrElse(
@@ -207,13 +205,7 @@ class PersistentPartyRecordStore(
           internalId = dbPartyRecord.internalId
         )(connection)
     }
-    // Step 2: Update identity_provider_id
-    partyRecordUpdate.identityProviderIdUpdate.foreach { identityProviderId =>
-      backend.updateIdentityProviderId(dbPartyRecord.internalId, identityProviderId.toDb)(
-        connection
-      )
-    }
-    // Step 3: Update annotations
+    // Step 2: Update annotations
     partyRecordUpdate.metadataUpdate.annotationsUpdateO.foreach { newAnnotations =>
       val existingAnnotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
       val updatedAnnotations = LocalAnnotationsUtils.calculateUpdatedAnnotations(

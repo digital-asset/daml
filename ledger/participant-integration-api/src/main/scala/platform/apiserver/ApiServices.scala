@@ -201,20 +201,23 @@ private[daml] object ApiServices {
 
       val apiHealthService = new GrpcHealthService(healthChecks)
 
-      val maybeApiUserManagementService: Option[UserManagementServiceAuthorization] =
+      val userManagementServices: List[BindableService] =
         if (userManagementConfig.enabled) {
           val apiUserManagementService =
             new ApiUserManagementService(
-              userManagementStore,
+              userManagementStore = userManagementStore,
               maxUsersPageSize = userManagementConfig.maxUsersPageSize,
               submissionIdGenerator = SubmissionIdGenerator.Random,
               identityProviderExists = new IdentityProviderExists(identityProviderConfigStore),
             )
-          val authorized =
-            new UserManagementServiceAuthorization(apiUserManagementService, authorizer)
-          Some(authorized)
+          val identityProvider =
+            new ApiIdentityProviderConfigService(identityProviderConfigStore)
+          List(
+            new UserManagementServiceAuthorization(apiUserManagementService, authorizer),
+            new IdentityProviderConfigServiceAuthorization(identityProvider, authorizer),
+          )
         } else {
-          None
+          List.empty
         }
 
       val apiMeteringReportService =
@@ -233,7 +236,7 @@ private[daml] object ApiServices {
           apiHealthService,
           apiVersionService,
           new MeteringReportServiceAuthorization(apiMeteringReportService, authorizer),
-        ) ::: maybeApiUserManagementService.toList
+        ) ::: userManagementServices
     }
 
     private def intitializeWriteServiceBackedApiServices(
