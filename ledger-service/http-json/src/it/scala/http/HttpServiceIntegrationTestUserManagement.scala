@@ -142,7 +142,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       .setAttack(
         Attack(
           "Ledger client",
-          "tries to create an IOU but actAs & readAs result in missing permission",
+          "tries to create an IOU but overwritten actAs & readAs result in missing permission",
           "refuse request with BAD_REQUEST",
         )
       ) in withHttpService { fixture =>
