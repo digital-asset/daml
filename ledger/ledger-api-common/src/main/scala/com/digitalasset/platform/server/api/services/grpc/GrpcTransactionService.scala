@@ -60,10 +60,8 @@ final class GrpcTransactionService(
   }
 
   def getTransactionTrees(
-      request: com.daml.ledger.api.v1.transaction_service.GetTransactionsRequest,
-      responseObserver: _root_.io.grpc.stub.StreamObserver[
-        com.daml.ledger.api.v1.transaction_service.GetTransactionTreesResponse
-      ],
+      request: GetTransactionsRequest,
+      responseObserver: StreamObserver[GetTransactionTreesResponse],
   ): Unit = registerStream(responseObserver) {
     logger.debug(s"Received new transaction tree request $request")
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
