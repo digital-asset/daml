@@ -70,10 +70,10 @@ object IdentityProviderConfigServiceErrorGroup
   }
 
   @Explanation(
-    "There already exists a identity provider configuration with the same identity provider id."
+    "There already exists an identity provider configuration with the same identity provider id."
   )
   @Resolution(
-    "Check that you are connecting to the right participant node and the identity provider id is spelled correctly, or use the identity provider that already exists."
+    "Check that you are connecting to the right participant node and the identity provider id is spelled correctly, or use an identity provider that already exists."
   )
   object IdentityProviderConfigAlreadyExists
       extends ErrorCode(
@@ -93,10 +93,10 @@ object IdentityProviderConfigServiceErrorGroup
   }
 
   @Explanation(
-    "There already exists a identity provider configuration with the same issuer."
+    "There already exists an identity provider configuration with the same issuer."
   )
   @Resolution(
-    "Check that you are connecting to the right participant node and the identity provider id is spelled correctly, or use the identity provider that already exists."
+    "Check that you are connecting to the right participant node and the identity provider id is spelled correctly, or use an identity provider that already exists."
   )
   object IdentityProviderConfigIssuerAlreadyExists
       extends ErrorCode(

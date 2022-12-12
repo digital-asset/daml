@@ -526,13 +526,13 @@ PACKAGE_UPLOAD_REJECTED
 IDP_CONFIG_ALREADY_EXISTS
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: There already exists a identity provider configuration with the same identity provider id.
+    **Explanation**: There already exists an identity provider configuration with the same identity provider id.
 
     **Category**: InvalidGivenCurrentSystemStateResourceExists
 
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ALREADY_EXISTS including a detailed error message.
 
-    **Resolution**: Check that you are connecting to the right participant node and the identity provider id is spelled correctly, or use the identity provider that already exists.
+    **Resolution**: Check that you are connecting to the right participant node and the identity provider id is spelled correctly, or use an identity provider that already exists.
 
 
 
@@ -558,13 +558,13 @@ IDP_CONFIG_BY_ISSUER_NOT_FOUND
 IDP_CONFIG_ISSUER_ALREADY_EXISTS
 ---------------------------------------------------------------------------------------------------------------------------------------
     
-    **Explanation**: There already exists a identity provider configuration with the same issuer.
+    **Explanation**: There already exists an identity provider configuration with the same issuer.
 
     **Category**: InvalidGivenCurrentSystemStateResourceExists
 
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ALREADY_EXISTS including a detailed error message.
 
-    **Resolution**: Check that you are connecting to the right participant node and the identity provider id is spelled correctly, or use the identity provider that already exists.
+    **Resolution**: Check that you are connecting to the right participant node and the identity provider id is spelled correctly, or use an identity provider that already exists.
 
 
 

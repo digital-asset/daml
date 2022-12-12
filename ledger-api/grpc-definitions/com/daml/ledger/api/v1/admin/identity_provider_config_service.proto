@@ -15,12 +15,15 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // to setup and manage additional identity providers at runtime.
 //
 // This allows using access tokens from identity providers unknown at deployment time. When an identity
-// provider is configured, dedicated IDP administrators can manage their own set of parties and users.
-// Such parties and users will have a matching `identity_provider_id` defined and will be inaccessible to 
+// provider is configured, independent IDP administrators can manage their own set of parties and users.
+// Such parties and users have a matching `identity_provider_id` defined and are inaccessible to
 // administrators from other identity providers. A user will only be authenticated if the corresponding JWT
 // token is issued by the appropriate identity provider.
 // Users and parties without `identity_provider_id` defined are assumed to be using the default identity provider,
-// which is setup through the participant node configuration.
+// which is configured statically at the participant node's deployment time.
+//
+// The Ledger API uses the "iss" claim of a JWT token to match the token to a specific IDP. If there is no match,
+// the default IDP is assumed.
 //
 // The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
 // (1) ``Optional`` denoting the client may leave the field unset when sending a request.
@@ -39,7 +42,7 @@ service IdentityProviderConfigService {
   // Get the identity provider configuration data by id.
   rpc GetIdentityProviderConfig (GetIdentityProviderConfigRequest) returns (GetIdentityProviderConfigResponse);
 
-  // Update selected modifiable attribute of a identity provider config resource described
+  // Update selected modifiable attribute of an identity provider config resource described
   // by the ``IdentityProviderConfig`` message.
   rpc UpdateIdentityProviderConfig (UpdateIdentityProviderConfigRequest) returns (UpdateIdentityProviderConfigResponse);
 
@@ -58,14 +61,12 @@ message IdentityProviderConfig {
   string identity_provider_id = 1;
 
   // When set, the callers using JWT tokens issued by this identity provider are denied all access
-  // to the Ledger API. Otherwise, the `sub` and `iss` claims provided in the JWT tokens will be 
-  // used to identify the users in the user management database and to grant access accordingly.
+  // to the Ledger API.
   // Optional,
   // Modifiable
   bool is_deactivated = 2;
 
-  // Specifies the issuer of the JWT token that should be used in the "iss" claim of a JWT token to instruct the
-  // participant node to use this identity provider to authenticate the token.
+  // Specifies the issuer of the JWT token.
   // The issuer value is a case sensitive URL using the https scheme that contains scheme, host,
   // and optionally, port number and path components and no query or fragment components.
   // Required
@@ -73,8 +74,8 @@ message IdentityProviderConfig {
   string issuer = 3;
 
   // The JWKS (JSON Web Key Set) URL.
-  // The Ledger API will expect all tokens to be signed with RS256 (RSA Signature with SHA-256) with the public
-  // key loaded from the given URL.
+  // The Ledger API uses JWKs (JSON Web Keys) from the provided URL to verify that the JWT has been
+  // signed with the loaded JWK. Only RS256 (RSA Signature with SHA-256) signing algorithm is supported.
   // Required
   // Modifiable
   string jwks_url = 4;
@@ -100,7 +101,7 @@ message GetIdentityProviderConfigResponse {
 }
 
 message ListIdentityProviderConfigsRequest {
-  // Pagination is not required for this request as an entire dataset can be retrieved in a single call.
+  // Pagination is not required as the resulting data set is small enough to be returned in a single call
 }
 
 message ListIdentityProviderConfigsResponse {
