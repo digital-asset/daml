@@ -80,7 +80,7 @@ object EndpointsCompanion {
       case NotFound(e) => s"Endpoints.NotFound: ${e: String}"
     }
 
-    def fromThrowable: Throwable PartialFunction Error = {
+    def fromThrowable: PartialFunction[Throwable, Error] = {
       case LedgerClientJwt.Grpc.StatusEnvelope(status) => ParticipantServerError(status)
       case NonFatal(t) => ServerError(t)
     }
