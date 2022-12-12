@@ -23,7 +23,7 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
-        "//ledger/metrics",
+        "//observability/metrics",
         "@maven//:com_google_guava_guava",
     ],
 )
@@ -68,8 +68,8 @@ da_scala_test_suite(
         ":akka-http-metrics-tests-lib",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
-        "//ledger/metrics",
-        "//ledger/metrics:metrics-test-lib",
+        "//observability/metrics",
+        "//observability/metrics:metrics-test-lib",
         "@maven//:com_google_guava_guava",
         "@maven//:com_typesafe_config",
         "@maven//:io_opentelemetry_opentelemetry_api",

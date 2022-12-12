@@ -81,13 +81,13 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-resources",
-        "//ledger/metrics",
         "//libs-scala/contextualized-logging",
         "//libs-scala/db-utils",
         "//libs-scala/doobie-slf4j",
         "//libs-scala/resources",
         "//libs-scala/scala-utils",
         "//observability/akka-http-metrics",
+        "//observability/metrics",
         "//triggers/metrics",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
@@ -143,7 +143,7 @@ trigger_service_runtime_deps = {
         visibility = ["//visibility:public"],
         runtime_deps = trigger_service_runtime_deps.get(edition),
         deps = binary_deps + [
-            "//ledger/metrics",
+            "//observability/metrics",
             "//runtime-components/jdbc-drivers:jdbc-drivers-{}".format(edition),
         ],
     )
