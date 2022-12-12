@@ -378,7 +378,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         _ <- testContext
           .exerciseFetchDelegated(
             testContext.disclosedContract
-              .update(_.metadata.createdAt := com.google.protobuf.timestamp.Timestamp.of(1, 0))
+              .update(
+                _.metadata.createdAt.modify(original => original.withSeconds(original.seconds + 1L))
+              )
           )
           .mustFail("using a mismatching ledger time")
 
