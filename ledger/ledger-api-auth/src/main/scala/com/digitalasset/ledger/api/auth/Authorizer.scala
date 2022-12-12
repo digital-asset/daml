@@ -82,7 +82,23 @@ final class Authorizer(
       }
     }
 
-  def requireAdminOrIDPAdminClaims[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
+  def requireIDPContext[Req, Res](
+      identityProviderId: String,
+      call: Req => Future[Res],
+  ): Req => Future[Res] =
+    authorize(call) { claims =>
+      for {
+        _ <- valid(claims)
+        _ <- claims.isAdminOrIDPAdmin
+        _ <- validateIdentityProviderId(identityProviderId, claims)
+      } yield {
+        ()
+      }
+    }
+
+  def requireAdminOrIDPAdminClaims[Req, Res](
+      call: Req => Future[Res]
+  ): Req => Future[Res] =
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
@@ -92,35 +108,24 @@ final class Authorizer(
       }
     }
 
-  def requireIDPContext[Req, Res](
-      identityProviderId: String,
-      call: Req => Future[Res],
-  )(addIdentityProvider: (String, Req) => Req): Req => Future[Res] =
-    authorizeWithReq(call) { (claims, req) =>
-      val validatedIdentityProviderId = validateIdentityProviderId(identityProviderId, claims)
-      authorizationErrorAsGrpc(validatedIdentityProviderId)
-        .map(id => addIdentityProvider(id, req))
-    }
-
   private def validateIdentityProviderId(
       identityProviderId: String,
       claims: ClaimSet.Claims,
-  ): Either[AuthorizationError, String] = {
-    val requestIdentityProviderId = Option(identityProviderId).filter(_.nonEmpty)
+  ): Either[AuthorizationError, Unit] = {
+    val requestIdentityProviderId = Some(identityProviderId).filter(_.nonEmpty)
     if (claims.claims.contains(ClaimAdmin)) {
       // admin should not need check - letting it through as is
-      Right(identityProviderId)
+      Right(())
     } else if (!claims.resolvedFromUser) {
       // token is not being resolved from the user - letting it through as is
-      Right(identityProviderId)
+      Right(())
     } else if (
-      claims.resolvedFromUser && requestIdentityProviderId.isDefined && identityProviderId == claims.identityProviderId
+      claims.resolvedFromUser && requestIdentityProviderId.isDefined && claims.identityProviderId
+        .contains(identityProviderId)
     ) {
       // the user has provided idp_id, and it matches his issuer in the token
-      Right(claims.identityProviderId)
-    } else if (claims.resolvedFromUser && requestIdentityProviderId.isEmpty)
-      Right(claims.identityProviderId)
-    else {
+      Right(())
+    } else {
       Left(AuthorizationError.InvalidIdentityProviderId(claims.identityProviderId))
     }
   }
