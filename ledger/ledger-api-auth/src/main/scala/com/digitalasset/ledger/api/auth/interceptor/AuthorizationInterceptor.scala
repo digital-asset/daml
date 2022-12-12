@@ -112,7 +112,7 @@ final class AuthorizationInterceptor(
                   applicationId = Some(userId),
                   expiration = expiration,
                   resolvedFromUser = true,
-                  identityProviderId = identityProviderId.toRequestString,
+                  identityProviderId = identityProviderId,
                 )
               )
           }
