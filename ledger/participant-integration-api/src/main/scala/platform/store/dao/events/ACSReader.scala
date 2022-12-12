@@ -131,6 +131,7 @@ class FilterTableACSReader(
   }
 }
 
+// TODO etq: Extract utilities common for tx processing to a separate object
 object FilterTableACSReader {
   private val logger = ContextualizedLogger.get(this.getClass)
 

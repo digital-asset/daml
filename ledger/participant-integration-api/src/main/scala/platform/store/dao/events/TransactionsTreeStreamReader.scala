@@ -113,10 +113,9 @@ class TransactionsTreeStreamReader(
     val decomposedFilters = requestingParties.iterator.map(party => Filter(party, None)).toVector
     val idPageSizing = IdQueryConfiguration(
       maxIdPageSize = maxIdsPerIdPage,
-      // The full set of ids for tree transactions is the union of three disjoint sets ids:
-      // 1) ids for consuming events, 2) ids for non-consuming events and 3) ids for create events.
-      // We assign a third of the working memory to each source.
-      idPageWorkingMemoryBytes = maxWorkingMemoryInBytesForIdPages / 3,
+      // The ids for tree transactions are retrieved from five separate id tables.
+      // To account for that we assign a fifth of the working memory to each table.
+      idPageWorkingMemoryBytes = maxWorkingMemoryInBytesForIdPages / 5,
       filterSize = decomposedFilters.size,
       idPageBufferSize = maxPagesPerIdPagesBuffer,
     )

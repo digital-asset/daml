@@ -399,12 +399,6 @@ object EventStorageBackendTemplate {
     "NULL as driver_metadata",
   ).mkString(", ")
 
-  val EventSequentailIdFromTo: RowParser[(Long, Long)] =
-    long("event_sequential_id_first") ~ long("event_sequential_id_last") map {
-      case event_sequential_id_first ~ event_sequential_id_last =>
-        (event_sequential_id_first, event_sequential_id_last)
-    }
-
 }
 
 abstract class EventStorageBackendTemplate(

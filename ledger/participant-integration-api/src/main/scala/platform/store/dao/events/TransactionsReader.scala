@@ -36,10 +36,16 @@ import io.opentelemetry.api.trace.Span
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-/** @param dispatcher Executes the queries prepared by this object
-  * @param executionContext Runs transformations on data fetched from the database, including Daml-LF value deserialization
+/** @param flatTransactionsStreamReader Knows how to stream flat transactions
+  * @param treeTransactionsStreamReader Knows how to stream tree transactions
+  * @param dispatcher Executes the queries prepared by this object
+  * @param queryNonPruned
+  * @param eventStorageBackend
   * @param payloadProcessingParallelism The parallelism for loading and decoding event payloads
+  * @param metrics
   * @param lfValueTranslation The delegate in charge of translating serialized Daml-LF values
+  * @param acsReader Knows how to streams ACS
+  * @param executionContext Runs transformations on data fetched from the database, including Daml-LF value deserialization
   */
 private[dao] final class TransactionsReader(
     flatTransactionsStreamReader: TransactionsFlatStreamReader,

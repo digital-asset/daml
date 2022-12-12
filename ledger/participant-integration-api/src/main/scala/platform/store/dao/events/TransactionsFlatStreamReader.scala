@@ -69,13 +69,11 @@ class TransactionsFlatStreamReader(
     logger.debug(
       s"streamFlatTransactions($startExclusiveOffset, $endInclusiveOffset, $filteringConstraints, $eventProjectionProperties)"
     )
-    val sourceOfFlatTransactions: Source[(Offset, GetTransactionsResponse), NotUsed] =
-      doStreamFlatTransactions(
-        queryRange,
-        filteringConstraints,
-        eventProjectionProperties,
-      )
-    sourceOfFlatTransactions
+    doStreamFlatTransactions(
+      queryRange,
+      filteringConstraints,
+      eventProjectionProperties,
+    )
       .wireTap(_ match {
         case (_, getTransactionsResponse) =>
           getTransactionsResponse.transactions.foreach { transaction =>
@@ -105,9 +103,8 @@ class TransactionsFlatStreamReader(
     val decomposedFilters = FilterTableACSReader.makeSimpleFilters(filteringConstraints).toVector
     val idPageSizing = IdQueryConfiguration(
       maxIdPageSize = maxIdsPerIdPage,
-      // The full set of ids for flat transactions is the union of two disjoint sets ids:
-      // 1) ids for consuming events and 2) ids for create events.
-      // We assign half of the working memory to each source.
+      // The ids for flat transactions are retrieved from two separate id tables.
+      // To account for that we assign a half of the working memory to each table.
       idPageWorkingMemoryBytes = maxWorkingMemoryInBytesForIdPages / 2,
       filterSize = decomposedFilters.size,
       idPageBufferSize = maxPagesPerIdPagesBuffer,
@@ -218,15 +215,13 @@ class TransactionsFlatStreamReader(
         dbMetric = dbMetrics.flatTxPayloadConsuming,
       )
     val allSortedPayloads = payloadsConsuming.mergeSorted(payloadsCreate)(orderBySequentialEventId)
-    val sourceOfFlatTransactions: Source[(Offset, GetTransactionsResponse), NotUsed] =
-      TransactionsReader
-        .groupContiguous(allSortedPayloads)(by = _.transactionId)
-        .mapAsync(payloadProcessingParallelism)(deserializeLfValues(_, eventProjectionProperties))
-        .mapConcat { groupOfPayloads: Vector[EventStorageBackend.Entry[Event]] =>
-          val response = TransactionConversions.toGetTransactionsResponse(groupOfPayloads)
-          response.map(r => offsetFor(r) -> r)
-        }
-    sourceOfFlatTransactions
+    TransactionsReader
+      .groupContiguous(allSortedPayloads)(by = _.transactionId)
+      .mapAsync(payloadProcessingParallelism)(deserializeLfValues(_, eventProjectionProperties))
+      .mapConcat { groupOfPayloads: Vector[EventStorageBackend.Entry[Event]] =>
+        val response = TransactionConversions.toGetTransactionsResponse(groupOfPayloads)
+        response.map(r => offsetFor(r) -> r)
+      }
   }
 
   private def deserializeLfValues(
