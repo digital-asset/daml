@@ -8,6 +8,7 @@ package com.daml.ledger.api.v1.admin;
 option java_outer_classname = "MeteringReportOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+option go_package = "digitalasset.com/daml/ledger/api/v1/admin";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";

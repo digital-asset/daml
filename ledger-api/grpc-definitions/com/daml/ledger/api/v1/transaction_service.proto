@@ -12,6 +12,7 @@ import "com/daml/ledger/api/v1/transaction.proto";
 option java_outer_classname = "TransactionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option go_package = "digitalasset.com/daml/ledger/api/v1";
 
 // Allows clients to read transactions from the ledger.
 service TransactionService {

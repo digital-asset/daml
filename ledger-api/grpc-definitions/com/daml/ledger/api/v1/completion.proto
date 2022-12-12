@@ -11,6 +11,7 @@ import "google/rpc/status.proto";
 option java_outer_classname = "CompletionOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option go_package = "digitalasset.com/daml/ledger/api/v1";
 
 // A completion represents the status of a submitted command on the ledger: it can be successful or failed.
 message Completion {

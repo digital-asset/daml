@@ -15,6 +15,7 @@ import "google/rpc/status.proto";
 option java_outer_classname = "EventOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option go_package = "digitalasset.com/daml/ledger/api/v1";
 
 // An event in the flat transaction stream can either be the creation
 // or the archiving of a contract.

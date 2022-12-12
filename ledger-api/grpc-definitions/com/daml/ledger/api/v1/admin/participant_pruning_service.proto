@@ -8,6 +8,7 @@ package com.daml.ledger.api.v1.admin;
 option java_outer_classname = "ParticipantPruningServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+option go_package = "digitalasset.com/daml/ledger/api/v1/admin";
 
 // Status: experimental interface, will change before it is deemed production
 // ready

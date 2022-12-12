@@ -10,6 +10,7 @@ import "com/daml/ledger/api/v1/experimental_features.proto";
 option java_outer_classname = "VersionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option go_package = "digitalasset.com/daml/ledger/api/v1";
 
 // Allows clients to retrieve information about the ledger API version
 service VersionService {
