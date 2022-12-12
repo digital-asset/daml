@@ -129,7 +129,7 @@ daml_http_websocket_messages_sent_bytes
 - **Type**: Histogram
 
 JAVA execution service metrics
-************
+******************************
 We expose the below metrics for all daml execution services.
 These metrics have the following common labels attached:
 
@@ -140,64 +140,64 @@ These metrics have the following common labels attached:
     The type of the execution service. Currently supported for `fork_join` and `thread_pool`
 
 daml_executor_pool_size
-===================================
+=======================
 - **Description**: Number of worker threads present in the pool.
 - **Type**: Gauge
 
 daml_executor_pool_core
-===================================
+=======================
 - **Description**: Core number of threads.
 - **Type**: Gauge
 - **Observation**: Only available for `type` = `thread_pool`
 
 daml_executor_pool_max
-===================================
+======================
 - **Description**: Maximum allowed number of threads.
 - **Type**: Gauge
 - **Observation**: Only available for `type` = `thread_pool`
 
 daml_executor_pool_largest
-===================================
+==========================
 - **Description**: Largest number of threads that have ever simultaneously been in the pool.
 - **Type**: Gauge
 - **Observation**: Only available for `type` = `thread_pool`
 
 daml_executor_threads_active
-===================================
+============================
 - **Description**: Estimate of the number of threads that executing tasks.
 - **Type**: Gauge
 
 daml_executor_threads_running
-===================================
+=============================
 - **Description**: Estimate of the number of worker threads that are not blocked waiting to join tasks or for other managed synchronization.
 - **Type**: Gauge
 - **Observation**: Only available for `type` = `fork_join`
 
 daml_executor_tasks_queued
-===================================
+==========================
 - **Description**: Approximate number of tasks that are queued for execution.
 - **Type**: Gauge
 
 daml_executor_tasks_executing_queued
-===================================
+====================================
 - **Description**: Estimate of the total number of tasks currently held in queues by worker threads (but not including tasks submitted to the pool that have not begun executing).
 - **Type**: Gauge
 - **Observation**: Only available for `type` = `fork_join`
 
 daml_executor_tasks_stolen
-===================================
+==========================
 - **Description**: Estimate of the total number of completed tasks that were executed by a thread other than their submitter.
 - **Type**: Gauge
 - **Observation**: Only available for `type` = `fork_join`
 
 daml_executor_tasks_submitted
-===================================
+=============================
 - **Description**: Approximate total number of tasks that have ever been scheduled for execution.
 - **Type**: Gauge
 - **Observation**: Only available for `type` = `thread_pool`
 
 daml_executor_tasks_completed
-===================================
+=============================
 - **Description**: Approximate total number of tasks that have completed execution.
 - **Type**: Gauge
 - **Observation**: Only available for `type` = `thread_pool`
