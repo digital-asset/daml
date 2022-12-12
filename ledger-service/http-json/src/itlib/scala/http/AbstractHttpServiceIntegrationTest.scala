@@ -18,7 +18,7 @@ import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.service.MetadataReader
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.{Authorization, Availability}
-import com.daml.test.evidence.tag.Security.SecurityTest
+import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
@@ -140,10 +140,10 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   import AbstractHttpServiceIntegrationTestFuns.{ciouDar, riouDar}
 
   val authorizationSecurity: SecurityTest =
-    SecurityTest(property = Authorization, asset = "TBD")
+    SecurityTest(property = Authorization, asset = "HTTP JSON API Service")
 
   val availabilitySecurity: SecurityTest =
-    SecurityTest(property = Availability, asset = "TBD")
+    SecurityTest(property = Availability, asset = "HTTP JSON API Service")
 
   object CIou {
     val CIou: domain.ContractTypeId.Template.OptionalPkg =
@@ -930,32 +930,38 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       }
     }
 
-    "fails when readAs not authed, even if prior fetch succeeded" taggedAs authorizationSecurity in withHttpService {
-      fixture =>
-        import fixture.uri
-        for {
-          res <- fixture.getUniquePartyAndAuthHeaders("Alice")
-          (alice, aliceHeaders) = res
-          command = iouCreateCommand(alice)
-          createStatusOutput <- postCreateCommand(command, fixture, aliceHeaders)
-          contractId = inside(createStatusOutput) {
-            case domain.OkResponse(result, _, StatusCodes.OK) =>
-              result.contractId
-          }
-          locator = domain.EnrichedContractId(None, contractId)
-          // will cache if DB configured
-          _ <- lookupContractAndAssert(locator, contractId, command, fixture, aliceHeaders)
-          charlie = getUniqueParty("Charlie")
-          badLookup <- postContractsLookup(
-            locator,
-            uri.withPath(Uri.Path("/v1/fetch")),
-            aliceHeaders,
-            readAs = Some(List(charlie)),
-          )
-        } yield inside(badLookup) {
-          case domain.ErrorResponse(_, None, StatusCodes.Unauthorized, None) =>
-            succeed
+    "fails when readAs not authed, even if prior fetch succeeded" taggedAs authorizationSecurity
+      .setAttack(
+        Attack(
+          "Ledger client",
+          "fetches by contractId but readAs is not authorized",
+          "refuse request with UNAUTHORIZED",
+        )
+      ) in withHttpService { fixture =>
+      import fixture.uri
+      for {
+        res <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (alice, aliceHeaders) = res
+        command = iouCreateCommand(alice)
+        createStatusOutput <- postCreateCommand(command, fixture, aliceHeaders)
+        contractId = inside(createStatusOutput) {
+          case domain.OkResponse(result, _, StatusCodes.OK) =>
+            result.contractId
         }
+        locator = domain.EnrichedContractId(None, contractId)
+        // will cache if DB configured
+        _ <- lookupContractAndAssert(locator, contractId, command, fixture, aliceHeaders)
+        charlie = getUniqueParty("Charlie")
+        badLookup <- postContractsLookup(
+          locator,
+          uri.withPath(Uri.Path("/v1/fetch")),
+          aliceHeaders,
+          readAs = Some(List(charlie)),
+        )
+      } yield inside(badLookup) {
+        case domain.ErrorResponse(_, None, StatusCodes.Unauthorized, None) =>
+          succeed
+      }
     }
   }
 
@@ -1047,7 +1053,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       }): Future[Assertion]
   }
 
-  "archiving a large number of contracts should succeed" taggedAs availabilitySecurity in withHttpService(
+  "archiving a large number of contracts should succeed" taggedAs availabilitySecurity.setHappyCase(
+    "A ledger client can archive a large number of contracts"
+  ) in withHttpService(
     maxInboundMessageSize = StartSettings.DefaultMaxInboundMessageSize * 10
   ) { fixture =>
     import fixture.encoder
@@ -1305,21 +1313,26 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
       }
     }
 
-    "fails if authorization header is missing" taggedAs authorizationSecurity in withHttpService {
-      fixture =>
-        import fixture.encoder
-        val alice = getUniqueParty("Alice")
-        val command = iouCreateCommand(alice)
-        val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
+    "fails if authorization header is missing" taggedAs authorizationSecurity.setAttack(
+      Attack(
+        "Ledger client",
+        "calls /create without authorization",
+        "refuse request with UNAUTHORIZED",
+      )
+    ) in withHttpService { fixture =>
+      import fixture.encoder
+      val alice = getUniqueParty("Alice")
+      val command = iouCreateCommand(alice)
+      val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
-        fixture
-          .postJsonRequest(Uri.Path("/v1/create"), input, List())
-          .parseResponse[JsValue]
-          .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.Unauthorized, _) =>
-            error should include(
-              "missing Authorization header with OAuth 2.0 Bearer Token"
-            )
-          }): Future[Assertion]
+      fixture
+        .postJsonRequest(Uri.Path("/v1/create"), input, List())
+        .parseResponse[JsValue]
+        .map(inside(_) { case domain.ErrorResponse(Seq(error), _, StatusCodes.Unauthorized, _) =>
+          error should include(
+            "missing Authorization header with OAuth 2.0 Bearer Token"
+          )
+        }): Future[Assertion]
     }
 
     "supports extra readAs parties" in withHttpService { fixture =>
@@ -1609,24 +1622,30 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
         }): Future[Assertion]
     }
 
-    "return BadRequest error if party ID hint is invalid PartyIdString" taggedAs authorizationSecurity in withHttpService {
-      fixture =>
-        val request = domain.AllocatePartyRequest(
-          Some(domain.Party(s"Carol-!")),
-          Some("Carol & Co. LLC"),
+    "return BadRequest error if party ID hint is invalid PartyIdString" taggedAs authorizationSecurity
+      .setAttack(
+        Attack(
+          "Ledger client",
+          "tries to allocate a party with invalid Party ID",
+          "refuse request with BAD_REQUEST",
         )
-        val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
+      ) in withHttpService { fixture =>
+      val request = domain.AllocatePartyRequest(
+        Some(domain.Party(s"Carol-!")),
+        Some("Carol & Co. LLC"),
+      )
+      val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
 
-        fixture
-          .postJsonRequest(
-            Uri.Path("/v1/parties/allocate"),
-            json = json,
-            headers = headersWithAdminAuth,
-          )
-          .parseResponse[JsValue]
-          .map(inside(_) { case domain.ErrorResponse(errors, None, StatusCodes.BadRequest, _) =>
-            errors.length shouldBe 1
-          })
+      fixture
+        .postJsonRequest(
+          Uri.Path("/v1/parties/allocate"),
+          json = json,
+          headers = headersWithAdminAuth,
+        )
+        .parseResponse[JsValue]
+        .map(inside(_) { case domain.ErrorResponse(errors, None, StatusCodes.BadRequest, _) =>
+          errors.length shouldBe 1
+        })
     }
   }
 
