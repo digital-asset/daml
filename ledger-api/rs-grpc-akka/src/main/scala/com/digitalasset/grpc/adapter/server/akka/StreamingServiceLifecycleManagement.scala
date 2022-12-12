@@ -6,7 +6,10 @@ package com.daml.grpc.adapter.server.akka
 import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.{KillSwitch, KillSwitches, Materializer}
+import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.CommonErrors
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
 
 import scala.collection.concurrent.TrieMap
@@ -16,31 +19,33 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable {
   @volatile private var _closed = false
   private val _killSwitches = TrieMap.empty[KillSwitch, Object]
 
+  protected val contextualizedErrorLogger: ContextualizedErrorLogger
+
   def close(): Unit = synchronized {
     if (!_closed) {
       _closed = true
-      _killSwitches.keySet.foreach(_.abort(ServerAdapter.closingError()))
+      _killSwitches.keySet.foreach(_.abort(closingError(contextualizedErrorLogger)))
       _killSwitches.clear()
     }
   }
 
   protected def registerStream[RespT](
-      buildSource: () => Source[RespT, NotUsed],
-      responseObserver: StreamObserver[RespT],
-  )(implicit
+      responseObserver: StreamObserver[RespT]
+  )(createSource: => Source[RespT, NotUsed])(implicit
       materializer: Materializer,
       executionSequencerFactory: ExecutionSequencerFactory,
   ): Unit = {
     def ifNotClosed(run: () => Unit): Unit =
-      if (_closed) responseObserver.onError(ServerAdapter.closingError())
+      if (_closed) responseObserver.onError(closingError(contextualizedErrorLogger))
       else run()
 
+    // Double-checked locking to keep the (potentially expensive)
+    // by-name `source` evaluation out of the synchronized block
     ifNotClosed { () =>
       val sink = ServerAdapter.toSink(responseObserver)
-      val source = buildSource()
+      // Force evaluation before synchronized block
+      val source = createSource
 
-      // Double-checked locking to keep the (potentially expensive)
-      // buildSource() step out of the synchronized block
       synchronized {
         ifNotClosed { () =>
           val (killSwitch, doneF) = source
@@ -58,4 +63,7 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable {
       }
     }
   }
+
+  def closingError(errorLogger: ContextualizedErrorLogger): StatusRuntimeException =
+    CommonErrors.ServerIsShuttingDown.Reject()(errorLogger).asGrpcError
 }
