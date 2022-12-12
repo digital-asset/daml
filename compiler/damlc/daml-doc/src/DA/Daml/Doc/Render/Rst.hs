@@ -40,10 +40,7 @@ renderRst env = \case
         ] ++
         [ T.concat
             [ "   "
-            , unModulename moduleName
-            , " <"
             , T.pack (moduleNameToFileName moduleName)
-            , ">"
             ]
         | moduleName <- moduleNames
         ]
