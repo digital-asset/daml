@@ -1,70 +1,60 @@
 { stdenv
 , binutils
+, bintools
 , buildEnv
 , darwin
-, llvmPackages_7
+, llvmPackages_12
 , makeWrapper
+, wrapCCWith
 , overrideCC
 , runCommand
+, writeTextFile
+, sigtool
 }:
 
 
 # XXX On Darwin, workaround
 # https://github.com/NixOS/nixpkgs/issues/42059. See also
 # https://github.com/NixOS/nixpkgs/pull/41589.
-let cc-darwin =
-  with darwin.apple_sdk.frameworks;
-  # Note (MK): For now we pin to clang 7 since newer versions fail to build abseil.
-  let stdenv = llvmPackages_7.stdenv;
-  in
-  runCommand "cc-wrapper-bazel"
-  {
-    buildInputs = [ stdenv.cc makeWrapper ];
-  }
-  ''
-    mkdir -p $out/bin
+let
+  postLinkSignHook =
+    writeTextFile {
+      name = "post-link-sign-hook";
+      executable = true;
 
-    # Copy the content of pkgs.stdenv.cc
-    for i in ${stdenv.cc}/bin/*
-    do
-      ln -sf $i $out/bin
-    done
+      text = ''
+        CODESIGN_ALLOCATE=${darwin.cctools}/bin/codesign_allocate \
+          ${sigtool}/bin/codesign -f -s - "$linkerOutput"
+      '';
+    };
+  darwinBinutils = darwin.binutils.override { inherit postLinkSignHook; };
+  cc-darwin =
+    wrapCCWith rec {
+      cc = llvmPackages_12.clang;
+      bintools = darwinBinutils;
+      extraBuildCommands = with darwin.apple_sdk.frameworks; ''
+        echo "-Wno-unused-command-line-argument" >> $out/nix-support/cc-cflags
+        echo "-Wno-elaborated-enum-base" >> $out/nix-support/cc-cflags
+        echo "-mmacosx-version-min=${cc.darwinMinVersion}" >> $out/nix-support/cc-cflags
+        echo "-isystem ${llvmPackages_12.libcxx.dev}/include/c++/v1" >> $out/nix-support/cc-cflags
+        echo "-isystem ${llvmPackages_12.clang-unwrapped.lib}/lib/clang/${cc.version}/include" >> $out/nix-support/cc-cflags
+        echo "-F${CoreFoundation}/Library/Frameworks" >> $out/nix-support/cc-cflags
+        echo "-F${CoreServices}/Library/Frameworks" >> $out/nix-support/cc-cflags
+        echo "-F${Security}/Library/Frameworks" >> $out/nix-support/cc-cflags
+        echo "-F${Foundation}/Library/Frameworks" >> $out/nix-support/cc-cflags
+        echo "-L${llvmPackages_12.libcxx}/lib" >> $out/nix-support/cc-cflags
+        echo "-L${llvmPackages_12.libcxxabi}/lib" >> $out/nix-support/cc-cflags
+        echo "-L${darwin.libobjc}/lib" >> $out/nix-support/cc-cflags
+      '';
+    };
 
-    # Override cc
-    rm $out/bin/cc $out/bin/clang $out/bin/clang++
-
-    makeWrapper ${stdenv.cc}/bin/cc $out/bin/cc \
-      --add-flags "-Wno-unused-command-line-argument \
-                   -mmacosx-version-min=10.14 \
-                   -isystem ${llvmPackages_7.libcxx}/include/c++/v1 \
-                   -F${CoreFoundation}/Library/Frameworks \
-                   -F${CoreServices}/Library/Frameworks \
-                   -F${Security}/Library/Frameworks \
-                   -F${Foundation}/Library/Frameworks \
-                   -L${llvmPackages_7.libcxx}/lib \
-                   -L${darwin.libobjc}/lib"
-  '';
-
-  cc-linux = runCommand "cc-wrapper-bazel" {
-    buildInputs = [ makeWrapper ];
-  }
-  ''
-    mkdir -p $out/bin
-
-    # Copy the content of pkgs.stdenv.cc
-    for i in ${stdenv.cc}/bin/*
-    do
-      ln -sf $i $out/bin
-    done
-
-    # Override gcc
-    rm $out/bin/cc $out/bin/gcc $out/bin/g++
-
-    # We disable the fortify hardening as it causes issues with some
-    # packages built with bazel that set these flags themselves.
-    makeWrapper ${stdenv.cc}/bin/cc $out/bin/cc \
-      --set hardeningDisable fortify
-  '';
+  cc-linux =
+    wrapCCWith {
+      cc = stdenv.cc.overrideAttrs (oldAttrs: {
+        hardeningUnsupportedFlags =
+          ["fortify"] ++ oldAttrs.hardeningUnsupportedFlags or [];
+      });
+    };
 
   customStdenv =
     if stdenv.isDarwin
@@ -73,5 +63,7 @@ let cc-darwin =
 in
 buildEnv {
   name = "bazel-cc-toolchain";
-  paths = [ customStdenv.cc ] ++ (if stdenv.isDarwin then [ darwin.binutils ] else [ binutils ]);
+  paths = [ customStdenv.cc ] ++ (if stdenv.isDarwin then [ darwinBinutils ] else [ binutils ]);
+  ignoreCollisions = true;
+  passthru = { isClang = customStdenv.cc.isClang; };
 }

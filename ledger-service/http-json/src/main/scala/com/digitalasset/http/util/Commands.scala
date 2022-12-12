@@ -3,8 +3,10 @@
 
 package com.daml.http.util
 
+import com.daml.http.domain
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
+import lav1.commands.Commands.DeduplicationPeriod
 import scalaz.NonEmptyList
 import scalaz.syntax.foldable._
 import scalaz.syntax.tag._
@@ -71,6 +73,8 @@ object Commands {
       actAs: NonEmptyList[lar.Party],
       readAs: List[lar.Party],
       command: lav1.commands.Command.Command,
+      deduplicationPeriod: DeduplicationPeriod,
+      submissionId: Option[domain.SubmissionId],
   ): lav1.command_service.SubmitAndWaitRequest = {
     val commands = lav1.commands.Commands(
       ledgerId = ledgerId.unwrap,
@@ -86,8 +90,11 @@ object Commands {
       party = actAs.head.unwrap,
       actAs = lar.Party.unsubst(actAs.toList),
       readAs = lar.Party.unsubst(readAs),
+      deduplicationPeriod = deduplicationPeriod,
       commands = Seq(lav1.commands.Command(command)),
     )
-    lav1.command_service.SubmitAndWaitRequest(Some(commands))
+    val updatedCommands =
+      domain.SubmissionId.unsubst(submissionId).map(commands.withSubmissionId).getOrElse(commands)
+    lav1.command_service.SubmitAndWaitRequest(Some(updatedCommands))
   }
 }

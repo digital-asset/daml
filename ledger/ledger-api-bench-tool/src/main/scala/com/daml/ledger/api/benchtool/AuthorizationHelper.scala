@@ -6,7 +6,7 @@ package com.daml.ledger.api.benchtool
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth.client.LedgerCallCredentials
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, StandardJWTPayload}
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, StandardJWTPayload, StandardJWTTokenFormat}
 import io.grpc.stub.AbstractStub
 
 object AuthorizationHelper {
@@ -24,6 +24,7 @@ class AuthorizationHelper(val authorizationTokenSecret: String) {
       participantId = None,
       userId = userId,
       exp = None,
+      format = StandardJWTTokenFormat.Scope,
     )
     JwtSigner.HMAC256
       .sign(

@@ -12,9 +12,13 @@ import com.daml.ledger.participant.state.v2.{ReadService, Update}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.store.appendonlydao.DbDispatcher
-import com.daml.platform.store.backend.{IngestionStorageBackend, ParameterStorageBackend}
-import com.daml.platform.store.interning.UpdatingStringInterningView
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
+import com.daml.platform.store.backend.{
+  IngestionStorageBackend,
+  ParameterStorageBackend,
+  StringInterningStorageBackend,
+}
+import com.daml.platform.store.dao.DbDispatcher
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -22,6 +26,7 @@ private[platform] case class InitializeParallelIngestion(
     providedParticipantId: Ref.ParticipantId,
     ingestionStorageBackend: IngestionStorageBackend[_],
     parameterStorageBackend: ParameterStorageBackend,
+    stringInterningStorageBackend: StringInterningStorageBackend,
     metrics: Metrics,
 ) {
 
@@ -29,7 +34,7 @@ private[platform] case class InitializeParallelIngestion(
 
   def apply(
       dbDispatcher: DbDispatcher,
-      updatingStringInterningView: UpdatingStringInterningView,
+      additionalInitialization: LedgerEnd => Future[Unit],
       readService: ReadService,
       ec: ExecutionContext,
       mat: Materializer,
@@ -55,14 +60,13 @@ private[platform] case class InitializeParallelIngestion(
       _ <- dbDispatcher.executeSql(metrics.daml.parallelIndexer.initialization)(
         ingestionStorageBackend.deletePartiallyIngestedData(ledgerEnd)
       )
-      _ <- updatingStringInterningView.update(ledgerEnd.lastStringInterningId)
+      _ <- additionalInitialization(ledgerEnd)
     } yield InitializeParallelIngestion.Initialized(
       initialEventSeqId = ledgerEnd.lastEventSeqId,
       initialStringInterningId = ledgerEnd.lastStringInterningId,
       readServiceSource = readService.stateUpdates(beginAfter = ledgerEnd.lastOffsetOption),
     )
   }
-
 }
 
 object InitializeParallelIngestion {
@@ -72,5 +76,4 @@ object InitializeParallelIngestion {
       initialStringInterningId: Int,
       readServiceSource: Source[(Offset, Update), NotUsed],
   )
-
 }

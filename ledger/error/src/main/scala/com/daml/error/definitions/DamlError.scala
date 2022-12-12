@@ -3,31 +3,26 @@
 
 package com.daml.error.definitions
 
-import com.daml.error.{BaseError, ContextualizedErrorLogger, ErrorCode}
-import com.google.rpc.Status
-import io.grpc.StatusRuntimeException
+import com.daml.error.{ContextualizedError, ContextualizedErrorLogger, ErrorCode}
 
 import scala.jdk.CollectionConverters._
 
 class DamlError(
     override val cause: String,
     override val throwableO: Option[Throwable] = None,
+    extraContext: Map[String, Any] = Map(),
 )(implicit
     override val code: ErrorCode,
-    loggingContext: ContextualizedErrorLogger,
-) extends BaseError {
+    override val errorContext: ContextualizedErrorLogger,
+) extends ContextualizedError {
 
   // Automatically log the error on generation
-  loggingContext.logError(this, Map())
+  errorContext.logError(this, Map())
 
-  def asGrpcStatus: Status =
-    code.asGrpcStatus(this)(loggingContext)
+  override def context: Map[String, String] =
+    super.context ++ extraContext.view.mapValues(_.toString)
 
-  def asGrpcError: StatusRuntimeException =
-    code.asGrpcError(this)(loggingContext)
-
-  def rpcStatus(
-  )(implicit loggingContext: ContextualizedErrorLogger): com.google.rpc.status.Status = {
+  def rpcStatus(): com.google.rpc.status.Status = {
     val status0: com.google.rpc.Status = code.asGrpcStatus(this)
     val details: Seq[com.google.protobuf.Any] = status0.getDetailsList.asScala.toSeq
     val detailsScalapb = details.map(com.google.protobuf.any.Any.fromJavaProto)
@@ -46,10 +41,11 @@ class DamlErrorWithDefiniteAnswer(
     override val cause: String,
     override val throwableO: Option[Throwable] = None,
     val definiteAnswer: Boolean = false,
+    extraContext: Map[String, Any] = Map(),
 )(implicit
     override val code: ErrorCode,
     loggingContext: ContextualizedErrorLogger,
-) extends DamlError(cause = cause, throwableO = throwableO) {
+) extends DamlError(cause = cause, throwableO = throwableO, extraContext = extraContext) {
 
   final override def definiteAnswerO: Option[Boolean] = Some(definiteAnswer)
 

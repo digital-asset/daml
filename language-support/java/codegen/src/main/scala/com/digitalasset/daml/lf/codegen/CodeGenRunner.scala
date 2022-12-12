@@ -3,25 +3,115 @@
 
 package com.daml.lf.codegen
 
-import java.nio.file.{Files, Path, StandardOpenOption}
+import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
-
+import java.util.concurrent.{Executors, ThreadFactory}
 import com.daml.lf.archive.DarParser
-import com.daml.lf.codegen.backend.Backend
-import com.daml.lf.codegen.backend.java.JavaBackend
+import com.daml.lf.codegen.backend.java.inner.{
+  ClassForType,
+  DecoderClass,
+  PackagePrefixes,
+  fullyQualifiedName,
+}
 import com.daml.lf.codegen.conf.{Conf, PackageReference}
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.iface.reader.{Errors, InterfaceReader}
-import com.daml.lf.iface.{Type => _, _}
+import com.daml.lf.codegen.dependencygraph.DependencyGraph
+import com.daml.lf.data.Ref.{Identifier, PackageId}
+import com.daml.lf.typesig.reader.{Errors, SignatureReader}
+import com.daml.lf.typesig.{EnvironmentSignature, PackageSignature}
+import PackageSignature.TypeDecl
+import com.daml.lf.language.Reference
+import com.daml.nonempty.NonEmpty
+import com.squareup.javapoet.{ClassName, JavaFile}
 import com.typesafe.scalalogging.StrictLogging
-import org.slf4j.{Logger, LoggerFactory}
+import org.slf4j.{Logger, LoggerFactory, MDC}
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.collection.immutable.Map
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
+
+private final class CodeGenRunner(
+    scope: CodeGenRunner.Scope,
+    outputDirectory: Path,
+    decoderPackageAndClass: Option[(String, String)],
+) extends StrictLogging {
+
+  def runWith(executionContext: ExecutionContext): Future[Unit] = {
+    implicit val ec: ExecutionContext = executionContext
+    val packageIds = scope.signatures.map(_.packageId).mkString(", ")
+    logger.info(s"Start processing packageIds '$packageIds'")
+    for {
+      _ <- generateDecoder()
+      interfaceTrees = scope.signatures.map(InterfaceTree.fromInterface)
+      _ <- Future.traverse(interfaceTrees)(processInterfaceTree(_))
+    } yield logger.info(s"Finished processing packageIds '$packageIds'")
+  }
+
+  private def generateDecoder()(implicit ec: ExecutionContext): Future[Unit] =
+    decoderPackageAndClass.fold(Future.unit) { case (decoderPackage, decoderClassName) =>
+      val decoderClass = DecoderClass.generateCode(decoderClassName, scope.templateClassNames)
+      val decoderFile = JavaFile.builder(decoderPackage, decoderClass).build()
+      Future(decoderFile.writeTo(outputDirectory))
+    }
+
+  private def processInterfaceTree(
+      interfaceTree: InterfaceTree
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    logger.info(s"Start processing packageId '${interfaceTree.interface.packageId}'")
+    for (_ <- interfaceTree.process(process))
+      yield logger.info(s"Finished processing packageId '${interfaceTree.interface.packageId}'")
+  }
+
+  private def process(
+      nodeWithContext: NodeWithContext
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    nodeWithContext match {
+      case moduleWithContext: ModuleWithContext =>
+        // this is a Daml module that contains type declarations => the codegen will create one file
+        val moduleName = moduleWithContext.lineage.map(_._1).toSeq.mkString(".")
+        Future {
+          logger.info(s"Generating code for module $moduleName")
+          for (javaFile <- createTypeDefinitionClasses(moduleWithContext)) {
+            val javaFileFullName = s"${javaFile.packageName}.${javaFile.typeSpec.name}"
+            logger.info(s"Writing $javaFileFullName to directory $outputDirectory")
+            javaFile.writeTo(outputDirectory)
+          }
+        }
+      case _ =>
+        Future.unit
+    }
+
+  private def createTypeDefinitionClasses(module: ModuleWithContext): Iterable[JavaFile] = {
+    import scope.packagePrefixes
+    MDC.put("packageId", module.packageId)
+    MDC.put("packageIdShort", module.packageId.take(7))
+    MDC.put("moduleName", module.name)
+    val javaFiles =
+      for {
+        typeWithContext <- module.typesLineages
+        javaFile <- ClassForType(typeWithContext, scope.toBeGenerated)
+      } yield javaFile
+    MDC.remove("packageId")
+    MDC.remove("packageIdShort")
+    MDC.remove("moduleName")
+    javaFiles
+  }
+
+}
 
 object CodeGenRunner extends StrictLogging {
+
+  private[codegen] final class Scope(
+      val signatures: Seq[PackageSignature],
+      serializableTypes: Vector[(Identifier, TypeDecl)],
+  )(implicit val packagePrefixes: PackagePrefixes) {
+
+    val toBeGenerated: Set[Identifier] = serializableTypes.view.map(_._1).toSet
+
+    val templateClassNames: Vector[ClassName] = serializableTypes.collect {
+      case id -> (_: TypeDecl.Template) =>
+        ClassName.bestGuess(fullyQualifiedName(id))
+    }
+  }
 
   def run(conf: Conf): Unit = {
 
@@ -40,81 +130,158 @@ object CodeGenRunner extends StrictLogging {
     }
     checkAndCreateOutputDir(conf.outputDirectory)
 
-    val executor = Executors.newFixedThreadPool(
-      Runtime.getRuntime.availableProcessors(),
-      new ThreadFactory {
-        val n = new AtomicInteger(0)
-        override def newThread(r: Runnable): Thread = {
-          val t = new Thread(r)
-          t.setDaemon(true)
-          t.setName(s"java-codegen-${n.getAndIncrement}")
-          t
-        }
-      },
-    )
-    val ec: ExecutionContext = ExecutionContext.fromExecutor(executor)
+    val scope = configureCodeGenScope(conf.darFiles, conf.modulePrefixes)
 
-    val (interfaces, pkgPrefixes) = collectDamlLfInterfaces(conf)
-    generateCode(interfaces, conf, pkgPrefixes)(ec)
-    val _ = executor.shutdownNow()
+    val codegen = new CodeGenRunner(scope, conf.outputDirectory, conf.decoderPkgAndClass)
+    val executionContext: ExecutionContextExecutorService = createExecutionContext()
+    val result = codegen.runWith(executionContext)
+    Await.result(result, 10.minutes)
+    executionContext.shutdownNow()
+
+    ()
   }
 
-  private[codegen] def collectDamlLfInterfaces(
-      conf: Conf
-  ): (Seq[Interface], Map[PackageId, String]) = {
-    val interfacesAndPrefixes = conf.darFiles.toList.flatMap { case (path, pkgPrefix) =>
-      val file = path.toFile
-      // Explicitly calling `get` to bubble up any exception when reading the dar
-      val dar = DarParser.assertReadArchiveFromFile(file)
-      dar.all.map { archive =>
-        val (errors, interface) = InterfaceReader.readInterface(archive)
-        if (!errors.equals(Errors.zeroErrors)) {
-          throw new RuntimeException(
-            InterfaceReader.InterfaceReaderError.treeReport(errors).toString
-          )
-        }
-        logger.trace(s"Daml-LF Archive decoded, packageId '${interface.packageId}'")
-        (interface, interface.packageId -> pkgPrefix)
+  private[codegen] def configureCodeGenScope(
+      darFiles: Iterable[(Path, Option[String])],
+      modulePrefixes: Map[PackageReference, String],
+  ): CodeGenRunner.Scope = {
+    val (signatureMap, packagePrefixes) = signatureMapAndPackagePrefixes(darFiles)
+    val signatures = signatureMap.values.toSeq
+    val environmentInterface = EnvironmentSignature.fromPackageSignatures(signatures)
+
+    val transitiveClosure = DependencyGraph.transitiveClosure(
+      environmentInterface.typeDecls,
+      environmentInterface.interfaces,
+    )
+    for (error <- transitiveClosure.errors) {
+      logger.error(error.msg)
+    }
+    val generatedModuleIds: Set[Reference.Module] = (
+      transitiveClosure.serializableTypes.map(_._1) ++
+        transitiveClosure.interfaces.map(_._1)
+    ).toSet.map { id: Identifier =>
+      Reference.Module(id.packageId, id.qualifiedName.module)
+    }
+
+    val resolvedSignatures = resolveRetroInterfaces(signatures)
+
+    implicit val resolvedPrefixes: PackagePrefixes =
+      PackagePrefixes(
+        resolvePackagePrefixes(
+          packagePrefixes,
+          modulePrefixes,
+          resolvedSignatures,
+          generatedModuleIds,
+        )
+      )
+
+    new CodeGenRunner.Scope(
+      resolvedSignatures,
+      transitiveClosure.serializableTypes,
+    )
+  }
+
+  private def signatureMapAndPackagePrefixes(
+      darFiles: Iterable[(Path, Option[String])]
+  ): (Map[PackageId, PackageSignature], Map[PackageId, String]) = {
+    val signaturesToPrefixes: Seq[(Option[String], Seq[PackageSignature])] = (for {
+      (path, maybePrefix) <- darFiles
+      signatures = decodeDarAt(path)
+    } yield maybePrefix -> signatures).toSeq
+
+    val packagePrefixes = uniquePackageIdToPrefix(signaturesToPrefixes) ++
+      mainPackageIdToPrefix(signaturesToPrefixes)
+
+    val signatureMap = (for {
+      (_, signatures) <- signaturesToPrefixes
+      signature <- signatures
+    } yield signature.packageId -> signature).toMap
+    signatureMap -> packagePrefixes
+  }
+
+  private def uniquePackageIdToPrefix(
+      signaturesAndPrefixes: Seq[(Option[String], Seq[PackageSignature])]
+  ): Map[PackageId, String] = {
+    val packageIdsAndPackagePrefixes = for {
+      (Some(packagePrefix), signatures) <- signaturesAndPrefixes
+      signature <- signatures
+    } yield signature.packageId -> packagePrefix
+
+    val packageIdToPrefixes =
+      packageIdsAndPackagePrefixes.groupMapReduce(_._1)(p => Set(p._2))(_ ++ _)
+    packageIdToPrefixes.collect {
+      case (packageId, prefixes) if prefixes.size == 1 =>
+        packageId -> prefixes.head
+    }
+  }
+
+  private def mainPackageIdToPrefix(
+      signaturesAndPrefixes: Seq[(Option[String], Seq[PackageSignature])]
+  ): Map[PackageId, String] = {
+    val mainPackageIdToPrefixes = (for {
+      (Some(prefix), mainSignature +: _) <- signaturesAndPrefixes
+    } yield mainSignature.packageId -> prefix)
+      .groupMapReduce(_._1)(x => NonEmpty(Set, x._2))(_ ++ _)
+
+    detectDifferentPrefixConfiguredOnSameMainPackage(mainPackageIdToPrefixes)
+    mainPackageIdToPrefixes.view.mapValues(_.head1).toMap
+  }
+
+  private def detectDifferentPrefixConfiguredOnSameMainPackage(
+      prefixesByMainPackageIds: Map[PackageId, NonEmpty[Set[String]]]
+  ) = {
+    prefixesByMainPackageIds.foreach { case (mainPackageId, prefixes) =>
+      if (prefixes.size > 1) {
+        val collidedPrefixes = prefixes.mkString(", ")
+        throw new IllegalArgumentException(
+          s"""Different prefixes $collidedPrefixes are applied to the same main package $mainPackageId from separated Dar files. Please check if 2 identical dar files are configured with different package prefixes."""
+        )
       }
     }
-
-    val interfaces = interfacesAndPrefixes.map(_._1)
-    val prefixes = interfacesAndPrefixes.collect { case (_, (key, Some(value))) =>
-      (key, value)
-    }.toMap
-    (interfaces, prefixes)
   }
 
-  private[CodeGenRunner] def generateFile(
-      outputFile: Path,
-      dataTypes: ImmArray[DefDataType.FWT],
-      templates: ImmArray[DefTemplate.FWT],
-  ): Unit = {
-    logger.warn(
-      s"Started writing file '$outputFile' with data types ${dataTypes.toString} and templates ${templates.toString}"
+  private def createExecutionContext(): ExecutionContextExecutorService =
+    ExecutionContext.fromExecutorService(
+      Executors.newFixedThreadPool(
+        Runtime.getRuntime.availableProcessors(),
+        new ThreadFactory {
+          val n = new AtomicInteger(0)
+          override def newThread(r: Runnable): Thread = {
+            val t = new Thread(r)
+            t.setDaemon(true)
+            t.setName(s"java-codegen-${n.getAndIncrement}")
+            t
+          }
+        },
+      )
     )
-    val _ = Files.createDirectories(outputFile.getParent)
-    if (!Files.exists(outputFile)) {
-      val _ = Files.createFile(outputFile)
+
+  private[codegen] def decodeDarAt(path: Path): Seq[PackageSignature] =
+    for (archive <- DarParser.assertReadArchiveFromFile(path.toFile).all) yield {
+      val (errors, interface) = PackageSignature.read(archive)
+      if (!errors.equals(Errors.zeroErrors)) {
+        val message = SignatureReader.Error.treeReport(errors).toString
+        throw new RuntimeException(message)
+      }
+      logger.trace(s"Daml-LF Archive decoded, packageId '${interface.packageId}'")
+      interface
     }
-    val os = Files.newOutputStream(
-      outputFile,
-      StandardOpenOption.WRITE,
-      StandardOpenOption.TRUNCATE_EXISTING,
-    )
-    os.close()
-    logger.warn(s"Finish writing file '$outputFile'")
-  }
+
+  private[this] def resolveRetroInterfaces(
+      signatures: Seq[PackageSignature]
+  ): Seq[PackageSignature] =
+    PackageSignature.resolveRetroImplements((), signatures)((_, _) => None)._2
 
   /** Given the package prefixes specified per DAR and the module-prefixes specified in
     * daml.yaml, produce the combined prefixes per package id.
     */
   private[codegen] def resolvePackagePrefixes(
-      pkgPrefixes: Map[PackageId, String],
+      packagePrefixes: Map[PackageId, String],
       modulePrefixes: Map[PackageReference, String],
-      interfaces: Seq[Interface],
+      signatures: Seq[PackageSignature],
+      generatedModules: Set[Reference.Module],
   ): Map[PackageId, String] = {
-    val metadata: Map[PackageReference.NameVersion, PackageId] = interfaces.view
+    val metadata: Map[PackageReference.NameVersion, PackageId] = signatures.view
       .flatMap(iface =>
         iface.metadata.iterator.map(metadata =>
           PackageReference.NameVersion(metadata.name, metadata.version) -> iface.packageId
@@ -123,30 +290,32 @@ object CodeGenRunner extends StrictLogging {
       .toMap
     def resolveRef(ref: PackageReference): PackageId = ref match {
       case nameVersion: PackageReference.NameVersion =>
+        val packages = metadata.keys.mkString(", ")
         metadata.getOrElse(
           nameVersion,
           throw new IllegalArgumentException(
-            s"""No package $nameVersion found, available packages: ${metadata.keys.mkString(
-              ", "
-            )}"""
+            s"No package $nameVersion found, available packages: $packages"
           ),
         )
     }
     val resolvedModulePrefixes: Map[PackageId, String] = modulePrefixes.map { case (k, v) =>
       resolveRef(k) -> v.toLowerCase
     }
-    (pkgPrefixes.keySet union resolvedModulePrefixes.keySet).view.map { k =>
-      val prefix = (pkgPrefixes.get(k), resolvedModulePrefixes.get(k)) match {
-        case (None, None) =>
-          throw new RuntimeException(
-            "Internal error: key in pkgPrefixes and resolvedModulePrefixes could not be found in either of them"
-          )
-        case (Some(a), None) => a.stripSuffix(".")
-        case (None, Some(b)) => b.stripSuffix(".")
-        case (Some(a), Some(b)) => s"""${a.stripSuffix(".")}.${b.stripSuffix(".")}"""
-      }
-      k -> prefix
-    }.toMap
+    val resolvedPackagePrefixes =
+      (packagePrefixes.keySet union resolvedModulePrefixes.keySet).view.map { k =>
+        val prefix = (packagePrefixes.get(k), resolvedModulePrefixes.get(k)) match {
+          case (None, None) =>
+            throw new RuntimeException(
+              "Internal error: key in pkgPrefixes and resolvedModulePrefixes could not be found in either of them"
+            )
+          case (Some(a), None) => a.stripSuffix(".")
+          case (None, Some(b)) => b.stripSuffix(".")
+          case (Some(a), Some(b)) => s"""${a.stripSuffix(".")}.${b.stripSuffix(".")}"""
+        }
+        k -> prefix
+      }.toMap
+    detectModuleCollisions(resolvedPackagePrefixes, signatures, generatedModules)
+    resolvedPackagePrefixes
   }
 
   /** Verify that no two module names collide when the given
@@ -154,7 +323,8 @@ object CodeGenRunner extends StrictLogging {
     */
   private[codegen] def detectModuleCollisions(
       pkgPrefixes: Map[PackageId, String],
-      interfaces: Seq[Interface],
+      interfaces: Seq[PackageSignature],
+      generatedModules: Set[Reference.Module],
   ): Unit = {
     val allModules: Seq[(String, PackageId)] =
       for {
@@ -163,6 +333,7 @@ object CodeGenRunner extends StrictLogging {
         module <- modules
         maybePrefix = pkgPrefixes.get(interface.packageId)
         prefixedName = maybePrefix.fold(module.toString)(prefix => s"$prefix.$module")
+        if generatedModules.contains(Reference.Module(interface.packageId, module))
       } yield prefixedName -> interface.packageId
     allModules.groupBy(_._1).foreach { case (m, grouped) =>
       if (grouped.length > 1) {
@@ -174,67 +345,21 @@ object CodeGenRunner extends StrictLogging {
     }
   }
 
-  private[CodeGenRunner] def generateCode(
-      interfaces: Seq[Interface],
-      conf: Conf,
-      pkgPrefixes: Map[PackageId, String],
-  )(implicit ec: ExecutionContext): Unit = {
-    logger.info(
-      s"Start processing packageIds '${interfaces.map(_.packageId).mkString(", ")}' in directory '${conf.outputDirectory}'"
-    )
-
-    val prefixes = resolvePackagePrefixes(pkgPrefixes, conf.modulePrefixes, interfaces)
-    detectModuleCollisions(prefixes, interfaces)
-
-    // TODO (mp): pre-processing and escaping
-    val preprocessingFuture: Future[InterfaceTrees] =
-      backend.preprocess(interfaces, conf, prefixes)
-
-    val future: Future[Unit] = {
-      for {
-        preprocessedInterfaceTrees <- preprocessingFuture
-        _ <- Future.traverse(preprocessedInterfaceTrees.interfaceTrees)(
-          processInterfaceTree(_, conf, prefixes)
-        )
-      } yield ()
-    }
-
-    // TODO (mp): make the timeout configurable
-    val _ = Await.result(future, Duration.create(10L, TimeUnit.MINUTES))
-    logger.info(s"Finish processing packageIds ''${interfaces.map(_.packageId).mkString(", ")}''")
-  }
-
-  // TODO (#584): Make Java Codegen Backend configurable
-  private[codegen] val backend: Backend = JavaBackend
-
-  private[CodeGenRunner] def processInterfaceTree(
-      interfaceTree: InterfaceTree,
-      conf: Conf,
-      packagePrefixes: Map[PackageId, String],
-  )(implicit ec: ExecutionContext): Future[Unit] = {
-    logger.info(s"Start processing packageId '${interfaceTree.interface.packageId}'")
-    for {
-      _ <- interfaceTree.process(backend.process(_, conf, packagePrefixes))
-    } yield {
-      logger.info(s"Stop processing packageId '${interfaceTree.interface.packageId}'")
-    }
-  }
-
-  private[CodeGenRunner] def assertInputFileExists(filePath: Path): Unit = {
+  private def assertInputFileExists(filePath: Path): Unit = {
     logger.trace(s"Checking that the file '$filePath' exists")
     if (Files.notExists(filePath)) {
       throw new IllegalArgumentException(s"Input file '$filePath' doesn't exist")
     }
   }
 
-  private[CodeGenRunner] def assertInputFileIsReadable(filePath: Path): Unit = {
+  private def assertInputFileIsReadable(filePath: Path): Unit = {
     logger.trace(s"Checking that the file '$filePath' is readable")
     if (!Files.isReadable(filePath)) {
       throw new IllegalArgumentException(s"Input file '$filePath' is not readable")
     }
   }
 
-  private[CodeGenRunner] def checkAndCreateOutputDir(outputPath: Path): Unit = {
+  private def checkAndCreateOutputDir(outputPath: Path): Unit = {
     val exists = Files.exists(outputPath)
     if (!exists) {
       logger.trace(s"Output directory '$outputPath' does not exists, creating it")

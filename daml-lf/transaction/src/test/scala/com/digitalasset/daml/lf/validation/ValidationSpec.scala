@@ -15,7 +15,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import scala.collection.immutable.HashMap
 
 class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
-  //--[Tweaks]--
+  // --[Tweaks]--
   //
   // A 'Tweak[X]' is a family of (small) modifications to a value of type X.
   //
@@ -41,7 +41,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     }
   }
 
-  //--[types]--
+  // --[types]--
 
   private type Val = V
   private type KWM = Node.KeyWithMaintainers
@@ -49,7 +49,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private type Exe = Node.Exercise
   private type VTX = VersionedTransaction
 
-  //--[samples]--
+  // --[samples]--
 
   private val samBool1 = true
   private val samBool2 = false
@@ -96,9 +96,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       signatories = samParties1,
       stakeholders = samParties2,
       key = key,
-      byInterface = None,
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      //   also vary byInterface
       version = version,
     )
 
@@ -115,9 +112,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       stakeholders = samParties3,
       key = key,
       byKey = samBool1,
-      byInterface = None,
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      //   also vary byInterface
       version = version,
     )
 
@@ -140,6 +134,9 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     } yield Node.Exercise(
       targetCoid = samContractId2,
       templateId = samTemplateId2,
+      // TODO https://github.com/digital-asset/daml/issues/13653
+      //   also vary interfaceId (but this requires an interface choice)
+      interfaceId = None,
       choiceId = samChoiceName1,
       consuming = samBool1,
       actingParties = samParties1,
@@ -151,13 +148,10 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       exerciseResult = exerciseResult,
       key = key,
       byKey = samBool2,
-      byInterface = None,
-      // TODO https://github.com/digital-asset/daml/issues/12051
-      //   also vary byInterface (but this requires an interface choice)
       version = version,
     )
 
-  //--[running tweaks]--
+  // --[running tweaks]--
   // We dont aim for much coverage in the overal TX shape; we limit to either 0 or 1 level of nesting.
 
   private def flatVTXs: Seq[VTX] =
@@ -194,7 +188,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       txB <- tweak.run(txA)
     } yield (txA, txB)
 
-  //--[changes]--
+  // --[changes]--
   // Change functions must never be identity.
 
   private def changeBoolean(x: Boolean) = { !x }
@@ -223,7 +217,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     x + "_XXX"
   }
 
-  //--[predicates]--
+  // --[predicates]--
   // Some tweaks have version dependant significance.
 
   private def versionSinceMinByKey(v: TransactionVersion): Boolean = {
@@ -231,7 +225,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     v >= TransactionVersion.minByKey
   }
 
-  //--[shared sub tweaks]--
+  // --[shared sub tweaks]--
 
   private val tweakPartySet = Tweak[Set[Party]] { case xs =>
     (xs + samPartyX) ::
@@ -251,7 +245,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     List(None, Some(samContractId1), Some(samContractId2)).filter(y => x != y)
   }
 
-  //--[Create node tweaks]--
+  // --[Create node tweaks]--
 
   private val tweakCreateCoid = Tweak.single[Node] { case nc: Node.Create =>
     nc.copy(coid = changeContractId(nc.coid))
@@ -291,7 +285,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakCreateVersion" -> tweakCreateVersion,
     )
 
-  //--[Fetch node tweaks]--
+  // --[Fetch node tweaks]--
 
   private val tweakFetchCoid = Tweak.single[Node] { case nf: Node.Fetch =>
     nf.copy(coid = changeContractId(nf.coid))
@@ -332,7 +326,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakFetchVersion" -> tweakFetchVersion,
     )
 
-  //--[LookupByKey node tweaks]--
+  // --[LookupByKey node tweaks]--
 
   private val tweakLookupTemplateId = Tweak.single[Node] { case nl: Node.LookupByKey =>
     nl.copy(templateId = changeTemplateId(nl.templateId))
@@ -355,7 +349,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakLookupVersion" -> tweakLookupVersion,
     )
 
-  //--[Exercise node tweaks]--
+  // --[Exercise node tweaks]--
 
   private val tweakExerciseTargetCoid = Tweak.single[Node] { case ne: Node.Exercise =>
     ne.copy(targetCoid = changeContractId(ne.targetCoid))
@@ -424,7 +418,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakExerciseVersion" -> tweakExerciseVersion,
     )
 
-  //--[significant tx tweaks]--
+  // --[significant tx tweaks]--
 
   private def tweakTxNodes(tweakNode: Tweak[Node]) = Tweak[VTX] { vtx =>
     // tweak any node in a transaction
@@ -445,7 +439,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       .map { case (name, tw) => (name, tweakTxNodes(tw)) }
   }
 
-  //--[per tweak tests]--
+  // --[per tweak tests]--
 
   "Significant tweaks" - {
     significantTweaks.foreach { case (name, tweak) =>

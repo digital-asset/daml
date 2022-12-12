@@ -7,6 +7,7 @@ import com.daml.ledger.client.binding.{Value, Primitive => P}
 import com.daml.sample._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import shapeless.test.illTyped
 
 class DataTypeIT extends AnyWordSpec with Matchers {
 
@@ -86,4 +87,49 @@ class DataTypeIT extends AnyWordSpec with Matchers {
     }
   }
 
+  "contract IDs" should {
+    @annotation.nowarn("cat=unused&msg=local val sleId in")
+    val sleId: P.ContractId[MyMain.SimpleListExample] = P.ContractId("fakesle")
+    val imId: P.ContractId[MyMain.InterfaceMixer] = P.ContractId("fakeimid")
+    val itmId: P.ContractId[MyMainIface.IfaceFromAnotherMod] = P.ContractId("fakeitmid")
+    val itrmId: P.ContractId[MyMainIfaceRetro.MyMainIfaceRetro] = P.ContractId("fakeitrmid")
+
+    "coerce from template to interface" in {
+      val ifId = imId.toInterface[MyMainIface.IfaceFromAnotherMod]
+      (ifId: MyMainIface.IfaceFromAnotherMod.ContractId) should ===(imId)
+
+      val ifRetroId = imId.toInterface[MyMainIfaceRetro.MyMainIfaceRetro]
+      (ifRetroId: MyMainIfaceRetro.MyMainIfaceRetro.ContractId) should ===(imId)
+
+      illTyped(
+        "sleId.toInterface[MyMainIface.IfaceFromAnotherMod]",
+        "com.daml.sample.MyMain.SimpleListExample is not a template that implements interface com.daml.sample.MyMainIface.IfaceFromAnotherMod",
+      )
+      illTyped(
+        "itmId.toInterface[MyMainIface.IfaceFromAnotherMod]",
+        "value toInterface is not a member of .*ContractId.*IfaceFromAnotherMod.*",
+      )
+    }
+
+    "coerce from interface to template" in {
+      val tpId = itmId.unsafeToTemplate[MyMain.InterfaceMixer]
+      (tpId: MyMain.InterfaceMixer.ContractId) should ===(itmId)
+
+      val tpIdRetro = itrmId.unsafeToTemplate[MyMain.InterfaceMixer]
+      (tpIdRetro: MyMain.InterfaceMixer.ContractId) should ===(itrmId)
+
+      illTyped(
+        "itmId.unsafeToTemplate[MyMain.SimpleListExample]",
+        ".*SimpleListExample is not a template that implements interface .*IfaceFromAnotherMod",
+      )
+      illTyped(
+        "itmId.unsafeToTemplate[MyMainIface.IfaceFromAnotherMod]",
+        ".*IfaceFromAnotherMod is not a template that implements interface .*IfaceFromAnotherMod",
+      )
+      illTyped(
+        "imId.unsafeToTemplate[MyMain.InterfaceMixer]",
+        "value unsafeToTemplate is not a member of .*ContractId.*InterfaceMixer.*",
+      )
+    }
+  }
 }

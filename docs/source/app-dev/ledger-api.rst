@@ -8,12 +8,12 @@ The Ledger API
    :hidden:
 
    services
+   parties-users
    grpc/index
    grpc/error-codes
    grpc/proto-docs
    grpc/daml-to-ledger-api
    daml-lf-translation
-   bindings-java/index
    bindings-x-lang/index
 
 
@@ -55,9 +55,9 @@ You may also want to read the :doc:`protobuf documentation </app-dev/grpc/proto-
 How to Access the Ledger API
 ****************************
 
-You can access the Ledger API via the :doc:`Java Bindings <bindings-java/index>`.
+You can access the Ledger API via the :doc:`Java Bindings <bindings-java/index>` or the :doc:`Python Bindings </app-dev/bindings-python>` (formerly known as DAZL).
 
-If you don't use a language that targets the JVM, you can use gRPC to generate the code to access the Ledger API in
+If you don't use a language that targets the JVM or Python, you can use gRPC to generate the code to access the Ledger API in
 several supported programming languages. :doc:`Further documentation <bindings-x-lang/index>` provides a few
 pointers on how you may want to approach this.
 
@@ -83,7 +83,7 @@ As a user, you don't need to interact with Daml-LF directly. But internally, it'
 
 .. Daml-LF content appears in the package service interactions. It is represented as opaque blobs that require a secondary decoding phase.
 
-When you need to know about Daml-LF
+When You Need to Know About Daml-LF
 ===================================
 
 Daml-LF is only really relevant when you're dealing with the objects you send to or receive from the ledger. If you use any of the provided language bindings for the Ledger API, you don't need to know about Daml-LF at all, because this generates idiomatic representations of Daml for you.

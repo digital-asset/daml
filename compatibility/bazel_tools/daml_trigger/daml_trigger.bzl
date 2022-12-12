@@ -6,6 +6,7 @@ load(
     "client_server_test",
 )
 load("//bazel_tools:versions.bzl", "version_to_name", "versions")
+load("//bazel_tools:testing.bzl", "extra_tags")
 
 def copy_trigger_src(sdk_version):
     # To avoid having to mess with Bazel’s escaping, avoid `$` and backticks.
@@ -128,14 +129,15 @@ def daml_trigger_test(compiler_version, runner_version):
     # 1.16.0 is the first SDK version that uses LF 1.14, which is the earliest version that canton supports
     use_canton = versions.is_at_least("2.0.0", runner_version) and versions.is_at_least("1.16.0", compiler_version)
     use_sandbox_on_x = versions.is_at_least("2.0.0", runner_version) and not use_canton
+    sandbox_on_x_command = ["run-legacy-cli-config"] if versions.is_at_least("2.4.0-snapshot.20220712.10212.0.0bf28176", runner_version) else []
     if use_sandbox_on_x:
         server = "@daml-sdk-{version}//:sandbox-on-x".format(version = runner_version)
-        server_args = ["--participant", "participant-id=sandbox,port=6865"]
+        server_args = sandbox_on_x_command + ["--participant", "participant-id=sandbox,port=6865"]
         server_files = []
         server_files_prefix = ""
     else:
         server = daml_runner
-        server_args = ["sandbox"]
+        server_args = ["sandbox"] + (["--canton-port-file", "_port_file"] if (use_canton) else [])
         server_files = ["$(rootpath {})".format(compiled_dar)]
         server_files_prefix = "--dar=" if use_canton else ""
 
@@ -161,6 +163,17 @@ runner=$$(canonicalize_rlocation $(rootpath {runner}))
 trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
 
 SCRIPTOUTPUT=$$(mktemp -d)
+if [ {wait_for_port_file} -eq 1 ]; then
+      timeout=60
+      while [ ! -e _port_file ]; do
+          if [ "$$timeout" = 0 ]; then
+              echo "Timed out waiting for Canton startup" >&2
+              exit 1
+          fi
+          sleep 1
+          timeout=$$((timeout - 1))
+      done
+fi
 if [ {upload_dar} -eq 1 ] ; then
   $$runner ledger upload-dar \\
     --host localhost \\
@@ -196,6 +209,7 @@ chmod +x $(OUTS)
             dar = compiled_dar,
             runner = daml_runner,
             upload_dar = "1" if use_sandbox_on_x else "0",
+            wait_for_port_file = "1" if use_canton else "0",
         ),
         exec_tools = [
             compiled_dar,
@@ -228,5 +242,5 @@ chmod +x $(OUTS)
         server_args = server_args,
         server_files = server_files,
         server_files_prefix = server_files_prefix,
-        tags = ["exclusive"],
+        tags = extra_tags(compiler_version, runner_version) + ["exclusive"],
     )

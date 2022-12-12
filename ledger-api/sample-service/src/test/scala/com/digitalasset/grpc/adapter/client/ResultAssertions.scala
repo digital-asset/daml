@@ -37,7 +37,7 @@ trait ResultAssertions { self: Matchers =>
 
   protected def everyElementIsDoubled(results: Seq[HelloResponse]): Assertion = {
     results should have length elemCount.toLong
-    //the order does matter
+    // the order does matter
     results.map(_.respInt) shouldEqual elemRange.map(_ * 2)
   }
 

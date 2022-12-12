@@ -46,6 +46,7 @@ export const query: DocumentNode = gql`
         id
         choices {
           name
+          inheritedInterface
         }
         contracts(
           search: $search
@@ -73,6 +74,7 @@ export const query: DocumentNode = gql`
                   id
                   choices {
                     name
+                    inheritedInterface
                   }
                 }
               }

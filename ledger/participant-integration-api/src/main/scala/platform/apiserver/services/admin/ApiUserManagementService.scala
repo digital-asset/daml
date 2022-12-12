@@ -3,33 +3,42 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.nio.charset.StandardCharsets
-import java.util.Base64
-
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.ledger.api.SubmissionIdGenerator
+import com.daml.ledger.api.auth.ClaimSet.Claims
+import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.domain._
-import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserResponse, GetUserResponse}
+import com.daml.ledger.api.v1.admin.user_management_service.{
+  CreateUserResponse,
+  GetUserResponse,
+  UpdateUserRequest,
+  UpdateUserResponse,
+}
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
-import com.daml.platform.apiserver.page_tokens.ListUsersPageTokenPayload
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.page_tokens.ListUsersPageTokenPayload
+import com.daml.platform.apiserver.update
+import com.daml.platform.apiserver.update.UserUpdateMapper
+import com.daml.platform.localstore.api.UserManagementStore
 import com.daml.platform.server.api.validation.FieldValidations
 import com.google.protobuf.InvalidProtocolBufferException
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either._
-import scalaz.syntax.traverse._
 import scalaz.std.list._
+import scalaz.syntax.traverse._
 
+import java.nio.charset.StandardCharsets
+import java.util.Base64
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 private[apiserver] final class ApiUserManagementService(
     userManagementStore: UserManagementStore,
+    identityProviderExists: IdentityProviderExists,
     maxUsersPageSize: Int,
     submissionIdGenerator: SubmissionIdGenerator,
 )(implicit
@@ -41,7 +50,7 @@ private[apiserver] final class ApiUserManagementService(
   import ApiUserManagementService._
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+  private implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   import FieldValidations._
@@ -57,40 +66,180 @@ private[apiserver] final class ApiUserManagementService(
         for {
           pUser <- requirePresence(request.user, "user")
           pUserId <- requireUserId(pUser.id, "id")
+          pMetadata = pUser.metadata.getOrElse(
+            com.daml.ledger.api.v1.admin.object_meta.ObjectMeta()
+          )
+          _ <- requireEmptyString(
+            pMetadata.resourceVersion,
+            "user.metadata.resource_version",
+          )
+          pAnnotations <- verifyMetadataAnnotations(
+            pMetadata.annotations,
+            allowEmptyValues = false,
+            "user.metadata.annotations",
+          )
           pOptPrimaryParty <- optionalString(pUser.primaryParty)(requireParty)
           pRights <- fromProtoRights(request.rights)
-        } yield (User(pUserId, pOptPrimaryParty), pRights)
-      } { case (user, pRights) =>
-        userManagementStore
-          .createUser(
-            user = user,
-            rights = pRights,
+          identityProviderId <- optionalIdentityProviderId(
+            pUser.identityProviderId,
+            "identity_provider_id",
           )
-          .flatMap(handleResult("creating user"))
-          .map(_ => CreateUserResponse(Some(request.user.get)))
+        } yield (
+          User(
+            id = pUserId,
+            primaryParty = pOptPrimaryParty,
+            isDeactivated = pUser.isDeactivated,
+            metadata = ObjectMeta(
+              resourceVersionO = None,
+              annotations = pAnnotations,
+            ),
+            identityProviderId = identityProviderId,
+          ),
+          pRights,
+        )
+      } { case (user, pRights) =>
+        for {
+          _ <- identityProviderExistsOrError(user.identityProviderId)
+          result <- userManagementStore
+            .createUser(
+              user = user,
+              rights = pRights,
+            )
+          createdUser <- handleResult("creating user")(result)
+        } yield CreateUserResponse(Some(toProtoUser(createdUser)))
       }
     }
 
+  override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] = {
+    withSubmissionId { implicit loggingContext =>
+      // Retrieving the authenticated user from the context
+      val authorizedUserIdFO: Future[Option[String]] = resolveAuthenticatedUser()
+      withValidation {
+        for {
+          pUser <- requirePresence(request.user, "user")
+          pUserId <- requireUserId(pUser.id, "user.id")
+          pMetadata = pUser.metadata.getOrElse(
+            com.daml.ledger.api.v1.admin.object_meta.ObjectMeta()
+          )
+          pFieldMask <- requirePresence(request.updateMask, "update_mask")
+          pOptPrimaryParty <- optionalString(pUser.primaryParty)(requireParty)
+          identityProviderId <- optionalIdentityProviderId(
+            pUser.identityProviderId,
+            "identity_provider_id",
+          )
+          pResourceVersion <- optionalString(pMetadata.resourceVersion)(
+            FieldValidations.requireResourceVersion(_, "user.metadata.resource_version")
+          )
+          pAnnotations <- verifyMetadataAnnotations(
+            pMetadata.annotations,
+            allowEmptyValues = true,
+            "user.metadata.annotations",
+          )
+        } yield (
+          User(
+            id = pUserId,
+            primaryParty = pOptPrimaryParty,
+            isDeactivated = pUser.isDeactivated,
+            metadata = ObjectMeta(
+              resourceVersionO = pResourceVersion,
+              annotations = pAnnotations,
+            ),
+            identityProviderId = identityProviderId,
+          ),
+          pFieldMask,
+        )
+      } { case (user, fieldMask) =>
+        // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
+        for {
+          userUpdate <- handleUpdatePathResult(user.id, UserUpdateMapper.toUpdate(user, fieldMask))
+          _ <- identityProviderExistsOrError(user.identityProviderId)
+          authorizedUserIdO <- authorizedUserIdFO
+          _ <-
+            if (
+              authorizedUserIdO
+                .contains(userUpdate.id) && userUpdate.isDeactivatedUpdateO.contains(true)
+            ) {
+              Future.failed(
+                LedgerApiErrors.RequestValidation.InvalidArgument
+                  .Reject(
+                    "Requesting user cannot self-deactivate"
+                  )
+                  .asGrpcError
+              )
+            } else {
+              Future.unit
+            }
+          resp <- userManagementStore
+            .updateUser(userUpdate = userUpdate)
+            .flatMap(handleResult("updating user"))
+            .map { u =>
+              UpdateUserResponse(user = Some(toProtoUser(u)))
+            }
+        } yield resp
+      }
+    }
+  }
+
+  private def resolveAuthenticatedUser(): Future[Option[String]] = {
+    AuthorizationInterceptor
+      .extractClaimSetFromContext()
+      .fold(
+        fa = error =>
+          Future.failed(
+            LedgerApiErrors.InternalError
+              .Generic("Could not extract a claim set from the context", throwableO = Some(error))
+              .asGrpcError
+          ),
+        fb = {
+          case claims: Claims if claims.resolvedFromUser =>
+            Future.successful(claims.applicationId)
+          case claims: Claims if !claims.resolvedFromUser => Future.successful(None)
+          case claimsSet =>
+            Future.failed(
+              LedgerApiErrors.InternalError
+                .Generic(
+                  s"Unexpected claims when trying to resolve the authenticated user: $claimsSet"
+                )
+                .asGrpcError
+            )
+        },
+      )
+  }
+
   override def getUser(request: proto.GetUserRequest): Future[GetUserResponse] =
-    withValidation(
-      requireUserId(request.userId, "user_id")
-    )(userId =>
+    withValidation {
+      for {
+        userId <- requireUserId(request.userId, "user_id")
+        identityProviderId <- optionalIdentityProviderId(
+          request.identityProviderId,
+          "identity_provider_id",
+        )
+      } yield (userId, identityProviderId)
+    } { case (userId, _) =>
+      // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
       userManagementStore
         .getUser(userId)
         .flatMap(handleResult("getting user"))
         .map(u => GetUserResponse(Some(toProtoUser(u))))
-    )
+    }
 
   override def deleteUser(request: proto.DeleteUserRequest): Future[proto.DeleteUserResponse] =
     withSubmissionId { implicit loggingContext =>
-      withValidation(
-        requireUserId(request.userId, "user_id")
-      )(userId =>
+      withValidation {
+        for {
+          userId <- requireUserId(request.userId, "user_id")
+          identityProviderId <- optionalIdentityProviderId(
+            request.identityProviderId,
+            "identity_provider_id",
+          )
+        } yield (userId, identityProviderId)
+      } { case (userId, _) =>
+        // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
         userManagementStore
           .deleteUser(userId)
           .flatMap(handleResult("deleting user"))
           .map(_ => proto.DeleteUserResponse())
-      )
+      }
     }
 
   override def listUsers(request: proto.ListUsersRequest): Future[proto.ListUsersResponse] = {
@@ -104,15 +253,20 @@ private[apiserver] final class ApiUserManagementService(
             .Reject("Max page size must be non-negative")
             .asGrpcError,
         )
+        identityProviderId <- optionalIdentityProviderId(
+          request.identityProviderId,
+          "identity_provider_id",
+        )
         pageSize =
           if (rawPageSize == 0) maxUsersPageSize
           else Math.min(request.pageSize, maxUsersPageSize)
       } yield {
-        (fromExcl, pageSize)
+        (fromExcl, pageSize, identityProviderId)
       }
-    ) { case (fromExcl, pageSize) =>
+    ) { case (fromExcl, pageSize, identityProviderId) =>
+      // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
       userManagementStore
-        .listUsers(fromExcl, pageSize)
+        .listUsers(fromExcl, pageSize, identityProviderId)
         .flatMap(handleResult("listing users"))
         .map { page: UserManagementStore.UsersPage =>
           val protoUsers = page.users.map(toProtoUser)
@@ -131,8 +285,13 @@ private[apiserver] final class ApiUserManagementService(
       for {
         userId <- requireUserId(request.userId, "user_id")
         rights <- fromProtoRights(request.rights)
-      } yield (userId, rights)
-    ) { case (userId, rights) =>
+        identityProviderId <- optionalIdentityProviderId(
+          request.identityProviderId,
+          "identity_provider_id",
+        )
+      } yield (userId, rights, identityProviderId)
+    ) { case (userId, rights, _) =>
+      // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
       userManagementStore
         .grantRights(
           id = userId,
@@ -151,8 +310,13 @@ private[apiserver] final class ApiUserManagementService(
       for {
         userId <- FieldValidations.requireUserId(request.userId, "user_id")
         rights <- fromProtoRights(request.rights)
-      } yield (userId, rights)
-    ) { case (userId, rights) =>
+        identityProviderId <- optionalIdentityProviderId(
+          request.identityProviderId,
+          "identity_provider_id",
+        )
+      } yield (userId, rights, identityProviderId)
+    ) { case (userId, rights, _) =>
+      // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
       userManagementStore
         .revokeRights(
           id = userId,
@@ -167,15 +331,47 @@ private[apiserver] final class ApiUserManagementService(
   override def listUserRights(
       request: proto.ListUserRightsRequest
   ): Future[proto.ListUserRightsResponse] =
-    withValidation(
-      requireUserId(request.userId, "user_id")
-    )(userId =>
+    withValidation {
+      for {
+        userId <- requireUserId(request.userId, "user_id")
+        identityProviderId <- optionalIdentityProviderId(
+          request.identityProviderId,
+          "identity_provider_id",
+        )
+      } yield (userId, identityProviderId)
+    } { case (userId, _) =>
+      // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
       userManagementStore
         .listUserRights(userId)
         .flatMap(handleResult("list user rights"))
         .map(_.view.map(toProtoRight).toList)
         .map(proto.ListUserRightsResponse(_))
-    )
+    }
+
+  private def handleUpdatePathResult[T](userId: Ref.UserId, result: update.Result[T]): Future[T] =
+    result match {
+      case Left(e: update.UpdatePathError) =>
+        Future.failed(
+          LedgerApiErrors.Admin.UserManagement.InvalidUpdateUserRequest
+            .Reject(userId = userId, e.getReason)
+            .asGrpcError
+        )
+      case scala.util.Right(t) =>
+        Future.successful(t)
+    }
+
+  private def identityProviderExistsOrError(id: IdentityProviderId): Future[Unit] =
+    identityProviderExists(id)
+      .flatMap { idpExists =>
+        if (idpExists)
+          Future.successful(())
+        else
+          Future.failed(
+            LedgerApiErrors.RequestValidation.InvalidArgument
+              .Reject(s"Provided identity_provider_id $id has not been found.")
+              .asGrpcError
+          )
+      }
 
   private def handleResult[T](operation: String)(result: UserManagementStore.Result[T]): Future[T] =
     result match {
@@ -199,6 +395,19 @@ private[apiserver] final class ApiUserManagementService(
             .Reject(operation, id: String)
             .asGrpcError
         )
+      case Left(e: UserManagementStore.ConcurrentUserUpdate) =>
+        Future.failed(
+          LedgerApiErrors.Admin.UserManagement.ConcurrentUserUpdateDetected
+            .Reject(userId = e.userId)
+            .asGrpcError
+        )
+
+      case Left(e: UserManagementStore.MaxAnnotationsSizeExceeded) =>
+        Future.failed(
+          LedgerApiErrors.Admin.UserManagement.MaxUserAnnotationsSizeExceeded
+            .Reject(userId = e.userId)
+            .asGrpcError
+        )
 
       case scala.util.Right(t) =>
         Future.successful(t)
@@ -212,6 +421,9 @@ private[apiserver] final class ApiUserManagementService(
   private val fromProtoRight: proto.Right => Either[StatusRuntimeException, UserRight] = {
     case proto.Right(_: proto.Right.Kind.ParticipantAdmin) =>
       Right(UserRight.ParticipantAdmin)
+
+    case proto.Right(_: proto.Right.Kind.IdentityProviderAdmin) =>
+      Right(UserRight.IdentityProviderAdmin)
 
     case proto.Right(proto.Right.Kind.CanActAs(r)) =>
       requireParty(r.party).map(UserRight.CanActAs(_))
@@ -243,13 +455,18 @@ private[apiserver] final class ApiUserManagementService(
 object ApiUserManagementService {
   private def toProtoUser(user: User): proto.User =
     proto.User(
-      id = user.id.toString,
+      id = user.id,
       primaryParty = user.primaryParty.getOrElse(""),
+      isDeactivated = user.isDeactivated,
+      metadata = Some(Utils.toProtoObjectMeta(user.metadata)),
+      identityProviderId = user.identityProviderId.toRequestString,
     )
 
   private val toProtoRight: UserRight => proto.Right = {
     case UserRight.ParticipantAdmin =>
       proto.Right(proto.Right.Kind.ParticipantAdmin(proto.Right.ParticipantAdmin()))
+    case UserRight.IdentityProviderAdmin =>
+      proto.Right(proto.Right.Kind.IdentityProviderAdmin(proto.Right.IdentityProviderAdmin()))
     case UserRight.CanActAs(party) =>
       proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs(party)))
     case UserRight.CanReadAs(party) =>

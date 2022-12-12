@@ -722,7 +722,7 @@ excluded_test_tool_tests = [
         # Sandbox-on-X doesn't use participant-side command deduplication starting with next release,
         # hence older tests will fail to assert it.
         "start": "1.17.0",
-        "end": "1.18.1",
+        "end": "1.18.3",
         "platform_ranges": [
             {
                 "start": "2.0.0-snapshot.20220126.9029.1",
@@ -736,7 +736,7 @@ excluded_test_tool_tests = [
         # Sandbox-on-X doesn't use participant-side command deduplication starting with next release,
         # hence older tests will fail to assert it.
         "start": "1.18.0",
-        "end": "1.18.1",
+        "end": "1.18.3",
         "platform_ranges": [
             {
                 "start": "2.0.0-snapshot.20220126.9029.1",
@@ -815,6 +815,42 @@ excluded_test_tool_tests = [
                 "end": "2.0.0-snapshot.20220201.9108.0.aa2494f1",
                 "exclusions": [
                     "PartyManagementServiceIT:PMRejectionDuplicateHint",
+                ],
+            },
+        ],
+    },
+    {
+        # Fixing childEventId ordering: this test is now checking conformance to ordering, so it needs to be excluded for conformance tests which come after, and for versions which are older
+        "start": "2.2.0-snapshot.20220425.9780.1",
+        "platform_ranges": [
+            {
+                "end": "2.2.0-snapshot.20220425.9780.0.f4d60375",
+                "exclusions": [
+                    "TransactionServiceVisibilityIT:TXTreeChildOrder",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "2.3.0-snapshot.20220606.10031.1",
+        "platform_ranges": [
+            {
+                "end": "2.3.0-snapshot.20220606.10031.0.ce98be86",
+                "exclusions": [
+                    "ExceptionsIT:ExCKRollbackGlobalArchivedCreate",
+                    "ExceptionsIT:ExCKRollbackGlobalArchivedLookup",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "2.3.0-snapshot.20220611.10066.1",
+        "platform_ranges": [
+            {
+                "end": "2.3.0-snapshot.20220611.10066.0.458cfc43",
+                "exclusions": [
+                    "ExceptionsIT:ExRollbackCreate",
+                    "ExceptionsIT:ExRollbackExerciseCreateLookup",
                 ],
             },
         ],
@@ -1071,7 +1107,8 @@ def sdk_platform_test(sdk_version, platform_version):
     sandbox_classic_args = ["sandbox-classic", "--contract-id-seeding=testing-weak"]
 
     sandbox_on_x = "@daml-sdk-{}//:sandbox-on-x".format(platform_version)
-    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--mutable-contract-state-cache"]
+    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--mutable-contract-state-cache", "--enable-user-management=true"]
+    sandbox_on_x_cmd = ["run-legacy-cli-config"] if versions.is_at_least("2.4.0-snapshot.20220712.10212.0.0bf28176", platform_version) else []
 
     json_api_args = ["json-api"]
 
@@ -1124,7 +1161,7 @@ def sdk_platform_test(sdk_version, platform_version):
                     runner = "@//bazel_tools/client_server:runner",
                     runner_args = ["6865"],
                     server = sandbox_on_x,
-                    server_args = ["--participant participant-id=example,port=6865"] + sandbox_on_x_args + extra_sandbox_on_x_args,
+                    server_args = sandbox_on_x_cmd + ["--participant participant-id=example,port=6865"] + sandbox_on_x_args + extra_sandbox_on_x_args,
                     tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
                 )
                 client_server_test(
@@ -1137,7 +1174,7 @@ def sdk_platform_test(sdk_version, platform_version):
                     runner = "@//bazel_tools/client_server:runner",
                     runner_args = ["6865"],
                     server = ":sandbox-with-postgres-{}".format(platform_version),
-                    server_args = [platform_version, "sandbox-on-x", "--participant participant-id=example,port=6865,server-jdbc-url=__jdbcurl__"] + sandbox_on_x_args + extra_sandbox_on_x_args,
+                    server_args = [platform_version, "sandbox-on-x"] + sandbox_on_x_cmd + ["--participant participant-id=example,port=6865,server-jdbc-url=__jdbcurl__"] + sandbox_on_x_args + extra_sandbox_on_x_args,
                     tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
                 ) if is_linux else None
         else:
@@ -1222,7 +1259,7 @@ def sdk_platform_test(sdk_version, platform_version):
         sdk_version = sdk_version,
         daml = daml_assistant,
         sandbox = sandbox_on_x if versions.is_at_least("2.0.0", platform_version) else sandbox,
-        sandbox_args = ["--contract-id-seeding=testing-weak", "--mutable-contract-state-cache", "--participant=participant-id=sandbox,port=0,port-file=__PORTFILE__"] if versions.is_at_least("2.0.0", platform_version) else ["sandbox", "--port=0", "--port-file=__PORTFILE__"],
+        sandbox_args = sandbox_on_x_cmd + ["--contract-id-seeding=testing-weak", "--mutable-contract-state-cache", "--participant=participant-id=sandbox,port=0,port-file=__PORTFILE__"] if versions.is_at_least("2.0.0", platform_version) else ["sandbox", "--port=0", "--port-file=__PORTFILE__"],
         size = "large",
         # We see timeouts here fairly regularly so we
         # increase the number of CPUs.
@@ -1252,5 +1289,5 @@ def sdk_platform_test(sdk_version, platform_version):
             size = "large",
             # Yarn gets really unhappy if it is called in parallel
             # so we mark this exclusive for now.
-            tags = extra_tags(sdk_version, platform_version) + ["exclusive"],
+            tags = extra_tags(sdk_version, platform_version) + ["exclusive", "dont-run-on-darwin"],
         )

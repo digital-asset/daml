@@ -126,7 +126,12 @@ object Client {
                   // Now we have the access_token and potentially the refresh token. At this point,
                   // we would start the trigger.
                   complete(
-                    AccessResponse(tokenResp.accessToken, tokenResp.refreshToken.get): Response
+                    AccessResponse(
+                      tokenResp.accessToken,
+                      tokenResp.refreshToken.getOrElse(
+                        sys.error("/token endpoint failed to return a refresh token")
+                      ),
+                    ): Response
                   )
                 }
               }
@@ -174,7 +179,14 @@ object Client {
             onSuccess(f) { tokenResp =>
               // Now we have the access_token and potentially the refresh token. At this point,
               // we would start the trigger.
-              complete(AccessResponse(tokenResp.accessToken, tokenResp.refreshToken.get): Response)
+              complete(
+                AccessResponse(
+                  tokenResp.accessToken,
+                  tokenResp.refreshToken.getOrElse(
+                    sys.error("/token endpoint failed to return a refresh token")
+                  ),
+                ): Response
+              )
             }
           }
         }

@@ -273,6 +273,7 @@ object LfEngineToApi {
             eventId = eventId.toLedgerString,
             contractId = node.targetCoid.coid,
             templateId = Some(toApiIdentifier(node.templateId)),
+            interfaceId = node.interfaceId.map(toApiIdentifier),
             choice = node.choiceId,
             choiceArgument = Some(arg),
             actingParties = node.actingParties.toSeq,

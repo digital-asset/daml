@@ -18,7 +18,6 @@ import org.junit.runners.Suite;
   OptionalTest.class,
   ParametrizedContractIdTest.class,
   RecordTest.class,
-  SerializableTest.class,
   TemplateMethodTest.class,
   TextMapTest.class,
   VariantTest.class,

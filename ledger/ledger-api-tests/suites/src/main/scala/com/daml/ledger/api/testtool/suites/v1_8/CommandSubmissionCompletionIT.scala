@@ -101,7 +101,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
     val badChoice = "THIS_IS_NOT_A_VALID_CHOICE"
     for {
       dummy <- ledger.create(party, Dummy(party))
-      exercise = dummy.exerciseDummyChoice1(party).command
+      exercise = dummy.exerciseDummyChoice1().command
       wrongExercise = exercise.update(_.exercise.choice := badChoice)
       wrongRequest = ledger.submitRequest(party, wrongExercise)
       failure <- ledger.submit(wrongRequest).mustFail("submitting an invalid choice")

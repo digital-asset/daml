@@ -11,7 +11,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class TransactionTree {
+public final class TransactionTree {
 
   private final String transactionId;
 

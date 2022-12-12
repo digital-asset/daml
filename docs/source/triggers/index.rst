@@ -47,12 +47,12 @@ subtle errors.
 Instead, you should think of, and write, your triggers from the perspective of
 "correcting the current ACS" to match some predefined expectations. Trigger
 rules should be a combination of checking those expectations on the current ACS
-and applyin corrective actions to bring back the ACS in line with its expected
+and applying corrective actions to bring back the ACS in line with its expected
 state.
 
 The "trigger" part is best thought of as an optimization: rather than check the
 ACS constantly, we only apply our rules when something happens that we believe
-_may_ lead to the state of the ledger diverging from our expectations.
+*may* lead to the state of the ledger diverging from our expectations.
 
 Sample Trigger
 ==============
@@ -134,11 +134,13 @@ as well as retrieve the commands in flight with ``getCommandsInFlight``.
 Like ``Scenario`` or ``Update``, you can use ``do`` notation and
 ``getTime`` with ``TriggerA``.
 
-We can specify the templates that our trigger will operate
+We can specify the templates and interfaces that our trigger will operate
 on. In our case, we will simply specify ``AllInDar`` which means that
-the trigger will receive events for all template types defined in the
-DAR. It is also possible to specify an explicit list of templates. For example,
-to specify just the ``Message`` template, one would write:
+the trigger will receive events for all template and interface types defined in the
+DAR.
+
+It is also possible to specify an explicit list of templates and interfaces. For example,
+to only receive events for the ``Message`` template, one would write:
 
 .. code-block:: daml
 
@@ -146,9 +148,16 @@ to specify just the ``Message`` template, one would write:
    registeredTemplates = RegisteredTemplates [registeredTemplate @Message],
    ...
 
-This is mainly useful for performance reasons if your DAR contains many templates that are not relevant for your trigger.
-Note that providing an explicit list of templates also filters the result of querying the ACS using the Trigger API:
-contracts of the excluded templates cannot be queried.
+This is mainly useful for performance reasons if your DAR contains many templates and interfaces that are not relevant
+for your trigger.
+Note that providing an explicit list of templates and interfaces also filters the result of querying the ACS using
+the Trigger API: contracts of the excluded templates and interfaces cannot be queried.
+
+.. note::
+    In these examples we used templates. Note that interfaces can be passed as well
+    wherever a template is passed, using the same `RegisteredTemplates` type. You are
+    free to pass multiple templates and interfaces and possibly mix the two freely in
+    a single request.
 
 Finally, you can specify an optional heartbeat interval at which the trigger
 will be sent a ``MHeartbeat`` message. This is useful if you want to ensure
@@ -157,8 +166,8 @@ not be using heartbeats in this example.
 
 .. _running-a-no-op-trigger:
 
-Running a No-Op Trigger
-=======================
+Run a No-Op Trigger
+===================
 
 To implement a no-op trigger, one could write the following in a separate
 ``daml/ChatBot.daml`` file:
@@ -279,11 +288,11 @@ Let's walk through the ``rule`` code line-by-line:
   party running the trigger (with the current Daml model, it has to be one or
   the other, as messages are only visible to the sender and receiver).
   `when </daml/stdlib/DA-Action.html#function-da-action-when-53144>`_ the
-  expression ``m.receiver == p`` is ``True``, we then our expectations of the
+  expression ``m.receiver == p`` is ``True``, our expectations of the
   ledger state are wrong and we need to correct it. Otherwise, the state
   matches our rule and we don't need to do anything.
 - At this point we know the state is "wrong", per our expectations, and start
-  engaging in correcting actions. For this trigger, this means sendinga message
+  engaging in correcting actions. For this trigger, this means sending a message
   to the sender of the last message. In order to do that, we need to find the
   ``User`` contract for the sender. We start by getting the list of all
   ``User`` contracts we know about, which will be all users who
@@ -293,11 +302,11 @@ Let's walk through the ``rule`` code line-by-line:
   difference is that this time we actually want to keep the contract ids, as
   that is what we'll use to send a message back.
 - We print the list of users we just fetched, as a debug message.
-- We create a function to identify the user we are looking for.
+- We create a function ``isSender`` to identify the user we are looking for.
 - We get the user contract by applying our ``isSender`` function as a
-  `filter </daml/stdlib/Prelude.html#function-da-internal-prelude-filter-27394>`_
+  `filter </daml/stdlib/Prelude.html#function-da-internal-prelude-filter-41317>`_
   on the list of users, and then taking the
-  `head <daml/stdlib/DA-List-Total.html#function-da-list-total-head-74336>`_
+  `head </daml/stdlib/DA-List-Total.html#function-da-list-total-head-26095>`_
   of that list, i.e. its first element.
 - Just like  ``maximumOn``, ``head`` will return an ``Optional a``, so the next
   step is to check whether we have actually found the relevant ``User``
@@ -307,7 +316,7 @@ Let's walk through the ``rule`` code line-by-line:
 - If we did find some ``User`` contract to reply to, we extract the
   corresponding contract id (first element of the tuple, ``sender``) and
   discard the payload (second element, ``_``), and we
-  `exercise <triggers/api/Daml-Trigger.html#function-daml-trigger-dedupexercise-37617>`_
+  `exercise </triggers/api/Daml-Trigger.html#function-daml-trigger-dedupexercise-2238>`_
   the ``SendMessage`` choice, passing in the current party ``p`` as the sender.
   See below for additional information on what that ``dedup`` in the name of the
   command means.
@@ -391,7 +400,7 @@ If you plan to run more than one trigger at a time, or triggers for more than
 one party at a time, you may be interested in the
 :doc:`/tools/trigger-service/index`.
 
-When not to use Daml triggers
+When Not to Use Daml Triggers
 =============================
 
 Daml triggers deliberately only allow you to express automation that

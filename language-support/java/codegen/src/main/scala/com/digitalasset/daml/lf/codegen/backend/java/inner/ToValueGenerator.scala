@@ -6,8 +6,7 @@ package com.daml.lf.codegen.backend.java.inner
 import com.daml.ledger.javaapi
 import com.daml.lf.codegen.backend.java.{JavaEscaper, Types}
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.iface._
+import com.daml.lf.typesig._
 import com.squareup.javapoet._
 import javax.lang.model.element.Modifier
 
@@ -32,10 +31,9 @@ object ToValueGenerator {
   def generateToValueForRecordLike(
       typeParams: IndexedSeq[String],
       fields: Fields,
-      packagePrefixes: Map[PackageId, String],
       returnType: TypeName,
       returnStatement: String => CodeBlock,
-  ): MethodSpec = {
+  )(implicit packagePrefixes: PackagePrefixes): MethodSpec = {
     val arrayOfFields =
       ParameterizedTypeName.get(
         classOf[java.util.ArrayList[_]],
@@ -65,7 +63,6 @@ object ToValueGenerator {
           damlType,
           CodeBlock.of("this.$L", javaName),
           newNameGenerator,
-          packagePrefixes,
         ),
       )
     }
@@ -73,18 +70,15 @@ object ToValueGenerator {
     toValueMethod.build()
   }
 
-  def generateToValueConverter(
-      damlType: Type,
-      accessor: CodeBlock,
-      args: Iterator[String],
-      packagePrefixes: Map[PackageId, String],
+  def generateToValueConverter(damlType: Type, accessor: CodeBlock, args: Iterator[String])(implicit
+      packagePrefixes: PackagePrefixes
   ): CodeBlock = {
     damlType match {
       case TypeVar(tvName) =>
         CodeBlock.of("toValue$L.apply($L)", JavaEscaper.escapeString(tvName), accessor)
-      case TypeNumeric(_) |
-          TypePrim(PrimTypeBool | PrimTypeInt64 | PrimTypeText | PrimTypeParty, _) =>
+      case TypeNumeric(_) | TypePrim(PrimTypeInt64 | PrimTypeText | PrimTypeParty, _) =>
         CodeBlock.of("new $T($L)", toAPITypeName(damlType), accessor)
+      case TypePrim(PrimTypeBool, _) => CodeBlock.of("$T.of($L)", toAPITypeName(damlType), accessor)
       case TypePrim(PrimTypeTimestamp, _) =>
         CodeBlock.of("$T.fromInstant($L)", toAPITypeName(damlType), accessor)
       case TypePrim(PrimTypeDate, _) =>
@@ -96,7 +90,7 @@ object ToValueGenerator {
         val extractor = CodeBlock.of(
           "$L -> $L",
           arg,
-          generateToValueConverter(param, CodeBlock.of("$L", arg), args, packagePrefixes),
+          generateToValueConverter(param, CodeBlock.of("$L", arg), args),
         )
         CodeBlock.of(
           "$L.stream().collect($T.toDamlList($L))",
@@ -108,7 +102,7 @@ object ToValueGenerator {
       case TypePrim(PrimTypeOptional, ImmArraySeq(param)) =>
         val arg = args.next()
         val wrapped =
-          generateToValueConverter(param, CodeBlock.of("$L", arg), args, packagePrefixes)
+          generateToValueConverter(param, CodeBlock.of("$L", arg), args)
         val extractor = CodeBlock.of("$L -> $L", arg, wrapped)
         CodeBlock.of(
           "$T.of($L.map($L))",
@@ -122,10 +116,10 @@ object ToValueGenerator {
         val extractor = CodeBlock.of(
           "$L -> $L",
           arg,
-          generateToValueConverter(param, CodeBlock.of("$L.getValue()", arg), args, packagePrefixes),
+          generateToValueConverter(param, CodeBlock.of("$L.getValue()", arg), args),
         )
         CodeBlock.of(
-          "$L.entrySet().stream().collect($T.toDamlTextMap($T::getKey, $L)) ",
+          "$L.entrySet()$Z.stream()$Z.collect($T.toDamlTextMap($T::getKey, $L))$W",
           accessor,
           apiCollectors,
           classOf[java.util.Map.Entry[_, _]],
@@ -137,7 +131,7 @@ object ToValueGenerator {
         val keyExtractor = CodeBlock.of(
           "$L -> $L",
           arg,
-          generateToValueConverter(keyType, CodeBlock.of("$L.getKey()", arg), args, packagePrefixes),
+          generateToValueConverter(keyType, CodeBlock.of("$L.getKey()", arg), args),
         )
         val valueExtractor = CodeBlock.of(
           "$L -> $L",
@@ -146,11 +140,10 @@ object ToValueGenerator {
             valueType,
             CodeBlock.of("$L.getValue()", arg),
             args,
-            packagePrefixes,
           ),
         )
         CodeBlock.of(
-          "$L.entrySet().stream().collect($T.toDamlGenMap($L, $L))",
+          "$L.entrySet()$Z.stream()$Z.collect($T.toDamlGenMap($L, $L))",
           accessor,
           apiCollectors,
           keyExtractor,
@@ -163,14 +156,14 @@ object ToValueGenerator {
       case TypeCon(_, typeParameters) =>
         val extractorParams = typeParameters.map { ta =>
           val arg = args.next()
-          val wrapped = generateToValueConverter(ta, CodeBlock.of("$L", arg), args, packagePrefixes)
+          val wrapped = generateToValueConverter(ta, CodeBlock.of("$L", arg), args)
           val extractor = CodeBlock.of("$L -> $L", arg, wrapped)
           extractor
         }
         CodeBlock.of(
           "$L.toValue($L)",
           accessor,
-          CodeBlock.join(extractorParams.asJava, ","),
+          CodeBlock.join(extractorParams.asJava, ",$W"),
         )
       case ty => throw new IllegalArgumentException(s"Invalid Daml datatype: $ty")
     }

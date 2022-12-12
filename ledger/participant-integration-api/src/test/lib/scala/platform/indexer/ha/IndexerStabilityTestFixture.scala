@@ -3,6 +3,8 @@
 
 package com.daml.platform.indexer.ha
 
+import java.util.concurrent.Executors
+
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.ReportsHealth
@@ -10,10 +12,12 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
-import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.LedgerApiServer
+import com.daml.platform.configuration.IndexServiceConfig
+import com.daml.platform.indexer.{IndexerConfig, IndexerServiceOwner, IndexerStartupMode}
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
+import io.opentelemetry.api.GlobalOpenTelemetry
 
-import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 
 /** Stores a running indexer and the read service the indexer is reading from.
@@ -59,16 +63,15 @@ object IndexerStabilityTestFixture {
       lockIdSeed: Int,
   )(implicit resourceContext: ResourceContext, materializer: Materializer): Resource[Indexers] = {
     val indexerConfig = IndexerConfig(
-      participantId = EndlessReadService.participantId,
-      jdbcUrl = jdbcUrl,
-      startupMode = IndexerStartupMode.MigrateAndStart,
-      haConfig = HaConfig(
+      startupMode = IndexerStartupMode.MigrateAndStart(),
+      highAvailability = HaConfig(
         indexerLockId = lockIdSeed,
         indexerWorkerLockId = lockIdSeed + 1,
       ),
     )
 
     newLoggingContext { implicit loggingContext =>
+      val participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl)
       for {
         // This execution context is not used for indexing in the append-only schema, it can be shared
         servicesExecutionContext <- ResourceOwner
@@ -92,14 +95,29 @@ object IndexerStabilityTestFixture {
                       }
                     )
                     .acquire()
-                  metricRegistry = new MetricRegistry
-                  metrics = new Metrics(metricRegistry)
+                  // create a new MetricRegistry for each indexer, so they don't step on each other toes:
+                  // Gauges can only be registered once. A subsequent attempt results in an exception for the
+                  // call MetricRegistry#register or MetricRegistry#registerGauge
+                  metrics = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
+                  (inMemoryState, inMemoryStateUpdaterFlow) <-
+                    LedgerApiServer
+                      .createInMemoryStateAndUpdater(
+                        IndexServiceConfig(),
+                        metrics,
+                        servicesExecutionContext,
+                      )
+                      .acquire()
+
                   // Create an indexer and immediately start it
-                  indexing <- new StandaloneIndexerServer(
+                  indexing <- new IndexerServiceOwner(
+                    participantId = EndlessReadService.participantId,
+                    participantDataSourceConfig = participantDataSourceConfig,
                     readService = readService,
                     config = indexerConfig,
                     metrics = metrics,
-                    lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+                    inMemoryState = inMemoryState,
+                    inMemoryStateUpdaterFlow = inMemoryStateUpdaterFlow,
+                    executionContext = servicesExecutionContext,
                   ).acquire()
                 } yield ReadServiceAndIndexer(readService, indexing)
               )

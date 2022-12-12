@@ -28,8 +28,14 @@ if [ -n "$SANDBOX_PID" ]; then
     echo $SANDBOX_PID | xargs kill
 fi
 
+if [ "${1:-}" = "_m1" ]; then
+    bazel="arch -arm64 bazel"
+else
+    bazel=bazel
+fi
+
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
-bazel build //... \
+$bazel build //... \
   --build_tag_filters "$tag_filter" \
   --profile build-profile.json \
   --experimental_profile_include_target_label \
@@ -68,7 +74,7 @@ stop_postgresql # in case it's running from a previous build
 start_postgresql
 
 # Run the tests.
-bazel test //... \
+$bazel test //... \
   --build_tag_filters "$tag_filter" \
   --test_tag_filters "$tag_filter" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
@@ -82,7 +88,7 @@ bazel test //... \
   --experimental_execution_log_file "$ARTIFACT_DIRS/logs/test_execution${execution_log_postfix}.log"
 
 # Make sure that Bazel query works.
-bazel query 'deps(//...)' >/dev/null
+$bazel query 'deps(//...)' >/dev/null
 
 # Check that we can load damlc in ghci
 # Disabled on darwin since it sometimes seem to hang and this only
@@ -91,8 +97,8 @@ if [[ "$(uname)" != "Darwin" ]]; then
   da-ghci --data yes //compiler/damlc:damlc -e ':main --help'
 fi
 
-# Test that ghcide at least builds starts, we don’t run it since it
+# Test that hls at least builds, we don’t run it since it
 # adds 2-5 minutes to each CI run with relatively little benefit. If
 # you want to test it manually on upgrades, run
-# ghcide compiler/damlc/exe/Main.hs.
-ghcide --help
+# da-hls compiler/damlc/exe/Main.hs.
+da-hls --help

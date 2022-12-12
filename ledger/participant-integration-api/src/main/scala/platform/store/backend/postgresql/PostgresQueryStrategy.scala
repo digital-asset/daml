@@ -24,6 +24,10 @@ object PostgresQueryStrategy extends QueryStrategy {
 
   override def isTrue(booleanColumnName: String): String = booleanColumnName
 
+  override def constBooleanSelect(value: Boolean): String = if (value) "true" else "false"
+
+  override def constBooleanWhere(value: Boolean): String = if (value) "true" else "false"
+
   override def anyOf(longs: Iterable[Long]): CompositeSql = {
     val longArray: Array[java.lang.Long] =
       longs.view.map(Long.box).toArray

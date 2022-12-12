@@ -8,21 +8,26 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
-import com.daml.lf.engine.{Engine, ValueEnricher}
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDao, SequentialWriteDao}
-import com.daml.platform.store.appendonlydao.events.CompressionStrategy
+import com.daml.platform.configuration.{
+  ServerRole,
+  TransactionsFlatStreamReaderConfig,
+  TransactionsTreeStreamReaderConfig,
+}
+import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
+import com.daml.platform.store.dao.events.CompressionStrategy
 import com.daml.platform.store.interning.StringInterningView
-import com.daml.platform.store.{DbSupport, DbType, LfValueTranslationCache}
+import com.daml.platform.store.{DbSupport, DbType}
+import io.opentelemetry.api.GlobalOpenTelemetry
 import org.scalatest.AsyncTestSuite
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
 object JdbcLedgerDaoBackend {
@@ -52,27 +57,29 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
-      acsIdQueueLimit: Int,
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
     val dbType = DbType.jdbcType(jdbcUrl)
     val storageBackendFactory = StorageBackendFactory.of(dbType)
     DbSupport
       .migratedOwner(
-        jdbcUrl = jdbcUrl,
         serverRole = ServerRole.Testing(getClass),
-        connectionPoolSize = dbType.maxSupportedWriteConnections(16),
-        connectionTimeout = 250.millis,
         metrics = metrics,
+        dbConfig = DbConfig(
+          jdbcUrl,
+          connectionPool = ConnectionPoolConfig(
+            connectionPoolSize = dbType.maxSupportedWriteConnections(16),
+            connectionTimeout = 250.millis,
+          ),
+        ),
       )
       .map { dbSupport =>
         JdbcLedgerDao.write(
           dbSupport = dbSupport,
           sequentialWriteDao = SequentialWriteDao(
             participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
-            lfValueTranslationCache = LfValueTranslationCache.Cache.none,
             metrics = metrics,
             compressionStrategy = CompressionStrategy.none(metrics),
             ledgerEndCache = ledgerEndCache,
@@ -83,18 +90,22 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           eventsPageSize = eventsPageSize,
           eventsProcessingParallelism = eventsProcessingParallelism,
           acsIdPageSize = acsIdPageSize,
+          acsIdPageBufferSize = 1,
+          acsIdPageWorkingMemoryBytes = 100 * 1024 * 1024,
           acsIdFetchingParallelism = acsIdFetchingParallelism,
           acsContractFetchingParallelism = acsContractFetchingParallelism,
           acsGlobalParallelism = acsGlobalParallelism,
-          acsIdQueueLimit = acsIdQueueLimit,
           servicesExecutionContext = executionContext,
           metrics = metrics,
-          lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-          enricher = Some(new ValueEnricher(new Engine())),
+          engine = Some(new Engine()),
           participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
           ledgerEndCache = ledgerEndCache,
           stringInterning = stringInterningView,
-          materializer = materializer,
+          completionsMaxPayloadsPerPayloadsPage = 1000,
+          transactionsFlatStreamReaderConfig = TransactionsFlatStreamReaderConfig.default,
+          transactionsTreeStreamReaderConfig = TransactionsTreeStreamReaderConfig.default,
+          globalMaxEventIdQueries = 20,
+          globalMaxEventPayloadQueries = 10,
         )
       }
   }
@@ -111,17 +122,16 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     // We use the dispatcher here because the default Scalatest execution context is too slow.
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     ledgerEndCache = MutableLedgerEndCache()
-    stringInterningView = new StringInterningView((_, _) => _ => Future.successful(Nil))
+    stringInterningView = new StringInterningView()
     resource = newLoggingContext { implicit loggingContext =>
       for {
         dao <- daoOwner(
-          eventsPageSize = 100,
+          eventsPageSize = 4,
           eventsProcessingParallelism = 4,
-          acsIdPageSize = 2000,
+          acsIdPageSize = 4,
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
-          acsIdQueueLimit = 1000000,
         ).acquire()
         _ <- Resource.fromFuture(dao.initialize(TestLedgerId, TestParticipantId))
         initialLedgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())

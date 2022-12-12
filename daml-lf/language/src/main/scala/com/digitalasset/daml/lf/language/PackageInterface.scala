@@ -4,6 +4,7 @@
 package com.daml.lf
 package language
 
+import com.daml.lf.data.TemplateOrInterface
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 
@@ -15,7 +16,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       pkgId: PackageId,
       context: => Reference,
   ): Either[LookupError, PackageSignature] =
-    signatures.lift(pkgId).toRight(LookupError(Reference.Package(pkgId), context))
+    signatures.lift(pkgId).toRight(LookupError.NotFound(Reference.Package(pkgId), context))
 
   def lookupPackage(pkgId: PackageId): Either[LookupError, PackageSignature] =
     lookupPackage(pkgId, Reference.Package(pkgId))
@@ -26,7 +27,9 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       context: => Reference,
   ): Either[LookupError, ModuleSignature] =
     lookupPackage(pkgId, context).flatMap(
-      _.modules.get(modName).toRight(LookupError(Reference.Module(pkgId, modName), context))
+      _.modules
+        .get(modName)
+        .toRight(LookupError.NotFound(Reference.Module(pkgId, modName), context))
     )
 
   def lookupModule(pkgId: PackageId, modName: ModuleName): Either[LookupError, ModuleSignature] =
@@ -39,7 +42,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     lookupModule(name.packageId, name.qualifiedName.module, context).flatMap(
       _.definitions
         .get(name.qualifiedName.name)
-        .toRight(LookupError(Reference.Definition(name), context))
+        .toRight(LookupError.NotFound(Reference.Definition(name), context))
     )
 
   def lookupDefinition(name: TypeConName): Either[LookupError, DefinitionSignature] =
@@ -53,7 +56,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   ): Either[LookupError, DTypeSyn] =
     lookupDefinition(name, context).flatMap {
       case typeSyn: DTypeSyn => Right(typeSyn)
-      case _ => Left(LookupError(Reference.TypeSyn(name), context))
+      case _ => Left(LookupError.NotFound(Reference.TypeSyn(name), context))
     }
 
   def lookupTypeSyn(name: TypeSynName): Either[LookupError, DTypeSyn] =
@@ -67,7 +70,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   ): Either[LookupError, DDataType] =
     lookupDefinition(name, context).flatMap {
       case dataType: DDataType => Right(dataType)
-      case _ => Left(LookupError(Reference.DataType(name), context))
+      case _ => Left(LookupError.NotFound(Reference.DataType(name), context))
     }
 
   def lookupDataType(name: TypeConName): Either[LookupError, DDataType] =
@@ -80,7 +83,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     lookupDataType(tyCon, context).flatMap { dataType =>
       dataType.cons match {
         case record: DataRecord => Right(DataRecordInfo(dataType, record))
-        case _ => Left(LookupError(Reference.DataRecord(tyCon), context))
+        case _ => Left(LookupError.NotFound(Reference.DataRecord(tyCon), context))
       }
     }
 
@@ -95,7 +98,8 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     lookupDataRecord(tyCon, context).flatMap { recordDataInfo =>
       recordDataInfo.dataRecord.fieldInfo.get(fieldName) match {
         case Some((typ, index)) => Right(RecordFieldInfo(recordDataInfo, typ, index))
-        case None => Left(LookupError(Reference.DataRecordField(tyCon, fieldName), context))
+        case None =>
+          Left(LookupError.NotFound(Reference.DataRecordField(tyCon, fieldName), context))
       }
     }
 
@@ -112,7 +116,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     lookupDataType(tyCon, context).flatMap(dataType =>
       dataType.cons match {
         case cons: DataVariant => Right(DataVariantInfo(dataType, cons))
-        case _ => Left(LookupError(Reference.DataVariant(tyCon), context))
+        case _ => Left(LookupError.NotFound(Reference.DataVariant(tyCon), context))
       }
     )
 
@@ -127,7 +131,8 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     lookupDataVariant(tyCon, context).flatMap(variantInfo =>
       variantInfo.dataVariant.constructorInfo.get(consName) match {
         case Some((typ, rank)) => Right(VariantConstructorInfo(variantInfo, typ, rank))
-        case None => Left(LookupError(Reference.DataVariantConstructor(tyCon, consName), context))
+        case None =>
+          Left(LookupError.NotFound(Reference.DataVariantConstructor(tyCon, consName), context))
       }
     )
 
@@ -144,7 +149,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     lookupDataType(tyCon, context).flatMap { dataType =>
       dataType.cons match {
         case cons: DataEnum => Right(DataEnumInfo(dataType, cons))
-        case _ => Left(LookupError(Reference.DataEnum(tyCon), context))
+        case _ => Left(LookupError.NotFound(Reference.DataEnum(tyCon), context))
       }
     }
 
@@ -159,7 +164,8 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     lookupDataEnum(tyCon, context).flatMap { dataEnumInfo =>
       dataEnumInfo.dataEnum.constructorRank.get(consName) match {
         case Some(rank) => Right(rank)
-        case None => Left(LookupError(Reference.DataVariantConstructor(tyCon, consName), context))
+        case None =>
+          Left(LookupError.NotFound(Reference.DataVariantConstructor(tyCon, consName), context))
       }
     }
 
@@ -173,7 +179,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     lookupModule(name.packageId, name.qualifiedName.module, context).flatMap(
       _.templates
         .get(name.qualifiedName.name)
-        .toRight(LookupError(Reference.Template(name), context))
+        .toRight(LookupError.NotFound(Reference.Template(name), context))
     )
 
   def lookupTemplate(name: TypeConName): Either[LookupError, TemplateSignature] =
@@ -186,7 +192,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     lookupModule(name.packageId, name.qualifiedName.module, context).flatMap(
       _.interfaces
         .get(name.qualifiedName.name)
-        .toRight(LookupError(Reference.Interface(name), context))
+        .toRight(LookupError.NotFound(Reference.Interface(name), context))
     )
 
   def lookupInterface(name: TypeConName): Either[LookupError, DefInterfaceSignature] =
@@ -204,7 +210,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     lookupTemplate(tmpName, context).flatMap(template =>
       template.choices
         .get(chName)
-        .toRight(LookupError(Reference.TemplateChoice(tmpName, chName), context))
+        .toRight(LookupError.NotFound(Reference.TemplateChoice(tmpName, chName), context))
     )
 
   /** Look up a template's own choice. Does not return choices inherited via interfaces. */
@@ -214,22 +220,54 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   ): Either[LookupError, TemplateChoiceSignature] =
     lookupTemplateChoice(tmpName, chName, Reference.TemplateChoice(tmpName, chName))
 
-  private[this] def lookupTemplateImplements(
-      tmpName: TypeConName,
-      ifaceName: TypeConName,
-      context: => Reference,
-  ): Either[LookupError, TemplateImplementsSignature] =
-    lookupTemplate(tmpName, context).flatMap(
-      _.implements
-        .get(ifaceName)
-        .toRight(LookupError(Reference.TemplateImplements(tmpName, ifaceName), context))
-    )
+  private[lf] def lookupChoice(
+      templateId: TypeConName,
+      mbInterfaceId: Option[TypeConName],
+      chName: ChoiceName,
+  ): Either[LookupError, TemplateChoiceSignature] =
+    mbInterfaceId match {
+      case None => lookupTemplateChoice(templateId, chName)
+      case Some(ifaceId) => lookupInterfaceChoice(ifaceId, chName)
+    }
 
-  def lookupTemplateImplements(
-      tmpName: TypeConName,
-      ifaceName: TypeConName,
-  ): Either[LookupError, TemplateImplementsSignature] =
-    lookupTemplateImplements(tmpName, ifaceName, Reference.TemplateImplements(tmpName, ifaceName))
+  private[this] def lookupInterfaceInstance(
+      interfaceName: TypeConName,
+      templateName: TypeConName,
+      context: => Reference,
+  ): Either[
+    LookupError,
+    PackageInterface.InterfaceInstanceInfo,
+  ] = {
+    val ref = Reference.InterfaceInstance(interfaceName, templateName)
+    for {
+      interface <- lookupInterface(interfaceName, context)
+      template <- lookupTemplate(templateName, context)
+      onInterface = interface.coImplements.get(templateName)
+      onTemplate = template.implements.get(interfaceName)
+      ok = { tOrI: TemplateOrInterface[Unit, Unit] =>
+        PackageInterface.InterfaceInstanceInfo(tOrI, interfaceName, templateName, interface)
+      }
+      r <- (onInterface, onTemplate) match {
+        case (Some(_), None) => Right(ok(TemplateOrInterface.Interface(())))
+        case (None, Some(_)) => Right(ok(TemplateOrInterface.Template(())))
+        case (None, None) => Left(LookupError.NotFound(ref, context))
+        case (Some(_), Some(_)) => Left(LookupError.AmbiguousInterfaceInstance(ref, context))
+      }
+    } yield r
+  }
+
+  def lookupInterfaceInstance(
+      interfaceName: TypeConName,
+      templateName: TypeConName,
+  ): Either[
+    LookupError,
+    PackageInterface.InterfaceInstanceInfo,
+  ] =
+    lookupInterfaceInstance(
+      interfaceName,
+      templateName,
+      Reference.InterfaceInstance(interfaceName, templateName),
+    )
 
   private[this] def lookupInterfaceChoice(
       ifaceName: TypeConName,
@@ -237,9 +275,9 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       context: => Reference,
   ): Either[LookupError, TemplateChoiceSignature] =
     lookupInterface(ifaceName, context).flatMap(
-      _.fixedChoices
+      _.choices
         .get(chName)
-        .toRight(LookupError(Reference.TemplateChoice(ifaceName, chName), context))
+        .toRight(LookupError.NotFound(Reference.TemplateChoice(ifaceName, chName), context))
     )
 
   def lookupInterfaceChoice(
@@ -248,83 +286,25 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   ): Either[LookupError, TemplateChoiceSignature] =
     lookupInterfaceChoice(ifaceName, chName, Reference.InterfaceChoice(ifaceName, chName))
 
-  /* Looks up a choice inherited by a template through a specific interface.
-   * Fails if the template does not implement the interface, and/or the choice is not defined in this interface. */
-  private[lf] def lookupInheritedChoice(
-      ifaceName: TypeConName,
-      tmpName: TypeConName,
-      chName: ChoiceName,
-      context: => Reference,
-  ): Either[LookupError, TemplateChoiceSignature] =
-    lookupTemplate(tmpName, context).flatMap(template =>
-      template.inheritedChoices.get(chName) match {
-        case Some(gotIfaceName) if gotIfaceName == ifaceName =>
-          lookupInterfaceChoice(ifaceName, chName, context)
-        case _ =>
-          Left(LookupError(Reference.InheritedChoice(ifaceName, tmpName, chName), context))
-      }
-    )
-
-  private[lf] def lookupInheritedChoice(
-      ifaceName: TypeConName,
-      tmpName: TypeConName,
-      chName: ChoiceName,
-  ): Either[LookupError, TemplateChoiceSignature] =
-    lookupInheritedChoice(
-      ifaceName,
-      tmpName,
-      chName,
-      Reference.InheritedChoice(ifaceName, tmpName, chName),
-    )
-
   private[lf] def lookupTemplateOrInterface(
       identier: TypeConName,
       context: => Reference,
-  ): Either[LookupError, Either[TemplateSignature, DefInterfaceSignature]] =
+  ): Either[LookupError, TemplateOrInterface[TemplateSignature, DefInterfaceSignature]] =
     lookupModule(identier.packageId, identier.qualifiedName.module, context).flatMap(mod =>
       mod.templates.get(identier.qualifiedName.name) match {
-        case Some(template) => Right(Left(template))
+        case Some(template) => Right(TemplateOrInterface.Template(template))
         case None =>
           mod.interfaces.get(identier.qualifiedName.name) match {
-            case Some(interface) => Right(Right(interface))
+            case Some(interface) => Right(TemplateOrInterface.Interface(interface))
             case None =>
-              Left(LookupError(Reference.TemplateOrInterface(identier), context))
+              Left(LookupError.NotFound(Reference.TemplateOrInterface(identier), context))
           }
       }
     )
 
-  import PackageInterface.ChoiceInfo
-
-  private[lf] def lookupChoice(
-      identifier: TypeConName,
-      chName: ChoiceName,
-  ): Either[LookupError, ChoiceInfo] = {
-    lazy val context = Reference.Choice(identifier, chName)
-    lookupTemplateOrInterface(identifier, context).flatMap {
-      case Left(template) =>
-        template.choices.get(chName) match {
-          case Some(choice) => Right(ChoiceInfo.Template(choice))
-          case None =>
-            template.inheritedChoices.get(chName) match {
-              case Some(ifaceId) =>
-                lookupInterfaceChoice(ifaceId, chName, context).map(
-                  ChoiceInfo.Inherited(ifaceId, _)
-                )
-              case None =>
-                Left(LookupError(context, context))
-            }
-        }
-      case Right(interface) =>
-        interface.fixedChoices.get(chName) match {
-          case Some(choice) => Right(ChoiceInfo.Interface(choice))
-          case None => Left(LookupError(context, context))
-        }
-    }
-  }
-
   def lookupTemplateOrInterface(
       name: TypeConName
-  ): Either[LookupError, Either[TemplateSignature, DefInterfaceSignature]] =
+  ): Either[LookupError, TemplateOrInterface[TemplateSignature, DefInterfaceSignature]] =
     lookupTemplateOrInterface(name, Reference.TemplateOrInterface(name))
 
   private[this] def lookupInterfaceMethod(
@@ -335,7 +315,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     lookupInterface(ifaceName, context).flatMap(
       _.methods
         .get(methodName)
-        .toRight(LookupError(Reference.Method(ifaceName, methodName), context))
+        .toRight(LookupError.NotFound(Reference.Method(ifaceName, methodName), context))
     )
 
   def lookupInterfaceMethod(
@@ -349,7 +329,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       context: => Reference,
   ): Either[LookupError, TemplateKeySignature] =
     lookupTemplate(name, context).flatMap(
-      _.key.toRight(LookupError(Reference.TemplateKey(name), context))
+      _.key.toRight(LookupError.NotFound(Reference.TemplateKey(name), context))
     )
 
   def lookupTemplateKey(name: TypeConName): Either[LookupError, TemplateKeySignature] =
@@ -361,7 +341,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   ): Either[LookupError, DValueSignature] =
     lookupDefinition(name, context).flatMap {
       case valueDef: DValueSignature => Right(valueDef)
-      case _ => Left(LookupError(Reference.Value(name), context))
+      case _ => Left(LookupError.NotFound(Reference.Value(name), context))
     }
 
   def lookupValue(name: ValueRef): Either[LookupError, DValueSignature] =
@@ -374,7 +354,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     lookupModule(name.packageId, name.qualifiedName.module, context).flatMap(
       _.exceptions
         .get(name.qualifiedName.name)
-        .toRight(LookupError(Reference.Exception(name), context))
+        .toRight(LookupError.NotFound(Reference.Exception(name), context))
     )
 
   def lookupException(name: TypeConName): Either[LookupError, DefExceptionSignature] =
@@ -442,13 +422,29 @@ object PackageInterface {
 
   object ChoiceInfo {
 
-    final case class Interface(choice: TemplateChoiceSignature) extends ChoiceInfo
-
     final case class Template(choice: TemplateChoiceSignature) extends ChoiceInfo
 
-    final case class Inherited(ifaceId: Identifier, choice: TemplateChoiceSignature)
+    final case class Inherited(ifaceId: TypeConName, choice: TemplateChoiceSignature)
         extends ChoiceInfo
 
   }
 
+  final case class InterfaceInstanceInfo(
+      val parentTemplateOrInterface: TemplateOrInterface[Unit, Unit],
+      val interfaceId: TypeConName,
+      val templateId: TypeConName,
+      val interfaceSignature: DefInterfaceSignature,
+  ) {
+    val parent: TemplateOrInterface[TypeConName, TypeConName] =
+      parentTemplateOrInterface match {
+        case TemplateOrInterface.Template(_) => TemplateOrInterface.Template(templateId)
+        case TemplateOrInterface.Interface(_) => TemplateOrInterface.Interface(interfaceId)
+      }
+
+    val ref: Reference =
+      Reference.ConcreteInterfaceInstance(
+        parentTemplateOrInterface,
+        Reference.InterfaceInstance(interfaceId, templateId),
+      )
+  }
 }

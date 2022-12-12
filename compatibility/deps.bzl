@@ -71,9 +71,15 @@ def daml_deps():
         )
 
     if "io_tweag_rules_nixpkgs" not in native.existing_rules():
+        # N.B. rules_nixpkgs was split into separate components, which need to be loaded separately
+        #
+        # See https://github.com/tweag/rules_nixpkgs/issues/182 for the rational
+
+        strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version
+
         http_archive(
             name = "io_tweag_rules_nixpkgs",
-            strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version,
+            strip_prefix = strip_prefix,
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
             patches = [
@@ -82,6 +88,26 @@ def daml_deps():
             ],
             patch_args = ["-p1"],
         )
+
+        http_archive(
+            name = "rules_nixpkgs_core",
+            strip_prefix = strip_prefix + "/core",
+            urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
+            sha256 = rules_nixpkgs_sha256,
+            patches = [
+                p.replace("@com_github_digital_asset_daml", "@daml")
+                for p in rules_nixpkgs_patches
+            ],
+            patch_args = ["-p2"],
+        )
+
+        for toolchain in ["cc", "java", "python", "go", "rust", "posix"]:
+            http_archive(
+                name = "rules_nixpkgs_" + toolchain,
+                strip_prefix = strip_prefix + "/toolchains/" + toolchain,
+                urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
+                sha256 = rules_nixpkgs_sha256,
+            )
 
     if "com_github_bazelbuild_buildtools" not in native.existing_rules():
         http_archive(

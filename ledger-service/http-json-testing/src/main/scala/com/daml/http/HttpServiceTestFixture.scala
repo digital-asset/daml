@@ -3,21 +3,19 @@
 
 package com.daml.http
 
-import java.io.File
-import java.time.Instant
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
-import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.HttpService.doLoad
 import com.daml.http.dbbackend.{ContractDao, JdbcConfig}
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.ClientUtil.boxedRecord
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.util.TestUtil.getResponseDataBytes
@@ -43,15 +41,15 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.resources.ResourceContext
-import com.daml.ledger.sandbox.SandboxServer
+import com.daml.ledger.runner.common
+import com.daml.ledger.sandbox.SandboxOnXForTest._
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
+import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{Assertions, Inside}
 import scalaz._
@@ -62,6 +60,9 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
 
+import java.io.File
+import java.nio.file.Files
+import java.time.Instant
 import scala.concurrent.duration.{DAYS, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -90,7 +91,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       ec: ExecutionContext,
   ): Future[A] = {
     implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
-    implicit val metrics: Metrics = new Metrics(new MetricRegistry())
+    implicit val metrics: HttpJsonApiMetrics = HttpJsonApiMetrics.ForTesting
     val ledgerId = ledgerIdOverwrite.getOrElse(LedgerId(testName))
     val applicationId = ApplicationId(testName)
 
@@ -169,23 +170,19 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     val ledgerF = for {
       urlResource <- Future(
         SandboxBackend.H2Database.owner
-          .map(info => Some(info.jdbcUrl))
+          .map(info => info.jdbcUrl)
           .acquire()
       )
       jdbcUrl <- urlResource.asFuture
+
+      config = ledgerConfig(
+        ledgerPort = Port.Dynamic,
+        ledgerId = ledgerId,
+        useTls = useTls,
+        jdbcUrl = jdbcUrl,
+      )
       portF <- Future(
-        SandboxServer
-          .owner(
-            ledgerConfig(
-              Port.Dynamic,
-              dars,
-              ledgerId,
-              useTls = useTls,
-              authService = authService,
-              jdbcUrl = jdbcUrl,
-            )
-          )
-          .acquire()
+        SandboxOnXRunner.owner(ConfigAdaptor(authService), config, bridgeConfig).acquire()
       )
       port <- portF.asFuture
     } yield (portF, port)
@@ -202,6 +199,11 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     val fa: Future[A] = for {
       (_, ledgerPort) <- ledgerF
       client <- clientF
+      _ <- Future.sequence(dars.map { dar =>
+        client.packageManagementClient.uploadDarFile(
+          ByteString.copyFrom(Files.readAllBytes(dar.toPath))
+        )
+      })
       a <- testFn(ledgerPort, client, ledgerId)
     } yield a
 
@@ -213,24 +215,26 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     }
   }
 
+  def bridgeConfig: BridgeConfig = BridgeConfig()
+
   private def ledgerConfig(
       ledgerPort: Port,
-      dars: List[File],
       ledgerId: LedgerId,
-      authService: Option[AuthService],
       useTls: UseTls,
-      jdbcUrl: Option[String],
-  ): SandboxConfig =
-    SandboxConfig.defaultConfig.copy(
-      port = ledgerPort,
-      damlPackages = dars,
-      jdbcUrl = jdbcUrl,
-      timeProviderType = Some(TimeProviderType.WallClock),
-      tlsConfig = if (useTls) Some(serverTlsConfig) else None,
-      ledgerIdMode = LedgerIdMode.Static(ledgerId),
-      authService = authService,
-      seeding = Seeding.Weak,
-    )
+      jdbcUrl: String,
+  ): common.Config = Default.copy(
+    ledgerId = ledgerId.unwrap,
+    engine = DevEngineConfig,
+    dataSource = dataSource(jdbcUrl),
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        seeding = Seeding.Weak,
+        timeProviderType = TimeProviderType.WallClock,
+        tls = if (useTls) Some(serverTlsConfig) else None,
+        port = ledgerPort,
+      )
+    ),
+  )
 
   private def clientConfig(
       applicationId: ApplicationId,
@@ -281,7 +285,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   private def initializeDb(c: JdbcConfig)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Future[ContractDao] =
     for {
       dao <- Future(ContractDao(c))
@@ -314,8 +318,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   private val noTlsConfig = TlsConfiguration(enabled = false, None, None, None)
 
   def jwtForParties(
-      actAs: List[String],
-      readAs: List[String],
+      actAs: List[domain.Party],
+      readAs: List[domain.Party],
       ledgerId: Option[String] = None,
       withoutNamespace: Boolean = false,
       admin: Boolean = false,
@@ -326,11 +330,11 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         CustomDamlJWTPayload(
           ledgerId = ledgerId,
           applicationId = Some("test"),
-          actAs = actAs,
+          actAs = domain.Party unsubst actAs,
           participantId = None,
           exp = None,
           admin = admin,
-          readAs = readAs,
+          readAs = domain.Party unsubst readAs,
         )
       val payloadJson = customJwtPayload.toJson
       if (withoutNamespace) {
@@ -356,8 +360,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
 
   def headersWithPartyAuth(
-      actAs: List[String],
-      readAs: List[String],
+      actAs: List[domain.Party],
+      readAs: List[domain.Party],
       ledgerId: Option[String],
       withoutNamespace: Boolean = false,
   ): List[Authorization] = {
@@ -427,7 +431,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     postJsonStringRequest(uri, json.prettyPrint, headers)
 
   def postCreateCommand(
-      cmd: domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg],
+      cmd: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
       encoder: DomainJsonEncoder,
       uri: Uri,
       headers: List[HttpHeader],
@@ -443,7 +447,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
 
   def postArchiveCommand(
-      templateId: domain.TemplateId.OptionalPkg,
+      templateId: domain.ContractTypeId.OptionalPkg,
       contractId: domain.ContractId,
       encoder: DomainJsonEncoder,
       uri: Uri,
@@ -488,15 +492,15 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   def archiveCommand[Ref](reference: Ref): domain.ExerciseCommand[v.Value, Ref] = {
     val arg: v.Record = v.Record()
     val choice = lar.Choice("Archive")
-    domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
+    domain.ExerciseCommand(reference, choice, boxedRecord(arg), None, None)
   }
 
   def accountCreateCommand(
       owner: domain.Party,
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
-  ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
-    val templateId = domain.TemplateId(None, "Account", "Account")
+  ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
+    val templateId = domain.ContractTypeId.Template(None, "Account", "Account")
     val timeValue = v.Value(time)
     val enabledVariantValue =
       v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
@@ -512,42 +516,25 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
 
   def sharedAccountCreateCommand(
-      owners: Seq[String],
+      owners: Seq[domain.Party],
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
-  ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
-    val templateId = domain.TemplateId(None, "Account", "SharedAccount")
+  ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
+    val templateId = domain.ContractTypeId.Template(None, "Account", "SharedAccount")
     val timeValue = v.Value(time)
+    val ownersEnc = v.Value(
+      v.Value.Sum.List(v.List(domain.Party.unsubst(owners).map(o => v.Value(v.Value.Sum.Party(o)))))
+    )
     val enabledVariantValue =
       v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
     val arg = v.Record(
       fields = List(
-        v.RecordField(
-          "owners",
-          Some(v.Value(v.Value.Sum.List(v.List(owners.map(o => v.Value(v.Value.Sum.Party(o))))))),
-        ),
+        v.RecordField("owners", Some(ownersEnc)),
         v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
         v.RecordField("status", Some(enabledVariantValue)),
       )
     )
 
     domain.CreateCommand(templateId, arg, None)
-  }
-
-  def getContractId(result: JsValue): domain.ContractId =
-    inside(result.asJsObject.fields.get("contractId")) { case Some(JsString(contractId)) =>
-      domain.ContractId(contractId)
-    }
-
-  def getResult(output: JsValue): JsValue = getChild(output, "result")
-
-  def getWarnings(output: JsValue): JsValue = getChild(output, "warnings")
-
-  def getChild(output: JsValue, field: String): JsValue = {
-    def errorMsg = s"Expected JsObject with '$field' field, got: $output"
-    output
-      .asJsObject(errorMsg)
-      .fields
-      .getOrElse(field, fail(errorMsg))
   }
 }

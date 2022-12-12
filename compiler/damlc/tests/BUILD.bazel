@@ -205,6 +205,7 @@ da_haskell_library(
         ],
         data = [
             ":bond-trading",
+            ":cant-skip-preprocessor",
             ":daml-test-files",
             ":query-lf-lib",
             "//compiler/damlc/pkg-db",
@@ -416,13 +417,17 @@ da_haskell_test(
     hackage_deps = [
         "base",
         "bytestring",
+        "containers",
         "extra",
         "ghc-lib-parser",
         "filepath",
         "process",
+        "QuickCheck",
         "safe-exceptions",
         "tasty",
         "tasty-hunit",
+        "tasty-quickcheck",
+        "text",
         "zip-archive",
     ],
     main_function = "DA.Test.Packaging.main",
@@ -433,6 +438,7 @@ da_haskell_test(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
+        "//compiler/damlc:damlc-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
@@ -614,7 +620,7 @@ da_haskell_test(
         ":repl-test.dar",
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
-        "//ledger/sandbox-classic:sandbox-classic-binary",
+        "//ledger/sandbox-on-x:app",
         "//ledger/test-common/test-certificates",
     ],
     hackage_deps = [
@@ -657,7 +663,7 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/repl-service/server:repl_service_jar",
         "//daml-script/daml:daml-script.dar",
-        "//ledger/sandbox-classic:sandbox-classic-binary",
+        "//ledger/sandbox-on-x:app",
     ],
     hackage_deps = [
         "async",
@@ -792,6 +798,15 @@ filegroup(
 )
 
 filegroup(
+    name = "cant-skip-preprocessor",
+    srcs = glob(["cant-skip-preprocessor/**"]),
+    visibility = [
+        "__pkg__",
+        "//daml-foundations/integration-tests:__pkg__",
+    ],
+)
+
+filegroup(
     name = "query-lf-lib",
     srcs = glob(["src/*.jq"]),
     visibility = [
@@ -882,6 +897,7 @@ da_haskell_test(
     ],
     hackage_deps = [
         "base",
+        "containers",
         "directory",
         "data-default",
         "extra",
@@ -893,6 +909,49 @@ da_haskell_test(
         "tasty",
         "tasty-hunit",
         "text",
+        "vector",
+    ],
+    main_function = "DA.Test.ScriptService.main",
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/damlc/daml-package-config",
+        "//compiler/damlc/daml-rule-types",
+        "//compiler/scenario-service/client",
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_test(
+    name = "script-service-interfaces",  # TODO: dedup with script-service test setup
+    srcs = ["src/DA/Test/ScriptService_1_15.hs"],
+    data = [
+        "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
+        "//compiler/scenario-service/server:scenario_service_jar",
+        "//daml-script/daml:daml-script-1.15.dar",
+        ghc_pkg,
+    ],
+    hackage_deps = [
+        "base",
+        "containers",
+        "directory",
+        "data-default",
+        "extra",
+        "filepath",
+        "ghcide",
+        "lsp-types",
+        "unordered-containers",
+        "regex-tdfa",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "vector",
     ],
     main_function = "DA.Test.ScriptService.main",
     deps = [
@@ -917,7 +976,7 @@ da_haskell_test(
     data = [
         ":pkg-manager-test.dar",
         "//compiler/damlc",
-        "//ledger/sandbox-classic:sandbox-classic-binary",
+        "//ledger/sandbox-on-x:app",
     ],
     hackage_deps = [
         "base",
@@ -1005,4 +1064,64 @@ daml_compile_with_dalf(
     # don't turn warnings into errors, we have a missing pattern on purpose in
     # PlatformIndependence.daml.
     ghc_options = [],
+)
+
+# Desugared daml golden tests
+da_haskell_test(
+    name = "daml-desugar",
+    srcs = ["src/DA/Test/DamlDesugar.hs"],
+    data = [
+        ":daml-test-files",
+        "//compiler/damlc/pkg-db",
+    ],
+    hackage_deps = [
+        "base",
+        "containers",
+        "filepath",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Test.DamlDesugar.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/damlc/daml-desugar:daml-desugar-testing",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+# Daml renamer golden tests
+da_haskell_test(
+    name = "daml-renamer",
+    srcs = ["src/DA/Test/DamlRenamer.hs"],
+    compiler_flags = [
+        "-DPOSIX_DIFF=\"$(POSIX_DIFF)\"",
+    ],
+    data = [
+        ":daml-test-files",
+        "//compiler/damlc",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "tasty-hunit",
+        "tasty-golden",
+        "text",
+    ],
+    main_function = "DA.Test.DamlRenamer.main",
+    src_strip_prefix = "src",
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
 )

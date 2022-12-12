@@ -3,26 +3,33 @@
 
 package com.daml.http
 
-import java.net.InetAddress
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.testing.utils.{OwnedResource, SuiteResource, Resource => TestResource}
-import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxBackend}
-import com.daml.ledger.sandbox.SandboxServer
-import com.daml.ports.{LockedFreePort, Port}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ConfigAdaptor, dataSource}
+import com.daml.ledger.sandbox.SandboxOnXRunner
+import com.daml.platform.apiserver.services.GrpcClientResource
+import com.daml.platform.sandbox.{
+  AbstractSandboxFixture,
+  SandboxBackend,
+  SandboxRequiringAuthorizationFuns,
+  UploadPackageHelper,
+}
+import com.daml.ports.{LockedFreePort, Port}
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy._
 import io.grpc.Channel
 import org.scalatest.{BeforeAndAfterEach, Suite}
 
-import scala.concurrent.duration.DurationInt
+import java.net.InetAddress
 import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 import scala.sys.process.Process
 
 // Fixture for Sandbox Next behind toxiproxy to simulate failures.
 trait ToxicSandboxFixture
     extends AbstractSandboxFixture
+    with SandboxRequiringAuthorizationFuns
     with SuiteResource[(Port, Channel, Port, ToxiproxyClient, Proxy)]
     with BeforeAndAfterEach {
   self: Suite =>
@@ -35,7 +42,8 @@ trait ToxicSandboxFixture
       ): Resource[(Port, ToxiproxyClient, Proxy)] = {
         def start(): Future[(Port, ToxiproxyClient, Proxy, Process)] = {
           val toxiproxyExe =
-            if (!isWindows) BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-cmd")
+            if (!isWindows)
+              BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-server")
             else
               BazelRunfiles.rlocation(
                 "external/toxiproxy_dev_env/toxiproxy-server-windows-amd64.exe"
@@ -81,9 +89,17 @@ trait ToxicSandboxFixture
       for {
         jdbcUrl <- database
           .getOrElse(SandboxBackend.H2Database.owner)
-          .map(info => Some(info.jdbcUrl))
-        port <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
+          .map(info => info.jdbcUrl)
+        cfg = config.withDataSource(dataSource(jdbcUrl))
+        port <- SandboxOnXRunner.owner(ConfigAdaptor(authService), cfg, bridgeConfig)
         channel <- GrpcClientResource.owner(port)
+        client = UploadPackageHelper.adminLedgerClient(port, cfg, jwtSecret)(
+          system.dispatcher,
+          executionSequencerFactory,
+        )
+        _ <- ResourceOwner.forFuture(() =>
+          UploadPackageHelper.uploadDarFiles(client, packageFiles)(system.dispatcher)
+        )
         (proxiedPort, proxyClient, proxy) <- toxiproxy(port)
       } yield (port, channel, proxiedPort, proxyClient, proxy),
       acquisitionTimeout = 1.minute,

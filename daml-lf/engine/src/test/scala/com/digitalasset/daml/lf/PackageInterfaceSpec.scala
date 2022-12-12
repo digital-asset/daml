@@ -49,7 +49,7 @@ class PackageInterfaceSpec
        }
     """
 
-  private[this] val interface = PackageInterface(Map(defaultPackageId -> pkg))
+  private[this] val pkgInterface = PackageInterface(Map(defaultPackageId -> pkg))
 
   private[this] def test[X, Y](
       description: String,
@@ -67,7 +67,7 @@ class PackageInterfaceSpec
         val table = Table("input" -> "reference", errorCases: _*)
 
         forEvery(table) { (input, expectedNotFound) =>
-          inside(lookup(input)) { case Left(LookupError(notFound, context)) =>
+          inside(lookup(input)) { case Left(LookupError.NotFound(notFound, context)) =>
             notFound shouldBe expectedNotFound
             context shouldBe toContext(input)
           }
@@ -77,7 +77,7 @@ class PackageInterfaceSpec
 
   test(
     description = "DataRecord",
-    lookup = interface.lookupDataRecord,
+    lookup = pkgInterface.lookupDataRecord,
     toContext = Reference.DataRecord,
   )(
     nonErrorCase =
@@ -99,7 +99,7 @@ class PackageInterfaceSpec
 
   test(
     description = "DataVariant",
-    lookup = interface.lookupDataVariant,
+    lookup = pkgInterface.lookupDataVariant,
     toContext = Reference.DataVariant,
   )(
     nonErrorCase =
@@ -119,7 +119,11 @@ class PackageInterfaceSpec
       Reference.DataVariant("Mod:Tuple"),
   )
 
-  test(description = "DataEnum", lookup = interface.lookupDataEnum, toContext = Reference.DataEnum)(
+  test(
+    description = "DataEnum",
+    lookup = pkgInterface.lookupDataEnum,
+    toContext = Reference.DataEnum,
+  )(
     nonErrorCase =
       ("Mod:Color": Identifier) -> { case DataEnumInfo(dataType, DataEnum(constructors)) =>
         dataType.params shouldBe ImmArray.empty
@@ -137,7 +141,11 @@ class PackageInterfaceSpec
       Reference.DataEnum("Mod:Tuple"),
   )
 
-  test(description = "Template", lookup = interface.lookupTemplate, toContext = Reference.Template)(
+  test(
+    description = "Template",
+    lookup = pkgInterface.lookupTemplate,
+    toContext = Reference.Template,
+  )(
     nonErrorCase = ("Mod:Contract": Identifier) -> { case template =>
       template.param shouldBe "this"
     },

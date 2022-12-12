@@ -64,6 +64,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
       recordTime = someRecordTime,
       divulgedContracts = List.empty,
       blindingInfo = None,
+      Map.empty,
     )
 
     "extract transaction metering" in {
@@ -119,6 +120,19 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
       actual should equal(expected)(decided by DbDtoSeqEq)
     }
 
+    // This is so infrastructure transactions, with a zero action count, are not included
+    "filter zero action counts" in {
+
+      val txWithNoActionCount = someTransactionAccepted.copy(optCompletionInfo =
+        Some(someCompletionInfo.copy(statistics = Some(TransactionNodeStatistics.Empty)))
+      )
+
+      val actual = UpdateToMeteringDbDto(clock = () => timestamp)(
+        List((Offset.fromHexString(offset), txWithNoActionCount))
+      )
+
+      actual.isEmpty shouldBe true
+    }
   }
 
 }

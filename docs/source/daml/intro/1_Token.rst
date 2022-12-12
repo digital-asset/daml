@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-1 Basic contracts
-=================
+Basic Contracts
+===============
 
 To begin with, you're going to write a very small Daml template, which represents a self-issued, non-transferable token. Because it's a minimal template, it isn't actually useful on its own - you'll make it more useful later - but it's enough that it can show you the most basic concepts:
 
@@ -14,9 +14,9 @@ To begin with, you're going to write a very small Daml template, which represent
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder ``1_Token`` by running ``daml new 1_Token --template daml-intro-1``
+  Remember that you can load all the code for this section into a folder ``intro1`` by running ``daml new intro1 --template daml-intro-1``
 
-Daml ledger basics
+Daml Ledger Basics
 ------------------
 
 Like most structures called ledgers, a Daml Ledger is just a list of *commits*. When we say *commit*, we mean the final result of when a *party* successfully *submits* a *transaction* to the ledger.
@@ -31,7 +31,7 @@ Individual contracts are *immutable* in the sense that an active contract can no
 
 Daml specifies what transactions are legal on a Daml Ledger. The rules the Daml code specifies are collectively called a *Daml model* or *contract model*.
 
-Daml files and modules
+Daml Files and Modules
 ----------------------
 
 Each ``.daml`` file defines a *Daml Module* at the top:
@@ -71,7 +71,7 @@ The ``signatory`` keyword specifies the *signatories* of a contract. These are t
 
 Furthermore, Daml ledgers *guarantee* that parties see all transactions where their authority is used. This means that signatories of a contract are guaranteed to see the creation and archival of that contract.
 
-Next up
+Next Up
 -------
 
 In :doc:`2_DamlScript`, you'll learn about how to try out the ``Token`` contract template in Daml's inbuilt Daml Script testing language.

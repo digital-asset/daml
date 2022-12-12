@@ -53,9 +53,9 @@ final class SemanticTests extends LedgerTestSuite {
         ) =>
       for {
         iou <- alpha.create(payer, Iou(payer, owner, onePound))
-        _ <- alpha.exercise(owner, iou.exerciseTransfer(_, newOwner))
+        _ <- alpha.exercise(owner, iou.exerciseTransfer(newOwner))
         failure <- alpha
-          .exercise(owner, iou.exerciseTransfer(_, leftWithNothing))
+          .exercise(owner, iou.exerciseTransfer(leftWithNothing))
           .mustFail("consuming a contract twice")
       } yield {
         assertGrpcError(
@@ -89,11 +89,11 @@ final class SemanticTests extends LedgerTestSuite {
                 results <- Future.traverse(1 to archives) {
                   case i if i % 2 == 0 =>
                     alpha
-                      .exercise(owner1, shared.exerciseSharedContract_Consume1)
+                      .exercise(owner1, shared.exerciseSharedContract_Consume1())
                       .transform(Success(_))
                   case _ =>
                     beta
-                      .exercise(owner2, shared.exerciseSharedContract_Consume2)
+                      .exercise(owner2, shared.exerciseSharedContract_Consume2())
                       .transform(Success(_))
                 }
               } yield {
@@ -119,8 +119,8 @@ final class SemanticTests extends LedgerTestSuite {
         iou <- alpha.create(payer, Iou(payer, owner, onePound))
         doubleSpend = alpha.submitAndWaitRequest(
           owner,
-          iou.exerciseTransfer(owner, newOwner1).command,
-          iou.exerciseTransfer(owner, newOwner2).command,
+          iou.exerciseTransfer(newOwner1).command,
+          iou.exerciseTransfer(newOwner2).command,
         )
         failure <- alpha.submitAndWait(doubleSpend).mustFail("consuming a contract twice")
       } yield {
@@ -141,10 +141,10 @@ final class SemanticTests extends LedgerTestSuite {
     case Participants(Participant(alpha, payer, owner1), Participant(beta, owner2)) =>
       for {
         shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
-        _ <- alpha.exercise(owner1, shared.exerciseSharedContract_Consume1)
+        _ <- alpha.exercise(owner1, shared.exerciseSharedContract_Consume1())
         _ <- synchronize(alpha, beta)
         failure <- beta
-          .exercise(owner2, shared.exerciseSharedContract_Consume2)
+          .exercise(owner2, shared.exerciseSharedContract_Consume2())
           .mustFail("consuming a contract twice")
       } yield {
         assertGrpcError(
@@ -175,7 +175,9 @@ final class SemanticTests extends LedgerTestSuite {
       for {
         iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
         offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
-        tree <- eventually { alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou)) }
+        tree <- eventually("Exercise paint offer") {
+          alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(iou))
+        }
       } yield {
         val agreement = assertSingleton(
           "SemanticPaintOffer",
@@ -204,13 +206,15 @@ final class SemanticTests extends LedgerTestSuite {
       for {
         iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
         offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, twoPounds))
-        counter <- eventually {
+        counter <- eventually("exerciseAndGetContract") {
           alpha.exerciseAndGetContract[PaintCounterOffer](
             houseOwner,
-            offer.exercisePaintOffer_Counter(_, iou),
+            offer.exercisePaintOffer_Counter(iou),
           )
         }
-        tree <- eventually { beta.exercise(painter, counter.exercisePaintCounterOffer_Accept) }
+        tree <- eventually("exercisePaintCounterOffer") {
+          beta.exercise(painter, counter.exercisePaintCounterOffer_Accept())
+        }
       } yield {
         val agreement = assertSingleton(
           "SemanticPaintCounterOffer",
@@ -259,7 +263,7 @@ final class SemanticTests extends LedgerTestSuite {
         iou <- beta.create(painter, Iou(painter, houseOwner, onePound))
         offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
         failure <- beta
-          .exercise(painter, offer.exercisePaintOffer_Accept(_, iou))
+          .exercise(painter, offer.exercisePaintOffer_Accept(iou))
           .mustFail("exercising a choice without consent")
       } yield {
         assertGrpcError(
@@ -305,10 +309,12 @@ final class SemanticTests extends LedgerTestSuite {
         paintOfferFetchFailure <- fetchPaintOffer(alpha, bank, offer)
           .mustFail("fetching the offer with the wrong party")
 
-        tree <- alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou))
-        (newIouEvent +: _, agreementEvent +: _) = createdEvents(tree).partition(
+        tree <- alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(iou))
+        (newIouEvents, agreementEvents) = createdEvents(tree).partition(
           _.getTemplateId == Tag.unwrap(Iou.id)
         )
+        newIouEvent <- Future(newIouEvents.head)
+        agreementEvent <- Future(agreementEvents.head)
         newIou = Primitive.ContractId[Iou](newIouEvent.contractId)
         agreement = Primitive.ContractId[PaintAgree](agreementEvent.contractId)
         _ <- synchronize(alpha, beta)
@@ -362,7 +368,7 @@ final class SemanticTests extends LedgerTestSuite {
   )(implicit ec: ExecutionContext): Future[Unit] =
     for {
       fetch <- ledger.create(party, FetchIou(party, iou))
-      _ <- ledger.exercise(party, fetch.exerciseFetchIou_Fetch)
+      _ <- ledger.exercise(party, fetch.exerciseFetchIou_Fetch())
     } yield ()
 
   private def fetchPaintOffer(
@@ -372,7 +378,7 @@ final class SemanticTests extends LedgerTestSuite {
   )(implicit ec: ExecutionContext): Future[Unit] =
     for {
       fetch <- ledger.create(party, FetchPaintOffer(party, paintOffer))
-      _ <- ledger.exercise(party, fetch.exerciseFetchPaintOffer_Fetch)
+      _ <- ledger.exercise(party, fetch.exerciseFetchPaintOffer_Fetch())
     } yield ()
 
   private def fetchPaintAgree(
@@ -382,7 +388,7 @@ final class SemanticTests extends LedgerTestSuite {
   )(implicit ec: ExecutionContext): Future[Unit] =
     for {
       fetch <- ledger.create(party, FetchPaintAgree(party, agreement))
-      _ <- ledger.exercise(party, fetch.exerciseFetchPaintAgree_Fetch)
+      _ <- ledger.exercise(party, fetch.exerciseFetchPaintAgree_Fetch())
     } yield ()
 
   /*
@@ -399,17 +405,17 @@ final class SemanticTests extends LedgerTestSuite {
           // The owner tries to divulge with a non-consuming choice, which actually doesn't work
           noDivulgeToken <- alpha.create(owner, Delegation(owner, delegate))
           _ <- alpha
-            .exercise(owner, noDivulgeToken.exerciseDelegation_Wrong_Divulge_Token(_, token))
+            .exercise(owner, noDivulgeToken.exerciseDelegation_Wrong_Divulge_Token(token))
           _ <- synchronize(alpha, beta)
           failure <- beta
-            .exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
+            .exercise(delegate, delegation.exerciseDelegation_Token_Consume(token))
             .mustFail("divulging with a non-consuming choice")
 
           // Successful divulgence and delegation
           divulgeToken <- alpha.create(owner, Delegation(owner, delegate))
-          _ <- alpha.exercise(owner, divulgeToken.exerciseDelegation_Divulge_Token(_, token))
-          _ <- eventually {
-            beta.exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
+          _ <- alpha.exercise(owner, divulgeToken.exerciseDelegation_Divulge_Token(token))
+          _ <- eventually("exerciseDelegation_Token_Consume") {
+            beta.exercise(delegate, delegation.exerciseDelegation_Token_Consume(token))
           }
         } yield {
           assertGrpcError(

@@ -8,9 +8,9 @@ import { promises as fs } from "fs";
 import puppeteer, { Browser, Page } from "puppeteer";
 import waitOn from "wait-on";
 
-import Ledger, { UserRightHelper } from "@daml/ledger";
+import Ledger, { UserRightHelper, UserRight } from "@daml/ledger";
 import { User } from "@daml.js/create-daml-app";
-import { authConfig } from "./config";
+import { insecure } from "./config";
 
 const JSON_API_PORT_FILE_NAME = "json-api.port";
 
@@ -29,7 +29,8 @@ let publicUser: string | undefined;
 let publicParty: string | undefined;
 
 const adminLedger = new Ledger({
-  token: authConfig.makeToken("participant_admin"),
+  token: insecure.makeToken("participant_admin"),
+  httpBaseUrl: "http://127.0.0.1:7575/",
 });
 
 const toAlias = (userId: string): string =>
@@ -37,7 +38,7 @@ const toAlias = (userId: string): string =>
 
 // Function to generate unique party names for us.
 let nextPartyId = 1;
-const getParty = async (): [string, string] => {
+const getParty = async (): Promise<[string, string]> => {
   const allocResult = await adminLedger.allocateParty({});
   const user = `u${nextPartyId}`;
   const party = allocResult.identifier;
@@ -50,7 +51,7 @@ const getParty = async (): [string, string] => {
 };
 
 test("Party names are unique", async () => {
-  let r = [];
+  let r: string[] = [];
   for (let i = 0; i < 10; ++i) {
     r = r.concat((await getParty())[1]);
   }
@@ -71,35 +72,19 @@ const removeFile = async (path: string) => {
 // To reduce test times, we reuse the same processes between all the tests.
 // This means we need to use a different set of parties and a new browser page for each test.
 beforeAll(async () => {
-  // If the JSON API server was previously shut down abruptly then the port file
-  // may not have been removed.
-  // Since we use this file to know when the server is up, we remove it first
-  // (if it exists) to be sure.
-  const jsonApiPortFilePath = `../${JSON_API_PORT_FILE_NAME}`; // relative to ui folder
-  await removeFile(jsonApiPortFilePath);
-
   // Run `daml start` from the project root (where the `daml.yaml` is located).
   // The path should include '.daml/bin' in the environment where this is run,
   // which contains the `daml` assistant executable.
   const startOpts: SpawnOptions = { cwd: "..", stdio: "inherit" };
 
-  // Arguments for `daml start` (besides those in the `daml.yaml`).
-  // The JSON API `--port-file` gives us a file we can check to know that both
-  // the sandbox and JSON API server are up and running.
-  // We use the default ports for the sandbox and JSON API as done in the
-  // Getting Started Guide.
-  const startArgs = [
-    "start",
-    `--json-api-option=--port-file=${JSON_API_PORT_FILE_NAME}`,
-  ];
-
   console.debug("Starting daml start");
 
-  startProc = spawn("daml", startArgs, startOpts);
+  startProc = spawn("daml", ["start"], startOpts);
 
-  await waitOn({ resources: [`file:${jsonApiPortFilePath}`] });
-
-  console.debug("daml start API are running");
+  await waitOn({ resources: [`tcp:127.0.0.1:6865`] });
+  console.debug("daml sandbox is running");
+  await waitOn({ resources: [`tcp:127.0.0.1:7575`] });
+  console.debug("JSON API is running");
 
   [publicUser, publicParty] = await getParty();
 
@@ -108,7 +93,7 @@ beforeAll(async () => {
   // https://github.com/facebook/create-react-app/issues/873#issuecomment-266318338
   const env = { ...process.env, BROWSER: "none" };
   console.debug("Starting npm start");
-  uiProc = spawn("npm-cli.js", ["run-script", "start"], {
+  uiProc = spawn("npm", ["start"], {
     env,
     stdio: "inherit",
     detached: true,
@@ -118,7 +103,7 @@ beforeAll(async () => {
   // following https://azimi.me/2014/12/31/kill-child_process-node-js.html.
 
   // Ensure the UI server is ready by checking that the port is available.
-  await waitOn({ resources: [`tcp:localhost:${UI_PORT}`] });
+  await waitOn({ resources: [`tcp:127.0.0.1:${UI_PORT}`] });
   console.debug("npm start is running");
 
   // Launch a single browser for all tests.
@@ -140,7 +125,7 @@ afterAll(async () => {
   // The `-` indicates to kill all processes in the process group.
   // See Note(kill-npm-start).
   // TODO: Test this on Windows.
-  if (uiProc) {
+  if (uiProc && uiProc.pid) {
     process.kill(-uiProc.pid);
   }
 
@@ -151,7 +136,7 @@ afterAll(async () => {
 
 test("create and look up user using ledger library", async () => {
   const [user, party] = await getParty();
-  const token = authConfig.makeToken(user);
+  const token = insecure.makeToken(user);
   const ledger = new Ledger({ token });
   const users0 = await ledger.query(User.User);
   expect(users0).toEqual([]);
@@ -179,7 +164,7 @@ const newUiPage = async (): Promise<Page> => {
       `${message.type().substr(0, 3).toUpperCase()} ${message.text()}`,
     ),
   );
-  await page.goto(`http://localhost:${UI_PORT}`); // ignore the Response
+  await page.goto(`http://127.0.0.1:${UI_PORT}`); // ignore the Response
   return page;
 };
 
@@ -203,10 +188,12 @@ const login = async (page: Page, partyName: string) => {
   const usernameInput = await page.waitForSelector(
     ".test-select-username-field",
   );
-  await usernameInput.click();
-  await usernameInput.type(partyName);
-  await page.click(".test-select-login-button");
-  await page.waitForSelector(".test-select-main-menu");
+  if (usernameInput) {
+    await usernameInput.click();
+    await usernameInput.type(partyName);
+    await page.click(".test-select-login-button");
+    await page.waitForSelector(".test-select-main-menu");
+  }
 };
 // LOGIN_FUNCTION_END
 
@@ -219,19 +206,21 @@ const logout = async (page: Page) => {
 // Follow a user using the text input in the follow panel.
 const follow = async (page: Page, userToFollow: string) => {
   const followInput = await page.waitForSelector(".test-select-follow-input");
-  await followInput.click();
-  await followInput.type(userToFollow);
-  await followInput.press("Enter");
-  await page.click(".test-select-follow-button");
+  if (followInput) {
+    await followInput.click();
+    await followInput.type(userToFollow);
+    await followInput.press("Enter");
+    await page.click(".test-select-follow-button");
 
-  // Wait for the request to complete, either successfully or after the error
-  // dialog has been handled.
-  // We check this by the absence of the `loading` class.
-  // (Both the `test-...` and `loading` classes appear in `div`s surrounding
-  // the `input`, due to the translation of Semantic UI's `Input` element.)
-  await page.waitForSelector(".test-select-follow-input > :not(.loading)", {
-    timeout: 40_000,
-  });
+    // Wait for the request to complete, either successfully or after the error
+    // dialog has been handled.
+    // We check this by the absence of the `loading` class.
+    // (Both the `test-...` and `loading` classes appear in `div`s surrounding
+    // the `input`, due to the translation of Semantic UI's `Input` element.)
+    await page.waitForSelector(".test-select-follow-input > :not(.loading)", {
+      timeout: 40_000,
+    });
+  }
 };
 
 // LOGIN_TEST_BEGIN
@@ -243,7 +232,7 @@ test("log in as a new user, log out and log back in", async () => {
   await login(page, user);
 
   // Check that the ledger contains the new User contract.
-  const token = authConfig.makeToken(user);
+  const token = insecure.makeToken(user);
   const ledger = new Ledger({ token });
   const users = await ledger.query(User.User);
   expect(users).toHaveLength(1);
@@ -419,14 +408,20 @@ const failedLogin = async (page: Page, partyName: string) => {
   const usernameInput = await page.waitForSelector(
     ".test-select-username-field",
   );
-  await usernameInput.click();
-  await usernameInput.type(partyName);
-  await page.click(".test-select-login-button");
-  await page.waitForFunction(
-    async () => (await window.getError()) !== undefined,
-  );
-  expect(dismissError).toHaveBeenCalled();
-  return error;
+  if (usernameInput) {
+    await usernameInput.click();
+    await usernameInput.type(partyName);
+    await page.click(".test-select-login-button");
+    await page.waitForFunction(
+      // Casting window as any so the TS compiler doesn't flag this as an
+      // error.
+      // The window object normally doesn't have a .getError method, but
+      // we're adding one above with exposeFunction.
+      async () => (await (window as any).getError()) !== undefined,
+    );
+    expect(dismissError).toHaveBeenCalled();
+    return error;
+  }
 };
 
 test("error on user id with invalid format", async () => {

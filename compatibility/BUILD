@@ -5,8 +5,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:testing.bzl", "create_daml_app_codegen", "create_daml_app_dar", "daml_lf_compatible", "sdk_platform_test")
 load(
     "//bazel_tools/daml_script:daml_script.bzl",
-    "daml_script_dar",
-    "daml_script_test",
+    "daml_script_example_dar",
+    "daml_script_example_test",
 )
 load(
     "//bazel_tools/daml_trigger:daml_trigger.bzl",
@@ -16,6 +16,7 @@ load(
 load(
     "//bazel_tools/data_dependencies:data_dependencies.bzl",
     "data_dependencies_coins",
+    "data_dependencies_daml_script_test",
     "data_dependencies_upgrade_test",
 )
 load("//bazel_tools:versions.bzl", "versions")
@@ -85,12 +86,12 @@ head = "0.0.0"
 ]
 
 [
-    daml_script_dar(sdk_version)
+    daml_script_example_dar(sdk_version)
     for sdk_version in sdk_versions
 ]
 
 [
-    daml_script_test(
+    daml_script_example_test(
         compiler_version = sdk_version,
         runner_version = platform_version,
     )
@@ -100,7 +101,7 @@ head = "0.0.0"
     # version. I.e. where the runner version is at least the SDK version or
     # more recent.
     if versions.is_at_least(sdk_version, platform_version)
-]
+] if not is_windows else None
 
 # Change to `CommandId` generation
 first_post_7587_trigger_version = "1.7.0-snapshot.20201012.5405.0.af92198d"
@@ -173,4 +174,19 @@ migration_test(
     # Tests that we can build a package with a newer SDK version that has
     # data-dependencies on packages built with an older SDK version.
     if versions.is_at_least(old_sdk_version, new_sdk_version)
+]
+
+[
+    data_dependencies_daml_script_test(
+        old_sdk_version = old_sdk_version,
+    )
+    for old_sdk_version in sdk_versions
+    # Tests that we can run a daml script from a package built with an older
+    # SDK version even when exposed through an import in a package built with
+    # the latest SDK version.
+    # (regression test for https://github.com/digital-asset/daml/issues/14291)
+    if old_sdk_version != "0.0.0"
+    # These tests use data-dependency reexports (#11147), so the earliest
+    # supported SDK is 1.18.0
+    if versions.is_at_least("1.18.0", old_sdk_version)
 ]

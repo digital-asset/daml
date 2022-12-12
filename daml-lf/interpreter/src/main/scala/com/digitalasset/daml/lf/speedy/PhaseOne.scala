@@ -4,8 +4,6 @@
 package com.daml.lf
 package speedy
 
-import java.util
-
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Struct}
 import com.daml.lf.language.Ast._
@@ -21,7 +19,7 @@ import scala.annotation.tailrec
 
 private[speedy] object PhaseOne {
 
-  case class Config(
+  final case class Config(
       profiling: ProfilingMode,
       stacktracing: StackTraceMode,
   )
@@ -39,7 +37,7 @@ private[speedy] object PhaseOne {
   // corresponds to Daml-LF type variable.
   private[this] case class TVarRef(name: TypeVarName) extends VarRef
 
-  case class Position(idx: Int)
+  final case class Position(idx: Int)
 
   private[speedy] object Env {
     val Empty = Env(0, Map.empty)
@@ -94,7 +92,7 @@ private[speedy] object PhaseOne {
   }
 
   // A type to represent a step of compilation Work
-  sealed abstract class Work
+  sealed abstract class Work extends Product with Serializable
   object Work {
     final case class Return(result: SExpr) extends Work
     final case class CompileExp(env: Env, exp: Expr, cont: SExpr => Work) extends Work
@@ -103,7 +101,7 @@ private[speedy] object PhaseOne {
 }
 
 private[lf] final class PhaseOne(
-    interface: PackageInterface,
+    pkgInterface: PackageInterface,
     config: PhaseOne.Config,
 ) {
 
@@ -232,7 +230,7 @@ private[lf] final class PhaseOne(
               tapp.tycon,
               handleLookup(
                 NameOf.qualifiedNameOfCurrentFunc,
-                interface.lookupRecordFieldInfo(tapp.tycon, field),
+                pkgInterface.lookupRecordFieldInfo(tapp.tycon, field),
               ).index,
             )(record)
           )
@@ -278,13 +276,13 @@ private[lf] final class PhaseOne(
       case EEnumCon(tyCon, consName) =>
         val rank = handleLookup(
           NameOf.qualifiedNameOfCurrentFunc,
-          interface.lookupEnumConstructor(tyCon, consName),
+          pkgInterface.lookupEnumConstructor(tyCon, consName),
         )
         Return(SEValue(SEnum(tyCon, consName, rank)))
       case EVariantCon(tapp, variant, arg) =>
         val rank = handleLookup(
           NameOf.qualifiedNameOfCurrentFunc,
-          interface.lookupVariantConstructor(tapp.tycon, variant),
+          pkgInterface.lookupVariantConstructor(tapp.tycon, variant),
         ).rank
         compileExp(env, arg) { arg =>
           Return(SBVariantCon(tapp.tycon, variant, rank)(arg))
@@ -327,11 +325,17 @@ private[lf] final class PhaseOne(
         }
       case EToInterface(iface @ _, tpl @ _, exp) =>
         compileExp(env, exp) { exp =>
-          Return(SBToInterface(tpl)(exp))
+          Return(SBToAnyContract(tpl)(exp))
         }
       case EFromInterface(iface @ _, tpl, exp) =>
         compileExp(env, exp) { exp =>
           Return(SBFromInterface(tpl)(exp))
+        }
+      case EUnsafeFromInterface(iface @ _, tpl, cidExp, ifaceExp) =>
+        compileExp(env, cidExp) { cidExp =>
+          compileExp(env, ifaceExp) { ifaceExp =>
+            Return(SBUnsafeFromInterface(tpl)(cidExp, ifaceExp))
+          }
         }
       case ECallInterface(iface, methodName, exp) =>
         compileExp(env, exp) { exp =>
@@ -342,6 +346,14 @@ private[lf] final class PhaseOne(
       case EFromRequiredInterface(requiredIfaceId @ _, requiringIfaceId, exp) =>
         compileExp(env, exp) { exp =>
           Return(SBFromRequiredInterface(requiringIfaceId)(exp))
+        }
+      case EUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId, cidExp, ifaceExp) =>
+        compileExp(env, cidExp) { cidExp =>
+          compileExp(env, ifaceExp) { ifaceExp =>
+            Return(
+              SBUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId)(cidExp, ifaceExp)
+            )
+          }
         }
       case EInterfaceTemplateTypeRep(ifaceId, exp) =>
         compileExp(env, exp) { exp =>
@@ -354,6 +366,10 @@ private[lf] final class PhaseOne(
       case EObserverInterface(ifaceId, exp) =>
         compileExp(env, exp) { exp =>
           Return(SBObserverInterface(ifaceId)(exp))
+        }
+      case EViewInterface(ifaceId, exp) =>
+        compileExp(env, exp) { exp =>
+          Return(SBViewInterface(ifaceId)(exp))
         }
       case EExperimental(name, _) =>
         Return(SBExperimental(name))
@@ -443,7 +459,7 @@ private[lf] final class PhaseOne(
           case BEqualList => SBEqualList
 
           // Errors
-          case BError => SBError
+          case BError => SBUserError
 
           // Comparison
           case BEqualContractId => SBEqual
@@ -480,6 +496,9 @@ private[lf] final class PhaseOne(
           case BNumericToBigNumeric => SBNumericToBigNumeric
           case BBigNumericToNumeric => SBBigNumericToNumeric
           case BBigNumericToText => SBToText
+
+          // TypeRep
+          case BTypeRepTyConName => SBTypeRepTyConName
 
           // Unstable Text Primitives
           case BTextToUpper => SBTextToUpper
@@ -532,7 +551,7 @@ private[lf] final class PhaseOne(
     go(exp, List.empty, List.empty)
   }
 
-  private def noArgs = new util.ArrayList[SValue](0)
+  private[this] def noArgs = ArrayList.empty[SValue]
 
   private[this] def compileERecCon(
       env: Env,
@@ -558,7 +577,7 @@ private[lf] final class PhaseOne(
     if (fields.length == 1) {
       val index = handleLookup(
         NameOf.qualifiedNameOfCurrentFunc,
-        interface.lookupRecordFieldInfo(tapp.tycon, fields.head),
+        pkgInterface.lookupRecordFieldInfo(tapp.tycon, fields.head),
       ).index
       compileExp(env, record) { record =>
         compileExp(env, updates.head) { update =>
@@ -570,7 +589,7 @@ private[lf] final class PhaseOne(
         fields.map(name =>
           handleLookup(
             NameOf.qualifiedNameOfCurrentFunc,
-            interface.lookupRecordFieldInfo(tapp.tycon, name),
+            pkgInterface.lookupRecordFieldInfo(tapp.tycon, name),
           ).index
         )
       compileExps(env, record :: updates) { exps =>
@@ -607,7 +626,7 @@ private[lf] final class PhaseOne(
       case CPVariant(tycon, variant, binder) =>
         val rank = handleLookup(
           NameOf.qualifiedNameOfCurrentFunc,
-          interface.lookupVariantConstructor(tycon, variant),
+          pkgInterface.lookupVariantConstructor(tycon, variant),
         ).rank
         compileExp(env.pushExprVar(binder), rhs) { rhs =>
           k(SCaseAlt(t.SCPVariant(tycon, variant, rank), rhs))
@@ -615,7 +634,7 @@ private[lf] final class PhaseOne(
       case CPEnum(tycon, constructor) =>
         val rank = handleLookup(
           NameOf.qualifiedNameOfCurrentFunc,
-          interface.lookupEnumConstructor(tycon, constructor),
+          pkgInterface.lookupEnumConstructor(tycon, constructor),
         )
         compileExp(env, rhs) { rhs =>
           k(SCaseAlt(t.SCPEnum(tycon, constructor, rank), rhs))
@@ -660,7 +679,7 @@ private[lf] final class PhaseOne(
           val env1 = env0.pushExprVar(binder)
           body match {
             case eLet1: ELet =>
-              compileELet(env1, eLet1, bounds) //recursive call in compileExp is stack-safe
+              compileELet(env1, eLet1, bounds) // recursive call in compileExp is stack-safe
             case _ =>
               compileExp(env1, body) {
                 case SELet(bounds1, body1) =>
@@ -679,13 +698,13 @@ private[lf] final class PhaseOne(
         compilePure(env, e)
       case UpdateBlock(bindings, body) =>
         compileBlock(env, bindings, body)
-      case UpdateFetch(tmplId, coid) =>
+      case UpdateFetchTemplate(tmplId, coid) =>
         compileExp(env, coid) { coid =>
-          Return(t.FetchDefRef(tmplId)(coid))
+          Return(t.FetchTemplateDefRef(tmplId)(coid))
         }
       case UpdateFetchInterface(ifaceId, coid) =>
         compileExp(env, coid) { coid =>
-          Return(t.FetchDefRef(ifaceId)(coid))
+          Return(t.FetchInterfaceDefRef(ifaceId)(coid))
         }
       case UpdateEmbedExpr(_, exp) =>
         compileEmbedExpr(env, exp)
@@ -693,30 +712,35 @@ private[lf] final class PhaseOne(
         compileExp(env, arg) { arg =>
           Return(t.CreateDefRef(tmplId)(arg))
         }
-      case UpdateCreateInterface(iface, arg) =>
-        compileExp(env, arg) { arg =>
-          Return(t.CreateDefRef(iface)(arg))
+      case UpdateCreateInterface(ifaceId, arg) =>
+        unaryFunction(env) { (tokPos, env) =>
+          compileExp(env, arg) { arg =>
+            let(env, arg) { (payloadPos, env) =>
+              let(env, SBResolveCreate(env.toSEVar(payloadPos), env.toSEVar(tokPos))) {
+                (cidPos, env) =>
+                  let(env, SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos)))) {
+                    (_, env) => Return(env.toSEVar(cidPos))
+                  }
+              }
+            }
+          }
         }
       case UpdateExercise(tmplId, chId, cid, arg) =>
         compileExp(env, cid) { cid =>
           compileExp(env, arg) { arg =>
-            Return(t.ChoiceDefRef(tmplId, chId)(cid, arg))
+            Return(t.TemplateChoiceDefRef(tmplId, chId)(cid, arg))
           }
         }
-      case UpdateExerciseInterface(ifaceId, chId, cid, arg, guard) =>
+      case UpdateExerciseInterface(ifaceId, chId, cid, arg, maybeGuard) =>
         compileExp(env, cid) { cid =>
           compileExp(env, arg) { arg =>
-            compileExp(env, guard) { guard =>
-              Return(
-                t.GuardedChoiceDefRef(ifaceId, chId)(
-                  cid,
-                  arg,
-                  SEValue(
-                    SOptional(None)
-                  ), // TODO https://github.com/digital-asset/daml/issues/13277
-                  guard,
-                )
-              )
+            def choiceDefRef(guard: SExpr) =
+              Return(t.InterfaceChoiceDefRef(ifaceId, chId)(guard, cid, arg))
+            maybeGuard match {
+              case Some(guard) =>
+                compileExp(env, guard)(choiceDefRef(_))
+              case None =>
+                choiceDefRef(SEAbs(1, SEValue.True))
             }
           }
         }
@@ -780,7 +804,7 @@ private[lf] final class PhaseOne(
     exp match {
       case EApp(fun, arg) =>
         compileExp(env, arg) { arg =>
-          compileAppsX(env, fun, arg :: args) //recursive call in compileExp is stack-safe
+          compileAppsX(env, fun, arg :: args) // recursive call in compileExp is stack-safe
         }
       case ETyApp(fun, arg) =>
         compileApps(env, fun, translateType(env, arg).fold(args)(_ :: args))

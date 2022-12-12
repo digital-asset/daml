@@ -34,6 +34,14 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
     ),
   )
 
+  val damlLfId3 = DamlLfIdentifier(
+    DamlLfRef.PackageId.assertFromString("hash"),
+    DamlLfQualifiedName(
+      DamlLfDottedName.assertFromString("module"),
+      DamlLfDottedName.assertFromString("I1"),
+    ),
+  )
+
   val damlLfRecord0 = DamlLfDefDataType(
     DamlLfImmArraySeq(),
     DamlLfRecord(
@@ -80,8 +88,8 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
     damlLfIdKey -> damlLfRecordKey,
   )
 
-  val template1 = Template(damlLfId0, List.empty, None)
-  val template2 = Template(damlLfId1, List.empty, Some(damlLfKeyType))
+  val template1 = Template(damlLfId0, List.empty, None, Set.empty)
+  val template2 = Template(damlLfId1, List.empty, Some(damlLfKeyType), Set(damlLfId3))
 
   val alice = ApiTypes.Party("Alice")
   val bob = ApiTypes.Party("Bob")

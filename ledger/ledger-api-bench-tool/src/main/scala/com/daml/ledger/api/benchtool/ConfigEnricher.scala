@@ -4,62 +4,130 @@
 package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig
-import com.daml.ledger.api.benchtool.submission.CommandSubmitter
-import com.daml.ledger.api.v1.value.Identifier
-import com.daml.ledger.test.model.Foo.{Foo1, Foo2, Foo3}
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.{
+  ActiveContractsStreamConfig,
+  CompletionsStreamConfig,
+  PartyFilter,
+  PartyNamePrefixFilter,
+  TransactionTreesStreamConfig,
+  TransactionsStreamConfig,
+}
+import com.daml.ledger.api.benchtool.submission.{AllocatedParties, BenchtoolTestsPackageInfo}
+import com.daml.ledger.client.binding.Primitive.TemplateId
+import com.daml.ledger.test.benchtool.Foo.{Foo1, Foo2, Foo3}
+import com.daml.ledger.test.benchtool.InterfaceSubscription.{FooI1, FooI2, FooI3}
 import scalaz.syntax.tag._
 
-object ConfigEnricher {
+class ConfigEnricher(
+    allocatedParties: AllocatedParties,
+    packageInfo: BenchtoolTestsPackageInfo,
+) {
+
+  private def toTemplateId[T](templateId: TemplateId[T]): (String, String) = {
+    val id = templateId.unwrap
+    id.entityName -> s"${packageInfo.packageId}:${id.moduleName}:${id.entityName}"
+  }
+
+  private val interfaceNameToFullyQualifiedNameMap: Map[String, String] = List(
+    FooI1.id,
+    FooI2.id,
+    FooI3.id,
+  ).map(toTemplateId).toMap
+
+  private val templateNameToFullyQualifiedNameMap: Map[String, String] = List(
+    Foo1.id,
+    Foo2.id,
+    Foo3.id,
+  ).map(toTemplateId).toMap
 
   def enrichStreamConfig(
-      streamConfig: StreamConfig,
-      submissionSummary: Option[CommandSubmitter.SubmissionSummary],
+      streamConfig: StreamConfig
   ): StreamConfig = {
     streamConfig match {
-      case config: StreamConfig.TransactionsStreamConfig =>
-        config.copy(filters = enrichFilters(config.filters, submissionSummary))
-      case config: StreamConfig.TransactionTreesStreamConfig =>
-        config.copy(filters = enrichFilters(config.filters, submissionSummary))
-      case config: StreamConfig.ActiveContractsStreamConfig =>
-        config.copy(filters = enrichFilters(config.filters, submissionSummary))
-      case config: StreamConfig.CompletionsStreamConfig =>
-        config.copy(party = convertParty(config.party, submissionSummary))
+      case config: TransactionsStreamConfig =>
+        config
+          .copy(
+            filters = enrichFilters(config.filters) ++ convertFilterByPartySet(
+              config.partyNamePrefixFilterO
+            ),
+            partyNamePrefixFilterO = None,
+          )
+      case config: TransactionTreesStreamConfig =>
+        config
+          .copy(
+            filters = enrichFilters(config.filters) ++ convertFilterByPartySet(
+              config.partyNamePrefixFilterO
+            ),
+            partyNamePrefixFilterO = None,
+          )
+      case config: ActiveContractsStreamConfig =>
+        config
+          .copy(
+            filters = enrichFilters(config.filters) ++ convertFilterByPartySet(
+              config.partyNamePrefixFilterO
+            ),
+            partyNamePrefixFilterO = None,
+          )
+      case config: CompletionsStreamConfig =>
+        config.copy(parties = config.parties.map(party => convertParty(party)))
     }
   }
 
   private def convertParty(
-      party: String,
-      submissionSummary: Option[CommandSubmitter.SubmissionSummary],
+      partyShortName: String
   ): String =
-    submissionSummary match {
-      case None => party
-      case Some(summary) =>
-        summary.observers
-          .map(_.unwrap)
-          .find(_.contains(party))
-          .getOrElse(throw new RuntimeException(s"Observer not found: $party"))
+    allocatedParties.allAllocatedParties
+      .map(_.unwrap)
+      .find(_.contains(partyShortName))
+      .getOrElse(partyShortName)
+
+  private def convertFilterByPartySet(
+      filter: Option[PartyNamePrefixFilter]
+  ): List[PartyFilter] =
+    filter.fold(List.empty[PartyFilter])(convertFilterByPartySet)
+
+  private def convertFilterByPartySet(
+      filter: PartyNamePrefixFilter
+  ): List[PartyFilter] = {
+    val convertedTemplates = filter.templates.map(convertTemplate)
+    val convertedInterfaces = filter.interfaces.map(convertInterface)
+    val convertedParties = convertPartySet(filter.partyNamePrefix)
+    convertedParties.map(party =>
+      PartyFilter(party = party, templates = convertedTemplates, interfaces = convertedInterfaces)
+    )
+  }
+
+  private def convertPartySet(partySetName: String): List[String] =
+    allocatedParties.observerPartySetO match {
+      case None =>
+        sys.error(
+          "Cannot desugar party-set-template-filter as observer party set allocation is missing"
+        )
+      case Some(observerPartySet) =>
+        if (observerPartySet.partyNamePrefix == partySetName)
+          observerPartySet.parties.map(_.unwrap)
+        else
+          sys.error(
+            s"Expected party set: '${partySetName}' does not match actual party set: ${observerPartySet.partyNamePrefix}"
+          )
     }
 
   private def enrichFilters(
-      filters: List[StreamConfig.PartyFilter],
-      submissionSummary: Option[CommandSubmitter.SubmissionSummary],
+      filters: List[StreamConfig.PartyFilter]
   ): List[StreamConfig.PartyFilter] = {
-    def identifierToFullyQualifiedString(id: Identifier) =
-      s"${id.packageId}:${id.moduleName}:${id.entityName}"
-    def fullyQualifiedTemplateId(template: String): String =
-      template match {
-        case "Foo1" => identifierToFullyQualifiedString(Foo1.id.unwrap)
-        case "Foo2" => identifierToFullyQualifiedString(Foo2.id.unwrap)
-        case "Foo3" => identifierToFullyQualifiedString(Foo3.id.unwrap)
-        case other => other
-      }
-
     filters.map { filter =>
       StreamConfig.PartyFilter(
-        party = convertParty(filter.party, submissionSummary),
-        templates = filter.templates.map(fullyQualifiedTemplateId),
+        party = convertParty(filter.party),
+        templates = filter.templates.map(convertTemplate),
+        interfaces = filter.interfaces.map(convertInterface),
       )
     }
   }
+
+  def convertTemplate(shortTemplateName: String): String =
+    templateNameToFullyQualifiedNameMap.getOrElse(shortTemplateName, shortTemplateName)
+
+  def convertInterface(shortInterfaceName: String): String =
+    interfaceNameToFullyQualifiedNameMap.getOrElse(shortInterfaceName, shortInterfaceName)
 
 }

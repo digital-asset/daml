@@ -153,7 +153,7 @@ abstract class NumericModule {
     */
   final def fromBigDecimal(scale: Scale, x: BigDecimal): Either[String, Numeric] =
     if (!(x.stripTrailingZeros.scale <= scale))
-      Left(s"Cannot represent ${toString(x)} as (Numeric $scale) without lost of precision")
+      Left(s"Cannot represent ${toString(x)} as (Numeric $scale) without loss of precision")
     else
       checkForOverflow(x.setScale(scale, RoundingMode.UNNECESSARY))
 

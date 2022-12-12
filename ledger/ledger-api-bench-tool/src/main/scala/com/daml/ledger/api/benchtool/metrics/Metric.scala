@@ -11,17 +11,29 @@ trait Metric[Elem] {
 
   type Objective <: ServiceLevelObjective[V]
 
+  /** @return an updated version of itself
+    */
   def onNext(value: Elem): Metric[Elem]
 
+  /** @return an updated version of itself and the value observed in this period
+    *
+    * NOTE: Durations of subsequent periods are not guaranteed to be exactly the same.
+    */
   def periodicValue(periodDuration: Duration): (Metric[Elem], V)
 
   def finalValue(totalDuration: Duration): V
 
+  /** @return a list of objective violations, where each element is a pair of
+    *         a violated objective and the periodic value that violates it the most.
+    */
   def violatedPeriodicObjectives: List[(Objective, V)] = Nil
 
+  /** @return a list of objective violations, where each element is a pair of
+    *         a violated objective and the final value that violates it.
+    */
   def violatedFinalObjectives(totalDuration: Duration): List[(Objective, V)]
 
-  def name: String = getClass.getSimpleName()
+  def name: String = getClass.getSimpleName
 
 }
 

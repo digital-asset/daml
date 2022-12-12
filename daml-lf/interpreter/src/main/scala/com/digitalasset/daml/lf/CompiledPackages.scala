@@ -17,11 +17,11 @@ private[lf] abstract class CompiledPackages(
 ) {
   def getDefinition(dref: SDefinitionRef): Option[SDefinition]
   def packageIds: scala.collection.Set[PackageId]
-  def interface: PackageInterface
+  def pkgInterface: PackageInterface
   def definitions: PartialFunction[SDefinitionRef, SDefinition] =
     Function.unlift(this.getDefinition)
 
-  final def compiler: Compiler = new Compiler(interface, compilerConfig)
+  final def compiler: Compiler = new Compiler(pkgInterface, compilerConfig)
 }
 
 /** Important: use the constructor only if you _know_ you have all the definitions! Otherwise
@@ -29,7 +29,7 @@ private[lf] abstract class CompiledPackages(
   */
 private[lf] final class PureCompiledPackages(
     val packageIds: Set[PackageId],
-    val interface: PackageInterface,
+    val pkgInterface: PackageInterface,
     val defns: Map[SDefinitionRef, SDefinition],
     compilerConfig: Compiler.Config,
 ) extends CompiledPackages(compilerConfig) {

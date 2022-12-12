@@ -49,7 +49,7 @@ class MultiUserQueryScenario
       case PopulateCache.name => PopulateCache
       case FetchByKey.name => FetchByKey
       case FetchByQuery.name => FetchByQuery
-      //run everything in a single run.
+      // run everything in a single run.
       case PopulateAndFetch.name => PopulateAndFetch
     }
   }
@@ -117,7 +117,7 @@ class MultiUserQueryScenario
           .exec(currencyQueryRequest)
       }
 
-  //fetch by key scenario
+  // fetch by key scenario
   private def fetchByKeyScn(numIterations: Int) = {
     scenario(s"SyncFetchByKey_${numRecords}-${numQueries}-${numReaders}")
       .repeat(numIterations) {
@@ -132,8 +132,8 @@ class MultiUserQueryScenario
         writeScn
           .inject(atOnceUsers(numWriters))
           .andThen(
-            //single fetch to populate the cache
-            currQueryScn(numIterations = 1, () => randomCurrency())
+            // single fetch to populate the cache
+            currQueryScn(numIterations = 1, randomCurrency _)
               .inject(
                 nothingFor(2.seconds),
                 atOnceUsers(1),
@@ -144,7 +144,7 @@ class MultiUserQueryScenario
           atOnceUsers(numReaders)
         )
       case FetchByQuery =>
-        currQueryScn(numQueries / numReaders, randomCurrency).inject(
+        currQueryScn(numQueries / numReaders, randomCurrency _).inject(
           atOnceUsers(numReaders)
         )
       case PopulateAndFetch =>
@@ -157,7 +157,7 @@ class MultiUserQueryScenario
                 atOnceUsers(numReaders),
               )
               .andThen(
-                currQueryScn(numQueries / numReaders, randomCurrency)
+                currQueryScn(numQueries / numReaders, randomCurrency _)
                   .inject(
                     nothingFor(2.seconds),
                     atOnceUsers(numReaders),

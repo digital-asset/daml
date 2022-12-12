@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.testing.parser.defaultPackageId
+import com.daml.lf.testing.parser.{ParserParameters, defaultPackageId}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -37,7 +37,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
       forEvery(testCases) { typ =>
         Serializability
-          .Env(LanguageVersion.default, defaultInterface, NoContext, SRDataType, typ)
+          .Env(defaultFlags, defaultPkgInterface, Context.None, SRDataType, typ)
           .introVar(n"serializableType" -> k"*")
           .checkType()
       }
@@ -66,7 +66,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
       forEvery(testCases) { typ =>
         an[EExpectedSerializableType] should be thrownBy
           Serializability
-            .Env(LanguageVersion.default, defaultInterface, NoContext, SRDataType, typ)
+            .Env(defaultFlags, defaultPkgInterface, Context.None, SRDataType, typ)
             .introVar(n"serializableType" -> k"*")
             .checkType()
       }
@@ -120,7 +120,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
           // ill-formed module
           module PositiveTestCase1 {
-            variant @serializable V = ;                       // disallow empty variant
+            variant @serializable V = ;                     // disallow empty variant
           }
 
           // ill-formed module
@@ -157,8 +157,8 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
               observers Nil @Party;
               agreement "Agreement";
               choice Ch (self) (i : Mod:SerializableType) : Mod:SerializableType, controllers ${partiesAlice(
-          "NegativeTestCase:SerializableRecord"
-        )} to upure @Mod:SerializableType (Mod:SerializableType {});
+            "NegativeTestCase:SerializableRecord"
+          )} to upure @Mod:SerializableType (Mod:SerializableType {});
             } ;
           }
 
@@ -172,8 +172,8 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
               agreement "Agreement";
               choice Ch (self) (i : Mod:SerializableType) :
                 Mod:SerializableType, controllers ${partiesAlice(
-          "PositiveTestCase1:UnserializableRecord"
-        )}
+            "PositiveTestCase1:UnserializableRecord"
+          )}
                   to upure @Mod:SerializableType (Mod:SerializableType {});
             } ;
           }
@@ -202,8 +202,8 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
               agreement "Agreement";
               choice Ch (self) (i : Mod:SerializableType) :
                 Mod:UnserializableType, controllers ${partiesAlice(
-          "PositiveTestCase3:SerializableRecord"
-        )} to       // disallowed unserializable type
+            "PositiveTestCase3:SerializableRecord"
+          )} to       // disallowed unserializable type
                    upure @Mod:UnserializableType (Mod:UnserializableType {});
             } ;
           }
@@ -250,9 +250,14 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
     }
 
-    "reject unserializable contract id" in {
+    "reject unserializable contract for LF =< 1.14" in {
 
-      val pkg =
+      val pkg14 = {
+
+        implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
+          defaultPackageId,
+          LanguageVersion.v1_14,
+        )
         p"""
           // well-formed module
           module NegativeTestCase1 {
@@ -296,6 +301,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
             record @serializable UnserializableContractId = { cid : ContractId (Int64 -> Int64) };
           }
          """
+      }
 
       val negativeTestCases = Table(
         "module",
@@ -311,22 +317,35 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
         "PositiveTestCase2",
       )
 
+      val pkg15 = pkg14.copy(languageVersion = LanguageVersion.v1_15)
+
       forEvery(negativeTestCases) { modName =>
-        check(pkg, modName)
+        check(pkg14, modName)
+        check(pkg15, modName)
       }
       forEvery(positiveTestCases) { modName =>
-        an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, modName))
+        an[EExpectedSerializableType] shouldBe thrownBy(check(pkg14, modName))
+        check(pkg15, modName)
       }
 
     }
 
     "reject unserializable interface definitions" in {
 
+      implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
+        defaultPackageId,
+        LanguageVersion.Features.basicInterfaces,
+      )
+
       val pkg =
         p"""
+          module Mod {
+            record @serializable MyUnit = {};
+          }
+
           module NegativeTestCase1 {
             interface (this: Token) = {
-              precondition False;
+              viewtype Mod:MyUnit;
               choice GetContractId (self) (u:Unit) : ContractId NegativeTestCase1:Token
                 , controllers Nil @Party
                 to upure @(ContractId NegativeTestCase1:Token) self;
@@ -335,7 +354,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
           module NegativeTestCase2 {
             interface (this: Token) = {
-              precondition False;
+              viewtype Mod:MyUnit;
               choice ReturnContractId (self) (u:ContractId NegativeTestCase2:Token) : ContractId NegativeTestCase2:Token
                 , controllers Nil @Party
                 to upure @(ContractId NegativeTestCase2:Token) self;
@@ -346,7 +365,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
             record @serializable TokenId = {unTokenId : ContractId NegativeTestCase3:Token};
 
             interface (this: Token) = {
-              precondition False;
+              viewtype Mod:MyUnit;
               choice ReturnContractId (self) (u:NegativeTestCase3:TokenId) : ContractId NegativeTestCase3:Token
                 , controllers Nil @Party
                 to upure @(ContractId NegativeTestCase3:Token) self;
@@ -355,7 +374,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
           module PositiveTestCase {
             interface (this: Token) = {
-              precondition False;
+              viewtype Mod:MyUnit;
               choice GetToken (self) (u:Unit) : PositiveTestCase:Token
                 , controllers Nil @Party
                 to upure @(PositiveTestCase:Token) this;
@@ -366,6 +385,37 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
       check(pkg, "NegativeTestCase1")
       check(pkg, "NegativeTestCase2")
       check(pkg, "NegativeTestCase3")
+      an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, "PositiveTestCase"))
+    }
+
+    "reject unserializable interface view" in {
+
+      implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
+        defaultPackageId,
+        LanguageVersion.Features.basicInterfaces,
+      )
+
+      val pkg =
+        p"""
+          module Mod {
+            record @serializable MyUnit = {};
+            record Unserializable = {};
+          }
+
+          module NegativeTestCase {
+            interface (this: Token) = {
+              viewtype Mod:MyUnit;
+            } ;
+          }
+
+          module PositiveTestCase {
+            interface (this: Token) = {
+              viewtype Mod:Unserializable;
+            } ;
+          }
+        """
+
+      check(pkg, "NegativeTestCase")
       an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, "PositiveTestCase"))
     }
   }
@@ -390,11 +440,12 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
       }
      """
 
-  private val defaultInterface = interface(defaultPkg)
-  private def interface(pkg: Package) = language.PackageInterface(Map(defaultPackageId -> pkg))
+  private val defaultFlags = Serializability.Flags.fromVersion(LanguageVersion.default)
+  private val defaultPkgInterface = pkgInterface(defaultPkg)
+  private def pkgInterface(pkg: Package) = language.PackageInterface(Map(defaultPackageId -> pkg))
 
   private def check(pkg: Package, modName: String): Unit = {
-    val w = interface(pkg)
+    val w = pkgInterface(pkg)
     val longModName = DottedName.assertFromString(modName)
     val mod = pkg.modules(longModName)
     Typing.checkModule(w, defaultPackageId, mod)

@@ -3,8 +3,8 @@
 
 .. _time:
 
-Time
-####
+Time on Daml Ledgers
+####################
 
 The Daml language contains a function :ref:`getTime <daml-ref-gettime>` which returns the “current time”.
 However, the notion of time comes with a lot of problems in a distributed setting.
@@ -16,7 +16,7 @@ the *ledger time* ``lt_TX`` and the *record time* ``rt_TX``.
 
 .. _ledger_time:
 
-Ledger time
+Ledger Time
 ***********
 
 The *ledger time* ``lt_TX`` is a property of a transaction.
@@ -27,7 +27,7 @@ The ledger time is assigned by the submitting participant as part of the Daml co
 
 .. _record-time:
 
-Record time
+Record Time
 ***********
 
 The *record time* ``rt_TX`` is another property of a transaction.
@@ -45,7 +45,7 @@ for details, contact your ledger operator.
 Guarantees
 **********
 
-The ledger time of valid transaction ``TX`` must fulfill the following rules:
+The ledger time of a valid transaction ``TX`` must fulfill the following rules:
 
 #. **Causal monotonicity**: for any action (create, exercise, fetch, lookup) in ``TX``
    on a contract ``C``, ``lt_TX >= lt_C``,
@@ -63,7 +63,7 @@ Daml applications should not interpret the value returned by :ref:`getTime <daml
 
 .. _ledger-time-model:
 
-Ledger time model
+Ledger Time Model
 *****************
 
 The *ledger time model* is the set of parameters used in the assignment and validation of ledger time.
@@ -82,8 +82,8 @@ The ledger time model is part of the ledger configuration and can be changed by 
 
 .. _assigning-ledger-time:
 
-Assigning ledger time
-*********************
+Assign Ledger Time
+******************
 
 The ledger time is assigned automatically by the participant.
 In most cases, Daml applications will not need to worry about ledger time and record time at all.
@@ -102,7 +102,7 @@ The algorithm is not part of the definition of time in Daml, and may change in t
    #. ``t_p + min_ledger_time_rel``, if ``min_ledger_time_rel`` is given
    #. ``min_ledger_time_abs``, if ``min_ledger_time_abs`` is given
 
-#. Since the set of commands used by given transaction can depend on the chosen time,
+#. Since the set of commands used by a given transaction can depend on the chosen time,
    the above process might need to be repeated until a suitable ledger time is found.
 
 #. If no suitable ledger time is found after 3 iterations, the submission is rejected.
@@ -111,11 +111,11 @@ The algorithm is not part of the definition of time in Daml, and may change in t
 
 #. At this point, the ledger time may lie in the future (e.g., if a large value for ``min_ledger_time_rel`` was given).
    The participant waits until ``lt_TX - transaction_latency`` before it submits the transaction to the ledger - 
-   the intention is that the transaction is record at ``lt_TX == rt_TX``.
+   the intention is that the transaction is recorded at ``lt_TX == rt_TX``.
 
 Use the parameters ``min_ledger_time_rel`` and ``min_ledger_time_abs`` if you expect that
 command interpretation will take a considerate amount of time, such that by
 the time the resulting transaction is submitted to the ledger, its assigned ledger time is not valid anymore.
 Note that these parameters can only make sure that the transaction arrives roughly at ``rt_TX`` at the ledger.
 If a subsequent validation on the ledger takes longer than ``skew_max``,
-the transaction will still be rejected and you'll have to ask your ledger operator to increase the ``skew_max`` time model parameter. 
+the transaction will still be rejected and you'll have to ask your ledger operator to increase the ``skew_max`` time model parameter.

@@ -16,24 +16,27 @@ import io.grpc.ServerServiceDefinition
 import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LedgerIdentityServiceImpl(ledgerId: String)
-    extends LedgerIdentityService
+final class LedgerIdentityServiceImpl private (getResponse: () => Future[String])(implicit
+    ec: ExecutionContext
+) extends LedgerIdentityService
     with FakeAutoCloseable {
 
   @nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*")
   override def getLedgerIdentity(
       request: GetLedgerIdentityRequest
   ): Future[GetLedgerIdentityResponse] = {
-    Future.successful(GetLedgerIdentityResponse(ledgerId))
+    getResponse().map(ledgerId => GetLedgerIdentityResponse(ledgerId))
   }
 }
 
 object LedgerIdentityServiceImpl {
 
-  def createWithRef(ledgerId: String, authorizer: Authorizer)(implicit
+  def createWithRef(getResponse: () => Future[String], authorizer: Authorizer)(implicit
       ec: ExecutionContext
   ): (ServerServiceDefinition, LedgerIdentityServiceImpl) = {
-    val impl = new LedgerIdentityServiceImpl(ledgerId)
+    val impl = new LedgerIdentityServiceImpl(
+      getResponse
+    )
     val authImpl = new LedgerIdentityServiceAuthorization(impl, authorizer)
     (LedgerIdentityServiceGrpc.bindService(authImpl, ec), impl): @nowarn(
       "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"

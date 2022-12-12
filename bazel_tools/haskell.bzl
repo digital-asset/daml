@@ -252,7 +252,11 @@ def da_haskell_repl(**kwargs):
             "//:ghci_data": True,
             "//conditions:default": False,
         }),
-        experimental_from_binary = ["//nix/..."],
+        experimental_from_binary = [
+            # Workaround for https://github.com/tweag/rules_haskell/issues/1726
+            "//bazel_tools/ghc-lib/...",
+            "//nix/...",
+        ],
         repl_ghci_args = [
             "-fexternal-interpreter",
             "-j",

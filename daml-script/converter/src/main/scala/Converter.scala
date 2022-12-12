@@ -4,14 +4,13 @@
 package com.daml.script.converter
 
 import java.util
-
 import scala.jdk.CollectionConverters._
 import scalaz.syntax.bind._
 import scalaz.std.either._
 import com.daml.lf.data.{ImmArray, Ref}
 import Ref._
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.{ArrayList, SValue}
 import SValue._
 import com.daml.lf.value.Value.ContractId
 
@@ -21,14 +20,6 @@ private[daml] object Converter {
   import Implicits._
 
   type ErrorOr[+A] = Either[String, A]
-
-  private val DA_INTERNAL_ANY_PKGID =
-    PackageId.assertFromString("cc348d369011362a5190fe96dd1f0dfbc697fdfd10e382b9e9666f0da05961b7")
-  def daInternalAny(s: String): Identifier =
-    Identifier(
-      DA_INTERNAL_ANY_PKGID,
-      QualifiedName(DottedName.assertFromString("DA.Internal.Any"), DottedName.assertFromString(s)),
-    )
 
   def toContractId(v: SValue): ErrorOr[ContractId] =
     v.expect("ContractId", { case SContractId(cid) => cid })
@@ -62,7 +53,7 @@ private[daml] object Converter {
 
   object DamlTuple2 {
     def unapply(v: SRecord): Option[(SValue, SValue)] = v match {
-      case SRecord(Identifier(_, DaTypesTuple2), _, JavaList(fst, snd)) =>
+      case SRecord(Identifier(_, DaTypesTuple2), _, ArrayList(fst, snd)) =>
         Some((fst, snd))
       case _ => None
     }
@@ -73,11 +64,6 @@ private[daml] object Converter {
       val SRecord(Identifier(_, QualifiedName(_, name)), _, values) = v
       Some((name.dottedName, values.asScala))
     }
-  }
-
-  object JavaList {
-    def unapplySeq[A](jl: util.List[A]): Some[collection.Seq[A]] =
-      Some(jl.asScala)
   }
 
   object Implicits {

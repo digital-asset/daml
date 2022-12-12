@@ -9,8 +9,9 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
-import com.daml.lf.speedy.SError.SErrorDamlException
+import com.daml.lf.language.StablePackage.DA
+import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
+import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SParty, SUnit}
 import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
@@ -22,7 +23,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-// TEST_EVIDENCE: Semantics: Exceptions, throw/catch.
+// TEST_EVIDENCE: Integrity: Exceptions, throw/catch.
 class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDrivenPropertyChecks {
 
   import com.daml.lf.testing.parser.Implicits.defaultParserParameters.defaultPackageId
@@ -30,7 +31,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
   private def applyToParty(pkgs: CompiledPackages, e: Expr, p: Party): SExpr = {
     val se = pkgs.compiler.unsafeCompile(e)
-    SEApp(se, Array(SEValue(SParty(p))))
+    SEApp(se, Array(SParty(p)))
   }
 
   "unhandled throw" should {
@@ -67,33 +68,34 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       List("M:E1", "M:E2")
         .map(id => data.Ref.Identifier.assertFromString(s"$defaultPackageId:$id"))
         .map(tyCon => TTyCon(tyCon) -> ValueRecord(Some(tyCon), data.ImmArray.Empty))
-    val arithmeticCon = data.Ref.Identifier.assertFromString(
-      "cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError"
-    )
     val divZeroE =
       ValueRecord(
-        Some(arithmeticCon),
+        Some(DA.Exception.ArithmeticError.ArithmeticError),
         data.ImmArray(
           Some(data.Ref.Name.assertFromString("message")) ->
             ValueText("ArithmeticError while evaluating (DIV_INT64 1 0).")
         ),
       )
 
-    val testCases = Table[String, SResult](
+    val testCases = Table[String, SError](
       ("expression", "expected"),
-      ("M:unhandled1", SResultError(SErrorDamlException(IE.UnhandledException(t1, e1)))),
-      ("M:unhandled2", SResultError(SErrorDamlException(IE.UnhandledException(t1, e1)))),
-      ("M:unhandled3", SResultError(SErrorDamlException(IE.UnhandledException(t1, e1)))),
-      ("M:unhandled4", SResultError(SErrorDamlException(IE.UnhandledException(t2, e2)))),
+      ("M:unhandled1", SErrorDamlException(IE.UnhandledException(t1, e1))),
+      ("M:unhandled2", SErrorDamlException(IE.UnhandledException(t1, e1))),
+      ("M:unhandled3", SErrorDamlException(IE.UnhandledException(t1, e1))),
+      ("M:unhandled4", SErrorDamlException(IE.UnhandledException(t2, e2))),
       (
         "M:divZero",
-        SResultError(SErrorDamlException(IE.UnhandledException(TTyCon(arithmeticCon), divZeroE))),
+        SErrorDamlException(
+          IE.UnhandledException(TTyCon(DA.Exception.ArithmeticError.ArithmeticError), divZeroE)
+        ),
       ),
     )
 
-    forEvery(testCases) { (exp: String, expected: SResult) =>
+    forEvery(testCases) { (exp: String, expected: SError) =>
       s"eval[$exp] --> $expected" in {
-        runUpdateExpr(pkgs)(e"$exp") shouldBe expected
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultError(err) =>
+          err shouldBe expected
+        }
       }
     }
   }
@@ -125,8 +127,9 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, num: Long) =>
       s"eval[$exp] --> $num" in {
-        val expected: SResult = SResultFinalValue(SValue.SInt64(num))
-        runUpdateExpr(pkgs)(e"$exp") shouldBe expected
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
+          v shouldBe SValue.SInt64(num)
+        }
       }
     }
   }
@@ -161,8 +164,9 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, num: Long) =>
       s"eval[$exp] --> $num" in {
-        val expected: SResult = SResultFinalValue(SValue.SInt64(num))
-        runUpdateExpr(pkgs)(e"$exp") shouldBe expected
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
+          v shouldBe SValue.SInt64(num)
+        }
       }
     }
   }
@@ -243,8 +247,9 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, num: Long) =>
       s"eval[$exp] --> $num" in {
-        val expected: SResult = SResultFinalValue(SValue.SInt64(num))
-        runUpdateExpr(pkgs)(e"$exp") shouldBe expected
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
+          v shouldBe SValue.SInt64(num)
+        }
       }
     }
   }
@@ -311,8 +316,9 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, num: Long) =>
       s"eval[$exp] --> $num" in {
-        val expected: SResult = SResultFinalValue(SValue.SInt64(num))
-        runUpdateExpr(pkgs)(e"$exp") shouldBe expected
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
+          v shouldBe SValue.SInt64(num)
+        }
       }
     }
   }
@@ -382,8 +388,9 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, num: Long) =>
       s"eval[$exp] --> $num" in {
-        val expected: SResult = SResultFinalValue(SValue.SInt64(num))
-        runUpdateExpr(pkgs)(e"$exp") shouldBe expected
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
+          v shouldBe SValue.SInt64(num)
+        }
       }
     }
   }
@@ -462,8 +469,9 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
     forEvery(testCases) { (exp: String, str: String) =>
       s"eval[$exp] --> $str" in {
-        val expected: SResult = SResultFinalValue(SValue.SText(str))
-        runUpdateExpr(pkgs)(e"$exp") shouldBe expected
+        inside(runUpdateExpr(pkgs)(e"$exp")) { case SResultFinal(v) =>
+          v shouldBe SValue.SText(str)
+        }
       }
     }
   }
@@ -475,59 +483,136 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
       val pkgs: PureCompiledPackages = typeAndCompile(p"""
        module M {
-       
+
+         record @serializable MyUnit = {};
+
          record @serializable E = { } ;
          exception E = { message \(e: M:E) -> "E" };
-          
-         record @serializable T = { party: Party }; 
-                  
+
+         record @serializable T = { party: Party, viewFails: Bool };
+
+         interface (this: I) = {
+           viewtype M:MyUnit;
+           method parties: List Party;
+           choice Noop (self) (u: Unit) : Unit,
+             controllers (call_method @M:I parties this),
+             observers Nil @Party
+             to upure @Unit ();
+           choice BodyCrash (self) (u: Unit) : Unit,
+             controllers (call_method @M:I parties this),
+             observers Nil @Party
+             to upure @Unit (throw @Unit @M:E (M:E {}));
+           choice ControllersCrash (self) (u: Unit) : Unit,
+             controllers throw @(List Party) @M:E (M:E {}),
+             observers Nil @Party
+             to upure @Unit ();
+           choice ObserversCrash (self) (u: Unit) : Unit,
+             controllers (call_method @M:I parties this),
+             observers throw @(List Party) @M:E (M:E {})
+             to upure @Unit ();
+         };
+
          template (this: T) = {
            precondition True;
            signatories Cons @Party [M:T {party} this] Nil @Party;
            observers Nil @Party;
            agreement "Agreement";
-             choice BodyCrash (self) (u: Unit) : Unit, 
-                 controllers Cons @Party [M:T {party} this] Nil @Party,
-                 observers Nil @Party
-               to upure @Unit (throw @Unit @M:E (M:E {}));
-             choice ControllersCrash (self) (u: Unit) : Unit, 
-                 controllers throw @(List Party) @M:E (M:E {}),
-                 observers Nil @Party
-               to upure @Unit ();
-             choice ObserversCrash (self) (u: Unit) : Unit, 
-                 controllers Cons @Party [M:T {party} this] Nil @Party,
-                 observers throw @(List Party) @M:E (M:E {})
-               to upure @Unit ();
+           choice BodyCrash (self) (u: Unit) : Unit,
+             controllers Cons @Party [M:T {party} this] Nil @Party,
+             observers Nil @Party
+             to upure @Unit (throw @Unit @M:E (M:E {}));
+           choice ControllersCrash (self) (u: Unit) : Unit,
+             controllers throw @(List Party) @M:E (M:E {}),
+             observers Nil @Party
+             to upure @Unit ();
+           choice ObserversCrash (self) (u: Unit) : Unit,
+             controllers Cons @Party [M:T {party} this] Nil @Party,
+             observers throw @(List Party) @M:E (M:E {})
+             to upure @Unit ();
+           implements M:I {
+             view = case (M:T {viewFails} this) of
+                 False -> M:MyUnit {}
+               | True -> throw @M:MyUnit @M:E (M:E {});
+              method parties = Cons @Party [M:T {party} this] Nil @Party;
+           };
          };
        }
       """)
 
       val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
-      val testCases = Table[String, Boolean](
-        ("choice", "caught"),
-        ("BodyCrash", true),
-        ("ControllersCrash", false),
-        ("ObserversCrash", false),
+      val testCases = Table[String, String](
+        ("description", "update"),
+        "exception thrown by the evaluation of the choice body during exercise by template can be caught" ->
+          """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
+            in exercise @M:T BodyCrash cid ()
+        """,
+        "exception thrown by the evaluation of the choice controllers during exercise by template cannot be caught" ->
+          """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
+            in exercise @M:T ControllersCrash cid ()
+        """,
+        "exception thrown by the evaluation of the choice observers during exercise by template cannot be caught" ->
+          """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
+            in exercise @M:T ObserversCrash cid ()
+        """,
+        "exception thrown by the evaluation of the view during create by interface cannot be caught" ->
+          """
+            ubind
+              cid : ContractId M:I <- create_by_interface @M:I (to_interface @M:I @M:T (M:T {party = sig, viewFails = True}))
+            in ()
+        """,
+        "exception thrown by the evaluation of the view during fetch by interface cannot be caught" ->
+          """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = True});
+              i: M:I <- fetch_interface @M:I (COERCE_CONTRACT_ID @M:T @M:I cid)
+            in ()
+        """,
+        "exception thrown by the evaluation of the choice body during exercise by interface can be caught" ->
+          """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
+            in exercise_interface @M:I BodyCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()
+        """,
+        "exception thrown by the evaluation of the choice controllers during exercise by interface cannot be caught" ->
+          """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
+            in exercise_interface @M:I ControllersCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()
+        """,
+        "exception thrown by the evaluation of the choice observers during exercise by interface cannot be caught" ->
+          """
+            ubind
+              cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
+            in exercise_interface @M:I ObserversCrash (COERCE_CONTRACT_ID @M:T @M:I cid) ()
+        """,
       )
 
-      forEvery(testCases) { (choice, caught) =>
+      forEvery(testCases) { (description, update) =>
         val expr =
           e"""\(sig: Party) ->
-              ubind cid : ContractId M:T <- create @M:T (M:T {party = sig}) 
-              in try @Unit (exercise @M:T $choice cid ()) 
-                 catch e -> Some @(Update Unit) (upure @Unit ())
+              try @Unit ($update)
+              catch e -> Some @(Update Unit) (upure @Unit ())
               """
 
         val res = Speedy.Machine
           .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, expr, party), Set(party))
           .run()
-        if (caught)
-          res shouldBe SResult.SResultFinalValue(SValue.SValue.Unit)
-        else
-          inside(res) { case SResult.SResultError(SErrorDamlException(err)) =>
+        if (description.contains("can be caught"))
+          inside(res) { case SResultFinal(SUnit) =>
+          }
+        else if (description.contains("cannot be caught"))
+          inside(res) { case SResultError(SErrorDamlException(err)) =>
             err shouldBe a[IE.UnhandledException]
           }
+        else
+          sys.error("the description should contains \"can be caught\" or \"cannot be caught\"")
       }
     }
   }
@@ -543,7 +628,8 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       val res = Speedy.Machine
         .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, example, party), Set(party))
         .run()
-      res shouldBe SResultFinalValue(SUnit)
+      inside(res) { case SResultFinal(SUnit) =>
+      }
     }
 
     "causes an uncatchable exception to be thrown for a contract version PRE-dating exceptions" in {
@@ -578,7 +664,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
           signatories Cons @Party [M:T1 {party} record] (Nil @Party);
           observers Nil @Party;
           agreement "Agreement";
-          choice MyChoice (self) (i : Unit) : Unit, 
+          choice MyChoice (self) (i : Unit) : Unit,
             controllers Cons @Party [M:T1 {party} record] (Nil @Party)
             to
               ubind
@@ -622,7 +708,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
       implicit val defaultParserParameters: ParserParameters[this.type] = {
         ParserParameters(
           defaultPackageId = oldPid,
-          languageVersion = LanguageVersion.v1_11, //version pre-dating exceptions
+          languageVersion = LanguageVersion.v1_11, // version pre-dating exceptions
         )
       }
       p"""
@@ -750,7 +836,8 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
     "create rollback when old contacts are not within try-catch context" in {
       val res =
         Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party)).run()
-      res shouldBe SResultFinalValue(SUnit)
+      inside(res) { case SResultFinal(SUnit) =>
+      }
     }
 
     "causes uncatchable exception when an old contract is within a new-exercise within a try-catch" in {

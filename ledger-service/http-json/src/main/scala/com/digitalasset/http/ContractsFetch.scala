@@ -8,13 +8,13 @@ import akka.stream.scaladsl.{Flow, GraphDSL, Keep, RunnableGraph, Sink, Source}
 import akka.stream.{ClosedShape, FanOutShape2, Materializer}
 import com.daml.http.dbbackend.{ContractDao, SupportedJdbcDriver}
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
-import com.daml.http.domain.TemplateId
+import com.daml.http.domain.ContractTypeId
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.util.ApiValueToLfValueConverter.apiValueToLfValue
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue
 }
-import com.daml.http.util.Logging.{InstanceUUID}
+import com.daml.http.util.Logging.InstanceUUID
 import com.daml.fetchcontracts.util.{
   AbsoluteBookmark,
   BeginBookmark,
@@ -23,7 +23,8 @@ import com.daml.fetchcontracts.util.{
   LedgerBegin,
 }
 import com.daml.scalautil.ExceptionOps._
-import com.daml.scalautil.nonempty.NonEmpty
+import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
@@ -64,7 +65,7 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: List[domain.TemplateId.RequiredPkg],
+      templateIds: List[domain.ContractTypeId.Resolved],
       tickFetch: ConnectionIO ~> ConnectionIO = NaturalTransformation.refl,
   )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
       ec: ExecutionContext,
@@ -76,7 +77,7 @@ private class ContractsFetch(
     val fetchContext = FetchContext(jwt, ledgerId, parties)
     def go(
         maxAttempts: Int,
-        fetchTemplateIds: List[domain.TemplateId.RequiredPkg],
+        fetchTemplateIds: List[domain.ContractTypeId.Resolved],
         absEnd: Terminates.AtAbsolute,
     ): ConnectionIO[A] = for {
       bb <- tickFetch(fetchToAbsEnd(fetchContext, fetchTemplateIds, absEnd))
@@ -88,7 +89,7 @@ private class ContractsFetch(
       lagging <- (templateIds.toSet, bb.map(_.toDomain)) match {
         case (NonEmpty(tids), AbsoluteBookmark(expectedOff)) =>
           laggingOffsets(parties, expectedOff, tids)
-        case _ => fconn.pure(none[(domain.Offset, Set[domain.TemplateId.RequiredPkg])])
+        case _ => fconn.pure(none[(domain.Offset, Set[domain.ContractTypeId.Resolved])])
       }
       retriedA <- lagging.cata(
         { case (newOff, laggingTids) =>
@@ -111,7 +112,7 @@ private class ContractsFetch(
 
     // we assume that if the ledger termination is LedgerBegin, then
     // `within` will not yield concurrency-relevant results
-    connectionIOFuture(getTermination(jwt, ledgerId)) flatMap {
+    connectionIOFuture(getTermination(jwt, ledgerId)(lc)) flatMap {
       _.cata(go(initTries, templateIds, _), within(LedgerBegin))
     }
   }
@@ -120,13 +121,13 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: List[domain.TemplateId.RequiredPkg],
+      templateIds: List[domain.ContractTypeId.Resolved],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
       lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] =
-    connectionIOFuture(getTermination(jwt, ledgerId)) flatMap {
+    connectionIOFuture(getTermination(jwt, ledgerId)(lc)) flatMap {
       _.cata(
         fetchToAbsEnd(FetchContext(jwt, ledgerId, parties), templateIds, _),
         fconn.pure(LedgerBegin),
@@ -135,7 +136,7 @@ private class ContractsFetch(
 
   private[this] def fetchToAbsEnd(
       fetchContext: FetchContext,
-      templateIds: List[domain.TemplateId.RequiredPkg],
+      templateIds: List[domain.ContractTypeId.Resolved],
       absEnd: Terminates.AtAbsolute,
   )(implicit
       ec: ExecutionContext,
@@ -191,7 +192,7 @@ private class ContractsFetch(
       fetchContext: FetchContext,
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.ContractTypeId.Resolved,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -220,7 +221,7 @@ private class ContractsFetch(
       fetchContext: FetchContext,
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.ContractTypeId.Resolved,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -243,15 +244,17 @@ private class ContractsFetch(
   }
 
   private def prepareCreatedEventStorage(
-      ce: lav1.event.CreatedEvent
+      ce: lav1.event.CreatedEvent,
+      d: ContractTypeId.Resolved,
   ): Exception \/ PreInsertContract = {
     import scalaz.syntax.traverse._
     import scalaz.std.option._
     import com.daml.lf.crypto.Hash
     for {
-      ac <- domain.ActiveContract fromLedgerApi ce leftMap (de =>
-        new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"): Exception
-      )
+      ac <-
+        domain.ActiveContract fromLedgerApi (domain.ResolvedQuery(d), ce) leftMap (de =>
+          new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"): Exception
+        )
       lfKey <- ac.key.traverse(apiValueToLfValue).leftMap(_.cause: Exception)
       lfArg <- apiValueToLfValue(ac.payload) leftMap (_.cause: Exception)
     } yield DBContract(
@@ -260,7 +263,7 @@ private class ContractsFetch(
       key = lfKey.cata(lfValueToDbJsValue, JsNull),
       keyHash = lfKey.map(
         Hash
-          .assertHashContractKey(TemplateId.toLedgerApiValue(ac.templateId), _)
+          .assertHashContractKey(ContractTypeId.toLedgerApiValue(ac.templateId), _)
           .toHexString
       ),
       payload = lfValueToDbJsValue(lfArg),
@@ -270,15 +273,16 @@ private class ContractsFetch(
     )
   }
 
-  private def jsonifyInsertDeleteStep(
-      a: InsertDeleteStep[Any, lav1.event.CreatedEvent]
-  ): InsertDeleteStep[Unit, PreInsertContract] =
-    a.leftMap(_ => ())
-      .mapPreservingIds(prepareCreatedEventStorage(_) valueOr (e => throw e))
+  private def jsonifyInsertDeleteStep[D <: ContractTypeId.Resolved](
+      a: InsertDeleteStep[Any, lav1.event.CreatedEvent],
+      d: D,
+  ): InsertDeleteStep[D, PreInsertContract] =
+    a.leftMap(_ => d)
+      .mapPreservingIds(prepareCreatedEventStorage(_, d) valueOr (e => throw e))
 
   private def contractsFromOffsetIo(
       fetchContext: FetchContext,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.ContractTypeId.Resolved,
       offsets: Map[domain.Party, domain.Offset],
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
@@ -304,7 +308,7 @@ private class ContractsFetch(
           transactionFilter(parties, List(templateId)),
           _: lav1.ledger_offset.LedgerOffset,
           absEnd,
-        )
+        )(lc)
 
         // include ACS iff starting at LedgerBegin
         val (idses, lastOff) = (startOffset, disableAcs) match {
@@ -315,7 +319,7 @@ private class ContractsFetch(
               ledgerId,
               transactionFilter(parties, List(templateId)),
               true,
-            )
+            )(lc)
             (stepsAndOffset.out0, stepsAndOffset.out1)
 
           case (AbsoluteBookmark(_), _) | (LedgerBegin, true) =>
@@ -328,7 +332,9 @@ private class ContractsFetch(
         }
 
         val transactInsertsDeletes = Flow
-          .fromFunction(jsonifyInsertDeleteStep)
+          .fromFunction(
+            jsonifyInsertDeleteStep((_: InsertDeleteStep[Any, lav1.event.CreatedEvent]), templateId)
+          )
           .via(conflation)
           .map(insertAndDelete)
 
@@ -358,9 +364,10 @@ private class ContractsFetch(
 
 private[http] object ContractsFetch {
 
-  type PreInsertContract = DBContract[TemplateId.RequiredPkg, JsValue, JsValue, Seq[domain.Party]]
+  type PreInsertContract =
+    DBContract[ContractTypeId.RequiredPkg, JsValue, JsValue, Seq[domain.Party]]
 
-  private def surrogateTemplateIds[K <: TemplateId.RequiredPkg](
+  private def surrogateTemplateIds[K <: ContractTypeId.RequiredPkg](
       ids: Set[K]
   )(implicit
       log: doobie.LogHandler,
@@ -377,27 +384,36 @@ private[http] object ContractsFetch {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def insertAndDelete(
-      step: InsertDeleteStep[Any, PreInsertContract]
+      step: InsertDeleteStep[ContractTypeId.Resolved, PreInsertContract]
   )(implicit
       log: doobie.LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[Unit] = {
     import doobie.implicits._, cats.syntax.functor._
-    surrogateTemplateIds(step.inserts.iterator.map(_.templateId).toSet).flatMap { stidMap =>
+    surrogateTemplateIds(
+      (step.inserts.iterator.map(_.templateId) ++ step.deletes.valuesIterator).toSet
+    ).flatMap { stidMap =>
       import cats.syntax.apply._, cats.instances.vector._
       import json.JsonProtocol._
       import sjd.q.queries
-      (queries.deleteContracts(step.deletes.keySet) *>
+      // cid -> ctid
+      // we want ctid
+      def mapToId(a: ContractTypeId.RequiredPkg) =
+        stidMap.getOrElse(
+          a,
+          throw new IllegalStateException(
+            "template ID missing from prior retrieval; impossible"
+          ),
+        )
+
+      (queries.deleteContracts(step.deletes.groupMap1(_._2)(_._1).map { case (tid, cids) =>
+        (mapToId(tid), cids.toSet)
+      }) *>
         queries.insertContracts(
           step.inserts map (dbc =>
             dbc.copy(
-              templateId = stidMap.getOrElse(
-                dbc.templateId,
-                throw new IllegalStateException(
-                  "template ID missing from prior retrieval; impossible"
-                ),
-              ),
+              templateId = mapToId(dbc.templateId),
               signatories = domain.Party.unsubst(dbc.signatories),
               observers = domain.Party.unsubst(dbc.observers),
             )

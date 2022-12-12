@@ -1,0 +1,42 @@
+-- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module InterfaceContractDoesNotImplementInterface where
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface I where
+  viewtype EmptyInterfaceView
+
+interface J requires I where
+  viewtype EmptyInterfaceView
+  getController : Party
+  choice JChoice : ()
+    controller getController this
+    do pure ()
+
+template T
+  with
+    party : Party
+  where
+    signatory party
+    interface instance I for T where
+      view = EmptyInterfaceView
+
+-- @ENABLE-SCENARIOS
+-- @ERROR range=29:1-29:11; Attempt to use a contract via an interface that the contract does not implement
+testFromTo = do
+  alice <- getParty "alice"
+  cidT <- alice `submit` create T with party = alice
+  let cidI = toInterfaceContractId @I cidT
+      cidJ = fromInterfaceContractId @J cidI
+  alice `submit` exercise cidJ JChoice
+
+-- @ERROR range=37:1-37:11; Attempt to use a contract via an interface that the contract does not implement
+testCoerce = do
+  alice <- getParty "alice"
+  cidT <- alice `submit` create T with party = alice
+  let cidI = toInterfaceContractId @I cidT
+      cidJ = coerceInterfaceContractId @J cidI
+  alice `submit` exercise cidJ JChoice

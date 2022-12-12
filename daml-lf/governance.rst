@@ -18,8 +18,8 @@ Overview
 * The *Daml-LF language* is the typed core calculus that Daml gets
   compiled to, and that the ledger runs.
 
-* *Daml-LF  serializable  values*  or   (Daml-LF  values  for  brevity
-  (Daml-LF values for brevity in the rest in the rest of this document)
+* *Daml-LF  serializable  values*
+  (Daml-LF values for brevity in the rest of this document)
   is  the  universe of  Daml-LF  values  that  can  be stored  on  the
   ledger.   Currently  nominal  records,  nominal   variants,  lists,
   optionals, maps, and primitive types.
@@ -56,10 +56,10 @@ Overview
   present in the ``daml-lf-X.proto`` and ``transaction.proto`` files.
 
 * Every change to Daml-LF values, nodes, transactions or languages *must* be
-  checked for governance rules conformance and be approved by at least two
-  persons among Rémy Haemmerle (@remyhaemmerle-da), Sofia Faro (@sofiafaro-da)
-  and Moritz Kiefer (@cocreature). Proposed changes can be filed as tickets
-  under labels "component/daml-lf" and "discussion".
+  checked for governance rules conformance and be approved by Rémy Haemmerle
+  (@remyhaemmerle-da) or Moisés Ackerman (@akrmn) if  Rémy is on vacation.
+  Proposed changes can be filed as tickets under labels "component/daml-lf"
+  and "discussion".
 
 Language
 --------

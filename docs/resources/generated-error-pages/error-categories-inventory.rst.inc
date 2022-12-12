@@ -51,24 +51,9 @@ SystemInternalAssumptionViolated
 
     **Default log level**: ERROR
 
-    **Description**: Request processing failed due to a violation of system internal invariants.
+    **Description**: Request processing failed due to a violation of system internal invariants.  This error is exposed on the API with grpc-status INTERNAL without any details for security reasons
 
     **Resolution**: Expectation: this is due to a bug in the implementation or data corruption in the systems databases. Resolution will require operator intervention, and potentially vendor support.
-
-    **Retry strategy**: Retry after operator intervention.
-
-
-MaliciousOrFaultyBehaviour
-========================================================================================================================
-    **Category id**: 5
-
-    **gRPC status code**: UNKNOWN
-
-    **Default log level**: WARN
-
-    **Description**: Request processing failed due to unrecoverable data loss or corruption (e.g. detected via checksums)
-
-    **Resolution**: Expectation: this can be a severe issue that requires operator attention or intervention, and potentially vendor support.
 
     **Retry strategy**: Retry after operator intervention.
 
@@ -81,7 +66,7 @@ AuthInterceptorInvalidAuthenticationCredentials
 
     **Default log level**: WARN
 
-    **Description**: The request does not have valid authentication credentials for the operation.
+    **Description**: The request does not have valid authentication credentials for the operation. This error is exposed on the API with grpc-status UNAUTHENTICATED without any details for security reasons
 
     **Resolution**: Expectation: this is an application bug, application misconfiguration or ledger-level misconfiguration. Resolution requires application and/or ledger operator intervention.
 
@@ -96,11 +81,26 @@ InsufficientPermission
 
     **Default log level**: WARN
 
-    **Description**: The caller does not have permission to execute the specified operation.
+    **Description**: The caller does not have permission to execute the specified operation. This error is exposed on the API with grpc-status PERMISSION_DENIED without any details for security reasons
 
     **Resolution**: Expectation: this is an application bug or application misconfiguration. Resolution requires application operator intervention.
 
     **Retry strategy**: Retry after application operator intervention.
+
+
+SecurityAlert
+========================================================================================================================
+    **Category id**: 5
+
+    **gRPC status code**: INVALID_ARGUMENT
+
+    **Default log level**: WARN
+
+    **Description**: A potential attack or a faulty peer component has been detected.  This error is exposed on the API with grpc-status INVALID_ARGUMENT without any details for security reasons.
+
+    **Resolution**: Expectation: this can be a severe issue that requires operator attention or intervention, and potentially vendor support. It means that the system has detected invalid information that can be attributed to either faulty or malicious manipulation of data coming from a peer source.
+
+    **Retry strategy**: Errors in this category are non-retryable.
 
 
 InvalidIndependentOfSystemState
@@ -201,7 +201,7 @@ InternalUnsupportedOperation
 
     **Default log level**: ERROR
 
-    **Description**: This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request.
+    **Description**: This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request. This error is exposed on the API with grpc-status UNIMPLEMENTED without any details for security reasons
 
     **Resolution**: This error is caused by a ledger-level misconfiguration or by an implementation bug. Resolution requires participant operator intervention.
 

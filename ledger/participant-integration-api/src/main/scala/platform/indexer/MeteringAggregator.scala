@@ -10,7 +10,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.MeteringAggregator.{toOffsetDateTime, toTimestamp}
-import com.daml.platform.store.appendonlydao.DbDispatcher
+import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.daml.platform.store.backend.{
   MeteringParameterStorageBackend,

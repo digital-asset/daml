@@ -3,15 +3,18 @@
 
 .. _recommended-architecture:
 
-Application architecture
-########################
+Daml Application Architecture
+#############################
 
 This section describes our recommended design of a full-stack Daml application.
 
 .. image:: ./recommended_architecture.svg
+   :alt: Diagram of the recommended application architecture, explained in depth immediately below.
 
-The above image shows the recommended architecture. Of course there are many ways that the architecture and technology 
-stack can be changed to fit your needs which we'll mention in the corresponding sections.
+The above image shows the recommended architecture. Here there are four types of building blocks that go into our application: user code, Daml components, generated code from Daml, and external components. In the recommended architecture the Daml model determines the DAR files that underpin both the front-end and back-end. The front-end includes user code such as a React Web Frontend, Daml React libraries or other integration libraries, and generated code from the DAR files. The back-end consists of Daml integration components (e.g. JSON API) and a participant node; the participant node communicates with an external token issuer. The Daml network, meanwhile, includes Daml drivers paired with external synchronization technologies.
+
+Of course there are many ways that the architecture and technology
+stack can be changed to fit your needs, which we'll mention in the corresponding sections.
 
 To get started quickly with the recommended application architecture, generate a new project using the ``create-daml-app`` template:
 
@@ -101,7 +104,7 @@ with a Daml ledger that validates authorization of incoming requests. Simply ini
 ``DamlLedger`` object with the token obtained by the respective token issuer. How authorization works and the
 form of the required tokens is described in the :ref:`Authorization <authorization>` section.
 
-Developer workflow
+Developer Workflow
 ******************
 
 The SDK enables a local development environment with fast iteration cycles:
@@ -119,10 +122,11 @@ Together, these features can provide you with very tight feedback loops while de
   #. Make further changes either to your Daml and/or React code until you're happy with what you've developed
 
 .. image:: ./developer_workflow.svg
+   :alt: A simple developer workflow - iterate on the Daml model, iterate on the UI, repeat.
 
 See :doc:`Your First Feature </getting-started/first-feature>` for a more detailed walkthrough of these steps.
 
-Command deduplication
+Command Deduplication
 =====================
 
 The interaction of a Daml application with the ledger is inherently asynchronous: applications send commands to the ledger, and some time later they see the effect of that command on the ledger.
@@ -141,12 +145,12 @@ For details on how to use command deduplication, see the :doc:`Command Deduplica
 
 .. _dealing-with-failures:
 
-Dealing with failures
-=====================
+Deal With Failures
+==================
 
 .. _crash-recovery:
 
-Crash recovery
+Crash Recovery
 --------------
 
 In order to restart your application from a previously known ledger state,
@@ -159,8 +163,8 @@ atomic operation, your application can resume from where it left off.
 
 .. _failing-over-between-ledger-api-endpoints:
 
-Failing over between Ledger API endpoints
------------------------------------------
+Fail Over Between Ledger API Endpoints
+--------------------------------------
 
 Some Daml Ledgers support exposing multiple eventually consistent Ledger API
 endpoints where command deduplication works across these Ledger API endpoints.
@@ -193,8 +197,8 @@ new endpoint, it will resume normal operation.
 
 .. _dealing-with-time:
 
-Dealing with time
-=================
+Deal With Time
+==============
 
 The Daml language contains a function :ref:`getTime <daml-ref-gettime>` which returns a rough estimate of “current time” called *Ledger Time*. The notion of time comes with a lot of problems in a distributed setting: different participants might run different clocks, there may be latencies due to calculation and network, clocks may drift against each other over time, etc.
 

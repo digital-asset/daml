@@ -20,8 +20,8 @@ by the local participant from remote participants are *not* included.
 
 Only events contained in committed transactions are included, a failed transaction has no effect on ledger metering.
 
-Generating a Metering Report
-----------------------------
+Generate a Metering Report
+--------------------------
 
 A metering report is generated using the :doc:`Daml assistant </tools/assistant>` utility.
 
@@ -70,7 +70,11 @@ Output
                 "application": "some-application",
                 "events": 42
             }
-        ]
+        ],
+        "check": {
+            "digest": "sxRZw40JJ5gWGUJoecm6-i-UPQ2imBVqeOYnbmYhVNA=",
+            "scheme": "canton-enterprise-2022"
+        }
     }
 
 The output consists of the following sections:
@@ -89,6 +93,6 @@ The output consists of the following sections:
 :applications:
     This section will give an event count for each application used in the reporting period.
 
-
-
+:check:
+    This section is used by the billing operator to verify that the report has not been modified.
 

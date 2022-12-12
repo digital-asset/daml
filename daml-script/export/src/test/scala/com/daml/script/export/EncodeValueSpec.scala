@@ -18,37 +18,45 @@ class EncodeValueSpec extends AnyFreeSpec with Matchers {
 
   import Encode._
   "encodeValue" - {
-    "record" in {
-      val id1 = v.Identifier("pkg-id", "M", "R1")
-      val id2 = v.Identifier("pkg-id", "M", "R2")
-      val id3 = v.Identifier("pkg-id", "M", "R3")
-      val r = v.Value.Sum.Record(
-        v.Record(
-          Some(id1),
-          Seq(
-            v.RecordField("a", Some(v.Value().withInt64(1))),
-            v.RecordField(
-              "b",
-              Some(
-                v.Value()
-                  .withRecord(
-                    v.Record(Some(id2), Seq(v.RecordField("c", Some(v.Value().withInt64(42)))))
-                  )
-              ),
-            ),
-            v.RecordField(
-              "c",
-              Some(v.Value().withRecord(v.Record(Some(id3)))),
-            ),
+    val record = v.Record(
+      Some(v.Identifier("pkg-id", "M", "R1")),
+      Seq(
+        v.RecordField("a", Some(v.Value().withInt64(1))),
+        v.RecordField(
+          "b",
+          Some(
+            v.Value()
+              .withRecord(
+                v.Record(
+                  Some(v.Identifier("pkg-id", "M", "R2")),
+                  Seq(v.RecordField("c", Some(v.Value().withInt64(42)))),
+                )
+              )
           ),
-        )
-      )
-      encodeValue(Map.empty, Map.empty, r).render(80) shouldBe
-        """M.R1 with
-        |  a = 1
-        |  b = M.R2 with
-        |    c = 42
-        |  c = M.R3""".stripMargin.replace("\r\n", "\n")
+        ),
+        v.RecordField(
+          "c",
+          Some(v.Value().withRecord(v.Record(Some(v.Identifier("pkg-id", "M", "R3"))))),
+        ),
+      ),
+    )
+    "record" in {
+      encodeValue(
+        Map.empty,
+        Map.empty,
+        v.Value.Sum.Record(record),
+      ).render(
+        80
+      ) shouldBe "(M.R1 {a = 1, b = (M.R2 {c = 42}), c = M.R3})"
+      encodeValue(
+        Map.empty,
+        Map.empty,
+        v.Value.Sum.Record(record),
+      ).render(30) shouldBe
+        """(M.R1 {a = 1,
+          |    b = (M.R2 {c = 42}),
+          |    c = M.R3})""".stripMargin.replace("\r\n", "\n")
+
     }
     "tuple" in {
       def tupleId(n: Int): v.Identifier = v
@@ -80,15 +88,47 @@ class EncodeValueSpec extends AnyFreeSpec with Matchers {
       val variant =
         v.Value().withVariant(v.Variant(Some(id), "Constr", Some(v.Value().withInt64(1))))
       encodeValue(Map.empty, Map.empty, variant.sum).render(80) shouldBe "(M.Constr 1)"
+
+      // Tests a variant constructor declared with record syntax
+      val fields = record.withRecordId(id.withEntityName("V.ConstrFields"))
+      val variantFields =
+        v.Value()
+          .withVariant(v.Variant(Some(id), "ConstrFields", Some(v.Value().withRecord(fields))))
+      encodeValue(Map.empty, Map.empty, variantFields.sum).render(
+        80
+      ) shouldBe "(M.ConstrFields {a = 1, b = (M.R2 {c = 42}), c = M.R3})"
+
+      // Tests a variant constructor declared with an argument of a record type.
+      val variantRec =
+        v.Value().withVariant(v.Variant(Some(id), "ConstrRec", Some(v.Value().withRecord(record))))
+      encodeValue(Map.empty, Map.empty, variantRec.sum).render(
+        80
+      ) shouldBe "(M.ConstrRec (M.R1 {a = 1, b = (M.R2 {c = 42}), c = M.R3}))"
     }
     "contract id" in {
       val cid = v.Value().withContractId("my-contract-id")
       encodeValue(Map.empty, Map(ContractId("my-contract-id") -> "mapped_cid"), cid.sum)
         .render(80) shouldBe "mapped_cid"
     }
-    "list" in {
-      val l = v.Value().withList(v.List(Seq(v.Value().withInt64(0), v.Value().withInt64(1))))
-      encodeValue(Map.empty, Map.empty, l.sum).render(80) shouldBe "[0, 1]"
+    "simple list" in {
+      val l = List(0L, 1L).map(v.Value().withInt64(_))
+      val value = v.Value().withList(v.List(l))
+      encodeValue(Map.empty, Map.empty, value.sum).render(80) shouldBe "[0, 1]"
+    }
+    "list of record" in {
+      val l = List(record, record).map(v.Value().withRecord(_))
+      val value = v.Value().withList(v.List(l))
+      encodeValue(Map.empty, Map.empty, value.sum).render(
+        100
+      ) shouldBe "[(M.R1 {a = 1, b = (M.R2 {c = 42}), c = M.R3}), (M.R1 {a = 1, b = (M.R2 {c = 42}), c = M.R3})]"
+      encodeValue(Map.empty, Map.empty, value.sum).render(
+        30
+      ) shouldBe """[(M.R1 {a = 1,
+                   |      b = (M.R2 {c = 42}),
+                   |      c = M.R3}),
+                   |  (M.R1 {a = 1,
+                   |      b = (M.R2 {c = 42}),
+                   |      c = M.R3})]""".stripMargin.replace("\r\n", "\n")
     }
     "int64" in {
       encodeValue(Map.empty, Map.empty, v.Value().withInt64(42).sum).render(80) shouldBe "42"

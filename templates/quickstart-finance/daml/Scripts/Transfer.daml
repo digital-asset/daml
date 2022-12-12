@@ -1,0 +1,150 @@
+module Scripts.Transfer where
+
+import DA.Map (empty, fromList)
+import DA.Set (singleton)
+import Daml.Script
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Account.Factory qualified as Account (F)
+import Daml.Finance.Interface.Holding.Base qualified as Holding (I)
+import Daml.Finance.Interface.Holding.Factory qualified as Holding (F)
+import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument (I)
+import Daml.Finance.Interface.Types.Common.Types (AccountKey, Id(..), InstrumentKey(..))
+
+-- IMPLEMENTATION DEPENDENCIES --
+import Daml.Finance.Account.Account qualified as Account (Factory(..))
+import Daml.Finance.Holding.Fungible qualified as Fungible (Factory(..))
+import Daml.Finance.Instrument.Token.Instrument (Instrument(..))
+
+import Workflow.CreateAccount qualified as CreateAccount
+import Workflow.CreditAccount qualified as CreditAccount
+import Workflow.Transfer qualified as Transfer
+
+-- | Helper container used to transfer state from one script to another.
+data TransferState = TransferState
+  with
+    alice : Party
+    bank : Party
+    bob : Party
+    public : Party
+    aliceAccount : AccountKey
+    bobAccount : AccountKey
+    cashInstrument : InstrumentKey
+    holdingFactoryCid : ContractId Holding.F
+    newHoldingCid : ContractId Holding.I
+  deriving (Eq, Show)
+
+-- | Test script that
+-- 1. creates an account for Alice and Bob at the Bank
+-- 2. issues a cash instrument
+-- 3. credits a cash holding to Alice in her bank account
+-- 4. transfers the holding from Alice to Bob
+runTransfer : Script TransferState
+runTransfer = do
+
+  -- Allocate parties
+  [alice, bank, bob, public] <- mapA createParty $ ["Alice", "Bank", "Bob", "Public"]
+
+  -- Account Factory (it is used by the bank to create accounts)
+  -- CREATE_ACCOUNT_FACTORY_BEGIN
+  accountFactoryCid <- toInterfaceContractId @Account.F <$> submit bank do
+    createCmd Account.Factory with provider = bank; observers = empty
+  -- CREATE_ACCOUNT_FACTORY_END
+
+  -- Holding Factory (it is used by the bank to create holdings with the desired implementation)
+  -- CREATE_HOLDING_FACTORY_BEGIN
+  holdingFactoryCid <- toInterfaceContractId @Holding.F <$> submit bank do
+    createCmd Fungible.Factory with
+      provider = bank
+      observers = fromList [("PublicObserver", singleton public )]
+  -- CREATE_HOLDING_FACTORY_END
+
+  -- Alice and Bob setup account @Bank
+  -- SETUP_ALICE_ACCOUNT_BEGIN
+  aliceRequestCid <- submit alice do
+    createCmd CreateAccount.Request with owner = alice; custodian = bank
+  aliceAccount <- submit bank do
+    exerciseCmd aliceRequestCid CreateAccount.Accept with
+      label = "Alice@Bank"
+      description = "Account of Alice at Bank"
+      accountFactoryCid = accountFactoryCid
+      holdingFactoryCid = holdingFactoryCid
+      observers = []
+  -- SETUP_ALICE_ACCOUNT_END
+
+  bobRequestCid <- submit bob do createCmd CreateAccount.Request with owner = bob; custodian = bank
+  bobAccount <- submit bank do
+    exerciseCmd bobRequestCid CreateAccount.Accept with
+      label = "Bob@Bank"
+      description = "Account of Bob at Bank"
+      accountFactoryCid = accountFactoryCid
+      holdingFactoryCid = holdingFactoryCid
+      observers = [alice]
+
+  -- Bank creates the cash instrument
+  -- ISSUE_CASH_INSTRUMENT_BEGIN
+  let
+    instrumentId = Id "USD"
+    instrumentVersion = "0"
+  now <- getTime
+
+  cashInstrumentCid <- toInterfaceContractId @Instrument.I <$> submit bank do
+    createCmd Instrument with
+      depository = bank
+      issuer = bank
+      id = instrumentId
+      version = instrumentVersion
+      description = "Instrument representing units of USD"
+      validAsOf = now
+      observers = empty
+  -- ISSUE_CASH_INSTRUMENT_END
+
+  -- Alice deposits cash at the bank
+  -- CREATE_ALICE_HOLDING_BEGIN
+  aliceRequestCid <- submit alice do
+    createCmd CreditAccount.Request with
+      account = aliceAccount
+      instrument = InstrumentKey with
+        issuer = bank
+        depository = bank
+        id = instrumentId
+        version = instrumentVersion
+      amount = 1000.0
+
+  aliceCashHoldingCid <- submit bank do exerciseCmd aliceRequestCid CreditAccount.Accept
+  -- CREATE_ALICE_HOLDING_END
+
+  -- Bob requests a cash transfer from Alice
+  -- TRANSFER_BEGIN
+  let
+    cashInstrument = InstrumentKey with
+      issuer = bank
+      depository = bank
+      id = instrumentId
+      version = instrumentVersion
+
+  transferRequestCid <- submit bob do
+    createCmd Transfer.Request with
+      receiverAccount = bobAccount
+      instrument = cashInstrument
+      amount = 1000.0
+      currentOwner = alice
+
+  newHoldingCid <- submitMulti [alice] [public] do
+    exerciseCmd transferRequestCid Transfer.Accept with holdingCid = aliceCashHoldingCid
+  -- TRANSFER_END
+
+  pure $ TransferState with
+    alice
+    bank
+    bob
+    public
+    aliceAccount
+    bobAccount
+    cashInstrument
+    holdingFactoryCid
+    newHoldingCid
+
+-- | Creates a party given a hint
+createParty : Text -> Script Party
+createParty name = allocatePartyWithHint name $ PartyIdHint name

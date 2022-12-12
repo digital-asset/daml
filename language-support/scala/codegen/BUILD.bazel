@@ -19,10 +19,10 @@ da_scala_library(
     srcs =
         glob(
             [
-                "src/main/scala/com/digitalasset/codegen/**/*.scala",
+                "src/main/scala/com/digitalasset/lf/codegen/**/*.scala",
             ],
             exclude = [
-                "src/main/scala/com/digitalasset/codegen/Main.scala",
+                "src/main/scala/com/digitalasset/lf/codegen/Main.scala",
             ],
         ),
     plugins = [
@@ -43,10 +43,11 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
+        "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/interface",
+        "//language-support/codegen-common",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -54,9 +55,9 @@ da_scala_library(
 da_scala_binary(
     name = "codegen-main",
     srcs = [
-        "src/main/scala/com/digitalasset/codegen/Main.scala",
+        "src/main/scala/com/digitalasset/lf/codegen/Main.scala",
     ],
-    main_class = "com.daml.codegen.Main",
+    main_class = "com.daml.lf.codegen.Main",
     scala_deps = [
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalaz_scalaz_core",
@@ -94,9 +95,9 @@ da_scala_test_suite(
     scalacopts = common_scalacopts,
     deps = [
         ":codegen",
+        "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/interface",
         "//daml-lf/transaction-test-lib",
         "//libs-scala/logging-entries",
         "@maven//:org_scalatest_scalatest_compatible",

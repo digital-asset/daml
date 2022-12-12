@@ -4,14 +4,16 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.tls.TlsConfiguration
 
 package object v1_14 {
   def default(timeoutScaleFactor: Double): Vector[LedgerTestSuite] =
     (v1_8.default(timeoutScaleFactor) ++ Vector(
       new ExceptionRaceConditionIT,
       new ExceptionsIT,
+      new LimitsIT,
     )).sortBy(_.name)
 
-  def optional(): Vector[LedgerTestSuite] =
-    v1_8.optional()
+  def optional(tlsConfig: Option[TlsConfiguration]): Vector[LedgerTestSuite] =
+    v1_8.optional(tlsConfig)
 }

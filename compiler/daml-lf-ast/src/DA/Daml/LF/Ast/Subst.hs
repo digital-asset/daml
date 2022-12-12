@@ -196,12 +196,18 @@ applySubstInExpr subst@Subst{..} = \case
         (applySubstInExpr subst e)
     EFromInterface t1 t2 e -> EFromInterface t1 t2
         (applySubstInExpr subst e)
+    EUnsafeFromInterface t1 t2 e1 e2 -> EUnsafeFromInterface t1 t2
+        (applySubstInExpr subst e1)
+        (applySubstInExpr subst e2)
     ECallInterface t m e -> ECallInterface t m
         (applySubstInExpr subst e)
     EToRequiredInterface t1 t2 e -> EToRequiredInterface t1 t2
         (applySubstInExpr subst e)
     EFromRequiredInterface t1 t2 e -> EFromRequiredInterface t1 t2
         (applySubstInExpr subst e)
+    EUnsafeFromRequiredInterface t1 t2 e1 e2 -> EUnsafeFromRequiredInterface t1 t2
+        (applySubstInExpr subst e1)
+        (applySubstInExpr subst e2)
     EInterfaceTemplateTypeRep ty e -> EInterfaceTemplateTypeRep ty
         (applySubstInExpr subst e)
     ESignatoryInterface ty e -> ESignatoryInterface ty
@@ -215,6 +221,9 @@ applySubstInExpr subst@Subst{..} = \case
     ELocation l e -> ELocation
         l
         (applySubstInExpr subst e)
+    EViewInterface iface expr -> EViewInterface
+        iface
+        (applySubstInExpr subst expr)
     EExperimental name ty ->
         EExperimental name (applySubstInType subst ty)
 
@@ -267,7 +276,7 @@ applySubstInUpdate subst = \case
         choiceName
         (applySubstInExpr subst e1)
         (applySubstInExpr subst e2)
-        (applySubstInExpr subst e3)
+        (applySubstInExpr subst <$> e3)
     UExerciseByKey templateName choiceName e1 e2 -> UExerciseByKey
         templateName
         choiceName

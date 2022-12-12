@@ -33,6 +33,11 @@ private[daml] object DamlLfEncoder extends App {
 
   private def main() =
     try {
+
+      System.err.println(
+        "Daml-LF encoder is designed for testing purpose only, and provided without any guarantee of stability."
+      )
+
       val appArgs = parseArgs()
 
       implicit val parserParameters: ParserParameters[this.type] =

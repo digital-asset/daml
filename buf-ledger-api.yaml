@@ -10,8 +10,18 @@ build:
 
 breaking:
   use:
-    # Set to FILE once 2.0.0 is released
-    # Set to WIRE to allow the renaming of the `max_deduplication_time` to `max_deduplication_duration`
-    - WIRE
+    # Note: FILE disallows field renaming, while WIRE does allow it.
+    # We rely in particular on fields not getting renamed in `UpdateXXX` calls that use a `FieldMask` 
+    # to select the fields to update, see https://github.com/protocolbuffers/protobuf/blob/main/src/google/protobuf/field_mask.proto
+    - FILE
   except:
     - FILE_NO_DELETE # Avoids errors due to refactored `buf` modules.
+  ignore_only:
+    FIELD_SAME_ONEOF:
+      - com/daml/ledger/api/v1/commands.proto
+    FIELD_SAME_JSON_NAME:
+      - com/daml/ledger/api/v1/commands.proto
+    FIELD_SAME_NAME:
+      - com/daml/ledger/api/v1/commands.proto
+  ignore:
+    - com/daml/ledger/api/v1/admin/metering_report_service.proto

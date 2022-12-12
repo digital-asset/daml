@@ -12,6 +12,7 @@ import com.daml.auth.middleware.oauth2.Config.{
 }
 import com.daml.cliopts
 import com.daml.jwt.{JwtVerifierBase, JwtVerifierConfigurationCli}
+import com.daml.metrics.api.reporters.MetricsReporter
 import com.typesafe.scalalogging.StrictLogging
 import pureconfig.ConfigSource
 import pureconfig.error.ConfigReaderFailures
@@ -48,6 +49,8 @@ private[oauth2] final case class Cli(
     clientSecret: SecretString,
     // Token verification
     tokenVerifier: JwtVerifierBase,
+    metricsReporter: Option[MetricsReporter] = None,
+    metricsReportingInterval: FiniteDuration = FiniteDuration(10, duration.SECONDS),
 ) extends StrictLogging {
 
   def loadFromConfigFile: Option[Either[ConfigReaderFailures, Config]] = {
@@ -71,8 +74,10 @@ private[oauth2] final case class Cli(
       clientId,
       clientSecret,
       tokenVerifier,
+      metricsReporter,
+      metricsReportingInterval,
     )
-    cfg.validate
+    cfg.validate()
     cfg
   }
 
@@ -82,7 +87,7 @@ private[oauth2] final case class Cli(
         case Right(cfg) => Some(cfg)
         case Left(ex) =>
           logger.error(
-            s"Error loading oauth2-middleware config from file ${configFile}",
+            s"Error loading oauth2-middleware config from file $configFile",
             ex.prettyPrint(),
           )
           None
@@ -94,6 +99,7 @@ private[oauth2] final case class Cli(
   }
 }
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 private[oauth2] object Cli {
 
   private[oauth2] val Default =
@@ -185,6 +191,11 @@ private[oauth2] object Cli {
       .hidden()
       .action((x, c) => c.copy(clientSecret = SecretString(x)))
       .withFallback(() => sys.env.getOrElse("DAML_CLIENT_SECRET", ""))
+
+    cliopts.Metrics.metricsReporterParse(this)(
+      (f, c) => c.copy(metricsReporter = f(c.metricsReporter)),
+      (f, c) => c.copy(metricsReportingInterval = f(c.metricsReportingInterval)),
+    )
 
     JwtVerifierConfigurationCli.parse(this)((v, c) => c.copy(tokenVerifier = v))
 

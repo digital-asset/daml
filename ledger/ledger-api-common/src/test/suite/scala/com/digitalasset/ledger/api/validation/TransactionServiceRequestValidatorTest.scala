@@ -7,7 +7,12 @@ import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
-import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
+import com.daml.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  InterfaceFilter,
+  TransactionFilter,
+}
 import com.daml.ledger.api.v1.transaction_service.{
   GetLedgerEndRequest,
   GetTransactionByEventIdRequest,
@@ -42,7 +47,20 @@ class TransactionServiceRequestValidatorTest
                       moduleName = includedModule,
                       entityName = includedTemplate,
                     )
-                  )
+                  ),
+                  interfaceFilters = Seq(
+                    InterfaceFilter(
+                      interfaceId = Some(
+                        Identifier(
+                          packageId,
+                          moduleName = includedModule,
+                          entityName = includedTemplate,
+                        )
+                      ),
+                      includeInterfaceView = true,
+                      includeCreateArgumentsBlob = true,
+                    )
+                  ),
                 )
               )
             )
@@ -108,6 +126,21 @@ class TransactionServiceRequestValidatorTest
           code = INVALID_ARGUMENT,
           description =
             "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: filtersByParty cannot be empty",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error on empty interfaceId in interfaceFilter" in {
+        requestMustFailWith(
+          request = validator.validate(
+            txReq.update(_.filter.filtersByParty.modify(_.map { case (p, f) =>
+              p -> f.update(_.inclusive := InclusiveFilters(Nil, Seq(InterfaceFilter(None, true))))
+            })),
+            ledgerEnd,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: interfaceId",
           metadata = Map.empty,
         )
       }
@@ -219,7 +252,7 @@ class TransactionServiceRequestValidatorTest
         inside(
           validator.validate(
             txReq.update(_.filter.filtersByParty.modify(_.map { case (p, f) =>
-              p -> f.update(_.inclusive := InclusiveFilters(Nil))
+              p -> f.update(_.inclusive := InclusiveFilters(Nil, Nil))
             })),
             ledgerEnd,
           )
@@ -231,7 +264,7 @@ class TransactionServiceRequestValidatorTest
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
             p shouldEqual party
-            filters shouldEqual domain.Filters(Some(domain.InclusiveFilters(Set())))
+            filters shouldEqual domain.Filters(Some(domain.InclusiveFilters(Set(), Set())))
           }
           req.verbose shouldEqual verbose
         }

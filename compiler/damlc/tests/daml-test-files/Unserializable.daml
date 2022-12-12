@@ -5,7 +5,7 @@
 -- We use the template typeclass and instances directly as otherwise the error
 -- is caught prior due to missing Eq and Show instances.
 
--- @ERROR range=1:1-2:1; expected serializable type
+-- @ERROR range=18:10-20:27; expected serializable type
 
 module Unserializable where
 

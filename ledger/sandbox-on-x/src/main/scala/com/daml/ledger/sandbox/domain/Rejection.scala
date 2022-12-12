@@ -7,12 +7,13 @@ package ledger.sandbox.domain
 import com.daml.ledger.participant.state.v2.{ChangeId, CompletionInfo, Update}
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import error.ContextualizedErrorLogger
-import error.definitions.LedgerApiErrors
+import error.definitions.{CommonErrors, LedgerApiErrors}
 import ledger.configuration.LedgerTimeModel
-import lf.data.Time.Timestamp
-import lf.transaction.GlobalKey
-import platform.store.appendonlydao.events.ContractId
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value.ContractId
 import com.google.rpc.status.Status
+
 import java.time.Duration
 
 private[sandbox] sealed trait Rejection extends Product with Serializable {
@@ -35,7 +36,7 @@ private[sandbox] object Rejection {
   ) extends Rejection {
     override def toStatus: Status =
       LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
-        .RejectWithContractKeyArg(cause = "DuplicateKey: contract key is not unique", _key = key)
+        .RejectWithContractKeyArg(cause = "DuplicateKey: contract key is not unique", key = key)
         .rpcStatus()
   }
 
@@ -64,7 +65,7 @@ private[sandbox] object Rejection {
   final case class OffsetDeduplicationPeriodUnsupported(completionInfo: CompletionInfo)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
-    override def toStatus: Status = LedgerApiErrors.UnsupportedOperation
+    override def toStatus: Status = CommonErrors.UnsupportedOperation
       .Reject("command deduplication with periods specified using offsets")
       .rpcStatus()
   }
@@ -78,8 +79,8 @@ private[sandbox] object Rejection {
     override def toStatus: Status =
       LedgerApiErrors.WriteServiceRejections.Internal.InternallyInconsistentKeys
         .Reject(
-          "The transaction attempts to create two contracts with the same contract key",
-          Some(key),
+          cause = "The transaction references a contract key inconsistently",
+          keyO = Some(key),
         )
         .rpcStatus()
   }
@@ -92,7 +93,10 @@ private[sandbox] object Rejection {
   ) extends Rejection {
     override def toStatus: Status =
       LedgerApiErrors.WriteServiceRejections.Internal.InternallyDuplicateKeys
-        .Reject("The transaction references a contract key inconsistently", Some(key))
+        .Reject(
+          cause = "The transaction attempts to create two contracts with the same contract key",
+          keyO = Some(key),
+        )
         .rpcStatus()
   }
 
@@ -142,7 +146,7 @@ private[sandbox] object Rejection {
   ) extends Rejection {
     override def toStatus: Status =
       LedgerApiErrors.ConsistencyErrors.DuplicateCommand
-        .Reject(_definiteAnswer = false, None, Some(changeId))
+        .Reject(definiteAnswer = false, None, Some(changeId))
         .rpcStatus()
   }
 
@@ -194,5 +198,17 @@ private[sandbox] object Rejection {
         )
         .rpcStatus()
     }
+  }
+
+  final case class DisclosedContractInvalid(
+      contractId: ContractId,
+      completionInfo: CompletionInfo,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ) extends Rejection {
+    override def toStatus: Status =
+      LedgerApiErrors.ConsistencyErrors.DisclosedContractInvalid
+        .Reject(contractId)
+        .rpcStatus()
   }
 }

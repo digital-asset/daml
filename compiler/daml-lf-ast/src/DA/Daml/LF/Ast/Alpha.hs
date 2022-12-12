@@ -228,6 +228,13 @@ alphaExpr' env = \case
             && alphaTypeCon t1b t2b
             && alphaExpr' env e1 e2
         _ -> False
+    EUnsafeFromInterface t1a t1b e1a e1b -> \case
+        EUnsafeFromInterface t2a t2b e2a e2b
+            -> alphaTypeCon t1a t2a
+            && alphaTypeCon t1b t2b
+            && alphaExpr' env e1a e2a
+            && alphaExpr' env e1b e2b
+        _ -> False
     ECallInterface t1 m1 e1 -> \case
         ECallInterface t2 m2 e2
             -> alphaTypeCon t1 t2
@@ -245,6 +252,13 @@ alphaExpr' env = \case
             -> alphaTypeCon t1a t2a
             && alphaTypeCon t1b t2b
             && alphaExpr' env e1 e2
+        _ -> False
+    EUnsafeFromRequiredInterface t1a t1b e1a e1b -> \case
+        EUnsafeFromRequiredInterface t2a t2b e2a e2b
+            -> alphaTypeCon t1a t2a
+            && alphaTypeCon t1b t2b
+            && alphaExpr' env e1a e2a
+            && alphaExpr' env e1b e2b
         _ -> False
     EInterfaceTemplateTypeRep ty1 expr1 -> \case
         EInterfaceTemplateTypeRep ty2 expr2
@@ -269,6 +283,11 @@ alphaExpr' env = \case
         _ -> False
     ELocation _ e1 -> \case
         ELocation _ e2 -> alphaExpr' env e1 e2
+        _ -> False
+    EViewInterface iface1 expr1 -> \case
+        EViewInterface iface2 expr2
+            -> alphaTypeCon iface1 iface2
+            && alphaExpr' env expr1 expr2
         _ -> False
     EExperimental n1 t1 -> \case
         EExperimental n2 t2 -> n1 == n2 && alphaType t1 t2
@@ -337,11 +356,16 @@ alphaUpdate env = \case
             && alphaExpr' env e1b e2b
         _ -> False
     UExerciseInterface i1 c1 e1a e1b e1c -> \case
-        UExerciseInterface i2 c2 e2a e2b e2c -> alphaTypeCon i1 i2
+        UExerciseInterface i2 c2 e2a e2b e2c ->
+            let eqMaybe1 f (Just a) (Just b) = f a b
+                eqMaybe1 _ Nothing Nothing = True
+                eqMaybe1 _ _ _ = False
+            in
+            alphaTypeCon i1 i2
             && c1 == c2
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
-            && alphaExpr' env e1c e2c
+            && eqMaybe1 (alphaExpr' env) e1c e2c
         _ -> False
     UExerciseByKey t1 c1 e1a e1b -> \case
         UExerciseByKey t2 c2 e2a e2b -> alphaTypeCon t1 t2

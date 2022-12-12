@@ -21,18 +21,12 @@ import java.time.Duration
   *        seldom acts. A shorter period causes a quick removal of unused trackers.
   */
 final case class CommandConfiguration(
-    inputBufferSize: Int,
-    maxCommandsInFlight: Int,
-    trackerRetentionPeriod: Duration,
+    inputBufferSize: Int = 512,
+    maxCommandsInFlight: Int = 256,
+    trackerRetentionPeriod: Duration = CommandConfiguration.DefaultTrackerRetentionPeriod,
 )
 
 object CommandConfiguration {
   val DefaultTrackerRetentionPeriod: Duration = Duration.ofMinutes(5)
-
-  lazy val default: CommandConfiguration =
-    CommandConfiguration(
-      inputBufferSize = 512,
-      maxCommandsInFlight = 256,
-      trackerRetentionPeriod = DefaultTrackerRetentionPeriod,
-    )
+  lazy val Default: CommandConfiguration = CommandConfiguration()
 }

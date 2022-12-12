@@ -4,7 +4,7 @@
 package com.daml.platform.store.backend.h2
 
 import anorm.{Row, SimpleSql}
-import com.daml.platform.store.appendonlydao.events.ContractId
+import com.daml.platform.ContractId
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.ContractStorageBackendTemplate
 import com.daml.platform.store.cache.LedgerEndCache
@@ -19,7 +19,7 @@ class H2ContractStorageBackend(ledgerEndCache: LedgerEndCache, stringInterning: 
       resultColumns: List[String],
       coalescedColumns: String,
   ): SimpleSql[Row] = {
-    import com.daml.platform.store.Conversions.ContractIdToStatement
+    import com.daml.platform.store.backend.Conversions.ContractIdToStatement
     val lastEventSequentialId = ledgerEndCache()._2
     SQL"""  WITH archival_event AS (
                SELECT 1

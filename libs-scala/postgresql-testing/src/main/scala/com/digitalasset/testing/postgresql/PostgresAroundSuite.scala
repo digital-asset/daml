@@ -11,6 +11,8 @@ trait PostgresAroundSuite extends PostgresAround {
   @volatile
   private var database: Option[PostgresDatabase] = None
 
+  protected def jdbcUrl: String = postgresDatabase.url
+
   protected def postgresDatabase: PostgresDatabase = database.get
 
   protected def lockIdSeed: Int =

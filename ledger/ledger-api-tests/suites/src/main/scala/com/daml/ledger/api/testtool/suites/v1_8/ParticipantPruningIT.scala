@@ -34,7 +34,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(participant)) =>
     for {
       failure <- participant
-        .prune("", attempts = 1, pruneAllDivulgedContracts = true)
+        .prune(
+          LedgerOffset(LedgerOffset.Value.Absolute("")),
+          attempts = 1,
+          pruneAllDivulgedContracts = true,
+        )
         .mustFail("pruning without specifying an offset")
     } yield {
       assertGrpcError(
@@ -52,7 +56,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(participant)) =>
     for {
       cannotPruneNonHexOffset <- participant
-        .prune("covfefe", attempts = 1, pruneAllDivulgedContracts = true)
+        .prune(
+          LedgerOffset(LedgerOffset.Value.Absolute("covfefe")),
+          attempts = 1,
+          pruneAllDivulgedContracts = true,
+        )
         .mustFail("pruning, specifying a non-hexadecimal offset")
     } yield {
       assertGrpcError(
@@ -102,14 +110,14 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
       transactionsAfterPrune <- participant.transactionTrees(
         participant
-          .getTransactionsRequest(parties = Seq(submitter))
+          .getTransactionsRequest(participant.transactionFilter(parties = Seq(submitter)))
           .update(_.begin := offsetToPruneUpTo)
       )
 
       cannotReadAnymore <- participant
         .transactionTrees(
           participant
-            .getTransactionsRequest(parties = Seq(submitter))
+            .getTransactionsRequest(participant.transactionFilter(parties = Seq(submitter)))
             .update(_.begin := offsetOfSecondToLastPrunedTransaction)
         )
         .mustFail("attempting to read transactions before the pruning cut-off")
@@ -148,14 +156,14 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
       txAfterPrune <- participant.flatTransactions(
         participant
-          .getTransactionsRequest(parties = Seq(submitter))
+          .getTransactionsRequest(participant.transactionFilter(parties = Seq(submitter)))
           .update(_.begin := offsetToPruneUpTo)
       )
 
       cannotReadAnymore <- participant
         .flatTransactions(
           participant
-            .getTransactionsRequest(parties = Seq(submitter))
+            .getTransactionsRequest(participant.transactionFilter(parties = Seq(submitter)))
             .update(_.begin := offsetOfSecondToLastPrunedTransaction)
         )
         .mustFail("attempting to read transactions before the pruning cut-off")
@@ -444,7 +452,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
       transactionsAfterPrune <- participant.transactionTrees(
         participant
-          .getTransactionsRequest(parties = Seq(submitter))
+          .getTransactionsRequest(participant.transactionFilter(parties = Seq(submitter)))
           .update(_.begin := offsetToPruneUpTo)
       )
 
@@ -454,7 +462,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
       transactionsAfterRedundantPrune <- participant.transactionTrees(
         participant
-          .getTransactionsRequest(parties = Seq(submitter))
+          .getTransactionsRequest(participant.transactionFilter(parties = Seq(submitter)))
           .update(_.begin := offsetToPruneUpTo)
       )
 
@@ -468,7 +476,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
       transactionsAfterSecondPrune <- participant.transactionTrees(
         participant
-          .getTransactionsRequest(parties = Seq(submitter))
+          .getTransactionsRequest(participant.transactionFilter(parties = Seq(submitter)))
           .update(_.begin := offsetToPruneUpToInSecondRealPrune)
       )
 
@@ -514,7 +522,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
       _ <- participant.prune(offsetToPruneUpTo)
 
-      _ <- participant.exercise(submitter, createdBeforePrune.exerciseDummyChoice1)
+      _ <- participant.exercise(submitter, createdBeforePrune.exerciseDummyChoice1())
     } yield ()
   })
 
@@ -534,11 +542,17 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- participant.prune(offsetToPruneUpTo)
 
       emptyRangeAtBegin = participant
-        .getTransactionsRequest(parties = Seq(submitter), begin = participant.begin)
+        .getTransactionsRequest(
+          participant.transactionFilter(parties = Seq(submitter)),
+          begin = participant.begin,
+        )
         .update(_.end := participant.begin)
 
       emptyRangeInPrunedSpace = participant
-        .getTransactionsRequest(parties = Seq(submitter), begin = offsetInPrunedRange)
+        .getTransactionsRequest(
+          participant.transactionFilter(parties = Seq(submitter)),
+          begin = offsetInPrunedRange,
+        )
         .update(_.end := offsetInPrunedRange)
 
       emptyBeginTreesWillFail <- participant.transactionTrees(emptyRangeAtBegin)
@@ -564,15 +578,12 @@ class ParticipantPruningIT extends LedgerTestSuite {
       contract <- participant.create(alice, Contract(alice))
 
       // Retroactively divulge Alice's contract to bob
-      _ <- participant.exercise(
-        alice,
-        divulgence.exerciseDivulge(_, contract),
-      )
+      _ <- participant.exercise(alice, divulgence.exerciseDivulge(contract))
 
       // Bob can see the divulged contract
       _ <- participant.exerciseAndGetContract[Dummy](
         bob,
-        divulgence.exerciseCanFetch(_, contract),
+        divulgence.exerciseCanFetch(contract),
       )
 
       _ <- pruneAtCurrentOffset(
@@ -584,11 +595,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
       // Bob can still see the divulged contract
       _ <- participant.exerciseAndGetContract[Dummy](
         bob,
-        divulgence.exerciseCanFetch(_, contract),
+        divulgence.exerciseCanFetch(contract),
       )
 
       // Archive the divulged contract
-      _ <- participant.exercise(alice, contract.exerciseArchive)
+      _ <- participant.exercise(alice, contract.exerciseArchive())
 
       _ <- pruneAtCurrentOffset(
         participant,
@@ -599,7 +610,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- participant
         .exerciseAndGetContract[Dummy](
           bob,
-          divulgence.exerciseCanFetch(_, contract),
+          divulgence.exerciseCanFetch(contract),
         )
         .mustFailWith("Bob cannot access a divulged contract which was already archived") {
           exception =>
@@ -628,7 +639,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       // Retroactively divulge Alice's contract to bob
       _ <- alpha.exercise(
         alice,
-        divulgence.exerciseDivulge(_, contract),
+        divulgence.exerciseDivulge(contract),
       )
 
       _ <- divulgencePruneAndCheck(alice, bob, alpha, beta, contract, divulgence)
@@ -651,7 +662,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       // Alice creates contract in a context not visible to Bob and follows with a divulgence to Bob in the same transaction
       contract <- alpha.exerciseAndGetContract[Contract](
         alice,
-        divulgeNotDiscloseTemplate.exerciseDivulgeNoDisclose(_, divulgence),
+        divulgeNotDiscloseTemplate.exerciseDivulgeNoDisclose(divulgence),
       )
 
       _ <- divulgencePruneAndCheck(alice, bob, alpha, beta, contract, divulgence)
@@ -676,7 +687,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       // Alice's contract creation is disclosed to Bob
       contract <- alpha.exerciseAndGetContract[Contract](
         alice,
-        divulgence.exerciseCreateAndDisclose,
+        divulgence.exerciseCreateAndDisclose(),
       )
 
       _ <- divulgencePruneAndCheck(alice, bob, alpha, beta, contract, divulgence)
@@ -692,7 +703,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     for {
       divulgenceHelper <- alpha.create(alice, DivulgenceProposal(alice, bob))
       _ <- synchronize(alpha, beta)
-      divulgence <- beta.exerciseAndGetContract[Divulgence](bob, divulgenceHelper.exerciseAccept)
+      divulgence <- beta.exerciseAndGetContract[Divulgence](bob, divulgenceHelper.exerciseAccept())
     } yield divulgence
 
   private def divulgencePruneAndCheck(
@@ -709,7 +720,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       // Check that Bob can fetch the contract
       _ <- beta.exerciseAndGetContract[Dummy](
         bob,
-        divulgence.exerciseCanFetch(_, contract),
+        divulgence.exerciseCanFetch(contract),
       )
 
       offsetAfterDivulgence_1 <- beta.currentEnd()
@@ -717,7 +728,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       // Alice re-divulges the contract to Bob
       _ <- alpha.exerciseAndGetContract[Contract](
         alice,
-        divulgence.exerciseDivulge(_, contract),
+        divulgence.exerciseDivulge(contract),
       )
 
       _ <- synchronize(alpha, beta)
@@ -725,7 +736,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       // Check that Bob can fetch the contract
       _ <- beta.exerciseAndGetContract[Dummy](
         bob,
-        divulgence.exerciseCanFetch(_, contract),
+        divulgence.exerciseCanFetch(contract),
       )
 
       // Add events to both participants to advance canton's safe pruning offset
@@ -739,7 +750,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       // Check that Bob can still fetch the contract after pruning the first transaction
       _ <- beta.exerciseAndGetContract[Dummy](
         bob,
-        divulgence.exerciseCanFetch(_, contract),
+        divulgence.exerciseCanFetch(contract),
       )
 
       // Populate "other" participant too to advance canton's safe pruning offset
@@ -750,7 +761,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- beta
         .exerciseAndGetContract[Dummy](
           bob,
-          divulgence.exerciseCanFetch(_, contract),
+          divulgence.exerciseCanFetch(contract),
         )
         .mustFail("Bob cannot access the divulged contract after the second pruning")
     } yield ()
@@ -792,12 +803,15 @@ class ParticipantPruningIT extends LedgerTestSuite {
         .sequence(Vector.fill(batchesToPopulate) {
           for {
             dummy <- participant.create(submitter, Dummy(submitter))
-            _ <- participant.exercise(submitter, dummy.exerciseDummyChoice1)
+            _ <- participant.exercise(submitter, dummy.exerciseDummyChoice1())
             _ <- participant.create(submitter, Dummy(submitter))
           } yield ()
         })
       trees <- participant.transactionTrees(
-        participant.getTransactionsRequest(parties = Seq(submitter), begin = endOffsetAtTestStart)
+        participant.getTransactionsRequest(
+          participant.transactionFilter(parties = Seq(submitter)),
+          begin = endOffsetAtTestStart,
+        )
       )
     } yield trees
 

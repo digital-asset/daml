@@ -1,28 +1,23 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-
 module Test where
 
--- Test that values of contract keys may not contain contract IDs
-
-template Simple
-  with
-    p: Party
-  where
-    signatory p
+-- The SimpleContractId newtype has to be defined in a separate module so
+-- this circumvents the partial compile-time check on template keys.
+import Simple
 
 template KeyWithContractId
   with
     p: Party
-    k: ContractId Simple
+    k: SimpleContractId
   where
     signatory p
-    key (p, k): (Party, ContractId Simple)
+    key (p, k): (Party, SimpleContractId)
     maintainer key._1
 
 run = scenario do
   alice <- getParty "alice"
   cid <- submit alice $ create Simple with p = alice
   -- This should fail
-  submit alice $ create KeyWithContractId with p = alice, k = cid
+  submit alice $ create KeyWithContractId with p = alice, k = SimpleContractId cid

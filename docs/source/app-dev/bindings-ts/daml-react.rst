@@ -4,5 +4,5 @@
 @daml/react
 ###########
 
-`@daml/react documentation <daml-react/index.html>`_
+`@daml/react documentation <ts-daml-react_>`_
 

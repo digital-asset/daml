@@ -11,8 +11,8 @@
 // * 13 -- no change w.r.t. 12
 // * 14 -- add rollback nodes
 //         add by_key flag to fetch and exercise node
+// * 15 -- add interfaceId in exercise node to exercise via interface
 // * dev -- special staging area for the next version to be released
-//         add by_interface to fetch and exercise node
 syntax = "proto3";
 
 package com.daml.lf.transaction;
@@ -73,7 +73,6 @@ message NodeCreate {
     repeated string signatories = 4;
     KeyWithMaintainers key_with_maintainers = 5;
     com.daml.lf.value.ContractId contract_id_struct = 6;
-    optional com.daml.lf.value.Identifier by_interface = 10; // *since version dev*
 }
 
 message NodeFetch {
@@ -86,12 +85,12 @@ message NodeFetch {
     com.daml.lf.value.ContractId contract_id_struct = 6;
     KeyWithMaintainers key_with_maintainers = 8;
     bool by_key = 9; // *since version 1.14*
-    optional com.daml.lf.value.Identifier by_interface = 10; // *since version dev*
 }
 
 message NodeExercise {
     reserved 1; // was contract_id
     com.daml.lf.value.Identifier template_id = 2;
+    com.daml.lf.value.Identifier interface_id = 19; // optional *since version 15*
     repeated string actors = 3;
     string choice = 4;
     oneof arg {
@@ -112,7 +111,6 @@ message NodeExercise {
     KeyWithMaintainers key_with_maintainers = 14; // optional
     repeated string observers = 15;  // *since version 11*
     bool by_key = 18; // *since version 14*
-    optional com.daml.lf.value.Identifier by_interface = 19; // *since version dev*
 }
 
 message NodeLookupByKey {

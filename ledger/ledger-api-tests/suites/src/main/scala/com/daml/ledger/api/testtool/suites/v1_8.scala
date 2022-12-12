@@ -4,6 +4,11 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.suites.v1_8.objectmeta.{
+  PartyManagementServiceObjectMetaIT,
+  UserManagementServiceObjectMetaIT,
+}
+import com.daml.ledger.api.tls.TlsConfiguration
 
 package object v1_8 {
   def default(timeoutScaleFactor: Double): Vector[LedgerTestSuite] =
@@ -30,6 +35,8 @@ package object v1_8 {
       new PackageServiceIT,
       new ParticipantPruningIT,
       new PartyManagementServiceIT,
+      new PartyManagementServiceObjectMetaIT,
+      new PartyManagementServiceUpdateRpcIT,
       new RaceConditionIT,
       new SemanticTests,
       new TimeServiceIT,
@@ -44,14 +51,16 @@ package object v1_8 {
       new TransactionServiceValidationIT,
       new TransactionServiceVisibilityIT,
       new UserManagementServiceIT,
+      new UserManagementServiceObjectMetaIT,
+      new UserManagementServiceUpdateRpcIT,
       new ValueLimitsIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
     )
 
-  def optional(): Vector[LedgerTestSuite] =
+  def optional(tlsConfiguration: Option[TlsConfiguration]): Vector[LedgerTestSuite] =
     Vector(
-      new TLSOnePointThreeIT,
-      new TLSAtLeastOnePointTwoIT,
+      new TLSOnePointThreeIT(tlsConfiguration),
+      new TLSAtLeastOnePointTwoIT(tlsConfiguration),
     )
 }

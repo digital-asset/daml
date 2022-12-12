@@ -3,8 +3,8 @@
 
 .. _deploy-generic-ledger:
 
-Deploying to a generic Daml ledger
-==================================
+Deploy to a Generic Daml Ledger
+===============================
 
 Daml ledgers expose a unified administration API. This means that deploying to a Daml ledger is no
 different from deploying to your local sandbox.
@@ -55,13 +55,13 @@ ledger --help`` to get a list of available ledger commands:
 
    Available commands:
      list-parties             List parties known to ledger
-     allocate-parties         Allocate parties on ledger
+     allocate-parties         Allocate parties on ledger if they don't exist
      upload-dar               Upload DAR file to ledger
      fetch-dar                Fetch DAR from ledger into file
      metering-report          Report on Ledger Use
 
-Connecting via TLS
-------------------
+Connect via TLS
+---------------
 
 To connect to the ledger via TLS, pass ``--tls`` to the
 various commands. If your ledger supports or requires mutual
@@ -72,8 +72,8 @@ certificate by passing ``--cacrt server.crt``. If ``--pem``, ``--crt``
 or ``--cacrt`` are specified TLS is enabled automatically so ``--tls``
 is redundant.
 
-Configuring Request Timeouts
-----------------------------
+Configure Request Timeouts
+--------------------------
 
 You can configure the timeout used on API requests by passing
 ``--timeout=N`` to the various ``daml ledger`` commands and ``daml

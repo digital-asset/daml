@@ -31,7 +31,7 @@ public abstract class Value {
       case PARTY:
         return new Party(value.getParty());
       case BOOL:
-        return new Bool(value.getBool());
+        return Bool.of(value.getBool());
       case UNIT:
         return Unit.getInstance();
       case DATE:

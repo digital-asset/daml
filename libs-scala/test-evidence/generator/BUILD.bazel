@@ -1,0 +1,28 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
+
+da_scala_library(
+    name = "generator",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
+        "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_parser",
+        "@maven//:com_github_pathikrit_better_files",
+        "@maven//:com_github_tototoshi_scala_csv",
+    ],
+    tags = ["maven_coordinates=com.daml:test-evidence-generator:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+        "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)

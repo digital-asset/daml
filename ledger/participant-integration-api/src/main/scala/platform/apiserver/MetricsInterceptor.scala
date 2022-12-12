@@ -3,7 +3,8 @@
 
 package com.daml.platform.apiserver
 
-import com.codahale.metrics.Timer
+import com.daml.metrics.api.MetricHandle.Timer
+import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.Metrics
 import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
 import io.grpc._
@@ -42,15 +43,16 @@ private[apiserver] final class MetricsInterceptor(metrics: Metrics) extends Serv
       fullMethodName,
       metrics.daml.lapi.forMethod(MetricsNaming.nameFor(fullMethodName)),
     )
-    val timerCtx = timer.time
+    val timerCtx = timer.startAsync()
     next.startCall(new TimedServerCall(call, timerCtx), headers)
   }
 
   private final class TimedServerCall[ReqT, RespT](
       delegate: ServerCall[ReqT, RespT],
-      timer: Timer.Context,
+      timer: TimerHandle,
   ) extends SimpleForwardingServerCall[ReqT, RespT](delegate) {
     override def close(status: Status, trailers: Metadata): Unit = {
+      metrics.daml.lapi.return_status.forCode(status.getCode.toString).inc()
       delegate.close(status, trailers)
       timer.stop()
       ()

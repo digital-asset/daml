@@ -3,8 +3,6 @@
 
 package com.daml.platform.apiserver
 
-import java.net.{InetAddress, InetSocketAddress}
-
 import akka.pattern.after
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
@@ -13,22 +11,20 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.akka.ServerAdapter
 import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
 import com.daml.grpc.sampleservice.HelloServiceResponding
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
+import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingServerInterceptors}
+import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.MetricsInterceptorSpec._
-import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.platform.testing.StreamConsumer
-import com.daml.ports.Port
-import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
-import io.grpc.{BindableService, Channel, Server, ServerInterceptor, ServerServiceDefinition}
+import io.grpc.{BindableService, Channel, ServerServiceDefinition}
+import io.opentelemetry.api.GlobalOpenTelemetry
 import org.scalatest.concurrent.Eventually
-import org.scalatest.time.{Second, Span}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.{Second, Span}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -46,7 +42,7 @@ final class MetricsInterceptorSpec
   behavior of "MetricsInterceptor"
 
   it should "count the number of calls to a given endpoint" in {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
     serverWithMetrics(metrics, new HelloServiceAkkaImplementation).use { channel: Channel =>
       for {
         _ <- Future.sequence(
@@ -60,8 +56,25 @@ final class MetricsInterceptorSpec
     }
   }
 
+  it should "count the gRPC return status" in {
+    val metrics = createMetrics
+    serverWithMetrics(metrics, new HelloServiceAkkaImplementation).use { channel: Channel =>
+      for {
+        _ <- HelloServiceGrpc.stub(channel).single(HelloRequest(0))
+        _ <- HelloServiceGrpc.stub(channel).fails(HelloRequest(1)).failed
+      } yield {
+        val okCounter = metrics.daml.lapi.return_status.forCode("OK")
+        val internalCounter = metrics.daml.lapi.return_status.forCode("INTERNAL")
+        eventually {
+          okCounter.getCount shouldBe 1
+          internalCounter.getCount shouldBe 1
+        }
+      }
+    }
+  }
+
   it should "time calls to an endpoint" in {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
     serverWithMetrics(metrics, new DelayedHelloService(1.second)).use { channel =>
       for {
         _ <- HelloServiceGrpc.stub(channel).single(HelloRequest(reqInt = 7))
@@ -79,7 +92,7 @@ final class MetricsInterceptorSpec
   }
 
   it should "time calls to a streaming endpoint" in {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = createMetrics
     serverWithMetrics(metrics, new DelayedHelloService(1.second)).use { channel =>
       for {
         _ <- new StreamConsumer[HelloResponse](observer =>
@@ -97,34 +110,17 @@ final class MetricsInterceptorSpec
       }
     }
   }
+
+  private def createMetrics = {
+    new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
+  }
 }
 
 object MetricsInterceptorSpec {
 
   def serverWithMetrics(metrics: Metrics, service: BindableService): ResourceOwner[Channel] =
-    for {
-      server <- serverOwner(new MetricsInterceptor(metrics), service)
-      channel <- GrpcClientResource.owner(Port(server.getPort))
-    } yield channel
-
-  private def serverOwner(
-      interceptor: ServerInterceptor,
-      service: BindableService,
-  ): ResourceOwner[Server] =
-    new ResourceOwner[Server] {
-      def acquire()(implicit context: ResourceContext): Resource[Server] =
-        Resource(Future {
-          val server =
-            NettyServerBuilder
-              .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0))
-              .directExecutor()
-              .intercept(interceptor)
-              .addService(service)
-              .build()
-          server.start()
-          server
-        })(server => Future(server.shutdown().awaitTermination()))
-    }
+    TestingServerInterceptors
+      .channelOwner(new MetricsInterceptor(metrics), service)
 
   private final class DelayedHelloService(delay: FiniteDuration)(implicit
       executionSequencerFactory: ExecutionSequencerFactory,

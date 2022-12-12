@@ -187,7 +187,6 @@ final class TestRunner(availableTests: AvailableTests, config: Config) {
           concurrentTestRuns = concurrentTestRuns,
           uploadDars = config.uploadDars,
           identifierSuffix = identifierSuffix,
-          clientTlsConfiguration = config.tlsConfig,
         )
       )
   }

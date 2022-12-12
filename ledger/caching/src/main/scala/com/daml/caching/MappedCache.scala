@@ -15,4 +15,17 @@ private[caching] final class MappedCache[Key, Value, NewValue](
 
   override def getIfPresent(key: Key): Option[NewValue] =
     delegate.getIfPresent(key).map(mapAfterReading)
+
+  override def putAll(mappings: Map[Key, NewValue]): Unit = {
+    val mappedBuilder = Map.newBuilder[Key, Value]
+
+    mappings.foreach { case (key, value) =>
+      mapBeforeWriting(value)
+        .foreach(newValue => mappedBuilder.addOne(key -> newValue))
+    }
+
+    delegate.putAll(mappedBuilder.result())
+  }
+
+  override def invalidateAll(): Unit = delegate.invalidateAll()
 }

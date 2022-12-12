@@ -3,19 +3,22 @@
 
 package com.daml.lf.engine.trigger.test
 
-import akka.stream.scaladsl.{Flow}
+import akka.stream.scaladsl.Flow
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.data.Ref._
-import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundAll}
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
-import java.io.File
+import com.daml.ledger.runner.common.Config
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
+import com.daml.lf.data.Ref._
+import com.daml.lf.engine.trigger.Runner.TriggerContext
+import com.daml.lf.engine.trigger.TriggerMsg
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import com.daml.lf.engine.trigger.TriggerMsg
+import java.io.File
 
 class Tls
     extends AsyncWordSpec
@@ -33,8 +36,13 @@ class Tls
 
   private val tlsConfig = TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)
 
-  override protected def config =
-    super.config.copy(tlsConfig = Some(tlsConfig))
+  override protected def config: Config = super.config.copy(
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        tls = Some(tlsConfig)
+      )
+    )
+  )
 
   override protected def ledgerClientChannelConfiguration =
     super.ledgerClientChannelConfiguration
@@ -60,15 +68,17 @@ class Tls
         runner = getRunner(client, QualifiedName.assertFromString("ACS:test"), party)
         (acs, offset) <- runner.queryACS()
         // Start the future here
-        finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(6))._2
+        finalStateF = runner
+          .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(6))
+          ._2
         // Execute commands
         _ <- create(client, party, asset(party))
         // Wait for the trigger to terminate
         _ <- finalStateF
         acs <- queryACS(client, party)
       } yield {
-        assert(acs(assetId).size == 1)
-        assert(acs(assetMirrorId).size == 1)
+        acs(assetId) should have size 1
+        acs(assetMirrorId) should have size 1
       }
     }
   }

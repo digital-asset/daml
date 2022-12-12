@@ -10,6 +10,8 @@ import com.daml.ledger.rxjava.grpc.helpers.LedgerServices
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.util.Optional
+
 class UserManagementClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers {
 
   private val ledgerServices = new LedgerServices("user-management-service-ledger")
@@ -22,6 +24,8 @@ class UserManagementClientImplTest extends AnyFlatSpec with Matchers with AuthMa
       client.getUser(new GetUserRequest("get")).blockingGet()
       client.deleteUser(new DeleteUserRequest("delete")).blockingGet()
       client.listUsers().blockingGet()
+      client.listUsers(new ListUsersRequest(Optional.empty(), 10)).blockingGet()
+      client.listUsers(new ListUsersRequest(Optional.of("page-token"), 20)).blockingGet()
       client
         .grantUserRights(
           new GrantUserRightsRequest(
@@ -39,7 +43,7 @@ class UserManagementClientImplTest extends AnyFlatSpec with Matchers with AuthMa
       client.listUserRights(new ListUserRightsRequest("listRights")).blockingGet()
 
       val requests = service.requests()
-      requests should have length 7
+      requests should have length 9
       requests should contain theSameElementsAs Array(
         proto.CreateUserRequest(
           Some(proto.User("createId", "createParty")),
@@ -48,6 +52,8 @@ class UserManagementClientImplTest extends AnyFlatSpec with Matchers with AuthMa
         proto.GetUserRequest("get"),
         proto.DeleteUserRequest("delete"),
         proto.ListUsersRequest(),
+        proto.ListUsersRequest(pageSize = 10),
+        proto.ListUsersRequest("page-token", 20),
         proto.GrantUserRightsRequest(
           "grant",
           Vector(
@@ -95,6 +101,11 @@ class UserManagementClientImplTest extends AnyFlatSpec with Matchers with AuthMa
       expectUnauthenticated {
         toAuthenticatedServer { client =>
           client.listUsers().blockingGet()
+        }
+      }
+      expectUnauthenticated {
+        toAuthenticatedServer { client =>
+          client.listUsers(new ListUsersRequest(Optional.empty(), 100)).blockingGet()
         }
       }
     }
@@ -157,6 +168,11 @@ class UserManagementClientImplTest extends AnyFlatSpec with Matchers with AuthMa
           client.listUsers(emptyToken).blockingGet()
         }
       }
+      expectUnauthenticated {
+        toAuthenticatedServer { client =>
+          client.listUsers(new ListUsersRequest(Optional.empty(), 100), emptyToken).blockingGet()
+        }
+      }
     }
     withClue("grantUserRights") {
       expectUnauthenticated {
@@ -211,6 +227,9 @@ class UserManagementClientImplTest extends AnyFlatSpec with Matchers with AuthMa
     withClue("listUsers") {
       toAuthenticatedServer { client =>
         client.listUsers(adminToken).blockingGet()
+      }
+      toAuthenticatedServer { client =>
+        client.listUsers(new ListUsersRequest(Optional.empty(), 100), adminToken).blockingGet()
       }
     }
     withClue("grantUserRights") {

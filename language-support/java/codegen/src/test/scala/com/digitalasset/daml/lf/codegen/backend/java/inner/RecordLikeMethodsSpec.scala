@@ -4,10 +4,12 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
+import com.daml.ledger.javaapi.data.codegen.ValueDecoder
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
-import com.daml.lf.iface.{PrimTypeBool, TypePrim}
+import com.daml.lf.typesig.{PrimTypeBool, TypePrim}
 import com.squareup.javapoet._
+
 import javax.lang.model.element.Modifier
 import org.scalatest.{OptionValues, TryValues}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -71,43 +73,80 @@ final class RecordLikeMethodsSpec
     toValue.annotations shouldBe empty
   }
 
-  behavior of "RecordMethods.fromValueSpec"
+  behavior of "RecordMethods.deprecatedFromValueSpec"
 
   it should "be correctly named" in {
-    fromValue.name shouldBe "fromValue"
+    deprecatedFromValue.name shouldBe "fromValue"
   }
 
   it should "be public static" in {
-    fromValue.modifiers.asScala should contain.only(Modifier.STATIC, Modifier.PUBLIC)
+    deprecatedFromValue.modifiers.asScala should contain.only(Modifier.STATIC, Modifier.PUBLIC)
   }
 
   it should "return the outer class" in {
-    fromValue.returnType shouldEqual name
+    deprecatedFromValue.returnType shouldEqual name
   }
 
   it should "take a single parameter 'value$' of type Value" in {
-    val parameters = fromValue.parameters.asScala.map(p => p.name -> p.`type`)
+    val parameters = deprecatedFromValue.parameters.asScala.map(p => p.name -> p.`type`)
     parameters should contain only "value$" -> TypeName.get(classOf[javaapi.data.Value])
   }
 
   it should "throw an IllegalArgumentException" in {
-    fromValue.exceptions should contain only TypeName.get(classOf[IllegalArgumentException])
+    deprecatedFromValue.exceptions should contain only TypeName.get(
+      classOf[IllegalArgumentException]
+    )
+  }
+
+  it should "declare deprecated annotation" in {
+    deprecatedFromValue.annotations should contain only AnnotationSpec
+      .builder(
+        classOf[Deprecated]
+      )
+      .build
+  }
+
+  behavior of "RecordMethods.valueDecoderSpec"
+
+  it should "be correctly named" in {
+    valueDecoder.name shouldBe "valueDecoder"
+  }
+
+  it should "be public static" in {
+    valueDecoder.modifiers.asScala should contain.only(Modifier.STATIC, Modifier.PUBLIC)
+  }
+
+  it should "return the outer class" in {
+    valueDecoder.returnType shouldEqual ParameterizedTypeName.get(
+      ClassName.get(classOf[ValueDecoder[_]]),
+      name,
+    )
+  }
+
+  it should "take no parameter" in {
+    val parameters = valueDecoder.parameters.asScala.map(p => p.name -> p.`type`)
+    parameters shouldBe empty
+  }
+
+  it should "throw an IllegalArgumentException" in {
+    valueDecoder.exceptions should contain only TypeName.get(classOf[IllegalArgumentException])
   }
 
   it should "not declare any annotation" in {
-    fromValue.annotations shouldBe empty
+    valueDecoder.annotations shouldBe empty
   }
 
   private val name = ClassName.bestGuess("Test")
-  private val methods = RecordMethods(
-    getFieldsWithTypes(
-      ImmArraySeq(Ref.Name.assertFromString("bool") -> TypePrim(PrimTypeBool, ImmArraySeq.empty)),
-      Map(),
-    ),
-    name,
-    IndexedSeq.empty,
-    Map(),
-  )
-  private val Vector(constructor, fromValue, toValue) = methods.take(3)
+  private val methods = {
+    implicit val packagePrefixes: PackagePrefixes = PackagePrefixes(Map.empty)
+    RecordMethods(
+      getFieldsWithTypes(
+        ImmArraySeq(Ref.Name.assertFromString("bool") -> TypePrim(PrimTypeBool, ImmArraySeq.empty))
+      ),
+      name,
+      IndexedSeq.empty,
+    )
+  }
+  private val Vector(constructor, deprecatedFromValue, valueDecoder, toValue) = methods.take(4)
 
 }

@@ -6,11 +6,13 @@ package com.daml.ledger.api.auth.interceptor
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.auth._
+import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.UserRight
 import com.daml.ledger.api.validation.ValidationErrors
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.localstore.api.UserManagementStore
 import io.grpc._
 
 import scala.jdk.FutureConverters.CompletionStageOps
@@ -83,6 +85,7 @@ final class AuthorizationInterceptor(
         for {
           userManagementStore <- getUserManagementStore(userManagementStoreO)
           userId <- getUserId(userIdStr)
+          _ <- verifyUserIsActive(userManagementStore, userId)
           userRightsResult <- userManagementStore.listUserRights(userId)
           claimsSet <- userRightsResult match {
             case Left(msg) =>
@@ -110,6 +113,36 @@ final class AuthorizationInterceptor(
         }
       case _ => Future.successful(claimSet)
     }
+
+  private def verifyUserIsActive(
+      userManagementStore: UserManagementStore,
+      userId: UserId,
+  ): Future[Unit] =
+    for {
+      userResult <- userManagementStore.getUser(id = userId)
+      _ <- userResult match {
+        case Left(msg) =>
+          Future.failed(
+            LedgerApiErrors.AuthorizationChecks.PermissionDenied
+              .Reject(
+                s"Could not resolve is_deactivated status for user '$userId' due to '$msg'"
+              )(errorLogger)
+              .asGrpcError
+          )
+        case Right(user: domain.User) =>
+          if (user.isDeactivated) {
+            Future.failed(
+              LedgerApiErrors.AuthorizationChecks.PermissionDenied
+                .Reject(
+                  s"User $userId is deactivated"
+                )(errorLogger)
+                .asGrpcError
+            )
+          } else {
+            Future.successful(())
+          }
+      }
+    } yield ()
 
   private[this] def getUserManagementStore(
       userManagementStoreO: Option[UserManagementStore]
@@ -169,6 +202,7 @@ object AuthorizationInterceptor {
   private[this] def userRightToClaim(r: UserRight): Claim = r match {
     case UserRight.CanActAs(p) => ClaimActAsParty(Ref.Party.assertFromString(p))
     case UserRight.CanReadAs(p) => ClaimReadAsParty(Ref.Party.assertFromString(p))
+    case UserRight.IdentityProviderAdmin => ClaimIdentityProviderAdmin
     case UserRight.ParticipantAdmin => ClaimAdmin
   }
 }

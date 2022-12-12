@@ -94,7 +94,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
       _ <- ledger.exercise(
         actAs = List(alice, bob, charlie, david),
         readAs = List.empty,
-        exercise = contract.exerciseMPAddSignatories(unusedActor, PList(alice, bob, charlie, david)),
+        exercise = contract.exerciseMPAddSignatories(PList(alice, bob, charlie, david)),
       )
     } yield ()
   })
@@ -114,8 +114,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .exercise(
           actAs = List(bob, charlie, david),
           readAs = List.empty,
-          exercise =
-            contract.exerciseMPAddSignatories(unusedActor, PList(alice, bob, charlie, david)),
+          exercise = contract.exerciseMPAddSignatories(PList(alice, bob, charlie, david)),
         )
         .mustFail("exercising a choice with a missing authorizers")
     } yield {
@@ -144,7 +143,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
       _ <- ledger.exercise(
         actAs = List(charlie, david),
         readAs = List(alice),
-        exercise = contractB.exerciseMPFetchOther(unusedActor, contractA, PList(charlie, david)),
+        exercise = contractB.exerciseMPFetchOther(contractA, PList(charlie, david)),
       )
     } yield ()
   })
@@ -167,7 +166,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .exercise(
           actAs = List(charlie, david),
           readAs = List(bob, alice),
-          exercise = contractB.exerciseMPFetchOther(unusedActor, contractA, PList(charlie, david)),
+          exercise = contractB.exerciseMPFetchOther(contractA, PList(charlie, david)),
         )
         .mustFail("exercising a choice without authorization to fetch another contract")
     } yield {
@@ -198,7 +197,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .exercise(
           actAs = List(charlie, david),
           readAs = List.empty,
-          exercise = contractB.exerciseMPFetchOther(unusedActor, contractA, PList(charlie, david)),
+          exercise = contractB.exerciseMPFetchOther(contractA, PList(charlie, david)),
         )
         .mustFail("exercising a choice without authorization to fetch another contract")
     } yield {
@@ -227,7 +226,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
       _ <- ledger.exercise(
         actAs = List(charlie, david),
         readAs = List(alice),
-        exercise = contractB.exerciseMPFetchOtherByKey(unusedActor, keyA, PList(charlie, david)),
+        exercise = contractB.exerciseMPFetchOtherByKey(keyA, PList(charlie, david)),
       )
     } yield ()
   })
@@ -250,7 +249,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .exercise(
           actAs = List(charlie, david),
           readAs = List(bob, alice),
-          exercise = contractB.exerciseMPFetchOtherByKey(unusedActor, keyA, PList(charlie, david)),
+          exercise = contractB.exerciseMPFetchOtherByKey(keyA, PList(charlie, david)),
         )
         .mustFail("exercising a choice without authorization to fetch another contract by key")
     } yield {
@@ -281,7 +280,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .exercise(
           actAs = List(charlie, david),
           readAs = List.empty,
-          exercise = contractB.exerciseMPFetchOtherByKey(unusedActor, keyA, PList(charlie, david)),
+          exercise = contractB.exerciseMPFetchOtherByKey(keyA, PList(charlie, david)),
         )
         .mustFail("exercising a choice without authorization to fetch another contract by key")
     } yield {
@@ -311,7 +310,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         actAs = List(charlie, david),
         readAs = List(alice),
         exercise = contractB
-          .exerciseMPLookupOtherByKey(unusedActor, keyA, PList(charlie, david), Some(contractA)),
+          .exerciseMPLookupOtherByKey(keyA, PList(charlie, david), Some(contractA)),
       )
     } yield ()
   })
@@ -335,7 +334,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
           actAs = List(charlie, david),
           readAs = List(bob, alice),
           exercise = contractB
-            .exerciseMPLookupOtherByKey(unusedActor, keyA, PList(charlie, david), Some(contractA)),
+            .exerciseMPLookupOtherByKey(keyA, PList(charlie, david), Some(contractA)),
         )
         .mustFail("exercising a choice without authorization to look up another contract by key")
     } yield {
@@ -367,7 +366,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
           actAs = List(charlie, david),
           readAs = List.empty,
           exercise = contractB
-            .exerciseMPLookupOtherByKey(unusedActor, keyA, PList(charlie, david), Some(contractA)),
+            .exerciseMPLookupOtherByKey(keyA, PList(charlie, david), Some(contractA)),
         )
         .mustFail("exercising a choice without authorization to look up another contract by key")
     } yield {
@@ -402,7 +401,4 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         template = MultiPartyContract(submitters, value),
       )
       .map(cid => cid -> MultiPartyContract(submitters, value))
-
-  // The "actor" argument in the generated methods to exercise choices is not used
-  private[this] val unusedActor: Party = Party("")
 }

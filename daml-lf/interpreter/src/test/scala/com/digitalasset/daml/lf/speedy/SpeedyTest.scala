@@ -4,12 +4,11 @@
 package com.daml.lf
 package speedy
 
-import java.util
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{FrontStack, ImmArray, Struct}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
-import com.daml.lf.speedy.SError.SError
+import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
@@ -17,15 +16,19 @@ import com.daml.lf.testing.parser.Implicits._
 import org.scalactic.Equality
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import defaultParserParameters.{defaultPackageId => pkgId}
+import SpeedyTestLib.loggingContext
+import com.daml.lf.speedy.Speedy.CachedContract
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value.ContractId
+import com.daml.logging.ContextualizedLogger
+import org.scalatest.Inside
 
-class SpeedyTest extends AnyWordSpec with Matchers {
+import scala.util.{Failure, Success, Try}
+
+class SpeedyTest extends AnyWordSpec with Matchers with Inside {
 
   import SpeedyTest._
-  import defaultParserParameters.{defaultPackageId => pkgId}
-
-  def qualify(name: String) = Identifier(pkgId, QualifiedName.assertFromString(name))
-
-  val pkgs = typeAndCompile(p"")
 
   "application arguments" should {
     "be handled correctly" in {
@@ -68,7 +71,6 @@ class SpeedyTest extends AnyWordSpec with Matchers {
   }
 
   "pattern matching" should {
-
     val pkg =
       p"""
         module Matcher {
@@ -98,15 +100,12 @@ class SpeedyTest extends AnyWordSpec with Matchers {
 
 
       """
-
     val pkgs = typeAndCompile(pkg)
 
     "works as expected on primitive constructors" in {
-
       eval(e"Matcher:unit ()", pkgs) shouldEqual Right(SInt64(2))
       eval(e"Matcher:bool True", pkgs) shouldEqual Right(SInt64(3))
       eval(e"Matcher:bool False", pkgs) shouldEqual Right(SInt64(5))
-
     }
 
     "works as expected on lists" in {
@@ -143,39 +142,13 @@ class SpeedyTest extends AnyWordSpec with Matchers {
       eval(e"""Matcher:enum Mod:Color:Green""", pkgs) shouldEqual Right(SInt64(41))
       eval(e"""Matcher:enum Mod:Color:Blue""", pkgs) shouldEqual Right(SInt64(43))
     }
-
   }
 
-  val anyPkg =
-    p"""
-      module Test {
-        record @serializable T1 = { party: Party } ;
-        template (record : T1) = {
-          precondition True;
-          signatories Cons @Party [(Test:T1 {party} record)] (Nil @Party);
-          observers Nil @Party;
-          agreement "Agreement";
-        } ;
-        record @serializable T2 = { party: Party } ;
-        template (record : T2) = {
-          precondition True;
-          signatories Cons @Party [(Test:T2 {party} record)] (Nil @Party);
-          observers Nil @Party;
-          agreement "Agreement";
-        } ;
-        record T3 (a: *) = { party: Party } ;
-     }
-    """
-
-  val anyPkgs = typeAndCompile(anyPkg)
-
-  private val alice = SParty(Party.assertFromString("Alice"))
-
   "to_any" should {
-
     "succeed on Int64" in {
       eval(e"""to_any @Int64 1""", anyPkgs) shouldEqual Right(SAny(TBuiltin(BTInt64), SInt64(1)))
     }
+
     "succeed on record type without parameters" in {
       evalApp(
         e"""\ (p: Party) -> to_any @Test:T1 (Test:T1 {party = p})""",
@@ -193,6 +166,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
           )
         )
     }
+
     "succeed on record type with parameters" in {
       evalApp(
         e"""\ (p : Party) -> to_any @(Test:T3 Int64) (Test:T3 @Int64 {party = p})""",
@@ -234,7 +208,6 @@ class SpeedyTest extends AnyWordSpec with Matchers {
   }
 
   "from_any" should {
-
     "throw an exception on Int64" in {
       eval(e"""from_any @Test:T1 1""", anyPkgs) shouldBe a[Left[_, _]]
     }
@@ -267,6 +240,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
         SOptional(None)
       )
     }
+
     "return Some(v) if type parameter is the same" in {
       evalApp(
         e"""\(p : Alice) -> from_any @(Test:T3 Int64) (to_any @(Test:T3 Int64) (Test:T3 @Int64 {party = p}))""",
@@ -284,6 +258,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
         )
       )
     }
+
     "return None if type parameter is different" in {
       evalApp(
         e"""\ (p : Party) -> from_any @(Test:T3 Int64) (to_any @(Test:T3 Text) (Test:T3 @Int64 {party = p}))""",
@@ -294,7 +269,6 @@ class SpeedyTest extends AnyWordSpec with Matchers {
   }
 
   "type_rep" should {
-
     "produces expected output" in {
       eval(e"""type_rep @Test:T1""", anyPkgs) shouldEqual Right(STypeRep(t"Test:T1"))
       eval(e"""type_rep @Test2:T2""", anyPkgs) shouldEqual Right(STypeRep(t"Test2:T2"))
@@ -305,25 +279,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
         STypeRep(t"(ContractId Mod:T) -> Mod:Color")
       )
     }
-
   }
-
-  val recUpdPkgs = typeAndCompile(p"""
-    module M {
-      record Point = { x: Int64, y: Int64 } ;
-      val f: Int64 -> Int64 = \(x: Int64) -> MUL_INT64 2 x ;
-      val origin: M:Point = M:Point { x = 0, y = 0 } ;
-      val p_1_0: M:Point = M:Point { M:origin with x = 1 } ;
-      val p_1_2: M:Point = M:Point { M:Point { M:origin with x = 1 } with y = 2 } ;
-      val p_3_4_loc: M:Point = loc(M,p_3_4_loc,0,0,0,0) M:Point {
-        loc(M,p_3_4_loc,1,1,1,1) M:Point {
-          loc(M,p_3_4_loc,2,2,2,2) M:origin with x = 3
-        } with y = 4
-      } ;
-      val p_6_8: M:Point = M:Point { M:Point { M:origin with x = M:f 3 } with y = M:f 4 } ;
-      val p_3_2: M:Point = M:Point { M:Point { M:Point { M:origin with x = 1 } with y = 2 } with x = 3 } ;
-    }
-  """)
 
   "record update" should {
     "use SBRecUpd for single update" in {
@@ -500,43 +456,206 @@ class SpeedyTest extends AnyWordSpec with Matchers {
         )
     }
   }
+
+  "checkContractVisibility" should {
+
+    "warn about non-visible local contracts" in new VisibilityChecking {
+      machine.checkContractVisibility(localContractId, localCachedContract)
+
+      testLogger.iterator.size shouldBe 1
+    }
+
+    "accept non-visible disclosed contracts" in new VisibilityChecking {
+      machine.checkContractVisibility(disclosedContractId, disclosedCachedContract)
+
+      testLogger.iterator.size shouldBe 0
+    }
+
+    "warn about non-visible global contracts" in new VisibilityChecking {
+      machine.checkContractVisibility(globalContractId, globalCachedContract)
+
+      testLogger.iterator.size shouldBe 1
+    }
+  }
+
+  "checkKeyVisibility" should {
+    val handleKeyFound = (contractId: ContractId) => Speedy.Control.Value(SContractId(contractId))
+
+    "reject non-visible local contract keys" in new VisibilityChecking {
+      val result: Try[Speedy.Control] = Try {
+        machine.checkKeyVisibility(localContractKey, localContractId, handleKeyFound)
+      }
+
+      inside(result) {
+        case Failure(
+              SErrorDamlException(
+                interpretation.Error.ContractKeyNotVisible(
+                  `localContractId`,
+                  `localContractKey`,
+                  _,
+                  _,
+                  _,
+                )
+              )
+            ) =>
+          succeed
+      }
+    }
+
+    "accept non-visible disclosed contract keys" in new VisibilityChecking {
+      val result: Try[Speedy.Control] = Try {
+        machine.checkKeyVisibility(
+          disclosedContractKey,
+          disclosedContractId,
+          handleKeyFound,
+        )
+      }
+
+      inside(result) { case Success(Speedy.Control.Value(SContractId(`disclosedContractId`))) =>
+        succeed
+      }
+    }
+
+    "reject non-visible global contract keys" in new VisibilityChecking {
+      val result: Try[Speedy.Control] = Try {
+        machine.checkKeyVisibility(globalContractKey, globalContractId, handleKeyFound)
+      }
+
+      inside(result) {
+        case Failure(
+              SErrorDamlException(
+                interpretation.Error.ContractKeyNotVisible(
+                  `globalContractId`,
+                  `globalContractKey`,
+                  _,
+                  _,
+                  _,
+                )
+              )
+            ) =>
+          succeed
+      }
+    }
+  }
 }
 
 object SpeedyTest {
 
-  import SpeedyTestLib.loggingContext
+  val anyPkg =
+    p"""
+      module Test {
+        record @serializable T1 = { party: Party };
+        template (record : T1) = {
+          precondition True;
+          signatories Cons @Party [(Test:T1 {party} record)] (Nil @Party);
+          observers Nil @Party;
+          agreement "Agreement";
+        };
 
-  private def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] =
+        record @serializable T2 = { party: Party };
+        template (record : T2) = {
+          precondition True;
+          signatories Cons @Party [(Test:T2 {party} record)] (Nil @Party);
+          observers Nil @Party;
+          agreement "Agreement";
+        };
+
+        record T3 (a: *) = { party: Party };
+     }
+    """
+  val anyPkgs: PureCompiledPackages = typeAndCompile(anyPkg)
+  val pkgs: PureCompiledPackages = typeAndCompile(p"")
+  val recUpdPkgs: PureCompiledPackages = typeAndCompile(p"""
+    module M {
+      record Point = { x: Int64, y: Int64 } ;
+      val f: Int64 -> Int64 = \(x: Int64) -> MUL_INT64 2 x ;
+      val origin: M:Point = M:Point { x = 0, y = 0 } ;
+      val p_1_0: M:Point = M:Point { M:origin with x = 1 } ;
+      val p_1_2: M:Point = M:Point { M:Point { M:origin with x = 1 } with y = 2 } ;
+      val p_3_4_loc: M:Point = loc(M,p_3_4_loc,0,0,0,0) M:Point {
+        loc(M,p_3_4_loc,1,1,1,1) M:Point {
+          loc(M,p_3_4_loc,2,2,2,2) M:origin with x = 3
+        } with y = 4
+      } ;
+      val p_6_8: M:Point = M:Point { M:Point { M:origin with x = M:f 3 } with y = M:f 4 } ;
+      val p_3_2: M:Point = M:Point { M:Point { M:Point { M:origin with x = 1 } with y = 2 } with x = 3 } ;
+    }
+  """)
+  val alice: SParty = SParty(Party.assertFromString("Alice"))
+
+  def qualify(name: String): Ref.ValueRef =
+    Identifier(pkgId, QualifiedName.assertFromString(name))
+
+  def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] =
     evalSExpr(packages.compiler.unsafeCompile(e), packages)
 
-  private def evalSExpr(e: SExpr, packages: PureCompiledPackages): Either[SError, SValue] = {
+  def evalSExpr(e: SExpr, packages: PureCompiledPackages): Either[SError, SValue] = {
     val machine = Speedy.Machine.fromPureSExpr(packages, e)
     SpeedyTestLib.run(machine)
   }
 
-  private def evalApp(
+  def evalApp(
       e: Expr,
       args: Array[SValue],
       packages: PureCompiledPackages,
   ): Either[SError, SValue] = {
     val se = packages.compiler.unsafeCompile(e)
-    evalSExpr(SEApp(se, args.map(SEValue(_))), packages)
+    evalSExpr(SEApp(se, args), packages)
   }
 
+  def intList(xs: Long*): String =
+    if (xs.isEmpty) "(Nil @Int64)"
+    else xs.mkString(s"(Cons @Int64 [", ", ", s"] (Nil @Int64))")
+
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private implicit def resultEq: Equality[Either[SError, SValue]] = {
+  implicit def resultEq: Equality[Either[SError, SValue]] = {
     case (Right(v1: SValue), Right(v2: SValue)) => svalue.Equality.areEqual(v1, v2)
     case (Left(e1), Left(e2)) => e1 == e2
     case _ => false
   }
 
-  private def intList(xs: Long*): String =
-    if (xs.isEmpty) "(Nil @Int64)"
-    else xs.mkString(s"(Cons @Int64 [", ", ", s"] (Nil @Int64))")
+  trait VisibilityChecking {
+    import ExplicitDisclosureLib._
+    import SpeedyTestLib.Implicits._
 
-  private def ArrayList[X](as: X*): util.ArrayList[X] = {
-    val a = new util.ArrayList[X](as.length)
-    as.foreach(a.add)
-    a
+    val alice: IdString.Party = Ref.Party.assertFromString("alice")
+    val localContractId: ContractId =
+      ContractId.V1(crypto.Hash.hashPrivateKey("test-local-contract-id"))
+    val localContractKey: GlobalKey = buildContractKey(alice, "local-label")
+    val localCachedContract: CachedContract =
+      buildHouseCachedContract(alice, alice, label = "local-label")
+    val globalContractId: ContractId =
+      ContractId.V1(crypto.Hash.hashPrivateKey("test-global-contract-id"))
+    val globalContractKey: GlobalKey = buildContractKey(alice, "global-label")
+    val globalCachedContract: CachedContract =
+      buildHouseCachedContract(alice, alice, label = "global-label")
+    val disclosedContractId: ContractId =
+      ContractId.V1(crypto.Hash.hashPrivateKey("test-disclosed-contract-id"))
+    val disclosedContract: DisclosedContract =
+      buildDisclosedHouseContract(disclosedContractId, alice, alice, label = "disclosed-label")
+    val disclosedContractKey: GlobalKey = buildContractKey(alice, "disclosed-label")
+    val disclosedCachedContract: CachedContract =
+      buildHouseCachedContract(alice, alice, label = "disclosed-label")
+    val testLogger: WarningLog = new WarningLog(ContextualizedLogger.createFor("daml.warnings"))
+    val machine: Speedy.OnLedgerMachine = Speedy.Machine
+      .fromUpdateSExpr(
+        pkg,
+        crypto.Hash.hashPrivateKey("VisibilityChecking"),
+        SEValue(SUnit),
+        // As committers is empty, our readers will be empty and so contracts and contract keys will *always* be non-visible to stakeholders
+        committers = Set.empty,
+        disclosedContracts = ImmArray(disclosedContract),
+      )
+      .withWarningLog(testLogger)
+      .withCachedContracts(
+        localContractId -> localCachedContract,
+        globalContractId -> globalCachedContract,
+        disclosedContractId -> disclosedCachedContract,
+      )
+      .withLocalContractKey(localContractId, localContractKey)
+      .withDisclosedContractKeys(
+        houseTemplateType,
+        disclosedContractKey.hash -> disclosedContractId,
+      )
   }
 }

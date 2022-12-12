@@ -6,11 +6,9 @@ package engine
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
-import com.daml.lf.command.{ApiCommand, Commands, CreateCommand, ExerciseCommand}
-import com.daml.lf.data.FrontStack
+import com.daml.lf.command.{ApiCommand, ApiCommands}
+import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Time}
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId, ParticipantId, Party, QualifiedName}
-import com.daml.lf.data.Time
-import com.daml.lf.data.{Bytes, ImmArray}
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.ledger.FailedAuthorization.{
   CreateMissingAuthorization,
@@ -127,7 +125,8 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
         .submit(
           submitters,
           readAs,
-          Commands(ImmArray(command), let, "commands-tag"),
+          ApiCommands(ImmArray(command), let, "commands-tag"),
+          ImmArray.empty,
           participant,
           submissionSeed,
         )
@@ -138,7 +137,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
 
   "Create(T1)" - {
     val command: ApiCommand =
-      CreateCommand(
+      ApiCommand.Create(
         "T1",
         ValueRecord(
           Some("T1"),
@@ -175,7 +174,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
 
   "Create(T2)" - {
     val command: ApiCommand =
-      CreateCommand(
+      ApiCommand.Create(
         "T2",
         ValueRecord(
           Some("T2"),
@@ -220,7 +219,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     // TEST_EVIDENCE: Authorization: well-authorized exercise/create is accepted
     "ok (Alice signed contract; Bob exercised Choice)" in {
       val command: ApiCommand =
-        ExerciseCommand(
+        ApiCommand.Exercise(
           "T1",
           toContractId("t1a"),
           "Choice1",
@@ -242,7 +241,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     // TEST_EVIDENCE: Authorization: badly-authorized exercise/create (exercise is unauthorized) is rejected
     "fail: ExerciseMissingAuthorization" in {
       val command: ApiCommand =
-        ExerciseCommand(
+        ApiCommand.Exercise(
           "T1",
           toContractId("t1a"),
           "Choice1",
@@ -274,7 +273,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     // TEST_EVIDENCE: Authorization: badly-authorized exercise/create (create is unauthorized) is rejected
     "fail: CreateMissingAuthorization" in {
       val command: ApiCommand =
-        ExerciseCommand(
+        ApiCommand.Exercise(
           "T1",
           toContractId("t1a"),
           "Choice1",
@@ -305,7 +304,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
 
     "ok (Bob signed contract; Alice exercised Choice)" in {
       val command: ApiCommand =
-        ExerciseCommand(
+        ApiCommand.Exercise(
           "T1",
           toContractId("t1b"),
           "Choice1",
@@ -333,7 +332,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     // TEST_EVIDENCE: Authorization: badly-authorized exercise/exercise (no implicit authority from outer exercise) is rejected
     "fail (no implicit authority from outer exercise's contract's signatories)" in {
       val command: ApiCommand =
-        ExerciseCommand(
+        ApiCommand.Exercise(
           "X1",
           toContractId("x1b"),
           "ChoiceA",
@@ -376,7 +375,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     // TEST_EVIDENCE: Authorization: well-authorized exercise/exercise is accepted
     "ok" in {
       val command: ApiCommand =
-        ExerciseCommand(
+        ApiCommand.Exercise(
           "X1",
           toContractId("x1b"),
           "ChoiceA",

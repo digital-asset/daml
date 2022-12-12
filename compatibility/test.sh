@@ -111,9 +111,13 @@ fi
 
 bazel build //...
 
-BAZEL_ARGS=""
+
+tag_filter=""
+if [[ "$(uname)" == "Darwin" ]]; then
+  tag_filter="${tag_filter}-dont-run-on-darwin,"
+fi
 if [ "${1:-}" = "--quick" ]; then
-    BAZEL_ARGS="--test_tag_filters +head-quick"
+  tag_filter="${tag_filter}+head-quick,"
 fi
 
 bazel test //... \
@@ -124,4 +128,4 @@ bazel test //... \
   --test_env "ORACLE_USERNAME=${ORACLE_USERNAME}" \
   --test_env "ORACLE_PWD=${ORACLE_PWD}" \
   --test_env "ORACLE_DOCKER_PATH=${ORACLE_DOCKER_PATH}" \
-  $BAZEL_ARGS
+  --test_tag_filters "${tag_filter%,}"

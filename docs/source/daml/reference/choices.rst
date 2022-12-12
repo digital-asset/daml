@@ -1,18 +1,22 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Reference: choices
+Reference: Choices
 ##################
 
 This page gives reference information on choices. For information on the high-level structure of a choice, see :doc:`structure`.
 
-``choice`` first or ``controller`` first
+``choice`` First or ``controller`` First
 ****************************************
 
 There are two ways you can start a choice:
 
 - start with the ``choice`` keyword
 - start with the ``controller`` keyword
+
+.. warning::
+
+  ``controller`` first syntax is deprecated since Daml 2.0 and will be removed in a future version. For more information, see :ref:`daml-ref-controller-can-deprecation`.
 
 .. literalinclude:: ../code-snippets/Structure.daml
    :language: daml
@@ -27,14 +31,14 @@ In contrast, if you start with ``controller``, the ``controller`` is automatical
 
 A secondary difference is that starting with ``choice`` allows *choice observers* to be attached to the choice using the ``observer`` keyword. The choice observers are a list of parties that, in addition to the stakeholders, will see all consequences of the action.
 
-.. literalinclude:: ../code-snippets-dev/Structure.daml
+.. literalinclude:: ../code-snippets/Structure.daml
    :language: daml
    :start-after: -- start of choice observer snippet
    :end-before: -- end of choice observer snippet
 
 .. _daml-ref-choice-name:
 
-Choice name
+Choice Name
 ***********
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -79,12 +83,12 @@ Controllers
 
 .. _daml-ref-consumability:
 
-Contract consumption
+Contract Consumption
 ====================
 
 If no qualifier is present, choices are *consuming*: the contract is archived before the evaluation of the choice body and both the controllers and all contract stakeholders see all consequences of the action.
 
-Preconsuming choices
+Preconsuming Choices
 ********************
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -106,7 +110,7 @@ Preconsuming choices
 - Only the controllers and signatories of the contract see all consequences of the action. Other stakeholders merely see an archive action.
 - Can be thought as a non-consuming choice that implicitly archives the contract before anything else happens
 
-Postconsuming choices
+Postconsuming Choices
 *********************
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -127,7 +131,7 @@ Postconsuming choices
 - Only the controllers and signatories of the contract see all consequences of the action. Other stakeholders merely see an archive action.
 - Can be thought as a non-consuming choice that implicitly archives the contract after the choice has been exercised
 
-Non-consuming choices
+Non-consuming Choices
 *********************
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -149,7 +153,7 @@ Non-consuming choices
 
 .. _daml-ref-return-type:
 
-Return type
+Return Type
 ===========
 
 - Return type is written immediately after choice name.
@@ -158,7 +162,7 @@ Return type
 
 .. _daml-ref-choice-arguments:
 
-Choice arguments
+Choice Arguments
 ****************
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -173,10 +177,77 @@ Choice arguments
 
 .. _daml-ref-choice-body:
 
-Choice body
+Choice Body
 ***********
 
 - Introduced with ``do``
 - The logic in this section is what is executed when the choice gets exercised.
 - The choice body contains ``Update`` expressions. For detail on this, see :doc:`updates`.
 - By default, the last expression in the choice is returned. You can return multiple updates in tuple form or in a custom data type. To return something that isn't of type ``Update``, use the ``return`` keyword.
+
+.. _daml-ref-controller-can-deprecation:
+
+Deprecation of ``controller`` first syntax
+******************************************
+
+Since Daml 2.0, using ``controller`` first syntax to define a choice will
+result in the following warning:
+
+.. code-block:: text
+
+  The syntax 'controller ... can' is deprecated,
+  it will be removed in a future version of Daml.
+  Instead, use 'choice ... with ... controller' syntax.
+  Note that 'choice ... with ... controller' syntax does not
+  implicitly add the controller as an observer,
+  so it must be added explicitly as one (or as a signatory).
+
+Migrating
+=========
+
+Users are strongly encouraged to rewrite their choices using ``choice``
+first syntax. This is a schema for such a rewrite:
+
+#. For each ``controller ... can`` block,
+
+   #. Note the parties between the ``controller`` and ``can`` keywords; these are the block controllers.
+
+   #. Ensure that all the block controllers are signatories or observers of the template. If any controller is neither a signatory nor observer of the template, add it as an observer.
+
+   #. For each choice in the block,
+
+      #. Prefix the choice name with the ``choice`` keyword, but keep any consumption qualifiers before ``choice``.
+
+      #. Add a ``controller`` clause with the block controllers before the body of the choice (the ``do`` block) .
+
+   #. Remove the ``controller ... can`` block header and adjust indentation as necessary.
+
+Disabling the warning
+=====================
+
+This warning is controlled by the warning flag ``controller-can``, which means
+that it can be disabled independently of other warnings. This is especially
+useful for gradually migrating code that used this syntax.
+
+To disable the warning within a Daml file, add the following line at the top of
+the file:
+
+.. code-block:: daml
+
+  {-# OPTIONS_GHC -Wno-controller-can #-}
+
+To disable it for an entire Daml project, add the following entry to the
+``build-options`` field of the project's ``daml.yaml`` file
+
+.. code-block:: yaml
+
+  build-options:
+  - --ghc-option=-Wno-controller-can
+
+Within a project where the warning has been disabled as described above, it can
+be reenabled for a single Daml file by adding the following line at the top of
+the file:
+
+.. code-block:: daml
+
+  {-# OPTIONS_GHC -Wcontroller-can #-}

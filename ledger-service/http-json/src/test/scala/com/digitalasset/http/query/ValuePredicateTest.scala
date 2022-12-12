@@ -7,13 +7,12 @@ package query
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue, jsValueToApiValue}
 import com.daml.lf.data.{Decimal, ImmArray, Numeric, Ref, SortedLookupList, Time}
 import ImmArray.ImmArraySeq
-import com.codahale.metrics.MetricRegistry
 import com.daml.http.dbbackend.SurrogateTemplateIdCache
-import com.daml.lf.iface
+import com.daml.http.metrics.HttpJsonApiMetrics
+import com.daml.lf.typesig
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, RNil, ValueAddend => VA}
+import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, ValueAddend => VA}
 import com.daml.lf.value.test.ValueGenerators.coidGen
-import com.daml.metrics.Metrics
 import org.scalacheck.Arbitrary
 import org.scalactic.source
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -40,20 +39,15 @@ class ValuePredicateTest
   private[this] val dummyPackageId = Ref.PackageId assertFromString "dummy-package-id"
 
   private[this] val (tuple3Id, (tuple3DDT, tuple3VA)) = {
-    import shapeless.syntax.singleton._
-    val sig = Symbol("_1") ->> VA.int64 ::
-      Symbol("_2") ->> VA.text ::
-      Symbol("_3") ->> VA.bool ::
-      RNil
+    import shapeless.record.{Record => HRecord}
+    val sig = HRecord(_1 = VA.int64, _2 = VA.text, _3 = VA.bool)
     val id = Ref.Identifier(dummyPackageId, qn("Foo:Tuple3"))
     (id, VA.record(id, sig))
   }
 
   private[this] def eitherT = {
-    import shapeless.syntax.singleton._
-    val sig = Symbol("Left") ->> VA.int64 ::
-      Symbol("Right") ->> VA.text ::
-      RNil
+    import shapeless.record.{Record => HRecord}
+    val sig = HRecord(Left = VA.int64, Right = VA.text)
     val id = Ref.Identifier(dummyPackageId, qn("Foo:Either"))
     (id, VA.variant(id, sig))
   }
@@ -62,17 +56,17 @@ class ValuePredicateTest
     qn("Foo:Bar"),
   )
   private[this] val dummyFieldName = Ref.Name assertFromString "foo"
-  private[this] val dummyTypeCon = iface.TypeCon(iface.TypeConName(dummyId), ImmArraySeq.empty)
+  private[this] val dummyTypeCon = typesig.TypeCon(typesig.TypeConName(dummyId), ImmArraySeq.empty)
   private[this] val (eitherId, (eitherDDT, eitherVA)) = eitherT
   private[this] def valueAndTypeInObject(
       v: V,
-      ty: iface.Type,
+      ty: typesig.Type,
   ): (V, ValuePredicate.TypeLookup) =
     (V.ValueRecord(Some(dummyId), ImmArray((Some(dummyFieldName), v))), typeInObject(ty))
-  private[this] def typeInObject(ty: iface.Type): ValuePredicate.TypeLookup =
+  private[this] def typeInObject(ty: typesig.Type): ValuePredicate.TypeLookup =
     Map(
-      dummyId -> iface
-        .DefDataType(ImmArraySeq.empty, iface.Record(ImmArraySeq((dummyFieldName, ty)))),
+      dummyId -> typesig
+        .DefDataType(ImmArraySeq.empty, typesig.Record(ImmArraySeq((dummyFieldName, ty)))),
       eitherId -> eitherDDT,
       tuple3Id -> tuple3DDT,
     ).lift
@@ -262,7 +256,7 @@ class ValuePredicateTest
           "{}",
           tuple3VA,
           sql"payload @> ${"""{"foo":{}}""".parseJson}::jsonb",
-          sql"""JSON_EXISTS(payload, '$$."foo"?(@ != null)')""",
+          sql"""JSON_EXISTS(payload, '$$."foo"?(!(@ == null))')""",
         ),
         (
           """{"%lte": 42}""",
@@ -302,7 +296,7 @@ class ValuePredicateTest
       ) { (backend, sql: doobie.Fragment) =>
         // we aren't running the SQL, just looking at it
         import org.scalatest.EitherValues._
-        implicit val metrics: Metrics = new Metrics(new MetricRegistry())
+        implicit val metrics: HttpJsonApiMetrics = HttpJsonApiMetrics.ForTesting
         implicit val sjd: dbbackend.SupportedJdbcDriver.TC =
           backend.configure("", Map.empty, SurrogateTemplateIdCache.MaxEntries).value
         val frag = vp.toSqlWhereClause

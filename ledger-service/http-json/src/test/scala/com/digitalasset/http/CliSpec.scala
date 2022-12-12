@@ -13,10 +13,12 @@ import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.metrics.MetricsReporter
-
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authenticity
+import com.daml.test.evidence.tag.Security.SecurityTest
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import java.io.File
 import java.nio.file.Paths
+import com.daml.metrics.api.reporters.MetricsReporter
 import scala.concurrent.duration._
 
 object CliSpec {
@@ -34,6 +36,9 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       getEnvVar: String => Option[String] = (_ => None),
   ): Option[Config] =
     Cli.parseConfig(parameters, Set("org.postgresql.Driver"), getEnvVar)
+
+  private val authenticationSecurity =
+    SecurityTest(property = Authenticity, asset = "HTTP JSON API Service")
 
   val jdbcConfig = JdbcConfig(
     dbutils.JdbcConfig(
@@ -264,13 +269,18 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       )
     }
 
-    "should fail when config file and cli args both are supplied" in {
+    "should ignore cli args when config file and cli args both are supplied" in {
       configParser(
         Seq("--config", requiredResource(confFile).getAbsolutePath) ++ sharedOptions
-      ) should ===(None)
+      ) shouldBe Some(
+        Config.Empty.copy(httpPort = 7500, ledgerHost = "127.0.0.1", ledgerPort = 6400)
+      )
     }
 
-    "should successfully load a complete config file" in {
+    "TLS configuration is parsed correctly from the config file" taggedAs authenticationSecurity
+      .setHappyCase(
+        "A valid config file for TLS is parsed correctly"
+      ) in {
       val baseConfig = DbUtilsJdbcConfig(
         url = "jdbc:postgresql://localhost:5432/test?&ssl=true",
         driver = "org.postgresql.Driver",

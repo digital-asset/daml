@@ -48,13 +48,12 @@ resource "google_storage_bucket_iam_member" "data_read" {
 // allow read access for appr team, as requested by Moritz
 locals {
   appr_team = [
+    "user:chunlok.ling@digitalasset.com",
     "user:gary.verhaegen@digitalasset.com",
     "user:moritz.kiefer@digitalasset.com",
     "user:raymond.roestenburg@digitalasset.com",
     "user:stefano.baghino@digitalasset.com",
     "user:stephen.compall@digitalasset.com",
-    "user:stewart.stewart@digitalasset.com",
-    "user:victor.mueller@digitalasset.com",
   ]
 }
 

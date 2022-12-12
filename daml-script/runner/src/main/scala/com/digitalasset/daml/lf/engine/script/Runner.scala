@@ -28,16 +28,17 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
   ScriptTimeMode,
 }
-import com.daml.lf.iface.EnvironmentInterface
-import com.daml.lf.iface.reader.InterfaceReader
+import com.daml.lf.typesig.EnvironmentSignature
+import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{PackageInterface, LanguageVersion}
+import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.speedy.SBuiltin.SBToAny
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{
+  ArrayList,
   Compiler,
   Pretty,
   SDefinition,
@@ -50,7 +51,7 @@ import com.daml.lf.speedy.{
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContext
-import com.daml.script.converter.Converter.{JavaList, unrollFree}
+import com.daml.script.converter.Converter.unrollFree
 import com.daml.script.converter.ConverterException
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.OneAnd._
@@ -80,7 +81,7 @@ case class Participants[+T](
     participants: Map[Participant, T],
     party_participants: Map[Party, Participant],
 ) {
-  def getPartyParticipant(party: Party): Either[String, T] =
+  private def getPartyParticipant(party: Party): Either[String, T] =
     party_participants.get(party) match {
       case None =>
         default_participant.toRight(s"No participant for party $party and no default participant")
@@ -97,7 +98,7 @@ case class Participants[+T](
         } else {
           Left(
             s"All parties must be on the same participant but parties were allocated as follows: ${parties.toList
-              .zip(participants.toList)}"
+                .zip(participants.toList)}"
           )
         }
     } yield participant
@@ -186,7 +187,7 @@ object Script {
 
   final case class Action(expr: SExpr, scriptIds: ScriptIds) extends Script
   final case class Function(expr: SExpr, param: Type, scriptIds: ScriptIds) extends Script {
-    def apply(arg: SExpr): Script.Action = Script.Action(SEApp(expr, Array(arg)), scriptIds)
+    def apply(arg: SValue): Script.Action = Script.Action(SEApp(expr, Array(arg)), scriptIds)
   }
 
   def fromIdentifier(
@@ -194,7 +195,7 @@ object Script {
       scriptId: Identifier,
   ): Either[String, Script] = {
     val scriptExpr = SEVal(LfDefRef(scriptId))
-    val script = compiledPackages.interface.lookupValue(scriptId).left.map(_.pretty)
+    val script = compiledPackages.pkgInterface.lookupValue(scriptId).left.map(_.pretty)
     def getScriptIds(ty: Type): Either[String, ScriptIds] =
       ScriptIds.fromType(ty).toRight(s"Expected type 'Daml.Script.Script a' but got $ty")
     script.flatMap {
@@ -212,11 +213,10 @@ object Script {
 
 object Runner {
 
-  final case class InterpretationError(error: SError.SError) extends RuntimeException {
-    override def toString: String = Pretty.prettyError(error).render(80)
-  }
+  final case class InterpretationError(error: SError.SError)
+      extends RuntimeException(s"${Pretty.prettyError(error).render(80)}")
 
-  private val compilerConfig = {
+  private[script] val compilerConfig = {
     import Compiler._
     Config(
       // FIXME: Should probably not include 1.dev by default.
@@ -227,13 +227,19 @@ object Runner {
     )
   }
 
+  val BLANK_APPLICATION_ID: ApplicationId = ApplicationId("")
   val DEFAULT_APPLICATION_ID: ApplicationId = ApplicationId("daml-script")
-  private def connectApiParameters(
+  private[script] def connectApiParameters(
       params: ApiParameters,
       tlsConfig: TlsConfiguration,
       maxInboundMessageSize: Int,
   )(implicit ec: ExecutionContext, seq: ExecutionSequencerFactory): Future[GrpcLedgerClient] = {
-    val applicationId = params.application_id.getOrElse(Runner.DEFAULT_APPLICATION_ID)
+    val applicationId = params.application_id.getOrElse(
+      // If an application id was not supplied, but an access token was,
+      // we leave the application id empty so that the ledger will
+      // determine it from the access token.
+      if (params.access_token.nonEmpty) BLANK_APPLICATION_ID else DEFAULT_APPLICATION_ID
+    )
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
@@ -269,7 +275,7 @@ object Runner {
 
   def jsonClients(
       participantParams: Participants[ApiParameters],
-      envIface: EnvironmentInterface,
+      envSig: EnvironmentSignature,
   )(implicit ec: ExecutionContext, system: ActorSystem): Future[Participants[JsonLedgerClient]] = {
     def client(params: ApiParameters) = {
       val uri = Uri(params.host).withPort(params.port)
@@ -277,7 +283,7 @@ object Runner {
         case None =>
           Future.failed(new RuntimeException(s"The JSON API always requires access tokens"))
         case Some(token) =>
-          val client = new JsonLedgerClient(uri, Jwt(token), envIface, system)
+          val client = new JsonLedgerClient(uri, Jwt(token), envSig, system)
           if (params.application_id.isDefined && params.application_id != client.applicationId) {
             Future.failed(
               new RuntimeException(
@@ -285,7 +291,7 @@ object Runner {
               )
             )
           } else {
-            Future.successful(new JsonLedgerClient(uri, Jwt(token), envIface, system))
+            Future.successful(new JsonLedgerClient(uri, Jwt(token), envSig, system))
           }
       }
 
@@ -313,31 +319,68 @@ object Runner {
   ): Future[SValue] = {
     val darMap = dar.all.toMap
     val compiledPackages = PureCompiledPackages.assertBuild(darMap, Runner.compilerConfig)
+    def converter(json: JsValue, typ: Type) = {
+      val ifaceDar = dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
+      val envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
+      Converter.fromJsonValue(
+        scriptId.qualifiedName,
+        envIface,
+        compiledPackages,
+        typ,
+        json,
+      )
+    }
+    run(
+      compiledPackages,
+      scriptId,
+      Some(converter),
+      inputValue,
+      initialClients,
+      timeMode,
+    )._2
+  }
+
+  // Executes a Daml script
+  //
+  // Looks for the script in the given compiledPackages, applies the input
+  // value as an argument if provided together with a conversion function,
+  // and runs the script with the given participants.
+  def run(
+      compiledPackages: PureCompiledPackages,
+      scriptId: Identifier,
+      convertInputValue: Option[(JsValue, Type) => Either[String, SValue]],
+      inputValue: Option[JsValue],
+      initialClients: Participants[ScriptLedgerClient],
+      timeMode: ScriptTimeMode,
+      traceLog: TraceLog = Speedy.Machine.newTraceLog,
+      warningLog: WarningLog = Speedy.Machine.newWarningLog,
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): (Speedy.Machine, Future[SValue]) = {
     val script = data.assertRight(Script.fromIdentifier(compiledPackages, scriptId))
     val scriptAction: Script.Action = (script, inputValue) match {
       case (script: Script.Action, None) => script
       case (script: Script.Function, Some(inputJson)) =>
-        val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-        val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
-        val arg = Converter
-          .fromJsonValue(
-            scriptId.qualifiedName,
-            envIface,
-            compiledPackages,
-            script.param,
-            inputJson,
-          ) match {
-          case Left(msg) => throw new ConverterException(msg)
-          case Right(x) => x
+        convertInputValue match {
+          case Some(f) =>
+            f(inputJson, script.param) match {
+              case Left(msg) => throw new ConverterException(msg)
+              case Right(arg) => script.apply(arg)
+            }
+          case None =>
+            throw new RuntimeException(
+              s"The script ${scriptId} requires an argument, but a converter was not provided"
+            )
         }
-        script.apply(SEValue(arg))
       case (_: Script.Action, Some(_)) =>
         throw new RuntimeException(s"The script ${scriptId} does not take arguments.")
       case (_: Script.Function, None) =>
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner = new Runner(compiledPackages, scriptAction, timeMode)
-    runner.runWithClients(initialClients)._2
+    runner.runWithClients(initialClients, traceLog, warningLog)
   }
 }
 
@@ -359,7 +402,7 @@ private[lf] class Runner(
       override def getDefinition(dref: SDefinitionRef): Option[SDefinition] =
         fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
       // FIXME: avoid override of non abstract method
-      override def interface: PackageInterface = compiledPackages.interface
+      override def pkgInterface: PackageInterface = compiledPackages.pkgInterface
       override def packageIds: collection.Set[PackageId] = compiledPackages.packageIds
       // FIXME: avoid override of non abstract method
       override def definitions: PartialFunction[SDefinitionRef, SDefinition] =
@@ -370,7 +413,7 @@ private[lf] class Runner(
   // Maps GHC unit ids to LF package ids. Used for location conversion.
   private val knownPackages: Map[String, PackageId] = (for {
     pkgId <- compiledPackages.packageIds
-    md <- compiledPackages.interface.lookupPackage(pkgId).toOption.flatMap(_.metadata).toList
+    md <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.flatMap(_.metadata).toList
   } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
 
   // Returns the machine that will be used for execution as well as a Future for the result.
@@ -382,15 +425,18 @@ private[lf] class Runner(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Speedy.Machine, Future[SValue]) = {
+  ): (Speedy.OffLedgerMachine, Future[SValue]) = {
     val machine =
-      Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, traceLog, warningLog)(
-        Script.DummyLoggingContext
-      )
+      Speedy.Machine.fromPureSExpr(
+        extendedCompiledPackages,
+        script.expr,
+        traceLog = traceLog,
+        warningLog = warningLog,
+      )(Script.DummyLoggingContext)
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {
-        case SResultFinalValue(v) =>
+        case SResultFinal(v) =>
           Right(v)
         case SResultError(err) =>
           Left(Runner.InterpretationError(err))
@@ -413,20 +459,32 @@ private[lf] class Runner(
         .flatMap {
           case Right((vv, v)) =>
             Converter
-              .toFuture(ScriptF.parse(ScriptF.Ctx(knownPackages, extendedCompiledPackages), vv, v))
+              .toFuture(
+                ScriptF.parse(
+                  ScriptF.Ctx(knownPackages, extendedCompiledPackages),
+                  vv,
+                  v,
+                )
+              )
               .flatMap { scriptF =>
                 scriptF match {
                   case ScriptF.Catch(act, handle) =>
-                    run(SEApp(SEValue(act), Array(SEValue(SUnit)))).transformWith {
+                    run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
                       case Success(v) => Future.successful(SEValue(v))
                       case Failure(
                             exce @ Runner.InterpretationError(
                               SError.SErrorDamlException(IE.UnhandledException(typ, value))
                             )
                           ) =>
-                        machine.setExpressionToEvaluate(
-                          SEApp(SEValue(handle), Array(SBToAny(typ)(SEImportValue(typ, value))))
-                        )
+                        val e =
+                          SELet1(
+                            SEImportValue(typ, value),
+                            SELet1(
+                              SEAppAtomic(SEBuiltin(SBToAny(typ)), Array(SELocS(1))),
+                              SEAppAtomic(SEValue(handle), Array(SELocS(1))),
+                            ),
+                          )
+                        machine.setExpressionToEvaluate(e)
                         stepToValue()
                           .fold(Future.failed, Future.successful)
                           .flatMap {
@@ -459,7 +517,7 @@ private[lf] class Runner(
               .flatMap(run(_))
           case Left(v) =>
             v match {
-              case SRecord(_, _, JavaList(newState, _)) => {
+              case SRecord(_, _, ArrayList(newState, _)) => {
                 // Unwrap the Tuple2 we get from the inlined StateT.
                 Future { newState }
               }
@@ -477,7 +535,7 @@ private[lf] class Runner(
         case SRecord(_, _, vals) if vals.size == 1 || vals.size == 2 => {
           vals.get(0) match {
             case SPAP(_, _, _) =>
-              Future(SEApp(SEValue(vals.get(0)), Array(SEValue(SUnit))))
+              Future(SEAppAtomic(SEValue(vals.get(0)), Array(SEValue(SUnit))))
             case _ =>
               Future.failed(
                 new ConverterException(

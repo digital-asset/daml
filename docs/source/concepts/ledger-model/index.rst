@@ -13,6 +13,7 @@ follows:
 
 .. https://www.lucidchart.com/documents/edit/505709a9-e972-4272-b1fd-c01674c323b8
 .. image:: ./images/da-ledger-model.svg
+   :alt: A diagram of the Daml Ledger model. Three parties (Party A, B, and C) interact independently with a single box labeled virtual shared ledger. Each party has two types of interactions: request change (an arrow from the party to the ledger) and access per-party view (an arrow from the ledger to the party).
 
 The Daml ledger model defines:
 

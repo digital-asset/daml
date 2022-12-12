@@ -3,10 +3,7 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.resources.ResourceContext
-import com.daml.resources.ProgramResource
-
 object Main {
   def main(args: Array[String]): Unit =
-    new ProgramResource(owner = SandboxOnXRunner.owner(args)).run(ResourceContext.apply)
+    CliSandboxOnXRunner.run(args)
 }

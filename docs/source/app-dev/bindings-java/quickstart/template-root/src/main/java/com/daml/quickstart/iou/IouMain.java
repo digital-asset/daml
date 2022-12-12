@@ -3,7 +3,11 @@
 
 package com.daml.quickstart.iou;
 
+import static java.util.UUID.randomUUID;
+
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.CommandsSubmission;
+import com.daml.ledger.javaapi.data.codegen.Update;
 import com.daml.ledger.rxjava.DamlLedgerClient;
 import com.daml.ledger.rxjava.LedgerClient;
 import com.daml.quickstart.model.iou.Iou;
@@ -11,7 +15,6 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Maps;
 import com.google.gson.Gson;
-import com.google.protobuf.Empty;
 import io.reactivex.disposables.Disposable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -49,8 +52,6 @@ public class IouMain {
 
     logger.info("ledger-id: {}", ledgerId);
 
-    TransactionFilter iouFilter = filterFor(Iou.TEMPLATE_ID, party);
-
     AtomicLong idCounter = new AtomicLong(0);
     ConcurrentHashMap<Long, Iou> contracts = new ConcurrentHashMap<>();
     BiMap<Long, Iou.ContractId> idMap = Maps.synchronizedBiMap(HashBiMap.create());
@@ -59,26 +60,23 @@ public class IouMain {
 
     client
         .getActiveContractSetClient()
-        .getActiveContracts(iouFilter, true)
+        .getActiveContracts(Iou.contractFilter(), Collections.singleton(party), true)
         .blockingForEach(
             response -> {
-              response
-                  .getOffset()
-                  .ifPresent(offset -> acsOffset.set(new LedgerOffset.Absolute(offset)));
-              response.getCreatedEvents().stream()
-                  .map(Iou.Contract::fromCreatedEvent)
-                  .forEach(
-                      contract -> {
-                        long id = idCounter.getAndIncrement();
-                        contracts.put(id, contract.data);
-                        idMap.put(id, contract.id);
-                      });
+              response.offset.ifPresent(offset -> acsOffset.set(new LedgerOffset.Absolute(offset)));
+              response.activeContracts.forEach(
+                  contract -> {
+                    long id = idCounter.getAndIncrement();
+                    contracts.put(id, contract.data);
+                    idMap.put(id, contract.id);
+                  });
             });
 
     Disposable ignore =
         client
             .getTransactionsClient()
-            .getTransactions(acsOffset.get(), iouFilter, true)
+            .getTransactions(
+                Iou.contractFilter(), acsOffset.get(), Collections.singleton(party), true)
             .forEach(
                 t -> {
                   for (Event event : t.getEvents()) {
@@ -109,9 +107,9 @@ public class IouMain {
         "/iou",
         (req, res) -> {
           Iou iou = g.fromJson(req.body(), Iou.class);
-          CreateCommand iouCreate = iou.create();
-          submit(client, party, iouCreate);
-          return "Iou creation submitted.";
+          var iouCreate = iou.create();
+          var createdContractId = submit(client, party, iouCreate);
+          return "Iou creation submitted: " + createdContractId;
         },
         g::toJson);
     Spark.post(
@@ -120,10 +118,9 @@ public class IouMain {
         (req, res) -> {
           Map m = g.fromJson(req.body(), Map.class);
           Iou.ContractId contractId = idMap.get(Long.parseLong(req.params("id")));
-          ExerciseCommand exerciseCommand =
-              contractId.exerciseIou_Transfer(m.get("newOwner").toString());
-          submit(client, party, exerciseCommand);
-          return "Iou transfer submitted.";
+          var update = contractId.exerciseIou_Transfer(m.get("newOwner").toString());
+          var result = submit(client, party, update);
+          return "Iou transfer submitted with exercise result: " + result;
         },
         g::toJson);
 
@@ -136,24 +133,11 @@ public class IouMain {
       }
   }
 
-  private static Empty submit(LedgerClient client, String party, Command c) {
-    return client
-        .getCommandSubmissionClient()
-        .submit(
-            UUID.randomUUID().toString(),
-            "IouApp",
-            UUID.randomUUID().toString(),
-            party,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Collections.singletonList(c))
-        .blockingGet();
-  }
+  private static <U> U submit(LedgerClient client, String party, Update<U> update) {
+    var params =
+        CommandsSubmission.create(APP_ID, randomUUID().toString(), update.commands())
+            .withActAs(party);
 
-  private static TransactionFilter filterFor(Identifier templateId, String party) {
-    InclusiveFilter inclusiveFilter = new InclusiveFilter(Collections.singleton(templateId));
-    Map<String, Filter> filter = Collections.singletonMap(party, inclusiveFilter);
-    return new FiltersByParty(filter);
+    return client.getCommandClient().submitAndWaitForResult(params, update).blockingGet();
   }
 }

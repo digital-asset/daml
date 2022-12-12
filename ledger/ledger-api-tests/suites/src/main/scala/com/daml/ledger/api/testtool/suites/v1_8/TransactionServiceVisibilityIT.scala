@@ -21,15 +21,31 @@ import com.daml.ledger.test.model.Iou.IouTransfer._
 import com.daml.ledger.test.model.IouTrade.IouTrade
 import com.daml.ledger.test.model.IouTrade.IouTrade._
 import com.daml.ledger.test.model.Test._
+import com.daml.lf.ledger.EventId
+import com.daml.test.evidence.tag.EvidenceTag
+import com.daml.test.evidence.tag.Security.SecurityTest
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Privacy
 
 import scala.collection.immutable.Seq
 import scala.collection.mutable
 
 class TransactionServiceVisibilityIT extends LedgerTestSuite {
+
+  def privacyHappyCase(asset: String, happyCase: String)(implicit
+      lineNo: sourcecode.Line,
+      fileName: sourcecode.File,
+  ): List[EvidenceTag] =
+    List(SecurityTest(property = Privacy, asset = asset, happyCase))
+
   test(
     "TXTreeBlinding",
     "Trees should be served according to the blinding/projection rules",
     allocate(TwoParties, SingleParty, SingleParty),
+    enabled = _.committerEventLog.eventLogType.isCentralized,
+    tags = privacyHappyCase(
+      asset = "Transaction Tree",
+      happyCase = "Transaction trees are served according to the blinding/projection rules",
+    ),
   )(implicit ec => {
     case Participants(
           Participant(alpha, alice, gbp_bank),
@@ -39,42 +55,41 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
       for {
         gbpIouIssue <- alpha.create(gbp_bank, Iou(gbp_bank, gbp_bank, "GBP", 100, Nil))
         gbpTransfer <-
-          alpha.exerciseAndGetContract(gbp_bank, gbpIouIssue.exerciseIou_Transfer(_, alice))
+          alpha.exerciseAndGetContract(gbp_bank, gbpIouIssue.exerciseIou_Transfer(alice))
         dkkIouIssue <- delta.create(dkk_bank, Iou(dkk_bank, dkk_bank, "DKK", 110, Nil))
         dkkTransfer <-
-          delta.exerciseAndGetContract(dkk_bank, dkkIouIssue.exerciseIou_Transfer(_, bob))
+          delta.exerciseAndGetContract(dkk_bank, dkkIouIssue.exerciseIou_Transfer(bob))
 
-        aliceIou1 <- eventually {
-          alpha.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept(_))
+        aliceIou1 <- eventually("exerciseIouTransfer_Accept") {
+          alpha.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept())
         }
-        aliceIou <- eventually {
-          alpha.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(_, bob))
+        aliceIou <- eventually("exerciseIou_AddObserver") {
+          alpha.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(bob))
         }
-        bobIou <- eventually {
-          beta.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept(_))
+        bobIou <- eventually("exerciseIouTransfer_Accept") {
+          beta.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept())
         }
 
-        trade <- eventually {
+        trade <- eventually("create") {
           alpha.create(
             alice,
             IouTrade(alice, bob, aliceIou, gbp_bank, "GBP", 100, dkk_bank, "DKK", 110),
           )
         }
-        tree <- eventually {
-          beta.exercise(bob, trade.exerciseIouTrade_Accept(_, bobIou))
+        tree <- eventually("exerciseIouTrade_Accept") {
+          beta.exercise(bob, trade.exerciseIouTrade_Accept(bobIou))
         }
 
-        aliceTree <- eventually {
+        aliceTree <- eventually("transactionTreeById1") {
           alpha.transactionTreeById(tree.transactionId, alice)
         }
         bobTree <- beta.transactionTreeById(tree.transactionId, bob)
-        gbpTree <- eventually {
+        gbpTree <- eventually("transactionTreeById2") {
           alpha.transactionTreeById(tree.transactionId, gbp_bank)
         }
-        dkkTree <- eventually {
+        dkkTree <- eventually("transactionTreeById3") {
           delta.transactionTreeById(tree.transactionId, dkk_bank)
         }
-
       } yield {
         def treeIsWellformed(tree: TransactionTree): Unit = {
           val eventsToObserve = mutable.Map.empty[String, TreeEvent] ++= tree.eventsById
@@ -127,9 +142,117 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
   })
 
   test(
+    "TXTreeChildOrder",
+    "Trees formed by childEventIds should be maintaining Transaction event order",
+    allocate(TwoParties, SingleParty, SingleParty),
+    enabled = _.committerEventLog.eventLogType.isCentralized,
+    tags = privacyHappyCase(
+      asset = "Transaction Tree",
+      happyCase = "Trees formed by childEventIds should be maintaining Transaction event order",
+    ),
+  )(implicit ec => {
+    case Participants(
+          Participant(alpha, alice, gbp_bank),
+          Participant(beta, bob),
+          Participant(delta, dkk_bank),
+        ) =>
+      for {
+        gbpIouIssue <- alpha.create(gbp_bank, Iou(gbp_bank, gbp_bank, "GBP", 100, Nil))
+        gbpTransfer <-
+          alpha.exerciseAndGetContract(gbp_bank, gbpIouIssue.exerciseIou_Transfer(alice))
+        dkkIouIssue <- delta.create(dkk_bank, Iou(dkk_bank, dkk_bank, "DKK", 110, Nil))
+        dkkTransfer <-
+          delta.exerciseAndGetContract(dkk_bank, dkkIouIssue.exerciseIou_Transfer(bob))
+
+        aliceIou1 <- eventually("exerciseIouTransfer_Accept") {
+          alpha.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept())
+        }
+        aliceIou <- eventually("exerciseIou_AddObserver") {
+          alpha.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(bob))
+        }
+        bobIou <- eventually("exerciseIouTransfer_Accept") {
+          beta.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept())
+        }
+
+        trade <- eventually("create") {
+          alpha.create(
+            alice,
+            IouTrade(alice, bob, aliceIou, gbp_bank, "GBP", 100, dkk_bank, "DKK", 110),
+          )
+        }
+        tree <- eventually("exerciseIouTrade_Accept") {
+          beta.exercise(bob, trade.exerciseIouTrade_Accept(bobIou))
+        }
+
+        aliceTree <- eventually("transactionTreeById1") {
+          alpha.transactionTreeById(tree.transactionId, alice)
+        }
+        bobTree <- beta.transactionTreeById(tree.transactionId, bob)
+        gbpTree <- eventually("transactionTreeById2") {
+          alpha.transactionTreeById(tree.transactionId, gbp_bank)
+        }
+        dkkTree <- eventually("transactionTreeById3") {
+          delta.transactionTreeById(tree.transactionId, dkk_bank)
+        }
+        aliceTrees <- alpha.transactionTrees(alice)
+        bobTrees <- alpha.transactionTrees(bob)
+        gbpTrees <- alpha.transactionTrees(gbp_bank)
+        dkkTrees <- alpha.transactionTrees(dkk_bank)
+      } yield {
+        def treeIsWellformed(tree: TransactionTree): Unit = {
+          val eventsToObserve = mutable.Map.empty[String, TreeEvent] ++= tree.eventsById
+
+          def go(eventId: String): Unit = {
+            eventsToObserve.remove(eventId) match {
+              case Some(TreeEvent(Exercised(exercisedEvent))) =>
+                val expected = exercisedEvent.childEventIds.sortBy(stringEventId =>
+                  EventId.assertFromString(stringEventId).nodeId.index
+                )
+                val actual = exercisedEvent.childEventIds
+                assertEquals(
+                  context = s"childEventIds are out of order. Expected: $expected, actual: $actual",
+                  actual = actual,
+                  expected = expected,
+                )
+                exercisedEvent.childEventIds.foreach(go)
+              case Some(TreeEvent(_)) =>
+                ()
+              case None =>
+                throw new AssertionError(
+                  s"Referenced eventId $eventId is not available as node in the transaction."
+                )
+            }
+          }
+
+          tree.rootEventIds.foreach(go)
+          assert(
+            eventsToObserve.isEmpty,
+            s"After traversing the transaction, there are still unvisited nodes: $eventsToObserve",
+          )
+        }
+
+        treeIsWellformed(aliceTree)
+        treeIsWellformed(bobTree)
+        treeIsWellformed(gbpTree)
+        treeIsWellformed(dkkTree)
+
+        Iterator(
+          aliceTrees,
+          bobTrees,
+          gbpTrees,
+          dkkTrees,
+        ).flatten.foreach(treeIsWellformed)
+      }
+  })
+
+  test(
     "TXNotDivulge",
     "Data should not be exposed to parties unrelated to a transaction",
     allocate(SingleParty, SingleParty),
+    tags = privacyHappyCase(
+      asset = "Transaction",
+      happyCase = "Transactions are not exposed to parties unrelated to a transaction",
+    ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(_, bob)) =>
     for {
       _ <- alpha.create(alice, Dummy(alice))
@@ -146,6 +269,12 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXTreeHideCommandIdToNonSubmittingStakeholders",
     "A transaction tree should be visible to a non-submitting stakeholder but its command identifier should be empty",
     allocate(SingleParty, SingleParty),
+    enabled = _.committerEventLog.eventLogType.isCentralized,
+    tags = privacyHappyCase(
+      asset = "Transaction Tree",
+      happyCase =
+        "Transaction tree is visible to a non-submitting stakeholder but its command identifier should be empty",
+    ),
   )(implicit ec => { case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
     for {
       (id, _) <- alpha.createAndGetTransactionId(
@@ -178,6 +307,12 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXHideCommandIdToNonSubmittingStakeholders",
     "A flat transaction should be visible to a non-submitting stakeholder but its command identifier should be empty",
     allocate(SingleParty, SingleParty),
+    enabled = _.committerEventLog.eventLogType.isCentralized,
+    tags = privacyHappyCase(
+      asset = "Flat Transaction",
+      happyCase =
+        "A flat transaction is visible to a non-submitting stakeholder but its command identifier is empty",
+    ),
   )(implicit ec => {
     case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
       for {
@@ -212,6 +347,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXNotDiscloseCreateToNonSignatory",
     "Not disclose create to non-chosen branching signatory",
     allocate(SingleParty, SingleParty),
+    tags = privacyHappyCase(
+      asset = "Flat Transaction",
+      happyCase =
+        "Transaction with a create event is not disclosed to non-chosen branching signatory",
+    ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     val template = BranchingSignatories(whichSign = false, signTrue = alice, signFalse = bob)
     val create = beta.submitAndWaitRequest(bob, template.create.command)
@@ -237,12 +377,16 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXDiscloseCreateToSignatory",
     "Disclose create to the chosen branching controller",
     allocate(SingleParty, TwoParties),
+    tags = privacyHappyCase(
+      asset = "Flat Transaction",
+      happyCase = "Transaction with a create event is disclosed to chosen branching controller",
+    ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob, eve)) =>
     val template =
       BranchingControllers(giver = alice, whichCtrl = true, ctrlTrue = bob, ctrlFalse = eve)
     for {
       _ <- alpha.create(alice, template)
-      _ <- eventually {
+      _ <- eventually("flatTransactions") {
         for {
           aliceView <- alpha.flatTransactions(alice)
           bobView <- beta.flatTransactions(bob)
@@ -274,6 +418,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXNotDiscloseCreateToNonChosenBranchingController",
     "Not disclose create to non-chosen branching controller",
     allocate(SingleParty, TwoParties),
+    tags = privacyHappyCase(
+      asset = "Flat Transaction",
+      happyCase =
+        "Transaction with a create event is not disclosed to non-chosen branching controller",
+    ),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob, eve)) =>
     val template =
       BranchingControllers(giver = alice, whichCtrl = false, ctrlTrue = bob, ctrlFalse = eve)
@@ -295,13 +444,18 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXDiscloseCreateToObservers",
     "Disclose create to observers",
     allocate(SingleParty, TwoParties),
+    enabled = _.committerEventLog.eventLogType.isCentralized,
+    tags = privacyHappyCase(
+      asset = "Flat Transaction",
+      happyCase = "Transaction with a create event is disclosed to observers",
+    ),
   )(implicit ec => {
     case Participants(Participant(alpha, alice), Participant(beta, observers @ _*)) =>
       val template = WithObservers(alice, Primitive.List(observers: _*))
       val create = alpha.submitAndWaitRequest(alice, template.create.command)
       for {
         transactionId <- alpha.submitAndWaitForTransactionId(create).map(_.transactionId)
-        _ <- eventually {
+        _ <- eventually("flatTransactions") {
           for {
             transactions <- beta.flatTransactions(observers: _*)
           } yield {
@@ -318,25 +472,30 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "Transactions in the flat transactions stream should be disclosed only to the stakeholders",
     allocate(Parties(3)),
     timeoutScale = 2.0,
+    tags = privacyHappyCase(
+      asset = "Transaction",
+      happyCase =
+        "Transactions in the flat transactions stream are disclosed only to the stakeholders",
+    ),
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
       gbpIouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
       gbpTransfer <- ledger.exerciseAndGetContract(
         bank,
-        gbpIouIssue.exerciseIou_Transfer(_, alice),
+        gbpIouIssue.exerciseIou_Transfer(alice),
       )
       dkkIouIssue <- ledger.create(bank, Iou(bank, bank, "DKK", 110, Nil))
-      dkkTransfer <- ledger.exerciseAndGetContract(bank, dkkIouIssue.exerciseIou_Transfer(_, bob))
-      aliceIou1 <- ledger.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept(_))
-      aliceIou <- ledger.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(_, bob))
-      bobIou <- ledger.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept(_))
+      dkkTransfer <- ledger.exerciseAndGetContract(bank, dkkIouIssue.exerciseIou_Transfer(bob))
+      aliceIou1 <- ledger.exerciseAndGetContract(alice, gbpTransfer.exerciseIouTransfer_Accept())
+      aliceIou <- ledger.exerciseAndGetContract(alice, aliceIou1.exerciseIou_AddObserver(bob))
+      bobIou <- ledger.exerciseAndGetContract(bob, dkkTransfer.exerciseIouTransfer_Accept())
 
       trade <- ledger.create(
         alice,
         IouTrade(alice, bob, aliceIou, bank, "GBP", 100, bank, "DKK", 110),
       )
 
-      tree <- ledger.exercise(bob, trade.exerciseIouTrade_Accept(_, bobIou))
+      tree <- ledger.exercise(bob, trade.exerciseIouTrade_Accept(bobIou))
 
       aliceTransactions <- ledger.flatTransactions(alice)
       bobTransactions <- ledger.flatTransactions(bob)
@@ -386,12 +545,16 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXRequestingPartiesWitnessVisibility",
     "Transactions in the flat transactions stream should not leak witnesses",
     allocate(Parties(3)),
+    tags = privacyHappyCase(
+      asset = "Transaction",
+      happyCase = "Transactions in the flat transactions stream are not leaking witnesses",
+    ),
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
       iouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
-      transfer <- ledger.exerciseAndGetContract(bank, iouIssue.exerciseIou_Transfer(_, alice))
-      aliceIou <- ledger.exerciseAndGetContract(alice, transfer.exerciseIouTransfer_Accept(_))
-      _ <- ledger.exerciseAndGetContract(alice, aliceIou.exerciseIou_AddObserver(_, bob))
+      transfer <- ledger.exerciseAndGetContract(bank, iouIssue.exerciseIou_Transfer(alice))
+      aliceIou <- ledger.exerciseAndGetContract(alice, transfer.exerciseIouTransfer_Accept())
+      _ <- ledger.exerciseAndGetContract(alice, aliceIou.exerciseIou_AddObserver(bob))
       aliceFlatTransactions <- ledger.flatTransactions(alice)
       bobFlatTransactions <- ledger.flatTransactions(bob)
       aliceBankFlatTransactions <- ledger.flatTransactions(alice, bank)
@@ -414,12 +577,16 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     "TXTreesRequestingPartiesWitnessVisibility",
     "Transactions in the transaction trees stream should not leak witnesses",
     allocate(Parties(3)),
+    tags = privacyHappyCase(
+      asset = "Transaction",
+      happyCase = "Transactions in the transaction trees stream are not leaking witnesses",
+    ),
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
       iouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
-      transfer <- ledger.exerciseAndGetContract(bank, iouIssue.exerciseIou_Transfer(_, alice))
-      aliceIou <- ledger.exerciseAndGetContract(alice, transfer.exerciseIouTransfer_Accept(_))
-      _ <- ledger.exerciseAndGetContract(alice, aliceIou.exerciseIou_AddObserver(_, bob))
+      transfer <- ledger.exerciseAndGetContract(bank, iouIssue.exerciseIou_Transfer(alice))
+      aliceIou <- ledger.exerciseAndGetContract(alice, transfer.exerciseIouTransfer_Accept())
+      _ <- ledger.exerciseAndGetContract(alice, aliceIou.exerciseIou_AddObserver(bob))
       aliceTransactionTrees <- ledger.transactionTrees(alice)
       bobTransactionTrees <- ledger.transactionTrees(bob)
       aliceBankTransactionTrees <- ledger.transactionTrees(alice, bank)

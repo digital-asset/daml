@@ -8,7 +8,9 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.suites.v1_8.TransactionServiceCorrectnessIT._
-import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
+import com.daml.ledger.api.v1.event.Event.Event
+import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
+import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test._
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
@@ -27,13 +29,13 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
       _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
       endAfterFirstSection <- ledger.currentEnd()
       firstSectionRequest = ledger
-        .getTransactionsRequest(Seq(party))
+        .getTransactionsRequest(ledger.transactionFilter(Seq(party)))
         .update(_.end := endAfterFirstSection)
       firstSection <- ledger.flatTransactions(firstSectionRequest)
       _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
       endAfterSecondSection <- ledger.currentEnd()
       secondSectionRequest = ledger
-        .getTransactionsRequest(Seq(party))
+        .getTransactionsRequest(ledger.transactionFilter(Seq(party)))
         .update(_.begin := endAfterFirstSection, _.end := endAfterSecondSection)
       secondSection <- ledger.flatTransactions(secondSectionRequest)
       fullSequence <- ledger.flatTransactions(party)
@@ -154,6 +156,7 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
     "TXTransactionTreeByIdSameAsTransactionStream",
     "Expose the same events for each transaction as the output of getTransactionTrees",
     allocate(SingleParty, SingleParty),
+    enabled = _.committerEventLog.eventLogType.isCentralized,
   )(implicit ec => {
     case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
       for {
@@ -176,6 +179,7 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
     "TXFlatTransactionByIdSameAsTransactionStream",
     "Expose the same events for each transaction as the output of getTransactions",
     allocate(SingleParty, SingleParty),
+    enabled = _.committerEventLog.eventLogType.isCentralized,
   )(implicit ec => {
     case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
       for {
@@ -206,7 +210,7 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
         Vector.fill(contracts)(
           ledger
             .create(party, Dummy(party))
-            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1))
+            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1()))
         )
       )
       transactions <- ledger.flatTransactions(party)
@@ -237,7 +241,7 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
         Vector.fill(contracts)(
           ledger
             .create(party, Dummy(party))
-            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1))
+            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1()))
         )
       )
       transactions <- ledger.flatTransactions(party)
@@ -281,7 +285,7 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
         Vector.fill(contracts)(
           ledger
             .create(party, Dummy(party))
-            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1))
+            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1()))
         )
       )
       transactions <- ledger.flatTransactions(party)
@@ -302,7 +306,7 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
         val party = if (n % 2 == 0) alice else bob
         ledger
           .create(party, Dummy(party))
-          .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1))
+          .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1()))
       })
       transactions <- ledger.flatTransactions(alice, bob)
     } yield {
@@ -312,35 +316,61 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
 }
 
 object TransactionServiceCorrectnessIT {
-  // Strip command id and offset to yield a transaction comparable across participant
+  // Strip command id, offset, event id and transaction id to yield a transaction comparable across participants
   // Furthermore, makes sure that the order is not relevant for witness parties
   // Sort by transactionId as on distributed ledgers updates can occur in different orders
-  private def comparableTransactions(transactions: Vector[Transaction]): Vector[Transaction] =
+  // Even if transactionIds are not the same across distributes ledgers, we still can use them for sorting
+  private def comparableTransactions(transactions: Vector[Transaction]): Vector[Transaction] = {
+    def stripEventId(event: Event) =
+      event match {
+        case Archived(value) => Archived(value.copy(eventId = "eventId"))
+        case Created(value) => Created(value.copy(eventId = "eventId"))
+        case Empty => Empty
+      }
+
     transactions
+      .sortBy(_.transactionId)
       .map(t =>
         t.copy(
           commandId = "commandId",
           offset = "offset",
-          events = t.events.map(_.modifyWitnessParties(_.sorted)),
+          events = t.events
+            .map(e => e.copy(event = stripEventId(e.event)).modifyWitnessParties(_.sorted)),
+          transactionId = "transactionId",
         )
       )
-      .sortBy(_.transactionId)
+  }
 
-  // Strip command id and offset to yield a transaction comparable across participant
+  // Strip command id, offset, event id and transaction id to yield a transaction comparable across participant
   // Furthermore, makes sure that the order is not relevant for witness parties
   // Sort by transactionId as on distributed ledgers updates can occur in different orders
+  // Even if transactionIds are not the same across distributes ledgers, we still can use them for sorting
   private def comparableTransactionTrees(
       transactionTrees: Vector[TransactionTree]
-  ): Vector[TransactionTree] =
+  ): Vector[TransactionTree] = {
+    def stripEventId(event: TreeEvent) =
+      TreeEvent.of(event.kind match {
+        case TreeEvent.Kind.Exercised(value) =>
+          TreeEvent.Kind.Exercised(value.copy(eventId = "eventId"))
+        case TreeEvent.Kind.Created(value) =>
+          TreeEvent.Kind.Created(value.copy(eventId = "eventId"))
+        case TreeEvent.Kind.Empty => TreeEvent.Kind.Empty
+      })
+
     transactionTrees
+      .sortBy(_.transactionId)
       .map(t =>
         t.copy(
           commandId = "commandId",
           offset = "offset",
-          eventsById = t.eventsById.view.mapValues(_.modifyWitnessParties(_.sorted)).toMap,
+          eventsById = t.eventsById.toSeq.zipWithIndex.map { case ((_, event), index) =>
+            index.toString -> stripEventId(event).modifyWitnessParties(_.sorted)
+          }.toMap,
+          transactionId = "transactionId",
+          rootEventIds = t.rootEventIds.map(_ => "eventId"),
         )
       )
-      .sortBy(_.transactionId)
+  }
 
   private def checkTransactionsOrder(
       context: String,
@@ -370,7 +400,7 @@ object TransactionServiceCorrectnessIT {
     assert(
       createdContracts == archivedContracts,
       s"$context: the contract identifiers for created and archived contracts differ: ${createdContracts
-        .diff(archivedContracts)}",
+          .diff(archivedContracts)}",
     )
     val sortedCreations = creations.sortBy(_._1)
     val sortedArchivals = archivals.sortBy(_._1)

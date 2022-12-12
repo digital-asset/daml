@@ -21,23 +21,22 @@ complicating concerns including, but not limited to:
 - asynchronous submit/completion workflows,
 - temporal queries (e.g. active contracts *as of a certain time*), and
 
-For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>`
-instead.
+For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>` instead.
+The HTTP JSON API service is a "proxy", after a fashion, for that API; *there is literally nothing that HTTP JSON API service can do that your own application cannot do via gRPC*.
+
+If you are using this API from JavaScript or TypeScript, we strongly recommend using :doc:`the JavaScript bindings and code generator </app-dev/bindings-ts/index>` rather than invoking these endpoints directly.
+This will both simplify access to the endpoints described here and (with TypeScript) help to provide the correct JavaScript value format for each of your contracts, choice arguments, and choice results.
+
+As suggested by those bindings, the primary target application for the HTTP JSON API service is a web application, where user actions translate to one or a few ledger operations.
+It is not intended for high-throughput, high-performance ledger automation; the Ledger API is better suited to such use cases.
 
 We welcome feedback about the JSON API on
 `our issue tracker <https://github.com/digital-asset/daml/issues/new/choose>`_, or
 `on our forum <https://discuss.daml.com>`_.
 
-.. toctree::
-   :hidden:
-   :maxdepth: 3
 
-   lf-value-specification
-   search-query-language
-   production-setup
-
-Running the JSON API
-********************
+Run the JSON API
+****************
 
 Start a Daml Ledger
 ===================
@@ -46,10 +45,10 @@ You can run the JSON API alongside any ledger exposing the gRPC Ledger API you w
 
 .. code-block:: shell
 
-    daml new my_project --template quickstart-java
-    cd my_project
+    daml new my-project --template quickstart-java
+    cd my-project
     daml build
-    daml sandbox --wall-clock-time --ledgerid MyLedger --dar ./.daml/dist/quickstart-0.0.1.dar
+    daml sandbox --wall-clock-time --dar ./.daml/dist/quickstart-0.0.1.dar
 
 .. _start-http-service:
 
@@ -206,65 +205,31 @@ Replace the version number ``2.0.0`` by the version of the SDK you are
 using.
 
 With Query Store
-------------------
+----------------
 
-In production setups, you should configure the JSON API to use a
-PostgreSQL backend as a cache. The in-memory backend will call the
+In production setups, you should configure the HTTP JSON API service to use a PostgreSQL backend as a :doc:`production-setup/query-store`.
+The in-memory backend will call the
 ledger to fetch the entire active contract set for the templates in
 your query every time so it is generally not recommended to rely on
-this in production. Note that the PostgreSQL backend acts purely as a
-cache. It is safe to reinitialize the database at any time.
+this in production.
+Note that the query store is a redundant copy of on-ledger data.
+It is safe to reinitialize the database at any time.
 
-To enable the PostgreSQL backend you can add the ``query-store`` config block in your application config file
+To enable the PostgreSQL backend you can add the ``query-store`` config block :doc:`as described <production-setup/query-store>`.
 
-.. code-block:: none
-
-    query-store {
-      base-config {
-        user = "postgres"
-        password = "password"
-        driver = "org.postgresql.Driver"
-        url = "jdbc:postgresql://localhost:5432/test?&ssl=true"
-
-        // prefix for table names to avoid collisions, empty by default
-        table-prefix = "foo"
-
-        // max pool size for the database connection pool
-        pool-size = 12
-        //specifies the min idle connections for database connection pool.
-        min-idle = 4
-        //specifies the idle timeout for the database connection pool.
-        idle-timeout = 12s
-        //specifies the connection timeout for database connection pool.
-        connection-timeout = 90s
-      }
-      // option setting how the schema should be handled.
-      // Valid options are start-only, create-only, create-if-needed-and-start and create-and-start
-      start-mode = "create-if-needed-and-start"
-    }
-
-.. note:: When you use the Query Store you'll want to use ``start-mode=create-if-needed-and-start`` so that all the necessary tables are created if they don't exist.
-
-you can also use the ``--query-store-jdbc-config`` CLI flag (deprecated), an example of which is below.
-
-.. code-block:: shell
-
-    daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 \
-    --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,start-mode=create-if-needed-and-start"
-
-.. note:: The JSON API provides many other useful configuration flags, run ``daml json-api --help`` to see all of them.
 
 .. _json-api-access-tokens:
 
 Access Tokens
 =============
 
-The JSON API essentially performs two separate tasks:
+Each request to the HTTP JSON API Service *must* come with an access token, regardless of whether the underlying ledger
+requires it or not. This also includes development setups using an unsecured sandbox. The HTTP JSON API Service *does not*
+hold on to the access token, which will be only used to fulfill the request it came along with. The same token will be used
+to issue the request to the Ledger API.
 
-1. It talks to the Ledger API to get data it needs to operate, for this you need to *provide an access token* if your Ledger requires authorization. Learn more in the :doc:`/app-dev/authorization` docs.
-2. It accepts requests from Parties and passes them on to the Ledger API, for this each party needs to provide an *access token with each request* it sends to the JSON API.
-
-.. note:: By default, the Daml Sandbox does not does not require access tokens. However, you still need to provide a party-specific access token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
+The HTTP JSON API Service does not validate the token but may need to decode it to extract information that can be used
+to fill in request fields for party-specific request. How this happens depends partially on the token format you are using.
 
 Party-specific Requests
 -----------------------
@@ -297,27 +262,27 @@ require at least one party in either ``actAs`` or ``readAs``. The application id
     token is valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id
     and party so it requires that you use :ref:`a valid Daml ledger access token format<access-token-formats>`.
 
-For a ledger without authorization, e.g., the default configuration of Daml Sandbox, you can use `https://jwt.io <https://jwt.io/#debugger-io?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.atGiYNc9HfBFbm8s9j5vvMv2sJUlVprFiRmLeoUpJeY>`_ (or the JWT library of your choice) to generate your
+For a ledger without authorization, e.g., the default configuration of Daml Sandbox, you can use `https://jwt.io <https://jwt.io/#debugger-io?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJzYW5kYm94IiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsImFjdEFzIjpbIkFsaWNlIl19fQ.1Y9BBFH5uVz1Nhfmx12G_ECJVcMncwm-XLaWM40EHbY>`_ (or the JWT library of your choice) to generate your
 token.  You can use an arbitrary secret here. The default "header" is fine.  Under "Payload", fill in:
 
 .. code-block:: json
 
     {
       "https://daml.com/ledger-api": {
-        "ledgerId": "MyLedger",
+        "ledgerId": "sandbox",
         "applicationId": "foobar",
         "actAs": ["Alice"]
       }
     }
 
 The value of the ``ledgerId`` field has to match the ``ledgerId`` of your underlying Daml Ledger.
-For the Sandbox this corresponds to the ``--ledgerid MyLedger`` flag.
+For the Sandbox this corresponds to the participant id which by default is just `sandbox`.
 
 .. note:: The value of ``applicationId`` will be used for commands submitted using that token.
 
-The value for ``actAs`` is specified as a list and you provide it with the party that you want to use.
-Such as the example which uses ``Alice`` for a party. Each request can only be for one party.
-For example you couldn't have ``actAs`` defined as ``["Alice", "Bob"]``.
+The value for ``actAs`` is specified as a list and you provide it with the party that you want to use,
+such as in the example above which uses ``Alice`` for a party. ``actAs`` may include more than just one party
+as the JSON API supports multi-party submissions.
 
 The party should reference an already allocated party.
 
@@ -329,18 +294,18 @@ the service as described in the following sections.
 
 Alternatively, here are two tokens you can use for testing:
 
-``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "HTTP-JSON-API-Gateway", "actAs": ["Alice"]}}``:
+``{"https://daml.com/ledger-api": {"ledgerId": "sandbox", "applicationId": "HTTP-JSON-API-Gateway", "actAs": ["Alice"]}}``:
 
 .. code-block:: none
 
-    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJBbGljZSJdfX0.34zzF_fbWv7p60r5s1kKzwndvGdsJDX-W4Xhm4oVdpk
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJzYW5kYm94IiwiYXBwbGljYXRpb25JZCI6IkhUVFAtSlNPTi1BUEktR2F0ZXdheSIsImFjdEFzIjpbIkFsaWNlIl19fQ.FIjS4ao9yu1XYnv1ZL3t7ooPNIyQYAHY3pmzej4EMCM
 
 
-``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "HTTP-JSON-API-Gateway", "actAs": ["Bob"]}}``:
+``{"https://daml.com/ledger-api": {"ledgerId": "sandbox", "applicationId": "HTTP-JSON-API-Gateway", "actAs": ["Bob"]}}``:
 
 .. code-block:: none
 
-    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJIVFRQLUpTT04tQVBJLUdhdGV3YXkiLCJhY3RBcyI6WyJCb2IiXX19.0uPPZtM1AmKvnGixt_Qo53cMDcpnziCjKKiWLvMX2VM
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJzYW5kYm94IiwiYXBwbGljYXRpb25JZCI6IkhUVFAtSlNPTi1BUEktR2F0ZXdheSIsImFjdEFzIjpbIkJvYiJdfX0.y6iwpnYt-ObtNo_FyLVxMtNTwpJF8uxzNfPELQUVKVg
 
 Auth via HTTP
 ^^^^^^^^^^^^^
@@ -395,14 +360,15 @@ The **JSON API** can return one of the following HTTP status codes:
 
 When the Ledger API returns an error code, the JSON API maps it to one of the above codes according to `the official gRPC to HTTP code mapping <https://cloud.google.com/apis/design/errors#generating_errors>`_.
 
-If a client's HTTP GET or POST request reaches an API endpoint, the corresponding response will always contain a JSON object with a ``status`` field, either an ``errors`` or ``result`` field and an optional ``warnings``:
+If a client's HTTP GET or POST request reaches an API endpoint, the corresponding response will always contain a JSON object with a ``status`` field, and either an ``errors`` or ``result`` field. It may also contain an optional ``warnings`` and/or an optional ``ledgerApiError`` :
 
 .. code-block:: none
 
     {
         "status": <400 | 401 | 403 | 404 | 409 | 500 | 503 | 504>,
         "errors": <JSON array of strings>, | "result": <JSON object or array>,
-        ["warnings": <JSON object> ]
+        ["warnings": <JSON object> ],
+        ["ledgerApiError": <JSON object> ]
     }
 
 Where:
@@ -411,10 +377,13 @@ Where:
 - ``errors`` -- a JSON array of strings, each string represents one error,
 - ``result`` -- a JSON object or JSON array, representing one or many results,
 - ``warnings`` -- an optional field with a JSON object, representing one or many warnings.
+- ``ledgerApiError`` -- an optional field with a JSON object, representing detail of an error if it was originated from Ledger API.
 
 See the following blog post for more details about error handling best practices: `REST API Error Codes 101 <https://blog.restcase.com/rest-api-error-codes-101/>`_.
 
-Successful response, HTTP status: 200 OK
+See `The Ledger API error codes <https://docs.daml.com/app-dev/grpc/error-codes.html>`_ for more details about error codes from Ledger API.
+
+Successful Response, HTTP Status: 200 OK
 ========================================
 
 - Content-Type: ``application/json``
@@ -427,7 +396,7 @@ Successful response, HTTP status: 200 OK
         "result": <JSON object>
     }
 
-Successful response with a warning, HTTP status: 200 OK
+Successful Response with a Warning, HTTP Status: 200 OK
 =======================================================
 
 - Content-Type: ``application/json``
@@ -443,7 +412,7 @@ Successful response with a warning, HTTP status: 200 OK
 
 .. _error-format:
 
-Failure, HTTP status: 400 | 401 | 404 | 500
+Failure, HTTP Status: 400 | 401 | 404 | 500
 ===========================================
 
 - Content-Type: ``application/json``
@@ -453,7 +422,8 @@ Failure, HTTP status: 400 | 401 | 404 | 500
 
     {
         "status": <400 | 401 | 404 | 500>,
-        "errors": <JSON array of strings>
+        "errors": <JSON array of strings>,
+        ["ledgerApiError": <JSON object> ]
     }
 
 Examples
@@ -501,7 +471,7 @@ Examples
 
     {"status": 500, "errors": ["Cannot initialize Ledger API"]}
 
-Create a new Contract
+Create a New Contract
 *********************
 
 To create an ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
@@ -524,7 +494,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "templateId": "Iou:Iou",
+      "templateId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:IouTransfer",
       "payload": {
         "issuer": "Alice",
         "owner": "Alice",
@@ -536,10 +506,7 @@ HTTP Request
 
 Where:
 
-- ``templateId`` is the contract template identifier, which can be formatted as either:
-
-  + ``"<package ID>:<module>:<entity>"`` or
-  + ``"<module>:<entity>"`` if contract template can be uniquely identified by its module and entity name.
+- ``templateId`` is the contract template identifier, which is formatted as ``"<package ID>:<module>:<entity>"``. As a convenience for interactive API exploration (such as with curl and similar tools), you can also omit the package ID (i.e. specifying the ``templateId`` as ``"<module>:<entity>"``) **if there is only one template with that name across all loaded packages**. Code should always specify the package ID, since it's common to have more versions of a template sharing the same module and entity name but with different package IDs. If the package identifier is not specified and the template cannot be uniquely identified without it, the HTTP JSON API service will report that the specified template cannot be found. **Omitting the package ID is not supported for production use.**
 
 - ``payload`` field contains contract fields as defined in the Daml template and formatted according to :doc:`lf-value-specification`.
 
@@ -569,7 +536,8 @@ HTTP Response
                 "Alice"
             ],
             "contractId": "#124:0",
-            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"
+            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou",
+            "completionOffset":"0000000000000084"
         }
     }
 
@@ -580,17 +548,17 @@ Where:
 
 .. _create-request-with-meta:
 
-Creating a Contract with a Command ID
-*************************************
+Create a Contract with a Command ID
+***********************************
 
-When creating a new contract you may specify an optional ``meta`` field. This allows you to control the ``commandId``, ``actAs``, and ``readAs`` used when submitting a command to the ledger.  Each of these ``meta`` fields is optional.
+When creating a new contract or exercising a choice you may specify an optional ``meta`` field. This allows you to control various extra settings used when submitting a command to the ledger.  Each of these ``meta`` fields is optional.
 
 .. note:: You cannot currently use ``commandIds`` anywhere else in the JSON API, but you can use it for observing the results of its commands outside the JSON API in logs or via the Ledger API's :doc:`Command Services </app-dev/services>`
 
 .. code-block:: json
 
     {
-      "templateId": "Iou:Iou",
+      "templateId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:IouTransfer",
       "payload": {
         "observers": [],
         "issuer": "Alice",
@@ -601,13 +569,29 @@ When creating a new contract you may specify an optional ``meta`` field. This al
       "meta": {
         "commandId": "a unique ID",
         "actAs": ["Alice"],
-        "readAs": ["PublicParty"]
+        "readAs": ["PublicParty"],
+        "deduplicationPeriod": {
+          "durationInMillis": 10000,
+          "type": "Duration"
+        },
+        "submissionId": "d2f941b1-ee5c-4634-9a51-1335ce6902fa"
       }
     }
 
 Where:
 
 - ``commandId`` -- optional field, a unique string identifying the command.
+- ``actAs`` -- a non-empty list of parties, overriding the set from the JWT user; must be a subset of the JWT user's set.
+- ``readAs`` -- a list of parties, overriding the set from the JWT user; must be a subset of the JWT user's set.
+- ``submissionId`` -- a string, used for :doc:`deduplicating retried requests </app-dev/command-deduplication>`.  If you do not set it, a random one will be chosen, effectively treating the request as unique and disabling deduplication.
+- ``deduplicationPeriod`` -- either a ``Duration`` as above, which is how far back in time prior commands will be searched for this submission, or an ``Offset`` as follows, which is the earliest ledger offset after which to search for the submission.
+
+.. code-block:: json
+
+        "deduplicationPeriod": {
+          "offset": "0000000000000083",
+          "type": "Offset"
+        }
 
 Exercise by Contract ID
 ***********************
@@ -630,7 +614,8 @@ HTTP Request
 .. code-block:: json
 
     {
-        "templateId": "Iou:Iou",
+        "templateId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:IouTransfer",
+        "choiceInterfaceId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:IouTransferInterface",
         "contractId": "#124:0",
         "choice": "Iou_Transfer",
         "argument": {
@@ -640,10 +625,15 @@ HTTP Request
 
 Where:
 
-- ``templateId`` -- contract template identifier, same as in :ref:`create request <create-request>`,
+- ``templateId`` -- contract template or interface identifier, same as in :ref:`create request <create-request>`,
+- ``choiceInterfaceId`` -- *optional* template or interface that defines the choice, same format as ``templateId``,
 - ``contractId`` -- contract identifier, the value from the  :ref:`create response <create-response>`,
 - ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s).
+
+``templateId`` and ``choiceInterfaceId`` are treated as with :ref:`exercise by key <exercise-by-key-templateId-choiceInterfaceId>`.
+However, because ``contractId`` is always unambiguous, you may alternatively simply specify the interface ID as the ``templateId`` argument, and ignore ``choiceInterfaceId`` entirely.
+This isn't true of exercise-by-key or create-and-exercise, so we suggest treating this request as if this alternative isn't available.
 
 .. _exercise-response:
 
@@ -687,7 +677,8 @@ HTTP Response
                         "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:IouTransfer"
                     }
                 }
-            ]
+            ],
+            "completionOffset":"0000000000000083"
         }
     }
 
@@ -697,8 +688,9 @@ Where:
 
 - ``result`` field contains contract choice execution details:
 
-    + ``exerciseResult`` field contains the return value of the exercised contract choice,
+    + ``exerciseResult`` field contains the return value of the exercised contract choice.
     + ``events`` contains an array of contracts that were archived and created as part of the choice execution. The array may contain: **zero or many** ``{"archived": {...}}`` and **zero or many** ``{"created": {...}}`` elements. The order of the contracts is the same as on the ledger.
+    + ``completionOffset`` is the ledger offset of the transaction containing the exercise's ledger changes.
 
 
 Exercise by Contract Key
@@ -729,11 +721,12 @@ HTTP Request
 .. code-block:: json
 
     {
-        "templateId": "Account:Account",
+        "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account",
         "key": {
             "_1": "Alice",
             "_2": "abc123"
         },
+        "choiceInterfaceId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:AccountInterface",
         "choice": "Archive",
         "argument": {}
     }
@@ -742,8 +735,17 @@ Where:
 
 - ``templateId`` -- contract template identifier, same as in :ref:`create request <create-request>`,
 - ``key`` -- contract key, formatted according to the :doc:`lf-value-specification`,
+- ``choiceInterfaceId`` -- *optional* template or interface that defines the choice, same format as ``templateId``,
 - ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s), empty, because ``Archive`` does not take any.
+
+.. _exercise-by-key-templateId-choiceInterfaceId:
+
+``key`` is always searched in relation to the ``templateId``.
+The ``choice``, on the other hand, is searched according to ``choiceInterfaceId``; if ``choiceInterfaceId`` is not specified, ``templateId`` is its default.
+We recommend always specifying ``choiceInterfaceId`` when invoking an interface choice; however, if the set of Daml-LF packages on the participant only contains one choice with a given name associated with ``templateId``, that choice will be exercised, regardless of where it is defined.
+If a template *and* one or more of the interfaces it implements declares a choice, and ``choiceInterfaceId`` is not used, the one directly defined on the choice will be exercised.
+If choice selection is still ambiguous given these rules, the endpoint will fail as if the choice isn't defined.
 
 HTTP Response
 =============
@@ -766,7 +768,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "templateId": "Iou:Iou",
+      "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou",
       "payload": {
         "observers": [],
         "issuer": "Alice",
@@ -774,6 +776,7 @@ HTTP Request
         "currency": "USD",
         "owner": "Alice"
       },
+      "choiceInterfaceId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:IouInterface",
       "choice": "Iou_Transfer",
       "argument": {
         "newOwner": "Bob"
@@ -784,8 +787,11 @@ Where:
 
 - ``templateId`` -- the initial contract template identifier, in the same format as in the :ref:`create request <create-request>`,
 - ``payload`` -- the initial contract fields as defined in the Daml template and formatted according to :doc:`lf-value-specification`,
+- ``choiceInterfaceId`` -- *optional* template or interface that defines the choice, same format as ``templateId``,
 - ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s).
+
+``templateId`` and ``choiceInterfaceId`` are treated as with :ref:`exercise by key <exercise-by-key-templateId-choiceInterfaceId>`, with the exception that it is ``payload``, not ``key``, strictly interpreted according to ``templateId``.
 
 HTTP Response
 =============
@@ -872,11 +878,13 @@ application/json body:
 .. code-block:: json
 
     {
-      "contractId": "#201:1"
+      "contractId": "#201:1",
+      "templateId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:IouTransfer"
     }
 
 
 ``readers`` may be passed as with :ref:`Query <sync-query-req>`.
+``templateId`` is optional, but you are strongly advised to always pass it explicitly to minimize the data read from the Ledger API to answer the query. It can be either a template ID or an interface ID.
 
 Contract Not Found HTTP Response
 ================================
@@ -925,6 +933,12 @@ Contract Found HTTP Response
 Fetch Contract by Key
 *********************
 
+Show the currently active contract that matches a given key.
+
+The websocket endpoint `/v1/stream/fetch <#fetch-by-key-contracts-stream>`__ can
+be used to search multiple keys in the same request, or in place of iteratively
+invoking this endpoint to respond to changes on the ledger.
+
 HTTP Request
 ============
 
@@ -936,7 +950,7 @@ HTTP Request
 .. code-block:: json
 
     {
-        "templateId": "Account:Account",
+        "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account",
         "key": {
             "_1": "Alice",
             "_2": "abc123"
@@ -992,7 +1006,7 @@ Contract Found HTTP Response
     }
 
 
-Get all Active Contracts
+Get All Active Contracts
 ************************
 
 List all currently active contracts for all known templates.
@@ -1013,10 +1027,14 @@ HTTP Response
 
 The response is the same as for the POST method below.
 
-Get all Active Contracts Matching a Given Query
+Get All Active Contracts Matching a Given Query
 ***********************************************
 
 List currently active contracts that match a given query.
+
+The websocket endpoint `/v1/stream/query <#contracts-query-stream>`__ can be
+used in place of iteratively invoking this endpoint to respond to changes on the
+ledger.
 
 HTTP Request
 ============
@@ -1031,14 +1049,14 @@ HTTP Request
 .. code-block:: json
 
     {
-        "templateIds": ["Iou:Iou"],
+        "templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"],
         "query": {"amount": 999.99},
         "readers": ["Alice"]
     }
 
 Where:
 
-- ``templateIds`` --  an array of contract template identifiers to search through,
+- ``templateIds`` -- either an array of contract template identifiers or an array containing a single interface identifier to search through. Mixing of template ID's and interface ID's, or specifying more than one interface ID is not allowed.
 - ``query`` -- search criteria to apply to the specified ``templateIds``, formatted according to the :doc:`search-query-language`.
 - ``readers`` -- *optional* non-empty list of parties to query as; must be a subset of the actAs/readAs parties in the JWT
 
@@ -1090,7 +1108,7 @@ Where
 - ``result`` contains an array of contracts, each contract formatted according to :doc:`lf-value-specification`,
 - ``status`` matches the HTTP status code returned in the HTTP header.
 
-Nonempty HTTP Response with Unknown Template IDs Warning
+Nonempty HTTP Response With Unknown Template IDs Warning
 ========================================================
 
 - Content-Type: ``application/json``
@@ -1182,7 +1200,7 @@ Where
 - ``displayName`` -- optional human readable name associated with the party. Might not be unique,
 - ``isLocal`` -- true if party is hosted by the backing participant.
 
-Response with Unknown Parties Warning
+Response With Unknown Parties Warning
 =====================================
 
 - Content-Type: ``application/json``
@@ -1261,8 +1279,8 @@ HTTP Response
     }
 
 
-Creating a New User
-********************
+Create a New User
+*****************
 
 This endpoint exposes the Ledger API's :ref:`CreateUser RPC <com.daml.ledger.api.v1.admin.createuserrequest>`.
 
@@ -1277,7 +1295,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "userId": "Carol",
+      "userId": "carol",
       "primaryParty": "Carol",
       "rights": [
         {
@@ -1286,11 +1304,11 @@ HTTP Request
         },
         {
           "type": "CanReadAs",
-          "party": "Alice",
+          "party": "Alice"
         },
         {
           "type": "CanReadAs",
-          "party": "Bob",
+          "party": "Bob"
         },
         {
           "type": "ParticipantAdmin"
@@ -1333,8 +1351,8 @@ HTTP Response
 
     {
       "result": {
-        "userId": "Carol",
-        "primaryParty": "Carol",
+        "userId": "carol",
+        "primaryParty": "Carol"
       },
       "status": 200
     }
@@ -1356,7 +1374,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "userId": "Carol"
+      "userId": "carol"
     }
 
 
@@ -1369,8 +1387,8 @@ HTTP Response
 
     {
       "result": {
-        "userId": "Carol",
-        "primaryParty": "Carol",
+        "userId": "carol",
+        "primaryParty": "Carol"
       },
       "status": 200
     }
@@ -1391,7 +1409,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "userId": "Carol"
+      "userId": "carol"
     }
 
 
@@ -1426,12 +1444,12 @@ HTTP Response
     {
       "result": [
         {
-            "userId": "Carol",
-            "primaryParty": "Carol",
+            "userId": "carol",
+            "primaryParty": "Carol"
         },
         {
-            "userId": "Bob",
-            "primaryParty": "Bob",
+            "userId": "bob",
+            "primaryParty": "Bob"
         }
       ],
       "status": 200
@@ -1453,7 +1471,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "userId": "Carol",
+      "userId": "carol",
       "rights": [
         {
           "type": "CanActAs",
@@ -1461,11 +1479,11 @@ HTTP Request
         },
         {
           "type": "CanReadAs",
-          "party": "Alice",
+          "party": "Alice"
         },
         {
           "type": "CanReadAs",
-          "party": "Bob",
+          "party": "Bob"
         },
         {
           "type": "ParticipantAdmin"
@@ -1488,11 +1506,11 @@ HTTP Response
         },
         {
           "type": "CanReadAs",
-          "party": "Alice",
+          "party": "Alice"
         },
         {
           "type": "CanReadAs",
-          "party": "Bob",
+          "party": "Bob"
         },
         {
           "type": "ParticipantAdmin"
@@ -1519,7 +1537,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "userId": "Carol",
+      "userId": "carol",
       "rights": [
         {
           "type": "CanActAs",
@@ -1527,11 +1545,11 @@ HTTP Request
         },
         {
           "type": "CanReadAs",
-          "party": "Alice",
+          "party": "Alice"
         },
         {
           "type": "CanReadAs",
-          "party": "Bob",
+          "party": "Bob"
         },
         {
           "type": "ParticipantAdmin"
@@ -1554,11 +1572,11 @@ HTTP Response
         },
         {
           "type": "CanReadAs",
-          "party": "Alice",
+          "party": "Alice"
         },
         {
           "type": "CanReadAs",
-          "party": "Bob",
+          "party": "Bob"
         },
         {
           "type": "ParticipantAdmin"
@@ -1595,11 +1613,11 @@ HTTP Response
         },
         {
           "type": "CanReadAs",
-          "party": "Alice",
+          "party": "Alice"
         },
         {
           "type": "CanReadAs",
-          "party": "Bob",
+          "party": "Bob"
         },
         {
           "type": "ParticipantAdmin"
@@ -1624,7 +1642,7 @@ HTTP Request
 .. code-block:: json
 
     {
-      "userId": "Carol"
+      "userId": "carol"
     }
 
 Please refer to :ref:`ListUserRights RPC <com.daml.ledger.api.v1.admin.ListUserRightsRequest>` documentation for information about the meaning of the fields.
@@ -1642,11 +1660,11 @@ HTTP Response
         },
         {
           "type": "CanReadAs",
-          "party": "Alice",
+          "party": "Alice"
         },
         {
           "type": "CanReadAs",
-          "party": "Bob",
+          "party": "Bob"
         },
         {
           "type": "ParticipantAdmin"
@@ -1704,7 +1722,7 @@ HTTP Response, status: 200 OK
 
 The content (body) of the HTTP response contains raw DALF package bytes, without any encoding. Note that the package ID specified in the URL is actually the SHA-256 hash of the downloaded DALF package and can be used to validate the integrity of the downloaded content.
 
-HTTP Response with Error, any status different from 200 OK
+HTTP Response With Error, Any Status Different from 200 OK
 ==========================================================
 
 Any status different from ``200 OK`` will be in the format specified below.
@@ -1734,7 +1752,7 @@ HTTP Request
 
 The content (body) of the HTTP request contains raw DAR file bytes, without any encoding.
 
-HTTP Response, status: 200 OK
+HTTP Response, Status: 200 OK
 =============================
 
 - Content-Type: ``application/json``
@@ -1747,7 +1765,7 @@ HTTP Response, status: 200 OK
         "status": 200
     }
 
-HTTP Response with Error
+HTTP Response With Error
 ========================
 
 - Content-Type: ``application/json``
@@ -1828,7 +1846,7 @@ JavaScript/Node.js example demonstrating how to establish Streaming API connecti
     const ws = new WebSocket("ws://localhost:7575/v1/stream/query", subprotocols);
 
     ws.addEventListener("open", function open() {
-      ws.send(JSON.stringify({templateIds: ["Iou:Iou"]}));
+      ws.send(JSON.stringify({templateIds: ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"]}));
     });
 
     ws.addEventListener("message", function incoming(data) {
@@ -1882,19 +1900,41 @@ Contracts Query Stream
 List currently active contracts that match a given query, with
 continuous updates.
 
+Simpler use-cases that do not require continuous updates should use the simpler
+`/v1/query <#get-all-active-contracts-matching-a-given-query>`__ endpoint
+instead.
+
 ``application/json`` body must be sent first, formatted according to the
 :doc:`search-query-language`::
 
-    {"templateIds": ["Iou:Iou"]}
+    {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"]}
 
 Multiple queries may be specified in an array, for overlapping or
-different sets of template IDs::
+different sets of template IDs.::
 
     [
-        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%lte": 50}}},
-        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%gt": 50}}},
-        {"templateIds": ["Iou:Iou"]}
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"], "query": {"amount": {"%lte": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:OtherIou:OtherIou"], "query": {"amount": {"%gt": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"]}
     ]
+
+Only one interface ID can be provided in ``templateIds``.
+An interface ID can be used in all queries::
+
+    [
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Ifc:Ifc"], "query": {"amount": {"%lte": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Ifc:Ifc"], "query": {"amount": {"%gt": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Ifc:Ifc"]}
+    ]
+
+Mixing of template ID's and interface ID's or specifying more than one interface ID across queries is not allowed. BadRequest(400) error will be returned.::
+
+    [
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"], "query": {"amount": {"%lte": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Ifc:Ifc"], "query": {"amount": {"%gt": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Ifc:Ifc"]}
+    ]
+
 
 Queries have two ways to specify an offset.
 
@@ -1902,9 +1942,9 @@ An ``offset``, a string supplied by an earlier query output message, may
 optionally be specified alongside each query itself::
 
     [
-        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%lte": 50}}},
-        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%gt": 50}}},
-        {"templateIds": ["Iou:Iou"], "offset": "5609"}
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"], "query": {"amount": {"%lte": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"], "query": {"amount": {"%gt": 50}}},
+        {"templateIds": ["11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"], "offset": "5609"}
     ]
 
 If specified, the stream will include only contract creations and
@@ -1921,6 +1961,9 @@ offset themselves::
 For example, if this message preceded the above 3-query example, it
 would be as if ``"4307"`` had been specified for the first two queries,
 while ``"5609"`` would be used for the third query.
+
+If any offset has been pruned, the websocket will immediately fail with
+code 1011 and message ``internal error``.
 
 The output is a series of JSON documents, each ``payload`` formatted
 according to :doc:`lf-value-specification`::
@@ -2085,6 +2128,10 @@ Fetch by Key Contracts Stream
 
 List currently active contracts that match one of the given ``{templateId, key}`` pairs, with continuous updates.
 
+Simpler use-cases that search for only a single key and do not require
+continuous updates should use the simpler
+`/v1/fetch <#fetch-contract-by-key>`__ endpoint instead.
+
 ``application/json`` body must be sent first, formatted according to the following rule:
 
 .. code-block:: none
@@ -2106,8 +2153,8 @@ Example:
 .. code-block:: json
 
     [
-        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "abc123"}},
-        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "def345"}}
+        {"templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account", "key": {"_1": "Alice", "_2": "abc123"}},
+        {"templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account", "key": {"_1": "Alice", "_2": "def345"}}
     ]
 
 The output stream has the same format as the output from the
@@ -2127,9 +2174,9 @@ no ``"def345"`` contract, you might specify:
 .. code-block:: json
 
     [
-        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "abc123"},
+        {"templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account", "key": {"_1": "Alice", "_2": "abc123"},
          "contractIdAtOffset": "#1:0"},
-        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "def345"},
+        {"templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account", "key": {"_1": "Alice", "_2": "def345"},
          "contractIdAtOffset": null}
     ]
 
@@ -2147,7 +2194,7 @@ The HTTP JSON API provides two healthcheck endpoints for integration
 with schedulers like
 `Kubernetes <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`_.
 
-Liveness check
+Liveness Check
 ==============
 
 - URL: ``/livez``
@@ -2158,7 +2205,7 @@ A status code of ``200`` indicates a successful liveness check.
 This is an unauthenticated endpoint intended to be used as a liveness
 probe.
 
-Readiness check
+Readiness Check
 ===============
 
 - URL: ``/readyz``
@@ -2166,6 +2213,6 @@ Readiness check
 
 A status code of ``200`` indicates a successful readiness check.
 
-This is an unauthenticated endpoint intended to be used as a liveness
+This is an unauthenticated endpoint intended to be used as a readiness
 probe. It validates both the ledger connection as well as the database
 connection.

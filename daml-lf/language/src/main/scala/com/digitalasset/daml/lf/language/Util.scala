@@ -213,20 +213,28 @@ object Util {
     }
 
   private[this] def toSignature(
-      implementsMethod: TemplateImplementsMethod
-  ): TemplateImplementsMethodSignature =
-    implementsMethod match {
-      case TemplateImplementsMethod(name, _) =>
-        TemplateImplementsMethodSignature(name, ())
+      iiMethod: InterfaceInstanceMethod
+  ): InterfaceInstanceMethodSignature =
+    iiMethod match {
+      case InterfaceInstanceMethod(name, _) =>
+        InterfaceInstanceMethodSignature(name, ())
+    }
+
+  private[this] def toSignature(iiBody: InterfaceInstanceBody): InterfaceInstanceBodySignature =
+    iiBody match {
+      case InterfaceInstanceBody(methods, view @ _) =>
+        InterfaceInstanceBodySignature(
+          methods.transform((_, v) => toSignature(v)),
+          (),
+        )
     }
 
   private[this] def toSignature(implements: TemplateImplements): TemplateImplementsSignature =
     implements match {
-      case TemplateImplements(name, methods, inheritedChoices) =>
+      case TemplateImplements(name, body) =>
         TemplateImplementsSignature(
           name,
-          methods.transform((_, v) => toSignature(v)),
-          inheritedChoices,
+          toSignature(body),
         )
     }
 
@@ -245,15 +253,27 @@ object Util {
         )
     }
 
+  private[this] def toSignature(
+      coImplements: InterfaceCoImplements
+  ): InterfaceCoImplementsSignature =
+    coImplements match {
+      case InterfaceCoImplements(name, body) =>
+        InterfaceCoImplementsSignature(
+          name,
+          toSignature(body),
+        )
+    }
+
   private def toSignature(interface: DefInterface): DefInterfaceSignature =
     interface match {
-      case DefInterface(requires, param, fixedChoices, methods, _) =>
+      case DefInterface(requires, param, choices, methods, coImplements, view) =>
         DefInterfaceSignature(
           requires,
           param,
-          fixedChoices.transform((_, choice) => toSignature(choice)),
+          choices.transform((_, choice) => toSignature(choice)),
           methods,
-          (),
+          coImplements.transform((_, v) => toSignature(v)),
+          view,
         )
     }
 

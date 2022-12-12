@@ -1,6 +1,13 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-module DA.Daml.Assistant.IntegrationTestUtils (withSdkResource, throwError) where
+module DA.Daml.Assistant.IntegrationTestUtils
+  ( withSdkResource
+  , SandboxPorts(..)
+  , sandboxPorts
+  , throwError
+  ) where
+
+{- HLINT ignore "locateRunfiles/package_app" -}
 
 import Conduit hiding (connect)
 import Control.Monad (forM_)
@@ -8,6 +15,7 @@ import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import qualified Data.Conduit.Zlib as Zlib
 import Data.List.Extra
 import qualified Data.Text as T
+import Network.Socket.Extended (PortNumber, getFreePort)
 import System.Environment.Blank
 import System.FilePath
 import System.Directory.Extra
@@ -54,6 +62,17 @@ withSdkResource f =
         restoreEnv oldPath = do
             setEnv "PATH" (intercalate [searchPathSeparator] oldPath) True
             unsetEnv "DAML_HOME"
+
+-- from DA.Daml.Helper.Util
+data SandboxPorts = SandboxPorts
+  { ledger :: PortNumber
+  , admin :: PortNumber
+  , domainPublic :: PortNumber
+  , domainAdmin :: PortNumber
+  }
+
+sandboxPorts :: IO SandboxPorts
+sandboxPorts = SandboxPorts <$> getFreePort <*> getFreePort <*> getFreePort <*> getFreePort
 
 throwError :: MonadFail m => T.Text -> T.Text -> m ()
 throwError msg e = fail (T.unpack $ msg <> " " <> e)

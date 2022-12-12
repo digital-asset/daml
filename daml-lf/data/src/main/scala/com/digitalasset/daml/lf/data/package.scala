@@ -16,4 +16,6 @@ package object data {
   }
   type Numeric = Numeric.Numeric
 
+  type Relation[A, B] = Map[A, Set[B]]
+
 }

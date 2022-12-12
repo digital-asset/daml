@@ -16,9 +16,9 @@ import scala.util.control.NonFatal
 
 final case class TlsConfiguration(
     enabled: Boolean,
-    keyCertChainFile: Option[File] = None, // mutual auth is disabled if null
-    keyFile: Option[File] = None,
-    trustCertCollectionFile: Option[File] = None, // System default if null
+    certChainFile: Option[File] = None, // mutual auth is disabled if null
+    privateKeyFile: Option[File] = None,
+    trustCollectionFile: Option[File] = None, // System default if null
     secretsUrl: Option[SecretsUrl] = None,
     clientAuth: ClientAuth =
       ClientAuth.REQUIRE, // Client auth setting used by the server. This is not used in the client configuration.
@@ -39,10 +39,10 @@ final case class TlsConfiguration(
       val sslContext = GrpcSslContexts
         .forClient()
         .keyManager(
-          keyCertChainFile.orNull,
-          keyFile.orNull,
+          certChainFile.orNull,
+          privateKeyFile.orNull,
         )
-        .trustManager(trustCertCollectionFile.orNull)
+        .trustManager(trustCollectionFile.orNull)
         .protocols(enabledProtocolsNames)
         .sslProvider(SslContext.defaultClientProvider())
         .build()
@@ -102,7 +102,7 @@ final case class TlsConfiguration(
         keyCertChain,
         key,
       )
-      .trustManager(trustCertCollectionFile.orNull)
+      .trustManager(trustCollectionFile.orNull)
       .clientAuth(clientAuth)
       .protocols(protocols)
       .sslProvider(SslContext.defaultServerProvider())
@@ -116,8 +116,12 @@ final case class TlsConfiguration(
     val who = if (isServer) "Server" else "Client"
     val tlsInfo = TlsInfo.fromSslContext(sslContext)
     logger.info(s"$who TLS - enabled.")
-    logger.debug(s"$who TLS - supported protocols: ${tlsInfo.supportedProtocols.mkString(", ")}.")
-    logger.info(s"$who TLS - enabled protocols: ${tlsInfo.enabledProtocols.mkString(", ")}.")
+    logger.debug(
+      s"$who TLS - supported protocols: ${filterSSLv2Hello(tlsInfo.supportedProtocols).mkString(", ")}."
+    )
+    logger.info(
+      s"$who TLS - enabled protocols: ${filterSSLv2Hello(tlsInfo.enabledProtocols).mkString(", ")}."
+    )
     logger.debug(
       s"$who TLS $who - supported cipher suites: ${tlsInfo.supportedCipherSuites.mkString(", ")}."
     )
@@ -126,7 +130,17 @@ final case class TlsConfiguration(
 
   /** This is a side-effecting method. It modifies JVM TLS properties according to the TLS configuration. */
   def setJvmTlsProperties(): Unit =
-    if (enabled && enableCertRevocationChecking) OcspProperties.enableOcsp()
+    if (enabled) {
+      if (enableCertRevocationChecking) OcspProperties.enableOcsp()
+      ProtocolDisabler.disableSSLv2Hello()
+    }
+
+  /** Netty incorrectly hardcodes the report that the SSLv2Hello protocol is enabled. There is no way
+    * to stop it from doing it, so we just filter the netty's erroneous claim. We also make sure that
+    * the SSLv2Hello protocol is knocked out completely at the JSSE level through the ProtocolDisabler
+    */
+  private def filterSSLv2Hello(protocols: Seq[String]): Seq[String] =
+    protocols.filter(_ != ProtocolDisabler.sslV2Protocol)
 
   private[tls] def filterSupportedProtocols(tlsInfo: TlsInfo): java.lang.Iterable[String] = {
     minimumServerProtocolVersion match {
@@ -148,7 +162,7 @@ final case class TlsConfiguration(
   }
 
   private[tls] def keyInputStreamOrFail: InputStream = {
-    val keyFileOrFail = keyFile.getOrElse(
+    val keyFileOrFail = privateKeyFile.getOrElse(
       throw new IllegalArgumentException(
         s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyFile."
       )
@@ -179,7 +193,7 @@ final case class TlsConfiguration(
   private def keyCertChainInputStreamOrFail: InputStream = {
     val msg =
       s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyCertChainFile."
-    val keyFile = keyCertChainFile.getOrElse(throw new IllegalStateException(msg))
+    val keyFile = certChainFile.getOrElse(throw new IllegalStateException(msg))
     new FileInputStream(keyFile)
   }
 
@@ -188,8 +202,8 @@ final case class TlsConfiguration(
 object TlsConfiguration {
   val Empty: TlsConfiguration = TlsConfiguration(
     enabled = true,
-    keyCertChainFile = None,
-    keyFile = None,
-    trustCertCollectionFile = None,
+    certChainFile = None,
+    privateKeyFile = None,
+    trustCollectionFile = None,
   )
 }

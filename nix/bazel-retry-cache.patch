@@ -90,7 +90,7 @@ index 350e1afa51..db81481b60 100644
  import java.util.HashSet;
  import java.util.List;
  import java.util.Map;
-@@ -213,7 +216,31 @@ public final class RemoteModule extends BlazeModule {
+@@ -213,7 +216,33 @@ public final class RemoteModule extends BlazeModule {
                remoteOptions,
                creds,
                Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
@@ -107,6 +107,8 @@ index 350e1afa51..db81481b60 100644
 +                   } else if (e instanceof IOException) {
 +                     String msg = e.getMessage().toLowerCase();
 +                     if (msg.contains("connection reset by peer")) {
++                       retry = true;
++                     } else if (msg.contains("operation timed out")) {
 +                       retry = true;
 +                     }
 +                   }

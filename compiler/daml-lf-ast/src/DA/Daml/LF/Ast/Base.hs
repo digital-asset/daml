@@ -345,6 +345,9 @@ data BuiltinExpr
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool
   | BECoerceContractId           -- :: forall a b. ContractId a -> ContractId b
 
+  -- TypeRep
+  | BETypeRepTyConName           -- :: TypeRep -> Optional Text
+
   -- Experimental Text Primitives
   | BETextToUpper                -- :: Text -> Text
   | BETextToLower                -- :: Text -> Text
@@ -547,6 +550,13 @@ data Expr
     , fromInterfaceTemplate :: !(Qualified TypeConName)
     , fromInterfaceExpr :: !Expr
     }
+  -- | Convert interface type to template payload or raise WronglyTypedContract error if not possible.
+  | EUnsafeFromInterface
+    { unsafeFromInterfaceInterface :: !(Qualified TypeConName)
+    , unsafeFromInterfaceTemplate :: !(Qualified TypeConName)
+    , unsafeFromInterfaceContractId :: !Expr
+    , unsafeFromInterfaceExpr :: !Expr
+    }
   -- | Invoke an interface method
   | ECallInterface
     { callInterfaceType :: !(Qualified TypeConName)
@@ -564,6 +574,13 @@ data Expr
     { friRequiredInterface :: !(Qualified TypeConName)
     , friRequiringInterface :: !(Qualified TypeConName)
     , friExpr :: !Expr
+    }
+  -- | Downcast interface or raise WronglyTypedContract error if not possible.
+  | EUnsafeFromRequiredInterface
+    { unsafeFromRequiredInterfaceInterface :: !(Qualified TypeConName)
+    , unsafeFromRequiredInterfaceTemplate :: !(Qualified TypeConName)
+    , unsafeFromRequiredInterfaceContractId :: !Expr
+    , unsafeFromRequiredInterfaceExpr :: !Expr
     }
   -- | Obtain type representation of contract's template through an interface
   | EInterfaceTemplateTypeRep
@@ -586,6 +603,11 @@ data Expr
   | EScenario !Scenario
   -- | An expression annotated with a source location.
   | ELocation !SourceLoc !Expr
+  -- | Obtain an interface view
+  | EViewInterface
+    { viewInterfaceInterface :: !(Qualified TypeConName)
+    , viewInterfaceExpr :: !Expr
+    }
   -- | Experimental Expression Hook
   | EExperimental !T.Text !Type
   deriving (Eq, Data, Generic, NFData, Ord, Show)
@@ -691,9 +713,10 @@ data Update
       -- ^ Contract id of the contract template instance to exercise choice on.
     , exeArg        :: !Expr
       -- ^ Argument for the choice.
-    , exeGuard      :: !Expr
+    , exeGuard      :: !(Maybe Expr)
       -- ^ Exercise guard (Interface -> Bool) to abort the transaction eagerly
-      -- if the payload does not satisfy the predicate.
+      -- if the payload does not satisfy the predicate. Nothing if the exercise
+      -- was unguarded.
     }
   -- | Exercise a choice on a contract by key.
   | UExerciseByKey
@@ -910,25 +933,38 @@ data Template = Template
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
--- | Template implementation of an interface.
+-- | Interface instance in the template declaration.
 data TemplateImplements = TemplateImplements
   { tpiInterface :: !(Qualified TypeConName)
     -- ^ Interface name for implementation.
-  , tpiMethods :: !(NM.NameMap TemplateImplementsMethod)
-  , tpiInheritedChoiceNames :: !(S.Set ChoiceName)
-    -- ^ Set of inherited fixed choice names.
+  , tpiBody :: !InterfaceInstanceBody
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
--- | Template implementation of an interface's method.
-data TemplateImplementsMethod = TemplateImplementsMethod
-  { tpiMethodName :: !MethodName
-    -- ^ Name of method.
-  , tpiMethodExpr :: !Expr
-    -- ^ Method expression, has type @tpl -> mty@ where @tpl@ is the template type,
-    -- and @mty@ is the method's type as defined in the interface.
+-- | Contents of an interface instance.
+data InterfaceInstanceBody = InterfaceInstanceBody
+  { iiMethods :: !(NM.NameMap InterfaceInstanceMethod)
+  , iiView :: !Expr
   }
   deriving (Eq, Data, Generic, NFData, Show)
+
+-- | An implementation of an interface's method.
+data InterfaceInstanceMethod = InterfaceInstanceMethod
+  { iiMethodName :: !MethodName
+    -- ^ Name of method.
+  , iiMethodExpr :: !Expr
+    -- ^ Method expression. Has type @mty@ (the method's type as defined in the interface)
+    -- and the template parameter in scope with type @tpl@ (the type of the template).
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
+-- | The interface and template that identify an interface instance.
+-- Currently not part of the AST.
+data InterfaceInstanceHead = InterfaceInstanceHead
+  { iiInterface :: !(Qualified TypeConName)
+  , iiTemplate :: !(Qualified TypeConName)
+  }
+  deriving (Eq, Ord, Data, Generic, NFData, Show)
 
 -- | Definition of an exception type.
 data DefException = DefException
@@ -943,9 +979,10 @@ data DefInterface = DefInterface
   , intName :: !TypeConName
   , intRequires :: !(S.Set (Qualified TypeConName))
   , intParam :: !ExprVarName
-  , intFixedChoices :: !(NM.NameMap TemplateChoice)
+  , intChoices :: !(NM.NameMap TemplateChoice)
   , intMethods :: !(NM.NameMap InterfaceMethod)
-  , intPrecondition :: !Expr
+  , intCoImplements :: !(NM.NameMap InterfaceCoImplements)
+  , intView :: !Type
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -953,6 +990,13 @@ data InterfaceMethod = InterfaceMethod
   { ifmLocation :: !(Maybe SourceLoc)
   , ifmName :: !MethodName
   , ifmType :: !Type
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
+-- | Interface instance in the interface declaration.
+data InterfaceCoImplements = InterfaceCoImplements
+  { iciTemplate :: !(Qualified TypeConName)
+  , iciBody :: !InterfaceInstanceBody
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -1066,6 +1110,10 @@ instance NM.Named DefInterface where
   type Name DefInterface = TypeConName
   name = intName
 
+instance NM.Named InterfaceCoImplements where
+  type Name InterfaceCoImplements = Qualified TypeConName
+  name = iciTemplate
+
 instance NM.Named Template where
   type Name Template = TypeConName
   name = tplTypeCon
@@ -1074,9 +1122,9 @@ instance NM.Named TemplateImplements where
   type Name TemplateImplements = Qualified TypeConName
   name = tpiInterface
 
-instance NM.Named TemplateImplementsMethod where
-  type Name TemplateImplementsMethod = MethodName
-  name = tpiMethodName
+instance NM.Named InterfaceInstanceMethod where
+  type Name InterfaceInstanceMethod = MethodName
+  name = iiMethodName
 
 instance NM.Named Module where
   type Name Module = ModuleName

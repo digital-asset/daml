@@ -4,7 +4,7 @@
 package com.daml.lf.transaction
 
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Relation
 import com.daml.lf.value.Value.ContractId
 
 /** A transaction's blinding information, consisting of disclosure and

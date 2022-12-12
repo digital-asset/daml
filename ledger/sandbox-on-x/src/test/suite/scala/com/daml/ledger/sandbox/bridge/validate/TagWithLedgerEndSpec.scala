@@ -3,7 +3,6 @@
 
 package com.daml.ledger.sandbox.bridge.validate
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -28,7 +27,7 @@ class TagWithLedgerEndSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   private val indexServiceMock = mock[IndexService]
   private val tagWithLedgerEnd = new TagWithLedgerEndImpl(
     indexService = indexServiceMock,
-    bridgeMetrics = new BridgeMetrics(new Metrics(new MetricRegistry)),
+    bridgeMetrics = new BridgeMetrics(Metrics.ForTesting),
   )
 
   "tagWithLedgerEnd" should "tag the incoming submissions with the index service ledger end" in {

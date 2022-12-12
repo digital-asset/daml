@@ -6,7 +6,8 @@ package com.daml.lf.codegen
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{DottedName, QualifiedName, PackageId}
-import com.daml.lf.iface.{DefDataType, Interface, InterfaceType, Record, Variant}
+import com.daml.lf.typesig.{DefDataType, PackageSignature, Record, Variant}
+import PackageSignature.TypeDecl
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
@@ -18,7 +19,10 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
 
   it should "traverse an empty tree" in {
     val interfaceTree =
-      InterfaceTree(Map.empty, Interface(PackageId.assertFromString("packageid"), None, Map.empty))
+      InterfaceTree(
+        Map.empty,
+        PackageSignature(PackageId.assertFromString("packageid"), None, Map.empty, Map.empty),
+      )
     interfaceTree.bfs(0)((x, _) => x + 1) shouldEqual 0
   }
 
@@ -27,23 +31,24 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
       DottedName.assertFromSegments(ImmArray("foo").toSeq),
       DottedName.assertFromSegments(ImmArray("bar").toSeq),
     )
-    val record1 = InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
+    val record1 = TypeDecl.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
     val qualifiedName2 =
       QualifiedName(
         DottedName.assertFromSegments(ImmArray("foo").toSeq),
         DottedName.assertFromSegments(ImmArray("bar", "baz").toSeq),
       )
-    val variant1 = InterfaceType.Normal(DefDataType(ImmArraySeq(), Variant(ImmArraySeq())))
+    val variant1 = TypeDecl.Normal(DefDataType(ImmArraySeq(), Variant(ImmArraySeq())))
     val qualifiedName3 = QualifiedName(
       DottedName.assertFromSegments(ImmArray("foo").toSeq),
       DottedName.assertFromSegments(ImmArray("qux").toSeq),
     )
-    val record2 = InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
+    val record2 = TypeDecl.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
     val typeDecls =
       Map(qualifiedName1 -> record1, qualifiedName2 -> variant1, qualifiedName3 -> record2)
-    val interface = new Interface(PackageId.assertFromString("packageId2"), None, typeDecls)
+    val interface =
+      PackageSignature(PackageId.assertFromString("packageId2"), None, typeDecls, Map.empty)
     val tree = InterfaceTree.fromInterface(interface)
-    val result = tree.bfs(ArrayBuffer.empty[InterfaceType])((ab, n) =>
+    val result = tree.bfs(ArrayBuffer.empty[TypeDecl])((ab, n) =>
       n match {
         case ModuleWithContext(interface @ _, modulesLineage @ _, name @ _, module @ _) => ab
         case TypeWithContext(interface @ _, modulesLineage @ _, typesLineage @ _, name @ _, typ) =>
@@ -61,12 +66,13 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
         DottedName.assertFromSegments(ImmArray("foo", "bar").toSeq),
         DottedName.assertFromSegments(ImmArray("baz", "quux").toSeq),
       )
-    val record = InterfaceType.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
+    val record = TypeDecl.Normal(DefDataType(ImmArraySeq(), Record(ImmArraySeq())))
 
     val typeDecls = Map(bazQuux -> record)
-    val interface = new Interface(PackageId.assertFromString("pkgid"), None, typeDecls)
+    val interface =
+      PackageSignature(PackageId.assertFromString("pkgid"), None, typeDecls, Map.empty)
     val tree = InterfaceTree.fromInterface(interface)
-    val result = tree.bfs(ArrayBuffer.empty[InterfaceType])((types, n) =>
+    val result = tree.bfs(ArrayBuffer.empty[TypeDecl])((types, n) =>
       n match {
         case _: ModuleWithContext => types
         case TypeWithContext(_, _, _, _, tpe) =>

@@ -45,7 +45,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
           enum Color = Red | Green | Blue;
 
           record @serializable Template = { };
- 
+
           template (this : Template) =  {
              precondition True;
              signatories (Nil @Party);
@@ -644,14 +644,14 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
       ContractId.V1.assertFromString("00" * 32 + "0000"),
       ContractId.V1.assertFromString("00" * 32 + "0001"),
       ContractId.V1.assertFromString("00" + "ff" * 32),
-    ).map(cid => SEValue(SValue.SContractId(cid)): SExpr)
+    ).map(cid => SValue.SContractId(cid): SValue)
 
   private[this] val parties =
     Seq(
       Ref.Party.assertFromString("alice"),
       Ref.Party.assertFromString("bob"),
       Ref.Party.assertFromString("carol"),
-    ).map(p => SEValue(SValue.SParty(p)): SExpr)
+    ).map(p => SValue.SParty(p): SValue)
 
   private[this] def eval(bi: Ast.BuiltinFunction, t: Ast.Type, x: Ast.Expr, y: Ast.Expr) = {
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
@@ -683,7 +683,10 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
       )
     )
     val machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(sexpr, (parties ++ contractIds).toArray))
+      Speedy.Machine.fromPureSExpr(
+        compiledPackages,
+        SEApp(sexpr, (parties ++ contractIds).toArray),
+      )
     SpeedyTestLib.run(machine)
   }
 

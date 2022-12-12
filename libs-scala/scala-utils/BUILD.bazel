@@ -6,13 +6,11 @@ load(
     "da_scala_library",
     "da_scala_test",
     "kind_projector_plugin",
-    "lf_scalacopts",
+    "lf_scalacopts_stricter",
 )
 load("@scala_version//:index.bzl", "scala_major_version")
 
-scalacopts = lf_scalacopts + [
-    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-]
+scalacopts = lf_scalacopts_stricter
 
 da_scala_library(
     name = "scala-utils",
@@ -41,11 +39,7 @@ da_scala_test(
         kind_projector_plugin,
     ],
     scala_deps = [
-        "@maven//:com_chuusai_shapeless",
-        "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding",
     ],
     scalacopts = scalacopts,
     deps = [

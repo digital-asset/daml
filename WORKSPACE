@@ -90,10 +90,7 @@ nixpkgs_local_repository(
     ],
 )
 
-dev_env_nix_repos = {
-    "nixpkgs": "@nixpkgs",
-}
-
+load("//nix:repositories.bzl", "common_nix_file_deps", "dev_env_nix_repos")
 load("//bazel_tools:damlc_legacy.bzl", "damlc_legacy")
 
 damlc_legacy(
@@ -105,28 +102,6 @@ damlc_legacy(
     },
     version = "1.18.0-snapshot.20211117.8399.0.a05a40ae",
 )
-
-# Bazel cannot automatically determine which files a Nix target depends on.
-# rules_nixpkgs offers the nix_file_deps attribute for that purpose. It should
-# list all files that a target depends on. This allows Bazel to rebuild the
-# target using Nix if any of these files has been changed. Omitting files from
-# this list can cause subtle bugs or cache misses when Bazel loads an outdated
-# store path. You can use the following command to determine what files a Nix
-# target depends on. E.g. for tools.curl
-#
-# $ nix-build -vv -A tools.curl nix 2>&1 \
-#     | egrep '(evaluating file|copied source)' \
-#     | egrep -v '/nix/store'
-#
-# Unfortunately there is no mechanism to automatically keep this list up to
-# date at the moment. See https://github.com/tweag/rules_nixpkgs/issues/74.
-common_nix_file_deps = [
-    "//nix:bazel.nix",
-    "//nix:nixpkgs.nix",
-    "//nix:system.nix",
-    "//nix:nixpkgs/default.nix",
-    "//nix:nixpkgs/default.src.json",
-]
 
 # Use Nix provisioned cc toolchain
 nixpkgs_cc_configure(
@@ -169,9 +144,9 @@ nixpkgs_package(
 
 dev_env_tool(
     name = "toxiproxy_dev_env",
-    nix_include = ["bin/toxiproxy-cmd"],
+    nix_include = ["bin/toxiproxy-server"],
     nix_label = "@toxiproxy_nix",
-    nix_paths = ["bin/toxiproxy-cmd"],
+    nix_paths = ["bin/toxiproxy-server"],
     tools = ["toxiproxy"],
     win_include = ["toxiproxy-server-windows-amd64.exe"],
     win_paths = ["toxiproxy-server-windows-amd64.exe"],
@@ -589,38 +564,17 @@ nixpkgs_java_configure(
 ) if not is_windows else None
 
 # rules_go used here to compile a wrapper around the protoc-gen-scala plugin
-load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+load("@io_tweag_rules_nixpkgs//nixpkgs:toolchains/go.bzl", "nixpkgs_go_configure")
 
-nixpkgs_package(
-    name = "go_nix",
-    attribute_path = "go",
-    build_file_content = """
-    filegroup(
-        name = "sdk",
-        srcs = glob(["share/go/**"]),
-        visibility = ["//visibility:public"],
-    )
-    """,
-    nix_file = "//nix:bazel.nix",
+nixpkgs_go_configure(
+    nix_file = "//nix:bazel-go-toolchain.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
-
-# A repository that generates the Go SDK imports, see
-# ./bazel_tools/go_sdk/README.md
-local_repository(
-    name = "go_sdk_repo",
-    path = "bazel_tools/go_sdk",
-)
-
-load("@io_bazel_rules_go//go:deps.bzl", "go_wrap_sdk")
-
-# On Nix platforms we use the Nix provided Go SDK, on Windows we let Bazel pull
-# an upstream one.
-go_wrap_sdk(
-    name = "go_sdk",
-    root_file = "@go_nix//:share/go/ROOT",
 ) if not is_windows else None
+
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains")
+
+go_register_toolchains(version = "1.16.9") if is_windows else None
 
 # gazelle:repo bazel_gazelle
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
@@ -629,9 +583,9 @@ load("//:go_deps.bzl", "go_deps")
 # gazelle:repository_macro go_deps.bzl%go_deps
 go_deps()
 
-go_rules_dependencies()
+load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies")
 
-go_register_toolchains() if not is_windows else go_register_toolchains(version = "1.16.9")
+go_rules_dependencies()
 
 gazelle_dependencies()
 
@@ -714,19 +668,20 @@ dev_env_tool(
         ".",
     ],
     win_paths = [],
-    win_tool = "nodejs",
+    win_tool = "nodejs-16",
 )
 
 # Setup the Node.js toolchain
 load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories", "yarn_install")
 
 node_repositories(
-    package_json = ["//:package.json"],
     # Using `dev_env_tool` introduces an additional layer of symlink
     # indirection. Bazel doesn't track dependencies through symbolic links.
     # Occasionally, this can cause build failures on CI if a build is not
     # invalidated despite a change of an original source. To avoid such issues
     # we use the `nixpkgs_package` directly.
+    node_version = "16.13.0",
+    package_json = ["//:package.json"],
     vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
 )
 
@@ -814,7 +769,7 @@ buildifier_dependencies()
 
 nixpkgs_package(
     name = "postgresql_nix",
-    attribute_path = "postgresql_10",
+    attribute_path = "postgresql_11",
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,

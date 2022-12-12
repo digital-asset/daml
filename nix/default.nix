@@ -84,7 +84,7 @@ in rec {
     scalap   = scala;
     sbt      = pkgs.sbt;
 
-    coursier = pkgs.coursier;
+    cs = pkgs.coursier;
     # nixpkgs ships with an RC for scalafmt 2.0 that seems to be significantly slower
     # and changes a lot of formatting so for now we stick to 1.5.1.
     scalafmt = pkgs.callPackage ./overrides/scalafmt.nix { jre = jdk; };
@@ -113,18 +113,17 @@ in rec {
 
     # Python development
     pip3        = pkgs.python37Packages.pip;
-    python      = python37;
-    python3     = python37;
-    python37    = pkgs.python37Packages.python;
+    python      = pkgs.python37Packages.python;
+    python3     = python;
+    python37 = python;
 
-    yapf = pkgs.python37Packages.yapf;
+    yapf = pkgs.python38Packages.yapf;
 
-    pex = pkgs.python37Packages.pex;
-    pipenv = import ./tools/pipenv {
-      lib = pkgs.lib;
-      python3 = python3;
-    };
+    pex = pkgs.python38Packages.pex;
+    pipenv = pkgs.pipenv;
 
+    pre-commit = pkgs.pre-commit;
+ 
     sphinx-build      = sphinx;
     sphinx-quickstart = sphinx;
 
@@ -149,6 +148,7 @@ in rec {
       # Set the JAVA_HOME to our JDK
       export JAVA_HOME=${jdk.home}
       export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+      export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
     '' + pkgs.lib.optionalString (pkgs.buildPlatform.libc == "glibc") ''
       export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive"
     '' + ''
@@ -208,7 +208,6 @@ in rec {
       google-beta
       random
       secret
-      template
     ]);
     nix-store-gcs-proxy = pkgs.callPackage ./tools/nix-store-gcs-proxy {};
   };

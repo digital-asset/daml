@@ -10,6 +10,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   ExperimentalOptionalLedgerId,
   ExperimentalSelfServiceErrorCodes,
   ExperimentalStaticTime,
+  ExperimentalUserAndPartyLocalMetadataExtensions,
 }
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
 import com.daml.ledger.api.v1.version_service.{
@@ -22,7 +23,7 @@ import com.daml.ledger.api.v1.version_service.{
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.LedgerFeatures
-import com.daml.platform.usermanagement.UserManagementConfig
+import com.daml.platform.localstore.UserManagementConfig
 import io.grpc.ServerServiceDefinition
 
 import scala.annotation.nowarn
@@ -45,7 +46,7 @@ private[apiserver] final class ApiVersionService private (
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val versionFile: String = "ledger-api/VERSION"
-  private lazy val apiVersion: Try[String] = readVersion(versionFile)
+  private val apiVersion: Try[String] = readVersion(versionFile)
 
   private val featuresDescriptor =
     FeaturesDescriptor.of(
@@ -73,6 +74,10 @@ private[apiserver] final class ApiVersionService private (
           commandDeduplication = Some(ledgerFeatures.commandDeduplicationFeatures),
           optionalLedgerId = Some(ExperimentalOptionalLedgerId()),
           contractIds = Some(ledgerFeatures.contractIdFeatures),
+          committerEventLog = Some(ledgerFeatures.committerEventLog),
+          explicitDisclosure = Some(ledgerFeatures.explicitDisclosure),
+          userAndPartyLocalMetadataExtensions =
+            Some(ExperimentalUserAndPartyLocalMetadataExtensions(supported = true)),
         )
       ),
     )
@@ -85,18 +90,15 @@ private[apiserver] final class ApiVersionService private (
       .map(apiVersionResponse)
       .andThen(logger.logErrorsOnCall[GetLedgerApiVersionResponse])
       .recoverWith { case NonFatal(_) =>
-        internalError
+        Future.failed(
+          LedgerApiErrors.InternalError
+            .VersionService(message = "Cannot read Ledger API version")
+            .asGrpcError
+        )
       }
 
   private def apiVersionResponse(version: String) =
     GetLedgerApiVersionResponse(version, Some(featuresDescriptor))
-
-  private lazy val internalError: Future[Nothing] =
-    Future.failed(
-      LedgerApiErrors.InternalError
-        .VersionService(message = "Cannot read Ledger API version")
-        .asGrpcError
-    )
 
   private def readVersion(versionFileName: String): Try[String] =
     Try {

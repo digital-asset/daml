@@ -3,8 +3,8 @@
 
 .. _local-ledger:
 
-Causality and Local Ledgers
-###########################
+Causality and Local Daml Ledgers
+################################
 
 Daml ledgers do not totally order all transactions.
 So different parties may observe two transactions on different Participant Nodes in different orders via the :ref:`Ledger API <ledger-api-services>`.
@@ -19,7 +19,7 @@ The presentation assumes that you are familiar with the following concepts:
 
 .. _causality-examples:
 
-Causality examples
+Causality Examples
 ******************
 
 A Daml Ledger need not totally order all transaction, unlike ledgers in the Daml Ledger Model.
@@ -32,12 +32,13 @@ Recall that :ref:`the party projections <da-paint-counteroffer-example>` are as 
 .. image:: ./ledger-model/images/divulgence-for-disclosure-counteroffer.svg
    :align: center
    :width: 100%
+   :alt: The time sequences for individual parties in the paint counteroffer workflow, with disclosures, as described in the Privacy section linked above.
 
 
 .. _causality-example-create-archive:
 
-Stakeholders of a contract see creation and archival in the same order.
-=======================================================================
+Stakeholders of a Contract See Creation and Archival in the Same Order
+======================================================================
 
 Every Daml Ledger orders the creation of the `CounterOffer A P Bank` before the painter exercising the consuming choice on the `CounterOffer`.
 (If the **Create** was ordered after the **Exercise**, the resulting shared ledger would be inconsistent, which violates the validity guarantee of Daml ledgers.)
@@ -46,8 +47,8 @@ This does not depend on whether they are hosted on the same Participant Node.
 
 .. _causality-example-create-use-archive:
 
-Signatories of a contract and stakeholder actors see usages after the creation and before the archival.
-=======================================================================================================
+Signatories of a Contract and Stakeholder Actors See Usages After the Creation and Before the Archival
+======================================================================================================
 
 The `Fetch A (Iou Bank A)` action comes after the creation of the `Iou Bank A` and before its archival,
 for both Alice and the Bank,
@@ -55,8 +56,8 @@ because the Bank is a signatory of the `Iou Bank A` contract and Alice is a stak
 
 .. _causality-example-commit-atomic:
 
-Commits are atomic.
-===================
+Commits Are Atomic
+==================
 
 Alice sees the **Create** of her `Iou` before the creation of the `CounterOffer`,
 because the `CounterOffer` is created in the same commit as the **Fetch** of the `Iou`
@@ -64,8 +65,8 @@ and the **Fetch** commit comes after the **Create** of the `Iou`.
 
 .. _causality-example-non-consuming:
 
-Non-consuming usages in different commits may appear in different orders.
-=========================================================================
+Non-Consuming Usages in Different Commits May Appear in Different Orders
+========================================================================
 
 Suppose that the Bank exercises a non-consuming choice on the `Iou Bank A` without consequences while Alice creates the `CounterOffer`.
 In the ledger shown below, the Bank's commit comes before Alice's commit.
@@ -75,14 +76,15 @@ In the ledger shown below, the Bank's commit comes before Alice's commit.
 .. image:: ./images/counteroffer-double-fetch.svg
    :align: center
    :width: 100%
+   :alt: The shared ledger view of the time sequence for the paint counteroffer workflow.
 
 The Bank's projection contains the nonconsuming **Exercise** and the **Fetch** action on the `Iou`.
 Yet, the **Fetch** may come before the non-consuming **Exercise** in the Bank's transaction tree stream.
 
 .. _causality-example-out-of-band:
 
-Out-of-band causality is not respected.
-=======================================
+Out-of-Band Causality Is Not Respected
+======================================
 
 The following examples assume that Alice splits up her commit into two as follows:
 
@@ -93,6 +95,7 @@ The following examples assume that Alice splits up her commit into two as follow
 .. figure:: ./images/counteroffer-split-commit.svg
    :align: center
    :width: 100%
+   :alt: A time sequence for a counteroffer workflow with multiple commits: The first from the bank, the second and third by Alice, and the final one by the painter.
 
    Counteroffer workflow with four commits.
    
@@ -111,8 +114,8 @@ Daml ledgers therefore do not capture data flow through applications.
 
 .. _causality-divulgence-example:
 
-Divulged actions do not induce order.
-=====================================
+Divulged Actions Do Not Induce Order
+====================================
 
 The painter witnesses the fetching of Alice's `Iou` when the `ShowIou` contract is consumed.
 The painter also witnesses the **Exercise** of the `Iou` when Alice exercises the transfer choice as a consequence of the painter accepting the `CounterOffer`.
@@ -136,8 +139,8 @@ Analogously, choice observers of an **Exercise** action benefit from the orderin
 
 .. _causality-example-depend-on-party:
 
-The ordering guarantees depend on the party.
-============================================
+The Ordering Guarantees Depend on the Party
+===========================================
 
 By the previous example, for the painter, fetching the `Iou` is not ordered before transferring the `Iou`.
 For Alice, however, the **Fetch** must appear before the **Exercise** 
@@ -147,7 +150,7 @@ This shows that the ordering guarantees depend on the party.
 
 .. _causality-graph:
    
-Causality graphs
+Causality Graphs
 ****************
 
 The above examples indicate that Daml ledgers order transactions only partially.
@@ -190,6 +193,7 @@ In contrast, the **Create** actions of the `CounterOffer` and Alice's `Iou` are 
 .. figure:: ./images/counteroffer-split-action-order.svg
    :align: center
    :width: 100%
+   :alt: A causality graph for the counteroffer ledger, as described in the paragraph above.
 
    Causality graph for the :ref:`counteroffer workflow with four commits <split-counteroffer-ledger>`.
 
@@ -265,6 +269,7 @@ The `X`\ -minimal consistent causality graph looks as follows, where the actions
 .. figure:: ./images/causality-counteroffer-Iou-minimal.svg
    :align: center
    :width: 100%
+   :alt: The causality graph for the counteroffer workflow, with the following highlighted in red: Iou $Bank A, Fetch A (Iou $Bank A), Exe A (Iou $Bank A) and Iou $Bank P.
 
    Minimal consistent causality graph for the highlighted actions.
 
@@ -278,6 +283,7 @@ Then, `tx6` creates an such account with balance 0 and `tx7` deposits the painte
 .. image:: ./images/causality-consistency-examples.svg
    :align: center
    :width: 100%
+   :alt: A minimal causality graph for a workflow in which the painter receives an Iou from Alice and has an Account contract to hold the Iou created automatically, as described above.
 
 Unlike in a linearly ordered ledger, the causality graph relates the transactions of the `Iou` transfer workflow with the `Account` creation workflow only at the end, when the `Iou` is deposited into the account.
 As will be formalized below, the Bank, Alice, and the painter therefore need not observe the transactions `tx1` to `tx7` in the same order.
@@ -293,7 +299,7 @@ For this set of transactions, consistency allows only one such order: `tx5` come
 
 .. _causality-consistency-ledger-model:
 
-From causality graphs to ledgers
+From Causality Graphs to Ledgers
 ================================
 
 Since causality graphs are acyclic, their vertices can be sorted topologically and the resulting list is again a causality graph, where every vertex has an outgoing edge to all later vertices.
@@ -307,7 +313,7 @@ This gives a minimal `X`\ -consistent causality graph.
 
 Definition »Reduction of a consistent causality graph«
   For an `X`\ -consistent causality graph `G`, there exists a unique minimal `X`\ -consistent causality graph `reduce`:sub:`X`\ `(G)` with the same vertices and the edges being a subset of `G`.
-  `reduce`:sub:`X`\ `(G)` is called the `X`\ -**reduction** of `G`.
+  The graph `reduce`:sub:`X`\ `(G)` is called the `X`\ -**reduction** of `G`.
   As before, `X` is omitted if it contains all actions in `G`.
 
 The causality graph for the split `CounterOffer` workflow is minimal and therefore its own reduction.
@@ -338,7 +344,7 @@ Conversely, if the sequence of commits `L` is ledger consistent, `G`:sub:`L` is 
 
 .. _local-ledger-structure:
    
-Local ledgers
+Local Ledgers
 *************
 
 As explained in the Daml Ledger Model, parties see only a :ref:`projection <da-model-projections>` of the shared ledger for privacy reasons.
@@ -377,6 +383,7 @@ For the :ref:`split counteroffer causality graph <causality-graph-counteroffer-s
 .. figure:: ./images/counteroffer-causality-projection.svg
    :align: center
    :width: 100%
+   :alt: The split counteroffer causality graph divided according to the viewpoints of different parties, as described in the paragraph below.
 
    Projections of the :ref:`split counteroffer causality graph <causality-graph-counteroffer-split>`.
 
@@ -391,7 +398,7 @@ This difference explains the :ref:`divulgence causality example <causality-divul
 
 .. _ordering-guarantees:
 
-Ledger API ordering guarantees
+Ledger API Ordering Guarantees
 ==============================
 
 The :ref:`Transaction Service <transaction-service>` provides the updates as a stream of Daml transactions
@@ -425,7 +432,7 @@ These guarantees are subject to the deployed Daml ledger's trust assumptions.
    That is, all the local ledgers can in theory be combined into a consistent single causality graph of which they are projections.
 
 
-Explaining the causality examples
+Explaining the Causality Examples
 =================================
 
 The :ref:`causality examples <causality-examples>` can be explained in terms of causality graphs and local ledgers as follows:

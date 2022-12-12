@@ -2,6 +2,7 @@ type Choice {
   name: String!
   parameter: DamlLfType!
   consuming: Boolean!
+  inheritedInterface: String
 }
 
 interface Command {
@@ -126,6 +127,7 @@ interface Event {
 type ExerciseCommand implements Node & Command {
   contract: Contract
   contractId: String!
+  interfaceId: String
   choice: String!
   argument: DamlLfValue!
 }
@@ -160,7 +162,7 @@ type LedgerTime {
 type Mutation {
   advanceTime(time: Time!): LedgerTime!
   create(templateId: ID!, argument: DamlLfValue): CommandId!
-  exercise(contractId: ID!, choiceId: ID!, argument: DamlLfValue): CommandId!
+  exercise(contractId: ID!, interfaceId: ID, choiceId: ID!, argument: DamlLfValue): CommandId!
 }
 
 interface Node {
@@ -202,6 +204,7 @@ type Template implements Node & DamlLfNode {
   parameterDef: DamlLfDefDataType!
   choices: [Choice!]!
   contracts(search: String, filter: [FilterCriterion!], includeArchived: Boolean, count: Int, start: String, sort: [SortCriterion!]): ContractPagination!
+  implementedInterfaces: [String!]!
 }
 
 type TemplateEdge {

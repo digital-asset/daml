@@ -106,10 +106,15 @@ class ConfigSpec extends AnyFreeSpec with Matchers with OptionValues {
         val crtPath = rlocation("ledger/test-common/test-certificates/client.crt")
         val args = defaultRequiredArgs ++ Array("--pem", pemPath, "--crt", crtPath)
         val optConfig = Config.parse(args)
-        assert(Files.isSameFile(optConfig.value.tlsConfig.keyFile.value.toPath, Paths.get(pemPath)))
         assert(
           Files.isSameFile(
-            optConfig.value.tlsConfig.keyCertChainFile.value.toPath,
+            optConfig.value.tlsConfig.privateKeyFile.value.toPath,
+            Paths.get(pemPath),
+          )
+        )
+        assert(
+          Files.isSameFile(
+            optConfig.value.tlsConfig.certChainFile.value.toPath,
             Paths.get(crtPath),
           )
         )

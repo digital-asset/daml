@@ -8,7 +8,18 @@ We describe how to decode and encode Daml-LF values as JSON. For each
 Daml-LF type we explain what JSON inputs we accept (decoding), and what
 JSON output we produce (encoding).
 
-The output format is parameterized by two flags::
+If you use
+:doc:`the JavaScript code generator </app-dev/bindings-ts/daml2js>`
+with TypeScript, the generated types for templates and choices will
+incorporate the following automatically. You can use this to observe
+how these rules apply to your templates, or ignore this
+document and rely on the TypeScript type checker to tell you how to
+encode data for JSON API correctly.
+
+Codec Library
+*************
+
+At the library level, the output format is parameterized by two flags::
 
     encodeDecimalAsString: boolean
     encodeInt64AsString: boolean
@@ -17,11 +28,20 @@ The suggested defaults for both of these flags is false. If the intended
 recipient is written in JavaScript, however, note that the JavaScript data
 model will decode these as numbers, discarding data in some cases;
 encode-as-String avoids this, as mentioned with respect to ``JSON.parse``
-below. For that reason, the HTTP JSON API Service uses ``true`` for both flags.
+below. **For that reason, the HTTP JSON API Service uses ``true`` for both flags.**
+
+Type-directed Parsing
+*********************
 
 Note that throughout the document the decoding is type-directed. In
 other words, the same JSON value can correspond to many Daml-LF values,
-and the expected Daml-LF type is needed to decide which one.
+and a single Daml-LF value can correspond to multiple JSON encodings. This
+means it is crucial to know the expected type of a JSON-encoded LF value to
+make sense of it.
+
+For that reason, you should parse the data into appropriate data types
+(including parsing numbers into appropriate representations) before doing any
+meaningful manipulations (e.g. comparison for equality).
 
 ContractId
 **********

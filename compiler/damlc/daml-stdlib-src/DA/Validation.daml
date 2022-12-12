@@ -14,7 +14,9 @@ module DA.Validation
   , (<?>)
   ) where
 
+import DA.Foldable
 import DA.NonEmpty as NE
+import DA.Traversable
 import DA.Validation.Types
 
 deriving instance (Eq err, Eq a) => Eq (Validation err a)
@@ -70,8 +72,23 @@ instance Applicative (Validation err) where
     Errors e1 *> Success _ = Errors e1
     Errors e1 *> Errors e2 = Errors (e1 <> e2)
 
--- | Convert an `Optional t` into a `Validation Text t`, or
+-- | Unlike the Haskell version (see https://hackage.haskell.org/package/either-5.0.2/docs/Data-Either-Validation.html#t:Validation), 
+-- this only results in a `Success` (the last one) if there are no `Errors`.
+instance Semigroup (Validation err a) where
+    Errors e1 <> Errors e2 = Errors (e1 <> e2)
+    Success _ <> x = x
+    x <> Success _ = x
+
+instance Foldable (Validation err) where
+    foldr _ z (Errors _) = z
+    foldr f z (Success x) = f x z
+
+instance Traversable (Validation err) where
+    mapA _ (Errors x) = pure $ Errors x
+    mapA f (Success x) = Success <$> f x
+
+-- | Convert an `Optional t` into a `Validation err t`, or
 -- more generally into an `m t` for any `ActionFail` type `m`.
-(<?>) : Optional b -> Text -> Validation Text b
+(<?>) : Optional b -> err -> Validation err b
 None <?> s = invalid s
 Some v <?> _ = pure v

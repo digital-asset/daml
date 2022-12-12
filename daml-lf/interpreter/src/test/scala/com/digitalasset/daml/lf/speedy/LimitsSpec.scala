@@ -22,26 +22,26 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
   private[this] val pkgs = SpeedyTestLib.typeAndCompile(
     p"""
       module Mod {
-        
-        record @serializable T = { 
+
+        record @serializable T = {
           signatories: List Party,
           observers: List Party
         };
-        
+
         record @serializable NoOpArg = { controllers: List Party, observers: List Party };
-        
-        val fetches: List (ContractId Mod:T) -> Update (List Mod:T) = 
-          \(cids: List (ContractId Mod:T)) -> 
-            case cids of 
-              Cons h t -> 
-                ubind 
-                  first: Mod:T <- fetch @Mod:T h;
+
+        val fetches: List (ContractId Mod:T) -> Update (List Mod:T) =
+          \(cids: List (ContractId Mod:T)) ->
+            case cids of
+              Cons h t ->
+                ubind
+                  first: Mod:T <- fetch_template @Mod:T h;
                   rest: List Mod:T <- Mod:fetches t
-                in 
+                in
                   upure @(List Mod:T) Cons @Mod:T [first] rest
-            | Nil -> 
+            | Nil ->
                 upure @(List Mod:T) Nil @Mod:T;
-        
+
         template (this : T) =  {
           precondition True;
           signatories Mod:T {signatories} this;
@@ -68,7 +68,7 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
       val limits = interpretation.Limits.Lenient.copy(contractSignatories = limit)
 
       val e =
-        e"""\(signatories: List Party) (observers: List Party) -> 
+        e"""\(signatories: List Party) (observers: List Party) ->
              create @Mod:T Mod:T { signatories = signatories, observers = observers }
          """
       forEvery(testCases) { (i, succeed) =>
@@ -94,7 +94,7 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
 
     "refuse to fetch a contract with too many signatories" in {
       val limits = interpretation.Limits.Lenient.copy(contractSignatories = limit)
-      val e = e"""\(cid: ContractId Mod:T) -> fetch @Mod:T cid"""
+      val e = e"""\(cid: ContractId Mod:T) -> fetch_template @Mod:T cid"""
 
       forEvery(testCases) { (i, succeed) =>
         val (signatories, observers) = committers.splitAt(i)
@@ -119,7 +119,7 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
     "refuse to exercise a contract with too many signatories" in {
       val limits = interpretation.Limits.Lenient.copy(contractSignatories = limit)
       val e =
-        e"""\(cid: ContractId Mod:T) (controllers: List Party) -> 
+        e"""\(cid: ContractId Mod:T) (controllers: List Party) ->
            exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = controllers, observers = Nil @Party }"""
 
       forEvery(testCases) { (i, succeed) =>
@@ -154,7 +154,7 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
       val limits = interpretation.Limits.Lenient.copy(contractObservers = limit)
 
       val e =
-        e"""\(signatories: List Party) (observers: List Party) -> 
+        e"""\(signatories: List Party) (observers: List Party) ->
              create @Mod:T Mod:T { signatories = signatories, observers = observers }
          """
 
@@ -181,7 +181,7 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
 
     "refuse to fetch a contract with too many observers" in {
       val limits = interpretation.Limits.Lenient.copy(contractObservers = limit)
-      val e = e"""\(cid: ContractId Mod:T) -> fetch @Mod:T cid"""
+      val e = e"""\(cid: ContractId Mod:T) -> fetch_template @Mod:T cid"""
 
       forEvery(testCases) { (i, succeed) =>
         val (observers, signatories) = committers.splitAt(i)
@@ -241,13 +241,13 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
     "refuse to exercise a choice with too many controllers" in {
       val limits = interpretation.Limits.Lenient.copy(choiceControllers = limit)
       val e =
-        e"""\(signatories: List Party) (controllers: List Party) -> 
-            ubind 
-               cid: ContractId Mod:T <- create @Mod:T Mod:T { 
-                 signatories = signatories, 
-                 observers = Nil @Party 
+        e"""\(signatories: List Party) (controllers: List Party) ->
+            ubind
+               cid: ContractId Mod:T <- create @Mod:T Mod:T {
+                 signatories = signatories,
+                 observers = Nil @Party
                }
-            in exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = controllers, observers = Nil @Party } 
+            in exercise @Mod:T NoOp cid Mod:NoOpArg {controllers = controllers, observers = Nil @Party }
          """
 
       forEvery(testCases) { (i, succeed) =>
@@ -392,8 +392,7 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
       machine = Speedy.Machine.fromUpdateSExpr(
         compiledPackages = pkgs,
         transactionSeed = txSeed,
-        updateSE =
-          SExpr.SEApp(pkgs.compiler.unsafeCompile(e), agrs.view.map(SExpr.SEValue(_)).toArray),
+        updateSE = SExpr.SEApp(pkgs.compiler.unsafeCompile(e), agrs.view.toArray),
         committers = committers,
         limits = limits,
       ),

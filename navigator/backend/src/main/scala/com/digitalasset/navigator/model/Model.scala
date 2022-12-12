@@ -87,6 +87,7 @@ final case class ExerciseCommand(
     platformTime: Instant,
     contract: ApiTypes.ContractId,
     template: DamlLfIdentifier,
+    interfaceId: Option[DamlLfIdentifier],
     choice: ApiTypes.Choice,
     argument: ApiValue,
 ) extends Command
@@ -103,6 +104,7 @@ case class DamlLfPackage(
     id: DamlLfRef.PackageId,
     typeDefs: Map[DamlLfIdentifier, DamlLfDefDataType],
     templates: Map[DamlLfIdentifier, Template],
+    interfaces: Map[DamlLfIdentifier, Interface],
 )
 
 /** A boxed DefDataType that also includes the ID of the type.
@@ -194,10 +196,17 @@ final case class Template(
     id: DamlLfIdentifier,
     choices: List[Choice],
     key: Option[DamlLfType],
+    implementedInterfaces: Set[DamlLfIdentifier],
 ) extends DamlLfNode {
   def topLevelDecl: String = id.qualifiedName.toString()
   def parameter: DamlLfTypeCon = DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq())
 }
+
+/** Interfaces. */
+final case class Interface(
+    id: DamlLfIdentifier,
+    choices: List[Choice],
+) extends DamlLfNode
 
 /** Template choice. */
 case class Choice(
@@ -205,4 +214,5 @@ case class Choice(
     parameter: DamlLfType,
     returnType: DamlLfType,
     consuming: Boolean,
+    inheritedInterface: Option[DamlLfIdentifier] = None,
 )

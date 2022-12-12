@@ -6,7 +6,6 @@ package com.daml.platform.akkastreams.dispatcher
 import java.util.Random
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{Executors, TimeUnit}
-
 import akka.stream.DelayOverflowStrategy
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -24,6 +23,7 @@ import scala.collection.immutable.TreeMap
 import scala.concurrent.Future.successful
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 class DispatcherSpec
     extends AsyncWordSpec
@@ -187,7 +187,7 @@ class DispatcherSpec
       forAllSteppingModes() { subSrc =>
         val dispatcher = newDispatcher()
 
-        dispatcher.close()
+        dispatcher.shutdown()
 
         dispatcher.signalNewHead(Index(1)) // should not throw
         dispatcher
@@ -220,9 +220,38 @@ class DispatcherSpec
         val out = collect(i50, i100, dispatcher, subSrc)
         publish(i100, dispatcher)
 
-        dispatcher.close()
+        dispatcher.shutdown()
 
         out.map(_ shouldEqual pairs100)
+      }
+    }
+
+    "fail when the dispatcher fails" in {
+      forAllSteppingModes() { subSrc =>
+        val dispatcher = newDispatcher()
+        val pairs50 = gen(50)
+        val i50 = pairs50.last._1
+        val pairs100 = gen(50)
+        val i100 = pairs100.last._1
+
+        publish(i50, dispatcher)
+        val out = collect(genesis, i100, dispatcher, subSrc)
+
+        val expectedException = new RuntimeException("some exception")
+
+        val newException = () => expectedException
+
+        for {
+          _ <- dispatcher.cancel(newException)
+          _ = publish(i100, dispatcher)
+
+          _ <- out.transform {
+            case Failure(`expectedException`) => Success(())
+            case Failure(other) =>
+              fail(s"Expected stream failed with $expectedException but got $other")
+            case Success(_) => fail("Expected stream failed")
+          }
+        } yield succeed
       }
     }
 
@@ -279,7 +308,7 @@ class DispatcherSpec
         val out75F = collect(i75, i100, dispatcher, subSrc)
         publish(i100, dispatcher)
 
-        dispatcher.close()
+        dispatcher.shutdown()
 
         validate4Sections(pairs25, pairs50, pairs75, pairs100, outF, out25F, out50F, out75F)
       }
@@ -308,7 +337,7 @@ class DispatcherSpec
           val out75F = collect(i75, i100, dispatcher, subSrc, delayMs = 10)
           publish(i100, dispatcher)
 
-          dispatcher.close()
+          dispatcher.shutdown()
 
           validate4Sections(pairs25, pairs50, pairs75, pairs100, outF, out25F, out50F, out75F)
       }
@@ -327,7 +356,7 @@ class DispatcherSpec
         for {
           results <- resultsF
         } yield {
-          dispatcher.close()
+          dispatcher.shutdown()
           results shouldEqual pairs25
         }
       }
@@ -344,7 +373,7 @@ class DispatcherSpec
         collect(Index(startIndex), i25, dispatcher, oneAfterAnotherSteppingMode),
         1.second,
       ).andThen { case _ =>
-        dispatcher.close()
+        dispatcher.shutdown()
       }
     }
 
@@ -357,7 +386,7 @@ class DispatcherSpec
       1.to(updateCount).foreach(_ => dispatcher.signalNewHead(Index(random.nextInt(100))))
       dispatcher.signalNewHead(Index(100))
       out.map(_ shouldEqual pairs).andThen { case _ =>
-        dispatcher.close()
+        dispatcher.shutdown()
       }
     }
   }

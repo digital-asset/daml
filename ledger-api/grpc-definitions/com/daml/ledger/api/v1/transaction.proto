@@ -68,7 +68,7 @@ message TreeEvent {
     }
 }
 
-// Filtered view of an on-ledger transaction.
+// Filtered view of an on-ledger transaction's create and archive events.
 message Transaction {
 
   // Assigned by the server. Useful for correlating logs.

@@ -30,20 +30,32 @@ template NameOfTemplate
     -- end of template outline snippet
     -- start of choice snippet
     -- option 1 for specifying choices: choice name first
-    choice NameOfChoice :
-          () -- replace () with the actual return type
-        with
+    choice NameOfChoice
+      : () -- replace () with the actual return type
+      with
         party : Party -- parameters here
       controller party
-        do
-          return () -- replace this line with the choice body
+      do
+        return () -- replace this line with the choice body
 
     -- option 2 for specifying choices (deprecated syntax): controller first
     controller exampleParty can
-      NameOfAnotherChoice :
-          () -- replace () with the actual return type
+      NameOfAnotherChoice
+        : () -- replace () with the actual return type
         with
           party : Party -- parameters here
         do
           return () -- replace the line with the choice body
       -- end of choice snippet
+
+    -- start of choice observer snippet
+    -- choice observers may be specified if option 1 is used
+    choice NameOfChoiceWithObserver
+      : () -- replace () with the actual return type
+      with
+        party : Party -- parameters here
+      observer party -- optional specification of choice observers (only available in Daml-LF >=1.11)
+      controller exampleParty
+      do
+        return () -- replace this line with the choice body
+    -- end of choice observer snippet

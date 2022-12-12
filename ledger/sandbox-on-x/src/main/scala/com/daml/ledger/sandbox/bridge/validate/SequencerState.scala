@@ -7,7 +7,8 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.validate.SequencerState.{LastUpdatedAt, SequencerQueue}
 import com.daml.lf.transaction.GlobalKey
-import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
+import com.daml.lf.value.Value.ContractId
+import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
 
 import scala.collection.Searching
 import scala.util.chaining._
@@ -21,13 +22,13 @@ import scala.util.chaining._
   */
 case class SequencerState private (
     private[validate] val sequencerQueue: SequencerQueue,
-    private[validate] val keyState: Map[Key, (Option[ContractId], LastUpdatedAt)],
+    private[validate] val keyState: Map[GlobalKey, (Option[ContractId], LastUpdatedAt)],
     private[validate] val consumedContractsState: Set[ContractId],
 )(implicit bridgeMetrics: BridgeMetrics) {
 
   def enqueue(
       offset: Offset,
-      updatedKeys: Map[Key, Option[ContractId]],
+      updatedKeys: Map[GlobalKey, Option[ContractId]],
       consumedContracts: Set[ContractId],
   ): SequencerState =
     if (sequencerQueue.lastOption.exists(_._1 >= offset))
@@ -70,11 +71,12 @@ case class SequencerState private (
     )
   }
 
-  private def updateMetrics(newState: SequencerState): Unit = {
-    val stateMetrics = bridgeMetrics.Stages.Sequence
-    stateMetrics.sequencerQueueLength.update(newState.sequencerQueue.length)
-    stateMetrics.keyStateSize.update(newState.keyState.size)
-    stateMetrics.consumedContractsStateSize.update(newState.consumedContractsState.size)
+  private def updateMetrics(newState: SequencerState): Unit = withEmptyMetricsContext {
+    implicit metricsContext =>
+      val stateMetrics = bridgeMetrics.Stages.Sequence
+      stateMetrics.sequencerQueueLength.update(newState.sequencerQueue.length)
+      stateMetrics.keyStateSize.update(newState.keyState.size)
+      stateMetrics.consumedContractsStateSize.update(newState.consumedContractsState.size)
   }
 }
 
@@ -82,7 +84,7 @@ object SequencerState {
   // Override default apply to prevent construction of an already-populated state.
   def apply(
       sequencerQueue: SequencerQueue,
-      keyState: Map[Key, (Option[ContractId], LastUpdatedAt)],
+      keyState: Map[GlobalKey, (Option[ContractId], LastUpdatedAt)],
       consumedContractsState: Set[ContractId],
   )(implicit bridgeMetrics: BridgeMetrics): SequencerState = {
     require(sequencerQueue.isEmpty, "The sequencer state queue must be empty at initialization")

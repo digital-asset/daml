@@ -14,6 +14,19 @@ import DA.Stack
 import DA.Time
 import Daml.Script
 
+-- `mySubmit` and `stackTrace` are used when testing srcloc within a stack-trace.
+-- If these functions are relocated within this file, the expected locations
+-- in the "stack trace" test in AbstractFuncIT.scala will need to be updated.
+-- By having these two definition at the head of this file, we are less likely to
+-- have to adapt the expected src-locs as new Daml gets added.
+mySubmit : HasCallStack => Party -> Commands a -> Script a -- line 22
+mySubmit p cmds = submit p cmds
+
+stackTrace : Script ()
+stackTrace = do
+  p <- allocateParty "p" -- line 27
+  mySubmit p $ createAndExerciseCmd (C p 42) ShouldFail
+
 template T
   with
     p1 : Party
@@ -389,14 +402,6 @@ tree = do
   fromAnyTemplate c3.argument === Some (MessageSize p1)
   pure ()
 
-mySubmit : HasCallStack => Party -> Commands a -> Script a
-mySubmit p cmds = submit p cmds
-
-stackTrace : Script ()
-stackTrace = do
-  p <- allocateParty "p"
-  mySubmit p $ createAndExerciseCmd (C p 42) ShouldFail
-
 -- Create a contract only visible to one party to test readAs
 jsonMultiPartySubmissionCreateSingle : Party -> Script (ContractId MultiPartyContract)
 jsonMultiPartySubmissionCreateSingle p = do
@@ -457,8 +462,8 @@ expectUserNotFound script = try do _ <- script; undefined catch UserNotFound _ -
 
 testUserManagementForParty : Party -> Script ()
 testUserManagementForParty p1 = do
-  True <- isValidUserId "good"
-  False <- isValidUserId "BAD"
+  True <- isValidUserId "Good"
+  False <- isValidUserId "BAD?" -- contains invalid character '?'
   participantAdmin <- getParticipantAdmin ()
   users <- listAllUsers
   users === [participantAdmin]

@@ -35,4 +35,19 @@ private[interning] object RawStringInterning {
         (index + 1 + rawStringInterning.lastId, string)
       }
       .toVector
+
+  def resetTo(
+      lastPersistedStringInterningId: Int,
+      rawStringInterning: RawStringInterning,
+  ): RawStringInterning =
+    if (lastPersistedStringInterningId < rawStringInterning.lastId) {
+      val idsToBeRemoved = lastPersistedStringInterningId + 1 to rawStringInterning.lastId
+      val stringsToBeRemoved = idsToBeRemoved.map(rawStringInterning.idMap)
+
+      RawStringInterning(
+        map = rawStringInterning.map.removedAll(stringsToBeRemoved),
+        idMap = rawStringInterning.idMap.removedAll(idsToBeRemoved),
+        lastId = lastPersistedStringInterningId,
+      )
+    } else rawStringInterning
 }

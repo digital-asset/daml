@@ -97,7 +97,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
         result <- waitForTransactionId(
           alpha,
           party,
-          handler.exerciseDestruct(party, toNat(nChoiceArgument)),
+          handler.exerciseDestruct(toNat(nChoiceArgument)),
         )
       } yield result
     }
@@ -110,7 +110,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
         alpha,
         party,
         Contract(party, nContract, toNat(nContract)).createAnd
-          .exerciseArchive(party),
+          .exerciseArchive(),
       )
     }
 
@@ -121,7 +121,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       waitForTransactionId(
         alpha,
         party,
-        Handler(party).createAnd.exerciseDestruct(party, toNat(nChoiceArgument)),
+        Handler(party).createAnd.exerciseDestruct(toNat(nChoiceArgument)),
       )
     }
 
@@ -135,7 +135,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
           waitForTransactionId(
             alpha,
             party,
-            handler.exerciseConstructThenDestruct(party, nChoiceArgument),
+            handler.exerciseConstructThenDestruct(nChoiceArgument),
           )
       } yield result
     }
@@ -147,7 +147,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       for {
         handler <- alpha.create(party, Handler(party))
         result <-
-          waitForTransactionId(alpha, party, handler.exerciseConstruct(party, n))
+          waitForTransactionId(alpha, party, handler.exerciseConstruct(n))
       } yield result
     }
 
@@ -157,7 +157,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
     ) { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- waitForTransactionId(alpha, party, handler.exerciseCreate(party, nContract))
+        result <- waitForTransactionId(alpha, party, handler.exerciseCreate(nContract))
       } yield result
     }
 
@@ -167,7 +167,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
     ) { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- waitForTransactionId(alpha, party, handler.exerciseCreateKey(party, nKey))
+        result <- waitForTransactionId(alpha, party, handler.exerciseCreateKey(nKey))
       } yield result
     }
 
@@ -180,8 +180,8 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       ) { implicit ec => (alpha, party) =>
         for {
           handler <- alpha.create(party, Handler(party))
-          _ <- alpha.exercise(party, handler.exerciseCreateKey(_, nKey))
-          result <- waitForTransactionId(alpha, party, handler.exerciseFetchByKey(party, nKey))
+          _ <- alpha.exercise(party, handler.exerciseCreateKey(nKey))
+          result <- waitForTransactionId(alpha, party, handler.exerciseFetchByKey(nKey))
         } yield result
       }
     }
@@ -192,7 +192,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
     ) { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
-        result <- waitForTransactionId(alpha, party, handler.exerciseLookupByKey(party, nKey))
+        result <- waitForTransactionId(alpha, party, handler.exerciseLookupByKey(nKey))
       } yield result
     }
 
@@ -205,9 +205,9 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       ) { implicit ec => (alpha, party) =>
         for {
           handler <- alpha.create(party, Handler(party))
-          _ <- alpha.exercise(party, handler.exerciseCreateKey(_, nKey))
+          _ <- alpha.exercise(party, handler.exerciseCreateKey(nKey))
           result <-
-            waitForTransactionId(alpha, party, handler.exerciseLookupByKey(party, nKey))
+            waitForTransactionId(alpha, party, handler.exerciseLookupByKey(nKey))
         } yield result
       }
     }

@@ -50,6 +50,8 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside {
                 None,
                 actAs = Some(domain.Party subst specialActAs),
                 readAs = Some(domain.Party subst specialReadAs),
+                submissionId = None,
+                deduplicationPeriod = None,
               )
             )
           ),
@@ -81,11 +83,11 @@ object CommandServiceTest {
     readAs = domain.Party subst List("baz", "quux"),
   )
   private lazy val multiPartyJwt = jwtForParties(
-    actAs = domain.Party unsubst multiPartyJwp.submitter.toList,
-    readAs = domain.Party unsubst multiPartyJwp.readAs,
+    actAs = multiPartyJwp.submitter.toList,
+    readAs = multiPartyJwp.readAs,
     ledgerId = Some(multiPartyJwp.ledgerId.unwrap),
   )
-  private val tplId = domain.TemplateId("Foo", "Bar", "Baz")
+  private val tplId = domain.ContractTypeId.Template("Foo", "Bar", "Baz")
 
   implicit private val ignoredLoggingContext
       : LoggingContextOf[HLogging.InstanceUUID with HLogging.RequestID] =
@@ -100,27 +102,27 @@ object CommandServiceTest {
     (
       new CommandService(
         submitAndWaitForTransaction = (_, req) =>
-          Future {
-            txns.add(req)
-            import lav1.event.{CreatedEvent, Event}, Event.Event.Created
-            val creation = Event(
-              Created(
-                CreatedEvent(
-                  templateId = Some(
-                    lav1.value
-                      .Identifier(tplId.packageId, tplId.moduleName, tplId.entityName)
-                  ),
-                  createArguments = Some(lav1.value.Record()),
+          _ =>
+            Future {
+              txns.add(req)
+              import lav1.event.{CreatedEvent, Event}, Event.Event.Created
+              import com.daml.fetchcontracts.util.IdentifierConverters.apiIdentifier
+              val creation = Event(
+                Created(
+                  CreatedEvent(
+                    templateId = Some(apiIdentifier(tplId)),
+                    createArguments = Some(lav1.value.Record()),
+                  )
                 )
               )
-            )
-            \/-(SubmitAndWaitForTransactionResponse(Some(Transaction(events = Seq(creation)))))
-          },
+              \/-(SubmitAndWaitForTransactionResponse(Some(Transaction(events = Seq(creation)))))
+            },
         submitAndWaitForTransactionTree = (_, req) =>
-          Future {
-            trees.add(req)
-            \/-(SubmitAndWaitForTransactionTreeResponse(Some(TransactionTree())))
-          },
+          _ =>
+            Future {
+              trees.add(req)
+              \/-(SubmitAndWaitForTransactionTreeResponse(Some(TransactionTree())))
+            },
       ),
       txns.asScala,
       trees.asScala,

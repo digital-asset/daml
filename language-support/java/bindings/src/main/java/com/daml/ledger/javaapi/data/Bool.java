@@ -6,12 +6,22 @@ package com.daml.ledger.javaapi.data;
 import com.daml.ledger.api.v1.ValueOuterClass;
 import java.util.Objects;
 
-public class Bool extends Value {
+public final class Bool extends Value {
 
   private final boolean value;
 
+  public static final Bool TRUE = new Bool(true);
+  public static final Bool FALSE = new Bool(false);
+
+  // TODO #15207 make private; delete equals/hashCode
+  /** @deprecated Use {@link #of} instead; since Daml 2.5.0 */
+  @Deprecated
   public Bool(boolean value) {
     this.value = value;
+  }
+
+  public static Bool of(boolean value) {
+    return value ? TRUE : FALSE;
   }
 
   @Override

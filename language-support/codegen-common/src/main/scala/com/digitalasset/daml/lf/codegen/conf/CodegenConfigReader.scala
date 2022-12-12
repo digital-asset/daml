@@ -174,7 +174,7 @@ object CodegenConfigReader {
     }
   }
 
-  private val PackageReferenceSeparator = '-'
+  private[conf] val PackageReferenceSeparator = '-'
 
   implicit val decodePackageReference: KeyDecoder[PackageReference] =
     key =>

@@ -3,7 +3,8 @@
 
 package com.daml.ledger.sandbox.bridge.validate
 
-import com.codahale.metrics.MetricRegistry
+import java.time.Duration
+
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -16,7 +17,7 @@ import com.daml.ledger.sandbox.domain.Rejection.{
 }
 import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
@@ -27,15 +28,13 @@ import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.time.Duration
-
 class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
   private implicit val errorLogger: ContextualizedErrorLogger =
     DamlContextualizedErrorLogger.forTesting(getClass)
 
   private val prepareSubmission = new PrepareSubmissionImpl(
-    new BridgeMetrics(new Metrics(new MetricRegistry))
+    new BridgeMetrics(Metrics.ForTesting)
   )
 
   private def cid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
@@ -85,6 +84,7 @@ class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
         transactionMeta = txMeta,
         transaction = SubmittedTransaction(txBuilder.build()),
         estimatedInterpretationCost = 0L,
+        disclosedContracts = ImmArray.empty,
       )
     )
     validationResult.map(
@@ -120,6 +120,7 @@ class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
         transactionMeta = txMeta,
         transaction = SubmittedTransaction(txBuilder.build()),
         estimatedInterpretationCost = 0L,
+        disclosedContracts = ImmArray.empty,
       )
     )
     validationResult.map(

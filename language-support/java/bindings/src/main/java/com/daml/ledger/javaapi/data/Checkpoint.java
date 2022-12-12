@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class Checkpoint {
+public final class Checkpoint {
 
   private final Instant recordTime;
 

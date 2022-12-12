@@ -10,15 +10,15 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
+import com.daml.ledger.runner.common.Config
 import com.daml.lf.data.Ref
-import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import io.grpc.ManagedChannel
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.OneAnd
+import scalaz.syntax.tag._
 
 final class LedgerClientIT
     extends AsyncWordSpec
@@ -38,9 +38,7 @@ final class LedgerClientIT
     token = None,
   )
 
-  override protected def config: SandboxConfig = super.config.copy(
-    ledgerIdMode = LedgerIdMode.Static(LedgerId)
-  )
+  override protected def config: Config = super.config.copy(ledgerId = LedgerId.unwrap)
 
   "the ledger client" should {
     "retrieve the ledger ID" in {

@@ -3,11 +3,11 @@
 
 package com.daml.platform.sandbox.auth
 
-import java.util.UUID
-
 import com.daml.ledger.api.v1.admin.user_management_service._
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import org.scalatest.Assertion
 
+import java.util.UUID
 import scala.concurrent.Future
 
 class ListAuthenticatedUserRightsAuthIT extends ServiceCallAuthTests {
@@ -31,11 +31,16 @@ class ListAuthenticatedUserRightsAuthIT extends ServiceCallAuthTests {
 
   behavior of serviceCallName
 
-  it should "deny unauthenticated access" in {
+  it should "deny unauthenticated access" taggedAs securityAsset.setAttack(
+    attackUnauthenticated(threat = "Do not present a JWT")
+  ) in {
     expectUnauthenticated(serviceCallWithToken(None))
   }
 
-  it should "deny access for a standard token referring to an unknown user" in {
+  it should "deny access for a standard token referring to an unknown user" taggedAs securityAsset
+    .setAttack(
+      attackPermissionDenied(threat = "Present a JWT with an unknown user")
+    ) in {
     expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
   }
 
@@ -46,11 +51,15 @@ class ListAuthenticatedUserRightsAuthIT extends ServiceCallAuthTests {
     )
   }
 
-  it should "return invalid argument for custom token" in {
+  it should "return invalid argument for custom token" taggedAs securityAsset.setAttack(
+    attackInvalidArgument(threat = "Present a custom admin JWT")
+  ) in {
     expectInvalidArgument(serviceCallWithToken(canReadAsAdmin))
   }
 
-  it should "allow access to a non-admin user's own rights" in {
+  it should "allow access to a non-admin user's own rights" taggedAs securityAsset.setHappyCase(
+    "Ledger API client can read non-admin user's own rights"
+  ) in {
     val expectedRights = ListUserRightsResponse(Vector.empty)
     for {
       // admin creates user

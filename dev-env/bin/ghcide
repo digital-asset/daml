@@ -1,7 +1,0 @@
-#!/usr/bin/env nix-shell
-#!nix-shell -i bash ../../shell.nix
-
-set -euo pipefail
-
-bazel build @ghcide-exe//ghcide
-exec ./bazel-bin/external/ghcide/ghcide-1.5.0.1/_install/bin/ghcide "$@"

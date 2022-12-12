@@ -52,12 +52,15 @@ data ExprF expr
   | EThrowF !Type !Type !expr
   | EToInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
   | EFromInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
+  | EUnsafeFromInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr !expr
   | ECallInterfaceF !(Qualified TypeConName) !MethodName !expr
   | EToRequiredInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
   | EFromRequiredInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
+  | EUnsafeFromRequiredInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr !expr
   | EInterfaceTemplateTypeRepF !(Qualified TypeConName) !expr
   | ESignatoryInterfaceF !(Qualified TypeConName) !expr
   | EObserverInterfaceF !(Qualified TypeConName) !expr
+  | EViewInterfaceF !(Qualified TypeConName) !expr
   | EExperimentalF !T.Text !Type
   deriving (Foldable, Functor, Traversable)
 
@@ -70,7 +73,7 @@ data UpdateF expr
   | UCreateF   !(Qualified TypeConName) !expr
   | UCreateInterfaceF !(Qualified TypeConName) !expr
   | UExerciseF !(Qualified TypeConName) !ChoiceName !expr !expr
-  | UExerciseInterfaceF !(Qualified TypeConName) !ChoiceName !expr !expr !expr
+  | UExerciseInterfaceF !(Qualified TypeConName) !ChoiceName !expr !expr !(Maybe expr)
   | UExerciseByKeyF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UFetchF    !(Qualified TypeConName) !expr
   | UFetchInterfaceF    !(Qualified TypeConName) !expr
@@ -211,12 +214,15 @@ instance Recursive Expr where
     EThrow a b c -> EThrowF a b c
     EToInterface a b c -> EToInterfaceF a b c
     EFromInterface a b c -> EFromInterfaceF a b c
+    EUnsafeFromInterface a b c d -> EUnsafeFromInterfaceF a b c d
     ECallInterface a b c -> ECallInterfaceF a b c
     EToRequiredInterface a b c -> EToRequiredInterfaceF a b c
     EFromRequiredInterface a b c -> EFromRequiredInterfaceF a b c
+    EUnsafeFromRequiredInterface a b c d -> EUnsafeFromRequiredInterfaceF a b c d
     EInterfaceTemplateTypeRep a b -> EInterfaceTemplateTypeRepF a b
     ESignatoryInterface a b -> ESignatoryInterfaceF a b
     EObserverInterface a b -> EObserverInterfaceF a b
+    EViewInterface a b -> EViewInterfaceF a b
     EExperimental a b -> EExperimentalF a b
 
 instance Corecursive Expr where
@@ -253,10 +259,13 @@ instance Corecursive Expr where
     EThrowF a b c -> EThrow a b c
     EToInterfaceF a b c -> EToInterface a b c
     EFromInterfaceF a b c -> EFromInterface a b c
+    EUnsafeFromInterfaceF a b c d -> EUnsafeFromInterface a b c d
     ECallInterfaceF a b c -> ECallInterface a b c
     EToRequiredInterfaceF a b c -> EToRequiredInterface a b c
     EFromRequiredInterfaceF a b c -> EFromRequiredInterface a b c
+    EUnsafeFromRequiredInterfaceF a b c d -> EUnsafeFromRequiredInterface a b c d
     EInterfaceTemplateTypeRepF a b -> EInterfaceTemplateTypeRep a b
     ESignatoryInterfaceF a b -> ESignatoryInterface a b
     EObserverInterfaceF a b -> EObserverInterface a b
+    EViewInterfaceF a b -> EViewInterface a b
     EExperimentalF a b -> EExperimental a b

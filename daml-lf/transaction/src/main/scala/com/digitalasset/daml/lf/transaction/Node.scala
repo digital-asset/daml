@@ -24,12 +24,6 @@ sealed abstract class Node extends Product with Serializable with CidContainer[N
 
 object Node {
 
-  @deprecated("use Node", since = "1.18.0")
-  type GenNode = Node
-
-  @deprecated("use Node.Action", since = "1.18.0")
-  type GenAction = Action
-
   /** action nodes parametrized over identifier type */
   sealed abstract class Action extends Node with ActionNodeInfo with CidContainer[Action] {
 
@@ -38,6 +32,12 @@ object Node {
     private[lf] def updateVersion(version: TransactionVersion): Node
 
     def templateId: TypeConName
+
+    /** The package ids used by this action node.
+      */
+    def packageIds: Iterable[PackageId]
+
+    def keyOpt: Option[KeyWithMaintainers]
 
     final override protected def self: this.type = this
 
@@ -54,23 +54,13 @@ object Node {
 
     def byKey: Boolean
 
-    def byInterface: Option[TypeConName]
-
     protected def versioned[X](x: X): Versioned[X] = Versioned(version, x)
   }
-
-  @deprecated("use Node.LeafOnlyAction", since = "1.18.0")
-  type LeafOnlyActionNode = LeafOnlyAction
 
   /** A transaction node with no children */
   sealed trait LeafOnlyAction extends Action {
     override def mapNodeId(f: NodeId => NodeId): Node = this
   }
-
-  @deprecated("use Node.Create", since = "1.18.0")
-  type NodeCreate = Create
-  @deprecated("use Node.Create", since = "1.18.0")
-  val NodeCreate: Create.type = Create
 
   /** Denotes the creation of a contract instance. */
   final case class Create(
@@ -81,7 +71,6 @@ object Node {
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers],
-      override val byInterface: Option[TypeConName],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction
@@ -89,11 +78,15 @@ object Node {
 
     override def byKey: Boolean = false
 
+    override def keyOpt: Option[KeyWithMaintainers] = key
+
     override private[lf] def updateVersion(version: TransactionVersion): Node.Create =
       copy(version = version)
 
     override def mapCid(f: ContractId => ContractId): Node.Create =
       copy(coid = f(coid), arg = arg.mapCid(f), key = key.map(_.mapCid(f)))
+
+    override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
 
     def versionedArg: Value.VersionedValue = versioned(arg)
 
@@ -103,12 +96,9 @@ object Node {
     def versionedCoinst: Value.VersionedContractInstance = versioned(coinst)
 
     def versionedKey: Option[VersionedKeyWithMaintainers] = key.map(versioned)
-  }
 
-  @deprecated("use Node.Fetch", since = "1.18.0")
-  type NodeFetch = Fetch
-  @deprecated("use Node.Fetch", since = "1.18.0")
-  val NodeFetch: Fetch.type = Fetch
+    def keyValue: Option[Value] = key.map(_.key)
+  }
 
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
   final case class Fetch(
@@ -118,12 +108,13 @@ object Node {
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers],
-      override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
-      override val byInterface: Option[TypeConName],
+      override val byKey: Boolean,
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction
       with ActionNodeInfo.Fetch {
+
+    override def keyOpt: Option[KeyWithMaintainers] = key
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.Fetch =
       copy(version = version)
@@ -131,13 +122,12 @@ object Node {
     override def mapCid(f: ContractId => ContractId): Node.Fetch =
       copy(coid = f(coid), key = key.map(_.mapCid(f)))
 
-    def versionedKey: Option[VersionedKeyWithMaintainers] = key.map(versioned)
-  }
+    override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
 
-  @deprecated("use Node.Exercise", since = "1.18.0")
-  type NodeExercises = Exercise
-  @deprecated("use Node.Exercise", since = "1.18.0")
-  val NodeExercises: Exercise.type = Exercise
+    def versionedKey: Option[VersionedKeyWithMaintainers] = key.map(versioned)
+
+    def keyValue: Option[Value] = key.map(_.key)
+  }
 
   /** Denotes a transaction node for an exercise.
     * We remember the `children` of this `NodeExercises`
@@ -147,6 +137,7 @@ object Node {
   final case class Exercise(
       targetCoid: ContractId,
       override val templateId: TypeConName,
+      interfaceId: Option[TypeConName],
       choiceId: ChoiceName,
       consuming: Boolean,
       actingParties: Set[Party],
@@ -157,12 +148,15 @@ object Node {
       children: ImmArray[NodeId],
       exerciseResult: Option[Value],
       key: Option[KeyWithMaintainers],
-      override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
-      override val byInterface: Option[TypeConName],
+      override val byKey: Boolean,
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends Action
       with ActionNodeInfo.Exercise {
+
+    def qualifiedChoideName = QualifiedChoiceName(interfaceId, choiceId)
+
+    override def keyOpt: Option[KeyWithMaintainers] = key
 
     override private[lf] def updateVersion(
         version: TransactionVersion
@@ -179,17 +173,17 @@ object Node {
     override def mapNodeId(f: NodeId => NodeId): Node.Exercise =
       copy(children = children.map(f))
 
+    override def packageIds: Iterable[PackageId] =
+      Iterable(templateId.packageId) ++ interfaceId.map(_.packageId)
+
     def versionedChosenValue: Value.VersionedValue = versioned(chosenValue)
 
     def versionedExerciseResult: Option[Value.VersionedValue] = exerciseResult.map(versioned)
 
     def versionedKey: Option[VersionedKeyWithMaintainers] = key.map(versioned)
-  }
 
-  @deprecated("use Node.LookupByKey", since = "1.18.0")
-  type NodeLookupByKey = LookupByKey
-  @deprecated("use Node.LookupByKey", since = "1.18.0")
-  val NodeLookupByKey: LookupByKey.type = LookupByKey
+    def keyValue: Option[Value] = key.map(_.key)
+  }
 
   final case class LookupByKey(
       override val templateId: TypeConName,
@@ -200,18 +194,23 @@ object Node {
   ) extends LeafOnlyAction
       with ActionNodeInfo.LookupByKey {
 
+    override def keyOpt: Some[KeyWithMaintainers] = Some(key)
+
     override def mapCid(f: ContractId => ContractId): Node.LookupByKey =
       copy(key = key.mapCid(f), result = result.map(f))
 
     override def keyMaintainers: Set[Party] = key.maintainers
     override def hasResult: Boolean = result.isDefined
     override def byKey: Boolean = true
-    override def byInterface: Option[TypeConName] = None
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.LookupByKey =
       copy(version = version)
 
+    override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
+
     def versionedKey: VersionedKeyWithMaintainers = versioned(key)
+
+    def keyValue: Value = key.key
   }
 
   final case class KeyWithMaintainers(key: Value, maintainers: Set[Party])
@@ -227,11 +226,6 @@ object Node {
   }
 
   type VersionedKeyWithMaintainers = Versioned[KeyWithMaintainers]
-
-  @deprecated("use Node.Rollback", since = "1.18.0")
-  type NodeRollback = Rollback
-  @deprecated("use Node.Rollback", since = "1.18.0")
-  val NodeRollback: Rollback.type = Rollback
 
   final case class Rollback(
       children: ImmArray[NodeId]

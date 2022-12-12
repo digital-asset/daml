@@ -7,7 +7,7 @@ Troubleshooting
 .. _faqs-multi-obligables:
 
 Error: "<X> is not authorized to commit an update"
-***************************************************
+**************************************************
 
 This error occurs when there are multiple obligables on a contract.
 
@@ -17,7 +17,7 @@ To solve this, make sure each party is entering into the contract freely by exer
 
 .. _faqs-serial-arg:
 
-Error "Argument is not of serializable type"
+Error: "Argument is not of serializable type"
 *********************************************
 
 This error occurs when you're using a function as a parameter to a template. For example, here is a contract that creates a ``Payout`` controller by a receiver's supervisor:
@@ -33,12 +33,12 @@ Hovering over the compilation error displays:
 
   [Type checker] Argument expands to non-serializable type Party -> Party.
 
-Modeling questions
+Modeling Questions
 ******************
 
 .. _faqs-proposal:
 
-How to model an agreement with another party
+How To Model an Agreement With Another Party
 ============================================
 
 To enter into an agreement, create a contract from a template that has explicit ``signatory`` and ``agreement`` statements.
@@ -49,14 +49,14 @@ Because of the rules that Daml enforces, it is not possible for a single party t
 
 .. _faqs-rights:
 
-How to model rights
+How To Model Rights
 ===================
 
 Use a contract choice to model a right. A party exercises that right by exercising the choice.
 
 .. _faqs-voiding-contract:
 
-How to void a contract
+How To Void a Contract
 ======================
 
 To allow voiding a contract, provide a choice that does not create any new contracts. Daml contracts are archived (but not deleted) when a consuming choice is made - so exercising the choice effectively voids the contract.
@@ -65,7 +65,7 @@ However, you should bear in mind who is allowed to void a contract, especially w
 
 .. _faqs-party-delegation:
 
-How to represent off-ledger parties
+How To Represent Off-ledger Parties
 ===================================
 
 You'd need to do this if you can't set up all parties as ledger participants, because the Daml ``Party`` type gets associated with a cryptographic key and can so only be used with parties that have been set up accordingly.
@@ -76,7 +76,7 @@ This isn't very private, so you could use a numeric ID/an accountId to identify 
 
 .. _faqs-timed-choice:
 
-How to limit a choice by time
+How To Limit a Choice by Time
 =============================
 
 Some rights have a time limit: either a time by which it must be exercised or a time before which it cannot be exercised.
@@ -85,7 +85,7 @@ You can use ``getTime`` to get the current time, and compare your desired time t
 
 .. _faqs-mandatory-action:
 
-How to model a mandatory action
+How To Model a Mandatory Action
 ===============================
 
 If you want to ensure that a party takes some action within a given time period. Might want to incur a penalty if they don't - because that would breach the contract.
@@ -96,7 +96,7 @@ However, note that the penalty action can only ever create another contract on t
 
 .. _faqs-optional:
 
-When to use Optional
+When to Use Optional
 ====================
 
 The ``Optional`` type, from the standard library, to indicate that a value is optional, i.e, that in some cases it may be missing.
@@ -153,12 +153,12 @@ If ``optionalValue`` is ``Some 5``, the value of ``t`` would be ``"The number is
 
 There are many other functions in "Optional.daml" that let you perform familiar functional operations on structures that contain ``Optional`` values – such as ``map``, ``filter``, etc. on ``Lists`` of ``Optional`` values.
 
-Testing questions
+Testing Questions
 *****************
 
 .. _faqs-test-visibility:
 
-How to test that a contract is visible to a party
+How To Test That a Contract Is Visible to a Party
 =================================================
 
 Use ``queryContractId``: its first argument is a party, and the second is a ``ContractId``. If the contract corresponding to that ``ContractId`` exists and is visible to the party, the result will be wrapped in ``Some``, otherwise the result will be ``None``.
@@ -185,7 +185,7 @@ Now that the contract is bound to a variable, we can check whether it has some e
 
 .. _faqs-must-fail:
 
-How to test that an update action cannot be committed
+How To Test That an Update Action Cannot Be Committed
 ======================================================
 
 Use the ``submitMustFail`` function. This is similar in form to the ``submit`` function, but is an assertion that an update will fail if attempted by some Party.

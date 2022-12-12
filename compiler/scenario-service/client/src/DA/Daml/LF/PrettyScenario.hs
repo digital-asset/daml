@@ -4,7 +4,8 @@
 
 -- | Pretty-printing of scenario results
 module DA.Daml.LF.PrettyScenario
-  ( prettyScenarioResult
+  ( activeContractsFromScenarioResult
+  , prettyScenarioResult
   , prettyScenarioError
   , prettyBriefScenarioError
   , prettyWarningMessage
@@ -14,6 +15,7 @@ module DA.Daml.LF.PrettyScenario
   , lookupLocationModule
   , scenarioNotInFileNote
   , fileWScenarioNoLongerCompilesNote
+  , isActive
   , ModuleRef
   -- Exposed for testing
   , ptxExerciseContext
@@ -131,16 +133,24 @@ parseNodeId =
   where
     dropHash s = fromMaybe s $ stripPrefix "#" s
 
+activeContractsFromScenarioResult :: ScenarioResult -> S.Set TL.Text
+activeContractsFromScenarioResult result =
+    S.fromList (V.toList (scenarioResultActiveContracts result))
+
+activeContractsFromScenarioError :: ScenarioError -> S.Set TL.Text
+activeContractsFromScenarioError err =
+    S.fromList (V.toList (scenarioErrorActiveContracts err))
+
 prettyScenarioResult
-  :: LF.World -> ScenarioResult -> Doc SyntaxClass
-prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime traceLog warnings) =
+  :: LF.World -> S.Set TL.Text -> ScenarioResult -> Doc SyntaxClass
+prettyScenarioResult world activeContracts (ScenarioResult steps nodes retValue _finaltime traceLog warnings _) =
   let ppSteps = runM nodes world (vsep <$> mapM prettyScenarioStep (V.toList steps))
       sortNodeIds = sortOn parseNodeId
       ppActive =
           fcommasep
         $ map prettyNodeIdLink
         $ sortNodeIds $ mapMaybe nodeNodeId
-        $ filter isActive (V.toList nodes)
+        $ filter (isActive activeContracts) (V.toList nodes)
 
       ppTrace = vcat $ map prettyTraceMessage (V.toList traceLog)
       ppWarnings = vcat $ map prettyWarningMessage (V.toList warnings)
@@ -225,6 +235,7 @@ data ExerciseContext = ExerciseContext
   , choiceId :: TL.Text
   , exerciseLocation :: Maybe Location
   , chosenValue :: Maybe Value
+  , exerciseKey :: Maybe KeyWithMaintainers
   } deriving (Eq, Show)
 
 ptxExerciseContext :: PartialTransaction -> Maybe ExerciseContext
@@ -248,6 +259,7 @@ ptxExerciseContext PartialTransaction{..} = go Nothing partialTransactionRoots
                               , choiceId = node_ExerciseChoiceId
                               , exerciseLocation = Nothing
                               , chosenValue = node_ExerciseChosenValue
+                              , exerciseKey = node_ExerciseExerciseByKey
                               }
                         in go (Just ctx) node_ExerciseChildren
                       | otherwise -> acc
@@ -282,6 +294,13 @@ prettyScenarioErrorError (Just err) =  do
             <-> prettyMay "<missing contract>"
                   (prettyContractRef world)
                   scenarioError_ContractNotActiveContractRef
+        ]
+    ScenarioErrorErrorDisclosedContractKeyHashingError(ScenarioError_DisclosedContractKeyHashingError contractId templateId reason) ->
+      pure $ vcat
+        [ "Failed to cache disclosed contract key"
+        , label_ "Contract:" $ prettyMay "<missing contract>" (prettyContractRef world) contractId
+        , label_ "Template:" $ prettyMay "<missing template id>" (prettyDefName world) templateId
+        , label_ "Reason:" $ ltext reason
         ]
     ScenarioErrorErrorCreateEmptyContractKeyMaintainers ScenarioError_CreateEmptyContractKeyMaintainers{..} ->
       pure $ vcat
@@ -325,9 +344,17 @@ prettyScenarioErrorError (Just err) =  do
     ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumFailedAuthorizations fas))) -> do
       pure $ vcat $ mapV (prettyFailedAuthorization world) (failedAuthorizationsFailedAuthorizations fas)
 
-    ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumUniqueKeyViolation gk))) -> do
+    ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumUniqueContractKeyViolation gk))) -> do
       pure $ vcat
         [ "Commit error due to unique key violation for key"
+        , nest 2 (prettyMay "<missing key>" (prettyValue' False 0 world) (globalKeyKey gk))
+        , "for template"
+        , nest 2 (prettyMay "<missing template id>" (prettyDefName world) (globalKeyTemplateId gk))
+        ]
+
+    ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumInconsistentContractKey gk))) -> do
+      pure $ vcat
+        [ "Commit error due to inconsistent key"
         , nest 2 (prettyMay "<missing key>" (prettyValue' False 0 world) (globalKeyKey gk))
         , "for template"
         , nest 2 (prettyMay "<missing template id>" (prettyDefName world) (globalKeyTemplateId gk))
@@ -418,7 +445,56 @@ prettyScenarioErrorError (Just err) =  do
         [ "Tried to submit a command for parties that have not ben allocated:"
         , prettyParties scenarioError_PartiesNotAllocatedParties
         ]
-
+    ScenarioErrorErrorChoiceGuardFailed ScenarioError_ChoiceGuardFailed {..} ->
+      pure $ vcat
+        [ "Attempt to exercise a choice with a failing guard"
+        , label_ "Contract: " $
+            prettyMay "<missing contract>"
+              (prettyContractRef world)
+              scenarioError_ChoiceGuardFailedContractRef
+        , label_ "Choice: " $
+            prettyChoiceId world
+              (contractRefTemplateId =<< scenarioError_ChoiceGuardFailedContractRef)
+              scenarioError_ChoiceGuardFailedChoiceId
+        , maybe
+            mempty
+            (\iid -> label_ "Interface: " $ prettyDefName world iid)
+            scenarioError_ChoiceGuardFailedByInterface
+        ]
+    ScenarioErrorErrorContractDoesNotImplementInterface ScenarioError_ContractDoesNotImplementInterface {..} ->
+      pure $ vcat
+        [ "Attempt to use a contract via an interface that the contract does not implement"
+        , label_ "Contract: " $
+            prettyMay "<missing contract>"
+              (prettyContractRef world)
+              scenarioError_ContractDoesNotImplementInterfaceContractRef
+        , label_ "Interface: " $
+            prettyMay "<missing interface>"
+              (prettyDefName world)
+              scenarioError_ContractDoesNotImplementInterfaceInterfaceId
+        ]
+    ScenarioErrorErrorContractDoesNotImplementRequiringInterface ScenarioError_ContractDoesNotImplementRequiringInterface {..} ->
+      pure $ vcat
+        [ "Attempt to use a contract via a required interface, but the contract does not implement the requiring interface"
+        , label_ "Contract: " $
+            prettyMay "<missing contract>"
+              (prettyContractRef world)
+              scenarioError_ContractDoesNotImplementRequiringInterfaceContractRef
+        , label_ "Required interface: " $
+            prettyMay "<missing interface>"
+              (prettyDefName world)
+              scenarioError_ContractDoesNotImplementRequiringInterfaceRequiredInterfaceId
+        , label_ "Requiring interface: " $
+            prettyMay "<missing interface>"
+              (prettyDefName world)
+              scenarioError_ContractDoesNotImplementRequiringInterfaceRequiringInterfaceId
+        ]
+    ScenarioErrorErrorDisclosurePreprocessingDuplicateContractKeys(ScenarioError_DisclosurePreprocessingDuplicateContractKeys templateId keyHash) ->
+      pure $ vcat
+        [ "Found duplicate contract keys in submitted disclosed contracts"
+        , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
+        , label_ "Key Hash: " $ ltext keyHash
+        ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
@@ -665,6 +741,13 @@ prettyNodeNode nn = do
           <-> maybe mempty
                   (\tid -> parens (prettyDefName world tid))
                   node_FetchTemplateId
+         $$ foldMap
+            (\key ->
+                let prettyKey = prettyMay "<KEY?>" (prettyValue' False 0 world) $ keyWithMaintainersKey key
+                in
+                hsep [ keyword_ "by key", prettyKey ]
+            )
+            node_FetchFetchByKey
 
     NodeNodeExercise Node_Exercise{..} -> do
       ppChildren <- prettyChildren node_ExerciseChildren
@@ -678,6 +761,13 @@ prettyNodeNode nn = do
               , prettyContractId node_ExerciseTargetContractId
               , parens (prettyMay "<missing TemplateId>" (prettyDefName world) node_ExerciseTemplateId)
               ]
+           $$ foldMap
+              (\key ->
+                let prettyKey = prettyMay "<KEY?>" (prettyValue' False 0 world) $ keyWithMaintainersKey key
+                in
+                hsep [ keyword_ "by key", prettyKey ]
+              )
+              node_ExerciseExerciseByKey
            $$ if isUnitValue node_ExerciseChosenValue
               then mempty
               else keyword_ "with"
@@ -707,6 +797,7 @@ prettyNodeNode nn = do
 
 isUnitValue :: Maybe Value -> Bool
 isUnitValue (Just (Value (Just ValueSumUnit{}))) = True
+isUnitValue (Just (Value (Just (ValueSumRecord Record{recordFields})))) = V.null recordFields
 isUnitValue _ = False
 
 prettyNode :: Node -> M (Doc SyntaxClass)
@@ -727,21 +818,24 @@ prettyNode Node{..}
             else meta $ keyword_ "referenced by"
                    <-> fcommasep (mapV prettyNodeIdLink nodeReferencedBy)
 
-      let ppDisclosedTo =
-            if V.null nodeDisclosures
+      let mkPpDisclosures kw disclosures =
+            if null disclosures
             then mempty
             else
-              meta $ keyword_ "known to (since):"
+              meta $ keyword_ kw
                 <-> fcommasep
-                  (mapV
-                    -- TODO(MH): Take explicitness into account.
+                  (map
                     (\(Disclosure p txId _explicit) -> prettyMayParty p <-> parens (prettyTxId txId))
-                    nodeDisclosures)
+                    disclosures)
+
+      let (nodeWitnesses, nodeDivulgences) = partition disclosureExplicit $ V.toList nodeDisclosures
+      let ppDisclosedTo = mkPpDisclosures "disclosed to (since):" nodeWitnesses
+      let ppDivulgedTo = mkPpDisclosures "divulged to (since):" nodeDivulgences
 
       pure
          $ prettyMay "<missing node id>" prettyNodeId nodeNodeId
         $$ vcat
-             [ ppConsumedBy, ppReferencedBy, ppDisclosedTo
+             [ ppConsumedBy, ppReferencedBy, ppDisclosedTo, ppDivulgedTo
              , arrowright ppNode
              ]
 
@@ -913,19 +1007,19 @@ data Table = Table
     , tRows :: [NodeInfo]
     }
 
-isActive :: Node -> Bool
-isActive Node{..} = case nodeNode of
-    Just NodeNodeCreate{} -> isNothing nodeConsumedBy && isNothing nodeRolledbackBy
+isActive :: S.Set TL.Text -> Node -> Bool
+isActive activeContracts Node{..} = case nodeNode of
+    Just(NodeNodeCreate Node_Create{node_CreateContractId}) -> node_CreateContractId `S.member` activeContracts
     _ -> False
 
-nodeInfo :: Node -> Maybe NodeInfo
-nodeInfo node@Node{..} = do
+nodeInfo :: S.Set TL.Text -> Node -> Maybe NodeInfo
+nodeInfo activeContracts node@Node{..} = do
     NodeNodeCreate create <- nodeNode
     niNodeId <- nodeNodeId
     inst <- node_CreateContractInstance create
     niTemplateId <- contractInstanceTemplateId inst
     niValue <- contractInstanceValue inst
-    let niActive = isActive node
+    let niActive = isActive activeContracts node
     let niSignatories = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateSignatories create)
     let niStakeholders = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateStakeholders create)
     let (nodeWitnesses, nodeDivulgences) = partition disclosureExplicit $ V.toList nodeDisclosures
@@ -1000,15 +1094,15 @@ renderTable world Table{..} = H.div H.! A.class_ active $ do
     where
         active = if any niActive tRows then "active" else "archived"
 
-renderTableView :: LF.World -> V.Vector Node -> Maybe H.Html
-renderTableView world nodes =
-    let nodeInfos = mapMaybe nodeInfo (V.toList nodes)
+renderTableView :: LF.World -> S.Set TL.Text -> V.Vector Node -> Maybe H.Html
+renderTableView world activeContracts nodes =
+    let nodeInfos = mapMaybe (nodeInfo activeContracts) (V.toList nodes)
         tables = groupTables nodeInfos
     in if null nodeInfos then Nothing else Just $ H.div H.! A.class_ "table" $ foldMap (renderTable world) tables
 
-renderTransactionView :: LF.World -> ScenarioResult -> H.Html
-renderTransactionView world res =
-    let doc = prettyScenarioResult world res
+renderTransactionView :: LF.World -> S.Set TL.Text -> ScenarioResult -> H.Html
+renderTransactionView world activeContracts res =
+    let doc = prettyScenarioResult world activeContracts res
     in H.div H.! A.class_ "da-code transaction" $ Pretty.renderHtml 128 doc
 
 renderScenarioResult :: LF.World -> ScenarioResult -> T.Text
@@ -1018,8 +1112,9 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
             H.style $ H.text Pretty.highlightStylesheet
             H.script "" H.! A.src "$webviewSrc"
             H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
-        let tableView = renderTableView world (scenarioResultNodes res)
-        let transView = renderTransactionView world res
+        let activeContracts = S.fromList (V.toList (scenarioResultActiveContracts res))
+        let tableView = renderTableView world activeContracts (scenarioResultNodes res)
+        let transView = renderTransactionView world activeContracts res
         renderViews SuccessView tableView transView
 
 renderScenarioError :: LF.World -> ScenarioError -> T.Text
@@ -1030,7 +1125,7 @@ renderScenarioError world err = TL.toStrict $ Blaze.renderHtml $ do
             H.script "" H.! A.src "$webviewSrc"
             H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
         let tableView = do
-                table <- renderTableView world (scenarioErrorNodes err)
+                table <- renderTableView world (activeContractsFromScenarioError err) (scenarioErrorNodes err)
                 pure $ H.div H.! A.class_ "table" $ do
                   Pretty.renderHtml 128 $ annotateSC ErrorSC "Script execution failed, displaying state before failing transaction"
                   table

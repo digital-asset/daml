@@ -14,11 +14,13 @@ da_scala_library(
         "@maven//:com_github_scopt_scopt",
         "@maven//:io_circe_circe_core",
         "@maven//:org_typelevel_cats_core",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["maven_coordinates=com.daml:codegen-jvm-common:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-assistant/scala-daml-project-config",
+        "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//libs-scala/build-info",
         "@maven//:ch_qos_logback_logback_classic",
@@ -32,11 +34,15 @@ da_scala_test(
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
         ":codegen-common",
         "//daml-assistant/scala-daml-project-config",
+        "//daml-lf/api-type-signature",
         "//daml-lf/data",
+        "//daml-lf/transaction-test-lib",
+        "//libs-scala/nonempty",
         "@maven//:ch_qos_logback_logback_classic",
     ],
 )

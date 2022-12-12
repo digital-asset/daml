@@ -119,7 +119,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       (dummy, _, _) <- createDummyContracts(party, ledger)
-      activeContracts <- ledger.activeContractsByTemplateId(Seq(Dummy.id.unwrap), party)
+      activeContracts <- ledger.activeContractsByTemplateId(Seq(Dummy.id), party)
     } yield {
       assert(
         activeContracts.size == 1,
@@ -145,7 +145,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     for {
       (dummy, _, _) <- createDummyContracts(party, ledger)
       contractsBeforeExercise <- ledger.activeContracts(party)
-      _ <- ledger.exercise(party, dummy.exerciseDummyChoice1)
+      _ <- ledger.exercise(party, dummy.exerciseDummyChoice1())
       contractsAfterExercise <- ledger.activeContracts(party)
     } yield {
       // check the contracts BEFORE the exercise
@@ -157,8 +157,8 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       assert(
         contractsBeforeExercise.exists(_.contractId == dummy),
         s"Expected to receive contract with contractId $dummy, but received ${contractsBeforeExercise
-          .map(_.contractId)
-          .mkString(", ")} instead.",
+            .map(_.contractId)
+            .mkString(", ")} instead.",
       )
 
       // check the contracts AFTER the exercise
@@ -185,7 +185,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         ledger.activeContractsRequest(Seq(party))
       )
       dummyWithParam <- ledger.create(party, DummyWithParam(party))
-      request = ledger.getTransactionsRequest(Seq(party))
+      request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
       fromOffset = request.update(_.begin := offset)
       transactions <- ledger.flatTransactions(fromOffset)
     } yield {
@@ -253,9 +253,9 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       allContractsForAlice <- ledger.activeContracts(alice)
       allContractsForBob <- ledger.activeContracts(bob)
       allContractsForAliceAndBob <- ledger.activeContracts(alice, bob)
-      dummyContractsForAlice <- ledger.activeContractsByTemplateId(Seq(Dummy.id.unwrap), alice)
+      dummyContractsForAlice <- ledger.activeContractsByTemplateId(Seq(Dummy.id), alice)
       dummyContractsForAliceAndBob <- ledger.activeContractsByTemplateId(
-        Seq(Dummy.id.unwrap),
+        Seq(Dummy.id),
         alice,
         bob,
       )
@@ -352,7 +352,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
     for {
       witnesses <- ledger.create(alice, TestWitnesses(alice, bob, bob))
-      _ <- ledger.exercise(bob, witnesses.exerciseWitnessesCreateNewWitnesses(_))
+      _ <- ledger.exercise(bob, witnesses.exerciseWitnessesCreateNewWitnesses())
       bobContracts <- ledger.activeContracts(bob)
       aliceContracts <- ledger.activeContracts(alice)
     } yield {
@@ -375,7 +375,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     for {
       divulgence1 <- ledger.create(alice, Divulgence1(alice))
       divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
-      _ <- ledger.exercise(alice, divulgence2.exerciseDivulgence2Fetch(_, divulgence1))
+      _ <- ledger.exercise(alice, divulgence2.exerciseDivulgence2Fetch(divulgence1))
       bobContracts <- ledger.activeContracts(bob)
       aliceContracts <- ledger.activeContracts(alice)
     } yield {
@@ -398,11 +398,15 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     for {
       _ <- ledger.create(alice, WithObservers(alice, Seq(alice, bob)))
       contracts <- ledger.activeContracts(alice)
-      Seq(ce) = contracts
-    } yield assert(
-      ce.observers == Seq(bob),
-      s"Expected observers to only contain $bob, but received ${ce.observers}",
-    )
+    } yield {
+      assert(contracts.nonEmpty)
+      contracts.foreach(ce =>
+        assert(
+          ce.observers == Seq(bob),
+          s"Expected observers to only contain $bob, but received ${ce.observers}",
+        )
+      )
+    }
   })
 
   test(

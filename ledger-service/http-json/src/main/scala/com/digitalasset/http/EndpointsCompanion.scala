@@ -7,7 +7,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.RouteResult.Complete
 import akka.http.scaladsl.server.{RequestContext, Route}
 import akka.util.ByteString
-import com.daml.http.domain.{JwtPayload, JwtPayloadLedgerIdOnly, JwtWritePayload}
+import com.daml.http.domain.{JwtPayload, JwtPayloadLedgerIdOnly, JwtWritePayload, LedgerApiError}
 import com.daml.http.json.SprayJson
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import util.GrpcHttpErrorCodes._
@@ -20,12 +20,15 @@ import com.daml.ledger.api.auth.{
 }
 import com.daml.ledger.api.domain.UserRight
 import UserRight.{CanActAs, CanReadAs}
+import com.daml.error.utils.ErrorDetails
+import com.daml.error.utils.ErrorDetails.ErrorDetail
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import io.grpc.Status.{Code => GrpcCode}
+import com.google.rpc.{Code => GrpcCode}
+import com.google.rpc.Status
 import scalaz.syntax.std.option._
 import scalaz.{-\/, EitherT, Monad, NonEmptyList, Show, \/, \/-}
 import spray.json.JsValue
@@ -45,8 +48,20 @@ object EndpointsCompanion {
 
   final case class ServerError(message: Throwable) extends Error
 
-  final case class ParticipantServerError(grpcStatus: GrpcCode, description: Option[String])
-      extends Error
+  final case class ParticipantServerError(
+      grpcStatus: GrpcCode,
+      description: String,
+      details: Seq[ErrorDetail],
+  ) extends Error
+
+  object ParticipantServerError {
+    def apply(status: Status): ParticipantServerError =
+      ParticipantServerError(
+        com.google.rpc.Code.forNumber(status.getCode),
+        status.getMessage,
+        ErrorDetails.from(status),
+      )
+  }
 
   final case class NotFound(message: String) extends Error
 
@@ -58,16 +73,15 @@ object EndpointsCompanion {
   object Error {
     implicit val ShowInstance: Show[Error] = Show shows {
       case InvalidUserInput(e) => s"Endpoints.InvalidUserInput: ${e: String}"
-      case ParticipantServerError(s, d) =>
-        s"Endpoints.ParticipantServerError: ${s: GrpcCode}${d.cata((": " + _), "")}"
+      case ParticipantServerError(grpcStatus, description, _) =>
+        s"Endpoints.ParticipantServerError: $grpcStatus: $description"
       case ServerError(e) => s"Endpoints.ServerError: ${e.getMessage: String}"
       case Unauthorized(e) => s"Endpoints.Unauthorized: ${e: String}"
       case NotFound(e) => s"Endpoints.NotFound: ${e: String}"
     }
 
-    def fromThrowable: Throwable PartialFunction Error = {
-      case LedgerClientJwt.Grpc.StatusEnvelope(status) =>
-        ParticipantServerError(status.getCode, Option(status.getDescription))
+    def fromThrowable: PartialFunction[Throwable, Error] = {
+      case LedgerClientJwt.Grpc.StatusEnvelope(status) => ParticipantServerError(status)
       case NonFatal(t) => ServerError(t)
     }
   }
@@ -245,17 +259,37 @@ object EndpointsCompanion {
   private[http] def errorResponse(
       error: Error
   )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): domain.ErrorResponse = {
-    val (status, errorMsg): (StatusCode, String) = error match {
-      case InvalidUserInput(e) => StatusCodes.BadRequest -> e
-      case ParticipantServerError(grpcStatus, d) =>
-        grpcStatus.asAkkaHttpForJsonApi -> s"$grpcStatus${d.cata((": " + _), "")}"
+    def mkErrorResponse(
+        status: StatusCode,
+        error: String,
+        ledgerApiError: Option[LedgerApiError] = None,
+    ) =
+      domain.ErrorResponse(
+        errors = List(error),
+        warnings = None,
+        status = status,
+        ledgerApiError = ledgerApiError,
+      )
+    error match {
+      case InvalidUserInput(e) => mkErrorResponse(StatusCodes.BadRequest, e)
+      case ParticipantServerError(grpcStatus, description, details) =>
+        val ledgerApiError =
+          domain.LedgerApiError(
+            code = grpcStatus.getNumber,
+            message = description,
+            details = details.map(domain.ErrorDetail.fromErrorUtils),
+          )
+        mkErrorResponse(
+          grpcStatus.asAkkaHttpForJsonApi,
+          s"$grpcStatus: $description",
+          Some(ledgerApiError),
+        )
       case ServerError(reason) =>
         logger.error(s"Internal server error occured", reason)
-        StatusCodes.InternalServerError -> "HTTP JSON API Server Error"
-      case Unauthorized(e) => StatusCodes.Unauthorized -> e
-      case NotFound(e) => StatusCodes.NotFound -> e
+        mkErrorResponse(StatusCodes.InternalServerError, "HTTP JSON API Server Error")
+      case Unauthorized(e) => mkErrorResponse(StatusCodes.Unauthorized, e)
+      case NotFound(e) => mkErrorResponse(StatusCodes.NotFound, e)
     }
-    domain.ErrorResponse(errors = List(errorMsg), warnings = None, status = status)
   }
 
   private[http] def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {

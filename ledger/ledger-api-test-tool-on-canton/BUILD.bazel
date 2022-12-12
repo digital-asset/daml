@@ -47,100 +47,85 @@ sh_binary(
     deps = ["@bazel_tools//tools/bash/runfiles"],
 ) if not is_windows else None
 
+conformance_test_extra_data_base = [
+    ":canton_deploy.jar",
+    ":logback-debug.xml",
+    "@coreutils_nix//:bin/base64",
+    "@curl_nix//:bin/curl",
+    "@grpcurl_nix//:bin/grpcurl",
+    "@jq_dev_env//:jq",
+    "@bazel_tools//tools/jdk",
+]
+
+conformance_test_ports = [
+    5011,
+    5021,
+    5031,
+    5041,
+]
+
+conformance_test_tool_args = [
+    "--verbose",
+    "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
+    "--timeout-scale-factor=2",  # increased to reduce flakes particularly wrt timeouts in TransactionService*IT tests
+    "--exclude=" + ",".join([
+        # dynamic config management not supported by Canton
+        "ConfigManagementServiceIT",
+        "LedgerConfigurationServiceIT",
+        "ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
+        "ParticipantPruningIT",  # pruning not supported in Canton Community
+        # tests with special config run in canton enterprise-repo
+        "TLSOnePointThreeIT",
+        "TLSAtLeastOnePointTwoIT",
+        "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
+    ]),
+]
+
 conformance_test(
     name = "conformance-test",
-    extra_data = [
-        ":bootstrap.canton",
-        ":canton_deploy.jar",
-        ":canton.conf",
-        ":logback-debug.xml",
-        "@coreutils_nix//:bin/base64",
-        "@curl_nix//:bin/curl",
-        "@grpcurl_nix//:bin/grpcurl",
-        "@jq_dev_env//:jq",
-        "@bazel_tools//tools/jdk",
-    ],
+    extra_data =
+        conformance_test_extra_data_base + [
+            ":bootstrap.canton",
+            ":canton.conf",
+        ],
+    extra_runner_args = ["7000"],
     lf_versions = [
         "default",
-        "latest",
+        # TODO https://github.com/digital-asset/daml/issues/12051
+        #  uncomment as soon as canton has a up-to-date engine
+        #"latest",
     ],
-    ports = [
-        5011,
-        5021,
-        5031,
-        5041,
-    ],
-    runner = "@//bazel_tools/client_server/runner_with_port_check",
+    ports = conformance_test_ports,
+    runner = "@//bazel_tools/client_server/runner_with_health_check",
     server = ":canton-test-runner-with-dependencies",
-    server_args = [],
-    test_tool_args = [
-        "--verbose",
-        "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
-        "--timeout-scale-factor=2",  # increased to reduce flakes particularly wrt timeouts in TransactionService*IT tests
-        "--exclude=" + ",".join([
-            # dynamic config management not supported by Canton
-            "ConfigManagementServiceIT",
-            "LedgerConfigurationServiceIT",
-            "ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
-            # Excluding tests that require contract key uniqueness
-            "RaceConditionIT:WWDoubleNonTransientCreate",
-            "RaceConditionIT:WWArchiveVsNonTransientCreate",
-            "RaceConditionIT:RWTransientCreateVsNonTransientCreate",
-            "RaceConditionIT:RWArchiveVsFailedLookupByKey",
-            "RaceConditionIT:RWArchiveVsLookupByKey",
-            "RaceConditionIT:RWArchiveVsNonConsumingChoice",
-            "RaceConditionIT:RWArchiveVsFetch",
-            "RaceConditionIT:WWDoubleArchive",
-            "ContractKeysIT:CKFetchOrLookup",
-            "ContractKeysIT:CKNoFetchUndisclosed",
-            "ContractKeysIT:CKMaintainerScoped",
-            # need UCK mode - added below
-            "ExceptionsIT",
-            "ExceptionRaceConditionIT",
-            "ParticipantPruningIT",  # pruning not supported in Canton Community
-            # tests with special config run in canton enterprise-repo
-            "TLSOnePointThreeIT",
-            "TLSAtLeastOnePointTwoIT",
-            "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
-            "DeeplyNestedValueIT",  # FIXME: Too deeply nested values flake with a time out (half of the time)
-        ]),
+    server_args = [
+        "--config=$$(canonicalize_rlocation $(rootpath :canton.conf))",
+        "--bootstrap=$$(canonicalize_rlocation $(rootpath :bootstrap.canton))",
     ],
+    test_tool_args = conformance_test_tool_args,
 ) if not is_windows else None
 
 conformance_test(
-    name = "conformance-test-contract-keys-and-exceptions",
-    extra_data = [
-        ":bootstrap.canton",
-        ":canton_deploy.jar",
-        ":canton.conf",
-        ":unique-contract-keys.conf",  # needed to pass all contract keys and some exceptions conformance tests
-        ":logback-debug.xml",
-        "@coreutils_nix//:bin/base64",
-        "@curl_nix//:bin/curl",
-        "@grpcurl_nix//:bin/grpcurl",
-        "@jq_dev_env//:jq",
-        "@bazel_tools//tools/jdk",
-    ],
+    name = "conformance-test-dev-domain",
+    dev_mod_flag = "",
+    extra_data =
+        conformance_test_extra_data_base + [
+            ":bootstrap-dev.canton",
+            ":canton-dev.conf",
+        ],
+    extra_runner_args = ["7000"],
     lf_versions = [
         "default",
-        "latest",
+        "preview",
+        "dev",
     ],
-    ports = [
-        5011,
-        5021,
-        5031,
-        5041,
-    ],
-    runner = "@//bazel_tools/client_server/runner_with_port_check",
+    ports = conformance_test_ports,
+    preview_mod_flag = "",
+    runner = "@//bazel_tools/client_server/runner_with_health_check",
     server = ":canton-test-runner-with-dependencies",
-    test_tool_args = [
-        "--verbose",
-        "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
-        "--include=" + ",".join([
-            "ContractKeysIT",
-            "ExceptionRaceConditionIT",
-            "ExceptionsIT",
-            "RaceConditionIT",
-        ]),
+    server_args = [
+        "--config=$$(canonicalize_rlocation $(rootpath :canton-dev.conf))",
+        "--bootstrap=$$(canonicalize_rlocation $(rootpath :bootstrap-dev.canton))",
     ],
+    test_tool_args = conformance_test_tool_args,
 ) if not is_windows else None

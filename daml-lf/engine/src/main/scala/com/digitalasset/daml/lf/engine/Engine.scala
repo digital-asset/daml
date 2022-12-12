@@ -6,16 +6,24 @@ package engine
 
 import com.daml.lf.command._
 import com.daml.lf.data._
-import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
+import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError}
-import com.daml.lf.speedy.SExpr.{SExpr, SEApp, SEValue}
-import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.speedy.{InitialSeeding, Pretty, SError, SValue}
+import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
+import com.daml.lf.speedy.Speedy.{Machine, OffLedgerMachine, OnLedgerMachine}
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction, Transaction => Tx}
-import java.nio.file.Files
+import com.daml.lf.transaction.{
+  Node,
+  SubmittedTransaction,
+  Versioned,
+  VersionedTransaction,
+  Transaction => Tx,
+}
 
-import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackages}
+import java.nio.file.Files
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackage}
 import com.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
@@ -50,13 +58,14 @@ import com.daml.scalautil.Statement.discard
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
+@scala.annotation.nowarn("msg=return statement uses an exception to pass control to the caller")
 class Engine(val config: EngineConfig = Engine.StableConfig) {
 
   config.profileDir.foreach(Files.createDirectories(_))
 
   private[this] val compiledPackages = ConcurrentCompiledPackages(config.getCompilerConfig)
 
-  private[this] val stablePackageIds = StablePackages.ids(config.allowedLanguageVersions)
+  private[this] val stablePackageIds = StablePackage.ids(config.allowedLanguageVersions)
 
   private[engine] val preprocessor =
     new preprocessing.Preprocessor(
@@ -95,38 +104,37 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   def submit(
       submitters: Set[Party],
       readAs: Set[Party],
-      cmds: Commands,
+      cmds: ApiCommands,
+      disclosures: ImmArray[DisclosedContract] = ImmArray.empty,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
+
+    // TODO (drsk) remove this assertion once disclosed contracts feature becomes stable.
+    // https://github.com/digital-asset/daml/issues/13952.
+    assert(
+      disclosures.isEmpty || config.allowedLanguageVersions.contains(
+        LanguageVersion.Features.explicitDisclosure
+      )
+    )
     val submissionTime = cmds.ledgerEffectiveTime
-    preprocessor
-      .preprocessCommands(cmds.commands)
-      .flatMap { processedCmds =>
+
+    for {
+      processedCmds <- preprocessor.preprocessApiCommands(cmds.commands)
+      processedDiscs <- preprocessor.preprocessDisclosedContracts(disclosures)
+      result <-
         interpretCommands(
           validating = false,
           submitters = submitters,
           readAs = readAs,
           commands = processedCmds,
+          disclosures = processedDiscs,
           ledgerTime = cmds.ledgerEffectiveTime,
           submissionTime = submissionTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
-        ) map { case (tx, meta) =>
-          // Annotate the transaction with the package dependencies. Since
-          // all commands are actions on a contract template, with a fully typed
-          // argument, we only need to consider the templates mentioned in the command
-          // to compute the full dependencies.
-          val deps = processedCmds.foldLeft(Set.empty[PackageId]) { (pkgIds, cmd) =>
-            val pkgId = cmd.templateId.packageId
-            val transitiveDeps =
-              compiledPackages
-                .getPackageDependencies(pkgId)
-                .getOrElse(sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
-            (pkgIds + pkgId) union transitiveDeps
-          }
-          tx -> meta.copy(submissionSeed = Some(submissionSeed), usedPackages = deps)
-        }
-      }
+        )
+      (tx, meta) = result
+    } yield tx -> meta.copy(submissionSeed = Some(submissionSeed))
   }
 
   /** Behaves like `submit`, but it takes a single command argument.
@@ -145,13 +153,13 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     */
   def reinterpret(
       submitters: Set[Party],
-      command: Command,
+      command: ReplayCommand,
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
-      speedyCommand <- preprocessor.preprocessCommand(command)
+      speedyCommand <- preprocessor.preprocessReplayCommand(command)
       sexpr <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
         compiledPackages.compiler.unsafeCompileForReinterpretation(speedyCommand),
@@ -161,6 +169,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         validating = true,
         submitters = submitters,
         readAs = Set.empty,
+        disclosures = ImmArray.empty,
         sexpr = sexpr,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
@@ -183,11 +192,11 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         submitters = submitters,
         readAs = Set.empty,
         commands = commands,
+        disclosures = ImmArray.empty,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
       )
-
     } yield result
 
   /** Check if the given transaction is a valid result of some single-submitter command.
@@ -212,7 +221,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submissionTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): Result[Unit] = {
-    //reinterpret
+    // reinterpret
     for {
       result <- replay(
         submitters,
@@ -269,6 +278,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       commands: ImmArray[speedy.Command],
+      disclosures: ImmArray[speedy.DisclosedContract] = ImmArray.empty,
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
@@ -283,6 +293,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         submitters,
         readAs,
         sexpr,
+        disclosures,
         ledgerTime,
         submissionTime,
         seeding,
@@ -302,45 +313,81 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       sexpr: SExpr,
+      disclosures: ImmArray[speedy.DisclosedContract],
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
-    val machine = Machine(
+    val machine = OnLedgerMachine(
       compiledPackages = compiledPackages,
       submissionTime = submissionTime,
       initialSeeding = seeding,
-      expr = SEApp(sexpr, Array(SEValue.Token)),
+      expr = SEApp(sexpr, Array(SValue.SToken)),
       committers = submitters,
       readAs = readAs,
+      authorizationChecker = config.authorizationChecker,
       validating = validating,
       contractKeyUniqueness = config.contractKeyUniqueness,
       limits = config.limits,
+      disclosedContracts = disclosures,
     )
     interpretLoop(machine, ledgerTime)
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Return"))
+  private[engine] def deps(tx: VersionedTransaction): Result[Set[PackageId]] = {
+    val nodePkgIds =
+      tx.nodes.values.collect { case node: Node.Action => node.packageIds }.flatten.toSet
+    val deps = nodePkgIds.foldLeft(nodePkgIds)((acc, pkgId) =>
+      acc | compiledPackages
+        .getPackageDependencies(pkgId)
+        .getOrElse(
+          return ResultError(
+            Error.Interpretation.Internal(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"INTERNAL ERROR: Missing dependencies of package $pkgId",
+              None,
+            )
+          )
+        )
+    )
+    ResultDone(deps)
+  }
+
+  private def handleError(err: SError.SError, detailMsg: Option[String] = None): ResultError = {
+    err match {
+      case SError.SErrorDamlException(error) =>
+        ResultError(Error.Interpretation.DamlException(error), detailMsg)
+      case err @ SError.SErrorCrash(where, reason) =>
+        ResultError(Error.Interpretation.Internal(where, reason, Some(err)))
+    }
   }
 
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
-      machine: Machine,
+      machine: OnLedgerMachine,
       time: Time.Timestamp,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
-    var finished: Boolean = false
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     def detailMsg = Some(
-      s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptxInternal.nodesToString}"
+      s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${machine.nodesToString}"
     )
+
+    var finished: Boolean = false
+    var finalValue: SResultFinal = null
+
     while (!finished) {
       machine.run() match {
-        case SResultFinalValue(_) => finished = true
+        case fv: SResultFinal =>
+          finished = true
+          finalValue = fv
+
+        case SResultNeedTime(callback) =>
+          callback(time)
 
         case SResultError(err) =>
-          err match {
-            case SError.SErrorDamlException(error) =>
-              return ResultError(Error.Interpretation.DamlException(error), detailMsg)
-            case err @ SError.SErrorCrash(where, reason) =>
-              return ResultError(Error.Interpretation.Internal(where, reason, Some(err)))
-          }
+          return handleError(err, detailMsg)
+
         case SResultNeedPackage(pkgId, context, callback) =>
           return Result.needPackage(
             pkgId,
@@ -354,24 +401,20 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           )
 
         case SResultNeedContract(contractId, _, callback) =>
-          return Result.needContract(
-            contractId,
-            { coinst =>
-              callback(coinst)
-              interpretLoop(machine, time)
-            },
-          )
-
-        case SResultNeedTime(callback) =>
-          callback(time)
+          def continueWithContract = (coinst: VersionedContractInstance) => {
+            callback(coinst.unversioned)
+            interpretLoop(machine, time)
+          }
+          return Result.needContract(contractId, continueWithContract)
 
         case SResultNeedKey(gk, _, cb) =>
+          def continueWithCoid = (result: Option[ContractId]) => {
+            discard[Boolean](cb(result))
+            interpretLoop(machine, time)
+          }
           return ResultNeedKey(
             gk,
-            { result =>
-              discard[Boolean](cb(result))
-              interpretLoop(machine, time)
-            },
+            continueWithCoid,
           )
 
         case err @ (_: SResultScenarioSubmit | _: SResultScenarioPassTime |
@@ -386,30 +429,28 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       }
     }
 
-    onLedger.finish match {
-      case PartialTransaction.CompleteTransaction(tx, _, nodeSeeds) =>
-        val meta = Tx.Metadata(
-          submissionSeed = None,
-          submissionTime = onLedger.ptxInternal.submissionTime,
-          usedPackages = Set.empty,
-          dependsOnTime = onLedger.dependsOnTime,
-          nodeSeeds = nodeSeeds,
-        )
-        config.profileDir.foreach { dir =>
-          val desc = Engine.profileDesc(tx)
-          machine.profile.name = s"${meta.submissionTime}-$desc"
-          val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
-          machine.profile.writeSpeedscopeJson(profileFile)
-        }
-        ResultDone((tx, meta))
-      case PartialTransaction.IncompleteTransaction(ptx) =>
-        ResultError(
-          Error.Interpretation.Internal(
-            NameOf.qualifiedNameOfCurrentFunc,
-            s"Interpretation error: ended with partial result: $ptx",
-            None,
+    machine.finish match {
+      case Right(OnLedgerMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedContracts)) =>
+        deps(tx).flatMap { deps =>
+          val meta = Tx.Metadata(
+            submissionSeed = None,
+            submissionTime = machine.submissionTime,
+            usedPackages = deps,
+            dependsOnTime = machine.getDependsOnTime,
+            nodeSeeds = nodeSeeds,
+            globalKeyMapping = globalKeyMapping,
+            disclosures = disclosedContracts,
           )
-        )
+          config.profileDir.foreach { dir =>
+            val desc = Engine.profileDesc(tx)
+            val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
+            machine.profile.name = s"${meta.submissionTime}-$desc"
+            machine.profile.writeSpeedscopeJson(profileFile)
+          }
+          ResultDone((tx, meta))
+        }
+      case Left(err) =>
+        handleError(err)
     }
   }
 
@@ -459,18 +500,54 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       pkgIds = pkgs.keySet
       missingDeps = pkgs.valuesIterator.flatMap(_.directDeps).toSet.filterNot(pkgIds)
       _ <- Either.cond(missingDeps.isEmpty, (), Error.Package.SelfConsistency(pkgIds, missingDeps))
-      interface = PackageInterface(pkgs)
+      pkgInterface = PackageInterface(pkgs)
       _ <- {
         pkgs.iterator
           // we trust already loaded packages
           .collect {
             case (pkgId, pkg) if !compiledPackages.packageIds.contains(pkgId) =>
-              Validation.checkPackage(interface, pkgId, pkg)
+              Validation.checkPackage(pkgInterface, pkgId, pkg)
           }
           .collectFirst { case Left(err) => Error.Package.Validation(err) }
       }.toLeft(())
 
     } yield ()
+  }
+
+  /** Given a contract argument of the given template id, calculate the interface
+    * view of that API.
+    */
+  def computeInterfaceView(
+      templateId: Identifier,
+      argument: Value,
+      interfaceId: Identifier,
+  )(implicit loggingContext: LoggingContext): Result[Versioned[Value]] = {
+    def interpret(machine: OffLedgerMachine): Result[SValue] = {
+      machine.run() match {
+        case SResultFinal(v) => ResultDone(v)
+        case SResultError(err) => handleError(err, None)
+        case err @ (_: SResultNeedPackage | _: SResultNeedContract | _: SResultNeedKey |
+            _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioPassTime |
+            _: SResultScenarioSubmit) =>
+          ResultError(
+            Error.Interpretation.Internal(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"unexpected ${err.getClass.getSimpleName}",
+              None,
+            )
+          )
+      }
+    }
+    for {
+      view <- preprocessor.preprocessInterfaceView(templateId, argument, interfaceId)
+      sexpr <- runCompilerSafely(
+        NameOf.qualifiedNameOfCurrentFunc,
+        compiledPackages.compiler.unsafeCompileInterfaceView(view),
+      )
+      machine = Machine.fromPureSExpr(compiledPackages, sexpr)
+      r <- interpret(machine)
+      version = machine.tmplId2TxVersion(interfaceId)
+    } yield Versioned(version, r.toNormalizedValue(version))
   }
 
 }
@@ -513,5 +590,4 @@ object Engine {
   def DevEngine(): Engine = new Engine(
     StableConfig.copy(allowedLanguageVersions = LanguageVersion.DevVersions)
   )
-
 }

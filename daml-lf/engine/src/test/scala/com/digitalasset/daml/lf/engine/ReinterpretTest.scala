@@ -19,7 +19,7 @@ import com.daml.lf.transaction.{
   SubmittedTransaction,
 }
 import com.daml.lf.value.Value._
-import com.daml.lf.command._
+import com.daml.lf.command.ReplayCommand
 import com.daml.lf.transaction.test.TransactionBuilder.{assertAsVersionedContract}
 import com.daml.logging.LoggingContext
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -87,7 +87,7 @@ class ReinterpretTest
   val time = Time.Timestamp.now()
   val seed = hash("ReinterpretTests")
 
-  private def reinterpretCommand(theCommand: Command): Either[Error, SubmittedTransaction] = {
+  private def reinterpretCommand(theCommand: ReplayCommand): Either[Error, SubmittedTransaction] = {
     val res = engine
       .reinterpret(
         submitters,
@@ -115,7 +115,13 @@ class ReinterpretTest
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
-        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
+        ReplayCommand.Exercise(
+          templateId,
+          None,
+          cid,
+          choiceName,
+          ValueRecord(Some(r), ImmArray.Empty),
+        )
       }
       val Right(tx) = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Exercise())
@@ -127,7 +133,13 @@ class ReinterpretTest
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
-        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
+        ReplayCommand.Exercise(
+          templateId,
+          None,
+          cid,
+          choiceName,
+          ValueRecord(Some(r), ImmArray.Empty),
+        )
       }
       val Right(tx) = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise()))
@@ -139,7 +151,13 @@ class ReinterpretTest
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
-        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
+        ReplayCommand.Exercise(
+          templateId,
+          None,
+          cid,
+          choiceName,
+          ValueRecord(Some(r), ImmArray.Empty),
+        )
       }
       val Left(err) = reinterpretCommand(theCommand)
       assert(err.message.contains("Error: functions are not comparable"))
@@ -151,7 +169,13 @@ class ReinterpretTest
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
-        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
+        ReplayCommand.Exercise(
+          templateId,
+          None,
+          cid,
+          choiceName,
+          ValueRecord(Some(r), ImmArray.Empty),
+        )
       }
       val Right(tx) = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise(Create())))
@@ -163,7 +187,13 @@ class ReinterpretTest
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
-        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.Empty))
+        ReplayCommand.Exercise(
+          templateId,
+          None,
+          cid,
+          choiceName,
+          ValueRecord(Some(r), ImmArray.Empty),
+        )
       }
 
       val Left(err) = reinterpretCommand(theCommand)

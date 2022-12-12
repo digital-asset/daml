@@ -5,8 +5,11 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1;
 
+import "com/daml/ledger/api/v1/contract_metadata.proto";
 import "com/daml/ledger/api/v1/value.proto";
 import "google/protobuf/wrappers.proto";
+import "google/protobuf/any.proto";
+import "google/rpc/status.proto";
 
 
 option java_outer_classname = "EventOuterClass";
@@ -26,7 +29,7 @@ message Event {
   oneof event {
     CreatedEvent created = 1;
     ArchivedEvent archived = 3;
- }
+  }
   // see https://github.com/digital-asset/daml/issues/960
   reserved 2;
   reserved "exercised";
@@ -49,13 +52,35 @@ message CreatedEvent {
   // Required
   Identifier template_id = 3;
 
-  // The key of the created contract, if defined.
+  // The key of the created contract.
+  // This will be set if and only if ``create_arguments`` is set and ``template_id`` defines a contract key.
   // Optional
   Value contract_key = 7;
 
   // The arguments that have been used to create the contract.
-  // Required
+  // Set either:
+  //   - if there was a party, which is in the ``witness_parties`` of this event,
+  //     and for which an ``InclusiveFilters`` exists with the ``template_id`` of this event
+  //     among the ``template_ids``,
+  //   - or if there was a party, which is in the ``witness_parties`` of this event,
+  //     and for which a wildcard filter exists (``Filters`` without ``InclusiveFilters``,
+  //     or with an ``InclusiveFilters`` with empty ``template_ids`` and empty ``interface_filters``).
+  // Optional
   Record create_arguments = 4;
+
+  // Opaque representation of contract payload intended for forwarding
+  // to an API server as a contract disclosed as part of a command
+  // submission.
+  // Optional
+  google.protobuf.Any create_arguments_blob = 12;
+
+  // Interface views specified in the transaction filter.
+  // Includes an ``InterfaceView`` for each interface for which there is a ``InterfaceFilter`` with
+  //   - its party in the ``witness_parties`` of this event,
+  //   - and which is implemented by the template of this event,
+  //   - and which has ``include_interface_view`` set.
+  // Optional
+  repeated InterfaceView interface_views = 11;
 
   // The parties that are notified of this event. When a ``CreatedEvent``
   // is returned as part of a transaction tree, this will include all
@@ -82,6 +107,32 @@ message CreatedEvent {
   // This means a newer client works with an older sandbox seamlessly.
   // Optional
   google.protobuf.StringValue agreement_text = 6;
+
+  // Metadata of the contract. Required for contracts created
+  // after the introduction of explicit disclosure.
+  // Optional
+  ContractMetadata metadata = 10;
+}
+
+// View of a create event matched by an interface filter.
+message InterfaceView {
+
+  // The interface implemented by the matched event.
+  // Required
+  Identifier interface_id = 1;
+
+  // Whether the view was successfully computed, and if not,
+  // the reason for the error. The error is reported using the same rules
+  // for error codes and messages as the errors returned for API requests.
+  // Required
+  google.rpc.Status view_status = 2;
+
+  // The value of the interface's view method on this event.
+  // Set if it was requested in the ``InterfaceFilter`` and it could be
+  // sucessfully computed.
+  // Optional
+  Record view_value = 3;
+
 }
 
 // Records that a contract has been archived, and choices may no longer be exercised on it.
@@ -101,7 +152,7 @@ message ArchivedEvent {
   // Required
   Identifier template_id = 3;
 
-  // The parties that are notified of this event. For ``ArchivedEvent``s,
+  // The parties that are notified of this event. For an ``ArchivedEvent``,
   // these are the intersection of the stakeholders of the contract in
   // question and the parties specified in the ``TransactionFilter``. The
   // stakeholders are the union of the signatories and the observers of
@@ -129,18 +180,22 @@ message ExercisedEvent {
   // Required
   Identifier template_id = 3;
 
+  // The interface where the choice is defined, if inherited.
+  // Optional
+  Identifier interface_id = 13;
+
   reserved 4; // removed field
 
-  // The choice that's been exercised on the target contract.
+  // The choice that was exercised on the target contract.
   // Must be a valid NameString (as described in ``value.proto``).
   // Required
   string choice = 5;
 
-  // The argument the choice was made with.
+  // The argument of the exercised choice.
   // Required
   Value choice_argument = 6;
 
-  // The parties that made the choice.
+  // The parties that exercised the choice.
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   repeated string acting_parties = 7;
@@ -167,12 +222,13 @@ message ExercisedEvent {
 
   // References to further events in the same transaction that appeared as a result of this ``ExercisedEvent``.
   // It contains only the immediate children of this event, not all members of the subtree rooted at this node.
+  // The order of the children is the same as the event order in the transaction.
   // Each element must be a valid LedgerString (as described in ``value.proto``).
   // Optional
   repeated string child_event_ids = 11;
 
-  // The result of exercising the choice
+  // The result of exercising the choice.
   // Required
   Value exercise_result = 12;
-
 }
+

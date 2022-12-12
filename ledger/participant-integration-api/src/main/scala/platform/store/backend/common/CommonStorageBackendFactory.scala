@@ -4,32 +4,35 @@
 package com.daml.platform.store.backend.common
 
 import com.daml.platform.store.backend._
+import com.daml.platform.store.backend.localstore.{
+  IdentityProviderStorageBackend,
+  IdentityProviderStorageBackendImpl,
+  PartyRecordStorageBackend,
+  PartyRecordStorageBackendImpl,
+  UserManagementStorageBackend,
+  UserManagementStorageBackendImpl,
+}
 import com.daml.platform.store.cache.LedgerEndCache
 
 trait CommonStorageBackendFactory extends StorageBackendFactory {
 
-  override def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend =
-    new PackageStorageBackendTemplate(ledgerEndCache)
-
   override val createParameterStorageBackend: ParameterStorageBackend =
-    ParameterStorageBackendTemplate
+    ParameterStorageBackendImpl
 
   override val createMeteringParameterStorageBackend: MeteringParameterStorageBackend =
-    MeteringParameterStorageBackendTemplate
-
-  override def createConfigurationStorageBackend(
-      ledgerEndCache: LedgerEndCache
-  ): ConfigurationStorageBackend =
-    new ConfigurationStorageBackendTemplate(ledgerEndCache)
+    MeteringParameterStorageBackendImpl
 
   override val createIntegrityStorageBackend: IntegrityStorageBackend =
-    IntegrityStorageBackendTemplate
+    IntegrityStorageBackendImpl
 
   override val createStringInterningStorageBackend: StringInterningStorageBackend =
-    StringInterningStorageBackendTemplate
+    StringInterningStorageBackendImpl
 
   override val createUserManagementStorageBackend: UserManagementStorageBackend =
-    UserManagementStorageBackendTemplate
+    UserManagementStorageBackendImpl
+
+  override val createIdentityProviderConfigStorageBackend: IdentityProviderStorageBackend =
+    IdentityProviderStorageBackendImpl
 
   override def createMeteringStorageReadBackend(
       ledgerEndCache: LedgerEndCache
@@ -39,5 +42,8 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
   def createMeteringStorageWriteBackend: MeteringStorageWriteBackend = {
     MeteringStorageBackendWriteTemplate
   }
+
+  override def createPartyRecordStorageBackend: PartyRecordStorageBackend =
+    PartyRecordStorageBackendImpl
 
 }

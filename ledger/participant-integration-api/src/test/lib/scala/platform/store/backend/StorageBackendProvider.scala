@@ -15,11 +15,16 @@ import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.Suite
 
 import java.sql.Connection
+import com.daml.platform.store.backend.localstore.{
+  IdentityProviderStorageBackend,
+  PartyRecordStorageBackend,
+  UserManagementStorageBackend,
+}
 
 /** Creates a database and a [[TestBackend]].
   * Used by [[StorageBackendSpec]] to run all StorageBackend tests on different databases.
   */
-private[backend] trait StorageBackendProvider {
+trait StorageBackendProvider {
   protected def jdbcUrl: String
   protected def lockIdSeed: Int
   protected def backend: TestBackend
@@ -60,16 +65,15 @@ trait StorageBackendProviderPostgres extends StorageBackendProvider with Postgre
   override protected val backend: TestBackend = TestBackend(PostgresStorageBackendFactory)
 }
 
-private[backend] trait StorageBackendProviderH2 extends StorageBackendProvider { this: Suite =>
+trait StorageBackendProviderH2 extends StorageBackendProvider { this: Suite =>
   override protected def jdbcUrl: String = "jdbc:h2:mem:storage_backend_provider;db_close_delay=-1"
   override protected def lockIdSeed: Int =
     throw new UnsupportedOperationException //  DB Locking is not supported for H2
   override protected val backend: TestBackend = TestBackend(H2StorageBackendFactory)
 }
 
-private[backend] trait StorageBackendProviderOracle
-    extends StorageBackendProvider
-    with OracleAroundAll { this: Suite =>
+trait StorageBackendProviderOracle extends StorageBackendProvider with OracleAroundAll {
+  this: Suite =>
   override protected val backend: TestBackend = TestBackend(OracleStorageBackendFactory)
 }
 
@@ -91,7 +95,9 @@ case class TestBackend(
     ledgerEndCache: MutableLedgerEndCache,
     stringInterningSupport: MockStringInterning,
     userManagement: UserManagementStorageBackend,
+    participantPartyStorageBackend: PartyRecordStorageBackend,
     metering: TestMeteringBackend,
+    identityProviderStorageBackend: IdentityProviderStorageBackend,
 )
 
 case class TestMeteringBackend(
@@ -130,7 +136,10 @@ object TestBackend {
       ledgerEndCache = ledgerEndCache,
       stringInterningSupport = stringInterning,
       userManagement = storageBackendFactory.createUserManagementStorageBackend,
+      participantPartyStorageBackend = storageBackendFactory.createPartyRecordStorageBackend,
       metering = createTestMeteringBackend,
+      identityProviderStorageBackend =
+        storageBackendFactory.createIdentityProviderConfigStorageBackend,
     )
   }
 

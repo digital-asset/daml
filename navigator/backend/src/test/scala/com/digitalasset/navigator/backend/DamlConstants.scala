@@ -11,7 +11,7 @@ import com.daml.lf.data.{
   Ref => DamlLfRef,
 }
 import com.daml.navigator.model._
-import com.daml.lf.{iface => DamlLfIface}
+import com.daml.lf.{typesig => DamlLfIface}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.json.ApiValueImplicits._
 
@@ -281,40 +281,43 @@ case object DamlConstants {
   private val choiceNonconsuming = DamlLfRef.Name.assertFromString("nonconsuming")
   private val ChoiceReplace = DamlLfRef.Name.assertFromString("replace")
 
-  val simpleRecordTemplate = DamlLfIface.InterfaceType.Template(
+  val simpleRecordTemplate = DamlLfIface.PackageSignature.TypeDecl.Template(
     simpleRecordT,
     DamlLfIface.DefTemplate(
-      Map(
+      DamlLfIface.TemplateChoices.Resolved fromDirect Map(
         ChoiceUnit -> DamlLfIface.TemplateChoice(simpleUnitT, false, simpleUnitT),
         choiceText -> DamlLfIface.TemplateChoice(simpleTextT, false, simpleUnitT),
         choiceNonconsuming -> DamlLfIface.TemplateChoice(simpleUnitT, true, simpleUnitT),
         ChoiceReplace -> DamlLfIface.TemplateChoice(simpleRecordTC, false, simpleUnitT),
       ),
       None,
+      Seq.empty,
     ),
   )
-  val complexRecordTemplate = DamlLfIface.InterfaceType.Template(
+  val complexRecordTemplate = DamlLfIface.PackageSignature.TypeDecl.Template(
     complexRecordT,
     DamlLfIface.DefTemplate(
-      Map(
+      DamlLfIface.TemplateChoices.Resolved fromDirect Map(
         ChoiceUnit -> DamlLfIface.TemplateChoice(simpleUnitT, false, simpleUnitT),
         choiceText -> DamlLfIface.TemplateChoice(simpleTextT, false, simpleUnitT),
         choiceNonconsuming -> DamlLfIface.TemplateChoice(simpleUnitT, true, simpleUnitT),
         ChoiceReplace -> DamlLfIface.TemplateChoice(complexRecordTC, false, simpleUnitT),
       ),
       None,
+      Seq.empty,
     ),
   )
-  val treeNodeTemplate = DamlLfIface.InterfaceType.Template(
+  val treeNodeTemplate = DamlLfIface.PackageSignature.TypeDecl.Template(
     treeNodeT,
     DamlLfIface.DefTemplate(
-      Map(
+      DamlLfIface.TemplateChoices.Resolved fromDirect Map(
         ChoiceUnit -> DamlLfIface.TemplateChoice(simpleUnitT, false, simpleUnitT),
         choiceText -> DamlLfIface.TemplateChoice(simpleTextT, false, simpleUnitT),
         choiceNonconsuming -> DamlLfIface.TemplateChoice(simpleUnitT, true, simpleUnitT),
         ChoiceReplace -> DamlLfIface.TemplateChoice(treeNodeTC, false, simpleUnitT),
       ),
       None,
+      Seq.empty,
     ),
   )
 
@@ -329,19 +332,21 @@ case object DamlConstants {
     )
   )
 
-  val iface = DamlLfIface.Interface(
+  val iface = DamlLfIface.PackageSignature(
     packageId0,
     None,
     Map(
-      emptyRecordId.qualifiedName -> DamlLfIface.InterfaceType.Normal(emptyRecordGC),
-      simpleRecordId.qualifiedName -> DamlLfIface.InterfaceType.Normal(simpleRecordGC),
-      simpleVariantId.qualifiedName -> DamlLfIface.InterfaceType.Normal(simpleVariantGC),
-      treeId.qualifiedName -> DamlLfIface.InterfaceType.Normal(treeGC),
-      treeNodeId.qualifiedName -> DamlLfIface.InterfaceType.Normal(treeNodeGC),
+      emptyRecordId.qualifiedName -> DamlLfIface.PackageSignature.TypeDecl.Normal(emptyRecordGC),
+      simpleRecordId.qualifiedName -> DamlLfIface.PackageSignature.TypeDecl.Normal(simpleRecordGC),
+      simpleVariantId.qualifiedName -> DamlLfIface.PackageSignature.TypeDecl
+        .Normal(simpleVariantGC),
+      treeId.qualifiedName -> DamlLfIface.PackageSignature.TypeDecl.Normal(treeGC),
+      treeNodeId.qualifiedName -> DamlLfIface.PackageSignature.TypeDecl.Normal(treeNodeGC),
       simpleRecordTemplateId.qualifiedName -> simpleRecordTemplate,
       complexRecordId.qualifiedName -> complexRecordTemplate,
       treeNodeId.qualifiedName -> treeNodeTemplate,
     ),
+    Map.empty,
   )
 
   private[navigator] implicit def name(s: String): DamlLfRef.Name =

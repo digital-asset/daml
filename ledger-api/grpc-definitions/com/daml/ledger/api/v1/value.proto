@@ -13,7 +13,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // Encodes values that the ledger accepts as command arguments and emits as contract arguments.
 //
-// The values encoding use different four classes of non-empty strings as identifiers. Those classes are
+// The values encoding use different classes of non-empty strings as identifiers. Those classes are
 // defined as follows:
 // - NameStrings are strings with length <= 1000 that match the regexp ``[A-Za-z\$_][A-Za-z0-9\$_]*``.
 // - PackageIdStrings are strings with length <= 64 that match the regexp ``[A-Za-z0-9\-_ ]+``.

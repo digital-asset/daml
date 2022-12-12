@@ -13,7 +13,7 @@ load(
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
-load("//daml-lf/language:daml-lf.bzl", "LF_MAJOR_VERSIONS", "PROTO_LF_VERSIONS", "mangle_for_java", "versions")
+load("//daml-lf/language:daml-lf.bzl", "LF_MAJOR_VERSIONS", "PROTO_LF_VERSIONS", "lf_version_configuration", "mangle_for_java", "versions")
 load(
     "//rules_daml:daml.bzl",
     "daml_compile",
@@ -115,13 +115,11 @@ da_scala_library(
 da_scala_test_suite(
     name = "daml_lf_archive_reader_tests",
     size = "small",
-    srcs = glob(
-        ["src/test/scala/**/*.scala"],
-        exclude = ["src/test/scala/com/digitalasset/daml/lf/archive/ZipBombDetectionSpec.scala"],
-    ),
+    srcs = glob(["src/test/scala/**/*.scala"]),
     data = [
         ":DarReaderTest.dalf",
         ":DarReaderTest.dar",
+        ":DarReaderTest-dev.dar",
     ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
@@ -147,30 +145,15 @@ da_scala_test_suite(
     ],
 )
 
-da_scala_test_suite(
-    name = "daml_lf_archive_reader_zipbomb_tests",
-    srcs = ["src/test/scala/com/digitalasset/daml/lf/archive/ZipBombDetectionSpec.scala"],
-    data = [
-        ":DarReaderTest.dar",
-    ],
-    scala_deps = [
-        "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatestplus_scalacheck_1_15",
-    ],
-    scalacopts = lf_scalacopts,
-    deps = [
-        ":daml_lf_1.14_archive_proto_java",
-        ":daml_lf_1.dev_archive_proto_java",
-        ":daml_lf_archive_reader",
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/data",
-        "@maven//:com_google_protobuf_protobuf_java",
-    ],
-)
-
 daml_compile_with_dalf(
     name = "DarReaderTest",
     srcs = ["src/test/daml/DarReaderTest.daml"],
+)
+
+daml_compile(
+    name = "DarReaderTest-dev",
+    srcs = ["src/test/daml/DarReaderTest.daml"],
+    target = "1.dev",
 )
 
 # An ad-hoc tool for testing, benchmarking and profiling package decoding performance in isolation.
@@ -208,7 +191,7 @@ SNASPSHOT_VERSIONS = [ver for ver in PROTO_LF_VERSIONS if ver != "1.dev"]
 ] if not is_windows else []
 
 sh_test(
-    name = "proto_immutability_test",
+    name = "proto_immutability_check",
     srcs = ["proto_check_hash.sh"],
     data = [
         ":daml_lf_%s_archive_proto_srcs" % version

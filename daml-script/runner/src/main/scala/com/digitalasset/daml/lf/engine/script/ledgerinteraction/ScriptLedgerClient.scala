@@ -9,6 +9,7 @@ import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -32,6 +33,7 @@ object ScriptLedgerClient {
   final case class CreateResult(contractId: ContractId) extends CommandResult
   final case class ExerciseResult(
       templateId: Identifier,
+      interfaceId: Option[Identifier],
       choice: ChoiceName,
       result: Value,
   ) extends CommandResult
@@ -46,6 +48,7 @@ object ScriptLedgerClient {
   sealed trait TreeEvent
   final case class Exercised(
       templateId: Identifier,
+      interfaceId: Option[Identifier],
       contractId: ContractId,
       choice: ChoiceName,
       argument: Value,
@@ -81,6 +84,25 @@ trait ScriptLedgerClient {
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]]
+
+  def queryInterface(
+      parties: OneAnd[Set, Ref.Party],
+      interfaceId: Identifier,
+      viewType: Ast.Type,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Seq[(ContractId, Option[Value])]]
+
+  def queryInterfaceContractId(
+      parties: OneAnd[Set, Ref.Party],
+      interfaceId: Identifier,
+      viewType: Ast.Type,
+      cid: ContractId,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Option[Value]]
 
   def queryContractKey(
       parties: OneAnd[Set, Ref.Party],

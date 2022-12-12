@@ -783,7 +783,6 @@ app-dev/bindings-java/javadocs/com/digitalasset/ledger/api/v1/PackageServiceOute
 app-dev/bindings-java/javadocs/com/digitalasset/ledger/api/v1/EventOuterClass.Event.Builder.html -> /app-dev/bindings-java/javadocs/com/daml/ledger/api/v1/EventOuterClass.Event.Builder.html
 packages/da-cli-docs/index.html -> /tools/assistant.html
 genindex.html
-tools.html -> /tools/assistant.html
 examples.html -> /examples/bond-trading/index.html
 search.html
 getting-started/installation.htm -> /getting-started/installation.html
@@ -797,8 +796,11 @@ daml/intro/10_StdLib.html -> /daml/intro/11_StdLib.html
 daml/intro/11_Testing.html -> /daml/intro/12_Testing.html
 daml-script/daml-script-docs.html -> /daml-script/api/index.html
 triggers/trigger-docs.html -> /triggers/api/index.html
+tools/trigger-service.html -> trigger-service/index.html
 support.html -> /support/support.html
 release-notes.html -> /support/releases.html#release-notes
 support/release-notes.html -> /support/releases.html#release-notes
 support/roadmap.html -> /support/releases.html#roadmap
 app-dev/bindings-ts/testing.html -> /getting-started/testing.html
+deploying.html -> /deploy/generic_ledger.html
+deploy/index.html -> /deploy/generic_ledger.html

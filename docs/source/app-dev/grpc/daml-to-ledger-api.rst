@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-How Daml types are translated to protobuf
+How Daml Types are Translated to Protobuf
 #########################################
 
 This page gives an overview and reference on how Daml types and contracts are represented by the Ledger API as protobuf messages, most notably:
@@ -27,20 +27,22 @@ A particular value of ``Foo`` is then represented by the Ledger API in this way:
 
 The name of messages is added as a comment after the opening curly brace.
 
-Records and primitive types
+Records and Primitive Types
 ***************************
 
 Records or product types are translated to :ref:`com.daml.ledger.api.v1.record`. Here's an example Daml record type that contains a field for each primitive type:
 
 .. literalinclude:: ../code-snippets/Types.daml
 	:language: daml
-	:lines: 9-18
+	:start-after: -- PRODUCT_TYPE_DEF_BEGIN
+	:end-before: -- PRODUCT_TYPE_DEF_END
 
 And here's an example of creating a value of type `MyProductType`:
 
 .. literalinclude:: ../code-snippets/Types.daml
 	:language: daml
-	:lines: 29,31,33-41
+	:start-after: -- PRODUCT_TYPE_CREATE_BEGIN
+	:end-before: -- PRODUCT_TYPE_CREATE_END
 
 For this data, the respective data on the Ledger API is shown below. Note that this value would be enclosed by a particular contract containing a field of type `MyProductType`. See `Contract templates`_ for the translation of Daml contracts to the representation by the Ledger API.
 
@@ -53,13 +55,15 @@ Variants or sum types are types with multiple constructors. This example defines
 
 .. literalinclude:: ../code-snippets/Types.daml
 	:language: daml
-	:lines: 20-21
+	:start-after: -- SUM_TYPE_DEF_BEGIN
+	:end-before: -- SUM_TYPE_DEF_END
 
-The constructor ``MyConstructor1`` takes a single parameter of type ``Integer``, whereas the constructor ``MyConstructor2`` takes a record with two fields as parameter. The snippet below shows how you can create values with either of the constructors.
+The constructor ``MyConstructor1`` takes a single parameter of type ``Integer``, whereas the constructor ``MyConstructor2`` takes a tuple with two fields as parameter. The snippet below shows how you can create values with either of the constructors.
 
 .. literalinclude:: ../code-snippets/Types.daml
 	:language: daml
-	:lines: 43-44
+	:start-after: -- SUM_TYPE_CREATE_BEGIN
+	:end-before: -- SUM_TYPE_CREATE_END
 
 Similar to records, variants are also enclosed by a contract, a record, or another variant.
 
@@ -73,7 +77,7 @@ The snippets below shows the value of ``mySum1`` and ``mySum2`` respectively as 
 	:lines: 14-38
 	:caption: mySum2
 
-Contract templates
+Contract Templates
 ******************
 
 Contract templates are represented as records with the same identifier as the template.
@@ -85,22 +89,22 @@ This first example template below contains only the signatory party and a simple
   :start-after: -- BEGIN_SIMPLE_TEMPLATE
   :end-before: -- END_SIMPLE_TEMPLATE
 
-Creating a contract
-===================
+Create a Contract
+=================
 
 Creating contracts is done by sending a :ref:`com.daml.ledger.api.v1.createcommand` to the :ref:`com.daml.ledger.api.v1.commandsubmissionservice` or the :ref:`com.daml.ledger.api.v1.commandservice`. The message to create a `MySimpleTemplate` contract with *Alice* being the owner is shown below:
 
 .. literalinclude:: ../code-snippets/CreateMySimpleTemplate.payload
 
-Receiving a contract
-====================
+Receive a Contract
+==================
 
 Contracts are received from the :ref:`com.daml.ledger.api.v1.transactionservice` in the form of a :ref:`com.daml.ledger.api.v1.createdevent`. The data contained in the event corresponds to the data that was used to create the contract.
 
 .. literalinclude:: ../code-snippets/CreatedEventMySimpleTemplate.payload
 
-Exercising a choice
-===================
+Exercise a Choice
+=================
 
 A choice is exercised by sending an :ref:`com.daml.ledger.api.v1.exercisecommand`. Taking the same contract template again, exercising the choice ``MyChoice`` would result in a command similar to the following:
 

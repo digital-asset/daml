@@ -4,5 +4,5 @@
 @daml/ledger
 ############
 
-`@daml/ledger documentation <daml-ledger/index.html>`_
+`@daml/ledger documentation <ts-daml-ledger_>`_
 

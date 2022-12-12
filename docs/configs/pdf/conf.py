@@ -71,7 +71,7 @@ release = u'__VERSION__'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -333,6 +333,9 @@ rst_prolog = """
 .. _Artifactory: https://digitalasset.jfrog.io/ui/repos/tree/General/sdk-ee
 .. _protobufs: https://github.com/digital-asset/daml/releases/download/v{release}/protobufs-{release}.zip
 .. _api-test-tool: https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/{release}/ledger-api-test-tool-{release}.jar
+.. _ts-daml-react: https://docs.daml.com/{release}/app-dev/bindings-ts/daml-react
+.. _ts-daml-ledger: https://docs.daml.com/{release}/app-dev/bindings-ts/daml-ledger
+.. _ts-daml-types: https://docs.daml.com/{release}/app-dev/bindings-ts/daml-types
 """.format(release = release)
 
 # Import the Daml lexer

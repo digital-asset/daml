@@ -3,23 +3,13 @@
 
 package com.daml.platform.sandbox.auth
 
-import com.daml.ledger.api.v1.testing.time_service.{
-  GetTimeRequest,
-  GetTimeResponse,
-  TimeServiceGrpc,
-}
-import com.daml.platform.testing.StreamConsumer
-
 import scala.concurrent.Future
 
-final class GetTimeAuthIT extends PublicServiceCallAuthTests {
+final class GetTimeAuthIT extends PublicServiceCallAuthTests with TimeAuth {
 
   override def serviceCallName: String = "TimeService#GetTime"
 
   override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    new StreamConsumer[GetTimeResponse](
-      stub(TimeServiceGrpc.stub(channel), token)
-        .getTime(new GetTimeRequest(unwrappedLedgerId), _)
-    ).first()
+    loadTimeNow(token)
 
 }

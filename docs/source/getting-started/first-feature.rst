@@ -16,7 +16,7 @@ This means:
 
 Daml lets us implement these guarantees in a direct and intuitive way.
 
-Creating a feature involves four steps:
+Creating a feature involves three steps:
 
     1. Adding the necessary changes to the Daml model
     2. Making the corresponding changes in the UI
@@ -168,8 +168,8 @@ Following the formatting of the previous panels, we include the new messaging co
 That is all for the implementation!
 Let's give the new functionality a spin.
 
-Running the Updated UI
-======================
+Run the Updated UI
+==================
 
 If you have the frontend UI up and running you're all set. If you don't have the UI running, open a new terminal window and navigate to the ``create-daml-app/ui`` folder, then run the ``npm start`` command to start the UI.
 
@@ -177,35 +177,36 @@ You should see the same login page as before at http://localhost:3000.
 
    .. figure:: images/create-daml-app-login-screen.png
       :scale: 50 %
-      :alt: Login screen for the create-daml-app
+      :alt: Login screen for the app
       :class: no-scaled-link
 
 Once you've logged in, you'll see a familiar UI but with our new *Messages* panel at the bottom!
 
    .. figure:: images/create-daml-app-messaging-feature.png
-      :alt: You can now see the messaging feature in the create-daml-app
+      :alt: There is now a Messages section in the app, with three elements: a dropdown list to select a user, a text field to type your message, and a Send button.
 
 Go ahead and follow more users, and log in as some of those users in separate browser windows to follow yourself back.
 Then click on the dropdown menu in the *Messages* panel to see a choice of followers to message!
 
    .. figure:: images/create-daml-app-messaging-select-user.png
       :scale: 50 %
-      :alt: Select a follower from a dropdown list in the create-daml-app
+      :alt: Select a follower from a dropdown list in the Messages section.
 
 Send some messages between users and make sure you can see each one from the other side.
 Notice that each new message appears in the UI as soon as it is sent (due to the *streaming* React hooks).
 
    .. figure:: images/create-daml-app-message-received.png
       :scale: 50 %
-      :alt: In the create-daml-app as soon as you send the message it will appear in the "Messaging" panel
+      :alt: The sent message is now visible below the Send button.
 
-.. tip:: You completed the second part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your second of 3 badges <https://discuss.daml.com/badges/126/hey-look-what-i-can-do>`_! Get the third badge by `deploying to Daml Hub <https://daml.com/learn/getting-started/deploy-to-dabl/>`_
+.. tip:: You completed the second part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your second of 3 badges <https://discuss.daml.com/badges/126/hey-look-what-i-can-do>`_! Get the third badge by `deploying to Daml Hub <https://hub.daml.com/docs/quickstart/#deploy-your-own-daml-hub-sample-app>`_.
 
 Next Steps
 ==========
 
 We've gone through the process of setting up a full-stack Daml app and implementing a useful feature end to end.
 As the next step we encourage you to really dig into the fundamentals of Daml and understand its core concepts such as parties, signatories, observers, and controllers.
-You can do that either by :doc:`going through our docs </daml/intro/0_Intro>` or by taking an `online course <https://daml.com/interactive-tutorials/fundamental-concepts>`_.
+You can do that either by :doc:`going through our docs </daml/intro/0_Intro>` or by taking an `online course <https://digitalasset.com/developers/interactive-tutorials/fundamental-concepts>`_.
+
 
 After you've got a good grip on these concepts learn :doc:`how to conduct end-to-end testing of your app <testing>`.

@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSession
-import com.daml.ledger.api.tls.TlsConfiguration
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
@@ -12,7 +11,6 @@ import scala.util.Random
 private[infrastructure] final class LedgerSession private (
     participantSessions: Vector[(String, ParticipantSession)],
     shuffleParticipants: Boolean,
-    clientTlsConfiguration: Option[TlsConfiguration],
 )(implicit val executionContext: ExecutionContext) {
 
   private[infrastructure] def createTestContext(
@@ -28,7 +26,6 @@ private[infrastructure] final class LedgerSession private (
           endpointId,
           applicationId,
           identifierSuffix,
-          clientTlsConfiguration,
           session.features,
         )
       }
@@ -42,7 +39,6 @@ object LedgerSession {
   def apply(
       participantSessions: Vector[ParticipantSession],
       shuffleParticipants: Boolean,
-      clientTlsConfiguration: Option[TlsConfiguration],
   )(implicit executionContext: ExecutionContext): LedgerSession = {
     val endpointIdProvider =
       Identification.circularWithIndex(Identification.greekAlphabet)
@@ -50,7 +46,6 @@ object LedgerSession {
     new LedgerSession(
       sessions,
       shuffleParticipants,
-      clientTlsConfiguration,
     )
   }
 

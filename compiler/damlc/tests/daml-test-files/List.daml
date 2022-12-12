@@ -1,20 +1,19 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=128:17-128:32; Use dedup
--- @INFO range=314:10-314:24; Evaluate
--- @INFO range=335:38-335:48; Use sum
--- @INFO range=336:43-336:53; Use sum
--- @INFO range=337:29-337:39; Use sum
--- @INFO range=340:3-340:23; Use head
--- @INFO range=345:29-345:36; Use head
+-- @INFO range=127:17-127:32; Use dedup
+-- @INFO range=313:10-313:24; Evaluate
+-- @INFO range=328:38-328:48; Use sum
+-- @INFO range=329:43-329:53; Use sum
+-- @INFO range=330:29-330:39; Use sum
+-- @INFO range=333:3-333:23; Use head
+-- @INFO range=338:29-338:36; Use head
 
 module List where
 
 import DA.List
 import DA.Assert
 import DA.Optional
-import qualified DA.Foldable as Foldable
 
 data Foo = Foo with x : Int; y : Text
   deriving (Eq, Show)
@@ -325,12 +324,6 @@ testFoldr1 = scenario do
   "abc" === foldr1 (<>) ["a", "b", "c"]
   2 === foldr1 (-) [1, 2, 3]
 
-testFoldable = scenario do
-  "abc" === Foldable.foldl1 (<>) ["a", "b", "c"]
-  -4 === Foldable.foldl1 (-) [1, 2, 3]
-  "abc" === Foldable.foldr1 (<>) ["a", "b", "c"]
-  2 === Foldable.foldr1 (-) [1, 2, 3]
-
 testRepeatedly = scenario do
   [15, 12, 5] === repeatedly (\x -> (foldl1 (+) x, drop 2 x)) [1..5]
   [10, 22, 34, 10] === repeatedly (\x -> (foldl1 (+) (take 4 x), drop 3 x)) [1..10]
@@ -374,5 +367,10 @@ testDelete = scenario do
   delete "a" ["b","a","n","a","n","a"] === ["b","n","a","n","a"]
   deleteBy (<=) 4 [1..10] === [1,2,3,5,6,7,8,9,10]
   [1,2,3,3] \\ [2,2,3] === [1,3]
+
+testChunksOf = scenario do
+  [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10]] === chunksOf 3 [1..10]
+  [[1, 2]] === chunksOf 2 [1, 2]
+  [] === chunksOf 3 ([] : [Int])
 
 -- @ENABLE-SCENARIOS

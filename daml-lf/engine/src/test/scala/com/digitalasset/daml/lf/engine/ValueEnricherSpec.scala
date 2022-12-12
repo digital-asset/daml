@@ -30,6 +30,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
     p"""
         module Mod {
 
+          record @serializable MyUnit = {};
           record @serializable Record = { field : Int64 };
           variant @serializable Variant = variant1 : Text | variant2 : Int64 ;
           enum Enum = value1 | value2;
@@ -52,6 +53,15 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
             \(contract: Mod:Contract) ->
               Mod:keyParties (Mod:Contract {key} contract);
 
+          record @serializable View = {
+            signatory: List Party,
+            cids: List (ContractId Mod:Contract)
+          };
+
+          interface (this: I) = {
+            viewtype Mod:View;
+          };
+
           template (this : Contract) =  {
              precondition True;
              signatories Mod:contractParties this;
@@ -62,6 +72,9 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
                  Mod:contractParties this
                to
                  upure @Mod:Record r;
+             implements Mod:I {
+               view = Mod:View { signatory = Mod:contractParties this, cids = Mod:Contract {cids} this } ;
+             };
              key @Mod:Key (Mod:Contract {key} this) Mod:keyParties;
           };
         }
@@ -69,9 +82,12 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
     """
 
   private[this] val engine = Engine.DevEngine()
+
   engine
     .preloadPackage(defaultPackageId, pkg)
     .consume(_ => None, _ => None, _ => None)
+    .left
+    .foreach(err => sys.error(err.message))
 
   private[this] val enricher = new ValueEnricher(engine)
 
@@ -125,9 +141,32 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
     )
 
     "enrich values as expected" in {
-      forAll(testCases) { (typ, input, output) =>
+      forEvery(testCases) { (typ, input, output) =>
         enricher.enrichValue(typ, input) shouldBe ResultDone(output)
       }
+    }
+  }
+
+  "enrichValue" should {
+    val alice = Ref.Party.assertFromString("alice")
+    val view = Value.ValueRecord(
+      None,
+      ImmArray(
+        None -> ValueList(FrontStack(ValueParty(alice))),
+        None -> ValueList(FrontStack(ValueContractId(cid("#contractId").coid))),
+      ),
+    )
+
+    val enrichedView = Value.ValueRecord(
+      Some("Mod:View": Ref.Identifier),
+      ImmArray(
+        Some("signatory": Ref.Name) -> ValueList(FrontStack(ValueParty(alice))),
+        Some("cids": Ref.Name) -> ValueList(FrontStack(ValueContractId(cid("#contractId").coid))),
+      ),
+    )
+
+    "enrich views as expected" in {
+      enricher.enrichView("Mod:I", view) shouldBe ResultDone(enrichedView)
     }
   }
 
@@ -152,12 +191,12 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
       builder.add(builder.fetch(create))
       builder.lookupByKey(create, true)
       builder.exercise(
-        create,
-        "Noop",
-        false,
-        Set("Alice"),
-        record,
-        Some(record),
+        contract = create,
+        choice = "Noop",
+        consuming = false,
+        actingParties = Set("Alice"),
+        argument = record,
+        result = Some(record),
       )
       builder.buildCommitted()
     }

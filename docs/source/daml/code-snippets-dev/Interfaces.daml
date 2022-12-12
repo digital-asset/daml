@@ -1,0 +1,125 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Interfaces where
+
+myGuard : Party -> Bool
+myGuard _ = True
+
+-- INTERFACE_VIEWTYPE_DATATYPE_BEGIN
+data MyInterfaceViewType =
+  MyInterfaceViewType { name : Text, value : Int }
+-- INTERFACE_VIEWTYPE_DATATYPE_END
+
+-- INTERFACE_NAME_BEGIN
+interface MyInterface where
+-- INTERFACE_NAME_END
+-- INTERFACE_METHODS_BEGIN
+  method1 : Party
+  method2 : Int
+  method3 : Bool -> Int -> Int -> Int
+-- INTERFACE_METHODS_END
+
+-- INTERFACE_VIEWTYPE_BEGIN
+  viewtype MyInterfaceViewType
+-- INTERFACE_VIEWTYPE_END
+
+-- INTERFACE_CHOICES_BEGIN
+  choice MyChoice : (ContractId MyInterface, Int)
+    with
+      argument1 : Bool
+      argument2 : Int
+    controller method1 this
+    do
+      let n0 = method2 this
+      let n1 = method3 this argument1 argument2 n0
+      pure (self, n1)
+
+  nonconsuming choice MyNonConsumingChoice : Int
+    controller method1 this
+    do
+      pure $ method2 this
+-- INTERFACE_CHOICES_END
+
+-- INTERFACE_METHODS_TOP_LEVEL_BEGIN
+func1 : MyInterface -> Party
+func1 = method1
+
+func2 : MyInterface -> Int
+func2 = method2
+
+func3 : MyInterface -> Bool -> Int -> Int -> Int
+func3 = method3
+-- INTERFACE_METHODS_TOP_LEVEL_END
+
+-- EMPTY_INTERFACE_BEGIN
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface YourInterface where
+  viewtype EmptyInterfaceView
+-- EMPTY_INTERFACE_END
+
+-- INTERFACE_REQUIRES_BEGIN
+interface OurInterface requires MyInterface, YourInterface where
+  viewtype EmptyInterfaceView
+-- INTERFACE_REQUIRES_END
+
+-- INTERFACE_TRANSITIVE_REQUIRES_GIVEN_BEGIN
+interface Shape where
+  viewtype EmptyInterfaceView
+
+interface Rectangle requires Shape where
+  viewtype EmptyInterfaceView
+-- INTERFACE_TRANSITIVE_REQUIRES_GIVEN_END
+
+{-
+-- INTERFACE_TRANSITIVE_REQUIRES_INCORRECT_BEGIN
+-- Compiler error! "Interface Square is missing requirement [Shape]"
+interface Square requires Rectangle where
+  viewtype EmptyInterfaceView
+-- INTERFACE_TRANSITIVE_REQUIRES_INCORRECT_END
+-}
+
+-- INTERFACE_TRANSITIVE_REQUIRES_CORRECT_BEGIN
+interface Square requires Rectangle, Shape where
+  viewtype EmptyInterfaceView
+-- INTERFACE_TRANSITIVE_REQUIRES_CORRECT_END
+
+-- TEMPLATE_HEADER_BEGIN
+template NameOfTemplate
+  with
+    field1 : Party
+    field2 : Int
+  where
+    signatory field1
+-- TEMPLATE_HEADER_END
+-- INTERFACE_INSTANCE_IN_TEMPLATE_BEGIN
+    interface instance MyInterface for NameOfTemplate where
+      view = MyInterfaceViewType "NameOfTemplate" 100
+      method1 = field1
+      method2 = field2
+      method3 False _ _ = 0
+      method3 True x y
+        | x > 0 = x + y
+        | otherwise = y
+-- INTERFACE_INSTANCE_IN_TEMPLATE_END
+-- EMPTY_INTERFACE_INSTANCE_BEGIN
+    interface instance YourInterface for NameOfTemplate where
+      view = EmptyInterfaceView
+-- EMPTY_INTERFACE_INSTANCE_END
+
+-- INTERFACE_INSTANCE_IN_INTERFACE_BEGIN
+interface MyNewInterface where
+  viewtype EmptyInterfaceView
+  myNewMethod1 : Party
+  myNewMethod2 : Int -> Int
+
+  choice MyNewChoice : Int
+    controller myNewMethod1 this
+    do pure $ myNewMethod2 this 0
+
+  interface instance MyNewInterface for NameOfTemplate where
+    view = EmptyInterfaceView
+    myNewMethod1 = field1
+    myNewMethod2 x = field2 `min` x
+-- INTERFACE_INSTANCE_IN_INTERFACE_END

@@ -3,22 +3,21 @@
 
 package com.daml.platform.sandbox.perf
 
-import java.io.File
-import java.util.concurrent.Executors
-import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.ledger.sandbox.SandboxServer
+import com.daml.ledger.runner.common.Config
+import com.daml.ledger.sandbox.SandboxOnXForTest._
+import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.lf.archive.UniversalArchiveReader
 import com.daml.lf.data.Ref
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.services.time.TimeProviderType.Static
-import com.daml.ports.Port
+import com.daml.platform.sandbox.UploadPackageHelper
+import com.daml.platform.services.time.TimeProviderType
 import com.daml.testing.postgresql.PostgresResource
 
-import java.time.Duration
+import java.io.File
+import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 
 object LedgerFactories {
@@ -26,16 +25,20 @@ object LedgerFactories {
   private def getPackageIdOrThrow(file: File): Ref.PackageId =
     UniversalArchiveReader.assertReadFile(file).all.head.pkgId
 
-  private def sandboxConfig(jdbcUrl: Option[String], darFiles: List[File]) =
-    SandboxConfig.defaultConfig.copy(
-      port = Port.Dynamic,
-      damlPackages = darFiles,
-      ledgerIdMode =
-        LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString("ledger-server"))),
-      jdbcUrl = jdbcUrl,
-      timeProviderType = Some(Static),
-      delayBeforeSubmittingLedgerConfiguration = Duration.ZERO,
-    )
+  def bridgeConfig: BridgeConfig = BridgeConfig()
+
+  protected def sandboxConfig(
+      jdbcUrl: Option[String]
+  ): Config = Default.copy(
+    ledgerId = "ledger-server",
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        seeding = Seeding.Weak,
+        timeProviderType = TimeProviderType.Static,
+      )
+    ),
+    dataSource = dataSource(jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl())),
+  )
 
   val mem = "InMemory"
   val sql = "Postgres"
@@ -43,6 +46,7 @@ object LedgerFactories {
   def createSandboxResource(
       store: String,
       darFiles: List[File],
+      akkaState: AkkaState,
   )(implicit resourceContext: ResourceContext): Resource[LedgerContext] = new OwnedResource(
     for {
       executor <- ResourceOwner.forExecutorService(() => Executors.newSingleThreadExecutor())
@@ -52,8 +56,20 @@ object LedgerFactories {
         case `sql` =>
           PostgresResource.owner[ResourceContext]().map(database => Some(database.url))
       }
-      port <- SandboxServer.owner(sandboxConfig(jdbcUrl, darFiles))
+      config = sandboxConfig(jdbcUrl)
+      port <- SandboxOnXRunner.owner(
+        ConfigAdaptor(None),
+        config,
+        bridgeConfig,
+      )
       channel <- GrpcClientResource.owner(port)
+      client = UploadPackageHelper.adminLedgerClient(port, config, None)(
+        akkaState.sys.dispatcher,
+        akkaState.esf,
+      )
+      _ <- ResourceOwner.forFuture(() =>
+        UploadPackageHelper.uploadDarFiles(client, darFiles)(akkaState.sys.dispatcher)
+      )
     } yield new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))(
       ExecutionContext.fromExecutorService(executor)
     )

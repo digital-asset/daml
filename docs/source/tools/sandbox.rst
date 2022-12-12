@@ -34,8 +34,8 @@ the resulting configuration files will be merged.
 
 .. _sandbox-authorization:
 
-Running with authorization
-**************************
+Run With Authorization
+**********************
 
 By default, Sandbox accepts all valid ledger API requests without performing any request authorization.
 
@@ -99,14 +99,18 @@ with SHA-256) with the public key loaded from the given JWKS URL.
        secret = "not-safe-for-production"
    }]
 
-Generating JSON Web Tokens (JWT)
-================================
+.. note:: To prevent man-in-the-middle attacks, it is highly recommended to use
+          TLS with server authentication as described in :ref:`sandbox-tls` for
+          any request sent to the Ledger API in production.
+
+Generate JSON Web Tokens (JWT)
+==============================
 
 To generate access tokens for testing purposes, use the `jwt.io <https://jwt.io/>`__ web site.
 
 
-Generating RSA keys
-===================
+Generate RSA keys
+=================
 
 To generate RSA keys for testing purposes, use the following command
 
@@ -119,8 +123,8 @@ which generates the following files:
 - ``sandbox.key``: the private key in PEM/DER/PKCS#1 format
 - ``sandbox.crt``: a self-signed certificate containing the public key, in PEM/DER/X.509 Certificate format
 
-Generating EC keys
-==================
+Generate EC keys
+================
 
 To generate keys to be used with ES256 for testing purposes, use the following command
 
@@ -141,15 +145,17 @@ Similarly, you can use the following command for ES512 keys:
 
 .. _sandbox-tls:
 
-Running with TLS
-****************
+Run With TLS
+************
 
 To enable TLS, you need to specify the private key for your server and
 the certificate chain. This enables TLS for both the Ledger API and
 the Canton Admin API. When enabling client authentication, you also
 need to specify client certificates which can be used by Canton’s
-internal processes. Below, you can see an example config. For more
-details on TLS, refer to
+internal processes. Note that the identity of the application
+will not be proven by using this method, i.e. the `application_id` field in the request
+is not necessarily correlated with the CN (Common Name) in the certificate.
+Below, you can see an example config. For more details on TLS, refer to
 :ref:`Canton’s documentation on TLS <tls-configuration>`.
 
 
@@ -181,7 +187,7 @@ details on TLS, refer to
      }
    }
 
-Command-line reference
+Command-line Reference
 **********************
 
 To start Sandbox, run: ``daml sandbox [options] [-c canton.config]``.
@@ -194,7 +200,7 @@ Canton. To see options of the underlying Canton runner, use
 Metrics
 *******
 
-Enable and configure reporting
+Enable and Configure Reporting
 ==============================
 
 You can enable metrics reporting via Prometheus using the following configuration file.
@@ -210,7 +216,7 @@ You can enable metrics reporting via Prometheus using the following configuratio
 
 For other options and more details refer to the :ref:`Canton documentation <canton-metrics>`.
 
-Types of metrics
+Types of Metrics
 ================
 
 This is a list of type of metrics with all data points recorded for each.
@@ -292,7 +298,7 @@ These metrics are:
 - ``<metric.qualified.name>.commit`` (timer): time to perform the commit
 - ``<metric.qualified.name>.translation`` (timer): if relevant, time necessary to turn serialized Daml-LF values into in-memory objects
 
-List of metrics
+List of Metrics
 ===============
 
 The following is a non-exhaustive list of selected metrics
@@ -300,20 +306,15 @@ that can be particularly important to track. Note that not
 all the following metrics are available unless you run the
 sandbox with a PostgreSQL backend.
 
-``daml.commands.deduplicated_commands``
----------------------------------------
-
-A meter. Number of deduplicated commands.
-
 ``daml.commands.delayed_submissions``
 -------------------------------------
 
-A meter. Number of delayed submissions (submission who have been
+A meter. Number of delayed submissions (submission that have been
 evaluated to transaction with a ledger time farther in
 the future than the expected latency).
 
-``daml.commands.failed_command_interpretation``
------------------------------------------------
+``daml.commands.failed_command_interpretations``
+------------------------------------------------
 
 A meter. Number of commands that have been deemed unacceptable
 by the interpreter and thus rejected (e.g. double spends)
@@ -416,8 +417,8 @@ mismatching ledger effective time.
 A timer. Time spent interpreting a valid command into a transaction
 ready to be submitted to the ledger for finalization.
 
-``daml.index.db.connection.sandbox.pool``
------------------------------------------
+``daml.index.db.connection.api.server.pool``
+--------------------------------------------
 
 This namespace holds a number of interesting metrics about the
 connection pool used to communicate with the persistent store
@@ -425,18 +426,12 @@ that underlies the index.
 
 These metrics include:
 
-- ``daml.index.db.connection.sandbox.pool.Wait`` (timer): time spent waiting to acquire a connection
-- ``daml.index.db.connection.sandbox.pool.Usage`` (histogram): time spent using each acquired connection
-- ``daml.index.db.connection.sandbox.pool.TotalConnections`` (gauge): number or total connections
-- ``daml.index.db.connection.sandbox.pool.IdleConnections`` (gauge): number of idle connections
-- ``daml.index.db.connection.sandbox.pool.ActiveConnections`` (gauge): number of active connections
-- ``daml.index.db.connection.sandbox.pool.PendingConnections`` (gauge): number of threads waiting for a connection
-
-``daml.index.db.deduplicate_command``
--------------------------------------
-
-A timer. Time spent persisting deduplication information to ensure the
-continued working of the deduplication mechanism across restarts.
+- ``daml.index.db.connection.api.server.pool.Wait`` (timer): time spent waiting to acquire a connection
+- ``daml.index.db.connection.api.server.pool.Usage`` (histogram): time spent using each acquired connection
+- ``daml.index.db.connection.api.server.pool.TotalConnections`` (gauge): number or total connections
+- ``daml.index.db.connection.api.server.pool.IdleConnections`` (gauge): number of idle connections
+- ``daml.index.db.connection.api.server.pool.ActiveConnections`` (gauge): number of active connections
+- ``daml.index.db.connection.api.server.pool.PendingConnections`` (gauge): number of threads waiting for a connection
 
 ``daml.index.db.get_active_contracts``
 --------------------------------------
@@ -562,20 +557,6 @@ contracts involved to ensure causal monotonicity.
 A database metric. Time to lookup a single transaction tree by identifier
 to be served by the transaction service.
 
-``daml.index.db.remove_expired_deduplication_data``
----------------------------------------------------
-
-A database metric. Time spent removing deduplication information after the expiration
-of the deduplication window. Deduplication information is persisted to
-ensure the continued working of the deduplication mechanism across restarts.
-
-``daml.index.db.stop_deduplicating_command``
---------------------------------------------
-
-A database metric. Time spent removing deduplication information after the failure of a
-command. Deduplication information is persisted to ensure the continued
-working of the deduplication mechanism across restarts.
-
 ``daml.index.db.store_configuration_entry``
 -------------------------------------------
 
@@ -607,6 +588,36 @@ management service.
 A database metric. Time spent persisting the information that a given
 command has been rejected.
 
+``daml.indexer.last_received_record_time``
+------------------------------------------
+
+A monotonically increasing integer value that represents the record time
+of the last event ingested by the index db. It is measured in milliseconds
+since the EPOCH time.
+
+``daml.indexer.last_received_offset``
+-------------------------------------
+
+A string value representing the last ledger offset ingested by the index db.
+It is only available on metrics backends that support strings. In particular
+it is not available in Prometheus.
+
+``daml.indexer.current_record_time_lag``
+----------------------------------------
+
+A lag between the record time of a transaction and the wall-clock time registered
+at the ingestion time to the index db. Depending on the systemic clock skew between
+different machines, this value can be negative.
+
+``daml.indexer.ledger_end_sequential_id``
+-----------------------------------------
+
+A monotonically increasing integer value representing the sequential id ascribed
+to the most recent ledger event ingested by the index db. Please note, that only
+a subset of all ledger events are ingested and given a sequential id. These are:
+creates, consuming exercises, non-consuming exercises and divulgence events. This
+value can be treated as a counter of all such events visible to a given participant.
+
 ``daml.lapi``
 -------------
 
@@ -618,6 +629,34 @@ service exposed by the Ledger API, in the format:
 As in the following example:
 
 ``daml.lapi.command_service.submit_and_wait``
+
+Single call services return the time to serve the request,
+streaming services measure the time to return the first response.
+
+``daml.lapi.return_status``
+---------------------------
+
+This namespace contains counters for various gRPC return status codes in the following format
+
+``daml.lapi.return_status.<gRPC status code>``
+
+As in the following example:
+
+``daml.lapi.return_status.ABORTED``
+
+``daml.services``
+-----------------
+
+Every metrics under this namespace is a timer, one for each
+endpoint exposed by the index, read or write service. Metrics
+are in the format:
+
+``daml.services.service_name.service_endpoint``
+
+The following example demonstrates a metric for transactions
+submitted over the write service:
+
+``daml.services.write.submit_transaction``
 
 Single call services return the time to serve the request,
 streaming services measure the time to return the first response.

@@ -116,7 +116,7 @@ public final class DamlLedgerClient implements LedgerClient {
   private CommandCompletionClient commandCompletionClient;
   private CommandClient commandClient;
   private CommandSubmissionClient commandSubmissionClient;
-  private LedgerIdentityClient ledgerIdentityClient;
+  @Deprecated private LedgerIdentityClient ledgerIdentityClient;
   private PackageClient packageClient;
   private LedgerConfigurationClient ledgerConfigurationClient;
   private TimeClient timeClient;
@@ -139,7 +139,9 @@ public final class DamlLedgerClient implements LedgerClient {
 
   /** Connects this instance of the {@link DamlLedgerClient} to the Ledger. */
   public void connect() {
-    ledgerIdentityClient = new LedgerIdentityClientImpl(channel, pool, this.accessToken);
+    @SuppressWarnings("deprecation")
+    var lic = new LedgerIdentityClientImpl(channel, this.accessToken, this.timeout);
+    ledgerIdentityClient = lic;
 
     String reportedLedgerId = ledgerIdentityClient.getLedgerIdentity().blockingGet();
 
@@ -159,14 +161,13 @@ public final class DamlLedgerClient implements LedgerClient {
     commandCompletionClient =
         new CommandCompletionClientImpl(reportedLedgerId, channel, pool, this.accessToken);
     commandSubmissionClient =
-        new CommandSubmissionClientImpl(
-            reportedLedgerId, channel, pool, this.accessToken, this.timeout);
-    commandClient = new CommandClientImpl(reportedLedgerId, channel, pool, this.accessToken);
-    packageClient = new PackageClientImpl(reportedLedgerId, channel, pool, this.accessToken);
+        new CommandSubmissionClientImpl(reportedLedgerId, channel, this.accessToken, this.timeout);
+    commandClient = new CommandClientImpl(reportedLedgerId, channel, this.accessToken);
+    packageClient = new PackageClientImpl(reportedLedgerId, channel, this.accessToken);
     ledgerConfigurationClient =
         new LedgerConfigurationClientImpl(reportedLedgerId, channel, pool, this.accessToken);
     timeClient = new TimeClientImpl(reportedLedgerId, channel, pool, this.accessToken);
-    userManagementClient = new UserManagementClientImpl(channel, pool, this.accessToken);
+    userManagementClient = new UserManagementClientImpl(channel, this.accessToken);
   }
 
   @Override
@@ -199,6 +200,7 @@ public final class DamlLedgerClient implements LedgerClient {
     return commandSubmissionClient;
   }
 
+  @Deprecated
   @Override
   public LedgerIdentityClient getLedgerIdentityClient() {
     return ledgerIdentityClient;

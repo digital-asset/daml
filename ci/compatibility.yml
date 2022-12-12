@@ -34,6 +34,7 @@ steps:
       set -eou pipefail
       ./compatibility/test.sh ${{ parameters.test_flags }}
     displayName: 'Run tests'
+    condition: and(succeeded(), eq(variables['System.PullRequest.IsFork'], 'False'))
     env:
       DOCKER_LOGIN: $(DOCKER_LOGIN)
       DOCKER_PASSWORD: $(DOCKER_PASSWORD)

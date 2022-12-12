@@ -4,8 +4,10 @@
 module Main where
 
 import DA.TextMap
+import DA.Functor ((<&>))
 import qualified DA.Map
-import Lib.Mod
+import qualified Lib.Mod hiding (Overridden)
+import qualified Lib.ModIfaceOnly
 
 import T
 
@@ -27,7 +29,7 @@ template AllTypes with
     textMap: TextMap Int
     monoRecord: Person
     polyRecord: Pair Int Text
-    imported: Imported
+    imported: Lib.Mod.Imported
     archiveX: Archive
     either: Either Int Text
     tuple: (Int, Text)
@@ -170,7 +172,11 @@ template Counter with
       do
         create Counter {c = n, ..}
 
+data TokenView = TokenView with
+  tokenOwner : Party
+
 interface Token where
+  viewtype TokenView
   getTokenOwner : Party
   transferImpl : Party -> Update (ContractId Token)
 
@@ -181,26 +187,41 @@ interface Token where
     do
       transferImpl this newOwner
 
-interface Other where
-  getOtherOwner : Party
-  somethingImpl : Update ()
-  choice Something : ()
-    controller getOtherOwner this
-    do
-      somethingImpl this
-
 template Asset with
     issuer: Party
     owner: Party
   where
     signatory issuer
     observer owner
-    implements Token where
+    choice Overridden : ()
+      controller owner
+      do return ()
+    interface instance Token for Asset where
+      view = TokenView with tokenOwner = owner
       getTokenOwner = owner
       transferImpl newOwner = do
         cid <- create Asset with issuer = issuer, owner = newOwner
         pure (toInterfaceContractId @Token cid)
-    implements Other where
+    interface instance Lib.Mod.Other for Asset where
+      view = Lib.Mod.EmptyInterfaceView
       getOtherOwner = owner
       somethingImpl = do
         pure ()
+    interface instance Lib.ModIfaceOnly.YetAnother for Asset where
+      view = Lib.ModIfaceOnly.EmptyInterfaceView
+      getOtherOwner = owner
+      somethingImpl = do
+        pure ()
+
+interface Cloneable where
+  viewtype Lib.Mod.EmptyInterfaceView
+  getSelfKind : Text
+  getCloner : Party
+  cloneSelf : Update (ContractId Cloneable)
+
+  choice Clone : (ContractId Cloneable, Text)
+    with
+      echo : Text
+    controller getCloner this
+    do
+      cloneSelf this <&> (, "cloned " <> getSelfKind this <> ": " <> echo)

@@ -1,7 +1,10 @@
--- @ERROR range=25:1-25:14; Contract IDs are not supported in contract key
--- @ERROR range=34:1-34:13; Contract IDs are not supported in contract key
--- @ERROR range=40:1-40:14; Contract IDs are not supported in contract key
--- @ERROR range=46:1-46:16; Contract IDs are not supported in contract key
+-- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- This tests that the ContractId type is not allowed to be in a
+-- contract key at compile time.
+
+-- @ERROR range=15:10-17:29; contract key type should not contain ContractId
 module ContractIdInContractKey where
 
 template Contract with
@@ -21,32 +24,3 @@ template ContractKeyWithCid with
 
     key (party, cid) : (Party, ContractId Contract)
     maintainer key._1
-
-createCrashes = scenario do
-    alice <- getParty "Alice"
-    cid <- submit alice $ do
-      create Contract with party = alice
-    submit alice $ do
-      create ContractKeyWithCid with
-        party = alice
-        cid = cid
-
-fetchCrashes = scenario do
-    alice <- getParty "Alice"
-    cid <- submit alice $ do
-          create Contract with party = alice
-    submit alice $ do fetchByKey @ContractKeyWithCid (alice, cid)
-
-lookupCrashes = scenario do
-    alice <- getParty "Alice"
-    cid <- submit alice $ do
-          create Contract with party = alice
-    submit alice $ do lookupByKey @ContractKeyWithCid (alice, cid)
-
-exerciseCrashes = scenario do
-    alice <- getParty "Alice"
-    cid <- submit alice $ do
-          create Contract with party = alice
-    submit alice $ do exerciseByKey @ContractKeyWithCid (alice, cid) Noop
-
--- @ENABLE-SCENARIOS

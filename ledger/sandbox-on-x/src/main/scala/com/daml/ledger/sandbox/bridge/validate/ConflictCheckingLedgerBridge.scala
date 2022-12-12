@@ -4,7 +4,6 @@
 package com.daml.ledger.sandbox.bridge.validate
 
 import akka.NotUsed
-import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Flow
 import com.daml.api.util.TimeProvider
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
@@ -16,10 +15,10 @@ import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge._
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
 import com.daml.ledger.sandbox.domain._
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.{Transaction => LfTransaction}
+import com.daml.lf.transaction.{GlobalKey => LfGlobalKey, Transaction => LfTransaction}
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.store.appendonlydao.events._
-
+import com.daml.metrics.InstrumentedGraph._
 import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -30,38 +29,26 @@ private[validate] class ConflictCheckingLedgerBridge(
     conflictCheckWithCommitted: ConflictCheckWithCommitted,
     sequence: Sequence,
     servicesThreadPoolSize: Int,
+    stageBufferSize: Int,
 ) extends LedgerBridge {
+
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
-      .buffered(128)(bridgeMetrics.Stages.PrepareSubmission.bufferBefore)
+      .buffered(bridgeMetrics.Stages.PrepareSubmission.bufferBefore, stageBufferSize)
       .mapAsyncUnordered(servicesThreadPoolSize)(prepareSubmission)
-      .buffered(128)(bridgeMetrics.Stages.TagWithLedgerEnd.bufferBefore)
+      .buffered(bridgeMetrics.Stages.TagWithLedgerEnd.bufferBefore, stageBufferSize)
       .mapAsync(parallelism = 1)(tagWithLedgerEnd)
-      .buffered(128)(bridgeMetrics.Stages.ConflictCheckWithCommitted.bufferBefore)
+      .buffered(bridgeMetrics.Stages.ConflictCheckWithCommitted.bufferBefore, stageBufferSize)
       .mapAsync(servicesThreadPoolSize)(conflictCheckWithCommitted)
-      .buffered(128)(bridgeMetrics.Stages.Sequence.bufferBefore)
+      .buffered(bridgeMetrics.Stages.Sequence.bufferBefore, stageBufferSize)
       .statefulMapConcat(sequence)
-
-  private implicit class FlowWithBuffers[T, R](flow: Flow[T, R, NotUsed]) {
-    def buffered(bufferLength: Int)(counter: com.codahale.metrics.Counter): Flow[T, R, NotUsed] =
-      flow
-        .map { in =>
-          counter.inc()
-          in
-        }
-        .buffer(bufferLength, OverflowStrategy.backpressure)
-        .map { in =>
-          counter.dec()
-          in
-        }
-  }
 }
 
 private[bridge] object ConflictCheckingLedgerBridge {
   private[validate] type Validation[T] = Either[Rejection, T]
   private[validate] type AsyncValidation[T] = Future[Validation[T]]
-  private[validate] type KeyInputs = Map[Key, LfTransaction.KeyInput]
-  private[validate] type UpdatedKeys = Map[Key, Option[ContractId]]
+  private[validate] type KeyInputs = Map[LfGlobalKey, LfTransaction.KeyInput]
+  private[validate] type UpdatedKeys = Map[LfGlobalKey, Option[ContractId]]
 
   // Conflict checking stages
   private[validate] type PrepareSubmission = Submission => AsyncValidation[PreparedSubmission]
@@ -80,9 +67,10 @@ private[bridge] object ConflictCheckingLedgerBridge {
       initialAllocatedParties: Set[Ref.Party],
       initialLedgerConfiguration: Option[Configuration],
       bridgeMetrics: BridgeMetrics,
-      validatePartyAllocation: Boolean,
       servicesThreadPoolSize: Int,
       maxDeduplicationDuration: Duration,
+      stageBufferSize: Int,
+      explicitDisclosureEnabled: Boolean,
   )(implicit
       servicesExecutionContext: ExecutionContext
   ): ConflictCheckingLedgerBridge =
@@ -97,11 +85,12 @@ private[bridge] object ConflictCheckingLedgerBridge {
         initialLedgerEnd = initialLedgerEnd,
         initialAllocatedParties = initialAllocatedParties,
         initialLedgerConfiguration = initialLedgerConfiguration,
-        validatePartyAllocation = validatePartyAllocation,
         bridgeMetrics = bridgeMetrics,
         maxDeduplicationDuration = maxDeduplicationDuration,
+        explicitDisclosureEnabled = explicitDisclosureEnabled,
       ),
       servicesThreadPoolSize = servicesThreadPoolSize,
+      stageBufferSize = stageBufferSize,
     )
 
   private[validate] def withErrorLogger[T](submissionId: Option[String])(

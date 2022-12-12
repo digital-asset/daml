@@ -3,8 +3,8 @@
 
 .. _contractkeys:
 
-Contract keys
-#############
+Reference: Contract Keys
+########################
 
 Contract keys are an optional addition to templates. They let you specify a way of uniquely identifying contracts, using the parameters to the template - similar to a primary key for a database.
 
@@ -17,15 +17,15 @@ Here's an example of setting up a contract key for a bank account, to act as a b
    :start-after: -- start contract key setup snippet
    :end-before: -- end contract key setup snippet
 
-What can be a contract key
+What Can Be a Contract Key
 **************************
 
-The key can be an arbitrary serializable expression that does **not** contain contract IDs. However, it **must** include every party that you want to use as a ``maintainer`` (see `Specifying maintainers`_ below).
+The key can be an arbitrary serializable expression that does **not** contain contract IDs. However, it **must** include every party that you want to use as a ``maintainer`` (see `Specify Maintainers`_ below).
 
 It's best to use simple types for your keys like ``Text`` or ``Int``, rather than a list or more complex type.
 
-Specifying maintainers
-**********************
+Specify Maintainers
+*******************
 
 If you specify a contract key for a template, you must also specify a ``maintainer`` or maintainers, in a similar way to specifying signatories or observers. The maintainers "own" the key in the same way the signatories "own" a contract. Just like signatories of contracts prevent double spends or use of false contract data, maintainers of keys prevent double allocation or incorrect lookups. Since the key is part of the contract, the maintainers **must** be signatories of the contract. However, maintainers are computed from the ``key`` instead of the template arguments. In the example above, the ``bank`` is ultimately the maintainer of the key.
 

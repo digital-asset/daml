@@ -252,3 +252,55 @@ template KeyOperations
            E -> pure ()
          (cid', _) <- fetchByKey @Keyed p
          cid1 === cid'
+
+     -- should be accepted in uck, regression test for https://github.com/digital-asset/daml/pull/14080
+    nonconsuming choice RollbackGlobalArchivedLookup : ()
+        with
+          cid: ContractId Keyed
+        controller p
+        do
+          archive cid
+          try do
+            None <- lookupByKey @Keyed p
+            throw E
+          catch E -> pure ()
+          None <- lookupByKey @Keyed p
+          pure ()
+
+    -- should be accepted in uck, regression test for https://github.com/digital-asset/daml/pull/14080
+    choice RollbackGlobalArchivedCreate : ()
+      with
+        cid : ContractId Keyed
+      controller p
+      do archive cid
+         try do
+           None <- lookupByKey @Keyed p
+           throw E
+         catch
+           E -> pure ()
+         create (Keyed p)
+         pure ()
+
+    choice RollbackExerciseCreateFetchByKey: ()
+      with  cid : ContractId Keyed
+      controller p
+      do
+        try do
+          exercise cid Archive
+          create (Keyed p)
+          throw E
+        catch E -> pure ()
+        fetchByKey @Keyed p
+        pure ()
+
+    choice RollbackExerciseCreateLookup: ()
+      with  cid : ContractId Keyed
+      controller p
+      do
+        try do
+          exercise cid Archive
+          create (Keyed p)
+          throw E
+        catch E -> pure ()
+        result <- lookupByKey @Keyed p
+        result === Some cid

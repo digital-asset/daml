@@ -29,16 +29,13 @@ class PollingChecker(
     extends AutoCloseable {
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val timer = new Timer(true)
+  private val timer = new Timer("ha-polling-checker-timer-thread", true)
+
+  private var closed: Boolean = false
 
   timer.schedule(
     new TimerTask {
-      override def run(): Unit = {
-        if (!isClosed) { // Timer can fire at most one additional TimerTask after being cancelled. This is to safeguard that corner case.
-          Try(check())
-        }
-        ()
-      }
+      override def run(): Unit = scheduledCheck()
     },
     periodMillis,
     periodMillis,
@@ -52,25 +49,35 @@ class PollingChecker(
   // complete pool.
   def check(): Unit = synchronized {
     logger.debug(s"Checking...")
-    Try(checkBody) match {
-      case _ if closed =>
-        throw new Exception(
-          "Internal Error: This check should not be called from outside by the time the PollingChecker is closed."
-        )
+    if (closed) {
+      val errorMsg =
+        "Internal Error: This check should not be called from outside by the time the PollingChecker is closed."
+      logger.error(errorMsg)
+      throw new Exception(errorMsg)
+    } else {
+      checkInternal()
+    }
+  }
 
+  private def scheduledCheck(): Unit = synchronized {
+    logger.debug(s"Scheduled checking...")
+    // Timer can fire at most one additional TimerTask after being cancelled. This is to safeguard that corner case.
+    if (!closed) {
+      checkInternal()
+    }
+  }
+
+  private def checkInternal(): Unit = synchronized {
+    Try(checkBody) match {
       case Success(_) =>
         logger.debug(s"Check successful.")
 
       case Failure(ex) =>
-        logger.info(s"Check failed (${ex.getMessage}). KillSwitch/abort called.")
+        logger.info(s"Check failed (${ex.getMessage}). Calling KillSwitch/abort.")
         killSwitch.abort(new Exception("check failed, killSwitch aborted", ex))
         throw ex
     }
   }
-
-  private var closed: Boolean = false
-
-  def isClosed: Boolean = synchronized(closed)
 
   def close(): Unit = synchronized {
     closed = true

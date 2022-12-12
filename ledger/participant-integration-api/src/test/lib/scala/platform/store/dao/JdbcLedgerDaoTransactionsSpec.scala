@@ -11,14 +11,15 @@ import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.ResourceContext
-import com.daml.lf.data.Ref.{Identifier, Party}
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node
 import com.daml.logging.LoggingContext
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.participant.util.LfEngineToApi
-import com.daml.platform.store.appendonlydao._
+import com.daml.platform.store.dao._
+import com.daml.platform.TemplatePartiesFilter
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -70,18 +71,18 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         transaction.transactionId shouldBe tx.transactionId
         transaction.workflowId shouldBe tx.workflowId.getOrElse("")
         inside(transaction.events.loneElement.event.created) { case Some(created) =>
-          val (nodeId, createNode: Node.Create) =
-            tx.transaction.nodes.head
-          created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
-          created.witnessParties should contain only (tx.actAs: _*)
-          created.agreementText.getOrElse("") shouldBe createNode.agreementText
-          created.contractKey shouldBe None
-          created.createArguments shouldNot be(None)
-          created.signatories should contain theSameElementsAs createNode.signatories
-          created.observers should contain theSameElementsAs createNode.stakeholders.diff(
-            createNode.signatories
-          )
-          created.templateId shouldNot be(None)
+          inside(tx.transaction.nodes.headOption) { case Some((nodeId, createNode: Node.Create)) =>
+            created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
+            created.witnessParties should contain only (tx.actAs: _*)
+            created.agreementText.getOrElse("") shouldBe createNode.agreementText
+            created.contractKey shouldBe None
+            created.createArguments shouldNot be(None)
+            created.signatories should contain theSameElementsAs createNode.signatories
+            created.observers should contain theSameElementsAs createNode.stakeholders.diff(
+              createNode.signatories
+            )
+            created.templateId shouldNot be(None)
+          }
         }
       }
     }
@@ -104,12 +105,13 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         ) shouldBe exercise.ledgerEffectiveTime
         transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
         inside(transaction.events.loneElement.event.archived) { case Some(archived) =>
-          val (nodeId, exerciseNode: Node.Exercise) =
-            exercise.transaction.nodes.head
-          archived.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
-          archived.witnessParties should contain only (exercise.actAs: _*)
-          archived.contractId shouldBe exerciseNode.targetCoid.coid
-          archived.templateId shouldNot be(None)
+          inside(exercise.transaction.nodes.headOption) {
+            case Some((nodeId, exerciseNode: Node.Exercise)) =>
+              archived.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
+              archived.witnessParties should contain only (exercise.actAs: _*)
+              archived.contractId shouldBe exerciseNode.targetCoid.coid
+              archived.templateId shouldNot be(None)
+          }
         }
       }
     }
@@ -181,8 +183,12 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           .getFlatTransactions(
             startExclusive = from,
             endInclusive = to,
-            filter = Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
-            verbose = true,
+            filter = TemplatePartiesFilter(Map.empty, Set(alice, bob, charlie)),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter =
+                Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
+            ),
           )
       )
     } yield {
@@ -211,8 +217,11 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           .getFlatTransactions(
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
-            filter = Map(alice -> Set.empty),
-            verbose = true,
+            filter = TemplatePartiesFilter(Map.empty, Set(alice)),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(alice -> Set.empty),
+            ),
           )
       )
       resultForBob <- transactionsOf(
@@ -220,8 +229,11 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           .getFlatTransactions(
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
-            filter = Map(bob -> Set.empty),
-            verbose = true,
+            filter = TemplatePartiesFilter(Map.empty, Set(bob)),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(bob -> Set.empty),
+            ),
           )
       )
       resultForCharlie <- transactionsOf(
@@ -229,8 +241,11 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           .getFlatTransactions(
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
-            filter = Map(charlie -> Set.empty),
-            verbose = true,
+            filter = TemplatePartiesFilter(Map.empty, Set(charlie)),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              witnessTemplateIdFilter = Map(charlie -> Set.empty),
+            ),
           )
       )
     } yield {
@@ -259,8 +274,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           .getFlatTransactions(
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
-            filter = Map(alice -> Set(otherTemplateId)),
-            verbose = true,
+            filter = TemplatePartiesFilter(Map(otherTemplateId -> Set(alice)), Set.empty),
+            eventProjectionProperties = EventProjectionProperties(verbose = true),
           )
       )
     } yield {
@@ -290,11 +305,13 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           .getFlatTransactions(
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
-            filter = Map(
-              alice -> Set(otherTemplateId),
-              bob -> Set(otherTemplateId),
+            filter = TemplatePartiesFilter(
+              Map(
+                otherTemplateId -> Set(alice, bob)
+              ),
+              Set.empty,
             ),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(verbose = true),
           )
       )
     } yield {
@@ -330,11 +347,14 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           .getFlatTransactions(
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
-            filter = Map(
-              alice -> Set(someTemplateId),
-              bob -> Set(otherTemplateId),
+            filter = TemplatePartiesFilter(
+              Map(
+                otherTemplateId -> Set(bob),
+                someTemplateId -> Set(alice),
+              ),
+              Set.empty,
             ),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(verbose = true),
           )
       )
     } yield {
@@ -370,11 +390,13 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           .getFlatTransactions(
             startExclusive = from.lastOffset,
             endInclusive = to.lastOffset,
-            filter = Map(
-              alice -> Set(otherTemplateId),
-              bob -> Set.empty,
+            filter = TemplatePartiesFilter(
+              Map(
+                otherTemplateId -> Set(alice)
+              ),
+              Set(bob),
             ),
-            verbose = true,
+            eventProjectionProperties = EventProjectionProperties(verbose = true),
           )
       )
     } yield {
@@ -401,8 +423,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         .getFlatTransactions(
           from.lastOffset,
           offset,
-          exercise.actAs.map(submitter => submitter -> Set.empty[Identifier]).toMap,
-          verbose = true,
+          TemplatePartiesFilter(Map.empty, exercise.actAs.toSet),
+          eventProjectionProperties = EventProjectionProperties(verbose = true),
         )
         .runWith(Sink.seq)
     } yield {
@@ -433,8 +455,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         .getFlatTransactions(
           offset1,
           offset2,
-          exercise.actAs.map(submitter => submitter -> Set.empty[Identifier]).toMap,
-          verbose = true,
+          TemplatePartiesFilter(Map.empty, exercise.actAs.toSet),
+          eventProjectionProperties = EventProjectionProperties(verbose = true),
         )
         .runWith(Sink.seq)
 
@@ -463,8 +485,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         .getFlatTransactions(
           beginOffsetFromTheFuture,
           endOffsetFromTheFuture,
-          Map(alice -> Set.empty[Identifier]),
-          verbose = true,
+          TemplatePartiesFilter(Map.empty, Set(alice)),
+          eventProjectionProperties = EventProjectionProperties(verbose = true),
         )
         .runWith(Sink.seq)
 
@@ -507,14 +529,13 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         acsIdFetchingParallelism = 2,
         acsContractFetchingParallelism = 2,
         acsGlobalParallelism = 10,
-        acsIdQueueLimit = 1000000,
       ).use(
         _.transactionsReader
           .getFlatTransactions(
             beginOffset,
             endOffset,
-            Map(alice -> Set.empty[Identifier]),
-            verbose = true,
+            TemplatePartiesFilter(Map.empty, Set(alice)),
+            eventProjectionProperties = EventProjectionProperties(verbose = true),
           )
           .runWith(Sink.seq)
       )(ResourceContext(executionContext))
@@ -527,7 +548,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  //TODO need to find out why this is so slow to execute on Oracle
+  // TODO need to find out why this is so slow to execute on Oracle
   it should "fall back to limit-based query with consistent results" in {
     val txSeqLength = 1000
     txSeqTrial(
@@ -560,7 +581,12 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           }
           to <- ledgerDao.lookupLedgerEnd()
           response <- ledgerDao.transactionsReader
-            .getFlatTransactions(from.lastOffset, to.lastOffset, cp.filter, verbose = false)
+            .getFlatTransactions(
+              from.lastOffset,
+              to.lastOffset,
+              cp.filter,
+              EventProjectionProperties(verbose = true),
+            )
             .runWith(Sink.seq)
           readOffsets = response flatMap { case (_, gtr) => gtr.transactions map (_.offset) }
           readCreates = extractAllTransactions(response) flatMap (_.events)
@@ -645,7 +671,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
       acsGlobalParallelism: Int,
-      acsIdQueueLimit: Int,
   ) =
     LoggingContext.newLoggingContext { implicit loggingContext =>
       daoOwner(
@@ -655,7 +680,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         acsIdFetchingParallelism = acsIdFetchingParallelism,
         acsContractFetchingParallelism = acsContractFetchingParallelism,
         acsGlobalParallelism = acsGlobalParallelism,
-        acsIdQueueLimit = acsIdQueueLimit,
       )
     }
 
@@ -671,14 +695,14 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     Seq(
       Mk(
         "singleWildcardParty",
-        Map(alice -> Set.empty),
+        TemplatePartiesFilter(Map.empty, Set(alice)),
         () => singleCreate(create(_, signatories = Set(alice))),
         () => singleCreate(create(_, signatories = Set(bob))),
         ce => (ce.signatories ++ ce.observers) contains alice,
       ),
       Mk(
         "singlePartyWithTemplates",
-        Map(alice -> Set(someTemplateId)),
+        TemplatePartiesFilter(Map(someTemplateId -> Set(alice)), Set.empty),
         () => singleCreate(create(_, signatories = Set(alice))),
         () => singleCreate(create(_, signatories = Set(bob))),
         ce =>
@@ -686,28 +710,31 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       ),
       Mk(
         "onlyWildcardParties",
-        Map(alice -> Set.empty, bob -> Set.empty),
+        TemplatePartiesFilter(Map.empty, Set(alice, bob)),
         () => singleCreate(create(_, signatories = Set(alice))),
         () => singleCreate(create(_, signatories = Set(charlie))),
         ce => (ce.signatories ++ ce.observers) exists Set(alice, bob),
       ),
       Mk(
         "sameTemplates",
-        Map(alice -> Set(someTemplateId), bob -> Set(someTemplateId)),
+        TemplatePartiesFilter(Map(someTemplateId -> Set(alice, bob)), Set.empty),
         () => singleCreate(create(_, signatories = Set(alice))),
         () => singleCreate(create(_, signatories = Set(charlie))),
         ce => (ce.signatories ++ ce.observers) exists Set(alice, bob),
       ),
       Mk(
         "mixedTemplates",
-        Map(alice -> Set(someTemplateId), bob -> Set(otherTemplateId)),
+        TemplatePartiesFilter(
+          Map(someTemplateId -> Set(alice), otherTemplateId -> Set(bob)),
+          Set.empty,
+        ),
         () => singleCreate(create(_, signatories = Set(alice))),
         () => singleCreate(create(_, signatories = Set(charlie))),
         ce => (ce.signatories ++ ce.observers) exists Set(alice, bob),
       ),
       Mk(
         "mixedTemplatesWithWildcardParties",
-        Map(alice -> Set(someTemplateId), bob -> Set.empty),
+        TemplatePartiesFilter(Map(someTemplateId -> Set(alice)), Set(bob)),
         () => singleCreate(create(_, signatories = Set(alice))),
         () => singleCreate(create(_, signatories = Set(charlie))),
         ce => (ce.signatories ++ ce.observers) exists Set(alice, bob),
@@ -719,7 +746,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 private[dao] object JdbcLedgerDaoTransactionsSpec {
   private final case class FlatTransactionCodePath(
       label: String,
-      filter: events.FilterRelation,
+      filter: TemplatePartiesFilter,
       makeMatching: () => (Offset, LedgerEntry.Transaction),
       makeNonMatching: () => (Offset, LedgerEntry.Transaction),
       // XXX SC we don't need discriminate unless we test the event contents

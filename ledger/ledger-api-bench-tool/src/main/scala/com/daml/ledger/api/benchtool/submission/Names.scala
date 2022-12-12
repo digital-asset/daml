@@ -7,22 +7,54 @@ package com.daml.ledger.api.benchtool.submission
   */
 class Names {
 
+  import Names.{
+    SignatoryPrefix,
+    PartyPrefixSeparatorChar,
+    ObserverPrefix,
+    DivulgeePrefix,
+    ExtraSubmitterPrefix,
+  }
+
   val identifierSuffix = f"${System.nanoTime}%x"
   val benchtoolApplicationId = "benchtool"
   val benchtoolUserId: String = benchtoolApplicationId
   val workflowId = s"$benchtoolApplicationId-$identifierSuffix"
-  val signatoryPartyName = s"signatory-$identifierSuffix"
-
-  def observerPartyName(index: Int, uniqueParties: Boolean): String = {
-    if (uniqueParties) s"Obs-$index-$identifierSuffix"
-    else s"Obs-$index"
-  }
+  val signatoryPartyName = s"$SignatoryPrefix$PartyPrefixSeparatorChar$identifierSuffix"
 
   def observerPartyNames(numberOfObservers: Int, uniqueParties: Boolean): Seq[String] =
-    (0 until numberOfObservers).map(i => observerPartyName(i, uniqueParties))
+    partyNames(ObserverPrefix, numberOfObservers, uniqueParties)
+
+  def divulgeePartyNames(numberOfDivulgees: Int, uniqueParties: Boolean): Seq[String] =
+    partyNames(DivulgeePrefix, numberOfDivulgees, uniqueParties)
+
+  def extraSubmitterPartyNames(numberOfExtraSubmitters: Int, uniqueParties: Boolean): Seq[String] =
+    partyNames(ExtraSubmitterPrefix, numberOfExtraSubmitters, uniqueParties)
 
   def commandId(index: Int): String = s"command-$index-$identifierSuffix"
 
   def darId(index: Int) = s"submission-dars-$index-$identifierSuffix"
+
+  def partyNames(
+      prefix: String,
+      numberOfParties: Int,
+      uniqueParties: Boolean,
+  ): Seq[String] =
+    (0 until numberOfParties).map(i => partyName(prefix, i, uniqueParties))
+
+  private def partyName(baseName: String, index: Int, uniqueParties: Boolean): String =
+    s"$baseName$PartyPrefixSeparatorChar$index" + (if (uniqueParties) identifierSuffix else "")
+
+}
+
+object Names {
+  protected val PartyPrefixSeparatorChar: Char = '-'
+  val SignatoryPrefix = "signatory"
+  val ObserverPrefix = "Obs"
+  val DivulgeePrefix = "Div"
+  val ExtraSubmitterPrefix = "Sub"
+
+  def parsePartyNamePrefix(partyName: String): String = {
+    partyName.split(Names.PartyPrefixSeparatorChar)(0)
+  }
 
 }

@@ -4,21 +4,23 @@
 package com.daml.platform.store.cache
 
 import com.daml.caching.SizedCache
+import com.daml.ledger.offset.Offset
 import com.daml.lf.transaction.GlobalKey
 import com.daml.metrics.Metrics
 
 import scala.concurrent.ExecutionContext
 
 object ContractKeyStateCache {
-  def apply(cacheSize: Long, metrics: Metrics)(implicit
+  def apply(initialCacheIndex: Offset, cacheSize: Long, metrics: Metrics)(implicit
       ec: ExecutionContext
   ): StateCache[GlobalKey, ContractKeyStateValue] =
-    StateCache(
+    new StateCache(
+      initialCacheIndex = initialCacheIndex,
       cache = SizedCache.from[GlobalKey, ContractKeyStateValue](
         SizedCache.Configuration(cacheSize),
-        metrics.daml.execution.cache.keyState,
+        metrics.daml.execution.cache.keyState.stateCache,
       ),
-      registerUpdateTimer = metrics.daml.execution.cache.registerCacheUpdate,
+      registerUpdateTimer = metrics.daml.execution.cache.keyState.registerCacheUpdate,
     )
 }
 

@@ -2,10 +2,14 @@
 
 > Primitive types of the Daml language and their serialization.
 
+<!-- START_BACKLINK -->
+
 ## Documentation
 
 Comprehensive documentation for `@daml/types` can be found
 [here](https://docs.daml.com/0.0.0-SDKVERSION/app-dev/bindings-ts/daml-types/index.html).
+
+<!-- END_BACKLINK -->
 
 ## Description 
 

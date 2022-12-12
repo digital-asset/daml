@@ -8,14 +8,14 @@ package preprocessing
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Util => AstUtil}
-import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 
 import scala.annotation.tailrec
 
 private[lf] final class ValueTranslator(
-    interface: language.PackageInterface,
+    pkgInterface: language.PackageInterface,
     requireV1ContractIdSuffix: Boolean,
 ) {
 
@@ -27,18 +27,18 @@ private[lf] final class ValueTranslator(
   ): Option[Map[String, Value]] = {
     @tailrec
     def go(
-        fields: ImmArray[(Option[String], Value)],
+        fields: FrontStack[(Option[String], Value)],
         map: Map[String, Value],
     ): Option[Map[String, Value]] = {
-      fields match {
-        case ImmArray() => Some(map)
-        case ImmArrayCons((None, _), _) => None
-        case ImmArrayCons((Some(label), value), tail) =>
+      fields.pop match {
+        case None => Some(map)
+        case Some(((None, _), _)) => None
+        case Some(((Some(label), value), tail)) =>
           go(tail, map + (label -> value))
       }
     }
 
-    go(fields, Map.empty)
+    go(fields.toFrontStack, Map.empty)
   }
 
   private[this] val unsafeTranslateV1Cid: ContractId.V1 => SValue.SContractId =
@@ -166,7 +166,9 @@ private[lf] final class ValueTranslator(
                       s"Mismatching variant id, the type tells us $tyCon, but the value tells us $id"
                     )
                 )
-                val info = handleLookup(interface.lookupVariantConstructor(tyCon, constructorName))
+                val info = handleLookup(
+                  pkgInterface.lookupVariantConstructor(tyCon, constructorName)
+                )
                 val replacedTyp = info.concreteType(tyArgs)
                 SValue.SVariant(
                   tyCon,
@@ -182,7 +184,7 @@ private[lf] final class ValueTranslator(
                       s"Mismatching record id, the type tells us $tyCon, but the value tells us $id"
                     )
                 )
-                val lookupResult = handleLookup(interface.lookupDataRecord(tyCon))
+                val lookupResult = handleLookup(pkgInterface.lookupDataRecord(tyCon))
                 val recordFlds = lookupResult.dataRecord.fields
                 // note that we check the number of fields _before_ checking if we can do
                 // field reordering by looking at the labels. this means that it's forbidden to
@@ -220,7 +222,7 @@ private[lf] final class ValueTranslator(
                 SValue.SRecord(
                   tyCon,
                   fields.map(_._1),
-                  ArrayList(fields.map(_._2).toSeq: _*),
+                  fields.iterator.map(_._2).to(ArrayList),
                 )
 
               case ValueEnum(mbId, constructor) if tyArgs.isEmpty =>
@@ -230,7 +232,7 @@ private[lf] final class ValueTranslator(
                       s"Mismatching enum id, the type tells us $tyCon, but the value tells us $id"
                     )
                 )
-                val rank = handleLookup(interface.lookupEnumConstructor(tyCon, constructor))
+                val rank = handleLookup(pkgInterface.lookupEnumConstructor(tyCon, constructor))
                 SValue.SEnum(tyCon, constructor, rank)
               case _ =>
                 typeError()

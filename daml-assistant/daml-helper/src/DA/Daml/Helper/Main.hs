@@ -10,6 +10,7 @@ import Data.Foldable
 import Data.List.Extra
 import Numeric.Natural
 import Options.Applicative.Extended
+import Options.Applicative
 import System.Environment
 import System.Exit
 import System.IO.Extra
@@ -254,7 +255,7 @@ commandParser = subparser $ fold
                 (progDesc "List parties known to ledger")
             , command "allocate-parties" $ info
                 (ledgerAllocatePartiesCmd <**> helper)
-                (progDesc "Allocate parties on ledger")
+                (progDesc "Allocate parties on ledger if they don't exist")
             , command "upload-dar" $ info
                 (ledgerUploadDarCmd <**> helper)
                 (progDesc "Upload DAR file to ledger")
@@ -268,7 +269,7 @@ commandParser = subparser $ fold
         , subparser $ internal <> fold -- hidden subcommands
             [ command "allocate-party" $ info
                 (ledgerAllocatePartyCmd <**> helper)
-                (progDesc "Allocate a single party on ledger")
+                (progDesc "Allocate a single party on ledger if it doesn't exist")
             , command "reset" $ info
                 (ledgerResetCmd <**> helper)
                 (progDesc "Archive all currently active contracts.")
@@ -308,12 +309,12 @@ commandParser = subparser $ fold
 
     ledgerAllocatePartiesCmd = LedgerAllocateParties
         <$> ledgerFlags (ShowJsonApi True)
-        <*> many (argument str (metavar "PARTY" <> help "Parties to be allocated on the ledger (defaults to project parties if empty)"))
+        <*> many (argument str (metavar "PARTY" <> help "Parties to be allocated on the ledger if they don't exist (defaults to project parties if empty)"))
 
     -- same as allocate-parties but requires a single party.
     ledgerAllocatePartyCmd = LedgerAllocateParties
         <$> ledgerFlags (ShowJsonApi True)
-        <*> fmap (:[]) (argument str (metavar "PARTY" <> help "Party to be allocated on the ledger"))
+        <*> fmap (:[]) (argument str (metavar "PARTY" <> help "Party to be allocated on the ledger if it doesn't exist"))
 
     ledgerUploadDarCmd = LedgerUploadDar
         <$> ledgerFlags (ShowJsonApi True)
@@ -440,10 +441,10 @@ commandParser = subparser $ fold
 
     cantonSandboxCmd = do
         cantonOptions <- do
-            cantonLedgerApi <- option auto (long "port" <> value 6865)
-            cantonAdminApi <- option auto (long "admin-api-port" <> value 6866)
-            cantonDomainPublicApi <- option auto (long "domain-public-port" <> value 6867)
-            cantonDomainAdminApi <- option auto (long "domain-admin-port" <> value 6868)
+            cantonLedgerApi <- option auto (long "port" <> value (ledger defaultSandboxPorts))
+            cantonAdminApi <- option auto (long "admin-api-port" <> value (admin defaultSandboxPorts))
+            cantonDomainPublicApi <- option auto (long "domain-public-port" <> value (domainPublic defaultSandboxPorts))
+            cantonDomainAdminApi <- option auto (long "domain-admin-port" <> value (domainAdmin defaultSandboxPorts))
             cantonPortFileM <- optional $ option str (long "canton-port-file" <> metavar "PATH"
                 <> help "File to write canton participant ports when ready")
             cantonStaticTime <- StaticTime <$>
@@ -466,10 +467,10 @@ commandParser = subparser $ fold
 
     cantonReplOpt = do
         host <- option str (long "host" <> value "127.0.0.1")
-        ledgerApi <- option auto (long "port" <> value 6865)
-        adminApi <- option auto (long "admin-api-port" <> value 6866)
-        domainPublicApi <- option auto (long "domain-public-port" <> value 6867)
-        domainAdminApi <- option auto (long "domain-admin-port" <> value 6868)
+        ledgerApi <- option auto (long "port" <> value (ledger defaultSandboxPorts))
+        adminApi <- option auto (long "admin-api-port" <> value (admin defaultSandboxPorts))
+        domainPublicApi <- option auto (long "domain-public-port" <> value (domainPublic defaultSandboxPorts))
+        domainAdminApi <- option auto (long "domain-admin-port" <> value (domainAdmin defaultSandboxPorts))
         pure $ CantonReplOptions
             [ CantonReplParticipant
                 { crpName = "sandbox"

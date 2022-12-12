@@ -13,31 +13,34 @@ import scala.jdk.CollectionConverters._
 private[inner] object VariantRecordClass extends StrictLogging {
 
   def generate(
+      packageId: PackageId,
       typeParameters: IndexedSeq[String],
       fields: Fields,
       name: String,
       superclass: TypeName,
-      packagePrefixes: Map[PackageId, String],
-  ): TypeSpec.Builder =
+  )(implicit
+      packagePrefixes: PackagePrefixes
+  ): TypeSpec =
     TrackLineage.of("variant-record", name) {
       logger.info("Start")
       val className = ClassName.bestGuess(name)
-      val builder = TypeSpec
+      val typeSpec = TypeSpec
         .classBuilder(name)
         .addModifiers(Modifier.PUBLIC)
         .superclass(superclass)
         .addTypeVariables(typeParameters.map(TypeVariableName.get).asJava)
-        .addFields(RecordFields(fields).asJava)
+        .addFields((createPackageIdField(packageId) +: RecordFields(fields)).asJava)
         .addMethods(
           VariantRecordMethods(
             name,
             fields,
+            superclass,
             className.parameterized(typeParameters),
             typeParameters,
-            packagePrefixes,
           ).asJava
         )
+        .build()
       logger.debug("End")
-      builder
+      typeSpec
     }
 }

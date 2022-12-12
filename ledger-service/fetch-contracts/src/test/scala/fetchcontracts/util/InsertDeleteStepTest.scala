@@ -62,7 +62,7 @@ object InsertDeleteStepTest {
   implicit val `Alpha arb`: Arbitrary[Cid] =
     Cid subst Arbitrary(Gen.alphaUpperChar map (_.toString))
 
-  private[util] implicit val `test Cid`: InsertDeleteStep.Cid[Cid] = Cid.unwrap
+  private[util] implicit val `test Cid`: InsertDeleteStep.Cid[Cid] = Cid.unwrap(_)
 
   implicit val `IDS arb`: Arbitrary[IDS] =
     Arbitrary(arbitrary[(Vector[Cid], Map[Cid, Unit])] map { case (is, ds) =>

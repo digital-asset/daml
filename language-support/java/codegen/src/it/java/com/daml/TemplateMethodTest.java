@@ -26,43 +26,62 @@ public class TemplateMethodTest {
 
   @Test
   void templateHasCreateMethods() {
-    CreateCommand fromStatic = SimpleTemplate.create("Bob");
-    CreateCommand fromInstance = new SimpleTemplate("Bob").create();
+    var fromStatic = SimpleTemplate.create("Bob");
+    var fromInstance = new SimpleTemplate("Bob").create();
 
-    assertNotNull(fromStatic, "CreateCommand from static method was null");
-    assertNotNull(fromInstance, "CreateCommand from method was null");
+    assertEquals(
+        1, fromStatic.commands().size(), "There are not exactly one command from static method");
+    assertEquals(
+        1, fromInstance.commands().size(), "There are not exactly one command from method");
   }
 
   @Test
   void contractIdHasInstanceExerciseMethods() {
     SimpleTemplate.ContractId cid = new SimpleTemplate.ContractId("id");
-    ExerciseCommand fromSplattedInt = cid.exerciseTestTemplate_Int(42L);
-    ExerciseCommand fromRecordInt = cid.exerciseTestTemplate_Int(new TestTemplate_Int(42L));
-    ExerciseCommand fromSplattedUnit = cid.exerciseTestTemplate_Unit();
+    var fromSplattedInt = cid.exerciseTestTemplate_Int(42L);
+    var fromRecordInt = cid.exerciseTestTemplate_Int(new TestTemplate_Int(42L));
+    var fromSplattedUnit = cid.exerciseTestTemplate_Unit();
 
-    assertNotNull(fromSplattedInt, "ExerciseCommand from splatted choice was null");
-    assertNotNull(fromRecordInt, "ExerciseCommand from record choice was null");
-    assertNotNull(fromSplattedUnit, "ExerciseCommand from splatted unit choice was null");
+    assertEquals(
+        1,
+        fromSplattedInt.commands().size(),
+        "There are not exactly one command from Update<R> from splatted choice");
+    assertEquals(
+        1,
+        fromRecordInt.commands().size(),
+        "There are not exactly one command from Update<R> from record choice");
+    assertEquals(
+        1,
+        fromSplattedUnit.commands().size(),
+        "There are not exactly one command from Update<R> from splatted choice");
   }
 
   @Test
   void templateHasCreateAndExerciseMethods() {
     SimpleTemplate simple = new SimpleTemplate("Bob");
-    CreateAndExerciseCommand fromSplatted = simple.createAndExerciseTestTemplate_Int(42L);
-    CreateAndExerciseCommand fromRecord =
-        simple.createAndExerciseTestTemplate_Int(new TestTemplate_Int(42L));
+    var fromSplatted = simple.createAndExerciseTestTemplate_Int(42L);
+    var fromRecord = simple.createAndExerciseTestTemplate_Int(new TestTemplate_Int(42L));
 
-    assertNotNull(fromSplatted, "CreateAndExerciseCommand from splatted choice was null");
-    assertNotNull(fromRecord, "CreateAndExerciseCommand from record choice was null");
+    assertNotNull(fromSplatted, "Update<R> from splatted choice was null");
+    assertNotNull(fromRecord, "Update<R> from record choice was null");
     assertEquals(
-        fromRecord, fromSplatted, "CreateAndExerciseCommands from both methods are not the same");
+        fromRecord.commands(),
+        fromSplatted.commands(),
+        "Update<R> commands from both methods are not the same");
+
+    assertEquals(
+        1,
+        fromSplatted.commands().size(),
+        "There are not exactly one command from Update<R> from splatted choice");
+    assertEquals(
+        1,
+        fromRecord.commands().size(),
+        "There are not exactly one command from Update<R> from record choice");
   }
 
   @Test
-  void contractHasDeprecatedFromIdAndRecord() {
-    SimpleTemplate.Contract contract =
-        SimpleTemplate.Contract.fromIdAndRecord("SomeId", simpleTemplateRecord);
-    assertFalse(contract.agreementText.isPresent(), "Field agreementText should not be present");
+  void templateHasGetContractTypeId() {
+    assertEquals(new SimpleTemplate("Bob").getContractTypeId(), SimpleTemplate.TEMPLATE_ID);
   }
 
   @Test
@@ -90,19 +109,20 @@ public class TemplateMethodTest {
         nonEmptyAgreement.agreementText, Optional.of("I agree"), "Unexpected agreementText");
   }
 
+  private static final CreatedEvent agreementEvent =
+      new CreatedEvent(
+          Collections.emptyList(),
+          "eventId",
+          SimpleTemplate.TEMPLATE_ID,
+          "cid",
+          simpleTemplateRecord,
+          Optional.of("I agree"),
+          Optional.empty(),
+          Collections.emptySet(),
+          Collections.emptySet());
+
   @Test
   void contractHasFromCreatedEvent() {
-    CreatedEvent agreementEvent =
-        new CreatedEvent(
-            Collections.emptyList(),
-            "eventId",
-            SimpleTemplate.TEMPLATE_ID,
-            "cid",
-            simpleTemplateRecord,
-            Optional.of("I agree"),
-            Optional.empty(),
-            Collections.emptySet(),
-            Collections.emptySet());
     CreatedEvent noAgreementEvent =
         new CreatedEvent(
             Collections.emptyList(),
@@ -122,5 +142,27 @@ public class TemplateMethodTest {
     SimpleTemplate.Contract withoutAgreement =
         SimpleTemplate.Contract.fromCreatedEvent(noAgreementEvent);
     assertFalse(withoutAgreement.agreementText.isPresent(), "AgreementText was present");
+  }
+
+  @Test
+  void contractHasCompanion() {
+    var companion = SimpleTemplate.COMPANION;
+    SimpleTemplate.Contract withAgreement = companion.fromCreatedEvent(agreementEvent);
+    SimpleTemplate data = withAgreement.data;
+    assertEquals(new SimpleTemplate("Bob"), data);
+  }
+
+  @Test
+  void contractHasGetContractTypeId() {
+    var withAgreement = SimpleTemplate.Contract.fromCreatedEvent(agreementEvent);
+    assertEquals(withAgreement.getContractTypeId(), SimpleTemplate.TEMPLATE_ID);
+  }
+
+  @Test
+  void contractHasToString() {
+    assertEquals(
+        "tests.template1.SimpleTemplate.Contract(ContractId(cid), "
+            + "tests.template1.SimpleTemplate(Bob), Optional[I agree], [], [])",
+        SimpleTemplate.Contract.fromCreatedEvent(agreementEvent).toString());
   }
 }

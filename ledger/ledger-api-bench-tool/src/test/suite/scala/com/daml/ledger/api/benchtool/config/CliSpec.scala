@@ -81,35 +81,44 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
     "parse stream type" in {
       import WorkflowConfig.StreamConfig._
       val name = "streamname"
-      val party = "dummy"
+      val party1 = "dummy1"
+      val party2 = "dummy2"
       val appId = "appid"
       val cases = Table(
         "cli argument" -> "stream config",
-        s"stream-type=transactions,name=$name,filters=$party" -> TransactionsStreamConfig(
+        s"stream-type=transactions,name=$name,filters=$party1" -> TransactionsStreamConfig(
           name = name,
-          filters = List(PartyFilter(party, Nil)),
+          filters = List(PartyFilter(party1, Nil, Nil)),
           beginOffset = None,
           endOffset = None,
           objectives = None,
+          maxItemCount = None,
+          timeoutInSecondsO = None,
         ),
-        s"stream-type=transaction-trees,name=$name,filters=$party" -> TransactionTreesStreamConfig(
+        s"stream-type=transaction-trees,name=$name,filters=$party1" -> TransactionTreesStreamConfig(
           name = name,
-          filters = List(PartyFilter(party, Nil)),
+          filters = List(PartyFilter(party1, Nil, Nil)),
           beginOffset = None,
           endOffset = None,
           objectives = None,
+          maxItemCount = None,
+          timeoutInSecondsO = None,
         ),
-        s"stream-type=active-contracts,name=$name,filters=$party" -> ActiveContractsStreamConfig(
+        s"stream-type=active-contracts,name=$name,filters=$party1" -> ActiveContractsStreamConfig(
           name = name,
-          filters = List(PartyFilter(party, Nil)),
+          filters = List(PartyFilter(party1, Nil, Nil)),
           objectives = None,
+          maxItemCount = None,
+          timeoutInSecondsO = None,
         ),
-        s"stream-type=completions,name=$name,party=$party,application-id=$appId" -> CompletionsStreamConfig(
+        s"stream-type=completions,name=$name,parties=$party1+$party2,application-id=$appId,timeout=123,max-item-count=5" -> CompletionsStreamConfig(
           name = name,
-          party = party,
+          parties = List(party1, party2),
           applicationId = appId,
           beginOffset = None,
           objectives = None,
+          timeoutInSecondsO = Some(123),
+          maxItemCount = Some(5),
         ),
       )
       forAll(cases) { (argument, config) =>
@@ -131,9 +140,9 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
       // each party filter separated by '+' and each template in a filter separated by '@'
       val filters = s"$party1+$party2@$template1@$template2+$party3@$template2"
       val filtersList = List(
-        PartyFilter(party1, List()),
-        PartyFilter(party2, List(template1, template2)),
-        PartyFilter(party3, List(template2)),
+        PartyFilter(party1, List(), List()),
+        PartyFilter(party2, List(template1, template2), List()),
+        PartyFilter(party3, List(template2), List()),
       )
       val cases = Table(
         "cli argument" -> "stream config",
@@ -143,6 +152,8 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           beginOffset = None,
           endOffset = None,
           objectives = None,
+          maxItemCount = None,
+          timeoutInSecondsO = None,
         ),
         s"stream-type=transaction-trees,name=$name,filters=$filters" -> TransactionTreesStreamConfig(
           name = name,
@@ -150,11 +161,15 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           beginOffset = None,
           endOffset = None,
           objectives = None,
+          maxItemCount = None,
+          timeoutInSecondsO = None,
         ),
         s"stream-type=active-contracts,name=$name,filters=$filters" -> ActiveContractsStreamConfig(
           name = name,
           filters = filtersList,
           objectives = None,
+          maxItemCount = None,
+          timeoutInSecondsO = None,
         ),
       )
       forAll(cases) { (argument, config) =>
@@ -182,10 +197,12 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
       forAll(cases) { (argument, offset) =>
         val streamConfig = TransactionsStreamConfig(
           name = name,
-          filters = List(PartyFilter(party, Nil)),
+          filters = List(PartyFilter(party, Nil, Nil)),
           beginOffset = Some(offset),
           endOffset = None,
           objectives = None,
+          maxItemCount = None,
+          timeoutInSecondsO = None,
         )
         val expectedConfig =
           Config.Default.copy(workflow = Config.Default.workflow.copy(streams = List(streamConfig)))
@@ -214,10 +231,12 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
       forAll(cases) { (argument, offset) =>
         val streamConfig = TransactionsStreamConfig(
           name = name,
-          filters = List(PartyFilter(party, Nil)),
+          filters = List(PartyFilter(party, Nil, Nil)),
           beginOffset = None,
           endOffset = Some(offset),
           objectives = None,
+          maxItemCount = None,
+          timeoutInSecondsO = None,
         )
         val expectedConfig =
           Config.Default.copy(workflow = Config.Default.workflow.copy(streams = List(streamConfig)))
@@ -258,10 +277,12 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
       forAll(cases) { (argument, objectives) =>
         val streamConfig = TransactionsStreamConfig(
           name = name,
-          filters = List(PartyFilter(party, Nil)),
+          filters = List(PartyFilter(party, Nil, Nil)),
           beginOffset = None,
           endOffset = None,
           objectives = Some(objectives),
+          maxItemCount = None,
+          timeoutInSecondsO = None,
         )
         val expectedConfig =
           Config.Default.copy(workflow = Config.Default.workflow.copy(streams = List(streamConfig)))
@@ -279,14 +300,16 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
       val party = "dummy"
       val cases = Table(
         "cli parameter" -> "objectives",
-        "min-item-rate=1234.5" -> RateObjectives(minItemRate = Some(1234.5), None),
-        "max-item-rate=1234.5" -> RateObjectives(None, maxItemRate = Some(1234.5)),
+        "min-item-rate=1234.5" -> AcsAndCompletionsObjectives(minItemRate = Some(1234.5), None),
+        "max-item-rate=1234.5" -> AcsAndCompletionsObjectives(None, maxItemRate = Some(1234.5)),
       )
       forAll(cases) { (argument, objectives) =>
         val streamConfig = ActiveContractsStreamConfig(
           name = name,
-          filters = List(PartyFilter(party, Nil)),
+          filters = List(PartyFilter(party, Nil, Nil)),
           objectives = Some(objectives),
+          maxItemCount = None,
+          timeoutInSecondsO = None,
         )
         val expectedConfig =
           Config.Default.copy(workflow = Config.Default.workflow.copy(streams = List(streamConfig)))
@@ -305,7 +328,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
 
     "parse `max-latency-objective` flag" in {
       val expectedConfig = Config.Default.copy(maxLatencyObjectiveMillis = 6000L)
-      parse("--max-latency", "6000") shouldBe expectedConfig
+      parse("--max-latency-millis", "6000") shouldBe expectedConfig
     }
 
     "`latency-test` cannot be enabled with configured workflow streams" in {

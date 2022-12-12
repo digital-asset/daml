@@ -13,7 +13,6 @@ import com.daml.ledger.javaapi.data.LedgerOffset;
 import com.daml.ledger.rxjava.CommandCompletionClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
-import com.daml.ledger.rxjava.util.CreateSingle;
 import io.grpc.Channel;
 import io.reactivex.Flowable;
 import io.reactivex.Single;
@@ -83,9 +82,8 @@ public class CommandCompletionClientImpl implements CommandCompletionClient {
         CommandCompletionServiceOuterClass.CompletionEndRequest.newBuilder()
             .setLedgerId(ledgerId)
             .build();
-    return CreateSingle.fromFuture(
-            StubHelper.authenticating(serviceFutureStub, accessToken).completionEnd(request),
-            sequencerFactory)
+    return Single.fromFuture(
+            StubHelper.authenticating(serviceFutureStub, accessToken).completionEnd(request))
         .map(CompletionEndResponse::fromProto);
   }
 

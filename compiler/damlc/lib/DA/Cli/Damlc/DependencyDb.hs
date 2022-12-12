@@ -226,10 +226,11 @@ installDar depsPath isDataDep ExtractedDar {..} = do
         fp <- dalfFileNameFromEntry dalf
         let targetFp = depsPath </> fp
         let targetDir = takeDirectory targetFp
-        if isDataDep
-          then markDirWith dataDepMarker targetDir
-          else markDirWith depMarker targetDir
-        write targetFp (ZipArchive.fromEntry dalf)
+        unlessM (doesFileExist targetFp) $ do
+          if isDataDep
+            then markDirWith dataDepMarker targetDir
+            else markDirWith depMarker targetDir
+          write targetFp (ZipArchive.fromEntry dalf)
     writeFileUTF8 (depPath </> sdkVersionFile) edSdkVersions
 
 dalfFileNameFromEntry :: ZipArchive.Entry -> IO FilePath

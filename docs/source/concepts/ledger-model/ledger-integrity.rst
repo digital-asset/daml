@@ -57,6 +57,7 @@ below depicts the resulting order on the paint offer example:
 .. image:: ./images/consistency-order-on-actions.svg
    :align: center
    :width: 100%
+   :alt: The time sequence of commits. In the first commit, Iou Bank A is requested by the bank. In the second, PaintOffer P A P123 is requested by P. In the last commit, requested by A, Exe A (PaintOffer P A P123) leads to Exe A (Iou Bank A) leads to Iou Bank P leads to PaintAgree P A P123
 
 In the image, an action `act` happens before action `act'` if there is
 a (non-empty) path from `act` to `act'`.
@@ -64,7 +65,7 @@ Then, `act'` happens after `act`.
 
 .. _da-model-contract-consistency:
 
-Contract consistency
+Contract Consistency
 ====================
 
 Contract consistency ensures that contracts are used after they have been created and before they are consumed.
@@ -87,6 +88,7 @@ contract, violating the contract consistency criteria.
 .. image:: ./images/consistency-banning-double-spends.svg
    :align: center
    :width: 100%
+   :alt: Another time sequence of commits. In the first commit, Iou Bank A is requested by the bank. In the second, Exe A (Iou Bank A) leads to Iou Bank B via a red line, indicating contract consistency violations. Iou Bank B leads to Exe A (Iou Bank A) in the third commit, also via a red line, and Exe A (Iou Bank A) leads to Iou Bank P. 
 
 
 .. _def-contract-state:
@@ -111,6 +113,7 @@ The figures below visualize the state of different contracts at all points in th
 .. figure:: ./images/consistency-paint-offer-activeness.svg
    :align: center
    :width: 100%
+   :alt: The first time sequence from above. Every action in the first and second commits is inexistent; in the third commit, Exe A (PaintOffer P A P123) is active while all the actions below it are archived.
 
    Activeness of the `PaintOffer` contract
 
@@ -118,6 +121,8 @@ The figures below visualize the state of different contracts at all points in th
 .. figure:: ./images/consistency-alice-iou-activeness.svg
    :align: center
    :width: 100%
+   :alt: The same time sequence as above, but with PaintOffer P A P123 in the second commit and Exe A (Iou Bank A) in the third commit also active.
+
 
    Activeness of the `Iou Bank A` contract
 
@@ -131,7 +136,7 @@ of contracts `Iou Bank P` and `PaintAgree P A`.
 
 .. _da-model-key-consistency:
 
-Key consistency
+Key Consistency
 ===============
 
 Contract keys introduce a key uniqueness constraint for the ledger.
@@ -178,6 +183,7 @@ The following ledger violates key uniqueness for the key `(P, P123)`.
 .. figure:: ./images/double-key-creation-highlighted.svg
    :align: center
    :name: double-key-creation
+   :alt: A ledger with two P123s, violating key uniqueness.
 
 Key assertions can be used in workflows to evidence the inexistence of a certain kind of contract.
 For example, suppose that the painter `P` is a member of the union of painters `U`.
@@ -191,19 +197,20 @@ It grants `P` the choice to perform such an assertion, which is needed for :ref:
 .. figure:: ./images/paint-offer-blacklist.svg
    :align: center
    :name: paint-offer-blacklist
+   :alt: A time sequence with UnionMember U P in the first commit and ExeN (UnionMember U P) "blacklisted", NoSuchKey (U, A) and PaintOffer A @ P Bank &P123 in the second commit.
 
 Key consistency extends to actions, transactions and lists of transactions just like the other consistency notions.
 
 .. _da-model-ledger-consistency:
 
-Ledger consistency
+Ledger Consistency
 ==================
 
 Definition »ledger consistency«
   A ledger is **consistent** if it is consistent for all contracts and for all keys.
 
 
-Internal consistency
+Internal Consistency
 ====================
 The above consistency requirement is too strong for actions and transactions
 in isolation.
@@ -213,6 +220,7 @@ and the `Iou Bank A` contracts are used without being created before:
 .. image:: ./images/action-structure-paint-offer.svg
    :align: center
    :width: 60%
+   :alt: The flowchart of Alice's original paint deal, first described in the Structure section.
 
 However, the transaction can still be appended to a ledger
 that creates these contracts and yields a consistent ledger. Such
@@ -253,6 +261,7 @@ and inconsistent transactions.
 .. figure:: ./images/internal-consistency-examples.svg
    :align: center
    :width: 100%
+   :alt: Three transactions involving an Iou between Bank A and Bank B, as described in the caption.
 
    The first two transactions violate the conditions of internal consistency.
    The first transaction creates the `Iou` after exercising it consumingly, violating both conditions.
@@ -287,6 +296,7 @@ described as follows.
 .. image:: ./images/models-simple-iou.svg
    :align: center
    :width: 80%
+   :alt: A set of create, transfer, and settle actions allowed on IOU contracts, as described in the paragraph immediately below.
 
 The boxes in the image are templates in the sense that the contract
 parameters in a box (such as
@@ -314,13 +324,15 @@ and `PaintAgree` contracts.
 .. image:: ./images/models-paint-offer.svg
    :align: center
    :width: 90%
+   :alt: The available create and accept actions on the PaintOffer and PaintAgree contracts. 
 
-The problem with example where Alice changes the
+The problem with the example where Alice changes the
 offer's outcome to avoid transferring the money now
 becomes apparent.
 
 .. image:: ./images/non-conformant-action.svg
    :align: center
+   :alt: A time sequence illustrating the problem as described below.
 
 `A`'s commit is not conformant to the contract model, as the model does
 not contain the top-level action she is trying to commit.
@@ -338,6 +350,7 @@ The first of those is visualized below.
 .. image:: ./images/invalid-obligation.svg
    :align: center
    :width: 100%
+   :alt: A time sequence showing only one commit, in which PaintAgree P A P123 is requested by A. 
 
 The reason why the example is intuitively impermissible is that
 the `PaintAgree` contract is supposed to express that the painter has an
@@ -398,6 +411,7 @@ signatories yields the image below.
 .. image:: ./images/signatories-paint-offer.svg
    :align: center
    :width: 60%
+   :alt: The original paint deal flowchart. P is a maintainer; A and the Bank are signatories.
 
 
 .. _da-ledgers-authorization-rules:
@@ -461,6 +475,7 @@ action `act`. The resulting authorizations are shown below.
 .. https://www.lucidchart.com/documents/edit/9df74ad9-b781-4974-bbb5-e67c7f03d196/0
 .. image:: ./images/authorization-paint-offer.svg
    :align: center
+   :alt: The original paint deal time sequence, described in depth with respect to authorizations below.
 
 In the first commit, the bank authorizes the creation of the IOU by
 requesting that commit. As the bank is the sole signatory on the
@@ -495,6 +510,7 @@ authorizations for the example are shown below.
 .. https://www.lucidchart.com/documents/edit/6a05add2-7ec9-4a6a-bb9b-7103bf35390f
 .. image:: ./images/authorization-invalid-obligation.svg
    :align: center
+   :alt: A time sequence for a scenario where Alice forces the painter to paint her house, described in depth with respect to authorization below.
 
 Alice authorizes the **Create** action on the `PaintAgree` contract by
 requesting it. However, the painter is also a signatory on the
@@ -506,6 +522,7 @@ In the second example, the painter steals money from Alice.
 .. https://www.lucidchart.com/documents/edit/e895410e-6e77-4686-9fc6-0286a064f420
 .. image:: ./images/authorization-stealing-ious.svg
    :align: center
+   :alt: A time sequence for a scenario where the painter steals Alice's money, described in depth with respect to authorization below.
 
 The bank authorizes the creation of the IOU by requesting this action.
 Similarly, the painter authorizes the exercise that transfers the IOU
@@ -563,6 +580,7 @@ ledger model, that mimic the contract law.
    .. image:: ./images/authorization-invalid-obligation.svg
      :align: center
      :width: 100%
+     :alt: The time sequence for a scenario where Alice forces the painter to paint her house, explained previously in the Authorization Rules Example section.
 
 #. **Consent is needed to take away on-ledger rights**.
    As only **Exercise** actions consume contracts, the rights cannot be taken
@@ -578,6 +596,7 @@ ledger model, that mimic the contract law.
    .. image:: ./images/authorization-stealing-ious.svg
      :align: center
      :width: 100%
+     :alt: The time sequence for a scenario where the painter steals Alice's money, explained previously in the Authorization Rules Example section.
 
    Parties can still **delegate** their rights to other parties. For
    example, assume that Alice, instead of accepting painter's offer,
@@ -589,6 +608,7 @@ ledger model, that mimic the contract law.
      :align: center
      :width: 60%
      :name: counteroffer-acceptance
+     :alt: The original PaintAgreement flow chart, but now the topmost contract is the CounterOffer.
 
    Here, by creating the `CounterOffer` contract, Alice delegates
    her right to transfer the IOU contract to the painter. In case of
@@ -611,6 +631,7 @@ ledger model, that mimic the contract law.
    .. image:: ./images/validity-no-removal-of-obligations.svg
       :align: center
       :width: 100%
+      :alt: A time sequence in which the first commit includes the creation of a MustPay contract and the second commit includes the bank consuming this contract, as described above.
 
    That is, this ledger is invalid, as the action above is not
    conformant to the contract model.

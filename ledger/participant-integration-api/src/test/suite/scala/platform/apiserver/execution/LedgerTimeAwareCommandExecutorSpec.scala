@@ -3,29 +3,34 @@
 
 package com.daml.platform.apiserver.execution
 
-import java.time.Duration
-
-import com.codahale.metrics.MetricRegistry
-import com.daml.error.definitions.ErrorCause
-import com.daml.error.definitions.ErrorCause.LedgerTime
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
-import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
+import com.daml.ledger.participant.state.index.v2.MaximumLedgerTime
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
-import com.daml.lf.command.{Commands => LfCommands}
+import com.daml.lf.command.{
+  EngineEnrichedContractMetadata,
+  ProcessedDisclosedContract,
+  ApiCommands => LfCommands,
+}
 import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.{TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.services.ErrorCause
+import com.daml.platform.apiserver.services.ErrorCause.LedgerTime
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.time.Duration
 import scala.concurrent.Future
 
 class LedgerTimeAwareCommandExecutorSpec
@@ -34,8 +39,10 @@ class LedgerTimeAwareCommandExecutorSpec
     with MockitoSugar
     with ArgumentMatchersSugar {
 
-  val submissionSeed = Hash.hashPrivateKey("a key")
-  val configuration = Configuration(
+  private val loggingContext = LoggingContext.ForTesting
+
+  private val submissionSeed = Hash.hashPrivateKey("a key")
+  private val configuration = Configuration(
     generation = 1,
     timeModel = LedgerTimeModel(
       avgTransactionLatency = Duration.ZERO,
@@ -45,8 +52,8 @@ class LedgerTimeAwareCommandExecutorSpec
     maxDeduplicationDuration = Duration.ZERO,
   )
 
-  val cid = TransactionBuilder.newCid
-  val transaction = TransactionBuilder.justSubmitted(
+  private val cid = TransactionBuilder.newCid
+  private val transaction = TransactionBuilder.justSubmitted(
     TransactionBuilder().fetch(
       TransactionBuilder().create(
         cid,
@@ -61,11 +68,29 @@ class LedgerTimeAwareCommandExecutorSpec
     )
   )
 
+  private val disclosedContracts = ImmArray(
+    Versioned(
+      TransactionVersion.V15,
+      ProcessedDisclosedContract(
+        templateId = Identifier.assertFromString("some:pkg:identifier"),
+        contractId = cid,
+        argument = Value.ValueNil,
+        metadata = EngineEnrichedContractMetadata(
+          createdAt = Time.Timestamp.Epoch,
+          driverMetadata = ImmArray.empty,
+          signatories = Set.empty,
+          stakeholders = Set.empty,
+          maybeKeyWithMaintainers = None,
+        ),
+      ),
+    )
+  )
+
   private def runExecutionTest(
       dependsOnLedgerTime: Boolean,
-      contractStoreResults: List[MaximumLedgerTime],
+      resolveMaximumLedgerTimeResults: List[MaximumLedgerTime],
       finalExecutionResult: Either[ErrorCause, Time.Timestamp],
-  ) = {
+  ): Future[Assertion] = {
 
     def commandExecutionResult(let: Time.Timestamp) = CommandExecutionResult(
       SubmitterInfo(
@@ -81,6 +106,8 @@ class LedgerTimeAwareCommandExecutorSpec
       transaction,
       dependsOnLedgerTime,
       5L,
+      Map.empty,
+      disclosedContracts,
     )
 
     val mockExecutor = mock[CommandExecutor]
@@ -93,14 +120,17 @@ class LedgerTimeAwareCommandExecutorSpec
         Future.successful(Right(commandExecutionResult(c.commands.ledgerEffectiveTime)))
       )
 
-    val mockContractStore = mock[ContractStore]
-    contractStoreResults.tail.foldLeft(
+    val mockResolveMaximumLedgerTime = mock[ResolveMaximumLedgerTime]
+    resolveMaximumLedgerTimeResults.tail.foldLeft(
       when(
-        mockContractStore.lookupMaximumLedgerTimeAfterInterpretation(any[Set[ContractId]])(
+        mockResolveMaximumLedgerTime(
+          eqTo(disclosedContracts.map(_.unversioned)),
+          any[Set[ContractId]],
+        )(
           any[LoggingContext]
         )
       )
-        .thenReturn(Future.successful(contractStoreResults.head))
+        .thenReturn(Future.successful(resolveMaximumLedgerTimeResults.head))
     ) { case (mock, result) =>
       mock.andThen(Future.successful(result))
     }
@@ -120,44 +150,44 @@ class LedgerTimeAwareCommandExecutorSpec
         ledgerEffectiveTime = Time.Timestamp.Epoch,
         commandsReference = "",
       ),
+      ImmArray.empty,
     )
 
     val instance = new LedgerTimeAwareCommandExecutor(
       mockExecutor,
-      mockContractStore,
+      mockResolveMaximumLedgerTime,
       3,
-      new Metrics(new MetricRegistry),
+      Metrics.ForTesting,
     )
-    LoggingContext.newLoggingContext { implicit context =>
-      instance.execute(commands, submissionSeed, configuration).map { actual =>
-        val expectedResult = finalExecutionResult.map(let =>
-          CommandExecutionResult(
-            SubmitterInfo(
-              Nil,
-              Nil,
-              Ref.ApplicationId.assertFromString("foobar"),
-              Ref.CommandId.assertFromString("foobar"),
-              DeduplicationDuration(Duration.ofMinutes(1)),
-              None,
-              configuration,
-            ),
-            TransactionMeta(let, None, Time.Timestamp.Epoch, submissionSeed, None, None, None),
-            transaction,
-            dependsOnLedgerTime,
-            5L,
-          )
+
+    instance.execute(commands, submissionSeed, configuration)(loggingContext).map { actual =>
+      val expectedResult = finalExecutionResult.map(let =>
+        CommandExecutionResult(
+          SubmitterInfo(
+            Nil,
+            Nil,
+            Ref.ApplicationId.assertFromString("foobar"),
+            Ref.CommandId.assertFromString("foobar"),
+            DeduplicationDuration(Duration.ofMinutes(1)),
+            None,
+            configuration,
+          ),
+          TransactionMeta(let, None, Time.Timestamp.Epoch, submissionSeed, None, None, None),
+          transaction,
+          dependsOnLedgerTime,
+          5L,
+          Map.empty,
+          disclosedContracts,
         )
+      )
 
-        verify(mockExecutor, times(contractStoreResults.size)).execute(
-          any[Commands],
-          any[Hash],
-          any[Configuration],
-        )(any[LoggingContext])
-        verify(mockContractStore, times(contractStoreResults.size))
-          .lookupMaximumLedgerTimeAfterInterpretation(Set(cid))
+      verify(mockExecutor, times(resolveMaximumLedgerTimeResults.size)).execute(
+        any[Commands],
+        any[Hash],
+        any[Configuration],
+      )(any[LoggingContext])
 
-        actual shouldEqual expectedResult
-      }
+      actual shouldEqual expectedResult
     }
   }
 
@@ -169,18 +199,18 @@ class LedgerTimeAwareCommandExecutorSpec
 
   "LedgerTimeAwareCommandExecutor" when {
     "the model doesn't use getTime" should {
-      "not retry if ledger effective time is found in the contract store" in {
+      "not retry if ledger effective time is resolved" in {
         runExecutionTest(
           dependsOnLedgerTime = false,
-          contractStoreResults = List(foundEpoch),
+          resolveMaximumLedgerTimeResults = List(foundEpoch),
           finalExecutionResult = Right(Time.Timestamp.Epoch),
         )
       }
 
-      "not retry if the contract does not have ledger effective time" in {
+      "not retry if the maximum ledger time is not available" in {
         runExecutionTest(
           dependsOnLedgerTime = false,
-          contractStoreResults = List(noLetFound),
+          resolveMaximumLedgerTimeResults = List(noLetFound),
           finalExecutionResult = Right(Time.Timestamp.Epoch),
         )
       }
@@ -188,7 +218,7 @@ class LedgerTimeAwareCommandExecutorSpec
       "retry if the contract cannot be found in the contract store and fail at max retries" in {
         runExecutionTest(
           dependsOnLedgerTime = false,
-          contractStoreResults = List(missingCid, missingCid, missingCid, missingCid),
+          resolveMaximumLedgerTimeResults = List(missingCid, missingCid, missingCid, missingCid),
           finalExecutionResult = Left(LedgerTime(3)),
         )
       }
@@ -196,7 +226,7 @@ class LedgerTimeAwareCommandExecutorSpec
       "succeed if the contract can be found on a retry" in {
         runExecutionTest(
           dependsOnLedgerTime = false,
-          contractStoreResults = List(missingCid, missingCid, missingCid, foundEpoch),
+          resolveMaximumLedgerTimeResults = List(missingCid, missingCid, missingCid, foundEpoch),
           finalExecutionResult = Right(Time.Timestamp.Epoch),
         )
       }
@@ -204,7 +234,7 @@ class LedgerTimeAwareCommandExecutorSpec
       "advance the output time if the contract's LET is in the future" in {
         runExecutionTest(
           dependsOnLedgerTime = false,
-          contractStoreResults = List(foundEpochPlus5),
+          resolveMaximumLedgerTimeResults = List(foundEpochPlus5),
           finalExecutionResult = Right(epochPlus5),
         )
       }
@@ -214,7 +244,7 @@ class LedgerTimeAwareCommandExecutorSpec
       "retry if the contract's LET is in the future" in {
         runExecutionTest(
           dependsOnLedgerTime = true,
-          contractStoreResults = List(
+          resolveMaximumLedgerTimeResults = List(
             // the first lookup of +5s will cause the interpretation to be restarted,
             // in case the usage of getTime with a different LET would result in a different transaction
             foundEpochPlus5,
@@ -228,7 +258,7 @@ class LedgerTimeAwareCommandExecutorSpec
       "retry if the contract's LET is in the future and then retry if the contract is missing" in {
         runExecutionTest(
           dependsOnLedgerTime = true,
-          contractStoreResults = List(
+          resolveMaximumLedgerTimeResults = List(
             // the first lookup of +5s will cause the interpretation to be restarted,
             // in case the usage of getTime with a different LET would result in a different transaction
             foundEpochPlus5,

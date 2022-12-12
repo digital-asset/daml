@@ -4,6 +4,8 @@
 package com.daml.lf
 package language
 
+import scala.annotation.nowarn
+
 final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
   def pretty: String = s"${major.pretty}.${minor.toProtoIdentifier}"
 }
@@ -28,9 +30,10 @@ object LanguageVersion {
       Major.V1.minorVersionOrdering.compare(leftMinor, rightMinor)
   }
 
-  private[lf] val All = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
+  val All = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
 
-  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_dev) = All
+  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev) =
+    All: @nowarn("msg=match may not be exhaustive")
 
   object Features {
     val default = v1_6
@@ -51,7 +54,8 @@ object LanguageVersion {
     val choiceObservers = v1_11
     val bigNumeric = v1_13
     val exceptions = v1_14
-    val interfaces = v1_dev
+    val basicInterfaces = v1_15
+    val explicitDisclosure = v1_dev
 
     /** Unstable, experimental features. This should stay in 1.dev forever.
       * Features implemented with this flag should be moved to a separate
@@ -63,7 +67,7 @@ object LanguageVersion {
 
   // All the stable versions.
   val StableVersions: VersionRange[LanguageVersion] =
-    VersionRange(min = v1_6, max = v1_14)
+    VersionRange(min = v1_6, max = v1_15)
 
   // All versions compatible with legacy contract ID scheme.
   val LegacyVersions: VersionRange[LanguageVersion] =
@@ -76,10 +80,9 @@ object LanguageVersion {
 
   // All the versions
   val DevVersions: VersionRange[LanguageVersion] =
-    StableVersions.copy(max = v1_dev)
+    EarlyAccessVersions.copy(max = v1_dev)
 
-  val defaultV1: LanguageVersion = StableVersions.max
-
-  val default: LanguageVersion = defaultV1
+  // This refers to the default output LF version in the compiler
+  val default: LanguageVersion = v1_14
 
 }

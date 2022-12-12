@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend
+
 import com.squareup.javapoet.AnnotationSpec
 
 package object java {

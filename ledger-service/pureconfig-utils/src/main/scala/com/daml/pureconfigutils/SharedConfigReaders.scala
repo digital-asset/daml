@@ -15,7 +15,6 @@ import com.daml.jwt.{
   RSA256Verifier,
 }
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.metrics.MetricsReporter
 import com.daml.platform.services.time.TimeProviderType
 import pureconfig.error.{CannotConvert, ConvertFailure, FailureReason}
 import pureconfig.{ConfigObjectCursor, ConfigReader, ConvertHelpers}
@@ -25,6 +24,7 @@ import scalaz.syntax.std.option._
 
 import java.nio.file.Path
 import java.io.File
+import com.daml.metrics.api.reporters.MetricsReporter
 import scala.concurrent.duration.FiniteDuration
 
 final case class HttpServerConfig(address: String, port: Int, portFile: Option[Path] = None)
@@ -47,7 +47,7 @@ final case class MetricsConfig(reporter: MetricsReporter, reportingInterval: Fin
 object TokenVerifierConfig {
   private val knownTokenVerifiers: Map[String, String => JwtVerifier.Error \/ JwtVerifierBase] =
     Map(
-      "rs256-crt" -> RSA256Verifier.fromCrtFile,
+      "rs256-crt" -> (RSA256Verifier.fromCrtFile(_)),
       "es256-crt" -> (ECDSAVerifier
         .fromCrtFile(_, Algorithm.ECDSA256(_, null))),
       "es512-crt" -> (ECDSAVerifier

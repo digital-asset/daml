@@ -28,7 +28,6 @@ import Control.Monad.Trans.Maybe
 import DA.Daml.Compiler.Output (printDiagnostics)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.InferSerializability as Serializability
-import qualified DA.Daml.LF.Completer as LF
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import qualified DA.Daml.LF.ReplClient as ReplClient
@@ -55,7 +54,7 @@ import Development.IDE.Core.API
 import Development.IDE.Core.Compile (compileModule, typecheckModule, RunSimplifier(..))
 import Development.IDE.Core.RuleTypes
 import Development.IDE.Core.RuleTypes.Daml
-import Development.IDE.Core.Rules.Daml (diagsToIdeResult, getExternalPackages, ideErrorPretty, modInfoDepOrphanModules)
+import Development.IDE.Core.Rules.Daml (diagsToIdeResult, getExternalPackages, ideErrorPretty)
 import Development.IDE.Core.Service
 import Development.IDE.Core.Service.Daml (DamlEnv(..), getDamlServiceEnv)
 import Development.IDE.Core.Shake
@@ -66,7 +65,7 @@ import Development.IDE.Types.Options
 import ErrUtils
 import GHC hiding (typecheckModule)
 import GHC.LanguageExtensions.Type
-import HscTypes (HscEnv(..), HscSource(HsSrcFile))
+import HscTypes (HscEnv(..), HscSource(HsSrcFile), HomeModInfo(hm_iface))
 import Language.Haskell.GhclibParserEx.Parse
 import qualified Language.LSP.Types as LSP
 import Module (mainUnitId, unitIdString)
@@ -476,7 +475,7 @@ runRepl importPkgs opts replClient logger ideState = do
                 liftIO $ writeDiags diags
                 MaybeT (pure r)
         r <- liftIO $ withReplLogger logger writeDiags $ runAction ideState $ runMaybeT $ do
-            DamlEnv{envDamlLfVersion = lfVersion, envEnableScenarios} <- lift getDamlServiceEnv
+            DamlEnv{envDamlLfVersion = lfVersion, envEnableScenarios, envAllowLargeTuples} <- lift getDamlServiceEnv
             let pm = toParsedModule dflags source
             IdeOptions { optDefer = defer } <- lift getIdeOptions
             packageState <- hscEnv <$> useE' GhcSession file
@@ -485,16 +484,15 @@ runRepl importPkgs opts replClient logger ideState = do
             let core = cgGutsToCoreModule safeMode cgGuts details
             PackageMap pkgMap <- useE' GeneratePackageMap file
             stablePkgs <- lift $ useNoFile_ GenerateStablePackages
-            let depOrphanModules = modInfoDepOrphanModules (tmrModInfo tm)
-            case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) False file core depOrphanModules details of
+            let modIface = hm_iface (tmrModInfo tm)
+            case convertModule lfVersion envEnableScenarios envAllowLargeTuples pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
                 Left diag -> handleIdeResult ([diag], Nothing)
-                Right v -> do
+                Right (v, conversionWarnings) -> do
                    pkgs <- lift $ getExternalPackages file
                    let world = LF.initWorldSelf pkgs (buildPackage (optMbPackageName opts) (optMbPackageVersion opts) lfVersion [])
-                   let completed = LF.completeModule world lfVersion v
-                   let simplified = LF.simplifyModule world lfVersion completed
+                   let simplified = LF.simplifyModule world lfVersion v
                    case Serializability.inferModule world lfVersion simplified of
-                       Left err -> handleIdeResult ([ideErrorPretty file err], Nothing)
+                       Left err -> handleIdeResult (conversionWarnings ++ [ideErrorPretty file err], Nothing)
                        Right dalf -> do
                            let (_diags, checkResult) = diagsToIdeResult file $ LF.checkModule world lfVersion dalf
                            case checkResult of

@@ -3,14 +3,11 @@
 
 package com.daml.platform.apiserver.services
 
-import java.time.{Duration, Instant}
-import java.util.concurrent.TimeUnit
-
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.CommonErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
@@ -50,6 +47,8 @@ import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
 import io.grpc.Context
 
+import java.time.{Duration, Instant}
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
@@ -162,7 +161,7 @@ private[apiserver] final class ApiCommandService private[services] (
     } else {
       Future
         .failed(
-          LedgerApiErrors.ServiceNotRunning.Reject("Command Service").asGrpcError
+          CommonErrors.ServiceNotRunning.Reject("Command Service").asGrpcError
         )
     }
 
@@ -208,6 +207,7 @@ private[apiserver] object ApiCommandService {
       timeProvider: TimeProvider,
       ledgerConfigurationSubscription: LedgerConfigurationSubscription,
       metrics: Metrics,
+      explicitDisclosureUnsafeEnabled: Boolean,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -232,6 +232,7 @@ private[apiserver] object ApiCommandService {
       maxDeduplicationDuration = () =>
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationDuration),
       generateSubmissionId = SubmissionIdGenerator.Random,
+      explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
     )
   }
 

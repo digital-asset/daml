@@ -83,9 +83,8 @@ class CodegenLedgerTest
       sruquitoContract.data shouldEqual sruquito
 
       val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
-      val reproduceCmd = glookoflyContract.id
-        .exerciseReproduce(sruquitoContract.id, tob)
-      sendCmd(client, alice, reproduceCmd)
+      val reproduceUpdate = glookoflyContract.id.exerciseReproduce(sruquitoContract.id, tob)
+      sendCmd(client, alice, reproduceUpdate)
 
       val wolpertingers = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
       wolpertingers should have length 2
@@ -109,8 +108,8 @@ class CodegenLedgerTest
       glookoflyContract.data shouldEqual glookofly
 
       val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
-      val reproduceCmd = sruquito.createAndExerciseReproduce(glookoflyContract.id, tob)
-      sendCmd(client, alice, reproduceCmd)
+      val reproduceUpdate = sruquito.createAnd.exerciseReproduce(glookoflyContract.id, tob)
+      sendCmd(client, alice, reproduceUpdate)
 
       val wolpertingers = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
       wolpertingers should have length 2
@@ -130,18 +129,18 @@ class CodegenLedgerTest
 
     wolpertinger.agreementText.isPresent shouldBe true
     wolpertinger.agreementText.get shouldBe s"${wolpertinger.data.name} has ${wolpertinger.data.wings} wings and is ${Numeric
-      .toUnscaledString(Numeric.assertFromUnscaledBigDecimal(wolpertinger.data.age))} years old."
+        .toUnscaledString(Numeric.assertFromUnscaledBigDecimal(wolpertinger.data.age))} years old."
   }
 
   it should "provide the key" in withUniqueParty { (alice, glookofly, _, client) =>
     sendCmd(client, alice, glookofly.create())
 
     val wolpertinger :: _ =
-      readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
+      readActiveContractKeys(Wolpertinger.COMPANION)(client, alice)
 
-    wolpertinger.key.isPresent shouldBe true
-    wolpertinger.key.get.owner shouldEqual alice
-    wolpertinger.key.get.age shouldEqual new BigDecimal("17.4200000000")
+    wolpertinger.isPresent shouldBe true
+    wolpertinger.get.owner shouldEqual alice
+    wolpertinger.get.age shouldEqual new BigDecimal("17.4200000000")
   }
 
   it should "be able to exercise by key" in withUniqueParty {
@@ -153,18 +152,18 @@ class CodegenLedgerTest
         readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
 
       val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
-      val reproduceByKeyCmd =
-        Wolpertinger.exerciseByKeyReproduce(glookoflyContract.key.get, sruquitoContract.id, tob)
-      sendCmd(client, alice, reproduceByKeyCmd)
+      val reproduceByKeyUpdate =
+        Wolpertinger.byKey(glookoflyContract.key.get).exerciseReproduce(sruquitoContract.id, tob)
+      sendCmd(client, alice, reproduceByKeyUpdate)
 
-      val wolpertingers = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client, alice)
+      val wolpertingers = readActiveContractPayloads(Wolpertinger.COMPANION)(client, alice)
       wolpertingers should have length 2
 
       val sruq :: glookosruq :: Nil = wolpertingers
 
-      sruq.data.name shouldEqual sruquito.name
-      glookosruq.data.name shouldEqual s"${glookofly.name}-${sruquito.name}"
-      glookosruq.data.timeOfBirth shouldEqual tob
+      sruq.name shouldEqual sruquito.name
+      glookosruq.name shouldEqual s"${glookofly.name}-${sruquito.name}"
+      glookosruq.timeOfBirth shouldEqual tob
   }
 
   it should "provide the correct signatories" in withUniqueParty { (alice, glookofly, _, client) =>
@@ -217,7 +216,9 @@ class CodegenLedgerTest
           client,
           asList(alice),
           asList(charlie),
-          MultiParty.exerciseByKeyMPFetchOtherByKey(new da.types.Tuple2(alice, bob), charlie, bob),
+          MultiParty
+            .byKey(new da.types.Tuple2(alice, bob))
+            .exerciseMPFetchOtherByKey(charlie, bob),
         )
       }
     } yield succeed

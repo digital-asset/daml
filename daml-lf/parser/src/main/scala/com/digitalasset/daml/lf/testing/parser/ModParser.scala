@@ -122,19 +122,28 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       TemplateKey(t, body, maintainers)
     }
 
-  private lazy val method: Parser[TemplateImplementsMethod] =
+  private lazy val method: Parser[InterfaceInstanceMethod] =
     Id("method") ~>! id ~ `=` ~ expr ^^ { case (name ~ _ ~ value) =>
-      TemplateImplementsMethod(name, value)
+      InterfaceInstanceMethod(name, value)
     }
 
-  private lazy val inheritedChoice: Parser[Ref.Name] =
-    Id("choice") ~>! id
+  private lazy val interfaceInstanceBody: Parser[InterfaceInstanceBody] =
+    `{` ~> (implementsView <~ `;`) ~ rep(method <~ `;`) <~ `}` ^^ { case view ~ methods =>
+      InterfaceInstanceBody.build(
+        methods,
+        view,
+      )
+    }
+
+  private lazy val implementsView: Parser[Expr] =
+    Id("view") ~>! `=` ~>! expr
 
   private lazy val implements: Parser[TemplateImplements] =
-    Id("implements") ~>! fullIdentifier ~ (`{` ~>
-      rep(method <~ `;`) ~ rep(inheritedChoice <~ `;`)
-      <~ `}`) ^^ { case ifaceId ~ (methods ~ inheritedChoices) =>
-      TemplateImplements.build(ifaceId, methods, inheritedChoices)
+    Id("implements") ~>! fullIdentifier ~ interfaceInstanceBody ^^ { case ifaceId ~ body =>
+      TemplateImplements.build(
+        ifaceId,
+        body,
+      )
     }
 
   private lazy val templateDefinition: Parser[TemplDef] =
@@ -202,27 +211,40 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   private val interfaceDefinition: Parser[IfaceDef] =
     Id("interface") ~ `(` ~> id ~ `:` ~ dottedName ~ `)` ~ `=` ~ `{` ~
+      (interfaceView <~ `;`) ~
       rep(interfaceRequires <~ `;`) ~
-      (Id("precondition") ~> expr <~ `;`) ~
       rep(interfaceMethod <~ `;`) ~
-      rep(templateChoice <~ `;`) <~
+      rep(templateChoice <~ `;`) ~
+      rep(coImplements <~ `;`) <~
       `}` ^^ {
         case x ~ _ ~ tycon ~ _ ~ _ ~ _ ~
+            view ~
             requires ~
-            precond ~
             methods ~
-            choices =>
+            choices ~
+            coImplements =>
           IfaceDef(
             tycon,
-            DefInterface.build(Set.from(requires), x, choices, methods, precond),
+            DefInterface.build(Set.from(requires), x, choices, methods, coImplements, view),
           )
       }
+  private val interfaceView: Parser[Type] =
+    Id("viewtype") ~>! typ
+
   private val interfaceRequires: Parser[Ref.TypeConName] =
     Id("requires") ~>! fullIdentifier
 
   private val interfaceMethod: Parser[InterfaceMethod] =
     Id("method") ~>! id ~ `:` ~ typ ^^ { case name ~ _ ~ typ =>
       InterfaceMethod(name, typ)
+    }
+
+  private lazy val coImplements: Parser[InterfaceCoImplements] =
+    Id("coimplements") ~>! fullIdentifier ~ interfaceInstanceBody ^^ { case tplId ~ body =>
+      InterfaceCoImplements.build(
+        tplId,
+        body,
+      )
     }
 
   private val serializableTag = Ref.Name.assertFromString("serializable")

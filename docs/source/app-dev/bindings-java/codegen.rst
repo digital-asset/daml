@@ -3,7 +3,9 @@
 
 .. _daml-codegen-java:
 
-Generate Java code from Daml
+
+
+Generate Java Code from Daml
 ############################
 
 Introduction
@@ -15,14 +17,14 @@ The :doc:`Daml assistant documentation </tools/codegen>` describes how to run an
 
 The rest of this page describes Java-specific topics.
 
-Understand the generated Java model
-===================================
+Understand the Generated Java Model
+======================================
 
 The Java codegen generates source files in a directory tree under the output directory specified on the command line.
 
 .. _daml-codegen-java-primitive-types:
 
-Map Daml primitives to Java types
+Map Daml Primitives to Java Types
 ---------------------------------
 
 Daml built-in types are translated to the following equivalent types in Java:
@@ -63,7 +65,7 @@ Daml built-in types are translated to the following equivalent types in Java:
 +--------------------------------+--------------------------------------------+------------------------+
 
 
-Understand escaping rules
+Understand Escaping Rules
 -------------------------
 
 To avoid clashes with Java keywords, the Java codegen applies escaping rules to the following Daml identifiers:
@@ -76,7 +78,7 @@ To avoid clashes with Java keywords, the Java codegen applies escaping rules to 
 
 If any of these identifiers match one of the `Java reserved keywords <https://docs.oracle.com/javase/specs/jls/se12/html/jls-3.html#jls-3.9>`__, the Java codegen appends a dollar sign ``$`` to the name. For example, a field with the name ``import`` will be generated as a Java field with the name ``import$``.
 
-Understand the generated classes
+Understand the Generated Classes
 --------------------------------
 
 Every user-defined data type in Daml (template, record, and variant) is represented by one or more Java classes as described in this section.
@@ -93,7 +95,7 @@ The Java package for the generated classes is the equivalent of the lowercase Da
 
   package foo.bar.baz;
 
-Records (a.k.a product types)
+Records (a.k.a Product Types)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A :ref:`Daml record <daml-ref-record-types>` is represented by a Java class with fields that have the same name as the Daml record fields. A Daml field having the type of another record is represented as a field having the type of the generated class for that record.
@@ -111,7 +113,7 @@ A Java file is generated that defines the class for the type ``Person``:
 
   package com.acme.producttypes;
 
-  public class Person {
+  public class Person extends DamlRecord<Person> {
     public final Name name;
     public final BigDecimal age;
 
@@ -124,11 +126,11 @@ A Java file is generated that defines the class for the type ``Person``:
 A Java file is generated that defines the class for the type ``Name``:
 
   .. code-block:: java
-    :caption: com/acme/producttypes.Name.java
+    :caption: com/acme/producttypes/Name.java
 
     package com.acme.producttypes;
 
-    public class Name {
+    public class Name extends DamlRecord<Name> {
       public final String firstName;
       public final String lastName;
 
@@ -161,15 +163,18 @@ The Java codegen generates three classes for a Daml template:
      :end-before: -- end snippet: template example
      :caption: Com/Acme/Templates.daml
 
-A file is generated that defines three Java classes:
+A file is generated that defines five Java classes and an interface:
 
 #. ``Bar``
 #. ``Bar.ContractId``
 #. ``Bar.Contract``
+#. ``Bar.CreateAnd``
+#. ``Bar.ByKey``
+#. ``Bar.Exercises``
 
 .. code-block:: java
   :caption: com/acme/templates/Bar.java
-  :emphasize-lines: 3,14,24
+  :emphasize-lines: 3,21,27,35,43,47
 
   package com.acme.templates;
 
@@ -177,38 +182,54 @@ A file is generated that defines three Java classes:
 
     public static final Identifier TEMPLATE_ID = new Identifier("some-package-id", "Com.Acme.Templates", "Bar");
 
+    public static final Choice<Bar, Archive, Unit> CHOICE_Archive =
+      Choice.create(/* ... */);
+
+    public static final ContractCompanion.WithKey<Contract, ContractId, Bar, BarKey> COMPANION = 
+        new ContractCompanion.WithKey<>("com.acme.templates.Bar",
+          TEMPLATE_ID, ContractId::new, Bar::fromValue, Contract::new, e -> BarKey.fromValue(e), List.of(CHOICE_Archive));
+
     public final String owner;
     public final String name;
 
-    public static ExerciseByKeyCommand exerciseByKeyBar_SomeChoice(BarKey key, Bar_SomeChoice arg) { /* ... */ }
+    public CreateAnd createAnd() { /* ... */ }
 
-    public static ExerciseByKeyCommand exerciseByKeyBar_SomeChoice(BarKey key, String aName) { /* ... */ }
+    public static ByKey byKey(BarKey key) { /* ... */ }
 
-    public CreateAndExerciseCommand createAndExerciseBar_SomeChoice(Bar_SomeChoice arg) { /* ... */ }
-
-    public CreateAndExerciseCommand createAndExerciseBar_SomeChoice(String aName) { /* ... */ }
-
-    public static class ContractId {
+    public static class ContractId extends com.daml.ledger.javaapi.data.codegen.ContractId<Bar>
+        implements Exercises<ExerciseCommand> {
+      // inherited:
       public final String contractId;
-
-      public ExerciseCommand exerciseArchive(Unit arg) { /* ... */ }
-
-      public ExerciseCommand exerciseBar_SomeChoice(Bar_SomeChoice arg) { /* ... */ }
-
-      public ExerciseCommand exerciseBar_SomeChoice(String aName) { /* ... */ }
     }
 
-    public static class Contract {
+    public interface Exercises<Cmd> extends com.daml.ledger.javaapi.data.codegen.Exercises<Cmd> {
+      default Cmd exerciseArchive(Unit arg) { /* ... */ }
+
+      default Cmd exerciseBar_SomeChoice(Bar_SomeChoice arg) { /* ... */ }
+
+      default Cmd exerciseBar_SomeChoice(String aName) { /* ... */ }
+    }
+
+    public static class Contract extends ContractWithKey<ContractId, Bar, BarKey> {
+      // inherited:
       public final ContractId id;
       public final Bar data;
 
       public static Contract fromCreatedEvent(CreatedEvent event) { /* ... */ }
     }
+
+    public static final class CreateAnd
+        extends com.daml.ledger.javaapi.data.codegen.CreateAnd
+        implements Exercises<CreateAndExerciseCommand> { /* ... */ }
+
+    public static final class ByKey
+        extends com.daml.ledger.javaapi.data.codegen.ByKey
+        implements Exercises<ExerciseByKeyCommand> { /* ... */ }
   }
 
-Note that the static methods returning an ``ExerciseByKeyCommand`` will only be generated for templates that define a key.
+Note that ``byKey`` and ``ByKey`` will only be generated for templates that define a key.
 
-Variants (a.k.a sum types)
+Variants (a.k.a Sum Types)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A :ref:`variant or sum type <daml-ref-sum-types>` is a type with multiple constructors, where each constructor wraps a value of another type. The generated code is comprised of an abstract class for the variant type itself and a subclass thereof for each constructor. Classes for variant constructors are similar to classes for records.
@@ -226,11 +247,11 @@ The Java code generated for this variant is:
 
   package com.acme.variants;
 
-  public class BookAttribute {
+  public class BookAttribute extends Variant<BookAttribute> {
     public static BookAttribute fromValue(Value value) { /* ... */ }
 
     public static BookAttribute fromValue(Value value) { /* ... */ }
-    public Value toValue() { /* ... */ }
+    public abstract Variant toValue();
   }
 
 .. code-block:: java
@@ -244,7 +265,7 @@ The Java code generated for this variant is:
     public static Pages fromValue(Value value) { /* ... */ }
 
     public Pages(Long longValue) { /* ... */ }
-    public Value toValue() { /* ... */ }
+    public Variant toValue() { /* ... */ }
   }
 
 .. code-block:: java
@@ -258,7 +279,7 @@ The Java code generated for this variant is:
     public static Authors fromValue(Value value) { /* ... */ }
 
     public Author(List<String> listValue) { /* ... */ }
-    public Value toValue() { /* ... */ }
+    public Variant toValue() { /* ... */ }
 
   }
 
@@ -273,7 +294,7 @@ The Java code generated for this variant is:
     public static Title fromValue(Value value) { /* ... */ }
 
     public Title(String stringValue) { /* ... */ }
-    public Value toValue() { /* ... */ }
+    public Variant toValue() { /* ... */ }
   }
 
 .. code-block:: java
@@ -288,10 +309,10 @@ The Java code generated for this variant is:
     public static Published fromValue(Value value) { /* ... */ }
 
     public Published(Long year, String publisher) { /* ... */ }
-    public DamlRecord toValue() { /* ... */ }
+    public Variant toValue() { /* ... */ }
   }
 
-Parameterized types
+Parameterized Types
 ^^^^^^^^^^^^^^^^^^^
 
 .. note::
@@ -349,7 +370,7 @@ The Java code generated for this variant is:
   package com.acme.enum;
 
 
-  public enum Color {
+  public enum Color implements DamlEnum<Color> {
     RED,
 
     GREEN,
@@ -360,7 +381,7 @@ The Java code generated for this variant is:
 
     public static final Color fromValue(Value value$) { /* ... */ }
 
-    public final DamlEnum toValue() {  /* ... */ }
+    public final DamlEnum toValue() { /* ... */ }
   }
 
 
@@ -381,7 +402,7 @@ The Java code generated for this variant is:
   }
 
 
-Convert a value of a generated type to a Java Bindings value
+Convert a Value of a Generated Type to a Java Bindings Value
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 To convert an instance of the generic type ``Attribute<a>`` to a Java Bindings `Value`_, call the ``toValue`` method and pass a function as the ``toValuea`` argument for converting the field of type ``a`` to the respective Java Bindings `Value`_. The name of the parameter consists of ``toValue`` and the name of the type parameter, in this case ``a``, to form the name ``toValuea``.
@@ -398,7 +419,7 @@ See :ref:`Daml To Java Type Mapping <daml-codegen-java-primitive-types>` for an 
 
 Note: If the Daml type is a record or variant with more than one type parameter, you need to pass a conversion function to the ``toValue`` method for each type parameter.
 
-Create a value of a generated type from a Java Bindings value
+Create a Value of a Generated Type from a Java Bindings Value
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 Analogous to the ``toValue`` method, to create a value of a generated type, call the method ``fromValue`` and pass conversion functions from a Java Bindings `Value`_ type to the expected Java type.
@@ -411,13 +432,13 @@ Analogous to the ``toValue`` method, to create a value of a generated type, call
 See Java Bindings `Value`_ class for the methods to transform the Java Bindings types into corresponding Java types.
 
 
-Non-exposed parameterized types
+Non-exposed Parameterized Types
 """""""""""""""""""""""""""""""
 
 If the parameterized type is contained in a type where the *actual* type is specified (as in the ``BookAttributes`` type above), then the conversion methods of the enclosing type provides the required conversion function parameters automatically.
 
 
-Convert Optional values
+Convert Optional Values
 """""""""""""""""""""""
 
 The conversion of the Java ``Optional`` requires two steps. The
@@ -439,7 +460,7 @@ convert back the value possibly contains in the container.
   Attribute<Optional<Long>> idAttribute2 =
     serializedId.toOptional(v -> v.asInt64().orElseThrow(() -> new IllegalArgumentException("Expected Int64 element")));
 
-Convert Collection values
+Convert Collection Values
 """""""""""""""""""""""""
 
 `DamlCollectors`_ provides collectors to converted Java collection
@@ -470,6 +491,98 @@ functions to convert back the container's entries.
                         .getValue()
                )
       );
+
+
+Daml Interfaces
+^^^^^^^^^^^^^^^
+
+From this daml definition:
+
+
+.. literalinclude:: ./code-snippets/Interfaces.daml
+   :language: daml
+   :start-after: -- start snippet: interface example
+   :end-before: -- end snippet: interface example
+   :caption: Interfaces.daml
+
+The generated file for the interface definition can be seen below.
+Effectively it is a class that contains only the inner type ContractId because one will always only be able to deal with Interfaces via their ContractId.
+
+.. code-block:: java
+  :caption: interfaces/TIf.java
+
+  package interfaces
+
+  /* imports */
+  
+  public final class TIf {
+    public static final Identifier TEMPLATE_ID = new Identifier("94fb4fa48cef1ec7d474ff3d6883a00b2f337666c302ec5e2b87e986da5c27a3", "Interfaces", "TIf");
+
+    public static final Choice<TIf, Transfer, ContractId> CHOICE_Transfer =
+      Choice.create(/* ... */);
+
+    public static final Choice<TIf, Archive, Unit> CHOICE_Archive =
+      Choice.create(/* ... */);
+
+    public static final INTERFACE INTERFACE = new INTERFACE();
+
+    public static final class ContractId extends com.daml.ledger.javaapi.data.codegen.ContractId<TIf>
+        implements Exercises<ExerciseCommand> {
+      public ContractId(String contractId) { /* ... */ }
+    }
+
+    public interface Exercises<Cmd> extends com.daml.ledger.javaapi.data.codegen.Exercises<Cmd> {
+      default Cmd exerciseUseless(Useless arg) { /* ... */ }
+
+      default Cmd exerciseHam(Ham arg) { /* ... */ }
+    }
+
+    public static final class CreateAnd
+        extends com.daml.ledger.javaapi.data.codegen.CreateAnd.ToInterface
+        implements Exercises<CreateAndExerciseCommand> { /* ... */ }
+
+    public static final class ByKey
+        extends com.daml.ledger.javaapi.data.codegen.ByKey.ToInterface
+        implements Exercises<ExerciseByKeyCommand> { /* ... */ }
+
+    public static final class INTERFACE extends InterfaceCompanion<TIf> { /* ... */}
+  }
+
+For templates the code generation will be slightly different if a template implements interfaces.
+To allow converting the ContractId of a template to an interface ContractId, an additional conversion method called `toInterface` is generated.
+An ``unsafeFromInterface`` is also generated to make the [unchecked] conversion in the other direction.
+
+.. code-block:: java
+  :caption: interfaces/Child.java
+
+  package interfaces
+
+  /* ... */
+
+  public final class Child extends Template {
+
+    /* ... */
+
+    public static final class ContractId extends com.daml.ledger.javaapi.data.codegen.ContractId<Child>
+        implements Exercises<ExerciseCommand> {
+
+      /* ... */
+
+      public TIf.ContractId toInterface(TIf.INTERFACE interfaceCompanion) { /* ... */ }
+
+      public static ContractId unsafeFromInterface(TIf.ContractId interfaceContractId) { /* ... */ }
+
+    }
+
+    public interface Exercises<Cmd> extends com.daml.ledger.javaapi.data.codegen.Exercises<Cmd> {
+      default Cmd exerciseBar(Bar arg) { /* ... */ }
+
+      default Cmd exerciseBar() { /* ... */ }
+    }
+
+    /* ... */
+
+  }
 
 
 .. _Value: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Value.html

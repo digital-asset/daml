@@ -106,19 +106,11 @@
     "prefix": "\\",
     "body": "\\${1:var} -> $0"
   },
-  "test": {
-    "prefix": "test",
+  "script": {
+    "prefix": "script",
     "body": [
-      "${1:main} = test do",
-      "  ${2:${3:p} <- getParty \"${4:party}\"}",
-      "  $0"
-    ]
-  },
-  "scenario": {
-    "prefix": "scenario",
-    "body": [
-      "${1:name} = scenario do",
-      "  ${2:${3:p} <- getParty \"${4:party}\"}",
+      "${1:name} = script do",
+      "  ${2:${3:p} <- allocateParty \"${4:party}\"}",
       "  $0"
     ]
   },

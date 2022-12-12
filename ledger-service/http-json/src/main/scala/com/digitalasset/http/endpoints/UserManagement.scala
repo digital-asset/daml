@@ -5,13 +5,11 @@ package com.daml.http
 package endpoints
 
 import akka.NotUsed
-import akka.http.scaladsl.model._
 import akka.stream.scaladsl.Source
 import EndpointsCompanion._
 import Endpoints.ET
 import com.daml.http.EndpointsCompanion.CreateFromUserToken.userIdFromToken
-import util.FutureUtil.{either, eitherT}
-import util.Logging.{InstanceUUID, RequestID}
+import util.FutureUtil.either
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.StandardJWTPayload
 import scalaz.std.scalaFuture._
@@ -19,142 +17,126 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, EitherT, Monad, \/, \/-}
 
 import scala.concurrent.{ExecutionContext, Future}
-import com.daml.logging.LoggingContextOf
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.lf.data.Ref.UserId
 
 private[http] final class UserManagement(
-    routeSetup: RouteSetup,
     decodeJwt: EndpointsCompanion.ValidateJwt,
     userManagementClient: UserManagementClient,
 )(implicit
     ec: ExecutionContext
 ) {
   import UserManagement._
-  import routeSetup._
-  import json.JsonProtocol._
 
-  def getUser(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[domain.UserDetails]] =
-    proxyWithCommandET { (jwt, getUserRequest: domain.GetUserRequest) =>
-      for {
-        userId <- parseUserId(getUserRequest.userId)
-        user <- EitherT.rightT(userManagementClient.getUser(userId, Some(jwt.value)))
-      } yield domain.OkResponse(
-        domain.UserDetails(user.id, user.primaryParty)
-      ): domain.SyncResponse[domain.UserDetails]
-    }(req)
-
-  def createUser(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[spray.json.JsObject]] =
-    proxyWithCommand { (jwt, createUserRequest: domain.CreateUserRequest) =>
-      {
-        import scalaz.std.option._
-        import scalaz.syntax.traverse._
-        import scalaz.syntax.std.either._
-        import com.daml.lf.data.Ref
-        val input =
-          for {
-            username <- UserId.fromString(createUserRequest.userId).disjunction
-            primaryParty <- createUserRequest.primaryParty.traverse(it =>
-              Ref.Party.fromString(it).disjunction
-            )
-            rights <- domain.UserRights.toLedgerUserRights(
-              createUserRequest.rights.getOrElse(List.empty)
-            )
-          } yield (username, primaryParty, rights)
-        for {
-          info <- EitherT.either(input.leftMap(InvalidUserInput)): ET[
-            (UserId, Option[Ref.Party], List[UserRight])
-          ]
-          (username, primaryParty, initialRights) = info
-          _ <- EitherT.rightT(
-            userManagementClient.createUser(
-              User(username, primaryParty),
-              initialRights,
-              Some(jwt.value),
-            )
-          )
-        } yield emptyObjectResponse
-      }.run
-    }(req)
-
-  def deleteUser(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[spray.json.JsObject]] =
-    proxyWithCommandET { (jwt, deleteUserRequest: domain.DeleteUserRequest) =>
-      for {
-        userId <- parseUserId(deleteUserRequest.userId)
-        _ <- EitherT.rightT(userManagementClient.deleteUser(userId, Some(jwt.value)))
-      } yield emptyObjectResponse
-    }(req)
-
-  def listUserRights(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
-    proxyWithCommandET { (jwt, listUserRightsRequest: domain.ListUserRightsRequest) =>
-      for {
-        userId <- parseUserId(listUserRightsRequest.userId)
-        rights <- EitherT.rightT(
-          userManagementClient.listUserRights(userId, Some(jwt.value))
-        )
-      } yield domain
-        .OkResponse(domain.UserRights.fromLedgerUserRights(rights)): domain.SyncResponse[
-        List[domain.UserRight]
-      ]
-    }(req)
-
-  def grantUserRights(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
-    proxyWithCommandET { (jwt, grantUserRightsRequest: domain.GrantUserRightsRequest) =>
-      for {
-        userId <- parseUserId(grantUserRightsRequest.userId)
-        rights <- either(
-          domain.UserRights.toLedgerUserRights(grantUserRightsRequest.rights)
-        ).leftMap(InvalidUserInput): ET[List[UserRight]]
-        grantedUserRights <- EitherT.rightT(
-          userManagementClient.grantUserRights(userId, rights, Some(jwt.value))
-        )
-      } yield domain.OkResponse(
-        domain.UserRights.fromLedgerUserRights(grantedUserRights)
-      ): domain.SyncResponse[List[domain.UserRight]]
-    }(req)
-
-  def revokeUserRights(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
-    proxyWithCommandET { (jwt, revokeUserRightsRequest: domain.RevokeUserRightsRequest) =>
-      for {
-        userId <- parseUserId(revokeUserRightsRequest.userId)
-        rights <- either(
-          domain.UserRights.toLedgerUserRights(revokeUserRightsRequest.rights)
-        ).leftMap(InvalidUserInput): ET[List[UserRight]]
-        revokedUserRights <- EitherT.rightT(
-          userManagementClient.revokeUserRights(userId, rights, Some(jwt.value))
-        )
-      } yield domain.OkResponse(
-        domain.UserRights.fromLedgerUserRights(revokedUserRights)
-      ): domain.SyncResponse[List[domain.UserRight]]
-    }(req)
-
-  def getAuthenticatedUser(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[domain.UserDetails]] =
+  def getUser(jwt: Jwt, req: domain.GetUserRequest): ET[domain.SyncResponse[domain.UserDetails]] =
     for {
-      jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
+      userId <- parseUserId(req.userId)
+      user <- EitherT.rightT(userManagementClient.getUser(userId, Some(jwt.value)))
+    } yield domain.OkResponse(
+      domain.UserDetails(user.id, user.primaryParty)
+    ): domain.SyncResponse[domain.UserDetails]
+
+  def createUser(
+      jwt: Jwt,
+      createUserRequest: domain.CreateUserRequest,
+  ): ET[domain.SyncResponse[spray.json.JsObject]] = {
+    import scalaz.std.option._
+    import scalaz.syntax.traverse._
+    import scalaz.syntax.std.either._
+    import com.daml.lf.data.Ref
+    val input =
+      for {
+        username <- UserId.fromString(createUserRequest.userId).disjunction
+        primaryParty <- createUserRequest.primaryParty.traverse(it =>
+          Ref.Party.fromString(it).disjunction
+        )
+        rights <- domain.UserRights.toLedgerUserRights(
+          createUserRequest.rights.getOrElse(List.empty)
+        )
+      } yield (username, primaryParty, rights)
+    for {
+      info <- EitherT.either(input.leftMap(InvalidUserInput)): ET[
+        (UserId, Option[Ref.Party], List[UserRight])
+      ]
+      (username, primaryParty, initialRights) = info
+      _ <- EitherT.rightT(
+        userManagementClient.createUser(
+          User(username, primaryParty),
+          initialRights,
+          Some(jwt.value),
+        )
+      )
+    } yield emptyObjectResponse
+  }
+
+  def deleteUser(
+      jwt: Jwt,
+      deleteUserRequest: domain.DeleteUserRequest,
+  ): ET[domain.SyncResponse[spray.json.JsObject]] = {
+    for {
+      userId <- parseUserId(deleteUserRequest.userId)
+      _ <- EitherT.rightT(userManagementClient.deleteUser(userId, Some(jwt.value)))
+    } yield emptyObjectResponse
+  }
+
+  def listUserRights(
+      jwt: Jwt,
+      listUserRightsRequest: domain.ListUserRightsRequest,
+  ): ET[domain.SyncResponse[List[domain.UserRight]]] = {
+    for {
+      userId <- parseUserId(listUserRightsRequest.userId)
+      rights <- EitherT.rightT(
+        userManagementClient.listUserRights(userId, Some(jwt.value))
+      )
+    } yield domain
+      .OkResponse(domain.UserRights.fromLedgerUserRights(rights)): domain.SyncResponse[List[
+      domain.UserRight
+    ]]
+  }
+
+  def grantUserRights(
+      jwt: Jwt,
+      grantUserRightsRequest: domain.GrantUserRightsRequest,
+  ): ET[domain.SyncResponse[List[domain.UserRight]]] = {
+    for {
+      userId <- parseUserId(grantUserRightsRequest.userId)
+      rights <- either(
+        domain.UserRights.toLedgerUserRights(grantUserRightsRequest.rights)
+      ).leftMap(InvalidUserInput): ET[List[UserRight]]
+      grantedUserRights <- EitherT.rightT(
+        userManagementClient.grantUserRights(userId, rights, Some(jwt.value))
+      )
+    } yield domain.OkResponse(
+      domain.UserRights.fromLedgerUserRights(grantedUserRights)
+    ): domain.SyncResponse[List[domain.UserRight]]
+  }
+
+  def revokeUserRights(
+      jwt: Jwt,
+      revokeUserRightsRequest: domain.RevokeUserRightsRequest,
+  ): ET[domain.SyncResponse[List[domain.UserRight]]] = {
+    for {
+      userId <- parseUserId(revokeUserRightsRequest.userId)
+      rights <- either(
+        domain.UserRights.toLedgerUserRights(revokeUserRightsRequest.rights)
+      ).leftMap(InvalidUserInput): ET[List[UserRight]]
+      revokedUserRights <- EitherT.rightT(
+        userManagementClient.revokeUserRights(userId, rights, Some(jwt.value))
+      )
+    } yield domain.OkResponse(
+      domain.UserRights.fromLedgerUserRights(revokedUserRights)
+    ): domain.SyncResponse[List[domain.UserRight]]
+  }
+
+  def getAuthenticatedUser(jwt: Jwt): ET[domain.SyncResponse[domain.UserDetails]] =
+    for {
       userId <- getUserIdFromToken(jwt)
       user <- EitherT.rightT(userManagementClient.getUser(userId, Some(jwt.value)))
     } yield domain.OkResponse(domain.UserDetails(user.id, user.primaryParty))
 
-  def listAuthenticatedUserRights(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[List[domain.UserRight]]] =
+  def listAuthenticatedUserRights(jwt: Jwt): ET[domain.SyncResponse[List[domain.UserRight]]] = {
     for {
-      jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
       userId <- getUserIdFromToken(jwt)
       rights <- EitherT.rightT(
         userManagementClient.listUserRights(userId, Some(jwt.value))
@@ -163,14 +145,15 @@ private[http] final class UserManagement(
       .OkResponse(domain.UserRights.fromLedgerUserRights(rights)): domain.SyncResponse[List[
       domain.UserRight
     ]]
+  }
 
-  def listUsers(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[Source[Error \/ domain.UserDetails, NotUsed]]] =
-    for {
-      jwt <- eitherT(input(req)).bimap(identity[Error], _._1)
-      users = aggregateListUserPages(Some(jwt.value))
-    } yield domain.OkResponse(users.map(_ map domain.UserDetails.fromUser))
+  def listUsers(
+      jwt: Jwt
+  ): ET[domain.SyncResponse[Source[Error \/ domain.UserDetails, NotUsed]]] = {
+    val users = aggregateListUserPages(Some(jwt.value))
+    val userDetails = users.map(_ map domain.UserDetails.fromUser)
+    EitherT.rightT(Future.successful(domain.OkResponse(userDetails)))
+  }
 
   private def aggregateListUserPages(
       token: Option[String],

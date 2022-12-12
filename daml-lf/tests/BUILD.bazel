@@ -33,6 +33,14 @@ TEST_FILES = \
 ]
 
 daml_compile(
+    name = "BasicTests-dev",
+    srcs = ["BasicTests.daml"],
+    enable_scenarios = True,
+    target = "1.dev",
+    visibility = ["//daml-lf:__subpackages__"],
+)
+
+daml_compile(
     name = "Optional",
     srcs = ["Optional.daml"],
     visibility = ["//daml-lf:__subpackages__"],
@@ -47,6 +55,22 @@ daml_compile(
 daml_compile(
     name = "Interfaces",
     srcs = ["Interfaces.daml"],
+    target = "1.dev",
+    visibility = ["//daml-lf:__subpackages__"],
+)
+
+daml_build_test(
+    name = "InterfaceRetro",
+    dar_dict = {
+        "//daml-lf/tests:Interfaces.dar": "interfaces.dar",
+    },
+    project_dir = "interface-retro",
+    visibility = ["//daml-lf:__subpackages__"],
+)
+
+daml_compile(
+    name = "InterfaceViews",
+    srcs = ["InterfaceViews.daml"],
     target = "1.dev",
     visibility = ["//daml-lf:__subpackages__"],
 )
@@ -120,7 +144,7 @@ daml_compile(
             "//daml-lf/repl",
             file,
             "%s/EXPECTED.ledger" % "/".join(file.split("/")[0:3]),
-        ],
+        ] + (["scenario/stable/no-contract-ids-in-keys/Simple.daml"] if "no-contract-ids-in-keys" in file else []),
         toolchains = [
             "@rules_sh//sh/posix:make_variables",
         ],

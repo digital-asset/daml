@@ -8,7 +8,7 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.value.Value.ContractId
 import data.{Decimal, ImmArray, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
-import value.test.TypedValueGenerators.{RNil, genAddend, genTypeAndValue, ValueAddend => VA}
+import value.test.TypedValueGenerators.{genAddend, genTypeAndValue, ValueAddend => VA}
 import value.test.ValueGenerators.coidGen
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
 import com.daml.ledger.service.MetadataReader
@@ -18,7 +18,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalacheck.Arbitrary
-import shapeless.{Coproduct => HSum}
+import shapeless.{Coproduct => HSum, HNil}
 import shapeless.record.{Record => HRecord}
 import spray.json._
 import scalaz.syntax.show._
@@ -74,9 +74,9 @@ class ApiCodecCompressedSpec
         Ref.QualifiedName(moduleName0, Ref.DottedName assertFromString name),
       )
     val emptyRecordId = defRef("EmptyRecord")
-    val (emptyRecordDDT, emptyRecordT) = VA.record(emptyRecordId, RNil)
+    val (emptyRecordDDT, emptyRecordT) = VA.record(emptyRecordId, HNil)
     val simpleRecordId = defRef("SimpleRecord")
-    val simpleRecordVariantSpec = Symbol("fA") ->> VA.text :: Symbol("fB") ->> VA.int64 :: RNil
+    val simpleRecordVariantSpec = HRecord(fA = VA.text, fB = VA.int64)
     val (simpleRecordDDT, simpleRecordT) =
       VA.record(simpleRecordId, simpleRecordVariantSpec)
     val simpleRecordV: simpleRecordT.Inj = HRecord(fA = "foo", fB = 100L)
@@ -90,24 +90,25 @@ class ApiCodecCompressedSpec
     val (complexRecordDDT, complexRecordT) =
       VA.record(
         complexRecordId,
-        Symbol("fText") ->> VA.text
-          :: Symbol("fBool") ->> VA.bool
-          :: Symbol("fDecimal") ->> VA.numeric(Decimal.scale)
-          :: Symbol("fUnit") ->> VA.unit
-          :: Symbol("fInt64") ->> VA.int64
-          :: Symbol("fParty") ->> VA.party
-          :: Symbol("fContractId") ->> VA.contractId
-          :: Symbol("fListOfText") ->> VA.list(VA.text)
-          :: Symbol("fListOfUnit") ->> VA.list(VA.unit)
-          :: Symbol("fDate") ->> VA.date
-          :: Symbol("fTimestamp") ->> VA.timestamp
-          :: Symbol("fOptionalText") ->> VA.optional(VA.text)
-          :: Symbol("fOptionalUnit") ->> VA.optional(VA.unit)
-          :: Symbol("fOptOptText") ->> VA.optional(VA.optional(VA.text))
-          :: Symbol("fMap") ->> VA.map(VA.int64)
-          :: Symbol("fVariant") ->> simpleVariantT
-          :: Symbol("fRecord") ->> simpleRecordT
-          :: RNil,
+        HRecord(
+          fText = VA.text,
+          fBool = VA.bool,
+          fDecimal = VA.numeric(Decimal.scale),
+          fUnit = VA.unit,
+          fInt64 = VA.int64,
+          fParty = VA.party,
+          fContractId = VA.contractId,
+          fListOfText = VA.list(VA.text),
+          fListOfUnit = VA.list(VA.unit),
+          fDate = VA.date,
+          fTimestamp = VA.timestamp,
+          fOptionalText = VA.optional(VA.text),
+          fOptionalUnit = VA.optional(VA.unit),
+          fOptOptText = VA.optional(VA.optional(VA.text)),
+          fMap = VA.map(VA.int64),
+          fVariant = simpleVariantT,
+          fRecord = simpleRecordT,
+        ),
       )
     val complexRecordV: complexRecordT.Inj =
       HRecord(
@@ -507,9 +508,10 @@ class ApiCodecCompressedSpec
     }
 
     "dealing with Contract Key" should {
+      import typesig.PackageSignature.TypeDecl.{Template => TDTemplate}
 
       "decode type Key = Party from JSON" in {
-        val templateDef: iface.InterfaceType.Template = mustBeOne(
+        val templateDef: TDTemplate = mustBeOne(
           MetadataReader.templateByName(darMetadata)(
             Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByParty")
           )
@@ -522,7 +524,7 @@ class ApiCodecCompressedSpec
       }
 
       "decode type Key = (Party, Int) from JSON" in {
-        val templateDef: iface.InterfaceType.Template = mustBeOne(
+        val templateDef: TDTemplate = mustBeOne(
           MetadataReader.templateByName(darMetadata)(
             Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByPartyInt")
           )
@@ -552,7 +554,7 @@ class ApiCodecCompressedSpec
       }
 
       "decode type Key = (Party, (Int, Foo, BazRecord)) from JSON" in {
-        val templateDef: iface.InterfaceType.Template = mustBeOne(
+        val templateDef: TDTemplate = mustBeOne(
           MetadataReader.templateByName(darMetadata)(
             Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByVariantAndRecord")
           )

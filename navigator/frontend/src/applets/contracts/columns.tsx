@@ -7,6 +7,8 @@ import Link from "../../components/Link";
 import * as Routes from "../../routes";
 import { Contract } from "./data";
 
+import { removePkgIdFromContractTypeId } from "@da/ui-core/lib/api/IdentifierShortening";
+
 export const columns: ContractColumn<Contract>[] = [
   {
     key: "id",
@@ -46,11 +48,26 @@ export const columns: ContractColumn<Contract>[] = [
     createCell: ({ cellData }) => (
       <ChoicesButton
         contract={cellData}
-        renderLink={(id, name) => (
+        renderLink={(id, name, inheritedInterface) => (
           <Link
             route={Routes.contract}
-            params={{ id: encodeURIComponent(id), choice: name }}>
-            <div>{name}</div>
+            params={{
+              id: encodeURIComponent(id),
+              choice: name,
+              ifc: inheritedInterface && encodeURIComponent(inheritedInterface),
+            }}>
+            <div>
+              {inheritedInterface ? (
+                <>
+                  <strong>
+                    {removePkgIdFromContractTypeId(inheritedInterface) + ":"}
+                  </strong>{" "}
+                  {name}{" "}
+                </>
+              ) : (
+                name
+              )}
+            </div>
           </Link>
         )}
       />

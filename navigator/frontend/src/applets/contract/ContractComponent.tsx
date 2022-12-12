@@ -13,6 +13,7 @@ import { DamlLfValue } from "@da/ui-core/lib/api/DamlLfValue";
 import {
   shortenContractId,
   shortenPartyId,
+  removePkgIdFromContractTypeId,
 } from "@da/ui-core/lib/api/IdentifierShortening";
 import * as React from "react";
 import Link, { OwnProps } from "../../components/Link";
@@ -113,6 +114,7 @@ const Parties = ({ title, parties }: { title: string; parties: string[] }) => (
 interface Props {
   contract: Contract;
   choice?: string;
+  ifc?: string;
   choiceLoading: boolean;
   error?: string;
   exercise(
@@ -122,13 +124,19 @@ interface Props {
 }
 
 export default (props: Props): JSX.Element => {
-  const { contract, choice, exercise, choiceLoading, error } = props;
+  const { contract, choice, ifc, exercise, choiceLoading, error } = props;
   const choices = contract.template.choices;
   const isArchived = contract.archiveEvent !== null;
   let exerciseEl;
+  let selectedChoice;
+
   if (choice) {
-    const parameter = choices.filter(({ name }) => name === choice)[0]
-      .parameter;
+    selectedChoice = choices.filter(
+      ({ name, inheritedInterface }) =>
+        name === choice &&
+        (ifc ? inheritedInterface === ifc : !inheritedInterface),
+    )[0];
+    const parameter = selectedChoice.parameter;
 
     exerciseEl = (
       <Exercise
@@ -141,16 +149,26 @@ export default (props: Props): JSX.Element => {
     );
   }
 
-  const choicesEl = choices.map(({ name }) => {
+  const choicesEl = choices.map(({ name, inheritedInterface }) => {
+    const interfacePrefix = inheritedInterface
+      ? removePkgIdFromContractTypeId(inheritedInterface) + ":"
+      : "";
+    const fullChoiceName = `${interfacePrefix}${name}`;
     const isAnyActive = choice !== undefined;
-    const isActive = choice === name;
+    const isActive =
+      name === choice &&
+      (ifc ? inheritedInterface === ifc : !inheritedInterface);
     return (
       <ChoiceLink
-        key={name}
+        key={fullChoiceName}
         route={Routes.contract}
-        params={{ id: encodeURIComponent(contract.id), choice: name }}
+        params={{
+          id: encodeURIComponent(contract.id),
+          choice: name,
+          ifc: inheritedInterface && encodeURIComponent(inheritedInterface),
+        }}
         isActive={isActive || !isAnyActive}>
-        {name}
+        <Strong>{interfacePrefix}</Strong> {name}
       </ChoiceLink>
     );
   });
@@ -177,6 +195,14 @@ export default (props: Props): JSX.Element => {
             </Truncate>
           </Breadcrumbs>
         </div>
+        {choice && selectedChoice && selectedChoice.inheritedInterface && (
+          <div>
+            <Breadcrumbs>
+              Interface
+              <Truncate>{selectedChoice.inheritedInterface}</Truncate>
+            </Breadcrumbs>
+          </div>
+        )}
         <p>{isArchived ? "ARCHIVED" : null}</p>
         <ColumnContainer>
           <Column>

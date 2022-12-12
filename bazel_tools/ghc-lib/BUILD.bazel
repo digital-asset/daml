@@ -1,0 +1,43 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_sh//sh:sh.bzl", "sh_binaries")
+load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools:bundle.bzl", "cc_toolchain_binary_bundle", "library_bundle")
+
+sh_library(
+    name = "sh-lib",
+    srcs = ["lib.sh"],
+    visibility = ["@da-ghc//:__pkg__"],
+)
+
+cc_toolchain_binary_bundle(
+    name = "cc-tools",
+)
+
+sh_binaries(
+    name = "tools-windows",
+    deps = [
+        "@cabal_win//:tools",
+        "@dadew_ghc_lib_deps//:tools",
+        "@dadew_ghc_lib_deps_python//:tools",
+        "@ghc_865_win//:tools",
+    ],
+) if is_windows else None
+
+sh_binaries(
+    name = "tools",
+    srcs = [
+        "@stackage-exe//alex",
+        "@stackage-exe//happy",
+    ],
+    visibility = ["@da-ghc//:__pkg__"],
+    deps = [":cc-tools"] +
+           ([":tools-windows"] if is_windows else ["@nix_ghc_lib_deps//:tools"]),
+)
+
+library_bundle(
+    name = "libs",
+    visibility = ["@da-ghc//:__pkg__"],
+    deps = [] if is_windows else ["@nix_ghc_lib_deps//:libs"],
+)

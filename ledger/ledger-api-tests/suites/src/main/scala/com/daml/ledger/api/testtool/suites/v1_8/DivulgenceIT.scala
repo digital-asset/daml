@@ -19,7 +19,7 @@ final class DivulgenceIT extends LedgerTestSuite {
     for {
       divulgence1 <- ledger.create(alice, Divulgence1(alice))
       divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
-      _ <- ledger.exercise(alice, divulgence2.exerciseDivulgence2Archive(_, divulgence1))
+      _ <- ledger.exercise(alice, divulgence2.exerciseDivulgence2Archive(divulgence1))
       bobTransactions <- ledger.flatTransactions(bob)
       bobTrees <- ledger.transactionTrees(bob)
       transactionsForBoth <- ledger.flatTransactions(alice, bob)
@@ -160,7 +160,7 @@ final class DivulgenceIT extends LedgerTestSuite {
     for {
       divulgence1 <- ledger.create(alice, Divulgence1(alice))
       divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
-      _ <- ledger.exercise(alice, divulgence2.exerciseDivulgence2Fetch(_, divulgence1))
+      _ <- ledger.exercise(alice, divulgence2.exerciseDivulgence2Fetch(divulgence1))
       activeForBobOnly <- ledger.activeContracts(bob)
       activeForBoth <- ledger.activeContracts(alice, bob)
     } yield {
@@ -219,7 +219,7 @@ final class DivulgenceIT extends LedgerTestSuite {
       offer <- alpha.create(proposer, Proposal(from = proposer, to = owner))
       asset <- beta.create(owner, Asset(issuer = owner, owner = owner))
       _ <- waitForContract(beta, owner, offer)
-      _ <- beta.exercise(owner, offer.exerciseProposalAccept(_, asset))
+      _ <- beta.exercise(owner, offer.exerciseProposalAccept(asset))
     } yield {
       // nothing to test, if the workflow ends successfully the test is considered successful
     }
@@ -244,12 +244,12 @@ final class DivulgenceIT extends LedgerTestSuite {
       withKey1 <- alpha.create(partyA, WithKey(partyA))
 
       // Divulge the withKey1 contract
-      _ <- alpha.exercise(partyA, helper.exerciseWithKeyDivulgenceHelper_Fetch(_, withKey1))
+      _ <- alpha.exercise(partyA, helper.exerciseWithKeyDivulgenceHelper_Fetch(withKey1))
 
       _ <- synchronize(alpha, beta)
 
       // Archive the withKey1 contract
-      _ <- alpha.exercise(partyA, withKey1.exerciseArchive(_))
+      _ <- alpha.exercise(partyA, withKey1.exerciseArchive())
 
       _ <- synchronize(alpha, beta)
 
@@ -257,7 +257,7 @@ final class DivulgenceIT extends LedgerTestSuite {
       withKey2 <- alpha.create(partyA, WithKey(partyA))
 
       // Divulge the withKey2 contract
-      _ <- alpha.exercise(partyA, helper.exerciseWithKeyDivulgenceHelper_Fetch(_, withKey2))
+      _ <- alpha.exercise(partyA, helper.exerciseWithKeyDivulgenceHelper_Fetch(withKey2))
 
       // Synchronize to make sure that both participant are functional
       _ <- synchronize(alpha, beta)

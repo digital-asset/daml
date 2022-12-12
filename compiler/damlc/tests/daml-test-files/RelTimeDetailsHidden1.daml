@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ ERROR range=11:10-11:25; No instance for (DA.Internal.Record.HasField "microseconds" RelTime Int)
+-- @ ERROR range=11:10-11:25; Tried to access nonexistent field ‘microseconds’ with type ‘Int’ on value of type ‘RelTime’
 
 module RelTimeDetailsHidden1 where
 

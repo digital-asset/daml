@@ -4,6 +4,7 @@
 package com.daml.platform.sandbox.services.command
 
 import java.util.concurrent.atomic.AtomicInteger
+
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementAroundAll}
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
@@ -18,7 +19,7 @@ import com.daml.ledger.client.configuration.CommandClientConfiguration
 import com.daml.ledger.client.services.commands.CommandClient
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.platform.participant.util.ValueConversions._
-import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.platform.sandbox.fixture.{CreatesParties, SandboxFixture}
 import com.daml.platform.sandbox.services.TestCommands
 import org.scalatest.OptionValues
 import org.scalatest.concurrent.ScalaFutures
@@ -34,6 +35,7 @@ final class CommandStaticTimeIT
     with Matchers
     with TestCommands
     with SandboxFixture
+    with CreatesParties
     with ScalaFutures
     with SuiteResourceManagementAroundAll
     with OptionValues {
@@ -87,6 +89,11 @@ final class CommandStaticTimeIT
         ).wrap
       ),
     )
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    createPrerequisiteParties(None, List(MockMessages.submitAndWaitRequest.commands.get.party))
+  }
 
   "Command and Time Services" when {
 

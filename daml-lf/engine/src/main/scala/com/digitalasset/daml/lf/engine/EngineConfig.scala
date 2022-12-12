@@ -4,8 +4,13 @@
 package com.daml.lf
 package engine
 
-import java.nio.file.Path
+import com.daml.lf.speedy.{
+  AuthorizationChecker,
+  DefaultAuthorizationChecker,
+  NoopAuthorizationChecker,
+}
 
+import java.nio.file.Path
 import com.daml.lf.transaction.ContractKeyUniquenessMode
 
 /** The Engine configurations describes the versions of language and
@@ -22,20 +27,23 @@ import com.daml.lf.transaction.ContractKeyUniquenessMode
   * @param profileDir The optional specifies the directory where to
   *     save the output of the Daml scenario profiler. The profiler is
   *     disabled if the option is empty.
-  * @param requireSuffixedGlobalCids Since August 2018 we expect new
+  * @param requireSuffixedGlobalContractId Since August 2018 we expect new
   *     ledgers to suffix CIDs before committing a transaction.
   *     This option should be disable for backward compatibility in ledger
   *     that do not (i.e. Sandboxes, KV, Corda).
+  * @param checkAuthorization Whether to check authorization of transaction.
+  *     A value of false is insecure and should be used for security testing only.
   */
 final case class EngineConfig(
     allowedLanguageVersions: VersionRange[language.LanguageVersion],
     packageValidation: Boolean = true,
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,
-    contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
+    contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
     forbidV0ContractId: Boolean = false,
     requireSuffixedGlobalContractId: Boolean = false,
     limits: interpretation.Limits = interpretation.Limits.Lenient,
+    checkAuthorization: Boolean = true,
 ) {
 
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
@@ -58,4 +66,6 @@ final case class EngineConfig(
           speedy.Compiler.NoProfile,
     )
 
+  private[lf] def authorizationChecker: AuthorizationChecker =
+    if (checkAuthorization) DefaultAuthorizationChecker else NoopAuthorizationChecker
 }

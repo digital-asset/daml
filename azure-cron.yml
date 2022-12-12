@@ -28,6 +28,8 @@ trigger: none
 #  always: true
 
 jobs:
+  - template: ci/fix-bazel-cache.yml
+
   - job: docs
     timeoutInMinutes: 120
     pool:
@@ -81,9 +83,10 @@ jobs:
               echo "${version#v} already exists, skipping."
             else
               echo "Building version ${version#v}..."
-              git checkout "$version"
+              #git checkout "$version"
               cd ci/docker/daml-sdk
               docker build -t digitalasset/daml-sdk:${version#v} --build-arg VERSION=${version#v} .
+              #git checkout Dockerfile
               # Despite the name not suggesting it at all, this actually signs
               # _and pushes_ the image; see
               # https://docs.docker.com/engine/security/trust/#signing-images-with-docker-content-trust

@@ -1,8 +1,12 @@
 # Contributing to Daml
 
-Welcome! This page gives a high-level overview of how to contribute to the development of Daml.
+Welcome and thank you for considering contributing to Daml! This page gives a high-level overview of how to contribute to the development of Daml.
+
+## Where to start from
 
 There are many ways you can contribute beyond coding. For example, you can report problems, clarify [issues](https://github.com/digital-asset/daml/issues), and write documentation. If you're completely new to open source development, the [Open Source Guides](https://opensource.guide) is a great place to start.
+
+For anything apart from trivial changes (like fixing a typo), we recommend making the core contributors aware of your ideas, so that you can iterate on them together and make sure you are working on something that can move swiftly though its review phase without any hiccup. If you already have a clear idea of exactly what you want to work on, [open an issue on GitHub](https://github.com/digital-asset/daml/issues/new/choose) and describe it in detail. If you are not 100% sure yet, you can engage with the team on the [Daml forum](https://discuss.daml.com) if you want to have a first, informal chat before opening a ticket. Once the ticket is open and a core contributor endorses the design you proposed, your contribution is on its path to be accepted after the normal review process.
 
 ## Working on the codebase
 
@@ -30,86 +34,6 @@ For Git commit messages, our principle is that `git log --pretty=oneline` should
 * Does your PR include appropriate tests?
 * Make sure your PR title and description makes it easy for other developers to understand what the contained commits do. The title should say what the changes do. The description should expand on what it does (if not obvious from the title alone), and say why it is being done.
 * If your PR corresponds to an issue, add “Fixes #XX” to your pull request description. This will auto-close the corresponding issue when the commit is merged into main and tie the PR to the issue.
-* the squashed commit for the PR **MUST** include in its body a section between the ``CHANGELOG_BEGIN`` and ``CHANGELOG_END`` tags. This section **MAY** include a list of _user-facing_ changes [Follow these guidelines on how to write a good changelog entry](#writing-a-good-changelog-entry).
-
-The following is an example of a well-formed commit, including the description (first line) and a body that includes changelog additions:
-
-      Fixes #1311
-
-      Also fixes a typo in the Scala bindings documentation.
-
-      CHANGELOG_BEGIN
-
-      - [Sandbox] Introduced a new API for package management.
-        See `#1311 <https://github.com/digital-asset/daml/issues/1311>`__.
-
-      CHANGELOG_END
-
-If you want to amend an existing changelog entry part of a PR already merged on main, do so by adding a ``WARNING`` to your changelog additions:
-
-      CHANGELOG_BEGIN
-
-      WARNING: replace existing changelog entry "Introduced a new API for package management" with the following.
-
-      - [Sandbox] Introduce a new API for party management.
-      See `#1311 <https://github.com/digital-asset/daml/issues/1311>`__.
-
-      CHANGELOG_END
-
-If the PR contains no _user-facing_ change, the section **MUST** be there but can be left empty, as in the following example:
-
-      Fixes #6666
-
-      Improve contribution guidelines
-
-      CHANGELOG_BEGIN
-      CHANGELOG_END
-
-If you want to verify the changelog entries as described by a range of Git revisions, you can use the `unreleased.sh` script. In most cases, to see the entries added as part of commits added since branching off of `main`, you can run:
-
-    ./unreleased.sh main..
-
-## Writing a good changelog entry
-
-Writing good changelog entries is **important**: as a developer, it gives visibility on your contribution; as a user, it makes clear what is new, what's changed, and how to deal with them, making the product more accessible and your work more meaningful.
-
-The raw changelog is used to compile a meaningful summary of changes across releases. This happens some time after the PR has been merged and the person taking the responsibility of summarizing new user-facing features must be in the position to easily understand the nature of the change and report it. The ideal changelog entry can be more or less incorporated verbatim in the release notes.
-
-Here are a few practical tips:
-
-* if there are no user-facing changes, keep the changelog entry list empty
-* the first term to appear should be the affected component -- [here's a list](#list-of-components-for-changelog-entries)
-* write as many changelog entries as necessary
-* don't be _too_ succinct: a single entry does **not have to** fit on a single line
-* on the other end, if the size grows beyond 5-6 lines, rather add a link to a relevant documentation or issue with more details
-* the ultimate target are end users: focus on the impact on them, tell them what's new or how to deal with a change
-
-### List of components for changelog entries
-
-This list should cover the vast majority of needs. If unsure, ask on the relevant GitHub issue or PR.
-
-  * Daml Compiler
-  * Daml on SQL
-  * Daml Studio
-  * Distribution/Releases
-  * Java Bindings
-  * Java Codegen
-  * JavaScript Client Libraries
-  * JavaScript Codegen
-  * JSON API
-  * Ledger API Specification
-  * Integration Kit †
-  * Navigator
-  * Daml REPL
-  * Sandbox
-  * Scala Bindings
-  * Scala Codegen
-  * Daml Script
-  * Daml Assistant
-  * Daml Standard Library
-  * Daml Triggers
-
-† Covers the Ledger API Test Tool and changes to libraries that affect ledger integrations (e.g. `kvutils`)
 
 ## Working with issues
 
@@ -155,11 +79,11 @@ You can see all the active milestones [here](https://github.com/digital-asset/da
 
 ## Discussions
 
-Please hold discussions that are relevant to Daml development and not confidential in GitHub issues. That way, anyone who wants to contribute or follow along can do so. If you have private discussions, please summarise them in an issue or comment to an issue.
+Please hold discussions that are relevant to Daml development and not confidential in GitHub issues. That way, anyone who wants to contribute or follow along can do so. If you have private discussions, please summarize them in an issue or comment to an issue.
 
 You can also participate in the discussions at the following link: [discuss.daml.com](https://discuss.daml.com/).
 
-# Problems
+## Problems
 
 1. When running tests on `MacOS` you might get a system dialog like this:
    ````
@@ -174,8 +98,7 @@ You can also participate in the discussions at the following link: [discuss.daml
    The test can succeeds independent of whether `Deny` or `Allow`.  
    If the dialog doesn't appear for you, you've probably already excercised one of these two choices.  
    To check your Firewall settings go to: `System Preferences` -> `Security & Privacy` -> `Firewall` -> `Firewall Options...` (checked on macOS Big Sur 11.5.2).  
-  
 
-# Thank you!
+## Thank you!
 
 Thank you for taking the time to contribute!

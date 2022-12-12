@@ -39,7 +39,7 @@ object DbType {
         "oracle",
         "oracle.jdbc.OracleDriver",
         supportsParallelWrites = true,
-        //TODO https://github.com/digital-asset/daml/issues/9493
+        // TODO https://github.com/digital-asset/daml/issues/9493
         supportsAsynchronousCommits = false,
       )
 
@@ -49,18 +49,5 @@ object DbType {
     case oracle if oracle.startsWith("jdbc:oracle:") => Oracle
     case _ =>
       sys.error(s"JDBC URL doesn't match any supported databases (h2, pg, oracle)")
-  }
-
-  sealed trait AsyncCommitMode {
-    def setting: String
-  }
-  object SynchronousCommit extends AsyncCommitMode {
-    override val setting: String = "ON"
-  }
-  object AsynchronousCommit extends AsyncCommitMode {
-    override val setting: String = "OFF"
-  }
-  object LocalSynchronousCommit extends AsyncCommitMode {
-    override val setting: String = "LOCAL"
   }
 }

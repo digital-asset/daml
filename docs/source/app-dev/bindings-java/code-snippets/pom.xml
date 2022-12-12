@@ -10,7 +10,7 @@
     <!-- start snippet: dependencies -->
     <dependencies>
         <dependency>
-            <groupId>com.daml.ledger</groupId>
+            <groupId>com.daml</groupId>
             <artifactId>bindings-rxjava</artifactId>
             <version>x.y.z</version>
         </dependency>

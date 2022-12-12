@@ -27,7 +27,7 @@ import Control.Exception (evaluate,try,SomeException)
 import Data.Map(Map)
 import Data.Maybe (fromMaybe)
 import Data.Text.Lazy (Text)
-import Data.Vector as Vector (Vector,fromList,toList)
+import Data.Vector as Vector (Vector,empty,fromList,toList)
 import qualified Data.Text.Lazy as Text (pack,unpack)
 
 import qualified Google.Protobuf.Empty as LL
@@ -79,7 +79,8 @@ lowerCommands = \case
         commandsDeduplicationPeriod = fmap lowerDeduplicationPeriod dedupPeriod,
         commandsCommands = Vector.fromList $ map lowerCommand coms,
         commandsMinLedgerTimeAbs = fmap lowerTimestamp minLeTimeAbs,
-        commandsMinLedgerTimeRel = minLeTimeRel }
+        commandsMinLedgerTimeRel = minLeTimeRel,
+        commandsDisclosedContracts = Vector.empty }
 
 lowerDeduplicationPeriod :: DeduplicationPeriod -> LL.CommandsDeduplicationPeriod
 lowerDeduplicationPeriod = \case

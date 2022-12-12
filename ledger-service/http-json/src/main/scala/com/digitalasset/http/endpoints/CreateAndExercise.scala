@@ -8,7 +8,7 @@ import akka.http.scaladsl.model._
 import com.daml.lf.value.{Value => LfValue}
 import EndpointsCompanion._
 import Endpoints.ET
-import domain.{JwtPayloadTag, JwtWritePayload, TemplateId}
+import domain.{ContractTypeId, JwtPayloadTag, JwtWritePayload}
 import json._
 import util.FutureUtil.{either, eitherT}
 import util.Logging.{InstanceUUID, RequestID}
@@ -23,8 +23,9 @@ import scalaz.{-\/, EitherT, \/, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.Timed
 
 private[http] final class CreateAndExercise(
     routeSetup: RouteSetup,
@@ -40,31 +41,33 @@ private[http] final class CreateAndExercise(
   def create(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       ec: ExecutionContext,
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): ET[domain.SyncResponse[JsValue]] =
-    handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx) => implicit lc =>
+    handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimer) => implicit lc =>
       for {
         cmd <-
           decoder
             .decodeCreateCommand(reqBody, jwt, toLedgerId(jwtPayload.ledgerId))
-            .liftErr(InvalidUserInput): ET[domain.CreateCommand[ApiRecord, TemplateId.RequiredPkg]]
-        _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
+            .liftErr(InvalidUserInput): ET[
+            domain.CreateCommand[ApiRecord, ContractTypeId.Template.RequiredPkg]
+          ]
+        _ <- EitherT.pure(parseAndDecodeTimer.stop())
 
-        ac <- eitherT(
+        response <- eitherT(
           Timed.future(
-            metrics.daml.HttpJsonApi.commandSubmissionLedgerTimer,
+            metrics.commandSubmissionLedgerTimer,
             handleFutureEitherFailure(commandService.create(jwt, jwtPayload, cmd)),
           )
-        ): ET[domain.ActiveContract[ApiValue]]
-      } yield ac
+        ): ET[domain.CreateCommandResponse[ApiValue]]
+      } yield response
     }
 
   def exercise(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       ec: ExecutionContext,
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): ET[domain.SyncResponse[JsValue]] =
-    handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx) => implicit lc =>
+    handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimer) => implicit lc =>
       for {
         cmd <-
           decoder
@@ -72,7 +75,7 @@ private[http] final class CreateAndExercise(
             .liftErr(InvalidUserInput): ET[
             domain.ExerciseCommand[LfValue, domain.ContractLocator[LfValue]]
           ]
-        _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
+        _ <- EitherT.pure(parseAndDecodeTimer.stop())
         resolvedRef <- eitherT(
           resolveReference(jwt, jwtPayload, cmd.meta, cmd.reference)
         ): ET[domain.ResolvedContractRef[ApiValue]]
@@ -83,7 +86,7 @@ private[http] final class CreateAndExercise(
 
         resp <- eitherT(
           Timed.future(
-            metrics.daml.HttpJsonApi.commandSubmissionLedgerTimer,
+            metrics.commandSubmissionLedgerTimer,
             handleFutureEitherFailure(
               commandService.exercise(jwt, jwtPayload, resolvedCmd)
             ),
@@ -95,21 +98,21 @@ private[http] final class CreateAndExercise(
 
   def createAndExercise(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): ET[domain.SyncResponse[JsValue]] =
-    handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx) => implicit lc =>
+    handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimer) => implicit lc =>
       for {
         cmd <-
           decoder
             .decodeCreateAndExerciseCommand(reqBody, jwt, toLedgerId(jwtPayload.ledgerId))
             .liftErr(InvalidUserInput): ET[
-            domain.CreateAndExerciseCommand[ApiRecord, ApiValue, TemplateId.RequiredPkg]
+            domain.CreateAndExerciseCommand.LAVResolved
           ]
-        _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
+        _ <- EitherT.pure(parseAndDecodeTimer.stop())
 
         resp <- eitherT(
           Timed.future(
-            metrics.daml.HttpJsonApi.commandSubmissionLedgerTimer,
+            metrics.commandSubmissionLedgerTimer,
             handleFutureEitherFailure(
               commandService.createAndExercise(jwt, jwtPayload, cmd)
             ),
@@ -125,7 +128,7 @@ private[http] final class CreateAndExercise(
       reference: domain.ContractLocator[LfValue],
   )(implicit
       lc: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
       .resolveContractReference(

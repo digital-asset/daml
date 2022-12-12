@@ -3,6 +3,7 @@
 
 package com.daml.ledger.javaapi.data.codegen;
 
+import com.daml.ledger.javaapi.data.ExerciseCommand;
 import com.daml.ledger.javaapi.data.Value;
 import java.util.Objects;
 
@@ -35,7 +36,7 @@ import java.util.Objects;
  *
  * @param <T> A template type
  */
-public class ContractId<T> {
+public class ContractId<T> implements Exercises<ExerciseCommand> {
   public final String contractId;
 
   public ContractId(String contractId) {
@@ -44,6 +45,34 @@ public class ContractId<T> {
 
   public final Value toValue() {
     return new com.daml.ledger.javaapi.data.ContractId(contractId);
+  }
+
+  @Override
+  public <A, R> Update<Exercised<R>> makeExerciseCmd(
+      Choice<?, ? super A, R> choice, A choiceArgument) {
+    var command =
+        new ExerciseCommand(
+            getCompanion().TEMPLATE_ID,
+            contractId,
+            choice.name,
+            choice.encodeArg.apply(choiceArgument));
+    return new Update.ExerciseUpdate<>(command, x -> x, choice.returnTypeDecoder);
+  }
+
+  // overridden by every code generator, but decoding abstractly can e.g.
+  // produce a ContractId<Foo> that is not a Foo.ContractId
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by {@link ContractId} and <em>should not
+   * be referenced directly</em>. Applications should refer to generated {@code exercise} methods
+   * instead.
+   *
+   * @hidden
+   */
+  protected ContractTypeCompanion<
+          ? extends Contract<? extends ContractId<T>, ?>, ? extends ContractId<T>, T, ?>
+      getCompanion() {
+    throw new UnsupportedOperationException(
+        "Cannot exercise on a contract ID type without code-generated exercise methods");
   }
 
   @Override

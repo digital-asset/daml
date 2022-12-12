@@ -14,6 +14,7 @@ def _sh_inline_script_impl(ctx):
         substitutions = {
             "%cmd%": cmd,
             "%os%": os_name,
+            "%workspace%": ctx.workspace_name,
         },
     )
 
@@ -26,7 +27,7 @@ def _sh_inline_script_impl(ctx):
         runfiles = runfiles,
     )
 
-_sh_inline_script = rule(
+_sh_inline_test_script = rule(
     _sh_inline_script_impl,
     attrs = {
         "cmd": attr.string(
@@ -45,6 +46,25 @@ _sh_inline_script = rule(
     },
 )
 
+_sh_inline_script = rule(
+    _sh_inline_script_impl,
+    attrs = {
+        "cmd": attr.string(
+            mandatory = True,
+        ),
+        "data": attr.label_list(
+            allow_files = True,
+        ),
+        "output": attr.output(
+            mandatory = True,
+        ),
+        "_template": attr.label(
+            allow_single_file = True,
+            default = "//bazel_tools/sh:inline.sh.tpl",
+        ),
+    },
+)
+
 def sh_inline_test(
         name,
         cmd,
@@ -52,7 +72,7 @@ def sh_inline_test(
         toolchains = [],
         **kwargs):
     testonly = kwargs.pop("testonly", True)
-    _sh_inline_script(
+    _sh_inline_test_script(
         name = name + "_script",
         cmd = cmd,
         output = name + ".sh",
@@ -66,5 +86,26 @@ def sh_inline_test(
         deps = ["@bazel_tools//tools/bash/runfiles"],
         srcs = [name + ".sh"],
         testonly = testonly,
+        **kwargs
+    )
+
+def sh_inline_binary(
+        name,
+        cmd,
+        data = [],
+        toolchains = [],
+        **kwargs):
+    _sh_inline_script(
+        name = name + "_script",
+        cmd = cmd,
+        output = name + ".sh",
+        data = data,
+        toolchains = toolchains,
+    )
+    native.sh_binary(
+        name = name,
+        data = data,
+        deps = ["@bazel_tools//tools/bash/runfiles"],
+        srcs = [name + ".sh"],
         **kwargs
     )

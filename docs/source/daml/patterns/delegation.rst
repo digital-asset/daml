@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Delegation
-##########
+The Delegation Pattern
+######################
 
 The Delegation pattern gives one party the right to exercise a choice on behalf of another party. The agent can control a contract on the ledger without the principal explicitly committing the action.
 
@@ -25,8 +25,8 @@ Implementation
 
 .. literalinclude:: daml/CoinIssuance.daml
   :language: daml
-  :start-after: -- BEGIN_COIN_TEMPLATE_ARCHIVE
-  :end-before: -- END_COIN_TEMPLATE_ARCHIVE
+  :start-after: -- BEGIN_COIN_TEMPLATE_TRANSFER
+  :end-before: -- END_COIN_TEMPLATE_TRANSFER
 
 Delegation Contract
   - *Principal*, the original coin owner, is the signatory of delegation contract *CoinPoA*. This signatory is required to authorize the *Transfer* choice on *coin*.
@@ -54,6 +54,7 @@ Delegation Contract
 .. note:: The technique is likely to change in the future. Daml is actively researching future language features for contract disclosure.
 
 .. figure:: images/delegation.png
+   :alt: A diagram of the Delegation pattern, in which the CoinPoA contract allows a party who is not the coin's owner to exercise a choice on the TransferProposal contract.
 
-  Delegation pattern diagram
+   Delegation pattern diagram
 

@@ -4,14 +4,14 @@
 package com.daml.ledger.participant.state.v2
 
 import java.time.Duration
-
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.grpc.GrpcStatuses
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{Bytes, Ref}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
+import com.daml.lf.value.Value
 import com.daml.logging.entries.{LoggingEntry, LoggingValue, ToLoggingValue}
 import com.google.rpc.status.{Status => RpcStatus}
 
@@ -245,6 +245,12 @@ object Update {
     *                          determines how this transaction's recordTime relates to its
     *                          [[TransactionMeta.ledgerEffectiveTime]].
     * @param divulgedContracts List of divulged contracts. See [[DivulgedContract]] for details.
+    * @param contractMetadata  For each contract created in this transaction, this map may contain
+    *                          contract metadata assigned by the ledger implementation.
+    *                          This data is opaque and can only be used in [[com.daml.lf.command.DisclosedContract]]s
+    *                          when submitting transactions trough the [[WriteService]].
+    *                          If a contract created by this transaction is not element of this map,
+    *                          its metadata is equal to the empty byte array.
     */
   final case class TransactionAccepted(
       optCompletionInfo: Option[CompletionInfo],
@@ -254,6 +260,7 @@ object Update {
       recordTime: Timestamp,
       divulgedContracts: List[DivulgedContract],
       blindingInfo: Option[BlindingInfo],
+      contractMetadata: Map[Value.ContractId, Bytes],
   ) extends Update {
     override def description: String = s"Accept transaction $transactionId"
   }
@@ -266,6 +273,7 @@ object Update {
             _,
             transactionId,
             recordTime,
+            _,
             _,
             _,
           ) =>
@@ -294,7 +302,7 @@ object Update {
   ) extends Update {
     override def description: String =
       s"Reject command ${completionInfo.commandId}${if (definiteAnswer)
-        " (definite answer)"}: ${reasonTemplate.message}"
+          " (definite answer)"}: ${reasonTemplate.message}"
 
     /** If true, the [[ReadService]]'s deduplication guarantees apply to this rejection.
       * The participant state implementations should strive to set this flag to true as often as

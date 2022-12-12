@@ -10,6 +10,7 @@ import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.daml.lf.data.Ref._
+import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.lf.engine.trigger.TriggerMsg
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
 import com.daml.platform.sandbox.fixture.SandboxFixture
@@ -53,19 +54,29 @@ class Jwt
       )
     "1 create" in {
       for {
+        adminClient <- ledgerClient(config =
+          Some(
+            ledgerClientConfiguration.copy(
+              token = Some(toHeader(forApplicationId("custom app id", adminToken)))
+            )
+          )
+        )
+        _ <- adminClient.partyManagementClient.allocateParty(Some(party), None)
         client <- ledgerClient()
         runner = getRunner(client, QualifiedName.assertFromString("ACS:test"), party)
         (acs, offset) <- runner.queryACS()
         // Start the future here
-        finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(6))._2
+        finalStateF = runner
+          .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(6))
+          ._2
         // Execute commands
         _ <- create(client, party, asset(party))
         // Wait for the trigger to terminate
         _ <- finalStateF
         acs <- queryACS(client, party)
       } yield {
-        assert(acs(assetId).size == 1)
-        assert(acs(assetMirrorId).size == 1)
+        acs(assetId) should have size 1
+        acs(assetMirrorId) should have size 1
       }
     }
   }

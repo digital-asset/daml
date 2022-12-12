@@ -76,8 +76,8 @@ Alternatively, it can append a custom ``redirect_url`` parameter to the login UR
 Note that login with the IAM may require entering credentials into a web-form,
 i.e. the login URL should be opened in a web browser.
 
-Example Usage
-*************
+Example
+*******
 
 This section describes how a web frontend can interact with the trigger service when authorization is required.
 Note, to avoid cross-origin requests and to enable sharing of cookies

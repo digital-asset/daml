@@ -17,6 +17,7 @@ import scala.collection.mutable
 import scala.language.implicitConversions
 
 // Important: do not use this in production code. It is designed for testing only.
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 private[daml] class EncodeV1(minor: LV.Minor) {
 
   import EncodeV1._
@@ -367,7 +368,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setCreateInterface(
             PLF.Update.CreateInterface.newBuilder().setInterface(interface).setExpr(arg)
           )
-        case UpdateFetch(templateId, contractId) =>
+        case UpdateFetchTemplate(templateId, contractId) =>
           builder.setFetch(PLF.Update.Fetch.newBuilder().setTemplate(templateId).setCid(contractId))
         case UpdateFetchInterface(interface, contractId) =>
           builder.setFetchInterface(
@@ -386,7 +387,10 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           setInternedString(choice, b.setChoiceInternedStr)
           b.setCid(cid)
           b.setArg(arg)
-          b.setGuard(guard)
+          guard.foreach { g =>
+            assertSince(LV.v1_dev, "ExerciseInterface.guard")
+            b.setGuard(g)
+          }
           builder.setExerciseInterface(b)
         case UpdateExerciseByKey(templateId, choice, key, arg) =>
           assertSince(LV.Features.exerciseByKey, "exerciseByKey")
@@ -522,8 +526,10 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       binder -> body
     })
 
-    private def encodeExprBuilder(expr0: Expr): PLF.Expr.Builder = {
-      val builder = PLF.Expr.newBuilder()
+    private def encodeExprBuilder(
+        expr0: Expr,
+        builder: PLF.Expr.Builder = PLF.Expr.newBuilder(),
+    ): builder.type = {
 
       // EAbss breaks the exhaustiveness checker.
       (expr0: @unchecked) match {
@@ -627,7 +633,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         case ESome(typ, x) =>
           builder.setOptionalSome(PLF.Expr.OptionalSome.newBuilder().setType(typ).setBody(x))
         case ELocation(loc, expr) =>
-          encodeExprBuilder(expr).setLocation(loc)
+          encodeExprBuilder(expr, builder).setLocation(loc)
         case EUpdate(u) =>
           builder.setUpdate(u)
         case EScenario(s) =>
@@ -659,7 +665,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
             PLF.Expr.FromAnyException.newBuilder().setType(ty).setExpr(body)
           )
         case EToInterface(iface, tpl, value) =>
-          assertSince(LV.Features.interfaces, "Expr.ToInterface")
+          assertSince(LV.Features.basicInterfaces, "Expr.ToInterface")
           builder.setToInterface(
             PLF.Expr.ToInterface
               .newBuilder()
@@ -668,7 +674,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setTemplateExpr(value)
           )
         case EFromInterface(iface, tpl, value) =>
-          assertSince(LV.Features.interfaces, "Expr.FromInterface")
+          assertSince(LV.Features.basicInterfaces, "Expr.FromInterface")
           builder.setFromInterface(
             PLF.Expr.FromInterface
               .newBuilder()
@@ -676,12 +682,74 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setTemplateType(tpl)
               .setInterfaceExpr(value)
           )
+        case EUnsafeFromInterface(iface, tpl, cid, value) =>
+          assertSince(LV.Features.basicInterfaces, "Expr.UnsafeFromInterface")
+          builder.setUnsafeFromInterface(
+            PLF.Expr.UnsafeFromInterface
+              .newBuilder()
+              .setInterfaceType(iface)
+              .setTemplateType(tpl)
+              .setContractIdExpr(cid)
+              .setInterfaceExpr(value)
+          )
+        case EToRequiredInterface(superIface, iface, value) =>
+          assertSince(LV.Features.basicInterfaces, "Expr.ToRequiredInterface")
+          builder.setToRequiredInterface(
+            PLF.Expr.ToRequiredInterface
+              .newBuilder()
+              .setRequiredInterface(superIface)
+              .setRequiringInterface(iface)
+              .setExpr(value)
+          )
+        case EFromRequiredInterface(superIface, iface, value) =>
+          assertSince(LV.Features.basicInterfaces, "Expr.FromRequiredInterface")
+          builder.setFromRequiredInterface(
+            PLF.Expr.FromRequiredInterface
+              .newBuilder()
+              .setRequiredInterface(superIface)
+              .setRequiringInterface(iface)
+              .setExpr(value)
+          )
+        case EUnsafeFromRequiredInterface(superIface, iface, cid, value) =>
+          assertSince(LV.Features.basicInterfaces, "Expr.UnsafeFromRequiredInterface")
+          builder.setUnsafeFromRequiredInterface(
+            PLF.Expr.UnsafeFromRequiredInterface
+              .newBuilder()
+              .setRequiredInterface(superIface)
+              .setRequiringInterface(iface)
+              .setContractIdExpr(cid)
+              .setInterfaceExpr(value)
+          )
+        case EInterfaceTemplateTypeRep(iface, value) =>
+          assertSince(LV.Features.basicInterfaces, "Expr.InterfaceTemplateTypeRep")
+          builder.setInterfaceTemplateTypeRep(
+            PLF.Expr.InterfaceTemplateTypeRep
+              .newBuilder()
+              .setInterface(iface)
+              .setExpr(value)
+          )
+        case ESignatoryInterface(iface, value) =>
+          assertSince(LV.Features.basicInterfaces, "Expr.InterfaceTemplateTypeRep")
+          builder.setSignatoryInterface(
+            PLF.Expr.SignatoryInterface
+              .newBuilder()
+              .setInterface(iface)
+              .setExpr(value)
+          )
+        case EObserverInterface(iface, value) =>
+          assertSince(LV.Features.basicInterfaces, "Expr.InterfaceTemplateTypeRep")
+          builder.setObserverInterface(
+            PLF.Expr.ObserverInterface
+              .newBuilder()
+              .setInterface(iface)
+              .setExpr(value)
+          )
         case EExperimental(name, ty) =>
           assertSince(LV.v1_dev, "Expr.experimental")
           builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))
 
         case ECallInterface(ty, methodName, expr) =>
-          assertSince(LV.Features.interfaces, "Expr.CallInterface")
+          assertSince(LV.Features.basicInterfaces, "Expr.CallInterface")
           val b = PLF.Expr.CallInterface.newBuilder()
           b.setInterfaceType(ty)
           b.setInterfaceExpr(expr)
@@ -736,10 +804,14 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val builder = PLF.DefInterface.newBuilder()
       builder.setTyconInternedDname(dottedNameTable.insert(dottedName))
       builder.setParamInternedStr(stringsTable.insert(interface.param))
-      builder.accumulateLeft(interface.fixedChoices.sortByKey)(_ addFixedChoices _)
+      builder.accumulateLeft(interface.choices.sortByKey)(_ addChoices _)
       builder.accumulateLeft(interface.methods.sortByKey)(_ addMethods _)
-      builder.accumulateLeft(interface.requires)(_ addRequires _)
-      builder.setPrecond(interface.precond)
+      if (interface.requires.nonEmpty) {
+        assertSince(LV.Features.basicInterfaces, "DefInterface.requires")
+        builder.accumulateLeft(interface.requires)(_ addRequires _)
+      }
+      builder.accumulateLeft(interface.coImplements.sortByKey)(_ addCoImplements _)
+      builder.setView(interface.view)
       builder.build()
     }
 
@@ -750,6 +822,16 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val b = PLF.InterfaceMethod.newBuilder()
       b.setMethodInternedName(stringsTable.insert(name))
       b.setType(method.returnType)
+      b.build()
+    }
+
+    private implicit def encodeInterfaceCoImplements(
+        templateWithCoImplements: (TypeConName, InterfaceCoImplements)
+    ): PLF.DefInterface.CoImplements = {
+      val (template, coImplements) = templateWithCoImplements
+      val b = PLF.DefInterface.CoImplements.newBuilder()
+      b.setTemplate(template)
+      b.setBody(coImplements.body)
       b.build()
     }
 
@@ -837,18 +919,25 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val (interface, implements) = interfaceWithImplements
       val b = PLF.DefTemplate.Implements.newBuilder()
       b.setInterface(interface)
-      b.accumulateLeft(implements.methods.sortByKey)(_ addMethods _)
-      b.accumulateLeft(implements.inheritedChoices)((i, v) =>
-        i addInheritedChoiceInternedNames (stringsTable.insert(v))
-      )
+      b.setBody(implements.body)
       b.build()
     }
 
-    private implicit def encodeTemplateImplementsMethod(
-        nameWithMethod: (MethodName, TemplateImplementsMethod)
-    ): PLF.DefTemplate.ImplementsMethod = {
+    private implicit def encodeInterfaceInstanceBody(
+        iiBody: InterfaceInstanceBody
+    ): PLF.InterfaceInstanceBody = {
+      val InterfaceInstanceBody(methods, view) = iiBody
+      val b = PLF.InterfaceInstanceBody.newBuilder()
+      b.accumulateLeft(methods.sortByKey)(_ addMethods _)
+      b.setView(view)
+      b.build()
+    }
+
+    private implicit def encodeInterfaceInstanceMethod(
+        nameWithMethod: (MethodName, InterfaceInstanceMethod)
+    ): PLF.InterfaceInstanceBody.InterfaceInstanceMethod = {
       val (name, method) = nameWithMethod
-      val b = PLF.DefTemplate.ImplementsMethod.newBuilder()
+      val b = PLF.InterfaceInstanceBody.InterfaceInstanceMethod.newBuilder()
       b.setMethodInternedName(stringsTable.insert(name))
       b.setValue(method.value)
       b.build()
@@ -901,6 +990,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
 
 }
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 object EncodeV1 {
 
   private sealed abstract class LeftRecMatcher[L, R] {

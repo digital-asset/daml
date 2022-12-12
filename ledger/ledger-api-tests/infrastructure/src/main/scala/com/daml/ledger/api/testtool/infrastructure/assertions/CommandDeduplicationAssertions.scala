@@ -7,10 +7,8 @@ import java.time.Duration
 
 import com.daml.api.util.DurationConversion
 import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertDefined, fail}
-import com.daml.ledger.api.testtool.infrastructure.participant.{
-  CompletionResponse,
-  ParticipantTestContext,
-}
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.CompletionResponse
 import com.daml.ledger.api.v1.experimental_features.CommandDeduplicationPeriodSupport.{
   DurationSupport,
   OffsetSupport,

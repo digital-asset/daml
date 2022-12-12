@@ -21,7 +21,7 @@ import DA.Daml.UtilGHC (fsFromText)
 import qualified "ghc-lib-parser" BasicTypes as GHC
 import qualified "ghc-lib-parser" BooleanFormula as BF
 import qualified "ghc-lib-parser" FieldLabel as GHC
-import "ghc-lib-parser" OccName (mkVarOcc, mkTcOcc)
+import "ghc-lib-parser" OccName (mkDataOcc, mkTcOcc, mkVarOcc)
 import "ghc-lib-parser" SrcLoc (noLoc)
 
 main :: IO ()
@@ -194,6 +194,46 @@ metadataEncodingTests = testGroup "MetadataEncoding"
             )
           )
         ]
+    , roundtripTestsBy "fixity declarations"
+        -- source text isn't preserved by the encoding,
+        -- so we don't consider it for equality.
+        (\(name1, GHC.Fixity _sourceText1 precedence1 direction1)
+          (name2, GHC.Fixity _sourceText2 precedence2 direction2) ->
+            name1 == name2
+            && precedence1 == precedence2
+            && direction1 == direction2)
+        encodeFixityInfo
+        decodeFixityInfo
+        [ (title, (operatorName, GHC.Fixity mSourceText precedence direction))
+        | (operatorName, operatorStr) <-
+            [ (mkVarOcc "!!", "!!")
+            , (mkVarOcc "??", "??")
+            , (mkVarOcc "op", "`op`")
+            , (mkVarOcc "Pair", "`Pair`") -- "real" data constructor, see Note [Data Constructors] in GHC
+            , (mkDataOcc "Tup", "`Tup`") -- "source" data constructor
+            , (mkTcOcc "Either", "`Either`") -- type or class constructor
+            , (mkVarOcc ":+", ":+") -- "real" data constructor
+            , (mkDataOcc ":*", ":*") -- "source" data constructor
+            , (mkTcOcc ":%", ":%") -- type or class constructor
+            ]
+        , precedence <- [1..9]
+        , (direction, directionStr) <-
+            [ (GHC.InfixR, "infixr")
+            , (GHC.InfixL, "infixl")
+            , (GHC.InfixN, "infix")
+            ]
+        , let str = unwords
+                [ directionStr
+                , show precedence
+                , operatorStr
+                ]
+        , (title, mSourceText) <-
+            [ ( str <> " (without source text)"
+              , GHC.NoSourceText)
+            , ( str <> " (with source text)"
+              , GHC.SourceText str)
+            ]
+        ]
     ]
 
 mkImport :: Maybe T.Text -> [T.Text] -> LF.Qualified ()
@@ -271,7 +311,7 @@ bignumericTests = testGroup "BigNumeric"
       let result = convertLiteral r
       whenRight result $ \_ ->
         assertFailure $ "Expected " <> show r <> " to be an invalid BigNumeric literal but conversion succeeeded"
-    convertLiteral :: Rational -> Either FileDiagnostic LF.Expr
+    convertLiteral :: Rational -> Either FileDiagnostic (LF.Expr, [FileDiagnostic])
     convertLiteral r =
         let dummyEnv = ConversionEnv
               { convModuleFilePath = toNormalizedFilePath' ""

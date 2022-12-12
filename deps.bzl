@@ -29,33 +29,23 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:canton_dep.bzl", "canton")
 
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
 rules_scala_sha256 = "6899cddf7407d09266dddcf6faf9f2a8b414de5e2b35ef8b294418f559172f28"
 
-rules_haskell_version = "e2a74e5c29588f2107daae7c438e0d4117fcafb3"
-rules_haskell_sha256 = "db8bf1813a07948269e622f646be3e7acc2799664fce548ed6c1afbe141d7085"
+rules_haskell_version = "d3caf0cc94a8dc6af682da42d3b89ef7e85cb987"
+rules_haskell_sha256 = "16f6ba4997fa4847d7dc26db2c08f71087b591e53ac8c334b1e7f62f6cf3a5da"
 rules_haskell_patches = [
     # This is a daml specific patch and not upstreamable.
     "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
     # This should be made configurable in rules_haskell.
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-    # This should be upstreamed
-    "@com_github_digital_asset_daml//bazel_tools:haskell-rts-docs.patch",
-    # This should be upstreamed
-    "@com_github_digital_asset_daml//bazel_tools:haskell-ghc-includes.patch",
 ]
-rules_nixpkgs_version = "81f61c4b5afcf50665b7073f7fce4c1755b4b9a3"
-rules_nixpkgs_sha256 = "33fd540d0283cf9956d0a5a640acb1430c81539a84069114beaf9640c96d221a"
+rules_nixpkgs_version = "210d30a81cedde04b4281fd163428722278fddfb"
+rules_nixpkgs_sha256 = "61b24e273821a15146f9ae7577e64b53f6aa332d5a7056abe8221ae2c346fdbd"
 rules_nixpkgs_patches = [
-    # On CI and locally we observe occasional segmantation faults
-    # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
-    # can cause such segmentation faults. Since Nix 2.3.2 it is
-    # possible to disable HTTP2 via a command-line flag, which
-    # reportedly solves the issue. See
-    # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
-    "@com_github_digital_asset_daml//bazel_tools:nixpkgs-disable-http2.patch",
 ]
 
 buildifier_version = "4.0.0"
@@ -64,8 +54,8 @@ zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
 rules_nodejs_version = "4.6.1"
 rules_nodejs_sha256 = "d63ecec7192394f5cc4ad95a115f8a6c9de55c60d56c1f08da79c306355e4654"
-rules_jvm_external_version = "3.3"
-rules_jvm_external_sha256 = "d85951a92c0908c80bd8551002d66cb23c3434409c814179c0ff026b53544dab"
+rules_jvm_external_version = "4.4.2"
+rules_jvm_external_sha256 = "735602f50813eb2ea93ca3f5e43b1959bd80b213b836a07a62a29d757670b77b"
 rules_go_version = "0.29.0"
 rules_go_sha256 = "2b1641428dff9018f9e85c0384f03ec6c10660d935b750e3fa1492a281a53b0f"
 bazel_gazelle_version = "67a3e22af6547f43bb9b8e4dd0bad5f354ad4e60"
@@ -82,11 +72,14 @@ davl_v3_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
 davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
 
 # daml cheat sheet
-daml_cheat_sheet_version = "2710b8df28d97253b5487a68feb2d1452d29fc54"  # 2021-09-17
-daml_cheat_sheet_sha256 = "eb022565a929a69d869f0ab0497f02d1a3eacb4dafdafa076a82ecbe7c401315"
+daml_cheat_sheet_version = "e65f725ef3b19c9ffdee0baa3eee623cbb115024"  # 2022-11-28
+daml_cheat_sheet_sha256 = "e7ef4def3b7c6bada4235603b314ab0b1874bb949cd3c8d974d5443337e89a8b"
 
-platforms_version = "0.0.3"
-platforms_sha256 = "15b66b5219c03f9e8db34c1ac89c458bb94bfe055186e5505d5c6f09cb38307f"
+platforms_version = "0.0.4"
+platforms_sha256 = "2697e95e085c6e1f970637d178e9dfa1231dca3a099d584ff85a7cb9c0af3826"
+
+rules_sh_version = "f02af9ac549d2a7246a9ee12eb17d113aa218d90"
+rules_sh_sha256 = "9bf2a139af12e290a02411b993007ea5f8dd7cad5d0fe26741df6ef3aaa984bc"
 
 def daml_deps():
     if "platforms" not in native.existing_rules():
@@ -95,6 +88,14 @@ def daml_deps():
             sha256 = platforms_sha256,
             strip_prefix = "platforms-{}".format(platforms_version),
             urls = ["https://github.com/bazelbuild/platforms/archive/{version}.tar.gz".format(version = platforms_version)],
+        )
+
+    if "rules_sh" not in native.existing_rules():
+        http_archive(
+            name = "rules_sh",
+            strip_prefix = "rules_sh-%s" % rules_sh_version,
+            urls = ["https://github.com/tweag/rules_sh/archive/%s.tar.gz" % rules_sh_version],
+            sha256 = rules_sh_sha256,
         )
 
     if "rules_haskell" not in native.existing_rules():
@@ -108,14 +109,37 @@ def daml_deps():
         )
 
     if "io_tweag_rules_nixpkgs" not in native.existing_rules():
+        # N.B. rules_nixpkgs was split into separate components, which need to be loaded separately
+        #
+        # See https://github.com/tweag/rules_nixpkgs/issues/182 for the rational
+
+        strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version
+
         http_archive(
             name = "io_tweag_rules_nixpkgs",
-            strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version,
+            strip_prefix = strip_prefix,
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
             patches = rules_nixpkgs_patches,
             patch_args = ["-p1"],
         )
+
+        http_archive(
+            name = "rules_nixpkgs_core",
+            strip_prefix = strip_prefix + "/core",
+            urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
+            sha256 = rules_nixpkgs_sha256,
+            patches = rules_nixpkgs_patches,
+            patch_args = ["-p2"],
+        )
+
+        for toolchain in ["cc", "java", "python", "go", "rust", "posix"]:
+            http_archive(
+                name = "rules_nixpkgs_" + toolchain,
+                strip_prefix = strip_prefix + "/toolchains/" + toolchain,
+                urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
+                sha256 = rules_nixpkgs_sha256,
+            )
 
     if "com_github_madler_zlib" not in native.existing_rules():
         http_archive(
@@ -231,10 +255,10 @@ def daml_deps():
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
-            sha256 = "4dd35e788944b7686aac898f77df4e9a54da0ca694b8801bd6b2a9ffc1b3085e",
-            strip_prefix = "protobuf-3.19.2",
+            sha256 = "9a301cf94a8ddcb380b901e7aac852780b826595075577bb967004050c835056",
+            strip_prefix = "protobuf-3.19.6",
             urls = [
-                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.19.2.tar.gz",
+                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.19.6.tar.gz",
             ],
         )
 
@@ -355,9 +379,9 @@ java_import(
     jars = glob(["lib/**/*.jar"]),
 )
         """,
-            sha256 = "5b77835398b5e3629f51bc97ad26f3ee01c54622311055954e9c5236d718c1b5",
-            strip_prefix = "canton-community-1.0.0-SNAPSHOT",
-            urls = ["https://www.canton.io/releases/canton-community-20220224.tar.gz"],
+            sha256 = canton["sha"],
+            strip_prefix = canton["prefix"],
+            urls = [canton["url"]],
         )
 
     if "freefont" not in native.existing_rules():

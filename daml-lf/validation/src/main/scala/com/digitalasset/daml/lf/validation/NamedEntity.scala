@@ -3,8 +3,7 @@
 
 package com.daml.lf.validation
 
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{DottedName, ModuleName, Name, ChoiceName, MethodName, TypeConName}
+import com.daml.lf.data.Ref.{ChoiceName, DottedName, ModuleName, Name}
 import com.daml.lf.validation.Util._
 
 sealed trait NamedEntity extends Product with Serializable {
@@ -79,7 +78,7 @@ object NamedEntity {
   ) extends NamedEntity {
     override def modName: ModuleName = module.name
 
-    override def fullyResolvedName: Ref.ModuleName =
+    override def fullyResolvedName: ModuleName =
       module.fullyResolvedName ++ name.toUpperCase
 
     override def toString: String = s"NSynDef($modName:$name)"
@@ -161,31 +160,12 @@ object NamedEntity {
     def modName = module.modName
 
     val fullyResolvedName: DottedName =
-      module.fullyResolvedName ++ tplName.toUpperCase + Name.assertFromString(
-        choiceName.toUpperCase
-      )
+      module.fullyResolvedName ++ tplName.toUpperCase +
+        Name.assertFromString(choiceName.toUpperCase)
 
     override def toString: String = s"NChoice($modName:$tplName:$choiceName)"
 
     def pretty: String = s"template choice $modName:$tplName:$choiceName"
-  }
-
-  final case class NChoiceViaInterface(
-      module: NModDef,
-      tplName: DottedName,
-      choiceName: ChoiceName,
-      iface: TypeConName,
-  ) extends NamedEntity {
-    def modName = module.modName
-
-    val fullyResolvedName: DottedName =
-      module.fullyResolvedName ++ tplName.toUpperCase + Name.assertFromString(
-        choiceName.toUpperCase
-      )
-
-    override def toString: String = s"NChoiceViaInterface($modName:$tplName:$choiceName, $iface)"
-
-    def pretty: String = s"template choice $modName:$tplName:$choiceName (via interface $iface)"
   }
 
   final case class NInterfaceChoice(
@@ -195,24 +175,10 @@ object NamedEntity {
   ) extends NamedEntity {
     def modName: ModuleName = module.name
     val fullyResolvedName: DottedName =
-      module.fullyResolvedName ++ ifaceName.toUpperCase + Name.assertFromString(
-        choiceName.toUpperCase
-      )
+      module.fullyResolvedName ++ ifaceName.toUpperCase +
+        Name.assertFromString(choiceName.toUpperCase)
     override def toString: String = s"NInterfaceChoice($modName:$ifaceName:$choiceName)"
     def pretty: String = s"interface choice $modName:$ifaceName:$choiceName"
   }
 
-  final case class NInterfaceMethod(
-      module: NModDef,
-      ifaceName: DottedName,
-      methodName: MethodName,
-  ) extends NamedEntity {
-    def modName: ModuleName = module.name
-    val fullyResolvedName: DottedName =
-      module.fullyResolvedName ++ ifaceName.toUpperCase + Name.assertFromString(
-        methodName.toUpperCase
-      )
-    override def toString: String = s"NInterfaceMethod($modName:$ifaceName:$methodName)"
-    def pretty: String = s"interface method $modName:$ifaceName:$methodName"
-  }
 }

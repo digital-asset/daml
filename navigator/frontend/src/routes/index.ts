@@ -48,14 +48,18 @@ export const contracts = new Route<{}, Action, State>(
   ({ page }: State) => (page.type === "contracts" ? {} : undefined),
 );
 
-type ContractParams = { id: string; choice?: string };
+type ContractParams = { id: string; choice?: string; ifc?: string };
 
 export const contract = new Route<ContractParams, Action, State>(
-  "/contracts/:id(/)(:choice)",
-  ({ id, choice }) =>
+  "/contracts/:id(/)(:choice)(/)(:ifc)",
+  ({ id, choice, ifc }) =>
     set({
       type: "contract",
-      state: Contract.init(decodeURIComponent(id), choice),
+      state: Contract.init(
+        decodeURIComponent(id),
+        choice,
+        ifc && decodeURIComponent(ifc),
+      ),
     }),
   ({ page }: State) => {
     if (page.type === "contract") {

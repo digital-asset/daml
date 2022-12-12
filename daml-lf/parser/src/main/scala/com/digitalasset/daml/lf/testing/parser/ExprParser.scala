@@ -18,7 +18,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   import typeParser._
 
   lazy val expr0: Parser[Expr] =
-    // expressions starting with fullIdentifier should come before litterals
+    // expressions starting with fullIdentifier should come before literals
     eRecCon |
       eRecProj |
       eRecUpd |
@@ -45,6 +45,10 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eCallInterface |
       eToInterface |
       eFromInterface |
+      eUnsafeFromInterface |
+      eToRequiredInterface |
+      eFromRequiredInterface |
+      eUnsafeFromRequiredInterface |
       eInterfaceTemplateTypeRep |
       eSignatoryInterface |
       eObserverInterface |
@@ -182,9 +186,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     rep1sep(binding(`<-`), `;`) <~! `in` ^^ (_.to(ImmArray))
 
   private def binding(sep: Token): Parser[Binding] =
-    id ~ (`:` ~> typ) ~ (sep ~> expr) ^^ { case vName ~ t ~ value =>
-      Binding(Some(vName), t, value)
-    }
+    Id("_") ~> (`:` ~> typ) ~ (sep ~> expr) ^^ { case t ~ value =>
+      Binding(None, t, value)
+    } |
+      id ~ (`:` ~> typ) ~ (sep ~> expr) ^^ { case vName ~ t ~ value =>
+        Binding(Some(vName), t, value)
+      }
 
   private lazy val eLet: Parser[Expr] =
     `let` ~>! binding(`=`) ~ (`in` ~> expr) ^^ { case b ~ body =>
@@ -231,6 +238,30 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
         EFromInterface(ifaceId, tmplId, e)
     }
 
+  private lazy val eUnsafeFromInterface: Parser[Expr] =
+    `unsafe_from_interface` ~! `@` ~> fullIdentifier ~ `@` ~ fullIdentifier ~ expr0 ~ expr0 ^^ {
+      case ifaceId ~ _ ~ tmplId ~ cid ~ expr =>
+        EUnsafeFromInterface(ifaceId, tmplId, cid, expr)
+    }
+
+  private lazy val eToRequiredInterface: Parser[Expr] =
+    `to_required_interface` ~! `@` ~> fullIdentifier ~ `@` ~ fullIdentifier ~ expr0 ^^ {
+      case ifaceId1 ~ _ ~ ifaceId2 ~ e =>
+        EToRequiredInterface(ifaceId1, ifaceId2, e)
+    }
+
+  private lazy val eFromRequiredInterface: Parser[Expr] =
+    `from_required_interface` ~! `@` ~> fullIdentifier ~ `@` ~ fullIdentifier ~ expr0 ^^ {
+      case ifaceId1 ~ _ ~ ifaceId2 ~ e =>
+        EFromRequiredInterface(ifaceId1, ifaceId2, e)
+    }
+
+  private lazy val eUnsafeFromRequiredInterface: Parser[Expr] =
+    `unsafe_from_required_interface` ~! `@` ~> fullIdentifier ~ `@` ~ fullIdentifier ~ expr0 ~ expr0 ^^ {
+      case ifaceId1 ~ _ ~ ifaceId2 ~ cid ~ expr =>
+        EUnsafeFromRequiredInterface(ifaceId1, ifaceId2, cid, expr)
+    }
+
   private lazy val eInterfaceTemplateTypeRep: Parser[Expr] =
     `interface_template_type_rep` ~! `@` ~> fullIdentifier ~ expr0 ^^ { case ifaceId ~ e =>
       EInterfaceTemplateTypeRep(ifaceId, e)
@@ -247,7 +278,8 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     }
 
   private lazy val pattern: Parser[CasePat] =
-    primCon ^^ CPPrimCon |
+    Id("_") ^^^ CPDefault |
+      primCon ^^ CPPrimCon |
       (`nil` ^^^ CPNil) |
       (`cons` ~>! id ~ id ^^ { case x1 ~ x2 => CPCons(x1, x2) }) |
       (`none` ^^^ CPNone) |
@@ -257,8 +289,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
           CPVariant(tyCon, vName, x)
         case tyCon ~ vName ~ None =>
           CPEnum(tyCon, vName)
-      } |
-      Token.`_` ^^^ CPDefault
+      }
 
   private lazy val alternative: Parser[CaseAlt] =
     pattern ~! (`->` ~>! expr) ^^ { case p ~ e =>
@@ -348,6 +379,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "BIGNUMERIC_TO_NUMERIC" -> BBigNumericToNumeric,
     "NUMERIC_TO_BIGNUMERIC" -> BNumericToBigNumeric,
     "BIGNUMERIC_TO_TEXT" -> BBigNumericToText,
+    "TYPEREP_TYCON_NAME" -> BTypeRepTyConName,
   )
 
   private lazy val eCallInterface: Parser[ECallInterface] =
@@ -427,12 +459,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     }
 
   private lazy val updateFetch =
-    Id("fetch") ~! `@` ~> fullIdentifier ~ expr0 ^^ { case t ~ e =>
-      UpdateFetch(t, e)
+    Id("fetch_template") ~! `@` ~> fullIdentifier ~ expr0 ^^ { case t ~ e =>
+      UpdateFetchTemplate(t, e)
     }
 
   private lazy val updateFetchInterface =
-    Id("fetch_by_interface") ~! `@` ~> fullIdentifier ~ expr0 ^^ { case iface ~ e =>
+    Id("fetch_interface") ~! `@` ~> fullIdentifier ~ expr0 ^^ { case iface ~ e =>
       UpdateFetchInterface(iface, e)
     }
 
@@ -442,9 +474,17 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     }
 
   private lazy val updateExerciseInterface =
-    Id("exercise_by_interface") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ~ expr0 ^^ {
+    Id("exercise_interface") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
+      case iface ~ choice ~ cid ~ arg =>
+        UpdateExerciseInterface(iface, choice, cid, arg, None)
+    }
+
+  private lazy val updateExerciseInterfaceWithGuard =
+    Id(
+      "exercise_interface_with_guard"
+    ) ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ~ expr0 ^^ {
       case iface ~ choice ~ cid ~ arg ~ guard =>
-        UpdateExerciseInterface(iface, choice, cid, arg, guard)
+        UpdateExerciseInterface(iface, choice, cid, arg, Some(guard))
     }
 
   private lazy val updateExerciseByKey =
@@ -484,6 +524,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       updateFetchInterface |
       updateExercise |
       updateExerciseInterface |
+      updateExerciseInterfaceWithGuard |
       updateExerciseByKey |
       updateFetchByKey |
       updateLookupByKey |

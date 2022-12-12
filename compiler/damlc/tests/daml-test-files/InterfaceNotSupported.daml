@@ -2,10 +2,13 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @UNTIL-LF-FEATURE DAML_INTERFACE
--- @ERROR Daml interfaces are only available with --target=1.dev
+-- @ERROR Daml interfaces are only available with --target=1.15 or higher
 
 -- | Check that using interfaces for a target that doesn't support it
 -- (e.g. LF 1.14) results in a reasonable error.
 module InterfaceNotSupported where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface A where
+    viewtype EmptyInterfaceView

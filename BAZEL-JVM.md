@@ -17,7 +17,7 @@ This guide is based on the experience of porting an SBT project to Bazel.  If
 you are not porting an SBT project but a Maven project instead, then you should
 also have a look at the Maven porting guide in the [official Bazel
 documentation][bazel_maven_guide]. However, in order to arrive at a homogenous
-build system and project structure you shuold follow the suggestions in this
+build system and project structure you should follow the suggestions in this
 guide where possible.
 
 [bazel_maven_guide]: https://docs.bazel.build/versions/master/migrate-maven.html
@@ -189,6 +189,21 @@ may be out of scope or infeasible.
 
 In such cases multiple calls to `maven_install` are supported, see the
 [`rules_jvm_external` documentation][rules_jvm_external_multi].
+
+#### Outdated Dependencies
+
+`rules_jvm_external` provides a tool to check for outdated dependencies. To do
+so, run `bazel run @maven//:outdated`, which prints to stdout something like the following:
+
+```
+Checking for updates of 153 artifacts against the following repositories:
+	https://repo1.maven.org/maven2
+
+com.auth0:java-jwt [3.10.3 -> 4.0.0]
+com.auth0:jwks-rsa [0.11.0 -> 0.21.2]
+com.chuusai:shapeless_2.13 [2.3.3 -> 2.4.0-M1]
+...
+```
 
 [rules_jvm_external_multi]: https://github.com/bazelbuild/rules_jvm_external#multiple-maven_installjson-files
 

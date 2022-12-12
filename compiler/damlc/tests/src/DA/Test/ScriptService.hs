@@ -3,6 +3,8 @@
 
 module DA.Test.ScriptService (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Control.Exception
 import Control.Monad
 import DA.Bazel.Runfiles
@@ -19,7 +21,9 @@ import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 import qualified Data.HashSet as HashSet
 import Data.List
+import qualified Data.Set as S
 import qualified Data.Text as T
+import qualified Data.Vector as V
 import Development.IDE.Core.Debouncer (noopDebouncer)
 import Development.IDE.Core.FileStore (makeVFSHandle, setBufferModified)
 import Development.IDE.Core.IdeState.Daml (getDamlIdeState)
@@ -40,7 +44,7 @@ import Test.Tasty.HUnit
 import Text.Regex.TDFA
 
 lfVersion :: LF.Version
-lfVersion = max (LF.featureMinVersion LF.featureExceptions) LF.versionDefault
+lfVersion = LF.versionDefault
 
 main :: IO ()
 main =
@@ -158,6 +162,79 @@ main =
                     ]
                 expectScriptSuccess rs (vr "testExerciseByKey") $ \r ->
                   matchRegex r "Active contracts: \n\nReturn value: 42\n\n$",
+              testCase "fetch and exercising by key shows key in log" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where",
+                      "import Daml.Script",
+                      "",
+                      "template T",
+                      "  with",
+                      "    owner : Party",
+                      "  where",
+                      "    signatory owner",
+                      "    key owner : Party",
+                      "    maintainer key",
+                      "    nonconsuming choice C : ()",
+                      "      controller owner",
+                      "      do",
+                      "        pure ()",
+                      "",
+                      "template Runner",
+                      "  with",
+                      "    owner : Party",
+                      "  where",
+                      "    signatory owner",
+                      "",
+                      "    choice RunByKey : ()",
+                      "      with",
+                      "        party : Party",
+                      "      controller owner",
+                      "      do",
+                      "        cid <- create T with owner = party",
+                      "        exerciseByKey @T party C",
+                      "        fetchByKey @T party",
+                      "        pure ()",
+                      "",
+                      "    choice Run : ()",
+                      "      with",
+                      "        party : Party",
+                      "      controller owner",
+                      "      do",
+                      "        cid <- create T with owner = party",
+                      "        exercise cid C",
+                      "        fetch cid",
+                      "        pure ()",
+                      "",
+                      "testReportsKey = do",
+                      "  p <- allocateParty \"p\"",
+                      "  submit p $ createAndExerciseCmd (Runner p) (RunByKey p)",
+                      "",
+                      "testDoesNotReportKey = do",
+                      "  p <- allocateParty \"p\"",
+                      "  submit p $ createAndExerciseCmd (Runner p) (Run p)"
+                    ]
+                expectScriptSuccess rs (vr "testReportsKey") $ \r ->
+                  matchRegex r (T.unlines
+                    [ ".*exercises.*"
+                    , ".*by key.*"
+                    ]) &&
+                  matchRegex r (T.unlines
+                    [ ".*fetch.*"
+                    , ".*by key.*"
+                    ])
+                expectScriptSuccess rs (vr "testDoesNotReportKey") $ \r ->
+                  matchRegex r ".*exercises.*" &&
+                  matchRegex r ".*fetch.*" &&
+                  not (matchRegex r (T.unlines
+                    [ ".*exercises.*"
+                    , ".*by key.*"
+                    ])) &&
+                  not (matchRegex r (T.unlines
+                    [ ".*fetch.*"
+                    , ".*by key.*"
+                    ])),
               testCase "failing transactions" $ do
                 rs <-
                   runScripts
@@ -946,8 +1023,8 @@ main =
                   , "expectUserNotFound : Script a -> Script ()"
                   , "expectUserNotFound script = try do _ <- script; undefined catch UserNotFound _ -> pure ()"
                   , "testUserManagement = do"
-                  , "  True <- isValidUserId \"good\""
-                  , "  False <- isValidUserId \"BAD\""
+                  , "  True <- isValidUserId \"Good\""
+                  , "  False <- isValidUserId \"BAD?\" -- contains invalid character '?'"
                   , "  u1 <- validateUserId \"user1\""
                   , "  u2 <- validateUserId \"user2\""
                   , "  let user1 = User u1 None"
@@ -1045,7 +1122,43 @@ main =
                 expectScriptFailure rs (vr "submitterNotAllocated") $ \r ->
                     matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'"
                 expectScriptFailure rs (vr "observerNotAllocated") $ \r ->
-                    matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'"
+                    matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'",
+              -- Regression test for issue https://github.com/digital-asset/daml/issues/13835
+              testCase "rollback archive" $ do
+                rs <- runScripts scriptService
+                  [ "module Test where"
+                  , "import Daml.Script"
+                  , "import DA.Exception"
+                  , ""
+                  , "template Foo"
+                  , "  with"
+                  , "    owner : Party"
+                  , "  where"
+                  , "    signatory owner"
+                  , "    nonconsuming choice Catch : ()"
+                  , "      controller owner"
+                  , "        do try do"
+                  , "              exercise self Fail"
+                  , "            catch"
+                  , "              GeneralError _ -> pure ()"
+                  , "    nonconsuming choice Fail : ()"
+                  , "      controller owner"
+                  , "        do  exercise self Archive"
+                  , "            abort \"\""
+                  , ""
+                  , "test: Script ()"
+                  , "test = script do"
+                  , "  a <- allocateParty \"a\""
+                  , "  c <- submit a do"
+                  , "    createCmd Foo with"
+                  , "      owner = a"
+                  , "  submit a do"
+                  , "    exerciseCmd c Catch"
+                  , "  submit a do"
+                  , "    exerciseCmd c Catch"
+                  ]
+                expectScriptSuccess rs (vr "test") $ \r ->
+                   matchRegex r "Active contracts:  #0:0\n"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
@@ -1095,10 +1208,7 @@ expectScriptFailure xs vr pred = case find ((vr ==) . fst) xs of
       assertFailure $ "Predicate for " <> show vr <> " failed on " <> show err
 
 options :: Options
-options =
-  (defaultOptions (Just lfVersion))
-    { optDlintUsage = DlintDisabled
-    }
+options = defaultOptions (Just lfVersion)
 
 runScripts :: SS.Handle -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]
 runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do
@@ -1118,7 +1228,7 @@ runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do
       SS.BackendError err -> assertFailure $ "Unexpected result " <> show err
       SS.ExceptionError err -> assertFailure $ "Unexpected result " <> show err
       SS.ScenarioError err -> pure $ Left $ renderPlain (prettyScenarioError world err)
-    prettyResult world (Right r) = pure $ Right $ renderPlain (prettyScenarioResult world r)
+    prettyResult world (Right r) = pure $ Right $ renderPlain (prettyScenarioResult world (S.fromList (V.toList (SS.scenarioResultActiveContracts r))) r)
     file = toNormalizedFilePath' "Test.daml"
     getIdeState = do
       vfs <- makeVFSHandle

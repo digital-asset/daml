@@ -8,6 +8,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
+import com.daml.lf.language.StablePackage.DA
 import data.ScalazEqual._
 
 import scalaz.{@@, Equal, Order, Tag}
@@ -88,8 +89,6 @@ object Value {
   val MAXIMUM_NESTING: Int = 100
 
   type VersionedValue = transaction.Versioned[Value]
-  @deprecated("use com.daml.lf.transaction.Versioned directly", since = "1.18.0")
-  val VersionedValue = transaction.Versioned
 
   /** The parent of all [[Value]] cases that cannot possibly have a Cid.
     * NB: use only in pattern-matching [[Value]]; the ''type'' of a cid-less
@@ -103,11 +102,7 @@ object Value {
   ) extends Value
 
   object ValueArithmeticError {
-    // The package ID should match the ID of the stable package daml-prim-DA-Exception-ArithmeticError
-    // See test compiler/damlc/tests/src/stable-packages.sh
-    val tyCon: Ref.TypeConName = Ref.Identifier.assertFromString(
-      "cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError"
-    )
+    val tyCon = DA.Exception.ArithmeticError.ArithmeticError
     val typ: Ast.Type = Ast.TTyCon(tyCon)
     private val someTyCon = Some(tyCon)
     val fieldName: Ref.Name = Ref.Name.assertFromString("message")

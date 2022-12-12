@@ -31,6 +31,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.dbutils.JdbcConfig
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
+import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.archive.{Dar, DarReader, Decode, Reader}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine._
@@ -38,6 +39,7 @@ import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
 import com.daml.lf.engine.trigger.TriggerRunner._
 import com.daml.lf.engine.trigger.dao._
+import com.daml.lf.engine.trigger.metrics.TriggerServiceMetrics
 import com.daml.auth.middleware.api.Request.Claims
 import com.daml.auth.middleware.api.{
   Client => AuthClient,
@@ -45,6 +47,8 @@ import com.daml.auth.middleware.api.{
   Response => AuthResponse,
 }
 import com.daml.lf.speedy.Compiler
+import com.daml.metrics.akkahttp.HttpMetricsInterceptor
+import com.daml.metrics.api.reporters.{MetricsReporter, MetricsReporting}
 import com.daml.scalautil.Statement.discard
 import com.daml.scalautil.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
@@ -111,7 +115,7 @@ class Server(
   )(implicit ec: ExecutionContext, sys: ActorSystem): Future[Either[String, Unit]] = {
     import cats.implicits._
     triggers.toList.traverse(runningTrigger =>
-      runningTrigger.withLoggingContext(implicit loggingContext =>
+      runningTrigger.withTriggerLogContext(implicit triggerContext =>
         Trigger
           .fromIdentifier(compiledPackages, runningTrigger.triggerName)
           .map(trigger => (trigger, runningTrigger))
@@ -167,7 +171,7 @@ class Server(
         auth.flatMap(_.refreshToken),
         config.readAs,
       )
-    runningTrigger.withLoggingContext(implicit loggingContext =>
+    runningTrigger.withTriggerLogContext(implicit loggingContext =>
       // Validate trigger id before persisting to DB
       Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName) match {
         case Left(value) => Future.successful(Left(value))
@@ -437,6 +441,16 @@ class Server(
         }
       }
     },
+    path("readyz") {
+      extractActorSystem { implicit sys =>
+        implicit val timeout: Timeout = Timeout(5 seconds)
+        implicit val scheduler: Scheduler = schedulerFromActorSystem(sys.toTyped)
+        onSuccess(ctx.self.ask(ref => Server.GetServerState(ref))) {
+          case Server.Running => complete(StatusCodes.OK)
+          case Server.Starting => complete(StatusCodes.NotFound)
+        }
+      }
+    },
     path("livez") {
       complete((StatusCodes.OK, JsObject(("status", "pass".toJson))))
     },
@@ -456,6 +470,11 @@ object Server {
   final case class StartFailed(cause: Throwable) extends Message
 
   final case class Started(binding: ServerBinding) extends Message
+
+  final case class GetServerState(replyTo: ActorRef[ServerState]) extends Message
+  sealed trait ServerState extends Message
+  case object Running extends ServerState
+  case object Starting extends ServerState
 
   case object Stop extends Message
 
@@ -521,6 +540,9 @@ object Server {
       jdbcConfig: Option[JdbcConfig],
       allowExistingSchema: Boolean,
       compilerConfig: speedy.Compiler.Config,
+      triggerConfig: TriggerRunnerConfig,
+      metricsReporter: Option[MetricsReporter],
+      metricsReportingInterval: FiniteDuration,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Behavior[Message] = Behaviors.setup { implicit ctx =>
     // Implicit boilerplate.
@@ -532,6 +554,21 @@ object Server {
     implicit val materializer: Materializer = Materializer(untypedSystem)
     implicit val esf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
+
+    implicit val rc: ResourceContext = ResourceContext(ec)
+
+    val metricsReporting = new MetricsReporting(
+      getClass.getName,
+      metricsReporter,
+      metricsReportingInterval,
+    )((_, otelMeter) => TriggerServiceMetrics(otelMeter))
+    val metricsResource = metricsReporting.acquire()
+
+    val rateDurationSizeMetrics = metricsResource.asFuture.map { implicit metrics =>
+      HttpMetricsInterceptor.rateDurationSizeMetrics(
+        metrics.http
+      )
+    }
 
     val authClientRoutes = authConfig match {
       case NoAuth => None
@@ -594,6 +631,7 @@ object Server {
             runningTrigger.triggerRefreshToken,
             compiledPackages,
             trigger,
+            triggerConfig,
             ledgerConfig,
             restartConfig,
             runningTrigger.triggerReadAs,
@@ -629,7 +667,7 @@ object Server {
         .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
     }
 
-    def getRunner(req: GetRunner) = {
+    def getRunner(req: GetRunner): Unit = {
       req.replyTo ! getRunnerRef(req.uuid)
     }
 
@@ -716,6 +754,11 @@ object Server {
           case GetServerBinding(replyTo) =>
             replyTo ! binding
             Behaviors.same
+          case GetServerState(replyTo) =>
+            replyTo ! Running
+            Behaviors.same
+          case Running | Starting =>
+            Behaviors.same
           case StartFailed(_) => Behaviors.unhandled // Will never be received in this state.
           case Started(_) => Behaviors.unhandled // Will never be received in this state.
           case Stop =>
@@ -755,6 +798,11 @@ object Server {
           running(binding)
         case GetServerBinding(replyTo) =>
           starting(wasStopped, Some(replyTo))
+        case GetServerState(replyTo) =>
+          replyTo ! Starting
+          Behaviors.same
+        case Running | Starting =>
+          Behaviors.same
         case Stop =>
           // We got a stop message but haven't completed starting
           // yet. We cannot stop until starting has completed.
@@ -790,10 +838,11 @@ object Server {
     val serverBinding = for {
       _ <- initializeF
       _ <- Future.traverse(initialDars)(server.addDar(_))
+      metricsInterceptor <- rateDurationSizeMetrics
       binding <- Http()
         .newServerAt(host, port)
         .withSettings(ServerSettings(untypedSystem).withTransparentHeadRequests(true))
-        .bind(server.route)
+        .bind(metricsInterceptor apply server.route)
     } yield binding
     ctx.pipeToSelf(serverBinding) {
       case Success(binding) => Started(binding)

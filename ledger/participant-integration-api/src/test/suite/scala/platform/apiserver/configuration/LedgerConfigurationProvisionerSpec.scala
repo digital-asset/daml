@@ -44,9 +44,16 @@ final class LedgerConfigurationProvisionerSpec
   "provisioning a ledger configuration" should {
     "write a ledger configuration to the index if one is not provided" in {
       val configurationToSubmit =
-        Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1))
+        Configuration(
+          generation = 1,
+          timeModel = LedgerTimeModel.reasonableDefault,
+          maxDeduplicationDuration = Duration.ofDays(1),
+        )
       val initialLedgerConfiguration = InitialLedgerConfiguration(
-        configuration = configurationToSubmit,
+        maxDeduplicationDuration = configurationToSubmit.maxDeduplicationDuration,
+        avgTransactionLatency = configurationToSubmit.timeModel.avgTransactionLatency,
+        minSkew = configurationToSubmit.timeModel.minSkew,
+        maxSkew = configurationToSubmit.timeModel.maxSkew,
         delayBeforeSubmitting = Duration.ofMillis(100),
       )
       val submissionId = Ref.SubmissionId.assertFromString("the submission ID")
@@ -91,7 +98,10 @@ final class LedgerConfigurationProvisionerSpec
       val currentConfiguration =
         Configuration(6, LedgerTimeModel.reasonableDefault, Duration.ofHours(12))
       val initialLedgerConfiguration = InitialLedgerConfiguration(
-        configuration = Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
+        maxDeduplicationDuration = Duration.ofDays(1),
+        avgTransactionLatency = LedgerTimeModel.reasonableDefault.avgTransactionLatency,
+        minSkew = LedgerTimeModel.reasonableDefault.minSkew,
+        maxSkew = LedgerTimeModel.reasonableDefault.maxSkew,
         delayBeforeSubmitting = Duration.ofMillis(100),
       )
 
@@ -125,8 +135,11 @@ final class LedgerConfigurationProvisionerSpec
     val eventualConfiguration =
       Configuration(8, LedgerTimeModel.reasonableDefault, Duration.ofDays(3))
     val initialLedgerConfiguration = InitialLedgerConfiguration(
-      Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
-      Duration.ofSeconds(3),
+      avgTransactionLatency = LedgerTimeModel.reasonableDefault.avgTransactionLatency,
+      minSkew = LedgerTimeModel.reasonableDefault.minSkew,
+      maxSkew = LedgerTimeModel.reasonableDefault.maxSkew,
+      maxDeduplicationDuration = Duration.ofDays(1),
+      delayBeforeSubmitting = Duration.ofSeconds(3),
     )
 
     val currentConfiguration = new AtomicReference[Option[Configuration]](None)
@@ -165,7 +178,10 @@ final class LedgerConfigurationProvisionerSpec
 
   "not write a configuration if the provisioner is shut down" in {
     val initialLedgerConfiguration = InitialLedgerConfiguration(
-      configuration = Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofDays(1)),
+      avgTransactionLatency = LedgerTimeModel.reasonableDefault.avgTransactionLatency,
+      minSkew = LedgerTimeModel.reasonableDefault.minSkew,
+      maxSkew = LedgerTimeModel.reasonableDefault.maxSkew,
+      maxDeduplicationDuration = Duration.ofDays(1),
       delayBeforeSubmitting = Duration.ofSeconds(1),
     )
 

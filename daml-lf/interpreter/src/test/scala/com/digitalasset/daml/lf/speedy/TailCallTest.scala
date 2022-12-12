@@ -7,13 +7,13 @@ package speedy
 import java.util
 
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SResult.SResultFinalValue
+import com.daml.lf.speedy.SResult.SResultFinal
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-// TEST_EVIDENCE: Performance: Tail call optimization: Tail recursion does not blow the scala JVM stack.
+// TEST_EVIDENCE: Availability: Tail call optimization: Tail recursion does not blow the scala JVM stack.
 class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
@@ -118,17 +118,17 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       case None => ()
       case Some(bound) =>
         val onlyKont: Speedy.Kont =
-          if (machine.kontStack.size != 1) {
-            crash(s"setBoundedKontStack, unexpected size of kont-stack: ${machine.kontStack.size}")
+          if (machine.kontDepth() != 1) {
+            crash(s"setBoundedKontStack, unexpected size of kont-stack: ${machine.kontDepth()}")
           } else {
-            machine.kontStack.get(0)
+            machine.peekKontStackTop()
           }
         machine.kontStack = new BoundedArrayList[Speedy.Kont](bound)
-        machine.kontStack.add(onlyKont)
+        machine.pushKont(onlyKont)
     }
     // run the machine
     machine.run() match {
-      case SResultFinalValue(v) => v
+      case SResultFinal(v) => v
       case res => crash(s"runExpr, unexpected result $res")
     }
   }

@@ -3,9 +3,10 @@
 
 package com.daml.ledger.api.auth
 
-import java.time.Instant
-
+import com.daml.jwt.JwtTimestampLeeway
 import com.daml.lf.data.Ref
+
+import java.time.{Duration, Instant}
 
 /** A claim is a single statement about what an authenticated user can do with the ledger API.
   *
@@ -19,6 +20,11 @@ sealed abstract class Claim
   * Does not authorize to use non-admin services.
   */
 case object ClaimAdmin extends Claim
+
+/** Authorized to use admin services for the configured identity provider.
+  * Does not authorize to use non-admin services.
+  */
+case object ClaimIdentityProviderAdmin extends Claim
 
 /** Authorized to use all "public" services, i.e.,
   * those that do not require admin rights and do not depend on any Daml party.
@@ -92,12 +98,21 @@ object ClaimSet {
       )
 
     /** Returns false if the expiration timestamp exists and is greater than or equal to the current time */
-    def notExpired(now: Instant): Either[AuthorizationError, Unit] =
+    def notExpired(
+        now: Instant,
+        jwtTimestampLeeway: Option[JwtTimestampLeeway],
+    ): Either[AuthorizationError, Unit] = {
+      val relaxedNow =
+        jwtTimestampLeeway
+          .flatMap(l => l.expiresAt.orElse(l.default))
+          .map(leeway => now.minus(Duration.ofSeconds(leeway)))
+          .getOrElse(now)
       Either.cond(
-        expiration.forall(now.isBefore),
+        expiration.forall(relaxedNow.isBefore),
         (),
         AuthorizationError.Expired(expiration.get, now),
       )
+    }
 
     /** Returns true if the set of claims authorizes the user to use admin services, unless the claims expired */
     def isAdmin: Either[AuthorizationError, Unit] =

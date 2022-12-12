@@ -8,6 +8,11 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@build_environment//:configuration.bzl", "mvn_version", "sdk_version")
 load("@scala_version//:index.bzl", "scala_major_version")
 load("//bazel_tools:scala.bzl", "da_scala_test")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "LF_VERSIONS",
+    "lf_version_configuration",
+)
 
 exports_files(
     [
@@ -92,6 +97,37 @@ genrule(
 )
 
 genrule(
+    name = "index",
+    srcs = [":sources"],
+    outs = ["index.rst"],
+    cmd = """
+set -euo pipefail
+
+DIR=$$(mktemp -d)
+mkdir -p $$DIR/docs
+tar xf $(location :sources) -C $$DIR/docs
+cat << EOF >> $@
+Daml Files
+----------
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 0
+   :hidden:
+
+   self
+$$(cd $$DIR/docs/source; find . -name \\*.rst | sed 's:\\./\\(.*\\).rst:    \\1 <\\1>:')
+
+Canton References
+-----------------
+
+.. toctree::
+   canton-refs
+EOF
+    """,
+)
+
+genrule(
     name = "sources",
     srcs = glob(["source/**"]) + [
         "//compiler/damlc:daml-base-rst.tar.gz",
@@ -146,6 +182,72 @@ genrule(
 )
 
 genrule(
+    name = "sphinx-source-tree-deps",
+    srcs = [
+        "configs/static/pygments_daml_lexer.py",
+        "configs/static/typescript.py",
+        "configs/html/conf.py",
+        "configs/pdf/conf.py",
+        "configs/pdf/logo.png",
+        "//templates:templates-tarball",
+        "//templates:create-daml-app-docs",
+        "//templates:create-daml-app-test-resources/index.test.ts",
+        ":generate-docs-error-codes-inventory-into-rst-file",
+        ":generate-docs-error-categories-inventory-into-rst-file",
+        "//compiler/damlc:daml-base-rst.tar.gz",
+        "//triggers/daml:daml-trigger-rst.tar.gz",
+        "//daml-script/daml:daml-script-rst.tar.gz",
+        "//ledger-api/grpc-definitions:docs",
+        "//:LICENSE",
+        "//:NOTICES",
+    ] + glob(
+        ["theme/**"],
+        exclude = [
+            "theme/bower_components/**",
+            "theme/node_modules/**",
+            "theme/da_theme/**",
+        ],
+    ),
+    outs = ["sphinx-source-tree-deps.tar.gz"],
+    cmd = """
+    set -eou pipefail
+    DIR=$$(mktemp -d)
+    trap "rm -rf $$DIR" EXIT
+
+    mkdir -p $$DIR/deps/configs/{{static,pdf,html}}
+    cp $(location configs/static/pygments_daml_lexer.py) $$DIR/deps/configs/static
+    cp $(location configs/static/typescript.py) $$DIR/deps/configs/static
+    cp $(location configs/html/conf.py) $$DIR/deps/configs/html
+    cp $(location configs/pdf/conf.py) $$DIR/deps/configs/pdf
+    cp $(location configs/pdf/logo.png) $$DIR/deps/configs/pdf
+
+    mkdir -p $$DIR/deps/theme
+    cp -rL docs/theme/* $$DIR/deps/theme
+
+    cp $(location //templates:templates-tarball) $$DIR/deps/
+    cp $(location //templates:create-daml-app-docs) $$DIR/deps/
+    cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$DIR/deps/
+
+    cp -L -- $(location //docs:generate-docs-error-codes-inventory-into-rst-file) $$DIR/deps/
+    cp -L -- $(location //docs:generate-docs-error-categories-inventory-into-rst-file) $$DIR/deps/
+    cp $(location //compiler/damlc:daml-base-rst.tar.gz) $$DIR/deps/
+    cp  $(location //triggers/daml:daml-trigger-rst.tar.gz) $$DIR/deps/
+    cp $(location //daml-script/daml:daml-script-rst.tar.gz) $$DIR/deps/
+    cp -L $(location //ledger-api/grpc-definitions:docs) $$DIR/deps/
+    cp -L $(location //:LICENSE) $$DIR/deps/
+    cp -L $(location //:NOTICES) $$DIR/deps/
+
+    MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+    OUT_PATH=$$PWD/$@
+    cd $$DIR
+    $$MKTGZ $$OUT_PATH deps
+  """.format(sdk = sdk_version),
+    tools = [
+        "//bazel_tools/sh:mktgz",
+    ],
+) if not is_windows else None
+
+genrule(
     name = "sphinx-source-tree",
     srcs = [
         "configs/static/pygments_daml_lexer.py",
@@ -153,7 +255,7 @@ genrule(
         "configs/html/conf.py",
         "configs/pdf/conf.py",
         "configs/pdf/logo.png",
-        "configs/pdf/index.rst",
+        ":index",
         ":sources",
         ":theme",
         "//templates:templates-tarball",
@@ -177,8 +279,7 @@ genrule(
     cp $(location configs/pdf/conf.py) $$DIR/docs/configs/pdf
     sed -i "s,__VERSION__,"{sdk}"," $$DIR/docs/configs/html/conf.py
     sed -i "s,__VERSION__,"{sdk}"," $$DIR/docs/configs/pdf/conf.py
-    mv $$DIR/docs/source/index.rst $$DIR/docs/configs/html
-    cp $(location configs/pdf/index.rst) $$DIR/docs/configs/pdf
+    cp $(location index) $$DIR/docs/source/index.rst
 
     cp $(location configs/pdf/logo.png) $$DIR/docs/configs/pdf
 
@@ -230,16 +331,7 @@ export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
     mkdir -p $$DIR/source $$DIR/target
 
     tar xf $(location sphinx-source-tree) -C $$DIR/source --strip-components=1
-    mv $$DIR/source/configs/{name}/index.rst $$DIR/source/source/
     mv $(location :canton-refs.rst) $$DIR/source/source
-    cat << EOF >> $$DIR/source/source/index.rst
-
-Stub
-----
-
-.. toctree::
-   canton-refs
-EOF
 
     if ! docs/scripts/check-closing-quotes.sh $$DIR/source docs/scripts/check-closing-quotes.sh.allow; then
         exit 1
@@ -365,11 +457,6 @@ genrule(
     tar -xzf $(location //language-support/ts/daml-react:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-react/
     tar -xzf $(location //language-support/ts/daml-ledger:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-ledger/
     tar -xzf $(location //language-support/ts/daml-types:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-types/
-    # The generated docs of the typescript libraries are published at two places: The npm
-    # registry and on docs.daml.com. The docs at the npm registry contain a link pointing
-    # to docs.daml.com. We remove it for the version published at docs.daml.com as it would be
-    # pointing to itself.
-    sed -i -e 's,^.*\\(Comprehensive documentation\\|<h2>Documentation</h2>\\|0.0.0-SDKVERSION\\).*$$,,' $$DIR/html/app-dev/bindings-ts/*/index.html
 
     # Get the daml cheat sheet
     mkdir -p $$DIR/html/cheat-sheet
@@ -442,7 +529,7 @@ genrule(
     ],
     outs = ["html.tar.gz"],
     cmd = """
-        VERSION_DATE=$$(cat bazel-out/stable-status.txt | grep STABLE_VERSION_DATE | head -1 | cut -f 2 -d' ')
+        VERSION_DATE=1970-01-01
         tar -zxf $(location :docs-no-pdf)
         cd html
         find . -name '*.html' | sort | sed -e 's,^\\./,https://docs.daml.com/,' > sitemap
@@ -466,7 +553,6 @@ genrule(
         foot = """</urlset>""",
         version = sdk_version,
     ),
-    stamp = 1,
     tags = ["pdfdocs"],
     tools = ["//bazel_tools/sh:mktgz"],
 ) if not is_windows else None
@@ -572,6 +658,9 @@ daml_test(
 daml_test(
     name = "bindings-java-daml-test",
     srcs = glob(["source/app-dev/bindings-java/code-snippets/**/*.daml"]),
+    # FIXME: https://github.com/digital-asset/daml/issues/12051
+    #  replace "dev" by "default", once interfaces are stable.
+    target = lf_version_configuration.get("dev"),
 )
 
 daml_test(
@@ -632,14 +721,24 @@ daml_test(
 )
 
 daml_test(
-    name = "daml-intro-daml-test",
+    name = "daml-intro-daml-test-excl-8-9-10",
     srcs = glob(
         ["source/daml/intro/daml/**/*.daml"],
         exclude = [
             "source/daml/intro/daml/daml-intro-8/**",
             "source/daml/intro/daml/daml-intro-9/**",
+            "source/daml/intro/daml/daml-intro-10/**",
         ],
     ),
+    deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_test(
+    name = "daml-intro-daml-10-test",
+    srcs = glob(
+        ["source/daml/intro/daml/daml-intro-10/**/*.daml"],
+    ),
+    additional_compiler_flags = ["--ghc-option=-Wwarn=incomplete-patterns"],
     deps = ["//daml-script/daml:daml-script.dar"],
 )
 

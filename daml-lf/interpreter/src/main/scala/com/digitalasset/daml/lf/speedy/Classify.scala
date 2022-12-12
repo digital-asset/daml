@@ -4,18 +4,32 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.speedy.Speedy.Machine
-import scala.collection.mutable.Map
+import com.daml.lf.speedy.Speedy.{Control, Machine}
+import com.daml.scalautil.Statement.discard
+
+import scala.collection.mutable
 
 private[speedy] object Classify { // classify the machine state w.r.t what step occurs next
 
-  final class Counts(
-      var ctrlExpr: Int = 0,
-      var ctrlValue: Int = 0,
-      var exprs: Map[String, Int] = Map.empty,
-      var konts: Map[String, Int] = Map.empty,
-  ) {
-    def steps = ctrlExpr + ctrlValue
+  final class Counts() {
+    private[this] var ctrlExpr: Int = 0
+    private[this] var ctrlValue: Int = 0
+
+    private[this] val exprs: mutable.Map[String, Int] = mutable.Map.empty
+    private[this] val konts: mutable.Map[String, Int] = mutable.Map.empty
+
+    def addKont(kont: String): Unit = {
+      ctrlValue += 1
+      discard(konts += kont -> (konts.getOrElse(kont, 0) + 1))
+    }
+
+    def addExpr(expr: String): Unit = {
+      ctrlExpr += 1
+      discard(exprs += expr -> (exprs.getOrElse(expr, 0) + 1))
+    }
+
+    def steps: Int = ctrlExpr
+
     def pp: String = {
       val lines =
         (("CtrlExpr:", ctrlExpr) :: exprs.toList.map { case (expr, n) => ("- " + expr, n) }) ++
@@ -25,15 +39,15 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
   }
 
   def classifyMachine(machine: Machine, counts: Counts): Unit = {
-    if (machine.returnValue != null) {
-      // classify a value by the continution it is about to return to
-      counts.ctrlValue += 1
-      val kont = machine.kontStack.get(machine.kontStack.size - 1).getClass.getSimpleName
-      val _ = counts.konts += kont -> (counts.konts.get(kont).getOrElse(0) + 1)
-    } else {
-      counts.ctrlExpr += 1
-      val expr = machine.ctrl.getClass.getSimpleName
-      val _ = counts.exprs += expr -> (counts.exprs.get(expr).getOrElse(0) + 1)
+    machine.currentControl match {
+      case Control.Value(_) =>
+        // classify a value by the continuation it is about to return to
+        val kont = machine.peekKontStackEnd().getClass.getSimpleName
+        counts.addKont(kont)
+      case Control.Expression(exp) =>
+        val expr = exp.getClass.getSimpleName
+        counts.addExpr(expr)
+      case _ => ()
     }
   }
 }

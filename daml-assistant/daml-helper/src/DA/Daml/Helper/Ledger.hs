@@ -8,6 +8,8 @@ module DA.Daml.Helper.Ledger (
     RemoteDalf(..),
     defaultLedgerFlags,
     sandboxLedgerFlags,
+    LedgerArgs(..),
+    defaultLedgerArgs,
     getDefaultArgs,
     LedgerApi(..),
     L.ClientSSLConfig(..),
@@ -18,6 +20,7 @@ module DA.Daml.Helper.Ledger (
     runLedgerListParties,
     runLedgerAllocateParties,
     runLedgerUploadDar,
+    runLedgerUploadDar',
     runLedgerFetchDar,
     runLedgerExport,
     runLedgerReset,
@@ -78,6 +81,7 @@ import DA.Ledger.Types (ApplicationId(..))
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.Time.Calendar (Day(..))
 import DA.Ledger.Services.MeteringReportService(MeteringRequestByDay(..))
+import qualified Data.Aeson as Aeson
 
 data LedgerApi
   = Grpc
@@ -112,6 +116,17 @@ sandboxLedgerFlags :: Int -> LedgerFlags
 sandboxLedgerFlags port = (defaultLedgerFlags Grpc)
   { fHostM = Just "localhost"
   , fPortM = Just port
+  }
+
+defaultLedgerArgs :: LedgerApi -> LedgerArgs
+defaultLedgerArgs api = LedgerArgs
+  { api = api
+  , sslConfigM = Nothing
+  , timeout = 10
+  , port = 6865
+  , host = "localhost"
+  , tokM = Nothing
+  , grpcArgs = []
   }
 
 data LedgerArgs = LedgerArgs
@@ -204,8 +219,12 @@ runLedgerAllocateParties flags partiesArg = do
 
 -- | Upload a DAR file to the ledger. (Defaults to project DAR)
 runLedgerUploadDar :: LedgerFlags -> Maybe FilePath -> IO ()
-runLedgerUploadDar flags darPathM = do
+runLedgerUploadDar flags mbDar = do
   args <- getDefaultArgs flags
+  runLedgerUploadDar' args mbDar
+
+runLedgerUploadDar' :: LedgerArgs -> Maybe FilePath -> IO ()
+runLedgerUploadDar' args darPathM  = do
   darPath <-
     flip fromMaybeM darPathM $ do
       doBuild
@@ -482,8 +501,7 @@ reset args = do
               (L.Verbosity False)
           let chunks = chunksOf 100 activeContracts
           forM_ chunks $ \chunk -> do
-            cmdId <- liftIO UUID.nextRandom
-            let cmds =
+            let cmds cmdId =
                   L.Commands
                     { coms =
                         [ L.ExerciseCommand
@@ -506,10 +524,13 @@ reset args = do
                     , minLeTimeRel = Nothing
                     , sid = Nothing
                     }
-            errOrEmpty <- L.submit cmds
-            case errOrEmpty of
-              Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
-              Right () -> pure ()
+            let noCommands = null [ x | (_offset, _mbWid, events) <- chunk, x <- events ]
+            unless noCommands $ do
+              cmdId <- liftIO UUID.nextRandom
+              errOrEmpty <- L.submit $ cmds cmdId
+              case errOrEmpty of
+                Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
+                Right () -> pure ()
     HttpJson ->
       fail
         "The reset command is currently not available for the HTTP JSON API. Please use the gRPC API."
@@ -640,13 +661,13 @@ runLedgerMeteringReport :: LedgerFlags -> Day -> Maybe Day -> Maybe ApplicationI
 runLedgerMeteringReport flags fromIso toIso application compactOutput = do
     args <- getDefaultArgs flags
     report <- meteringReport args fromIso toIso application
-    let encodeFn = if compactOutput then encode else encodePretty  
+    let encodeFn = if compactOutput then encode else encodePretty
     let encoded = encodeFn report
     let bsc = BSL.toStrict encoded
     let output = BSC.unpack bsc
     putStrLn output
 
-meteringReport :: LedgerArgs -> Day -> Maybe Day -> Maybe ApplicationId -> IO L.MeteringReport
+meteringReport :: LedgerArgs -> Day -> Maybe Day -> Maybe ApplicationId -> IO Aeson.Value
 meteringReport args from to application =
   case api args of
     Grpc ->

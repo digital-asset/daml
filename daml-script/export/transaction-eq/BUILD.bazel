@@ -6,6 +6,7 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
+    "lf_scalacopts_stricter",
 )
 
 # Library to compare transaction trees received from the ledger API
@@ -16,6 +17,7 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
+    scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
     deps = [
         "//language-support/scala/bindings",

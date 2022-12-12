@@ -57,6 +57,7 @@ so they roll it back and proceed with a transfer via Bank2:
 .. image:: ./images/exception-structure-example.svg
    :align: center
    :width: 80%
+   :alt: The paint agreement flowchart incorporating a rollback from Bank1 and a transfer from Bank2.
 
 Note also that rollback nodes may be nested, which represents a situation
 where multiple exceptions are raised and caught within the same transaction.
@@ -69,6 +70,7 @@ moment, for some reason, and a "cancel" exercise has been issued in response.
 .. image:: ./images/exception-structure-example-nested.svg
    :align: center
    :width: 80%
+   :alt: The paint agreement flowchart with a nested rollback as described in the preceding paragraph.
 
 Consistency
 ***********
@@ -105,6 +107,7 @@ Here are three continuities implied by the "before-after" relation. The first:
 .. image:: ./images/exception-integrity-continuity-1.svg
    :align: center
    :width: 80%
+   :alt: The paint agreement flowchart with rollbacks, showing continuity for a scenario where Bank1 provides the Iou.
 
 The second:
 
@@ -112,6 +115,7 @@ The second:
 .. image:: ./images/exception-integrity-continuity-2.svg
    :align: center
    :width: 80%
+   :alt: The paint agreement flowchart with rollbacks, showing continuity for a scenario where Bank2 provides the Iou.
 
 And the third:
 
@@ -119,6 +123,7 @@ And the third:
 .. image:: ./images/exception-integrity-continuity-3.svg
    :align: center
    :width: 80%
+   :alt: The paint agreement flowchart with rollbacks, showing continuity for a scenario where the transaction is cancelled.
 
 As you can see, in each of these continuities, no contract was consumed twice.
 
@@ -133,6 +138,7 @@ rollback nodes. For example, the following three transactions have the same
 .. image:: ./images/exception-normalization-1.svg
    :align: center
    :width: 80%
+   :alt: Three flowcharts where a transaction leads to act1, act2, and act3; each has two rollbacks, but the rollbacks are placed differently in each.
 
 Because of this, these three transactions are equivalent.
 More generally, two transactions are equivalent if:
@@ -161,6 +167,7 @@ transactions become the transaction in the middle when normalized.
 .. image:: ./images/exception-normalization-2.svg
    :align: center
    :width: 80%
+   :alt: The same set of three transactions as above, illustrating how they all normalize to the center flowchart as described below.
 
 To normalize a transaction, we apply three rules repeatedly across the whole transaction:
 
@@ -267,6 +274,7 @@ containing an exercise. See below:
 .. image:: ./images/exception-projection-example.svg
    :align: center
    :width: 80%
+   :alt: A flowchart with the portions invisible to Bank1 in light gray and the visible portion in dark gray, with the visible portion after normalization illustrated as a simpler flowchart at bottom right. 
 
 The privacy section of the ledger model makes a point of saying that a
 contract model should be **subaction-closed** to support projections. But
@@ -309,6 +317,7 @@ Thus the final transaction looks like this:
 .. image:: ./images/exception-daml-example.svg
    :align: center
    :width: 80%
+   :alt: A flowchart showing the transaction that results when Daml creates a rollback node due to an exception.
 
 Note that rollback nodes are only created if an exception is *caught*. An
 uncaught exception will result in an error, not a transaction.

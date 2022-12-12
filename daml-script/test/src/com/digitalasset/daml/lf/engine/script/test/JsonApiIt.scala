@@ -3,7 +3,6 @@
 
 package com.daml.lf.engine.script.test
 
-import java.io.File
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -13,17 +12,18 @@ import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
+import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.jwt.{HMAC256Verifier, JwtSigner}
 import com.daml.ledger.api.auth.{
-  AuthServiceJWT,
   AuthServiceJWTCodec,
   CustomDamlJWTPayload,
   StandardJWTPayload,
+  StandardJWTTokenFormat,
 }
-import com.daml.ledger.api.domain.{LedgerId, User, UserRight}
+import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
   OwnedResource,
@@ -39,27 +39,39 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.sandbox.SandboxOnXForTest.{
+  ApiServerConfig,
+  ConfigAdaptor,
+  dataSource,
+  singleParticipant,
+}
+import com.daml.ledger.sandbox.{SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
+import com.daml.lf.engine.script.ledgerinteraction.JsonLedgerClient.FailedJsonApiRequest
 import com.daml.lf.engine.script.ledgerinteraction.{
   JsonLedgerClient,
   ScriptLedgerClient,
   ScriptTimeMode,
 }
-import com.daml.ledger.sandbox.SandboxServer
-import com.daml.lf.iface.EnvironmentInterface
-import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.typesig.EnvironmentSignature
+import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContextOf
+import com.daml.platform.apiserver.AuthServiceConfig.UnsafeJwtHmac256
 import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.UploadPackageHelper._
 import com.daml.platform.sandbox.services.TestCommands
-import com.daml.platform.sandbox.AbstractSandboxFixture
+import com.daml.platform.sandbox.{
+  AbstractSandboxFixture,
+  SandboxRequiringAuthorizationFuns,
+  UploadPackageHelper,
+}
+import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import io.grpc.Channel
 import org.scalatest._
@@ -68,11 +80,11 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json._
+import java.io.File
+import com.daml.metrics.api.reporters.MetricsReporter
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
-import com.daml.metrics.{Metrics, MetricsReporter}
-import com.codahale.metrics.MetricRegistry
 
 trait JsonApiFixture
     extends AbstractSandboxFixture
@@ -81,22 +93,23 @@ trait JsonApiFixture
 
   override protected def darFile = new File(rlocation("daml-script/test/script-test.dar"))
 
+  protected val darFileDev = new File(rlocation("daml-script/test/script-test-1.dev.dar"))
   protected val darFileNoLedger = new File(rlocation("daml-script/test/script-test-no-ledger.dar"))
+
+  override protected def packageFiles: List[File] = List(darFile, darFileDev)
 
   override protected def serverPort: Port = suiteResource.value._1
   override protected def channel: Channel = suiteResource.value._2
-  override protected def config: SandboxConfig =
-    super.config
-      .copy(
-        ledgerIdMode = LedgerIdMode.Static(LedgerId("MyLedger")),
-        authService = Some(
-          AuthServiceJWT(
-            HMAC256Verifier(secret).valueOr(err =>
-              sys.error(s"Failed to create HMAC256 verifierd $err")
-            )
-          )
-        ),
-      )
+
+  override def config = super.config.copy(
+    ledgerId = "MyLedger",
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        timeProviderType = TimeProviderType.WallClock
+      ),
+      authentication = UnsafeJwtHmac256(secret),
+    ),
+  )
   def httpPort: Int = suiteResource.value._3.localAddress.getPort
   protected val secret: String = "secret"
 
@@ -136,6 +149,7 @@ trait JsonApiFixture
       userId = userId,
       participantId = None,
       exp = None,
+      format = StandardJWTTokenFormat.Scope,
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt = DecodedJwt[String](header, AuthServiceJWTCodec.writeToString(payload))
@@ -153,8 +167,19 @@ trait JsonApiFixture
           .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
             _.map(info => Some(info.jdbcUrl))
           )
-        serverPort <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
+
+        cfg = config.withDataSource(
+          dataSource(jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl()))
+        )
+        serverPort <- SandboxOnXRunner.owner(ConfigAdaptor(authService), cfg, bridgeConfig)
         channel <- GrpcClientResource.owner(serverPort)
+        adminClient = UploadPackageHelper.adminLedgerClient(serverPort, cfg, secret)(
+          system.dispatcher,
+          executionSequencerFactory,
+        )
+        _ <- ResourceOwner.forFuture(() =>
+          uploadDarFiles(adminClient, packageFiles)(system.dispatcher)
+        )
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
             implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx(
@@ -183,7 +208,7 @@ trait JsonApiFixture
                   jsonApiExecutionSequencerFactory,
                   jsonApiActorSystem.dispatcher,
                   lc,
-                  metrics = new Metrics(new MetricRegistry()),
+                  metrics = HttpJsonApiMetrics.ForTesting,
                 )
                 .flatMap({
                   case -\/(e) => Future.failed(new IllegalStateException(e.toString))
@@ -205,24 +230,26 @@ final class JsonApiIt
     with JsonApiFixture
     with Matchers
     with SuiteResourceManagementAroundAll
+    with SandboxRequiringAuthorizationFuns
     with TryValues {
 
-  private def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentInterface) = {
+  private def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentSignature) = {
     val dar = DarDecoder.assertReadArchiveFromFile(file)
-    val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-    val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+    val ifaceDar = dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
+    val envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
     (dar, envIface)
   }
 
   val (dar, envIface) = readDar(darFile)
   val (darNoLedger, envIfaceNoLedger) = readDar(darFileNoLedger)
+  val (darDev, envIfaceDev) = readDar(darFileDev)
 
   private def getClients(
       parties: List[String] = List(party),
       defaultParty: Option[String] = None,
       admin: Boolean = false,
       applicationId: Option[ApplicationId] = None,
-      envIface: EnvironmentInterface = envIface,
+      envIface: EnvironmentSignature = envIface,
   ) = {
     // We give the default participant some nonsense party so the checks for party mismatch fail
     // due to the mismatch and not because the token does not allow inferring a party
@@ -248,14 +275,22 @@ final class JsonApiIt
       )
       .toMap
     val participantParams = Participants(Some(defaultParticipant), participantMap, partyMap)
-    Runner.jsonClients(participantParams, envIface)
+    for {
+      ps <- Runner.jsonClients(participantParams, envIface)
+      _ <- Future.sequence(
+        for {
+          (party, participant) <- partyMap
+          ledgerClient <- ps.participants.get(participant)
+        } yield createParty(ledgerClient, party)
+      )
+    } yield ps
   }
 
   private def getMultiPartyClients(
       parties: List[String],
       readAs: List[String] = List(),
       applicationId: Option[ApplicationId] = None,
-      envIface: EnvironmentInterface = envIface,
+      envIface: EnvironmentSignature = envIface,
   ) = {
     // We give the default participant some nonsense party so the checks for party mismatch fail
     // due to the mismatch and not because the token does not allow inferring a party
@@ -267,12 +302,27 @@ final class JsonApiIt
         applicationId,
       )
     val participantParams = Participants(Some(defaultParticipant), Map.empty, Map.empty)
-    Runner.jsonClients(participantParams, envIface)
+    for {
+      ps <- Runner.jsonClients(participantParams, envIface)
+      _ <- Future.sequence(
+        for {
+          party <- parties
+          ledgerClient <- ps.default_participant
+        } yield createParty(ledgerClient, party)
+      )
+    } yield ps
+  }
+
+  private def createParty(ledgerClient: JsonLedgerClient, party: String): Future[Unit] = {
+    ledgerClient.allocateParty(party, "").map(_ => ()).recoverWith {
+      case e: FailedJsonApiRequest if e.getMessage.contains("Party already exists") =>
+        Future.successful(())
+    }
   }
 
   private def getUserClients(
       user: UserId,
-      envIface: EnvironmentInterface = envIface,
+      envIface: EnvironmentSignature = envIface,
   ) = {
     // We give the default participant some nonsense party so the checks for party mismatch fail
     // due to the mismatch and not because the token does not allow inferring a party
@@ -487,6 +537,18 @@ final class JsonApiIt
         assert(result == SUnit)
       }
     }
+    "queryInterface" in {
+      for {
+        clients <- getClients(envIface = envIfaceDev)
+        result <- run(
+          clients,
+          QualifiedName.assertFromString("TestInterfaces:jsonQueryInterface"),
+          dar = darDev,
+        )
+      } yield {
+        assert(result == SUnit)
+      }
+    }
     "queryContractKey" in {
       // fresh party to avoid key collisions with other tests
       val party = "jsonQueryContractKey"
@@ -533,7 +595,7 @@ final class JsonApiIt
       val party1 = "multiPartySubmission1"
       val party2 = "multiPartySubmission2"
       for {
-        clients1 <- getClients(parties = List(party1))
+        clients1 <- getClients(parties = List(party1, party2))
         cidSingle <- run(
           clients1,
           QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionCreateSingle"),

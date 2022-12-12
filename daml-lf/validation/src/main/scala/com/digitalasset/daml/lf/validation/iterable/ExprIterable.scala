@@ -68,16 +68,22 @@ private[validation] object ExprIterable {
         Iterator(value)
       case EFromInterface(iface @ _, tpl @ _, value) =>
         Iterator(value)
+      case EUnsafeFromInterface(iface @ _, tpl @ _, cid, value) =>
+        Iterator(cid, value)
       case ECallInterface(iface @ _, method @ _, value) =>
         Iterator(value)
       case EToRequiredInterface(requiredIface @ _, requiringIface @ _, body) =>
         iterator(body)
       case EFromRequiredInterface(requiredIface @ _, requiringIface @ _, body) =>
         iterator(body)
+      case EUnsafeFromRequiredInterface(requiredIface @ _, requiringIface @ _, cid, body) =>
+        Iterator(cid, body)
       case EInterfaceTemplateTypeRep(iface @ _, body) =>
         iterator(body)
       case ESignatoryInterface(iface @ _, body) =>
         iterator(body)
+      case EViewInterface(ifaceId @ _, expr) =>
+        iterator(expr)
       case EObserverInterface(iface @ _, body) =>
         iterator(body)
     }
@@ -93,14 +99,14 @@ private[validation] object ExprIterable {
         Iterator(arg)
       case UpdateCreateInterface(interface @ _, arg) =>
         Iterator(arg)
-      case UpdateFetch(templateId @ _, contractId) =>
+      case UpdateFetchTemplate(templateId @ _, contractId) =>
         Iterator(contractId)
       case UpdateFetchInterface(interface @ _, contractId) =>
         Iterator(contractId)
       case UpdateExercise(templateId @ _, choice @ _, cid, arg) =>
         Iterator(cid, arg)
       case UpdateExerciseInterface(interface @ _, choice @ _, cid, arg, guard) =>
-        Iterator(cid, arg, guard)
+        Iterator(cid, arg) ++ guard.iterator
       case UpdateExerciseByKey(templateId @ _, choice @ _, key, arg) =>
         Iterator(key, arg)
       case UpdateGetTime => Iterator.empty
@@ -189,15 +195,24 @@ private[validation] object ExprIterable {
     x match {
       case TemplateImplements(
             interface @ _,
-            methods,
-            inheritedChoices @ _,
+            body,
           ) =>
-        methods.values.iterator.flatMap(iterator(_))
+        iterator(body)
     }
 
-  private[iterable] def iterator(x: TemplateImplementsMethod): Iterator[Expr] =
+  private[iterable] def iterator(x: InterfaceInstanceBody): Iterator[Expr] =
     x match {
-      case TemplateImplementsMethod(name @ _, value) =>
+      case InterfaceInstanceBody(
+            methods,
+            view,
+          ) =>
+        methods.values.iterator.flatMap(iterator(_)) ++
+          iterator(view)
+    }
+
+  private[iterable] def iterator(x: InterfaceInstanceMethod): Iterator[Expr] =
+    x match {
+      case InterfaceInstanceMethod(name @ _, value) =>
         Iterator(value)
     }
 
@@ -214,11 +229,22 @@ private[validation] object ExprIterable {
       case DefInterface(
             requires @ _,
             param @ _,
-            fixedChoices,
+            choices,
             methods @ _,
-            precond,
+            coImplements,
+            view @ _,
           ) =>
-        Iterator(precond) ++ fixedChoices.values.iterator.flatMap(iterator(_))
+        choices.values.iterator.flatMap(iterator(_)) ++
+          coImplements.values.iterator.flatMap(iterator(_))
+    }
+
+  private[iterable] def iterator(x: InterfaceCoImplements): Iterator[Expr] =
+    x match {
+      case InterfaceCoImplements(
+            template @ _,
+            body,
+          ) =>
+        iterator(body)
     }
 
   def apply(expr: Expr): Iterable[Expr] =

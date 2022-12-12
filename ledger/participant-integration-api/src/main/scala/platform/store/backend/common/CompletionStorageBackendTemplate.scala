@@ -5,17 +5,16 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 
-import anorm.SqlParser.{byteArray, int, long, str}
+import anorm.SqlParser.{array, byteArray, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.{ApplicationId, Party}
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.CompletionFromTransaction
-import com.daml.platform.store.Conversions.{offset, timestampFromMicros}
+import com.daml.platform.store.backend.Conversions.{offset, timestampFromMicros}
 import com.daml.platform.store.backend.CompletionStorageBackend
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.interning.StringInterning
@@ -26,25 +25,28 @@ class CompletionStorageBackendTemplate(
     queryStrategy: QueryStrategy,
     stringInterning: StringInterning,
 ) extends CompletionStorageBackend {
+  import com.daml.platform.store.backend.Conversions.ArrayColumnToIntArray._
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def commandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,
-      applicationId: Ref.ApplicationId,
+      applicationId: ApplicationId,
       parties: Set[Party],
-  )(connection: Connection): List[CompletionStreamResponse] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    import com.daml.platform.store.Conversions.applicationIdToStatement
+      limit: Int,
+  )(connection: Connection): Vector[CompletionStreamResponse] = {
+    import com.daml.platform.store.backend.Conversions.applicationIdToStatement
+    import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
     import ComposableQuery._
     val internedParties =
       parties.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet
     if (internedParties.isEmpty) {
-      List.empty
+      Vector.empty
     } else {
-      SQL"""
+      val rows = SQL"""
         SELECT
+          submitters,
           completion_offset,
           record_time,
           command_id,
@@ -61,24 +63,33 @@ class CompletionStorageBackendTemplate(
         FROM
           participant_command_completions
         WHERE
-          ($startExclusive is null or completion_offset > $startExclusive) AND
-          completion_offset <= $endInclusive AND
-          application_id = $applicationId AND
-          ${queryStrategy.arrayIntersectionNonEmptyClause("submitters", internedParties)}
-        ORDER BY completion_offset ASC"""
-        .as(completionParser.*)(connection)
+          ${queryStrategy.offsetIsBetween(
+          nonNullableColumn = "completion_offset",
+          startExclusive = startExclusive,
+          endInclusive = endInclusive,
+        )} AND
+          application_id = $applicationId
+        ORDER BY completion_offset ASC
+        ${QueryStrategy.limitClause(Some(limit))}"""
+        .asVectorOf(completionParser)(connection)
+      rows.collect {
+        case (submitters, response) if submitters.exists(internedParties) => response
+      }
     }
   }
 
-  private val sharedColumns: RowParser[Offset ~ Timestamp ~ String ~ String ~ Option[String]] =
-    offset("completion_offset") ~
+  private val sharedColumns
+      : RowParser[Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[String]] = {
+    array[Int]("submitters") ~
+      offset("completion_offset") ~
       timestampFromMicros("record_time") ~
       str("command_id") ~
       str("application_id") ~
       str("submission_id").?
+  }
 
   private val acceptedCommandSharedColumns
-      : RowParser[Offset ~ Timestamp ~ String ~ String ~ Option[String] ~ String] =
+      : RowParser[Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[String] ~ String] =
     sharedColumns ~ str("transaction_id")
 
   private val deduplicationOffsetColumn: RowParser[Option[String]] =
@@ -90,14 +101,14 @@ class CompletionStorageBackendTemplate(
   private val deduplicationStartColumn: RowParser[Option[Timestamp]] =
     timestampFromMicros("deduplication_start").?
 
-  private val acceptedCommandParser: RowParser[CompletionStreamResponse] =
+  private val acceptedCommandParser: RowParser[(Array[Int], CompletionStreamResponse)] =
     acceptedCommandSharedColumns ~
       deduplicationOffsetColumn ~
       deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn ~
       deduplicationStartColumn map {
-        case offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ transactionId ~
+        case submitters ~ offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ transactionId ~
             deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~ _ =>
-          CompletionFromTransaction.acceptedCompletion(
+          submitters -> CompletionFromTransaction.acceptedCompletion(
             recordTime = recordTime,
             offset = offset,
             commandId = commandId,
@@ -115,7 +126,7 @@ class CompletionStorageBackendTemplate(
   private val rejectionStatusDetailsColumn: RowParser[Option[Array[Byte]]] =
     byteArray("rejection_status_details").?
 
-  private val rejectedCommandParser: RowParser[CompletionStreamResponse] =
+  private val rejectedCommandParser: RowParser[(Array[Int], CompletionStreamResponse)] =
     sharedColumns ~
       deduplicationOffsetColumn ~
       deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn ~
@@ -123,12 +134,12 @@ class CompletionStorageBackendTemplate(
       rejectionStatusCodeColumn ~
       rejectionStatusMessageColumn ~
       rejectionStatusDetailsColumn map {
-        case offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~
+        case submitters ~ offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~
             deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~ _ ~
             rejectionStatusCode ~ rejectionStatusMessage ~ rejectionStatusDetails =>
           val status =
             buildStatusProto(rejectionStatusCode, rejectionStatusMessage, rejectionStatusDetails)
-          CompletionFromTransaction.rejectedCompletion(
+          submitters -> CompletionFromTransaction.rejectedCompletion(
             recordTime = recordTime,
             offset = offset,
             commandId = commandId,
@@ -141,7 +152,7 @@ class CompletionStorageBackendTemplate(
           )
       }
 
-  private val completionParser: RowParser[CompletionStreamResponse] =
+  private val completionParser: RowParser[(Array[Int], CompletionStreamResponse)] =
     acceptedCommandParser | rejectedCommandParser
 
   private def buildStatusProto(
@@ -167,7 +178,7 @@ class CompletionStorageBackendTemplate(
       pruneUpToInclusive: Offset
   )(connection: Connection, loggingContext: LoggingContext): Unit = {
     pruneWithLogging(queryDescription = "Command completions pruning") {
-      import com.daml.platform.store.Conversions.OffsetToStatement
+      import com.daml.platform.store.backend.Conversions.OffsetToStatement
       SQL"delete from participant_command_completions where completion_offset <= $pruneUpToInclusive"
     }(connection, loggingContext)
   }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.encoding
+
 import com.daml.ledger.client.binding.{Primitive => P}
 import org.scalatest.Succeeded
 import org.scalatest.wordspec.AnyWordSpec

@@ -28,7 +28,9 @@ da_haskell_library(
         "unliftio",
         "utf8-string",
         "vector",
+        "scientific",
     ],
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         "//ledger-api/grpc-definitions:ledger-api-haskellpb",
@@ -51,7 +53,7 @@ da_haskell_test(
     data = [
         ":for-tests.dar",
         ":for-upload.dar",
-        "//ledger/sandbox-classic:sandbox-classic-binary",
+        "//ledger/sandbox-on-x:app",
     ],
     # The tests throw flaky timeout errors. It looks like this comes
     # from a fundamental issue in the Haskell bindings: they eagerly pull

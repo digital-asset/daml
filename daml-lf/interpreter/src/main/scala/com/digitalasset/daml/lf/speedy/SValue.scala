@@ -5,7 +5,6 @@ package com.daml.lf
 package speedy
 
 import java.util
-
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
@@ -16,15 +15,16 @@ import com.daml.lf.value.{Value => V}
 import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
 
+import scala.collection.IndexedSeqView
 import scala.jdk.CollectionConverters._
-import scala.collection.immutable.TreeMap
+import scala.collection.immutable.{SortedMap, TreeMap}
 import scala.util.hashing.MurmurHash3
 
 /** Speedy values. These are the value types recognized by the
   * machine. In addition to the usual types present in the LF value,
   * this also contains partially applied functions (SPAP).
   */
-sealed trait SValue {
+sealed abstract class SValue {
 
   import SValue.{SValue => _, _}
 
@@ -46,9 +46,7 @@ sealed trait SValue {
     )
   }
 
-  private def toValue(
-      normalize: Boolean
-  ): V = {
+  private[this] def toValue(normalize: Boolean): V = {
 
     def maybeEraseTypeInfo[X](x: X): Option[X] =
       if (normalize) {
@@ -114,43 +112,12 @@ sealed trait SValue {
     }
     go(this)
   }
-
-  def mapContractId(f: V.ContractId => V.ContractId): SValue =
-    this match {
-      case SContractId(coid) => SContractId(f(coid))
-      case SEnum(_, _, _) | _: SPrimLit | SToken | STNat(_) | STypeRep(_) => this
-      case SPAP(prim, args, arity) =>
-        val prim2 = prim match {
-          case PClosure(label, expr, vars) =>
-            PClosure(label, expr, vars.map(_.mapContractId(f)))
-          case _: PBuiltin => prim
-        }
-        val args2 = mapArrayList(args, _.mapContractId(f))
-        SPAP(prim2, args2, arity)
-      case SRecord(tycon, fields, values) =>
-        SRecord(tycon, fields, mapArrayList(values, v => v.mapContractId(f)))
-      case SStruct(fields, values) =>
-        SStruct(fields, mapArrayList(values, v => v.mapContractId(f)))
-      case SVariant(tycon, variant, rank, value) =>
-        SVariant(tycon, variant, rank, value.mapContractId(f))
-      case SList(lst) =>
-        SList(lst.map(_.mapContractId(f)))
-      case SOptional(mbV) =>
-        SOptional(mbV.map(_.mapContractId(f)))
-      case SMap(isTextMap, value) =>
-        SMap(
-          isTextMap,
-          value.iterator.map { case (k, v) => k.mapContractId(f) -> v.mapContractId(f) },
-        )
-      case SAny(ty, value) =>
-        SAny(ty, value.mapContractId(f))
-    }
 }
 
 object SValue {
 
   /** "Primitives" that can be applied. */
-  sealed trait Prim
+  sealed abstract class Prim
   final case class PBuiltin(b: SBuiltin) extends Prim
 
   /** A closure consisting of an expression together with the values the
@@ -174,9 +141,10 @@ object SValue {
     if (actuals.size >= arity) {
       throw SError.SErrorCrash(
         NameOf.qualifiedNameOfCurrentFunc,
-        s"SPAP: unexpected actuals.size >= arity",
+        "SPAP: unexpected actuals.size >= arity",
       )
     }
+
     override def toString: String =
       s"SPAP($prim, ${actuals.asScala.mkString("[", ",", "]")}, $arity)"
   }
@@ -202,7 +170,7 @@ object SValue {
 
   final case class SList(list: FrontStack[SValue]) extends SValue
 
-  // We make the constructor private to ensure entries are sorted according `SMap Ordering`
+  // We make the constructor private to ensure entries are sorted using `SMap Ordering`
   final case class SMap private (isTextMap: Boolean, entries: TreeMap[SValue, SValue])
       extends SValue
       with NoCopy {
@@ -224,13 +192,71 @@ object SValue {
       discard[Int](`SMap Ordering`.compare(k, k))
     }
 
-    def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap = {
+    /** Build an SMap from an indexed sequence of SValue key/value pairs.
+      *
+      * SValue keys are assumed to be in ascending order - hence the SMap's TreeMap will be built in time O(n) using a
+      * sorted map specialisation.
+      */
+    def fromOrderedEntries(
+        isTextMap: Boolean,
+        entries: IndexedSeqView[(SValue, SValue)],
+    ): SMap = {
+      require(
+        entries
+          .foldLeft[(Boolean, Option[SValue])]((true, None)) {
+            case ((result, previousKey), (currentKey, _)) =>
+              (result && previousKey.forall(`SMap Ordering`.lteq(_, currentKey)), Some(currentKey))
+          }
+          ._1,
+        "The entries are not in descending order",
+      )
+
+      val sortedEntryMap: SortedMap[SValue, SValue] = new SortedMap[SValue, SValue] {
+        private[this] val encapsulatedSortedMap = SortedMap.from(entries)
+
+        override def iterator: Iterator[(SValue, SValue)] = entries.iterator
+
+        override def size: Int = entries.size
+
+        override def ordering: Ordering[SValue] = `SMap Ordering`
+
+        override def updated[V1 >: SValue](key: SValue, value: V1): SortedMap[SValue, V1] =
+          encapsulatedSortedMap.updated(key, value)
+
+        override def removed(key: SValue): SortedMap[SValue, SValue] =
+          encapsulatedSortedMap.removed(key)
+
+        override def iteratorFrom(start: SValue): Iterator[(SValue, SValue)] =
+          encapsulatedSortedMap.iteratorFrom(start)
+
+        override def keysIteratorFrom(start: SValue): Iterator[SValue] =
+          encapsulatedSortedMap.keysIteratorFrom(start)
+
+        override def rangeImpl(
+            from: Option[SValue],
+            until: Option[SValue],
+        ): SortedMap[SValue, SValue] = encapsulatedSortedMap.rangeImpl(from, until)
+
+        override def get(key: SValue): Option[SValue] = encapsulatedSortedMap.get(key)
+      }
+
+      SMap(isTextMap, TreeMap.from(sortedEntryMap))
+    }
+
+    /** Build an SMap from an iterator over SValue key/value pairs.
+      *
+      * SValue keys are not assumed to be ordered - hence the SMap will be built in time O(n log(n)).
+      */
+    def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap =
       SMap(
         isTextMap,
         entries.map { case p @ (k, _) => comparable(k); p }.to(TreeMap),
       )
-    }
 
+    /** Build an SMap from a vararg sequence of SValue key/value pairs.
+      *
+      * SValue keys are not assumed to be ordered - hence the SMap will be built in time O(n log(n)).
+      */
     def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SMap =
       SMap(isTextMap: Boolean, entries.iterator)
   }
@@ -256,7 +282,7 @@ object SValue {
     def unapply(any: SAny): Option[(TypeConName, SRecord)] =
       any match {
         case SAny(TTyCon(tyCon0), record: SRecord) if record.id == tyCon0 =>
-          Some(tyCon0, record)
+          Some((tyCon0, record))
         case _ =>
           None
       }
@@ -265,11 +291,8 @@ object SValue {
   object SArithmeticError {
     val fields: ImmArray[Ref.Name] = ImmArray(ValueArithmeticError.fieldName)
     def apply(builtinName: String, args: ImmArray[String]): SAny = {
-      val array = new util.ArrayList[SValue](1)
-      discard(
-        array.add(
-          SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
-        )
+      val array = ArrayList.single[SValue](
+        SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
       )
       SAny(ValueArithmeticError.typ, SRecord(ValueArithmeticError.tyCon, fields, array))
     }
@@ -289,7 +312,7 @@ object SValue {
 
   // NOTE(JM): We are redefining PrimLit here so it can be unified
   // with SValue and we can remove one layer of indirection.
-  sealed trait SPrimLit extends SValue with Equals
+  sealed abstract class SPrimLit extends SValue with Equals
   final case class SInt64(value: Long) extends SPrimLit
   final case class SNumeric(value: Numeric) extends SPrimLit
   object SNumeric {
@@ -387,32 +410,12 @@ object SValue {
   assert(entryFields.indexOf(keyFieldName) == 0)
   assert(entryFields.indexOf(valueFieldName) == 1)
 
-  private def entry(key: SValue, value: SValue) = {
-    val args = new util.ArrayList[SValue](2)
-    discard(args.add(key))
-    discard(args.add(value))
-    SStruct(entryFields, args)
-  }
-
   def toList(entries: TreeMap[SValue, SValue]): SList =
     SList(
       entries.view
-        .map { case (k, v) =>
-          entry(k, v)
-        }
+        .map { case (k, v) => SStruct(entryFields, ArrayList.double(k, v)) }
         .to(FrontStack)
     )
-
-  private def mapArrayList(
-      as: util.ArrayList[SValue],
-      f: SValue => SValue,
-  ): util.ArrayList[SValue] = {
-    val bs = new util.ArrayList[SValue](as.size)
-    as.forEach { a =>
-      discard(bs.add(f(a)))
-    }
-    bs
-  }
 
   private[this] val overflowUnderflow = Left("overflow/underflow")
 

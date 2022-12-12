@@ -8,11 +8,12 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.Scheduler
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.ledger.api.domain
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
+import com.daml.platform.localstore.api.UserManagementStore
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
@@ -45,20 +46,30 @@ private[auth] final class UserRightsChangeAsyncChecker(
     // Note: https://doc.akka.io/docs/akka/2.6.13/scheduler.html states that:
     // "All scheduled task will be executed when the ActorSystem is terminated, i.e. the task may execute before its timeout."
     val cancellable =
-      akkaScheduler.scheduleWithFixedDelay(initialDelay = delay, delay = delay)(() =>
-        userManagementStore
-          .listUserRights(userId)
+      akkaScheduler.scheduleWithFixedDelay(initialDelay = delay, delay = delay)(() => {
+        val userState
+            : Future[Either[UserManagementStore.Error, (domain.User, Set[domain.UserRight])]] =
+          for {
+            userRightsResult <- userManagementStore.listUserRights(userId)
+            userResult <- userManagementStore.getUser(userId)
+          } yield {
+            for {
+              userRights <- userRightsResult
+              user <- userResult
+            } yield (user, userRights)
+          }
+        userState
           .onComplete {
             case Failure(_) | Success(Left(_)) =>
               userClaimsMismatchCallback()
-            case Success(Right(userRights)) =>
+            case Success(Right((user, userRights))) =>
               val updatedClaims = AuthorizationInterceptor.convertUserRightsToClaims(userRights)
-              if (updatedClaims.toSet != originalClaims.claims.toSet) {
+              if (updatedClaims.toSet != originalClaims.claims.toSet || user.isDeactivated) {
                 userClaimsMismatchCallback()
               }
               lastUserRightsCheckTime.set(nowF())
           }
-      )
+      })
     () => (cancellable.cancel(): Unit)
   }
 

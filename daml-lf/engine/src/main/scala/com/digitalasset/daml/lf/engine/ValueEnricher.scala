@@ -27,17 +27,15 @@ final class ValueEnricher(
     loadPackage: (PackageId, language.Reference) => Result[Unit],
 ) {
 
-  def this(engine: Engine) = {
+  def this(engine: Engine) =
     this(
       engine.compiledPackages(),
       engine.preprocessor.translateValue,
       engine.loadPackage,
     )
-  }
 
-  def enrichValue(typ: Ast.Type, value: Value): Result[Value] = {
+  def enrichValue(typ: Ast.Type, value: Value): Result[Value] =
     translateValue(typ, value).map(_.toUnnormalizedValue)
-  }
 
   def enrichVersionedValue(
       typ: Ast.Type,
@@ -61,10 +59,27 @@ final class ValueEnricher(
       arg <- enrichValue(Ast.TTyCon(contract.unversioned.template), contract.unversioned.arg)
     } yield contract.map(_.copy(arg = arg))
 
+  def enrichView(
+      interfaceId: Identifier,
+      viewValue: Value,
+  ): Result[Value] = for {
+    iface <- handleLookup(
+      compiledPackages.pkgInterface.lookupInterface(interfaceId)
+    )
+    r <- enrichValue(iface.view, viewValue)
+  } yield r
+
+  def enrichVersionedView(
+      interfaceId: Identifier,
+      viewValue: VersionedValue,
+  ): Result[VersionedValue] = for {
+    view <- enrichView(interfaceId, viewValue.unversioned)
+  } yield viewValue.copy(unversioned = view)
+
   def enrichContract(tyCon: Identifier, value: Value): Result[Value] =
     enrichValue(Ast.TTyCon(tyCon), value)
 
-  private[this] def interface = compiledPackages.interface
+  private[this] def pkgInterface = compiledPackages.pkgInterface
 
   private[this] def handleLookup[X](lookup: => Either[LookupError, X]) = lookup match {
     case Right(value) => ResultDone(value)
@@ -81,23 +96,25 @@ final class ValueEnricher(
   }
 
   def enrichChoiceArgument(
-      tyCon: Identifier,
+      templateId: Identifier,
+      interfaceId: Option[Identifier],
       choiceName: Name,
       value: Value,
   ): Result[Value] =
-    handleLookup(interface.lookupChoice(tyCon, choiceName))
-      .flatMap(choiceInfo => enrichValue(choiceInfo.choice.argBinder._2, value))
+    handleLookup(pkgInterface.lookupChoice(templateId, interfaceId, choiceName))
+      .flatMap(choice => enrichValue(choice.argBinder._2, value))
 
   def enrichChoiceResult(
-      tyCon: Identifier,
+      templateId: Identifier,
+      interfaceId: Option[Identifier],
       choiceName: Name,
       value: Value,
   ): Result[Value] =
-    handleLookup(interface.lookupChoice(tyCon, choiceName))
-      .flatMap(choiceInfo => enrichValue(choiceInfo.choice.returnType, value))
+    handleLookup(pkgInterface.lookupChoice(templateId, interfaceId, choiceName))
+      .flatMap(choice => enrichValue(choice.returnType, value))
 
   def enrichContractKey(tyCon: Identifier, value: Value): Result[Value] =
-    handleLookup(interface.lookupTemplateKey(tyCon))
+    handleLookup(pkgInterface.lookupTemplateKey(tyCon))
       .flatMap(key => enrichValue(key.typ, value))
 
   private val ResultNone = ResultDone(None)
@@ -155,10 +172,17 @@ final class ValueEnricher(
         } yield lookup.copy(key = key)
       case exe: Node.Exercise =>
         for {
-          choiceArg <- enrichChoiceArgument(exe.templateId, exe.choiceId, exe.chosenValue)
+          choiceArg <- enrichChoiceArgument(
+            exe.templateId,
+            exe.interfaceId,
+            exe.choiceId,
+            exe.chosenValue,
+          )
           result <- exe.exerciseResult match {
             case Some(exeResult) =>
-              enrichChoiceResult(exe.templateId, exe.choiceId, exeResult).map(Some(_))
+              enrichChoiceResult(exe.templateId, exe.interfaceId, exe.choiceId, exeResult).map(
+                Some(_)
+              )
             case None =>
               ResultNone
           }

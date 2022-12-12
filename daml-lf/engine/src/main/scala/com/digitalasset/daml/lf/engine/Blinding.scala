@@ -4,11 +4,11 @@
 package com.daml.lf.engine
 
 import com.daml.lf.data._
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.{BlindingInfo, Transaction, NodeId, VersionedTransaction}
 import com.daml.lf.ledger._
-import com.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Relation
 
 import scala.annotation.tailrec
 
@@ -56,9 +56,9 @@ object Blinding {
         filteredRoots: BackStack[NodeId],
         remainingRoots: FrontStack[NodeId],
     ): ImmArray[NodeId] = {
-      remainingRoots match {
-        case FrontStack() => filteredRoots.toImmArray
-        case FrontStackCons(root, remainingRoots) =>
+      remainingRoots.pop match {
+        case None => filteredRoots.toImmArray
+        case Some((root, remainingRoots)) =>
           if (partyDivulgences.contains(root)) {
             go(filteredRoots :+ root, remainingRoots)
           } else {
@@ -79,4 +79,27 @@ object Blinding {
       nodes = filteredNodes,
     )
   }
+
+  private[engine] def partyPackages(
+      tx: VersionedTransaction,
+      blindingInfo: BlindingInfo,
+  ): Relation[Party, Ref.PackageId] = {
+    val entries = blindingInfo.disclosure.view.flatMap { case (nodeId, parties) =>
+      def toEntries(tyCon: Ref.TypeConName) = parties.view.map(_ -> tyCon.packageId)
+      tx.nodes(nodeId) match {
+        case action: Node.LeafOnlyAction =>
+          toEntries(action.templateId)
+        case exe: Node.Exercise =>
+          toEntries(exe.templateId) ++ exe.interfaceId.toList.view.flatMap(toEntries)
+        case _: Node.Rollback =>
+          Iterable.empty
+      }
+    }
+    Relation.from(entries)
+  }
+
+  /* Calculate the packages needed by a party to interpret the projection   */
+  def partyPackages(tx: VersionedTransaction): Relation[Party, PackageId] =
+    partyPackages(tx, blind(tx))
+
 }

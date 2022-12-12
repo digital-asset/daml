@@ -17,7 +17,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers {
   behavior of "StringInterningView"
 
   it should "provide working cache by extending" in {
-    val testee = new StringInterningView((_, _) => _ => Future.successful(Nil))
+    val testee = new StringInterningView()
     partyAbsent(testee, "p1")
     partyAbsent(testee, "p2")
     partyAbsent(testee, "22:same:name")
@@ -48,7 +48,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers {
   }
 
   it should "extend working view correctly" in {
-    val testee = new StringInterningView((_, _) => _ => Future.successful(Nil))
+    val testee = new StringInterningView()
     partyAbsent(testee, "p1")
     partyAbsent(testee, "p2")
     partyAbsent(testee, "22:same:name")
@@ -93,56 +93,45 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers {
     templateAbsent(testee, "22:unkno:wn")
   }
 
-  it should "not update view if last id is behind" in {
-    val testee = new StringInterningView((from, to) =>
-      _ => {
-        from shouldBe 0
-        to shouldBe 6
-        Future.successful(
-          Vector(
-            1 -> "p|p1",
-            2 -> "p|p2",
-            3 -> "p|22:same:name",
-            4 -> "t|22:t:a",
-            5 -> "t|22:t:b",
-            6 -> "t|22:same:name",
-          )
-        )
-      }
-    )
+  it should "correctly load prefixing entries in the view on `update`" in {
+    val testee = new StringInterningView()
     partyAbsent(testee, "p1")
     partyAbsent(testee, "p2")
     partyAbsent(testee, "22:same:name")
     templateAbsent(testee, "22:t:a")
     templateAbsent(testee, "22:t:b")
     templateAbsent(testee, "22:same:name")
-    testee.update(6).map { _ =>
-      partyPresent(testee, "p1", 1)
-      partyPresent(testee, "p2", 2)
-      partyPresent(testee, "22:same:name", 3)
-      partyAbsent(testee, "unknown")
-      templatePresent(testee, "22:t:a", 4)
-      templatePresent(testee, "22:t:b", 5)
-      templatePresent(testee, "22:same:name", 6)
-      templateAbsent(testee, "22:unk:nown")
-    }
+    testee
+      .update(6)((from, to) =>
+        _ => {
+          from shouldBe 0
+          to shouldBe 6
+          Future.successful(
+            Vector(
+              1 -> "p|p1",
+              2 -> "p|p2",
+              3 -> "p|22:same:name",
+              4 -> "t|22:t:a",
+              5 -> "t|22:t:b",
+              6 -> "t|22:same:name",
+            )
+          )
+        }
+      )
+      .map { _ =>
+        partyPresent(testee, "p1", 1)
+        partyPresent(testee, "p2", 2)
+        partyPresent(testee, "22:same:name", 3)
+        partyAbsent(testee, "unknown")
+        templatePresent(testee, "22:t:a", 4)
+        templatePresent(testee, "22:t:b", 5)
+        templatePresent(testee, "22:same:name", 6)
+        templateAbsent(testee, "22:unk:nown")
+      }
   }
 
   it should "be able to update working view correctly" in {
-    val testee = new StringInterningView((from, to) =>
-      _ => {
-        from shouldBe 2
-        to shouldBe 6
-        Future.successful(
-          Vector(
-            3 -> "p|22:same:name",
-            4 -> "t|22:t:a",
-            5 -> "t|22:t:b",
-            6 -> "t|22:same:name",
-          )
-        )
-      }
-    )
+    val testee = new StringInterningView()
     partyAbsent(testee, "p1")
     partyAbsent(testee, "p2")
     partyAbsent(testee, "22:same:name")
@@ -161,16 +150,82 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers {
     templateAbsent(testee, "22:t:a")
     templateAbsent(testee, "22:t:b")
     templateAbsent(testee, "22:same:name")
-    testee.update(6).map { _ =>
-      partyPresent(testee, "p1", 1)
-      partyPresent(testee, "p2", 2)
-      partyPresent(testee, "22:same:name", 3)
-      partyAbsent(testee, "unknown")
-      templatePresent(testee, "22:t:a", 4)
-      templatePresent(testee, "22:t:b", 5)
-      templatePresent(testee, "22:same:name", 6)
-      templateAbsent(testee, "22:unk:nown")
-    }
+    testee
+      .update(6)((from, to) =>
+        _ => {
+          from shouldBe 2
+          to shouldBe 6
+          Future.successful(
+            Vector(
+              3 -> "p|22:same:name",
+              4 -> "t|22:t:a",
+              5 -> "t|22:t:b",
+              6 -> "t|22:same:name",
+            )
+          )
+        }
+      )
+      .map { _ =>
+        partyPresent(testee, "p1", 1)
+        partyPresent(testee, "p2", 2)
+        partyPresent(testee, "22:same:name", 3)
+        partyAbsent(testee, "unknown")
+        templatePresent(testee, "22:t:a", 4)
+        templatePresent(testee, "22:t:b", 5)
+        templatePresent(testee, "22:same:name", 6)
+        templateAbsent(testee, "22:unk:nown")
+      }
+  }
+
+  it should "remove entries if lastStringInterningId is greater than lastId" in {
+    val testee = new StringInterningView()
+    testee.internize(
+      new DomainStringIterators(
+        parties = List("p1", "p2", "22:same:name").iterator,
+        templateIds = List("22:t:a", "22:t:b", "22:same:name").iterator,
+      )
+    ) shouldBe Vector(
+      1 -> "p|p1",
+      2 -> "p|p2",
+      3 -> "p|22:same:name",
+      4 -> "t|22:t:a",
+      5 -> "t|22:t:b",
+      6 -> "t|22:same:name",
+    )
+    partyPresent(testee, "p1", 1)
+    partyPresent(testee, "p2", 2)
+    partyPresent(testee, "22:same:name", 3)
+    partyAbsent(testee, "unknown")
+    templatePresent(testee, "22:t:a", 4)
+    templatePresent(testee, "22:t:b", 5)
+    templatePresent(testee, "22:same:name", 6)
+    templateAbsent(testee, "22:unkno:wn")
+
+    testee
+      .update(4)((from, to) =>
+        _ => {
+          from shouldBe 2
+          to shouldBe 6
+          Future.successful(
+            Vector(
+              3 -> "p|22:same:name",
+              4 -> "t|22:t:a",
+              5 -> "t|22:t:b",
+              6 -> "t|22:same:name",
+            )
+          )
+        }
+      )
+      .map { _ =>
+        partyPresent(testee, "p1", 1)
+        partyPresent(testee, "p2", 2)
+        partyPresent(testee, "22:same:name", 3)
+        partyAbsent(testee, "unknown")
+        templatePresent(testee, "22:t:a", 4)
+        templateAbsent(testee, "22:t:b")
+        templateAbsent(testee, "22:same:name")
+        templateAbsent(testee, "22:unkno:wn")
+      }
   }
 
   private def partyPresent(view: StringInterning, party: String, id: Int) = {

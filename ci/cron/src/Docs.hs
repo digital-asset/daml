@@ -38,7 +38,8 @@ import qualified Data.List
 import Data.Maybe (fromMaybe)
 import qualified Data.Ord
 import qualified Data.Set as Set
-import qualified System.Directory as Directory
+import qualified System.Directory.Extra as Directory
+import qualified System.FilePath as FilePath
 import qualified System.Environment
 import qualified System.Exit as Exit
 import System.FilePath.Posix ((</>))
@@ -71,7 +72,9 @@ shell_ cmd = do
     Control.void $ shell cmd
 
 proc_ :: [String] -> IO ()
-proc_ args = Control.void $ proc args
+proc_ args = Control.void $ do
+    print args
+    proc args
 
 shell_env_ :: [(String, String)] -> String -> IO ()
 shell_env_ env cmd = do
@@ -95,12 +98,12 @@ s3Path :: DocOptions -> FilePath -> String
 s3Path DocOptions{s3Subdir} file =
     "s3://docs-daml-com" </> fromMaybe "" s3Subdir </> file
 
--- We use a check for the versions.json file to check if the docs for a given version exist or not.
+-- We use a check for a file to check if the docs for a given version exist or not.
 -- This is technically slightly racy if the upload happens concurrently and we end up with a partial upload
 -- but the window seems small enough to make this acceptable.
 doesVersionExist :: DocOptions -> Version -> IO Bool
 doesVersionExist opts version = do
-    r <- tryIO $ IO.withTempFile $ \file -> proc_ ["aws", "s3", "cp", s3Path opts (show version </> "versions.json"), file]
+    r <- tryIO $ IO.withTempFile $ \file -> proc_ ["aws", "s3", "cp", s3Path opts (show version </> fileToCheck opts), file]
     pure (isRight r)
 
 build_and_push :: DocOptions -> FilePath -> [Version] -> IO ()
@@ -163,20 +166,24 @@ update_s3 opts temp vs = do
 
 update_top_level :: DocOptions -> FilePath -> Version -> Maybe Version -> IO ()
 update_top_level opts temp new mayOld = do
-    new_files <- Set.fromList <$> Directory.listDirectory (temp </> show new)
+    new_files <- Set.fromList <$> files_under new
     old_files <- case mayOld of
         Nothing -> pure Set.empty
-        Just old -> Set.fromList <$> Directory.listDirectory (temp </> show old)
+        Just old -> Set.fromList <$> files_under old
     let to_delete = Set.toList $ old_files `Set.difference` new_files
     Control.when (not $ null to_delete) $ do
         putStrLn $ "Deleting top-level files: " <> show to_delete
         Data.Foldable.for_ to_delete (\f -> do
-            proc_ ["aws", "s3", "rm", s3Path opts f, "--recursive"])
+            proc_ ["aws", "s3", "rm", s3Path opts f])
         putStrLn "Done."
     putStrLn $ "Pushing " <> show new <> " to top-level..."
-    let path = s3Path opts "" <> "/"
-    proc_ ["aws", "s3", "cp", temp </> show new, path, "--recursive", "--acl", "public-read"]
+    let root = s3Path opts "" <> "/"
+    proc_ ["aws", "s3", "cp", temp </> show new, root, "--recursive", "--acl", "public-read"]
     putStrLn "Done."
+  where files_under folder = do
+          let root = temp </> show folder
+          full_paths <- Directory.listFilesRecursive root
+          return $ map (FilePath.makeRelative root) full_paths
 
 reset_cloudfront :: IO ()
 reset_cloudfront = do
@@ -204,6 +211,7 @@ data DocOptions = DocOptions
   , includedVersion :: Version -> Bool
     -- Exclusive minimum version bound for which we build docs
   , build :: FilePath -> Version -> IO ()
+  , fileToCheck :: FilePath
   }
 
 sdkDocOpts :: DocOptions
@@ -218,6 +226,7 @@ sdkDocOpts = DocOptions
         shell_env_ [("DAML_SDK_RELEASE_VERSION", show version)] "bazel build //docs:docs"
         proc_ ["mkdir", "-p", temp </> show version]
         proc_ ["tar", "xzf", "bazel-bin/docs/html.tar.gz", "--strip-components=1", "-C", temp </> show version]
+  , fileToCheck = "versions.json"
   }
 
 damlOnSqlDocOpts :: DocOptions
@@ -231,6 +240,7 @@ damlOnSqlDocOpts = DocOptions
         shell_env_ [("DAML_SDK_RELEASE_VERSION", show version)] "bazel build //ledger/daml-on-sql:docs"
         proc_ ["mkdir", "-p", temp </> show version]
         proc_ ["tar", "xzf", "bazel-bin/ledger/daml-on-sql/html.tar.gz", "--strip-components=1", "-C", temp </> show version]
+  , fileToCheck = "index.html"
   }
 
 docs :: DocOptions -> IO ()
@@ -244,9 +254,11 @@ docs opts@DocOptions{includedVersion} = do
     else do
         -- We may have added versions. We need to build and push them.
         let added = Set.toList $ all_versions gh_versions `Set.difference` all_versions s3_versions
+        -- post-2.0 versions are built and pushed by the docs.daml.com repo
+        let to_build = filter (version "2.0.0" >) added
         IO.withTempDir $ \temp_dir -> do
             putStrLn $ "Versions to build: " <> show added
-            build_and_push opts temp_dir added
+            build_and_push opts temp_dir to_build
             -- If there is no version on GH, we don’t have to do anything.
             Control.Monad.Extra.whenJust (top gh_versions) $ \gh_top ->
               Control.when (Just gh_top /= top s3_versions) $ do

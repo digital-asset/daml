@@ -16,7 +16,8 @@ final class NonRepudiationTest
 
   import HttpServiceTestFixture._
 
-  "correctly sign a command" in withSetup { (db, uri, encoder) =>
+  "correctly sign a command" in withSetup { fixture =>
+    import fixture.db
     val expectedParty = "Alice"
     val expectedNumber = "abc123"
     val expectedCommandId = UUID.randomUUID.toString
@@ -25,12 +26,15 @@ final class NonRepudiationTest
         commandId = Some(domain.CommandId(expectedCommandId)),
         actAs = None,
         readAs = None,
+        submissionId = None,
+        deduplicationPeriod = None,
       )
     )
-    val domainParty = domain.Party(expectedParty)
-    val command = accountCreateCommand(domainParty, expectedNumber).copy(meta = meta)
-    postCreateCommand(command, encoder, uri)
-      .flatMap { case (status, _) =>
+    for {
+      (domainParty, headers) <- fixture.getUniquePartyAndAuthHeaders(expectedParty)
+      command = accountCreateCommand(domainParty, expectedNumber).copy(meta = meta)
+      res <- postCreateCommand(command, fixture, headers)
+      _ <- inside(res) { case domain.OkResponse(_, _, status) =>
         status shouldBe StatusCodes.OK
         val payloads = db.signedPayloads.get(CommandIdString.wrap(expectedCommandId))
         payloads should have size 1
@@ -41,6 +45,7 @@ final class NonRepudiationTest
         val expectedFields = command.payload.fields.map(stripIdentifiers)
         actualFields should contain theSameElementsAs expectedFields
       }
+    } yield succeed
   }
 
 }

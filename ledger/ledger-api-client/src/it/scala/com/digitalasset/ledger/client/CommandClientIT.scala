@@ -37,11 +37,10 @@ import com.daml.ledger.client.services.commands.{
   CompletionStreamElement,
 }
 import com.daml.ledger.client.services.testing.time.StaticTime
+import com.daml.ledger.runner.common.Config
 import com.daml.lf.crypto.Hash
 import com.daml.lf.value.Value.ContractId
-import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.participant.util.ValueConversions._
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.util.Ctx
@@ -107,8 +106,7 @@ final class CommandClientIT
     timeProvider(ledgerId)
       .map(_ => commandClientWithoutTime(ledgerId, applicationId, configuration))
 
-  override protected def config: SandboxConfig =
-    super.config.copy(ledgerIdMode = LedgerIdMode.Static(testLedgerId))
+  override protected def config: Config = super.config.copy(ledgerId = testLedgerId.unwrap)
 
   private val submittingPartyList = List(MockMessages.party)
   private val LedgerBegin = LedgerOffset(Boundary(LEDGER_BEGIN))

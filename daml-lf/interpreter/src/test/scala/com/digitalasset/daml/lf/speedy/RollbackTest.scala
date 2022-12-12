@@ -30,7 +30,7 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       pkgs1: PureCompiledPackages
   )(e: Expr, party: Party): SubmittedTransaction = {
     val se = pkgs1.compiler.unsafeCompile(e)
-    val example = SEApp(se, Array(SEValue(SParty(party))))
+    val example = SEApp(se, Array(SParty(party)))
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs1, transactionSeed, example, Set(party))
     SpeedyTestLib
       .buildTransaction(machine)
@@ -202,10 +202,10 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
 object RollbackTest {
 
-  sealed trait Tree //minimal transaction tree, for purposes of writing test expectation
-  final case class C(x: Long) extends Tree //Create Node
-  final case class X(x: List[Tree]) extends Tree //Exercise Node
-  final case class R(x: List[Tree]) extends Tree //Rollback Node
+  sealed trait Tree // minimal transaction tree, for purposes of writing test expectation
+  final case class C(x: Long) extends Tree // Create Node
+  final case class X(x: List[Tree]) extends Tree // Exercise Node
+  final case class R(x: List[Tree]) extends Tree // Rollback Node
 
   private def shapeOfTransaction(tx: SubmittedTransaction): List[Tree] = {
     def trees(nid: NodeId): List[Tree] = {

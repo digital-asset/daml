@@ -15,6 +15,7 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "lf_version_configuration",
     "lf_version_configuration_versions",
+    "versions",
 )
 load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
 
@@ -38,6 +39,7 @@ alias(
         ),
     ]
     for (target_prefix, target_suffix) in [
+        ("benchtool-tests", ".dar"),
         ("model-tests", ".dar"),
         ("dar-files", ""),
         ("dar-files", "-lib"),
@@ -68,10 +70,7 @@ alias(
                 "//visibility:public",
             ],
             deps = [
-                "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
-                "//daml-lf/archive:daml_lf_archive_reader",
                 "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-                "//ledger/test-common:dar-files-%s-lib" % target,
                 "//libs-scala/scala-utils",
                 "//libs-scala/timer-utils",
                 "@maven//:ch_qos_logback_logback_classic",
@@ -85,21 +84,48 @@ alias(
     for target in lf_version_configuration_versions
 ]
 
-# Correspond to the directories under src/test/lib/daml
-test_names = [
+# Carbon tests helps to test upgrades when packages are dependent on each other
+carbon_test_names = [
+    "carbonv1",
+    "carbonv2",  #carbonv2 depends on carbon v1
+    "carbonv3",  #carbonv3 depends on carbon v2
+    "modelext",  #modelext depends on model
+]
+
+general_test_names = [
+    "benchtool",
     "model",
     "semantic",
     "performance",
     "package_management",
 ]
 
+# Correspond to the directories under src/test/lib/daml
+test_names = {
+    lf_version: general_test_names + (carbon_test_names if versions.gte(lf_version, "1.15") else [])
+    for lf_version in lf_version_configuration_versions
+}
+
 da_scala_dar_resources_library(
     add_maven_tag = True,
     daml_dir_names = test_names,
     daml_root_dir = "src/main/daml",
+    data_dependencies = {
+        "carbonv2": ["//ledger/test-common:carbonv1-tests-%s.build"],
+        "carbonv3": ["//ledger/test-common:carbonv2-tests-%s.build"],
+        "modelext": ["//ledger/test-common:model-tests-%s.build"],
+    },
     enable_scenarios = True,
     exclusions = {
-        "1.8": ["**/*Exception*.daml"],
+        "1.8": [
+            "**/*Exception*.daml",
+            "**/*Interface*daml",
+            "**/Limits.daml",
+            "**/Foo.daml",
+        ],
+        "1.14": [
+            "**/*Interface*daml",
+        ],
     },
     lf_versions = lf_version_configuration_versions,
     maven_name_prefix = "test",
@@ -134,7 +160,7 @@ da_scala_dar_resources_library(
                 ],
             ),
         ]
-        for test_name in test_names
+        for test_name in test_names.get(target, [])
     ]
     for target in lf_version_configuration_versions
 ]

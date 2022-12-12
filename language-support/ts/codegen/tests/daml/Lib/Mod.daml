@@ -15,3 +15,22 @@ template NonTopLevel with
     party: Party
   where
     signatory party
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface Other where
+  viewtype EmptyInterfaceView
+  getOtherOwner : Party
+  somethingImpl : Update ()
+  choice Something : ()
+    controller getOtherOwner this
+    do
+      somethingImpl this
+  choice Overridden : ()
+    controller getOtherOwner this
+    do
+      somethingImpl this
+  choice PeerIfaceOverload : ()
+    controller getOtherOwner this
+    do
+      somethingImpl this

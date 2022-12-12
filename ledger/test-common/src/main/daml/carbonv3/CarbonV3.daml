@@ -1,0 +1,17 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module CarbonV3 where
+
+import CarbonV2
+
+data RetroView = RetroView with
+  value : Int
+
+interface RetroI where
+  viewtype RetroView
+  getA: Int
+  interface instance RetroI for CarbonV2.T where
+    getA = a
+    view = RetroView with
+      value = a

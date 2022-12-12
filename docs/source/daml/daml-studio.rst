@@ -6,13 +6,13 @@ Daml Studio
 
 Daml Studio is an integrated development environment (IDE) for Daml. It is an extension on top of `Visual Studio Code <https://code.visualstudio.com>`__ (VS Code), a cross-platform, open-source editor providing a `rich code editing experience <https://code.visualstudio.com/docs/editor/editingevolved>`__.
 
-Installing
-**********
+Install
+*******
 
 Daml Studio is included in :doc:`the Daml SDK </getting-started/installation>`.
 
-Creating your first Daml file
-*****************************
+Create Your First Daml File
+***************************
 
 1. Start Daml Studio by running ``daml studio`` in the current project.
 
@@ -24,6 +24,7 @@ Creating your first Daml file
    2. Click on the Daml Studio extension that should be listed on the pane.
 
    .. image:: daml-studio/images/daml_studio_extension_view.png
+      :alt: The Daml Studio extension page in Visual Studio Code, as shown when you click on Daml Studio in the extension.
 
 3. Open a new file (``⌘N``) and save it (``⌘S``) as ``Test.daml``.
 4. Copy the following code into your file:
@@ -34,11 +35,13 @@ Creating your first Daml file
 Your screen should now look like the image below.
 
    .. image:: daml-studio/images/daml_studio_extension_double_correct.png
+      :alt: Visual Studio Code displays Test.daml, with the code snippet you copied above.
 
 5. Introduce a parse error by deleting the ``=`` sign and then clicking the
    Ⓧ symbol on the lower-left corner. Your screen should now look like the image below.
 
    .. image:: daml-studio/images/daml_studio_extension_double_wrong.png
+      :alt: The line with the error is underlined with a wavy red line. A second pane below the original is open to the Problems tab, which describes the Parse error.
 
 6. Remove the parse error by restoring the ``=`` sign.
 
@@ -47,14 +50,14 @@ We recommend reviewing the
 to learn more about how to use it.
 To learn more about Daml, see :doc:`reference/index`.
 
-Supported features
+Supported Features
 ******************
 
 Visual Studio Code provides many helpful features for editing Daml files and we recommend reviewing
 `Visual Studio Code Basics <https://code.visualstudio.com/docs/editor/codebasics>`__ and `Visual Studio Code Keyboard Shortcuts for OS X <https://code.visualstudio.com/shortcuts/keyboard-shortcuts-macos.pdf>`_.
 The Daml Studio extension for Visual Studio Code provides the following Daml-specific features:
 
-Symbols and problem reporting
+Symbols and Problem Reporting
 =============================
 
 Use the commands listed below to navigate between symbols, rename them, and inspect any problems detected in your Daml files. Symbols are identifiers such as template names,
@@ -90,7 +93,7 @@ Command                      Shortcut (OS X)
 .. _Go to Symbol in Workspace: https://code.visualstudio.com/docs/editor/editingevolved#_open-symbol-by-name
 .. _Problems Panel: https://code.visualstudio.com/docs/editor/editingevolved#_errors-warnings
 
-Hover tooltips
+Hover Tooltips
 ==============
 
 You can `hover`_ over most symbols in the code to display additional information such as its type.
@@ -99,8 +102,8 @@ You can `hover`_ over most symbols in the code to display additional information
 
 .. _script-results:
 
-Daml Script results
-================================
+Daml Script Results
+===================
 
 Top-level declarations of type ``Script`` are decorated with
 a ``Script results`` code lens.
@@ -115,8 +118,7 @@ contract and finally you get one column per party with an ``X`` if the
 party can see the contract or a ``-`` if not.
 
 .. figure:: daml-studio/images/daml_studio_script_table.png
-   :scale: 70%
-   :align: center
+   :alt: The table as described above, with the associated script in the left panel.
 
 If you want more details, you can click on the *Show archived* checkbox, which extends
 the table to include archived contracts, and on the *Show detailed disclosure* checkbox,
@@ -137,8 +139,7 @@ archived ``Bank`` contract and the active ``Bank`` contract whose creation
 created it.
 
 .. figure:: daml-studio/images/daml_studio_script_table_detailed.png
-   :scale: 70%
-   :align: center
+   :alt: The table as described above, with the associated script in the left panel. "Show archived" and "Show detailed disclosure" are now selected.
 
 If you want to see the detailed transaction graph you can click on the
 ``Show transaction view`` button. The transaction graph
@@ -149,8 +150,7 @@ fetches of contracts.
 For example a script for the :download:`Iou<daml-studio/daml/Iou.daml>` module looks as follows:
 
 .. figure:: daml-studio/images/daml_studio_script_transaction.png
-   :scale: 70%
-   :align: center
+   :alt: The graph transaction view as described above, with the associated script in the left panel.
 
    Script results
 
@@ -174,7 +174,7 @@ You can navigate to the corresponding source code by clicking on the location
 shown in parenthesis (e.g. ``Iou:25:12``, which means the ``Iou`` module, line 25 and column 1).
 You can also navigate between transactions by clicking on the transaction and contract ids (e.g. ``#1:0``).
 
-Daml snippets
+Daml Snippets
 =============
 
 You can automatically complete a number of "snippets" when editing a Daml
@@ -194,6 +194,7 @@ your user settings in Visual Studio Code to include the following options:
 With those changes in place, you can simply hit ``Tab`` after a keyword to insert the code pattern.
 
 .. image:: daml-studio/images/daml_studio_snippet_demo.gif
+   :alt: An animation showing the snippet autocomplete feature in use. After typing three letters, potential values for the rest of the snippet appear and can be selected by pressing the Tab key.
 
 You can develop your own snippets by following the instructions in
 `Creating your own Snippets`_ to create an appropriate ``daml.json``
@@ -202,8 +203,8 @@ snippet file.
 .. _Creating your own Snippets: https://code.visualstudio.com/docs/editor/userdefinedsnippets
 
 
-Common script errors
-**********************
+Common Script Errors
+********************
 
 During Daml execution, errors can occur due to exceptions (e.g. use of "abort", or division by zero), or
 due to authorization failures. You can expect to run into the following errors when writing Daml.
@@ -226,7 +227,7 @@ Committed transaction
 Trace
    Any messages produced by calls to ``trace`` and ``debug``.
 
-Abort, assert, and debug
+Abort, Assert, and Debug
 ========================
 
 The ``abort``, ``assert`` and ``debug`` inbuilt functions can be used in updates and scripts. All three can be used to output messages, but ``abort`` and ``assert`` can additionally halt the execution:
@@ -248,7 +249,7 @@ The ``abort``, ``assert`` and ``debug`` inbuilt functions can be used in updates
       "hello, world!"
 
 
-Missing authorization on create
+Missing Authorization on Create
 ===============================
 
 If a contract is being created without approval from all authorizing
@@ -282,7 +283,7 @@ authorize the creation via a choice, for example 'Alice' could create a contract
 giving 'Bob' the choice to create the 'Example' contract.
 
 
-Missing authorization on exercise
+Missing Authorization on Exercise
 =================================
 
 Similarly to creates, exercises can also fail due to missing authorizations when a
@@ -317,7 +318,7 @@ choice 'Consume' of which he is not a controller
     Committed transactions:
       TX #0 1970-01-01T00:00:00Z (unknown source)
       #0:0
-      │   known to (since): 'Alice' (#0), 'Bob' (#0)
+      │   disclosed to (since): 'Alice' (#0), 'Bob' (#0)
       └─> create ExerciseAuthFailure:Example
           with
             owner = 'Alice'; friend = 'Bob'
@@ -325,7 +326,7 @@ choice 'Consume' of which he is not a controller
 From the error we can see that the parties authorizing the exercise ('Bob')
 is not a subset of the required controlling parties.
 
-Contract not visible
+Contract Not Visible
 ====================
 
 Contract not being visible is another common error that can occur when a contract
@@ -357,7 +358,7 @@ to exercise the contract the following error would occur:
     Committed transactions:
       TX #0 1970-01-01T00:00:00Z (unknown source)
       #0:0
-      │   known to (since): 'Alice' (#0)
+      │   disclosed to (since): 'Alice' (#0)
       └─> create NotVisibleFailure:Example
           with
             owner = 'Alice'
@@ -366,8 +367,8 @@ To fix this issue the party 'Bob' should be made a controlling party in one of t
 
 .. _daml-studio-packages:
 
-Working with multiple packages
-******************************
+Work with Multiple Packages
+***************************
 
 Often a Daml project consists of multiple packages, e.g., one
 containing your templates and one containing a Daml trigger so that

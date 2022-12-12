@@ -97,8 +97,8 @@ build:linux --action_env=LOCALE_ARCHIVE
 build:windows --action_env=JAVA_HOME
 
 # Tell bazel to use the nixpkgs Haskell toolchain on Linux and Darwin
-build:linux --host_platform=@rules_haskell//haskell/platforms:linux_x86_64_nixpkgs
-build:darwin --host_platform=@rules_haskell//haskell/platforms:darwin_x86_64_nixpkgs
+build:linux --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
+build:darwin --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
 # and GHC's gcc on Windows
 build:windows --crosstool_top=@rules_haskell_ghc_windows_amd64//:cc_toolchain
 
@@ -137,6 +137,3 @@ test:windows --test_env=ComSpec
 build -c opt
 
 try-import %workspace%/.bazelrc.local
-
-# Get some info from git available to rules with stamp=1
-build --workspace_status_command "bash workspace_status.sh"

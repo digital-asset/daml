@@ -41,4 +41,10 @@ export const shortenContractId = shortenHash;
 //     - just shorten the entire identifier to 12 characters
 export const shortenPartyId = shortenPrefixedId("::");
 
-export const shortenTemplateId = shortenPrefixedId("@");
+export const shortenContractTypeId = shortenPrefixedId("@");
+
+export function removePkgIdFromContractTypeId(id: string): string {
+  const separator = "@";
+  const parts = id.split(separator);
+  return parts.length === 2 ? parts[0] : id;
+}

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.api.util
+
 import java.time.Duration
 
 trait ToleranceWindow {

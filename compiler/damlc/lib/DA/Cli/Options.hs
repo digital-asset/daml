@@ -6,8 +6,9 @@ module DA.Cli.Options
   ) where
 
 import Data.List.Extra     (lower, splitOn, trim)
+import Options.Applicative hiding (option, strOption)
+import qualified Options.Applicative (option, strOption)
 import Options.Applicative.Extended
-import Safe (lastMay)
 import Data.List
 import Data.Maybe
 import qualified DA.Pretty           as Pretty
@@ -19,6 +20,7 @@ import DA.Daml.Project.Types
 import qualified DA.Service.Logger as Logger
 import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
+import qualified Data.Text as T
 
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
@@ -54,7 +56,7 @@ inputFileRstOpt = inputFileOptWithExt ".rst"
 
 targetSrcDirOpt :: Parser (Maybe FilePath)
 targetSrcDirOpt =
-    option (Just <$> str) $
+    optionOnce (Just <$> str) $
     metavar "TARGET_SRC_DIR"
     <> help "Optional target directory to write created sources to"
     <> long "srcdir"
@@ -62,14 +64,14 @@ targetSrcDirOpt =
 
 qualOpt :: Parser (Maybe String)
 qualOpt =
-    option (Just <$> str) $
+    optionOnce (Just <$> str) $
     metavar "QUALIFICATION" <>
     help "Optional qualification to append to generated module name." <>
     long "qualify" <>
     value Nothing
 
 outputFileOpt :: Parser String
-outputFileOpt = strOption $
+outputFileOpt = strOptionOnce $
        metavar "FILE"
     <> help "Output file (use '-' for stdout)"
     <> short 'o'
@@ -77,7 +79,7 @@ outputFileOpt = strOption $
     <> value "-"
 
 optionalOutputFileOpt :: Parser (Maybe String)
-optionalOutputFileOpt = option (Just <$> str) $
+optionalOutputFileOpt = optionOnce (Just <$> str) $
        metavar "FILE"
     <> help "Optional output file (defaults to <PACKAGE-NAME>.dar)"
     <> short 'o'
@@ -85,7 +87,7 @@ optionalOutputFileOpt = option (Just <$> str) $
     <> value Nothing
 
 targetFileNameOpt :: Parser (Maybe String)
-targetFileNameOpt = option (Just <$> str) $
+targetFileNameOpt = optionOnce (Just <$> str) $
         metavar "DAR_NAME"
         <> help "Target file name of DAR package"
         <> long "dar-name"
@@ -97,7 +99,7 @@ packageNameOpt = fmap GHC.stringToUnitId $ argument str $
     <> help "Name of the Daml package"
 
 lfVersionOpt :: Parser LF.Version
-lfVersionOpt = option (str >>= select) $
+lfVersionOpt = optionOnce (str >>= select) $
        metavar "DAML-LF-VERSION"
     <> help ("Daml-LF version to output: " ++ versionsStr)
     <> long "target"
@@ -117,14 +119,14 @@ lfVersionOpt = option (str >>= select) $
         -> readerError $ "Unknown Daml-LF version: " ++ versionsStr
 
 dotFileOpt :: Parser (Maybe FilePath)
-dotFileOpt = option (Just <$> str) $
+dotFileOpt = optionOnce (Just <$> str) $
        metavar "FILE"
     <> help "Name of the dot file to be generated."
     <> long "dot"
     <> value Nothing
 
 htmlOutFile :: Parser FilePath
-htmlOutFile = strOption $
+htmlOutFile = strOptionOnce $
     metavar "FILE"
     <> help "Name of the HTML file to be generated"
     <> short 'o'
@@ -193,7 +195,7 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
         projectRootOpt =
             optional $
             fmap ProjectPath $
-            strOption $
+            strOptionOnce $
             long "project-root" <>
             help
                 (mconcat
@@ -222,36 +224,115 @@ enableScenariosOpt = EnableScenarios <$>
             "Enable/disable support for scenarios as a language feature. \
             \If disabled, defining top-level scenarios is a compile-time error"
 
-dlintEnabledOpt :: Parser DlintUsage
-dlintEnabledOpt = DlintEnabled
-  <$> strOption
-  ( long "with-dlint"
-    <> metavar "DIR"
-    <> internal
-    <> help "Enable linting with 'dlint.yaml' directory"
-  )
-  <*> switch
-  ( long "allow-overrides"
-    <> internal
-    <> help "Allow '.dlint.yaml' configuration overrides"
-  )
+allowLargeTuplesOpt :: Parser AllowLargeTuples
+allowLargeTuplesOpt = AllowLargeTuples <$>
+    flagYesNoAuto "disable-warn-large-tuples" False desc internal
+    where
+        desc = "Do not warn when tuples of size > 5 are used."
 
-dlintDisabledOpt :: Parser DlintUsage
-dlintDisabledOpt = flag' DlintDisabled
-  ( long "without-dlint"
-    <> internal
-    <> help "Disable dlint"
-  )
+dlintRulesFileParser :: Parser DlintRulesFile
+dlintRulesFileParser =
+  lastOr DefaultDlintRulesFile $
+    defaultDlintRulesFile <|> explicitDlintRulesFile
+  where
+    defaultDlintRulesFile =
+      flag' DefaultDlintRulesFile
+        ( long "lint-default-rules"
+          <> internal
+          <> help "Use the default rules file for linting"
+        )
+    explicitDlintRulesFile =
+      ExplicitDlintRulesFile <$> strOptionOnce
+        ( long "lint-rules-file"
+          <> metavar "FILE"
+          <> internal
+          <> help "Use FILE as the rules file for linting"
+        )
 
-dlintUsageOpt :: Parser DlintUsage
-dlintUsageOpt = fmap (fromMaybe DlintDisabled . lastMay) $
-  many (dlintEnabledOpt <|> dlintDisabledOpt)
+dlintHintFilesParser :: Parser DlintHintFiles
+dlintHintFilesParser =
+  lastOr ImplicitDlintHintFile $
+    implicitDlintHintFile <|> explicitDlintHintFiles <|> clearDlintHintFiles
+  where
+    implicitDlintHintFile =
+      flag' ImplicitDlintHintFile
+        ( long "lint-implicit-hint-file"
+          <> internal
+          <> help "Use the first '.dlint.yaml' file found in the \
+                  \project directory or any parent thereof, or, failing that, \
+                  \in the home directory of the current user."
+        )
+    explicitDlintHintFiles =
+      fmap ExplicitDlintHintFiles $
+        some $ Options.Applicative.strOption
+          ( long "lint-hint-file"
+            <> metavar "FILE"
+            <> internal
+            <> help "Add FILE as a hint file for linting. Any implicit \
+                    \'.dlint.yaml' files will be ignored."
+          )
+    clearDlintHintFiles =
+      flag' NoDlintHintFiles
+        ( long "lint-no-hint-files"
+          <> internal
+          <> help "Use no hint files for linting. This also ignores any \
+                  \implicit '.dlint.yaml' files"
+        )
 
+dlintOptionsParser :: Parser DlintOptions
+dlintOptionsParser = DlintOptions
+  <$> dlintRulesFileParser
+  <*> dlintHintFilesParser
+
+-- | Use @'disabledDlintUsageParser'@ as the @Parser DlintUsage@ argument of
+-- @optionsParser@ for commands that never perform any linting.
+--
+-- No lint related options will appear for the user.
+disabledDlintUsageParser :: Parser DlintUsage
+disabledDlintUsageParser = pure DlintDisabled
+
+-- | Use @'enabledDlintUsageParser'@ as the @Parser DlintUsage@ argument of
+-- @optionsParser@ for commands that always perform linting.
+--
+-- The options that modify linting settings will be available, but not the ones
+-- for enabling/disabling linting itself.
+enabledDlintUsageParser :: Parser DlintUsage
+enabledDlintUsageParser = DlintEnabled <$> dlintOptionsParser
+
+-- | Use @'optionalDlintUsageParser' enabled@ as the @Parser DlintUsage@
+-- argument of @optionsParser@ for commands where the user can decide whether
+-- or not to perform linting.
+--
+-- @enabled@ sets the default behavior if the user doesn't explicitly enable or
+-- disable linting.
+--
+-- The options that modify linting settings will be available, as well as
+-- two options for enabling/disabling linting.
+optionalDlintUsageParser :: Bool -> Parser DlintUsage
+optionalDlintUsageParser def =
+  fromParsed
+    <$> lastOr def (enableDlint <|> disableDlint)
+    <*> dlintOptionsParser
+  where
+    fromParsed enabled options
+      | enabled = DlintEnabled options
+      | otherwise = DlintDisabled
+
+    enableDlint = flag' True
+      ( long "with-dlint"
+        <> internal
+        <> help "Enable dlint"
+      )
+    disableDlint = flag' False
+      ( long "without-dlint"
+        <> internal
+        <> help "Disable dlint"
+      )
 
 cliOptLogLevel :: Parser Logger.Priority
 cliOptLogLevel =
     flag' Logger.Debug (long "debug" <> help "Set log level to DEBUG") <|>
-    option readLogLevel (long "log-level" <> help "Set log level. Possible values are DEBUG, INFO, WARNING, ERROR" <> value Logger.Info)
+    optionOnce readLogLevel (long "log-level" <> help "Set log level. Possible values are DEBUG, INFO, WARNING, ERROR" <> value Logger.Info)
   where
     readLogLevel = maybeReader $ \s -> case lower s of
         -- we support telemetry log-level for debugging purposes.
@@ -264,15 +345,15 @@ cliOptLogLevel =
 
 
 optPackageName :: Parser (Maybe GHC.UnitId)
-optPackageName = optional $ fmap GHC.stringToUnitId $ strOption $
+optPackageName = optional $ fmap GHC.stringToUnitId $ strOptionOnce $
        metavar "PACKAGE-NAME"
     <> help "create package artifacts for the given package name"
     <> long "package-name"
 
 -- | Parametrized by the type of pkgname parser since we want that to be different for
 -- "package".
-optionsParser :: Int -> EnableScenarioService -> Parser (Maybe GHC.UnitId) -> Parser Options
-optionsParser numProcessors enableScenarioService parsePkgName = do
+optionsParser :: Int -> EnableScenarioService -> Parser (Maybe GHC.UnitId) -> Parser DlintUsage -> Parser Options
+optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage = do
     let parseUnitId Nothing = (Nothing, Nothing)
         parseUnitId (Just unitId) = case splitUnitId unitId of
             (name, mbVersion) -> (Just name, mbVersion)
@@ -292,7 +373,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     optGhcCustomOpts <- optGhcCustomOptions
     let optScenarioService = enableScenarioService
     let optSkipScenarioValidation = SkipScenarioValidation False
-    optDlintUsage <- dlintUsageOpt
+    optDlintUsage <- parseDlintUsage
     optIsGenerated <- optIsGenerated
     optDflagCheck <- optNoDflagCheck
     let optCoreLinting = False
@@ -302,11 +383,13 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     let optEnableOfInterestRule = False
     optCppPath <- optCppPath
     optEnableScenarios <- enableScenariosOpt
+    optAllowLargeTuples <- allowLargeTuplesOpt
+    optTestFilter <- compilePatternExpr <$> optTestPattern
 
     return Options{..}
   where
     optAccessTokenPath :: Parser (Maybe FilePath)
-    optAccessTokenPath = optional . option str
+    optAccessTokenPath = optional . optionOnce str
         $ metavar "PATH"
         <> long "access-token-file"
         <> help "Path to the token-file for ledger authorization."
@@ -314,19 +397,19 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     optImportPath :: Parser [FilePath]
     optImportPath =
         many $
-        strOption $
+        Options.Applicative.strOption $
         metavar "INCLUDE-PATH" <>
         help "Path to an additional source directory to be included" <>
         long "include"
 
     optPackageDir :: Parser [FilePath]
-    optPackageDir = many $ strOption $ metavar "LOC-OF-PACKAGE-DB"
+    optPackageDir = many $ Options.Applicative.strOption $ metavar "LOC-OF-PACKAGE-DB"
                       <> help "use package database in the given location"
                       <> long "package-db"
 
     optPackageImport :: Parser PackageFlag
     optPackageImport =
-      option readPackageImport $
+      Options.Applicative.option readPackageImport $
       metavar "PACKAGE" <>
       help "explicit import of a package with optional renaming of modules" <>
       long "package" <>
@@ -379,6 +462,18 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
         long "generated-src" <>
         internal
 
+    optTestPattern :: Parser (Maybe String)
+    optTestPattern = optional . optionOnce str
+        $ metavar "PATTERN"
+        <> long "test-pattern"
+        <> short 'p'
+        <> help "Only scripts with names containing the given pattern will be executed."
+
+    compilePatternExpr :: Maybe String -> (T.Text -> Bool)
+    compilePatternExpr = \case
+      Nothing -> const True
+      Just needle ->  T.isInfixOf (T.pack needle)
+
     -- optparse-applicative does not provide a nice way
     -- to make the argument for -j optional, see
     -- https://github.com/pcapriotti/optparse-applicative/issues/243
@@ -387,7 +482,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
         flag' numProcessors
           (short 'j' <>
            internal) <|>
-        option auto
+        optionOnce auto
           (long "jobs" <>
            metavar "THREADS" <>
            help threadsHelp <>
@@ -410,7 +505,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
       internal
 
     optCppPath :: Parser (Maybe FilePath)
-    optCppPath = optional . option str
+    optCppPath = optional . optionOnce str
         $ metavar "PATH"
         <> long "cpp"
         <> help "Set path to CPP."
@@ -419,13 +514,13 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
 optGhcCustomOptions :: Parser [String]
 optGhcCustomOptions =
     fmap concat $ many $
-    option (stringsSepBy ' ') $
+    Options.Applicative.option (stringsSepBy ' ') $
     long "ghc-option" <>
     metavar "OPTION" <>
     help "Options to pass to the underlying GHC"
 
 shakeProfilingOpt :: Parser (Maybe FilePath)
-shakeProfilingOpt = optional $ strOption $
+shakeProfilingOpt = optional $ strOptionOnce $
        metavar "PROFILING-REPORT"
     <> help "Directory for Shake profiling reports"
     <> long "shake-profiling"

@@ -12,10 +12,10 @@ import scala.Ordering.Implicits.infixOrderingOps
 private[validation] object DependencyVersion {
 
   @throws[ValidationError]
-  def checkPackage(interface: language.PackageInterface, pkgId: PackageId, pkg: Package): Unit =
+  def checkPackage(pkgInterface: language.PackageInterface, pkgId: PackageId, pkg: Package): Unit =
     for {
       depPkgId <- pkg.directDeps
-      depPkg = Util.handleLookup(NoContext, interface.lookupPackage(depPkgId))
+      depPkg = Util.handleLookup(Context.None, pkgInterface.lookupPackage(depPkgId))
       if pkg.languageVersion < depPkg.languageVersion
     } throw EModuleVersionDependencies(
       pkgId,

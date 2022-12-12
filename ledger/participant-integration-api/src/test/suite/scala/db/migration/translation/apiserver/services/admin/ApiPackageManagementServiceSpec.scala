@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.time.Duration
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import java.util.zip.ZipInputStream
 import akka.stream.scaladsl.Source
@@ -36,6 +35,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
+import scala.concurrent.duration.Duration
 
 class ApiPackageManagementServiceSpec
     extends AsyncWordSpec
@@ -94,7 +94,7 @@ class ApiPackageManagementServiceSpec
       mockIndexPackagesService,
       mockIndexTransactionsService,
       TestWritePackagesService,
-      Duration.ZERO,
+      Duration.Zero,
       mockEngine,
       mockDarReader,
       _ => Ref.SubmissionId.assertFromString("aSubmission"),

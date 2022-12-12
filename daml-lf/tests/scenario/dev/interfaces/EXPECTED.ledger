@@ -1,0 +1,31 @@
+transactions:
+TX #0 1970-01-01T00:00:00Z [Test:83] version: dev
+#0:0 version: dev
+│   archived by #0:3
+│   referenced by #0:1, #0:2, #0:3
+│   disclosed to (since): alice (#0)
+└─> create Test:Asset@XXXXXXXX
+    with: { issuer = 'alice', owner = 'alice', amount = 15 }
+
+#0:1 version: dev
+│   disclosed to (since): alice (#0)
+└─> alice exercises Noop:Test:Token@XXXXXXXX on 00fa6dbc32b678ec8a97ed0de226e397a4e2d521097b879d0146979556e7cd3e58
+    with { nothing = <unit> }
+    
+
+#0:2 version: dev
+│   disclosed to (since): alice (#0)
+└─> ensure active 00fa6dbc32b678ec8a97ed0de226e397a4e2d521097b879d0146979556e7cd3e58
+
+#0:3 version: dev
+│   disclosed to (since): alice (#0)
+└─> alice exercises GetRich:Test:Token@XXXXXXXX on 00fa6dbc32b678ec8a97ed0de226e397a4e2d521097b879d0146979556e7cd3e58
+    with { byHowMuch = 20 }
+    children:
+    #0:4 version: dev
+    │   disclosed to (since): alice (#0)
+    └─> create Test:Asset@XXXXXXXX
+        with: { issuer = 'alice', owner = 'alice', amount = 35 }
+
+active contracts:
+   007ca7c47f307ac5b31adcaab1f611d0cda964fc31fbe2075537118caca42e1869

@@ -5,11 +5,11 @@ package com.daml.http
 
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.daml.ledger.api.domain.User
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
-import com.daml.scalautil.nonempty.NonEmpty
-import com.daml.scalautil.nonempty.NonEmptyReturningOps._
+import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps._
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._
@@ -17,17 +17,20 @@ import scalaz.std.vector._
 import scalaz.syntax.apply.^
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, OneAnd, Traverse, \/, \/-}
+import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, Traverse, \/, \/-}
 import spray.json.JsValue
+import scalaz.syntax.tag._
 
 import scala.annotation.tailrec
 
 package object domain extends com.daml.fetchcontracts.domain.Aliases {
+  import scalaz.{@@, Tag}
+
   type InputContractRef[LfV] =
-    (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId)
+    (ContractTypeId.Template.OptionalPkg, LfV) \/ (Option[ContractTypeId.OptionalPkg], ContractId)
 
   type ResolvedContractRef[LfV] =
-    (TemplateId.RequiredPkg, LfV) \/ (TemplateId.RequiredPkg, ContractId)
+    (ContractTypeId.Template.RequiredPkg, LfV) \/ (ContractTypeId.RequiredPkg, ContractId)
 
   type LedgerIdTag = lar.LedgerIdTag
   type LedgerId = lar.LedgerId
@@ -44,12 +47,27 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
   type CommandId = lar.CommandId
   val CommandId = lar.CommandId
 
-  type LfType = iface.Type
+  type SubmissionId = String @@ SubmissionIdTag
+  val SubmissionId = Tag.of[SubmissionIdTag]
+
+  type LfType = typesig.Type
+
+  type RetryInfoDetailDuration = scala.concurrent.duration.Duration @@ RetryInfoDetailDurationTag
+  val RetryInfoDetailDuration = Tag.of[RetryInfoDetailDurationTag]
+
+  type CompletionOffset = String @@ CompletionOffsetTag
+  val CompletionOffset = Tag.of[CompletionOffsetTag]
 }
 
 package domain {
 
   import com.daml.fetchcontracts.domain.`fc domain ErrorOps`
+  import com.daml.ledger.api.v1.commands.Commands
+  import com.daml.lf.data.Ref.HexString
+
+  sealed trait SubmissionIdTag
+
+  sealed trait CompletionOffsetTag
 
   trait JwtPayloadTag
 
@@ -104,9 +122,9 @@ package domain {
     }
   }
 
-  case class Contract[LfV](value: ArchivedContract \/ ActiveContract[LfV])
+  case class Contract[LfV](value: ArchivedContract \/ ActiveContract.ResolvedCtTyId[LfV])
 
-  case class ArchivedContract(contractId: ContractId, templateId: TemplateId.RequiredPkg)
+  case class ArchivedContract(contractId: ContractId, templateId: ContractTypeId.RequiredPkg)
 
   final case class FetchRequest[+LfV](
       locator: ContractLocator[LfV],
@@ -120,12 +138,12 @@ package domain {
   sealed abstract class ContractLocator[+LfV] extends Product with Serializable
 
   final case class EnrichedContractKey[+LfV](
-      templateId: TemplateId.OptionalPkg,
+      templateId: ContractTypeId.Template.OptionalPkg,
       key: LfV,
   ) extends ContractLocator[LfV]
 
   final case class EnrichedContractId(
-      templateId: Option[TemplateId.OptionalPkg],
+      templateId: Option[ContractTypeId.OptionalPkg],
       contractId: domain.ContractId,
   ) extends ContractLocator[Nothing]
 
@@ -135,25 +153,26 @@ package domain {
   )
 
   final case class GetActiveContractsRequest(
-      templateIds: OneAnd[Set, TemplateId.OptionalPkg],
+      templateIds: NonEmpty[Set[ContractTypeId.OptionalPkg]],
       query: Map[String, JsValue],
       readAs: Option[NonEmptyList[Party]],
-  )
-
-  final case class SearchForeverQuery(
-      templateIds: OneAnd[Set, TemplateId.OptionalPkg],
-      query: Map[String, JsValue],
-      offset: Option[domain.Offset],
   )
 
   final case class SearchForeverRequest(
       queriesWithPos: NonEmptyList[(SearchForeverQuery, Int)]
   )
 
+  final case class SearchForeverQuery(
+      templateIds: NonEmpty[Set[ContractTypeId.OptionalPkg]],
+      query: Map[String, JsValue],
+      offset: Option[domain.Offset],
+  )
+
   final case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
 
   sealed abstract class UserRight extends Product with Serializable
   final case object ParticipantAdmin extends UserRight
+  final case object IdentityProviderAdmin extends UserRight
   final case class CanActAs(party: Party) extends UserRight
   final case class CanReadAs(party: Party) extends UserRight
 
@@ -161,11 +180,11 @@ package domain {
     import com.daml.ledger.api.domain.{UserRight => LedgerUserRight}, com.daml.lf.data.Ref
     import scalaz.syntax.traverse._
     import scalaz.syntax.std.either._
-    import scalaz.syntax.tag._
 
     def toLedgerUserRights(input: List[UserRight]): String \/ List[LedgerUserRight] =
       input.traverse {
         case ParticipantAdmin => \/.right(LedgerUserRight.ParticipantAdmin)
+        case IdentityProviderAdmin => \/.right(LedgerUserRight.IdentityProviderAdmin)
         case CanActAs(party) =>
           Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanActAs).disjunction
         case CanReadAs(party) =>
@@ -175,6 +194,7 @@ package domain {
     def fromLedgerUserRights(input: Seq[LedgerUserRight]): List[UserRight] = input
       .map[domain.UserRight] {
         case LedgerUserRight.ParticipantAdmin => ParticipantAdmin
+        case LedgerUserRight.IdentityProviderAdmin => IdentityProviderAdmin
         case LedgerUserRight.CanActAs(party) =>
           CanActAs(Party(party: String))
         case LedgerUserRight.CanReadAs(party) =>
@@ -214,41 +234,77 @@ package domain {
 
   final case class AllocatePartyRequest(identifierHint: Option[Party], displayName: Option[String])
 
+  sealed abstract class DeduplicationPeriod extends Product with Serializable {
+    def toProto: Commands.DeduplicationPeriod =
+      this match {
+        case DeduplicationPeriod.Duration(millis) =>
+          Commands.DeduplicationPeriod.DeduplicationDuration(
+            com.google.protobuf.duration.Duration(java.time.Duration.ofMillis(millis))
+          )
+        case DeduplicationPeriod.Offset(offset) =>
+          Commands.DeduplicationPeriod
+            .DeduplicationOffset(offset)
+      }
+  }
+
+  object DeduplicationPeriod {
+    final case class Duration(durationInMillis: Long) extends domain.DeduplicationPeriod
+    final case class Offset(offset: HexString) extends domain.DeduplicationPeriod
+  }
+
   final case class CommandMeta(
       commandId: Option[CommandId],
       actAs: Option[NonEmptyList[Party]],
       readAs: Option[List[Party]],
+      submissionId: Option[SubmissionId],
+      deduplicationPeriod: Option[domain.DeduplicationPeriod],
   )
 
-  final case class CreateCommand[+LfV, TmplId](
+  final case class CreateCommand[+LfV, +TmplId](
       templateId: TmplId,
       payload: LfV,
       meta: Option[CommandMeta],
   ) {
-    def traversePayload[G[_]: Applicative, LfVB](
+    def traversePayload[G[_]: Applicative, LfVB, TmplId0 >: TmplId](
         f: LfV => G[LfVB]
-    ): G[CreateCommand[LfVB, TmplId]] =
-      Bitraverse[CreateCommand].leftTraverse.traverse(this)(f)
+    ): G[CreateCommand[LfVB, TmplId0]] =
+      Bitraverse[CreateCommand].leftTraverse[TmplId0].traverse(this)(f)
   }
 
   final case class ExerciseCommand[+LfV, +Ref](
       reference: Ref,
       choice: domain.Choice,
       argument: LfV,
+      // passing a template ID is allowed; we distinguish internally
+      choiceInterfaceId: Option[ContractTypeId.OptionalPkg],
       meta: Option[CommandMeta],
   )
 
-  final case class CreateAndExerciseCommand[+Payload, +Arg, +TmplId](
+  final case class CreateAndExerciseCommand[+Payload, +Arg, +TmplId, +IfceId](
       templateId: TmplId,
       payload: Payload,
       choice: domain.Choice,
       argument: Arg,
+      // passing a template ID is allowed; we distinguish internally
+      choiceInterfaceId: Option[IfceId],
       meta: Option[CommandMeta],
+  )
+
+  final case class CreateCommandResponse[+LfV](
+      contractId: ContractId,
+      templateId: ContractTypeId.Template.RequiredPkg,
+      key: Option[LfV],
+      payload: LfV,
+      signatories: Seq[Party],
+      observers: Seq[Party],
+      agreementText: String,
+      completionOffset: CompletionOffset,
   )
 
   final case class ExerciseResponse[LfV](
       exerciseResult: LfV,
       events: List[Contract[LfV]],
+      completionOffset: CompletionOffset,
   )
 
   object PartyDetails {
@@ -260,12 +316,6 @@ package domain {
 
   object Contract {
 
-    def fromTransaction(
-        tx: lav1.transaction.Transaction
-    ): Error \/ List[Contract[lav1.value.Value]] = {
-      tx.events.toList.traverse(fromEvent(_))
-    }
-
     def fromTransactionTree(
         tx: lav1.transaction.TransactionTree
     ): Error \/ Vector[Contract[lav1.value.Value]] = {
@@ -275,18 +325,7 @@ package domain {
         .map(_.flatten)
     }
 
-    def fromEvent(event: lav1.event.Event): Error \/ Contract[lav1.value.Value] =
-      event.event match {
-        case lav1.event.Event.Event.Created(created) =>
-          ActiveContract.fromLedgerApi(created).map(a => Contract[lav1.value.Value](\/-(a)))
-        case lav1.event.Event.Event.Archived(archived) =>
-          ArchivedContract.fromLedgerApi(archived).map(a => Contract[lav1.value.Value](-\/(a)))
-        case lav1.event.Event.Event.Empty =>
-          val errorMsg = s"Expected either Created or Archived event, got: Empty"
-          -\/(Error(Symbol("Contract_fromLedgerApi"), errorMsg))
-      }
-
-    def fromTreeEvent(
+    private[this] def fromTreeEvent(
         eventsById: Map[String, lav1.transaction.TreeEvent]
     )(eventId: String): Error \/ Vector[Contract[lav1.value.Value]] = {
       @tailrec
@@ -298,7 +337,9 @@ package domain {
           eventsById(head).kind match {
             case lav1.transaction.TreeEvent.Kind.Created(created) =>
               val a =
-                ActiveContract.fromLedgerApi(created).map(a => Contract[lav1.value.Value](\/-(a)))
+                ActiveContract
+                  .fromLedgerApi(domain.ActiveContract.IgnoreInterface, created)
+                  .map(a => Contract[lav1.value.Value](\/-(a)))
               val newAcc = ^(acc, a)(_ :+ _)
               loop(tail, newAcc)
             case lav1.transaction.TreeEvent.Kind.Exercised(exercised) =>
@@ -322,14 +363,16 @@ package domain {
     implicit val covariant: Traverse[Contract] = new Traverse[Contract] {
 
       override def map[A, B](fa: Contract[A])(f: A => B): Contract[B] = {
-        val valueB: ArchivedContract \/ ActiveContract[B] = fa.value.map(a => a.map(f))
+        val valueB: ArchivedContract \/ ActiveContract.ResolvedCtTyId[B] =
+          fa.value.map(a => a.map(f))
         Contract(valueB)
       }
 
       override def traverseImpl[G[_]: Applicative, A, B](
           fa: Contract[A]
       )(f: A => G[B]): G[Contract[B]] = {
-        val valueB: G[ArchivedContract \/ ActiveContract[B]] = fa.value.traverse(a => a.traverse(f))
+        val valueB: G[ArchivedContract \/ ActiveContract.ResolvedCtTyId[B]] =
+          fa.value.traverse(a => a.traverse(f))
         valueB.map(x => Contract[B](x))
       }
     }
@@ -337,35 +380,49 @@ package domain {
 
   private[http] object ActiveContractExtras {
     // only used in integration tests
-    implicit val `AcC hasTemplateId`: HasTemplateId[ActiveContract] =
-      new HasTemplateId[ActiveContract] {
-        override def templateId(fa: ActiveContract[_]): TemplateId.OptionalPkg =
-          TemplateId(
-            Some(fa.templateId.packageId),
-            fa.templateId.moduleName,
-            fa.templateId.entityName,
-          )
+    implicit val `AcC hasTemplateId`: HasTemplateId.Compat[ActiveContract.ResolvedCtTyId] =
+      new HasTemplateId[ActiveContract.ResolvedCtTyId] {
+        override def templateId(fa: ActiveContract.ResolvedCtTyId[_]): ContractTypeId.OptionalPkg =
+          (fa.templateId: ContractTypeId.RequiredPkg).map(Some(_))
+
+        type TypeFromCtId = LfType
 
         override def lfType(
-            fa: ActiveContract[_],
-            templateId: TemplateId.RequiredPkg,
+            fa: ActiveContract.ResolvedCtTyId[_],
+            templateId: ContractTypeId.Resolved,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
         ): Error \/ LfType =
-          f(templateId)
-            .leftMap(e => Error(Symbol("ActiveContract_hasTemplateId_lfType"), e.shows))
+          templateId match {
+            case tid: ContractTypeId.Template.Resolved =>
+              f(tid: ContractTypeId.Template.Resolved)
+                .leftMap(e => Error(Symbol("ActiveContract_hasTemplateId_lfType"), e.shows))
+            case other =>
+              val errorMsg = s"Expect contract type Id to be template Id, got otherwise: $other"
+              -\/(Error(Symbol("ActiveContract_hasTemplateId_lfType"), errorMsg))
+          }
       }
   }
 
   object ArchivedContract {
-    def fromLedgerApi(in: lav1.event.ArchivedEvent): Error \/ ArchivedContract =
+    def fromLedgerApi(
+        resolvedQuery: domain.ResolvedQuery,
+        in: lav1.event.ArchivedEvent,
+    ): Error \/ ArchivedContract = {
+      val resolvedTemplateId = resolvedQuery match {
+        case ResolvedQuery.ByInterfaceId(interfaceId) =>
+          \/-(interfaceId)
+        case _ =>
+          (in.templateId required "templateId").map(ContractTypeId.Template.fromLedgerApi)
+      }
       for {
-        templateId <- in.templateId required "templateId"
+        templateId <- resolvedTemplateId
       } yield ArchivedContract(
         contractId = ContractId(in.contractId),
-        templateId = TemplateId fromLedgerApi templateId,
+        templateId = templateId,
       )
+    }
 
     def fromLedgerApi(in: lav1.event.ExercisedEvent): Error \/ Option[ArchivedContract] =
       if (in.consuming) {
@@ -374,7 +431,7 @@ package domain {
         } yield Some(
           ArchivedContract(
             contractId = ContractId(in.contractId),
-            templateId = TemplateId.fromLedgerApi(templateId),
+            templateId = ContractTypeId.Template fromLedgerApi templateId,
           )
         )
       } else {
@@ -424,20 +481,30 @@ package domain {
       }
     }
 
-    implicit val hasTemplateId: HasTemplateId[EnrichedContractKey] =
+    implicit val hasTemplateId: HasTemplateId.Compat[EnrichedContractKey] =
       new HasTemplateId[EnrichedContractKey] {
 
-        override def templateId(fa: EnrichedContractKey[_]): TemplateId.OptionalPkg = fa.templateId
+        override def templateId(fa: EnrichedContractKey[_]): ContractTypeId.OptionalPkg =
+          fa.templateId
+
+        type TypeFromCtId = LfType
 
         override def lfType(
             fa: EnrichedContractKey[_],
-            templateId: TemplateId.RequiredPkg,
+            templateId: ContractTypeId.Resolved,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
-        ): Error \/ LfType =
-          h(templateId)
-            .leftMap(e => Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), e.shows))
+        ): Error \/ LfType = {
+          templateId match {
+            case tid: ContractTypeId.Template.Resolved =>
+              h(tid: ContractTypeId.Template.Resolved)
+                .leftMap(e => Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), e.shows))
+            case other =>
+              val errorMsg = s"Expect contract type Id to be template Id, got otherwise: $other"
+              -\/(Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), errorMsg))
+          }
+        }
       }
   }
 
@@ -450,37 +517,46 @@ package domain {
       }
     }
 
-    implicit def hasTemplateId[Off]: HasTemplateId[ContractKeyStreamRequest[Off, *]] =
+    implicit def hasTemplateId[Off]: HasTemplateId.Compat[ContractKeyStreamRequest[Off, *]] =
       HasTemplateId.by[ContractKeyStreamRequest[Off, *]](_.ekey)
   }
 
   trait HasTemplateId[F[_]] {
-    def templateId(fa: F[_]): TemplateId.OptionalPkg
+    def templateId(fa: F[_]): ContractTypeId.OptionalPkg
+
+    type TypeFromCtId
 
     def lfType(
         fa: F[_],
-        templateId: TemplateId.RequiredPkg,
+        templateId: ContractTypeId.Resolved,
         f: PackageService.ResolveTemplateRecordType,
         g: PackageService.ResolveChoiceArgType,
         h: PackageService.ResolveKeyType,
-    ): Error \/ LfType
+    ): Error \/ TypeFromCtId
   }
 
   object HasTemplateId {
+    type Compat[F[_]] = Aux[F, LfType]
+    type Aux[F[_], TFC0] = HasTemplateId[F] { type TypeFromCtId = TFC0 }
+
     def by[F[_]]: By[F] = new By[F](0)
 
     final class By[F[_]](private val ign: Int) extends AnyVal {
-      def apply[G[_]](nt: F[_] => G[_])(implicit basis: HasTemplateId[G]): HasTemplateId[F] =
+      def apply[G[_]](
+          nt: F[_] => G[_]
+      )(implicit basis: HasTemplateId[G]): Aux[F, basis.TypeFromCtId] =
         new HasTemplateId[F] {
           override def templateId(fa: F[_]) = basis templateId nt(fa)
 
+          type TypeFromCtId = basis.TypeFromCtId
+
           override def lfType(
               fa: F[_],
-              templateId: TemplateId.RequiredPkg,
+              templateId: ContractTypeId.Resolved,
               f: PackageService.ResolveTemplateRecordType,
               g: PackageService.ResolveChoiceArgType,
               h: PackageService.ResolveKeyType,
-          ) = basis.lfType(nt(fa), templateId, f, g, h)
+          ): Error \/ TypeFromCtId = basis.lfType(nt(fa), templateId, f, g, h)
         }
     }
   }
@@ -507,31 +583,61 @@ package domain {
     implicit val leftTraverseInstance: Traverse[ExerciseCommand[+*, Nothing]] =
       bitraverseInstance.leftTraverse
 
-    implicit val hasTemplateId =
+    implicit val hasTemplateId: HasTemplateId.Aux[ExerciseCommand[
+      +*,
+      domain.ContractLocator[_],
+    ], (Option[domain.ContractTypeId.Interface.Resolved], LfType)] =
       new HasTemplateId[ExerciseCommand[+*, domain.ContractLocator[_]]] {
 
         override def templateId(
             fab: ExerciseCommand[_, domain.ContractLocator[_]]
-        ): TemplateId.OptionalPkg = {
-          fab.reference match {
+        ): ContractTypeId.OptionalPkg =
+          fab.choiceInterfaceId getOrElse (fab.reference match {
             case EnrichedContractKey(templateId, _) => templateId
             case EnrichedContractId(Some(templateId), _) => templateId
             case EnrichedContractId(None, _) =>
               throw new IllegalArgumentException(
                 "Please specify templateId, optional templateId is not supported yet!"
               )
-          }
-        }
+          })
+
+        type TypeFromCtId = (Option[domain.ContractTypeId.Interface.Resolved], LfType)
 
         override def lfType(
             fa: ExerciseCommand[_, domain.ContractLocator[_]],
-            templateId: TemplateId.RequiredPkg,
+            templateId: ContractTypeId.Resolved,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
-        ): Error \/ LfType =
+        ) =
           g(templateId, fa.choice)
             .leftMap(e => Error(Symbol("ExerciseCommand_hasTemplateId_lfType"), e.shows))
+      }
+  }
+
+  object CreateAndExerciseCommand {
+    type LAVUnresolved = CreateAndExerciseCommand[
+      lav1.value.Record,
+      lav1.value.Value,
+      domain.ContractTypeId.Template.OptionalPkg,
+      domain.ContractTypeId.OptionalPkg,
+    ]
+
+    type LAVResolved = CreateAndExerciseCommand[
+      lav1.value.Record,
+      lav1.value.Value,
+      domain.ContractTypeId.Template.RequiredPkg,
+      domain.ContractTypeId.RequiredPkg,
+    ]
+
+    implicit def covariant[P, Ar]: Bitraverse[CreateAndExerciseCommand[P, Ar, *, *]] =
+      new Bitraverse[CreateAndExerciseCommand[P, Ar, *, *]] {
+        override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
+            fa: CreateAndExerciseCommand[P, Ar, A, B]
+        )(f: A => G[C], g: B => G[D]): G[CreateAndExerciseCommand[P, Ar, C, D]] =
+          ^(f(fa.templateId), fa.choiceInterfaceId traverse g) { (tId, ciId) =>
+            fa.copy(templateId = tId, choiceInterfaceId = ciId)
+          }
       }
   }
 
@@ -543,11 +649,27 @@ package domain {
         val gb: G[B] = f(fa.exerciseResult)
         val gbs: G[List[Contract[B]]] = fa.events.traverse(_.traverse(f))
         ^(gb, gbs) { (exerciseResult, events) =>
-          ExerciseResponse(
+          fa.copy(
             exerciseResult = exerciseResult,
             events = events,
           )
         }
+      }
+    }
+  }
+  object CreateCommandResponse {
+    implicit val covariant: Traverse[CreateCommandResponse] = new Traverse[CreateCommandResponse] {
+
+      override def map[A, B](fa: CreateCommandResponse[A])(f: A => B): CreateCommandResponse[B] =
+        fa.copy(key = fa.key map f, payload = f(fa.payload))
+
+      override def traverseImpl[G[_]: Applicative, A, B](
+          fa: CreateCommandResponse[A]
+      )(f: A => G[B]): G[CreateCommandResponse[B]] = {
+        import scalaz.syntax.apply._
+        val gk: G[Option[B]] = fa.key traverse f
+        val ga: G[B] = f(fa.payload)
+        ^(gk, ga)((k, a) => fa.copy(key = k, payload = a))
       }
     }
   }
@@ -562,10 +684,40 @@ package domain {
       status: StatusCode = StatusCodes.OK,
   ) extends SyncResponse[R]
 
+  sealed trait RetryInfoDetailDurationTag
+
+  sealed trait ErrorDetail extends Product with Serializable
+  final case class ResourceInfoDetail(name: String, typ: String) extends ErrorDetail
+  final case class ErrorInfoDetail(errorCodeId: String, metadata: Map[String, String])
+      extends ErrorDetail
+  final case class RetryInfoDetail(duration: RetryInfoDetailDuration) extends ErrorDetail
+  final case class RequestInfoDetail(correlationId: String) extends ErrorDetail
+
+  object ErrorDetail {
+    import com.daml.error.utils.ErrorDetails
+    def fromErrorUtils(errorDetail: ErrorDetails.ErrorDetail): domain.ErrorDetail =
+      errorDetail match {
+        case ErrorDetails.ResourceInfoDetail(name, typ) => domain.ResourceInfoDetail(name, typ)
+        case ErrorDetails.ErrorInfoDetail(errorCodeId, metadata) =>
+          domain.ErrorInfoDetail(errorCodeId, metadata)
+        case ErrorDetails.RetryInfoDetail(duration) =>
+          domain.RetryInfoDetail(domain.RetryInfoDetailDuration(duration))
+        case ErrorDetails.RequestInfoDetail(correlationId) =>
+          domain.RequestInfoDetail(correlationId)
+      }
+  }
+
+  final case class LedgerApiError(
+      code: Int,
+      message: String,
+      details: Seq[ErrorDetail],
+  )
+
   final case class ErrorResponse(
       errors: List[String],
       warnings: Option[ServiceWarning],
       status: StatusCode,
+      ledgerApiError: Option[LedgerApiError] = None,
   ) extends SyncResponse[Nothing]
 
   object OkResponse {
@@ -593,7 +745,7 @@ package domain {
 
   sealed abstract class ServiceWarning extends Serializable with Product
 
-  final case class UnknownTemplateIds(unknownTemplateIds: List[TemplateId.OptionalPkg])
+  final case class UnknownTemplateIds(unknownTemplateIds: List[ContractTypeId.OptionalPkg])
       extends ServiceWarning
 
   final case class UnknownParties(unknownParties: List[domain.Party]) extends ServiceWarning

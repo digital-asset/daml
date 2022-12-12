@@ -1,0 +1,16 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Interface2 where
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface I where
+    viewtype EmptyInterfaceView
+    getOwner : Party
+    nonconsuming choice ChoiceI2: ()
+      controller getOwner this
+      do pure ()
+    choice MyArchive : Text
+      controller getOwner this
+      do pure "Interface2.I"

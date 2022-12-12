@@ -16,7 +16,7 @@ Please refer to the specific Daml driver information for details about its pruni
        `EU's GDPR <https://gdpr-info.eu/>`_.
 .. [2] Invoking the Pruning Service requires administrative privileges.
 
-Impacts on Daml applications
+Impacts on Daml Applications
 ----------------------------
 
 When supported, pruning can be invoked by an operator with administrative privileges at any time on a healthy Daml participant; furthermore, it doesn't require stopping nor suspending normal operation.
@@ -34,7 +34,7 @@ Still, Daml applications may be affected in the following ways:
   
 During command submission, parties can fetch divulged contracts. This is incompatible with the pruning behaviour described above which allows participant operators to reclaim storage space by pruning divulged contracts. Daml code running on pruned participants should therefore never rely on existence of divulged contracts prior to or at the pruning offset. Instead, such applications MUST ensure re-divulgence of the used contracts.
 
-How the Daml Ledger API is affected
+How the Daml Ledger API is Affected
 -----------------------------------
 
 - Active data streams from the Daml Participant may abort and need to be re-established by the Daml application from a later offset than pruned, even if they are already streaming past it.
@@ -45,7 +45,7 @@ Submission validation and Daml Ledger API endpoints that write to the ledger are
 
 Please refer to the :doc:`protobuf documentation of the API </app-dev/grpc/proto-docs>` for details about the ``prune`` operation itself and the behavior of other Daml Ledger API endpoints when pruning is being or has been performed.
 
-Other limitations
+Other Limitations
 -----------------
 
 - Pruning may be rejected even if the node is running correctly (for example, to preserve non-repudiation properties); in this case, the application might not be able to archive contracts containing PII or pruning of these contracts may not be possible; thus, actually deleting this PII may also be technically unfeasible.
@@ -55,7 +55,7 @@ Other limitations
 
 .. [3] This might be improved in future versions.
 
-How Pruning affects Index DB administration
+How Pruning Affects Index DB Administration
 -------------------------------------------
 
 Pruning deletes data from the participant's database and therefore frees up space within it, which can and will be reused during the continued operation of the Index DB. Whether this freed up space is handed back to the OS depends on the database in use. For example, in PostgreSQL the deleted data frees up space in the table storage itself, but does not shrink the size of the files backing the tables of the IndexDB. Please refer to the PostgreSQL documentation on `VACUUM` and `VACUUM FULL` for more information.
@@ -70,8 +70,8 @@ Backing up and vacuuming, in addition to pruning itself, are also long-running a
 
 Professional advice on database administration is strongly recommended that would take into account the DB specifics as well as all of the above aspects.
 
-Determining a suitable pruning offset
--------------------------------------
+Determine a Suitable Pruning Offset
+-----------------------------------
 
 The :ref:`Transaction Service <transaction-service>` and the :ref:`Active Contract Service <active-contract-service>` provide offsets of the ledger end of the Transactions, and of Active Contracts snapshots respectively. Such offsets can be passed unchanged to `prune` calls, as long as they are lexicographically lower than the current ledger end.
 

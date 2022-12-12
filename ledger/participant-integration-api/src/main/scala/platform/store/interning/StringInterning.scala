@@ -3,13 +3,16 @@
 
 package com.daml.platform.store.interning
 
-import com.daml.lf.data.Ref
+import com.daml.platform.{Identifier, Party}
 
 /** The facade for all supported string-interning domains
+  *
+  * @note The accessors defined in this interface are thread-safe and can
+  *       be used concurrently with [[StringInterningView.internize]] and [[StringInterningView.update]].
   */
 trait StringInterning {
-  def templateId: StringInterningDomain[Ref.Identifier]
-  def party: StringInterningDomain[Ref.Party]
+  def templateId: StringInterningDomain[Identifier]
+  def party: StringInterningDomain[Party]
 }
 
 /** Composes a StringInterningAccessor for the domain-string type and an unsafe StringInterningAccessor for raw strings

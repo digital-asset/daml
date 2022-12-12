@@ -16,6 +16,7 @@ module "nix_cache" {
   project              = local.project
   region               = local.region
   ssl_certificate      = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/nix-cache"
+  ssl_policy           = google_compute_ssl_policy.ssl_policy.self_link
   cache_retention_days = 360
 }
 

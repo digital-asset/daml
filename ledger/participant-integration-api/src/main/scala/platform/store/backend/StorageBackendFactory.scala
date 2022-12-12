@@ -5,6 +5,11 @@ package com.daml.platform.store.backend
 
 import com.daml.platform.store.DbType
 import com.daml.platform.store.backend.h2.H2StorageBackendFactory
+import com.daml.platform.store.backend.localstore.{
+  IdentityProviderStorageBackend,
+  PartyRecordStorageBackend,
+  UserManagementStorageBackend,
+}
 import com.daml.platform.store.backend.oracle.OracleStorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackendFactory
 import com.daml.platform.store.cache.LedgerEndCache
@@ -16,6 +21,7 @@ trait StorageBackendFactory {
   def createMeteringParameterStorageBackend: MeteringParameterStorageBackend
   def createConfigurationStorageBackend(ledgerEndCache: LedgerEndCache): ConfigurationStorageBackend
   def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend
+  def createPartyRecordStorageBackend: PartyRecordStorageBackend
   def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend
   def createCompletionStorageBackend(stringInterning: StringInterning): CompletionStorageBackend
   def createContractStorageBackend(
@@ -32,6 +38,7 @@ trait StorageBackendFactory {
   def createResetStorageBackend: ResetStorageBackend
   def createStringInterningStorageBackend: StringInterningStorageBackend
   def createUserManagementStorageBackend: UserManagementStorageBackend
+  def createIdentityProviderConfigStorageBackend: IdentityProviderStorageBackend
   def createMeteringStorageReadBackend(ledgerEndCache: LedgerEndCache): MeteringStorageReadBackend
   def createMeteringStorageWriteBackend: MeteringStorageWriteBackend
 

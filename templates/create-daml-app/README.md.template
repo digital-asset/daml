@@ -46,7 +46,7 @@ This starts a server on `http://localhost:3000` which:
 - Builds all of your TypeScript (or JavaScript) code (including type
   definitions from the codegen).
 - Serves the result on :3000, redirecting `/v1` to the JSON API server (on
-  `localhost:7575`) so API calls are on the same origin as far as your browser
+  `127.0.0.1:7575`) so API calls are on the same origin as far as your browser
   is concerned.
 - Watch for changes in TS/JS code (including codegen), and immediately rebuild.
 

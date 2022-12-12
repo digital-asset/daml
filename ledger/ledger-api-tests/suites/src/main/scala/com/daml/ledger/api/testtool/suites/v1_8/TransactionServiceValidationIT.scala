@@ -17,7 +17,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
     "A query with an empty transaction filter should be rejected with an INVALID_ARGUMENT status",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.getTransactionsRequest(Seq(party))
+    val request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
     val requestWithEmptyFilter = request.update(_.filter.filtersByParty := Map.empty)
     for {
       failure <- ledger
@@ -41,7 +41,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
       earlier <- ledger.currentEnd()
       _ <- ledger.create(party, Dummy(party))
       later <- ledger.currentEnd()
-      request = ledger.getTransactionsRequest(Seq(party))
+      request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
       invalidRequest = request.update(_.begin := later, _.end := earlier)
       failure <- ledger
         .flatTransactions(invalidRequest)
@@ -62,7 +62,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
     val invalidRequest = ledger
-      .getTransactionsRequest(Seq(party))
+      .getTransactionsRequest(ledger.transactionFilter(Seq(party)))
       .update(_.ledgerId := invalidLedgerId)
     for {
       failure <- ledger
@@ -84,7 +84,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
     val invalidRequest = ledger
-      .getTransactionsRequest(Seq(party))
+      .getTransactionsRequest(ledger.transactionFilter(Seq(party)))
       .update(_.ledgerId := invalidLedgerId)
     for {
       failure <- ledger

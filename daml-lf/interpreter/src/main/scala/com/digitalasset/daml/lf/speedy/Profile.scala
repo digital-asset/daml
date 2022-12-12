@@ -9,7 +9,7 @@ import com.daml.lf.language.Ast
 import com.daml.scalautil.Statement.discard
 import java.lang.System
 import java.nio.file.{Files, Path}
-import java.util.ArrayList
+import java.util
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
@@ -41,7 +41,7 @@ import scala.jdk.CollectionConverters._
 final class Profile {
   import Profile._
   private val start: Long = System.nanoTime()
-  private[lf] val events: ArrayList[Event] = new ArrayList()
+  private[lf] val events: util.ArrayList[Event] = ArrayList.empty
   var name: String = "Daml Engine profile"
 
   def addOpenEvent(label: Label): Unit = {
@@ -125,8 +125,8 @@ object Profile {
       implicit val fileFormat = jsonFormat6(FileJson.apply)
     }
 
-    case class EventJson(`type`: String, at: Long, frame: Int)
-    case class ProfileJson(
+    final case class EventJson(`type`: String, at: Long, frame: Int)
+    final case class ProfileJson(
         `type`: String,
         name: String,
         unit: String,
@@ -134,9 +134,9 @@ object Profile {
         endValue: Long,
         events: List[EventJson],
     )
-    case class FrameJson(name: String)
-    case class SharedJson(frames: List[FrameJson])
-    case class FileJson(
+    final case class FrameJson(name: String)
+    final case class SharedJson(frames: List[FrameJson])
+    final case class FileJson(
         `$schema`: String,
         profiles: List[ProfileJson],
         shared: SharedJson,
@@ -154,8 +154,8 @@ object Profile {
       def fromProfile(profile: Profile) = {
         import scala.collection.mutable.HashMap
 
-        val frames = new ArrayList[FrameJson]()
-        val frameIndices = new HashMap[String, Int]()
+        val frames = ArrayList.empty[FrameJson]
+        val frameIndices = HashMap.empty[String, Int]
         var endValue = 0L
         val events = profile.events.asScala.toList.map { event =>
           val eventType = if (event.open) "O" else "C"
@@ -197,7 +197,7 @@ object Profile {
 
   final case class CreateAndExerciseLabel(tplId: Ref.DefinitionRef, choiceId: Ref.ChoiceName)
 
-  sealed trait ScenarioLabel
+  sealed abstract class ScenarioLabel extends Product with Serializable
 
   final case object SubmitLabel extends ScenarioLabel
   final case object SubmitMustFailLabel extends ScenarioLabel
@@ -238,19 +238,22 @@ object Profile {
       implicit val anonClosure: Allowed[AnonymousClosure.type] = allowAll
       implicit val lfDefRef: Allowed[LfDefRef] = allowAll
       implicit val createDefRef: Allowed[CreateDefRef] = allowAll
-      implicit val createByInterfaceDefRef: Allowed[CreateByInterfaceDefRef] = allowAll
+      implicit val templatePreConditionDefRef: Allowed[TemplatePreConditionDefRef] = allowAll
       implicit val signatoriesDefRef: Allowed[SignatoriesDefRef] = allowAll
       implicit val observersDefRef: Allowed[ObserversDefRef] = allowAll
-      implicit val implementsMethodDefRef: Allowed[ImplementsMethodDefRef] = allowAll
-      implicit val choiceDefRef: Allowed[ChoiceDefRef] = allowAll
-      implicit val guardedChoiceDefRef: Allowed[GuardedChoiceDefRef] = allowAll
-      implicit val fetchDefRef: Allowed[FetchDefRef] = allowAll
+      implicit val interfaceInstanceMethodDefRef: Allowed[InterfaceInstanceMethodDefRef] = allowAll
+      implicit val interfaceInstanceViewDefRef: Allowed[InterfaceInstanceViewDefRef] = allowAll
+      implicit val templateChoiceDefRef: Allowed[TemplateChoiceDefRef] = allowAll
+      implicit val interfaceChoiceDefRef: Allowed[InterfaceChoiceDefRef] = allowAll
+      implicit val fetchTemplateDefRef: Allowed[FetchTemplateDefRef] = allowAll
+      implicit val fetchInterfaceDefRef: Allowed[FetchInterfaceDefRef] = allowAll
       implicit val choiceByKeyDefRef: Allowed[ChoiceByKeyDefRef] = allowAll
       implicit val fetchByKeyDefRef: Allowed[FetchByKeyDefRef] = allowAll
       implicit val lookupByKeyDefRef: Allowed[LookupByKeyDefRef] = allowAll
+      implicit val contractKeyWithMaintainersDefRef: Allowed[ContractKeyWithMaintainersDefRef] =
+        allowAll
       implicit val createAndExerciseLabel: Allowed[CreateAndExerciseLabel] = allowAll
       implicit val exceptionMessageDefRef: Allowed[ExceptionMessageDefRef] = allowAll
-      implicit val interfacePrecondDefRef: Allowed[InterfacePrecondDefRef] = allowAll
       implicit val scenarioLabel: Allowed[ScenarioLabel] = allowAll
       implicit val exprVarName: Allowed[Ast.ExprVarName] = allowAll
 
@@ -262,17 +265,21 @@ object Profile {
           case AnonymousClosure => "<lambda>"
           case LfDefRef(ref) => ref.qualifiedName.toString()
           case CreateDefRef(tmplRef) => s"create @${tmplRef.qualifiedName}"
-          case CreateByInterfaceDefRef(tmplRef, iface) =>
-            s"creatByInterface @${tmplRef.qualifiedName} @${iface.qualifiedName}"
+          case TemplatePreConditionDefRef(tmplRef) => s"ensures @${tmplRef.qualifiedName}"
           case SignatoriesDefRef(tmplRef) => s"signatories @${tmplRef.qualifiedName}"
           case ObserversDefRef(tmplRef) => s"observers @${tmplRef.qualifiedName}"
+          case ContractKeyWithMaintainersDefRef(tmplRef) => s"key @${tmplRef.qualifiedName}"
           case ToCachedContractDefRef(tmplRef) => s"toAnyContract @${tmplRef.qualifiedName}"
-          case ImplementsMethodDefRef(tmplRef, ifaceId, methodName) =>
-            s"implementsMethod @${tmplRef.qualifiedName} @${ifaceId.qualifiedName} ${methodName}"
-          case ChoiceDefRef(tmplRef, name) => s"exercise @${tmplRef.qualifiedName} ${name}"
-          case GuardedChoiceDefRef(tmplRef, name) =>
-            s"guarded exercise @${tmplRef.qualifiedName} ${name}"
-          case FetchDefRef(tmplRef) => s"fetch @${tmplRef.qualifiedName}"
+          case InterfaceInstanceMethodDefRef(ii, methodName) =>
+            s"interfaceInstanceMethod @${ii.parent.qualifiedName} @${ii.interfaceId.qualifiedName} @${ii.templateId.qualifiedName} ${methodName}"
+          case InterfaceInstanceViewDefRef(ii) =>
+            s"interfaceInstanceView @${ii.parent.qualifiedName} @${ii.interfaceId.qualifiedName} @${ii.templateId.qualifiedName}"
+          case TemplateChoiceDefRef(tmplRef, name) =>
+            s"exercise @${tmplRef.qualifiedName} ${name}"
+          case InterfaceChoiceDefRef(ifaceRef, name) =>
+            s"exercise @${ifaceRef.qualifiedName} ${name}"
+          case FetchTemplateDefRef(tmplRef) => s"fetch_template @${tmplRef.qualifiedName}"
+          case FetchInterfaceDefRef(ifaceRef) => s"fetch_interface @${ifaceRef.qualifiedName}"
           case ChoiceByKeyDefRef(tmplRef, name) =>
             s"exerciseByKey @${tmplRef.qualifiedName} ${name}"
           case FetchByKeyDefRef(tmplRef) => s"fetchByKey @${tmplRef.qualifiedName}"

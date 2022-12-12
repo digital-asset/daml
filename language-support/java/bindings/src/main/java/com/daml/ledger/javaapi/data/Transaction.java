@@ -10,7 +10,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class Transaction implements WorkflowEvent {
+public final class Transaction implements WorkflowEvent {
 
   private final String transactionId;
 

@@ -3,15 +3,15 @@
 
 package com.daml.platform.sandbox.auth
 
-import java.time.Duration
-
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.platform.sandbox.services.SubmitAndWaitDummyCommand
 import com.daml.platform.testing.StreamConsumer
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import com.daml.timer.Delayed
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
 
+import java.time.Duration
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NonFatal
@@ -50,12 +50,18 @@ trait ExpiringStreamServiceCallAuthTests[T]
   private def canReadAsMainActorExpiresInFiveSeconds =
     toHeader(expiringIn(Duration.ofSeconds(5), readOnlyToken(mainActor)))
 
-  it should "break a stream in flight upon read-only token expiration" in {
+  it should "break a stream in flight upon read-only token expiration" taggedAs securityAsset
+    .setAttack(
+      streamAttack(threat = "Present a read-only JWT upon expiration")
+    ) in {
     val _ = Delayed.Future.by(10.seconds)(submitAndWaitAsMainActor())
     expectExpiration(canReadAsMainActorExpiresInFiveSeconds).map(_ => succeed)
   }
 
-  it should "break a stream in flight upon read/write token expiration" in {
+  it should "break a stream in flight upon read/write token expiration" taggedAs securityAsset
+    .setAttack(
+      streamAttack(threat = "Present a read/write JWT upon expiration")
+    ) in {
     val _ = Delayed.Future.by(10.seconds)(submitAndWaitAsMainActor())
     expectExpiration(canActAsMainActorExpiresInFiveSeconds).map(_ => succeed)
   }

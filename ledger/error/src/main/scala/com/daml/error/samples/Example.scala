@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error.samples
+
 import scala.concurrent.duration._
 
 import com.daml.error.definitions.DamlError
@@ -29,7 +30,7 @@ object DummmyServer {
       Some("full-correlation-id-123456790"),
     )
 
-    case class Error(_message: String) extends DamlError(cause = _message) {
+    case class Error(message: String) extends DamlError(cause = message) {
 
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.ContractId -> "someContractId"

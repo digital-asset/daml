@@ -27,6 +27,8 @@ proto_jars(
         "@com_google_protobuf//:descriptor_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:field_mask_proto",
+        "@com_google_protobuf//:struct_proto",
         "@com_google_protobuf//:timestamp_proto",
         "@com_google_protobuf//:wrappers_proto",
         "@go_googleapis//google/rpc:errdetails_proto",
@@ -44,6 +46,8 @@ genrule(
         "Duration.hs",
         "Empty.hs",
         "Wrappers.hs",
+        "Struct.hs",
+        "FieldMask.hs",
     ]],
     cmd = """
         for src in \
@@ -51,6 +55,8 @@ genrule(
             external/com_google_protobuf/src/google/protobuf/duration.proto \
             external/com_google_protobuf/src/google/protobuf/empty.proto \
             external/com_google_protobuf/src/google/protobuf/wrappers.proto \
+            external/com_google_protobuf/src/google/protobuf/struct.proto \
+            external/com_google_protobuf/src/google/protobuf/field_mask.proto \
         ; do
             $(location @proto3-suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
@@ -99,6 +105,7 @@ ledger_api_haskellpb_sources = [
     "CommandService.hs",
     "CommandSubmissionService.hs",
     "Commands.hs",
+    "ContractMetadata.hs",
     "Completion.hs",
     "Event.hs",
     "LedgerConfigurationService.hs",
@@ -175,6 +182,8 @@ ledger_api_haskellpb_sources_admin = [
     "PackageManagementService.hs",
     "PartyManagementService.hs",
     "MeteringReportService.hs",
+    "ObjectMeta.hs",
+    "UserManagementService.hs",
 ]
 
 genrule(

@@ -31,14 +31,14 @@ Daml Assistant (``daml``)
 
    Note that you need to update your `project config file <#configuration-files>` to use the new version.
 
-Full help for commands
+Full Help for Commands
 **********************
 
 To see information about any command, run it with ``--help``.
 
 .. _daml-yaml-configuration:
 
-Configuration files
+Configuration Files
 *******************
 
 The Daml assistant and the SDK are configured using two files:
@@ -48,7 +48,7 @@ The Daml assistant and the SDK are configured using two files:
 
 .. _global_daml_config:
 
-Global config file (``daml-config.yaml``)
+Global Config File (``daml-config.yaml``)
 =========================================
 
 The global config file ``daml-config.yaml`` is in the ``daml`` home directory (``~/.daml`` on Linux and Mac, ``C:/Users/<user>/AppData/Roaming/daml`` on Windows). It controls options related to SDK version installation and upgrades.
@@ -73,7 +73,7 @@ Here is an example ``daml-config.yaml``:
    auto-install: true
    update-check: 86400
 
-Project config file (``daml.yaml``)
+Project Config File (``daml.yaml``)
 ===================================
 
 The project config file ``daml.yaml`` must be in the root of your Daml project directory. It controls how the Daml project is built and how tools like Sandbox and Navigator interact with it.
@@ -181,8 +181,8 @@ available warnings.
 
 .. _assistant-manual-building-dars:
 
-Building Daml projects
-**********************
+Build Daml Projects
+*******************
 
 To compile your Daml source code into a Daml archive (a ``.dar`` file), run::
 
@@ -205,8 +205,8 @@ The generated ``.dar`` file is created in ``.daml/dist/${name}.dar`` by default.
 
 .. _assistant-manual-managing-releases:
 
-Managing releases
-*****************
+Manage Releases
+***************
 
 You can manage SDK versions manually by using ``daml install``.
 
@@ -252,8 +252,8 @@ passing ``--bash-completions=yes`` or ``--bash-completions=no`` to ``daml instal
 
 .. _daml_project_dir:
 
-Running Commands outside of the Project Directory
-*************************************************
+Run Commands Outside of the Project Directory
+*********************************************
 
 In some cases, it can be convenient to run a command in a project
 without having to change directories. For that usecase, you can set

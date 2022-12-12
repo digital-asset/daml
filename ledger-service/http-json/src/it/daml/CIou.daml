@@ -1,0 +1,33 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module CIou where
+
+import IIou
+import Transferrable (Transferrable)
+import qualified Transferrable
+
+template CIou with
+    issuer : Party
+    owner : Party
+    amount : Text
+  where
+  signatory issuer
+  key issuer: Party
+  maintainer key
+
+  interface instance IIou for CIou where
+    view = AmountView with
+      amount
+    getOwner = owner
+
+  interface instance Transferrable for CIou where
+    view = Transferrable.AmountView with
+      amount
+    getOwner = owner
+
+  choice Overridden : Text with
+      echo : (Text, Text)
+    controller owner
+    do
+      pure $ show echo <> " invoked CIou.Overridden"

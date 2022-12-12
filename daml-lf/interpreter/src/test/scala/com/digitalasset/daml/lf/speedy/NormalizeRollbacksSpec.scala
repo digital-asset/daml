@@ -301,7 +301,6 @@ object NormalizeRollbackSpec {
       signatories = Set.empty,
       stakeholders = Set.empty,
       key = None,
-      byInterface = None,
       version = TransactionVersion.minVersion,
     )
 
@@ -314,6 +313,7 @@ object NormalizeRollbackSpec {
         Ref.PackageId.assertFromString("-dummyPkg-"),
         Ref.QualifiedName.assertFromString("DummyModule:dummyName"),
       ),
+      interfaceId = None,
       choiceId = Ref.Name.assertFromString("dummyChoice"),
       consuming = true,
       actingParties = Set.empty,
@@ -325,7 +325,6 @@ object NormalizeRollbackSpec {
       exerciseResult = None,
       key = None,
       byKey = false,
-      byInterface = None,
       version = TransactionVersion.minVersion,
     )
 }

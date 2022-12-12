@@ -37,7 +37,7 @@ object Error {
   final case class ContractNotActive(
       coid: ContractId,
       templateId: Identifier,
-      consumedBy: EventId,
+      consumedBy: Option[EventId],
   ) extends Error
 
   /** A fetch or exercise was being made against a contract that has not

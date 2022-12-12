@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Locking by state
-################
+Lock by State
+#############
 
 The original *Coin* template is shown below. This is the basis on which to implement locking by state
 
@@ -47,6 +47,7 @@ Here are the changes we made to the original *Coin* contract to make it lockable
 Locking By State Diagram
 
 .. figure:: ../images/lockingByStateChange.png
+   :alt: Locking by State diagram showing that the transfer choice is actionable only if the LockableCoin is unlocked.
 
 
 Trade-offs

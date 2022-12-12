@@ -31,6 +31,12 @@ object ErrorResource {
   object DalfPackage extends ErrorResource {
     def asString: String = "PACKAGE"
   }
+  object TemplateId extends ErrorResource {
+    def asString: String = "TEMPLATE_ID"
+  }
+  object InterfaceId extends ErrorResource {
+    def asString: String = "INTERFACE_ID"
+  }
   object LedgerId extends ErrorResource {
     def asString: String = "LEDGER_ID"
   }
@@ -42,5 +48,8 @@ object ErrorResource {
   }
   object User extends ErrorResource {
     def asString: String = "USER"
+  }
+  object IdentityProviderConfig extends ErrorResource {
+    def asString: String = "IDENTITY_PROVIDER_CONFIG"
   }
 }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.encoding
+
 import java.time.Instant
 
 import com.daml.ledger.client.binding.{Primitive => P}

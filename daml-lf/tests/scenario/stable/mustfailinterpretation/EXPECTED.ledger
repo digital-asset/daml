@@ -1,7 +1,7 @@
 transactions:
 TX #0 1970-01-01T00:00:00Z [Test:31] version: 14
 #0:0 version: 14
-│   known to (since): p (#0)
+│   disclosed to (since): p (#0)
 └─> create Test:Keyed@XXXXXXXX
     with: { p = 'p', v = 0 }
 key { _1 = 'p', _2 = 0 }
@@ -10,7 +10,7 @@ mustFailAt actAs: {'p'} readAs: {} [Test:36]
 
 TX #2 1970-01-01T00:00:00Z [Test:37] version: 14
 #2:0 version: 14
-│   known to (since): p (#2)
+│   disclosed to (since): p (#2)
 └─> create Test:Keyed@XXXXXXXX
     with: { p = 'p', v = 1 }
 key { _1 = 'p', _2 = 1 }

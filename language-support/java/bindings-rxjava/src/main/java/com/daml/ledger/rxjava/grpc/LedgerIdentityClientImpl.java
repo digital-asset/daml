@@ -3,36 +3,50 @@
 
 package com.daml.ledger.rxjava.grpc;
 
-import com.daml.grpc.adapter.ExecutionSequencerFactory;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 import com.daml.ledger.api.v1.LedgerIdentityServiceGrpc;
 import com.daml.ledger.api.v1.LedgerIdentityServiceOuterClass;
 import com.daml.ledger.rxjava.LedgerIdentityClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
-import com.daml.ledger.rxjava.util.CreateSingle;
 import io.grpc.Channel;
 import io.reactivex.Single;
+import java.time.Duration;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
+/** @deprecated ledger identity string is optional for all Ledger API requests since Daml 2.0.0 */
+@Deprecated
 public class LedgerIdentityClientImpl implements LedgerIdentityClient {
 
   private LedgerIdentityServiceGrpc.LedgerIdentityServiceFutureStub serviceStub;
+  private final Optional<Duration> timeout;
 
-  private final ExecutionSequencerFactory sequencerFactory;
+  /**
+   * @deprecated Pass a timeout or {@code Optional.empty()} as the third argument, since Daml 2.4.0
+   */
+  @Deprecated
+  public LedgerIdentityClientImpl(Channel channel, Optional<String> accessToken) {
+    this(channel, accessToken, Optional.empty());
+  }
 
   public LedgerIdentityClientImpl(
-      Channel channel, ExecutionSequencerFactory sequencerFactory, Optional<String> accessToken) {
+      Channel channel, Optional<String> accessToken, Optional<Duration> timeout) {
     this.serviceStub =
         StubHelper.authenticating(LedgerIdentityServiceGrpc.newFutureStub(channel), accessToken);
-    this.sequencerFactory = sequencerFactory;
+    this.timeout = timeout;
   }
 
   private Single<String> getLedgerIdentity(@NonNull Optional<String> accessToken) {
-    return CreateSingle.fromFuture(
+    this.serviceStub =
+        this.timeout
+            .map(t -> this.serviceStub.withDeadlineAfter(t.toMillis(), MILLISECONDS))
+            .orElse(this.serviceStub);
+
+    return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, accessToken)
                 .getLedgerIdentity(
-                    LedgerIdentityServiceOuterClass.GetLedgerIdentityRequest.getDefaultInstance()),
-            sequencerFactory)
+                    LedgerIdentityServiceOuterClass.GetLedgerIdentityRequest.getDefaultInstance()))
         .map(LedgerIdentityServiceOuterClass.GetLedgerIdentityResponse::getLedgerId);
   }
 

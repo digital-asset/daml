@@ -4,12 +4,8 @@
 package com.daml.platform.sandbox.services.identity
 
 import java.util.UUID
-import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundEach
-import com.daml.lf.data.Ref
-import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.matchers.should.Matchers
@@ -24,10 +20,9 @@ sealed trait LedgerIdentityServiceITBaseGiven
 
   private lazy val givenLedgerId: String = UUID.randomUUID.toString
 
-  override protected def config: SandboxConfig =
-    super.config.copy(ledgerIdMode =
-      LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(givenLedgerId)))
-    )
+  override def config = super.config.copy(
+    ledgerId = givenLedgerId
+  )
 
   // This test relies on inheriting from SuiteResourceManagementAroundEach to restart the ledger across test cases
 
@@ -53,10 +48,11 @@ sealed trait LedgerIdentityServiceITBaseDynamic
     with SandboxFixture
     with SuiteResourceManagementAroundEach {
 
-  override protected def config: SandboxConfig =
-    super.config.copy(ledgerIdMode = LedgerIdMode.Dynamic)
-
   @volatile private var firstRunLedgerId: String = _
+
+  override def config = super.config.copy(
+    ledgerId = UUID.randomUUID.toString
+  )
 
   // This test relies on inheriting from SuiteResourceManagementAroundEach to restart the ledger across test cases
 
@@ -87,14 +83,9 @@ final class LedgerIdentityServicePostgresDynamicSharedPostgresIT
     with SuiteResourceManagementAroundEach
     with PostgresAroundAll {
 
-  override protected def config: SandboxConfig =
-    super.config
-      .copy(
-        jdbcUrl = Some(postgresDatabase.url),
-        ledgerIdMode = Option(firstRunLedgerId).fold[LedgerIdMode](LedgerIdMode.Dynamic)(id =>
-          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))
-        ),
-      )
+  override def config = super.config.copy(
+    ledgerId = Option(firstRunLedgerId).fold(UUID.randomUUID.toString)(identity)
+  )
 
   @volatile private var firstRunLedgerId: String = _
 

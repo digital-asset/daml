@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Reference: templates
+Reference: Templates
 ####################
 
 This page gives reference information on templates:
@@ -10,7 +10,7 @@ For the structure of a template, see :doc:`structure`.
 
 .. _daml-ref-template-name:
 
-Template name
+Template Name
 *************
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -24,7 +24,7 @@ Template name
 
 .. _daml-ref-template-parameters:
 
-Template parameters
+Template Parameters
 *******************
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -37,7 +37,37 @@ Template parameters
 - A template parameter can't have the same name as any :ref:`choice arguments <daml-ref-choice-arguments>` inside the template.
 - For all parties involved in the contract (whether they're a ``signatory``, ``observer``, or ``controller``) you must pass them in as parameters to the contract, whether individually or as a list (``[Party]``).
 
-.. Template has an *associated* data type with the same name?
+.. _daml_ref-template-data:
+
+Implicit Record
+***************
+
+Whenever a template is defined, a record is implicitly defined with the same
+name and fields as that template. This record structure is used in Daml code to
+represent the data of a contract based on that template.
+
+Note that in the general case, the existence of a local binding ``b`` of type
+``T``, where ``T`` is a template (and thus also a record), does not necessarily
+imply the existence of a contract with the same data as ``b`` on the ledger.
+You can only assume the existence of such a contract if ``b`` is the result of
+a fetch from the ledger within the same transaction.
+
+You can create a new instance of a record of type ``T`` without any interaction
+with the ledger; in fact, this is how you construct a create command.
+
+.. _daml_ref-template-this:
+
+``this`` and ``self``
+*********************
+
+Within the body of a template we implicitly define a local binding ``this`` to
+represent the data of the current contract. For a template ``T``, this binding
+is of type ``T``, i.e. the implicit record defined by the template.
+
+Within choices, you can additionally use the binding ``self`` to refer to the
+contract ID of the current contract (the one on which the choice is being
+executed). For a contract of template ``T``, the ``self`` binding is of type
+``ContractId T``.
 
 .. _daml-ref-template-let:
 
@@ -51,11 +81,11 @@ Template-local Definitions
 
 - ``let`` keyword. Starts a block and is followed by any number of definitions, just like any other ``let`` block.
 - Template parameters as well as ``this`` are in scope, but ``self`` is not.
-- Definitions from the ``let`` block can be used anywhere else in the template's ``where`` block. 
+- Definitions from the ``let`` block can be used anywhere else in the template's ``where`` block.
 
 .. _daml-ref-signatories:
 
-Signatory parties
+Signatory Parties
 *****************
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -107,6 +137,31 @@ Choices
   Starting with ``choice`` lets you pass in a ``Party`` to use as a controller. But you must make sure to add that party as an ``observer``.
 - See :doc:`choices` for full reference information.
 
+Serializable Types
+******************
+
+Every parameter to a template, choice argument, and choice result must have a *serializable type*.
+This does not merely mean "convertible to bytes"; it has a specific meaning in Daml.
+The serializability rule serves three purposes:
+
+1. Offer a stable means to store ledger values permanently.
+2. Provide a sensible encoding of them over :doc:`/app-dev/ledger-api`.
+3. Provide sensible *types* that directly match their Daml counterparts in languages like Java for language codegen.
+
+For example, certain kinds of type parameters Daml offers are compatible with (1) and (2), but have no proper counterpart in (3), so they are disallowed.
+Similarly, function types have sensible Java counterparts, satisfying (3), but no reliable way to store or share them via the API, thus failing (1) and (2).
+
+The following types are *not serializable*, and thus may not be used in templates.
+
+- Function types.
+- Record types with any non-serializable field.
+- Variant types with any non-serializable value case.
+- Variant and enum types with no constructors.
+- References to a parameterized data type with any non-serializable type argument.
+  This applies whether or not the data type definition uses the type parameter.
+- Defined data types with any type parameter of kind ``Nat``, or any kind other than ``*``.
+  This means higher-kinded types, and types that take a parameter just to pass to ``Numeric``, are not serializable.
+
 .. _daml-ref-agreements:
 
 Agreements
@@ -140,7 +195,7 @@ Preconditions
 
 .. _daml-ref-maintainers:
 
-Contract keys and maintainers
+Contract Keys and Maintainers
 *****************************
 
 .. literalinclude:: ../code-snippets/Reference.daml
@@ -154,3 +209,20 @@ Contract keys and maintainers
 
   Because of this, the ``key`` must include the ``maintainer`` ``Party`` or parties (for example, as part of a tuple or record), and the ``maintainer`` must be a signatory.
 - For a full explanation, see :doc:`/daml/reference/contract-keys`.
+
+Interface Instances
+*******************
+
+.. literalinclude:: ../code-snippets-dev/Interfaces.daml
+   :language: daml
+   :start-after: -- INTERFACE_INSTANCE_IN_TEMPLATE_BEGIN
+   :end-before: -- INTERFACE_INSTANCE_IN_TEMPLATE_END
+
+- Used to make a template an instance of an existing interface.
+- The clause must start with the keywords ``interface instance``, followed by
+  the name of the interface, then the keyword ``for`` and the name of the
+  template (which must match the enclosing declaration), and finally the keyword
+  ``where``, which introduces a block where **all** the methods of the interface
+  must be implemented.
+- See :doc:`interfaces` for full reference information on interfaces, or
+  section :ref:`interface-instances` for interface instances specifically.

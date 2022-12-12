@@ -3,16 +3,30 @@
 
 module Interfaces where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface I1 where
+    viewtype EmptyInterfaceView
     getOwner1 : Party
     choice C1 : ()
         controller getOwner1 this
         do pure ()
 
 interface I2 where
+    viewtype EmptyInterfaceView
     getOwner2 : Party
     choice C2 : ()
         controller getOwner2 this
+        do pure ()
+
+interface I3 requires I4 where
+    viewtype EmptyInterfaceView
+
+interface I4 where
+    viewtype EmptyInterfaceView
+    getOwner4 : Party
+    choice C4 : ()
+        controller getOwner4 this
         do pure ()
 
 template T1
@@ -20,7 +34,8 @@ template T1
     owner1 : Party
   where
     signatory owner1
-    implements I1 where
+    interface instance I1 for T1 where
+      view = EmptyInterfaceView
       getOwner1 = owner1
     choice OwnChoice : ()
       controller owner1
@@ -31,7 +46,12 @@ template T2
     owner2 : Party
   where
     signatory owner2
-    implements I1 where
+    interface instance I1 for T2 where
+      view = EmptyInterfaceView
       getOwner1 = owner2
-    implements I2 where
+    interface instance I2 for T2 where
+      view = EmptyInterfaceView
       getOwner2 = owner2
+    interface instance I4 for T2 where
+      view = EmptyInterfaceView
+      getOwner4 = owner2

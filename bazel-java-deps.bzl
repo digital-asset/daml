@@ -48,11 +48,17 @@ version_specific = {
 netty_tcnative_version = "2.0.46.Final"
 netty_version = "4.1.72.Final"
 grpc_version = "1.44.0"
-protobuf_version = "3.19.3"
+protobuf_version = "3.19.6"
 akka_version = "2.6.18"
 akka_http_version = "10.2.8"
 gatling_version = "3.5.1"
 guava_version = "31.0.1-jre"
+
+# observability libs
+# cannot update to 4.2.x because of https://github.com/dropwizard/metrics/issues/2920
+dropwizard_version = "4.1.33"
+opentelemetry_version = "1.12.0"
+prometheus_version = "0.14.1"
 
 def install_java_deps():
     maven_install(
@@ -62,22 +68,25 @@ def install_java_deps():
             "com.auth0:java-jwt:3.10.3",
             "com.auth0:jwks-rsa:0.11.0",
             "com.chuusai:shapeless_{}:2.3.3".format(scala_major_version),
-            "com.github.ben-manes.caffeine:caffeine:2.8.0",
+            "com.github.ben-manes.caffeine:caffeine:3.0.5",
             "com.github.pureconfig:pureconfig_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-core_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-generic_{}:0.14.0".format(scala_major_version),
             maven.artifact("com.github.pureconfig", "pureconfig-macros_2.12", "0.14.0", neverlink = True),
             "com.github.scopt:scopt_{}:4.0.0".format(scala_major_version),
             "com.google.code.findbugs:jsr305:3.0.2",
-            "com.google.code.gson:gson:2.8.2",
+            "com.google.code.gson:gson:2.9.0",
             "com.google.guava:guava:{}".format(guava_version),
             "com.h2database:h2:2.1.210",
+            "com.github.pathikrit:better-files_{}:3.8.0".format(scala_major_version),
+            "com.github.tototoshi:scala-csv_{}:1.3.10".format(scala_major_version),
+            "com.lihaoyi:sourcecode_{}:0.2.7".format(scala_major_version),
             "com.lihaoyi:pprint_{}:0.7.1".format(scala_major_version),
             "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
             "commons-io:commons-io:2.5",
-            "com.oracle.database.jdbc:ojdbc8:19.8.0.0",
+            "com.oracle.database.jdbc:ojdbc8:19.14.0.0",
             "com.sparkjava:spark-core:2.9.1",
-            "com.oracle.database.jdbc.debug:ojdbc8_g:19.8.0.0",
+            "com.oracle.database.jdbc.debug:ojdbc8_g:19.14.0.0",
             "com.squareup:javapoet:1.11.1",
             "com.storm-enroute:scalameter_{}:0.19".format(scala_major_version),
             "com.storm-enroute:scalameter-core_{}:0.19".format(scala_major_version),
@@ -98,21 +107,26 @@ def install_java_deps():
             "eu.rekawek.toxiproxy:toxiproxy-java:2.1.3",
             "io.circe:circe-core_{}:0.13.0".format(scala_major_version),
             "io.circe:circe-generic_{}:0.13.0".format(scala_major_version),
+            "io.circe:circe-generic-extras_{}:0.13.0".format(scala_major_version),
             "io.circe:circe-parser_{}:0.13.0".format(scala_major_version),
             "io.circe:circe-yaml_{}:0.13.0".format(scala_major_version),
-            "io.dropwizard.metrics:metrics-core:4.1.2",
-            "io.dropwizard.metrics:metrics-graphite:4.1.2",
-            "io.dropwizard.metrics:metrics-jmx:4.1.2",
-            "io.dropwizard.metrics:metrics-jvm:4.1.2",
-            "io.opentelemetry:opentelemetry-api:1.1.0",
-            "io.opentelemetry:opentelemetry-context:1.1.0",
-            "io.opentelemetry:opentelemetry-sdk-testing:1.1.0",
-            "io.opentelemetry:opentelemetry-sdk-trace:1.1.0",
-            "io.opentelemetry:opentelemetry-semconv:1.1.0-alpha",
-            "io.prometheus:simpleclient:0.8.1",
-            "io.prometheus:simpleclient_dropwizard:0.8.1",
-            "io.prometheus:simpleclient_httpserver:0.8.1",
-            "io.prometheus:simpleclient_servlet:0.8.1",
+            "io.dropwizard.metrics:metrics-core:{}".format(dropwizard_version),
+            maven.artifact("io.dropwizard.metrics", "metrics-graphite", dropwizard_version, exclusions = ["com.rabbitmq:amqp-client"]),
+            "io.dropwizard.metrics:metrics-jmx:{}".format(dropwizard_version),
+            "io.dropwizard.metrics:metrics-jvm:{}".format(dropwizard_version),
+            "io.opentelemetry:opentelemetry-api:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-context:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-exporter-prometheus:{}-alpha".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-common:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-metrics:{}-alpha".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-metrics-testing:{}-alpha".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-testing:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-trace:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha",
+            "io.prometheus:simpleclient:{}".format(prometheus_version),
+            "io.prometheus:simpleclient_dropwizard:{}".format(prometheus_version),
+            "io.prometheus:simpleclient_httpserver:{}".format(prometheus_version),
+            "io.prometheus:simpleclient_servlet:{}".format(prometheus_version),
             "io.grpc:grpc-api:{}".format(grpc_version),
             "io.grpc:grpc-core:{}".format(grpc_version),
             "io.grpc:grpc-netty:{}".format(grpc_version),
@@ -135,6 +149,7 @@ def install_java_deps():
             "com.thesamet.scalapb:protoc-gen_{}:{}".format(scala_major_version, scalapb_protoc_version),
             "com.thesamet.scalapb:scalapb-runtime_{}:{}".format(scala_major_version, scalapb_version),
             "com.thesamet.scalapb:scalapb-runtime-grpc_{}:{}".format(scala_major_version, scalapb_version),
+            "com.thesamet.scalapb:scalapb-json4s_{}:0.11.1".format(scala_major_version, scalapb_version),
             # ---- end of grpc-protobuf-netty block
             "io.gatling:gatling-app:{}".format(gatling_version),
             "io.gatling:gatling-core:{}".format(gatling_version),
@@ -200,8 +215,8 @@ def install_java_deps():
             "org.typelevel:paiges-core_{}:0.3.2".format(scala_major_version),
             "org.wartremover:wartremover_{}:2.4.16".format(scala_version),
             "org.xerial:sqlite-jdbc:3.36.0.1",
-            "com.fasterxml.jackson.core:jackson-core:2.12.0",
-            "com.fasterxml.jackson.core:jackson-databind:2.12.0",
+            "com.fasterxml.jackson.core:jackson-core:2.14.1",
+            "com.fasterxml.jackson.core:jackson-databind:2.14.1",
             "org.scala-lang:scala-library:{}".format(scala_version),
         ],
         fetch_sources = True,

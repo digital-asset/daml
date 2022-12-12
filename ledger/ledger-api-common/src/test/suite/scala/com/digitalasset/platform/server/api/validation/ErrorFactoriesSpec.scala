@@ -6,9 +6,8 @@ package com.daml.platform.server.api.validation
 import java.sql.{SQLNonTransientException, SQLTransientException}
 import java.time.Duration
 import java.util.regex.Pattern
-
 import ch.qos.logback.classic.Level
-import com.daml.error.definitions.{DamlError, IndexErrors, LedgerApiErrors}
+import com.daml.error.definitions.{CommonErrors, DamlError, IndexErrors, LedgerApiErrors}
 import com.daml.error.definitions.LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.{
@@ -151,7 +150,7 @@ class ErrorFactoriesSpec
             ErrorDetails.RetryInfoDetail(1.second),
           ),
           logEntry = ExpectedLogEntry(
-            Level.WARN,
+            Level.INFO,
             msg,
             expectedMarkerRegex("reason=Some buffer is full"),
           ),
@@ -162,7 +161,7 @@ class ErrorFactoriesSpec
         val msg =
           s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): Some service has been shut down."
         assertStatus(
-          LedgerApiErrors.ServiceNotRunning
+          CommonErrors.ServiceNotRunning
             .Reject("Some service")(
               contextualizedErrorLogger
             )
@@ -194,10 +193,10 @@ class ErrorFactoriesSpec
         val msg =
           s"REQUEST_TIME_OUT(3,$truncatedCorrelationId): Timed out while awaiting for a completion corresponding to a command submission."
         assertStatus(
-          LedgerApiErrors.RequestTimeOut
+          CommonErrors.RequestTimeOut
             .Reject(
               "Timed out while awaiting for a completion corresponding to a command submission.",
-              _definiteAnswer = false,
+              definiteAnswer = false,
             )(
               contextualizedErrorLogger
             )
@@ -330,7 +329,7 @@ class ErrorFactoriesSpec
         s"DUPLICATE_COMMAND(10,$truncatedCorrelationId): A command with the given command id has already been successfully processed"
       assertError(
         LedgerApiErrors.ConsistencyErrors.DuplicateCommand
-          .Reject(_existingCommandSubmissionId = None)
+          .Reject(existingCommandSubmissionId = None)
       )(
         code = Code.ALREADY_EXISTS,
         message = msg,
@@ -365,8 +364,8 @@ class ErrorFactoriesSpec
     "return a isTimeoutUnknown_wasAborted error" in {
       val msg = s"REQUEST_TIME_OUT(3,$truncatedCorrelationId): message123"
       assertError(
-        LedgerApiErrors.RequestTimeOut
-          .Reject("message123", _definiteAnswer = false)
+        CommonErrors.RequestTimeOut
+          .Reject("message123", definiteAnswer = false)
       )(
         code = Code.DEADLINE_EXCEEDED,
         message = msg,
@@ -392,9 +391,9 @@ class ErrorFactoriesSpec
       assertError(
         LedgerApiErrors.RequestValidation.NonHexOffset
           .Error(
-            _fieldName = "fieldName123",
-            _offsetValue = "offsetValue123",
-            _message = "message123",
+            fieldName = "fieldName123",
+            offsetValue = "offsetValue123",
+            message = "message123",
           )
           .asGrpcError
       )(
@@ -525,8 +524,8 @@ class ErrorFactoriesSpec
       assertError(
         LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
           .Reject(
-            _reason = errorDetailMessage,
-            _maxDeduplicationDuration = Some(maxDeduplicationDuration),
+            reason = errorDetailMessage,
+            maxDeduplicationDuration = Some(maxDeduplicationDuration),
           )
           .asGrpcError
       )(
@@ -648,7 +647,7 @@ class ErrorFactoriesSpec
 
       val msg =
         s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName has been shut down."
-      assertError(LedgerApiErrors.ServiceNotRunning.Reject(serviceName))(
+      assertError(CommonErrors.ServiceNotRunning.Reject(serviceName))(
         code = Code.UNAVAILABLE,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](

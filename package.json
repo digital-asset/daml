@@ -5,10 +5,7 @@
   "private": true,
   "version": "0.0.0",
   "resolutions": {
-    "**/elliptic": "^6.5.4",
-    "**/bl": "^4.0.3",
-    "**/ws": "^7.4.6",
-    "**/chalk": "^2.4.1",
+    "@bazel/typescript/**/protobufjs": "^6.10.3",
     "**/glob-parent": "^5.1.2"
   },
   "dependencies": {
@@ -19,7 +16,7 @@
     "colors": "1.4.0",
     "express": "^4.16.4",
     "express-session": "^1.15.6",
-    "grunt": "^1.4.0",
+    "grunt": "^1.5.3",
     "grunt-banner": "0.6.0",
     "grunt-browserify": "6.0.0",
     "grunt-cli": "^1.4.3",

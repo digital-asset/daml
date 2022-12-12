@@ -12,7 +12,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.lf.data.Time.Timestamp
-import com.daml.platform.store.appendonlydao._
+import com.daml.platform.store.dao._
 import com.daml.platform.store.entries.PackageLedgerEntry
 
 private[dao] trait JdbcLedgerDaoPackagesSpec {

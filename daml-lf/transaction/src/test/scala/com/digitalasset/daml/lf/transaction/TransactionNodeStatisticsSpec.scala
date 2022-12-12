@@ -61,7 +61,6 @@ class TransactionNodeStatisticsSpec
         observers = Set.empty,
         key = if (withKey) Some(Value.ValueUnit) else None,
         maintainers = if (withKey) parties else Set.empty,
-        byInterface = None,
       )
     }
 
@@ -76,12 +75,11 @@ class TransactionNodeStatisticsSpec
         result = Some(Value.ValueUnit),
         choiceObservers = Set.empty,
         byKey = byKey,
-        byInterface = None,
       )
     }
 
     def fetch(byKey: Boolean)(b: TxBuilder) =
-      b.fetch(create(b, byKey), byKey, None)
+      b.fetch(create(b, byKey), byKey)
 
     def lookup(b: TxBuilder) =
       b.lookupByKey(create(b, withKey = true), true)
@@ -182,6 +180,35 @@ class TransactionNodeStatisticsSpec
             // nest the other nodes in each loop
             rolledBack shouldBe Actions(i, i, i, i, i, i, i, i)
         }
+      }
+    }
+
+    "exclude infrastructure transactions" in {
+      forEvery(testCases) { (makeNode, _) =>
+        val builder = TxBuilder()
+        val node = makeNode(builder)
+        val excludedPackageIds = Set(node).collect({ case a: Node.Action => a.packageIds }).flatten
+        builder.add(node)
+        TransactionNodeStatistics(
+          builder.build(),
+          excludedPackageIds,
+        ) shouldBe TransactionNodeStatistics.Empty
+      }
+    }
+
+    "only exclude transaction if all packages are infrastructure" in {
+      forEvery(testCases) { (makeNode, _) =>
+        val builder = TxBuilder()
+        val nonExcludedNode = makeNode(builder)
+        val excludedNode = makeNode(builder)
+        val excludedPackageIds =
+          Set(excludedNode).collect({ case a: Node.Action => a.packageIds }).flatten
+        builder.add(nonExcludedNode)
+        builder.add(excludedNode)
+        TransactionNodeStatistics(
+          builder.build(),
+          excludedPackageIds,
+        ) should not be (TransactionNodeStatistics.Empty)
       }
     }
   }

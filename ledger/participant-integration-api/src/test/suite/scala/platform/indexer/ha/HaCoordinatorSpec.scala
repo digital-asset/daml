@@ -285,6 +285,34 @@ class HaCoordinatorSpec
     }
   }
 
+  it should "wait for main lock can be interrupted by exception thrown during tryAcquire" in {
+    val dbLock = new TestDBLockStorageBackend
+    val blockingConnection = new TestConnection
+    dbLock.tryAcquire(main, DBLockStorageBackend.LockMode.Exclusive)(blockingConnection).get
+    info("As acquiring the main lock from the outside")
+    val mainConnection = new TestConnection
+    val protectedSetup = setup(
+      dbLock = dbLock,
+      connectionFactory = () => mainConnection,
+    )
+    import protectedSetup._
+    Thread.sleep(200)
+    info("And as waiting for 200 millis")
+    connectionInitializerFuture.isCompleted shouldBe false
+    protectedHandle.completed.isCompleted shouldBe false
+    info("Initialization should be waiting")
+    mainConnection.close()
+    info("As main connection is closed (triggers exception as used for acquiring lock)")
+
+    for {
+      failure <- protectedHandle.completed.failed
+    } yield {
+      info("Protected Handle is completed with a failure")
+      failure.getMessage shouldBe "trying to acquire on a closed connection"
+      connectionInitializerFuture.isCompleted shouldBe false
+    }
+  }
+
   it should "wait if worker lock cannot be acquired due to exclusive blocking" in {
     val dbLock = new TestDBLockStorageBackend
     val blockingConnection = new TestConnection
@@ -368,6 +396,35 @@ class HaCoordinatorSpec
     }
   }
 
+  it should "wait for worker lock can be interrupted by exception thrown during tryAcquire" in {
+    val dbLock = new TestDBLockStorageBackend
+    val blockingConnection = new TestConnection
+    dbLock.tryAcquire(worker, DBLockStorageBackend.LockMode.Shared)(blockingConnection).get
+    info("As acquiring the worker lock from the outside")
+    val mainConnection = new TestConnection
+    val protectedSetup = setup(
+      dbLock = dbLock,
+      connectionFactory = () => mainConnection,
+    )
+    import protectedSetup._
+
+    Thread.sleep(200)
+    info("And as waiting for 200 millis")
+    connectionInitializerFuture.isCompleted shouldBe false
+    protectedHandle.completed.isCompleted shouldBe false
+    info("Initialization should be waiting")
+    mainConnection.close()
+    info("As main connection is closed (triggers exception as used for acquiring lock)")
+
+    for {
+      failure <- protectedHandle.completed.failed
+    } yield {
+      info("Protected Handle completed with a failure")
+      failure.getMessage shouldBe "trying to acquire on a closed connection"
+      connectionInitializerFuture.isCompleted shouldBe false
+    }
+  }
+
   it should "fail if worker lock cannot be acquired in time due to shared blocking" in {
     val dbLock = new TestDBLockStorageBackend
     val blockingConnection = new TestConnection
@@ -384,7 +441,7 @@ class HaCoordinatorSpec
       failure <- protectedHandle.completed.failed
     } yield {
       info("Initialisation should completed with failure")
-      failure.getMessage shouldBe "Cannot acquire lock TestLockId(20) in lock-mode Exclusive: lock busy"
+      failure.getMessage shouldBe "Cannot acquire lock TestLockId(20) in lock-mode Exclusive"
     }
   }
 
@@ -793,7 +850,7 @@ class HaCoordinatorSpec
 
     val protectedHandle = HaCoordinator
       .databaseLockBasedHaCoordinator(
-        connectionFactory = connectionFactory,
+        mainConnectionFactory = connectionFactory,
         storageBackend = dbLock,
         executionContext = system.dispatcher,
         timer = timer,

@@ -23,7 +23,7 @@ SANDBOX=$(rlocation $TEST_WORKSPACE/$6)
 
 PORTFILE_DIR=$(mktemp -d)
 PORTFILE=$PORTFILE_DIR/port-file
-$SANDBOX --port=0 --port-file $PORTFILE --static-time $DAR_FILE &
+$SANDBOX run-legacy-cli-config --participant=participant-id=example,port=0,port-file=$PORTFILE --stack-traces=true --static-time --enable-user-management=true &
 SANDBOX_PID=$!
 
 cleanup() {

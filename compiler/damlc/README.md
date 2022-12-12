@@ -36,6 +36,12 @@ rules such as rules for producing `Daml-LF`.
 `daml-doc` contains our variant of `haddock`.
 
 
+### daml-desugar
+
+`daml-desugar` provides a simple way to obtain the GHC representation of a
+parsed Daml file.
+
+
 ### daml-ide
 
 `daml-ide` contains the LSP layer of the IDE and wraps the
@@ -114,6 +120,14 @@ Run
 bazel run //compiler/damlc/tests:daml-doc -- --accept
 ```
 to accept the current documentation as new golden files.
+
+## Updating daml-desugar's golden tests
+
+Likewise, run
+```
+bazel run //compiler/damlc/tests:daml-desugar -- --accept
+```
+to accept the current desugaring as new golden files.
 
 ## Documentation
 

@@ -122,7 +122,7 @@ main = do
           liftIO exitFailure
 
       -- check that no artifact id is used more than once
-      let groupedArtifacts = List.groupOn (pomArtifactId . artMetadata) allArtifacts
+      let groupedArtifacts = List.groupSortOn (pomArtifactId . artMetadata) allArtifacts
       let duplicateArtifactIds = filter (\artifacts -> length artifacts > 1) groupedArtifacts
       when (not (null duplicateArtifactIds)) $ do
           $logError "Some artifacts use the same artifactId!"

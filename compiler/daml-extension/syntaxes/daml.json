@@ -117,7 +117,7 @@
         },
         {
           "name": "keyword.control.daml",
-          "match": "\\b(case|commits|fails|daml|else|ensure|exercise|if|import|in|let|match|must|of|on|qualified|scenario|template|then|type|data|where|while|with|anytime|signatory|observer|returning|to|agreement|do|does|test|def|fetch|controller|can)\\b"
+          "match": "\\b(case|commits|fails|daml|else|ensure|exercise|if|import|in|let|match|must|of|on|qualified|scenario|script|template|then|type|data|where|while|with|anytime|signatory|observer|returning|to|agreement|do|does|test|def|fetch|controller|can)\\b"
         },
         {
           "name": "entity.name.function",

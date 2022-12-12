@@ -1,0 +1,11 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @ERROR range=11:21-11:24; Multiple declarations of ‘foo’
+
+module OverlapMethodField where
+
+class TClass a where
+  foo : a -> Int
+
+data Bar = Bar with foo : Int

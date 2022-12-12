@@ -60,7 +60,7 @@ final class TransactionsClientImplTest
 
         val transactionFilter = new data.FiltersByParty(
           Map[String, data.Filter](
-            "Alice" -> new data.InclusiveFilter(
+            "Alice" -> data.InclusiveFilter.ofTemplateIds(
               Set(
                 new data.Identifier("p1", "m1", "e1"),
                 new data.Identifier("p2", "m2", "e2"),
@@ -123,9 +123,9 @@ final class TransactionsClientImplTest
         val begin = new data.LedgerOffset.Absolute("1")
         val end = new data.LedgerOffset.Absolute("2")
 
-        val trasnactionFilter = new data.FiltersByParty(
+        val transactionFilter = new data.FiltersByParty(
           Map[String, data.Filter](
-            "Alice" -> new data.InclusiveFilter(
+            "Alice" -> data.InclusiveFilter.ofTemplateIds(
               Set(
                 new data.Identifier("p1", "m1", "e1"),
                 new data.Identifier("p2", "m2", "e2"),
@@ -135,7 +135,7 @@ final class TransactionsClientImplTest
         )
 
         transactionClient
-          .getTransactionsTrees(begin, end, trasnactionFilter, true)
+          .getTransactionsTrees(begin, end, transactionFilter, true)
           .toList()
           .blockingGet()
 

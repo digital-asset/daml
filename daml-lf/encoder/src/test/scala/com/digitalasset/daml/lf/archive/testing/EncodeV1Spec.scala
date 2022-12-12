@@ -22,7 +22,9 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
   import EncodeV1Spec._
 
-  val defaultParserParameters: ParserParameters[this.type] =
+  private val pkgId: PackageId = "self"
+
+  private val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters(pkgId, LanguageVersion.v1_dev)
 
   "Encode and Decode" should {
@@ -38,15 +40,17 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
          module Mod {
 
+            record @serializable MyUnit = {};
+
             record @serializable Person = { person: Party, name: Text } ;
 
             interface (this: Planet) = {
-              precondition True;
+              viewtype Mod:MyUnit;
             };
 
             interface (this: Human) = {
+              viewtype Mod:MyUnit;
               requires Mod:Planet;
-              precondition False;
               method asParty: Party;
               method getName: Text;
               choice HumanSleep (self) (u:Unit) : ContractId Mod:Human
@@ -73,12 +77,12 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
                   observers Cons @Party [Mod:Person {person} this] (Nil @Party)
               to upure @Int64 i;
               implements Mod:Planet {
+                view = Mod:MyUnit {};
               };
               implements Mod:Human {
+                view = Mod:MyUnit {};
                 method asParty = Mod:Person {person} this;
                 method getName = Mod:Person {name} this;
-                choice HumanNap;
-                choice HumanSleep;
               };
               key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
             };
@@ -87,10 +91,10 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
            record Tree.Node (a: *) = { value: a, left : Mod:Tree a, right : Mod:Tree a };
            enum Color = Red | Green | Blue;
 
+           val unit: Unit = loc(Mod, unit, 92, 12, 92, 61) ();
            val aVar: forall (a:*). a -> a = /\ (a: *). \ (x: a) -> x;
            val aValue: forall (a:*). a -> a = Mod:aVar;
            val aBuiltin : Int64 -> Int64 -> Int64 = ADD_INT64;
-           val unit: Unit = ();
            val myFalse: Bool = False;
            val myTrue: Bool = True;
            val aInt: Int64 = 14;
@@ -180,8 +184,65 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
            val maybeException: Option Mod:MyException =
              from_any_exception @Mod:MyException Mod:myAnyException;
 
+           val concrete_to_interface: Mod:Person -> Mod:Human =
+             \ (p: Mod:Person) -> to_interface @Mod:Human @Mod:Person p;
+
+           val concrete_from_interface: Mod:Human -> Option Mod:Person  =
+             \ (h: Mod:Human) -> from_interface @Mod:Human @Mod:Person h;
+
+           val concrete_unsafe_from_interface: ContractId Mod:Human -> Mod:Human -> Mod:Person  =
+             \ (cid: ContractId Mod:Human) (h: Mod:Human) -> unsafe_from_interface @Mod:Human @Mod:Person cid h;
+
+           val concrete_to_required_interface: Mod:Human -> Mod:Planet =
+             \ (h: Mod:Human) -> to_required_interface @Mod:Planet @Mod:Human h;
+
+           val concrete_from_required_interface: Mod:Planet -> Option Mod:Human  =
+             \ (p: Mod:Planet) -> from_required_interface @Mod:Planet @Mod:Human p;
+
+           val concrete_unsafe_from_required_interface: ContractId Mod:Planet -> Mod:Planet -> Mod:Human  =
+             \ (cid: ContractId Mod:Planet) (p: Mod:Planet) -> unsafe_from_required_interface @Mod:Planet @Mod:Human cid p;
+
+           val concrete_interface_template_type_rep: Mod:Planet -> TypeRep =
+             \ (p: Mod:Planet) -> interface_template_type_rep @Mod:Planet p;
+
+           val concrete_signatory_interface: Mod:Planet -> List Party =
+             \ (p: Mod:Planet) -> signatory_interface @Mod:Planet p;
+
+           val concrete_observer_interface: Mod:Planet -> List Party =
+             \ (p: Mod:Planet) -> observer_interface @Mod:Planet p;
+
+           interface (this: Root) = {
+             viewtype Mod:MyUnit;
+             coimplements Mod0:Parcel {
+               view = Mod:MyUnit {};
+             };
+           };
+
+           interface (this: Boxy) = {
+             viewtype Mod:MyUnit;
+             requires Mod:Root;
+             method getParty: Party;
+             choice @nonConsuming ReturnInt (self) (i: Int64): Int64
+               , controllers Cons @Party [call_method @Mod:Boxy getParty this] (Nil @Party)
+               , observers Nil @Party
+               to upure @Int64 i;
+             coimplements Mod0:Parcel {
+               view = Mod:MyUnit {};
+               method getParty = Mod0:Parcel {party} this;
+             };
+           };
          }
 
+         module Mod0 {
+           record @serializable Parcel = { party: Party };
+
+           template (this: Parcel) = {
+             precondition True;
+             signatories Cons @Party [Mod0:Parcel {party} this] (Nil @Party);
+             observers Cons @Party [Mod0:Parcel {party} this] (Nil @Party);
+             agreement "";
+           };
+         }
       """
 
       validate(pkgId, pkg)
@@ -200,17 +261,15 @@ object EncodeV1Spec {
 
   private implicit def toPackageId(s: String): PackageId = PackageId.assertFromString(s)
 
-  private val pkgId: PackageId = "self"
-
   private def normalize(pkg: Package, hashCode: PackageId, selfPackageId: PackageId): Package = {
 
-    val replacePkId: PartialFunction[Identifier, Identifier] = {
-      case Identifier(`hashCode`, name) => Identifier(selfPackageId, name)
+    val replacePkId: PartialFunction[PackageId, PackageId] = { case `hashCode` =>
+      selfPackageId
     }
     lazy val dropEAbsRef: PartialFunction[Expr, Expr] = { case EAbs(binder, body, Some(_)) =>
       EAbs(normalizer.apply(binder), normalizer.apply(body), None)
     }
-    lazy val normalizer = new AstRewriter(exprRule = dropEAbsRef, identifierRule = replacePkId)
+    lazy val normalizer = new AstRewriter(exprRule = dropEAbsRef, packageIdRule = replacePkId)
 
     normalizer.apply(pkg)
   }

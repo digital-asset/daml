@@ -9,6 +9,9 @@ import java.util.stream.Collector;
 
 public final class DamlCollectors {
 
+  // no instantiation
+  private DamlCollectors() {}
+
   public static <T> Collector<T, List<Value>, DamlList> toDamlList(Function<T, Value> valueMapper) {
     return Collector.of(
         ArrayList::new,

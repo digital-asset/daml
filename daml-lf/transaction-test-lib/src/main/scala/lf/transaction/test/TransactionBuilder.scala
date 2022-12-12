@@ -59,13 +59,13 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       case (_, node: Node.LeafOnlyAction) =>
         node
     }
-    val finalRoots = roots.toImmArray
-    val txVersion = finalRoots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
-      finalNodes(nodeId).optVersion match {
+    val txVersion = finalNodes.values.foldLeft(TransactionVersion.minVersion)((acc, node) =>
+      node.optVersion match {
         case Some(version) => acc max version
         case None => acc max TransactionVersion.minExceptions
       }
     )
+    val finalRoots = roots.toImmArray
     VersionedTransaction(txVersion, finalNodes, finalRoots)
   }
 
@@ -95,9 +95,8 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       signatories: Set[Ref.Party],
       observers: Set[Ref.Party],
       key: Option[Value] = None,
-      byInterface: Option[Ref.Identifier] = None,
   ): Node.Create =
-    create(id, templateId, argument, signatories, observers, key, signatories, byInterface)
+    create(id, templateId, argument, signatories, observers, key, signatories)
 
   def create(
       id: ContractId,
@@ -107,7 +106,6 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       observers: Set[Ref.Party],
       key: Option[Value],
       maintainers: Set[Ref.Party],
-      byInterface: Option[Ref.Identifier],
   ): Node.Create = {
     Node.Create(
       coid = id,
@@ -117,7 +115,6 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       signatories = signatories,
       stakeholders = signatories | observers,
       key = key.map(Node.KeyWithMaintainers(_, maintainers)),
-      byInterface = byInterface,
       version = pkgTxVersion(templateId.packageId),
     )
   }
@@ -128,15 +125,16 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       consuming: Boolean,
       actingParties: Set[Ref.Party],
       argument: Value,
+      interfaceId: Option[Ref.TypeConName] = None,
       result: Option[Value] = None,
       choiceObservers: Set[Ref.Party] = Set.empty,
       byKey: Boolean = true,
-      byInterface: Option[Ref.Identifier] = None,
   ): Node.Exercise =
     Node.Exercise(
       choiceObservers = choiceObservers,
       targetCoid = contract.coid,
       templateId = contract.templateId,
+      interfaceId = interfaceId,
       choiceId = choice,
       consuming = consuming,
       actingParties = actingParties,
@@ -147,7 +145,6 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       exerciseResult = result,
       key = contract.key,
       byKey = byKey,
-      byInterface = byInterface,
       version = pkgTxVersion(contract.templateId.packageId),
     )
 
@@ -163,7 +160,6 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def fetch(
       contract: Node.Create,
       byKey: Boolean = false,
-      byInterface: Option[Ref.Identifier] = None,
   ): Node.Fetch =
     Node.Fetch(
       coid = contract.coid,
@@ -173,14 +169,13 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       stakeholders = contract.stakeholders,
       key = contract.key,
       byKey = byKey,
-      byInterface = byInterface,
       version = pkgTxVersion(contract.templateId.packageId),
     )
 
   def fetchByKey(contract: Node.Create): Node.Fetch =
     fetch(contract, byKey = true)
 
-  def lookupByKey(contract: Node.Create, found: Boolean): Node.LookupByKey =
+  def lookupByKey(contract: Node.Create, found: Boolean = true): Node.LookupByKey =
     Node.LookupByKey(
       templateId = contract.templateId,
       key = contract.key.get,
@@ -264,9 +259,9 @@ object TransactionBuilder {
       if (currentVersion >= supportedVersions.max) {
         Right(currentVersion)
       } else {
-        values0 match {
-          case FrontStack() => Right(currentVersion)
-          case FrontStackCons(value, values) =>
+        values0.pop match {
+          case None => Right(currentVersion)
+          case Some((value, values)) =>
             value match {
               // for things supported since version 1, we do not need to check
               case ValueRecord(_, fs) => go(currentVersion, fs.map(v => v._2) ++: values)
@@ -384,6 +379,14 @@ object TransactionBuilder {
     implicit def toOptionName(s: String): Option[Ref.Name] = toOption(s)
 
     implicit def toField(t: (String, Value)): (Option[Ref.Name], Value) = toTuple(t)
+
+    implicit def toTypeId(
+        x: TemplateOrInterface[String, String]
+    ): TemplateOrInterface[Ref.TypeConName, Ref.TypeConName] =
+      x match {
+        case TemplateOrInterface.Template(value) => TemplateOrInterface.Template(value)
+        case TemplateOrInterface.Interface(value) => TemplateOrInterface.Interface(value)
+      }
 
   }
 

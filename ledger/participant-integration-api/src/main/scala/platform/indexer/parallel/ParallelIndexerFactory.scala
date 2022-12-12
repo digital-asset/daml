@@ -12,19 +12,14 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.Indexer
 import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoordinator}
 import com.daml.platform.indexer.parallel.AsyncSupport._
-import com.daml.platform.store.appendonlydao.DbDispatcher
-import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
-import com.daml.platform.store.backend.{
-  DBLockStorageBackend,
-  DataSourceStorageBackend,
-  StringInterningStorageBackend,
-}
-import com.daml.platform.store.interning.StringInterningView
+import com.daml.platform.store.DbSupport.DbConfig
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
+import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend}
+import com.daml.platform.store.dao.DbDispatcher
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-
-import java.util.Timer
+import java.util.{Timer, concurrent}
 import java.util.concurrent.Executors
-import scala.concurrent.duration.FiniteDuration
+
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
@@ -32,21 +27,19 @@ import scala.util.{Failure, Success}
 object ParallelIndexerFactory {
 
   def apply(
-      jdbcUrl: String,
       inputMappingParallelism: Int,
       batchingParallelism: Int,
-      ingestionParallelism: Int,
-      dataSourceConfig: DataSourceConfig,
+      dbConfig: DbConfig,
       haConfig: HaConfig,
       metrics: Metrics,
       dbLockStorageBackend: DBLockStorageBackend,
       dataSourceStorageBackend: DataSourceStorageBackend,
       initializeParallelIngestion: InitializeParallelIngestion,
       parallelIndexerSubscription: ParallelIndexerSubscription[_],
-      stringInterningStorageBackend: StringInterningStorageBackend,
       meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
       readService: ReadService,
+      initializeInMemoryState: DbDispatcher => LedgerEnd => Future[Unit],
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
     for {
       inputMapperExecutor <- asyncPool(
@@ -81,9 +74,26 @@ object ParallelIndexerFactory {
             timer <- ResourceOwner.forTimer(() => new Timer)
             // this DataSource will be used to spawn the main connection where we keep the Indexer Main Lock
             // The life-cycle of such connections matches the life-cycle of a protectedExecution
-            dataSource = dataSourceStorageBackend.createDataSource(jdbcUrl, dataSourceConfig)
+            dataSource = dataSourceStorageBackend.createDataSource(dbConfig.dataSourceConfig)
           } yield HaCoordinator.databaseLockBasedHaCoordinator(
-            connectionFactory = () => dataSource.getConnection,
+            mainConnectionFactory = () => {
+              val connection = dataSource.getConnection
+              val directExecutor = new concurrent.Executor {
+                override def execute(command: Runnable): Unit = {
+                  // this will execute on the same thread which started the Executor.execute()
+                  command.run()
+                }
+              }
+              // direct executor is beneficial in context of main connection and network timeout:
+              // all socket/Connection closure will be happening on the thread which called the JDBC execute,
+              // instead of happening asynchronously - after error with network timeout the Connection
+              // needs to be closed anyway.
+              connection.setNetworkTimeout(
+                directExecutor,
+                haConfig.mainLockCheckerJdbcNetworkTimeoutMillis,
+              )
+              connection
+            },
             storageBackend = dbLockStorageBackend,
             executionContext = executionContext,
             timer = timer,
@@ -101,44 +111,28 @@ object ParallelIndexerFactory {
                 // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
                 // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
                 dataSource = dataSourceStorageBackend.createDataSource(
-                  jdbcUrl = jdbcUrl,
-                  dataSourceConfig = dataSourceConfig,
+                  dataSourceConfig = dbConfig.dataSourceConfig,
                   connectionInitHook = Some(connectionInitializer.initialize),
                 ),
                 serverRole = ServerRole.Indexer,
-                connectionPoolSize =
-                  ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
-                connectionTimeout = FiniteDuration(
-                  250,
-                  "millis",
-                ), // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
+                connectionPoolSize = dbConfig.connectionPool.connectionPoolSize,
+                connectionTimeout = dbConfig.connectionPool.connectionTimeout,
                 metrics = metrics,
               )
             _ <- meteringAggregator(dbDispatcher)
           } yield dbDispatcher
         ) { dbDispatcher =>
-          val stringInterningView = new StringInterningView(
-            loadPrefixedEntries = (fromExclusive, toInclusive) =>
-              implicit loggingContext =>
-                dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
-                  stringInterningStorageBackend.loadStringInterningEntries(
-                    fromExclusive,
-                    toInclusive,
-                  )
-                }
-          )
           initializeParallelIngestion(
             dbDispatcher = dbDispatcher,
-            updatingStringInterningView = stringInterningView,
+            additionalInitialization = initializeInMemoryState(dbDispatcher),
             readService = readService,
-            ec = ec,
             mat = mat,
+            ec = ec,
           ).map(
             parallelIndexerSubscription(
               inputMapperExecutor = inputMapperExecutor,
               batcherExecutor = batcherExecutor,
               dbDispatcher = dbDispatcher,
-              stringInterningView = stringInterningView,
               materializer = mat,
             )
           )

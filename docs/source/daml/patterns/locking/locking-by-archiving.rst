@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Locking by archiving
-####################
+Lock by Archiving
+#################
 
 **Pre-condition**: there exists a contract that needs to be locked and unlocked. In this section, *Coin* is used as the original contract to demonstrate locking and unlocking.
 
@@ -25,7 +25,7 @@ Archiving is a straightforward choice for locking because once a contract is arc
 
 .. _lockingbyConsumingChoice:
 
-Consuming choice
+Consuming Choice
 ****************
 
 The steps below show how to use a consuming choice in the original contract to achieve locking:
@@ -58,11 +58,12 @@ The steps below show how to use a consuming choice in the original contract to a
 
 
 .. figure:: ../images/lockingByArchiving1.png
+   :alt: Locking By Consuming Choice involves exercising a Lock choice to create a LockedCoin; the LockedCoin differs from the Coin in having an Unlock choice.
 
-  Locking By Consuming Choice Diagram
+   Locking By Consuming Choice Diagram
 
 
-Archiving contract
+Archiving Contract
 ******************
 
 In the event that changing the original contract is not desirable and assuming the original contract already has an *Archive* choice, you can introduce another contract, *CoinCommitment*, to archive *Coin* and create *LockedCoin*.
@@ -90,8 +91,9 @@ In the event that changing the original contract is not desirable and assuming t
   :end-before: -- END_COIN_COMMITMENT_TEMPLATE_LOCK_COIN
 
 .. figure:: ../images/lockingByArchiving2.png
+   :alt: Locking by Archiving Contract uses the CoinCommitment contract to archive Coin and create LockedCoin
 
-  Locking By Archiving Contract Diagram
+   Locking By Archiving Contract Diagram
 
 Trade-offs
 **********

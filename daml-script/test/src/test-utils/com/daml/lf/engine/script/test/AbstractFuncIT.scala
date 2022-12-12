@@ -15,6 +15,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import spray.json.{JsNumber, JsObject, JsString}
 
+import scala.annotation.nowarn
+
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 abstract class AbstractFuncIT
     extends AsyncWordSpec
     with SandboxParticipantFixture
@@ -277,7 +280,7 @@ abstract class AbstractFuncIT
     "traceOrder" should {
       "emit trace statements in correct order" in {
         val msgRegex = raw"""\[DA.Internal.Prelude:\d+]: (.*)""".r
-        def stripLoc(msg: String) = msg match {
+        def stripLoc(msg: String) = (msg: @nowarn("msg=match may not be exhaustive")) match {
           case msgRegex(msg_) => msg_
         }
         for {
@@ -314,7 +317,6 @@ abstract class AbstractFuncIT
         }
       }
     }
-
     "Exceptions:test" should {
       "succeed" in {
         for {
@@ -329,7 +331,20 @@ abstract class AbstractFuncIT
         }
       }
     }
-
+    "Interface:test_queryInterface" should {
+      "succeed" in {
+        for {
+          clients <- participantClients()
+          v <- run(
+            clients,
+            QualifiedName.assertFromString("TestInterfaces:test_queryInterface"),
+            dar = devDar,
+          )
+        } yield {
+          v shouldBe (SUnit)
+        }
+      }
+    }
     "Interface:test" should {
       "succeed" in {
         for {
@@ -344,7 +359,6 @@ abstract class AbstractFuncIT
         }
       }
     }
-
     "testMultiPartyQuery" should {
       "should return contracts for all listed parties" in {
         for {
@@ -403,7 +417,7 @@ abstract class AbstractFuncIT
           end,
         )
         e.cmd.stackTrace shouldBe StackTrace(
-          Vector(loc("submit", (392, 18), (392, 31)), loc("mySubmit", (397, 2), (397, 12)))
+          Vector(loc("submit", (22, 18), (22, 31)), loc("mySubmit", (27, 2), (27, 12)))
         )
       }
     }

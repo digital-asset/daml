@@ -23,8 +23,6 @@ public final class DamlGenMap extends Value {
     return new DamlGenMap(Collections.unmodifiableMap(map));
   }
 
-  private static @NonNull DamlGenMap EMPTY = fromPrivateMap(Collections.EMPTY_MAP);
-
   public static DamlGenMap of(@NonNull Map<@NonNull Value, @NonNull Value> map) {
     return fromPrivateMap(new LinkedHashMap<>(map));
   }

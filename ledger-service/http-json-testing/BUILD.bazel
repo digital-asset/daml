@@ -7,10 +7,7 @@ load(
     "kind_projector_plugin",
     "lf_scalacopts",
 )
-
-hj_scalacopts = lf_scalacopts + [
-    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-]
+load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
 
 [
     da_scala_library(
@@ -38,6 +35,8 @@ hj_scalacopts = lf_scalacopts + [
         ],
         deps = [
             "//bazel_tools/runfiles:scala_runfiles",
+            "//daml-lf/engine",
+            "//daml-lf/transaction",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
             "//ledger-api/testing-utils",
@@ -46,24 +45,20 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger-service/http-json:http-json-{}".format(edition),
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/cli-opts",
-            "//ledger-service/jwt",
+            "//ledger-service/metrics",
             "//ledger-service/utils",
-            "//ledger/caching",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
-            "//ledger/ledger-configuration",
             "//ledger/ledger-resources",
-            "//ledger/metrics",
+            "//ledger/ledger-runner-common",
             "//ledger/participant-integration-api",
-            "//ledger/sandbox-common",
-            "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
-            "//ledger/sandbox-on-x:sandbox-classic-server",
+            "//ledger/sandbox-on-x",
             "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
             "//libs-scala/contextualized-logging",
+            "//libs-scala/jwt",
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/scala-utils",
-            "@maven//:io_dropwizard_metrics_metrics_core",
         ],
     )
     for edition in [

@@ -1,0 +1,17 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module CarbonV2 where
+
+import CarbonV1
+
+template T
+  with
+    p : Party
+    a : Int
+  where
+  signatory p
+  interface instance I for T where
+    view = View with
+      a
+

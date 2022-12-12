@@ -3,7 +3,7 @@
 
 .. _ledger-api-services:
 
-The Ledger API services
+The Ledger API Services
 #######################
 
 The Ledger API is structured as a set of services. The core services are implemented using `gRPC <https://grpc.io/>`__ and `Protobuf <https://developers.google.com/protocol-buffers/>`__, but most applications access this API through the mediation of the language bindings.
@@ -42,12 +42,12 @@ Glossary
 
 .. _ledger-api-submission-services:
 
-Submitting commands to the ledger
-*********************************
+Submit Commands to the Ledger
+*****************************
 
 .. _command-submission-service:
 
-Command submission service
+Command Submission Service
 ==========================
 
 Use the **command submission service** to submit commands to the ledger. Commands either create a new contract, or exercise a choice on an existing contract.
@@ -80,7 +80,7 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 
 .. _command-submission-service-deduplication:
 
-Command deduplication
+Command Deduplication
 ---------------------
 
 The command submission service deduplicates submitted commands based on their :ref:`change ID <change-id>`.
@@ -94,7 +94,7 @@ For details on how to use command deduplication, see the :doc:`Command Deduplica
 
 .. _command-completion-service:
 
-Command completion service
+Command Completion Service
 ==========================
 
 Use the **command completion service** to find out the completion status of commands you have submitted.
@@ -105,7 +105,7 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 
 .. _command-service:
 
-Command service
+Command Service
 ===============
 
 Use the **command service** when you want to submit a command and wait for it to be executed. This service is similar to the command submission service, but also receives completions and waits until it knows whether or not the submitted command has completed. It returns the completion status of the command execution.
@@ -114,12 +114,12 @@ You can use either the command or command submission services to submit commands
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.CommandService>`.
 
-Reading from the ledger
-***********************
+Read From the Ledger
+********************
 
 .. _transaction-service:
 
-Transaction service
+Transaction Service
 ===================
 
 Use the **transaction service** to listen to changes in the ledger state, reported via a stream of transactions.
@@ -132,7 +132,7 @@ Subscribe to the transaction service to read events from an arbitrary point on t
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.TransactionService>`.
 
-Transaction and transaction trees
+Transaction and transaction Trees
 ---------------------------------
 
 ``TransactionService`` offers several different subscriptions. The most commonly used is ``GetTransactions``. If you need more details, you can use ``GetTransactionTrees`` instead, which returns transactions as flattened trees, represented as a map of event IDs to events and a list of root event IDs.
@@ -150,9 +150,21 @@ The service works in a non-verbose mode by default, which means that some identi
 
 You can get these included in requests related to Transactions by setting the ``verbose`` field in message ``GetTransactionsRequest`` or ``GetActiveContractsRequest`` to ``true``.
 
+.. _transaction-filter:
+
+Transaction Filter
+------------------
+
+``TransactionService`` offers transaction subscriptions filtered by templates and interfaces using ``GetTransactions`` calls. A :ref:`transaction filter <com.daml.ledger.api.v1.TransactionFilter>` in ``GetTransactionsRequest``. allows:
+
+- filtering by a party, when the :ref:`inclusive <com.daml.ledger.api.v1.Filters.inclusive>` field is left empty
+- filtering by a party and a :ref:`template ID <com.daml.ledger.api.v1.InclusiveFilters.template_ids>`
+- filtering by a party and an :ref:`interface ID <com.daml.ledger.api.v1.InterfaceFilter.interface_id>`
+- exposing an interface view, when the :ref:`include_interface_view <com.daml.ledger.api.v1.InterfaceFilter.include_interface_view>` is set to ``true``
+
 .. _active-contract-service:
 
-Active contracts service
+Active Contracts Service
 ========================
 
 Use the **active contracts service** to obtain a party-specific view of all contracts that are active on the ledger at the time of the request.
@@ -167,6 +179,10 @@ Verbosity
 ---------
 
 See :ref:`verbosity` above.
+
+Transaction Filter
+------------------
+See :ref:`transaction-filter` above.
 
 .. note::
 
@@ -183,15 +199,15 @@ See :ref:`verbosity` above.
 
 .. _ledger-api-utility-services:
 
-Utility services
+Utility Services
 ****************
 
 .. _party-service:
 
-Party management service
+Party Management Service
 ========================
 
-Use the **party management service** to allocate parties on the ledger and retrieve information about allocated parties.
+Use the **party management service** to allocate parties on the ledger, update party properties local to the participant and retrieve information about allocated parties.
 
 Parties govern on-ledger access control as per :ref:`Daml's privacy model <da-model-privacy>`
 and :ref:`authorization rules <da-ledgers-authorization-rules>`.
@@ -201,7 +217,7 @@ For more information, refer to the pages on :doc:`Identity Management</concepts/
 
 .. _user-management-service:
 
-User management service
+User Management Service
 =======================
 
 Use the **user management service** to manage the set of users on a participant node and
@@ -212,7 +228,7 @@ In contrast to parties, users are local to a participant node.
 The relation between a participant node's users and Daml parties is best understood by analogy to classical databases:
 a participant node's users are analogous to database users while Daml parties are analogous to database roles; and further, the rights granted to a user are analogous to the user's assigned database roles.
 
-For more information, consult the :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.UserManagementService>` for how to list, create, and delete users and their rights.
+For more information, consult the :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.UserManagementService>` for how to list, create, update and delete users and their rights.
 See the :ref:`UserManagementFeature descriptor <com.daml.ledger.api.v1.UserManagementFeature>` to learn about limits of the user management service, e.g., the maximum number of rights per user.
 The feature descriptor can be retrieved using the :ref:`Version service <version-service>`.
 
@@ -223,7 +239,7 @@ User management is available in Canton-enabled drivers and not yet available in 
 
 .. _package-service:
 
-Package service
+Package Service
 ===============
 
 Use the **package service** to obtain information about Daml packages available on the ledger.
@@ -234,7 +250,7 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 
 .. _ledger-identity-service:
 
-Ledger identity service (DEPRECATED)
+Ledger Identity Service (DEPRECATED)
 =====================================
 
 Use the **ledger identity service** to get the identity string of the ledger that your application is connected to.
@@ -246,7 +262,7 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 
 .. _ledger-configuration-service:
 
-Ledger configuration service
+Ledger Configuration Service
 ============================
 
 Use the **ledger configuration service** to subscribe to changes in ledger configuration.
@@ -257,8 +273,8 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 
 .. _version-service:
 
-Version service
-============================
+Version Service
+===============
 
 Use the **version service** to retrieve information about the Ledger API version and what optional features are supported by the ledger server.
 
@@ -266,8 +282,8 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 
 .. _pruning-service:
 
-Pruning service
-============================
+Pruning Service
+===============
 
 Use the **pruning service** to prune archived contracts and transactions before or at a given offset.
 
@@ -275,8 +291,8 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 
 .. _metering-report-service:
 
-Metering Report service
-============================
+Metering Report Service
+=======================
 
 Use the **metering report service** to retrieve a participant metering report.
 
@@ -284,14 +300,14 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 
 .. _ledger-api-testing-services:
 
-Testing services
+Testing Services
 ****************
 
 **These are only for use for testing with the Sandbox, not for on production ledgers.**
 
 .. _time-service:
 
-Time service
+Time Service
 ============
 
 Use the **time service** to obtain the time as known by the ledger server.

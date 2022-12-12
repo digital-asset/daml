@@ -19,6 +19,7 @@ damlc_data = [
     "@stackage-exe//hpp",
     "//compiler/damlc/pkg-db",
     "//compiler/damlc/stable-packages",
+    "//compiler/damlc:daml-base-anchors.json",
     "//compiler/repl-service/server:repl_service_jar",
     "//compiler/scenario-service/server:scenario_service_jar",
 ]
@@ -154,6 +155,7 @@ da_haskell_library(
         "aeson",
         "aeson-pretty",
         "ansi-wl-pprint",
+        "ansi-terminal",
         "base",
         "base64",
         "base64-bytestring",
@@ -209,6 +211,7 @@ da_haskell_library(
         "//compiler/daml-lf-reader",
         "//compiler/daml-lf-tools",
         "//compiler/damlc/daml-compiler",
+        "//compiler/damlc/daml-desugar",
         "//compiler/damlc/daml-doc",
         "//compiler/damlc/daml-ide",
         "//compiler/damlc/daml-ide-core",
@@ -260,7 +263,7 @@ genrule(
     srcs = ["//compiler/damlc/daml-prim-src"],
     outs = ["daml-prim.json"],
     cmd = """
-        $(location //compiler/damlc) -- docs \
+        $(location //compiler/damlc:damlc-compile-only) -- docs \
             --output=$(OUTS) \
             --package-name=daml-prim \
             --format=Json \
@@ -268,7 +271,7 @@ genrule(
             $(locations //compiler/damlc/daml-prim-src)
     """.format(lf_docs_version),
     tools = [
-        "//compiler/damlc",
+        "//compiler/damlc:damlc-compile-only",
     ],
     visibility = ["//visibility:public"],
 )
@@ -278,7 +281,7 @@ genrule(
     srcs = ["//compiler/damlc/daml-stdlib-src"],
     outs = ["daml-stdlib.json"],
     cmd = """
-        $(location //compiler/damlc) -- docs \
+        $(location //compiler/damlc:damlc-compile-only) -- docs \
             --output=$(OUTS) \
             --package-name=daml-stdlib \
             --format=Json \
@@ -286,7 +289,7 @@ genrule(
             $(locations //compiler/damlc/daml-stdlib-src)
     """.format(lf_docs_version),
     tools = [
-        "//compiler/damlc",
+        "//compiler/damlc:damlc-compile-only",
     ],
     visibility = ["//visibility:public"],
 )
@@ -306,7 +309,7 @@ genrule(
         "daml-base-hoogle.txt",
     ],
     cmd = """
-        $(location //compiler/damlc) -- docs \\
+        $(location //compiler/damlc:damlc-compile-only) -- docs \\
             --output=daml-base-rst \\
             --input-format=json \\
             --format=Rst \\
@@ -316,6 +319,7 @@ genrule(
             --index-template=$(location :daml-base-rst-index-template) \\
             --hoogle-template=$(location :daml-base-hoogle-template) \\
             --base-url=https://docs.daml.com/daml/stdlib \\
+            --no-input-anchor \\
             --output-hoogle=$(location :daml-base-hoogle.txt) \\
             --output-anchor=$(location :daml-base-anchors.json) \\
             --target={} \\
@@ -324,7 +328,7 @@ genrule(
     """.format(lf_docs_version),
     tools = [
         "//bazel_tools/sh:mktgz",
-        "//compiler/damlc",
+        "//compiler/damlc:damlc-compile-only",
     ],
     visibility = ["//visibility:public"],
 )
@@ -338,5 +342,6 @@ daml_doc_test(
         "LibraryModules.daml",
         "DA/Experimental/*.daml",
         "DA/Time/Types.daml",
+        "DA/Action/State/Type.daml",
     ],
 )

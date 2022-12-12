@@ -1,17 +1,17 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-JavaScript Code Generator
-#########################
+Use the JavaScript Code Generator
+#################################
 
-The command ``daml codegen js`` generates JavaScript (and TypeScript) that can be used in conjunction with the `JavaScript Client Libraries <../index>`_ for interacting with a Daml ledger via the `HTTP JSON API <../json-api/index.html>`_.
+The command ``daml codegen js`` generates JavaScript (and TypeScript) that can be used in conjunction with the `JavaScript Client Libraries </app-dev/bindings-ts/index.html>`_ for interacting with a Daml ledger via the `HTTP JSON API </json-api/index.html>`_.
 
 Inputs to the command are DAR files. Outputs are JavaScript packages with TypeScript typings containing metadata and types for all Daml packages included in the DAR files.
 
-The generated packages use the library `@daml/types <https://github.com/digital-asset/daml/tree/main/language-support/ts/daml-types>`_.
+The generated packages use the library `@daml/types <ts-daml-types_>`_.
 
-Usage
-*****
+Generate and Use Code
+*********************
 
 In outline, the command to generate JavaScript and TypeScript typings from Daml is ``daml codegen js -o OUTDIR DAR`` where ``DAR`` is the path to a DAR file (generated via ``daml build``) and ``OUTDIR`` is a directory where you want the artifacts to be written.
 
@@ -36,7 +36,7 @@ Here's a complete example on a project built from the standard "skeleton" templa
 
 To get a quickstart idea of how to use what has been generated, you may wish to jump to the `Templates and choices`_ section and return to the reference material that follows as needed.
 
-Primitive Daml types: @daml/types
+Primitive Daml Types: @daml/types
 *********************************
 
 To understand the TypeScript typings produced by the code generator, it is helpful to keep in mind this quick review of the TypeScript equivalents of the primitive Daml types provided by @daml/types.
@@ -93,7 +93,7 @@ To understand the TypeScript typings produced by the code generator, it is helpf
 .. note::
    The TypeScript definition of type ``Optional<τ>`` in the above table might look complicated. It accounts for differences in the encoding of optional values when nested versus when they are not (i.e. "top-level"). For example, ``null`` and ``"foo"`` are two possible values of ``Optional<Text>`` whereas, ``[]`` and ``["foo"]`` are two possible values of type ``Optional<Optional<Text>>`` (``null`` is another possible value, ``[null]`` is **not**).
 
-Daml to TypeScript mappings
+Daml to TypeScript Mappings
 ***************************
 
 The mappings from Daml to TypeScript are best explained by example.
@@ -202,7 +202,7 @@ the generated TypeScript will consist of a type declaration and the definition o
      keys: ['Red','Blue','Yellow'],
    } as const;
 
-Templates and choices
+Templates and Choices
 =====================
 
 Here is a Daml template of a basic 'IOU' contract.

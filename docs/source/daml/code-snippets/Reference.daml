@@ -46,23 +46,23 @@ template NameOfTemplate
 -- start template choice snippet
     -- option 1 for specifying choices: choice name first
     choice NameOfChoice1
-          : ()  -- replace () with the actual return type
-        with
-          exampleParameter : Text -- parameters here
+      : ()  -- replace () with the actual return type
+      with
+        exampleParameter : Text -- parameters here
       controller exampleParty
-        do
-          return () -- replace this line with the choice body
+      do
+        return () -- replace this line with the choice body
 
     -- option 2 for specifying choices (deprecated syntax): controller first
     controller exampleParty can
       NameOfChoice2
-          : () -- replace () with the actual return type
+        : () -- replace () with the actual return type
         with
           exampleParameter : Text -- parameters here
         do
           return () -- replace this line with the choice body
       nonconsuming NameOfChoice3
-          : ()  -- replace () with the actual return type
+        : ()  -- replace () with the actual return type
         with
           exampleParameter : Text -- parameters here
         do
@@ -71,41 +71,41 @@ template NameOfTemplate
 
 -- start choice-first choice name snippet
     choice ExampleChoice1
-          : () -- replace () with the actual return type
+      : () -- replace () with the actual return type
 -- end choice-first choice name snippet
 -- start choice-first params snippet
-        with
-          exampleParameter : Text
+      with
+        exampleParameter : Text
 -- end choice-first params snippet
 -- start choice-first controller snippet
       controller exampleParty
 -- end choice-first controller snippet
-        do
-          return () -- replace () with the actual return type
+      do
+        return () -- replace () with the actual return type
 -- start choice-first preconsuming snippet
     preconsuming choice ExampleChoice5
-          : () -- replace () with the actual return type
+      : () -- replace () with the actual return type
 -- end choice-first preconsuming snippet
-        with -- params
-        controller exampleParty
-          do
-            return ()
+      with -- params
+      controller exampleParty
+      do
+        return ()
 -- start choice-first postconsuming snippet
     postconsuming choice ExampleChoice6
-          : () -- replace () with the actual return type
+      : () -- replace () with the actual return type
 -- end choice-first postconsuming snippet
-        with -- params
-        controller exampleParty
-          do
-            return ()
+      with -- params
+      controller exampleParty
+      do
+        return ()
 -- start choice-first nonconsuming snippet
     nonconsuming choice ExampleChoice3
-          : () -- replace () with the actual return type
+      : () -- replace () with the actual return type
 -- end choice-first nonconsuming snippet
-        with -- params
-        controller exampleParty
-          do
-            return ()
+      with -- params
+      controller exampleParty
+      do
+        return ()
 
 -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
 -- We keep it here for documentation purposes until it is removed.
@@ -114,7 +114,7 @@ template NameOfTemplate
 -- end controller-first controller snippet
 -- start controller-first choice name snippet
       ExampleChoice2
-          : () -- replace () with the actual return type
+        : () -- replace () with the actual return type
 -- end controller-first choice name snippet
 -- start controller-first params snippet
         with
@@ -124,19 +124,19 @@ template NameOfTemplate
           return () -- replace () with the actual return type
 -- start controller-first preconsuming snippet
       preconsuming ExampleChoice7
-          : () -- replace () with the actual return type
+        : () -- replace () with the actual return type
 -- end controller-first preconsuming snippet
         do
           return () -- replace () with the actual return type
 -- start controller-first postconsuming snippet
       postconsuming ExampleChoice8
-          : () -- replace () with the actual return type
+        : () -- replace () with the actual return type
 -- end controller-first postconsuming snippet
         do
           return () -- replace () with the actual return type
 -- start controller-first nonconsuming snippet
       nonconsuming ExampleChoice4
-          : () -- replace () with the actual return type
+        : () -- replace () with the actual return type
 -- end controller-first nonconsuming snippet
         do
           return () -- replace () with the actual return type

@@ -3,13 +3,15 @@
 
 package com.daml.ledger.indexerbenchmark
 
-import java.time.Duration
-
 import com.daml.lf.data.Ref
-import com.daml.metrics.MetricsReporter
+import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import scopt.OptionParser
+
+import java.time.Duration
+import com.daml.metrics.api.reporters.MetricsReporter
 
 /** @param updateCount The number of updates to process.
   * @param updateSource The name of the source of state updates.
@@ -21,9 +23,12 @@ case class Config(
     updateSource: String,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
+    indexServiceConfig: IndexServiceConfig,
     indexerConfig: IndexerConfig,
     waitForUserInput: Boolean,
     minUpdateRate: Option[Long],
+    participantId: Ref.ParticipantId,
+    dataSource: ParticipantDataSourceConfig,
 )
 
 object Config {
@@ -32,13 +37,14 @@ object Config {
     updateSource = "",
     metricsReporter = None,
     metricsReportingInterval = Duration.ofSeconds(1),
+    indexServiceConfig = IndexServiceConfig(),
     indexerConfig = IndexerConfig(
-      participantId = Ref.ParticipantId.assertFromString("IndexerBenchmarkParticipant"),
-      jdbcUrl = "",
-      startupMode = IndexerStartupMode.MigrateAndStart,
+      startupMode = IndexerStartupMode.MigrateAndStart()
     ),
     waitForUserInput = false,
     minUpdateRate = None,
+    participantId = Ref.ParticipantId.assertFromString("IndexerBenchmarkParticipant"),
+    dataSource = ParticipantDataSourceConfig(""),
   )
 
   private[this] val Parser: OptionParser[Config] =
@@ -72,16 +78,6 @@ object Config {
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(submissionBatchSize = value))
         )
-      opt[Int]("indexer-tailing-rate-limit-per-second")
-        .text("Sets the value of IndexerConfig.tailingRateLimitPerSecond.")
-        .action((value, config) =>
-          config.copy(indexerConfig = config.indexerConfig.copy(tailingRateLimitPerSecond = value))
-        )
-      opt[Long]("indexer-batch-within-millis")
-        .text("Sets the value of IndexerConfig.batchWithinMillis.")
-        .action((value, config) =>
-          config.copy(indexerConfig = config.indexerConfig.copy(batchWithinMillis = value))
-        )
       opt[Boolean]("indexer-enable-compression")
         .text("Sets the value of IndexerConfig.enableCompression.")
         .action((value, config) =>
@@ -97,9 +93,7 @@ object Config {
         .text(
           "The JDBC URL of the index database. Default: the benchmark will run against an ephemeral Postgres database."
         )
-        .action((value, config) =>
-          config.copy(indexerConfig = config.indexerConfig.copy(jdbcUrl = value))
-        )
+        .action((value, config) => config.copy(dataSource = ParticipantDataSourceConfig(value)))
 
       opt[Long]("update-count")
         .text(

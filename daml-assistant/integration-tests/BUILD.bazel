@@ -113,10 +113,56 @@ da_haskell_test(
         "$(location //:yarn)",
     ],
     data = [
-        ":integration-tests-mvn",
         "//release:sdk-release-tarball",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
         "//:yarn",
+        "//compiler/damlc/tests:generate-simple-dalf",
+    ] + ([] if is_windows else ts_libraries + ["@script_nix//:bin/script"]),
+    # marked flaky for mvn originally; still flaky now? #14281
+    flaky = True,
+    hackage_deps = [
+        "aeson",
+        "base",
+        "bytestring",
+        "extra",
+        "filepath",
+        "http-client",
+        "http-types",
+        "lens",
+        "lens-aeson",
+        "monad-loops",
+        "process",
+        "stm",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "vector",
+    ],
+    main_function = "DA.Daml.Assistant.IntegrationTests.main",
+    tags = ["cpu:2"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":integration-test-utils",
+        "//:sdk-version-hs-lib",
+        "//daml-assistant/daml-helper:daml-helper-lib",
+        "//language-support/hs/bindings:hs-ledger",
+        "//language-support/ts/codegen/tests:daml2js-test-helpers",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+da_haskell_test(
+    name = "quickstart-tests",
+    timeout = "long",
+    srcs = [
+        "src/DA/Daml/Assistant/QuickstartTests.hs",
+    ],
+    data = [
+        ":integration-tests-mvn",
+        "//release:sdk-release-tarball",
+        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
         "//compiler/damlc/tests:generate-simple-dalf",
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
@@ -124,37 +170,19 @@ da_haskell_test(
     # I’m sure the mvn stuff will be flaky.
     flaky = True,
     hackage_deps = [
-        "aeson",
-        "async",
         "base",
         "bytestring",
         "conduit",
-        "conduit-extra",
-        "containers",
-        "directory",
         "extra",
         "filepath",
         "http-client",
-        "monad-loops",
         "http-types",
-        "jwt",
-        "lens",
-        "lens-aeson",
-        "network",
         "process",
-        "safe",
-        "stm",
-        "tar",
-        "tar-conduit",
         "tasty",
         "tasty-hunit",
-        "text",
-        "unordered-containers",
-        "utf8-string",
-        "vector",
     ],
-    main_function = "DA.Daml.Assistant.IntegrationTests.main",
-    tags = ["cpu:2"],
+    main_function = "DA.Daml.Assistant.QuickstartTests.main",
+    tags = ["cpu:1"],
     visibility = ["//visibility:public"],
     deps = [
         ":integration-test-utils",
@@ -199,6 +227,8 @@ genrule(
         "@nodejs//:node_bin",
         "@nodejs//:npm_bin",
     ],
+    # Broken on M1 due to puppeteer failing to install Chromium.
+    # See https://github.com/digital-asset/daml/pull/13250.
 ) if not is_windows else None
 
 da_haskell_library(
@@ -254,7 +284,8 @@ da_haskell_test(
     ],
     hackage_deps = ["base"],
     main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
-    # Exclusive until we stop hardcoding port numbers in index.test.ts
-    tags = ["exclusive"],
+    tags =
+        # Exclusive until we stop hardcoding port numbers in index.test.ts
+        ["exclusive"],
     deps = [":create-daml-app-tests-lib"],
 ) if not is_windows else None

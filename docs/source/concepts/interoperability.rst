@@ -3,8 +3,8 @@
    
 .. _interoperable-ledgers:
 
-Ledger Interoperability
-#######################
+Daml Ledger Interoperability
+############################
 
 Certain Daml ledgers can interoperate with other Daml ledgers.
 That is, the contracts created on one ledger can be used and archived in transactions on other ledgers.
@@ -32,7 +32,7 @@ The presentation assumes that you are familiar with the following concepts:
 
 .. _interop-limitation-examples:
    
-Interoperability examples
+Interoperability Examples
 *************************
    
 .. _interoperable-topology:
@@ -48,8 +48,9 @@ The following picture shows such a setup.
 .. figure:: ./images/multiple-domains.svg
    :align: center
    :name: multiple-ledgers
+   :alt: A sample topology with two parties, three participant nodes, and two ledgers, described in detail through the remainder of this section.
 
-   Example topology with three interoperable ledgers
+   Example topology with two interoperable ledgers
 
 The components in this diagram are the following:
 
@@ -69,7 +70,7 @@ The components in this diagram are the following:
 
 .. _interoperable-aggregation:
 
-Aggregation at the participant
+Aggregation at the Participant
 ==============================
 
 The Participant Node assembles the updates from these ledgers and outputs them via the party's Transaction Service and Active Contract Service.
@@ -82,7 +83,7 @@ then `P1`\ 's transaction stream for Alice will emit this transaction and report
 
 .. _enter-leave-event:
 
-Enter and Leave events
+Enter and Leave Events
 ======================
 
 With interoperability, a transaction can use a contract whose creation was recorded on a different ledger.
@@ -127,7 +128,7 @@ In contrast, `P1` need not output the **Enter** and **Leave** actions at all in 
 
 .. _cross-ledger-transaction:
 
-Cross-ledger transactions
+Cross-ledger Transactions
 =========================
 
 With interoperability, a cross-ledger transaction can be committed on several interoperable Daml ledgers simultaneously.
@@ -156,7 +157,7 @@ Accordingly, it does not report the contract as active nor can Alice use the con
 
 .. _interop-causality-graph:
 
-Multi-ledger causality graphs
+Multi-ledger Causality Graphs
 *****************************
 
 This section generalizes :ref:`causality graphs <causality-graph>` to the interoperability setting.
@@ -224,6 +225,7 @@ Incoming and outgoing ledgers are encoded as colors (green for Ledger 1 and yell
 .. figure:: ./images/interoperable-causality-graph-linear.svg
    :align: center
    :width: 100%
+   :alt: Transactions and their colors in this graph: tx1 is yellow. tf1 is yellow and green. tx2 is green. tf2 is green and yellow. tx3 is yellow. tf3 is yellow and green. tx4 is green.
 
    Multi-Ledger causality graph with transfer actions
 
@@ -241,6 +243,7 @@ The last transaction `tx4` is a cross-ledger transaction because its actions hav
 .. figure:: ./images/counteroffer-interoperable-causality-graph.svg
    :align: center
    :width: 100%
+   :alt: The multi-ledger causality graph for the split paint counteroffer workflow. tx1 and tx3 are yellow. tx2 is green. tx4 is both yellow and green.
 
    Multi-Ledger causality graph for the split paint counteroffer workflow on two Daml ledgers
 
@@ -259,11 +262,11 @@ Definition »Multi-Ledger causal consistency for a contract«
   Let `G` be a multi-ledger causality graph and `X` be a set of actions from `G` on a contract in `c`.
   The graph `G` is **multi-ledger consistent for the contract** `c` on `X` if all of the following hold:
 
-  #. If `X` is not empty, then `X` contains a **Create** or **Enter** action.
-     This action precedes all other actions in `X`.
+  #. If `X` is not empty, then `X` contains a **Create** or at least one **Enter** action.
+     If it contains a create, then this create precedes all other actions in `X`.
+     If it does not, then there exists one **Enter** action that precedes all other actions in `X`.
 
   #. `X` contains at most one **Create** action.
-     If so, this action precedes all other actions in `X`.
 
   #. If `X` contains a consuming **Exercise** action `act`, then `act` follows all other actions in `X` in `G`\ 's action order.
 
@@ -320,7 +323,7 @@ In particular all maximal chains of actions on a contract are ledger traces:
 | `PaintAgree P A`        | **Create**                              |
 +-------------------------+-----------------------------------------+
    
-Minimality and reduction
+Minimality and Reduction
 ========================
 
 When edges are added to an `X`-multi-ledger consistent causality graph such that it remains acyclic and transitively closed,
@@ -340,7 +343,7 @@ Since multi-ledger causality graphs are acyclic, their vertices can be sorted to
 If the original causality graph is `X`\ -consistent, then so is the topological sort, as topological sorting merely adds edges.
 
 
-From multi-ledger causality graphs to ledgers
+From Multi-ledger Causality Graphs to Ledgers
 =============================================
 
 Multi-Ledger causality graphs `G` are linked to ledgers `L` in the Daml Ledger Model via topological sort and reduction.
@@ -361,7 +364,7 @@ Conversely, a consistent ledger does not talk about the incoming and outgoing le
 
 .. _ledger-aware-projection:
 
-Ledger-aware projection
+Ledger-aware Projection
 ***********************
 
 A Participant Node maintains a local ledger for each party it hosts and the Transaction Service outputs a topological sort of this local ledger.
@@ -391,6 +394,7 @@ Here, the projections on the green ledger include the actions of the yellow ledg
 .. image:: ./images/projecting-transactions-paint-offer-ledger-aware.svg
    :align: center
    :width: 60%
+   :alt: Projections for various parties to the split paint counteroffer workflow. The green ledger projections include the yellow ledger, but the yellow ledger projections do not include the green ledger.
 
 Definition »Projection for transfer actions«
   Let `act` be a transfer action annotated with an incoming ledger and/or an outgoing ledger.
@@ -417,13 +421,14 @@ Definition »Ledger-aware projection for multi-ledger causality graphs«
 
 If `G` is a multi-ledger consistent causality graph, then the `P`\ -projection on `Y` is `P`\ -consistent on `Y`, too.
 
-For example, the :ref:`multi-ledger causality graph for the split paint counteroffer workflow <counteroffer-interoperable-causality-graph>` is projected as follows.
+For example, the :ref:`multi-ledger causality graph for the split paint counteroffer workflow <counteroffer-interoperable-causality-graph>` is projected as follows:
 
 .. https://app.lucidchart.com/documents/edit/d788b464-d670-4029-b2c0-d537c023052f
    
 .. image:: ./images/counteroffer-causality-ledgeraware-projection.svg
    :align: center
    :width: 100%
+   :alt: More projections for various parties to the split paint counteroffer workflow, showing greater detail. Alice and the painter have green and yellow, just green, and just yellow projections; the bank has only a yellow projection.
 
 The following points are worth highlighting:
 
@@ -447,10 +452,11 @@ That is, a **Leave** action is white on the right hand side and an **Enter** act
 .. image:: ./images/transfer-projection.svg
    :align: center
    :width: 100%
+   :alt: Causality graphs showing only the green or only the yellow ledger.
 
 .. _interop-ordering-guarantees:
 
-Ledger API ordering guarantees
+Ledger API Ordering Guarantees
 ******************************
 
 The Transaction Service and the Active Contract Service are derived from the local ledger that the Participant Node maintains for the party.

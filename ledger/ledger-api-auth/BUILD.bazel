@@ -25,12 +25,13 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-        "//ledger-service/jwt",
         "//ledger/error",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
-        "//ledger/participant-state-index",
+        "//ledger/ledger-api-errors",
+        "//ledger/participant-local-store",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/jwt",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_context",
@@ -48,7 +49,7 @@ da_scala_binary(
     ],
     deps = [
         ":ledger-api-auth",
-        "//ledger-service/jwt",
+        "//libs-scala/jwt",
     ],
 )
 
@@ -76,10 +77,13 @@ da_scala_test_suite(
         "//ledger/error:error-test-lib",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-errors",
+        "//ledger/participant-local-store",
         "//ledger/participant-state-index",
         "//ledger/test-common",
         "//libs-scala/adjustable-clock",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/jwt",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",

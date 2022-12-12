@@ -85,7 +85,9 @@ object Ref {
       definition: String,
       start: (Int, Int),
       end: (Int, Int),
-  )
+  ) {
+    def pretty: String = s"definition $packageId:$module:$definition (start: $start, end: $end)"
+  }
 
   // we do not use String.split because `":foo".split(":")`
   // results in `List("foo")` rather than `List("", "foo")`
@@ -282,5 +284,33 @@ object Ref {
   /** Reference to a type synonym. */
   type TypeSynName = Identifier
   val TypeSynName = Identifier
+
+  /*
+     max size when converted to string: 3068 ASCII chars
+   */
+  final case class QualifiedChoiceName(interfaceId: Option[Identifier], choiceName: ChoiceName) {
+    override def toString: String = interfaceId match {
+      case None => choiceName
+      case Some(ifaceId) => "#" + ifaceId.toString + "#" + choiceName
+    }
+  }
+
+  object QualifiedChoiceName {
+    def fromString(s: String): Either[String, QualifiedChoiceName] =
+      if (s.startsWith("#")) {
+        val i = s.indexOf('#', 1)
+        if (i < 0)
+          Left("Cannot parse qualified choice name")
+        else
+          for {
+            ifaceId <- Identifier.fromString(s.substring(1, i))
+            chName <- ChoiceName.fromString(s.substring(i + 1, s.length))
+          } yield QualifiedChoiceName(Some(ifaceId), chName)
+      } else
+        ChoiceName.fromString(s).map(QualifiedChoiceName(None, _))
+
+    def assertFromString(s: String): QualifiedChoiceName =
+      assertRight(fromString(s))
+  }
 
 }

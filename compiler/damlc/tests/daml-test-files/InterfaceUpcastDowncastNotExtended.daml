@@ -1,0 +1,104 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @UNTIL-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @ERROR Requires in Daml interfaces are only available with --target=1.dev
+
+-- | Try out some upcasts and downcasts, checking that everything works.
+module InterfaceUpcastDowncastNotExtended where
+
+import DA.Assert ((===))
+import DA.Optional (isNone)
+import DA.Functor (void)
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface A where
+  viewtype EmptyInterfaceView
+  getOwner : Party
+  nonconsuming choice ChoiceA : Int
+    controller getOwner this
+    do pure 10
+
+interface B requires A where
+  viewtype EmptyInterfaceView
+  getCoolness : Int
+  nonconsuming choice ChoiceB : Int
+    controller getOwner (toInterface @A this)
+    do pure (getCoolness this)
+
+template T1
+  with
+    p1 : Party
+  where
+    signatory p1
+    interface instance A for T1 where
+      view = EmptyInterfaceView
+      getOwner = p1
+    interface instance B for T1 where
+      view = EmptyInterfaceView
+      getCoolness = 20
+
+template T2
+  with
+    p2 : Party
+  where
+    signatory p2
+    interface instance A for T2 where
+      view = EmptyInterfaceView
+      getOwner = p2
+
+main = scenario do
+    p <- getParty "Alice"
+    submit p do
+        let t1 = T1 p
+        let t2 = T2 p
+        let t1b = toInterface @B t1
+        let t1a = toInterface @A t1b
+        let t2a = toInterface @A t2
+
+        Some t1 === fromInterface @T1 t1b
+        Some t1 === fromInterface @T1 t1a
+        Some t1 === (fromInterface @B t1a >>= fromInterface @T1)
+
+        Some t2 === fromInterface @T2 t2a
+        None === (fromInterface @B t2a >> pure ())
+
+        getCoolness t1b === 20
+        getOwner t1a === p
+
+        cidt1 <- create t1
+        cidt2 <- create t2
+
+        let cidt1b = toInterfaceContractId @B cidt1
+        let cidt1a = toInterfaceContractId @A cidt1
+        cidt1a === toInterfaceContractId @A cidt1b
+
+        let cidt2a = toInterfaceContractId @A cidt2
+
+        cidt1b === fromInterfaceContractId cidt1a
+
+        fetchPair1 <- fetchFromInterface @B cidt1a
+        fetchPair2 <- fetchFromInterface @B cidt2a
+        assertMsg "fetchPair1 != Some (cidt1b, t1b)" (fetchPair1 == Some (cidt1b, t1b))
+        assertMsg "fetchPair2 != None" (isNone fetchPair2)
+
+        exercise cidt1a ChoiceA
+        exercise cidt1b ChoiceB
+
+        pure ()
+
+    -- Test that using fromInterfaceContractId incorrectly will result
+    -- in failed fetch/exercise, across interface hierarchy.
+    -- I.e. Test that using a T2 contract id as if it were a B contract id
+    -- will always fail, even for actions that make sense with A contracts.
+    let useAction : (ContractId B -> Update ()) -> Update ()
+        useAction action = do
+            cid <- create (toInterface @A (T2 p))
+            action (fromInterfaceContractId @B cid)
+    submit p do useAction $ \_bcid -> pure ()
+    submitMustFail p do useAction $ \bcid -> void (fetch bcid)
+    submitMustFail p do useAction $ \bcid -> void (exercise bcid ChoiceB)
+
+-- @ENABLE-SCENARIOS

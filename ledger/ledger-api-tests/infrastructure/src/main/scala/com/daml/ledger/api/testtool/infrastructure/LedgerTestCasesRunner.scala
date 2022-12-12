@@ -11,11 +11,11 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestCasesRunner._
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants
+import com.daml.ledger.api.testtool.infrastructure.future.FutureUtil
 import com.daml.ledger.api.testtool.infrastructure.participant.{
   ParticipantSession,
   ParticipantTestContext,
 }
-import com.daml.ledger.api.tls.TlsConfiguration
 import io.grpc.ClientInterceptor
 import org.slf4j.LoggerFactory
 
@@ -50,7 +50,6 @@ final class LedgerTestCasesRunner(
     uploadDars: Boolean = true,
     identifierSuffix: String = "test",
     commandInterceptors: Seq[ClientInterceptor] = Seq.empty,
-    clientTlsConfiguration: Option[TlsConfiguration],
 ) {
   private[this] val verifyRequirements: Try[Unit] =
     Try {
@@ -145,6 +144,28 @@ final class LedgerTestCasesRunner(
   )(implicit executionContext: ExecutionContext): Future[Either[Result.Failure, Result.Success]] =
     result(createTestContextAndStart(test, session))
 
+  private def uploadDarsIfRequired(
+      sessions: Vector[ParticipantSession]
+  )(implicit executionContext: ExecutionContext): Future[Unit] =
+    if (uploadDars) {
+      FutureUtil
+        .sequential(sessions) { session =>
+          logger.info(s"Uploading DAR files for session $session")
+          for {
+            context <- session.createInitContext(
+              applicationId = "upload-dars",
+              identifierSuffix = identifierSuffix,
+              features = session.features,
+            )
+            // upload the dars sequentially to avoid conflicts
+            _ <- FutureUtil.sequential(Dars.resources)(uploadDar(context, _))
+          } yield ()
+        }
+        .map(_ => ())
+    } else {
+      Future.successful(logger.info("DAR files upload skipped."))
+    }
+
   private def uploadDar(
       context: ParticipantTestContext,
       name: String,
@@ -160,29 +181,7 @@ final class LedgerTestCasesRunner(
       }
   }
 
-  private def uploadDarsIfRequired(
-      sessions: Vector[ParticipantSession],
-      clientTlsConfiguration: Option[TlsConfiguration],
-  )(implicit executionContext: ExecutionContext): Future[Unit] =
-    if (uploadDars) {
-      Future
-        .sequence(sessions.map { session =>
-          for {
-            context <- session.createInitContext(
-              applicationId = "upload-dars",
-              identifierSuffix = identifierSuffix,
-              clientTlsConfiguration = clientTlsConfiguration,
-              features = session.features,
-            )
-            _ <- Future.sequence(Dars.resources.map(uploadDar(context, _)))
-          } yield ()
-        })
-        .map(_ => ())
-    } else {
-      Future.successful(logger.info("DAR files upload skipped."))
-    }
-
-  private def createActorSystem(): ActorSystem =
+  private def createActorSystem: ActorSystem =
     ActorSystem(classOf[LedgerTestCasesRunner].getSimpleName)
 
   private def runTestCases(
@@ -195,7 +194,7 @@ final class LedgerTestCasesRunner(
   ): Future[Vector[LedgerTestSummary]] = {
     val testCaseRepetitions = testCases.flatMap(_.repetitions)
     val testCount = testCaseRepetitions.size
-    logger.info(s"Running $testCount tests, ${math.min(testCount, concurrency)} at a time.")
+    logger.info(s"Running $testCount tests with concurrency of $concurrency.")
     Source(testCaseRepetitions.zipWithIndex)
       .mapAsyncUnordered(concurrency) { case (test, index) =>
         run(test, ledgerSession).map(summarize(test.suite, test.testCase, _) -> index)
@@ -215,6 +214,7 @@ final class LedgerTestCasesRunner(
       participantChannels = participantChannels,
       maxConnectionAttempts = maxConnectionAttempts,
       commandInterceptors = commandInterceptors,
+      timeoutScaleFactor = timeoutScaleFactor,
     )
     sessions
       .flatMap { sessions: Vector[ParticipantSession] =>
@@ -240,11 +240,10 @@ final class LedgerTestCasesRunner(
         val ledgerSession = LedgerSession(
           sessions,
           shuffleParticipants,
-          clientTlsConfiguration = clientTlsConfiguration,
         )
         val testResults =
           for {
-            _ <- uploadDarsIfRequired(sessions, clientTlsConfiguration)
+            _ <- uploadDarsIfRequired(sessions)
             concurrentTestResults <- runTestCases(
               ledgerSession,
               concurrentTestCases,
@@ -269,7 +268,7 @@ final class LedgerTestCasesRunner(
   ): Future[Vector[LedgerTestSummary]] = {
 
     val materializerResources =
-      ResourceOwner.forMaterializerDirectly(createActorSystem).acquire()
+      ResourceOwner.forMaterializerDirectly(() => createActorSystem).acquire()
 
     // When running the tests, explicitly use the materializer's execution context
     // The tests will then be executed on it instead of the implicit one -- which

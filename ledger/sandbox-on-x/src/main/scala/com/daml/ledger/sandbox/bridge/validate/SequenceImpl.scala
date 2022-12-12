@@ -23,10 +23,10 @@ import com.daml.ledger.sandbox.domain._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.{Transaction => LfTransaction}
+import com.daml.lf.transaction.{GlobalKey => LfGlobalKey, Transaction => LfTransaction}
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.ContextualizedLogger
 import com.daml.metrics.Timed
-import com.daml.platform.store.appendonlydao.events._
 
 import java.time.Duration
 import scala.util.chaining._
@@ -40,9 +40,9 @@ private[validate] class SequenceImpl(
     initialLedgerEnd: Offset,
     initialAllocatedParties: Set[Ref.Party],
     initialLedgerConfiguration: Option[Configuration],
-    validatePartyAllocation: Boolean,
     bridgeMetrics: BridgeMetrics,
     maxDeduplicationDuration: Duration,
+    explicitDisclosureEnabled: Boolean,
 ) extends Sequence {
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
@@ -191,15 +191,16 @@ private[validate] class SequenceImpl(
           txSubmission,
         )
       } yield transactionAccepted(
-        txSubmission.submission,
-        offsetIdx,
-        recordTime,
+        transactionSubmission = txSubmission.submission,
+        index = offsetIdx,
+        currentTimestamp = recordTime,
+        populateContractMetadata = explicitDisclosureEnabled,
       )
     }(txSubmission.submission.loggingContext, logger)
       .fold(_.toCommandRejectedUpdate(recordTime), identity)
 
   private def conflictCheckWithInFlight(
-      keysState: Map[Key, (Option[ContractId], LastUpdatedAt)],
+      keysState: Map[LfGlobalKey, (Option[ContractId], LastUpdatedAt)],
       consumedContractsState: Set[ContractId],
       keyInputs: KeyInputs,
       inputContracts: Set[ContractId],
@@ -260,15 +261,14 @@ private[validate] class SequenceImpl(
       completionInfo: CompletionInfo,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Validation[Unit] =
-    if (validatePartyAllocation) {
-      val unallocatedInformees = transactionInformees diff allocatedParties
-      Either.cond(
-        unallocatedInformees.isEmpty,
-        (),
-        UnallocatedParties(unallocatedInformees.toSet)(completionInfo),
-      )
-    } else Right(())
+  ): Validation[Unit] = {
+    val unallocatedInformees = transactionInformees diff allocatedParties
+    Either.cond(
+      unallocatedInformees.isEmpty,
+      (),
+      UnallocatedParties(unallocatedInformees.toSet)(completionInfo),
+    )
+  }
 
   private def checkTimeModel(
       transaction: Transaction,

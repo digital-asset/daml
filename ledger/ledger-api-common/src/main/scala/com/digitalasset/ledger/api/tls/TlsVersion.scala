@@ -17,4 +17,11 @@ object TlsVersion {
 
   case object V1_3 extends TlsVersion("TLSv1.3")
 
+  val allVersions: Set[TlsVersion] = Set(
+    V1,
+    V1_1,
+    V1_2,
+    V1_3,
+  )
+
 }

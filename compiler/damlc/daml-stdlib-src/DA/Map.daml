@@ -46,8 +46,10 @@ module DA.Map
     , filterWithKey
     , delete
     , insert
+    , insertWith
     , alter
     , union
+    , unionWith
     , merge
     , keys
     , values
@@ -60,6 +62,7 @@ import DA.List qualified as List
 import DA.Optional
 import DA.Traversable qualified as Traversable
 import GHC.Types (primitive)
+import GHC.Tuple.Check()
 
 
 -- | Create a map from a list of key/value pairs.
@@ -151,6 +154,15 @@ delete = primitive @"BEGenMapDelete"
 insert : Ord k => k -> v -> Map k v -> Map k v
 insert = primitive @"BEGenMapInsert"
 
+-- | Insert a new key/value pair in the map. If the key is already
+-- present in the map, it is combined with the previous value using the given function
+-- `f new_value old_value`.
+insertWith : Ord k => (v -> v -> v) -> k -> v -> Map k v -> Map k v
+insertWith f k v m =
+  case lookup k m of
+    None -> insert k v m
+    Some v' -> insert k (f v v') m
+
 -- | Update the value in `m` at `k` with `f`, inserting or deleting as
 -- required.  `f` will be called with either the value at `k`, or `None`
 -- if absent; `f` can return `Some` with a new value to be inserted in
@@ -175,6 +187,15 @@ alter f k m =
 -- keys are encountered.
 union : Ord k => Map k v -> Map k v -> Map k v
 union m1 m2 = foldl (\acc (k, v) -> insert k v acc) m2 (toList m1)
+
+-- | The union of two maps using the combining function to merge values that
+-- exist in both maps.
+unionWith : forall k v. Ord k => (v -> v -> v) -> Map k v -> Map k v -> Map k v
+unionWith combine m1 m2 = foldl f m1 (toList m2)
+  where f : Map k v -> (k, v) -> Map k v
+        f acc (k, v) = case lookup k acc of
+          None -> insert k v acc
+          Some v' -> insert k (combine v' v) acc
 
 -- | Combine two maps, using separate functions based on whether
 -- a key appears only in the first map, only in the second map,

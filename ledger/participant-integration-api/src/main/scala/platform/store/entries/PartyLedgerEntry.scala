@@ -3,28 +3,28 @@
 
 package com.daml.platform.store.entries
 
-import com.daml.ledger.api.domain.PartyDetails
-import com.daml.lf.data.Ref
+import com.daml.ledger.participant.state.index.v2.IndexerPartyDetails
 import com.daml.lf.data.Time.Timestamp
+import com.daml.platform.SubmissionId
 
 private[platform] sealed abstract class PartyLedgerEntry() extends Product with Serializable {
-  val submissionIdOpt: Option[Ref.SubmissionId]
+  val submissionIdOpt: Option[SubmissionId]
   val recordTime: Timestamp
 }
 
 private[platform] object PartyLedgerEntry {
 
   final case class AllocationAccepted(
-      submissionIdOpt: Option[Ref.SubmissionId],
+      submissionIdOpt: Option[SubmissionId],
       recordTime: Timestamp,
-      partyDetails: PartyDetails,
+      partyDetails: IndexerPartyDetails,
   ) extends PartyLedgerEntry
 
   final case class AllocationRejected(
-      submissionId: Ref.SubmissionId,
+      submissionId: SubmissionId,
       recordTime: Timestamp,
       reason: String,
   ) extends PartyLedgerEntry {
-    override val submissionIdOpt: Option[Ref.SubmissionId] = Some(submissionId)
+    override val submissionIdOpt: Option[SubmissionId] = Some(submissionId)
   }
 }

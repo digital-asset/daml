@@ -46,7 +46,7 @@ resource "google_storage_bucket_iam_member" "binaries-ci-read" {
 }
 
 
-output binaries_ip {
+output "binaries_ip" {
   description = "The external IP assigned to the global fowarding rule."
   value       = google_compute_global_address.binaries.address
 }
@@ -90,6 +90,7 @@ resource "google_compute_target_https_proxy" "binaries" {
   name             = "binaries-https-proxy"
   url_map          = google_compute_url_map.binaries.self_link
   ssl_certificates = ["https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/daml-binaries"]
+  ssl_policy       = google_compute_ssl_policy.ssl_policy.self_link
 }
 
 resource "google_compute_global_forwarding_rule" "https" {

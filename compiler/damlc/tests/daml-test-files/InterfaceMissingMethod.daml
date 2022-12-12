@@ -1,0 +1,21 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ERROR range=15:10-17:14;error type checking template InterfaceMissingMethod.T interface instance InterfaceMissingMethod:I for InterfaceMissingMethod:T: Interface instance lacks an implementation for method 'm'
+
+module InterfaceMissingMethod where
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface I where
+  viewtype EmptyInterfaceView
+  m : ()
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+    interface instance I for T where
+      view = EmptyInterfaceView

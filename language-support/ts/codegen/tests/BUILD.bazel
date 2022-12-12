@@ -11,9 +11,19 @@ load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 # follows.
 daml_compile(
     name = "build-and-lint",
-    srcs = glob(["daml/**/*.daml"]),
+    srcs = glob(
+        ["daml/**/*.daml"],
+        exclude = ["daml/Hidden.daml"],
+    ),
     target = "1.dev",
     version = "1.0.0",
+)
+
+daml_compile(
+    name = "hidden",
+    srcs = ["daml/Hidden.daml"],
+    data_dependencies = ["//language-support/ts/codegen/tests:build-and-lint.dar"],
+    target = "1.dev",
 )
 
 # build-and-lint
@@ -78,7 +88,7 @@ sh_test(
         "$(location //:java)",
         "$(location //:yarn)",
         "$(location //:daml2js)",
-        "$(location //ledger/sandbox-classic:sandbox-classic-binary_deploy.jar)",
+        "$(location //ledger/sandbox-on-x:app_deploy.jar)",
         "$(location //ledger-service/http-json:http-json-binary_deploy.jar)",
         "$(location :build-and-lint.dar)",
         "$(location ts/package.json)",
@@ -86,15 +96,17 @@ sh_test(
         "$(location //language-support/ts/daml-ledger:npm_package)",
         sdk_version,
         "$(location //ledger/test-common:model-tests-default.dar)",
+        "$(location :hidden.dar)",
         "$(location @grpcurl_nix//:bin)",
     ],
     data = [
         "//:java",
         "//:yarn",
         "//:daml2js",
-        "//ledger/sandbox-classic:sandbox-classic-binary_deploy.jar",
+        "//ledger/sandbox-on-x:app_deploy.jar",
         "//ledger-service/http-json:http-json-binary_deploy.jar",
         ":build-and-lint.dar",
+        ":hidden.dar",
         "//ledger/test-common:model-tests-default.dar",
         "//language-support/ts/daml-types:npm_package",
         "//language-support/ts/daml-ledger:npm_package",

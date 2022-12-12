@@ -6,6 +6,7 @@
 
 module ScriptExample where
 
+import DA.Time
 import Daml.Script
 -- DAML_SCRIPT_HEADER_END
 
@@ -32,6 +33,18 @@ template CoinProposal
       controller coin.owner
       do create coin
 -- COIN_PROPOSAL_TEMPLATE_END
+
+-- ASSET_INTERFACE_BEGIN
+
+data AssetInfo = AssetInfo { info : Text } deriving (Eq,Show)
+
+interface Asset where
+  viewtype AssetInfo
+
+  interface instance Asset for Coin where
+    view = AssetInfo { info = "A Coin" }
+
+-- ASSET_INTERFACE_END
 
 -- LEDGER_PARTIES_BEGIN
 data LedgerParties = LedgerParties with
@@ -90,6 +103,11 @@ test = do
   assertEq [Coin bank bob] (map snd bobCoins)
 -- TEST_QUERIES_END
 
+-- TEST_INTERFACE_BEGIN
+  aliceAssets <- queryInterface @Asset alice
+  assertEq [Some $ AssetInfo "A Coin"] (map snd aliceAssets)
+-- TEST_INTERFACE_END
+
 
 -- INITIALIZE_USER_BEGIN
 initializeUser : Script ()
@@ -103,3 +121,27 @@ initializeUser = do
   _ <- createUser (User bob (Some parties.bob)) [CanActAs parties.bob]
   initialize parties
 -- INITIALIZE_USER_END
+
+-- SYNC_CONTRACT_IDS_BEGIN
+tries : Int
+tries = 60
+
+waitForCid : Template t => Int -> Party -> ContractId t -> Script ()
+waitForCid tries p cid
+  | tries <= 0 = abort $ "Cid " <> show cid <> " did not appear"
+  | otherwise = do
+    r <- queryContractId p cid
+    case r of
+      None -> do
+        sleep delay
+        waitForCid (tries - 1) p cid
+      Some _ -> pure ()
+  where delay = seconds 1
+
+testWithSync: LedgerParties -> Script ()
+testWithSync parties = do
+  coinProposalAlice <- submit parties.bank $ createCmd (CoinProposal (Coin parties.bank parties.alice))
+  waitForCid tries parties.alice coinProposalAlice
+  coinAlice <- submit parties.alice $ exerciseCmd coinProposalAlice Accept
+  pure ()
+-- SYNC_CONTRACT_IDS_END

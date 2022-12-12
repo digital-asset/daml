@@ -9,16 +9,18 @@ import anorm.SqlParser.{byteArray, flatten, str}
 import anorm.RowParser
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
-import com.daml.platform.store.Conversions.offset
-import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
+import com.daml.platform.store.backend.Conversions.offset
+import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
+import com.daml.platform.store.dao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.backend.ConfigurationStorageBackend
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.entries.ConfigurationEntry
 
-private[backend] class ConfigurationStorageBackendTemplate(ledgerEndCache: LedgerEndCache)
-    extends ConfigurationStorageBackend {
+private[backend] class ConfigurationStorageBackendTemplate(
+    queryStrategy: QueryStrategy,
+    ledgerEndCache: LedgerEndCache,
+) extends ConfigurationStorageBackend {
 
   private val configurationEntryParser: RowParser[(Offset, ConfigurationEntry)] =
     (offset("ledger_offset") ~
@@ -51,7 +53,6 @@ private[backend] class ConfigurationStorageBackendTemplate(ledgerEndCache: Ledge
       }
 
   def ledgerConfiguration(connection: Connection): Option[(Offset, Configuration)] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
     val ledgerEndOffset = ledgerEndCache()._1
     SQL"""
       select
@@ -65,7 +66,10 @@ private[backend] class ConfigurationStorageBackendTemplate(ledgerEndCache: Ledge
         configuration_entries
       where
         configuration_entries.typ = '#$acceptType' and
-        $ledgerEndOffset >= ledger_offset
+        ${queryStrategy.offsetIsSmallerOrEqual(
+        nonNullableColumn = "ledger_offset",
+        endInclusive = ledgerEndOffset,
+      )}
       order by ledger_offset desc
       fetch next 1 row only
   """
@@ -81,7 +85,6 @@ private[backend] class ConfigurationStorageBackendTemplate(ledgerEndCache: Ledge
       pageSize: Int,
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, ConfigurationEntry)] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
     SQL"""
       select
         configuration_entries.ledger_offset,
@@ -93,8 +96,11 @@ private[backend] class ConfigurationStorageBackendTemplate(ledgerEndCache: Ledge
       from
         configuration_entries
       where
-        ($startExclusive is null or ledger_offset>$startExclusive) and
-        ledger_offset <= $endInclusive
+        ${queryStrategy.offsetIsBetween(
+        nonNullableColumn = "ledger_offset",
+        startExclusive = startExclusive,
+        endInclusive = endInclusive,
+      )}
       order by ledger_offset asc
       offset $queryOffset rows
       fetch next $pageSize rows only

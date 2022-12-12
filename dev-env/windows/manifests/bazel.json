@@ -1,12 +1,12 @@
 {
   "homepage": "https://bazel.build",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "license": "Apache-2.0",
   "bin": "bazel.exe",
   "architecture": {
     "64bit": {
-      "url": "https://daml-binaries.da-ext.net/patch_bazel_windows/bazel-be46798f67a4437875bfe23efb51935a.zip",
-      "hash": "670afb47f1b1a50747e90b570780ca54cfd29d9e5bf338a711c7f7d4758c9029"
+      "url": "https://github.com/bazelbuild/bazel/releases/download/4.2.0/bazel-4.2.0-windows-x86_64.zip",
+      "hash": "56c29f850677a7aaf9b59cbd762d0d41d9f9e158bf96c5b6022af123fd52db7f"
     }
   },
   "depends": [

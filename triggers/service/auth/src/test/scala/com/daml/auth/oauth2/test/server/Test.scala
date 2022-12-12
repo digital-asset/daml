@@ -19,6 +19,8 @@ import com.daml.ledger.api.auth.{
 }
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import org.scalatest.OptionValues
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import spray.json._
 
@@ -26,7 +28,12 @@ import java.time.Instant
 import scala.concurrent.Future
 import scala.util.Try
 
-abstract class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
+abstract class Test
+    extends AsyncWordSpec
+    with Matchers
+    with OptionValues
+    with TestFixture
+    with SuiteResourceManagementAroundAll {
   import Client.JsonProtocol._
   import Test._
 
@@ -58,14 +65,14 @@ abstract class Test extends AsyncWordSpec with TestFixture with SuiteResourceMan
       resp <- Http().singleRequest(req)
       // Redirect to /authorize on authorization server (No automatic redirect handling in akka-http)
       resp <- {
-        assert(resp.status == StatusCodes.Found)
-        val req = HttpRequest(uri = resp.header[Location].get.uri)
+        resp.status should ===(StatusCodes.Found)
+        val req = HttpRequest(uri = resp.header[Location].value.uri)
         Http().singleRequest(req)
       }
       // Redirect to /cb on client.
       resp <- {
-        assert(resp.status == StatusCodes.Found)
-        val req = HttpRequest(uri = resp.header[Location].get.uri)
+        resp.status should ===(StatusCodes.Found)
+        val req = HttpRequest(uri = resp.header[Location].value.uri)
         Http().singleRequest(req)
       }
       // Actual token response (proxied from auth server to us via the client)
@@ -152,22 +159,22 @@ abstract class Test extends AsyncWordSpec with TestFixture with SuiteResourceMan
         _ <- Future(clock.set((Tok exp token1) plusSeconds 1))
         (token2, _) <- expectRefresh(refresh1)
       } yield {
-        assert((Tok exp token2) isAfter (Tok exp token1))
-        assert((Tok withoutExp token1) == (Tok withoutExp token2))
+        (Tok exp token2) should be > (Tok exp token1)
+        (Tok withoutExp token1) should ===((Tok withoutExp token2))
       }
     }
     "return a token with the requested app id" in {
       for {
         (token, __) <- expectToken(Seq(), applicationId = Some("my-app-id"))
       } yield {
-        assert(Tok.userId(token) == Some("my-app-id"))
+        Tok.userId(token) should ===(Some("my-app-id"))
       }
     }
     "return a token with no app id if non is requested" in {
       for {
         (token, __) <- expectToken(Seq(), applicationId = None)
       } yield {
-        assert(Tok.userId(token) == None)
+        Tok.userId(token) should ===(None)
       }
     }
 
@@ -182,7 +189,7 @@ class ClaimTokenTest extends Test {
   type Tok = CustomDamlJWTPayload
   override object Tok extends TokenCompat[Tok] {
     override def userId(t: Tok) = t.applicationId
-    override def exp(t: Tok) = t.exp.get
+    override def exp(t: Tok) = t.exp.value
     override def withoutExp(t: Tok) = t copy (exp = None)
   }
 
@@ -199,21 +206,21 @@ class ClaimTokenTest extends Test {
       for {
         (token, _) <- expectToken(Seq())
       } yield {
-        assert(token.actAs == Seq())
+        token.actAs should ===(Seq())
       }
     }
     "issue a token with 1 party" in {
       for {
         (token, _) <- expectToken(Seq("Alice"))
       } yield {
-        assert(token.actAs == Seq("Alice"))
+        token.actAs should ===(Seq("Alice"))
       }
     }
     "issue a token with multiple parties" in {
       for {
         (token, _) <- expectToken(Seq("Alice", "Bob"))
       } yield {
-        assert(token.actAs == Seq("Alice", "Bob"))
+        token.actAs should ===(Seq("Alice", "Bob"))
       }
     }
     "deny access to unauthorized parties" in {
@@ -221,7 +228,7 @@ class ClaimTokenTest extends Test {
       for {
         error <- expectError(Seq("Alice", "Eve"))
       } yield {
-        assert(error == "access_denied")
+        error should ===("access_denied")
       }
     }
     "issue a token with admin access" in {
@@ -236,7 +243,7 @@ class ClaimTokenTest extends Test {
       for {
         error <- expectError(Seq(), admin = true)
       } yield {
-        assert(error == "access_denied")
+        error should ===("access_denied")
       }
     }
   }
@@ -250,7 +257,7 @@ class UserTokenTest extends Test {
   type Tok = StandardJWTPayload
   override object Tok extends TokenCompat[Tok] {
     override def userId(t: Tok) = Some(t.userId).filter(_.nonEmpty)
-    override def exp(t: Tok) = t.exp.get
+    override def exp(t: Tok) = t.exp.value
     override def withoutExp(t: Tok) = t copy (exp = None)
   }
 

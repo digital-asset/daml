@@ -11,14 +11,16 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
+import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
+import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.platform.services.time.TimeProviderType
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.traverse._
-import scala.jdk.CollectionConverters._
 
+import scala.jdk.CollectionConverters._
 import com.daml.lf.engine.trigger.TriggerMsg
 
 import java.util.UUID
@@ -77,15 +79,17 @@ abstract class AbstractFuncTests
           // 1 for the create in the trigger
           // 1 for the exercise in the trigger
           // 2 completions for the trigger
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(6))._2
+          finalStateF = runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(6))
+            ._2
           contractId <- create(client, party, asset(party))
           result <- finalStateF.map(toResult)
           acs <- queryACS(client, party)
         } yield {
-          assert(result.activeAssets == Seq(contractId).toSet)
-          assert(result.successfulCompletions == 2)
-          assert(result.failedCompletions == 0)
-          assert(acs(assetMirrorId).size == 1)
+          result.activeAssets shouldBe Set(contractId)
+          result.successfulCompletions shouldBe 2
+          result.failedCompletions shouldBe 0
+          acs(assetMirrorId) should have size 1
         }
       }
 
@@ -101,7 +105,9 @@ abstract class AbstractFuncTests
           // 2 for the creates in the trigger
           // 2 for the exercises in the trigger
           // 4 completions for the trigger
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(12))._2
+          finalStateF = runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(12))
+            ._2
 
           contractId1 <- create(client, party, asset(party))
           contractId2 <- create(client, party, asset(party))
@@ -109,10 +115,10 @@ abstract class AbstractFuncTests
           result <- finalStateF.map(toResult)
           acs <- queryACS(client, party)
         } yield {
-          assert(result.activeAssets == Seq(contractId1, contractId2).toSet)
-          assert(result.successfulCompletions == 4)
-          assert(result.failedCompletions == 0)
-          assert(acs(assetMirrorId).size == 2)
+          result.activeAssets shouldBe Set(contractId1, contractId2)
+          result.successfulCompletions shouldBe 4
+          result.failedCompletions shouldBe 0
+          acs(assetMirrorId) should have size 2
         }
       }
 
@@ -129,7 +135,9 @@ abstract class AbstractFuncTests
           // 2 for the creates in the trigger
           // 2 for the exercises in the trigger
           // 4 for the completions in the trigger
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(16))._2
+          finalStateF = runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(16))
+            ._2
 
           contractId1 <- create(client, party, asset(party))
           contractId2 <- create(client, party, asset(party))
@@ -139,10 +147,10 @@ abstract class AbstractFuncTests
           result <- finalStateF.map(toResult)
           acs <- queryACS(client, party)
         } yield {
-          assert(result.activeAssets == Seq().toSet)
-          assert(result.successfulCompletions == 4)
-          assert(result.failedCompletions == 0)
-          assert(acs(assetMirrorId).size == 2)
+          result.activeAssets shouldBe empty
+          result.successfulCompletions shouldBe 4
+          result.failedCompletions shouldBe 0
+          acs(assetMirrorId) should have size 2
         }
       }
     }
@@ -188,14 +196,16 @@ abstract class AbstractFuncTests
           (acs, offset) <- runner.queryACS()
           // 1 for create of original
           // 1 for corresponding completion
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          finalStateF = runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))
+            ._2
           _ <- create(client, party, original(party, "original0"))
           _ <- finalStateF
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(originalId).length == 1)
-          assert(!acs.contains(subscriberId))
-          assert(!acs.contains(copyId))
+          acs(originalId) should have length 1
+          acs shouldNot contain key subscriberId
+          acs shouldNot contain key copyId
         }
       }
       "1 original, 1 subscriber" in {
@@ -209,15 +219,17 @@ abstract class AbstractFuncTests
           // 2 for corresponding completions
           // 1 for create of copy
           // 1 for corresponding completion
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(6))._2
+          finalStateF = runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(6))
+            ._2
           _ <- create(client, party, original(party, "original0"))
           _ <- create(client, party, subscriber(party, party))
           _ <- finalStateF
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(originalId).length == 1)
-          assert(acs(subscriberId).length == 1)
-          assert(acs(copyId).length == 1)
+          acs(originalId) should have length 1
+          acs(subscriberId) should have length 1
+          acs(copyId) should have length 1
         }
       }
       "2 original, 1 subscriber" in {
@@ -230,16 +242,18 @@ abstract class AbstractFuncTests
           // 1 for create of subscriber
           // 3 for corresponding completions
           // 2 for create of copy
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(10))._2
+          finalStateF = runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(10))
+            ._2
           _ <- create(client, party, original(party, "original0"))
           _ <- create(client, party, original(party, "original1"))
           _ <- create(client, party, subscriber(party, party))
           _ <- finalStateF
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(originalId).length == 2)
-          assert(acs(subscriberId).length == 1)
-          assert(acs(copyId).length == 2)
+          acs(originalId) should have length 2
+          acs(subscriberId) should have length 1
+          acs(copyId) should have length 2
         }
       }
     }
@@ -259,11 +273,11 @@ abstract class AbstractFuncTests
           // 3 failed completion for exercises
           // 1 for create of Done
           // 1 for corresponding completion
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(7))._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(7))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(tId).length == 1)
-          assert(acs(doneId).length == 1)
+          acs(tId) should have length 1
+          acs(doneId) should have length 1
         }
       }
     }
@@ -282,11 +296,11 @@ abstract class AbstractFuncTests
           // 1 for completion
           // 1 for exerciseByKey
           // 1 for corresponding completion
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(4))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(tId).length == 1)
-          assert(acs(tPrimeId).length == 1)
+          acs(tId) should have length 1
+          acs(tPrimeId) should have length 1
         }
       }
     }
@@ -303,11 +317,11 @@ abstract class AbstractFuncTests
           (acs, offset) <- runner.queryACS()
           // 1 for create and exercise
           // 1 for completion
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(tId).length == 1)
-          assert(acs(uId).length == 1)
+          acs(tId) should have length 1
+          acs(uId) should have length 1
         }
       }
     }
@@ -328,10 +342,10 @@ abstract class AbstractFuncTests
           // 1 for completion
           // 1 for the transaction
           ex <- recoverToExceptionIf[StatusRuntimeException](
-            runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(3))._2
+            runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(3))._2
           )
         } yield {
-          ex.getStatus.getCode() shouldBe Status.Code.RESOURCE_EXHAUSTED
+          ex.getStatus.getCode shouldBe Status.Code.RESOURCE_EXHAUSTED
         }
       }
     }
@@ -349,11 +363,11 @@ abstract class AbstractFuncTests
           // 1 for completion
           // 1 for exercise on T
           // 1 for completion
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(4))._2
           acs <- queryACS(client, party)
         } yield {
           val vals = acs(tId).map(_.fields(1).getValue.getNumeric).toSet
-          assert(vals == Set("1.06000000000", "2.06000000000"))
+          vals shouldBe Set("1.06000000000", "2.06000000000")
         }
       }
     }
@@ -370,7 +384,9 @@ abstract class AbstractFuncTests
           // 1 for completion
           // 1 for archive on T
           // 1 for completion
-          finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
+          finalState <- runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(4))
+            ._2
         } yield {
           inside(finalState) { case SList(commandIds) =>
             commandIds.toSet should have size 2
@@ -398,12 +414,12 @@ abstract class AbstractFuncTests
           // 1 for the completion from startup
           // 1 for the exercise in the trigger
           // 1 for the completion in the trigger
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(4))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(doneId).length == 1)
-          assert(!acs.contains(fooId))
-          assert(acs(booId).length == 1)
+          acs(doneId) should have length 1
+          acs shouldNot contain key fooId
+          acs(booId) should have length 1
         }
       }
     }
@@ -448,11 +464,11 @@ abstract class AbstractFuncTests
           (acs, offset) <- runner.queryACS()
           // 1 for the create in the trigger
           // 1 for the completion from the trigger
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(acs(doneOneId).length == 1)
-          assert(!acs.contains(doneTwoId))
+          acs(doneOneId) should have length 1
+          acs shouldNot contain key doneTwoId
         }
       }
       "filter to Two" in {
@@ -469,11 +485,11 @@ abstract class AbstractFuncTests
           (acs, offset) <- runner.queryACS()
           // 1 for the create in the trigger
           // 1 for the completion from the trigger
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))._2
           acs <- queryACS(client, party)
         } yield {
-          assert(!acs.contains(doneOneId))
-          assert(acs(doneTwoId).length == 1)
+          acs shouldNot contain key doneOneId
+          acs(doneTwoId) should have length 1
         }
       }
     }
@@ -487,9 +503,11 @@ abstract class AbstractFuncTests
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
           // 2 heartbeats
-          finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          finalState <- runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))
+            ._2
         } yield {
-          assert(finalState == SInt64(2))
+          finalState shouldBe SInt64(2)
         }
       }
     }
@@ -501,7 +519,9 @@ abstract class AbstractFuncTests
           party <- allocateParty(client)
           runner = getRunner(client, QualifiedName.assertFromString("Time:test"), party)
           (acs, offset) <- runner.queryACS()
-          finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
+          finalState <- runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(4))
+            ._2
         } yield {
           finalState match {
             case SRecord(_, _, values) if values.size == 2 =>
@@ -509,13 +529,15 @@ abstract class AbstractFuncTests
                 case SList(items) if items.length == 2 =>
                   val t0 = items.slowApply(0).asInstanceOf[STimestamp].value
                   val t1 = items.slowApply(1).asInstanceOf[STimestamp].value
-                  config.timeProviderType match {
-                    case None => fail("No time provider type specified")
-                    case Some(TimeProviderType.WallClock) =>
+                  config
+                    .participants(ParticipantId)
+                    .apiServer
+                    .timeProviderType match {
+                    case TimeProviderType.WallClock =>
                       // Given the limited resolution it can happen that t0 == t1
-                      assert(t0 >= t1)
-                    case Some(TimeProviderType.Static) =>
-                      assert(t0 == t1)
+                      t0 should be >= t1
+                    case TimeProviderType.Static =>
+                      t0 shouldBe t1
                   }
                 case v => fail(s"Expected list with 2 elements but got $v")
               }
@@ -551,7 +573,9 @@ abstract class AbstractFuncTests
           )
           (acs, offset) <- runner.queryACS()
           // 1 for the completion & 1 for the transaction.
-          result <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          result <- runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))
+            ._2
         } yield {
           inside(toHighLevelResult(result).state) { case SInt64(i) =>
             i shouldBe 3
@@ -571,13 +595,42 @@ abstract class AbstractFuncTests
           )
           (acs, offset) <- runner.queryACS()
           // 1 for the completion & 1 for the transaction.
-          result <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          result <- runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))
+            ._2
         } yield {
           inside(toHighLevelResult(result).state) { case SRecord(_, _, values) =>
             // Check that both updateState and rule were executed.
             values.asScala shouldBe Seq[SValue](
               SParty(Party.assertFromString(party)),
               SBool(true),
+              SBool(true),
+            )
+          }
+        }
+      }
+    }
+
+    "queryFilter" should {
+      "return contracts matching predicates" in {
+        for {
+          client <- ledgerClient()
+          party <- allocateParty(client)
+          runner = getRunner(
+            client,
+            QualifiedName.assertFromString("QueryFilter:trigger"),
+            party,
+          )
+          (acs, offset) <- runner.queryACS()
+          // 1 for the completion & 1 for the transaction.
+          result <- runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))
+            ._2
+        } yield {
+          inside(toHighLevelResult(result).state) { case SRecord(_, _, values) =>
+            values.asScala shouldBe Seq[SValue](
+              SInt64(1),
+              SInt64(2),
               SBool(true),
             )
           }

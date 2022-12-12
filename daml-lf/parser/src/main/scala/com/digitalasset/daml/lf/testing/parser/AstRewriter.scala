@@ -10,9 +10,10 @@ import com.daml.lf.language.Ast._
 import scala.{PartialFunction => PF}
 
 private[daml] class AstRewriter(
-    typeRule: PF[Type, Type] = PF.empty[Type, Type],
-    exprRule: PF[Expr, Expr] = PF.empty[Expr, Expr],
-    identifierRule: PF[Identifier, Identifier] = PF.empty[Identifier, Identifier],
+    typeRule: PF[Type, Type] = PF.empty,
+    exprRule: PF[Expr, Expr] = PF.empty,
+    identifierRule: PF[Identifier, Identifier] = PF.empty,
+    packageIdRule: PF[PackageId, PackageId] = PF.empty,
 ) {
 
   import AstRewriter._
@@ -33,6 +34,8 @@ private[daml] class AstRewriter(
   def apply(identifier: Identifier): Identifier =
     if (identifierRule.isDefinedAt(identifier))
       identifierRule(identifier)
+    else if (packageIdRule.isDefinedAt(identifier.packageId))
+      identifier.copy(packageId = packageIdRule(identifier.packageId))
     else
       identifier
 
@@ -67,7 +70,12 @@ private[daml] class AstRewriter(
         case EVal(ref) =>
           EVal(apply(ref))
         case ELocation(loc, expr) =>
-          ELocation(loc, apply(expr))
+          val newLoc =
+            if (packageIdRule.isDefinedAt(loc.packageId))
+              loc.copy(packageId = packageIdRule(loc.packageId))
+            else
+              loc
+          ELocation(newLoc, apply(expr))
         case ERecCon(tycon, fields) =>
           ERecCon(
             apply(tycon),
@@ -129,16 +137,27 @@ private[daml] class AstRewriter(
           EToInterface(apply(iface), apply(tpl), apply(value))
         case EFromInterface(iface, tpl, value) =>
           EFromInterface(apply(iface), apply(tpl), apply(value))
+        case EUnsafeFromInterface(iface, tpl, cid, value) =>
+          EUnsafeFromInterface(apply(iface), apply(tpl), apply(cid), apply(value))
         case ECallInterface(iface, method, value) =>
           ECallInterface(apply(iface), method, apply(value))
         case EToRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
           EToRequiredInterface(apply(requiredIfaceId), apply(requiringIfaceId), apply(body))
         case EFromRequiredInterface(requiredIfaceId, requiringIfaceId, body) =>
           EFromRequiredInterface(apply(requiredIfaceId), apply(requiringIfaceId), apply(body))
+        case EUnsafeFromRequiredInterface(requiredIfaceId, requiringIfaceId, cid, body) =>
+          EUnsafeFromRequiredInterface(
+            apply(requiredIfaceId),
+            apply(requiringIfaceId),
+            apply(cid),
+            apply(body),
+          )
         case EInterfaceTemplateTypeRep(ifaceId, body) =>
           EInterfaceTemplateTypeRep(apply(ifaceId), apply(body))
         case ESignatoryInterface(ifaceId, body) =>
           ESignatoryInterface(apply(ifaceId), apply(body))
+        case EViewInterface(ifaceId, expr) =>
+          EViewInterface(apply(ifaceId), apply(expr))
         case EObserverInterface(ifaceId, body) =>
           EObserverInterface(apply(ifaceId), apply(body))
       }
@@ -170,8 +189,8 @@ private[daml] class AstRewriter(
         UpdateCreate(apply(templateId), apply(arg))
       case UpdateCreateInterface(interface, arg) =>
         UpdateCreateInterface(apply(interface), apply(arg))
-      case UpdateFetch(templateId, contractId) =>
-        UpdateFetch(apply(templateId), apply(contractId))
+      case UpdateFetchTemplate(templateId, contractId) =>
+        UpdateFetchTemplate(apply(templateId), apply(contractId))
       case UpdateFetchInterface(interface, contractId) =>
         UpdateFetchInterface(apply(interface), apply(contractId))
       case UpdateExercise(templateId, choice, cid, arg) =>
@@ -182,7 +201,7 @@ private[daml] class AstRewriter(
           choice,
           apply(cid),
           apply(arg),
-          apply(guard),
+          guard.map(apply(_)),
         )
       case UpdateExerciseByKey(templateId, choice, key, arg) =>
         UpdateExerciseByKey(apply(templateId), choice, apply(key), apply(arg))
@@ -265,7 +284,7 @@ private[daml] class AstRewriter(
           },
           apply(observers),
           key.map(apply),
-          implements.map({ case (t, x) => (apply(t), apply(x)) }),
+          implements.map { case (t, x) => (apply(t), apply(x)) },
         )
     }
 
@@ -297,22 +316,31 @@ private[daml] class AstRewriter(
     x match {
       case TemplateImplements(
             interface,
-            methods,
-            inheritedChoices,
+            body,
           ) =>
         TemplateImplements(
           apply(interface),
-          methods.transform((_, x) => apply(x)),
-          inheritedChoices,
+          apply(body),
         )
     }
-  def apply(x: TemplateImplementsMethod): TemplateImplementsMethod =
+  def apply(x: InterfaceInstanceBody): InterfaceInstanceBody =
     x match {
-      case TemplateImplementsMethod(
+      case InterfaceInstanceBody(
+            methods,
+            view,
+          ) =>
+        InterfaceInstanceBody(
+          methods.transform((_, x) => apply(x)),
+          apply(view),
+        )
+    }
+  def apply(x: InterfaceInstanceMethod): InterfaceInstanceMethod =
+    x match {
+      case InterfaceInstanceMethod(
             name,
             value,
           ) =>
-        TemplateImplementsMethod(
+        InterfaceInstanceMethod(
           name,
           apply(value),
         )
@@ -335,15 +363,28 @@ private[daml] class AstRewriter(
         InterfaceMethod(name, apply(returnType))
     }
 
+  def apply(x: InterfaceCoImplements): InterfaceCoImplements =
+    x match {
+      case InterfaceCoImplements(
+            templateId,
+            body,
+          ) =>
+        InterfaceCoImplements(
+          apply(templateId),
+          apply(body),
+        )
+    }
+
   def apply(x: DefInterface): DefInterface =
     x match {
-      case DefInterface(requires, param, fixedChoices, methods, precond) =>
+      case DefInterface(requires, param, choices, methods, coImplements, view) =>
         DefInterface(
           requires.map(apply(_)),
           param,
-          fixedChoices.transform((_, v) => apply(v)),
+          choices.transform((_, v) => apply(v)),
           methods.transform((_, v) => apply(v)),
-          apply(precond),
+          coImplements.map { case (t, x) => (apply(t), apply(x)) },
+          apply(view),
         )
     }
 }

@@ -54,6 +54,21 @@ final case class CustomDamlJWTPayload(
   }
 }
 
+/** There are two JWT token formats which are currently supported by `StandardJWTPayload`.
+  * The format is identified by `aud` claim.
+  */
+sealed trait StandardJWTTokenFormat
+object StandardJWTTokenFormat {
+
+  /** `Scope` format is for the tokens where scope field contains `daml_ledger_api`.
+    */
+  final case object Scope extends StandardJWTTokenFormat
+
+  /** `ParticipantId` format is for the tokens where `aud` claim starts with `https://daml.com/jwt/aud/participant/`
+    */
+  final case object ParticipantId extends StandardJWTTokenFormat
+}
+
 /** Payload parsed from the standard "sub", "aud", "exp" claims as specified in
   * https://datatracker.ietf.org/doc/html/rfc7519#section-4.1
   *
@@ -69,6 +84,7 @@ final case class StandardJWTPayload(
     userId: String,
     participantId: Option[String],
     exp: Option[Instant],
+    format: StandardJWTTokenFormat,
 ) extends AuthServiceJWTPayload
 
 /** Codec for writing and reading [[AuthServiceJWTPayload]] to and from JSON.
@@ -93,9 +109,11 @@ object AuthServiceJWTCodec {
   // Unique scope for standard tokens, following the pattern of https://developers.google.com/identity/protocols/oauth2/scopes
   final val scopeLedgerApiFull: String = "daml_ledger_api"
 
+  private[this] final val audPrefix: String = "https://daml.com/jwt/aud/participant/"
   private[this] final val propLedgerId: String = "ledgerId"
   private[this] final val propParticipantId: String = "participantId"
   private[this] final val propApplicationId: String = "applicationId"
+  private[this] final val propAud: String = "aud"
   private[this] final val propAdmin: String = "admin"
   private[this] final val propActAs: String = "actAs"
   private[this] final val propReadAs: String = "readAs"
@@ -121,12 +139,18 @@ object AuthServiceJWTCodec {
         ),
         propExp -> writeOptionalInstant(v.exp),
       )
-    case v: StandardJWTPayload =>
+    case v: StandardJWTPayload if v.format == StandardJWTTokenFormat.Scope =>
       JsObject(
-        "aud" -> writeOptionalString(v.participantId),
+        propAud -> writeOptionalString(v.participantId),
         "sub" -> JsString(v.userId),
         "exp" -> writeOptionalInstant(v.exp),
         "scope" -> JsString(scopeLedgerApiFull),
+      )
+    case v: StandardJWTPayload =>
+      JsObject(
+        propAud -> JsString(audPrefix + v.participantId.getOrElse("")),
+        "sub" -> JsString(v.userId),
+        "exp" -> writeOptionalInstant(v.exp),
       )
   }
 
@@ -158,14 +182,34 @@ object AuthServiceJWTCodec {
       val scopes = scope.toList.collect({ case JsString(scope) => scope.split(" ") }).flatten
       // We're using this rather restrictive test to ensure we continue parsing all legacy sandbox tokens that
       // are in use before the 2.0 release; and thereby maintain full backwards compatibility.
-      if (scopes.contains(scopeLedgerApiFull))
-        // Standard JWT payload
+      val audienceValue = readOptionalStringOrSingletonArray(propAud, fields)
+      if (audienceValue.exists(_.startsWith(audPrefix))) {
+        // Tokens with audience which starts with `https://daml.com/participant/jwt/aud/participant/${participantId}`
+        // where `${participantId}` is non-empty string are supported.
+        // As required for JWTs, additional fields can be in a token but will be ignored (including scope)
+        audienceValue.map(_.substring(audPrefix.length)).filter(_.nonEmpty) match {
+          case Some(participantId) =>
+            StandardJWTPayload(
+              participantId = Some(participantId),
+              userId = readOptionalString("sub", fields).get, // guarded by if-clause above
+              exp = readInstant("exp", fields),
+              format = StandardJWTTokenFormat.ParticipantId,
+            )
+          case _ =>
+            deserializationError(
+              s"Could not read ${value.prettyPrint} as AuthServiceJWTPayload: " +
+                s"`aud` must include participantId value prefixed by $audPrefix"
+            )
+        }
+      } else if (scopes.contains(scopeLedgerApiFull)) {
+        // We support the tokens with scope containing `daml_ledger_api`, there is no restriction of `aud` field.
         StandardJWTPayload(
-          participantId = readOptionalString("aud", fields),
+          participantId = audienceValue,
           userId = readOptionalString("sub", fields).get, // guarded by if-clause above
           exp = readInstant("exp", fields),
+          format = StandardJWTTokenFormat.Scope,
         )
-      else {
+      } else {
         if (scope.nonEmpty)
           logger.warn(
             s"Access token with unknown scope \"${scope.get}\" is being parsed as a custom claims token. Issue tokens with adjusted or no scope to get rid of this warning."
@@ -191,11 +235,11 @@ object AuthServiceJWTCodec {
             .getOrElse(
               oidcNamespace,
               deserializationError(
-                s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: namespace missing"
+                s"Could not read ${value.prettyPrint} as AuthServiceJWTPayload: namespace missing"
               ),
             )
             .asJsObject(
-              s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: namespace is not an object"
+              s"Could not read ${value.prettyPrint} as AuthServiceJWTPayload: namespace is not an object"
             )
             .fields
           CustomDamlJWTPayload(
@@ -211,7 +255,7 @@ object AuthServiceJWTCodec {
       }
     case _ =>
       deserializationError(
-        s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: value is not an object"
+        s"Could not read ${value.prettyPrint} as AuthServiceJWTPayload: value is not an object"
       )
   }
 
@@ -221,7 +265,20 @@ object AuthServiceJWTCodec {
       case Some(JsNull) => None
       case Some(JsString(value)) => Some(value)
       case Some(value) =>
-        deserializationError(s"Can't read ${value.prettyPrint} as string for $name")
+        deserializationError(s"Could not read ${value.prettyPrint} as string for $name")
+    }
+
+  private[this] def readOptionalStringOrSingletonArray(
+      name: String,
+      fields: Map[String, JsValue],
+  ): Option[String] =
+    fields.get(name) match {
+      case None => None
+      case Some(JsNull) => None
+      case Some(JsString(value)) => Some(value)
+      case Some(JsArray(Vector(JsString(value)))) => Some(value)
+      case Some(value) =>
+        deserializationError(s"Could not read ${value.prettyPrint} as string for $name")
     }
 
   private[this] def readOptionalStringList(
@@ -234,10 +291,10 @@ object AuthServiceJWTCodec {
       values.toList.map {
         case JsString(value) => value
         case value =>
-          deserializationError(s"Can't read ${value.prettyPrint} as string element for $name")
+          deserializationError(s"Could not read ${value.prettyPrint} as string element for $name")
       }
     case Some(value) =>
-      deserializationError(s"Can't read ${value.prettyPrint} as string list for $name")
+      deserializationError(s"Could not read ${value.prettyPrint} as string list for $name")
   }
 
   private[this] def readOptionalBoolean(
@@ -248,7 +305,7 @@ object AuthServiceJWTCodec {
     case Some(JsNull) => None
     case Some(JsBoolean(value)) => Some(value)
     case Some(value) =>
-      deserializationError(s"Can't read ${value.prettyPrint} as boolean for $name")
+      deserializationError(s"Could not read ${value.prettyPrint} as boolean for $name")
   }
 
   private[this] def readInstant(name: String, fields: Map[String, JsValue]): Option[Instant] =
@@ -257,7 +314,7 @@ object AuthServiceJWTCodec {
       case Some(JsNull) => None
       case Some(JsNumber(epochSeconds)) => Some(Instant.ofEpochSecond(epochSeconds.longValue))
       case Some(value) =>
-        deserializationError(s"Can't read ${value.prettyPrint} as epoch seconds for $name")
+        deserializationError(s"Could not read ${value.prettyPrint} as epoch seconds for $name")
     }
 
   // ------------------------------------------------------------------------------------------------------------------

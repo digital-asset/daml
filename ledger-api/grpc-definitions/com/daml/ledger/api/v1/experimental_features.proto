@@ -16,11 +16,14 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // See the feature message definitions for descriptions.
 message ExperimentalFeatures {
-  ExperimentalSelfServiceErrorCodes self_service_error_codes = 1 [deprecated=true];
+  ExperimentalSelfServiceErrorCodes self_service_error_codes = 1 [deprecated = true];
   ExperimentalStaticTime static_time = 2;
   CommandDeduplicationFeatures command_deduplication = 3;
   ExperimentalOptionalLedgerId optional_ledger_id = 4;
   ExperimentalContractIds contract_ids = 5;
+  ExperimentalCommitterEventLog committer_event_log = 6;
+  ExperimentalExplicitDisclosure explicit_disclosure = 7;
+  ExperimentalUserAndPartyLocalMetadataExtensions user_and_party_local_metadata_extensions = 8;
 }
 
 // GRPC self-service error codes are returned by the Ledger API.
@@ -86,4 +89,32 @@ message ExperimentalContractIds {
     // Suffixed contract IDs must also be supported.
     NON_SUFFIXED = 1;
   }
+}
+
+// How the committer stores events.
+message ExperimentalCommitterEventLog {
+
+  CommitterEventLogType event_log_type = 1;
+
+  enum CommitterEventLogType {
+    // Default. There is a single log.
+    CENTRALIZED = 0;
+    // There is more than one event log. Usually, when the committer itself is distributed.
+    // Or there are per-participant event logs.
+    // It may result in transaction IDs being different for the same transaction across participants, for example.
+    DISTRIBUTED = 1;
+  }
+}
+
+// Enables the use of explicitly disclosed contracts for command submission
+message ExperimentalExplicitDisclosure {
+  bool supported = 1;
+}
+
+// Whether the Ledger API supports:
+// - is_deactivated user property,
+// - metadata with annotations and resource version for users and parties,
+// - update calls for users and parties.
+message ExperimentalUserAndPartyLocalMetadataExtensions {
+  bool supported = 1;
 }

@@ -5,8 +5,6 @@ package com.daml.platform.apiserver.tls
 
 import java.io.File
 import java.util.concurrent.Executors
-
-import com.codahale.metrics.MetricRegistry
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.GrpcChannel
@@ -14,7 +12,7 @@ import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.{ApiServer, ApiServices, LedgerApiServer}
+import com.daml.platform.apiserver.{ApiService, ApiServices, LedgerApiService}
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.ports.Port
 import io.grpc.{BindableService, ManagedChannel}
@@ -59,14 +57,14 @@ case class TlsFixture(
 
   private val serverTlsConfiguration = TlsConfiguration(
     enabled = tlsEnabled,
-    keyCertChainFile = Some(serverCrt),
-    keyFile = Some(serverKey),
-    trustCertCollectionFile = Some(caCrt),
+    certChainFile = Some(serverCrt),
+    privateKeyFile = Some(serverKey),
+    trustCollectionFile = Some(caCrt),
     clientAuth = clientAuth,
     enableCertRevocationChecking = certRevocationChecking,
   )
 
-  private def apiServerOwner(): ResourceOwner[ApiServer] = {
+  private def apiServerOwner(): ResourceOwner[ApiService] = {
     val apiServices = new EmptyApiServices
     val owner = new MockApiServices(apiServices)
 
@@ -74,14 +72,14 @@ case class TlsFixture(
       ResourceOwner
         .forExecutorService(() => Executors.newCachedThreadPool())
         .flatMap(servicesExecutor =>
-          new LedgerApiServer(
+          new LedgerApiService(
             apiServicesOwner = owner,
             desiredPort = Port.Dynamic,
             maxInboundMessageSize = DefaultMaxInboundMessageSize,
             address = None,
             tlsConfiguration = Some(serverTlsConfiguration),
             servicesExecutor = servicesExecutor,
-            metrics = new Metrics(new MetricRegistry),
+            metrics = Metrics.ForTesting,
           )
         )
     }
@@ -90,9 +88,9 @@ case class TlsFixture(
   private val clientTlsConfiguration =
     TlsConfiguration(
       enabled = tlsEnabled,
-      keyCertChainFile = clientCrt,
-      keyFile = clientKey,
-      trustCertCollectionFile = Some(caCrt),
+      certChainFile = clientCrt,
+      privateKeyFile = clientKey,
+      trustCollectionFile = Some(caCrt),
     )
 
   private val ledgerClientChannelConfiguration = LedgerClientChannelConfiguration(

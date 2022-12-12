@@ -20,21 +20,8 @@ import DA.Internal.Template
 
 import GHC.Types (primitive)
 
-type TemplateOrInterface t =
-  ( HasTemplateTypeRep t
-  , HasToAnyTemplate t
-  , HasFromAnyTemplate t
-  )
--- | Constraint satisfied by templates.
 type Template t =
-  ( HasSignatory t
-  , HasObserver t
-  , HasEnsure t
-  , HasAgreement t
-  , HasCreate t
-  , HasFetch t
-  , HasArchive t
-  , HasTemplateTypeRep t
+  ( HasTemplateTypeRep t
   , HasToAnyTemplate t
   , HasFromAnyTemplate t
   )
@@ -100,7 +87,7 @@ stakeholder t = signatory t ++ observer t
 
 -- | Constraint satisfied by choices.
 type Choice t c r =
-  ( TemplateOrInterface t
+  ( Template t
   , HasExercise t c r
   , HasToAnyChoice t c r
   , HasFromAnyChoice t c r
@@ -262,7 +249,7 @@ deriving instance Ord TemplateTypeRep
 -- represented by a TemplateTypeRep, as a string.
 templateTypeRepToText : TemplateTypeRep -> Text
 templateTypeRepToText (TemplateTypeRep x) =
-  case primitive @"$TYPEREP_TYCON_NAME" x of
+  case primitive @"ETypeRepTyConName" x of
     None -> error "Invalid TemplateTypeRep, does not contain a type constructor."
     Some y -> y
 

@@ -9,12 +9,15 @@ object ErrorGroups {
   val rootErrorClass: ErrorClass = ErrorClass.root()
 
   object ParticipantErrorGroup extends ErrorGroup()(rootErrorClass) {
+    abstract class CommonErrorGroup extends ErrorGroup()
     abstract class IndexErrorGroup extends ErrorGroup() {
       abstract class DatabaseErrorGroup extends ErrorGroup()
     }
     abstract class LedgerApiErrorGroup extends ErrorGroup() {
       abstract class AdminServicesErrorGroup extends ErrorGroup() {
         abstract class UserManagementServiceErrorGroup extends ErrorGroup()
+        abstract class PartyManagementServiceErrorGroup extends ErrorGroup()
+        abstract class IdentityProviderConfigServiceErrorGroup extends ErrorGroup()
       }
       abstract class AuthorizationChecks extends ErrorGroup()
       abstract class CommandExecutionErrorGroup extends ErrorGroup()

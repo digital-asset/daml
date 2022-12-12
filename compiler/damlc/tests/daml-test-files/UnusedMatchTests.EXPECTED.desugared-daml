@@ -1,0 +1,186 @@
+module UnusedMatchTests where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+f x = 12
+data GHC.Types.DamlTemplate => T
+  = T {p : Party, q : Party}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "p" T Party where
+  getField = DA.Internal.Record.getFieldPrim @"p" @T @Party
+  setField = DA.Internal.Record.setFieldPrim @"p" @T @Party
+instance DA.Internal.Record.HasField "q" T Party where
+  getField = DA.Internal.Record.getFieldPrim @"q" @T @Party
+  setField = DA.Internal.Record.setFieldPrim @"q" @T @Party
+data Revoke
+  = Revoke {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+_templateLet_T this@T {..}
+  = let revokeRetVal = () in
+    let (sig, obs) = userWrittenTuple (p, q) in
+    let assertion = True in
+    let plainEnglish = "Chop wood, carry water." in
+    let ident = "123" in
+    let _ = this
+    in (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
+instance DA.Internal.Desugar.HasSignatory T where
+  signatory this@T {..}
+    = DA.Internal.Desugar.toParties (sig)
+    where
+        (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
+          = _templateLet_T this
+        _ = revokeRetVal
+        _ = sig
+        _ = obs
+        _ = assertion
+        _ = plainEnglish
+        _ = ident
+        _ = this
+instance DA.Internal.Desugar.HasObserver T where
+  observer this@T {..}
+    = DA.Internal.Desugar.toParties (obs)
+    where
+        (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
+          = _templateLet_T this
+        _ = revokeRetVal
+        _ = sig
+        _ = obs
+        _ = assertion
+        _ = plainEnglish
+        _ = ident
+        _ = this
+instance DA.Internal.Desugar.HasEnsure T where
+  ensure this@T {..}
+    = assertion
+    where
+        (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
+          = _templateLet_T this
+        _ = revokeRetVal
+        _ = sig
+        _ = obs
+        _ = assertion
+        _ = plainEnglish
+        _ = ident
+        _ = this
+instance DA.Internal.Desugar.HasAgreement T where
+  agreement this@T {..}
+    = plainEnglish
+    where
+        (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
+          = _templateLet_T this
+        _ = revokeRetVal
+        _ = sig
+        _ = obs
+        _ = assertion
+        _ = plainEnglish
+        _ = ident
+        _ = this
+instance DA.Internal.Desugar.HasArchive T where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+    where
+        _ = cid
+instance DA.Internal.Desugar.HasCreate T where
+  create = GHC.Types.primitive @"UCreate"
+instance DA.Internal.Desugar.HasFetch T where
+  fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasToAnyTemplate T where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate T where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep T where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasIsInterfaceType T where
+  _isInterfaceType _ = DA.Internal.Desugar.False
+instance DA.Internal.Desugar.HasExercise T DA.Internal.Desugar.Archive (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice T DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice T DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExercise T Revoke (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice T Revoke (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice T Revoke (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+_choice_TArchive :
+  (T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId T
+   -> T
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming T,
+   DA.Internal.Desugar.Optional (T
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_TArchive
+  = (\ this _ -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
+_choice_TRevoke :
+  (T -> Revoke -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId T
+   -> T -> Revoke -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming T,
+   DA.Internal.Desugar.Optional (T
+                                 -> Revoke -> [DA.Internal.Desugar.Party]))
+_choice_TRevoke
+  = (\ this@T {..} arg@Revoke
+       -> let
+            (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
+              = _templateLet_T this in
+          let _ = revokeRetVal in
+          let _ = sig in
+          let _ = obs in
+          let _ = assertion in
+          let _ = plainEnglish in
+          let _ = ident in
+          let _ = this in let _ = arg in DA.Internal.Desugar.toParties (p), 
+     \ self this@T {..} arg@Revoke
+       -> let
+            (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
+              = _templateLet_T this in
+          let _ = revokeRetVal in
+          let _ = sig in
+          let _ = obs in
+          let _ = assertion in
+          let _ = plainEnglish in
+          let _ = ident in
+          let _ = self in
+          let _ = this in let _ = arg in do pure revokeRetVal, 
+     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasExerciseByKey T (Party,
+                                                 Text) DA.Internal.Desugar.Archive (()) where
+  _exerciseByKey = GHC.Types.primitive @"UExerciseByKey"
+instance DA.Internal.Desugar.HasExerciseByKey T (Party,
+                                                 Text) Revoke (()) where
+  _exerciseByKey = GHC.Types.primitive @"UExerciseByKey"
+instance DA.Internal.Desugar.HasKey T (Party, Text) where
+  key this@T {..}
+    = userWrittenTuple (sig, ident)
+    where
+        (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
+          = _templateLet_T this
+        _ = revokeRetVal
+        _ = sig
+        _ = obs
+        _ = assertion
+        _ = plainEnglish
+        _ = ident
+        _ = this
+instance DA.Internal.Desugar.HasMaintainer T (Party, Text) where
+  _maintainer _ key
+    = DA.Internal.Desugar.toParties
+        ((DA.Internal.Record.getField @"_1" key))
+    where
+        _ = key
+instance DA.Internal.Desugar.HasFetchByKey T (Party, Text) where
+  fetchByKey = GHC.Types.primitive @"UFetchByKey"
+instance DA.Internal.Desugar.HasLookupByKey T (Party, Text) where
+  lookupByKey = GHC.Types.primitive @"ULookupByKey"
+instance DA.Internal.Desugar.HasToAnyContractKey T (Party,
+                                                    Text) where
+  _toAnyContractKey = GHC.Types.primitive @"EToAnyContractKey"
+instance DA.Internal.Desugar.HasFromAnyContractKey T (Party,
+                                                      Text) where
+  _fromAnyContractKey = GHC.Types.primitive @"EFromAnyContractKey"

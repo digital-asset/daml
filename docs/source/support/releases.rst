@@ -89,5 +89,6 @@ Release
   Assuming the release is not postponed due to extended test periods or newly discovered issues in the release candidate, the release is declared stable and given a regular version number on **the second Wednesday after the first Monday of the Month**.
 
 .. figure:: release-timeline.png
+   :alt: A typical release process timeline. A regular Wednesday snapshot release takes place on September 2. September 7 is the first Monday of the month, so release candidate selection takes place and the release candidate/ release notes review process begins. On September 10 the review process ends and release candidates are announced. Release candidate testing occurs from September 10 to September 16, and on Wednesday September 16 another release occurs.
 
-  The release process timeline illustrated by example of September 2020.
+   The release process timeline illustrated by example of September 2020.

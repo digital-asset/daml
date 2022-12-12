@@ -18,11 +18,9 @@ import com.daml.ledger.api.testtool.infrastructure.assertions.CommandDeduplicati
   assertDeduplicationDuration,
   assertDeduplicationOffset,
 }
-import com.daml.ledger.api.testtool.infrastructure.participant.{
-  CompletionResponse,
-  ParticipantTestContext,
-}
-import com.daml.ledger.api.testtool.infrastructure.time.DelayMechanism
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.CompletionResponse
+import com.daml.ledger.api.testtool.infrastructure.time.{DelayMechanism, Durations}
 import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
@@ -52,7 +50,8 @@ final class CommandDeduplicationIT(
 
   private[this] val logger: Logger = LoggerFactory.getLogger(getClass.getName)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-  private val deduplicationDuration: FiniteDuration = scaledDuration(2.seconds)
+  private val deduplicationDuration: FiniteDuration =
+    Durations.scaleDuration(2.seconds, timeoutScaleFactor)
 
   test(
     s"SimpleDeduplicationBasic",
@@ -139,11 +138,11 @@ final class CommandDeduplicationIT(
       // Create two competing requests
       requestA = ledger.submitAndWaitRequest(
         party,
-        ko.exerciseTKOFetchAndRecreate(party, Tuple2(party, key)).command,
+        ko.exerciseTKOFetchAndRecreate(Tuple2(party, key)).command,
       )
       requestB = ledger.submitAndWaitRequest(
         party,
-        ko.exerciseTKOFetchAndRecreate(party, Tuple2(party, key)).command,
+        ko.exerciseTKOFetchAndRecreate(Tuple2(party, key)).command,
       )
 
       // Submit both requests in parallel.
@@ -544,22 +543,21 @@ final class CommandDeduplicationIT(
           // Send a dummy command to the ledger so that we obtain a recent offset
           // We should be able to just grab the current ledger end,
           // but the converter from offsets to durations cannot handle this yet.
-          dummyResponse <- submitRequestAndAssertCompletionAccepted(
+          offsetBeforeFirstCompletion <- submitRequestAndAssertCompletionAccepted(
             ledger,
             dummyRequest,
             party,
-          )
-          offsetBeforeFirstCompletion = dummyResponse.offset
-          response <- submitRequestAndAssertCompletionAccepted(
+          ).map(_.offset)
+          firstAcceptedResponse <- submitRequestAndAssertCompletionAccepted(
             ledger,
             updateSubmissionId(request, acceptedSubmissionId),
             party,
           )
           // Wait for any ledgers that might adjust based on time skews
-          // This is done so that we can validate that the third command is accepted
+          // This is done so that we can validate later that the command is accepted again
           _ <- delayForOffsetIfRequired(ledger)
           // Submit command again using the first offset as the deduplication offset
-          response2 <- submitRequestAndAssertDeduplication(
+          duplicateResponse <- submitRequestAndAssertDeduplication(
             ledger,
             updateWithFreshSubmissionId(
               request.update(
@@ -569,21 +567,16 @@ final class CommandDeduplicationIT(
               )
             ),
             acceptedSubmissionId,
-            response.offset,
-            party,
-          )
-          response3 <- submitRequestAndAssertCompletionAccepted(
-            ledger,
-            ledger.submitRequest(party, Dummy(party).create.command),
+            firstAcceptedResponse.offset,
             party,
           )
           // Submit command again using the rejection offset as a deduplication period
-          response4 <- submitRequestAndAssertCompletionAccepted(
+          secondAcceptedResponse <- submitRequestAndAssertCompletionAccepted(
             ledger,
             updateWithFreshSubmissionId(
               request.update(
                 _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationOffset(
-                  Ref.HexString.assertFromString(response3.offset.getAbsolute)
+                  Ref.HexString.assertFromString(duplicateResponse.offset.getAbsolute)
                 )
               )
             ),
@@ -591,13 +584,13 @@ final class CommandDeduplicationIT(
           )
         } yield {
           assertDeduplicationOffset(
-            response,
-            response2,
+            firstAcceptedResponse,
+            duplicateResponse,
             ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport,
           )
           assertDeduplicationOffset(
-            response3,
-            response4,
+            duplicateResponse,
+            secondAcceptedResponse,
             ledger.features.commandDeduplicationFeatures.getDeduplicationPeriodSupport.offsetSupport,
           )
         }
@@ -617,12 +610,17 @@ final class CommandDeduplicationIT(
         //
         // the duration is extended with up to minSkew + maxSkew when using pre-execution,
         // as we use maxRecordTime and minRecordTime to calculate the interval between the two commands
+        //
+        // thus, we delay by twice the skews below
         ledger
           .getTimeModel()
           .flatMap(response => {
             ledger.delayMechanism.delayBy(
-              response.getTimeModel.getMaxSkew.asScala +
-                2 * response.getTimeModel.getMinSkew.asScala
+              // skews are already scaled by the time factor
+              Durations.asFiniteDuration(
+                2 * (response.getTimeModel.getMaxSkew.asScala +
+                  response.getTimeModel.getMinSkew.asScala)
+              )
             )
           })
       case OffsetSupport.Unrecognized(_) | OffsetSupport.OFFSET_NOT_SUPPORTED =>
@@ -696,16 +694,20 @@ final class CommandDeduplicationIT(
       .submitAndWaitForTransaction(request)
       .mustFail("Request was accepted but we were expecting it to fail with a duplicate error")
       .map(
-        assertGrpcError(
+        assertGrpcErrorOneOf(
           _,
-          errorCode = LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
-          exceptionMessageSubstring = None,
-          checkDefiniteAnswerMetadata = true,
-          assertDeduplicatedSubmissionIdAndOffsetOnError(
-            acceptedSubmissionId,
-            acceptedOffset,
-            _,
+          extendedChecks = Some(
+            ExtendedAsserts(
+              checkDefiniteAnswerMetadata = true,
+              additionalErrorAssertions = assertDeduplicatedSubmissionIdAndOffsetOnError(
+                acceptedSubmissionId,
+                acceptedOffset,
+                _,
+              ),
+            )
           ),
+          LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
+          LedgerApiErrors.ConsistencyErrors.SubmissionAlreadyInFlight,
         )
       )
 
@@ -721,7 +723,12 @@ final class CommandDeduplicationIT(
       request,
       parties: _*
     ) { completion =>
-      assertCompletionStatus(request.toString, completion, Code.ALREADY_EXISTS)
+      assertCompletionStatus(
+        request.toString,
+        completion,
+        Code.ALREADY_EXISTS, // Deduplication error
+        Code.ABORTED, // Code for inflight request: Different grpc code implied by retryability of ContentionOnSharedResources
+      )
       assertDeduplicatedSubmissionIdAndOffsetOnCompletion(
         acceptedSubmissionId,
         acceptedOffset,
@@ -732,16 +739,18 @@ final class CommandDeduplicationIT(
   private def assertCompletionStatus(
       requestString: String,
       response: CompletionResponse,
-      statusCode: Code,
+      statusCodes: Code*
   ): Unit =
     assert(
-      response.completion.getStatus.code == statusCode.value(),
-      s"""Expecting completion with status code $statusCode but completion has status ${response.completion.status}.
+      statusCodes.exists(response.completion.getStatus.code == _.value()),
+      s"""Expecting completion with status code(s) ${statusCodes.mkString(
+          ","
+        )} but completion has status ${response.completion.status}.
          |Request: $requestString
          |Response: $response
          |Metadata: ${extractErrorInfoMetadata(
-        GrpcStatus.toJavaProto(response.completion.getStatus)
-      )}""".stripMargin,
+          GrpcStatus.toJavaProto(response.completion.getStatus)
+        )}""".stripMargin,
     )
 
   private def assertDeduplicatedSubmissionIdAndOffsetOnError(
@@ -874,16 +883,6 @@ final class CommandDeduplicationIT(
     ledgerEnd
   }
 
-  protected def scaledDuration(duration: FiniteDuration): FiniteDuration = asFiniteDuration(
-    duration * timeoutScaleFactor
-  )
-
-  protected def asFiniteDuration(duration: Duration): FiniteDuration = duration match {
-    case duration: FiniteDuration => duration
-    case _ =>
-      throw new IllegalArgumentException(s"Invalid timeout scale factor: $timeoutScaleFactor")
-  }
-
   private def absoluteLedgerOffset(value: String) =
     LedgerOffset(LedgerOffset.Value.Absolute(value))
 
@@ -912,13 +911,13 @@ final class CommandDeduplicationIT(
   )(implicit ec: ExecutionContext): Future[Unit] = {
     // deduplication duration is adjusted by min skew and max skew when running using pre-execution
     // to account for this we adjust the time model
-    val skew = scaledDuration(3.second).asProtobuf
+    val skew = Durations.scaleDuration(3.second, timeoutScaleFactor).asProtobuf
     runWithUpdatedTimeModel(
       participants,
       _.update(_.minSkew := skew, _.maxSkew := skew),
     ) { timeModel =>
       val minMaxSkewSum =
-        asFiniteDuration(timeModel.getMinSkew.asScala + timeModel.getMaxSkew.asScala)
+        Durations.asFiniteDuration(timeModel.getMinSkew.asScala + timeModel.getMaxSkew.asScala)
       testWithDelayMechanism(minMaxSkewSum)
     }
   }

@@ -1,0 +1,11 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+
+module InterfaceRequiresClashA where
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface I where
+    viewtype EmptyInterfaceView

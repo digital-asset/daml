@@ -8,8 +8,8 @@ import domain.{JwtPayload, JwtWritePayload}
 import com.daml.http.EndpointsCompanion.Unauthorized
 import com.daml.lf.value.test.ValueGenerators.{party => partyGen}
 import com.daml.scalautil.Statement.discard
-import com.daml.scalautil.nonempty.NonEmpty
-import com.daml.scalautil.nonempty.NonEmptyReturningOps._
+import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps._
 
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
@@ -56,13 +56,23 @@ class JwtPartiesTest
     // ensures compatibility with old behavior
     "use Jwt if explicit spec is absent" in forAll { jwp: JwtWritePayload =>
       discard(resolveRefParties(None, jwp) should ===(jwp.parties))
-      resolveRefParties(Some(domain.CommandMeta(None, None, None)), jwp) should ===(jwp.parties)
+      resolveRefParties(Some(domain.CommandMeta(None, None, None, None, None)), jwp) should ===(
+        jwp.parties
+      )
     }
 
     "ignore Jwt if full explicit spec is present" in forAll {
       (actAs: NonEmptyList[domain.Party], readAs: List[domain.Party], jwp: JwtWritePayload) =>
         resolveRefParties(
-          Some(domain.CommandMeta(None, actAs = Some(actAs), readAs = Some(readAs))),
+          Some(
+            domain.CommandMeta(
+              None,
+              actAs = Some(actAs),
+              readAs = Some(readAs),
+              submissionId = None,
+              deduplicationPeriod = None,
+            )
+          ),
           jwp,
         ) should ===(actAs.toSet1 ++ readAs)
     }

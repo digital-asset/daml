@@ -3,14 +3,10 @@
 
 package com.daml.ledger.client.binding
 
-import com.daml.ledger.api.refinements.ApiTypes.{Choice, TemplateId}
+import com.daml.ledger.api.refinements.ApiTypes.Choice
 import com.daml.ledger.api.v1.{event => rpcevent, value => rpcvalue}
 import rpcvalue.Value.{Sum => VSum}
-import encoding.{ExerciseOn, LfEncodable, LfTypeEncoding, RecordView}
-import scalaz.Liskov
-import Liskov.<~<
-
-import scala.annotation.nowarn
+import encoding.{LfEncodable, LfTypeEncoding, RecordView}
 
 /** Common superclass of template classes' companions.
   *
@@ -18,16 +14,9 @@ import scala.annotation.nowarn
   *           not for [[ValueRefCompanion]], because templates' associated
   *           types are guaranteed to have zero tparams.
   */
-abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
-    extends ValueRefCompanion
+abstract class TemplateCompanion[T](implicit isTemplate: T <:< Template[T])
+    extends ContractTypeCompanion[T]
     with LfEncodable.ViaFields[T] {
-
-  /** Alias for contract IDs for this template. Can be used interchangeably with
-    * its expansion.
-    */
-  type ContractId = Primitive.ContractId[T]
-
-  val id: Primitive.TemplateId[T]
 
   val consumingChoices: Set[Choice]
 
@@ -41,16 +30,14 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
 
   /** Prepare an exercise-by-key Update. */
   final def key(k: key)(implicit enc: ValueEncoder[key]): Template.Key[T] =
-    Template.Key(Value encode k)
+    Template.Key(Value encode k, this)
 
   /** Proof that T <: Template[T].  Expressed here instead of as a type parameter
     * bound because the latter is much more inconvenient in practice.
     */
-  val describesTemplate: T <~< Template[T] = isTemplate
+  val describesTemplate: T <:< Template[T] = isTemplate
 
   def toNamedArguments(associatedType: T): rpcvalue.Record
-
-  override protected lazy val ` dataTypeId` = TemplateId.unwrap(id)
 
   def fromNamedArguments(namedArguments: rpcvalue.Record): Option[T]
 
@@ -65,37 +52,21 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
       TemplateCompanion.this.encoding(lte)(TemplateCompanion.this.fieldEncoding(lte))
   }
 
-  protected final def ` templateId`(
-      packageId: String,
-      moduleName: String,
-      entityName: String,
-  ): Primitive.TemplateId[T] =
-    Primitive.TemplateId(packageId, moduleName, entityName)
-
   /** Helper for EventDecoderApi. */
   private[binding] final def decoderEntry
       : (Primitive.TemplateId[T], rpcevent.CreatedEvent => Option[Template[T]]) = {
     type K[+A] = (Primitive.TemplateId[T], rpcevent.CreatedEvent => Option[A])
-    Liskov.co[K, T, Template[T]](describesTemplate)(
+    describesTemplate.substituteCo[K](
       (id, _.createArguments flatMap fromNamedArguments)
     )
   }
-
-  @nowarn("msg=parameter value actor .* is never used") // part of generated code API
-  protected final def ` exercise`[ExOn, Out](
-      actor: Primitive.Party,
-      receiver: ExOn,
-      choiceId: String,
-      arguments: Option[rpcvalue.Value],
-  )(implicit exon: ExerciseOn[ExOn, T]): Primitive.Update[Out] =
-    Primitive.exercise(this, receiver, choiceId, arguments getOrElse Value.encode(()))
 
   protected final def ` arguments`(elems: (String, rpcvalue.Value)*): rpcvalue.Record =
     Primitive.arguments(` dataTypeId`, elems)
 }
 
 object TemplateCompanion {
-  abstract class Empty[T](implicit isTemplate: T <~< Template[T]) extends TemplateCompanion[T] {
+  abstract class Empty[T](implicit isTemplate: T <:< Template[T]) extends TemplateCompanion[T] {
     protected def onlyInstance: T
     override type key = Nothing
     type view[C[_]] = RecordView.Empty[C]

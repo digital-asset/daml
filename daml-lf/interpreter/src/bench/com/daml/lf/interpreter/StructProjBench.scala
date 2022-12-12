@@ -38,7 +38,7 @@ class StructProjBench {
 
         val struct: |Mod:Struct| = < ${(0 until N).map(i => s"x$i = $i").mkString(",")} > ;
 
-        val bench: |Mod:Struct| -> Int64 = \(s: |Mod:Struct|) -> 
+        val bench: |Mod:Struct| -> Int64 = \(s: |Mod:Struct|) ->
           ${(0 until M).map(i => s"let y$i: Int64 = (s).x${i % N} in").mkString(" ")}
           y${M - 1};
        }
@@ -64,7 +64,7 @@ class StructProjBench {
   def bench(): SValue = {
     val machine = Speedy.Machine.fromPureSExpr(compiledPackages, sexpr)
     machine.run() match {
-      case SResult.SResultFinalValue(v) =>
+      case SResult.SResultFinal(v) =>
         v
       case otherwise =>
         throw new UnknownError(otherwise.toString)

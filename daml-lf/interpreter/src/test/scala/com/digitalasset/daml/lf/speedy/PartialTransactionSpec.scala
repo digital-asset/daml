@@ -5,8 +5,7 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.ImmArray
-import com.daml.lf.ledger.Authorize
-import com.daml.lf.speedy.PartialTransaction._
+import com.daml.lf.speedy.PartialTransaction
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
 import com.daml.lf.value.Value
@@ -21,22 +20,22 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
   private[this] val choiceId = data.Ref.Name.assertFromString("choice")
   private[this] val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("My contract"))
   private[this] val party = data.Ref.Party.assertFromString("Alice")
-  private[this] val committers: Set[data.Ref.Party] = Set.empty
+  private[this] val committers: Set[data.Ref.Party] = Set(party)
 
   private[this] val initialState = PartialTransaction.initial(
-    ContractKeyUniquenessMode.On,
-    data.Time.Timestamp.Epoch,
+    ContractKeyUniquenessMode.Strict,
     InitialSeeding.TransactionSeed(transactionSeed),
     committers,
+    ImmArray.Empty,
   )
 
-  private[this] def contractIdsInOrder(ptx: PartialTransaction): Seq[Value.ContractId] = {
-    inside(ptx.finish) { case CompleteTransaction(tx, _, _) =>
-      tx.fold(Vector.empty[Value.ContractId]) {
+  private[this] def contractIdsInOrder(ptx: PartialTransaction): List[Value.ContractId] = {
+    ptx.finish.toOption.get._1
+      .fold(List.empty[Value.ContractId]) {
         case (acc, (_, create: Node.Create)) => acc :+ create.coid
         case (acc, _) => acc
       }
-    }
+      .reverse
   }
 
   private[this] implicit class PartialTransactionExtra(val ptx: PartialTransaction) {
@@ -44,37 +43,40 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     def insertCreate_ : PartialTransaction =
       ptx
         .insertCreate(
-          Authorize(Set(party)),
-          templateId,
-          Value.ValueUnit,
-          "agreement",
-          None,
-          Set(party),
-          Set.empty,
-          None,
-          None,
-          TransactionVersion.maxVersion,
+          submissionTime = data.Time.Timestamp.Epoch,
+          templateId = templateId,
+          arg = Value.ValueUnit,
+          agreementText = "agreement",
+          optLocation = None,
+          signatories = Set(party),
+          stakeholders = Set.empty,
+          key = None,
+          version = TransactionVersion.maxVersion,
         )
+        .toOption
+        .get
         ._2
 
     def beginExercises_ : PartialTransaction =
-      ptx.beginExercises(
-        auth = Authorize(Set(party)),
-        targetId = cid,
-        templateId = templateId,
-        choiceId = choiceId,
-        optLocation = None,
-        consuming = false,
-        actingParties = Set(party),
-        signatories = Set(party),
-        stakeholders = Set.empty,
-        choiceObservers = Set.empty,
-        mbKey = None,
-        byKey = false,
-        byInterface = None,
-        chosenValue = Value.ValueUnit,
-        version = TransactionVersion.maxVersion,
-      )
+      ptx
+        .beginExercises(
+          targetId = cid,
+          templateId = templateId,
+          interfaceId = None,
+          choiceId = choiceId,
+          optLocation = None,
+          consuming = false,
+          actingParties = Set(party),
+          signatories = Set(party),
+          stakeholders = Set.empty,
+          choiceObservers = Set.empty,
+          mbKey = None,
+          byKey = false,
+          chosenValue = Value.ValueUnit,
+          version = TransactionVersion.maxVersion,
+        )
+        .toOption
+        .get
 
     def endExercises_ : PartialTransaction =
       ptx.endExercises(_ => Value.ValueNone)
@@ -159,7 +161,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
           .beginTry // open a second try context
           .insertCreate_ // create the contract cid_1_2
           // an exception is thrown
-          .abortTry // the second try context does not handle the exception
+          .rollbackTry_ // the second try context does not handle the exception
           .abortExercises // close abruptly the exercise due to an uncaught exception
           .rollbackTry_ // the first try context does handle the exception
           .insertCreate_ // create the contract cid_2

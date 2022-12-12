@@ -1,0 +1,62 @@
+-- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- This tests that, if the contract id in contract key check is skipped by
+-- defining the type that contains a contract id in a separate module, the
+-- runtime check is still performed.
+
+-- @ERROR range=35:1-35:14; Contract IDs are not supported in contract key
+-- @ERROR range=44:1-44:13; Contract IDs are not supported in contract key
+-- @ERROR range=50:1-50:14; Contract IDs are not supported in contract key
+-- @ERROR range=56:1-56:16; Contract IDs are not supported in contract key
+
+module ContractIdInContractKeySkipCheck where
+
+import ContractIdInContractKeySkipCheckType (ContractId'(..))
+
+template Contract with
+    party : Party
+  where
+    signatory party
+
+template ContractKeyWithCid with
+    party: Party
+    cid: ContractId Contract
+  where
+    signatory [party]
+
+    nonconsuming choice Noop : ()
+      controller party
+      do pure ()
+
+    key (party, ContractId' cid) : (Party, ContractId' Contract)
+    maintainer key._1
+
+createCrashes = scenario do
+    alice <- getParty "Alice"
+    cid <- submit alice $ do
+      create Contract with party = alice
+    submit alice $ do
+      create ContractKeyWithCid with
+        party = alice
+        cid = cid
+
+fetchCrashes = scenario do
+    alice <- getParty "Alice"
+    cid <- submit alice $ do
+          create Contract with party = alice
+    submit alice $ do fetchByKey @ContractKeyWithCid (alice, ContractId' cid)
+
+lookupCrashes = scenario do
+    alice <- getParty "Alice"
+    cid <- submit alice $ do
+          create Contract with party = alice
+    submit alice $ do lookupByKey @ContractKeyWithCid (alice, ContractId' cid)
+
+exerciseCrashes = scenario do
+    alice <- getParty "Alice"
+    cid <- submit alice $ do
+          create Contract with party = alice
+    submit alice $ do exerciseByKey @ContractKeyWithCid (alice, ContractId' cid) Noop
+
+-- @ENABLE-SCENARIOS

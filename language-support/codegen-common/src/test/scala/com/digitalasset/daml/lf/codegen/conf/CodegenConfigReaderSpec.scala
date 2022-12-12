@@ -7,13 +7,15 @@ import java.nio.file.{Path, Paths}
 
 import ch.qos.logback.classic.Level
 import com.daml.assistant.config.{ProjectConfig, ConfigParseError, ConfigMissing}
-import com.daml.lf.codegen.conf.CodegenConfigReader.{Java, Result, CodegenDest}
+import com.daml.lf.codegen.conf.{CodegenConfigReader => CCR}
+import CCR.{Java, Result, CodegenDest}
 import com.daml.lf.data.Ref.{PackageName, PackageVersion}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks {
+  import CodegenConfigReaderSpec._
 
   behavior of "CodegenConfigReader.splitNameAndVersion"
 
@@ -27,12 +29,13 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
       }
   }
 
-  it should "reject empty names" in forAll { (name: String, separator: Char) =>
+  it should "reject empty versions" in forAll { (name: String, separator: Char) =>
     CodegenConfigReader.splitNameAndVersion(s"$name$separator", separator) shouldBe None
   }
 
-  it should "reject empty versions" in forAll { (separator: Char, version: String) =>
-    CodegenConfigReader.splitNameAndVersion(s"$separator$version", separator) shouldBe None
+  it should "reject empty names" in forAll { version: PackageVersion =>
+    val separator = CCR.PackageReferenceSeparator
+    CCR.splitNameAndVersion(s"$separator$version", separator) shouldBe None
   }
 
   it should "reject any string where only the separator appears" in forAll { (separator: Char) =>
@@ -286,4 +289,17 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
   private def path(s: String): Path = Paths.get(s)
 
   private val projectRoot = Paths.get("/project/root")
+}
+
+object CodegenConfigReaderSpec {
+  import org.scalacheck.{Arbitrary, Gen}
+
+  implicit def `package Version Arb`: Arbitrary[PackageVersion] =
+    Arbitrary(
+      Gen
+        .zip(Gen.posNum[Int], Gen.option(Gen.posNum[Int]))
+        .map { case (wholeVersion, decVersion) =>
+          PackageVersion assertFromString s"$wholeVersion${decVersion.fold("")(n => s".$n")}"
+        }
+    )
 }

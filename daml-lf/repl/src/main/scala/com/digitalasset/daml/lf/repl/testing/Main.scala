@@ -209,7 +209,7 @@ object Repl {
           compiledPackages,
           expr,
         )
-      (machine, new ScenarioRunner(machine, seed).run)
+      (machine, ScenarioRunner.run(() => machine, seed))
     }
   }
 
@@ -448,7 +448,7 @@ object Repl {
   implicit val parserParameters: parser.ParserParameters[Repl.this.type] =
     parser.ParserParameters(
       defaultPackageId = Ref.PackageId.assertFromString("-dummy-"),
-      languageVersion = LV.defaultV1,
+      languageVersion = LV.default,
     )
 
   // Invoke the given top-level function with given arguments.
@@ -477,14 +477,13 @@ object Repl {
               case SResultError(err) =>
                 println(prettyError(err).render(128))
                 None
-              case SResultFinalValue(v) =>
+              case SResultFinal(v) =>
                 Some(v)
               case other =>
                 sys.error("unimplemented callback: " + other.toString)
             }
             val endTime = System.nanoTime()
             val diff = (endTime - startTime) / 1000 / 1000
-            machine.print(1)
             println(s"time: ${diff}ms")
             valueOpt match {
               case None => ()
@@ -529,7 +528,7 @@ object Repl {
             (false, state)
           case success: ScenarioRunner.ScenarioSuccess =>
             // NOTE(JM): cannot print this, output used in tests.
-            //println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
+            // println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
             println(prettyLedger(success.ledger).render(128))
             (true, state)
         }
@@ -559,7 +558,7 @@ object Repl {
         case error: ScenarioRunner.ScenarioError =>
           println(
             "failed at " +
-              prettyLoc(machine.lastLocation).render(128) +
+              prettyLoc(machine.getLastLocation).render(128) +
               ": " + PrettyScenario.prettyError(error.error).render(128)
           )
           failures += 1

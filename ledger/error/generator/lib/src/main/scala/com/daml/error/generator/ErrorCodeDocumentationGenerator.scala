@@ -3,8 +3,6 @@
 
 package com.daml.error.generator
 
-import java.lang.reflect.Modifier
-
 import com.daml.error._
 import org.reflections.Reflections
 
@@ -188,10 +186,8 @@ object ErrorCodeDocumentationGenerator {
       .getSubTypesOf(runtimeMirror.runtimeClass(ru.typeOf[T]))
       .asScala
       .view
-      .collect {
-        case clazz if !Modifier.isAbstract(clazz.getModifiers) =>
-          clazz.getDeclaredField("MODULE$").get(clazz).asInstanceOf[T]
-      }
+      .filter(_.getDeclaredFields.exists(_.getName == "MODULE$"))
+      .map { clazz => clazz.getDeclaredField("MODULE$").get(clazz).asInstanceOf[T] }
       .toSeq
 
   private def simpleClassName(any: Any): String =

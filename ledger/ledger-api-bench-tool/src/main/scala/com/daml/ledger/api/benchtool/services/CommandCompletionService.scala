@@ -50,7 +50,7 @@ class CommandCompletionService(
     }
     val request = CompletionStreamRequest.defaultInstance
       .withLedgerId(ledgerId)
-      .withParties(List(config.party))
+      .withParties(config.parties)
       .withApplicationId(config.applicationId)
 
     config.beginOffset match {

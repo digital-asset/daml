@@ -10,13 +10,12 @@ import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.rxjava.TransactionsClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
-import com.daml.ledger.rxjava.util.CreateSingle;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.Channel;
 import io.reactivex.Flowable;
 import io.reactivex.Single;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Future;
 
 public final class TransactionClientImpl implements TransactionsClient {
   private final String ledgerId;
@@ -93,6 +92,30 @@ public final class TransactionClientImpl implements TransactionsClient {
     return getTransactions(begin, filter, verbose, Optional.of(accessToken));
   }
 
+  private Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter,
+      LedgerOffset begin,
+      Set<String> parties,
+      boolean verbose,
+      Optional<String> accessToken) {
+    TransactionFilter filter = contractFilter.transactionFilter(parties);
+    return getTransactions(begin, filter, verbose, accessToken);
+  }
+
+  public Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter,
+      LedgerOffset begin,
+      Set<String> parties,
+      boolean verbose,
+      String accessToken) {
+    return getTransactions(contractFilter, begin, parties, verbose, Optional.of(accessToken));
+  }
+
+  public Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter, LedgerOffset begin, Set<String> parties, boolean verbose) {
+    return getTransactions(contractFilter, begin, parties, verbose, Optional.empty());
+  }
+
   private Flowable<TransactionTree> extractTransactionTrees(
       TransactionServiceOuterClass.GetTransactionsRequest request, Optional<String> accessToken) {
     return ClientPublisherFlowable.create(
@@ -150,8 +173,8 @@ public final class TransactionClientImpl implements TransactionsClient {
   }
 
   private Single<TransactionTree> extractTransactionTree(
-      ListenableFuture<TransactionServiceOuterClass.GetTransactionResponse> future) {
-    return CreateSingle.fromFuture(future, sequencerFactory)
+      Future<TransactionServiceOuterClass.GetTransactionResponse> future) {
+    return Single.fromFuture(future)
         .map(GetTransactionResponse::fromProto)
         .map(GetTransactionResponse::getTransaction);
   }
@@ -206,8 +229,8 @@ public final class TransactionClientImpl implements TransactionsClient {
   }
 
   private Single<Transaction> extractTransaction(
-      ListenableFuture<TransactionServiceOuterClass.GetFlatTransactionResponse> future) {
-    return CreateSingle.fromFuture(future, sequencerFactory)
+      Future<TransactionServiceOuterClass.GetFlatTransactionResponse> future) {
+    return Single.fromFuture(future)
         .map(GetFlatTransactionResponse::fromProto)
         .map(GetFlatTransactionResponse::getTransaction);
   }
@@ -265,9 +288,8 @@ public final class TransactionClientImpl implements TransactionsClient {
   private Single<LedgerOffset> getLedgerEnd(Optional<String> accessToken) {
     TransactionServiceOuterClass.GetLedgerEndRequest request =
         TransactionServiceOuterClass.GetLedgerEndRequest.newBuilder().setLedgerId(ledgerId).build();
-    return CreateSingle.fromFuture(
-            StubHelper.authenticating(this.serviceFutureStub, accessToken).getLedgerEnd(request),
-            sequencerFactory)
+    return Single.fromFuture(
+            StubHelper.authenticating(this.serviceFutureStub, accessToken).getLedgerEnd(request))
         .map(GetLedgerEndResponse::fromProto)
         .map(GetLedgerEndResponse::getOffset);
   }

@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
+
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{DottedName, Identifier, QualifiedName}
-import com.daml.lf.iface._
+import com.daml.lf.typesig._
 import com.squareup.javapoet.{ClassName, TypeName}
 import javax.lang.model.element.Modifier
 import org.scalatest.matchers.should.Matchers
@@ -17,16 +18,17 @@ final class RecordFieldsSpec extends AnyFlatSpec with Matchers {
 
   behavior of "RecordFields"
 
+  private[this] implicit val packagePrefixes: PackagePrefixes = PackagePrefixes(Map.empty)
+
   it should "not generate any parameter from an empty record" in {
-    RecordFields(getFieldsWithTypes(ImmArraySeq(), Map())) shouldBe empty
+    RecordFields(getFieldsWithTypes(ImmArraySeq())) shouldBe empty
   }
 
   it should "throw exception when the parameter name is empty" in {
     an[IllegalArgumentException] shouldBe thrownBy(
       RecordFields(
         getFieldsWithTypes(
-          ImmArraySeq(Ref.Name.assertFromString("") -> TypePrim(PrimTypeBool, ImmArraySeq.empty)),
-          Map(),
+          ImmArraySeq(Ref.Name.assertFromString("") -> TypePrim(PrimTypeBool, ImmArraySeq.empty))
         )
       )
     )
@@ -38,8 +40,7 @@ final class RecordFieldsSpec extends AnyFlatSpec with Matchers {
         getFieldsWithTypes(
           ImmArraySeq(
             Ref.Name.assertFromString("bool") -> TypePrim(PrimTypeBool, ImmArraySeq.empty)
-          ),
-          Map(),
+          )
         )
       )
 
@@ -66,8 +67,7 @@ final class RecordFieldsSpec extends AnyFlatSpec with Matchers {
         getFieldsWithTypes(
           ImmArraySeq(
             Ref.Name.assertFromString("field") -> TypeCon(TypeConName(ident), ImmArraySeq.empty)
-          ),
-          Map(),
+          )
         )
       )
 

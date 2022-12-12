@@ -68,10 +68,10 @@
     "deep-equal": "^2.0.5",
     "enzyme": "^3.11.0",
     "es6-promise": "^4.1.1",
-    "jpeg-js": "^0.4.1",
+    "jpeg-js": "^0.4.4",
     "lodash": "^4.17.19",
     "modernizr": "^3.11.8",
-    "moment": "^2.23.0",
+    "moment": "^2.29.4",
     "normalize.css": "^8.0.1",
     "react": "^17.0.1",
     "react-autosuggest": "^10.0.4",
@@ -90,16 +90,9 @@
     "whatwg-fetch": "^3.5.0"
   },
   "resolutions": {
-    "**/elliptic": "^6.5.4",
-    "**/jpeg-js": "^0.4.1",
-    "**/ssri": "^8.0.1",
-    "**/hosted-git-info": "^4.0.2",
-    "**/ws": "^7.4.6",
-    "**/css-what": "^5.0.1",
-    "**/glob-parent": "^6.0.0",
-    "**/set-value": "^4.0.1",
-    "**/strip-ansi": "^6.0.0",
     "**/shelljs": "^0.8.5",
+    "**/moment": "^2.29.4",
+    "apollo/**/parse-url": "^8.1.0",
     "modernizr/**/markdown-it": "^12.3.2"
   }
 }

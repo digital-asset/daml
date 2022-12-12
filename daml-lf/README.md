@@ -24,11 +24,11 @@ Components
   the LF specification, changes to the Protobuf definition are governed
   by the [Daml-LF Governance process][].
 
-- `interface` is an ADT of the "public interface" of a given LF package,
-  meaning its templates, their choices, and serializable data types in
-  the package.  The ADT does *not* include `def`s or expressions.  A
-  reader from the raw protobuf is included.  The ADT is usable from
-  Java.
+- `api-type-signature` is an ADT of the "public interface" of a given LF
+  package, meaning its templates, their choices, and serializable data
+  types in the package.  The ADT does *not* include `def`s or
+  expressions.  A reader from the raw protobuf is included.  The ADT is
+  usable from Java.
 
 - `lfpackage` is the canonical LF ADT, containing all information about
   an LF package. Its main consumer is the `interpreter`, which compiles

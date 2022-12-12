@@ -3,8 +3,10 @@
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
+import com.daml.ledger.api.v1.experimental_features.ExperimentalCommitterEventLog.CommitterEventLogType.CENTRALIZED
 import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationFeatures,
+  ExperimentalCommitterEventLog,
   ExperimentalContractIds,
 }
 import com.daml.ledger.api.v1.version_service.{GetLedgerApiVersionResponse, UserManagementFeature}
@@ -15,6 +17,9 @@ final case class Features(
     commandDeduplicationFeatures: CommandDeduplicationFeatures,
     optionalLedgerId: Boolean = false,
     contractIds: ExperimentalContractIds,
+    committerEventLog: ExperimentalCommitterEventLog,
+    explicitDisclosure: Boolean = false,
+    userAndPartyLocalMetadataExtensions: Boolean = false,
 )
 
 object Features {
@@ -23,6 +28,7 @@ object Features {
     staticTime = false,
     commandDeduplicationFeatures = CommandDeduplicationFeatures.defaultInstance,
     contractIds = ExperimentalContractIds.defaultInstance,
+    committerEventLog = ExperimentalCommitterEventLog.of(eventLogType = CENTRALIZED),
   )
 
   def fromApiVersionResponse(response: GetLedgerApiVersionResponse): Features = {
@@ -35,6 +41,10 @@ object Features {
       commandDeduplicationFeatures = experimental.getCommandDeduplication,
       optionalLedgerId = experimental.optionalLedgerId.isDefined,
       contractIds = experimental.getContractIds,
+      committerEventLog = experimental.getCommitterEventLog,
+      explicitDisclosure = experimental.getExplicitDisclosure.supported,
+      userAndPartyLocalMetadataExtensions =
+        experimental.getUserAndPartyLocalMetadataExtensions.supported,
     )
   }
 }

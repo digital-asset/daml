@@ -3,22 +3,22 @@
 
 package com.daml.platform.apiserver.execution
 
-import com.daml.error.definitions.ErrorCause
 import com.daml.ledger.api.domain.Commands
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.index.v2.{ContractStore, MaximumLedgerTime}
+import com.daml.ledger.participant.state.index.v2.MaximumLedgerTime
 import com.daml.lf.crypto
 import com.daml.lf.data.Time
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.services.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 private[apiserver] final class LedgerTimeAwareCommandExecutor(
     delegate: CommandExecutor,
-    contractStore: ContractStore,
+    resolveMaximumLedgerTime: ResolveMaximumLedgerTime,
     maxRetries: Int,
     metrics: Metrics,
 )(implicit
@@ -70,8 +70,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
             loop(c, submissionSeed, ledgerConfiguration, retriesLeft - 1)
           }
 
-          contractStore
-            .lookupMaximumLedgerTimeAfterInterpretation(usedContractIds)
+          resolveMaximumLedgerTime(cer.usedDisclosedContracts.map(_.unversioned), usedContractIds)
             .transformWith {
               case Success(MaximumLedgerTime.NotAvailable) =>
                 success(cer)
@@ -99,13 +98,13 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
               case Success(MaximumLedgerTime.Archived(contracts)) =>
                 if (retriesLeft > 0) {
                   logger.info(
-                    s"Some input contracts are archived: ${contracts.mkString("[", ", ", "]")} Restarting the computation."
+                    s"Some input contracts are archived: ${contracts.mkString("[", ", ", "]")}. Restarting the computation."
                   )
                   retry(commands)
                 } else {
                   logger.info(
                     s"Lookup of maximum ledger time failed after ${maxRetries - retriesLeft}. Used contracts: ${usedContractIds
-                      .mkString("[", ", ", "]")}."
+                        .mkString("[", ", ", "]")}."
                   )
                   failed
                 }
@@ -115,7 +114,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
               case Failure(error) =>
                 logger.info(
                   s"Lookup of maximum ledger time failed after ${maxRetries - retriesLeft}. Used contracts: ${usedContractIds
-                    .mkString("[", ", ", "]")}. Details: $error"
+                      .mkString("[", ", ", "]")}. Details: $error"
                 )
                 failed
             }

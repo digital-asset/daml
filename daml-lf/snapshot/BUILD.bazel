@@ -4,6 +4,8 @@
 load("//bazel_tools:proto.bzl", "proto_jars")
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
+    "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
@@ -11,10 +13,60 @@ load(
 )
 
 proto_jars(
-    name = "snapshot-proto",
+    name = "snapshot_proto",
     srcs = ["src/main/protobuf/com/daml/lf/snapshot.proto"],
     maven_artifact_prefix = "daml-lf-snapshot",
     maven_group = "com.daml",
     strip_import_prefix = "src/main/protobuf/",
     visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "snapshot",
+    srcs = glob(["src/main/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    deps = [
+        "snapshot_proto_java",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction:transaction_proto_java",
+        "//daml-lf/transaction-test-lib",
+        "//libs-scala/contextualized-logging",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_benchmark_jmh(
+    name = "replay-benchmark",
+    srcs = glob(["src/benchmark/**/*.scala"]),
+    max_heap_size = "4g",
+    scala_deps = ["@maven//:org_scalaz_scalaz_core"],
+    deps = [
+        ":snapshot",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+    ],
+)
+
+da_scala_binary(
+    name = "replay-profile",
+    srcs = glob(["src/profile/**/*.scala"]),
+    main_class = "com.daml.lf.testing.snapshot.ReplayProfile",
+    max_heap_size = "4g",
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+    ],
+    deps = [
+        ":snapshot",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/language",
+    ],
 )

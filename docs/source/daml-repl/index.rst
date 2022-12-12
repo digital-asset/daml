@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Daml REPL
-###########
+#########
 
 The Daml REPL allows you to use the :doc:`/daml-script/index` API
 interactively. This is useful for debugging and for interactively
@@ -125,7 +125,7 @@ Using the ``query`` function we can now verify that there is one
 To exit ``daml repl`` press ``Control-D``.
 
 
-What is in scope at the prompt?
+What Is in Scope at the Prompt?
 ===============================
 
 In the prompt, all modules from DALFs specified in ``--import`` are
@@ -144,7 +144,7 @@ The command ``:show imports`` lists the currently active imports.
 
 .. _repl-no-ledger:
 
-Using Daml REPL without a Ledger
+Using Daml REPL Without a Ledger
 ================================
 
 If you are only interested in pure expressions, e.g., because you want
@@ -167,13 +167,13 @@ authentication by passing ``--pem client.key --crt client.crt``. If
 ``--cacrt`` or ``--pem`` and ``--crt`` are passed TLS is automatically
 enabled so ``--tls`` is redundant.
 
-Connection to a Ledger with Authorization
+Connection to a Ledger With Authorization
 =========================================
 
 If your ledger requires an authorization token you can pass it via
 ``--access-token-file``.
 
-Using Daml REPL to convert to JSON
+Using Daml REPL to Convert to JSON
 ==================================
 
 Using the ``:json`` command you can encode serializable Daml expressions as

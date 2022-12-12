@@ -1,0 +1,31 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Retro where
+
+import Main (Asset(..))
+import RetroView
+
+interface Retro where
+  viewtype RetroView
+  getOwner : Party
+
+  nonconsuming choice RetroChoice : (Text, ContractId Retro)
+    with
+      echo : Text
+    controller getOwner this
+    do
+      pure $ ("invoked RetroChoice with " <> echo, self)
+
+  interface instance Retro for Asset where
+    view = RetroView 1
+    getOwner = owner
+
+  interface instance Retro for LocalRetro where
+    view = RetroView 2
+    getOwner = owner
+
+template LocalRetro with
+    owner: Party
+  where
+    signatory owner

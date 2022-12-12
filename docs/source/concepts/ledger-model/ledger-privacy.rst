@@ -38,6 +38,7 @@ In the graphical representation of the paint offer acceptance below, contract ob
 .. image:: ./images/stakeholders-paint-offer.svg
    :align: center
    :width: 60%
+   :alt: The paint offer acceptance flowchart. In the first subtransaction and in EXE A (IOU Bank A), A is underlined; in IOU $Bank P, P is underlined.
 
 Choice Observers
 ****************
@@ -68,6 +69,7 @@ three parties in the example: the painter, Alice, and the bank.
 .. image:: ./images/projecting-transactions-paint-offer.svg
    :align: center
    :width: 60%
+   :alt: The original paint offer flowchart followed by two projections, one for P and A and one for the bank. The privacy implications of what is visible in each projection are detailed in the next three paragraphs.
 
 Since both the painter and Alice are stakeholders of the `PaintOffer`
 contract, the exercise on this contract is kept in the projection of both
@@ -136,6 +138,7 @@ party:
    :align: center
    :width: 100%
    :name: da-ledgers-projections-example
+   :alt: Time sequences for each party's projection, explained in-depth in the numbered list below.
 
 Examine each party's projection in turn:
 
@@ -181,7 +184,7 @@ projections.
 
 .. _da-model-privacy-authorization:
 
-Privacy through authorization
+Privacy Through Authorization
 *****************************
 
 Setting the maintainers as required authorizers for a **NoSuchKey** assertion ensures
@@ -253,6 +256,7 @@ the painter:
    :align: center
    :width: 100%
    :name: da-paint-counteroffer-example
+   :alt: A series of time sequences showing how delegation changes privacy, as described in the preceding paragraph.
 
 In the example, the context is provided by consuming a `ShowIou` contract on which the painter is a stakeholder.
 This now requires an additional contract type, compared to the original paint offer example.
@@ -270,6 +274,7 @@ such that the painter immediately settles the IOU.
 .. image:: ./images/divulgence-stale-contracts.svg
    :align: center
    :width: 100%
+   :alt: A series of time sequences in which the state of the Iou contract is unknown to parties who view it through divulgence.
 
 While Alice sees the creation of the `Iou Bank P` contract, she does
 not see the settlement action. Thus, she does not know whether the

@@ -1,0 +1,188 @@
+module InterfaceErrors where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+data EmptyInterfaceView = EmptyInterfaceView {}
+data GHC.Types.DamlInterface => MyInterface
+  = MyInterface GHC.Types.Opaque
+instance DA.Internal.Desugar.HasInterfaceTypeRep MyInterface where
+  _interfaceTypeRep
+    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+instance DA.Internal.Desugar.HasFetch MyInterface where
+  fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasToInterface MyInterface MyInterface where
+  _toInterface this = this
+instance DA.Internal.Desugar.HasFromInterface MyInterface MyInterface where
+  fromInterface this = DA.Internal.Desugar.Some this
+  unsafeFromInterface _ this = this
+instance DA.Internal.Desugar.HasMethod MyInterface "myVirtualChoiceImpl" (Update ())
+myVirtualChoiceImpl : MyInterface -> Update ()
+myVirtualChoiceImpl
+  = GHC.Types.primitiveInterface @"myVirtualChoiceImpl"
+instance DA.Internal.Desugar.HasToAnyTemplate MyInterface where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate MyInterface where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep MyInterface where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasSignatory MyInterface where
+  signatory = GHC.Types.primitive @"ESignatoryInterface"
+instance DA.Internal.Desugar.HasObserver MyInterface where
+  observer = GHC.Types.primitive @"EObserverInterface"
+instance DA.Internal.Desugar.HasCreate MyInterface where
+  create = GHC.Types.primitive @"UCreateInterface"
+instance DA.Internal.Desugar.HasIsInterfaceType MyInterface where
+  _isInterfaceType _ = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.Eq MyInterface where
+  (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive MyInterface where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+instance DA.Internal.Desugar.HasToAnyChoice MyInterface DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice MyInterface DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded MyInterface DA.Internal.Desugar.Archive (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @MyInterface cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @MyInterface cid pred)
+instance DA.Internal.Desugar.HasExercise MyInterface DA.Internal.Desugar.Archive (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @MyInterface cid)
+        arg
+instance DA.Internal.Desugar.HasToAnyChoice MyInterface MyVirtualChoice (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice MyInterface MyVirtualChoice (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded MyInterface MyVirtualChoice (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @MyInterface cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @MyInterface cid pred)
+instance DA.Internal.Desugar.HasExercise MyInterface MyVirtualChoice (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @MyInterface cid)
+        arg
+data MyVirtualChoice
+  = MyVirtualChoice {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+_choice_MyInterfaceArchive :
+  (MyInterface
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId MyInterface
+   -> MyInterface
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming MyInterface,
+   DA.Internal.Desugar.Optional (MyInterface
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_MyInterfaceArchive
+  = (\ this arg@DA.Internal.Desugar.Archive
+       -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
+_choice_MyInterfaceMyVirtualChoice :
+  (MyInterface -> MyVirtualChoice -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId MyInterface
+   -> MyInterface
+      -> MyVirtualChoice -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming MyInterface,
+   DA.Internal.Desugar.Optional (MyInterface
+                                 -> MyVirtualChoice -> [DA.Internal.Desugar.Party]))
+_choice_MyInterfaceMyVirtualChoice
+  = (\ this arg@MyVirtualChoice
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties ([] : [Party]), 
+     \ self this arg@MyVirtualChoice
+       -> let _ = self in
+          let _ = this in let _ = arg in do myVirtualChoiceImpl this, 
+     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView MyInterface EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView MyInterface EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
+data GHC.Types.DamlTemplate => MyTemplate
+  = MyTemplate {p : Party}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "p" MyTemplate Party where
+  getField = DA.Internal.Record.getFieldPrim @"p" @MyTemplate @Party
+  setField = DA.Internal.Record.setFieldPrim @"p" @MyTemplate @Party
+instance DA.Internal.Desugar.HasSignatory MyTemplate where
+  signatory this@MyTemplate {..}
+    = DA.Internal.Desugar.toParties (p)
+    where
+        _ = this
+instance DA.Internal.Desugar.HasObserver MyTemplate where
+  observer this@MyTemplate {..}
+    = []
+    where
+        _ = this
+instance DA.Internal.Desugar.HasEnsure MyTemplate where
+  ensure this@MyTemplate {..}
+    = DA.Internal.Desugar.True
+    where
+        _ = this
+instance DA.Internal.Desugar.HasAgreement MyTemplate where
+  agreement this@MyTemplate {..}
+    = ""
+    where
+        _ = this
+instance DA.Internal.Desugar.HasArchive MyTemplate where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+    where
+        _ = cid
+instance DA.Internal.Desugar.HasCreate MyTemplate where
+  create = GHC.Types.primitive @"UCreate"
+instance DA.Internal.Desugar.HasFetch MyTemplate where
+  fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasToAnyTemplate MyTemplate where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate MyTemplate where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep MyTemplate where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasIsInterfaceType MyTemplate where
+  _isInterfaceType _ = DA.Internal.Desugar.False
+instance DA.Internal.Desugar.HasExercise MyTemplate DA.Internal.Desugar.Archive (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice MyTemplate DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice MyTemplate DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+_choice_MyTemplateArchive :
+  (MyTemplate
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId MyTemplate
+   -> MyTemplate
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming MyTemplate,
+   DA.Internal.Desugar.Optional (MyTemplate
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_MyTemplateArchive
+  = (\ this _ -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
+fetchBadContract
+  = scenario
+      do p <- getParty "Alice"
+         p `submit`
+             do cid <- create (MyTemplate p)
+                let cid' : ContractId MyInterface = coerceContractId cid
+                fetch cid'
+exerciseBadContract
+  = scenario
+      do p <- getParty "Alice"
+         p `submit`
+             do cid <- create (MyTemplate p)
+                let cid' : ContractId MyInterface = coerceContractId cid
+                exercise cid' MyVirtualChoice

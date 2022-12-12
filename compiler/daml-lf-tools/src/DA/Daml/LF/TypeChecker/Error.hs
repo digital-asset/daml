@@ -5,6 +5,7 @@ module DA.Daml.LF.TypeChecker.Error(
     Context(..),
     Error(..),
     TemplatePart(..),
+    InterfacePart(..),
     UnserializabilityReason(..),
     SerializabilityRequirement(..),
     errorLocation,
@@ -19,6 +20,7 @@ import Numeric.Natural
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Pretty
+import DA.Daml.UtilLF (sourceLocToRange)
 
 -- TODO(MH): Rework the context machinery to avoid code duplication.
 -- | Type checking context for error reporting purposes.
@@ -29,7 +31,7 @@ data Context
   | ContextTemplate !Module !Template !TemplatePart
   | ContextDefValue !Module !DefValue
   | ContextDefException !Module !DefException
-  | ContextDefInterface !Module !DefInterface
+  | ContextDefInterface !Module !DefInterface !InterfacePart
 
 data TemplatePart
   = TPWhole
@@ -40,6 +42,13 @@ data TemplatePart
   | TPAgreement
   | TPKey
   | TPChoice TemplateChoice
+  | TPInterfaceInstance InterfaceInstanceHead
+
+data InterfacePart
+  = IPWhole
+  | IPMethod InterfaceMethod
+  | IPChoice TemplateChoice
+  | IPInterfaceInstance InterfaceInstanceHead
 
 data SerializabilityRequirement
   = SRTemplateArg
@@ -48,6 +57,7 @@ data SerializabilityRequirement
   | SRKey
   | SRDataType
   | SRExceptionArg
+  | SRView
 
 -- | Reason why a type is not serializable.
 data UnserializabilityReason
@@ -94,10 +104,11 @@ data Error
   | EExpectedVariantType   !(Qualified TypeConName)
   | EExpectedEnumType      !(Qualified TypeConName)
   | EUnknownDataCon        !VariantConName
-  | EUnknownField          !FieldName
+  | EUnknownField          !FieldName !Type
   | EExpectedStructType    !Type
   | EKindMismatch          {foundKind :: !Kind, expectedKind :: !Kind}
   | ETypeMismatch          {foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr)}
+  | EFieldTypeMismatch     {fieldName :: !FieldName, targetRecord :: !Type, foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr)}
   | EPatternTypeMismatch   {pattern :: !CasePattern, scrutineeType :: !Type}
   | ENonExhaustivePatterns {missingPattern :: !CasePattern, scrutineeType :: !Type}
   | EExpectedHigherKind    !Kind
@@ -106,6 +117,7 @@ data Error
   | EExpectedUpdateType    !Type
   | EExpectedScenarioType  !Type
   | EExpectedSerializableType !SerializabilityRequirement !Type !UnserializabilityReason
+  | EExpectedKeyTypeWithoutContractId !Type
   | EExpectedAnyType !Type
   | EExpectedExceptionType !Type
   | EExpectedExceptionTypeHasNoParams !ModuleName !TypeConName
@@ -115,6 +127,11 @@ data Error
   | EExpectedDataType      !Type
   | EExpectedListType      !Type
   | EExpectedOptionalType  !Type
+  | EViewTypeHeadNotCon !Type !Type
+  | EViewTypeHasVars !Type
+  | EViewTypeConNotRecord !DataCons !Type
+  | EViewTypeMismatch { evtmIfaceName :: !(Qualified TypeConName), evtmTplName :: !(Qualified TypeConName), evtmFoundType :: !Type, evtmExpectedType :: !Type, evtmExpr :: !(Maybe Expr) }
+  | EMethodTypeMismatch { emtmIfaceName :: !(Qualified TypeConName), emtmTplName :: !(Qualified TypeConName), emtmMethodName :: !MethodName, emtmFoundType :: !Type, emtmExpectedType :: !Type, emtmExpr :: !(Maybe Expr) }
   | EEmptyCase
   | EClashingPatternVariables !ExprVarName
   | EExpectedTemplatableType !TypeConName
@@ -137,12 +154,11 @@ data Error
   | EUnknownInterface !TypeConName
   | ECircularInterfaceRequires !TypeConName !(Maybe (Qualified TypeConName))
   | ENotClosedInterfaceRequires !TypeConName !(Qualified TypeConName) ![Qualified TypeConName]
-  | EMissingRequiredInterface { emriTemplate :: !TypeConName, emriRequiringInterface :: !(Qualified TypeConName), emriRequiredInterface :: !(Qualified TypeConName) }
+  | EMissingRequiredInterfaceInstance !InterfaceInstanceHead !(Qualified TypeConName)
   | EBadInheritedChoices { ebicInterface :: !(Qualified TypeConName), ebicExpected :: ![ChoiceName], ebicGot :: ![ChoiceName] }
   | EMissingInterfaceChoice !ChoiceName
-  | EMissingInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
-  | EUnknownInterfaceMethod !TypeConName !(Qualified TypeConName) !MethodName
-  | ETemplateDoesNotImplementInterface !(Qualified TypeConName) !(Qualified TypeConName)
+  | EMissingMethodInInterfaceInstance !MethodName
+  | EUnknownMethodInInterfaceInstance { eumiiIface :: !(Qualified TypeConName), eumiiTpl :: !(Qualified TypeConName), eumiiMethodName :: !MethodName }
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
   | EUnknownExperimental !T.Text !Type
 
@@ -154,7 +170,7 @@ contextLocation = \case
   ContextTemplate _ t _  -> tplLocation t
   ContextDefValue _ v    -> dvalLocation v
   ContextDefException _ e -> exnLocation e
-  ContextDefInterface _ i -> intLocation i
+  ContextDefInterface _ i _ -> intLocation i
 
 errorLocation :: Error -> Maybe SourceLoc
 errorLocation = \case
@@ -174,8 +190,8 @@ instance Show Context where
       "value " <> show (moduleName m) <> "." <> show (fst $ dvalBinder v)
     ContextDefException m e ->
       "exception " <> show (moduleName m) <> "." <> show (exnName e)
-    ContextDefInterface m i ->
-      "interface " <> show (moduleName m) <> "." <> show (intName i)
+    ContextDefInterface m i p ->
+      "interface " <> show (moduleName m) <> "." <> show (intName i) <> " " <> show p
 
 instance Show TemplatePart where
   show = \case
@@ -187,6 +203,14 @@ instance Show TemplatePart where
     TPAgreement -> "agreement"
     TPKey -> "key"
     TPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
+    TPInterfaceInstance iiHead -> renderPretty iiHead
+
+instance Show InterfacePart where
+  show = \case
+    IPWhole -> ""
+    IPMethod method -> "method " <> T.unpack (unMethodName $ ifmName method)
+    IPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
+    IPInterfaceInstance iiHead -> renderPretty iiHead
 
 instance Pretty SerializabilityRequirement where
   pPrint = \case
@@ -196,6 +220,7 @@ instance Pretty SerializabilityRequirement where
     SRDataType -> "serializable data type"
     SRKey -> "template key"
     SRExceptionArg -> "exception argument"
+    SRView -> "view"
 
 instance Pretty UnserializabilityReason where
   pPrint = \case
@@ -259,7 +284,9 @@ instance Pretty Error where
     EExpectedVariantType qname -> "expected variant type: " <> pretty qname
     EExpectedEnumType qname -> "expected enum type: " <> pretty qname
     EUnknownDataCon name -> "unknown data constructor: " <> pretty name
-    EUnknownField name -> "unknown field: " <> pretty name
+    EUnknownField fieldName targetType ->
+      text "Tried to access nonexistent field " <> pretty fieldName <>
+      text " on value of type " <> pretty targetType
     EExpectedStructType foundType ->
       "expected struct type, but found: " <> pretty foundType
 
@@ -272,6 +299,16 @@ instance Pretty Error where
       , nest 4 (pretty foundType)
       ] ++
       maybe [] (\e -> ["* expression:", nest 4 (pretty e)]) expr
+
+    EFieldTypeMismatch { fieldName, targetRecord, foundType, expectedType, expr } ->
+      vcat $
+      [ text "Tried to use field " <> pretty fieldName
+         <> text " with type " <> pretty foundType
+         <> text " on value of type " <> pretty targetRecord
+         <> text ", but that field has type " <> pretty expectedType
+      ] ++
+      maybe [] (\e -> ["* expression:", nest 4 (pretty e)]) expr
+
     EKindMismatch{foundKind, expectedKind} ->
       vcat
       [ "kind mismatch:"
@@ -341,6 +378,11 @@ instance Pretty Error where
       , "* problem:"
       , nest 4 (pretty info)
       ]
+    EExpectedKeyTypeWithoutContractId foundType ->
+      vcat
+      [ "contract key type should not contain ContractId:"
+      , "* found:" <-> pretty foundType
+      ]
     EExpectedAnyType foundType ->
       "expected a type containing neither type variables nor quantifiers, but found: " <> pretty foundType
     EExpectedExceptionType foundType ->
@@ -360,6 +402,52 @@ instance Pretty Error where
       "tried to perform key lookup or fetch on template " <> pretty tpl
     EExpectedOptionalType typ -> do
       "expected list type, but found: " <> pretty typ
+    EViewTypeHeadNotCon badHead typ ->
+      let headName = case badHead of
+            TVar {} -> "a type variable"
+            TSynApp {} -> "a type synonym"
+            TBuiltin {} -> "a built-in type"
+            TForall {} -> "a forall-quantified type"
+            TStruct {} -> "a structural record"
+            TNat {} -> "a type-level natural number"
+            TCon {} -> error "pPrint EViewTypeHeadNotCon got TCon: should not happen"
+            TApp {} -> error "pPrint EViewTypeHeadNotCon got TApp: should not happen"
+      in
+      vcat
+        [ "expected monomorphic record type in view type, but found " <> text headName <> ": " <> pretty typ
+        , "record types are declared with one constructor using curly braces, i.e."
+        , "data MyRecord = MyRecord { ... fields ... }"
+        ]
+    EViewTypeHasVars typ ->
+      vcat
+        [ "expected monomorphic record type in view type, but found a type constructor with type variables: " <> pretty typ
+        , "record types are declared with one constructor using curly braces, i.e."
+        , "data MyRecord = MyRecord { ... fields ... }"
+        ]
+    EViewTypeConNotRecord dataCons typ ->
+      let headName = case dataCons of
+            DataVariant {} -> "a variant type"
+            DataEnum {} -> "an enum type"
+            DataInterface {} -> "a interface type"
+            DataRecord {} -> error "pPrint EViewTypeConNotRecord got DataRecord: should not happen"
+      in
+      vcat
+        [ "expected monomorphic record type in view type, but found " <> text headName <> ": " <> pretty typ
+        , "record types are declared with one constructor using curly braces, i.e."
+        , "data MyRecord = MyRecord { ... fields ... }"
+        ]
+    EViewTypeMismatch { evtmIfaceName, evtmTplName, evtmFoundType, evtmExpectedType, evtmExpr } ->
+      vcat $
+        [ text "Tried to implement a view of type " <> pretty evtmFoundType
+          <> text " on interface " <> pretty evtmIfaceName
+          <> text " for template " <> pretty evtmTplName
+          <> text ", but the definition of interface " <> pretty evtmIfaceName
+          <> text " requires a view of type " <> pretty evtmExpectedType
+        ] ++
+        maybe [] (\e -> ["* in expression:", nest 4 (pretty e)]) evtmExpr
+    EMethodTypeMismatch { emtmIfaceName, emtmMethodName, emtmFoundType, emtmExpectedType } ->
+      text "Implementation of method " <> pretty emtmMethodName <> text " on interface " <> pretty emtmIfaceName
+      <> text " should return " <> pretty emtmExpectedType <> text " but instead returns " <> pretty emtmFoundType
     EUnsupportedFeature Feature{..} ->
       "unsupported feature:" <-> pretty featureName
       <-> "only supported in Daml-LF version" <-> pretty featureMinVersion <-> "and later"
@@ -393,10 +481,13 @@ instance Pretty Error where
       "Interface " <> pretty iface
         <> " is missing requirement " <> pretty ifaceMissing
         <> " required by " <> pretty ifaceRequired
-    EMissingRequiredInterface {..} ->
-      "Template " <> pretty emriTemplate <>
-      " is missing an implementation of interface " <> pretty emriRequiredInterface <>
-      " required by interface " <> pretty emriRequiringInterface
+    EMissingRequiredInterfaceInstance requiredInterfaceInstance requiringInterface ->
+      hsep
+        [ "Missing required"
+        , quotes (pretty requiredInterfaceInstance) <> ","
+        , "required by interface"
+        , quotes (pretty requiringInterface)
+        ]
     EBadInheritedChoices {ebicInterface, ebicExpected, ebicGot} ->
       vcat
       [ "List of inherited choices does not match interface definition for " <> pretty ebicInterface
@@ -404,12 +495,10 @@ instance Pretty Error where
       , "But got: " <> pretty ebicGot
       ]
     EMissingInterfaceChoice ch -> "Missing interface choice implementation for " <> pretty ch
-    EMissingInterfaceMethod tpl iface method ->
-      "Template " <> pretty tpl <> " is missing method " <> pretty method <> " for interface " <> pretty iface
-    EUnknownInterfaceMethod tpl iface method ->
-      "Template " <> pretty tpl <> " implements " <> pretty method <> " but interface " <> pretty iface <> " has no such method."
-    ETemplateDoesNotImplementInterface tpl iface ->
-      "Template " <> pretty tpl <> " does not implement interface " <> pretty iface
+    EMissingMethodInInterfaceInstance method ->
+      "Interface instance lacks an implementation for method" <-> quotes (pretty method)
+    EUnknownMethodInInterfaceInstance { eumiiIface, eumiiMethodName } ->
+      text "Tried to implement method " <> quotes (pretty eumiiMethodName) <> text ", but interface " <> pretty eumiiIface <> text " does not have a method with that name."
     EWrongInterfaceRequirement requiringIface requiredIface ->
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
     EUnknownExperimental name ty ->
@@ -429,12 +518,12 @@ instance Pretty Context where
       hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
     ContextDefException m e ->
       hsep [ "exception", pretty (moduleName m) <> "." <> pretty (exnName e) ]
-    ContextDefInterface m i ->
-      hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i)]
+    ContextDefInterface m i p ->
+      hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i), string (show p)]
 
 toDiagnostic :: DiagnosticSeverity -> Error -> Diagnostic
 toDiagnostic sev err = Diagnostic
-    { _range = noRange
+    { _range = maybe noRange sourceLocToRange (errorLocation err)
     , _severity = Just sev
     , _code = Nothing
     , _tags = Nothing

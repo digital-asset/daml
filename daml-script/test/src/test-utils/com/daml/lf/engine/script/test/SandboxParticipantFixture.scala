@@ -3,18 +3,18 @@
 
 package com.daml.lf.engine.script.test
 
-import java.io.File
-
-import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, ScriptConfig}
-import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.fixture.SandboxFixture
-import com.daml.platform.services.time.TimeProviderType
-import org.scalatest.Suite
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, ScriptConfig}
+import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.services.time.TimeProviderType
+import org.scalatest.Suite
 
+import java.io.File
 import scala.concurrent.ExecutionContext
 
 trait SandboxParticipantFixture
@@ -44,11 +44,16 @@ trait SandboxParticipantFixture
       tlsConfig = tlsConfiguration,
       maxInboundMessageSize = maxInboundMessageSize,
     )
-  override protected def config = super.config.copy(
-    timeProviderType = Some(timeMode match {
-      case ScriptTimeMode.Static => TimeProviderType.Static
-      case ScriptTimeMode.WallClock => TimeProviderType.WallClock
-    })
+
+  override def config = super.config.copy(
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        timeProviderType = timeMode match {
+          case ScriptTimeMode.Static => TimeProviderType.Static
+          case ScriptTimeMode.WallClock => TimeProviderType.WallClock
+        }
+      )
+    )
   )
 
   protected def stableDarFile = new File(rlocation("daml-script/test/script-test.dar"))

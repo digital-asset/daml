@@ -7,8 +7,11 @@ module Interface where
 
 import DA.Assert ((===))
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 -- | An interface comment.
 interface Token where
+  viewtype EmptyInterfaceView
   getOwner : Party -- ^ A method comment.
   getAmount : Int
   setAmount : Int -> Token
@@ -16,8 +19,6 @@ interface Token where
   splitImpl : Int -> Update (ContractId Token, ContractId Token)
   transferImpl : Party -> Update (ContractId Token)
   noopImpl : () -> Update ()
-
-  ensure (getAmount this >= 0)
 
   choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment.
     with
@@ -55,7 +56,8 @@ template Asset
     amount : Int
   where
     signatory issuer, owner
-    implements Token where
+    interface instance Token for Asset where
+      view = EmptyInterfaceView
       getOwner = owner
       getAmount = amount
       setAmount x = toInterface @Token (this with amount = x)
@@ -76,11 +78,6 @@ template Asset
 
 main = scenario do
   p <- getParty "Alice"
-  p `submitMustFail` do
-    create Asset with
-      issuer = p
-      owner = p
-      amount = -1
   p `submit` do
     cidAsset1 <- create Asset with
       issuer = p

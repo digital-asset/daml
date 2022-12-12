@@ -6,7 +6,7 @@ package engine
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
-import com.daml.lf.command.{CreateAndExerciseCommand, CreateCommand}
+import com.daml.lf.command.ApiCommand
 import com.daml.lf.data.Ref.{PackageId, Name, QualifiedName, Identifier, Party, TypeConName}
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast.Package
@@ -146,7 +146,7 @@ class ContractKeySpec
     val submissionSeed = crypto.Hash.hashPrivateKey("contract key")
     val txSeed = crypto.Hash.deriveTransactionSeed(submissionSeed, participant, now)
 
-    // TEST_EVIDENCE: Semantics: contract keys should be evaluated only when executing create
+    // TEST_EVIDENCE: Integrity: contract keys should be evaluated only when executing create
     "be evaluated only when executing create" in {
       val templateId =
         Identifier(basicTestsPkgId, "BasicTests:ComputeContractKeyWhenExecutingCreate")
@@ -164,9 +164,9 @@ class ContractKeySpec
       val submitters = Set(alice)
 
       val Right(cmds) = preprocessor
-        .preprocessCommands(
+        .preprocessApiCommands(
           ImmArray(
-            CreateAndExerciseCommand(templateId, createArg, "DontExecuteCreate", exerciseArg)
+            ApiCommand.CreateAndExercise(templateId, createArg, "DontExecuteCreate", exerciseArg)
           )
         )
         .consume(_ => None, lookupPackage, lookupKey)
@@ -185,7 +185,7 @@ class ContractKeySpec
       result shouldBe a[Right[_, _]]
     }
 
-    // TEST_EVIDENCE: Semantics: contract keys should be evaluated after ensure clause
+    // TEST_EVIDENCE: Integrity: contract keys should be evaluated after ensure clause
     "be evaluated after ensure clause" in {
       val templateId =
         Identifier(basicTestsPkgId, "BasicTests:ComputeContractKeyAfterEnsureClause")
@@ -198,7 +198,7 @@ class ContractKeySpec
       val submitters = Set(alice)
 
       val Right(cmds) = preprocessor
-        .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
+        .preprocessApiCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
         .consume(_ => None, lookupPackage, lookupKey)
 
       val result = suffixLenientEngine
@@ -218,7 +218,7 @@ class ContractKeySpec
       err.message should include("Template precondition violated")
     }
 
-    // TEST_EVIDENCE: Semantics: contract keys must have a non-empty set of maintainers
+    // TEST_EVIDENCE: Integrity: contract keys must have a non-empty set of maintainers
     "not be create if has an empty set of maintainer" in {
       val templateId =
         Identifier(basicTestsPkgId, "BasicTests:NoMaintainer")
@@ -231,7 +231,7 @@ class ContractKeySpec
       val submitters = Set(alice)
 
       val Right(cmds) = preprocessor
-        .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
+        .preprocessApiCommands(ImmArray(ApiCommand.Create(templateId, createArg)))
         .consume(_ => None, lookupPackage, lookupKey)
       val result = suffixLenientEngine
         .interpretCommands(
@@ -268,7 +268,7 @@ class ContractKeySpec
       val uckEngine = new Engine(
         EngineConfig(
           allowedLanguageVersions = LV.DevVersions,
-          contractKeyUniqueness = ContractKeyUniquenessMode.On,
+          contractKeyUniqueness = ContractKeyUniquenessMode.Strict,
           forbidV0ContractId = true,
           requireSuffixedGlobalContractId = true,
         )
@@ -303,14 +303,14 @@ class ContractKeySpec
             None
         }
       def run(engine: Engine, choice: String, argument: Value) = {
-        val cmd = CreateAndExerciseCommand(
+        val cmd = ApiCommand.CreateAndExercise(
           opsId,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
           choice,
           argument,
         )
         val Right(cmds) = preprocessor
-          .preprocessCommands(ImmArray(cmd))
+          .preprocessApiCommands(ImmArray(cmd))
           .consume(lookupContract, lookupPackage, lookupKey)
         engine
           .interpretCommands(
@@ -352,6 +352,16 @@ class ContractKeySpec
         ("RollbackCreateNonRollbackGlobalArchive", keyResultCid)
       val rollbackGlobalArchiveUpdates =
         ("RollbackGlobalArchiveUpdates", twoCids)
+      val rollbackGlobalArchivedLookup =
+        ("RollbackGlobalArchivedLookup", keyResultCid)
+      val rollbackGlobalArchivedCreate =
+        ("RollbackGlobalArchivedCreate", keyResultCid)
+
+      // regression tests for https://github.com/digital-asset/daml/issues/14171
+      val rollbackExerciseCreateFetchByKey =
+        ("RollbackExerciseCreateFetchByKey", keyResultCid)
+      val rollbackExerciseCreateLookup =
+        ("RollbackExerciseCreateLookup", keyResultCid)
 
       val allCases = Table(
         ("choice", "argument"),
@@ -372,24 +382,46 @@ class ContractKeySpec
         rollbackGlobalArchiveNonRollbackCreate,
         rollbackCreateNonRollbackGlobalArchive,
         rollbackGlobalArchiveUpdates,
+        rollbackGlobalArchivedLookup,
+        rollbackGlobalArchivedCreate,
+        rollbackExerciseCreateFetchByKey,
+        rollbackExerciseCreateLookup,
+      )
+
+      val nonUckFailures = Set(
+        "RollbackExerciseCreateLookup",
+        "RollbackExerciseCreateFetchByKey",
       )
 
       val uckFailures = Set(
-        "CreateOverwritesLocal",
         "CreateOverwritesKnownGlobal",
+        "CreateOverwritesLocal",
+        "FetchDoesNotOverwriteGlobal",
+        "FetchDoesNotOverwriteLocal",
+        "GlobalArchiveOverwritesKnownGlobal1",
+        "GlobalArchiveOverwritesKnownGlobal2",
+        "GlobalArchiveOverwritesUnknownGlobal",
         "LocalArchiveOverwritesKnownGlobal",
         "RollbackCreateNonRollbackFetchByKey",
-        "RollbackFetchByKeyRollbackCreateNonRollbackFetchByKey",
+        "RollbackCreateNonRollbackGlobalArchive",
         "RollbackFetchByKeyNonRollbackCreate",
+        "RollbackFetchByKeyRollbackCreateNonRollbackFetchByKey",
+        "RollbackFetchNonRollbackCreate",
+        "RollbackGlobalArchiveNonRollbackCreate",
+        "RollbackGlobalArchiveUpdates",
       )
 
-      // TEST_EVIDENCE: Semantics: contract key behaviour (non-unique mode)
+      // TEST_EVIDENCE: Integrity: contract key behaviour (non-unique mode)
       "non-uck mode" in {
         forEvery(allCases) { case (name, arg) =>
-          run(nonUckEngine, name, arg) shouldBe a[Right[_, _]]
+          if (nonUckFailures.contains(name)) {
+            run(nonUckEngine, name, arg) shouldBe a[Left[_, _]]
+          } else {
+            run(nonUckEngine, name, arg) shouldBe a[Right[_, _]]
+          }
         }
       }
-      // TEST_EVIDENCE: Semantics: contract key behaviour (unique mode)
+      // TEST_EVIDENCE: Integrity: contract key behaviour (unique mode)
       "uck mode" in {
         forEvery(allCases) { case (name, arg) =>
           if (uckFailures.contains(name)) {

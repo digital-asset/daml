@@ -54,19 +54,15 @@ object RetryStrategy {
   final case class TooManyAttemptsException(
       attempts: Int,
       duration: FiniteDuration,
+      message: String,
       cause: Throwable,
-  ) extends FailedRetryException(
-        s"Gave up trying after $attempts attempts and ${duration.toUnit(SECONDS)} seconds.",
-        cause,
-      )
+  ) extends FailedRetryException(message, cause)
 
   final case class UnhandledFailureException(
       duration: FiniteDuration,
+      message: String,
       cause: Throwable,
-  ) extends FailedRetryException(
-        s"Gave up trying due to an unhandled failure after ${duration.toUnit(SECONDS)} seconds.",
-        cause,
-      )
+  ) extends FailedRetryException(message, cause)
 
 }
 
@@ -93,12 +89,16 @@ final class RetryStrategy private (
         run(attempt, wait).recoverWith { case throwable =>
           if (attempts.exists(attempt >= _)) {
             val timeTaken = Duration.fromNanos(System.nanoTime() - startTime)
-            Future.failed(TooManyAttemptsException(attempt, timeTaken, throwable))
+            val message =
+              s"Gave up trying after $attempts attempts and ${timeTaken.toUnit(SECONDS)} seconds."
+            Future.failed(TooManyAttemptsException(attempt, timeTaken, message, throwable))
           } else if (predicate.lift(throwable).getOrElse(false)) {
             Delayed.Future.by(wait)(go(attempt + 1, clip(progression(wait))))
           } else {
             val timeTaken = Duration.fromNanos(System.nanoTime() - startTime)
-            Future.failed(UnhandledFailureException(timeTaken, throwable))
+            val message =
+              s"Gave up trying due to an unhandled failure after ${timeTaken.toUnit(SECONDS)} seconds."
+            Future.failed(UnhandledFailureException(timeTaken, message, throwable))
           }
         }
       }

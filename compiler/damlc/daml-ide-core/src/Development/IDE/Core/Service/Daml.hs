@@ -54,8 +54,9 @@ data DamlEnv = DamlEnv
   -- This is used to avoid unnecessary GC calls.
   , envDamlLfVersion :: LF.Version
   , envSkipScenarioValidation :: SkipScenarioValidation
-  , envIsGenerated :: Bool
   , envEnableScenarios :: EnableScenarios
+  , envAllowLargeTuples :: AllowLargeTuples
+  , envTestFilter :: T.Text -> Bool
   }
 
 instance IsIdeGlobal DamlEnv
@@ -72,8 +73,9 @@ mkDamlEnv opts scenarioService = do
         , envPreviousScenarioContexts = previousScenarioContextsVar
         , envDamlLfVersion = optDamlLfVersion opts
         , envSkipScenarioValidation = optSkipScenarioValidation opts
-        , envIsGenerated = optIsGenerated opts
         , envEnableScenarios = optEnableScenarios opts
+        , envAllowLargeTuples = optAllowLargeTuples opts
+        , envTestFilter = optTestFilter opts
         }
 
 getDamlServiceEnv :: Action DamlEnv

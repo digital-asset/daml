@@ -31,8 +31,8 @@ import com.daml.ledger.api.v1.package_service.{
   ListPackagesResponse,
 }
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
-import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.logging.LoggingContext
+import com.daml.platform.localstore.InMemoryUserManagementStore
 import com.google.protobuf.empty.Empty
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
@@ -147,7 +147,7 @@ final class LedgerServices(val ledgerId: String) {
     val (service, serviceImpl) =
       CommandSubmissionServiceImpl.createWithRef(getResponse, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new CommandSubmissionClientImpl(ledgerId, channel, esf, accessToken, timeout), serviceImpl)
+      f(new CommandSubmissionClientImpl(ledgerId, channel, accessToken, timeout), serviceImpl)
     }
   }
 
@@ -179,7 +179,7 @@ final class LedgerServices(val ledgerId: String) {
         authorizer,
       )(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new PackageClientImpl(ledgerId, channel, esf, accessToken), impl)
+      f(new PackageClientImpl(ledgerId, channel, accessToken), impl)
     }
   }
 
@@ -199,7 +199,7 @@ final class LedgerServices(val ledgerId: String) {
       authorizer,
     )(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new CommandClientImpl(ledgerId, channel, esf, accessToken), serviceImpl)
+      f(new CommandClientImpl(ledgerId, channel, accessToken), serviceImpl)
     }
   }
 
@@ -215,14 +215,17 @@ final class LedgerServices(val ledgerId: String) {
     }
   }
 
+  @deprecated("ledger identity service", since = "2.0.0")
   def withLedgerIdentityClient(
+      getResponse: () => Future[String],
       authService: AuthService = AuthServiceWildcard,
       accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
+      timeout: java.util.Optional[Duration] = java.util.Optional.empty[Duration],
   )(f: (LedgerIdentityClientImpl, LedgerIdentityServiceImpl) => Any): Any = {
     val (service, serviceImpl) =
-      LedgerIdentityServiceImpl.createWithRef(ledgerId, authorizer)(executionContext)
+      LedgerIdentityServiceImpl.createWithRef(getResponse, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new LedgerIdentityClientImpl(channel, esf, accessToken), serviceImpl)
+      f(new LedgerIdentityClientImpl(channel, accessToken, timeout), serviceImpl)
     }
   }
 
@@ -245,7 +248,7 @@ final class LedgerServices(val ledgerId: String) {
     val (service, serviceImpl) =
       UserManagementServiceImpl.createWithRef(authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new UserManagementClientImpl(channel, esf, accessToken), serviceImpl)
+      f(new UserManagementClientImpl(channel, accessToken), serviceImpl)
     }
   }
 
@@ -267,7 +270,7 @@ final class LedgerServices(val ledgerId: String) {
       authService: AuthService,
   )(f: (Server, LedgerServicesImpls) => Any): Any = {
     val (services, impls) = LedgerServicesImpls.createWithRef(
-      ledgerId,
+      Future.successful(ledgerId),
       getActiveContractsResponse,
       transactions,
       commandSubmissionResponse,

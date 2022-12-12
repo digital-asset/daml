@@ -3,6 +3,7 @@
 
 package com.daml.platform.sandbox.auth
 
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import java.util.UUID
 
 import scala.concurrent.Future
@@ -47,13 +48,18 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
     serviceCallWithToken(token, requestSubmitters)
   }
 
+  protected override def prerequisiteParties: List[String] = actAs :+ singleParty
+
   // Notes for multi-party submissions:
   // - ActAs parties can be specified through a "party" field, and/or an "actAs" field.
   //   The contents of those fields are merged.
   // - ActAs parties from the request require ActAs claims in the token
   // - ReadAs parties from the request require ReadAs or ActAs claims in the token
 
-  it should "allow single-party calls authorized to exactly the submitter (party)" in {
+  it should "allow single-party calls authorized to exactly the submitter (party)" taggedAs securityAsset
+    .setHappyCase(
+      "Ledger API client can make a single-party calls authorized to exactly the submitter (party)"
+    ) in {
     expectSuccess(
       serviceCallFor(
         TokenParties(List(singleParty), List.empty),
@@ -61,7 +67,11 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "allow single-party calls authorized to exactly the submitter (actAs)" in {
+
+  it should "allow single-party calls authorized to exactly the submitter (actAs)" taggedAs securityAsset
+    .setHappyCase(
+      "Ledger API client can make a single-party calls authorized to exactly the submitter (actAs)"
+    ) in {
     expectSuccess(
       serviceCallFor(
         TokenParties(List(singleParty), List.empty),
@@ -69,7 +79,11 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "allow single-party calls authorized to exactly the submitter (party, actAs, and readAs)" in {
+
+  it should "allow single-party calls authorized to exactly the submitter (party, actAs, and readAs)" taggedAs securityAsset
+    .setHappyCase(
+      "Ledger API client can make a single-party calls authorized to exactly the submitter (party, actAs, and readAs)"
+    ) in {
     expectSuccess(
       serviceCallFor(
         TokenParties(List(singleParty), List.empty),
@@ -77,7 +91,11 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "allow single-party calls authorized to a superset of the required parties (party)" in {
+
+  it should "allow single-party calls authorized to a superset of the required parties (party)" taggedAs securityAsset
+    .setHappyCase(
+      "Ledger API client can make a single-party calls authorized to a superset of the required parties (party)"
+    ) in {
     expectSuccess(
       serviceCallFor(
         TokenParties(randomActAs :+ singleParty, randomReadAs),
@@ -86,7 +104,12 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
     )
   }
 
-  it should "deny single-party calls authorized to no parties (party)" in {
+  it should "deny single-party calls authorized to no parties (party)" taggedAs securityAsset
+    .setAttack(
+      attackPermissionDenied(threat =
+        "Execute a single-party call authorized to no parties (party)"
+      )
+    ) in {
     expectPermissionDenied(
       serviceCallFor(
         TokenParties(List.empty, List.empty),
@@ -94,7 +117,13 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "deny single-party calls authorized to no parties (actAs)" in {
+
+  it should "deny single-party calls authorized to no parties (actAs)" taggedAs securityAsset
+    .setAttack(
+      attackPermissionDenied(threat =
+        "Execute a single-party call authorized to no parties (actAs)"
+      )
+    ) in {
     expectPermissionDenied(
       serviceCallFor(
         TokenParties(List.empty, List.empty),
@@ -102,7 +131,13 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "deny single-party calls authorized in read-only mode (party)" in {
+
+  it should "deny single-party calls authorized in read-only mode (party)" taggedAs securityAsset
+    .setAttack(
+      attackPermissionDenied(threat =
+        "Execute a single-party call authorized in read-only mode (party)"
+      )
+    ) in {
     expectPermissionDenied(
       serviceCallFor(
         TokenParties(List.empty, List(singleParty)),
@@ -110,7 +145,13 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "deny single-party calls authorized in read-only mode (actAs)" in {
+
+  it should "deny single-party calls authorized in read-only mode (actAs)" taggedAs securityAsset
+    .setAttack(
+      attackPermissionDenied(threat =
+        "Execute a single-party call authorized in read-only mode (actAs)"
+      )
+    ) in {
     expectPermissionDenied(
       serviceCallFor(
         TokenParties(List.empty, List(singleParty)),
@@ -118,7 +159,13 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "deny single-party calls authorized to a random party (party)" in {
+
+  it should "deny single-party calls authorized to a random party (party)" taggedAs securityAsset
+    .setAttack(
+      attackPermissionDenied(threat =
+        "Execute a single-party call authorized to a random party (party)"
+      )
+    ) in {
     expectPermissionDenied(
       serviceCallFor(
         TokenParties(List(randomParty), List.empty),
@@ -126,7 +173,13 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "deny single-party calls authorized to a random party (actAs)" in {
+
+  it should "deny single-party calls authorized to a random party (actAs)" taggedAs securityAsset
+    .setAttack(
+      attackPermissionDenied(threat =
+        "Execute a single-party call authorized to a random party (actAs)"
+      )
+    ) in {
     expectPermissionDenied(
       serviceCallFor(
         TokenParties(List(randomParty), List.empty),
@@ -135,7 +188,10 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
     )
   }
 
-  it should "allow multi-party calls authorized to exactly the required parties" in {
+  it should "allow multi-party calls authorized to exactly the required parties" taggedAs securityAsset
+    .setHappyCase(
+      "Ledger API client can make a multi-party calls authorized to exactly the required parties"
+    ) in {
     expectSuccess(
       serviceCallFor(
         TokenParties(actAs, readAs),
@@ -143,7 +199,11 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "allow multi-party calls authorized to a superset of the required parties" in {
+
+  it should "allow multi-party calls authorized to a superset of the required parties" taggedAs securityAsset
+    .setHappyCase(
+      "Ledger API client can make a multi-party calls authorized to a superset of the required parties"
+    ) in {
     expectSuccess(
       serviceCallFor(
         TokenParties(randomActAs ++ actAs, randomReadAs ++ readAs),
@@ -151,7 +211,11 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "allow multi-party calls with all parties authorized in read-write mode" in {
+
+  it should "allow multi-party calls with all parties authorized in read-write mode" taggedAs securityAsset
+    .setHappyCase(
+      "Ledger API client can make a multi-party calls with all parties authorized in read-write mode"
+    ) in {
     expectSuccess(
       serviceCallFor(
         TokenParties(actAs ++ readAs, List.empty),
@@ -159,7 +223,11 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "allow multi-party calls with actAs parties spread across party and actAs fields" in {
+
+  it should "allow multi-party calls with actAs parties spread across party and actAs fields" taggedAs securityAsset
+    .setHappyCase(
+      "Ledger API client can make a multi-party calls with actAs parties spread across party and actAs fields"
+    ) in {
     expectSuccess(
       serviceCallFor(
         TokenParties(actAs, readAs),
@@ -167,7 +235,11 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "allow multi-party calls with actAs parties duplicated in the readAs field" in {
+
+  it should "allow multi-party calls with actAs parties duplicated in the readAs field" taggedAs securityAsset
+    .setHappyCase(
+      "Ledger API client can make a multi-party call with actAs parties duplicated in the readAs field"
+    ) in {
     expectSuccess(
       serviceCallFor(
         TokenParties(actAs, readAs),
@@ -176,7 +248,9 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
     )
   }
 
-  it should "deny multi-party calls authorized to no parties" in {
+  it should "deny multi-party calls authorized to no parties" taggedAs securityAsset.setAttack(
+    attackPermissionDenied(threat = "Execute a multi-party call authorized to no parties")
+  ) in {
     expectPermissionDenied(
       serviceCallFor(
         TokenParties(List.empty, List.empty),
@@ -184,7 +258,10 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "deny multi-party calls authorized to random parties" in {
+
+  it should "deny multi-party calls authorized to random parties" taggedAs securityAsset.setAttack(
+    attackPermissionDenied(threat = "Execute a multi-party call authorized to random parties")
+  ) in {
     expectPermissionDenied(
       serviceCallFor(
         TokenParties(randomActAs, randomReadAs),
@@ -192,7 +269,13 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "deny multi-party calls with all parties authorized in read-only mode" in {
+
+  it should "deny multi-party calls with all parties authorized in read-only mode" taggedAs securityAsset
+    .setAttack(
+      attackPermissionDenied(threat =
+        "Execute a multi-party call with all parties authorized in read-only mode"
+      )
+    ) in {
     expectPermissionDenied(
       serviceCallFor(
         TokenParties(List.empty, actAs ++ readAs),
@@ -200,7 +283,13 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "deny multi-party calls with one missing actor authorization" in {
+
+  it should "deny multi-party calls with one missing actor authorization" taggedAs securityAsset
+    .setAttack(
+      attackPermissionDenied(threat =
+        "Execute a multi-party call with one missing actor authorization"
+      )
+    ) in {
     expectPermissionDenied(
       serviceCallFor(
         TokenParties(actAs.dropRight(1), readAs),
@@ -208,7 +297,13 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "deny multi-party calls with one missing reader authorization" in {
+
+  it should "deny multi-party calls with one missing reader authorization" taggedAs securityAsset
+    .setAttack(
+      attackPermissionDenied(threat =
+        "Execute a multi-party call with one missing reader authorization"
+      )
+    ) in {
     expectPermissionDenied(
       serviceCallFor(
         TokenParties(actAs, readAs.dropRight(1)),
@@ -216,7 +311,13 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
       )
     )
   }
-  it should "deny multi-party calls authorized to swapped actAs/readAs parties" in {
+
+  it should "deny multi-party calls authorized to swapped actAs/readAs parties" taggedAs securityAsset
+    .setAttack(
+      attackPermissionDenied(threat =
+        "Execute a multi-party call authorized to swapped actAs/readAs parties"
+      )
+    ) in {
     expectPermissionDenied(
       serviceCallFor(
         TokenParties(readAs, actAs),

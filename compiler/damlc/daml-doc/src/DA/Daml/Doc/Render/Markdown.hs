@@ -8,7 +8,7 @@ module DA.Daml.Doc.Render.Markdown
 
 import DA.Daml.Doc.Anchor
 import DA.Daml.Doc.Types
-import DA.Daml.Doc.Render.Util (adjust, escapeText)
+import DA.Daml.Doc.Render.Util (adjust, escapeText, (<->))
 import DA.Daml.Doc.Render.Monoid
 
 import Data.List.Extra
@@ -17,8 +17,8 @@ import qualified Data.Text as T
 renderMd :: RenderEnv -> RenderOut -> [T.Text]
 renderMd env = \case
     RenderSpaced chunks -> renderMdSpaced env chunks
-    RenderModuleHeader title -> ["# " <> title]
-    RenderSectionHeader title -> ["## " <> title]
+    RenderModuleHeader title -> ["#" <-> title]
+    RenderSectionHeader title -> ["##" <-> title]
     RenderBlock block -> blockquote (renderMd env block)
     RenderList items -> spaced (map (bullet . renderMd env) items)
     RenderRecordFields fields -> renderMdFields env fields
@@ -26,7 +26,7 @@ renderMd env = \case
     RenderDocs docText -> T.lines . unDocText $ docText
     RenderAnchor anchor -> [anchorTag anchor]
     RenderIndex moduleNames ->
-        [ "* " <> renderMdLink env
+        [ "*" <-> renderMdLink env
                 (Reference Nothing (moduleAnchor moduleName))
                 (unModulename moduleName)
         | moduleName <- moduleNames
@@ -34,8 +34,8 @@ renderMd env = \case
 
 renderMdWithAnchor :: RenderEnv -> Anchor -> RenderOut -> [T.Text]
 renderMdWithAnchor env anchor = \case
-    RenderModuleHeader title -> ["# " <> anchorTag anchor <> title]
-    RenderSectionHeader title -> ["## " <> anchorTag anchor <> title]
+    RenderModuleHeader title -> ["#" <-> anchorTag anchor <> title]
+    RenderSectionHeader title -> ["##" <-> anchorTag anchor <> title]
     RenderParagraph text -> [anchorTag anchor <> renderMdText env text]
     other -> anchorTag anchor : renderMd env other
 
@@ -78,14 +78,17 @@ spaced :: [[T.Text]] -> [T.Text]
 spaced = intercalate [""]
 
 blockquote :: [T.Text] -> [T.Text]
-blockquote = map ("> " <>)
+blockquote = map (">" <->)
 
 indent :: [T.Text] -> [T.Text]
-indent = map ("  " <>)
+indent = map indent1 where
+  indent1 t
+    | T.null t = ""
+    | otherwise = "  " <> t
 
 bullet :: [T.Text] -> [T.Text]
 bullet [] = []
-bullet (x : xs) = ("* " <> x) : indent xs
+bullet (x : xs) = ("*" <-> x) : indent xs
 
 escapeMd :: T.Text -> T.Text
 escapeMd = escapeText (`elem` ("[]*_~`<>\\&" :: String))

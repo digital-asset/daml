@@ -41,6 +41,7 @@ records the relations between the actions during the above acceptance.
 .. image:: ./images/action-structure-expanded-paint-offer.svg
    :align: center
    :width: 70%
+   :alt: A flowchart showing the actions involved in Alice's house-painting deal. The topmost action is Exercise A (PaintOffer A P Bank P123) "accept". Exercising this action leads to two further actions: Exercise A (Iou Bank A) "transfer" and Create (PaintAgree P A P123). One further action follows from Exercise A (Iou Bank A) "transfer": Create (Iou Bank P)
 
 Formally, an **action** is one of the following:
 
@@ -109,6 +110,7 @@ An alternative shorthand notation, shown below uses the abbreviations **Exe** an
 .. image:: ./images/action-structure-paint-offer.svg
    :align: center
    :width: 60%
+   :alt: The same chart as previous, with alternate notation.
 
 
 To show an example of a non-consuming exercise, consider a different
@@ -120,6 +122,7 @@ offer that could be accepted multiple times.
 .. image:: ./images/non-consuming-exercises.svg
    :align: center
    :width: 60%
+   :alt: A flowchart showing the actions involved in the car deal. The topmost action is ExeN A (CarOffer A P Bank) "accept". Exercising this action leads to two further actions: Exe A (Iou Bank A) "transfer" and DeliverCarAgree P A. One further action follows from Exe A (Iou Bank A) "transfer": Iou Bank P
 
 To see an example of a fetch, we can extend this example to the case where `P` produces exclusive cars and allows only
 certified dealers to sell them.
@@ -129,6 +132,7 @@ Thus, when accepting the offer, `A` has to additionally show a valid quality cer
 .. image:: ./images/fetches.svg
    :align: center
    :width: 90%
+   :alt: The same chart as above but with a third action descending from ExeN A (CarOffer A P Bank) "accept": Fetch A (Certificate S A)
 
 In the paint offer example, the underlying type of contracts consists
 of three sorts of contracts:
@@ -160,6 +164,7 @@ ordered left-to-right.
 .. image:: ./images/consequences-are-transactions.svg
    :align: center
    :width: 50%
+   :alt: A flowchart of the transaction. On the left action Exe A (Iou Bank A) leads to Iou Bank P. On the right there is only PaintAgree P A P123.
 
 For an action `act`,
 its **proper subactions** are all actions in the consequences of
@@ -175,6 +180,7 @@ proper subaction of the exercise on the `Iou Bank A`.
 .. image:: ./images/subactions-paint-offer.svg
    :align: center
    :width: 60%
+   :alt: The paint agreement chart with Exe A (Iou Bank A), Iou Bank P, and PaintAgree P A P123 boxed in in green, with Iou Bank P additionally boxed in in yellow.
 
 Similarly, a **subtransaction** of a transaction is either the transaction
 itself, or a **proper subtransaction**: a transaction obtained by removing at
@@ -187,6 +193,7 @@ acceptance, the image below shows all its proper non-empty subtransactions on th
 .. image:: ./images/subtransactions-paint-offer.svg
    :align: center
    :width: 100%
+   :alt: The paint agreement chart with the following subtransactions listed in boxes alongside it: Box 1 - On the left action Exe A (Iou Bank A) leads to Iou Bank P. On the right there is only PaintAgree P A P123. Box 2 - Iou Bank P on the left, PaintAgree P A P123 on the right. Box 3 - Action Exe A (Iou Bank A) leads to Iou Bank P. Box 4 - Iou Bank P. Box 5 - PaintAgree P A P123.
 
 To illustrate :doc:`contract keys </daml/reference/contract-keys>`, suppose that the contract key for a `PaintOffer` consists of the reference number and the painter.
 So Alice can refer to the `PaintOffer` by its key `(P, P123)`.
@@ -230,6 +237,7 @@ follows.
 .. https://www.lucidchart.com/documents/edit/85c311c5-8402-494d-bdcc-bb5ffff4e1bd
 .. image:: ./images/paint-offer-ledger.svg
    :align: center
+   :alt: The time sequence of commits. In the first commit, Iou Bank A is requested by the bank. In the second, PaintOffer P A P123 is requested by P. Finally, the entire set of actions from the paint agreement chart is requested by A.
 
 
 The definitions presented here are all the ingredients required to
@@ -243,6 +251,7 @@ following ledgers are not.
 
 .. figure:: ./images/double-spend.svg
    :align: center
+   :alt: Described in the caption.
 
    Alice spending her IOU twice ("double spend"), once transferring it
    to `B` and once to `P`.
@@ -250,18 +259,21 @@ following ledgers are not.
 .. figure:: ./images/non-conformant-action.svg
    :align: center
    :name: alice-changes-offer
+   :alt: Described in the caption.
 
    Alice changing the offer's outcome by removing the transfer of the `Iou`.
 
 .. figure:: ./images/invalid-obligation.svg
    :align: center
    :name: obligation-imposed-on-painter
+   :alt: Described in the caption.
 
    An obligation imposed on the painter without his consent.
 
 .. figure:: ./images/stealing-ious.svg
    :align: center
    :name: painter-stealing-ious
+   :alt: Described in the caption.
 
    Painter stealing Alice's IOU. Note that the ledger would be
    intuitively permissible if it was Alice performing the last commit.
@@ -269,12 +281,14 @@ following ledgers are not.
 .. figure:: ./images/failed-key-assertion.svg
    :align: center
    :name: alice-claiming-retracted-offer
+   :alt: Described in the caption.
 
    Painter falsely claiming that there is no offer.
 
 .. figure:: ./images/double-key-creation.svg
    :align: center
    :name: painter-creating-two-offers-with-same-key
+   :alt: Described in the caption.
 
    Painter trying to create two different paint offers with the same reference number.
 

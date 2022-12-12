@@ -9,7 +9,7 @@ import anorm.SqlStringInterpolation
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.backend.DataSourceStorageBackend
 import com.daml.platform.store.backend.common.{
-  DataSourceStorageBackendTemplate,
+  DataSourceStorageBackendImpl,
   InitHookDataSourceProxy,
 }
 
@@ -34,6 +34,13 @@ object PostgresDataSourceConfig {
     case object RemoteWrite extends SynchronousCommitValue("remote_write")
     case object RemoteApply extends SynchronousCommitValue("remote_apply")
     case object Local extends SynchronousCommitValue("local")
+    val All: Set[SynchronousCommitValue] = Set(
+      On,
+      Off,
+      RemoteWrite,
+      RemoteApply,
+      Local,
+    )
   }
 }
 
@@ -42,13 +49,12 @@ class PostgresDataSourceStorageBackend(minMajorVersionSupported: Int)
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def createDataSource(
-      jdbcUrl: String,
       dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
       connectionInitHook: Option[Connection => Unit],
   )(implicit loggingContext: LoggingContext): DataSource = {
-    import DataSourceStorageBackendTemplate.exe
+    import DataSourceStorageBackendImpl.exe
     val pgSimpleDataSource = new PGSimpleDataSource()
-    pgSimpleDataSource.setUrl(jdbcUrl)
+    pgSimpleDataSource.setUrl(dataSourceConfig.jdbcUrl)
 
     val hookFunctions = List(
       dataSourceConfig.postgresConfig.synchronousCommit.toList
@@ -103,7 +109,7 @@ class PostgresDataSourceStorageBackend(minMajorVersionSupported: Int)
   }
 
   override def checkDatabaseAvailable(connection: Connection): Unit =
-    DataSourceStorageBackendTemplate.checkDatabaseAvailable(connection)
+    DataSourceStorageBackendImpl.checkDatabaseAvailable(connection)
 }
 
 object PostgresDataSourceStorageBackend {

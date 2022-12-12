@@ -60,4 +60,37 @@ trait ConcurrentCacheCachingSpecBase
       counter.get() should be(0)
     }
   }
+
+  "`putAll` values" in {
+    val cache = newCache()
+
+    cache.putAll(Map(Int.box(7) -> "7", Int.box(8) -> "8"))
+    cache.getIfPresent(7) should be(Some("7"))
+    cache.getIfPresent(8) should be(Some("8"))
+
+    val counter = new AtomicInteger(0)
+
+    def compute(value: Integer): String = {
+      counter.incrementAndGet()
+      value.toString
+    }
+
+    cache.getOrAcquire(7, compute) should be("7")
+    cache.getOrAcquire(8, compute) should be("8")
+
+    counter.get() should be(0)
+  }
+
+  "`invalidateAll` values" in {
+    val cache = newCache()
+
+    cache.putAll(Map(Int.box(7) -> "7", Int.box(8) -> "8"))
+    cache.getIfPresent(7) should be(Some("7"))
+    cache.getIfPresent(8) should be(Some("8"))
+
+    cache.invalidateAll()
+
+    cache.getIfPresent(7) should be(None)
+    cache.getIfPresent(8) should be(None)
+  }
 }

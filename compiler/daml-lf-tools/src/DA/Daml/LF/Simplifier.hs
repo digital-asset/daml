@@ -166,6 +166,7 @@ safetyStep = \case
       BETextToInt64 -> Safe 1
       BETextToCodePoints -> Safe 1
       BECoerceContractId -> Safe 1
+      BETypeRepTyConName -> Safe 1
       BETextToUpper -> Safe 1
       BETextToLower -> Safe 1
       BETextSlice -> Safe 3
@@ -208,12 +209,15 @@ safetyStep = \case
   EThrowF _ _ _ -> Unsafe
   EToInterfaceF _ _ s -> s <> Safe 0
   EFromInterfaceF _ _ s -> s <> Safe 0
+  EUnsafeFromInterfaceF _ _ _ _ -> Unsafe
   ECallInterfaceF _ _ _ -> Unsafe
   EToRequiredInterfaceF _ _ s -> s <> Safe 0
   EFromRequiredInterfaceF _ _ s -> s <> Safe 0
+  EUnsafeFromRequiredInterfaceF _ _ _ _ -> Unsafe
   EInterfaceTemplateTypeRepF _ s -> s <> Safe 0
   ESignatoryInterfaceF _ s -> s <> Safe 0
   EObserverInterfaceF _ s -> s <> Safe 0
+  EViewInterfaceF _ _ -> Unsafe
   EExperimentalF _ _ -> Unsafe
 
 isTypeClassDictionary :: DefValue -> Bool

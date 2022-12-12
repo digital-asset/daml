@@ -29,8 +29,8 @@ The non-repudiation system consists of three components:
 - the non-repudiation API is a web server used by the operator to upload new certificates and verify repudiation claims
 - the non-repudiation client is a gRPC interceptor that can be used alongside any gRPC client on the JVM, including the official Java bindings, that will ensure that commands are signed with a given private key
 
-Running the server-side components
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Run the Server-side Components
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The server-side components are the middleware and the API. Both can be run as a single process by running the non-repudiation fat JAR provided as part of Daml Enterprise.
 
@@ -44,8 +44,8 @@ The following example shows how to run the non-repudiation server components by 
 
 For details on how to run them, please run the fat JAR with the ``--help`` command line option.
 
-Using the client
-~~~~~~~~~~~~~~~~
+Use the Client
+~~~~~~~~~~~~~~
 
 The client is a gRPC interceptor which is available to Daml Enterprise users (hence, it's not available on Maven Central).
 
@@ -62,7 +62,7 @@ The following example shows how to use this interceptor with the official Java b
     DamlLedgerClient client = DamlLedgerClient.newBuilder(builder).build();
     client.connect();
 
-Non-repudiation over the HTTP JSON API
+Non-repudiation Over the HTTP JSON API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The non-repudiation middleware acts *exclusively* as a reverse proxy in front of the Ledger API server: if you want to use the HTTP JSON API you will need to
@@ -75,7 +75,7 @@ server against the non-repudiation middleware:
 - `--non-repudiation-private-key-path`: the path to the file containing the private key that will be used to sign the commands
 - `--non-repudiation-private-key-algorithm`: the name of the cryptographic algorithm of the private key (for a list of names supported in the OpenJDK: https://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#KeyFactory)
 
-TLS support
+TLS Support
 ~~~~~~~~~~~
 
 At the current stage the non-repudiation feature does not support running against secure Ledger API servers. This will be added as part of stabilizing this feature.

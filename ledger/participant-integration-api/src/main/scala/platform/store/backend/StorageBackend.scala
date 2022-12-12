@@ -3,30 +3,39 @@
 
 package com.daml.platform.store.backend
 
-import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails, User, UserRight}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.{ParticipantMetering, ReportData}
-import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{ApplicationId, UserId}
+import com.daml.ledger.participant.state.index.v2.{IndexerPartyDetails, PackageDetails}
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
-import com.daml.platform
+import com.daml.platform.{
+  ApplicationId,
+  ContractId,
+  Identifier,
+  Key,
+  PackageId,
+  Party,
+  TransactionId,
+}
 import com.daml.platform.store.EventSequentialId
-import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Raw}
-import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
+import com.daml.platform.store.dao.events.Raw
+import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.platform.store.interning.StringInterning
 import com.daml.scalautil.NeverEqualsOverride
-
 import java.sql.Connection
 import javax.sql.DataSource
+
+import com.daml.platform.store.backend.common.TransactionStreamingQueries
+
 import scala.annotation.unused
 
 /** Encapsulates the interface which hides database technology specific implementations.
@@ -173,14 +182,14 @@ trait PartyStorageBackend {
       pageSize: Int,
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, PartyLedgerEntry)]
-  def parties(parties: Seq[Ref.Party])(connection: Connection): List[PartyDetails]
-  def knownParties(connection: Connection): List[PartyDetails]
+  def parties(parties: Seq[Party])(connection: Connection): List[IndexerPartyDetails]
+  def knownParties(connection: Connection): List[IndexerPartyDetails]
 }
 
 trait PackageStorageBackend {
-  def lfPackages(connection: Connection): Map[Ref.PackageId, PackageDetails]
+  def lfPackages(connection: Connection): Map[PackageId, PackageDetails]
 
-  def lfArchive(packageId: Ref.PackageId)(connection: Connection): Option[Array[Byte]]
+  def lfArchive(packageId: PackageId)(connection: Connection): Option[Array[Byte]]
 
   def packageEntries(
       startExclusive: Offset,
@@ -194,9 +203,10 @@ trait CompletionStorageBackend {
   def commandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,
-      applicationId: Ref.ApplicationId,
-      parties: Set[Ref.Party],
-  )(connection: Connection): List[CompletionStreamResponse]
+      applicationId: ApplicationId,
+      parties: Set[Party],
+      limit: Int,
+  )(connection: Connection): Vector[CompletionStreamResponse]
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
@@ -206,19 +216,16 @@ trait CompletionStorageBackend {
 }
 
 trait ContractStorageBackend {
-  def keyState(key: Key, validAt: Long)(connection: Connection): KeyState
-  def contractState(contractId: ContractId, before: Long)(
+  def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState
+  def contractState(contractId: ContractId, before: Offset)(
       connection: Connection
   ): Option[ContractStorageBackend.RawContractState]
-  def activeContractWithArgument(readers: Set[Ref.Party], contractId: ContractId)(
+  def activeContractWithArgument(readers: Set[Party], contractId: ContractId)(
       connection: Connection
   ): Option[ContractStorageBackend.RawContract]
-  def activeContractWithoutArgument(readers: Set[Ref.Party], contractId: ContractId)(
+  def activeContractWithoutArgument(readers: Set[Party], contractId: ContractId)(
       connection: Connection
   ): Option[String]
-  def contractKey(readers: Set[Ref.Party], key: Key)(
-      connection: Connection
-  ): Option[ContractId]
   def contractStateEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
   ): Vector[ContractStorageBackend.RawContractStateEvent]
@@ -227,7 +234,7 @@ trait ContractStorageBackend {
 object ContractStorageBackend {
   case class RawContractState(
       templateId: Option[String],
-      flatEventWitnesses: Set[Ref.Party],
+      flatEventWitnesses: Set[Party],
       createArgument: Option[Array[Byte]],
       createArgumentCompression: Option[Int],
       eventKind: Int,
@@ -243,19 +250,21 @@ object ContractStorageBackend {
   case class RawContractStateEvent(
       eventKind: Int,
       contractId: ContractId,
-      templateId: Option[Ref.Identifier],
+      templateId: Option[Identifier],
       ledgerEffectiveTime: Option[Timestamp],
       createKeyValue: Option[Array[Byte]],
       createKeyCompression: Option[Int],
       createArgument: Option[Array[Byte]],
       createArgumentCompression: Option[Int],
-      flatEventWitnesses: Set[Ref.Party],
+      flatEventWitnesses: Set[Party],
       eventSequentialId: Long,
       offset: Offset,
   )
 }
 
 trait EventStorageBackend {
+
+  def transactionStreamingQueries: TransactionStreamingQueries
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
@@ -268,34 +277,20 @@ trait EventStorageBackend {
       pruneAllDivulgedContracts: Boolean,
       connection: Connection,
   ): Boolean
-  def transactionEvents(
-      rangeParams: RangeParams,
-      filterParams: FilterParams,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def activeContractEventIds(
-      partyFilter: Ref.Party,
-      templateIdFilter: Option[Ref.Identifier],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long]
+
   def activeContractEventBatch(
       eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Ref.Party],
+      allFilterParties: Set[Party],
       endInclusive: Long,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
   def flatTransaction(
-      transactionId: Ref.TransactionId,
+      transactionId: TransactionId,
       filterParams: FilterParams,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def transactionTreeEvents(
-      rangeParams: RangeParams,
-      filterParams: FilterParams,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
   def transactionTree(
-      transactionId: Ref.TransactionId,
+      transactionId: TransactionId,
       filterParams: FilterParams,
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
+  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
 
   /** Max event sequential id of observable (create, consuming and nonconsuming exercise) events. */
   def maxEventSequentialIdOfAnObservableEvent(offset: Offset)(connection: Connection): Option[Long]
@@ -313,8 +308,8 @@ object EventStorageBackend {
   )
 
   case class FilterParams(
-      wildCardParties: Set[Ref.Party],
-      partiesAndTemplates: Set[(Set[Ref.Party], Set[Ref.Identifier])],
+      wildCardParties: Set[Party],
+      partiesAndTemplates: Set[(Set[Party], Set[Identifier])],
   )
 
   case class RawTransactionEvent(
@@ -324,20 +319,21 @@ object EventStorageBackend {
       commandId: Option[String],
       workflowId: Option[String],
       eventId: EventId,
-      contractId: platform.store.appendonlydao.events.ContractId,
-      templateId: Option[platform.store.appendonlydao.events.Identifier],
+      contractId: ContractId,
+      templateId: Option[Identifier],
       ledgerEffectiveTime: Option[Timestamp],
       createSignatories: Option[Array[String]],
       createObservers: Option[Array[String]],
       createAgreementText: Option[String],
       createKeyValue: Option[Array[Byte]],
+      createKeyHash: Option[Hash],
       createKeyCompression: Option[Int],
       createArgument: Option[Array[Byte]],
       createArgumentCompression: Option[Int],
       treeEventWitnesses: Set[String],
       flatEventWitnesses: Set[String],
       submitters: Set[String],
-      exerciseChoice: Option[String],
+      qualifiedChoiceName: Option[String],
       exerciseArgument: Option[Array[Byte]],
       exerciseArgumentCompression: Option[Int],
       exerciseResult: Option[Array[Byte]],
@@ -347,13 +343,22 @@ object EventStorageBackend {
       eventSequentialId: Long,
       offset: Offset,
   ) extends NeverEqualsOverride
+
+  final case class Entry[+E](
+      eventOffset: Offset,
+      transactionId: String,
+      nodeIndex: Int,
+      eventSequentialId: Long,
+      ledgerEffectiveTime: Timestamp,
+      commandId: String,
+      workflowId: String,
+      event: E,
+  )
 }
 
 trait DataSourceStorageBackend {
   def createDataSource(
-      jdbcUrl: String,
-      dataSourceConfig: DataSourceStorageBackend.DataSourceConfig =
-        DataSourceStorageBackend.DataSourceConfig(),
+      dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
       connectionInitHook: Option[Connection => Unit] = None,
   )(implicit loggingContext: LoggingContext): DataSource
 
@@ -366,10 +371,12 @@ trait DataSourceStorageBackend {
 
 object DataSourceStorageBackend {
 
-  /** @param postgresConfig configurations which apply only for the PostgresSQL backend
+  /** @param jdbcUrl JDBC URL of the database, parameter to establish the connection between the application and the database
+    * @param postgresConfig configurations which apply only for the PostgresSQL backend
     */
   case class DataSourceConfig(
-      postgresConfig: PostgresDataSourceConfig = PostgresDataSourceConfig()
+      jdbcUrl: String,
+      postgresConfig: PostgresDataSourceConfig = PostgresDataSourceConfig(),
   )
 }
 
@@ -411,41 +418,6 @@ trait StringInterningStorageBackend {
   def loadStringInterningEntries(fromIdExclusive: Int, untilIdInclusive: Int)(
       connection: Connection
   ): Iterable[(Int, String)]
-}
-
-trait UserManagementStorageBackend {
-
-  def createUser(user: User, createdAt: Long)(connection: Connection): Int
-
-  def deleteUser(id: UserId)(connection: Connection): Boolean
-
-  def getUser(id: UserId)(connection: Connection): Option[UserManagementStorageBackend.DbUser]
-
-  def getUsersOrderedById(fromExcl: Option[UserId] = None, maxResults: Int)(
-      connection: Connection
-  ): Vector[User]
-
-  def addUserRight(internalId: Int, right: UserRight, grantedAt: Long)(
-      connection: Connection
-  ): Unit
-
-  /** @return true if the right existed and we have just deleted it.
-    */
-  def deleteUserRight(internalId: Int, right: UserRight)(connection: Connection): Boolean
-
-  def userRightExists(internalId: Int, right: UserRight)(connection: Connection): Boolean
-
-  def getUserRights(internalId: Int)(
-      connection: Connection
-  ): Set[UserManagementStorageBackend.DbUserRight]
-
-  def countUserRights(internalId: Int)(connection: Connection): Int
-
-}
-
-object UserManagementStorageBackend {
-  case class DbUser(internalId: Int, domainUser: User, createdAt: Long)
-  case class DbUserRight(domainRight: UserRight, grantedAt: Long)
 }
 
 trait MeteringStorageReadBackend {

@@ -40,6 +40,7 @@ resource "google_compute_target_https_proxy" "default" {
   name             = "${var.name}-https-proxy"
   url_map          = google_compute_url_map.default.self_link
   ssl_certificates = [var.ssl_certificate]
+  ssl_policy       = var.ssl_policy
 }
 
 resource "google_compute_global_forwarding_rule" "https" {

@@ -5,6 +5,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
+    "lf_scalacopts_stricter",
 )
 
 da_scala_library(
@@ -27,6 +28,7 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
     ],
+    scalacopts = lf_scalacopts_stricter,
     deps = [
         "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -44,9 +46,8 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-resources",
+        "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
-        "//ledger/sandbox-common",
-        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//ledger/test-common",
         "//libs-scala/fs-utils",
@@ -92,10 +93,9 @@ da_scala_test_suite(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
+        "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
-        "//ledger/sandbox-common",
-        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
-        "//ledger/sandbox-on-x:sandbox-classic-server",
+        "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//ledger/test-common",
         "//libs-scala/fs-utils",

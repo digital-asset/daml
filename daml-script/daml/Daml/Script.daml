@@ -12,7 +12,9 @@ module Daml.Script
   , submitTree
   , submitTreeMulti
   , query
+  , queryInterface
   , queryContractId
+  , queryInterfaceContractId
   , queryContractKey
   , queryFilter
   , PartyIdHint (..)
@@ -127,6 +129,8 @@ data ScriptF a
   | SubmitTree (SubmitTreePayload a)
   | Query (QueryACS a)
   | QueryContractId (QueryContractIdPayload a)
+  | QueryInterface (QueryInterfacePayload a)
+  | QueryInterfaceContractId (QueryInterfaceContractIdPayload a)
   | QueryContractKey (QueryContractKeyPayload a)
   | AllocParty (AllocateParty a)
   | ListKnownParties (ListKnownPartiesPayload a)
@@ -201,6 +205,11 @@ data QueryContractIdPayload a = QueryContractIdPayload
 -- | Query for the contract with the given contract id.
 --
 -- Returns `None` if there is no active contract the party is a stakeholder on.
+--
+-- WARNING: Over the gRPC and with the JSON API
+-- in-memory backend this performs a linear search so only use this if the number of
+-- active contracts is small.
+--
 -- This is semantically equivalent to calling `query`
 -- and filtering on the client side.
 queryContractId : forall t p. (Template t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional t)
@@ -211,6 +220,53 @@ queryContractId p c = lift $ Free $ QueryContractId QueryContractIdPayload with
   continue = pure . fmap (fromSome . fromAnyTemplate)
   locations = getCallStack callStack
 
+data QueryInterfacePayload a = QueryInterfacePayload
+  { parties : [Party]
+  , interfaceId : TemplateTypeRep
+  , continue : [LedgerValue] -> a
+  , locations : [(Text, SrcLoc)]
+  } deriving Functor
+
+-- | Query the set of active contract views for an interface
+-- that are visible to the given party.
+-- If the view function fails for a given contract id, The `Optional v` will be `None`.
+--
+-- WARNING: Information about instances with failed-views is not currently returned over the JSON API: the `Optional v` will be `Some _` for every element in the returned list.
+queryInterface : forall i v p. (Template i, HasInterfaceView i v, IsParties p) => p -> Script [(ContractId i, Optional v)]
+queryInterface p = lift $ Free $ QueryInterface QueryInterfacePayload with
+  parties = toParties p
+  interfaceId = templateTypeRep @i
+  continue = pure . map (fromLedgerValue @(ContractId i, Optional v))
+  locations = getCallStack callStack
+
+data QueryInterfaceContractIdPayload a = QueryInterfaceContractIdPayload
+  { parties : [Party]
+  , interfaceId : TemplateTypeRep
+  , cid : ContractId ()
+  , continue : Optional LedgerValue -> a
+  , locations : [(Text, SrcLoc)]
+  } deriving Functor
+
+-- | Query for the contract view with the given contract id.
+--
+-- Returns `None` if there is no active contract the party is a stakeholder on.
+--
+-- Returns `None` if the view function fails for the given contract id.
+--
+-- WARNING: Over the gRPC and with the JSON API
+-- in-memory backend this performs a linear search so only use this if the number of
+-- active contracts is small.
+--
+-- This is semantically equivalent to calling `queryInterface`
+-- and filtering on the client side.
+queryInterfaceContractId : forall i v p. (Template i, HasInterfaceView i v, IsParties p) => HasCallStack => p -> ContractId i -> Script (Optional v)
+queryInterfaceContractId p c = lift $ Free $ QueryInterfaceContractId QueryInterfaceContractIdPayload with
+  parties = toParties p
+  interfaceId = templateTypeRep @i
+  cid = coerceContractId c
+  continue = pure . fmap (fromLedgerValue @ v)
+  locations = getCallStack callStack
+
 data QueryContractKeyPayload a = QueryContractKeyPayload
   { parties : [Party]
   , tplId : TemplateTypeRep
@@ -219,8 +275,13 @@ data QueryContractKeyPayload a = QueryContractKeyPayload
   , locations : [(Text, SrcLoc)]
   } deriving Functor
 
--- Returns `None` if there is no active contract with the given key that
+-- | Returns `None` if there is no active contract with the given key that
 -- the party is a stakeholder on.
+--
+-- WARNING: Over the gRPC and with the JSON API
+-- in-memory backend this performs a linear search so only use this if the number of
+-- active contracts is small.
+--
 -- This is semantically equivalent to calling `query`
 -- and filtering on the client side.
 queryContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))
@@ -524,20 +585,20 @@ internalCreateCmd arg = Commands $ Ap (\f -> f (Create arg identity) (pure coerc
 -- | HIDE A version of 'exerciseCmd' without constraints.
 --
 -- This is used for Daml ledger exports involving contracts defined in Daml-LF 1.6 or 1.7.
-internalExerciseCmd : TemplateTypeRep -> ContractId () -> AnyChoice -> Commands r
-internalExerciseCmd tplTypeRep cId arg = Commands $ Ap (\f -> f (Exercise tplTypeRep cId arg identity) (pure fromLedgerValue))
+internalExerciseCmd : forall r. TemplateTypeRep -> ContractId () -> AnyChoice -> Commands r
+internalExerciseCmd tplTypeRep cId arg = Commands $ Ap (\f -> f (Exercise tplTypeRep cId arg identity) (pure (fromLedgerValue @r)))
 
 -- | HIDE A version of 'exerciseByKeyCmd' without constraints.
 --
 -- This is used for Daml ledger exports involving contracts defined in Daml-LF 1.6 or 1.7.
-internalExerciseByKeyCmd : TemplateTypeRep -> AnyContractKey -> AnyChoice -> Commands r
-internalExerciseByKeyCmd tplTypeRep key arg = Commands $ Ap (\f -> f (ExerciseByKey tplTypeRep key arg identity) (pure fromLedgerValue))
+internalExerciseByKeyCmd : forall r. TemplateTypeRep -> AnyContractKey -> AnyChoice -> Commands r
+internalExerciseByKeyCmd tplTypeRep key arg = Commands $ Ap (\f -> f (ExerciseByKey tplTypeRep key arg identity) (pure (fromLedgerValue @r)))
 
 -- | HIDE A version of 'createAndExerciseCmd' without constraints.
 --
 -- This is used for Daml ledger exports involving contracts defined in Daml-LF 1.6 or 1.7.
-internalCreateAndExerciseCmd : AnyTemplate -> AnyChoice -> Commands r
-internalCreateAndExerciseCmd tplArg choiceArg = Commands $ Ap (\f -> f (CreateAndExercise tplArg choiceArg identity) (pure fromLedgerValue))
+internalCreateAndExerciseCmd : forall r. AnyTemplate -> AnyChoice -> Commands r
+internalCreateAndExerciseCmd tplArg choiceArg = Commands $ Ap (\f -> f (CreateAndExercise tplArg choiceArg identity) (pure (fromLedgerValue @r)))
 
 -- | Create a contract of the given template.
 createCmd : Template t => t -> Commands (ContractId t)
@@ -687,8 +748,9 @@ fromTreeGo (ExercisedIndex index) events =
     fromExercised : TreeEvent -> Optional [TreeEvent]
     fromExercised (CreatedEvent _) = None
     fromExercised (ExercisedEvent exercised)
-      | exercised.contractId.templateId == index.templateId &&
-        exercised.choice == index.choice
+      | AnyChoice _ rep <- exercised.argument
+      , rep == index.templateId
+      , exercised.choice == index.choice
       = Some exercised.childEvents
       | otherwise
       = None
@@ -729,7 +791,7 @@ instance Show AnyContractId where
     where app_prec = 10
 
 -- | HIDE This is an early access feature.
-fromAnyContractId : forall t. TemplateOrInterface t => AnyContractId -> Optional (ContractId t)
+fromAnyContractId : forall t. Template t => AnyContractId -> Optional (ContractId t)
 fromAnyContractId cid
   | cid.templateId == templateTypeRep @t = Some (coerceContractId cid.contractId)
   | otherwise = None

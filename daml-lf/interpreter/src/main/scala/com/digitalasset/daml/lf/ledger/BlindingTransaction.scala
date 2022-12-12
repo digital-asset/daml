@@ -5,7 +5,7 @@ package com.daml.lf
 package ledger
 
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Relation
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.{NodeId, VersionedTransaction}
@@ -15,8 +15,7 @@ import com.daml.nameof.NameOf
 object BlindingTransaction {
 
   private object BlindState {
-    val Empty =
-      BlindState(Map.empty, Map.empty)
+    val Empty = BlindState(Relation.empty, Relation.empty)
   }
 
   /** State to use while computing blindingInfo. */

@@ -38,13 +38,15 @@ export const setError = (error: string): Action => ({
 export interface State {
   id: string;
   choice?: string;
+  ifc?: string;
   choiceLoading: boolean;
   error?: string;
 }
 
-export const init = (id: string, choice?: string): State => ({
+export const init = (id: string, choice?: string, ifc?: string): State => ({
   id,
   choice,
+  ifc,
   choiceLoading: false,
 });
 
@@ -77,6 +79,7 @@ interface MutationProps {
   exercise?(
     contractId: string,
     choiceId: string,
+    interfaceId?: string,
     argument?: DamlLfValue,
   ): // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Promise<any>;
@@ -131,13 +134,13 @@ class Component extends React.Component<Props, {}> {
       toSelf,
       toWatcher,
       dispatch,
-      state: { id, choice },
+      state: { id, choice, ifc },
     } = this.props;
     if (exercise && dispatch && choice) {
       dispatch(toSelf(setChoiceLoading(true)));
       // We want to make sure we look up the function when this resolves, not
       // before then so can't just pass `this.gotoParent` directly to then.
-      exercise(id, choice, argument)
+      exercise(id, choice, ifc, argument)
         .then(({ data }) => {
           dispatch(toWatcher(LedgerWatcher.registerCommand(data.exercise)));
           this.gotoParent();
@@ -158,6 +161,7 @@ class Component extends React.Component<Props, {}> {
         <ContractComponent
           contract={contract}
           choice={state.choice}
+          ifc={state.ifc}
           choiceLoading={state.choiceLoading}
           error={state.error}
           exercise={this.exercise}
@@ -186,6 +190,7 @@ const query = gql`
           choices {
             name
             parameter
+            inheritedInterface
           }
         }
       }
@@ -196,10 +201,16 @@ const query = gql`
 const mutation = gql`
   mutation ContractExercise(
     $contractId: ID!
+    $interfaceId: ID
     $choiceId: ID!
     $argument: DamlLfValue
   ) {
-    exercise(contractId: $contractId, choiceId: $choiceId, argument: $argument)
+    exercise(
+      contractId: $contractId
+      interfaceId: $interfaceId
+      choiceId: $choiceId
+      argument: $argument
+    )
   }
 `;
 
@@ -224,8 +235,13 @@ const _withMutation = withMutation<
   props: ({ mutate }): MutationProps => ({
     exercise:
       mutate &&
-      ((contractId: string, choiceId: string, argument?: DamlLfValue) =>
-        mutate({ variables: { contractId, choiceId, argument } })),
+      ((
+        contractId: string,
+        choiceId: string,
+        interfaceId?: string,
+        argument?: DamlLfValue,
+      ) =>
+        mutate({ variables: { contractId, interfaceId, choiceId, argument } })),
   }),
 });
 

@@ -8,12 +8,12 @@ import com.daml.lf.crypto
 import com.daml.lf.data.{Bytes, FrontStack, Ref}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SExpr.{SEApp, SEImportValue, SELocA, SEMakeClo}
+import com.daml.lf.speedy.SExpr.{SELet1, SEImportValue, SELocS, SELocF, SEMakeClo}
 import com.daml.lf.value.Value
 import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.test.ValueGenerators.{comparableCoidsGen, suffixedV1CidGen}
 import com.daml.lf.PureCompiledPackages
-import com.daml.lf.iface
+import com.daml.lf.typesig
 import com.daml.lf.interpretation.Error.ContractIdComparability
 import com.daml.lf.language.{Ast, Util => AstUtil}
 import org.scalacheck.{Arbitrary, Gen}
@@ -43,30 +43,31 @@ class OrderingSpec
 
   import SpeedyTestLib.loggingContext
 
-  private[lf] def toAstType(typ: iface.Type): Ast.Type = typ match {
-    case iface.TypeCon(name, typArgs) =>
+  private[lf] def toAstType(typ: typesig.Type): Ast.Type = typ match {
+    case typesig.TypeCon(name, typArgs) =>
       typArgs.foldLeft[Ast.Type](Ast.TTyCon(name.identifier))((acc, typ) =>
         Ast.TApp(acc, toAstType(typ))
       )
-    case iface.TypeNumeric(scale) =>
+    case typesig.TypeNumeric(scale) =>
       AstUtil.TNumeric(Ast.TNat(scale))
-    case iface.TypePrim(prim, typArgs) =>
+    case typesig.TypePrim(prim, typArgs) =>
+      import typesig.{PrimType => P}
       val init = prim match {
-        case iface.PrimTypeBool => AstUtil.TBool
-        case iface.PrimTypeInt64 => AstUtil.TInt64
-        case iface.PrimTypeText => AstUtil.TText
-        case iface.PrimTypeDate => AstUtil.TDate
-        case iface.PrimTypeTimestamp => AstUtil.TTimestamp
-        case iface.PrimTypeParty => AstUtil.TParty
-        case iface.PrimTypeContractId => AstUtil.TContractId.cons
-        case iface.PrimTypeList => AstUtil.TList.cons
-        case iface.PrimTypeUnit => AstUtil.TUnit
-        case iface.PrimTypeOptional => AstUtil.TOptional.cons
-        case iface.PrimTypeTextMap => AstUtil.TTextMap.cons
-        case iface.PrimTypeGenMap => AstUtil.TGenMap.cons
+        case P.Bool => AstUtil.TBool
+        case P.Int64 => AstUtil.TInt64
+        case P.Text => AstUtil.TText
+        case P.Date => AstUtil.TDate
+        case P.Timestamp => AstUtil.TTimestamp
+        case P.Party => AstUtil.TParty
+        case P.ContractId => AstUtil.TContractId.cons
+        case P.List => AstUtil.TList.cons
+        case P.Unit => AstUtil.TUnit
+        case P.Optional => AstUtil.TOptional.cons
+        case P.TextMap => AstUtil.TTextMap.cons
+        case P.GenMap => AstUtil.TGenMap.cons
       }
       typArgs.foldLeft[Ast.Type](init)((acc, typ) => Ast.TApp(acc, toAstType(typ)))
-    case iface.TypeVar(name) =>
+    case typesig.TypeVar(name) =>
       Ast.TVar(name)
   }
 
@@ -80,7 +81,6 @@ class OrderingSpec
 
   private val randomComparableValues: TableFor2[String, Gen[SValue]] = {
     import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
-    implicit val cidArb: Arbitrary[Value.ContractId] = Arbitrary(Gen.fail[Value.ContractId])
     def r(name: String, va: VA)(sv: va.Inj => SValue) =
       (name, va.injarb.arbitrary map sv)
     Table(
@@ -184,17 +184,18 @@ class OrderingSpec
   private[this] val txSeed = crypto.Hash.hashPrivateKey("OrderingSpec")
   private[this] val committers = Set(Ref.Party.assertFromString("Alice"))
 
-  private def translatePrimValue(typ: iface.Type, v: Value) = {
+  private def translatePrimValue(typ: typesig.Type, v: Value) = {
 
     val machine = Speedy.Machine.fromUpdateSExpr(
       PureCompiledPackages.Empty,
       transactionSeed = txSeed,
-      updateSE = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(SEImportValue(toAstType(typ), v))),
+      updateSE =
+        SELet1(SEImportValue(toAstType(typ), v), SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
       committers = committers,
     )
 
     machine.run() match {
-      case SResultFinalValue(value) => value
+      case SResultFinal(value) => value
       case _ => throw new Error(s"error while translating value $v")
     }
   }

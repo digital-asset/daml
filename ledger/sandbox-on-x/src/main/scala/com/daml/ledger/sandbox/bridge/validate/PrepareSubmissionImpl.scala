@@ -26,7 +26,7 @@ private[validate] class PrepareSubmissionImpl(bridgeMetrics: BridgeMetrics)(impl
 
   override def apply(submission: Submission): AsyncValidation[PreparedSubmission] =
     submission match {
-      case transactionSubmission @ Submission.Transaction(submitterInfo, _, transaction, _) =>
+      case transactionSubmission @ Submission.Transaction(submitterInfo, _, transaction, _, _) =>
         Timed.future(
           bridgeMetrics.Stages.PrepareSubmission.timer,
           Future {
@@ -56,9 +56,9 @@ private[validate] class PrepareSubmissionImpl(bridgeMetrics: BridgeMetrics)(impl
   private def invalidInputFromParticipantRejection(completionInfo: CompletionInfo)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): LfTransaction.KeyInputError => Rejection = {
-    case LfTransaction.InconsistentKeys(key) =>
+    case Left(LfTransaction.InconsistentContractKey(key)) =>
       TransactionInternallyInconsistentKey(key, completionInfo)
-    case LfTransaction.DuplicateKeys(key) =>
+    case Right(LfTransaction.DuplicateContractKey(key)) =>
       TransactionInternallyDuplicateKeys(key, completionInfo)
   }
 }

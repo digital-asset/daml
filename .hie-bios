@@ -16,6 +16,9 @@ hie_bios_flags() {
           } else if (line == "+RTS") {
             rts_opts = true
           } else if (match(line, "-qg|-fexternal-interpreter")) {
+          } else if (match(line, "com_github_madler_zlib")) {
+          } else if (match(line, "grpc_haskell_core_cbits")) {
+          } else if (match(line, "-lmerged_cbits")) {
           } else {
             print line
           }

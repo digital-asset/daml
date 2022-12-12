@@ -32,8 +32,9 @@ multiTest : Script Int
 multiTest = do
   alice <- allocatePartyOn "alice" (ParticipantName "one")
   bob <- allocatePartyOn "bob" (ParticipantName "two")
-  cid <- submit alice $ createCmd (TProposal alice bob)
-  r <- submit bob $ exerciseCmd cid Accept
+  proposalCid <- submit alice $ createCmd (TProposal alice bob)
+  _ <- waitForCid tries bob proposalCid
+  r <- submit bob $ exerciseCmd proposalCid Accept
   pure (snd r)
 
 partyIdHintTest : Script (Party, Party)
@@ -73,6 +74,8 @@ waitForCid tries p cid
   | otherwise = do
     r <- queryContractId p cid
     case r of
-      None -> waitForCid (tries - 1) p cid
+      None -> do
+        sleep delay
+        waitForCid (tries - 1) p cid
       Some _ -> pure ()
   where delay = seconds 1

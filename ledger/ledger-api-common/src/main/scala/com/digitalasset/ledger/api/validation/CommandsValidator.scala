@@ -32,7 +32,10 @@ import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
 import scala.annotation.nowarn
 
-final class CommandsValidator(ledgerId: LedgerId) {
+final class CommandsValidator(
+    ledgerId: LedgerId,
+    validateDisclosedContracts: ValidateDisclosedContracts = new ValidateDisclosedContracts(false),
+) {
 
   import ValidationErrors._
   import FieldValidations._
@@ -70,6 +73,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         commands.deduplicationPeriod,
         maxDeduplicationDuration,
       )
+      validatedDisclosedContracts <- validateDisclosedContracts(commands)
     } yield domain.Commands(
       ledgerId = ledgerId,
       workflowId = workflowId,
@@ -80,11 +84,12 @@ final class CommandsValidator(ledgerId: LedgerId) {
       readAs = submitters.readAs,
       submittedAt = Time.Timestamp.assertFromInstant(currentUtcTime),
       deduplicationPeriod = deduplicationPeriod,
-      commands = Commands(
+      commands = ApiCommands(
         commands = validatedCommands.to(ImmArray),
         ledgerEffectiveTime = ledgerEffectiveTimestamp,
         commandsReference = workflowId.fold("")(_.unwrap),
       ),
+      disclosedContracts = validatedDisclosedContracts,
     )
 
   private def validateLedgerTime(
@@ -110,7 +115,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
     }
   }
 
-  private def validateInnerCommands(
+  // Public because it is used by Canton.
+  def validateInnerCommands(
       commands: Seq[ProtoCommand]
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -124,7 +130,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
       } yield validatedInnerCommands :+ validatedInnerCommand
     })
 
-  private def validateInnerCommand(
+  // Public so that clients have an easy way to convert ProtoCommand.Command to ApiCommand.
+  def validateInnerCommand(
       command: ProtoCommand.Command
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -137,7 +144,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
           createArguments <- requirePresence(c.value.createArguments, "create_arguments")
           recordId <- validateOptionalIdentifier(createArguments.recordId)
           validatedRecordField <- validateRecordFields(createArguments.fields)
-        } yield CreateCommand(
+        } yield ApiCommand.Create(
           templateId = validatedTemplateId,
           argument = Lf.ValueRecord(recordId, validatedRecordField),
         )
@@ -150,8 +157,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
           choice <- requireName(e.value.choice, "choice")
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
-        } yield ExerciseCommand(
-          templateId = validatedTemplateId,
+        } yield ApiCommand.Exercise(
+          typeId = validatedTemplateId,
           contractId = contractId,
           choiceId = choice,
           argument = validatedValue,
@@ -166,7 +173,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
           choice <- requireName(ek.value.choice, "choice")
           value <- requirePresence(ek.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
-        } yield ExerciseByKeyCommand(
+        } yield ApiCommand.ExerciseByKey(
           templateId = validatedTemplateId,
           contractKey = validatedContractKey,
           choiceId = choice,
@@ -183,7 +190,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
           choice <- requireName(ce.value.choice, "choice")
           value <- requirePresence(ce.value.choiceArgument, "value")
           validatedChoiceArgument <- validateValue(value)
-        } yield CreateAndExerciseCommand(
+        } yield ApiCommand.CreateAndExercise(
           templateId = validatedTemplateId,
           createArgument = Lf.ValueRecord(recordId, validatedRecordField),
           choiceId = choice,
@@ -254,9 +261,9 @@ final class CommandsValidator(ledgerId: LedgerId) {
                 Left(
                   LedgerApiErrors.RequestValidation.NonHexOffset
                     .Error(
-                      _fieldName = "deduplication_period",
-                      _offsetValue = offset,
-                      _message =
+                      fieldName = "deduplication_period",
+                      offsetValue = offset,
+                      message =
                         s"the deduplication offset has to be a hexadecimal string and not $offset",
                     )
                     .asGrpcError
@@ -269,6 +276,10 @@ final class CommandsValidator(ledgerId: LedgerId) {
 }
 
 object CommandsValidator {
+  def apply(ledgerId: LedgerId, explicitDisclosureUnsafeEnabled: Boolean) = new CommandsValidator(
+    ledgerId = ledgerId,
+    validateDisclosedContracts = new ValidateDisclosedContracts(explicitDisclosureUnsafeEnabled),
+  )
 
   /** Effective submitters of a command
     * @param actAs Guaranteed to be non-empty. Will contain exactly one element in most cases.

@@ -3,8 +3,8 @@
 
 .. _exceptions:
 
-Exceptions
-##########
+Reference: Exceptions
+#####################
 
 Exceptions are a Daml feature which provides a way to handle
 certain errors that arise during interpretation instead of aborting
@@ -34,7 +34,7 @@ Note that other errors cannot be handled via exceptions, e.g., an
 exercise on an inactive contract will still result in a transaction
 abort.
 
-User-Defined Exceptions
+User-defined Exceptions
 .......................
 
 Users can define their own exception types which can be thrown and
@@ -50,8 +50,8 @@ In addition to the record fields, exceptions also need to define a
    :start-after: -- BEGIN_EXCEPTION
    :end-before: -- END_EXCEPTION
 
-Throwing Exceptions
-...................
+Throw Exceptions
+................
 
 There are two ways to throw exceptions:
 
@@ -64,8 +64,8 @@ If both are an option, it is generally preferable to use ``throw``
 since it is easier to reason about when exactly the exception will get
 thrown.
 
-Catching Exceptions
-...................
+Catch Exceptions
+................
 
 Exceptions are caught in try-catch blocks similar to those found in
 languages like Java. The ``try`` block defines the scope within which

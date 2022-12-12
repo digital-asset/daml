@@ -2,7 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Assistant.IntegrationTests (main) where
 
-import Conduit hiding (connect)
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Lens
@@ -11,8 +12,6 @@ import Control.Monad.Loops (untilM_)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.ByteString.Lazy.Char8 as LBS8
-import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import Data.List.Extra
 import Data.String (fromString)
 import Data.Maybe (maybeToList, isJust)
@@ -35,7 +34,7 @@ import DA.Bazel.Runfiles
 import DA.Daml.Assistant.IntegrationTestUtils
 import DA.Daml.Helper.Util (waitForHttpServer, tokenFor, decodeCantonSandboxPort)
 import DA.Test.Daml2jsUtils
-import DA.Test.Process (callCommandSilent, callCommandSilentIn, callCommandSilentWithEnvIn, subprocessEnv)
+import DA.Test.Process (callCommandSilent, callCommandSilentIn, subprocessEnv)
 import DA.Test.Util
 import DA.PortFile
 import SdkVersion
@@ -46,26 +45,19 @@ main = do
     withTempDir $ \tmpDir -> do
         oldPath <- getSearchPath
         javaPath <- locateRunfiles "local_jdk/bin"
-        mvnPath <- locateRunfiles "mvn_dev_env/bin"
-        tarPath <- locateRunfiles "tar_dev_env/bin"
         yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
         -- NOTE(Sofia): We don't use `script` on Windows.
         mbScriptPath <- if isWindows
             then pure Nothing
             else Just <$> locateRunfiles "script_nix/bin"
-        -- NOTE: `COMSPEC` env. variable on Windows points to cmd.exe, which is required to be present
-        -- on the PATH as mvn.cmd executes cmd.exe
-        mbComSpec <- getEnv "COMSPEC"
-        let mbCmdDir = takeDirectory <$> mbComSpec
         limitJvmMemory defaultJvmMemoryLimits
         withArgs args (withEnv
             [ ("PATH", Just $ intercalate [searchPathSeparator] $ concat
-                [ [tarPath, javaPath, mvnPath, yarnPath]
+                [ [javaPath, yarnPath]
                 , maybeToList mbScriptPath
                 , oldPath
-                , maybeToList mbCmdDir
                 ])
-            , ("TASTY_NUM_THREADS", Just "1")
+            , ("TASTY_NUM_THREADS", Just "2")
             ] $ defaultMain (tests tmpDir))
 
 hardcodedToken :: String -> T.Text
@@ -144,14 +136,17 @@ damlStart tmpDir = do
             , "test : Int -> Script (Int, Int)"
             , "test x = pure (x, x + 1)"
             ]
-    sandboxPort <- getFreePort
+    ports <- sandboxPorts
     jsonApiPort <- getFreePort
     env <- subprocessEnv []
     let startProc =
             (shell $ unwords
                 [ "daml start"
                 , "--start-navigator=no"
-                , "--sandbox-port", show sandboxPort
+                , "--sandbox-port", show $ ledger ports
+                , "--sandbox-admin-api-port", show $ admin ports
+                , "--sandbox-domain-public-port", show $ domainPublic ports
+                , "--sandbox-domain-admin-port", show $ domainAdmin ports
                 , "--json-api-port", show jsonApiPort
                 ]
             ) {std_in = CreatePipe, std_out = CreatePipe, cwd = Just projDir, create_group = True, env = Just env}
@@ -170,7 +165,7 @@ damlStart tmpDir = do
         DamlStartResource
             { projDir = projDir
             , tmpDir = tmpDir
-            , sandboxPort = sandboxPort
+            , sandboxPort = ledger ports
             , jsonApiPort = jsonApiPort
             , startStdin = startStdin
             , alice = alice
@@ -180,48 +175,6 @@ damlStart tmpDir = do
                 killThread outReader
             , stdoutChan = outChan
             }
-
-data QuickSandboxResource = QuickSandboxResource
-    { quickSandboxPort :: PortNumber
-    , quickProjDir :: FilePath
-    , quickDar :: FilePath
-    , quickSandboxPh :: ProcessHandle
-    }
-
-quickSandbox :: FilePath -> IO QuickSandboxResource
-quickSandbox projDir = do
-    withDevNull $ \devNull -> do
-        callCommandSilent $ unwords ["daml", "new", projDir, "--template=quickstart-java"]
-        callCommandSilentIn projDir "daml build"
-        sandboxPort <- getFreePort
-        adminApiPort <- getFreePort
-        domainPublicApiPort <- getFreePort
-        domainAdminApiPort <- getFreePort
-        let portFile = "portfile.json"
-        let darFile = ".daml" </> "dist" </> "quickstart-0.0.1.dar"
-        let sandboxProc =
-                (shell $
-                    unwords
-                        [ "daml"
-                        , "sandbox"
-                        , "--port" , show sandboxPort
-                        , "--admin-api-port", show adminApiPort
-                        , "--domain-public-port", show domainPublicApiPort
-                        , "--domain-admin-port", show domainAdminApiPort
-                        , "--port-file", portFile
-                        , "--dar", darFile
-                        , "--static-time"
-                        ])
-                    {std_out = UseHandle devNull, create_group = True, cwd = Just projDir}
-        (_, _, _, sandboxPh) <- createProcess sandboxProc
-        _ <- readPortFile sandboxPh maxRetries (projDir </> portFile)
-        pure $
-            QuickSandboxResource
-                { quickProjDir = projDir
-                , quickSandboxPort = sandboxPort
-                , quickSandboxPh = sandboxPh
-                , quickDar = projDir </> darFile
-                }
 
 tests :: FilePath -> TestTree
 tests tmpDir =
@@ -238,17 +191,13 @@ tests tmpDir =
             , damlToolTests
             , withResource (damlStart (tmpDir </> "sandbox-canton")) stop damlStartTests
             , damlStartNotSharedTest
-            , withResource (quickSandbox quickstartDir) (interruptProcessGroupOf . quickSandboxPh) $
-              quickstartTests quickstartDir mvnDir
             , cleanTests cleanDir
             , templateTests
             , codegenTests codegenDir
             , cantonTests
             ]
   where
-    quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
     cleanDir = tmpDir </> "clean"
-    mvnDir = tmpDir </> "m2"
     codegenDir = tmpDir </> "codegen"
 
 -- Most of the packaging tests are in the a separate test suite in
@@ -310,12 +259,13 @@ packagingTests tmpDir =
               callCommandSilentIn projDir "daml build"
               let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
               assertFileExists dar
-        , testCase "Build Daml script example with LF version 1.dev" $ do
+        -- TODO: re-enable this test when the script-example template no longer specifies 1.15
+        {- , testCase "Build Daml script example with LF version 1.dev" $ do
               let projDir = tmpDir </> "script-example1"
               callCommandSilent $ unwords ["daml", "new", projDir, "--template=script-example"]
               callCommandSilentIn projDir "daml build --target 1.dev"
               let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
-              assertFileExists dar
+              assertFileExists dar -}
         , testCase "Package depending on daml-script and daml-trigger can use data-dependencies" $ do
               callCommandSilent $ unwords ["daml", "new", tmpDir </> "data-dependency"]
               callCommandSilentIn (tmpDir </> "data-dependency") "daml build -o data-dependency.dar"
@@ -596,96 +546,6 @@ damlStartNotSharedTest = testCase "daml start --sandbox-port=0" $
                 assertBool ("result is unexpected: " <> show body) $
                     ("{\"result\":{\"identifier\":\"Alice::" `LBS.isPrefixOf` body) &&
                     ("\",\"isLocal\":true},\"status\":200}" `LBS.isSuffixOf` body)
-
-quickstartTests :: FilePath -> FilePath -> IO QuickSandboxResource -> TestTree
-quickstartTests quickstartDir mvnDir getSandbox =
-    testCaseSteps "quickstart" $ \step -> do
-        let subtest :: forall t. String -> IO t -> IO t
-            subtest m p = step m >> p
-        subtest "daml test" $
-            callCommandSilentIn quickstartDir "daml test"
-        -- Testing `daml new` and `daml build` is done when the QuickSandboxResource is build.
-        subtest "daml damlc test --files" $
-            callCommandSilentIn quickstartDir "daml damlc test --files daml/Main.daml"
-        subtest "daml damlc visual-web" $
-            callCommandSilentIn quickstartDir
-                "daml damlc visual-web .daml/dist/quickstart-0.0.1.dar -o visual.html -b"
-        subtest "mvn compile" $ do
-            mvnDbTarball <-
-                locateRunfiles
-                    (mainWorkspace </> "daml-assistant" </> "integration-tests" </>
-                    "integration-tests-mvn.tar")
-            runConduitRes $
-                sourceFileBS mvnDbTarball .|
-                Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError mvnDir)
-            callCommandSilentIn quickstartDir "daml codegen java"
-            callCommandSilentIn quickstartDir $ unwords ["mvn", mvnRepoFlag, "-q", "compile"]
-        subtest "mvn exec:java@run-quickstart" $ do
-            QuickSandboxResource {quickProjDir, quickSandboxPort, quickDar} <- getSandbox
-            withDevNull $ \devNull -> do
-                callCommandSilentIn quickProjDir $
-                    unwords
-                        [ "daml script"
-                        , "--dar " <> quickDar
-                        , "--script-name Main:initialize"
-                        , "--static-time"
-                        , "--ledger-host localhost"
-                        , "--ledger-port"
-                        , show quickSandboxPort
-                        , "--output-file", "output.json"
-                        ]
-                scriptOutput <- readFileUTF8 (quickProjDir </> "output.json")
-                [alice, eurBank] <- pure (read scriptOutput :: [String])
-                take 7 alice @?= "Alice::"
-                take 10 eurBank @?= "EUR_Bank::"
-                drop 7 alice @?= drop 10 eurBank -- assert that namespaces are equal
-
-                restPort :: Int <- fromIntegral <$> getFreePort
-                let mavenProc = (shell $ unwords
-                        [ "mvn"
-                        , mvnRepoFlag
-                        , "-Dledgerport=" <> show quickSandboxPort
-                        , "-Drestport=" <> show restPort
-                        , "-Dparty=" <> alice
-                        , "exec:java@run-quickstart"
-                        ])
-                        { std_out = UseHandle devNull
-                        , cwd = Just quickProjDir }
-                withCreateProcess mavenProc $ \_ _ _ mavenPh -> do
-                    let url = "http://localhost:" <> show restPort <> "/iou"
-                    waitForHttpServer 240 mavenPh (threadDelay 500000) url []
-                    threadDelay 5000000
-                    manager <- newManager defaultManagerSettings
-                    req <- parseRequest url
-                    req <-
-                        pure req {requestHeaders = [(hContentType, "application/json")]}
-                    resp <- httpLbs req manager
-                    statusCode (responseStatus resp) @?= 200
-                    responseBody resp @?=
-                        "{\"0\":{\"issuer\":" <> LBS8.pack (show eurBank)
-                        <> ",\"owner\":"<> LBS8.pack (show alice)
-                        <> ",\"currency\":\"EUR\",\"amount\":100.0000000000,\"observers\":[]}}"
-                    -- Note (MK) You might be tempted to suggest using
-                    -- create_group and interruptProcessGroupOf
-                    -- or alternatively use_process_jobs here.
-                    -- However, that is a trap. It will block forever
-                    -- trying to terminate the process on Windows. I have absolutely
-                    -- no idea why that is the case and I stopped trying
-                    -- to figure out.
-                    -- Luckily, it doesn’t seem like maven actually creates
-                    -- child processes or at least none that
-                    -- block us from cleaning up the SDK installation and
-                    -- Bazel will tear down everything at the end anyway.
-                    terminateProcess mavenPh
-        subtest "daml codegen java with DAML_PROJECT" $ do
-            withTempDir $ \dir -> do
-                callCommandSilentIn dir $ unwords ["daml", "new", dir </> "quickstart", "--template=quickstart-java"]
-                let projEnv = [("DAML_PROJECT", dir </> "quickstart")]
-                callCommandSilentWithEnvIn dir projEnv "daml build"
-                callCommandSilentWithEnvIn dir projEnv "daml codegen java"
-                pure ()
-  where
-    mvnRepoFlag = "-Dmaven.repo.local=" <> mvnDir
 
 -- | Ensure that daml clean removes precisely the files created by daml build.
 cleanTests :: FilePath -> TestTree

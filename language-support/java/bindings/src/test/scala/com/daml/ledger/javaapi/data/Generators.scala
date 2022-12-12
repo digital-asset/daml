@@ -8,6 +8,7 @@ import java.time.{Instant, LocalDate}
 import com.daml.ledger.api.v1._
 import com.google.protobuf.Empty
 import org.scalacheck.{Arbitrary, Gen}
+import Arbitrary.arbitrary
 
 import scala.jdk.CollectionConverters._
 
@@ -226,11 +227,20 @@ object Generators {
       archivedEventGen.map(e => (b: EventOuterClass.Event.Builder) => b.setArchived(e).build()),
     )
 
+  private[this] val failingStatusGen = Gen const com.google.rpc.Status.getDefaultInstance
+
+  private[this] val interfaceViewGen: Gen[EventOuterClass.InterfaceView] =
+    Gen.zip(identifierGen, Gen.either(recordGen, failingStatusGen)).map { case (id, vs) =>
+      val b = EventOuterClass.InterfaceView.newBuilder().setInterfaceId(id)
+      vs.fold(b.setViewValue, b.setViewStatus).build()
+    }
+
   val createdEventGen: Gen[EventOuterClass.CreatedEvent] =
     for {
       contractId <- contractIdValueGen.map(_.getContractId)
       templateId <- identifierGen
       createArgument <- recordGen
+      interfaceViews <- Gen.listOf(interfaceViewGen)
       eventId <- Arbitrary.arbString.arbitrary
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
       signatories <- Gen.listOf(Gen.asciiPrintableStr)
@@ -240,6 +250,7 @@ object Generators {
       .setContractId(contractId)
       .setTemplateId(templateId)
       .setCreateArguments(createArgument)
+      .addAllInterfaceViews(interfaceViews.asJava)
       .setEventId(eventId)
       .addAllWitnessParties(witnessParties.asJava)
       .addAllSignatories(signatories.asJava)
@@ -310,10 +321,21 @@ object Generators {
   def inclusiveGen: Gen[TransactionFilterOuterClass.InclusiveFilters] =
     for {
       templateIds <- Gen.listOf(identifierGen)
+      interfaceFilters <- Gen.listOf(interfaceFilterGen)
     } yield TransactionFilterOuterClass.InclusiveFilters
       .newBuilder()
       .addAllTemplateIds(templateIds.asJava)
+      .addAllInterfaceFilters(interfaceFilters.asJava)
       .build()
+
+  private[this] def interfaceFilterGen: Gen[TransactionFilterOuterClass.InterfaceFilter] =
+    Gen.zip(identifierGen, arbitrary[Boolean]).map { case (interfaceId, includeInterfaceView) =>
+      TransactionFilterOuterClass.InterfaceFilter
+        .newBuilder()
+        .setInterfaceId(interfaceId)
+        .setIncludeInterfaceView(includeInterfaceView)
+        .build()
+    }
 
   def getActiveContractRequestGen: Gen[ActiveContractsServiceOuterClass.GetActiveContractsRequest] =
     for {

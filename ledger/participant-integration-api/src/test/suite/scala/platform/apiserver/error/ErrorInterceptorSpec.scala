@@ -3,45 +3,36 @@
 
 package com.daml.platform.apiserver.error
 
-import java.net.{InetAddress, InetSocketAddress}
-import java.util.concurrent.TimeUnit
-
-import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
-import com.daml.error.definitions.DamlError
-import com.daml.error.definitions.LedgerApiErrors
+import ch.qos.logback.classic.Level
+import com.daml.error._
+import com.daml.error.definitions.{CommonErrors, DamlError}
 import com.daml.error.utils.ErrorDetails
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCategory,
-  ErrorClass,
-  ErrorCode,
-  ErrorsAssertions,
-}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement
 import com.daml.grpc.sampleservice.HelloServiceResponding
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
-import com.daml.platform.apiserver.services.GrpcClientResource
+import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingServerInterceptors}
+import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
-import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceAkkaGrpc, HelloServiceGrpc}
-import com.daml.platform.testing.{LogCollectorAssertions, StreamConsumer}
-import com.daml.ports.Port
-import io.grpc.netty.NettyServerBuilder
-import io.grpc.{BindableService, ServerServiceDefinition, _}
-import org.scalatest.{Assertion, Assertions, Checkpoints}
+import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
+import com.daml.platform.testing.LogCollector.{ThrowableCause, ThrowableEntry}
+import com.daml.platform.testing.{LogCollector, LogCollectorAssertions, StreamConsumer}
+import io.grpc._
+import io.grpc.stub.StreamObserver
+import org.scalatest._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 final class ErrorInterceptorSpec
     extends AsyncFreeSpec
+    with BeforeAndAfter
     with AkkaBeforeAndAfterAll
     with Matchers
+    with OptionValues
     with Eventually
     with TestResourceContext
     with Checkpoints
@@ -52,6 +43,10 @@ final class ErrorInterceptorSpec
 
   private val bypassMsg: String =
     "(should still intercept the error to bypass default gRPC error handling)"
+
+  before {
+    LogCollector.clear[this.type]
+  }
 
   classOf[ErrorInterceptor].getSimpleName - {
 
@@ -113,7 +108,7 @@ final class ErrorInterceptorSpec
         service.close()
         exerciseStreamingAkkaEndpoint(service)
           .map { t: StatusRuntimeException =>
-            assertMatchesErrorCode(t, LedgerApiErrors.ServerIsShuttingDown)
+            assertMatchesErrorCode(t, CommonErrors.ServerIsShuttingDown)
           }
       }
 
@@ -134,6 +129,23 @@ final class ErrorInterceptorSpec
             .map { t: StatusRuntimeException =>
               assertSecuritySanitizedError(t)
             }
+        }
+
+        "outside a Stream by directly calling stream-observer.onError" in {
+          exerciseStreamingAkkaEndpoint(
+            new HelloServiceFailingDirectlyObserverOnError
+          ).map { t: StatusRuntimeException =>
+            assertSecuritySanitizedError(t)
+            val loggedEntries = LogCollector.readAsEntries[this.type, ErrorInterceptor.type]
+            loggedEntries should have size 1
+            loggedEntries.head.throwableEntryO.flatMap(_.causeO).value shouldBe
+              ThrowableCause(
+                className = "java.lang.IllegalArgumentException",
+                message =
+                  "Failing the stream by passing a non error-code based error directly to observer.onError",
+              )
+            Assertions.succeed
+          }
         }
       }
 
@@ -162,7 +174,46 @@ final class ErrorInterceptorSpec
             }
         }
       }
+    }
+  }
 
+  LogOnUnhandledFailureInClose.getClass.getSimpleName - {
+    "is transparent when no exception is thrown" in {
+      var idx = 0
+      val call = () => {
+        idx += 1
+        idx
+      }
+      assert(LogOnUnhandledFailureInClose(call()) === 1)
+      assert(LogOnUnhandledFailureInClose(call()) === 2)
+    }
+
+    "logs and re-throws the exception of a " in {
+      val failure = new RuntimeException("some failure")
+      val failingCall = () => throw failure
+
+      implicit val ec: ExecutionContextExecutor = ExecutionContext.global
+
+      Future(LogOnUnhandledFailureInClose(failingCall())).failed.map {
+        case `failure` =>
+          val actual = LogCollector.readAsEntries[this.type, LogOnUnhandledFailureInClose.type]
+          assertSingleLogEntry(
+            actual = actual,
+            expectedLogLevel = Level.ERROR,
+            expectedMsg =
+              "LEDGER_API_INTERNAL_ERROR(4,0): Unhandled error in ServerCall.close(). The gRPC client might have not been notified about the call/stream termination. Either notify clients to retry pending unary/streaming calls or restart the participant server.",
+            expectedMarkerAsString =
+              """{err-context: "{location=ErrorInterceptor.scala:<line-number>, throwableO=Some(java.lang.RuntimeException: some failure)}"}""",
+            expectedThrowableEntry = Some(
+              ThrowableEntry(
+                className = "java.lang.RuntimeException",
+                message = "some failure",
+              )
+            ),
+          )
+          succeed
+        case other => fail("Unexpected failure", other)
+      }
     }
   }
 
@@ -229,30 +280,8 @@ final class ErrorInterceptorSpec
 object ErrorInterceptorSpec {
 
   def server(tested: ErrorInterceptor, service: BindableService): ResourceOwner[Channel] = {
-    for {
-      server <- serverOwner(interceptor = tested, service = service)
-      channel <- GrpcClientResource.owner(Port(server.getPort))
-    } yield channel
+    TestingServerInterceptors.channelOwner(tested, service)
   }
-
-  private def serverOwner(
-      interceptor: ServerInterceptor,
-      service: BindableService,
-  ): ResourceOwner[Server] =
-    new ResourceOwner[Server] {
-      def acquire()(implicit context: ResourceContext): Resource[Server] =
-        Resource(Future {
-          val server =
-            NettyServerBuilder
-              .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0))
-              .directExecutor()
-              .intercept(interceptor)
-              .addService(service)
-              .build()
-          server.start()
-          server
-        })(server => Future(server.shutdown().awaitTermination(10, TimeUnit.SECONDS): Unit))
-    }
 
   object FooMissingErrorCode
       extends ErrorCode(
@@ -260,10 +289,10 @@ object ErrorInterceptorSpec {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       )(ErrorClass.root()) {
 
-    case class Error(_msg: String)(implicit
+    case class Error(msg: String)(implicit
         val loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
-          cause = s"Foo is missing: ${_msg}"
+          cause = s"Foo is missing: ${msg}"
         )
 
   }
@@ -284,15 +313,20 @@ object ErrorInterceptorSpec {
     * @param errorInsideFutureOrStream - whether to signal the exception inside a Future or a Stream, or outside to them
     */
   class HelloServiceFailing(useSelfService: Boolean, errorInsideFutureOrStream: Boolean)(implicit
-      protected val esf: ExecutionSequencerFactory,
-      protected val mat: Materializer,
-  ) extends HelloServiceAkkaGrpc
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ) extends HelloService
+      with StreamingServiceLifecycleManagement
       with HelloServiceResponding
       with HelloServiceBase {
 
-    override protected def serverStreamingSource(
-        request: HelloRequest
-    ): Source[HelloResponse, NotUsed] = {
+    override protected val contextualizedErrorLogger: ContextualizedErrorLogger =
+      DamlContextualizedErrorLogger.forTesting(getClass)
+
+    override def serverStreaming(
+        request: HelloRequest,
+        responseObserver: StreamObserver[HelloResponse],
+    ): Unit = registerStream(responseObserver) {
       val where = if (errorInsideFutureOrStream) "inside" else "outside"
       val t: Throwable = if (useSelfService) {
         FooMissingErrorCode
@@ -325,6 +359,26 @@ object ErrorInterceptorSpec {
         throw t
       }
     }
+  }
+
+  class HelloServiceFailingDirectlyObserverOnError(implicit
+      protected val esf: ExecutionSequencerFactory,
+      protected val mat: Materializer,
+  ) extends HelloServiceResponding
+      with HelloServiceBase {
+
+    override def serverStreaming(
+        request: HelloRequest,
+        responseObserver: StreamObserver[HelloResponse],
+    ): Unit =
+      responseObserver.onError(
+        new IllegalArgumentException(
+          s"Failing the stream by passing a non error-code based error directly to observer.onError"
+        )
+      )
+
+    override def single(request: HelloRequest): Future[HelloResponse] =
+      Assertions.fail("This class is not intended to test unary endpoints")
   }
 
 }

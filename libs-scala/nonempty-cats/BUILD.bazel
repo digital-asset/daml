@@ -6,13 +6,11 @@ load(
     "da_scala_library",
     "da_scala_test",
     "kind_projector_plugin",
-    "lf_scalacopts",
+    "lf_scalacopts_stricter",
 )
 load("@scala_version//:index.bzl", "scala_major_version")
 
-scalacopts = lf_scalacopts + [
-    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-]
+scalacopts = lf_scalacopts_stricter
 
 da_scala_library(
     name = "nonempty-cats",
@@ -33,6 +31,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
+        "//libs-scala/nonempty",
         "//libs-scala/scala-utils",
     ],
 )
@@ -55,6 +54,7 @@ da_scala_test(
     scalacopts = scalacopts,
     deps = [
         ":nonempty-cats",
+        "//libs-scala/nonempty",
         "//libs-scala/scala-utils",
         "//libs-scala/scalatest-utils",
     ],

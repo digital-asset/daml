@@ -1,0 +1,12 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+
+-- | Check that no error is thrown if interface view exists and is serializable
+module InterfaceViewSerializable where
+
+data MyUnit = MyUnit {}
+
+interface I where
+  viewtype MyUnit

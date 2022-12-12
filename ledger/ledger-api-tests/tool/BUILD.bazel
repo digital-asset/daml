@@ -90,18 +90,24 @@ conformance_test(
         "//ledger/test-common/test-certificates:server.pem.enc",
         "//ledger/test-common/test-certificates:ca.crt",
     ],
-    lf_versions = lf_version_configuration_versions,
+    hocon = True,
+    lf_versions = [version for version in lf_version_configuration_versions],
     ports = [6865],
     server = "//ledger/sandbox-on-x:conformance-test-postgres-bin",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
-        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
-        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem.enc))",
-        "--tls-secrets-url https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json",
-        "--min-tls-version 1.3",
-    ],
+    server_args = ["run"],
+    server_hocon_config = """
+        ledger.participants.default.api-server {
+          seeding=testing-weak
+          tls {
+            enabled=true
+            cert-chain-file=$(rootpath //ledger/test-common/test-certificates:server.crt)
+            trust-collection-file=$(rootpath //ledger/test-common/test-certificates:ca.crt)
+            private-key-file=$(rootpath //ledger/test-common/test-certificates:server.pem.enc)
+            secrets-url="https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json"
+            minimum-server-protocol-version=TLSv1.3
+          }
+        }
+    """,
     test_tool_args = [
         "--verbose",
         "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
@@ -121,17 +127,23 @@ conformance_test(
         "//ledger/test-common/test-certificates:server.pem.enc",
         "//ledger/test-common/test-certificates:ca.crt",
     ],
-    lf_versions = lf_version_configuration_versions,
+    hocon = True,
+    lf_versions = [version for version in lf_version_configuration_versions],
     ports = [6865],
     server = "//ledger/sandbox-on-x:conformance-test-postgres-bin",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-        "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
-        "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
-        "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem.enc))",
-        "--tls-secrets-url https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json",
-    ],
+    server_args = ["run"],
+    server_hocon_config = """
+        ledger.participants.default.api-server {
+          seeding=testing-weak
+          tls {
+            enabled=true
+            cert-chain-file=$(rootpath //ledger/test-common/test-certificates:server.crt)
+            trust-collection-file=$(rootpath //ledger/test-common/test-certificates:ca.crt)
+            private-key-file=$(rootpath //ledger/test-common/test-certificates:server.pem.enc)
+            secrets-url="https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json"
+          }
+        }
+    """,
     test_tool_args = [
         "--verbose",
         "--crt $$(rlocation $$TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
@@ -143,7 +155,7 @@ conformance_test(
 
 # This deliberately uses the deploy.jar since that’s what we ship
 # and we want to test that the extract option works there.
-# Given subleties in classpaths, it could potentially work
+# Given subtleties in classpaths, it could potentially work
 # in the non-deploy jar.
 sh_test(
     name = "test-extract",

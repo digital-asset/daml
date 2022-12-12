@@ -17,6 +17,7 @@ import com.daml.http.json.{
   DomainJsonEncoder,
   JsValueToApiValueConverter,
 }
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.ApiValueToLfValueConverter
 import com.daml.http.util.FutureUtil._
 import com.daml.http.util.Logging.InstanceUUID
@@ -33,7 +34,7 @@ import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.Metrics
+import com.daml.metrics.akkahttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import scalaz.Scalaz._
@@ -63,6 +64,9 @@ object HttpService {
 
   final case class Error(message: String)
 
+  private def isLogLevelEqualOrBelowDebug(logLevel: Option[LogLevel]) =
+    logLevel.exists(!_.isGreaterOrEqual(LogLevel.INFO))
+
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   def start(
       startSettings: StartSettings,
@@ -74,7 +78,7 @@ object HttpService {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Future[Error \/ (ServerBinding, Option[ContractDao])] = {
 
     logger.info("HTTP Server pre-startup")
@@ -130,7 +134,7 @@ object HttpService {
       )
 
       contractsService = new ContractsService(
-        packageService.resolveTemplateId,
+        packageService.resolveContractTypeId,
         packageService.allTemplateIds,
         LedgerClientJwt.getActiveContracts(client),
         LedgerClientJwt.getCreatesAndArchivesSince(client),
@@ -151,7 +155,11 @@ object HttpService {
         { case (jwt, ledgerId, byteString) =>
           implicit lc =>
             LedgerClientJwt
-              .uploadDar(pkgManagementClient)(jwt, ledgerId, byteString)(lc)
+              .uploadDar(pkgManagementClient)(ec)(
+                jwt,
+                ledgerId,
+                byteString,
+              )(lc)
               .flatMap(_ => packageService.reload(jwt, ledgerId))
               .map(_ => ())
         },
@@ -159,7 +167,10 @@ object HttpService {
 
       meteringReportService = new MeteringReportService(
         { case (jwt, request) =>
-          implicit lc => LedgerClientJwt.getMeteringReport(client)(jwt, request)(lc)
+          implicit lc =>
+            LedgerClientJwt.getMeteringReport(client)(ec)(jwt, request)(
+              lc
+            )
         }
       )
 
@@ -184,14 +195,14 @@ object HttpService {
         healthService,
         encoder,
         decoder,
-        logLevel.exists(!_.isGreaterOrEqual(LogLevel.INFO)), // Everything below DEBUG enables this
+        isLogLevelEqualOrBelowDebug(logLevel),
         client.userManagementClient,
         client.identityClient,
       )
 
       websocketService = new WebSocketService(
         contractsService,
-        packageService.resolveTemplateId,
+        packageService.resolveContractTypeId,
         decoder,
         LedgerReader.damlLfTypeLookup(() => packageService.packageStore),
         wsConfig,
@@ -204,8 +215,12 @@ object HttpService {
         client.identityClient,
       )
 
+      rateDurationSizeMetrics = HttpMetricsInterceptor.rateDurationSizeMetrics(
+        metrics.http
+      )
+
       defaultEndpoints =
-        concat(
+        rateDurationSizeMetrics apply concat(
           jsonEndpoints.all: Route,
           websocketEndpoints.transactionWebSocket,
         )
@@ -279,7 +294,7 @@ object HttpService {
     )
 
     val decoder = new DomainJsonDecoder(
-      packageService.resolveTemplateId,
+      packageService.resolveContractTypeId,
       packageService.resolveTemplateRecordType,
       packageService.resolveChoiceArgType,
       packageService.resolveKeyType,

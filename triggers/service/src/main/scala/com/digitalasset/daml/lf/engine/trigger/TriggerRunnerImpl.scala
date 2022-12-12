@@ -19,13 +19,16 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.lf.CompiledPackages
+import com.daml.lf.engine.trigger.Runner.TriggerContext
+import com.daml.lf.engine.trigger.ToLoggingContext._
 import com.daml.lf.engine.trigger.TriggerRunner.{QueryingACS, Running, TriggerStatus}
-import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.logging.ContextualizedLogger
 import io.grpc.Status.Code
 import scalaz.syntax.tag._
-import java.util.UUID
 
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 object TriggerRunnerImpl {
@@ -39,12 +42,19 @@ object TriggerRunnerImpl {
       refreshToken: Option[RefreshToken],
       compiledPackages: CompiledPackages,
       trigger: Trigger,
+      triggerConfig: TriggerRunnerConfig,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
       readAs: Set[Party],
   ) {
-    private[trigger] def withLoggingContext[T]: (LoggingContextOf[Trigger with Config] => T) => T =
-      Trigger.newLoggingContext(trigger.triggerDefinition, party, readAs, Some(triggerInstance))
+    private[trigger] def withTriggerLogContext[T]: (TriggerLogContext => T) => T =
+      Trigger.newTriggerLogContext(
+        trigger.defn.id,
+        party,
+        readAs,
+        triggerInstance.toString,
+        applicationId,
+      )
   }
 
   sealed trait Message
@@ -59,7 +69,7 @@ object TriggerRunnerImpl {
   def apply(config: Config)(implicit
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-      loggingContext: LoggingContextOf[Config with Trigger],
+      triggerContext: TriggerLogContext,
   ): Behavior[Message] =
     Behaviors.setup { ctx =>
       val name = ctx.self.path.name
@@ -108,8 +118,7 @@ object TriggerRunnerImpl {
               val (killSwitch, trigger) = runner.runWithACS(
                 acs,
                 offset,
-                msgFlow = KillSwitches.single[TriggerMsg],
-                name,
+                msgFlow = KillSwitches.single[TriggerContext[TriggerMsg]],
               )
 
               // If we are stopped we will end up causing the future
@@ -130,10 +139,10 @@ object TriggerRunnerImpl {
               logger.info(s"Trigger $name is starting")
               running(killSwitch)
             } catch {
-              case cause: Throwable =>
+              case NonFatal(cause) =>
                 // Report the failure to the server.
                 config.server ! Server.TriggerInitializationFailure(triggerInstance, cause.toString)
-                logger.info(s"Trigger $name failed during initialization: $cause")
+                logger.error(s"Trigger $name failed during initialization", cause)
                 // Tell our monitor there's been a failure. The
                 // monitor's supervisor strategy will respond to
                 // this by writing the exception to the log and
@@ -156,7 +165,7 @@ object TriggerRunnerImpl {
             case Failed(cause) =>
               // Report the failure to the server.
               config.server ! Server.TriggerRuntimeFailure(triggerInstance, cause.toString)
-              logger.info(s"Trigger $name failed: $cause")
+              logger.error(s"Trigger $name failed", cause)
               // Tell our monitor there's been a failure. The
               // monitor's supervisor strategy will respond to this by
               // writing the exception to the log and attempting to
@@ -187,9 +196,10 @@ object TriggerRunnerImpl {
           clientConfig,
           channelConfig,
         )
-        runner = new Runner(
+        runner = Runner(
           config.compiledPackages,
           config.trigger,
+          config.triggerConfig,
           client,
           config.ledgerConfig.timeProvider,
           config.applicationId,

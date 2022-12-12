@@ -10,13 +10,16 @@ schedules:
     include:
     - main
 
+parameters:
+- name: version
+  type: string
+  default: snapshot
+- name: commit
+  type: string
+  default: HEAD
+
 jobs:
 - job: check_for_release
-  dependsOn:
-    - git_sha
-  variables:
-    branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
-    fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
   pool:
     name: "ubuntu_20_04"
     demands: assignment -equals default
@@ -29,8 +32,12 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
-        prefix=$(head -1 LATEST | awk '{print $2}' | sed -e 's/\([^-]*\).*/\1/')
-        release=$(./release.sh snapshot HEAD $prefix | awk '{print $2}')
+        prefix=$(cat NIGHTLY_PREFIX)
+        if [ "${{ parameters.version }}" = "snapshot" ]; then
+            release=$(./release.sh snapshot HEAD $prefix | awk '{print $2}')
+        else
+            release=${{ parameters.version }}
+        fi
 
         ERR=$(mktemp)
         OUT=$(curl https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/$release \
@@ -45,9 +52,9 @@ jobs:
             ;;
           404)
             setvar is_release true
-            setvar trigger_sha "$(branch_sha)"
-            setvar release_sha "$(branch_sha)"
-            setvar release_tag "$release"
+            setvar trigger_sha $(git rev-parse HEAD)
+            setvar release_sha $(git rev-parse ${{ parameters.commit }})
+            setvar release_tag $release
             setvar split_release_process true
             ;;
           *)

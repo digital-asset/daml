@@ -6,6 +6,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
+load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
 
 da_scala_library(
     name = "participant-state",
@@ -35,10 +36,10 @@ da_scala_library(
         "//ledger/ledger-configuration/protobuf:ledger_configuration_proto_java",
         "//ledger/ledger-grpc",
         "//ledger/ledger-offset",
-        "//ledger/metrics",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
         "//libs-scala/logging-entries",
+        "//observability/telemetry",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
@@ -70,4 +71,22 @@ da_scala_test_suite(
         "//ledger/ledger-offset",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
+)
+
+da_scala_dar_resources_library(
+    add_maven_tag = True,
+    daml_dir_names = {
+        "1.dev": [
+            "simple_package_party",
+            "simple_package_optional",
+            "simple_package_list",
+            "simple_package_text_map",
+            "simple_package_variant",
+            "simple_package_tuple",
+        ],
+    },
+    daml_root_dir = "src/test/lib/daml",
+    lf_versions = ["1.dev"],
+    maven_name_prefix = "participant-state-test",
+    visibility = ["//:__subpackages__"],
 )

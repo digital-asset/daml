@@ -8,15 +8,15 @@ import akka.stream.scaladsl.Flow
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.runner.common.{Config, ParticipantConfig}
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider}
+import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge
 import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.data.Ref.ParticipantId
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.google.common.primitives.Longs
 
@@ -29,37 +29,39 @@ trait LedgerBridge {
 
 object LedgerBridge {
   def owner(
-      config: Config[BridgeConfig],
-      participantConfig: ParticipantConfig,
+      participantId: Ref.ParticipantId,
+      bridgeConfig: BridgeConfig,
       indexService: IndexService,
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
       timeProvider: TimeProvider,
+      stageBufferSize: Int,
+      explicitDisclosureEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContext,
       servicesExecutionContext: ExecutionContext,
   ): ResourceOwner[LedgerBridge] =
-    if (config.extra.conflictCheckingEnabled)
+    if (bridgeConfig.conflictCheckingEnabled)
       buildConfigCheckingLedgerBridge(
-        config,
-        participantConfig,
+        participantId,
         indexService,
         bridgeMetrics,
         servicesThreadPoolSize,
         timeProvider,
+        stageBufferSize,
+        explicitDisclosureEnabled,
       )
     else
-      ResourceOwner.forValue(() =>
-        new PassThroughLedgerBridge(participantConfig.participantId, timeProvider)
-      )
+      ResourceOwner.forValue(() => new PassThroughLedgerBridge(participantId, timeProvider))
 
   private def buildConfigCheckingLedgerBridge(
-      config: Config[BridgeConfig],
-      participantConfig: ParticipantConfig,
+      participantId: Ref.ParticipantId,
       indexService: IndexService,
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
       timeProvider: TimeProvider,
+      stageBufferSize: Int,
+      explicitDisclosureEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContext,
       servicesExecutionContext: ExecutionContext,
@@ -73,7 +75,7 @@ object LedgerBridge {
         indexService.listKnownParties().map(_.map(_.party).toSet)
       )
     } yield ConflictCheckingLedgerBridge(
-      participantId = participantConfig.participantId,
+      participantId = participantId,
       indexService = indexService,
       timeProvider = timeProvider,
       initialLedgerEnd =
@@ -81,13 +83,12 @@ object LedgerBridge {
       initialAllocatedParties = allocatedPartiesAtInitialization,
       initialLedgerConfiguration = initialLedgerConfiguration,
       bridgeMetrics = bridgeMetrics,
-      validatePartyAllocation = !config.extra.implicitPartyAllocation,
       servicesThreadPoolSize = servicesThreadPoolSize,
       maxDeduplicationDuration = initialLedgerConfiguration
         .map(_.maxDeduplicationDuration)
-        .getOrElse(
-          BridgeConfigProvider.initialLedgerConfig(config).configuration.maxDeduplicationDuration
-        ),
+        .getOrElse(BridgeConfig.DefaultMaximumDeduplicationDuration),
+      stageBufferSize = stageBufferSize,
+      explicitDisclosureEnabled = explicitDisclosureEnabled,
     )
 
   private[bridge] def packageUploadSuccess(
@@ -133,6 +134,7 @@ object LedgerBridge {
       transactionSubmission: Submission.Transaction,
       index: Long,
       currentTimestamp: Time.Timestamp,
+      populateContractMetadata: Boolean,
   ): Update.TransactionAccepted = {
     val submittedTransaction = transactionSubmission.transaction
     val completionInfo = Some(
@@ -140,6 +142,19 @@ object LedgerBridge {
         Some(TransactionNodeStatistics(submittedTransaction))
       )
     )
+    val contractMetadata: Map[ContractId, Bytes] =
+      if (populateContractMetadata) {
+        submittedTransaction
+          .localContracts[ContractId]
+          .keySet
+          .view
+          .map[(ContractId, Bytes)] { case cid: ContractId.V1 =>
+            cid -> cid.toBytes
+          }
+          .toMap
+      } else {
+        Map.empty
+      }
     Update.TransactionAccepted(
       optCompletionInfo = completionInfo,
       transactionMeta = transactionSubmission.transactionMeta,
@@ -148,6 +163,7 @@ object LedgerBridge {
       recordTime = currentTimestamp,
       divulgedContracts = Nil,
       blindingInfo = None,
+      contractMetadata = contractMetadata,
     )
   }
 

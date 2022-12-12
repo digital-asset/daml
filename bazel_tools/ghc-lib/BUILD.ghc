@@ -1,0 +1,7 @@
+load("@com_github_digital_asset_daml//bazel_tools/ghc-lib:defs.bzl", "ghc")
+
+# Note, we use this indirection to avoid a re-fetch of the GHC repository on
+# changes of the build definitions.
+# See https://docs.bazel.build/versions/main/external.html#caching-of-external-dependencies
+# > Changes to files referenced in the definition (e.g., patches or BUILD files) are also taken into account by bazel.
+ghc()

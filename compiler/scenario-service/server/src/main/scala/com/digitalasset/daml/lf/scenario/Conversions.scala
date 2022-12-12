@@ -14,6 +14,7 @@ import com.daml.lf.value.{Value => V}
 
 import scala.jdk.CollectionConverters._
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 final class Conversions(
     homePackageId: Ref.PackageId,
     ledger: ScenarioLedger,
@@ -53,6 +54,11 @@ final class Conversions(
       .addAllScenarioSteps(steps.asJava)
       .setReturnValue(convertSValue(svalue))
       .setFinalTime(ledger.currentTime.micros)
+      .addAllActiveContracts(
+        ledger.ledgerData.activeContracts.view
+          .map[String](coid => coidToEventId(coid).toLedgerString)
+          .asJava
+      )
     traceLog.iterator.foreach { entry =>
       builder.addTraceLog(convertSTraceMessage(entry))
     }
@@ -67,6 +73,11 @@ final class Conversions(
       .addAllNodes(nodes.asJava)
       .addAllScenarioSteps(steps.asJava)
       .setLedgerTime(ledger.currentTime.micros)
+      .addAllActiveContracts(
+        ledger.ledgerData.activeContracts.view
+          .map[String](coid => coidToEventId(coid).toLedgerString)
+          .asJava
+      )
 
     traceLog.iterator.foreach { entry =>
       builder.addTraceLog(convertSTraceMessage(entry))
@@ -125,12 +136,20 @@ final class Conversions(
                     .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
                     .build
                 )
-              case LocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
+              case DisclosedContractKeyHashingError(contractId, templateId, reason) =>
+                builder.setDisclosedContractKeyHashingError(
+                  proto.ScenarioError.DisclosedContractKeyHashingError.newBuilder
+                    .setContractRef(mkContractRef(contractId, templateId))
+                    .setTemplateId(convertIdentifier(templateId))
+                    .setReason(reason)
+                    .build
+                )
+              case ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
                 builder.setScenarioContractKeyNotVisible(
                   proto.ScenarioError.ContractKeyNotVisible.newBuilder
                     .setContractRef(mkContractRef(coid, gk.templateId))
-                    .addAllActAs(actAs.map(convertParty(_)).asJava)
-                    .addAllReadAs(readAs.map(convertParty(_)).asJava)
+                    .addAllActAs(actAs.map(convertParty).asJava)
+                    .addAllReadAs(readAs.map(convertParty).asJava)
                     .addAllStakeholders(stakeholders.map(convertParty).asJava)
                     .build
                 )
@@ -143,7 +162,15 @@ final class Conversions(
                 )
               case DuplicateContractKey(key) =>
                 builder.setScenarioCommitError(
-                  proto.CommitError.newBuilder.setUniqueKeyViolation(convertGlobalKey(key)).build
+                  proto.CommitError.newBuilder
+                    .setUniqueContractKeyViolation(convertGlobalKey(key))
+                    .build
+                )
+              case InconsistentContractKey(key) =>
+                builder.setScenarioCommitError(
+                  proto.CommitError.newBuilder
+                    .setInconsistentContractKey(convertGlobalKey(key))
+                    .build
                 )
               case CreateEmptyContractKeyMaintainers(tid, arg, key) =>
                 builder.setCreateEmptyContractKeyMaintainers(
@@ -164,10 +191,26 @@ final class Conversions(
                     .setContractRef(mkContractRef(coid, actual))
                     .setExpected(convertIdentifier(expected))
                 )
-              case _: ContractDoesNotImplementInterface =>
-                // TODO https://github.com/digital-asset/daml/issues/12051
-                //   Implement this.
-                builder.setCrash(s"ContractDoesNotImplementInterface unhandled in scenario service")
+              case ContractDoesNotImplementInterface(interfaceId, coid, templateId) =>
+                builder.setContractDoesNotImplementInterface(
+                  proto.ScenarioError.ContractDoesNotImplementInterface.newBuilder
+                    .setContractRef(mkContractRef(coid, templateId))
+                    .setInterfaceId(convertIdentifier(interfaceId))
+                    .build
+                )
+              case ContractDoesNotImplementRequiringInterface(
+                    requiredIfaceId,
+                    requiringIfaceId,
+                    coid,
+                    templateId,
+                  ) =>
+                builder.setContractDoesNotImplementRequiringInterface(
+                  proto.ScenarioError.ContractDoesNotImplementRequiringInterface.newBuilder
+                    .setContractRef(mkContractRef(coid, templateId))
+                    .setRequiredInterfaceId(convertIdentifier(requiredIfaceId))
+                    .setRequiringInterfaceId(convertIdentifier(requiringIfaceId))
+                    .build
+                )
               case FailedAuthorization(nid, fa) =>
                 builder.setScenarioCommitError(
                   proto.CommitError.newBuilder
@@ -194,10 +237,25 @@ final class Conversions(
                     builder.setCrash(s"A limit was overpass when building the transaction")
                 }
 
-              case _: ChoiceGuardFailed =>
-                // TODO https://github.com/digital-asset/daml/issues/12051
-                //   Implement this.
-                builder.setCrash(s"ChoiceGuardFailed unhandled in scenario service")
+              case ChoiceGuardFailed(coid, templateId, choiceName, byInterface) =>
+                val cgfBuilder =
+                  proto.ScenarioError.ChoiceGuardFailed.newBuilder
+                    .setContractRef(mkContractRef(coid, templateId))
+                    .setChoiceId(choiceName)
+                byInterface.foreach(ifaceId =>
+                  cgfBuilder.setByInterface(convertIdentifier(ifaceId))
+                )
+                builder.setChoiceGuardFailed(cgfBuilder.build)
+
+              case DisclosurePreprocessing(err) =>
+                err match {
+                  case DisclosurePreprocessing.DuplicateContractKeys(tid, keyHash) =>
+                    builder.setDisclosurePreprocessingDuplicateContractKeys(
+                      proto.ScenarioError.DisclosurePreprocessingDuplicateContractKeys.newBuilder
+                        .setTemplateId(convertIdentifier(tid))
+                        .setKeyHash(keyHash.toHexString)
+                    )
+                }
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>
@@ -208,12 +266,12 @@ final class Conversions(
             .build
         )
 
-      case Error.ContractNotActive(coid, tid, consumedBy) =>
+      case Error.ContractNotActive(coid, tid, optConsumedBy) =>
+        val errorBuilder = proto.ScenarioError.ContractNotActive.newBuilder
+          .setContractRef(mkContractRef(coid, tid))
+        optConsumedBy.foreach(consumedBy => errorBuilder.setConsumedBy(convertEventId(consumedBy)))
         builder.setScenarioContractNotActive(
-          proto.ScenarioError.ContractNotActive.newBuilder
-            .setContractRef(mkContractRef(coid, tid))
-            .setConsumedBy(convertEventId(consumedBy))
-            .build
+          errorBuilder.build
         )
 
       case Error.ContractNotVisible(coid, tid, actAs, readAs, observers) =>
@@ -263,7 +321,7 @@ final class Conversions(
     val builder = proto.CommitError.newBuilder
     commitError match {
       case ScenarioLedger.CommitError.UniqueKeyViolation(gk) =>
-        builder.setUniqueKeyViolation(convertGlobalKey(gk.gk))
+        builder.setUniqueContractKeyViolation(convertGlobalKey(gk.gk))
     }
     builder.build
   }
@@ -496,10 +554,6 @@ final class Conversions(
 
     nodeInfo.consumedBy
       .map(eventId => builder.setConsumedBy(convertEventId(eventId)))
-    nodeInfo.rolledbackBy
-      .map(nodeId => builder.setRolledbackBy(convertNodeId(eventId.transactionId, nodeId)))
-    nodeInfo.parent
-      .map(eventId => builder.setParent(convertEventId(eventId)))
 
     nodeInfo.node match {
       case rollback: Node.Rollback =>
@@ -511,6 +565,7 @@ final class Conversions(
       case create: Node.Create =>
         val createBuilder =
           proto.Node.Create.newBuilder
+            .setContractId(coidToEventId(create.coid).toLedgerString)
             .setContractInstance(
               proto.ContractInstance.newBuilder
                 .setTemplateId(convertIdentifier(create.templateId))
@@ -523,14 +578,18 @@ final class Conversions(
         nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
       case fetch: Node.Fetch =>
-        builder.setFetch(
+        val fetchBuilder =
           proto.Node.Fetch.newBuilder
             .setContractId(coidToEventId(fetch.coid).toLedgerString)
             .setTemplateId(convertIdentifier(fetch.templateId))
             .addAllSignatories(fetch.signatories.map(convertParty).asJava)
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
-            .build
-        )
+        if (fetch.byKey) {
+          fetch.versionedKey.foreach { key =>
+            fetchBuilder.setFetchByKey(convertKeyWithMaintainers(key))
+          }
+        }
+        builder.setFetch(fetchBuilder.build)
       case ex: Node.Exercise =>
         nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         val exerciseBuilder =
@@ -549,11 +608,14 @@ final class Conversions(
                 .toSeq
                 .asJava
             )
-
         ex.exerciseResult.foreach { result =>
           exerciseBuilder.setExerciseResult(convertValue(result))
         }
-
+        if (ex.byKey) {
+          ex.versionedKey.foreach { key =>
+            exerciseBuilder.setExerciseByKey(convertKeyWithMaintainers(key))
+          }
+        }
         builder.setExercise(exerciseBuilder.build)
 
       case lbk: Node.LookupByKey =>

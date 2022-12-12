@@ -19,9 +19,10 @@ object TransactionVersion {
   case object V12 extends TransactionVersion("12", 12)
   case object V13 extends TransactionVersion("13", 13)
   case object V14 extends TransactionVersion("14", 14)
+  case object V15 extends TransactionVersion("15", 15)
   case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
-  val All = List(V10, V11, V12, V13, V14, VDev)
+  val All = List(V10, V11, V12, V13, V14, V15, VDev)
 
   implicit val Ordering: scala.Ordering[TransactionVersion] =
     scala.Ordering.by(_.index)
@@ -46,10 +47,11 @@ object TransactionVersion {
   private[lf] val minNodeVersion = V11
   private[lf] val minNoVersionValue = V12
   private[lf] val minTypeErasure = V12
-  //nothing was added in V13, so there are no vals: "minSomething = V13"
+  // nothing was added in V13, so there are no vals: "minSomething = V13"
   private[lf] val minExceptions = V14
   private[lf] val minByKey = V14
-  private[lf] val minInterfaces = VDev
+  private[lf] val minInterfaces = V15
+  private[lf] val minExplicitDisclosure = VDev
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
     import LanguageVersion._
@@ -61,21 +63,23 @@ object TransactionVersion {
       v1_12 -> V12,
       v1_13 -> V13,
       v1_14 -> V14,
+      v1_15 -> V15,
       v1_dev -> VDev,
     )
   }
 
-  private[lf] def asVersionedTransaction(
-      tx: Transaction
-  ): VersionedTransaction = {
+  private[lf] def txVersion(tx: Transaction) = {
     import scala.Ordering.Implicits.infixOrderingOps
-
-    val txVersion = tx.nodes.valuesIterator.foldLeft(TransactionVersion.minVersion) {
+    tx.nodes.valuesIterator.foldLeft(TransactionVersion.minVersion) {
       case (acc, action: Node.Action) => acc max action.version
       case (acc, _: Node.Rollback) => acc max minExceptions
     }
-    VersionedTransaction(txVersion, tx.nodes, tx.roots)
   }
+
+  private[lf] def asVersionedTransaction(
+      tx: Transaction
+  ): VersionedTransaction =
+    VersionedTransaction(txVersion(tx), tx.nodes, tx.roots)
 
   val StableVersions: VersionRange[TransactionVersion] =
     LanguageVersion.StableVersions.map(assignNodeVersion)

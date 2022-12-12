@@ -3,21 +3,24 @@
 
 package com.daml.platform.sandbox.auth
 
-import java.time.Duration
-import java.util.UUID
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.auth.client.LedgerCallCredentials
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
+import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
-import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.platform.sandbox.fixture.{CreatesParties, SandboxFixture}
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
+import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}
 import io.grpc.Status
 import io.grpc.stub.AbstractStub
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+import java.time.Duration
+import java.util.UUID
 
 import scala.concurrent.Future
 import scala.util.control.NonFatal
@@ -25,11 +28,49 @@ import scala.util.control.NonFatal
 trait ServiceCallAuthTests
     extends AsyncFlatSpec
     with SandboxFixture
+    with CreatesParties
     with SandboxRequiringAuthorization
     with SuiteResourceManagementAroundAll
     with Matchers {
 
+  val securityAsset: SecurityTest =
+    SecurityTest(property = Authorization, asset = s"User Endpoint $serviceCallName")
+
+  val adminSecurityAsset: SecurityTest =
+    SecurityTest(property = Authorization, asset = s"Admin Endpoint $serviceCallName")
+
+  def attackPermissionDenied(threat: String): Attack = Attack(
+    actor = s"Ledger API client calling $serviceCallName",
+    threat = threat,
+    mitigation = s"Refuse call by the client with PERMISSION_DENIED to $serviceCallName",
+  )
+
+  def attackInvalidArgument(threat: String): Attack = Attack(
+    actor = s"Ledger API client calling $serviceCallName",
+    threat = threat,
+    mitigation = s"Refuse call by the client with INVALID_ARGUMENT to $serviceCallName",
+  )
+
+  def attackUnauthenticated(threat: String): Attack = Attack(
+    actor = s"Ledger API client calling $serviceCallName",
+    threat = threat,
+    mitigation = s"Refuse call by the client with UNAUTHENTICATED to $serviceCallName",
+  )
+
+  def streamAttack(threat: String): Attack = Attack(
+    actor = s"Ledger API stream client calling $serviceCallName",
+    threat = threat,
+    mitigation = s"Break the stream of $serviceCallName",
+  )
+
   def serviceCallName: String
+
+  protected def prerequisiteParties: List[String] = List.empty
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    createPrerequisiteParties(canReadAsAdminStandardJWT, prerequisiteParties)
+  }
 
   protected def serviceCallWithToken(token: Option[String]): Future[Any]
 
@@ -108,10 +149,10 @@ trait ServiceCallAuthTests
 
   // Special tokens to test decoding users and rights from custom tokens
   protected val randomUserCanReadAsRandomParty: Option[String] =
-    Option(toHeader(readOnlyToken(randomParty).copy(applicationId = Some(randomUserId))))
+    Option(toHeader(readOnlyToken(randomParty).copy(applicationId = Some(randomUserId()))))
   protected val randomUserCanActAsRandomParty: Option[String] =
     Option(
-      toHeader(readWriteToken(randomParty).copy(applicationId = Some(randomUserId)))
+      toHeader(readWriteToken(randomParty).copy(applicationId = Some(randomUserId())))
     )
 
   // Note: lazy val, because the ledger ID is only known after the sandbox start
@@ -153,9 +194,21 @@ trait ServiceCallAuthTests
       rights: Vector[proto.Right] = Vector.empty,
   ): Future[(proto.User, Option[String])] = {
     val userToken = Option(toHeader(standardToken(userId)))
-    val req = proto.CreateUserRequest(Some(proto.User(userId)), rights)
+    val user = proto.User(
+      id = userId,
+      metadata = Some(ObjectMeta()),
+    )
+    val req = proto.CreateUserRequest(Some(user), rights)
     stub(proto.UserManagementServiceGrpc.stub(channel), canReadAsAdminStandardJWT)
       .createUser(req)
       .map(res => (res.user.get, userToken))
+  }
+
+  protected def updateUser(
+      accessToken: String,
+      req: proto.UpdateUserRequest,
+  ): Future[proto.UpdateUserResponse] = {
+    stub(proto.UserManagementServiceGrpc.stub(channel), Some(accessToken))
+      .updateUser(req)
   }
 }

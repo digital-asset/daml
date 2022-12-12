@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Locking by safekeeping
-######################
+Lock by Safekeeping
+###################
 
 Safekeeping is a realistic way to model locking as it is a common practice in many industries. For example, during a real estate transaction, purchase funds are transferred to the sellers lawyer’s escrow account after the contract is signed and before closing. To understand its implementation, review the original *Coin* template first.
 
@@ -42,8 +42,9 @@ There is no need to make a change to the original contract. With two additional 
   :end-before: -- END_LOCKED_COIN_V2_TEMPLATE
 
 .. figure:: ../images/lockingBySafekeeping.png
+   :alt: Locking by Safekeeping diagram, showing the ownership transfer of Coin and the creation of LockedCoin
 
-  Locking By Safekeeping Diagram
+   Locking By Safekeeping Diagram
 
 Trade-offs
 **********

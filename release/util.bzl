@@ -8,7 +8,6 @@ inputs = {
     "sdk_config": ":sdk-config.yaml.tmpl",
     "install_sh": ":install.sh",
     "install_bat": ":install.bat",
-    "sandbox_logback": "//ledger/sandbox-common:src/main/resources/logback.xml",
     "navigator_logback": "//navigator/backend:src/main/resources/logback.xml",
     "http_json_logback": "//ledger-service/http-json:src/main/resources/logback.xml",
     "oauth2_middleware_logback": "//triggers/service/auth:release/oauth2-middleware-logback.xml",
@@ -93,7 +92,6 @@ def sdk_tarball(name, version, config):
           cp -L $(location {http_json_logback}) $$OUT/daml-sdk/json-api-logback.xml
           cp -L $(location {trigger_service_logback}) $$OUT/daml-sdk/
           cp -L $(location {oauth2_middleware_logback}) $$OUT/daml-sdk/
-          cp -L $(location {sandbox_logback}) $$OUT/daml-sdk/sandbox-logback.xml
           cp -L $(location {navigator_logback}) $$OUT/daml-sdk/navigator-logback.xml
           cp -L $(location {java_codegen_logback}) $$OUT/daml-sdk/codegen-logback.xml
           cp -L $(location {trigger_logback}) $$OUT/daml-sdk/trigger-logback.xml

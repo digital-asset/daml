@@ -26,7 +26,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       dummyFactory <- ledger.create(party, DummyFactory(party))
-      transactions <- ledger.exercise(party, dummyFactory.exerciseDummyFactoryCall)
+      transactions <- ledger.exercise(party, dummyFactory.exerciseDummyFactoryCall())
     } yield {
       val events = transactions.rootEventIds.collect(transactions.eventsById)
       val exercised = events.filter(_.kind.isExercised)
@@ -34,7 +34,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
       assert(
         exercised.head.getExercised.contractId == Tag.unwrap(dummyFactory),
         s"The identifier of the exercised contract should have been ${Tag
-          .unwrap(dummyFactory)} but instead it was ${exercised.head.getExercised.contractId}",
+            .unwrap(dummyFactory)} but instead it was ${exercised.head.getExercised.contractId}",
       )
     }
   })
@@ -46,7 +46,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       factory <- ledger.create(party, DummyFactory(party))
-      _ <- ledger.exercise(party, factory.exerciseDummyFactoryCall)
+      _ <- ledger.exercise(party, factory.exerciseDummyFactoryCall())
       dummyWithParam <- ledger.flatTransactionsByTemplateId(DummyWithParam.id, party)
       dummyFactory <- ledger.flatTransactionsByTemplateId(DummyFactory.id, party)
     } yield {
@@ -77,8 +77,8 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(alpha, receiver), Participant(beta, giver)) =>
     for {
       agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
-      _ <- eventually {
-        alpha.exercise(receiver, agreementFactory.exerciseCreateAgreement)
+      _ <- eventually("exerciseCreateAgreement") {
+        alpha.exercise(receiver, agreementFactory.exerciseCreateAgreement())
       }
       _ <- synchronize(alpha, beta)
       transactions <- alpha.flatTransactions(receiver, giver)
@@ -99,7 +99,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
       createAndFetch <- ledger.create(party, CreateAndFetch(party))
       transaction <- ledger.exerciseForFlatTransaction(
         party,
-        createAndFetch.exerciseCreateAndFetch_Run,
+        createAndFetch.exerciseCreateAndFetch_Run(),
       )
     } yield {
       val _ = assertSingleton("There should be only one create", createdEvents(transaction))
@@ -124,7 +124,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
         .exercise(
           party,
           dummy
-            .exerciseConsumeIfTimeIsBetween(_, Primitive.Timestamp.MAX, Primitive.Timestamp.MAX),
+            .exerciseConsumeIfTimeIsBetween(Primitive.Timestamp.MAX, Primitive.Timestamp.MAX),
         )
         .mustFail("exercising with a failing assertion")
     } yield {

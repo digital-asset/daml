@@ -3,24 +3,32 @@
 
 package com.daml.lf.engine.trigger
 
+import ch.qos.logback.classic.Level
+
 import java.nio.file.{Path, Paths}
 import java.time.Duration
-
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.client.LedgerClient
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.lf.speedy.Compiler
 
 import scala.concurrent.{ExecutionContext, Future}
 
+sealed trait LogEncoder
+object LogEncoder {
+  object Plain extends LogEncoder
+  object Json extends LogEncoder
+}
+
 case class RunnerConfig(
     darPath: Path,
-    // If true, we will only list the triggers in the DAR and exit.
-    listTriggers: Boolean,
+    // If defined, we will only list the triggers in the DAR and exit.
+    listTriggers: Option[Boolean],
     triggerIdentifier: String,
     ledgerHost: String,
     ledgerPort: Int,
@@ -33,6 +41,9 @@ case class RunnerConfig(
     applicationId: ApplicationId,
     tlsConfig: TlsConfiguration,
     compilerConfig: Compiler.Config,
+    triggerConfig: TriggerRunnerConfig,
+    rootLoggingLevel: Option[Level],
+    logEncoder: LogEncoder,
 ) {
   private def updatePartySpec(f: TriggerParties => TriggerParties): RunnerConfig =
     if (ledgerClaims == null) {
@@ -70,12 +81,16 @@ sealed abstract class ClaimsSpecification {
 }
 
 final case class PartySpecification(claims: TriggerParties) extends ClaimsSpecification {
-  override def resolveClaims(client: LedgerClient)(implicit ec: ExecutionContext) =
+  override def resolveClaims(client: LedgerClient)(implicit
+      ec: ExecutionContext
+  ): Future[TriggerParties] =
     Future.successful(claims)
 }
 
 final case class UserSpecification(userId: Ref.UserId) extends ClaimsSpecification {
-  override def resolveClaims(client: LedgerClient)(implicit ec: ExecutionContext) = for {
+  override def resolveClaims(
+      client: LedgerClient
+  )(implicit ec: ExecutionContext): Future[TriggerParties] = for {
     user <- client.userManagementClient.getUser(userId)
     primaryParty <- user.primaryParty.fold[Future[Ref.Party]](
       Future.failed(
@@ -83,7 +98,7 @@ final case class UserSpecification(userId: Ref.UserId) extends ClaimsSpecificati
           s"User $user has no primary party. Specify a party explicitly via --ledger-party"
         )
       )
-    )(Future.successful(_))
+    )(Future.successful)
     rights <- client.userManagementClient.listUserRights(userId)
     readAs = rights.collect { case domain.UserRight.CanReadAs(party) =>
       party
@@ -211,6 +226,29 @@ object RunnerConfig {
       }
       .text(s"Application ID used to submit commands. Defaults to ${DefaultApplicationId}")
 
+    opt[Unit]('v', "verbose")
+      .text("Root logging level -> DEBUG")
+      .action((_, cli) => cli.copy(rootLoggingLevel = Some(Level.DEBUG)))
+
+    opt[Unit]("debug")
+      .text("Root logging level -> DEBUG")
+      .action((_, cli) => cli.copy(rootLoggingLevel = Some(Level.DEBUG)))
+
+    implicit val levelRead: scopt.Read[Level] = scopt.Read.reads(Level.valueOf)
+    opt[Level]("log-level-root")
+      .text("Log-level of the root logger")
+      .valueName("<LEVEL>")
+      .action((level, cli) => cli.copy(rootLoggingLevel = Some(level)))
+
+    opt[String]("log-encoder")
+      .text("Log encoder: plain|json")
+      .action {
+        case ("json", cli) => cli.copy(logEncoder = LogEncoder.Json)
+        case ("plain", cli) => cli.copy(logEncoder = LogEncoder.Plain)
+        case (other, _) =>
+          throw new IllegalArgumentException(s"Unsupported logging encoder $other")
+      }
+
     opt[Unit]("dev-mode-unsafe")
       .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev))
       .optional()
@@ -226,31 +264,36 @@ object RunnerConfig {
     help("help").text("Print this usage text")
 
     cmd("list")
-      .action((_, c) => c.copy(listTriggers = true))
+      .action((_, c) => c.copy(listTriggers = Some(false)))
       .text("List the triggers in the DAR.")
 
+    cmd("verbose-list")
+      .hidden()
+      .action((_, c) => c.copy(listTriggers = Some(true)))
+
     checkConfig(c =>
-      if (c.listTriggers) {
-        // I do not want to break the trigger CLI and require a
-        // "run" command so I can’t make these options required
-        // in general. Therefore, we do this check in checkConfig.
-        success
-      } else {
-        if (c.triggerIdentifier == null) {
-          failure("Missing option --trigger-name")
-        } else if (c.ledgerHost == null) {
-          failure("Missing option --ledger-host")
-        } else if (c.ledgerPort == 0) {
-          failure("Missing option --ledger-port")
-        } else if (c.ledgerClaims == null) {
-          failure("Missing option --ledger-party or --ledger-user")
-        } else {
-          c.ledgerClaims match {
-            case PartySpecification(TriggerParties(actAs, _)) if actAs == Party("") =>
-              failure("Missing option --ledger-party")
-            case _ => success
+      c.listTriggers match {
+        case Some(_) =>
+          // I do not want to break the trigger CLI and require a
+          // "run" command so I can’t make these options required
+          // in general. Therefore, we do this check in checkConfig.
+          success
+        case None =>
+          if (c.triggerIdentifier == null) {
+            failure("Missing option --trigger-name")
+          } else if (c.ledgerHost == null) {
+            failure("Missing option --ledger-host")
+          } else if (c.ledgerPort == 0) {
+            failure("Missing option --ledger-port")
+          } else if (c.ledgerClaims == null) {
+            failure("Missing option --ledger-party or --ledger-user")
+          } else {
+            c.ledgerClaims match {
+              case PartySpecification(TriggerParties(actAs, _)) if actAs == Party("") =>
+                failure("Missing option --ledger-party")
+              case _ => success
+            }
           }
-        }
       }
     )
   }
@@ -275,7 +318,7 @@ object RunnerConfig {
 
   val Empty: RunnerConfig = RunnerConfig(
     darPath = null,
-    listTriggers = false,
+    listTriggers = None,
     triggerIdentifier = null,
     ledgerHost = null,
     ledgerPort = 0,
@@ -284,8 +327,11 @@ object RunnerConfig {
     timeProviderType = None,
     commandTtl = Duration.ofSeconds(30L),
     accessTokenFile = None,
-    tlsConfig = TlsConfiguration(false, None, None, None),
+    tlsConfig = TlsConfiguration(enabled = false, None, None, None),
     applicationId = DefaultApplicationId,
     compilerConfig = DefaultCompilerConfig,
+    triggerConfig = DefaultTriggerRunnerConfig,
+    rootLoggingLevel = None,
+    logEncoder = LogEncoder.Plain,
   )
 }

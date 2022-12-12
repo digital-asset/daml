@@ -72,7 +72,7 @@ object Arguments {
     arguments.copy(
       tlsConfig =
         arguments.tlsConfig.fold(Some(TlsConfiguration(true, Some(new File(path)), None, None)))(
-          c => Some(c.copy(keyCertChainFile = Some(new File(path))))
+          c => Some(c.copy(certChainFile = Some(new File(path))))
         )
     )
 
@@ -101,7 +101,7 @@ object Arguments {
 
       opt[TimeProviderType]('t', "time")
         .text(s"Time provider. Valid values are: ${TimeProviderType.acceptedValues
-          .mkString(", ")}. Default: ${Arguments.default.time.name}")
+            .mkString(", ")}. Default: ${Arguments.default.time.name}")
         .action((t, arguments) => arguments.copy(time = t))
 
       // TODO: the 4 following TLS options can be defined by TlsConfigurationCli instead
@@ -114,7 +114,7 @@ object Arguments {
           arguments.copy(tlsConfig =
             arguments.tlsConfig.fold(
               Some(TlsConfiguration(true, None, Some(new File(path)), None))
-            )(c => Some(c.copy(keyFile = Some(new File(path)))))
+            )(c => Some(c.copy(privateKeyFile = Some(new File(path)))))
           )
         )
 
@@ -132,7 +132,7 @@ object Arguments {
           arguments.copy(tlsConfig =
             arguments.tlsConfig.fold(
               Some(TlsConfiguration(true, None, None, Some(new File(path))))
-            )(c => Some(c.copy(trustCertCollectionFile = Some(new File(path)))))
+            )(c => Some(c.copy(trustCollectionFile = Some(new File(path)))))
           )
         )
 

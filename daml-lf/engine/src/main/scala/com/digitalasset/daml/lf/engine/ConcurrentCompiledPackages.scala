@@ -32,7 +32,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
     new ConcurrentHashMap()
 
   override def packageIds: scala.collection.Set[PackageId] = signatures.keySet
-  override def interface: PackageInterface = new PackageInterface(signatures)
+  override def pkgInterface: PackageInterface = new PackageInterface(signatures)
   override def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SDefinition] =
     Option(definitionsByReference.get(dref))
 
@@ -52,6 +52,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
 
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
+  @scala.annotation.nowarn("msg=return statement uses an exception to pass control to the caller")
   private def addPackageInternal(state: AddPackageState): Result[Unit] =
     this.synchronized {
       var toCompile = state.toCompile

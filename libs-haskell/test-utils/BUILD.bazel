@@ -31,6 +31,8 @@ da_haskell_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//daml-assistant/daml-helper:daml-helper-lib",
+        "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

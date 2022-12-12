@@ -2,15 +2,16 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ERROR ChoiceGuardFailed unhandled in scenario service
--- TODO https://github.com/digital-asset/daml/issues/13283
---   This should be a WronglyTypedContract error.
+-- @ERROR Attempt to fetch or exercise a wrongly typed contract
 
 -- | Verify that you can't accidentally exercise a T1 template
 -- through a T2 contract id, via interface choices.
 module InterfaceTypeRepCheck where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface I where
+  viewtype EmptyInterfaceView
   getOwner : Party
   choice MyArchive : ()
     controller getOwner this
@@ -21,7 +22,8 @@ template T1
     owner1: Party
   where
     signatory owner1
-    implements I where
+    interface instance I for T1 where
+      view = EmptyInterfaceView
       getOwner = owner1
 
 template T2
@@ -29,7 +31,11 @@ template T2
     owner2: Party
   where
     signatory owner2
-    implements I where
+    choice T2Choice : ()
+      controller owner2
+      do pure ()
+    interface instance I for T2 where
+      view = EmptyInterfaceView
       getOwner = owner2
 
 main = scenario do
@@ -37,6 +43,6 @@ main = scenario do
     submit p do
         cidT1 <- create (T1 p)
         let cidT2 = coerceContractId @T1 @T2 cidT1
-        exercise cidT2 MyArchive
+        exercise cidT2 T2Choice
 
 -- @ENABLE-SCENARIOS

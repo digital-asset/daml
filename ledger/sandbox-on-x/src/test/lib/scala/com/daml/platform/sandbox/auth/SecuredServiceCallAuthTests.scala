@@ -3,10 +3,14 @@
 
 package com.daml.platform.sandbox.auth
 
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
+
 trait SecuredServiceCallAuthTests extends ServiceCallAuthTests {
   behavior of serviceCallName
 
-  it should "deny unauthenticated calls" in {
+  it should "deny unauthenticated calls" taggedAs securityAsset.setAttack(
+    attackUnauthenticated(threat = "Do not present a JWT")
+  ) in {
     expectUnauthenticated(serviceCallWithToken(None))
   }
 }

@@ -13,19 +13,24 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.ports.Port
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
+import com.daml.ledger.sandbox.SandboxOnXForTest.{
+  ApiServerConfig,
+  Default,
+  DevEngineConfig,
+  singleParticipant,
+}
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.ports.Port
 import org.scalatest.Suite
 import scalaz.@@
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait SandboxTestLedger extends SandboxFixture {
+trait SandboxTestLedger extends SandboxFixture with SandboxRequiringAuthorizationFuns {
   self: Suite =>
 
   protected def testId: String
@@ -34,15 +39,16 @@ trait SandboxTestLedger extends SandboxFixture {
 
   def ledgerId: String @@ domain.LedgerIdTag = LedgerId(testId)
 
-  override protected def config: SandboxConfig = SandboxConfig.defaultConfig.copy(
-    port = Port.Dynamic,
-    damlPackages = packageFiles,
-    timeProviderType = Some(TimeProviderType.WallClock),
-    tlsConfig = if (useTls) Some(serverTlsConfig) else None,
-    ledgerIdMode = LedgerIdMode.Static(ledgerId),
-    authService = authService,
-    engineMode = SandboxConfig.EngineMode.Dev,
-    seeding = Seeding.Weak,
+  override protected def config = Default.copy(
+    ledgerId = testId,
+    engine = DevEngineConfig,
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        seeding = Seeding.Weak,
+        timeProviderType = TimeProviderType.WallClock,
+        tls = if (useTls) Some(serverTlsConfig) else None,
+      )
+    ),
   )
 
   def clientCfg(token: Option[String], testName: String): LedgerClientConfiguration =
@@ -53,7 +59,7 @@ trait SandboxTestLedger extends SandboxFixture {
       token = token,
     )
 
-  private val clientChannelCfg: LedgerClientChannelConfiguration =
+  lazy private val clientChannelCfg: LedgerClientChannelConfiguration =
     LedgerClientChannelConfiguration(
       sslContext = if (useTls) clientTlsConfig.client() else None
     )
@@ -65,18 +71,15 @@ trait SandboxTestLedger extends SandboxFixture {
       ec: ExecutionContext,
   ): Future[A] = {
 
-    val clientF: Future[DamlLedgerClient] = for {
-      ledgerPort <- Future(serverPort)
-    } yield DamlLedgerClient.singleHost(
+    val client: DamlLedgerClient = DamlLedgerClient.singleHost(
       "localhost",
-      ledgerPort.value,
+      serverPort.value,
       clientCfg(token, testName),
       clientChannelCfg,
     )(ec, esf)
 
     val fa: Future[A] = for {
       ledgerPort <- Future(serverPort)
-      client <- clientF
       a <- testFn(ledgerPort, client, ledgerId)
     } yield a
 

@@ -3,11 +3,10 @@
 
 package com.daml.platform.sandbox
 
-import java.io.File
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.daml.ledger.api.v1.transaction_service.GetLedgerEndResponse
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
@@ -16,25 +15,23 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest.wordspec.AsyncWordSpec
+import java.io.File
 
 import scala.concurrent.Future
 
 class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManagementAroundAll {
 
-  private val List(
-    certChainFilePath,
-    privateKeyFilePath,
-    trustCertCollectionFilePath,
-    clientCertChainFilePath,
-    clientPrivateKeyFilePath,
-  ) = {
-    List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
-      new File(rlocation("ledger/test-common/test-certificates/" + src))
-    }
-  }
+  private def getFilePath(fileName: String) = new File(
+    rlocation("ledger/test-common/test-certificates/" + fileName)
+  )
+  lazy private val certChainFilePath = getFilePath("server.crt")
+  lazy private val privateKeyFilePath = getFilePath("server.pem")
+  lazy private val trustCertCollectionFilePath = getFilePath("ca.crt")
+  lazy private val clientCertChainFilePath = getFilePath("client.crt")
+  lazy private val clientPrivateKeyFilePath = getFilePath("client.pem")
 
   private lazy val baseConfig: LedgerClientConfiguration =
     LedgerClientConfiguration(
@@ -56,18 +53,21 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
       ).client()
     )
 
-  override protected lazy val config: SandboxConfig =
-    super.config.copy(
-      tlsConfig = Some(
-        TlsConfiguration(
-          enabled = true,
-          Some(certChainFilePath),
-          Some(privateKeyFilePath),
-          Some(trustCertCollectionFilePath),
-          minimumServerProtocolVersion = None,
+  override def config = super.config.copy(
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        tls = Some(
+          TlsConfiguration(
+            enabled = true,
+            Some(certChainFilePath),
+            Some(privateKeyFilePath),
+            Some(trustCertCollectionFilePath),
+            minimumServerProtocolVersion = None,
+          )
         )
       )
     )
+  )
 
   private def clientF(protocol: TlsVersion) =
     LedgerClient.singleHost(serverHost, serverPort.value, baseConfig, tlsEnabledConfig(protocol))

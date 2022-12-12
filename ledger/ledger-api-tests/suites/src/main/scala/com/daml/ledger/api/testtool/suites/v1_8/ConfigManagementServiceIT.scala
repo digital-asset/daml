@@ -4,22 +4,17 @@
 package com.daml.ledger.api.testtool.suites.v1_8
 
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.v1.admin.config_management_service.{
-  SetTimeModelRequest,
-  SetTimeModelResponse,
-  TimeModel,
-}
+import com.daml.ledger.api.v1.admin.config_management_service.{SetTimeModelRequest, TimeModel}
+import com.daml.ledger.error.definitions.kv.KvErrors
 import com.google.protobuf.duration.Duration
-import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 final class ConfigManagementServiceIT extends LedgerTestSuite {
   test(
@@ -135,60 +130,46 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {
       // Get the current time model
-      response1 <- ledger.getTimeModel()
+      preUpdateTimeModelResponse <- ledger.getTimeModel()
       oldTimeModel = {
-        assert(response1.timeModel.isDefined, "Expected time model to be defined")
-        response1.timeModel.get
+        assert(preUpdateTimeModelResponse.timeModel.isDefined, "Expected time model to be defined")
+        preUpdateTimeModelResponse.timeModel.get
       }
 
       // Set a new time model with the next generation in parallel
       t1 <- ledger.time()
       f1 = ledger.setTimeModel(
         mrt = t1.plusSeconds(30),
-        generation = response1.configurationGeneration,
+        generation = preUpdateTimeModelResponse.configurationGeneration,
         newTimeModel = oldTimeModel,
       )
       f2 = ledger.setTimeModel(
         mrt = t1.plusSeconds(30),
-        generation = response1.configurationGeneration,
+        generation = preUpdateTimeModelResponse.configurationGeneration,
         newTimeModel = oldTimeModel,
       )
 
-      failure <- f1
-        .flatMap(_ => f2)
-        .mustFail("setting Time Model with an outdated generation")
+      failure <- f1.transformWith {
+        case Failure(ex) =>
+          f2.map(_ => ex)
+        case Success(_) =>
+          f2.mustFail("setting Time Model with an outdated generation")
+      }
 
       // Check if generation got updated (meaning, one of the above succeeded)
-      response2 <- ledger.getTimeModel()
+      postUpdateTimeModelResponse <- ledger.getTimeModel()
     } yield {
       assert(
-        response1.configurationGeneration + 1 == response2.configurationGeneration,
-        s"New configuration's generation (${response2.configurationGeneration} should be original configurations's generation (${response1.configurationGeneration} + 1) )",
+        preUpdateTimeModelResponse.configurationGeneration + 1 == postUpdateTimeModelResponse.configurationGeneration,
+        s"New configuration's generation (${postUpdateTimeModelResponse.configurationGeneration} should be original configurations's generation (${preUpdateTimeModelResponse.configurationGeneration} + 1) )",
       )
-      Try {
-        // if the "looser" command fails already on command submission (the winner completed before looser submission is over)
-        assertGrpcError(
-          failure,
-          LedgerApiErrors.RequestValidation.InvalidArgument,
-          Some("Mismatching configuration generation"),
-        )
-      }.recover { case _ =>
-        // if the "looser" command fails after command submission (the winner completed after looser did submit the configuration change)
-        assertGrpcError(
-          failure,
-          LedgerApiErrors.Admin.ConfigurationEntryRejected,
-          Some("Generation mismatch"),
-        )
-      } match {
-        case Failure(GrpcException(GrpcStatus(notExpectedCode, _), _)) =>
-          fail(s"One of the submissions failed with an unexpected status code: $notExpectedCode")
-
-        case Failure(notExpectedException) =>
-          fail(
-            s"Unexpected exception: type:${notExpectedException.getClass.getName}, message:${notExpectedException.getMessage}"
-          )
-        case Success(_) => ()
-      }
+      assertGrpcErrorOneOf(
+        failure,
+        extendedChecks = None,
+        LedgerApiErrors.Admin.ConfigurationEntryRejected,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+        KvErrors.Consistency.PostExecutionConflicts,
+      )
     }
   })
 
@@ -206,9 +187,9 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         r -> r
           .update(_.configurationGeneration := r.configurationGeneration + 1)
       )
-      _ <- ignoreNotAuthorized(alpha.setTimeModel(req1))
+      _ <- alpha.setTimeModel(req1)
       _ <- synchronize(alpha, beta)
-      _ <- ignoreNotAuthorized(beta.setTimeModel(req2))
+      _ <- beta.setTimeModel(req2)
     } yield ()
 
   })
@@ -228,24 +209,6 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         newTimeModel = oldTimeModel,
       )
     } yield req
-
-  private val notAuthorizedPattern = "not authorized".r.pattern
-
-  // On some ledger implementations only one participant is allowed to modify config, others will
-  // fail with an authorization failure.
-  def ignoreNotAuthorized(
-      call: Future[SetTimeModelResponse]
-  )(implicit executionContext: ExecutionContext): Future[Option[SetTimeModelResponse]] =
-    call.transform {
-      case Success(value: SetTimeModelResponse) =>
-        Success(Some(value))
-      case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
-          if notAuthorizedPattern.matcher(msg).find() =>
-        Success(None)
-      case Failure(failure) =>
-        Failure(failure)
-
-    }
 
   // Stabilize the ledger by writing a new element and observing it in the indexDb.
   // The allocateParty method fits the bill.

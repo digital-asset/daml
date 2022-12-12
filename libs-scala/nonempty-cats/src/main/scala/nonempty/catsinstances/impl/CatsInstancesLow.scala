@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.scalautil.nonempty
+package com.daml.nonempty
 package catsinstances.impl
 
 import com.daml.scalautil.ImplicitPreference
@@ -11,7 +11,7 @@ abstract class CatsInstancesLow extends CatsInstancesLow1 {
   implicit def `cats nonempty foldable`[F[_]](implicit
       F: Foldable[F]
   ): Foldable[NonEmptyF[F, *]] with ImplicitPreference[Nothing] =
-    ImplicitPreference[Foldable[NonEmptyF[F, *]], Nothing](NonEmpty substF F)
+    ImplicitPreference[Foldable[NonEmptyF[F, *]], Nothing](NonEmptyColl.Instance substF F)
 }
 
 abstract class CatsInstancesLow1 {

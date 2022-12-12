@@ -241,6 +241,7 @@ optional.
 
 .. _`message Identifier`: value.rst#message-identifier
 .. _`message VersionedValue`: value.rst#message-versionedvalue
+.. _`message ContractId`: value.rst#message-contractid
 .. _`the value specification`: value.rst
 
 message Node
@@ -519,7 +520,6 @@ As of version 10, these fields are included:
 * `message ContractId`_ contract_id_struct
 * `message Identifier`_ template_id
 * `message KeyWithMaintainers`_ key_with_maintainers
-* `message ContractId`_ contract_id_struct
 
 ``template_id`` and ``key_with_maintainers`` are
 required. ``contract_id_struct`` is optional:

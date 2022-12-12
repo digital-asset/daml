@@ -1,8 +1,8 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-3 Data types
-============
+Data Types
+==========
 
 In :doc:`1_Token`, you learnt about contract templates, which specify the types of contracts that can be created on the ledger, and what data those contracts hold in their arguments.
 
@@ -27,11 +27,11 @@ After this section, you should be able to use a Daml ledger as a simple database
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``3_Data`` by running ``daml new 3_Data --template daml-intro-3``
+  Remember that you can load all the code for this section into a folder called ``intro3`` by running ``daml new intro3 --template daml-intro-3``
 
 .. _native-types:
 
-Native types
+Native Types
 ------------
 
 You have already encountered a few native Daml types: ``Party`` in :doc:`1_Token`, and ``Text`` and ``ContractId`` in :doc:`2_DamlScript`. Here are those native types and more:
@@ -55,7 +55,7 @@ You have already encountered a few native Daml types: ``Party`` in :doc:`1_Token
 - ``RelTime``
   Stores a difference in time.
 
-The below script instantiates each one of these types, manipulates it where appropriate, and tests the result.
+The below script instantiates each one of these types, manipulates it where appropriate, and tests the result:
 
 .. literalinclude:: daml/daml-intro-3/daml/Native.daml
   :language: daml
@@ -80,22 +80,22 @@ Despite its simplicity, there are quite a few things to note in this script:
 
   Try putting ``assert False`` somewhere in a script and see what happens to the script result.
 
-With templates and these native types, it's already possible to write a schema akin to a table in a relational database. Below, ``Token`` is extended into a simple ``CashBalance``, administered by a party in the role of an accountant.
+With templates and these native types, it's already possible to write a schema akin to a table in a relational database. Below, ``Token`` is extended into a simple ``CashBalance``, administered by a party in the role of an accountant:
 
 .. literalinclude:: daml/daml-intro-3/daml/Native.daml
   :language: daml
   :start-after: -- CASH_BALANCE_BEGIN
   :end-before: -- CASH_BALANCE_END
 
-Assembling types
-----------------
+Assemble Types
+--------------
 
 There's quite a lot of information on the ``CashBalance`` above and it would be nice to be able to give that data more structure. Fortunately, Daml's type system has a number of ways to assemble these native types into much more expressive structures.
 
 Tuples
 ~~~~~~
 
-A common task is to group values in a generic way. Take, for example, a key-value pair with a ``Text`` key and an ``Int`` value. In Daml, you could use a two-tuple of type ``(Text, Int)`` to do so. If you wanted to express a coordinate in three dimensions, you could group three ``Decimal`` values using a three-tuple ``(Decimal, Decimal, Decimal)``.
+A common task is to group values in a generic way. Take, for example, a key-value pair with a ``Text`` key and an ``Int`` value. In Daml, you could use a two-tuple of type ``(Text, Int)`` to do so. If you wanted to express a coordinate in three dimensions, you could group three ``Decimal`` values using a three-tuple ``(Decimal, Decimal, Decimal)``:
 
 .. literalinclude:: daml/daml-intro-3/daml/Tuple.daml
   :language: daml
@@ -128,7 +128,7 @@ Note the type annotation on ``empty : [Int] = []``. It's necessary because ``[]`
 Records
 ~~~~~~~
 
-You can think of records as named tuples with named fields. Declare them using the ``data`` keyword: ``data T = C with``, where ``T`` is the type name and ``C`` is the data constructor. In practice, it's a good idea to always use the same name for type and data constructor.
+You can think of records as named tuples with named fields. Declare them using the ``data`` keyword: ``data T = C with``, where ``T`` is the type name and ``C`` is the data constructor. In practice, it's a good idea to always use the same name for type and data constructor:
 
 .. literalinclude:: daml/daml-intro-3/daml/Record.daml
   :language: daml
@@ -159,10 +159,10 @@ Records can give the data on ``CashBalance`` a bit more structure:
 
 If you look at the resulting script view, you'll see that this still gives rise to one table. The records are expanded out into columns using dot notation.
 
-Variants and pattern matching
+Variants and Pattern Matching
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Suppose now that you also wanted to keep track of cash in hand. Cash in hand doesn't have a bank, but you can't just leave ``bank`` empty. Daml doesn't have an equivalent to ``null``. Variants can express that cash can either be in hand or at a bank.
+Suppose now that you also wanted to keep track of cash in hand. Cash in hand doesn't have a bank, but you can't just leave ``bank`` empty. Daml doesn't have an equivalent to ``null``. Variants can express that cash can either be in hand or at a bank:
 
 .. literalinclude:: daml/daml-intro-3/daml/Variants.daml
   :language: daml
@@ -194,8 +194,8 @@ To do this, you can use *pattern matching* and either throw errors or return com
   :start-after: -- VARIANT_ACCESS_BEGIN
   :end-before: -- VARIANT_ACCESS_END
 
-Manipulating data
------------------
+Manipulate Data
+---------------
 
 You've got all the ingredients to build rich types expressing the data you want to be able to write to the ledger, and you have seen how to create new values and read fields from values. But how do you manipulate values once created?
 
@@ -212,7 +212,7 @@ Throughout the script, ``eq_record`` never changes. The expression ``"Zero" :: e
 
 .. _contract_keys:
 
-Contract keys
+Contract Keys
 -------------
 
 Daml's type system lets you store richly structured data on Daml templates, but just like most database schemas have more than one table, Daml contract models often have multiple templates that reference each other. For example, you may not want to store your bank and account information on each individual cash balance contract, but instead store those on separate contracts.
@@ -228,7 +228,7 @@ The script above uses the ``queryContractId`` function, which retrieves the argu
 
 Note that, for the first time, the party submitting a transaction is doing more than one thing as part of that transaction. To create ``new_account``, the accountant archives the old account and creates a new account, all in one transaction. More on building transactions in :doc:`7_Composing`.
 
-You can define *stable* keys for contracts using the ``key`` and ``maintainer`` keywords. ``key`` defines the primary key of a template, with the ability to look up contracts by key, and a uniqueness constraint in the sense that only one contract of a given template and with a given key value can be active at a time.
+You can define *stable* keys for contracts using the ``key`` and ``maintainer`` keywords. ``key`` defines the primary key of a template, with the ability to look up contracts by key, and a uniqueness constraint in the sense that only one contract of a given template and with a given key value can be active at a time:
 
 .. literalinclude:: daml/daml-intro-3/daml/Keys.daml
   :language: daml
@@ -243,7 +243,7 @@ via ``createAndExerciseCmd``. We will learn more about choices in the :doc:`next
 Since a single type could be used as the key for multiple templates, you need to tell the compiler what type of contract is being fetched by using the ``@Account`` notation.
 
 
-Next up
+Next Up
 -------
 
 You can now define data schemas for the ledger, read, write and delete data from the ledger, and use keys to reference and look up data in a stable fashion.

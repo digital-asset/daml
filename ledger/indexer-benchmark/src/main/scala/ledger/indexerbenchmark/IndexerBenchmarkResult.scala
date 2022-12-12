@@ -3,19 +3,22 @@
 
 package com.daml.ledger.indexerbenchmark
 
-import com.codahale.metrics.{MetricRegistry, Snapshot}
+import com.codahale.metrics.Snapshot
 import com.daml.metrics.Metrics
+import com.daml.metrics.api.MetricHandle.{Histogram, Timer}
+import com.daml.metrics.api.dropwizard.{DropwizardHistogram, DropwizardTimer}
+import com.daml.metrics.api.noop.NoOpTimer
 
 class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, stopTime: Long) {
 
   private val duration: Double = (stopTime - startTime).toDouble / 1000000000.0
   private val updates: Long = metrics.daml.parallelIndexer.updates.getCount
   private val updateRate: Double = updates / duration
-  private val inputMappingDurationMetric = metrics.registry.timer(
-    MetricRegistry.name(metrics.daml.parallelIndexer.inputMapping.executor, "duration")
+  private val inputMappingDurationMetric = metrics.timer(
+    metrics.daml.parallelIndexer.inputMapping.executor :+ "duration"
   )
-  private val batchingDurationMetric = metrics.registry.timer(
-    MetricRegistry.name(metrics.daml.parallelIndexer.batching.executor, "duration")
+  private val batchingDurationMetric = metrics.timer(
+    metrics.daml.parallelIndexer.batching.executor :+ "duration"
   )
   val (failure, minimumUpdateRateFailureInfo): (Boolean, String) =
     config.minUpdateRate match {
@@ -37,15 +40,13 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
        |  source:   ${config.updateSource}
        |  count:    ${config.updateCount}
        |  required updates/sec: ${config.minUpdateRate.getOrElse("-")}
-       |  jdbcUrl:  ${config.indexerConfig.jdbcUrl}
+       |  jdbcUrl:  ${config.dataSource.jdbcUrl}
        |
        |Indexer parameters:
        |  maxInputBufferSize:        ${config.indexerConfig.maxInputBufferSize}
        |  inputMappingParallelism:   ${config.indexerConfig.inputMappingParallelism}
        |  ingestionParallelism:      ${config.indexerConfig.ingestionParallelism}
        |  submissionBatchSize:       ${config.indexerConfig.submissionBatchSize}
-       |  batchWithinMillis:         ${config.indexerConfig.batchWithinMillis}
-       |  tailingRateLimitPerSecond: ${config.indexerConfig.tailingRateLimitPerSecond}
        |  full indexer config:       ${config.indexerConfig}
        |
        |Result:
@@ -56,26 +57,32 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
        |
        |Other metrics:
        |  inputMapping.batchSize:     ${histogramToString(
-      metrics.daml.parallelIndexer.inputMapping.batchSize.getSnapshot
-    )}
-       |  inputMapping.duration:      ${histogramToString(
-      inputMappingDurationMetric.getSnapshot
-    )}
-       |  inputMapping.duration.rate: ${inputMappingDurationMetric.getMeanRate}
-       |  batching.duration:      ${histogramToString(batchingDurationMetric.getSnapshot)}
-       |  batching.duration.rate: ${batchingDurationMetric.getMeanRate}
-       |  seqMapping.duration: ${histogramToString(
-      metrics.daml.parallelIndexer.seqMapping.duration.getSnapshot
-    )}|
-       |  seqMapping.duration.rate: ${metrics.daml.parallelIndexer.seqMapping.duration.getMeanRate}|
-       |  ingestion.duration:         ${histogramToString(
-      metrics.daml.parallelIndexer.ingestion.executionTimer.getSnapshot
-    )}
-       |  ingestion.duration.rate:    ${metrics.daml.parallelIndexer.ingestion.executionTimer.getMeanRate}
-       |  tailIngestion.duration:         ${histogramToString(
-      metrics.daml.parallelIndexer.tailIngestion.executionTimer.getSnapshot
-    )}
-       |  tailIngestion.duration.rate:    ${metrics.daml.parallelIndexer.tailIngestion.executionTimer.getMeanRate}
+        metrics.daml.parallelIndexer.inputMapping.batchSize
+      )}
+       |  inputMapping.duration:      ${timerToString(
+        inputMappingDurationMetric
+      )}
+       |  inputMapping.duration.rate: ${timerMeanRate(inputMappingDurationMetric)}
+       |  batching.duration:      ${timerToString(batchingDurationMetric)}
+       |  batching.duration.rate: ${timerMeanRate(batchingDurationMetric)}
+       |  seqMapping.duration: ${timerToString(
+        metrics.daml.parallelIndexer.seqMapping.duration
+      )}|
+       |  seqMapping.duration.rate: ${timerMeanRate(
+        metrics.daml.parallelIndexer.seqMapping.duration
+      )}|
+       |  ingestion.duration:         ${timerToString(
+        metrics.daml.parallelIndexer.ingestion.executionTimer
+      )}
+       |  ingestion.duration.rate:    ${timerMeanRate(
+        metrics.daml.parallelIndexer.ingestion.executionTimer
+      )}
+       |  tailIngestion.duration:         ${timerToString(
+        metrics.daml.parallelIndexer.tailIngestion.executionTimer
+      )}
+       |  tailIngestion.duration.rate:    ${timerMeanRate(
+        metrics.daml.parallelIndexer.tailIngestion.executionTimer
+      )}
        |
        |Notes:
        |  The above numbers include all ingested updates, including package uploads.
@@ -85,7 +92,34 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
        |--------------------------------------------------------------------------------
        |""".stripMargin
 
-  private[this] def histogramToString(data: Snapshot): String = {
-    s"[min: ${data.getMin}, median: ${data.getMedian}, max: ${data.getMax}]"
+  private[this] def histogramToString(histogram: Histogram): String = {
+    histogram match {
+      case DropwizardHistogram(_, metric) =>
+        val data = metric.getSnapshot
+        dropwizardSnapshotToString(data)
+      case other => throw new IllegalArgumentException(s"Metric $other not supported")
+    }
+  }
+
+  private[this] def timerToString(timer: Timer): String = {
+    timer match {
+      case DropwizardTimer(_, metric) =>
+        val data = metric.getSnapshot
+        dropwizardSnapshotToString(data)
+      case NoOpTimer(_) => ""
+      case other => throw new IllegalArgumentException(s"Metric $other not supported")
+    }
+  }
+
+  private[this] def timerMeanRate(timer: Timer): Double = {
+    timer match {
+      case DropwizardTimer(_, metric) =>
+        metric.getMeanRate
+      case NoOpTimer(_) => 0
+      case other => throw new IllegalArgumentException(s"Metric $other not supported")
+    }
+  }
+  private def dropwizardSnapshotToString(data: Snapshot) = {
+    s"[min: ${data.getMin}, median: ${data.getMedian}, max: ${data.getMax}"
   }
 }

@@ -770,23 +770,25 @@ goToDefinitionTests mbScenarioService mbScenarioServiceDev = Tasty.testGroup "Go
     ,    testCaseDev' "Interface goto definition" $ do
             foo <- makeModule "Foo"
                 [ "interface Iface where"
+                , "  viewtype EmptyInterfaceView"
                 , "  getOwner : Party"
                 , "  nonconsuming choice Noop : ()"
                 , "    controller getOwner this"
                 , "    do pure ()"
                 , "type I = Iface"
                 , "type C = Noop"
-                , "meth : Implements t Iface => t -> Party"
+                , "meth : Iface -> Party"
                 , "meth = getOwner"
+                , "data EmptyInterfaceView = EmptyInterfaceView {}"
                 ]
             setFilesOfInterest [foo]
             expectNoErrors
             -- Iface
-            expectGoToDefinition (foo, 6, [9..13]) (At (foo,1,10))
+            expectGoToDefinition (foo, 7, [9..13]) (At (foo,1,10))
             -- Noop
-            expectGoToDefinition (foo, 7, [9..12]) (At (foo,3,22))
+            expectGoToDefinition (foo, 8, [9..12]) (At (foo,4,22))
             -- getOwner
-            expectGoToDefinition (foo, 9, [7..14]) (At (foo,2,2))
+            expectGoToDefinition (foo, 10, [7..14]) (At (foo,3,2))
     ]
     where
         testCase' = testCase mbScenarioService
@@ -1140,7 +1142,7 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
           let vr = VRScenario foo "test"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
-          expectVirtualResourceRegex vr "Stack trace:.*- boom.*Foo:2:1.*- test.*Foo:4:1"
+          expectVirtualResourceRegex vr "Stack trace:.*- boom.*Foo:2:1"
     , testCase' "HasCallStack constraint" $ do
           let fooContent = T.unlines
                 [ "module Foo where"

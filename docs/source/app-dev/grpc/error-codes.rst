@@ -12,7 +12,7 @@ Error Codes
 ###########
 
 Overview
-*********
+********
 
 
 .. _gRPC status codes: https://grpc.github.io/grpc/core/md_doc_statuscodes.html
@@ -42,7 +42,7 @@ errors in a self-service manner, either in an automated-way or manually.
 
 
 Glossary
-*********************************************
+********
 
 Error
         Represents an occurrence of a failure.
@@ -82,7 +82,7 @@ Correlation id
 
 
 Anatomy of an Error
-*********************************************
+*******************
 
 
 Errors returned to users contain a `gRPC status code`_, a description and additional machine readable information
@@ -90,7 +90,7 @@ represented in the `rich gRPC error model`_.
 
 
 Error Description
-=============================================
+=================
 
 We use the `standard gRPC description`_ that additionally adheres to our custom message format:
 
@@ -126,7 +126,7 @@ In a concrete example an error description might look like this:
 
 
 Additional Machine Readable Information
-=============================================
+=======================================
 
 We use following error details:
 
@@ -145,9 +145,16 @@ Many errors will include more information,
 but there is no guarantee given that additional information will be preserved across versions.
 
 
+Prevent Security Leaks in Error Codes
+=====================================
 
-Working with Error Codes
-*********************************************
+For any error that could leak information to an attacker, the system will return an error message via the API that 
+will not leak any valuable information. The log file will contain the full error message.
+
+
+
+Work With Error Codes
+*********************
 
 This example shows how a user can extract the relevant error information.
 
@@ -224,7 +231,7 @@ This example shows how a user can extract the relevant error information.
 
 
 Error Categories Inventory
-*********************************************
+**************************
 
 The error categories allow to group errors such that application logic can be built
 in a sensible way to automatically deal with errors and decide whether to retry

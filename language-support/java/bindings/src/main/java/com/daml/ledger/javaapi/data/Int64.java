@@ -6,7 +6,7 @@ package com.daml.ledger.javaapi.data;
 import com.daml.ledger.api.v1.ValueOuterClass;
 import java.util.Objects;
 
-public class Int64 extends Value {
+public final class Int64 extends Value {
 
   private long value;
 

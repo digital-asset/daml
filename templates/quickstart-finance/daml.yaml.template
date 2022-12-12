@@ -1,0 +1,52 @@
+# for config file options, refer to
+# https://docs.daml.com/tools/assistant.html#project-config-file-daml-yaml
+
+sdk-version: __VERSION__
+name: __PROJECT_NAME__
+source: daml
+init-script: Scripts.Transfer:runTransfer
+version: 0.0.1
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+data-dependencies:
+  # INTERFACE DEPENDENCIES
+  - .lib/daml-finance-interface-account.dar
+  - .lib/daml-finance-interface-holding.dar
+  - .lib/daml-finance-interface-instrument-base.dar
+  - .lib/daml-finance-interface-lifecycle.dar
+  - .lib/daml-finance-interface-settlement.dar
+  - .lib/daml-finance-interface-types-common.dar
+  # IMPLEMENTATION DEPENDENCIES
+  - .lib/daml-finance-account.dar
+  - .lib/daml-finance-data.dar
+  - .lib/daml-finance-holding.dar
+  - .lib/daml-finance-instrument-token.dar
+  - .lib/daml-finance-lifecycle.dar
+  - .lib/daml-finance-settlement.dar
+  # UNUSED INTERFACES DEPENDENCIES - UNCOMMENT TO ENABLE
+  # - .lib/daml-finance-interface-claims.dar
+  # - .lib/daml-finance-interface-data.dar
+  # - .lib/daml-finance-interface-instrument-bond.dar
+  # - .lib/daml-finance-interface-instrument-equity.dar
+  # - .lib/daml-finance-interface-instrument-generic.dar
+  # - .lib/daml-finance-interface-instrument-swap.dar
+  # - .lib/daml-finance-interface-instrument-token.dar
+  # - .lib/daml-finance-interface-util.dar
+  # - .lib/daml-finance-interface-types-date.dar
+  # UNUSED IMPLEMENTATIONS DEPENDENCIES - UNCOMMENT TO ENABLE
+  # - .lib/daml-finance-claims.dar
+  # - .lib/daml-finance-instrument-bond.dar
+  # - .lib/daml-finance-instrument-equity.dar
+  # - .lib/daml-finance-instrument-generic.dar
+  # - .lib/daml-finance-instrument-swap.dar
+  # - .lib/daml-finance-util.dar
+  # UNUSED CONTINGENT CLAIMS DEPENDENCIES - UNCOMMENT TO ENABLE
+  # - .lib/contingent-claims-core.dar
+  # - .lib/contingent-claims-lifecycle.dar
+  # - .lib/contingent-claims-valuation.dar
+start-navigator: no
+build-options:
+  - --target=1.15
+

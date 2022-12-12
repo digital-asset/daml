@@ -3,18 +3,17 @@
 
 package com.daml.http
 
-import com.daml.http.domain.TemplateId.RequiredPkg
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.http.domain.{
   ActiveContract,
   Choice,
   Contract,
+  ContractTypeId,
   CreateAndExerciseCommand,
   CreateCommand,
   ExerciseCommand,
   ExerciseResponse,
   JwtWritePayload,
-  TemplateId,
 }
 import com.daml.http.util.ClientUtil.uniqueCommandId
 import com.daml.http.util.FutureUtil._
@@ -24,9 +23,11 @@ import com.daml.http.util.{Commands, Transactions}
 import LedgerClientJwt.Grpc
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.LoggingContextOf.{label, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import scalaz.std.option._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
@@ -43,18 +44,18 @@ class CommandService(
 
   import CommandService._
 
-  private def withTemplateLoggingContext[T](
-      templateId: TemplateId.RequiredPkg
-  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[TemplateId.RequiredPkg, T] =
+  private def withTemplateLoggingContext[CtId <: ContractTypeId.RequiredPkg, T](
+      templateId: CtId
+  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[CtId, T] =
     withEnrichedLoggingContext(
-      label[TemplateId.RequiredPkg],
+      label[CtId],
       "template_id" -> templateId.toString,
     )
 
-  private def withTemplateChoiceLoggingContext[T](
-      templateId: TemplateId.RequiredPkg,
+  private def withTemplateChoiceLoggingContext[CtId <: ContractTypeId.RequiredPkg, T](
+      templateId: CtId,
       choice: domain.Choice,
-  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[Choice, RequiredPkg with T] =
+  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[Choice, CtId with T] =
     withTemplateLoggingContext(templateId).run(
       withEnrichedLoggingContext(
         label[domain.Choice],
@@ -65,18 +66,27 @@ class CommandService(
   def create(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: CreateCommand[lav1.value.Record, TemplateId.RequiredPkg],
+      input: CreateCommand[lav1.value.Record, ContractTypeId.Template.RequiredPkg],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ ActiveContract[lav1.value.Value]] =
+  ): Future[Error \/ domain.CreateCommandResponse[lav1.value.Value]] =
     withTemplateLoggingContext(input.templateId).run { implicit lc =>
       logger.trace(s"sending create command to ledger")
       val command = createCommand(input)
       val request = submitAndWaitRequest(jwtPayload, input.meta, command, "create")
-      val et: ET[ActiveContract[lav1.value.Value]] = for {
-        response <- logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request))
+      val et: ET[domain.CreateCommandResponse[lav1.value.Value]] = for {
+        response <- logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request)(lc))
         contract <- either(exactlyOneActiveContract(response))
-      } yield contract
+      } yield domain.CreateCommandResponse(
+        contract.contractId,
+        contract.templateId,
+        contract.key,
+        contract.payload,
+        contract.signatories,
+        contract.observers,
+        contract.agreementText,
+        domain.CompletionOffset(response.completionOffset),
+      )
       et.run
     }
 
@@ -99,10 +109,14 @@ class CommandService(
 
           val et: ET[ExerciseResponse[lav1.value.Value]] = for {
             response <-
-              logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request))
+              logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request)(lc))
             exerciseResult <- either(exerciseResult(response))
             contracts <- either(contracts(response))
-          } yield ExerciseResponse(exerciseResult, contracts)
+          } yield ExerciseResponse(
+            exerciseResult,
+            contracts,
+            domain.CompletionOffset(response.completionOffset),
+          )
 
           et.run
         }
@@ -111,7 +125,7 @@ class CommandService(
   def createAndExercise(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value, TemplateId.RequiredPkg],
+      input: CreateAndExerciseCommand.LAVResolved,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] =
@@ -122,12 +136,15 @@ class CommandService(
       val et: ET[ExerciseResponse[lav1.value.Value]] = for {
         response <- logResult(
           Symbol("createAndExercise"),
-          submitAndWaitForTransactionTree(jwt, request),
+          submitAndWaitForTransactionTree(jwt, request)(lc),
         )
         exerciseResult <- either(exerciseResult(response))
         contracts <- either(contracts(response))
-      } yield ExerciseResponse(exerciseResult, contracts)
-
+      } yield ExerciseResponse(
+        exerciseResult,
+        contracts,
+        domain.CompletionOffset(response.completionOffset),
+      )
       et.run
     }
 
@@ -160,33 +177,41 @@ class CommandService(
   }
 
   private def createCommand(
-      input: CreateCommand[lav1.value.Record, TemplateId.RequiredPkg]
+      input: CreateCommand[lav1.value.Record, ContractTypeId.Template.RequiredPkg]
   ): lav1.commands.Command.Command.Create = {
     Commands.create(refApiIdentifier(input.templateId), input.payload)
   }
 
   private def exerciseCommand(
       input: ExerciseCommand[lav1.value.Value, ExerciseCommandRef]
-  ): lav1.commands.Command.Command =
+  ): lav1.commands.Command.Command = {
+    // XXX SC this reflects that the resolved marker was discarded earlier;
+    // it would be better if, as with ExerciseCommandRef, we could thread through
+    // the fact that the interface ID is a true resolved interface ID if present
+    val choiceSource =
+      input.choiceInterfaceId.flatMap(_.sequence) getOrElse input.reference.fold(_._1, _._1)
     input.reference match {
       case -\/((templateId, contractKey)) =>
         Commands.exerciseByKey(
           templateId = refApiIdentifier(templateId),
+          // TODO #14549 somehow pass choiceSource
           contractKey = contractKey,
           choice = input.choice,
           argument = input.argument,
         )
-      case \/-((templateId, contractId)) =>
+      case \/-((_, contractId)) =>
         Commands.exercise(
-          templateId = refApiIdentifier(templateId),
+          templateId = refApiIdentifier(choiceSource),
           contractId = contractId,
           choice = input.choice,
           argument = input.argument,
         )
     }
+  }
 
+  // TODO #14549 somehow use the choiceInterfaceId
   private def createAndExerciseCommand(
-      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value, TemplateId.RequiredPkg]
+      input: CreateAndExerciseCommand.LAVResolved
   ): lav1.commands.Command.Command.CreateAndExercise =
     Commands
       .createAndExercise(
@@ -222,13 +247,18 @@ class CommandService(
           actAs,
           readAs,
           command,
+          meta
+            .flatMap(_.deduplicationPeriod)
+            .map(_.toProto)
+            .getOrElse(DeduplicationPeriod.Empty),
+          submissionId = meta.flatMap(_.submissionId),
         )
       }
   }
 
   private def exactlyOneActiveContract(
       response: lav1.command_service.SubmitAndWaitForTransactionResponse
-  ): Error \/ ActiveContract[lav1.value.Value] =
+  ): Error \/ ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value] =
     activeContracts(response).flatMap {
       case Seq(x) => \/-(x)
       case xs @ _ =>
@@ -242,7 +272,7 @@ class CommandService(
 
   private def activeContracts(
       response: lav1.command_service.SubmitAndWaitForTransactionResponse
-  ): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] =
+  ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
         InternalError(
@@ -254,10 +284,10 @@ class CommandService(
 
   private def activeContracts(
       tx: lav1.transaction.Transaction
-  ): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] = {
+  ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value]] = {
     Transactions
       .allCreatedEvents(tx)
-      .traverse(ActiveContract.fromLedgerApi(_))
+      .traverse(ActiveContract.fromLedgerApi(domain.ActiveContract.IgnoreInterface, _))
       .leftMap(e => InternalError(Some(Symbol("activeContracts")), e.shows))
   }
 
@@ -313,7 +343,7 @@ object CommandService {
       id: Grpc.Category.PermissionDenied \/ Grpc.Category.InvalidArgument,
       message: String,
   ) extends Error
-  final case class GrpcError(status: io.grpc.Status) extends Error
+  final case class GrpcError(status: com.google.rpc.Status) extends Error
   final case class InternalError(id: Option[Symbol], error: Throwable) extends Error
   object InternalError {
     def apply(id: Option[Symbol], message: String): InternalError =

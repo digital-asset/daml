@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
+
 import com.daml.ledger.api.v1.commands.Command
 
-case class DomainCommand(command: Command, template: TemplateCompanion[_])
+case class DomainCommand(command: Command, template: ContractTypeCompanion[_])

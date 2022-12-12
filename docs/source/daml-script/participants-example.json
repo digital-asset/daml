@@ -1,7 +1,7 @@
 {
     "default_participant": {"host": "localhost", "port": 6866, "access_token": "default_jwt", "application_id": "myapp"},
     "participants": {
-        "one": {"host": "localhost", "port": 6865, "access_token": "jwt_for_alice", "application_id": "myapp"},
+        "one": {"host": "localhost", "port": 6866, "access_token": "jwt_for_alice", "application_id": "myapp"},
         "two": {"host": "localhost", "port": 6865, "access_token": "jwt_for_bob", "application_id": "myapp"}
     },
     "party_participants": {"alice": "one", "bob": "two"}

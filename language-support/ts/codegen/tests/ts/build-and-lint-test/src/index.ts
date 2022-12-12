@@ -3,7 +3,7 @@
 
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import Ledger from "@daml/ledger";
-import { ContractId, Party, Template, Choice } from "@daml/types";
+import { ContractId, Party, Template, Choice, ChoiceFrom } from "@daml/types";
 
 // Regression test for #8338, we only care that this compiles.
 
@@ -20,7 +20,8 @@ type Archive = {};
 const X: Template<X, undefined, "pkg-id:M:X"> = undefined!;
 
 const Y: {
-  Archive: Choice<X, Archive, {}, undefined>;
+  Archive: Choice<X, Archive, {}, undefined> &
+    ChoiceFrom<Template<X, undefined>>;
 } = undefined!;
 
 const cid: ContractId<X> = undefined!;

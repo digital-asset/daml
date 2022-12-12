@@ -4,25 +4,24 @@
 package com.daml.lf.codegen
 
 import com.daml.lf.data.{BackStack, ImmArray, Ref}
-import com.daml.lf.iface.{Interface, InterfaceType}
+import com.daml.lf.typesig.PackageSignature
+import PackageSignature.TypeDecl
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.CollectionConverters._
 
 private[codegen] sealed trait Node
 
 private[codegen] final case class Module(modules: Map[String, Module], types: Map[String, Type])
     extends Node
 
-private[codegen] final case class Type(typ: Option[InterfaceType], types: Map[String, Type])
-    extends Node
+private[codegen] final case class Type(typ: Option[TypeDecl], types: Map[String, Type]) extends Node
 
 private[codegen] final case class InterfaceTree(
     modules: Map[String, Module],
-    interface: Interface,
+    interface: PackageSignature,
 ) {
 
   def process(f: NodeWithContext => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
@@ -51,7 +50,7 @@ private[codegen] final case class InterfaceTree(
 }
 
 private[codegen] sealed trait NodeWithContext {
-  def interface: Interface
+  def interface: PackageSignature
   def lineage: ImmArray[(String, Node)]
   def modulesLineage: BackStack[(String, Module)]
   def name: String
@@ -62,7 +61,7 @@ private[codegen] sealed trait NodeWithContext {
 }
 
 private[codegen] final case class ModuleWithContext(
-    interface: Interface,
+    interface: PackageSignature,
     modulesLineage: BackStack[(String, Module)],
     name: String,
     module: Module,
@@ -88,7 +87,7 @@ private[codegen] final case class ModuleWithContext(
 }
 
 private[codegen] final case class TypeWithContext(
-    interface: Interface,
+    interface: PackageSignature,
     modulesLineage: BackStack[(String, Module)],
     typesLineage: BackStack[(String, Type)],
     name: String,
@@ -122,9 +121,9 @@ private[codegen] final case class TypeWithContext(
 
 private[codegen] object InterfaceTree extends StrictLogging {
 
-  def fromInterface(interface: Interface): InterfaceTree = {
-    val builder = InterfaceTreeBuilder.fromPackageId(interface.packageId)
-    interface.getTypeDecls.asScala.foreach { case (identifier, typ) =>
+  def fromInterface(interface: PackageSignature): InterfaceTree = {
+    val builder = new InterfaceTreeBuilder(new mutable.HashMap())
+    interface.typeDecls.foreach { case (identifier, typ) =>
       builder.insert(identifier, typ)
     }
     builder.build(interface)
@@ -140,7 +139,7 @@ private[codegen] object InterfaceTree extends StrictLogging {
       Module(modules.view.mapValues(_.build()).toMap, types.view.mapValues(_.build()).toMap)
 
     @tailrec
-    def insert(module: ImmArray[String], name: ImmArray[String], `type`: InterfaceType): Unit = {
+    def insert(module: ImmArray[String], name: ImmArray[String], `type`: TypeDecl): Unit = {
       if (module.isEmpty) {
         // at this point name cannot be empty
         assert(name.length > 0)
@@ -161,19 +160,19 @@ private[codegen] object InterfaceTree extends StrictLogging {
   }
 
   private final class TypeBuilder(
-      var typ: Option[InterfaceType],
+      var typ: Option[TypeDecl],
       children: mutable.HashMap[String, TypeBuilder],
   ) extends NodeBuilder {
     def build(): Type = {
       typ match {
-        // we allow TypeBuilder nodes with no InterfaceType if they have children nodes
+        // we allow TypeBuilder nodes with no TypeDecl if they have children nodes
         case None if children.isEmpty =>
           throw new IllegalStateException(s"Found a Type node without a type at build() time")
         case definedTypeOpt => Type(definedTypeOpt, children.view.mapValues(_.build()).toMap)
       }
     }
     @tailrec
-    def insert(name: String, names: ImmArray[String], `type`: InterfaceType): Unit = {
+    def insert(name: String, names: ImmArray[String], `type`: TypeDecl): Unit = {
       if (names.isEmpty) {
         children
           .getOrElseUpdate(name, new TypeBuilder(Some(`type`), mutable.HashMap.empty))
@@ -185,7 +184,7 @@ private[codegen] object InterfaceTree extends StrictLogging {
       }
     }
 
-    def setTypeOrThrow(typ: InterfaceType): Unit = {
+    def setTypeOrThrow(typ: TypeDecl): Unit = {
       this.typ match {
         case Some(otherTyp) if typ != otherTyp =>
           throw new IllegalStateException(
@@ -198,34 +197,20 @@ private[codegen] object InterfaceTree extends StrictLogging {
 
   private object TypeBuilder {
     def empty = new TypeBuilder(None, mutable.HashMap.empty)
-    def fromType(`type`: InterfaceType) = new TypeBuilder(Some(`type`), mutable.HashMap.empty)
+    def fromType(`type`: TypeDecl) = new TypeBuilder(Some(`type`), mutable.HashMap.empty)
   }
 
   private final class InterfaceTreeBuilder(
-      val name: Ref.PackageId,
-      children: mutable.HashMap[String, ModuleBuilder],
+      children: mutable.HashMap[String, ModuleBuilder]
   ) {
 
-    def build(interface: Interface): InterfaceTree =
+    def build(interface: PackageSignature): InterfaceTree =
       InterfaceTree(children.view.mapValues(_.build()).toMap, interface)
 
-    def insert(qualifiedName: Ref.QualifiedName, `type`: InterfaceType): Unit = {
+    def insert(qualifiedName: Ref.QualifiedName, `type`: TypeDecl): Unit = {
       children
         .getOrElseUpdate(qualifiedName.module.segments.head, ModuleBuilder.empty)
         .insert(qualifiedName.module.segments.tail, qualifiedName.name.segments, `type`)
     }
   }
-
-  private object InterfaceTreeBuilder {
-    def fromPackageId(packageId: Ref.PackageId) =
-      new InterfaceTreeBuilder(packageId, new mutable.HashMap())
-  }
-}
-
-private[codegen] final case class InterfaceTrees(interfaceTrees: List[InterfaceTree])
-
-private[codegen] object InterfaceTrees extends StrictLogging {
-
-  def fromInterfaces(interfaces: Seq[Interface]): InterfaceTrees =
-    InterfaceTrees(interfaces.view.map(InterfaceTree.fromInterface).toList)
 }

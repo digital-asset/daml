@@ -7,8 +7,23 @@
 module InterfaceConversions where
 
 import DA.Assert ((===))
+import DA.Functor (void)
+
+data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface Iface where
+    viewtype EmptyInterfaceView
+    getOwner : Party
+    choice MyChoice : ()
+        controller getOwner this
+        do pure ()
+
+interface Iface2 where
+    viewtype EmptyInterfaceView
+    getOwner2 : Party
+    choice MyChoice2 : ()
+        controller getOwner2 this
+        do pure ()
 
 template Template1
     with
@@ -16,7 +31,9 @@ template Template1
         value1: Int
     where
         signatory owner1
-        implements Iface where
+        interface instance Iface for Template1 where
+            view = EmptyInterfaceView
+            getOwner = owner1
 
 template Template2
     with
@@ -24,7 +41,9 @@ template Template2
         value2: Text
     where
         signatory owner2
-        implements Iface where
+        interface instance Iface for Template2 where
+            view = EmptyInterfaceView
+            getOwner = owner2
 
 main = scenario do
     p <- getParty "Alice"
@@ -43,14 +62,41 @@ main = scenario do
         let ifaceCid1 = toInterfaceContractId @Iface templateCid1
             ifaceCid2 = toInterfaceContractId @Iface templateCid2
 
-        x1 <- fromInterfaceContractId @Template1 ifaceCid1
-        x2 <- fromInterfaceContractId @Template2 ifaceCid1
-        x3 <- fromInterfaceContractId @Template1 ifaceCid2
-        x4 <- fromInterfaceContractId @Template2 ifaceCid2
+        fromInterfaceContractId ifaceCid1 === templateCid1
+        fromInterfaceContractId ifaceCid2 === templateCid2
 
-        x1 === Some templateCid1
+        x1 <- fetchFromInterface @Template1 ifaceCid1
+        x2 <- fetchFromInterface @Template2 ifaceCid1
+        x3 <- fetchFromInterface @Template1 ifaceCid2
+        x4 <- fetchFromInterface @Template2 ifaceCid2
+
+        x1 === Some (templateCid1, template1)
         x2 === None
         x3 === None
-        x4 === Some templateCid2
+        x4 === Some (templateCid2, template2)
+
+    -- Test that using fromInterfaceContractId incorrectly will result
+    -- in failed fetch/exercise/archives. I.e. using a Template1 contract
+    -- id as if it were a Template2 contract id will always fail, even
+    -- for actions that make sense for the common interface Iface.
+    let useAction : (ContractId Template2 -> Update ()) -> Update ()
+        useAction action = do
+            cid <- create (toInterface @Iface (Template1 p 10))
+            action (fromInterfaceContractId @Template2 cid)
+    submit p do useAction $ \_cid -> pure ()
+    submitMustFail p do useAction $ \cid -> void (fetch cid)
+    submitMustFail p do useAction $ \cid -> archive cid
+
+    -- Test that using coerceInterfaceContractId incorrectly will result
+    -- in failed fetch/exercise/archives. I.e. using an Iface contract
+    -- id as if it were a Iface2 contract id will always fail.
+    let useAction : (ContractId Iface2 -> Update ()) -> Update ()
+        useAction action = do
+            cid <- create (toInterface @Iface (Template1 p 10))
+            action (coerceInterfaceContractId @Iface2 cid)
+    submit p do useAction $ \_cid -> pure ()
+    submitMustFail p do useAction $ \cid -> exercise cid MyChoice2
+    submitMustFail p do useAction $ \cid -> void (fetch cid)
+    submitMustFail p do useAction $ \cid -> archive cid
 
 -- @ENABLE-SCENARIOS

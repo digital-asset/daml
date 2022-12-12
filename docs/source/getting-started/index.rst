@@ -33,12 +33,12 @@ Make sure that you have the Daml SDK, Java 11 or higher, and Visual Studio Code 
 
 You will also need some common software tools to build and interact with the template project:
 
-- `Node <https://nodejs.org/en/>`_ and the associated package manager ``npm``. You need ``node --version`` to report at least ``14.8.3``; if you have an older version, see `this link <https://docs.npmjs.com/downloading-and-installing-node-js-and-npm>`_ for additional installation options.
+- `Node <https://nodejs.org/en/>`_ and the associated package manager ``npm``. Use the `Active LTS <https://nodejs.org/en/about/releases/>`_ Node version, currently ``v18`` (check with ``node --version``).
 - A terminal application for command line interaction.
 
 
-Running the App
-***************
+Run the App
+***********
 
 To get the app up and running:
 
@@ -99,14 +99,14 @@ You should now see the login page for the social network. For simplicity, in thi
 
    .. figure:: images/create-daml-app-login-screen.png
       :scale: 50 %
-      :alt: Login screen for the create-daml-app
+      :alt: Login screen for the app.
       :class: no-scaled-link
 
 You should see the main screen with two panels. The top panel displays the social network users you are following; the bottom displays the aliases of the users who follow you. Initially these are both empty as you are not following anyone and you don't have any followers.
 To start following a user, select their name in the drop-down list and click the *Follow* button in the top panel. At the moment, you will notice that the drop-down shows only your own user because no other user has registered yet.
 
    .. figure:: images/create-daml-app-main-screen-initial-view.png
-      :alt: Main view of the create-daml-app
+      :alt: Main view of the app.
 
 Next, open a new browser window/tab at http://localhost:3000 and log in as a different user.
 (Having separate windows/tabs allows you to see both your own screen and the screen of the user you are following at the same time.)
@@ -120,7 +120,7 @@ This social network is similar to Twitter and Instagram, where by following some
 We will see how we encode this in Daml in the next section.
 
    .. figure:: images/create-daml-app-bob-follows-alice.png
-      :alt: In the create-daml-app users can follow each other in a similar fashion as in Twitter or Instagram
+      :alt: The app now shows Alice in Bob's Users I Follow section.
 
 To make this relationship reciprocal, go back to the other window/tab where you logged in as the second user (Alice in this example).
 You should now see your name in her network.
@@ -128,13 +128,13 @@ In fact, Alice can see the entire list of users you are following in the *Networ
 This is because this list is part of the user data that became visible when you started following her.
 
    .. figure:: images/create-daml-app-alice-sees-bob.png
-      :alt: In the create-daml-app when you start following someone you reveal the list of people you are following
+      :alt: The app from Alice's point of view, with the list of users Bob is following in the The Network section.
 
 When Alice starts following you, you can see her in your network as well.
 Switch to the window where you are logged in as yourself - the network should update automatically.
 
    .. figure:: images/create-daml-app-bob-sees-alice-in-the-network.png
-      :alt: In the create-daml-app when the user you are following follows you back s/he reveals the list of people they are following
+      :alt: The app now shows Bob the list of users Alice is following in the The Network section.
 
 Play around more with the app at your leisure: create new users and start following more users.
 Observe when a user becomes visible to others - this will be important to understanding Daml's privacy model later.

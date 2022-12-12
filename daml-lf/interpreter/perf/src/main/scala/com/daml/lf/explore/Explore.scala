@@ -73,7 +73,7 @@ object PlaySpeedy {
     println(s"example name: $name")
 
     machine.run() match {
-      case SResultFinalValue(value) =>
+      case SResultFinal(value) =>
         println(s"final-value: $value")
         value match {
           case SInt64(got) =>
@@ -111,7 +111,7 @@ object PlaySpeedy {
 
     val examples = List(
       (
-        "sub", //11-33
+        "sub", // 11-33
         -22,
         subtract2(num(11), num(33)),
       ),
@@ -121,7 +121,7 @@ object PlaySpeedy {
         subtract2(subtract2(num(1), num(3)), subtract2(num(5), num(10))),
       ),
       (
-        "subF", //88-55
+        "subF", // 88-55
         33,
         SEApp(subtract, List(num(88), num(55))),
       ),
@@ -131,7 +131,7 @@ object PlaySpeedy {
         SEApp(thrice, List(decrement, num(0))),
       ),
       (
-        "thrice-thrice", //thrice thrice (\x -> x - 1) 0
+        "thrice-thrice", // thrice thrice (\x -> x - 1) 0
         -27,
         SEApp(thrice, List(thrice, decrement, num(0))),
       ),
@@ -151,7 +151,7 @@ object PlaySpeedy {
                   mkVar(1),
                 ),
               ),
-            ), //100
+            ), // 100
           ),
         ),
       ),

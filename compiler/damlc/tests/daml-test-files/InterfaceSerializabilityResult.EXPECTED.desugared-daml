@@ -1,0 +1,115 @@
+module InterfaceSerializabilityResult where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+data NonSerializable = NonSerializable (() -> ())
+instance Eq NonSerializable where
+  (==) = error "undefined"
+instance Show NonSerializable where
+  show = error "undefined"
+data EmptyInterfaceView = EmptyInterfaceView {}
+data GHC.Types.DamlInterface => I = I GHC.Types.Opaque
+instance DA.Internal.Desugar.HasInterfaceTypeRep I where
+  _interfaceTypeRep
+    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+instance DA.Internal.Desugar.HasFetch I where
+  fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasToInterface I I where
+  _toInterface this = this
+instance DA.Internal.Desugar.HasFromInterface I I where
+  fromInterface this = DA.Internal.Desugar.Some this
+  unsafeFromInterface _ this = this
+instance DA.Internal.Desugar.HasMethod I "p" (Party)
+p : I -> Party
+p = GHC.Types.primitiveInterface @"p"
+instance DA.Internal.Desugar.HasToAnyTemplate I where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate I where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep I where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasSignatory I where
+  signatory = GHC.Types.primitive @"ESignatoryInterface"
+instance DA.Internal.Desugar.HasObserver I where
+  observer = GHC.Types.primitive @"EObserverInterface"
+instance DA.Internal.Desugar.HasCreate I where
+  create = GHC.Types.primitive @"UCreateInterface"
+instance DA.Internal.Desugar.HasIsInterfaceType I where
+  _isInterfaceType _ = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.Eq I where
+  (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive I where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+instance DA.Internal.Desugar.HasToAnyChoice I DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice I DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded I DA.Internal.Desugar.Archive (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @I cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @I cid pred)
+instance DA.Internal.Desugar.HasExercise I DA.Internal.Desugar.Archive (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @I cid)
+        arg
+instance DA.Internal.Desugar.HasToAnyChoice I NonSerializableResult (NonSerializable) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice I NonSerializableResult (NonSerializable) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded I NonSerializableResult (NonSerializable) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @I cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @I cid pred)
+instance DA.Internal.Desugar.HasExercise I NonSerializableResult (NonSerializable) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @I cid)
+        arg
+data NonSerializableResult
+  = NonSerializableResult {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+_choice_IArchive :
+  (I -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId I
+   -> I
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming I,
+   DA.Internal.Desugar.Optional (I
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_IArchive
+  = (\ this arg@DA.Internal.Desugar.Archive
+       -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
+_choice_INonSerializableResult :
+  (I -> NonSerializableResult -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId I
+   -> I
+      -> NonSerializableResult
+         -> DA.Internal.Desugar.Update (NonSerializable),
+   DA.Internal.Desugar.Consuming I,
+   DA.Internal.Desugar.Optional (I
+                                 -> NonSerializableResult -> [DA.Internal.Desugar.Party]))
+_choice_INonSerializableResult
+  = (\ this arg@NonSerializableResult
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p this), 
+     \ self this arg@NonSerializableResult
+       -> let _ = self in
+          let _ = this in let _ = arg in do pure (NonSerializable identity), 
+     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView I EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView I EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"

@@ -5,6 +5,7 @@
 
 module Daml.Trigger
  ( query
+ , queryFilter
  , queryContractId
  , queryContractKey
  , ActionTriggerAny
@@ -87,6 +88,11 @@ getContractById id (ACS tpls pending) = do
 -- | Extract the contracts of a given template from the ACS.
 query : forall a m. (Template a, ActionTriggerAny m) => m [(ContractId a, a)]
 query = implQuery
+
+-- | Extract the contracts of a given template from the ACS and filter
+-- to those that match the predicate.
+queryFilter : forall a m. (Functor m, Template a, ActionTriggerAny m) => (a -> Bool) -> m [(ContractId a, a)]
+queryFilter pred = filter (\(_, c) -> pred c) <$> implQuery
 
 -- | Find the contract with the given `key` in the ACS, if present.
 queryContractKey : forall a k m. (Template a, HasKey a k, Eq k, ActionTriggerAny m, Functor m)

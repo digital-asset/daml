@@ -18,14 +18,16 @@ Of course there are more to choose from, but this is one combination that works.
 To install Puppeteer and some other testing utilities we are going to use,
 run the following command in the ``ui`` directory::
 
-    npm add --only=dev puppeteer wait-on @types/jest @types/node @types/puppeteer @types/wait-on
+    npm i --save-dev puppeteer@~10.0.0 wait-on@~6.0.1 @types/jest@~29.2.3 @types/node@~18.11.9 @types/puppeteer@~7.0.4 @types/wait-on@~5.3.1
+
+You may need to run ``npm install`` again afterwards.
 
 Because these things are easier to describe with concrete examples, this
 section will show how to set up end-to-end tests for the application you would
 end with at the end of the :doc:`/getting-started/first-feature` section.
 
-Setting up our tests
-====================
+Set Up the Tests
+================
 
 Let's see how to use these tools to write some tests for our social network app.
 You can see the full suite in section :ref:`Full Test Suite` at the bottom of
@@ -55,8 +57,8 @@ On the other hand the ``afterAll()`` section is used to shut down these processe
 This step is important to prevent child processes persisting in the background after our program has finished.
 
 
-Example: Logging in and out
-===========================
+Example: Log In and Out
+=======================
 
 Now let's get to a test!
 The idea is to control the browser in the same way we would expect a user to in each scenario we want to test.
@@ -83,7 +85,7 @@ You will likely use ``test``, ``getParty()``, ``newUiPage()`` and ``Browser.clos
 In this case we use the ``@daml/ledger`` library to inspect the state of the ledger, but usually we just check the contents of the web page match our expectations.
 
 
-Accessing UI elements
+Accessing UI Elements
 =====================
 
 We showed how to write a simple test at a high level, but haven't shown how to make individual actions in the app using Puppeteer.
@@ -125,6 +127,7 @@ When writing CSS selectors for your tests, you will likely need to check the str
 For example, the image below is from inspecting the username field using the developer tools in Google Chrome.
 
    .. figure:: images/inspect-element.png
+      :alt: The app login screen and the code that renders as that screen. In the code a line that reads "<div class = "field test select username field"> == $0" is highlighted.
 
 There is a subtlety to explain here due to the `Semantic UI <https://semantic-ui.com/>`_ framework we use for our app.
 Semantic UI provides a convenient set of UI elements which get translated to HTML.

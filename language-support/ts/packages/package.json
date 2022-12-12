@@ -28,11 +28,6 @@
     "typedoc": "^0.22.11"
   },
   "resolutions": {
-    "**/y18n": "^4.0.1",
-    "**/@types/react-test-renderer": "^16.9.3 || ^17.0.0",
-    "**/hosted-git-info": "^4.0.2",
-    "**/string-width": "^4.2.3",
-    "**/strip-ansi": "^6.0.1",
-    "**/ansi-regex": "^5.0.1"
+    "**/protobufjs": "^6.10.3"
   }
 }

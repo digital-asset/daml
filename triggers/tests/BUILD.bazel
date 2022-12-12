@@ -6,6 +6,7 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
+    "lf_scalacopts_stricter",
 )
 load("@build_environment//:configuration.bzl", "sdk_version")
 
@@ -42,12 +43,14 @@ DAML_LF_VERSIONS = [
       cp -L $(location :daml/Heartbeat.daml) $$TMP_DIR/daml
       cp -L $(location :daml/ReadAs.daml) $$TMP_DIR/daml
       cp -L $(location :daml/ActAs.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/QueryFilter.daml) $$TMP_DIR/daml
       cp -L $(location //templates:copy-trigger/src/CopyTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger{suffix}.dar) $$TMP_DIR/daml-trigger.dar
       cp -L $(location //daml-script/daml:daml-script{suffix}.dar) $$TMP_DIR/daml-script.dar
       if [ "{lf_version}" = "1.dev" ]
       then
         cp -L $(location :daml/Interface.daml) $$TMP_DIR/daml
+        cp -L $(location :daml/InterfaceTriggers.daml) $$TMP_DIR/daml
       fi
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
@@ -64,8 +67,8 @@ EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location acs{suffix}.dar)
       rm -rf $$TMP_DIR
     """.format(
-            sdk = sdk_version,
             lf_version = lf_version,
+            sdk = sdk_version,
             suffix = suffix,
         ),
         tools = ["//compiler/damlc"],
@@ -105,12 +108,11 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-resources",
+        "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
-        "//ledger/sandbox-common",
-        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//ledger/test-common",
-        "//libs-scala/contextualized-logging",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//triggers/runner:trigger-runner-lib",
@@ -149,6 +151,7 @@ da_scala_library(
             "//bazel_tools/runfiles:scala_runfiles",
             "//daml-lf/archive:daml_lf_archive_reader",
             "//daml-lf/data",
+            "//daml-lf/engine",
             "//daml-lf/interpreter",
             "//daml-lf/language",
             "//language-support/scala/bindings",
@@ -161,15 +164,18 @@ da_scala_library(
             "//ledger/ledger-api-domain",
             "//ledger/ledger-configuration",
             "//ledger/ledger-resources",
+            "//ledger/ledger-runner-common",
+            "//ledger/metrics",
             "//ledger/participant-integration-api",
-            "//ledger/sandbox-common",
-            "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
-            "//ledger/sandbox-on-x:sandbox-classic-server",
+            "//ledger/sandbox-on-x",
             "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
             "//ledger/test-common",
+            "//libs-scala/contextualized-logging",
+            "//libs-scala/logging-entries",
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/scalatest-utils",
+            "//observability/telemetry",
             "//triggers/runner:trigger-runner-lib",
         ],
     )

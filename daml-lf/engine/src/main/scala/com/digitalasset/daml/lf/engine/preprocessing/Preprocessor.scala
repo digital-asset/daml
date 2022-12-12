@@ -5,11 +5,10 @@ package com.daml.lf
 package engine
 package preprocessing
 
-import java.util
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
-import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.lf.transaction.{Node, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
 
@@ -42,146 +41,127 @@ private[engine] final class Preprocessor(
 
   import Preprocessor._
 
-  import compiledPackages.interface
+  import compiledPackages.pkgInterface
 
   val commandPreprocessor =
     new CommandPreprocessor(
-      interface = interface,
+      pkgInterface = pkgInterface,
       requireV1ContractIdSuffix = requireV1ContractIdSuffix,
     )
   val transactionPreprocessor = new TransactionPreprocessor(commandPreprocessor)
 
-  // This pulls all the dependencies of in `typesToProcess0` and `tyConAlreadySeen0`
-  private def getDependencies(
-      typesToProcess0: List[Ast.Type],
-      tmplToProcess0: List[Ref.TypeConName],
-      tyConAlreadySeen0: Set[Ref.TypeConName] = Set.empty,
-      tmplAlreadySeen0: Set[Ref.TypeConName] = Set.empty,
-  ): Result[(Set[Ref.TypeConName], Set[Ref.TypeConName])] = {
+  @tailrec
+  private[this] def collectNewPackagesFromTypes(
+      types: List[Ast.Type],
+      acc: Map[Ref.PackageId, language.Reference] = Map.empty,
+  ): Result[List[(Ref.PackageId, language.Reference)]] =
+    types match {
+      case typ :: rest =>
+        typ match {
+          case Ast.TTyCon(tycon) =>
+            val pkgId = tycon.packageId
+            val newAcc =
+              if (compiledPackages.packageIds(pkgId) || acc.contains(pkgId))
+                acc
+              else
+                acc.updated(pkgId, language.Reference.DataType(tycon))
+            collectNewPackagesFromTypes(rest, newAcc)
+          case Ast.TApp(tyFun, tyArg) =>
+            collectNewPackagesFromTypes(tyFun :: tyArg :: rest, acc)
+          case Ast.TNat(_) | Ast.TBuiltin(_) | Ast.TVar(_) =>
+            collectNewPackagesFromTypes(rest, acc)
+          case Ast.TSynApp(_, _) | Ast.TForall(_, _) | Ast.TStruct(_) =>
+            // We assume that collectPackages is always given serializable types
+            ResultError(
+              Error.Preprocessing
+                .Internal(
+                  NameOf.qualifiedNameOfCurrentFunc,
+                  s"unserializable type ${typ.pretty}",
+                  None,
+                )
+            )
+        }
+      case Nil =>
+        ResultDone(acc.toList)
+    }
 
-    @tailrec
-    def go(
-        typesToProcess0: List[Ast.Type],
-        tmplToProcess0: List[Ref.TypeConName],
-        tyConAlreadySeen0: Set[Ref.TypeConName],
-        tmplsAlreadySeen0: Set[Ref.TypeConName],
-    ): Result[(Set[Ref.TypeConName], Set[Ref.TypeConName])] = {
-      def pullPackage(pkgId: Ref.PackageId, context: language.Reference) =
+  private[this] def collectNewPackagesFromTemplatesOrInterfaces(
+      tycons: Iterable[Ref.TypeConName]
+  ): List[(Ref.PackageId, language.Reference)] =
+    tycons
+      .foldLeft(Map.empty[Ref.PackageId, language.Reference]) { (acc, tycon) =>
+        val pkgId = tycon.packageId
+        if (compiledPackages.packageIds(pkgId) || acc.contains(pkgId))
+          acc
+        else
+          acc.updated(pkgId, language.Reference.TemplateOrInterface(tycon))
+      }
+      .toList
+
+  private[this] def pullPackages(
+      pkgIds: List[(Ref.PackageId, language.Reference)]
+  ): Result[Unit] =
+    pkgIds match {
+      case (pkgId, context) :: rest =>
         ResultNeedPackage(
           pkgId,
           {
             case Some(pkg) =>
-              for {
-                _ <- compiledPackages.addPackage(pkgId, pkg)
-                r <- getDependencies(
-                  typesToProcess0,
-                  tmplToProcess0,
-                  tyConAlreadySeen0,
-                  tmplsAlreadySeen0,
-                )
-              } yield r
+              compiledPackages.addPackage(pkgId, pkg).flatMap(_ => pullPackages(rest))
             case None =>
               ResultError(Error.Package.MissingPackage(pkgId, context))
           },
         )
-
-      typesToProcess0 match {
-        case typ :: typesToProcess =>
-          typ match {
-            case Ast.TApp(fun, arg) =>
-              go(fun :: arg :: typesToProcess, tmplToProcess0, tyConAlreadySeen0, tmplsAlreadySeen0)
-            case Ast.TTyCon(tyCon) if !tyConAlreadySeen0(tyCon) =>
-              interface.lookupDataType(tyCon) match {
-                case Right(Ast.DDataType(_, _, dataType)) =>
-                  val typesToProcess = dataType match {
-                    case Ast.DataRecord(fields) =>
-                      fields.foldRight(typesToProcess0)(_._2 :: _)
-                    case Ast.DataVariant(variants) =>
-                      variants.foldRight(typesToProcess0)(_._2 :: _)
-                    case Ast.DataEnum(_) =>
-                      typesToProcess0
-                    case Ast.DataInterface =>
-                      typesToProcess0
-                  }
-                  go(
-                    typesToProcess,
-                    tmplToProcess0,
-                    tyConAlreadySeen0 + tyCon,
-                    tmplsAlreadySeen0,
-                  )
-                case Left(LookupError.MissingPackage(pkgId, context)) =>
-                  pullPackage(pkgId, context)
-                case Left(e) =>
-                  ResultError(Error.Preprocessing.Lookup(e))
-              }
-            case Ast.TTyCon(_) | Ast.TNat(_) | Ast.TBuiltin(_) | Ast.TVar(_) =>
-              go(typesToProcess, tmplToProcess0, tyConAlreadySeen0, tmplsAlreadySeen0)
-            case Ast.TSynApp(_, _) | Ast.TForall(_, _) | Ast.TStruct(_) =>
-              // We assume that getDependencies is always given serializable types
-              ResultError(
-                Error.Preprocessing
-                  .Internal(
-                    NameOf.qualifiedNameOfCurrentFunc,
-                    s"unserializable type ${typ.pretty}",
-                    None,
-                  )
-              )
-          }
-        case Nil =>
-          tmplToProcess0 match {
-            case tmplId :: tmplsToProcess if tmplsAlreadySeen0(tmplId) =>
-              go(Nil, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
-            case tmplId :: tmplsToProcess =>
-              interface.lookupTemplateOrInterface(tmplId) match {
-                case Right(Left(template)) =>
-                  val typs0 = template.choices.map(_._2.argBinder._2).toList
-                  val typs1 =
-                    if (tyConAlreadySeen0(tmplId)) typs0 else Ast.TTyCon(tmplId) :: typs0
-                  val typs2 = template.key.fold(typs1)(_.typ :: typs1)
-                  go(typs2, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
-                case Right(Right(interface)) =>
-                  val typs0 = (interface.fixedChoices.values.map(_.argBinder._2)
-                    ++ interface.methods.values.map(_.returnType)).toList
-                  val typs1 =
-                    if (tyConAlreadySeen0(tmplId)) typs0 else Ast.TTyCon(tmplId) :: typs0
-                  go(typs1, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
-                case Left(LookupError.MissingPackage(pkgId, context)) =>
-                  pullPackage(pkgId, context)
-                case Left(error) =>
-                  ResultError(Error.Preprocessing.Lookup(error))
-              }
-            case Nil =>
-              ResultDone(tyConAlreadySeen0 -> tmplsAlreadySeen0)
-          }
-      }
+      case Nil =>
+        ResultDone.Unit
     }
 
-    go(typesToProcess0, tmplToProcess0, tyConAlreadySeen0, tmplAlreadySeen0)
-  }
+  private[this] def pullTypePackages(typ: Ast.Type): Result[Unit] =
+    collectNewPackagesFromTypes(List(typ)).flatMap(pullPackages)
+
+  private[this] def pullTemplatePackage(tyCons: Iterable[Ref.TypeConName]): Result[Unit] =
+    pullPackages(collectNewPackagesFromTemplatesOrInterfaces(tyCons))
+
+  private[this] def pullInterfacePackage(tyCons: Iterable[Ref.TypeConName]): Result[Unit] =
+    pullPackages(collectNewPackagesFromTemplatesOrInterfaces(tyCons))
 
   /** Translates the LF value `v0` of type `ty0` to a speedy value.
     * Fails if the nesting is too deep or if v0 does not match the type `ty0`.
     * Assumes ty0 is a well-formed serializable typ.
     */
   def translateValue(ty0: Ast.Type, v0: Value): Result[SValue] =
-    safelyRun(getDependencies(List(ty0), List.empty)) {
+    safelyRun(pullTypePackages(ty0)) {
       commandPreprocessor.valueTranslator.unsafeTranslateValue(ty0, v0)
     }
 
-  private[engine] def preprocessCommand(
-      cmd: command.Command
+  private[engine] def preprocessApiCommand(
+      cmd: command.ApiCommand
   ): Result[speedy.Command] =
-    safelyRun(getDependencies(List.empty, List(cmd.templateId))) {
-      commandPreprocessor.unsafePreprocessCommand(cmd)
+    safelyRun(pullTemplatePackage(List(cmd.typeId))) {
+      commandPreprocessor.unsafePreprocessApiCommand(cmd)
     }
 
   /** Translates  LF commands to a speedy commands.
     */
-  def preprocessCommands(
+  def preprocessApiCommands(
       cmds: data.ImmArray[command.ApiCommand]
   ): Result[ImmArray[speedy.Command]] =
-    safelyRun(getDependencies(List.empty, cmds.map(_.templateId).toList)) {
-      commandPreprocessor.unsafePreprocessCommands(cmds)
+    safelyRun(pullTemplatePackage(cmds.toSeq.view.map(_.typeId))) {
+      commandPreprocessor.unsafePreprocessApiCommands(cmds)
+    }
+
+  def preprocessDisclosedContracts(
+      discs: data.ImmArray[command.DisclosedContract]
+  ): Result[ImmArray[speedy.DisclosedContract]] =
+    safelyRun(pullTemplatePackage(discs.toSeq.view.map(_.templateId))) {
+      commandPreprocessor.unsafePreprocessDisclosedContracts(discs)
+    }
+
+  private[engine] def preprocessReplayCommand(
+      cmd: command.ReplayCommand
+  ): Result[speedy.Command] =
+    safelyRun(pullTemplatePackage(List(cmd.templateId))) {
+      commandPreprocessor.unsafePreprocessReplayCommand(cmd)
     }
 
   /** Translates a complete transaction. Assumes no contract ID suffixes are used */
@@ -189,24 +169,26 @@ private[engine] final class Preprocessor(
       tx: SubmittedTransaction
   ): Result[ImmArray[speedy.Command]] =
     safelyRun(
-      getDependencies(
-        List.empty,
-        tx.rootNodes.toList.map(_.templateId)
-          ++ tx.byInterfaceNodes.map(_.templateId),
+      pullTemplatePackage(
+        tx.nodes.values.collect { case action: Node.Action => action.templateId }
       )
     ) {
       transactionPreprocessor.unsafeTranslateTransactionRoots(tx)
     }
 
+  def preprocessInterfaceView(
+      templateId: Ref.Identifier,
+      argument: Value,
+      interfaceId: Ref.Identifier,
+  ): Result[speedy.InterfaceView] =
+    safelyRun(
+      pullTemplatePackage(Seq(templateId)).flatMap(_ => pullInterfacePackage(Seq(interfaceId)))
+    ) {
+      commandPreprocessor.unsafePreprocessInterfaceView(templateId, argument, interfaceId)
+    }
 }
 
 private[preprocessing] object Preprocessor {
-
-  private[preprocessing] def ArrayList[X](as: X*): util.ArrayList[X] = {
-    val a = new util.ArrayList[X](as.length)
-    as.foreach(a.add)
-    a
-  }
 
   @throws[Error.Preprocessing.Error]
   def handleLookup[X](either: Either[LookupError, X]): X = either match {
@@ -215,21 +197,19 @@ private[preprocessing] object Preprocessor {
   }
 
   @inline
-  def safelyRun[X](
-      handleMissingPackages: Result[_]
-  )(unsafeRun: => X): Result[X] = {
+  def safelyRun[X](handleMissingPackages: => Result[_])(unsafeRun: => X): Result[X] = {
 
-    def start: Result[X] =
+    def start(first: Boolean): Result[X] =
       try {
         ResultDone(unsafeRun)
       } catch {
-        case Error.Preprocessing.Lookup(LookupError.MissingPackage(_, _)) =>
-          handleMissingPackages.flatMap(_ => start)
+        case Error.Preprocessing.Lookup(LookupError.MissingPackage(_, _)) if first =>
+          handleMissingPackages.flatMap(_ => start(false))
         case e: Error.Preprocessing.Error =>
           ResultError(e)
       }
 
-    start
+    start(first = true)
   }
 
   @inline

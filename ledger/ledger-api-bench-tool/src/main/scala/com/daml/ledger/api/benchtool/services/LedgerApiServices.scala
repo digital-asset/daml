@@ -4,7 +4,7 @@
 package com.daml.ledger.api.benchtool.services
 
 import com.daml.ledger.api.benchtool.AuthorizationHelper
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.platform.localstore.api.UserManagementStore
 import io.grpc.Channel
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -21,6 +21,8 @@ class LedgerApiServices(
   val activeContractsService =
     new ActiveContractsService(channel, ledgerId, authorizationToken = authorizationToken)
   val commandService = new CommandService(channel, authorizationToken = authorizationToken)
+  val commandSubmissionService =
+    new CommandSubmissionService(channel, authorizationToken = authorizationToken)
   val commandCompletionService =
     new CommandCompletionService(
       channel,
@@ -30,6 +32,7 @@ class LedgerApiServices(
     )
   val packageManagementService =
     new PackageManagementService(channel, authorizationToken = authorizationToken)
+  val packageService = new PackageService(channel, authorizationToken = authorizationToken)
   val partyManagementService =
     new PartyManagementService(channel, authorizationToken = authorizationToken)
   val transactionService =

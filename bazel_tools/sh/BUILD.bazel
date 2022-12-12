@@ -1,7 +1,10 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-exports_files(["test.sh.tpl"])
+exports_files([
+    "inline.sh.tpl",
+    "test.sh.tpl",
+])
 
 sh_binary(
     name = "mktar",

@@ -7,7 +7,7 @@ import java.io.File
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.resources.TestResourceContext
-import com.daml.platform.apiserver.LedgerApiServer
+import com.daml.platform.apiserver.LedgerApiService
 import io.netty.handler.ssl.ClientAuth
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -28,7 +28,7 @@ class TlsSpec
   val invalidClientCrt = resource("ca_alternative.crt")
   val invalidClientKey = resource("ca_alternative.pem")
 
-  classOf[LedgerApiServer].getSimpleName when {
+  classOf[LedgerApiService].getSimpleName when {
     "client authorization is set to none" should {
       "allow TLS connections with valid certificates" in {
         assertResponseSuccess(Some(clientCrt), Some(clientKey), ClientAuth.NONE)

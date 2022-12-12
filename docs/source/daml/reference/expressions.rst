@@ -1,7 +1,7 @@
 .. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Reference: expressions
+Reference: Expressions
 ######################
 
 This page gives reference information for Daml expressions that are not :doc:`updates <updates>`.
@@ -45,7 +45,7 @@ Here you see:
   This means it takes two Decimals and returns another Decimal.
 - the definition ``= 2.0 * pi * r * h`` (which uses the previously defined ``pi``)
 
-Arithmetic operators
+Arithmetic Operators
 ********************
 
 .. list-table::
@@ -76,7 +76,7 @@ The result of the modulo operation has the same sign as the dividend:
 
 To write infix expressions in prefix form, wrap the operators in parentheses. For example, ``(+) 1 2`` is another way of writing ``1 + 2``.
 
-Comparison operators
+Comparison Operators
 ********************
 
 .. list-table::
@@ -90,7 +90,7 @@ Comparison operators
    * - ``==``, ``/=``
      - ``Bool``, ``Text``, ``Int``, ``Decimal``, ``Party``, ``Time``, and :ref:`identifiers of contracts <daml-ref_contract-identifiers>` stemming from the same contract template
 
-Logical operators
+Logical Operators
 *****************
 
 The logical operators in Daml are:

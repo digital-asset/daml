@@ -3,14 +3,12 @@
 
 package com.daml.ledger.rxjava.grpc;
 
-import com.daml.grpc.adapter.ExecutionSequencerFactory;
 import com.daml.ledger.api.v1.admin.UserManagementServiceGrpc;
 import com.daml.ledger.api.v1.admin.UserManagementServiceGrpc.UserManagementServiceFutureStub;
 import com.daml.ledger.api.v1.admin.UserManagementServiceOuterClass;
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.rxjava.UserManagementClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
-import com.daml.ledger.rxjava.util.CreateSingle;
 import io.grpc.Channel;
 import io.reactivex.Single;
 import java.util.Optional;
@@ -19,23 +17,17 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 public final class UserManagementClientImpl implements UserManagementClient {
 
   private final UserManagementServiceFutureStub serviceFutureStub;
-  private final ExecutionSequencerFactory sequencerFactory;
 
-  public UserManagementClientImpl(
-      @NonNull Channel channel,
-      @NonNull ExecutionSequencerFactory sequencerFactory,
-      @NonNull Optional<String> accessToken) {
+  public UserManagementClientImpl(@NonNull Channel channel, @NonNull Optional<String> accessToken) {
     this.serviceFutureStub =
         StubHelper.authenticating(UserManagementServiceGrpc.newFutureStub(channel), accessToken);
-    this.sequencerFactory = sequencerFactory;
   }
 
   private Single<CreateUserResponse> createUser(
       @NonNull CreateUserRequest request, @NonNull Optional<String> maybeToken) {
-    return CreateSingle.fromFuture(
+    return Single.fromFuture(
             StubHelper.authenticating(this.serviceFutureStub, maybeToken)
-                .createUser(request.toProto()),
-            sequencerFactory)
+                .createUser(request.toProto()))
         .map(CreateUserResponse::fromProto);
   }
 
@@ -52,10 +44,9 @@ public final class UserManagementClientImpl implements UserManagementClient {
 
   private Single<GetUserResponse> getUser(
       @NonNull GetUserRequest request, @NonNull Optional<String> maybeToken) {
-    return CreateSingle.fromFuture(
+    return Single.fromFuture(
             StubHelper.authenticating(this.serviceFutureStub, maybeToken)
-                .getUser(request.toProto()),
-            sequencerFactory)
+                .getUser(request.toProto()))
         .map(GetUserResponse::fromProto);
   }
 
@@ -72,10 +63,9 @@ public final class UserManagementClientImpl implements UserManagementClient {
 
   private Single<DeleteUserResponse> deleteUser(
       @NonNull DeleteUserRequest request, @NonNull Optional<String> maybeToken) {
-    return CreateSingle.fromFuture(
+    return Single.fromFuture(
             StubHelper.authenticating(this.serviceFutureStub, maybeToken)
-                .deleteUser(request.toProto()),
-            sequencerFactory)
+                .deleteUser(request.toProto()))
         .map(DeleteUserResponse::fromProto);
   }
 
@@ -90,30 +80,43 @@ public final class UserManagementClientImpl implements UserManagementClient {
     return deleteUser(request, Optional.of(accessToken));
   }
 
-  private Single<ListUsersResponse> listUsers(@NonNull Optional<String> maybeToken) {
-    return CreateSingle.fromFuture(
-            StubHelper.authenticating(this.serviceFutureStub, maybeToken)
-                .listUsers(UserManagementServiceOuterClass.ListUsersRequest.getDefaultInstance()),
-            sequencerFactory)
+  private Single<ListUsersResponse> listUsers(
+      @NonNull Optional<ListUsersRequest> maybeRequest, @NonNull Optional<String> maybeToken) {
+    UserManagementServiceOuterClass.ListUsersRequest request =
+        maybeRequest
+            .map(ListUsersRequest::toProto)
+            .orElse(UserManagementServiceOuterClass.ListUsersRequest.getDefaultInstance());
+    return Single.fromFuture(
+            StubHelper.authenticating(this.serviceFutureStub, maybeToken).listUsers(request))
         .map(ListUsersResponse::fromProto);
   }
 
   @Override
   public Single<ListUsersResponse> listUsers() {
-    return listUsers(Optional.empty());
+    return listUsers(Optional.empty(), Optional.empty());
   }
 
   @Override
   public Single<ListUsersResponse> listUsers(String accessToken) {
-    return listUsers(Optional.of(accessToken));
+    return listUsers(Optional.empty(), Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<ListUsersResponse> listUsers(@NonNull ListUsersRequest request) {
+    return listUsers(Optional.of(request), Optional.empty());
+  }
+
+  @Override
+  public Single<ListUsersResponse> listUsers(
+      @NonNull ListUsersRequest request, String accessToken) {
+    return listUsers(Optional.of(request), Optional.of(accessToken));
   }
 
   private Single<GrantUserRightsResponse> grantUserRights(
       @NonNull GrantUserRightsRequest request, @NonNull Optional<String> maybeToken) {
-    return CreateSingle.fromFuture(
+    return Single.fromFuture(
             StubHelper.authenticating(this.serviceFutureStub, maybeToken)
-                .grantUserRights(request.toProto()),
-            sequencerFactory)
+                .grantUserRights(request.toProto()))
         .map(GrantUserRightsResponse::fromProto);
   }
 
@@ -130,10 +133,9 @@ public final class UserManagementClientImpl implements UserManagementClient {
 
   private Single<RevokeUserRightsResponse> revokeUserRights(
       @NonNull RevokeUserRightsRequest request, @NonNull Optional<String> maybeToken) {
-    return CreateSingle.fromFuture(
+    return Single.fromFuture(
             StubHelper.authenticating(this.serviceFutureStub, maybeToken)
-                .revokeUserRights(request.toProto()),
-            sequencerFactory)
+                .revokeUserRights(request.toProto()))
         .map(RevokeUserRightsResponse::fromProto);
   }
 
@@ -151,10 +153,9 @@ public final class UserManagementClientImpl implements UserManagementClient {
 
   private Single<ListUserRightsResponse> listUserRights(
       @NonNull ListUserRightsRequest request, @NonNull Optional<String> maybeToken) {
-    return CreateSingle.fromFuture(
+    return Single.fromFuture(
             StubHelper.authenticating(this.serviceFutureStub, maybeToken)
-                .listUserRights(request.toProto()),
-            sequencerFactory)
+                .listUserRights(request.toProto()))
         .map(ListUserRightsResponse::fromProto);
   }
 

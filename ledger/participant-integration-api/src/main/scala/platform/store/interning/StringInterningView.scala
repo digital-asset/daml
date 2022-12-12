@@ -3,8 +3,8 @@
 
 package com.daml.platform.store.interning
 
-import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
+import com.daml.platform.{Identifier, Party}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -19,6 +19,8 @@ trait InternizingStringInterningView {
     *
     * @param domainStringIterators iterators of the new entires
     * @return If some of the entries were not part of the view: they will be added, and these will be returned as a interned-id and raw, prefixed string pairs.
+    *
+    * @note This method is thread-safe.
     */
   def internize(domainStringIterators: DomainStringIterators): Iterable[(Int, String)]
 }
@@ -28,9 +30,17 @@ trait UpdatingStringInterningView {
   /** Update the StringInterningView from persistence
     *
     * @param lastStringInterningId this is the "version" of the persistent view, which from the StringInterningView can see if it is behind
-    * @return a completion Future: if the view is behind it will load the missing entries from persistence, and update the view state
+    * @return a completion Future:
+    *
+    * * if the view is behind, it will load the missing entries from persistence, and update the view state.
+    *
+    * * if the view is ahead, it will remove all entries with ids greater than the `lastStringInterningId`
+    *
+    * @note This method is NOT thread-safe and should not be called concurrently with itself or [[InternizingStringInterningView.internize]].
     */
-  def update(lastStringInterningId: Int)(implicit loggingContext: LoggingContext): Future[Unit]
+  def update(lastStringInterningId: Int)(
+      loadPrefixedEntries: LoadStringInterningEntries
+  )(implicit loggingContext: LoggingContext): Future[Unit]
 }
 
 /** Encapsulate the dependency to load a range of string-interning-entries from persistence
@@ -47,7 +57,7 @@ trait LoadStringInterningEntries {
   * - The single, volatile reference enables non-synchronized access from all threads, accessing persistent-immutable datastructure
   * - On the writing side it synchronizes (this usage is anyway expected) and maintains the immutable internal datastructure
   */
-class StringInterningView(loadPrefixedEntries: LoadStringInterningEntries)
+class StringInterningView()
     extends StringInterning
     with InternizingStringInterningView
     with UpdatingStringInterningView {
@@ -63,19 +73,19 @@ class StringInterningView(loadPrefixedEntries: LoadStringInterningEntries)
   private val TemplatePrefix = "t|"
   private val PartyPrefix = "p|"
 
-  override val templateId: StringInterningDomain[Ref.Identifier] =
+  override val templateId: StringInterningDomain[Identifier] =
     StringInterningDomain.prefixing(
       prefix = TemplatePrefix,
       prefixedAccessor = rawAccessor,
-      to = Ref.Identifier.assertFromString,
+      to = Identifier.assertFromString,
       from = _.toString,
     )
 
-  override val party: StringInterningDomain[Ref.Party] =
+  override val party: StringInterningDomain[Party] =
     StringInterningDomain.prefixing(
       prefix = PartyPrefix,
       prefixedAccessor = rawAccessor,
-      to = Ref.Party.assertFromString,
+      to = Party.assertFromString,
       from = _.toString,
     )
 
@@ -92,13 +102,14 @@ class StringInterningView(loadPrefixedEntries: LoadStringInterningEntries)
       newEntries
     }
 
-  override def update(
-      lastStringInterningId: Int
+  override def update(lastStringInterningId: Int)(
+      loadStringInterningEntries: LoadStringInterningEntries
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     if (lastStringInterningId <= raw.lastId) {
+      raw = RawStringInterning.resetTo(lastStringInterningId, raw)
       Future.unit
     } else {
-      loadPrefixedEntries(raw.lastId, lastStringInterningId)(loggingContext)
+      loadStringInterningEntries(raw.lastId, lastStringInterningId)(loggingContext)
         .map(updateView)(ExecutionContext.parasitic)
     }
 

@@ -3,23 +3,23 @@
 
 package com.daml.platform.akkastreams.dispatcher
 
-import java.util.concurrent.atomic.AtomicReference
-
 import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
 import com.daml.platform.akkastreams.dispatcher.SignalDispatcher.Signal
-import org.slf4j.LoggerFactory
+import org.slf4j.{Logger, LoggerFactory}
 
-import scala.concurrent.ExecutionContext
+import java.util.concurrent.atomic.AtomicReference
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /** A fanout signaller that can be subscribed to dynamically.
   * Signals may be coalesced, but if a signal is sent, we guarantee that all consumers subscribed before
   * the signal is sent will eventually receive a signal.
   */
-class SignalDispatcher private () extends AutoCloseable {
+class SignalDispatcher private () {
 
-  val logger = LoggerFactory.getLogger(getClass)
+  val logger: Logger = LoggerFactory.getLogger(getClass)
 
   private val runningState: AtomicReference[Option[Set[SourceQueueWithComplete[Signal]]]] =
     new AtomicReference(Some(Set.empty))
@@ -60,18 +60,58 @@ class SignalDispatcher private () extends AutoCloseable {
 
   private def throwClosed(): Nothing = throw new IllegalStateException("SignalDispatcher is closed")
 
-  /** Closes this SignalDispatcher.
+  /** Closes this SignalDispatcher by gracefully completing the existing Source subscriptions.
     * For any downstream with pending signals, at least one such signal will be sent first.
     */
-  def close(): Unit =
+  def shutdown(): Future[Unit] =
+    shutdownInternal { source =>
+      source.complete()
+      source.watchCompletion()
+    }
+
+  /** Closes this SignalDispatcher by failing the existing Source subscriptions with the provided throwable. */
+  def fail(throwableBuilder: () => Throwable): Future[Unit] =
+    shutdownInternal { source =>
+      implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.parasitic
+      val throwable = throwableBuilder()
+      source.fail(throwable)
+      source
+        .watchCompletion()
+        .recover {
+          case `throwable` =>
+            // This throwable is expected so map to Success
+            ()
+          case unexpectedThrowable =>
+            // On unexpected throwable, warn and continue
+            logger.warn(s"Unexpected failure on Source shutdown", unexpectedThrowable)
+        }
+    }
+
+  private def shutdownInternal(
+      shutdownSourceQueue: SourceQueueWithComplete[_] => Future[_]
+  ): Future[Unit] = {
+    implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.parasitic
     runningState
       .getAndSet(None)
-      // note, Materializer's lifecycle is managed outside of this class
-      // fire and forget complete signals -- we can't control how long downstream takes
-      .fold(throw new IllegalStateException("SignalDispatcher is already closed"))(
-        _.foreach(_.complete())
-      )
-
+      .fold(Future.failed[Unit](new IllegalStateException("SignalDispatcher is already closed"))) {
+        sources =>
+          Future.delegate {
+            Future
+              .traverse(sources) { source =>
+                // Return a successful Future wrapping a Try
+                // to ensure that Future.traverse waits for the completion of all sources
+                shutdownSourceQueue(source)
+                  .map(Success(_))
+                  .recover { case failure => Failure(failure) }
+              }
+              .map { results =>
+                // Fail if any of the sources failed
+                results.map(_.get)
+              }
+              .map(_ => ())
+          }
+      }
+  }
 }
 
 object SignalDispatcher {

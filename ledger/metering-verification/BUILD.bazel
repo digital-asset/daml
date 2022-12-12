@@ -1,0 +1,41 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+)
+
+da_scala_library(
+    name = "metering-verification-app-lib",
+    srcs = glob(["src/app/scala/**/*.scala"]),
+    resources = glob(["src/app/resources/**/*"]),
+    scala_deps = [
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    tags = ["maven_coordinates=com.daml:metering-verification-app-lib:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ledger/participant-integration-api",
+    ],
+)
+
+da_scala_binary(
+    name = "metering-verification-app",
+    main_class = "com.daml.ledger.metering.Main",
+    tags = [
+        "fat_jar",
+        "maven_coordinates=com.daml:metering-verification-app-jar:__VERSION__",
+        "no_scala_version_suffix",
+    ],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+    ],
+    deps = [
+        ":metering-verification-app-lib",
+    ],
+)

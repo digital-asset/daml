@@ -95,8 +95,8 @@ object TransactionCoder {
       value: ValueOuterClass.VersionedValue,
   ): Either[DecodeError, Value] =
     ValueCoder.decodeVersionedValue(cidDecoder, value).flatMap {
-      case Value.VersionedValue(`nodeVersion`, value) => Right(value)
-      case Value.VersionedValue(version, _) =>
+      case Versioned(`nodeVersion`, value) => Right(value)
+      case Versioned(version, _) =>
         Left(
           DecodeError(
             s"A node of version $nodeVersion cannot contain values of different version (${version})"
@@ -246,7 +246,7 @@ object TransactionCoder {
       nodeId: NodeId,
       node: Node,
       disableVersionCheck: Boolean =
-        false, //true allows encoding of bad protos (for testing of decode checks)
+        false, // true allows encoding of bad protos (for testing of decode checks)
   ): Either[EncodeError, TransactionOuterClass.Node] = {
 
     val nodeBuilder =
@@ -278,16 +278,11 @@ object TransactionCoder {
 
           node match {
 
-            case nc @ Node.Create(_, _, _, _, _, _, _, _, _) =>
+            case nc @ Node.Create(_, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeCreate.newBuilder()
               nc.stakeholders.foreach(builder.addStakeholders)
               nc.signatories.foreach(builder.addSignatories)
               discard(builder.setContractIdStruct(encodeCid.encode(nc.coid)))
-              if (nodeVersion >= TransactionVersion.minInterfaces) {
-                nc.byInterface.foreach(iface =>
-                  builder.setByInterface(ValueCoder.encodeIdentifier(iface))
-                )
-              }
               for {
                 _ <-
                   if (nodeVersion < TransactionVersion.minNoVersionValue) {
@@ -315,7 +310,7 @@ object TransactionCoder {
                 )
               } yield nodeBuilder.setCreate(builder).build()
 
-            case nf @ Node.Fetch(_, _, _, _, _, _, _, _, _) =>
+            case nf @ Node.Fetch(_, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeFetch.newBuilder()
               discard(builder.setTemplateId(ValueCoder.encodeIdentifier(nf.templateId)))
               nf.stakeholders.foreach(builder.addStakeholders)
@@ -325,11 +320,6 @@ object TransactionCoder {
                 discard(builder.setByKey(nf.byKey))
               }
               nf.actingParties.foreach(builder.addActors)
-              if (nodeVersion >= TransactionVersion.minInterfaces) {
-                nf.byInterface.foreach(iface =>
-                  builder.setByInterface(ValueCoder.encodeIdentifier(iface))
-                )
-              }
               for {
                 _ <- encodeAndSetContractKey(
                   encodeCid,
@@ -357,8 +347,8 @@ object TransactionCoder {
                 discard(builder.setByKey(ne.byKey))
               }
               if (nodeVersion >= TransactionVersion.minInterfaces) {
-                ne.byInterface.foreach(iface =>
-                  builder.setByInterface(ValueCoder.encodeIdentifier(iface))
+                ne.interfaceId.foreach(iface =>
+                  builder.setInterfaceId(ValueCoder.encodeIdentifier(iface))
                 )
               }
               for {
@@ -531,22 +521,15 @@ object TransactionCoder {
             nodeVersion,
             protoCreate.getKeyWithMaintainers,
           )
-          byInterface <-
-            if (nodeVersion >= TransactionVersion.minInterfaces && protoCreate.hasByInterface) {
-              ValueCoder.decodeIdentifier(protoCreate.getByInterface).map(Some(_))
-            } else {
-              Right(None)
-            }
         } yield ni -> Node.Create(
-          c,
-          ci.template,
-          ci.arg,
-          ci.agreementText,
-          signatories,
-          stakeholders,
-          key,
-          byInterface,
-          nodeVersion,
+          coid = c,
+          templateId = ci.template,
+          arg = ci.arg,
+          agreementText = ci.agreementText,
+          signatories = signatories,
+          stakeholders = stakeholders,
+          key = key,
+          version = nodeVersion,
         )
       case NodeTypeCase.FETCH =>
         val protoFetch = protoNode.getFetch
@@ -566,12 +549,6 @@ object TransactionCoder {
             if (nodeVersion >= TransactionVersion.minByKey)
               protoFetch.getByKey
             else false
-          byInterface <-
-            if (nodeVersion >= TransactionVersion.minInterfaces && protoFetch.hasByInterface) {
-              ValueCoder.decodeIdentifier(protoFetch.getByInterface).map(Some(_))
-            } else {
-              Right(None)
-            }
         } yield ni -> Node.Fetch(
           coid = c,
           templateId = templateId,
@@ -580,7 +557,6 @@ object TransactionCoder {
           stakeholders = stakeholders,
           key = key,
           byKey = byKey,
-          byInterface = byInterface,
           version = nodeVersion,
         )
 
@@ -630,15 +606,16 @@ object TransactionCoder {
             if (nodeVersion >= TransactionVersion.minByKey)
               protoExe.getByKey
             else false
-          byInterface <-
-            if (nodeVersion >= TransactionVersion.minInterfaces && protoExe.hasByInterface) {
-              ValueCoder.decodeIdentifier(protoExe.getByInterface).map(Some(_))
+          interfaceId <-
+            if (nodeVersion >= TransactionVersion.minInterfaces && protoExe.hasInterfaceId) {
+              ValueCoder.decodeIdentifier(protoExe.getInterfaceId).map(Some(_))
             } else {
               Right(None)
             }
         } yield ni -> Node.Exercise(
           targetCoid = targetCoid,
           templateId = templateId,
+          interfaceId = interfaceId,
           choiceId = choiceName,
           consuming = protoExe.getConsuming,
           actingParties = actingParties,
@@ -650,7 +627,6 @@ object TransactionCoder {
           exerciseResult = rvOpt,
           key = keyWithMaintainers,
           byKey = byKey,
-          byInterface = byInterface,
           version = nodeVersion,
         )
       case NodeTypeCase.LOOKUP_BY_KEY =>

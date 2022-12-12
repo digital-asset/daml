@@ -22,7 +22,7 @@ You can also use Daml Script interactively using :doc:`/daml-repl/index`.
 
 .. hint::
 
-  Remember that you can load all the example code by running ``daml new script-example --template script-example``
+  Remember that you can access all the example code by running ``daml new script-example --template script-example``
 
 Usage
 =====
@@ -77,7 +77,7 @@ script so that we can easily swap them out.
 
 Let us now write a function to initialize the ledger with 3
 ``CoinProposal`` contracts and accept 2 of them. This function takes the
-``LedgerParties`` as an argument and return something of type ``Script
+``LedgerParties`` as an argument and returns a value of type ``Script
 ()`` which is Daml script’s equivalent of ``Scenario ()``.
 
 .. literalinclude:: ./template-root/src/ScriptExample.daml
@@ -124,7 +124,7 @@ the type ``Script ()``.
    :start-after: -- INITIALIZE_PURE_BEGIN
    :end-before: -- INITIALIZE_PURE_END
 
-Party management
+Party Management
 ----------------
 
 We have now defined a way to initialize the ledger so we can write a
@@ -145,7 +145,7 @@ uniquely. If you call ``allocateParty`` twice with the same display
 name, it will create 2 different parties. This is very convenient for
 testing since a new party cannot see any old contracts on the ledger
 so using new parties for each test removes the need to reset the
-ledger. We factor out party allocation into a functions so we can reuse it in later sections.
+ledger. We factor out party allocation into a function so we can reuse it in later sections.
 
 .. literalinclude:: ./template-root/src/ScriptExample.daml
    :language: daml
@@ -177,8 +177,31 @@ them away using ``map snd``.
    :start-after: -- TEST_QUERIES_BEGIN
    :end-before: -- TEST_QUERIES_END
 
-Running a Script
-----------------
+Interfaces
+----------
+
+To use interfaces within Daml code, the target language version must be at least ``1.15``.
+
+.. literalinclude:: ./template-root/daml.yaml.template
+   :start-after: # script-build-options-begin
+   :end-before: # script-build-options-end
+
+Now we can define an ``Asset`` interface which can be implemented by the ``Coin`` template. We also define ``AssetInfo`` for use as the viewtype.
+
+.. literalinclude:: ./template-root/src/ScriptExample.daml
+   :language: daml
+   :start-after: -- ASSET_INTERFACE_BEGIN
+   :end-before: -- ASSET_INTERFACE_END
+
+Now we use the ``queryInterface`` function. We pass it the type of the interface and a party. It will return a list of active contract views for the given interface type. As before we throw away the contract ids using ``map snd``.
+
+.. literalinclude:: ./template-root/src/ScriptExample.daml
+   :language: daml
+   :start-after: -- TEST_INTERFACE_BEGIN
+   :end-before: -- TEST_INTERFACE_END
+
+Run a Script
+------------
 
 To run our script, we first build it with ``daml build`` and then run
 it by pointing to the DAR, the name of our script, and the host and
@@ -204,7 +227,7 @@ party ids that have been allocated by ``allocateParties``:
 ``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:allocateParties --ledger-host localhost --ledger-port 6865 --output-file ledger-parties.json``
 
 The resulting file will look similar to the following but the actual
-party ids will be different each time you run it:
+party IDs will be different each time you run it:
 
 .. literalinclude:: ./template-root/ledger-parties.json
    :language: daml
@@ -215,8 +238,7 @@ specified, the ``--script-name`` flag must point to a function of one
 argument returning a ``Script``, and the function will be called with
 the result of parsing the input file as its argument. For example, we
 can initialize our ledger using the ``initialize`` function defined
-above. It takes a ``LedgerParties`` argument, so a valid file for
-``--input-file`` would look like:
+above.
 
 Using the previosuly created ``-ledger-parties.json`` file, we can
 initialize our ledger as follows:
@@ -225,8 +247,8 @@ initialize our ledger as follows:
 
 .. _script-ledger-initialization:
 
-Using Daml Script for Ledger Initialization
-===========================================
+Use Daml Script for Ledger Initialization
+=========================================
 
 You can use Daml script to initialize a ledger on startup. To do so,
 specify an ``init-script: ScriptExample:initializeUser`` field in your
@@ -242,8 +264,8 @@ instead of party ids.
    :start-after: -- INITIALIZE_USER_BEGIN
    :end-before: -- INITIALIZE_USER_END
 
-Migrating from Scenarios
-------------------------
+Migrate From Scenarios
+----------------------
 
 Existing scenarios that you used for ledger initialization can be
 translated to Daml script but there are a few things to keep in mind:
@@ -298,23 +320,30 @@ translated to Daml script but there are a few things to keep in mind:
 
 .. _daml-script-distributed:
 
-Using Daml Script in Distributed Topologies
-===========================================
+Use Daml Script in Canton
+=========================
 
 So far, we have run Daml script against a single participant node. It
-is also more possible to run it in a setting where different parties
+is also possible to run it in a setting where different parties
 are hosted on different participant nodes. To do so, pass the
-``--participant-config participants.json`` file to ``daml script``
-instead of ``--ledger-host`` and ``ledger-port``. The file should be of the format
+``--participant-config participant-config.json`` file to ``daml script``
+instead of ``--ledger-host`` and ``ledger-port``.
+You can generate this file by calling
+:ref:`utils.generate_daml_script_participants_conf(defaultParticipant = Some(one)) <utils.generate_daml_script_participants_conf>`
+in the canton console or in :ref:`the bootstrap scripts <automation-using-bootstrap-scripts>`.
 
-.. literalinclude:: ./participants-example.json
+The generated file will look similar to the one shown below:
+
+.. literalinclude:: ./participants-config.json
    :language: json
 
-This will define a participant called ``one``, a default participant
-and it defines that the party ``alice`` is on participant
+This will define a participant called ``one``, declare ``one`` as the default participant and it defines that the party ``alice`` is hosted on participant
 ``one``. Whenever you submit something as party, we will use the
 participant for that party or if none is specified
-``default_participant``. If ``default_participant`` is not specified,
+``default_participant``.
+
+If you use ``utils.generate_daml_script_participants_conf()``
+without a default participant, the `default_participant` won't be defined and therefore
 using a party with an unspecified participant is an error.
 
 ``allocateParty`` will also use the ``default_participant``. If you
@@ -322,10 +351,27 @@ want to allocate a party on a specific participant, you can use
 ``allocatePartyOn`` which accepts the participant name as an extra
 argument.
 
+
+Hints for synchronizing contracts on multiple-participant Canton
+----------------------------------------------------------------
+When you create a contract on ``participant1`` and try to use it on
+``participant2``, you can run into synchronization issues where
+``participant2`` doesn't see the contract yet. One option to workaround
+`this limitation <https://github.com/digital-asset/daml/issues/10618>`_
+is to poll until the contract is visible. In the example below, the ``bank``
+and ``alice`` parties are allocated on two different participants and to avoid
+synchronization issues, we wait until the contract is visible on ``alice`` participant.
+
+
+.. literalinclude:: ./template-root/src/ScriptExample.daml
+   :language: daml
+   :start-after: -- SYNC_CONTRACT_IDS_BEGIN
+   :end-before: -- SYNC_CONTRACT_IDS_END
+
 .. _daml-script-auth:
 
-Running Daml Script against Ledgers with Authorization
-======================================================
+Run Daml Script Against Ledgers with Authorization
+==================================================
 
 To run Daml Script against a ledger that verifies authorization,
 you need to specify an access token. There are two ways of doing that:
@@ -334,12 +380,15 @@ you need to specify an access token. There are two ways of doing that:
    path/to/jwt``. This token will then be used for all requests so it
    must provide claims for all parties that you use in your script.
 2. If you need multiple tokens, e.g., because you only have
-   single-party tokens you can use the ``access_token`` field in the
-   participant config specified via ``--participant-config``. The
-   section on
-   :ref:`using Daml Script in distributed topologies <daml-script-distributed>`
-   contains an example. Note that you can specify the same participant
+   single-party tokens you can define the ``access_token`` field in the
+   participant config specified via ``--participant-config``.
+   Note that you can specify the same participant
    twice if you want different auth tokens.
+   The file should be of the format
+
+
+.. literalinclude:: ./participants-example.json
+   :language: json
 
 If you specify both ``--access-token-file`` and
 ``--participant-config``, the participant config takes precedence and
@@ -348,8 +397,8 @@ have a token specified in the config.
 
 .. _daml-script-json-api:
 
-Running Daml Script against the HTTP JSON API
-=============================================
+Run Daml Script Against the HTTP JSON API
+=========================================
 
 In some cases, you only have access to the
 :doc:`HTTP JSON API </json-api/index>` but not to the gRPC of a ledger, e.g., on

@@ -81,7 +81,7 @@ pattern IgnoreWorkerPrefixFS :: T.Text -> FastString
 pattern IgnoreWorkerPrefixFS n <- (fsToText -> IgnoreWorkerPrefix n)
 
 -- daml-prim module patterns
-pattern Control_Exception_Base, Data_String, GHC_Base, GHC_Classes, GHC_CString, GHC_Integer_Type, GHC_Num, GHC_Prim, GHC_Real, GHC_Tuple, GHC_Types, GHC_Show :: GHC.Module
+pattern Control_Exception_Base, Data_String, GHC_Base, GHC_Classes, GHC_CString, GHC_Integer_Type, GHC_Num, GHC_Prim, GHC_Real, GHC_Tuple, GHC_Tuple_Check, GHC_Types, GHC_Show :: GHC.Module
 pattern Control_Exception_Base <- ModuleIn DamlPrim "Control.Exception.Base"
 pattern Data_String <- ModuleIn DamlPrim "Data.String"
 pattern GHC_Base <- ModuleIn DamlPrim "GHC.Base"
@@ -92,11 +92,12 @@ pattern GHC_Num <- ModuleIn DamlPrim "GHC.Num"
 pattern GHC_Prim <- ModuleIn DamlPrim "GHC.Prim" -- wired-in by GHC
 pattern GHC_Real <- ModuleIn DamlPrim "GHC.Real"
 pattern GHC_Tuple <- ModuleIn DamlPrim "GHC.Tuple"
+pattern GHC_Tuple_Check <- ModuleIn DamlPrim "GHC.Tuple.Check"
 pattern GHC_Types <- ModuleIn DamlPrim "GHC.Types"
 pattern GHC_Show <- ModuleIn DamlPrim "GHC.Show"
 
 -- daml-stdlib module patterns
-pattern DA_Action, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar, DA_Internal_Template_Functions, DA_Internal_Exception :: GHC.Module
+pattern DA_Action, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar, DA_Internal_Template_Functions, DA_Internal_Exception, DA_Internal_Interface, DA_Internal_Template :: GHC.Module
 pattern DA_Action <- ModuleIn DamlStdlib "DA.Action"
 pattern DA_Internal_LF <- ModuleIn DamlStdlib "DA.Internal.LF"
 pattern DA_Internal_Prelude <- ModuleIn DamlStdlib "DA.Internal.Prelude"
@@ -104,6 +105,8 @@ pattern DA_Internal_Record <- ModuleIn DamlStdlib "DA.Internal.Record"
 pattern DA_Internal_Desugar <- ModuleIn DamlStdlib "DA.Internal.Desugar"
 pattern DA_Internal_Template_Functions <- ModuleIn DamlStdlib "DA.Internal.Template.Functions"
 pattern DA_Internal_Exception <- ModuleIn DamlStdlib "DA.Internal.Exception"
+pattern DA_Internal_Interface <- ModuleIn DamlStdlib "DA.Internal.Interface"
+pattern DA_Internal_Template <- ModuleIn DamlStdlib "DA.Internal.Template"
 
 -- | Deconstruct a dictionary function (DFun) identifier into a tuple
 -- containing, in order:
@@ -113,7 +116,8 @@ pattern DA_Internal_Exception <- ModuleIn DamlStdlib "DA.Internal.Exception"
 --   4. the type class arguments
 splitDFunId :: GHC.Var -> Maybe ([GHC.TyCoVar], [GHC.Type], GHC.Class, [GHC.Type])
 splitDFunId v
-    | DFunId _ <- idDetails v
+    | isId v
+    , DFunId _ <- idDetails v
     , (tyCoVars, ty1) <- splitForAllTys (varType v)
     , (dfunArgs, ty2) <- splitFunTys ty1
     , Just (tyCon, tyClsArgs) <- splitTyConApp_maybe ty2
@@ -172,6 +176,20 @@ pattern HasMessageDFunId tyCon <-
     DesugarDFunId [] [] (NameIn DA_Internal_Exception "HasMessage")
         [splitTyConApp_maybe -> Just (tyCon, [])]
 
+pattern HasInterfaceViewDFunId :: TyCon -> GHC.Type -> GHC.Var
+pattern HasInterfaceViewDFunId tyCon viewTy <-
+    DesugarDFunId [] [] (NameIn DA_Internal_Interface "HasInterfaceView")
+        [ splitTyConApp_maybe -> Just (tyCon, [])
+        , viewTy
+        ]
+
+pattern HasMethodDFunId :: TyCon -> LF.MethodName -> GHC.Type -> GHC.Var
+pattern HasMethodDFunId tyCon methodName retTy <-
+    DesugarDFunId [] [] (NameIn DA_Internal_Desugar "HasMethod")
+        [ splitTyConApp_maybe -> Just (tyCon, [])
+        , StrLitTy (LF.MethodName -> methodName)
+        , retTy
+        ]
 
 -- | Break down a constraint tuple projection function name
 -- into an (index, arity) pair. These names have the form
@@ -200,6 +218,21 @@ pattern ConstraintTupleProjection index arity <-
 
 pattern RoundingModeName :: LF.RoundingModeLiteral -> FastString
 pattern RoundingModeName lit <- (toRoundingModeLiteral . fsToText -> Just lit)
+
+-- GHC tuples
+pattern IsTuple :: NamedThing a => Int -> a
+pattern IsTuple n <- NameIn GHC_Tuple (deconstructTupleName . unpackFS -> Just n)
+
+deconstructTupleName :: String -> Maybe Int
+deconstructTupleName name
+  | head name == '('
+  , last name == ')'
+  , let commas = tail (init name)
+  , all (== ',') commas
+  , let arity = length commas
+  = Just (if arity == 0 then 0 else arity + 1)
+  | otherwise
+  = Nothing
 
 toRoundingModeLiteral :: T.Text -> Maybe LF.RoundingModeLiteral
 toRoundingModeLiteral x = MS.lookup x roundingModeLiteralMap

@@ -3,7 +3,6 @@
 
 package com.daml.platform.sandbox.services.completion
 
-import java.util.concurrent.TimeUnit
 import com.daml.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementAroundAll}
 import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
@@ -15,16 +14,19 @@ import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.sandbox.BridgeConfig
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, IndexerConfig, singleParticipant}
+import com.daml.platform.configuration.CommandConfiguration
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.platform.sandbox.fixture.{CreatesParties, SandboxFixture}
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.testing.StreamConsumer
 import org.scalatest.Inspectors
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
+import java.util.concurrent.TimeUnit
 
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
@@ -34,6 +36,7 @@ sealed trait CompletionServiceITBase
     with Matchers
     with Inspectors
     with SandboxFixture
+    with CreatesParties
     with TestCommands
     with SuiteResourceManagementAroundAll {
 
@@ -107,10 +110,16 @@ sealed trait CompletionServiceITBase
     ).within(completionTimeout)
       .map(_.flatMap(_.completions).map(_.commandId))
 
+  val partyA = "partyA"
+  val partyB = "partyB"
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    createPrerequisiteParties(None, List(partyA, partyB))
+  }
+
   "CommandCompletionService" should {
     "return correct completions" in {
-      val partyA = "partyA"
-      val partyB = "partyB"
       val lid = ledgerId().unwrap
       val commandService = CommandServiceGrpc.stub(channel)
       val completionService = CommandCompletionServiceGrpc.stub(channel)
@@ -144,15 +153,21 @@ sealed trait CompletionServiceITBase
     }
   }
 
-  override protected def config: SandboxConfig =
-    super.config.copy(
-      commandConfig = super.config.commandConfig.copy(
-        inputBufferSize = 1,
-        maxCommandsInFlight = 2,
-      ),
-      maxParallelSubmissions = 2,
-    )
+  override def bridgeConfig = BridgeConfig.Default.copy(submissionBufferSize = 2)
 
+  override def config = super.config.copy(
+    participants = singleParticipant(
+      apiServerConfig = ApiServerConfig.copy(
+        command = CommandConfiguration.Default.copy(
+          inputBufferSize = 1,
+          maxCommandsInFlight = 2,
+        )
+      ),
+      indexerConfig = IndexerConfig.copy(
+        inputMappingParallelism = 2
+      ),
+    )
+  )
 }
 
 // CompletionServiceIT on a Postgresql ledger

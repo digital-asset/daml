@@ -9,7 +9,7 @@ import com.daml.ledger.api.v1.ledger_configuration_service.{
   LedgerConfiguration,
   LedgerConfigurationServiceGrpc,
 }
-import com.daml.ledger.sandbox.BridgeConfigProvider
+import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.google.protobuf.duration.Duration
@@ -23,16 +23,17 @@ sealed trait LedgerConfigurationServiceITBase extends AnyWordSpec with Matchers 
   "LedgerConfigurationService" when {
     "asked for ledger configuration" should {
       "return expected configuration" in {
-        val LedgerConfiguration(Some(maxDeduplicationDuration)) =
-          LedgerConfigurationServiceGrpc
-            .blockingStub(channel)
-            .getLedgerConfiguration(GetLedgerConfigurationRequest(ledgerId().unwrap))
-            .next()
-            .getLedgerConfiguration
-
-        maxDeduplicationDuration shouldEqual toProto(
-          BridgeConfigProvider.DefaultMaximumDeduplicationDuration
-        )
+        LedgerConfigurationServiceGrpc
+          .blockingStub(channel)
+          .getLedgerConfiguration(GetLedgerConfigurationRequest(ledgerId().unwrap))
+          .next()
+          .getLedgerConfiguration match {
+          case LedgerConfiguration(Some(maxDeduplicationDuration)) =>
+            maxDeduplicationDuration shouldEqual toProto(
+              BridgeConfig.DefaultMaximumDeduplicationDuration
+            )
+          case _ => fail()
+        }
       }
     }
   }

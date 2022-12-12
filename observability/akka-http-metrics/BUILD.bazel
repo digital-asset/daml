@@ -1,0 +1,81 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+
+da_scala_library(
+    name = "akka-http-metrics",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+    ],
+    tags = ["maven_coordinates=com.daml:akka-http-metrics:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        "//observability/metrics",
+        "@maven//:com_google_guava_guava",
+    ],
+)
+
+da_scala_library(
+    name = "akka-http-metrics-tests-lib",
+    srcs = glob(
+        ["src/test/**/*.scala"],
+        exclude = [
+            "src/test/**/*Spec.scala",
+            "src/test/**/*Test.scala",
+        ],
+    ),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_akka_akka_http_core",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+da_scala_test_suite(
+    name = "akka-http-metrics-tests",
+    size = "small",
+    srcs = glob([
+        "src/test/**/*Spec.scala",
+        "src/test/**/*Test.scala",
+    ]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:com_typesafe_akka_akka_stream_testkit",
+        "@maven//:com_typesafe_akka_akka_http_testkit",
+    ],
+    deps = [
+        ":akka-http-metrics",
+        ":akka-http-metrics-tests-lib",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//observability/metrics",
+        "//observability/metrics:metrics-test-lib",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_typesafe_config",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_common",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics_testing",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
+    ],
+)

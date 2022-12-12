@@ -10,6 +10,7 @@
 module DA.Daml.LF.TypeChecker.Env(
     MonadGamma,
     throwWithContext,
+    catchAndRethrow,
     inWorld,
     match,
     lookupTypeVar,
@@ -114,3 +115,6 @@ throwWithContext err = do
 
 withContext :: MonadGamma m => Context -> m b -> m b
 withContext ctx = local (set locCtx ctx)
+
+catchAndRethrow :: MonadGamma m => (Error -> Error) -> m b -> m b
+catchAndRethrow handler mb = catchError mb $ throwWithContext . handler

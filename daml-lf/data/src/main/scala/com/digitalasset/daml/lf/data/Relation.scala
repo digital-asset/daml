@@ -1,9 +1,8 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.data
-
-import scala.collection.{mutable, immutable}
+package com.daml.lf
+package data
 
 object Relation {
 
@@ -15,38 +14,31 @@ object Relation {
   // as the same
   // this fits our purposes for the moment
   /** A Relation. */
-  type Relation[A, B] = immutable.Map[A, Set[B]]
+  @deprecated("2.4.0", "use com.daml.lf.Relation")
+  type Relation[A, B] = data.Relation[A, B] // alias for Map[A, Set[B]]
+  @deprecated("2.4.0", "use com.daml.lf.Relation")
+  val Relation = this
 
-  object Relation {
+  def empty[A, B]: data.Relation[A, B] = Map.empty
 
-    def merge[A, B](r: Relation[A, B], pair: (A, Set[B])): Relation[A, B] =
-      r.updated(pair._1, r.getOrElse(pair._1, Set.empty[B]).union(pair._2))
+  def update[A, B](r: data.Relation[A, B], a: A, b: B): data.Relation[A, B] =
+    r.updated(a, get(r, a) + b)
 
-    def from[A, B](pairs: Iterable[(A, Set[B])]): Relation[A, B] =
-      pairs.foldLeft(immutable.Map.empty[A, Set[B]])(merge)
+  def from[A, B](pairs: Iterable[(A, B)]): data.Relation[A, B] =
+    pairs.foldLeft(empty[A, B]) { case (acc, (a, b)) => update(acc, a, b) }
 
-    def union[A, B](r1: Relation[A, B], r2: Relation[A, B]): Relation[A, B] =
-      r2.foldLeft(r1)(merge)
+  def apply[A, B](pairs: (A, B)*): data.Relation[A, B] = from(pairs)
 
-    def diff[A, B](r1: Relation[A, B], r2: Relation[A, B]): Relation[A, B] =
-      r1.map { case (a, bs) => a -> r2.get(a).fold(bs)(bs diff _) }
+  def union[A, B](r1: data.Relation[A, B], r2: data.Relation[A, B]): data.Relation[A, B] =
+    r2.foldLeft(r1) { case (acc, (a, bs)) => acc.updated(a, get(r1, a) union bs) }
 
-    def invert[A, B](relation: Relation[A, B]): Relation[B, A] = {
-      val result = mutable.Map[B, Set[A]]() withDefaultValue Set()
-      relation.foreach { case (a, bs) =>
-        bs.foreach(b => result(b) = result(b) + a)
-      }
-      result.toMap
-    }
+  def invert[A, B](relation: data.Relation[A, B]): data.Relation[B, A] =
+    from(flatten(relation).map(_.swap))
 
-    def flatten[A, B](relation: Relation[A, B]): Iterator[(A, B)] =
-      for {
-        kvs <- relation.iterator
-        value <- kvs._2
-      } yield (kvs._1, value)
+  def flatten[A, B](relation: data.Relation[A, B]): Iterable[(A, B)] =
+    relation.view.flatMap { case (a, bs) => bs.view.map(a -> _) }
 
-    def mapKeys[A, K, B](r: Relation[A, B])(f: A => K): Relation[K, B] =
-      r.map { case (a, b) => f(a) -> b }
-  }
+  private[this] def get[A, B](r: data.Relation[A, B], a: A): Set[B] =
+    r.getOrElse(a, Set.empty[B])
 
 }

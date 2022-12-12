@@ -13,6 +13,7 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
+import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -38,8 +39,7 @@ object Main {
         }
       }
       .onComplete(_ => sys.terminate())
-    Await.result(sys.whenTerminated, Duration.Inf)
-    ()
+    discard(Await.result(sys.whenTerminated, Duration.Inf))
   }
 
   def run(config: Config)(implicit

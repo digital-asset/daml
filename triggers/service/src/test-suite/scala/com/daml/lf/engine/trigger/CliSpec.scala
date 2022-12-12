@@ -88,7 +88,7 @@ class CliSpec extends AsyncWordSpec with Matchers {
       head shouldBe a[CannotReadFile]
     }
 
-    //parseConfig for non-existent file should return a None
+    // parseConfig for non-existent file should return a None
     Cli.parseConfig(
       Array(
         "--config",

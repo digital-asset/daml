@@ -10,9 +10,10 @@ module DA.Daml.LF.Ast.Pretty(
 import qualified Data.Ratio                 as Ratio
 import           Control.Lens
 import           Control.Lens.Ast   (rightSpine)
+import           Data.Maybe (maybeToList, isJust)
 import qualified Data.NameMap as NM
-import qualified Data.Text as T
 import qualified Data.Set as S
+import qualified Data.Text as T
 import qualified Data.Time.Clock.POSIX      as Clock.Posix
 import qualified Data.Time.Format           as Time.Format
 import           Data.Foldable (toList)
@@ -298,6 +299,7 @@ instance Pretty BuiltinExpr where
     BETextToCodePoints -> "TEXT_TO_CODE_POINTS"
     BECodePointsToText -> "CODE_POINTS_TO_TEXT"
     BECoerceContractId -> "COERCE_CONTRACT_ID"
+    BETypeRepTyConName -> "TYPEREP_TYCON_NAME"
     BETextToUpper -> "TEXT_TO_UPPER"
     BETextToLower -> "TEXT_TO_LOWER"
     BETextSlice -> "TEXT_SLICE"
@@ -405,9 +407,13 @@ instance Pretty Update where
       pPrintAppKeyword lvl prec "exercise"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
     UExerciseInterface interface choice cid arg guard ->
-      -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
-      pPrintAppKeyword lvl prec "exercise_interface"
-      [interfaceArg interface, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg, TmArg guard]
+      let -- We distinguish guarded and unguarded exercises by Just/Nothing in guard
+          keyword = "exercise_interface" ++ if isJust guard then "_guarded" else ""
+          guardArg = TmArg <$> maybeToList guard
+          -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
+      in
+      pPrintAppKeyword lvl prec keyword $
+      [interfaceArg interface, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg] ++ guardArg
     UExerciseByKey tpl choice key arg ->
       pPrintAppKeyword lvl prec "exercise_by_key"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg key, TmArg arg]
@@ -536,18 +542,24 @@ instance Pretty Expr where
         [interfaceArg ty1, tplArg ty2, TmArg expr]
     EFromInterface ty1 ty2 expr -> pPrintAppKeyword lvl prec "from_interface"
         [interfaceArg ty1, tplArg ty2, TmArg expr]
+    EUnsafeFromInterface ty1 ty2 expr1 expr2 -> pPrintAppKeyword lvl prec "unsafe_from_interface"
+        [interfaceArg ty1, tplArg ty2, TmArg expr1, TmArg expr2]
     ECallInterface ty mth expr -> pPrintAppKeyword lvl prec "call_interface"
         [interfaceArg ty, methodArg mth, TmArg expr]
     EToRequiredInterface ty1 ty2 expr -> pPrintAppKeyword lvl prec "to_required_interface"
         [interfaceArg ty1, interfaceArg ty2, TmArg expr]
     EFromRequiredInterface ty1 ty2 expr -> pPrintAppKeyword lvl prec "from_required_interface"
         [interfaceArg ty1, interfaceArg ty2, TmArg expr]
+    EUnsafeFromRequiredInterface ty1 ty2 expr1 expr2 -> pPrintAppKeyword lvl prec "unsafe_from_required_interface"
+        [interfaceArg ty1, interfaceArg ty2, TmArg expr1, TmArg expr2]
     EInterfaceTemplateTypeRep ty expr -> pPrintAppKeyword lvl prec "interface_template_type_rep"
         [interfaceArg ty, TmArg expr]
     ESignatoryInterface ty expr -> pPrintAppKeyword lvl prec "signatory_interface"
         [interfaceArg ty, TmArg expr]
     EObserverInterface ty expr -> pPrintAppKeyword lvl prec "observer_interface"
         [interfaceArg ty, TmArg expr]
+    EViewInterface iface expr -> pPrintAppKeyword lvl prec "view"
+        [interfaceArg iface, TmArg expr]
     EExperimental name _ ->  pPrint $ "$" <> name
 
 instance Pretty DefTypeSyn where
@@ -627,25 +639,94 @@ pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observe
           , nest 2 (keyword_ "body" <-> pPrintPrec lvl 0 (tplKeyBody key))
           , nest 2 (keyword_ "maintainers" <-> pPrintPrec lvl 0 (tplKeyMaintainers key))
           ]
-      implementsDoc = map (pPrintTemplateImplements lvl) (NM.toList implements)
+      implementsDoc =
+        [ pPrintInterfaceInstance lvl (InterfaceInstanceHead interface qTpl) body
+        | TemplateImplements interface body <- NM.toList implements
+        ]
+      qTpl = Qualified PRSelf modName tpl
 
-pPrintTemplateImplements :: PrettyLevel -> TemplateImplements -> Doc ann
-pPrintTemplateImplements lvl (TemplateImplements name methods inheritedChoices)
-  | NM.null methods = keyword_ "implements" <-> pPrintPrec lvl 0 name
-  | otherwise = vcat $
-      [ keyword_ "implements" <-> pPrintPrec lvl 0 name <-> keyword_ "where"
-      , nest 2 (keyword_ "inherits" <-> pPrintPrec lvl 0 (S.toList inheritedChoices))
-      ] ++ map (nest 2 . pPrintTemplateImplementsMethod lvl) (NM.toList methods)
+pPrintInterfaceInstance :: PrettyLevel -> InterfaceInstanceHead -> InterfaceInstanceBody -> Doc ann
+pPrintInterfaceInstance lvl head body =
+  hang
+    (pPrintInterfaceInstanceHead lvl head)
+    2
+    (pPrintInterfaceInstanceBody lvl body)
 
-pPrintTemplateImplementsMethod :: PrettyLevel -> TemplateImplementsMethod -> Doc ann
-pPrintTemplateImplementsMethod lvl (TemplateImplementsMethod name expr) =
+pPrintInterfaceInstanceBody :: PrettyLevel -> InterfaceInstanceBody -> Doc ann
+pPrintInterfaceInstanceBody lvl (InterfaceInstanceBody methods _view) =
+  vcat $ map (pPrintInterfaceInstanceMethod lvl) (NM.toList methods)
+
+pPrintInterfaceInstanceMethod :: PrettyLevel -> InterfaceInstanceMethod -> Doc ann
+pPrintInterfaceInstanceMethod lvl (InterfaceInstanceMethod name expr) =
     pPrintPrec lvl 0 name <-> keyword_ "=" <-> pPrintPrec lvl 0 expr
+
+pPrintInterfaceInstanceHead :: PrettyLevel -> InterfaceInstanceHead -> Doc ann
+pPrintInterfaceInstanceHead lvl InterfaceInstanceHead {..} =
+  hsep
+    [ keyword_ "interface instance"
+    , pPrintPrec lvl 0 iiInterface
+    , keyword_ "for"
+    , pPrintPrec lvl 0 iiTemplate
+    ]
+
+instance Pretty InterfaceInstanceHead where
+  pPrintPrec lvl _prec = pPrintInterfaceInstanceHead lvl
+
+pPrintInterfaceMethod ::
+  PrettyLevel -> InterfaceMethod -> Doc ann
+pPrintInterfaceMethod lvl InterfaceMethod {ifmLocation, ifmName, ifmType} =
+  withSourceLoc lvl ifmLocation $
+    keyword_ "method" <-> pPrintAndType lvl 0 (ifmName, ifmType)
+
+pPrintDefInterface :: PrettyLevel -> ModuleName -> DefInterface -> Doc ann
+pPrintDefInterface lvl modName defInterface =
+  withSourceLoc lvl intLocation $
+    hang header 2 body
+  where
+    DefInterface
+      { intLocation
+      , intName
+      , intRequires
+      , intParam
+      , intView
+      , intMethods
+      , intChoices
+      , intCoImplements
+      } = defInterface
+
+    header = hsep
+      [ keyword_ "interface"
+      , pPrint intName
+      , pPrint intParam
+      , requiresDoc
+      , keyword_ "where"
+      ]
+
+    body = vcat
+      [ viewDoc
+      , vcat methodDocs
+      , vcat choiceDocs
+      , vcat interfaceInstanceDocs
+      ]
+
+    requiresDoc = case S.toList intRequires of
+      [] -> mempty
+      reqs -> keyword_ "requires" <-> hsep (punctuate comma (pPrint <$> reqs))
+
+    viewDoc = keyword_ "viewtype" <-> pPrint intView
+    methodDocs = map (pPrintInterfaceMethod lvl) (NM.toList intMethods)
+    choiceDocs = map (pPrintTemplateChoice lvl modName intName) (NM.toList intChoices)
+    interfaceInstanceDocs =
+      [ pPrintInterfaceInstance lvl (InterfaceInstanceHead qIntName template) body
+      | InterfaceCoImplements template body <- NM.toList intCoImplements
+      ]
+    qIntName = Qualified PRSelf modName intName
 
 pPrintFeatureFlags :: FeatureFlags -> Doc ann
 pPrintFeatureFlags FeatureFlags = mempty
 
 instance Pretty Module where
-  pPrintPrec lvl _prec (Module modName _path flags synonyms dataTypes values templates exceptions _interfaces) = -- TODO interfaces
+  pPrintPrec lvl _prec (Module modName _path flags synonyms dataTypes values templates exceptions interfaces) =
     vcat $
       pPrintFeatureFlags flags
       : (keyword_ "module" <-> pPrint modName <-> keyword_ "where")
@@ -655,6 +736,7 @@ instance Pretty Module where
         , map (pPrintPrec lvl 0) (NM.toList values)
         , map (pPrintTemplate lvl modName) (NM.toList templates)
         , map (pPrintPrec lvl 0) (NM.toList exceptions)
+        , map (pPrintDefInterface lvl modName) (NM.toList interfaces)
         ]
 
 instance Pretty PackageName where

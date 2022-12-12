@@ -3,17 +3,17 @@
 
 package com.daml.ledger.rxjava.grpc;
 
+import static com.daml.ledger.javaapi.data.codegen.HasCommands.toCommands;
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import com.daml.grpc.adapter.ExecutionSequencerFactory;
 import com.daml.ledger.api.v1.CommandSubmissionServiceGrpc;
 import com.daml.ledger.api.v1.CommandSubmissionServiceOuterClass;
-import com.daml.ledger.javaapi.data.Command;
+import com.daml.ledger.javaapi.data.CommandsSubmission;
 import com.daml.ledger.javaapi.data.SubmitRequest;
+import com.daml.ledger.javaapi.data.codegen.HasCommands;
 import com.daml.ledger.rxjava.CommandSubmissionClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
-import com.daml.ledger.rxjava.util.CreateSingle;
 import com.google.protobuf.Empty;
 import io.grpc.Channel;
 import io.reactivex.Single;
@@ -27,23 +27,33 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
 
   private final String ledgerId;
   private final CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub serviceStub;
-  private final ExecutionSequencerFactory sequencerFactory;
   private final Optional<Duration> timeout;
 
   public CommandSubmissionClientImpl(
       @NonNull String ledgerId,
       @NonNull Channel channel,
-      ExecutionSequencerFactory sequencerFactory,
       Optional<String> accessToken,
       Optional<Duration> timeout) {
     this.ledgerId = ledgerId;
     this.timeout = timeout;
-    this.sequencerFactory = sequencerFactory;
     this.serviceStub =
         StubHelper.authenticating(CommandSubmissionServiceGrpc.newFutureStub(channel), accessToken);
   }
 
-  public Single<com.google.protobuf.Empty> submit(
+  @Override
+  public Single<Empty> submit(CommandsSubmission submission) {
+    CommandSubmissionServiceOuterClass.SubmitRequest request =
+        SubmitRequest.toProto(ledgerId, submission);
+    CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub stubWithTimeout =
+        this.timeout
+            .map(t -> this.serviceStub.withDeadlineAfter(t.toMillis(), MILLISECONDS))
+            .orElse(this.serviceStub);
+    return Single.fromFuture(
+        StubHelper.authenticating(stubWithTimeout, submission.getAccessToken()).submit(request));
+  }
+
+  @Deprecated
+  public Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -52,7 +62,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       Optional<String> accessToken) {
     CommandSubmissionServiceOuterClass.SubmitRequest request =
         SubmitRequest.toProto(
@@ -65,16 +75,17 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
             minLedgerTimeAbs,
             minLedgerTimeRel,
             deduplicationTime,
-            commands);
+            toCommands(commands));
     CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub stubWithTimeout =
         this.timeout
             .map(t -> this.serviceStub.withDeadlineAfter(t.toMillis(), MILLISECONDS))
             .orElse(this.serviceStub);
-    return CreateSingle.fromFuture(
-        StubHelper.authenticating(stubWithTimeout, accessToken).submit(request), sequencerFactory);
+    return Single.fromFuture(
+        StubHelper.authenticating(stubWithTimeout, accessToken).submit(request));
   }
 
-  public Single<com.google.protobuf.Empty> submit(
+  @Deprecated
+  public Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -82,7 +93,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       Optional<String> accessToken) {
     return this.submit(
         workflowId,
@@ -97,13 +108,14 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         accessToken);
   }
 
+  @Deprecated
   @Override
-  public Single<com.google.protobuf.Empty> submit(
+  public Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
       @NonNull String party,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submit(
         workflowId,
         applicationId,
@@ -116,6 +128,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
@@ -123,7 +136,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submit(
         workflowId,
         applicationId,
@@ -137,8 +150,9 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
-  public Single<com.google.protobuf.Empty> submit(
+  public Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
@@ -146,7 +160,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submit(
         workflowId,
@@ -160,6 +174,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
@@ -170,7 +185,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submit(
         workflowId,
@@ -185,6 +200,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
@@ -194,7 +210,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submit(
         workflowId,
         applicationId,
@@ -207,6 +223,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
@@ -217,7 +234,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationTime,
-      @NonNull List<@NonNull Command> commands) {
+      @NonNull List<@NonNull ? extends HasCommands> commands) {
     return submit(
         workflowId,
         applicationId,
@@ -231,13 +248,14 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
       @NonNull String party,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submit(
         workflowId,
@@ -251,6 +269,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
         Optional.of(accessToken));
   }
 
+  @Deprecated
   @Override
   public Single<Empty> submit(
       @NonNull String workflowId,
@@ -258,7 +277,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
       @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
-      @NonNull List<@NonNull Command> commands,
+      @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken) {
     return submit(
         workflowId,

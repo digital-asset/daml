@@ -1,0 +1,35 @@
+module ExceptionSyntax where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+import DA.Exception ( throw )
+import DA.Assert ( (===) )
+data DA.Internal.Desugar.DamlException => MyException
+  = MyException {m : Text}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "m" MyException Text where
+  getField = DA.Internal.Record.getFieldPrim @"m" @MyException @Text
+  setField = DA.Internal.Record.setFieldPrim @"m" @MyException @Text
+instance DA.Internal.Desugar.HasMessage MyException where
+  message this@MyException {..} = m
+instance DA.Internal.Desugar.HasThrow MyException where
+  throwPure = GHC.Types.primitive @"EThrow"
+instance DA.Internal.Desugar.HasToAnyException MyException where
+  toAnyException = GHC.Types.primitive @"EToAnyException"
+instance DA.Internal.Desugar.HasFromAnyException MyException where
+  fromAnyException = GHC.Types.primitive @"EFromAnyException"
+tryCatchExample
+  = scenario
+      do p <- getParty "Alice"
+         x <- submit
+                p
+                do DA.Internal.Desugar._tryCatch
+                     \ _
+                       -> do throw (MyException "ok")
+                             pure "err"
+                     \case
+                       (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (MyException m))
+                         -> DA.Internal.Desugar.Some pure m
+                       _ -> DA.Internal.Desugar.None
+         x === "ok"

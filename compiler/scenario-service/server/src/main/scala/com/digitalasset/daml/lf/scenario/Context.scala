@@ -10,15 +10,15 @@ import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.archive
 import com.daml.lf.data.{assertRight, ImmArray}
-import com.daml.lf.data.Ref.{DottedName, Identifier, ModuleName, PackageId, QualifiedName}
+import com.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
-import com.daml.lf.speedy.{Compiler, SDefinition, SExpr, Speedy}
+import com.daml.lf.speedy.{Compiler, SDefinition, Speedy}
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
-import com.daml.lf.engine.script.{Participants, Runner, Script, ScriptF, ScriptIds}
+import com.daml.lf.engine.script.{Participants, Runner, ScriptF}
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.ExecutionContext
@@ -140,24 +140,19 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   private val txSeeding =
     crypto.Hash.hashPrivateKey(s"scenario-service")
 
-  private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
-    val defns = this.defns
-    val compiledPackages = PureCompiledPackages(allSignatures, defns, compilerConfig)
-    for {
-      defn <- defns.get(LfDefRef(identifier))
-    } yield Speedy.Machine.fromScenarioSExpr(
-      compiledPackages,
+  private[this] def buildMachine(defn: SDefinition): Speedy.OffLedgerMachine =
+    Speedy.Machine.fromScenarioSExpr(
+      PureCompiledPackages(allSignatures, defns, compilerConfig),
       defn.body,
     )
-  }
 
   def interpretScenario(
       pkgId: String,
       name: String,
-  ): Option[ScenarioRunner.ScenarioResult] =
-    buildMachine(
-      Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
-    ).map(machine => new ScenarioRunner(machine, txSeeding).run)
+  ): Option[ScenarioRunner.ScenarioResult] = {
+    val id = Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
+    defns.get(LfDefRef(id)).map(defn => ScenarioRunner.run(() => buildMachine(defn), txSeeding))
+  }
 
   def interpretScript(
       pkgId: String,
@@ -169,23 +164,22 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   ): Future[Option[ScenarioRunner.ScenarioResult]] = {
     val defns = this.defns
     val compiledPackages = PureCompiledPackages(allSignatures, defns, compilerConfig)
-    val expectedScriptId = DottedName.assertFromString("Daml.Script")
-    val Some(scriptPackageId) = allSignatures.collectFirst {
-      case (pkgId, pkg) if pkg.modules contains expectedScriptId => pkgId
-    }
-    val scriptExpr = SExpr.SEVal(
-      LfDefRef(Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name)))
-    )
-    val runner = new Runner(
-      compiledPackages,
-      Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
-      ScriptTimeMode.Static,
-    )
+    val scriptId =
+      Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
     val traceLog = Speedy.Machine.newTraceLog
     val warningLog = Speedy.Machine.newWarningLog
     val ledgerClient: IdeLedgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog)
     val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
-    val (clientMachine, resultF) = runner.runWithClients(participants, traceLog, warningLog)
+    val (clientMachine, resultF) = Runner.run(
+      compiledPackages = compiledPackages,
+      scriptId = scriptId,
+      convertInputValue = None,
+      inputValue = None,
+      initialClients = participants,
+      timeMode = ScriptTimeMode.Static,
+      traceLog = traceLog,
+      warningLog = warningLog,
+    )
 
     def handleFailure(e: Error) =
       // SError are the errors that should be handled and displayed as

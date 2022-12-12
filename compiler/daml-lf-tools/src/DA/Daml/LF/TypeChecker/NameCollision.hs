@@ -42,7 +42,6 @@ data Name
     | NChoiceViaInterface ModuleName TypeConName ChoiceName (Qualified TypeConName)
     | NInterface ModuleName TypeConName
     | NInterfaceChoice ModuleName TypeConName ChoiceName
-    | NInterfaceMethod ModuleName TypeConName MethodName
 
 -- | Display a name in a super unambiguous way.
 displayName :: Name -> T.Text
@@ -73,8 +72,6 @@ displayName = \case
         T.concat ["interface ", dot m, ":", dot t]
     NInterfaceChoice (ModuleName m) (TypeConName t) (ChoiceName c) ->
         T.concat ["interface choice ", dot m, ":", dot t, ".", c]
-    NInterfaceMethod (ModuleName m) (TypeConName t) (MethodName f) ->
-        T.concat ["interface method ", dot m, ":", dot t, ".", f]
   where
     dot = T.intercalate "."
 
@@ -135,8 +132,6 @@ fullyResolve = FRName . map T.toLower . \case
         m ++ t
     NInterfaceChoice (ModuleName m) (TypeConName t) (ChoiceName c) ->
         m ++ t ++ [c]
-    NInterfaceMethod (ModuleName m) (TypeConName t) (MethodName f) ->
-        m ++ t ++ [f]
 
 -- | State of the name collision checker. This is a
 -- map from fully resolved names within a package to their
@@ -202,9 +197,6 @@ checkTemplate :: ModuleName -> Template -> NCMonad ()
 checkTemplate moduleName Template{..} = do
     forM_ tplChoices $ \TemplateChoice{..} ->
         checkName (NChoice moduleName tplTypeCon chcName)
-    forM_ tplImplements $ \TemplateImplements{..} ->
-        forM_ tpiInheritedChoiceNames $ \choiceName ->
-            checkName (NChoiceViaInterface moduleName tplTypeCon choiceName tpiInterface)
 
 checkSynonym :: ModuleName -> DefTypeSyn -> NCMonad ()
 checkSynonym moduleName DefTypeSyn{..} =
@@ -212,10 +204,8 @@ checkSynonym moduleName DefTypeSyn{..} =
 
 checkInterface :: ModuleName -> DefInterface -> NCMonad ()
 checkInterface moduleName DefInterface{..} = do
-    forM_ intFixedChoices $ \TemplateChoice{..} ->
+    forM_ intChoices $ \TemplateChoice{..} ->
         checkName (NInterfaceChoice moduleName intName chcName)
-    forM_ intMethods $ \InterfaceMethod{..} ->
-        checkName (NInterfaceMethod moduleName intName ifmName)
 
 checkModuleName :: Module -> NCMonad ()
 checkModuleName m =

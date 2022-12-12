@@ -75,4 +75,16 @@ testMerge = scenario do
   [(1, "a"), (3, "b")] === toList (merge (\_ v -> Some v) (\_ v -> if v <= "bb" then Some v else None) (\_ _ _ -> None) M.empty m2)
   [(1,"bb"), (2,"dd"), (3,"aa")] === toList (merge (\_ _ -> None) (\_ _ -> None) (\_ v _ -> Some v) m1 m2)
 
+testUnionWith = scenario do
+  let m1 = fromList [(1, 1), (2, 2), (3, 3)]
+      m2 = fromList [(1, 3), (2, 5), (4, 7)]
+  unionWith (+) m1 m2
+    === fromList [(1, 4), (2, 7), (3, 3), (4, 7)]
+
+  unionWith (-) m1 m2
+    === fromList [(1, -2), (2, -3), (3, 3), (4, 7)]
+
+testInsertWith = scenario do
+  insertWith (-) 1 2 (fromList []) === fromList [(1, 2)]
+  insertWith (-) 1 2 (fromList [(1,1)]) === fromList [(1, 2-1)]
 -- @ENABLE-SCENARIOS

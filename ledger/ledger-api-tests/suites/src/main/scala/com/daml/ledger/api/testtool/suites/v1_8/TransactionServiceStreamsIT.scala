@@ -20,7 +20,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
     "An empty stream should be served when getting transactions from and to the beginning of the ledger",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.getTransactionsRequest(Seq(party))
+    val request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
     val fromAndToBegin = request.update(_.begin := ledger.begin, _.end := ledger.begin)
     for {
       transactions <- ledger.flatTransactions(fromAndToBegin)
@@ -37,7 +37,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
     "An empty stream of trees should be served when getting transactions from and to the beginning of the ledger",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.getTransactionsRequest(Seq(party))
+    val request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
     val fromAndToBegin = request.update(_.begin := ledger.begin, _.end := ledger.begin)
     for {
       transactions <- ledger.transactionTrees(fromAndToBegin)
@@ -56,7 +56,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       _ <- ledger.create(party, Dummy(party))
-      request = ledger.getTransactionsRequest(Seq(party))
+      request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
       endToEnd = request.update(_.begin := ledger.end, _.end := ledger.end)
       transactions <- ledger.flatTransactions(endToEnd)
     } yield {
@@ -75,7 +75,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
     for {
       _ <- ledger.create(party, Dummy(party))
       futureOffset <- ledger.offsetBeyondLedgerEnd()
-      request = ledger.getTransactionsRequest(Seq(party))
+      request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
       beyondEnd = request.update(_.begin := futureOffset, _.optionalEnd := None)
       failure <- ledger.flatTransactions(beyondEnd).mustFail("subscribing past the ledger end")
     } yield {
@@ -95,7 +95,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
     for {
       _ <- ledger.create(party, Dummy(party))
       futureOffset <- ledger.offsetBeyondLedgerEnd()
-      request = ledger.getTransactionsRequest(Seq(party))
+      request = ledger.getTransactionsRequest(ledger.transactionFilter(Seq(party)))
       beyondEnd = request.update(_.begin := futureOffset, _.optionalEnd := None)
       failure <- ledger.transactionTrees(beyondEnd).mustFail("subscribing past the ledger end")
     } yield {

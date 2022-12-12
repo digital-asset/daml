@@ -31,10 +31,10 @@ object OracleEventStrategy extends EventStrategy {
   }
 
   override def pruneCreateFilters(pruneUpToInclusive: Offset): SimpleSql[Row] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
           -- Create events filter table (only for contracts archived before the specified offset)
-          delete from participant_events_create_filter
+          delete from pe_create_id_filter_stakeholder
           where exists (
             select * from participant_events_create delete_events
             where
@@ -45,7 +45,7 @@ object OracleEventStrategy extends EventStrategy {
                   archive_events.event_offset <= $pruneUpToInclusive AND
                   archive_events.contract_id = delete_events.contract_id
               ) and
-              delete_events.event_sequential_id = participant_events_create_filter.event_sequential_id
+              delete_events.event_sequential_id = pe_create_id_filter_stakeholder.event_sequential_id
           )"""
   }
 }

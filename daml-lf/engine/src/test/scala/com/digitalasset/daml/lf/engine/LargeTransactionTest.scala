@@ -5,7 +5,6 @@ package com.daml.lf
 package engine
 
 import java.io.File
-
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref._
@@ -282,7 +281,8 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       .submit(
         submitters = Set(submitter),
         readAs = Set.empty,
-        Commands(ImmArray(cmd), effectiveAt, cmdReference),
+        ApiCommands(ImmArray(cmd), effectiveAt, cmdReference),
+        ImmArray.empty,
         participant,
         seed,
       )
@@ -305,47 +305,47 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       start: Int,
       step: Int,
       number: Int,
-  ): CreateCommand = {
+  ): ApiCommand.Create = {
     val fields = ImmArray(
       (Some[Name]("party"), ValueParty(party)),
       (Some[Name]("start"), ValueInt64(start.toLong)),
       (Some[Name]("step"), ValueInt64(step.toLong)),
       (Some[Name]("size"), ValueInt64(number.toLong)),
     )
-    CreateCommand(templateId, ValueRecord(Some(templateId), fields))
+    ApiCommand.Create(templateId, ValueRecord(Some(templateId), fields))
   }
 
   private def toListContainerExerciseCmd(
       templateId: Identifier,
       contractId: ContractId,
-  ): ExerciseCommand = {
+  ): ApiCommand.Exercise = {
     val choice = "ToListContainer"
     val emptyArgs = ValueRecord(None, ImmArray.Empty)
-    ExerciseCommand(templateId, contractId, choice, (emptyArgs))
+    ApiCommand.Exercise(templateId, contractId, choice, (emptyArgs))
   }
 
   private def toListOfIntContainers(
       templateId: Identifier,
       contractId: ContractId,
-  ): ExerciseCommand = {
+  ): ApiCommand.Exercise = {
     val choice = "ToListOfIntContainers"
     val emptyArgs = ValueRecord(None, ImmArray.Empty)
-    ExerciseCommand(templateId, contractId, choice, (emptyArgs))
+    ApiCommand.Exercise(templateId, contractId, choice, (emptyArgs))
   }
 
-  private def listUtilCreateCmd(templateId: Identifier): CreateCommand = {
+  private def listUtilCreateCmd(templateId: Identifier): ApiCommand.Create = {
     val fields = ImmArray((Some[Name]("party"), ValueParty(party)))
-    CreateCommand(templateId, ValueRecord(Some(templateId), fields))
+    ApiCommand.Create(templateId, ValueRecord(Some(templateId), fields))
   }
 
   private def sizeExerciseCmd(templateId: Identifier, contractId: ContractId)(
       size: Int
-  ): ExerciseCommand = {
+  ): ApiCommand.Exercise = {
     val choice = "Size"
     val choiceDefRef = Identifier(templateId.packageId, qn(s"LargeTransaction:$choice"))
     val damlList = ValueList(List.range(0L, size.toLong).map(ValueInt64).to(FrontStack))
     val choiceArgs = ValueRecord(Some(choiceDefRef), ImmArray((None, damlList)))
-    ExerciseCommand(templateId, contractId, choice, choiceArgs)
+    ApiCommand.Exercise(templateId, contractId, choice, choiceArgs)
   }
 
   private def assertSizeExerciseTransaction(

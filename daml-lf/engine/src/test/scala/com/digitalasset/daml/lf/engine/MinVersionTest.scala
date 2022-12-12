@@ -3,10 +3,6 @@
 
 package com.daml.lf.engine.MinVersionTest
 
-import java.io.{File, FileInputStream}
-import java.nio.file.{Files, Path}
-import java.util.UUID
-import java.util.stream.Collectors
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -23,24 +19,25 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.ledger.runner.common.{
-  Config,
-  ParticipantConfig,
-  ParticipantIndexerConfig,
-  ParticipantRunMode,
-}
 import com.daml.ledger.resources.ResourceContext
-import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigProvider, SandboxOnXRunner}
+import com.daml.ledger.runner.common._
+import com.daml.ledger.sandbox.{BridgeConfig, BridgeConfigAdaptor, SandboxOnXRunner}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.VersionRange
 import com.daml.lf.archive.DarDecoder
-import com.daml.lf.data.Ref
-import com.daml.lf.language.LanguageVersion.v1_14
+import com.daml.lf.language.LanguageVersion.v1_15
+import com.daml.platform.config.ParticipantConfig
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
 import org.scalatest.Suite
 import org.scalatest.freespec.AsyncFreeSpec
 import scalaz.syntax.tag._
+
+import java.io.File
+import java.nio.file.{Files, Path}
+import java.util.UUID
+import java.util.stream.Collectors
 
 final class MinVersionTest
     extends AsyncFreeSpec
@@ -52,17 +49,16 @@ final class MinVersionTest
   private val dar = DarDecoder.assertReadArchiveFromFile(darFile)
 
   private val tmpDir = Files.createTempDirectory("testMultiParticipantFixture")
-  private val portfile = tmpDir.resolve("portfile")
+  private val portFile = tmpDir.resolve("portFile")
 
   override protected def afterAll(): Unit = {
-    Files.delete(portfile)
+    Files.delete(portFile)
     super.afterAll()
 
   }
 
-  private def readPortfile(f: Path): Port = {
+  private def readPortFile(f: Path): Port =
     Port(Integer.parseInt(Files.readAllLines(f).stream.collect(Collectors.joining("\n"))))
-  }
 
   private val ledgerClientConfig = LedgerClientConfiguration(
     applicationId = "minversiontest",
@@ -80,7 +76,7 @@ final class MinVersionTest
           suiteResource.value.value,
           ledgerClientConfig,
         )
-        darByteString = ByteString.readFrom(new FileInputStream(darFile))
+        darByteString = ByteString.copyFrom(Files.readAllBytes(darFile.toPath))
         _ <- client.packageManagementClient.uploadDarFile(darByteString)
         party <- client.partyManagementClient
           .allocateParty(hint = None, displayName = None)
@@ -125,35 +121,35 @@ final class MinVersionTest
       } yield succeed
     }
   }
-
-  private val participantId = Ref.ParticipantId.assertFromString("participant1")
-  private val participant = ParticipantConfig(
-    mode = ParticipantRunMode.Combined,
-    participantId = participantId,
-    shardName = None,
-    address = Some("localhost"),
-    port = Port.Dynamic,
-    portFile = Some(portfile),
-    serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId),
-    indexerConfig = ParticipantIndexerConfig(
-      allowExistingSchema = false
-    ),
-  )
+  private val configAdaptor = new BridgeConfigAdaptor()
 
   override protected lazy val suiteResource: OwnedResource[ResourceContext, Port] = {
+    val participantId = ParticipantConfig.DefaultParticipantId
+    val jdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId)
+
+    val config = Config.Default.copy(
+      engine = Config.DefaultEngineConfig
+        .copy(allowedLanguageVersions = VersionRange(min = v1_15, max = v1_15)),
+      dataSource = Config.Default.dataSource.map { case (participantId, _) =>
+        participantId -> ParticipantDataSourceConfig(jdbcUrl)
+      },
+      participants = Config.Default.participants.map { case (participantId, participantConfig) =>
+        participantId -> participantConfig.copy(
+          apiServer = participantConfig.apiServer.copy(
+            portFile = Some(portFile),
+            port = Port.Dynamic,
+            address = Some("localhost"),
+            initialLedgerConfiguration = Some(configAdaptor.initialLedgerConfig(None)),
+          )
+        )
+      },
+    )
+    val bridgeConfig = BridgeConfig.Default
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, Port](
       for {
-        _ <- SandboxOnXRunner.owner(
-          Config
-            .createDefault[BridgeConfig](BridgeConfigProvider.defaultExtraConfig)
-            .copy(
-              participants = Seq(participant),
-              // Bump min version to 1.14 and check that older stable packages are still accepted.
-              allowedLanguageVersions = VersionRange(min = v1_14, max = v1_14),
-            )
-        )
-      } yield readPortfile(portfile)
+        _ <- SandboxOnXRunner.owner(configAdaptor, config, bridgeConfig)
+      } yield readPortFile(portFile)
     )
   }
 }

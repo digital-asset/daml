@@ -12,15 +12,16 @@ import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptLedgerClient
-import com.daml.lf.iface.EnvironmentInterface
-import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.StablePackage.DA
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{Pretty, SValue, Speedy}
+import com.daml.lf.speedy.{ArrayList, Pretty, SValue, Speedy}
 import com.daml.lf.speedy.SExpr.SExpr
+import com.daml.lf.typesig.EnvironmentSignature
+import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
@@ -84,14 +85,6 @@ object StackTrace {
 object Converter {
   import com.daml.script.converter.Converter._
 
-  private val DA_TYPES_PKGID =
-    PackageId.assertFromString("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
-  private def daTypes(s: String): Identifier =
-    Identifier(
-      DA_TYPES_PKGID,
-      QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString(s)),
-    )
-
   private def toNonEmptySet[A](as: OneAnd[FrontStack, A]): OneAnd[Set, A] = {
     import scalaz.syntax.foldable._
     OneAnd(as.head, as.tail.toSet - as.head)
@@ -111,10 +104,8 @@ object Converter {
     )
   }
 
-  private def fromTemplateTypeRep(templateId: value.Identifier): SValue = {
-    val templateTypeRepTy = daInternalAny("TemplateTypeRep")
-    record(templateTypeRepTy, ("getTemplateTypeRep", fromIdentifier(templateId)))
-  }
+  private def fromTemplateTypeRep(templateId: value.Identifier): SValue =
+    record(DA.Internal.Any.TemplateTypeRep, ("getTemplateTypeRep", fromIdentifier(templateId)))
 
   private def fromAnyContractId(
       scriptIds: ScriptIds,
@@ -139,14 +130,13 @@ object Converter {
       templateId: Identifier,
       argument: Value,
   ): Either[String, SValue] = {
-    val anyTemplateTy = daInternalAny("AnyTemplate")
     for {
       translated <- translator
         .translateValue(TTyCon(templateId), argument)
         .left
         .map(err => s"Failed to translate create argument: $err")
     } yield record(
-      anyTemplateTy,
+      DA.Internal.Any.AnyTemplate,
       ("getAnyTemplate", SAny(TTyCon(templateId), translated)),
     )
   }
@@ -164,35 +154,59 @@ object Converter {
   }
 
   private def fromAnyChoice(
-      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
+      lookupChoice: (
+          Identifier,
+          Option[Identifier],
+          ChoiceName,
+      ) => Either[String, TemplateChoiceSignature],
       translator: preprocessing.ValueTranslator,
       templateId: Identifier,
+      interfaceId: Option[Identifier],
       choiceName: ChoiceName,
       argument: Value,
   ): Either[String, SValue] = {
-    val contractIdTy = daInternalAny("AnyChoice")
     for {
-      choice <- lookupChoice(templateId, choiceName)
+      choice <- lookupChoice(templateId, interfaceId, choiceName)
       translated <- translator
         .translateValue(choice.argBinder._2, argument)
         .left
         .map(err => s"Failed to translate exercise argument: $err")
     } yield record(
-      contractIdTy,
+      DA.Internal.Any.AnyChoice,
       ("getAnyChoice", SAny(choice.argBinder._2, translated)),
-      ("getAnyChoiceTemplateTypeRep", fromIdentifier(toApiIdentifier(templateId))),
+      (
+        "getAnyChoiceTemplateTypeRep",
+        fromTemplateTypeRep(toApiIdentifier(interfaceId.getOrElse(templateId))),
+      ),
     )
   }
 
-  def toAnyChoice(v: SValue): Either[String, AnyChoice] = {
-    v match {
-      case SRecord(_, _, JavaList(SAny(TTyCon(tyCon), choiceVal), _)) =>
-        // This exploits the fact that in Daml, choice argument type names
-        // and choice names match up.
-        ChoiceName.fromString(tyCon.qualifiedName.name.toString).map(AnyChoice(_, choiceVal))
-      case _ => Left(s"Expected AnyChoice but got $v")
-    }
+  private[this] def choiceArgTypeToChoiceName(choiceCons: TypeConName) = {
+    // This exploits the fact that in Daml, choice argument type names
+    // and choice names match up.
+    assert(choiceCons.qualifiedName.name.segments.length == 1)
+    choiceCons.qualifiedName.name.segments.head
   }
+
+  private[this] def toAnyChoice(v: SValue): Either[String, AnyChoice] =
+    v match {
+      case SRecord(_, _, ArrayList(SAny(TTyCon(choiceCons), choiceVal), _)) =>
+        Right(AnyChoice(choiceArgTypeToChoiceName(choiceCons), choiceVal))
+      case SRecord(
+            _,
+            _,
+            ArrayList(
+              SAny(
+                TStruct(Struct((_, TTyCon(choiceCons)), _)),
+                SStruct(_, ArrayList(choiceVal, _)),
+              ),
+              _,
+            ),
+          ) =>
+        Right(AnyChoice(choiceArgTypeToChoiceName(choiceCons), choiceVal))
+      case _ =>
+        Left(s"Expected AnyChoice but got $v")
+    }
 
   def toAnyContractKey(v: SValue): Either[String, AnyContractKey] = {
     v match {
@@ -224,7 +238,7 @@ object Converter {
       case SRecord(_, _, vals) if vals.size == 2 => {
         for {
           anyTemplate <- toAnyTemplate(vals.get(0))
-        } yield command.CreateCommand(
+        } yield command.ApiCommand.Create(
           templateId = anyTemplate.ty,
           argument = anyTemplate.arg.toUnnormalizedValue,
         )
@@ -235,46 +249,44 @@ object Converter {
   def toExerciseCommand(v: SValue): Either[String, command.ApiCommand] =
     v match {
       // typerep, contract id, choice argument and continuation
-      case SRecord(_, _, vals) if vals.size == 4 => {
+      case SRecord(_, _, vals) if vals.size == 4 =>
         for {
-          tplId <- typeRepToIdentifier(vals.get(0))
+          typeId <- typeRepToIdentifier(vals.get(0))
           cid <- toContractId(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
-        } yield command.ExerciseCommand(
-          templateId = tplId,
+        } yield command.ApiCommand.Exercise(
+          typeId = typeId,
           contractId = cid,
           choiceId = anyChoice.name,
           argument = anyChoice.arg.toUnnormalizedValue,
         )
-      }
       case _ => Left(s"Expected Exercise but got $v")
     }
 
   def toExerciseByKeyCommand(v: SValue): Either[String, command.ApiCommand] =
     v match {
       // typerep, contract id, choice argument and continuation
-      case SRecord(_, _, vals) if vals.size == 4 => {
+      case SRecord(_, _, vals) if vals.size == 4 =>
         for {
-          tplId <- typeRepToIdentifier(vals.get(0))
+          typeId <- typeRepToIdentifier(vals.get(0))
           anyKey <- toAnyContractKey(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
-        } yield command.ExerciseByKeyCommand(
-          templateId = tplId,
+        } yield command.ApiCommand.ExerciseByKey(
+          templateId = typeId,
           contractKey = anyKey.key.toUnnormalizedValue,
           choiceId = anyChoice.name,
           argument = anyChoice.arg.toUnnormalizedValue,
         )
-      }
       case _ => Left(s"Expected ExerciseByKey but got $v")
     }
 
-  def toCreateAndExerciseCommand(v: SValue): Either[String, command.CreateAndExerciseCommand] =
+  def toCreateAndExerciseCommand(v: SValue): Either[String, command.ApiCommand.CreateAndExercise] =
     v match {
       case SRecord(_, _, vals) if vals.size == 3 => {
         for {
           anyTemplate <- toAnyTemplate(vals.get(0))
           anyChoice <- toAnyChoice(vals.get(1))
-        } yield command.CreateAndExerciseCommand(
+        } yield command.ApiCommand.CreateAndExercise(
           templateId = anyTemplate.ty,
           createArgument = anyTemplate.arg.toUnnormalizedValue,
           choiceId = anyChoice.name,
@@ -294,7 +306,7 @@ object Converter {
   private[this] val extractToTuple = SEMakeClo(
     Array(),
     2,
-    SEApp(SEBuiltin(SBStructCon(tupleFieldInputOrder)), Array(SELocA(0), SELocA(1))),
+    SEAppAtomic(SEBuiltin(SBStructCon(tupleFieldInputOrder)), Array(SELocA(0), SELocA(1))),
   )
 
   // Extract the two fields out of the RankN encoding used in the Ap constructor.
@@ -302,12 +314,13 @@ object Converter {
       compiledPackages: CompiledPackages,
       fun: SValue,
   ): Either[String, (SValue, SValue)] = {
+    val e = SELet1(extractToTuple, SEAppAtomic(SEValue(fun), Array(SELocS(1))))
     val machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractToTuple)))(
+      Speedy.Machine.fromPureSExpr(compiledPackages, e)(
         Script.DummyLoggingContext
       )
     machine.run() match {
-      case SResultFinalValue(v) =>
+      case SResultFinal(v) =>
         v match {
           case SStruct(_, values) if values.size == 2 =>
             Right((values.get(fstOutputIdx), values.get(sndOutputIdx)))
@@ -365,13 +378,17 @@ object Converter {
   }
 
   def translateExerciseResult(
-      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
+      lookupChoice: (
+          Identifier,
+          Option[Identifier],
+          ChoiceName,
+      ) => Either[String, TemplateChoiceSignature],
       translator: preprocessing.ValueTranslator,
       result: ScriptLedgerClient.ExerciseResult,
   ) = {
     for {
       choice <- Name.fromString(result.choice)
-      c <- lookupChoice(result.templateId, choice)
+      c <- lookupChoice(result.templateId, result.interfaceId, choice)
       translated <- translator
         .translateValue(c.returnType, result.result)
         .left
@@ -380,7 +397,11 @@ object Converter {
   }
 
   def translateTransactionTree(
-      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
+      lookupChoice: (
+          Identifier,
+          Option[Identifier],
+          ChoiceName,
+      ) => Either[String, TemplateChoiceSignature],
       translator: preprocessing.ValueTranslator,
       scriptIds: ScriptIds,
       tree: ScriptLedgerClient.TransactionTree,
@@ -399,10 +420,17 @@ object Converter {
             ("argument", anyTemplate),
           ),
         )
-      case ScriptLedgerClient.Exercised(tplId, contractId, choiceName, arg, childEvents) =>
+      case ScriptLedgerClient.Exercised(
+            tplId,
+            ifaceId,
+            contractId,
+            choiceName,
+            arg,
+            childEvents,
+          ) =>
         for {
           evs <- childEvents.traverse(translateTreeEvent(_))
-          anyChoice <- fromAnyChoice(lookupChoice, translator, tplId, choiceName, arg)
+          anyChoice <- fromAnyChoice(lookupChoice, translator, tplId, ifaceId, choiceName, arg)
         } yield SVariant(
           scriptIds.damlScript("TreeEvent"),
           Name.assertFromString("ExercisedEvent"),
@@ -428,7 +456,11 @@ object Converter {
   // fill in the values for the continuation.
   def fillCommandResults(
       compiledPackages: CompiledPackages,
-      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
+      lookupChoice: (
+          Identifier,
+          Option[Identifier],
+          ChoiceName,
+      ) => Either[String, TemplateChoiceSignature],
       translator: preprocessing.ValueTranslator,
       initialFreeAp: SValue,
       allEventResults: Seq[ScriptLedgerClient.CommandResult],
@@ -449,24 +481,24 @@ object Converter {
           for {
             contractId <- eventResults.head match {
               case ScriptLedgerClient.CreateResult(cid) => Right(SContractId(cid))
-              case ScriptLedgerClient.ExerciseResult(_, _, _) =>
+              case ScriptLedgerClient.ExerciseResult(_, _, _, _) =>
                 Left("Expected CreateResult but got ExerciseResult")
             }
-          } yield (SEApp(SEValue(continue), Array(SEValue(contractId))), eventResults.tail)
+          } yield (SEAppAtomic(SEValue(continue), Array(SEValue(contractId))), eventResults.tail)
         }
         case SVariant(_, "Exercise", _, v) => {
           val continue = v.asInstanceOf[SRecord].values.get(3)
           val exercised = eventResults.head.asInstanceOf[ScriptLedgerClient.ExerciseResult]
           for {
             translated <- translateExerciseResult(lookupChoice, translator, exercised)
-          } yield (SEApp(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
+          } yield (SEAppAtomic(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
         }
         case SVariant(_, "ExerciseByKey", _, v) => {
           val continue = v.asInstanceOf[SRecord].values.get(3)
           val exercised = eventResults.head.asInstanceOf[ScriptLedgerClient.ExerciseResult]
           for {
             translated <- translateExerciseResult(lookupChoice, translator, exercised)
-          } yield (SEApp(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
+          } yield (SEAppAtomic(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
         }
         case SVariant(_, "CreateAndExercise", _, v) => {
           val continue = v.asInstanceOf[SRecord].values.get(2)
@@ -474,7 +506,7 @@ object Converter {
           val exercised = eventResults(1).asInstanceOf[ScriptLedgerClient.ExerciseResult]
           for {
             translated <- translateExerciseResult(lookupChoice, translator, exercised)
-          } yield (SEApp(SEValue(continue), Array(SEValue(translated))), eventResults.drop(2))
+          } yield (SEAppAtomic(SEValue(continue), Array(SEValue(translated))), eventResults.drop(2))
         }
         case _ => Left(s"Expected Create, Exercise or ExerciseByKey but got $v")
       }
@@ -488,7 +520,15 @@ object Converter {
     ): Either[String, SExpr] =
       freeAp match {
         case SVariant(_, "PureA", _, v) =>
-          Right(acc.foldLeft[SExpr](SEValue(v))({ case (acc, v) => SEApp(acc, Array(v)) }))
+          Right(acc match {
+            case Nil => SEValue(v)
+            case _ :: _ =>
+              val locs: Array[SExprAtomic] = (1 to acc.length).toArray.reverse.map(SELocS(_))
+              acc.foldRight[SExpr](SEAppAtomic(SEValue(v), locs))({ case (e, acc) =>
+                SELet1(e, acc)
+              })
+          })
+
         case SVariant(_, "Ap", _, v) => {
           val r = for {
             apFields <- toApFields(compiledPackages, v)
@@ -563,7 +603,7 @@ object Converter {
       case SRecord(
             _,
             _,
-            JavaList(unitId, module, file @ _, startLine, startCol, endLine, endCol),
+            ArrayList(unitId, module, file @ _, startLine, startCol, endLine, endCol),
           ) =>
         for {
           unitId <- toText(unitId)
@@ -584,7 +624,7 @@ object Converter {
 
   def toLocation(knownPackages: Map[String, PackageId], v: SValue): Either[String, Location] =
     v match {
-      case SRecord(_, _, JavaList(definition, loc)) =>
+      case SRecord(_, _, ArrayList(definition, loc)) =>
         for {
           // TODO[AH] This should be the outer definition. E.g. `main` in `main = do submit ...`.
           //   However, the call-stack only gives us access to the inner definition, `submit` in this case.
@@ -626,15 +666,27 @@ object Converter {
       contract: ScriptLedgerClient.ActiveContract,
   ): Either[String, SValue] = fromAnyTemplate(translator, contract.templateId, contract.argument)
 
+  def fromInterfaceView(
+      translator: preprocessing.ValueTranslator,
+      viewType: Type,
+      value: Value,
+  ): Either[String, SValue] = {
+    for {
+      translated <- translator
+        .translateValue(viewType, value)
+        .left
+        .map(err => s"Failed to translate value of interface view: $err")
+    } yield translated
+  }
+
   // Convert a Created event to a pair of (ContractId (), AnyTemplate)
   def fromCreated(
       translator: preprocessing.ValueTranslator,
       contract: ScriptLedgerClient.ActiveContract,
   ): Either[String, SValue] = {
-    val pairTyCon = daTypes("Tuple2")
     for {
       anyTpl <- fromContract(translator, contract)
-    } yield record(pairTyCon, ("_1", SContractId(contract.contractId)), ("_2", anyTpl))
+    } yield record(DA.Types.Tuple2, ("_1", SContractId(contract.contractId)), ("_2", anyTpl))
   }
 
   def fromStatusException(
@@ -682,7 +734,7 @@ object Converter {
 
   def toUser(v: SValue): Either[String, User] =
     v match {
-      case SRecord(_, _, vals) if vals.size == 2 =>
+      case SRecord(_, _, vals) if vals.size >= 2 =>
         for {
           id <- toUserId(vals.get(0))
           primaryParty <- toOptional(vals.get(1), toParty)
@@ -707,6 +759,7 @@ object Converter {
     def toRight(constructor: String, rank: Int, value: SValue): SValue =
       SVariant(scriptIds.damlScript("UserRight"), Name.assertFromString(constructor), rank, value)
     Right(right match {
+      case UserRight.IdentityProviderAdmin => toRight("IdentityProviderAdmin", 0, SUnit)
       case UserRight.ParticipantAdmin => toRight("ParticipantAdmin", 0, SUnit)
       case UserRight.CanActAs(p) => toRight("CanActAs", 1, SParty(p))
       case UserRight.CanReadAs(p) => toRight("CanReadAs", 2, SParty(p))
@@ -717,6 +770,8 @@ object Converter {
     v match {
       case SVariant(_, "ParticipantAdmin", _, SUnit) =>
         Right(UserRight.ParticipantAdmin)
+      case SVariant(_, "IdentityProviderAdmin", _, SUnit) =>
+        Right(UserRight.IdentityProviderAdmin)
       case SVariant(_, "CanReadAs", _, v) =>
         toParty(v).map(UserRight.CanReadAs(_))
       case SVariant(_, "CanActAs", _, v) =>
@@ -727,21 +782,21 @@ object Converter {
   def toIfaceType(
       ctx: QualifiedName,
       astTy: Type,
-  ): Either[String, iface.Type] =
-    InterfaceReader.toIfaceType(ctx, astTy) match {
+  ): Either[String, typesig.Type] =
+    SignatureReader.toIfaceType(ctx, astTy) match {
       case -\/(e) => Left(e.toString)
       case \/-(ty) => Right(ty)
     }
 
   def fromJsonValue(
       ctx: QualifiedName,
-      environmentInterface: EnvironmentInterface,
+      environmentSignature: EnvironmentSignature,
       compiledPackages: CompiledPackages,
       ty: Type,
       jsValue: JsValue,
   ): Either[String, SValue] = {
-    def damlLfTypeLookup(id: Identifier): Option[iface.DefDataType.FWT] =
-      environmentInterface.typeDecls.get(id).map(_.`type`)
+    def damlLfTypeLookup(id: Identifier): Option[typesig.DefDataType.FWT] =
+      environmentSignature.typeDecls.get(id).map(_.`type`)
     for {
       paramIface <- Converter
         .toIfaceType(ctx, ty)
@@ -759,7 +814,7 @@ object Converter {
         }
       valueTranslator =
         new preprocessing.ValueTranslator(
-          compiledPackages.interface,
+          compiledPackages.pkgInterface,
           requireV1ContractIdSuffix = false,
         )
       sValue <- valueTranslator
@@ -792,6 +847,7 @@ object Converter {
           case TreeEvent.Kind.Exercised(exercised) =>
             for {
               tplId <- Converter.fromApiIdentifier(exercised.getTemplateId)
+              ifaceId <- exercised.interfaceId.traverse(Converter.fromApiIdentifier)
               cid <- ContractId.fromString(exercised.contractId)
               choice <- ChoiceName.fromString(exercised.choice)
               choiceArg <- NoLoggingValueValidator
@@ -801,6 +857,7 @@ object Converter {
               childEvents <- exercised.childEventIds.toList.traverse(convEvent(_))
             } yield ScriptLedgerClient.Exercised(
               tplId,
+              ifaceId,
               cid,
               choice,
               choiceArg,

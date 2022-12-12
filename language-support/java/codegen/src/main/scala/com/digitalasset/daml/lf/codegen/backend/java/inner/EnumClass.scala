@@ -4,34 +4,43 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.lf.iface
+import com.daml.ledger.javaapi.data.codegen.ValueDecoder
+import com.daml.lf.typesig
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
-import javax.lang.model.element.Modifier
 
+import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
 private[inner] object EnumClass extends StrictLogging {
 
   def generate(
       className: ClassName,
-      enumeration: iface.Enum,
+      enumeration: typesig.Enum,
   ): TypeSpec = {
     TrackLineage.of("enum", className.simpleName()) {
       logger.info("Start")
       val enumType = TypeSpec.enumBuilder(className).addModifiers(Modifier.PUBLIC)
       enumeration.constructors.foreach(c => enumType.addEnumConstant(c.toUpperCase()))
-      enumType.addField(generateValuesArray(enumeration))
-      enumType.addMethod(generateEnumsMapBuilder(className, enumeration))
-      enumType.addField(generateEnumsMap(className))
-      enumType.addMethod(generateFromValue(className, enumeration))
-      enumType.addMethod(generateToValue(className))
+      enumType
+        .addSuperinterface(
+          ParameterizedTypeName.get(
+            ClassName get classOf[javaapi.data.codegen.DamlEnum[_]],
+            className,
+          )
+        )
+        .addField(generateValuesArray(enumeration))
+        .addMethod(generateEnumsMapBuilder(className, enumeration))
+        .addField(generateEnumsMap(className))
+        .addMethod(generateDeprecatedFromValue(className, enumeration))
+        .addMethod(generateValueDecoder(className, enumeration))
+        .addMethod(generateToValue(className))
       logger.debug("End")
       enumType.build()
     }
   }
 
-  private def generateValuesArray(enumeration: iface.Enum): FieldSpec = {
+  private def generateValuesArray(enumeration: typesig.Enum): FieldSpec = {
     val fieldSpec = FieldSpec.builder(ArrayTypeName.of(classOf[javaapi.data.DamlEnum]), "__values$")
     fieldSpec.addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
     val constructorValues = enumeration.constructors
@@ -61,7 +70,10 @@ private[inner] object EnumClass extends StrictLogging {
       .initializer("$T.__buildEnumsMap$$()", className)
       .build()
 
-  private def generateEnumsMapBuilder(className: ClassName, enumeration: iface.Enum): MethodSpec = {
+  private def generateEnumsMapBuilder(
+      className: ClassName,
+      enumeration: typesig.Enum,
+  ): MethodSpec = {
     val builder = MethodSpec.methodBuilder("__buildEnumsMap$")
     builder.addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
     builder.returns(mapType(className))
@@ -73,17 +85,39 @@ private[inner] object EnumClass extends StrictLogging {
     builder.build()
   }
 
-  private def generateFromValue(
+  // TODO #15120 delete
+  private def generateDeprecatedFromValue(
       className: ClassName,
-      enumeration: iface.Enum,
+      enumeration: typesig.Enum,
   ): MethodSpec = {
-    logger.debug(s"Generating fromValue static method for ${enumeration}")
+    logger.debug(s"Generating deprecated fromValue static method for $enumeration")
 
     MethodSpec
       .methodBuilder("fromValue")
       .addModifiers(Modifier.STATIC, Modifier.PUBLIC, Modifier.FINAL)
       .returns(className)
       .addParameter(classOf[javaapi.data.Value], "value$")
+      .addAnnotation(classOf[Deprecated])
+      .addJavadoc(
+        "@deprecated since Daml $L; $L",
+        "2.5.0",
+        s"use {@code valueDecoder} instead",
+      )
+      .addStatement(
+        "return valueDecoder().decode($L)",
+        "value$",
+      )
+      .build()
+  }
+
+  private def generateValueDecoder(
+      className: ClassName,
+      enumeration: typesig.Enum,
+  ): MethodSpec = {
+    logger.debug(s"Generating valueDecoder static method for $enumeration")
+
+    val valueDecoderCode = CodeBlock
+      .builder()
       .addStatement(
         "$T constructor$$ = value$$.asEnum().orElseThrow(() -> new $T($S)).getConstructor()",
         classOf[String],
@@ -96,9 +130,17 @@ private[inner] object EnumClass extends StrictLogging {
         classOf[IllegalArgumentException],
         s"Expected a DamlEnum with ${className.simpleName()} constructor, found ",
       )
-      .addStatement("return ($T) $T.__enums$$.get(constructor$$)", className, className)
-      .build()
+      .addStatement("return $T.__enums$$.get(constructor$$)", className)
 
+    MethodSpec
+      .methodBuilder("valueDecoder")
+      .addModifiers(Modifier.STATIC, Modifier.PUBLIC, Modifier.FINAL)
+      .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
+      .beginControlFlow("return $L ->", "value$")
+      .addCode(valueDecoderCode.build())
+      // put empty string in endControlFlow in order to have semicolon
+      .endControlFlow("")
+      .build()
   }
 
   private def generateToValue(className: ClassName): MethodSpec =

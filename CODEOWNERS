@@ -3,8 +3,8 @@
 
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
-CODEOWNERS   @gerolf-da @stefanobaghino-da
-LATEST       @gerolf-da @bame-da @ray-roestenburg-da @adriaanm-da
+CODEOWNERS   @gerolf-da @remyhaemmerle-da
+LATEST       @gerolf-da @bame-da @ray-roestenburg-da
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
@@ -15,25 +15,25 @@ azure-pipelines.yml @garyverhaegen-da
 azure-cron.yml      @garyverhaegen-da
 /release/           @garyverhaegen-da
 /release.sh         @garyverhaegen-da
+/canton_dep.bzl     @garyverhaegen-da @remyhaemmerle-da @rgugliel-da
 
 # Blackduck
 NOTICES     @garyverhaegen-da @dasormeter
 
 # Language
-/daml-assistant/    @sofiafaro-da @ray-roestenburg-da
+/daml-assistant/    @remyhaemmerle-da @ray-roestenburg-da
 /daml-script/       @remyhaemmerle-da
 /triggers/          @remyhaemmerle-da
 /compatibility/     @garyverhaegen-da
-/compiler/          @sofiafaro-da
-/libs-haskell/      @sofiafaro-da
-/ghc-lib/           @sofiafaro-da
+/compiler/          @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da
+/libs-haskell/      @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da
+/ghc-lib/           @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da
 
 # Runtime
 /daml-lf/ @remyhaemmerle-da
-/daml-lf/data-scalacheck/src/main/ @S11001001 
-/daml-lf/governance.rst @sofiafaro-da @remyhaemmerle-da
+/daml-lf/data-scalacheck/src/main/ @remyhaemmerle-da @S11001001
 /daml-lf/kv-support/ @digital-asset/kv-committer @remyhaemmerle-da
-/daml-lf/transaction-test-lib/src/main/ @S11001001
+/daml-lf/transaction-test-lib/src/main/ @remyhaemmerle-da @S11001001
 
 # KV Participant
 /ledger/      @digital-asset/kv-participant
@@ -45,44 +45,40 @@ NOTICES     @garyverhaegen-da @dasormeter
 /ledger/ledger-offset/              @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/participant-state/src       @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
 
-# Needs cleanup due to mix of kvutils implementation and interfaces. Until then: shared ownership for KV teams
-/ledger/participant-state/          @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/participant-state-metrics/  @digital-asset/kv-participant @digital-asset/kv-committer
-
 # Owned by KV Participant with KV Committer added for notifications
-/ledger/ledger-api-common/          @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/ledger-api-domain/          @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/ledger-api-health/          @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/ledger-api-tests/           @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/ledger-configuration/       @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/ledger-offset/              @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/participant-state-index/    @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/sandbox/                    @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/ledger-api-common/              @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/ledger-api-domain/              @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/ledger-api-health/              @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/ledger-api-tests/               @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/ledger-configuration/           @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/ledger-offset/                  @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/participant-state/              @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/participant-state-index/        @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/participant-state-kv-errors/    @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/participant-state-metrics/      @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/sandbox/                        @digital-asset/kv-participant @digital-asset/kv-committer
 
 # KV Participant
-/ledger/participant-integration-api/      @digital-asset/kv-participant
+/ledger/participant-integration-api/    @digital-asset/kv-participant
 
-
-# KV Committer
-/ledger/ledger-on-memory/           @digital-asset/kv-committer
-/ledger/participant-state/kvutils/  @digital-asset/kv-committer
-
+# Conformance test on canton
+/ledger/ledger-api-test-tool-on-canton @remyhaemmerle-da @rgugliel-da
 
 # Ecosystems
-/language-support/hs/       @nickchapman-da @sofiafaro-da
-/language-support/java/     @stefanobaghino-da @ray-roestenburg-da
-/language-support/scala/    @S11001001 @stefanobaghino-da @ray-roestenburg-da
-/language-support/ts/       @robin-da @garyverhaegen-da @stefanobaghino-da @ray-roestenburg-da
+/language-support/hs/       @nickchapman-da @remyhaemmerle-da
+/language-support/java/     @ray-roestenburg-da
+/language-support/scala/    @S11001001 @ray-roestenburg-da
+/language-support/ts/       @garyverhaegen-da @ray-roestenburg-da
 
 # Application Runtime
-/ledger-service/       @stefanobaghino-da @ray-roestenburg-da
-/navigator/            @stefanobaghino-da @ray-roestenburg-da
-/runtime-components/   @stefanobaghino-da @ray-roestenburg-da
-/triggers/service/     @stefanobaghino-da @ray-roestenburg-da
+/ledger-service/       @ray-roestenburg-da
+/navigator/            @ray-roestenburg-da
+/runtime-components/   @ray-roestenburg-da
+/triggers/service/     @ray-roestenburg-da
 
 # Misc
-/docs/              @stefanobaghino-da
-/libs-scala/        @stefanobaghino-da
+/docs/              @stefanobaghino-da @digital-asset/daml-docs @hrischuk-da
 /libs-scala/nonempty-cats/src/    @S11001001
 /libs-scala/scala-utils/src/    @S11001001
 /libs-scala/scalatest-utils/src/    @S11001001
+/libs-scala/test-evidence/ @digital-asset/kv-participant @soren-da @matthiasS-da

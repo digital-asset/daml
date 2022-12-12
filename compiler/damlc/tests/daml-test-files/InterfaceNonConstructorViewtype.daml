@@ -1,0 +1,10 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ERROR expected monomorphic record type in view type, but found a built-in type:
+
+module InterfaceNonConstructorViewtype where
+
+interface VariantI where
+    viewtype Int

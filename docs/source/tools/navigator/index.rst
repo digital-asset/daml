@@ -8,7 +8,7 @@ The Navigator is a front-end that you can use to connect to any Daml Ledger and 
 
 The first sections of this guide cover use of the Navigator with the SDK. Refer to :ref:`navigator-manual-advanced-usage` for information on using Navigator outside the context of the SDK.
 
-Navigator functionality
+Navigator Functionality
 ***********************
 
 Connect the Navigator to any Daml Ledger and use it to:
@@ -33,7 +33,7 @@ Navigator is included in the SDK. To launch it:
 .. note:: Navigator is compatible with these browsers: Safari, Chrome, or
    Firefox.
 
-Logging in
+Logging In
 **********
 
 By default, Navigator shows a drop-down list with the users that have been
@@ -60,12 +60,13 @@ see an example of that in the ``skeleton`` template:
   :start-after: -- user_setup_begin
   :end-before: -- user_setup_end
 
-The first step in using Navigator is to use the drop-down list on the Navigator home screen to select from the available
+The first step in using Navigator is to use the dropdown list on the Navigator home screen to select from the available
 users.
 
 .. image:: images/choose-party.png
   :width: 30%
   :align: center
+  :alt: The Digital Asset Navigator home screen with dropdown list. The options are alice, bob, eur and us.
 
 The main Navigator screen will be displayed, with contracts that the primary party of this user
 is entitled to view in the main pane and
@@ -75,16 +76,18 @@ display, include or exclude archived contracts, and exercise choices as describe
 .. image:: images/example.png
   :width: 85%
   :align: center
+  :alt: The Contracts view with a list of contracts displayed as a table. The column headings are ID, Template ID, Time, and Choice.
 
 To change the active user:
 
-#. Click the name of the current user in the top right corner of the screen.
+#. Click the name of the current user in the top left corner of the screen.
 
 #. On the home screen, select a different user.
 
 .. image:: images/sign-out.png
   :width: 30%
   :align: center
+  :alt: The upper left corner of the screen, location of the navbar. The current user is displayed next to the date and time.
 
 You can act as different users in different
 browser windows. Use Chrome's profile feature
@@ -123,7 +126,7 @@ to allocate those parties before you can log in as them.
      - Alice::12201d00faa0968d7ab81e63ad6ad4ee0d31b08a3581b1d8596e68a1356f27519ccb
      - Bob::12201d00faa0968d7ab81e63ad6ad4ee0d31b08a3581b1d8596e68a1356f27519ccb
 
-Viewing templates or contracts
+Viewing Templates or Contracts
 ******************************
 
 Daml *contract ​templates* are ​models ​that contain ​the ​agreement ​statement, ​all ​the ​applicable
@@ -140,6 +143,7 @@ To see what contract templates are available on the ledger you are connected to,
 .. image:: images/templates.png
   :width: 85%
   :align: center
+  :alt: The Templates view with a list of templates.
 
 Use the **Filter** field at the top right to select template IDs that include the text you enter.
 
@@ -151,6 +155,7 @@ To view a list of available contracts, choose **Contracts** in the left pane.
 .. image:: images/contracts.png
   :width: 85%
   :align: center
+  :alt: The Contracts view, as described previously.
 
 In the Contracts list:
 
@@ -178,12 +183,14 @@ You can also view the list of contracts that are based on a particular template.
 .. image:: images/template-contracts-icon.png
   :width: 85%
   :align: center
+  :alt: The Templates view with the handshake icon and number of contracts for the 12th template on the list highlighted. Here, the number of contracts is one.
 
 **List of Contracts**
 
 .. image:: images/template-contracts.png
   :width: 85%
   :align: center
+  :alt: The result of clicking on the number highlighted in the last image - the Contracts view filtered to display only the single contract based on the selected template.
 
 Viewing template and contract details
 =====================================
@@ -195,12 +202,14 @@ To view template or contract details, click on a template or contract in the lis
 .. image:: images/template-details.png
   :width: 85%
   :align: center
+  :alt: The Template Details view, showing the Issuer, Owner, Amount, Currency, Observers, and Recipient for a particular template.
 
 **Contract Details**
 
 .. image:: images/contract-details.png
   :width: 85%
   :align: center
+  :alt: The Contract Details view displays the same information as the Template Details view as well as the name of the template the contract is based on and options to Call, Consolidate, Lock, Split, or Transfer the contract.
 
 Using Navigator
 ***************
@@ -224,6 +233,7 @@ To create a contract based on a template:
 .. image:: images/create-contract.png
   :width: 85%
   :align: center
+  :alt: A Template Details form with none of the values filled in.
 
 When the command has been committed to the ledger, the loading indicator in the navbar at the top
 will display a tick mark.
@@ -233,12 +243,14 @@ While loading...
 .. image:: images/command-loading-new.png
   :width: 50%
   :align: center
+  :alt: The circular In Progress icon next to the date and time in the navbar.
 
 When committed to the ledger...
 
 .. image:: images/command-confirmed-new.png
   :width: 50%
   :align: center
+  :alt: The black tickmark icon that indicates completion next to the date and time in the navbar.
 
 Exercising choices
 ==================
@@ -256,6 +268,7 @@ To exercise a choice:
 .. image:: images/choice-exercise.png
   :width: 85%
   :align: center
+  :alt: The Contract Details view with the Mergeb choice selected.
 
 Or
 
@@ -267,6 +280,7 @@ Or
 .. image:: images/choice-select.png
   :width: 20%
   :align: center
+  :alt: The wrench icon from the Choice column of the Contract Details view, selected and displaying the list of choices.
 
 You will see the loading and confirmation indicators, as pictured above in Creating Contracts.
 
@@ -286,6 +300,7 @@ To advance time:
 .. image:: images/advance-time.png
   :width: 25%
   :align: center
+  :alt: The date and time in the navbar, selected and displaying the calendar interface.
 
 .. _navigator-authorization:
 
@@ -303,10 +318,11 @@ If the access token cannot be retrieved, is missing or wrong, you'll be unable t
 .. image:: images/access-denied.png
   :width: 50%
   :align: center
+  :alt: The Digital Asset Navigator home screen with the error message "You don't have the necessary authorization to access. Make sure to start the Navigator server with a valid access token." displayed in red.
 
 .. _navigator-manual-advanced-usage:
 
-Advanced usage
+Advanced Usage
 **************
 
 .. _navigator-custom-views:

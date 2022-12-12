@@ -7,22 +7,29 @@ import java.sql.Connection
 
 import anorm.{RowParser, ~}
 import anorm.SqlParser.{bool, flatten, str}
-import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.offset.Offset
-import com.daml.lf.data.Ref
-import com.daml.platform.store.Conversions.{ledgerString, offset, party, timestampFromMicros}
-import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
+import com.daml.ledger.participant.state.index.v2.IndexerPartyDetails
+import com.daml.platform.Party
+import com.daml.platform.store.backend.Conversions.{
+  ledgerString,
+  offset,
+  party,
+  timestampFromMicros,
+}
+import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
+import com.daml.platform.store.dao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.PartyStorageBackend
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.entries.PartyLedgerEntry
 
-class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: LedgerEndCache)
-    extends PartyStorageBackend {
+class PartyStorageBackendTemplate(
+    queryStrategy: QueryStrategy,
+    ledgerEndCache: LedgerEndCache,
+) extends PartyStorageBackend {
 
   private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
-    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
+    import com.daml.platform.store.backend.Conversions.bigDecimalColumnToBoolean
     (offset("ledger_offset") ~
       timestampFromMicros("recorded_at") ~
       ledgerString("submission_id").? ~
@@ -47,7 +54,7 @@ class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: 
             PartyLedgerEntry.AllocationAccepted(
               submissionIdOpt,
               recordTime,
-              PartyDetails(party, displayNameOpt, isLocal),
+              IndexerPartyDetails(party, displayNameOpt, isLocal),
             )
         case (
               offset,
@@ -75,9 +82,12 @@ class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: 
       pageSize: Int,
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
     SQL"""select * from party_entries
-      where ($startExclusive is null or ledger_offset>$startExclusive) and ledger_offset<=$endInclusive
+      where ${queryStrategy.offsetIsBetween(
+        nonNullableColumn = "ledger_offset",
+        startExclusive = startExclusive,
+        endInclusive = endInclusive,
+      )}
       order by ledger_offset asc
       offset $queryOffset rows
       fetch next $pageSize rows only
@@ -85,14 +95,14 @@ class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: 
       .asVectorOf(partyEntryParser)(connection)
   }
 
-  private val partyDetailsParser: RowParser[PartyDetails] = {
-    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
+  private val partyDetailsParser: RowParser[IndexerPartyDetails] = {
+    import com.daml.platform.store.backend.Conversions.bigDecimalColumnToBoolean
     str("party") ~
       str("display_name").? ~
       bool("is_local") map { case party ~ displayName ~ isLocal =>
-        PartyDetails(
-          party = Ref.Party.assertFromString(party),
-          displayName = displayName,
+        IndexerPartyDetails(
+          party = Party.assertFromString(party),
+          displayName = displayName.filter(_.nonEmpty),
           isLocal = isLocal,
         )
       }
@@ -101,8 +111,8 @@ class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: 
   private def queryParties(
       parties: Option[Set[String]],
       connection: Connection,
-  ): Vector[PartyDetails] = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
+  ): Vector[IndexerPartyDetails] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
     val partyFilter = parties match {
       case Some(requestedParties) => cSQL"party_entries.party in ($requestedParties) AND"
       case None => cSQL""
@@ -131,10 +141,10 @@ class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: 
        """.asVectorOf(partyDetailsParser)(connection)
   }
 
-  override def parties(parties: Seq[Ref.Party])(connection: Connection): List[PartyDetails] =
+  override def parties(parties: Seq[Party])(connection: Connection): List[IndexerPartyDetails] =
     queryParties(Some(parties.view.map(_.toString).toSet), connection).toList
 
-  override def knownParties(connection: Connection): List[PartyDetails] =
+  override def knownParties(connection: Connection): List[IndexerPartyDetails] =
     queryParties(None, connection).toList
 
 }

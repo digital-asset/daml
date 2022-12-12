@@ -1,0 +1,40 @@
+module ExceptionCatchError where
+import (implicit) qualified DA.Internal.Record
+import (implicit) qualified GHC.Types
+import (implicit) qualified DA.Internal.Desugar
+import (implicit) DA.Internal.RebindableSyntax
+import DA.Assert
+import DA.Exception
+test1
+  = scenario
+      do p <- getParty "Alice"
+         submit
+           p
+           do DA.Internal.Desugar._tryCatch
+                \ _ -> do error "hello"
+                \case
+                  (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (GeneralError msg))
+                    -> DA.Internal.Desugar.Some msg === "hello"
+                  _ -> DA.Internal.Desugar.None
+test2
+  = scenario
+      do p <- getParty "Alice"
+         submit
+           p
+           do DA.Internal.Desugar._tryCatch
+                \ _ -> do abort "foo"
+                \case
+                  (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (GeneralError msg))
+                    -> DA.Internal.Desugar.Some msg === "foo"
+                  _ -> DA.Internal.Desugar.None
+test3
+  = scenario
+      do p <- getParty "Alice"
+         submit
+           p
+           do DA.Internal.Desugar._tryCatch
+                \ _ -> do fail "bar"
+                \case
+                  (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (GeneralError msg))
+                    -> DA.Internal.Desugar.Some msg === "bar"
+                  _ -> DA.Internal.Desugar.None

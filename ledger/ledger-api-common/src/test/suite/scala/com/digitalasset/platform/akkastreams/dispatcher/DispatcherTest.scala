@@ -53,7 +53,7 @@ class DispatcherTest
             .run()
         }
 
-        d.close()
+        d.shutdown()
 
         subscriptions.zip(1 until 10) foreach { case (f, i) =>
           whenReady(f) { vals =>

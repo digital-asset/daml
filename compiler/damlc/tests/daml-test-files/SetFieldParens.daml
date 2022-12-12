@@ -1,0 +1,8 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module SetFieldParens where
+
+foo : (Text -> (Int, Bool)) -> (Int, Bool)
+foo mkTup = (mkTup "bar") with
+  _2 = not (mkTup "baz")._2

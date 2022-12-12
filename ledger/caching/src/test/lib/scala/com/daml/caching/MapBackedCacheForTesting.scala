@@ -4,6 +4,7 @@
 package com.daml.caching
 
 import java.util.concurrent.ConcurrentMap
+import scala.jdk.CollectionConverters._
 
 final class MapBackedCacheForTesting[Key, Value](store: ConcurrentMap[Key, Value])
     extends ConcurrentCache[Key, Value] {
@@ -12,9 +13,14 @@ final class MapBackedCacheForTesting[Key, Value](store: ConcurrentMap[Key, Value
     ()
   }
 
+  override def putAll(mappings: Map[Key, Value]): Unit =
+    store.putAll(mappings.asJava)
+
   override def getIfPresent(key: Key): Option[Value] =
     Option(store.get(key))
 
   override def getOrAcquire(key: Key, acquire: Key => Value): Value =
     store.computeIfAbsent(key, acquire(_))
+
+  override def invalidateAll(): Unit = store.clear()
 }

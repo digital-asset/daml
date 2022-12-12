@@ -51,15 +51,14 @@ serializabilityConditionsType
      -- the caller.
   -> Type
   -> Either UnserializabilityReason (HS.HashSet TypeConName)
-serializabilityConditionsType world0 _version mbCurrentModule vars = go
+serializabilityConditionsType world0 version mbCurrentModule vars = go
   where
     noConditions = Right HS.empty
+    supportsInterfaces = version `supports` featureSimpleInterfaces
     go = \case
       -- This is the only way 'ContractId's, 'List's and 'Optional's are allowed. Other cases handled below.
       TContractId typ
-          -- While an interface payload I is not serializable, ContractId I
-          -- is so specialcase this here.
-          | isInterface typ -> noConditions
+          | supportsInterfaces -> noConditions
           | otherwise -> go typ
       TList typ -> go typ
       TOptional typ -> go typ
@@ -116,15 +115,6 @@ serializabilityConditionsType world0 _version mbCurrentModule vars = go
         BTBigNumeric -> Left URBigNumeric
       TForall{} -> Left URForall
       TStruct{} -> Left URStruct
-    isInterface (TCon con) = case (lookupDataType con world0, mbCurrentModule) of
-      (Right t, _) -> case dataCons t of
-        DataInterface -> True
-        _ -> False
-      (Left _, Just currentModule)
-        | Right tconName <- matching (_PRSelfModule $ modName currentModule) con
-        -> tconName `HS.member` modInterfaces currentModule
-      (Left err, _) -> error $ showString "Serializability.serializabilityConditionsDataTyp: " $ show err
-    isInterface _ = False
 
 -- | Determine whether a data type preserves serializability. When a module
 -- name is given, -- data types in this module are returned rather than lookup
@@ -186,12 +176,13 @@ checkTemplate mod0 tpl = do
 
 -- | Check whether a template satisfies all serializability constraints.
 checkInterface :: MonadGamma m => Module -> DefInterface -> m ()
-checkInterface _mod0 iface = do
-  -- TODO https://github.com/digital-asset/daml/issues/12051
-  -- Add per interface choice context.
-  for_ (intFixedChoices iface) $ \ch -> do
+checkInterface mod0 iface = do
+  for_ (intChoices iface) $ \ch -> do
+    withContext (ContextDefInterface mod0 iface (IPChoice ch)) $ do
       checkType SRChoiceArg (snd (chcArgBinder ch))
       checkType SRChoiceRes (chcReturnType ch)
+      
+  checkType SRView $ intView iface
 
 -- | Check whether exception is serializable.
 checkException :: MonadGamma m => Module -> DefException -> m ()
@@ -212,5 +203,5 @@ checkModule mod0 = do
     withContext (ContextDefException mod0 exn) $
       checkException mod0 exn
   for_ (moduleInterfaces mod0) $ \iface ->
-    withContext (ContextDefInterface mod0 iface) $
+    withContext (ContextDefInterface mod0 iface IPWhole) $
       checkInterface mod0 iface

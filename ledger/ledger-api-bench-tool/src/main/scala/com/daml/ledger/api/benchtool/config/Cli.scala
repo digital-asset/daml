@@ -5,11 +5,11 @@ package com.daml.ledger.api.benchtool.config
 
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.metrics.MetricsReporter
+import com.daml.metrics.api.reporters.MetricsReporter
 import scopt.{OptionDef, OptionParser, Read}
 
 import java.io.File
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.{Failure, Success, Try}
 
 object Cli {
@@ -27,6 +27,11 @@ object Cli {
       .action { case ((hostname, port), config) =>
         config.copy(ledger = config.ledger.copy(hostname = hostname, port = port))
       }
+
+    opt[String]("indexdb-jdbc-url")
+      .text("JDBC url to an IndexDB instance")
+      .optional()
+      .action { case (url, config) => config.withLedgerConfig(_.copy(indexDbJdbcUrlO = Some(url))) }
 
     opt[WorkflowConfig.StreamConfig]("consume-stream")
       .abbr("s")
@@ -67,7 +72,7 @@ object Cli {
       .optional()
       .action { case (_, config) => config.copy(latencyTest = true) }
 
-    opt[Long]("max-latency")
+    opt[Long]("max-latency-millis")
       .text(
         "The maximum average latency allowed for latency benchmarks (in millis). Only relevant with `latency-test` enabled."
       )
@@ -190,6 +195,17 @@ object Cli {
         def optionalDoubleField(fieldName: String): Either[String, Option[Double]] =
           optionalField[Double](fieldName, _.toDouble)
 
+        def optionalScalaDurationField(fieldName: String): Either[String, Option[FiniteDuration]] =
+          optionalField[String](fieldName, identity).flatMap {
+            case Some(value) =>
+              Duration(value) match {
+                case infinite: Duration.Infinite =>
+                  Left(s"Subscription delay duration must be finite, but got $infinite")
+                case finiteDuration: FiniteDuration => Right(Some(finiteDuration))
+              }
+            case None => Right(None)
+          }
+
         def optionalField[T](fieldName: String, f: String => T): Either[String, Option[T]] = {
           Try(m.get(fieldName).map(f)) match {
             case Success(value) => Right(value)
@@ -222,6 +238,8 @@ object Cli {
                   minConsumptionSpeed = minConsumptionSpeed,
                   minItemRate = minItemRate,
                   maxItemRate = maxItemRate,
+                  // NOTE: Unsupported on CLI
+                  maxTotalStreamRuntimeDurationInMs = None,
                 )
               )
           }
@@ -229,13 +247,16 @@ object Cli {
         def transactionsConfig
             : Either[String, WorkflowConfig.StreamConfig.TransactionsStreamConfig] = for {
           name <- stringField("name")
-          filters <- stringField("filters").flatMap(filters)
+          filters <- stringField("filters").flatMap(parseFilters)
           beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
           endOffset <- optionalStringField("end-offset").map(_.map(offset))
           maxDelaySeconds <- optionalLongField("max-delay")
           minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
           minItemRate <- optionalDoubleField("min-item-rate")
           maxItemRate <- optionalDoubleField("max-item-rate")
+          maxItemCount <- optionalLongField("max-item-count")
+          timeoutInSecondsO <- optionalLongField("timeout")
+          subscriptionDelayO <- optionalScalaDurationField("subscription-delay")
         } yield WorkflowConfig.StreamConfig.TransactionsStreamConfig(
           name = name,
           filters = filters,
@@ -243,19 +264,27 @@ object Cli {
           endOffset = endOffset,
           objectives =
             transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
+          timeoutInSecondsO = timeoutInSecondsO,
+          maxItemCount = maxItemCount,
+          // NOTE: Unsupported on CLI
+          partyNamePrefixFilterO = None,
+          subscriptionDelay = subscriptionDelayO,
         )
 
         def transactionTreesConfig
             : Either[String, WorkflowConfig.StreamConfig.TransactionTreesStreamConfig] =
           for {
             name <- stringField("name")
-            filters <- stringField("filters").flatMap(filters)
+            filters <- stringField("filters").flatMap(parseFilters)
             beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
             endOffset <- optionalStringField("end-offset").map(_.map(offset))
             maxDelaySeconds <- optionalLongField("max-delay")
             minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
             minItemRate <- optionalDoubleField("min-item-rate")
             maxItemRate <- optionalDoubleField("max-item-rate")
+            maxItemCount <- optionalLongField("max-item-count")
+            timeoutInSecondsO <- optionalLongField("timeout")
+            subscriptionDelayO <- optionalScalaDurationField("subscription-delay")
           } yield WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
             name = name,
             filters = filters,
@@ -263,19 +292,26 @@ object Cli {
             endOffset = endOffset,
             objectives =
               transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
+            timeoutInSecondsO = timeoutInSecondsO,
+            maxItemCount = maxItemCount,
+            // NOTE: Unsupported on CLI
+            partyNamePrefixFilterO = None,
+            subscriptionDelay = subscriptionDelayO,
           )
 
         def rateObjectives(
             minItemRate: Option[Double],
             maxItemRate: Option[Double],
-        ): Option[WorkflowConfig.StreamConfig.RateObjectives] =
+        ): Option[WorkflowConfig.StreamConfig.AcsAndCompletionsObjectives] =
           (minItemRate, maxItemRate) match {
             case (None, None) => None
             case _ =>
               Some(
-                WorkflowConfig.StreamConfig.RateObjectives(
+                WorkflowConfig.StreamConfig.AcsAndCompletionsObjectives(
                   minItemRate = minItemRate,
                   maxItemRate = maxItemRate,
+                  // NOTE: Unsupported on CLI
+                  maxTotalStreamRuntimeDurationInMs = None,
                 )
               )
           }
@@ -283,29 +319,43 @@ object Cli {
         def activeContractsConfig
             : Either[String, WorkflowConfig.StreamConfig.ActiveContractsStreamConfig] = for {
           name <- stringField("name")
-          filters <- stringField("filters").flatMap(filters)
+          filters <- stringField("filters").flatMap(parseFilters)
           minItemRate <- optionalDoubleField("min-item-rate")
           maxItemRate <- optionalDoubleField("max-item-rate")
+          maxItemCount <- optionalLongField("max-item-count")
+          timeoutInSecondsO <- optionalLongField("timeout")
+          subscriptionDelayO <- optionalScalaDurationField("subscription-delay")
         } yield WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
           name = name,
           filters = filters,
           objectives = rateObjectives(minItemRate, maxItemRate),
+          timeoutInSecondsO = timeoutInSecondsO,
+          maxItemCount = maxItemCount,
+          // NOTE: Unsupported on CLI
+          partyNamePrefixFilterO = None,
+          subscriptionDelay = subscriptionDelayO,
         )
 
         def completionsConfig: Either[String, WorkflowConfig.StreamConfig.CompletionsStreamConfig] =
           for {
             name <- stringField("name")
-            party <- stringField("party")
+            parties <- stringField("parties").map(parseParties)
             applicationId <- stringField("application-id")
             beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
             minItemRate <- optionalDoubleField("min-item-rate")
             maxItemRate <- optionalDoubleField("max-item-rate")
+            timeoutInSecondsO <- optionalLongField("timeout")
+            maxItemCount <- optionalLongField("max-item-count")
+            subscriptionDelayO <- optionalScalaDurationField("subscription-delay")
           } yield WorkflowConfig.StreamConfig.CompletionsStreamConfig(
             name = name,
-            party = party,
+            parties = parties,
             applicationId = applicationId,
             beginOffset = beginOffset,
             objectives = rateObjectives(minItemRate, maxItemRate),
+            timeoutInSecondsO = timeoutInSecondsO,
+            maxItemCount = maxItemCount,
+            subscriptionDelay = subscriptionDelayO,
           )
 
         val config = stringField("stream-type").flatMap[String, WorkflowConfig.StreamConfig] {
@@ -319,13 +369,17 @@ object Cli {
         config.fold(error => throw new IllegalArgumentException(error), identity)
       }
 
-    private def filters(
+    // Parse strings like: "", "party1" or "party1+party2+party3"
+    private def parseParties(raw: String): List[String] =
+      raw.split('+').toList
+
+    private def parseFilters(
         listOfIds: String
     ): Either[String, List[WorkflowConfig.StreamConfig.PartyFilter]] =
       listOfIds
         .split('+')
         .toList
-        .map(filter)
+        .map(parseFilter)
         .foldLeft[Either[String, List[WorkflowConfig.StreamConfig.PartyFilter]]](
           Right(List.empty)
         ) { case (acc, next) =>
@@ -335,14 +389,16 @@ object Cli {
           } yield filters :+ filter
         }
 
-    private def filter(
+    private def parseFilter(
         filterString: String
     ): Either[String, WorkflowConfig.StreamConfig.PartyFilter] = {
       filterString
         .split('@')
         .toList match {
         case party :: templates =>
-          Right(WorkflowConfig.StreamConfig.PartyFilter(party, templates))
+          Right(
+            WorkflowConfig.StreamConfig.PartyFilter(party, templates, List.empty)
+          ) // Interfaces are not supported via Cli
         case _ => Left("Filter cannot be empty")
       }
     }

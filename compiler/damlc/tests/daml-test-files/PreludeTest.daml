@@ -1,43 +1,41 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=54:19-54:35; Use uncurry
--- @INFO range=68:9-68:19; Redundant identity
--- @INFO range=69:13-69:27; Redundant identity
--- @INFO range=70:23-70:61; Redundant identity
--- @INFO range=92:9-92:18; Evaluate
--- @INFO range=96:13-96:22; Use elem
--- @INFO range=97:13-97:22; Use elem
--- @INFO range=98:11-98:20; Use elem
--- @INFO range=102:23-102:60; Redundant if
--- @INFO range=111:24-111:62; Redundant if
--- @INFO range=114:13-114:37; Use ||
--- @INFO range=116:12-116:35; Use ||
--- @INFO range=117:12-117:27; Use ||
--- @INFO range=120:13-120:38; Use &&
--- @INFO range=122:13-122:37; Use &&
--- @INFO range=123:12-123:28; Use &&
+-- @INFO range=52:19-52:35; Use uncurry
+-- @INFO range=66:9-66:19; Redundant identity
+-- @INFO range=67:13-67:27; Redundant identity
+-- @INFO range=68:23-68:61; Redundant identity
+-- @INFO range=90:9-90:18; Evaluate
+-- @INFO range=94:13-94:22; Use elem
+-- @INFO range=95:13-95:22; Use elem
+-- @INFO range=96:11-96:20; Use elem
+-- @INFO range=100:23-100:60; Redundant if
+-- @INFO range=109:24-109:62; Redundant if
+-- @INFO range=112:13-112:37; Use ||
+-- @INFO range=114:12-114:35; Use ||
+-- @INFO range=115:12-115:27; Use ||
+-- @INFO range=118:13-118:38; Use &&
+-- @INFO range=120:13-120:37; Use &&
+-- @INFO range=121:12-121:28; Use &&
 
--- @INFO range=159:13-159:27; Use $>
--- @INFO range=165:10-165:56; Evaluate
--- @INFO range=166:10-166:59; Evaluate
--- @INFO range=179:17-179:36; Use ++
--- @INFO range=183:9-183:22; Redundant flip
--- @INFO range=184:15-184:38; Redundant flip
--- @INFO range=210:13-210:53; Evaluate
--- @INFO range=222:10-222:29; Take on a non-positive
--- @INFO range=228:10-228:29; Drop on a non-positive
--- @INFO range=294:28-294:39; Use zip
--- @INFO range=295:38-295:49; Use zip
--- @INFO range=299:38-299:51; Use zip3
--- @INFO range=300:53-300:66; Use zip3
--- @INFO range=312:9-312:21; Evaluate
--- @INFO range=315:11-315:23; Evaluate
--- @INFO range=319:13-319:20; Evaluate
--- @ERROR range=386:1-386:17; Day 29 falls outside of valid day range (1 .. 28) for Feb 2100.
--- @ERROR range=390:1-390:18; Day 0 falls outside of valid day range (1 .. 31) for Jan 2000.
--- @ERROR range=405:1-405:21; ArithmeticError while evaluating (UNIX_DAYS_TO_DATE -719163).
--- @ERROR range=408:1-408:21; ArithmeticError while evaluating (UNIX_DAYS_TO_DATE 2932897).
+-- @INFO range=157:13-157:27; Use $>
+-- @INFO range=163:10-163:56; Evaluate
+-- @INFO range=164:10-164:59; Evaluate
+-- @INFO range=177:17-177:36; Use ++
+-- @INFO range=181:9-181:22; Redundant flip
+-- @INFO range=182:15-182:38; Redundant flip
+-- @INFO range=208:13-208:53; Evaluate
+-- @INFO range=220:10-220:29; Take on a non-positive
+-- @INFO range=226:10-226:29; Drop on a non-positive
+-- @INFO range=292:28-292:39; Use zip
+-- @INFO range=293:38-293:49; Use zip
+-- @INFO range=297:38-297:51; Use zip3
+-- @INFO range=298:53-298:66; Use zip3
+-- @INFO range=311:13-311:20; Evaluate
+-- @ERROR range=378:1-378:17; Day 29 falls outside of valid day range (1 .. 28) for Feb 2100.
+-- @ERROR range=382:1-382:18; Day 0 falls outside of valid day range (1 .. 31) for Jan 2000.
+-- @ERROR range=397:1-397:21; ArithmeticError while evaluating (UNIX_DAYS_TO_DATE -719163).
+-- @ERROR range=400:1-400:21; ArithmeticError while evaluating (UNIX_DAYS_TO_DATE 2932897).
 
 module PreludeTest where
 
@@ -307,12 +305,6 @@ testUnzip = scenario do
 testUnzip3 = scenario do
   ([], [], []) === unzip3 ([] : [(Int, Text, Decimal)])
   ([1, 2, 3], ["A", "B", "C"], [2.0, 1.0, 9.0]) === unzip3 [(1, "A", 2.0), (2, "B", 1.0), (3, "C", (9.0 : Decimal))]
-
-testFst = scenario do
-  1 === fst (1, "A")
-
-testSnd = scenario do
-  "A" === snd (1, "A")
 
 testNull = scenario do
   False === null [1]

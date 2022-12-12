@@ -20,7 +20,7 @@ object CliMode {
 
 sealed abstract class ScriptCommand extends Product with Serializable
 object ScriptCommand {
-  final case class RunOne(conf: RunnerConfig) extends ScriptCommand
+  final case class RunOne(conf: RunnerCliConfig) extends ScriptCommand
   final case class RunAll(conf: TestConfig) extends ScriptCommand
 }
 
@@ -51,7 +51,7 @@ case class ScriptConfig(
         case CliMode.RunOne(id) =>
           Right(
             ScriptCommand.RunOne(
-              RunnerConfig(
+              RunnerCliConfig(
                 darPath = darPath,
                 ledgerHost = ledgerHost,
                 ledgerPort = ledgerPort,
@@ -96,7 +96,7 @@ object ScriptConfig {
   val DefaultTimeMode: ScriptTimeMode = ScriptTimeMode.WallClock
   val DefaultMaxInboundMessageSize: Int = 4194304
 
-  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
+  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   private val parser = new scopt.OptionParser[ScriptConfig]("script-runner") {
     head("script-runner")
 

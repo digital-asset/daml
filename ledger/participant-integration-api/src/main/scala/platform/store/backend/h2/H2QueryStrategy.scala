@@ -22,4 +22,8 @@ object H2QueryStrategy extends QueryStrategy {
     s"array_contains($arrayColumnName, $elementColumnName)"
 
   override def isTrue(booleanColumnName: String): String = booleanColumnName
+
+  override def constBooleanSelect(value: Boolean): String = if (value) "true" else "false"
+
+  override def constBooleanWhere(value: Boolean): String = if (value) "true" else "false"
 }

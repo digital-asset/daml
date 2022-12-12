@@ -5,14 +5,19 @@ package com.daml.http.json
 
 import akka.http.scaladsl.model.StatusCode
 import com.daml.http.domain
-import com.daml.http.domain.TemplateId
+import com.daml.http.domain.ContractTypeId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.lf.data.Ref.HexString
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
+import com.daml.nonempty.NonEmpty
+import com.google.protobuf.struct.Struct
 import scalaz.syntax.std.option._
-import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
+import scalaz.{-\/, NonEmptyList, \/-}
 import spray.json._
 import spray.json.derived.Discriminator
+import scalaz.syntax.tag._
+import com.daml.struct.json.StructJsonFormat
 
 object JsonProtocol extends JsonProtocolLow {
 
@@ -50,10 +55,13 @@ object JsonProtocol extends JsonProtocolLow {
     jsonFormatFromReaderWriter(NonEmptyListReader, NonEmptyListWriter)
 
   // Do not design your own open typeclasses like JsonFormat was designed.
-  private[this] def jsonFormatFromReaderWriter[A: JsonReader: JsonWriter]: JsonFormat[A] =
+  private[this] def jsonFormatFromReaderWriter[A](implicit
+      R: JsonReader[_ <: A],
+      W: JsonWriter[_ >: A],
+  ): JsonFormat[A] =
     new JsonFormat[A] {
-      override def read(json: JsValue) = json.convertTo[A]
-      override def write(obj: A) = obj.toJson
+      override def read(json: JsValue) = R read json
+      override def write(obj: A) = W write obj
     }
 
   /** This intuitively pointless extra type is here to give it specificity so
@@ -131,15 +139,17 @@ object JsonProtocol extends JsonProtocolLow {
     }
   }
 
-  implicit val TemplateIdRequiredPkgFormat: RootJsonFormat[domain.TemplateId.RequiredPkg] =
-    new RootJsonFormat[domain.TemplateId.RequiredPkg] {
-      override def write(a: domain.TemplateId.RequiredPkg): JsValue =
+  implicit def TemplateIdRequiredPkgFormat[CtId[T] <: domain.ContractTypeId[T]](implicit
+      CtId: domain.ContractTypeId.Like[CtId]
+  ): RootJsonFormat[CtId[String]] =
+    new RootJsonFormat[CtId[String]] {
+      override def write(a: CtId[String]) =
         JsString(s"${a.packageId: String}:${a.moduleName: String}:${a.entityName: String}")
 
-      override def read(json: JsValue): domain.TemplateId.RequiredPkg = json match {
+      override def read(json: JsValue) = json match {
         case JsString(str) =>
           str.split(':') match {
-            case Array(p, m, e) => domain.TemplateId(p, m, e)
+            case Array(p, m, e) => CtId(p, m, e)
             case _ => error(json)
           }
         case _ => error(json)
@@ -149,18 +159,22 @@ object JsonProtocol extends JsonProtocolLow {
         deserializationError(s"Expected JsString(<packageId>:<module>:<entity>), got: $json")
     }
 
-  implicit val TemplateIdOptionalPkgFormat: RootJsonFormat[domain.TemplateId.OptionalPkg] =
-    new RootJsonFormat[domain.TemplateId.OptionalPkg] {
-      override def write(a: domain.TemplateId.OptionalPkg): JsValue = a.packageId match {
+  implicit def TemplateIdOptionalPkgFormat[CtId[T] <: domain.ContractTypeId[T]](implicit
+      CtId: domain.ContractTypeId.Like[CtId]
+  ): RootJsonFormat[CtId[Option[String]]] = {
+    import CtId.{OptionalPkg => IdO}
+    new RootJsonFormat[IdO] {
+
+      override def write(a: IdO): JsValue = a.packageId match {
         case Some(p) => JsString(s"${p: String}:${a.moduleName: String}:${a.entityName: String}")
         case None => JsString(s"${a.moduleName: String}:${a.entityName: String}")
       }
 
-      override def read(json: JsValue): domain.TemplateId.OptionalPkg = json match {
+      override def read(json: JsValue): IdO = json match {
         case JsString(str) =>
           str.split(':') match {
-            case Array(p, m, e) => domain.TemplateId(Some(p), m, e)
-            case Array(m, e) => domain.TemplateId(None, m, e)
+            case Array(p, m, e) => CtId(Some(p), m, e)
+            case Array(m, e) => CtId(None, m, e)
             case _ => error(json)
           }
         case _ => error(json)
@@ -169,6 +183,7 @@ object JsonProtocol extends JsonProtocolLow {
       private def error(json: JsValue): Nothing =
         deserializationError(s"Expected JsString([<packageId>:]<module>:<entity>), got: $json")
     }
+  }
 
   private[this] def decodeContractRef(
       fields: Map[String, JsValue],
@@ -176,9 +191,9 @@ object JsonProtocol extends JsonProtocolLow {
   ): domain.InputContractRef[JsValue] =
     (fields get "templateId", fields get "key", fields get "contractId") match {
       case (Some(templateId), Some(key), None) =>
-        -\/((templateId.convertTo[domain.TemplateId.OptionalPkg], key))
+        -\/((templateId.convertTo[domain.ContractTypeId.Template.OptionalPkg], key))
       case (otid, None, Some(contractId)) =>
-        val a = otid map (_.convertTo[domain.TemplateId.OptionalPkg])
+        val a = otid map (_.convertTo[domain.ContractTypeId.OptionalPkg])
         val b = contractId.convertTo[domain.ContractId]
         \/-((a, b))
       case (None, Some(_), None) =>
@@ -280,8 +295,17 @@ object JsonProtocol extends JsonProtocolLow {
       }
     }
 
-  implicit val ActiveContractFormat: RootJsonFormat[domain.ActiveContract[JsValue]] =
-    jsonFormat7(domain.ActiveContract.apply[JsValue])
+  implicit val ActiveContractFormat
+      : RootJsonFormat[domain.ActiveContract.ResolvedCtTyId[JsValue]] = {
+    implicit val `ctid resolved fmt`: JsonFormat[domain.ContractTypeId.Resolved] =
+      jsonFormatFromReaderWriter(
+        TemplateIdRequiredPkgFormat[domain.ContractTypeId.Template],
+        // we only write (below) in main, but read ^ in tests.  For ^, getting
+        // the proper contract type ID right doesn't matter
+        TemplateIdRequiredPkgFormat[domain.ContractTypeId],
+      )
+    jsonFormat7(domain.ActiveContract.apply[ContractTypeId.Resolved, JsValue])
+  }
 
   implicit val ArchivedContractFormat: RootJsonFormat[domain.ArchivedContract] =
     jsonFormat2(domain.ArchivedContract.apply)
@@ -289,14 +313,16 @@ object JsonProtocol extends JsonProtocolLow {
   // Like requestJsonReader, but suitable for exactly one extra field, simply
   // parsing it to the supplied extra type if present.
   // Can generalize to >1 field with singleton types and hlists, if you like
-  private def requestJsonReaderPlusOne[Extra: JsonReader, Request](validExtraField: String)(
+  private def requestJsonReaderPlusOne[Extra: JsonReader, TpId: JsonFormat, Request](
+      validExtraField: String
+  )(
       toRequest: (
-          OneAnd[Set, TemplateId.OptionalPkg],
+          NonEmpty[Set[TpId]],
           Map[String, JsValue],
           Option[Extra],
       ) => Request
   ): RootJsonReader[Request] =
-    requestJsonReader(Set(validExtraField)) { (tids, query, extra) =>
+    requestJsonReader(Set(validExtraField)) { (tids: NonEmpty[Set[TpId]], query, extra) =>
       toRequest(tids, query, extra get validExtraField map (_.convertTo[Extra]))
     }
 
@@ -308,15 +334,15 @@ object JsonProtocol extends JsonProtocolLow {
     *  This provides an (almost) consistent behavior when reading the 'templateIds' and
     *  'query' fields. Further extra fields may be added by concrete implementations.
     */
-  private[this] def requestJsonReader[Request](validExtraFields: Set[String])(
+  private[this] def requestJsonReader[TpId: JsonFormat, Request](validExtraFields: Set[String])(
       toRequest: (
-          OneAnd[Set, TemplateId.OptionalPkg],
+          NonEmpty[Set[TpId]],
           Map[String, JsValue],
           Map[String, JsValue],
       ) => Request
   ): RootJsonReader[Request] = {
     final case class BaseRequest(
-        templateIds: Set[domain.TemplateId.OptionalPkg],
+        templateIds: Set[TpId],
         query: Option[Map[String, JsValue]],
     )
     val validKeys = Set("templateIds", "query") ++ validExtraFields
@@ -331,10 +357,9 @@ object JsonProtocol extends JsonProtocolLow {
       val extraFields = jsv.asJsObject.fields.filter { case (fieldName, _) =>
         validExtraFields(fieldName)
       }
-      val nonEmptyTids = tids.headOption.cata(
-        h => OneAnd(h, tids - h),
-        deserializationError("search requires at least one item in 'templateIds'"),
-      )
+      val nonEmptyTids = NonEmpty from tids getOrElse {
+        deserializationError("search requires at least one item in 'templateIds'")
+      }
       toRequest(nonEmptyTids, query.getOrElse(Map.empty), extraFields)
     }
   }
@@ -356,14 +381,24 @@ object JsonProtocol extends JsonProtocolLow {
       domain.SearchForeverRequest(NonEmptyList((single.convertTo[domain.SearchForeverQuery], 0)))
   }
 
-  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat3(
+  implicit val hexStringFormat: JsonFormat[HexString] =
+    xemapStringJsonFormat(HexString.fromString)(identity)
+
+  implicit val DeduplicationPeriodFormat: JsonFormat[domain.DeduplicationPeriod] =
+    deriveFormat[domain.DeduplicationPeriod]
+
+  implicit val SubmissionIdFormat: JsonFormat[domain.SubmissionId] = taggedJsonFormat
+
+  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat5(
     domain.CommandMeta
   )
 
-  implicit val CreateCommandFormat
-      : RootJsonFormat[domain.CreateCommand[JsValue, domain.TemplateId.OptionalPkg]] = jsonFormat3(
-    domain.CreateCommand[JsValue, domain.TemplateId.OptionalPkg]
-  )
+  implicit val CreateCommandFormat: RootJsonFormat[
+    domain.CreateCommand[JsValue, domain.ContractTypeId.Template.OptionalPkg]
+  ] =
+    jsonFormat3(
+      domain.CreateCommand[JsValue, domain.ContractTypeId.Template.OptionalPkg]
+    )
 
   implicit val ExerciseCommandFormat
       : RootJsonFormat[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] =
@@ -375,12 +410,15 @@ object JsonProtocol extends JsonProtocolLow {
         val reference: JsObject =
           ContractLocatorFormat.write(obj.reference).asJsObject("reference must be an object")
 
-        val fields: Vector[(String, JsValue)] =
-          reference.fields.toVector ++
-            Vector("choice" -> obj.choice.toJson, "argument" -> obj.argument.toJson) ++
-            obj.meta.cata(x => Vector("meta" -> x.toJson), Vector.empty)
+        val fields =
+          reference.fields ++
+            Iterable("choice" -> obj.choice.toJson, "argument" -> obj.argument.toJson) ++
+            Iterable(
+              "meta" -> obj.meta.map(_.toJson),
+              "choiceInterfaceId" -> obj.choiceInterfaceId.map(_.toJson),
+            ).collect { case (k, Some(v)) => (k, v) }
 
-        JsObject(fields: _*)
+        JsObject(fields)
       }
 
       override def read(
@@ -395,18 +433,38 @@ object JsonProtocol extends JsonProtocolLow {
           reference = reference,
           choice = choice,
           argument = argument,
+          choiceInterfaceId =
+            fromField[Option[domain.ContractTypeId.OptionalPkg]](json, "choiceInterfaceId"),
           meta = meta,
         )
       }
     }
 
   implicit val CreateAndExerciseCommandFormat: RootJsonFormat[
-    domain.CreateAndExerciseCommand[JsValue, JsValue, domain.TemplateId.OptionalPkg]
+    domain.CreateAndExerciseCommand[
+      JsValue,
+      JsValue,
+      domain.ContractTypeId.Template.OptionalPkg,
+      domain.ContractTypeId.OptionalPkg,
+    ]
   ] =
-    jsonFormat5(domain.CreateAndExerciseCommand[JsValue, JsValue, domain.TemplateId.OptionalPkg])
+    jsonFormat6(
+      domain.CreateAndExerciseCommand[
+        JsValue,
+        JsValue,
+        domain.ContractTypeId.Template.OptionalPkg,
+        domain.ContractTypeId.OptionalPkg,
+      ]
+    )
+
+  implicit val CompletionOffsetFormat: JsonFormat[domain.CompletionOffset] =
+    taggedJsonFormat[String, domain.CompletionOffsetTag]
 
   implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
-    jsonFormat2(domain.ExerciseResponse[JsValue])
+    jsonFormat3(domain.ExerciseResponse[JsValue])
+
+  implicit val CreateCommandResponseFormat: RootJsonFormat[domain.CreateCommandResponse[JsValue]] =
+    jsonFormat8(domain.CreateCommandResponse[JsValue])
 
   implicit val StatusCodeFormat: RootJsonFormat[StatusCode] =
     new RootJsonFormat[StatusCode] {
@@ -451,8 +509,41 @@ object JsonProtocol extends JsonProtocolLow {
   implicit def OkResponseFormat[R: JsonFormat]: RootJsonFormat[domain.OkResponse[R]] =
     jsonFormat3(domain.OkResponse[R])
 
+  implicit val ResourceInfoDetailFormat: RootJsonFormat[domain.ResourceInfoDetail] = jsonFormat2(
+    domain.ResourceInfoDetail
+  )
+  implicit val ErrorInfoDetailFormat: RootJsonFormat[domain.ErrorInfoDetail] = jsonFormat2(
+    domain.ErrorInfoDetail
+  )
+
+  implicit val durationFormat: JsonFormat[domain.RetryInfoDetailDuration] =
+    jsonFormat[domain.RetryInfoDetailDuration](
+      JsonReader.func2Reader(
+        (LongJsonFormat.read _)
+          .andThen(scala.concurrent.duration.Duration.fromNanos)
+          .andThen(it => domain.RetryInfoDetailDuration(it: scala.concurrent.duration.Duration))
+      ),
+      JsonWriter.func2Writer[domain.RetryInfoDetailDuration](duration =>
+        LongJsonFormat.write(duration.unwrap.toNanos)
+      ),
+    )
+
+  implicit val RetryInfoDetailFormat: RootJsonFormat[domain.RetryInfoDetail] =
+    jsonFormat1(domain.RetryInfoDetail)
+
+  implicit val RequestInfoDetailFormat: RootJsonFormat[domain.RequestInfoDetail] = jsonFormat1(
+    domain.RequestInfoDetail
+  )
+
+  implicit val ErrorDetailsFormat: JsonFormat[domain.ErrorDetail] = deriveFormat[domain.ErrorDetail]
+
+  implicit val LedgerApiErrorFormat: RootJsonFormat[domain.LedgerApiError] =
+    jsonFormat3(domain.LedgerApiError)
+
   implicit val ErrorResponseFormat: RootJsonFormat[domain.ErrorResponse] =
-    jsonFormat3(domain.ErrorResponse)
+    jsonFormat4(domain.ErrorResponse)
+
+  implicit val StructFormat: RootJsonFormat[Struct] = StructJsonFormat
 
   implicit def SyncResponseFormat[R: JsonFormat]: RootJsonFormat[domain.SyncResponse[R]] =
     new RootJsonFormat[domain.SyncResponse[R]] {
@@ -476,6 +567,16 @@ object JsonProtocol extends JsonProtocolLow {
         case _ => deserializationError(errorMsg)
       }
     }
+
+  // xmap with an error case for StringJsonFormat
+  private[http] def xemapStringJsonFormat[A](readFn: String => Either[String, A])(
+      writeFn: A => String
+  ): RootJsonFormat[A] = new RootJsonFormat[A] {
+    private[this] val base = implicitly[JsonFormat[String]]
+    override def write(obj: A): JsValue = base.write(writeFn(obj))
+    override def read(json: JsValue): A =
+      readFn(base.read(json)).fold(deserializationError(_), identity)
+  }
 }
 
 sealed abstract class JsonProtocolLow extends DefaultJsonProtocol with ExtraFormats {

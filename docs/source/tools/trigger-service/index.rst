@@ -18,8 +18,8 @@ Complex workflows can require running many triggers for many parties and at a ce
 
 The Trigger Service is a ledger client that acts as an end-user agent. The Trigger Service intermediates between the ledger and end-users by running triggers on their behalf. The Trigger Service is an HTTP service. All requests and responses use JSON to encode data.
 
-Starting the Trigger Service
-****************************
+Start the Trigger Service
+*************************
 
 In this example, it is assumed there is a Ledger API server running on port 6865 on `localhost`.
 
@@ -80,6 +80,24 @@ alongside a few annotations with regards to the meaning of the configuration key
 
       // Do not abort if there are existing tables in the database schema. EXPERT ONLY. Defaults to false.
       allow-existing-schema = "false"
+
+      // Configuration of trigger runners.
+      trigger-config {
+        // The number of ledger client command invocations each trigger will attempt to execute in parallel. Defaults to 8.
+        parallelism = 8
+
+        // Maximum number of retries for a failing ledger API command submission. Failed submission requests may be
+        // handled by trigger rules. Defaults to 6.
+        max-retries = 6
+
+        // Used to control maximum rate at which we perform ledger client submission requests.
+        max-submission-requests = 100 // Defaults to 100.
+        max-submission-duration = 5s  // Defaults to 5s.
+
+        // Size of the queue holding ledger API command submission failures. When queue is filled, submission requests
+        // are dropped. Defaults to 264.
+        submission-failure-queue-size = 264
+      }
 
       // Configuration for the persistent store that will be used to keep track of running triggers across restarts.
       // Mandatory if `init-db` is true. Otherwise optional. If not provided, the trigger state will not be persisted
@@ -160,7 +178,7 @@ Although, as we'll see, the Trigger Service exposes an endpoint for end-users to
 Endpoints
 *********
 
-Start a trigger
+Start a Trigger
 ===============
 
 Start a trigger. In this example, ``alice`` starts the trigger called ``trigger`` in a module called ``TestTrigger`` of a package with ID ``312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14``.
@@ -204,7 +222,7 @@ HTTP Response
     }
 
 
-Stop a trigger
+Stop a Trigger
 ==============
 
 Stop a running trigger. In this example, the request asks to stop the trigger started above.
@@ -232,7 +250,7 @@ HTTP Response
 
 .. _list-running-triggers:
 
-List running triggers
+List Running Triggers
 =====================
 
 List the triggers running on behalf of a given party.
@@ -256,7 +274,7 @@ HTTP Response
       "status":200
     }
 
-Status of a trigger
+Status of a Trigger
 ===================
 
 This endpoint returns data about a trigger, including the party on behalf of which it is running, its identifier,
@@ -286,7 +304,7 @@ HTTP Response
       "status":200
     }
 
-Upload a new DAR
+Upload a New DAR
 ================
 
 Upload a DAR containing one or more triggers. If successful, the DAR's "main package ID" will be in the response (the main package ID for a DAR can also be obtained using ``daml damlc inspect path/to/dar | head -1``).
@@ -314,7 +332,7 @@ HTTP Response
       "status": 200
     }
 
-Liveness check
+Liveness Check
 ==============
 
 This can be used as a liveness probe, e.g., in Kubernetes.
@@ -328,9 +346,50 @@ HTTP Request
 HTTP Response
 -------------
 
+A status code of ``200`` indicates a successful liveness check.
+
 - Content-Type: ``application/json``
 - Content:
 
 .. code-block:: json
 
     { "status": "pass" }
+
+Readiness Check
+===============
+
+This can be used as a readiness probe, e.g., in Kubernetes.
+
+HTTP Request
+------------
+
+- URL: ``/readyz``
+- Method: ``GET``
+
+HTTP Response
+-------------
+
+A status code of ``200`` indicates a successful readiness check.
+
+
+Metrics
+*******
+
+Enable and Configure Reporting
+==============================
+
+To enable metrics and configure reporting, you can use the below config block in application config:
+
+.. code-block:: none
+
+    metrics {
+      // Start a metrics reporter. Must be one of "console", "csv:///PATH", "graphite://HOST[:PORT][/METRIC_PREFIX]", or "prometheus://HOST[:PORT]".
+      reporter = "prometheus://localhost:9000"
+      // Set metric reporting interval, examples: 1s, 30s, 1m, 1h
+      reporting-interval = 30s
+    }
+
+Reported Metrics
+================
+
+If a Prometheus metrics reporter is configured, the Trigger Service exposes the :doc:`common HTTP metrics </ops/common-metrics>` for all endpoints.

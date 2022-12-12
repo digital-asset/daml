@@ -4,9 +4,11 @@
 package com.daml.ledger.participant.state.v2
 
 import java.util.concurrent.CompletionStage
-
 import com.daml.ledger.api.health.ReportsHealth
-import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.lf.command.ProcessedDisclosedContract
+import com.daml.lf.data.ImmArray
+import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Versioned}
+import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.telemetry.TelemetryContext
 
@@ -95,12 +97,18 @@ trait WriteService
     *                                    daml-lf/spec/contract-id.rst.
     * @param estimatedInterpretationCost Estimated cost of interpretation that may be used for
     *                                    handling submitted transactions differently.
+    * @param globalKeyMapping            Input key mapping inferred by interpretation.
+    *                                    The map should contain all contract keys that were used during interpretation.
+    *                                    A value of None means no contract was found with this contract key.
+    * @param explicitlyDisclosedContracts      Explicitly disclosed contracts used during interpretation.
     */
   def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
+      globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
+      explicitlyDisclosedContracts: ImmArray[Versioned[ProcessedDisclosedContract]],
   )(implicit
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,

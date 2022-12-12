@@ -3,12 +3,8 @@
 
 package com.daml.codegen
 
-import java.io.File
-import java.time.Instant
-import java.util.UUID
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.codegen.util.TestUtil.{TestContext, requiredResource}
-import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.Commands
@@ -26,8 +22,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.client.services.commands.CommandSubmission
-import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.sample.MyMain.{CallablePayout, MkListExample, PayOut}
@@ -42,6 +37,9 @@ import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
 
+import java.io.File
+import java.time.Instant
+import java.util.UUID
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -78,11 +76,15 @@ class ScalaCodeGenIT
 
   private val emptyAgreementText = Some(
     ""
-  ) // this is by design, starting from release: 0.12.18 it is a requried field
+  ) // this is by design, starting from release: 0.12.18 it is a required field
 
-  override protected def config: SandboxConfig = super.config.copy(
-    ledgerIdMode = LedgerIdMode.Static(LedgerId(ledgerId)),
-    timeProviderType = Some(TimeProviderType.WallClock),
+  override def config = super.config.copy(
+    ledgerId = ledgerId,
+    participants = singleParticipant(
+      ApiServerConfig.copy(
+        timeProviderType = TimeProviderType.WallClock
+      )
+    ),
   )
 
   private val clientConfig = LedgerClientConfiguration(
@@ -95,7 +97,17 @@ class ScalaCodeGenIT
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    ledger = Await.result(LedgerClient(channel, clientConfig), StartupTimeout)
+    ledger = Await.result(
+      for {
+        lc <- LedgerClient(channel, clientConfig)
+        _ <- Future.sequence(
+          List(alice, bob, charlie).map(p =>
+            lc.partyManagementClient.allocateParty(Some(p.toString), None)
+          )
+        )
+      } yield lc,
+      StartupTimeout,
+    )
   }
 
   "generated package ID among those returned by the packageClient" in {
@@ -280,7 +292,7 @@ class ScalaCodeGenIT
   }
 
   "alice creates TemplateWith23Arguments contract and receives corresponding event" in {
-    //noinspection NameBooleanParameters
+    // noinspection NameBooleanParameters
     val contract = MyMain.TemplateWith23Arguments(
       alice,
       true,
@@ -387,7 +399,7 @@ class ScalaCodeGenIT
     val contract = MyMain.SimpleListExample(alice, P.List(42))
     val exerciseConsequence = MkListExample(alice, P.List(42))
     testCommandAndReceiveEvent(
-      contract.createAnd.exerciseGo(alice),
+      contract.createAnd.exerciseGo(),
       alice,
       assertCreateEvent(_)(
         exerciseConsequence,
@@ -506,7 +518,7 @@ class ScalaCodeGenIT
       event <- toFuture(transaction.events.headOption)
       created <- toFuture(event.event.created)
       contractId = P.ContractId[CallablePayout](created.contractId)
-      exerciseCommand = contractId.exerciseCall2(bob)
+      exerciseCommand = contractId.exerciseCall2()
       status <- send(contextId, aCommandSubmission(workflowId, commandId, bob, exerciseCommand))(1)
     } yield status
 
@@ -519,7 +531,7 @@ class ScalaCodeGenIT
       event <- toFuture(transaction.events.headOption)
       created <- toFuture(event.event.created)
       contractId = P.ContractId[CallablePayout](created.contractId)
-      exerciseCommand = contractId.exerciseTransfer(actor = bob, newReceiver = newReceiver)
+      exerciseCommand = contractId.exerciseTransfer(newReceiver = newReceiver)
       status <- send(contextId, aCommandSubmission(workflowId, commandId, bob, exerciseCommand))(1)
     } yield status
 

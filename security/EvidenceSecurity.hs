@@ -104,7 +104,11 @@ theParser = some line <* eof
     notColonOrNewline = noneOf [':','\n']
 
 
-data Category = Authorization | Privacy | Semantics | Performance | InputValidation
+data Category
+  = Authorization
+  | Availability
+  | Confidentiality
+  | Integrity
   deriving (Eq,Ord,Bounded,Enum,Show)
 
 data Description = Description
@@ -141,7 +145,6 @@ ppDescription Description{filename,lineno,freeText} =
 ppCategory :: Category -> String
 ppCategory = \case
   Authorization -> "Authorization"
-  Privacy -> "Privacy"
-  Semantics -> "Semantics"
-  Performance -> "Performance"
-  InputValidation -> "Input Validation"
+  Availability -> "Availability"
+  Confidentiality -> "Confidentiality"
+  Integrity -> "Integrity"

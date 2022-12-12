@@ -2,35 +2,35 @@ transactions:
 TX #0 1970-01-01T00:00:00Z [Test:42] version: 14
 #0:0 version: 14
 │   referenced by #1:0, #2:0
-│   known to (since): a (#0), b (#0)
+│   disclosed to (since): a (#0), b (#0)
 └─> create Test:Tester@XXXXXXXX
     with: { a = 'a', b = 'b' }
 
 TX #1 1970-01-01T00:00:00Z [Test:44] version: 14
 #1:0 version: 14
-│   known to (since): a (#1), b (#1)
+│   disclosed to (since): a (#1), b (#1)
 └─> b exercises CreateInTry:Test:Tester@XXXXXXXX on 003596dec622807ab002c4bd5534e2f12fb2936da75d44b282df6cdf58a007fe1a
     with {  }
     children:
     #1:1 no-version
-    │   known to (since): a (#1), b (#1)
+    │   disclosed to (since): a (#1), b (#1)
     └─> rollback:
     #1:2 version: 14
-    │   known to (since): a (#1), b (#1)
+    │   disclosed to (since): a (#1), b (#1)
     └─> create Test:T@XXXXXXXX
         with: { ps = ['a', 'b'] }
 
 TX #2 1970-01-01T00:00:00Z [Test:47] version: 14
 #2:0 version: 14
-│   known to (since): a (#2), b (#2)
+│   disclosed to (since): a (#2), b (#2)
 └─> b exercises CreateInNestedTry:Test:Tester@XXXXXXXX on 003596dec622807ab002c4bd5534e2f12fb2936da75d44b282df6cdf58a007fe1a
     with {  }
     children:
     #2:1 no-version
-    │   known to (since): a (#2), b (#2)
+    │   disclosed to (since): a (#2), b (#2)
     └─> rollback:
     #2:2 version: 14
-    │   known to (since): a (#2), b (#2)
+    │   disclosed to (since): a (#2), b (#2)
     └─> create Test:T@XXXXXXXX
         with: { ps = ['a', 'b'] }
 

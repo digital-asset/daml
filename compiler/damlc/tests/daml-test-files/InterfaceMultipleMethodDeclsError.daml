@@ -3,11 +3,14 @@
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 -- @ENABLE-SCENARIOS
--- @ERROR range=24:7-24:20; Multiple declarations of method ‘m0’ in template ‘T’ implementation of interface ‘I’
+-- @ERROR range=28:7-28:20; Multiple declarations of method ‘m0’
 
 module InterfaceMultipleMethodDeclsError where
 
+data EmptyInterfaceView = EmptyInterfaceView {}
+
 interface I where
+  viewtype EmptyInterfaceView
   m0 : Bool -> Party
   m1 : Text
 
@@ -19,7 +22,8 @@ template T
   where
     signatory p0, p1
 
-    implements I where
+    interface instance I for T where
+      view = EmptyInterfaceView
       -- first m0 declaration
       m0 False = p0
       m1 = "m1"

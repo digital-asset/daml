@@ -3,10 +3,6 @@
 
 package com.daml.platform.apiserver.execution
 
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicLong
-
-import com.daml.error.definitions.ErrorCause
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
@@ -26,9 +22,12 @@ import com.daml.lf.engine.{
 import com.daml.lf.transaction.{Node, SubmittedTransaction, Transaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.apiserver.services.ErrorCause
 import com.daml.platform.packages.DeduplicatingPackageLoader
 import scalaz.syntax.tag._
 
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import scala.concurrent.{ExecutionContext, Future}
 
 /** @param ec [[scala.concurrent.ExecutionContext]] that will be used for scheduling CPU-intensive computations
@@ -115,6 +114,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
       transaction = updateTx,
       dependsOnLedgerTime = meta.dependsOnTime,
       interpretationTimeNanos = interpretationTimeNanos,
+      globalKeyMapping = meta.globalKeyMapping,
+      usedDisclosedContracts = meta.disclosures,
     )
   }
 
@@ -139,6 +140,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           commitAuthorizers,
           commands.readAs,
           commands.commands,
+          commands.disclosedContracts,
           participant,
           submissionSeed,
         )

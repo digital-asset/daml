@@ -22,7 +22,11 @@ private[speedy] object ClosureConversion {
 
   private[speedy] def closureConvert(source0: source.SExpr): target.SExpr = {
 
-    case class Env(sourceDepth: Int, mapping: Map[SEVarLevel, target.SELoc], targetDepth: Int) {
+    final case class Env(
+        sourceDepth: Int,
+        mapping: Map[SEVarLevel, target.SELoc],
+        targetDepth: Int,
+    ) {
 
       def lookup(v: SEVarLevel): target.SELoc = {
         mapping.get(v) match {
@@ -71,7 +75,7 @@ private[speedy] object ClosureConversion {
       *
       *   In both cases we have a continuation ('List[Cont]') argument which says how to proceed.
       */
-    sealed abstract class Traversal
+    sealed abstract class Traversal extends Product with Serializable
     object Traversal {
       final case class Down(exp: source.SExpr, env: Env) extends Traversal
       final case class Up(exp: target.SExpr) extends Traversal
@@ -95,7 +99,7 @@ private[speedy] object ClosureConversion {
       *   two corresponding continuation forms: (Cont.TryCatch1, Cont.TryCatch2).
       *
       *   For the more complex expression forms containing a list of recursive instances
-      *   (i.e. SEAppGeneral), the corresponding continuation forms are also more complex,
+      *   (i.e. SEApp), the corresponding continuation forms are also more complex,
       *   but will generally have two cases (i.e. Cont.App1, Cont.App2), corresponding to
       *   the Nil/Cons cases of the list of recursive instances.
       *
@@ -107,7 +111,7 @@ private[speedy] object ClosureConversion {
       *   'env' (or all components if there is no 'env') represent transform-(sub)-results
       *   which need combining into the final result.
       */
-    sealed abstract class Cont
+    sealed abstract class Cont extends Product with Serializable
     object Cont {
 
       final case class Location(loc: Ref.Location) extends Cont
@@ -135,6 +139,7 @@ private[speedy] object ClosureConversion {
 
       final case class Let1(
           boundsDone: List[target.SExpr],
+          boundsDoneLength: Int,
           env: Env,
           bounds: List[source.SExpr],
           body: source.SExpr,
@@ -205,7 +210,7 @@ private[speedy] object ClosureConversion {
                 case Nil =>
                   loop(Down(body, env), Cont.Let2(Nil) :: conts)
                 case bound :: bounds =>
-                  loop(Down(bound, env), Cont.Let1(Nil, env, bounds, body) :: conts)
+                  loop(Down(bound, env), Cont.Let1(Nil, 0, env, bounds, body) :: conts)
               }
 
             case source.SETryCatch(body, handler) =>
@@ -281,15 +286,17 @@ private[speedy] object ClosureConversion {
                       loop(Down(rhs, env1), Cont.Case2(scrut, altsDone, pat, env, alts) :: conts)
                   }
 
-                case Cont.Let1(boundsDone0, env, bounds, body) =>
+                case Cont.Let1(boundsDone0, n, env0, bounds, body) =>
                   val boundsDone = result :: boundsDone0
-                  val n = boundsDone.length
-                  val env1 = env.extend(n)
+                  val env = env0.extend(1)
                   bounds match {
                     case Nil =>
-                      loop(Down(body, env1), Cont.Let2(boundsDone) :: conts)
+                      loop(Down(body, env), Cont.Let2(boundsDone) :: conts)
                     case bound :: bounds =>
-                      loop(Down(bound, env1), Cont.Let1(boundsDone, env, bounds, body) :: conts)
+                      loop(
+                        Down(bound, env),
+                        Cont.Let1(boundsDone, n + 1, env, bounds, body) :: conts,
+                      )
                   }
 
                 case Cont.Let2(boundsDone) =>

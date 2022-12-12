@@ -1,0 +1,5 @@
+{
+  "default_participant": {"host": "localhost", "port": 6865},
+  "participants": {},
+  "party_participants": {}
+}

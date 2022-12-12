@@ -43,9 +43,9 @@ object ErrorCategory {
       ContentionOnSharedResources,
       DeadlineExceededRequestStateUnknown,
       SystemInternalAssumptionViolated,
-      MaliciousOrFaultyBehaviour,
       AuthInterceptorInvalidAuthenticationCredentials,
       InsufficientPermission,
+      SecurityAlert,
       InvalidIndependentOfSystemState,
       InvalidGivenCurrentSystemStateOther,
       InvalidGivenCurrentSystemStateResourceExists,
@@ -134,7 +134,9 @@ object ErrorCategory {
 
   /** Some internal error
     */
-  @Description("Request processing failed due to a violation of system internal invariants.")
+  @Description(
+    "Request processing failed due to a violation of system internal invariants.  This error is exposed on the API with grpc-status INTERNAL without any details for security reasons"
+  )
   @RetryStrategy("Retry after operator intervention.")
   @Resolution(
     """Expectation: this is due to a bug in the implementation or data corruption in the systems databases.
@@ -151,18 +153,19 @@ object ErrorCategory {
       )
       with ErrorCategory
 
-  /** Malicious or faulty behaviour detected
-    */
-  @Description("""Request processing failed due to unrecoverable data loss or corruption
-                 |(e.g. detected via checksums)""")
-  @RetryStrategy("Retry after operator intervention.")
+  @Description(
+    """A potential attack or a faulty peer component has been detected. 
+      |This error is exposed on the API with grpc-status INVALID_ARGUMENT without any details for security reasons."""
+  )
+  @RetryStrategy("Errors in this category are non-retryable.")
   @Resolution(
     """Expectation: this can be a severe issue that requires operator attention or intervention, and
-                |potentially vendor support."""
+      |potentially vendor support. It means that the system has detected invalid information that can be attributed
+      |to either faulty or malicious manipulation of data coming from a peer source."""
   )
-  object MaliciousOrFaultyBehaviour
+  object SecurityAlert
       extends ErrorCategoryImpl(
-        grpcCode = Some(Code.UNKNOWN),
+        grpcCode = Some(Code.INVALID_ARGUMENT),
         logLevel = Level.WARN,
         retryable = None,
         securitySensitive = true,
@@ -173,7 +176,9 @@ object ErrorCategory {
 
   /** Client is not authenticated properly
     */
-  @Description("""The request does not have valid authentication credentials for the operation.""")
+  @Description(
+    """The request does not have valid authentication credentials for the operation. This error is exposed on the API with grpc-status UNAUTHENTICATED without any details for security reasons"""
+  )
   @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution(
     """Expectation: this is an application bug, application misconfiguration or ledger-level
@@ -192,7 +197,9 @@ object ErrorCategory {
 
   /** Client does not have appropriate permissions
     */
-  @Description("""The caller does not have permission to execute the specified operation.""")
+  @Description(
+    """The caller does not have permission to execute the specified operation. This error is exposed on the API with grpc-status PERMISSION_DENIED without any details for security reasons"""
+  )
   @RetryStrategy("""Retry after application operator intervention.""")
   @Resolution(
     """Expectation: this is an application bug or application misconfiguration. Resolution requires
@@ -334,7 +341,7 @@ object ErrorCategory {
       with ErrorCategory
 
   @Description(
-    """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request."""
+    """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request. This error is exposed on the API with grpc-status UNIMPLEMENTED without any details for security reasons"""
   )
   @RetryStrategy("""Errors in this category are non-retryable.""")
   @Resolution(

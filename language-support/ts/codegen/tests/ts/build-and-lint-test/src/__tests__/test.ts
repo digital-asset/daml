@@ -6,12 +6,23 @@ import { promises as fs } from "fs";
 import waitOn from "wait-on";
 import { encode } from "jwt-simple";
 import Ledger, {
+  CreateEvent,
   Event,
   Stream,
   PartyInfo,
+  Query,
   UserRightHelper,
 } from "@daml/ledger";
-import { Int, emptyMap, Map } from "@daml/types";
+import {
+  Choice,
+  ContractId,
+  Int,
+  emptyMap,
+  Map,
+  Party,
+  Template,
+  lookupTemplate,
+} from "@daml/types";
 import pEvent from "p-event";
 import _ from "lodash";
 import WebSocket from "ws";
@@ -44,6 +55,17 @@ const computeUserToken = (name: string) =>
     "HS256",
   );
 
+const ADMIN_TOKEN = encode(
+  {
+    "https://daml.com/ledger-api": {
+      ledgerId: LEDGER_ID,
+      applicationId: APPLICATION_ID,
+      admin: true,
+    },
+  },
+  SECRET_KEY,
+  "HS256",
+);
 const ALICE_PARTY = "Alice";
 const ALICE_TOKEN = computeToken(ALICE_PARTY);
 const BOB_PARTY = "Bob";
@@ -82,20 +104,14 @@ const spawnJvm = (
 
 beforeAll(async () => {
   console.log("build-and-lint-1.0.0 (" + buildAndLint.packageId + ") loaded");
-  const darPath = getEnv("DAR");
   sandboxProcess = spawnJvm(getEnv("SANDBOX"), [
-    "--dev-mode-unsafe",
-    "--contract-id-seeding",
-    "testing-weak",
-    "--port",
-    "0",
-    "--port-file",
-    SANDBOX_PORT_FILE,
-    "--ledgerid",
-    LEDGER_ID,
-    "--wall-clock-time",
-    "--log-level=INFO",
-    darPath,
+    "run-legacy-cli-config",
+    "--daml-lf-dev-mode-unsafe",
+    "--contract-id-seeding=testing-weak",
+    "--enable-user-management=true",
+    "--participant=participant-id=example,port=0,port-file=" +
+      SANDBOX_PORT_FILE,
+    "--ledger-id=" + LEDGER_ID,
   ]);
   await waitOn({ resources: [`file:${SANDBOX_PORT_FILE}`] });
   const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, {
@@ -126,6 +142,25 @@ beforeAll(async () => {
     encoding: "utf8",
   });
   jsonApiPort = parseInt(jsonApiPortData);
+
+  console.log("Uploading required dar files ..." + getEnv("DAR"));
+  const ledger = new Ledger({ token: ADMIN_TOKEN, httpBaseUrl: httpBaseUrl() });
+  const upDar = await fs.readFile(getEnv("DAR"));
+  await ledger.uploadDarFile(upDar);
+  console.log("Explicitly allocating parties");
+  await ledger.allocateParty({
+    identifierHint: ALICE_PARTY,
+    displayName: ALICE_PARTY,
+  });
+  await ledger.allocateParty({
+    identifierHint: BOB_PARTY,
+    displayName: BOB_PARTY,
+  });
+  await ledger.allocateParty({
+    identifierHint: CHARLIE_PARTY,
+    displayName: CHARLIE_PARTY,
+  });
+
   console.log("JSON API listening on port " + jsonApiPort.toString());
 }, 300_000);
 
@@ -547,51 +582,302 @@ test("create + fetch & exercise", async () => {
   expect(nonTopLevelContracts).toEqual([nonTopLevelContract]);
 });
 
-// TODO https://github.com/digital-asset/daml/issues/12051
-// Reenable full test when JSON API can handle interface contract IDs.
-test("interfaces", async () => {
-  const aliceLedger = new Ledger({
-    token: ALICE_TOKEN,
-    httpBaseUrl: httpBaseUrl(),
+describe("interface definition", () => {
+  const tpl = buildAndLint.Main.Asset;
+  const if1 = buildAndLint.Main.Token;
+  const if2 = buildAndLint.Lib.Mod.Other;
+  test("separate object from template", () => {
+    expect(if1).not.toBe(tpl);
+    expect(if2).not.toBe(tpl);
   });
-  // const bobLedger = new Ledger({token: BOB_TOKEN, httpBaseUrl: httpBaseUrl()});
+  test("template IDs not overwritten", () => {
+    expect(if1.templateId).not.toEqual(tpl.templateId);
+    expect(if2.templateId).not.toEqual(tpl.templateId);
+  });
+  test("choices not copied to interfaces", () => {
+    const key1 = "Transfer";
+    const key2 = "Something";
+    expect(if1).toHaveProperty(key1);
+    expect(if2).toHaveProperty(key2);
+    expect(if1).not.toHaveProperty(key2);
+    expect(if2).not.toHaveProperty(key1);
+  });
+  test("even with no choices", () => {
+    const emptyIfc = buildAndLint.Lib.EmptyIfaceOnly.NoChoices;
+    const emptyIfcId: string = emptyIfc.templateId;
+    expect(emptyIfc).toMatchObject({
+      templateId: emptyIfcId,
+    });
+  });
+  describe("choice name collision", () => {
+    // statically assert that an expression is a choice
+    const theChoice = <T extends object, C, R, K>(c: Choice<T, C, R, K>) => c;
 
-  const assetPayload = {
-    issuer: ALICE_PARTY,
-    owner: ALICE_PARTY,
-  };
-  const ifaceContract = await aliceLedger.create(
-    buildAndLint.Main.Asset,
-    assetPayload,
-  );
-  expect(ifaceContract.payload).toEqual(assetPayload);
-  try {
-    const [,] = await aliceLedger.exercise(
-      buildAndLint.Main.Asset.Transfer,
-      ifaceContract.contractId,
+    test("choice from two interfaces is not inherited", () => {
+      const k = "PeerIfaceOverload";
+      expect(theChoice(if2[k])).toBeDefined();
+      expect(
+        theChoice(buildAndLint.Lib.ModIfaceOnly.YetAnother[k]),
+      ).toBeDefined();
+      // statically check that k isn't in tpl
+      const tplK: Extract<keyof typeof tpl, typeof k> extends never
+        ? true
+        : never = true;
+      expect(tplK).toEqual(true); // useless, but suppresses unused error
+      // dynamically check the same
+      expect(_.get(tpl, k)).toBeUndefined();
+    });
+    test("choice from template and interface prefers template", () => {
+      const k = "Overridden";
+      const c: Choice<
+        buildAndLint.Main.Asset,
+        buildAndLint.Main.Overridden,
+        {},
+        undefined
+      > = tpl[k];
+      expect(c).not.toEqual(theChoice(if2[k]));
+      expect(c.template()).toBe(tpl);
+    });
+  });
+
+  test("retroactive interfaces permit contract ID conversion", () => {
+    const cid = "test" as ContractId<buildAndLint.Main.Asset>;
+    const icid: ContractId<buildAndLint.Retro.Retro> = tpl.toInterface(
+      buildAndLint.Retro.Retro,
+      cid,
+    );
+    const tcid: ContractId<buildAndLint.Main.Asset> = tpl.unsafeFromInterface(
+      buildAndLint.Retro.Retro,
+      icid,
+    );
+    expect(icid).toBe(cid);
+    expect(tcid).toBe(icid);
+  });
+});
+
+describe("interfaces", () => {
+  type Asset = buildAndLint.Main.Asset;
+  const Asset = buildAndLint.Main.Asset;
+  type Token = buildAndLint.Main.Token;
+  const Token = buildAndLint.Main.Token;
+
+  type RecPartial<T> = T extends object
+    ? {
+        [P in keyof T]?: RecPartial<T[P]>;
+      }
+    : T;
+
+  async function aliceLedgerPayloadContract() {
+    const aliceLedger = new Ledger({
+      token: ALICE_TOKEN,
+      httpBaseUrl: httpBaseUrl(),
+    });
+    const assetPayload = {
+      issuer: ALICE_PARTY,
+      owner: ALICE_PARTY,
+    };
+    const expectedView: buildAndLint.Main.TokenView = {
+      tokenOwner: ALICE_PARTY,
+    };
+    return {
+      aliceLedger,
+      assetPayload,
+      expectedView: expectedView as Token,
+      contract: await aliceLedger.create(Asset, assetPayload),
+    };
+  }
+
+  test("interface companion choice exercise", async () => {
+    const {
+      aliceLedger,
+      assetPayload,
+      contract: ifaceContract,
+    } = await aliceLedgerPayloadContract();
+
+    expect(ifaceContract.payload).toEqual(assetPayload);
+    const [, events1] = await aliceLedger.exercise(
+      Token.Transfer,
+      Asset.toInterface(Token, ifaceContract.contractId),
       { newOwner: BOB_PARTY },
     );
-  } catch (ex) {
-    expect([400]).toContain(ex.status);
-    // currently the JSON API can't handle interface contract IDs in the response and returns a
-    // 400 error.
-    expect(ex.errors.length).toBe(1);
-  }
-  // expect(events1).toMatchObject(
-  //   [ {archived: {templateId: buildAndLint.Main.Asset.templateId}},
-  //     {created: {templateId: buildAndLint.Main.Asset.templateId,
-  //      signatories: [ALICE_PARTY],
-  //      payload: {issuer: ALICE_PARTY, owner: BOB_PARTY}}}
-  //   ]
-  // )
-  // const [,events2] = await bobLedger.exercise(buildAndLint.Main.Token.Transfer, ifaceContract1, {newOwner: ALICE_PARTY});
-  // expect(events2).toMatchObject(
-  //   [ {archived: {templateId: buildAndLint.Main.Asset.templateId}},
-  //     {created: {templateId: buildAndLint.Main.Asset.templateId,
-  //      signatories: [ALICE_PARTY],
-  //      payload: {issuer: ALICE_PARTY, owner: ALICE_PARTY}}}
-  //   ]
-  // )
+    expect(events1).toMatchObject([
+      { archived: { templateId: buildAndLint.Main.Asset.templateId } },
+      {
+        created: {
+          templateId: buildAndLint.Main.Asset.templateId,
+          signatories: [ALICE_PARTY],
+          payload: { issuer: ALICE_PARTY, owner: BOB_PARTY },
+        },
+      },
+    ]);
+  });
+
+  test("sync query without predicate", async () => {
+    const { aliceLedger, expectedView, contract } =
+      await aliceLedgerPayloadContract();
+    const acs = await aliceLedger.query(Token);
+    const expectedAc: typeof acs extends (infer ce)[]
+      ? Omit<ce, "key">
+      : never = {
+      templateId: Token.templateId, // NB: the interface ID
+      contractId: Asset.toInterface(Token, contract.contractId),
+      signatories: [ALICE_PARTY],
+      observers: [],
+      agreementText: "",
+      payload: expectedView,
+    };
+    expect(acs).toContainEqual(expectedAc);
+  });
+
+  test("sync query with predicate", async () => {
+    const { aliceLedger, expectedView, contract } =
+      await aliceLedgerPayloadContract();
+    function isCt(ev: CreateEvent<Token>) {
+      return ev.contractId === Asset.toInterface(Token, contract.contractId);
+    }
+    // check that Query type accepts removing the brand
+    const succeedingQuery: Query<Token> = {
+      tokenOwner: ALICE_PARTY,
+    };
+    const failingQuery = { tokenOwner: BOB_PARTY };
+
+    const foundCt = (await aliceLedger.query(Token, succeedingQuery)).filter(
+      isCt,
+    );
+    const noCt = (await aliceLedger.query(Token, failingQuery)).filter(isCt);
+    const expectedMatchedContract = {
+      payload: expectedView,
+      templateId: Token.templateId,
+    };
+    expect(foundCt).toMatchObject([expectedMatchedContract]);
+    expect(noCt).toEqual([]);
+  });
+
+  test("fetch", async () => {
+    const { aliceLedger, expectedView, contract } =
+      await aliceLedgerPayloadContract();
+    const fetched = await aliceLedger.fetch(
+      Token,
+      Asset.toInterface(Token, contract.contractId),
+    );
+    expect(fetched).toMatchObject({
+      contractId: contract.contractId,
+      templateId: Token.templateId,
+      payload: expectedView,
+    });
+  });
+
+  test("WS query", async () => {
+    const { aliceLedger, expectedView, contract } =
+      await aliceLedgerPayloadContract();
+    const tokenCid = Asset.toInterface(Token, contract.contractId);
+    const stream = aliceLedger.streamQueries(Token, [expectedView]);
+    type FoundCreate = typeof stream extends Stream<
+      object,
+      unknown,
+      string,
+      (infer ce)[]
+    >
+      ? { created: ce }
+      : never;
+    function isCreateForContract(ev: Event<Token>): ev is FoundCreate {
+      return "created" in ev && ev.created.contractId === tokenCid;
+    }
+    function queryContractId(): Promise<FoundCreate> {
+      let found = false;
+      return new Promise((resolve, reject) => {
+        stream.on("change", (_, evs) => {
+          if (found) return;
+          const ev = evs.find<FoundCreate>(isCreateForContract);
+          if (ev) {
+            found = true;
+            resolve(ev);
+          }
+        });
+        stream.on("close", closeEv => found || reject(closeEv.reason));
+      });
+    }
+    const ctEvent = await queryContractId();
+    stream.close();
+    const expectedEvent: RecPartial<Event<Token>> = {
+      created: {
+        contractId: tokenCid,
+        templateId: Token.templateId,
+        payload: expectedView,
+      },
+      matchedQueries: [0],
+    };
+    expect(ctEvent).toMatchObject(expectedEvent);
+  });
+
+  test("undecodable exercise result event data is discarded", async () => {
+    const ledger = new Ledger({
+      token: ALICE_TOKEN,
+      httpBaseUrl: httpBaseUrl(),
+    });
+    // upload a dar we did not codegen
+    const hiddenDar = await fs.readFile(getEnv("HIDDEN_DAR"));
+    await ledger.uploadDarFile(hiddenDar);
+
+    // pretend we have access to NotVisibleInTs.  For this test to be
+    // meaningful we *must not* codegen or load Hidden
+    type NotVisibleInTs = { owner: Party };
+    const NotVisibleInTs: Pick<Template<{ owner: Party }>, "templateId"> = {
+      templateId: "Hidden:NotVisibleInTs",
+    };
+    const initialPayload: NotVisibleInTs = { owner: ALICE_PARTY };
+
+    // make a contract whose template is not in the JS image
+    // we can't use ledger.create without knowing the exact template ID
+    const submittableLedger = ledger as unknown as {
+      submit: typeof ledger["submit"];
+    };
+    const {
+      templateId: nvitFQTID,
+      contractId: nvitCid,
+      payload: payloadResp,
+      key: keyResp,
+    } = (await submittableLedger.submit("v1/create", {
+      templateId: NotVisibleInTs.templateId,
+      payload: initialPayload,
+    })) as CreateEvent<NotVisibleInTs, { _1: Text; _2: Party }>;
+    expect(nvitFQTID).toEqual(expect.stringMatching(/:Hidden:NotVisibleInTs$/));
+    expect(payloadResp).toEqual(initialPayload);
+    expect(keyResp).toEqual({ _1: "three three three", _2: ALICE_PARTY });
+    // verify that we don't know the decoder for NotVisibleInTs
+    expect(() => lookupTemplate(nvitFQTID)).toThrow();
+
+    const nvitIcid: ContractId<buildAndLint.Main.Cloneable> =
+      nvitCid as ContractId<never>;
+
+    // invoke well-typed interface choice
+    const [{ _1: newIcid, _2: textResponse }, archiveAndCreate] =
+      await ledger.exercise(buildAndLint.Main.Cloneable.Clone, nvitIcid, {
+        echo: "undecodable exercise result test",
+      });
+    const expectedEvents: RecPartial<Event<object>>[] = [
+      { archived: { contractId: nvitCid, templateId: nvitFQTID } },
+      { created: { contractId: newIcid, templateId: nvitFQTID } },
+    ];
+
+    // test events are present but with empty payload
+    expect(textResponse).toEqual(
+      "cloned NotVisibleInTs: undecodable exercise result test",
+    );
+    expect(newIcid).not.toEqual(nvitIcid);
+    expect(archiveAndCreate).toMatchObject(expectedEvents);
+
+    if (!("created" in archiveAndCreate[1]))
+      throw "test above doesn't match below";
+    const [
+      ,
+      {
+        created: { payload: clonedPayload, key: clonedKey },
+      },
+    ] = archiveAndCreate;
+    expect(clonedPayload).toEqual({});
+    expect(clonedKey).toBeUndefined();
+  });
 });
 
 test("createAndExercise", async () => {
@@ -860,6 +1146,7 @@ test("party API", async () => {
   expect(_.sortBy(allParties, [(p: PartyInfo) => p.identifier])).toEqual([
     p("Alice"),
     p("Bob"),
+    p("Charlie"),
   ]);
 
   const newParty1 = await ledger.allocateParty({});
@@ -874,6 +1161,7 @@ test("party API", async () => {
     _.sortBy([
       "Alice",
       "Bob",
+      "Charlie",
       "Dave",
       newParty1.identifier,
       newParty2.identifier,

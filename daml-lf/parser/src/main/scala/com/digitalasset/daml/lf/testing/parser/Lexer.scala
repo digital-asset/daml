@@ -44,7 +44,11 @@ private[parser] object Lexer extends RegexParsers {
     "throw" -> `throw`,
     "catch" -> `catch`,
     "to_interface" -> `to_interface`,
+    "to_required_interface" -> `to_required_interface`,
     "from_interface" -> `from_interface`,
+    "from_required_interface" -> `from_required_interface`,
+    "unsafe_from_interface" -> `unsafe_from_interface`,
+    "unsafe_from_required_interface" -> `unsafe_from_required_interface`,
     "call_method" -> `call_method`,
     "interface_template_type_rep" -> `interface_template_type_rep`,
     "signatory_interface" -> `signatory_interface`,
@@ -71,7 +75,6 @@ private[parser] object Lexer extends RegexParsers {
       "]" ^^^ `]` |
       "*" ^^^ `*` |
       "=" ^^^ `=` |
-      "_" ^^^ Token.`_` |
       "|" ^^^ `|` |
       """[a-zA-Z_\$][\w\$]*""".r ^^ (s => keywords.getOrElse(s, Id(s))) |
       """#\w+""".r ^^ ContractId |
