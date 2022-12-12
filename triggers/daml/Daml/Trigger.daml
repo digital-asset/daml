@@ -268,11 +268,53 @@ dedupExerciseByKey k c = do
   unless (any ((Some (k, c) ==) . fromExerciseByKey @t) cmds) $
     void $ emitCommands [exerciseByKeyCmd @t k c] []
 
+
+utUpdateState : (Message -> TriggerUpdateA s ()) -> Map CommandId [Command] -> ACS -> Party -> [Party] -> Message -> s -> s
+utUpdateState updateState commandsInFlight acs actAs readAs msg =
+      let state = TriggerUpdateState commandsInFlight acs actAs readAs
+      in execState $ flip runTriggerUpdateA state $ updateState msg
+
+updateImpl : Trigger s -> Bool -> [Message] -> TriggerRule (TriggerState s) ()
+updateImpl _ False [] = pure ()
+updateImpl userTrigger True [] = runRule userTrigger.rule
+updateImpl userTrigger triggered (msg :: rest) = do
+      state <- get
+      case msg of
+        MCompletion completion ->
+          -- NB: the commands-in-flight and ACS updateState sees are those
+          -- prior to updates incurred by the msg
+          let userState = utUpdateState userTrigger.updateState state.commandsInFlight state.acs state.actAs state.readAs (MCompletion completion) state.userState
+          in case completion.status of
+            Succeeded {} -> do
+              -- We delete successful completions when we receive the corresponding transaction
+              -- to avoid removing a command from commandsInFlight before we have modified the ACS.
+              put $ state { userState }
+              updateImpl userTrigger triggered rest
+            Failed {} -> do
+                let commandsInFlight = Map.delete completion.commandId state.commandsInFlight
+                    acs = state.acs { pendingContracts = Map.delete completion.commandId state.acs.pendingContracts }
+                put $ state { commandsInFlight, userState, acs }
+                updateImpl userTrigger True rest
+        MTransaction transaction -> do
+          let acs = applyTransaction transaction state.acs
+              -- again, we use the commands-in-flight and ACS before the update below
+              userState = utUpdateState userTrigger.updateState state.commandsInFlight acs state.actAs state.readAs (MTransaction transaction) state.userState
+              -- See the comment above for why we delete this here instead of when we receive the completion.
+              (acs', commandsInFlight) = case transaction.commandId of
+                None -> (acs, state.commandsInFlight)
+                Some commandId -> (acs { pendingContracts = Map.delete commandId acs.pendingContracts }, Map.delete commandId state.commandsInFlight)
+          put $ state { acs = acs', userState, commandsInFlight }
+          updateImpl userTrigger True rest
+        MHeartbeat -> do
+          let userState = utUpdateState userTrigger.updateState state.commandsInFlight state.acs state.actAs state.readAs MHeartbeat state.userState
+          put $ state { userState }
+          updateImpl userTrigger True rest
+
 -- | Transform the high-level trigger type into the one from `Daml.Trigger.LowLevel`.
 runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
 runTrigger userTrigger = LowLevel.Trigger
   { initialState = initialState
-  , update = update
+  , update = updateImpl userTrigger False
   , registeredTemplates = userTrigger.registeredTemplates
   , heartbeat = userTrigger.heartbeat
   }
@@ -282,38 +324,4 @@ runTrigger userTrigger = LowLevel.Trigger
           userState = runTriggerInitializeA userTrigger.initialize (TriggerInitState acs party readAs)
           state = TriggerState acs party readAs userState Map.empty
       in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
-    utUpdateState commandsInFlight acs actAs readAs msg =
-      let state = TriggerUpdateState commandsInFlight acs actAs readAs
-      in execState $ flip runTriggerUpdateA state $ userTrigger.updateState msg
-    update msg = do
-      time <- getTime
-      state <- get
-      case msg of
-        MCompletion completion ->
-          -- NB: the commands-in-flight and ACS updateState sees are those
-          -- prior to updates incurred by the msg
-          let userState = utUpdateState state.commandsInFlight state.acs state.actAs state.readAs (MCompletion completion) state.userState
-          in case completion.status of
-            Succeeded {} ->
-              -- We delete successful completions when we receive the corresponding transaction
-              -- to avoid removing a command from commandsInFlight before we have modified the ACS.
-              put $ state { userState }
-            Failed {} -> do
-                let commandsInFlight = Map.delete completion.commandId state.commandsInFlight
-                    acs = state.acs { pendingContracts = Map.delete completion.commandId state.acs.pendingContracts }
-                put $ state { commandsInFlight, userState, acs }
-                runRule userTrigger.rule
-        MTransaction transaction -> do
-          let acs = applyTransaction transaction state.acs
-              -- again, we use the commands-in-flight and ACS before the update below
-              userState = utUpdateState state.commandsInFlight acs state.actAs state.readAs (MTransaction transaction) state.userState
-              -- See the comment above for why we delete this here instead of when we receive the completion.
-              (acs', commandsInFlight) = case transaction.commandId of
-                None -> (acs, state.commandsInFlight)
-                Some commandId -> (acs { pendingContracts = Map.delete commandId acs.pendingContracts }, Map.delete commandId state.commandsInFlight)
-          put $ state { acs = acs', userState, commandsInFlight }
-          runRule userTrigger.rule
-        MHeartbeat -> do
-          let userState = utUpdateState state.commandsInFlight state.acs state.actAs state.readAs MHeartbeat state.userState
-          put $ state { userState }
-          runRule userTrigger.rule
+

@@ -172,7 +172,7 @@ data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 -- an accumulator of type `s`.
 data Trigger s = Trigger
   { initialState : Party -> [Party] -> ActiveContracts -> TriggerSetup s
-  , update : Message -> TriggerRule s ()
+  , update : [Message] -> TriggerRule s ()
   , registeredTemplates : RegisteredTemplates
   , heartbeat : Optional RelTime
   }

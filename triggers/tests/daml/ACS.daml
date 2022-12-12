@@ -4,7 +4,7 @@
 
 module ACS where
 
-import DA.Foldable (mapA_)
+import DA.Foldable (forA_, mapA_)
 import Daml.Trigger.LowLevel
 
 data TriggerState = TriggerState
@@ -33,7 +33,7 @@ initState party (ActiveContracts events) = TriggerState
 test : Trigger TriggerState
 test = Trigger
   { initialState = \party _readAs acs -> pure $ initState party acs
-  , update = update
+  , update = \msgs -> forA_ msgs update
   , registeredTemplates = AllInDar
   , heartbeat = None
   }

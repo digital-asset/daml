@@ -4,6 +4,7 @@
 
 module Numeric where
 
+import DA.Foldable (forA_)
 import Daml.Trigger.LowLevel
 
 test : Trigger Bool
@@ -11,7 +12,7 @@ test = Trigger
   { initialState = \party _readAs _ -> do
       submitCommands [createCmd (T party 1.06)]
       pure False
-  , update = \msg -> do
+  , update = \msgs -> forA_ msgs $ \msg -> do
       s <- get
       case (s, msg) of
         (False, MTransaction (Transaction _ _ [CreatedEvent (fromCreated @T -> Some (_, _, t))])) -> do

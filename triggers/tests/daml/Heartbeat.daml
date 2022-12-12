@@ -4,13 +4,14 @@
 
 module Heartbeat where
 
+import DA.Foldable (forA_)
 import DA.Time
 import Daml.Trigger.LowLevel
 
 test : Trigger Int
 test = Trigger
   { initialState = \party _readAs _ -> pure 0
-  , update = \msg ->
+  , update = \msgs -> forA_ msgs $ \msg ->
       modify (+ (case msg of
                    MHeartbeat -> 1
                    _ -> 0))

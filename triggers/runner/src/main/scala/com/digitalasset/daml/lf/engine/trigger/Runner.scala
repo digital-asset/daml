@@ -27,6 +27,7 @@ import com.daml.ledger.client.services.commands.CompletionStreamElement._
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.ImmArray
+import com.daml.lf.data.BackStack
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
@@ -723,6 +724,16 @@ private[lf] class Runner private (
         ctx.copy(value = converter.fromHeartbeat)
     }
 
+  private[this] def conflateMsgValue: TriggerContextualFlow[SValue, SValue, NotUsed] =
+    Flow
+      .fromFunction[TriggerContext[SValue], TriggerContext[SValue]](identity)
+      .conflateWithSeed { case ctx @ Ctx(_, value, _) =>
+        ctx.copy(value = BackStack.empty :+ value)
+      } { case (ctx @ Ctx(_, stack, _), Ctx(_, value, _)) =>
+        ctx.copy(value = stack :+ value)
+      }
+      .map(_.map(stack => SList(stack.toImmArray.toFrontStack)))
+
   // A flow for trigger messages representing a process for the
   // accumulated state changes resulting from application of the
   // messages given the starting state represented by the ACS
@@ -817,7 +828,7 @@ private[lf] class Runner private (
       // format: off
       initialState.finalState                    ~> initialStateOut ~> rule.initState
       initialState.elemsOut                          ~> submissions
-                          msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> rule.elemsIn
+                          msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> conflateMsgValue ~> rule.elemsIn
                                                         submissions <~ rule.elemsOut
                                                     initialStateOut                     ~> finalStateIn
                                                                        rule.finalStates ~> finalStateIn ~> saveLastState
