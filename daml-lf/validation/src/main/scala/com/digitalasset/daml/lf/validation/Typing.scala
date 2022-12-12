@@ -1319,6 +1319,8 @@ private[validation] object Typing {
         typeOfFetchTemplate(tpl, cid)
       case UpdateFetchInterface(tpl, cid) =>
         typeOfFetchInterface(tpl, cid)
+      case UpdateActingAsConsortium(members @ _, consortium @ _) => // NICK
+        ??? // NICK
       case UpdateGetTime =>
         Ret(TUpdate(TTimestamp))
       case UpdateEmbedExpr(typ, exp) =>

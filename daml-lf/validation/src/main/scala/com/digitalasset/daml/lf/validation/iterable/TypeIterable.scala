@@ -128,6 +128,8 @@ private[validation] object TypeIterable {
       case UpdateFetchInterface(interface, contractId) =>
         Iterator(TTyCon(interface)) ++
           iterator(contractId)
+      case UpdateActingAsConsortium(members @ _, consortium @ _) => // NICK
+        ??? // iterator(members) ++ iterator(consortium) // NICK
       case UpdateExercise(templateId, choice @ _, cid, arg) =>
         Iterator(TTyCon(templateId)) ++
           iterator(cid) ++

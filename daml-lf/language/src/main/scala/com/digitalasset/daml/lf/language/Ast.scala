@@ -554,6 +554,11 @@ object Ast {
   final case class UpdateCreateInterface(interfaceId: TypeConName, arg: Expr) extends Update
   final case class UpdateFetchTemplate(templateId: TypeConName, contractId: Expr) extends Update
   final case class UpdateFetchInterface(interfaceId: TypeConName, contractId: Expr) extends Update
+
+  // Consortium update primitives // NICK: Could these be normal primitives?
+  final case class UpdateActingAsConsortium(membersE: Expr, consortium: Expr) extends Update
+  // final case class UpdateCanActAsConsortium(membersE: Expr, consortium: Expr) extends Update // NICK: primitive to check not gain authority.
+
   final case class UpdateExercise(
       templateId: TypeConName,
       choice: ChoiceName,

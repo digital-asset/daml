@@ -193,6 +193,8 @@ private[daml] class AstRewriter(
         UpdateFetchTemplate(apply(templateId), apply(contractId))
       case UpdateFetchInterface(interface, contractId) =>
         UpdateFetchInterface(apply(interface), apply(contractId))
+      case UpdateActingAsConsortium(members @ _, consortium @ _) => // NICK
+        ??? // UpdateActingAsConsortium(apply(members),apply(consortium)) // NICK
       case UpdateExercise(templateId, choice, cid, arg) =>
         UpdateExercise(apply(templateId), choice, apply(cid), apply(arg))
       case UpdateExerciseInterface(interface, choice, cid, arg, guard) =>

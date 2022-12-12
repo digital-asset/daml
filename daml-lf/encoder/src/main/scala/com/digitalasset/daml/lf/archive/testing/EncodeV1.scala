@@ -374,6 +374,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setFetchInterface(
             PLF.Update.FetchInterface.newBuilder().setInterface(interface).setCid(contractId)
           )
+        case UpdateActingAsConsortium(members @ _, consortium @ _) => // NICK
+          ??? // NICK
         case UpdateExercise(templateId, choice, cid, arg) =>
           val b = PLF.Update.Exercise.newBuilder()
           b.setTemplate(templateId)

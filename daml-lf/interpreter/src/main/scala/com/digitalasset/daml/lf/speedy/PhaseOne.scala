@@ -706,6 +706,8 @@ private[lf] final class PhaseOne(
         compileExp(env, coid) { coid =>
           Return(t.FetchInterfaceDefRef(ifaceId)(coid))
         }
+      case UpdateActingAsConsortium(members @ _, consortium @ _) => // NICK
+        ??? // NICK
       case UpdateEmbedExpr(_, exp) =>
         compileEmbedExpr(env, exp)
       case UpdateCreate(tmplId, arg) =>
