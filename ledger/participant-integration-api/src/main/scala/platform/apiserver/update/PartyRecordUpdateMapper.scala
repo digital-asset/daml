@@ -26,13 +26,13 @@ object PartyRecordUpdateMapper extends UpdateMapperBase {
     } yield {
       PartyDetailsUpdate(
         party = partyRecord.party,
+        identityProviderId = partyRecord.identityProviderId,
         displayNameUpdate = displayNameUpdate,
         isLocalUpdate = isLocalUpdate,
         metadataUpdate = ObjectMetaUpdate(
           resourceVersionO = partyRecord.metadata.resourceVersionO,
           annotationsUpdateO = annotationsUpdate,
         ),
-        identityProviderIdUpdate = None,
       )
     }
   }

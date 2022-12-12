@@ -65,14 +65,14 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
   def makePartRecordUpdate(
       party: Ref.Party = party1,
       annotationsUpdateO: Option[Map[String, String]] = None,
-      identityProviderIdUpdate: Option[IdentityProviderId] = None,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): PartyRecordUpdate = PartyRecordUpdate(
     party = party,
     metadataUpdate = ObjectMetaUpdate(
       resourceVersionO = None,
       annotationsUpdateO = annotationsUpdateO,
     ),
-    identityProviderIdUpdate = identityProviderIdUpdate,
+    identityProviderId = identityProviderId,
   )
 
   def resetResourceVersion(
@@ -149,7 +149,6 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
           for {
             create1 <- tested.createPartyRecord(pr1)
             _ = create1.value shouldBe createdPartyRecord("party1")
-            _ <- createIdentityProviderConfig(idp1)
             update1 <- tested.updatePartyRecord(
               partyRecordUpdate = PartyRecordUpdate(
                 party = pr1.party,
@@ -157,14 +156,13 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                   resourceVersionO = create1.value.metadata.resourceVersionO,
                   annotationsUpdateO = Some(Map("k1" -> "v1")),
                 ),
-                identityProviderIdUpdate = Some(persistedIdentityProviderId),
+                identityProviderId = IdentityProviderId.Default,
               ),
               ledgerPartyExists = _ => Future.successful(true),
             )
             _ = resetResourceVersion(update1.value) shouldBe newPartyRecord(
               "party1",
               annotations = Map("k1" -> "v1"),
-              identityProviderId = persistedIdentityProviderId,
             )
           } yield succeed
         }
@@ -186,7 +184,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                     )
                   ),
                 ),
-                identityProviderIdUpdate = Some(persistedIdentityProviderId),
+                identityProviderId = persistedIdentityProviderId,
               ),
               ledgerPartyExists = _ => Future.successful(true),
             )
@@ -227,7 +225,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                     )
                   ),
                 ),
-                identityProviderIdUpdate = None,
+                identityProviderId = IdentityProviderId.Default,
               ),
               ledgerPartyExists = _ => Future.successful(true),
             )
@@ -253,7 +251,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                   resourceVersionO = None,
                   annotationsUpdateO = Some(Map("k1" -> "v1")),
                 ),
-                identityProviderIdUpdate = None,
+                identityProviderId = IdentityProviderId.Default,
               ),
               ledgerPartyExists = _ => Future.successful(false),
             )
@@ -274,7 +272,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                   resourceVersionO = Some(100),
                   annotationsUpdateO = Some(Map("k1" -> "v1")),
                 ),
-                identityProviderIdUpdate = None,
+                identityProviderId = IdentityProviderId.Default,
               ),
               ledgerPartyExists = _ => Future.successful(true),
             )

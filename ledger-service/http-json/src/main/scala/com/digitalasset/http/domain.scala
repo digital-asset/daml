@@ -172,6 +172,7 @@ package domain {
 
   sealed abstract class UserRight extends Product with Serializable
   final case object ParticipantAdmin extends UserRight
+  final case object IdentityProviderAdmin extends UserRight
   final case class CanActAs(party: Party) extends UserRight
   final case class CanReadAs(party: Party) extends UserRight
 
@@ -183,6 +184,7 @@ package domain {
     def toLedgerUserRights(input: List[UserRight]): String \/ List[LedgerUserRight] =
       input.traverse {
         case ParticipantAdmin => \/.right(LedgerUserRight.ParticipantAdmin)
+        case IdentityProviderAdmin => \/.right(LedgerUserRight.IdentityProviderAdmin)
         case CanActAs(party) =>
           Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanActAs).disjunction
         case CanReadAs(party) =>
@@ -192,6 +194,7 @@ package domain {
     def fromLedgerUserRights(input: Seq[LedgerUserRight]): List[UserRight] = input
       .map[domain.UserRight] {
         case LedgerUserRight.ParticipantAdmin => ParticipantAdmin
+        case LedgerUserRight.IdentityProviderAdmin => IdentityProviderAdmin
         case LedgerUserRight.CanActAs(party) =>
           CanActAs(Party(party: String))
         case LedgerUserRight.CanReadAs(party) =>

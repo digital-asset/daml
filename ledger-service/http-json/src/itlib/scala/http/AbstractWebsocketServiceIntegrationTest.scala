@@ -27,7 +27,7 @@ import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
-import com.daml.test.evidence.tag.Security.SecurityTest
+import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import scalaz.std.list._
 import scalaz.std.option._
@@ -53,7 +53,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-abstract class AbstractWebsocketServiceIntegrationTest
+abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
     extends AsyncFreeSpec
     with Matchers
     with Inside
@@ -61,7 +61,14 @@ abstract class AbstractWebsocketServiceIntegrationTest
     with AbstractHttpServiceIntegrationTestFuns
     with BeforeAndAfterAll {
 
-  private val authorizationSecurity = SecurityTest(property = Authorization, asset = "TBD")
+  private val authorizationSecurity =
+    SecurityTest(property = Authorization, asset = s"WebsocketService $integration")
+
+  private def attackUnauthorized(threat: String): Attack = Attack(
+    actor = s"Websocket client",
+    threat = threat,
+    mitigation = s"Refuse call by the client with UNAUTHORIZED",
+  )
 
   import WebsocketTestFixture._
 
@@ -102,18 +109,21 @@ abstract class AbstractWebsocketServiceIntegrationTest
     SimpleScenario("query", Uri.Path("/v1/stream/query"), baseQueryInput),
     SimpleScenario("fetch", Uri.Path("/v1/stream/fetch"), baseFetchInput),
   ).foreach { scenario =>
-    s"${scenario.id} request with valid protocol token should allow client subscribe to stream" taggedAs authorizationSecurity in withHttpService {
-      (uri, _, _, _) =>
-        jwt(uri).flatMap(jwt =>
-          wsConnectRequest(
-            uri.copy(scheme = "ws").withPath(scenario.path),
-            validSubprotocol(jwt),
-            scenario.input,
-          )._1 flatMap (x => x.response.status shouldBe StatusCodes.SwitchingProtocols)
-        )
+    s"${scenario.id} request with valid protocol token should allow client subscribe to stream" taggedAs authorizationSecurity
+      .setHappyCase(
+        "Websocket client with valid protocol token can subscribe to stream"
+      ) in withHttpService { (uri, _, _, _) =>
+      jwt(uri).flatMap(jwt =>
+        wsConnectRequest(
+          uri.copy(scheme = "ws").withPath(scenario.path),
+          validSubprotocol(jwt),
+          scenario.input,
+        )._1 flatMap (x => x.response.status shouldBe StatusCodes.SwitchingProtocols)
+      )
     }
 
-    s"${scenario.id} request with invalid protocol token should be denied" taggedAs authorizationSecurity in withHttpService {
+    s"${scenario.id} request with invalid protocol token should be denied" taggedAs authorizationSecurity
+      .setAttack(attackUnauthorized("Present invalid protocol token")) in withHttpService {
       (uri, _, _, _) =>
         wsConnectRequest(
           uri.copy(scheme = "ws").withPath(scenario.path),
@@ -122,7 +132,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
         )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
     }
 
-    s"${scenario.id} request without protocol token should be denied" taggedAs authorizationSecurity in withHttpService {
+    s"${scenario.id} request without protocol token should be denied" taggedAs authorizationSecurity
+      .setAttack(attackUnauthorized("Present no protocol token")) in withHttpService {
       (uri, _, _, _) =>
         wsConnectRequest(
           uri.copy(scheme = "ws").withPath(scenario.path),
@@ -131,19 +142,25 @@ abstract class AbstractWebsocketServiceIntegrationTest
         )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
     }
 
-    s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" taggedAs authorizationSecurity in withHttpService {
-      fixture =>
-        immediateQuery(fixture, scenario.mapInput(_.mapConcat(x => List(x, x))))
-          .flatMap { msgs =>
-            inside(msgs) { case Seq(errorMsg) =>
-              val error = decodeErrorResponse(errorMsg)
-              error shouldBe domain.ErrorResponse(
-                List("Multiple requests over the same WebSocket connection are not allowed."),
-                None,
-                StatusCodes.BadRequest,
-              )
-            }
+    s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" taggedAs authorizationSecurity
+      .setAttack(
+        Attack(
+          actor = "Websocket client",
+          threat = "Sends two requests over the same connection",
+          mitigation = "Refuse call by the client with BADREQUEST",
+        )
+      ) in withHttpService { fixture =>
+      immediateQuery(fixture, scenario.mapInput(_.mapConcat(x => List(x, x))))
+        .flatMap { msgs =>
+          inside(msgs) { case Seq(errorMsg) =>
+            val error = decodeErrorResponse(errorMsg)
+            error shouldBe domain.ErrorResponse(
+              List("Multiple requests over the same WebSocket connection are not allowed."),
+              None,
+              StatusCodes.BadRequest,
+            )
           }
+        }
     }
   }
 

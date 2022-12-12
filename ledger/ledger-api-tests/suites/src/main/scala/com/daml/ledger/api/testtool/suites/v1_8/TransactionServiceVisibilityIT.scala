@@ -24,7 +24,7 @@ import com.daml.ledger.test.model.Test._
 import com.daml.lf.ledger.EventId
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.SecurityTest
-import com.daml.test.evidence.tag.Security.SecurityTest.Property.Confidentiality
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Privacy
 
 import scala.collection.immutable.Seq
 import scala.collection.mutable
@@ -35,7 +35,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
       lineNo: sourcecode.Line,
       fileName: sourcecode.File,
   ): List[EvidenceTag] =
-    List(SecurityTest(property = Confidentiality, asset = asset, happyCase))
+    List(SecurityTest(property = Privacy, asset = asset, happyCase))
 
   test(
     "TXTreeBlinding",

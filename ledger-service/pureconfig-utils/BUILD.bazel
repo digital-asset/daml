@@ -30,9 +30,9 @@ da_scala_library(
     ],
     deps = [
         "//ledger/ledger-api-common",
-        "//ledger/metrics",
         "//libs-scala/db-utils",
         "//libs-scala/jwt",
+        "//observability/metrics",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_config",
         "@maven//:io_netty_netty_handler",
@@ -55,8 +55,8 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":pureconfig-utils",
-        "//ledger/metrics",
         "//libs-scala/jwt",
+        "//observability/metrics",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

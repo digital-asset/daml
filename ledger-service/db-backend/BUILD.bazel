@@ -40,11 +40,11 @@ da_scala_library(
         "//ledger-service/metrics",
         "//ledger-service/utils",
         "//ledger/caching",
-        "//ledger/metrics",
         "//libs-scala/contextualized-logging",
         "//libs-scala/nonempty",
         "//libs-scala/nonempty-cats",
         "//libs-scala/scala-utils",
+        "//observability/metrics",
     ],
 )
 

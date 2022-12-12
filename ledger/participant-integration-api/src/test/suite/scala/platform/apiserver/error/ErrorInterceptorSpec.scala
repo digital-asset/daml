@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver.error
 
-import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import ch.qos.logback.classic.Level
@@ -11,18 +10,20 @@ import com.daml.error._
 import com.daml.error.definitions.{CommonErrors, DamlError}
 import com.daml.error.utils.ErrorDetails
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement
 import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingServerInterceptors}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
-import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceAkkaGrpc, HelloServiceGrpc}
-import com.daml.platform.testing.LogCollector.ThrowableEntry
+import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
+import com.daml.platform.testing.LogCollector.{ThrowableCause, ThrowableEntry}
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions, StreamConsumer}
 import io.grpc._
+import io.grpc.stub.StreamObserver
+import org.scalatest._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Assertion, Assertions, BeforeAndAfter, Checkpoints}
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
@@ -31,6 +32,7 @@ final class ErrorInterceptorSpec
     with BeforeAndAfter
     with AkkaBeforeAndAfterAll
     with Matchers
+    with OptionValues
     with Eventually
     with TestResourceContext
     with Checkpoints
@@ -127,6 +129,23 @@ final class ErrorInterceptorSpec
             .map { t: StatusRuntimeException =>
               assertSecuritySanitizedError(t)
             }
+        }
+
+        "outside a Stream by directly calling stream-observer.onError" in {
+          exerciseStreamingAkkaEndpoint(
+            new HelloServiceFailingDirectlyObserverOnError
+          ).map { t: StatusRuntimeException =>
+            assertSecuritySanitizedError(t)
+            val loggedEntries = LogCollector.readAsEntries[this.type, ErrorInterceptor.type]
+            loggedEntries should have size 1
+            loggedEntries.head.throwableEntryO.flatMap(_.causeO).value shouldBe
+              ThrowableCause(
+                className = "java.lang.IllegalArgumentException",
+                message =
+                  "Failing the stream by passing a non error-code based error directly to observer.onError",
+              )
+            Assertions.succeed
+          }
         }
       }
 
@@ -294,15 +313,20 @@ object ErrorInterceptorSpec {
     * @param errorInsideFutureOrStream - whether to signal the exception inside a Future or a Stream, or outside to them
     */
   class HelloServiceFailing(useSelfService: Boolean, errorInsideFutureOrStream: Boolean)(implicit
-      protected val esf: ExecutionSequencerFactory,
-      protected val mat: Materializer,
-  ) extends HelloServiceAkkaGrpc
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ) extends HelloService
+      with StreamingServiceLifecycleManagement
       with HelloServiceResponding
       with HelloServiceBase {
 
-    override protected def serverStreamingSource(
-        request: HelloRequest
-    ): Source[HelloResponse, NotUsed] = {
+    override protected val contextualizedErrorLogger: ContextualizedErrorLogger =
+      DamlContextualizedErrorLogger.forTesting(getClass)
+
+    override def serverStreaming(
+        request: HelloRequest,
+        responseObserver: StreamObserver[HelloResponse],
+    ): Unit = registerStream(responseObserver) {
       val where = if (errorInsideFutureOrStream) "inside" else "outside"
       val t: Throwable = if (useSelfService) {
         FooMissingErrorCode
@@ -335,6 +359,26 @@ object ErrorInterceptorSpec {
         throw t
       }
     }
+  }
+
+  class HelloServiceFailingDirectlyObserverOnError(implicit
+      protected val esf: ExecutionSequencerFactory,
+      protected val mat: Materializer,
+  ) extends HelloServiceResponding
+      with HelloServiceBase {
+
+    override def serverStreaming(
+        request: HelloRequest,
+        responseObserver: StreamObserver[HelloResponse],
+    ): Unit =
+      responseObserver.onError(
+        new IllegalArgumentException(
+          s"Failing the stream by passing a non error-code based error directly to observer.onError"
+        )
+      )
+
+    override def single(request: HelloRequest): Future[HelloResponse] =
+      Assertions.fail("This class is not intended to test unary endpoints")
   }
 
 }

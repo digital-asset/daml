@@ -122,6 +122,8 @@ in rec {
     pex = pkgs.python38Packages.pex;
     pipenv = pkgs.pipenv;
 
+    pre-commit = pkgs.pre-commit;
+ 
     sphinx-build      = sphinx;
     sphinx-quickstart = sphinx;
 

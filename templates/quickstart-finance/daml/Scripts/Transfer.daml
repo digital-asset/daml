@@ -9,7 +9,7 @@ import Daml.Finance.Interface.Account.Factory qualified as Account (F)
 import Daml.Finance.Interface.Holding.Base qualified as Holding (I)
 import Daml.Finance.Interface.Holding.Factory qualified as Holding (F)
 import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument (I)
-import Daml.Finance.Interface.Types.Common (AccountKey, Id(..), InstrumentKey(..))
+import Daml.Finance.Interface.Types.Common.Types (AccountKey, Id(..), InstrumentKey(..))
 
 -- IMPLEMENTATION DEPENDENCIES --
 import Daml.Finance.Account.Account qualified as Account (Factory(..))
@@ -93,10 +93,10 @@ runTransfer = do
       depository = bank
       issuer = bank
       id = instrumentId
-      description = "Instrument representing units of USD"
       version = instrumentVersion
-      observers = empty
+      description = "Instrument representing units of USD"
       validAsOf = now
+      observers = empty
   -- ISSUE_CASH_INSTRUMENT_END
 
   -- Alice deposits cash at the bank

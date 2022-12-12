@@ -49,4 +49,7 @@ object ErrorResource {
   object User extends ErrorResource {
     def asString: String = "USER"
   }
+  object IdentityProviderConfig extends ErrorResource {
+    def asString: String = "IDENTITY_PROVIDER_CONFIG"
+  }
 }

@@ -1,4 +1,3 @@
-
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -17,7 +16,10 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // and managing the participant-local party metadata.
 //
 // The authorization rules for its RPCs are specified on the ``<RpcName>Request``
-// messages as boolean expressions over the fact ``HasRight(r)`` denoting whether the authenticated user has right ``r``.
+// messages as boolean expressions over these facts:
+// (1) ``HasRight(r)`` denoting whether the authenticated user has right ``r`` and
+// (2) ``IsAuthenticatedIdentityProviderAdmin(idp)`` denoting whether ``idp`` is equal to the ``identity_provider_id``
+// of the authenticated user and the user has an IdentityProviderAdmin right.
 //
 // The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
 // (1) ``Optional`` denoting the client may leave the field unset when sending a request.
@@ -76,13 +78,17 @@ message GetParticipantIdResponse {
   string participant_id = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message GetPartiesRequest {
 
   // The stable, unique identifier of the Daml parties.
   // Must be valid PartyIdStrings (as described in ``value.proto``).
   // Required
   repeated string parties = 1;
+
+  // The id of the ``Identity Provider`` whose parties should be retrieved.
+  // Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
+  string identity_provider_id = 2;
 }
 
 message GetPartiesResponse {
@@ -93,8 +99,12 @@ message GetPartiesResponse {
   repeated PartyDetails party_details = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message ListKnownPartiesRequest {
+
+  // The id of the ``Identity Provider`` whose parties should be retrieved.
+  // Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
+  string identity_provider_id = 1;
 }
 
 message ListKnownPartiesResponse {
@@ -104,7 +114,7 @@ message ListKnownPartiesResponse {
   repeated PartyDetails party_details = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message AllocatePartyRequest {
 
   // A hint to the participant which party ID to allocate. It can be
@@ -122,6 +132,10 @@ message AllocatePartyRequest {
   // Participant-local metadata to be stored in the ``PartyDetails`` of this newly allocated party.
   // Optional
   ObjectMeta local_metadata = 3;
+
+  // The id of the ``Identity Provider``
+  // Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
+  string identity_provider_id = 4;
 }
 
 message AllocatePartyResponse {
@@ -129,7 +143,7 @@ message AllocatePartyResponse {
   PartyDetails party_details = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 // In a scenario when a party is known to this participant
 // but has been allocated through a different participant, the resource version of it might be not set on
 // this participant until after the first update RPC has been completed.
@@ -185,4 +199,8 @@ message PartyDetails {
   // Optional,
   // Modifiable
   ObjectMeta local_metadata = 4;
+
+  // The id of the ``Identity Provider``
+  // Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
+  string identity_provider_id = 5;
 }

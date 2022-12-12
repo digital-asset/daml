@@ -9,7 +9,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.Gauge
 import com.daml.metrics.api.dropwizard.{DropwizardFactory, DropwizardGauge}
-import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
+import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class IndexerMetrics(val prefix: MetricName, override val registry: MetricRegistry)
     extends DropwizardFactory {
@@ -59,7 +59,6 @@ class IndexerMetrics(val prefix: MetricName, override val registry: MetricRegist
 
   gaugeWithSupplier(
     prefix :+ "current_record_time_lag",
-    () =>
-      () => (Instant.now().toEpochMilli - lastReceivedRecordTime.getValue) -> MetricsContext.Empty,
+    () => () => Instant.now().toEpochMilli - lastReceivedRecordTime.getValue,
   )
 }

@@ -204,6 +204,10 @@ To interpret the above notation:
 - ``scope`` is a space-separated list of `OAuth 2.0 scopes <https://datatracker.ietf.org/doc/html/rfc6749#section-3.3>`_
   that must contain the ``"daml_ledger_api"`` scope
 
+Requirements for User IDs
+-------------------------
+
+User IDs must be non-empty strings of at most 128 characters that are either alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
 
 Custom Daml Claims Access Tokens
 ================================
