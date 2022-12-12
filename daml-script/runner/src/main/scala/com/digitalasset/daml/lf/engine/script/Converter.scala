@@ -759,7 +759,9 @@ object Converter {
     def toRight(constructor: String, rank: Int, value: SValue): SValue =
       SVariant(scriptIds.damlScript("UserRight"), Name.assertFromString(constructor), rank, value)
     Right(right match {
-      case UserRight.IdentityProviderAdmin => toRight("IdentityProviderAdmin", 0, SUnit)
+      case UserRight.IdentityProviderAdmin =>
+        // TODO(#15857) Add support for the `IdentityProviderAdmin` in the Daml Script
+        sys.error("IdentityProviderAdmin user right has not been supported yet")
       case UserRight.ParticipantAdmin => toRight("ParticipantAdmin", 0, SUnit)
       case UserRight.CanActAs(p) => toRight("CanActAs", 1, SParty(p))
       case UserRight.CanReadAs(p) => toRight("CanReadAs", 2, SParty(p))
@@ -771,7 +773,8 @@ object Converter {
       case SVariant(_, "ParticipantAdmin", _, SUnit) =>
         Right(UserRight.ParticipantAdmin)
       case SVariant(_, "IdentityProviderAdmin", _, SUnit) =>
-        Right(UserRight.IdentityProviderAdmin)
+        // TODO(#15857) Add support for the `IdentityProviderAdmin` in the Daml Script
+        sys.error("IdentityProviderAdmin user right has not been supported yet")
       case SVariant(_, "CanReadAs", _, v) =>
         toParty(v).map(UserRight.CanReadAs(_))
       case SVariant(_, "CanActAs", _, v) =>
