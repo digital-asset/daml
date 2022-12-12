@@ -325,7 +325,7 @@ object ContractDao {
 
   private[http] def selectContractsMultiTemplate[Pos](
       parties: domain.PartySet,
-      predicates: Seq[(domain.ContractTypeId.Resolved, doobie.Fragment)],
+      predicates: NonEmpty[Seq[(domain.ContractTypeId.Resolved, doobie.Fragment)]],
       trackMatchIndices: MatchedQueryMarker[Pos],
   )(implicit
       log: LogHandler,

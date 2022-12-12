@@ -30,7 +30,6 @@ import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.daml.jwt.domain.Jwt
 import com.daml.http.query.ValuePredicate
-import com.daml.scalautil.nonempty.NonEmpty
 import doobie.ConnectionIO
 import doobie.free.{connection => fconn}
 import doobie.syntax.string._
@@ -76,7 +75,7 @@ object WebSocketService {
       dbQuery: (domain.PartySet, dbbackend.ContractDao) => ConnectionIO[
         _ <: Vector[(domain.ActiveContract.ResolvedCtTyId[JsValue], Positive)]
       ],
-  ) extends PredicateResult[Positive]
+  )
 
   /** If an element satisfies `prefix`, consume it and emit the result alongside
     * the next element (which is not similarly tested); otherwise, emit it.
@@ -224,7 +223,7 @@ object WebSocketService {
         ledgerId: LedgerApiDomain.LedgerId,
     )(implicit
         lc: LoggingContextOf[InstanceUUID]
-    ): Future[PredicateResult[Positive]]
+    ): Future[StreamPredicate[Positive]]
 
     def renderCreatedMetadata(p: Positive): Map[String, JsValue]
 
@@ -390,7 +389,7 @@ object WebSocketService {
           ledgerId: LedgerApiDomain.LedgerId,
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
-      ): Future[PredicateResult[Positive]] = {
+      ): Future[StreamPredicate[Positive]] = {
 
         import scalaz.syntax.foldable._
         import util.Collections._
@@ -426,12 +425,12 @@ object WebSocketService {
         }
 
         def dbQueriesPlan[CtId <: domain.ContractTypeId.RequiredPkg](
-            q: Map[CtId, NonEmptyList[((ValuePredicate, LfV => Boolean), (Int, Int))]]
+            q: NonEmpty[Map[CtId, NonEmptyList[((ValuePredicate, LfV => Boolean), (Int, Int))]]]
         )(implicit
             sjd: dbbackend.SupportedJdbcDriver.TC
-        ): (Seq[(CtId, doobie.Fragment)], Map[Int, Int]) = {
+        ): (NonEmpty[Seq[(CtId, doobie.Fragment)]], Map[Int, Int]) = {
           val annotated = q.toSeq.flatMap { case (tpid, nel) =>
-            nel.toVector1.map { case ((vp, _), (_, pos)) => (tpid, vp.toSqlWhereClause, pos) }
+            nel.toVector.map { case ((vp, _), (_, pos)) => (tpid, vp.toSqlWhereClause, pos) }
           }
           val posMap = annotated.iterator.zipWithIndex.map { case ((_, _, pos), ix) =>
             (ix, pos)
