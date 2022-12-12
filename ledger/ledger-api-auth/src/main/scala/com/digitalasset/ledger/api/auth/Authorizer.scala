@@ -4,12 +4,12 @@
 package com.daml.ledger.api.auth
 
 import java.time.Instant
-
 import akka.actor.Scheduler
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
+import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -90,10 +90,16 @@ final class Authorizer(
       for {
         _ <- valid(claims)
         _ <- claims.isAdminOrIDPAdmin
+        identityProviderId <- requireValidIdentityProviderId(identityProviderId)
         _ <- validateIdentityProviderId(identityProviderId, claims)
-      } yield {
-        ()
-      }
+      } yield ()
+    }
+
+  def requireValidIdentityProviderId(
+      identityProviderId: String
+  ): Either[AuthorizationError, IdentityProviderId] =
+    IdentityProviderId.fromString(identityProviderId).left.map { error =>
+      AuthorizationError.InvalidIdentityProviderIdArgument(error)
     }
 
   def requireAdminOrIDPAdminClaims[Req, Res](
@@ -109,26 +115,25 @@ final class Authorizer(
     }
 
   private def validateIdentityProviderId(
-      identityProviderId: String,
+      identityProviderId: IdentityProviderId,
       claims: ClaimSet.Claims,
-  ): Either[AuthorizationError, Unit] = {
-    val requestIdentityProviderId = Some(identityProviderId).filter(_.nonEmpty)
-    if (claims.claims.contains(ClaimAdmin)) {
+  ): Either[AuthorizationError, Unit] =
+    if (claims.claims.contains(ClaimAdmin))
       // admin should not need check - letting it through as is
       Right(())
-    } else if (!claims.resolvedFromUser) {
+    else if (!claims.resolvedFromUser)
       // token is not being resolved from the user - letting it through as is
       Right(())
-    } else if (
-      claims.resolvedFromUser && requestIdentityProviderId.isDefined && claims.identityProviderId
-        .contains(identityProviderId)
-    ) {
-      // the user has provided idp_id, and it matches his issuer in the token
-      Right(())
-    } else {
-      Left(AuthorizationError.InvalidIdentityProviderId(claims.identityProviderId))
+    else {
+      claims.identityProviderId match {
+        case IdentityProviderId.Default =>
+          Right(()) // default IDP can do everything - pass
+        case id if id == identityProviderId =>
+          Right(()) // if it's limited and matches the request - pass
+        case id: IdentityProviderId.Id =>
+          Left(AuthorizationError.InvalidIdentityProviderId(id))
+      }
     }
-  }
 
   private[this] def requireForAll[T](
       xs: IterableOnce[T],

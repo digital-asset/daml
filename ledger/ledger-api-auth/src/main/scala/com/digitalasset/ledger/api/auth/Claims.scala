@@ -81,7 +81,7 @@ object ClaimSet {
       participantId: Option[String],
       applicationId: Option[String],
       expiration: Option[Instant],
-      identityProviderId: String,
+      identityProviderId: IdentityProviderId,
       resolvedFromUser: Boolean,
   ) extends ClaimSet {
     def validForLedger(id: String): Either[AuthorizationError, Unit] =
@@ -180,7 +180,7 @@ object ClaimSet {
       applicationId = None,
       expiration = None,
       resolvedFromUser = false,
-      identityProviderId = IdentityProviderId.Default.toRequestString,
+      identityProviderId = IdentityProviderId.Default,
     )
 
     /** A set of [[Claims]] that has all possible authorizations */

@@ -83,7 +83,7 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
         applicationId = payload.applicationId,
         expiration = payload.exp,
         resolvedFromUser = false,
-        identityProviderId = IdentityProviderId.Default.toRequestString,
+        identityProviderId = IdentityProviderId.Default,
       )
 
     case payload: StandardJWTPayload =>
