@@ -13,7 +13,7 @@ da_scala_library(
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
     ],
-    tags = ["maven_coordinates=com.daml:metrics:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:ledger-metrics:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -22,30 +22,6 @@ da_scala_library(
         "//observability/metrics",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_opentelemetry_opentelemetry_api",
-    ],
-)
-
-da_scala_library(
-    name = "metrics-test-lib",
-    srcs = glob(["src/test/lib/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest_core",
-    ],
-    tags = ["maven_coordinates=com.daml:metrics-test-lib:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    runtime_deps = [],
-    deps = [
-        ":metrics",
-        "//libs-scala/scala-utils",
-        "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:io_opentelemetry_opentelemetry_api",
-        "@maven//:io_opentelemetry_opentelemetry_context",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
-        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
