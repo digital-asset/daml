@@ -531,7 +531,7 @@ object WebSocketService {
   case class ResolvedContractKeyStreamRequest[C, V](
       resolvedQuery: ResolvedQuery,
       list: NonEmptyList[domain.ContractKeyStreamRequest[C, V]],
-      q: Map[domain.ContractTypeId.Resolved, HashSet[V]],
+      q: Map[domain.ContractTypeId.Resolved, Set[V]],
       unresolved: Set[domain.ContractTypeId.OptionalPkg],
   )
 
@@ -600,8 +600,8 @@ object WebSocketService {
     )(implicit
         lc: LoggingContextOf[InstanceUUID]
     ): Future[Error \/ ResolvedQueryRequest[_]] = {
-      def getQ[K, V](resolvedWithKey: Set[(K, V)]): Map[K, HashSet[V]] =
-        resolvedWithKey.to(HashSet).groupMap(_._1)(_._2)
+      def getQ[K, V](resolvedWithKey: Set[(K, V)]): Map[K, Set[V]] =
+        resolvedWithKey.groupMap(_._1)(_._2)
 
       request.toList
         .traverse { x: CKR[LfV] =>
@@ -635,17 +635,17 @@ object WebSocketService {
         lc: LoggingContextOf[InstanceUUID]
     ): Future[StreamPredicate[Positive]] = {
       def fn(
-          q: Map[domain.ContractTypeId.Resolved, HashSet[LfV]]
+          q: Map[domain.ContractTypeId.Resolved, Set[LfV]]
       ): (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Positive] = {
         (a, _) =>
           a.key match {
             case None => None
             case Some(k) =>
-              if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
+              if (q.get(a.templateId).exists(_ contains k)) Some(()) else None
           }
       }
       def dbQueries[CtId <: domain.ContractTypeId.RequiredPkg](
-          q: Map[CtId, HashSet[LfV]]
+          q: Map[CtId, Set[LfV]]
       )(implicit
           sjd: dbbackend.SupportedJdbcDriver.TC
       ): Seq[(CtId, doobie.Fragment)] =
