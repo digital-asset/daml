@@ -33,16 +33,16 @@ class ExecutorServiceMetrics(factory: Factory) {
 
   def monitorForkJoin(name: String, executor: ForkJoinPool): Unit = {
     MetricsContext.withMetricLabels("name" -> name, "type" -> "fork_join") { implicit mc =>
-      poolSizeGauge(executor.getPoolSize)
-      activeThreadsGauge(executor.getActiveThreadCount)
+      poolSizeGauge(() => executor.getPoolSize)
+      activeThreadsGauge(() => executor.getActiveThreadCount)
       factory.gaugeWithSupplier(
         ThreadsMetricsPrefix :+ "running",
-        executor.getRunningThreadCount,
+        () => executor.getRunningThreadCount,
         "estimate of the number of worker threads that are not blocked waiting to join tasks or for other managed synchronization.",
       )
       factory.gaugeWithSupplier(
         TasksMetricPrefix :+ "stolen",
-        executor.getStealCount,
+        () => executor.getStealCount,
         "Estimate of the total number of completed tasks that were executed by a thread other than their submitter.",
       )
       // The following 2 gauges are very similar, but the `getQueuedTaskCount` returns only the queue sizes starting
@@ -50,46 +50,46 @@ class ExecutorServiceMetrics(factory: Factory) {
       // to a worker.
       factory.gaugeWithSupplier(
         TasksMetricPrefix :+ "executing" :+ "queued",
-        executor.getQueuedTaskCount,
+        () => executor.getQueuedTaskCount,
         "Estimate of the total number of tasks currently held in queues by worker threads (but not including tasks submitted to the pool that have not begun executing).",
       )
-      queuedTasksGauge(executor.getQueuedSubmissionCount)
+      queuedTasksGauge(() => executor.getQueuedSubmissionCount)
     }
   }
 
   def monitorThreadPool(name: String, executor: ThreadPoolExecutor): Unit = {
     MetricsContext.withMetricLabels("name" -> name, "type" -> "thread_pool") { implicit mc =>
-      poolSizeGauge(executor.getPoolSize)
+      poolSizeGauge(() => executor.getPoolSize)
       factory.gaugeWithSupplier(
         PoolMetricsPrefix :+ "core",
-        executor.getCorePoolSize,
+        () => executor.getCorePoolSize,
         "Core number of threads.",
       )
       factory.gaugeWithSupplier(
         PoolMetricsPrefix :+ "max",
-        executor.getMaximumPoolSize,
+        () => executor.getMaximumPoolSize,
         "Maximum allowed number of threads.",
       )
       factory.gaugeWithSupplier(
         PoolMetricsPrefix :+ "largest",
-        executor.getMaximumPoolSize,
+        () => executor.getMaximumPoolSize,
         "Largest number of threads that have ever simultaneously been in the pool.",
       )
-      activeThreadsGauge(executor.getActiveCount)
+      activeThreadsGauge(() => executor.getActiveCount)
       factory.gaugeWithSupplier(
         TasksMetricPrefix :+ "completed",
-        executor.getCompletedTaskCount,
+        () => executor.getCompletedTaskCount,
         "Approximate total number of tasks that have completed execution.",
       )
       factory.gaugeWithSupplier(
         TasksMetricPrefix :+ "submitted",
-        executor.getTaskCount,
+        () => executor.getTaskCount,
         "Approximate total number of tasks that have ever been scheduled for execution.",
       )
-      queuedTasksGauge(executor.getQueue.size)
+      queuedTasksGauge(() => executor.getQueue.size)
       factory.gaugeWithSupplier(
         TasksMetricPrefix :+ "queue" :+ "remaining",
-        executor.getQueue.remainingCapacity,
+        () => executor.getQueue.remainingCapacity,
         "Additional elements that this queue can ideally accept without blocking.",
       )
     }
