@@ -23,47 +23,29 @@ private[daml] final class PartyManagementServiceAuthorization(
   override def getParticipantId(
       request: GetParticipantIdRequest
   ): Future[GetParticipantIdResponse] =
-    authorizer.requireAdminOrIDPAdminClaims(service.getParticipantId)(request)
+    authorizer.requireAdminClaims(service.getParticipantId)(request)
 
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
-    authorizer.requireIDPContext(
-      request.identityProviderId,
-      authorizer.requireAdminOrIDPAdminClaims(service.getParties),
-    )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
-      request
-    )
+    authorizer.requireIDPContext(request.identityProviderId, service.getParties)(request)
 
   override def listKnownParties(
       request: ListKnownPartiesRequest
   ): Future[ListKnownPartiesResponse] =
-    authorizer.requireIDPContext(
-      request.identityProviderId,
-      authorizer.requireAdminOrIDPAdminClaims(service.listKnownParties),
-    )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
-      request
-    )
+    authorizer.requireIDPContext(request.identityProviderId, service.listKnownParties)(request)
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
-    authorizer.requireIDPContext(
-      request.identityProviderId,
-      authorizer.requireAdminOrIDPAdminClaims(service.allocateParty),
-    )((identityProviderId, request) => request.copy(identityProviderId = identityProviderId))(
-      request
-    )
+    authorizer.requireIDPContext(request.identityProviderId, service.allocateParty)(request)
 
   override def updatePartyDetails(
       request: UpdatePartyDetailsRequest
-  ): Future[UpdatePartyDetailsResponse] =
-    authorizer.requireIDPContext(
-      request.partyDetails.map(_.identityProviderId).getOrElse(""),
-      authorizer.requireAdminOrIDPAdminClaims(service.updatePartyDetails),
-    )((identityProviderId, request) =>
-      request.copy(partyDetails =
-        request.partyDetails.map(_.copy(identityProviderId = identityProviderId))
+  ): Future[UpdatePartyDetailsResponse] = request.partyDetails match {
+    case Some(partyDetails) =>
+      authorizer.requireIDPContext(partyDetails.identityProviderId, service.updatePartyDetails)(
+        request
       )
-    )(
-      request
-    )
+    case None =>
+      authorizer.requireAdminOrIDPAdminClaims(service.updatePartyDetails)(request)
+  }
 
   override def bindService(): ServerServiceDefinition =
     PartyManagementServiceGrpc.bindService(this, executionContext)
