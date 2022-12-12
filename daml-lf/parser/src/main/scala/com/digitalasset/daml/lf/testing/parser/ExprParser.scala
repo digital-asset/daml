@@ -468,6 +468,11 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       UpdateFetchInterface(iface, e)
     }
 
+  private lazy val updateActingAsConsortium =
+    Id("acting_as_consortium") ~> expr0 ~ expr0 ^^ { case ms ~ c =>
+      UpdateActingAsConsortium(ms, c)
+    }
+
   private lazy val updateExercise =
     Id("exercise") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ { case t ~ choice ~ cid ~ arg =>
       UpdateExercise(t, choice, cid, arg)
@@ -522,6 +527,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       updateCreateInterface |
       updateFetch |
       updateFetchInterface |
+      updateActingAsConsortium |
       updateExercise |
       updateExerciseInterface |
       updateExerciseInterfaceWithGuard |
