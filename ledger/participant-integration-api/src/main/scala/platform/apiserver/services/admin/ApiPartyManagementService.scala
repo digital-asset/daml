@@ -161,6 +161,12 @@ private[apiserver] final class ApiPartyManagementService private (
         metadataO = recordO.map(_.metadata),
         recordO.map(_.identityProviderId),
       )
+    case (details, _) if identityProviderId == IdentityProviderId.Default =>
+      toProtoPartyDetails(
+        partyDetails = details,
+        metadataO = None,
+        None,
+      )
   }
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
