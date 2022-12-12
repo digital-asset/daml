@@ -79,7 +79,7 @@ class Endpoints(
   import userManagement._
 
   private[this] val packagesDars: endpoints.PackagesAndDars =
-    new endpoints.PackagesAndDars(packageManagementService)
+    new endpoints.PackagesAndDars(routeSetup, packageManagementService)
   import packagesDars._
 
   private[this] val meteringReportEndpoint =
@@ -159,31 +159,6 @@ class Endpoints(
         RouteSetup.handleFutureEitherFailure(fn(jwt, ledgerId).run)
       ): ET[domain.SyncResponse[Res]]
     } yield res
-    responseToRoute(httpResponse(res))
-  }
-
-  private def toUploadDarFileRoute(httpRequest: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: HttpJsonApiMetrics,
-      mkHttpResponse: MkHttpResponse[ET[domain.SyncResponse[Unit]]],
-  ): Route = {
-    val res: ET[domain.SyncResponse[Unit]] = for {
-      parseAndDecodeTimer <- routeSetup.getParseAndDecodeTimerCtx()
-      _ <- EitherT.pure(metrics.uploadPackagesThroughput.mark())
-      t2 <- eitherT(routeSetup.inputSource(httpRequest))
-      (jwt, payload, source) = t2
-      _ <- EitherT.pure(parseAndDecodeTimer.stop())
-
-      _ <- eitherT(
-        RouteSetup.handleFutureFailure(
-          packageManagementService.uploadDarFile(
-            jwt,
-            toLedgerId(payload.ledgerId),
-            source.mapMaterializedValue(_ => NotUsed),
-          )
-        )
-      ): ET[Unit]
-    } yield domain.OkResponse(())
     responseToRoute(httpResponse(res))
   }
 
@@ -382,7 +357,7 @@ class Endpoints(
             req,
             allocateParty,
           ),
-          path("packages") apply toUploadDarFileRoute(req),
+          path("packages") apply toRoute(uploadDarFile(req)),
           path("metering-report") apply toPostRoute(req, meteringReportEndpoint.generateReport),
         ),
         get apply concat(
