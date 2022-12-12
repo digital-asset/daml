@@ -502,50 +502,69 @@ private[lf] class Runner private (
   )(implicit
       triggerContext: TriggerLogContext
   ): UnfoldState[SValue, TriggerContext[SubmitRequest]] = {
-    def evaluate(se: SExpr): SValue = {
-      val machine: Speedy.OffLedgerMachine =
-        Speedy.Machine.fromPureSExpr(compiledPackages, se)
-      // Evaluate it.
-      machine.setExpressionToEvaluate(se)
-      Machine.stepToValue(machine)
-    }
-    type Termination = SValue \/ (TriggerContext[SubmitRequest], SValue)
-    @tailrec def go(v: SValue): Termination = {
-      val resumed: Termination Either SValue = unrollFree(v) match {
-        case Right(Right(vvv @ (variant, vv))) =>
-          // Must be kept in-sync with the DAML code LowLevel#TriggerF
-          vvv.match2 {
-            case "GetTime" /*(Time -> a)*/ => { case DamlFun(timeA) =>
-              Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
-            }
-            case "Submit" /*([Command], Text -> a)*/ => {
-              case DamlTuple2(sCommands, DamlFun(textA)) =>
-                val commands = converter.toCommands(sCommands).orConverterException
-                val (commandUUID, submitRequest) = handleCommands(commands)
-                Left(
-                  \/-(
-                    (
-                      Ctx(triggerContext, submitRequest),
-                      evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))),
-                    )
-                  ): Termination
-                )
-            }
-            case _ =>
-              triggerContext.logError("Unrecognised TriggerF step", "variant" -> variant)
-              throw new ConverterException(s"unrecognized TriggerF step $variant")
-          }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
-        case Right(Left(newState)) => Left(-\/(newState))
-        case Left(e) => throw new ConverterException(e)
+    triggerContext.childSpan("step") { implicit triggerContext: TriggerLogContext =>
+      triggerContext.logTrace("Initial step", "state" -> v)
+
+      def evaluate(se: SExpr): SValue = {
+        val machine: Speedy.OffLedgerMachine =
+          Speedy.Machine.fromPureSExpr(compiledPackages, se)
+        // Evaluate it.
+        machine.setExpressionToEvaluate(se)
+        Machine.stepToValue(machine)
       }
 
-      resumed match {
-        case Left(newState) => newState
-        case Right(suspended) => go(suspended)
-      }
-    }
+      type Termination = SValue \/ (TriggerContext[SubmitRequest], SValue)
+      @tailrec def go(v: SValue): Termination = {
+        val resumed: Termination Either SValue = unrollFree(v) match {
+          case Right(Right(vvv @ (variant, vv))) =>
+            // Must be kept in-sync with the DAML code LowLevel#TriggerF
+            vvv.match2 {
+              case "GetTime" /*(Time -> a)*/ => { case DamlFun(timeA) =>
+                Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
+              }
+              case "Submit" /*([Command], Text -> a)*/ => {
+                case DamlTuple2(sCommands, DamlFun(textA)) =>
+                  val commands = converter.toCommands(sCommands).orConverterException
+                  val (commandUUID, submitRequest) = handleCommands(commands)
+                  Left(
+                    \/-(
+                      (
+                        Ctx(triggerContext, submitRequest),
+                        evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))),
+                      )
+                    ): Termination
+                  )
+              }
+              case _ =>
+                triggerContext.logError("Unrecognised TriggerF step", "variant" -> variant)
+                throw new ConverterException(s"unrecognized TriggerF step $variant")
+            }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
+          case Right(Left(newState)) => Left(-\/(newState))
+          case Left(e) => throw new ConverterException(e)
+        }
 
-    UnfoldState(v)(go)
+        resumed match {
+          case Left(newState) => newState
+          case Right(suspended) => go(suspended)
+        }
+      }
+
+      UnfoldState(v)({ state =>
+        go(state) match {
+          case next @ -\/(state) =>
+            triggerContext.logTrace("Final step", "state" -> state)
+            next
+
+          case next @ \/-((request, state)) =>
+            triggerContext.logTrace(
+              "Next step",
+              "state" -> state,
+              "submission" -> request.value.getCommands.commands,
+            )
+            next
+        }
+      })
+    }
   }
 
   // This function produces a source of trigger messages,
@@ -959,6 +978,8 @@ private[lf] class Runner private (
             "in-flight-commands" -> inFlightCommands.count,
             "max-in-flight-commands" -> triggerConfig.maxInFlightCommands,
           )
+
+          inFlightCommands.remove(UUID.fromString(request.getCommands.commandId))(context)
 
           Ctx(
             context,
