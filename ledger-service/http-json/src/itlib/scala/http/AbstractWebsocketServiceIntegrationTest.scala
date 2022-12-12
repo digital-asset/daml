@@ -62,7 +62,10 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
     with BeforeAndAfterAll {
 
   private val authorizationSecurity =
-    SecurityTest(property = Authorization, asset = s"WebsocketService $integration")
+    SecurityTest(
+      property = Authorization,
+      asset = s"HTTP JSON API Service: WebsocketService $integration",
+    )
 
   private def attackUnauthorized(threat: String): Attack = Attack(
     actor = s"Websocket client",
