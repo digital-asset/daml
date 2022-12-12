@@ -21,26 +21,18 @@ import com.daml.platform.store.backend.Conversions.{
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.dao.events.Raw
 import com.daml.platform.store.backend.EventStorageBackend
-import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
-import com.daml.platform.store.backend.EventStorageBackend.RawTransactionEvent
+import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RawTransactionEvent}
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interning.StringInterning
 
 import scala.collection.immutable.ArraySeq
 
-abstract class EventStorageBackendTemplate(
-    eventStrategy: EventStrategy,
-    queryStrategy: QueryStrategy,
-    ledgerEndCache: LedgerEndCache,
-    stringInterning: StringInterning,
-    // This method is needed in pruneEvents, but belongs to [[ParameterStorageBackend]].
-    participantAllDivulgedContractsPrunedUpToInclusive: Connection => Option[Offset],
-) extends EventStorageBackend {
+object EventStorageBackendTemplate {
   import com.daml.platform.store.backend.Conversions.ArrayColumnToIntArray._
   import com.daml.platform.store.backend.Conversions.ArrayColumnToStringArray._
 
-  private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+  // TOOD etq: Move non-private members to the top
 
   private val baseColumnsForFlatTransactionsCreate =
     Seq(
@@ -88,10 +80,10 @@ abstract class EventStorageBackendTemplate(
       "NULL as driver_metadata",
     )
 
-  private val selectColumnsForFlatTransactionsCreate =
+  val selectColumnsForFlatTransactionsCreate: String =
     baseColumnsForFlatTransactionsCreate.mkString(", ")
 
-  private val selectColumnsForFlatTransactionsExercise =
+  val selectColumnsForFlatTransactionsExercise: String =
     baseColumnsForFlatTransactionsExercise.mkString(", ")
 
   private val selectColumnsForACSEvents =
@@ -153,7 +145,8 @@ abstract class EventStorageBackendTemplate(
   private val archivedEventRow: RowParser[ArchiveEventRow] = sharedRow
 
   private def createdFlatEventParser(
-      allQueryingParties: Set[Int]
+      allQueryingParties: Set[Int],
+      stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.FlatEvent.Created]] =
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
@@ -202,7 +195,8 @@ abstract class EventStorageBackendTemplate(
     }
 
   private def archivedFlatEventParser(
-      allQueryingParties: Set[Int]
+      allQueryingParties: Set[Int],
+      stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.FlatEvent.Archived]] =
     archivedEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters =>
@@ -234,13 +228,18 @@ abstract class EventStorageBackendTemplate(
         )
     }
 
-  private def rawFlatEventParser(
-      allQueryingParties: Set[Int]
+  def rawFlatEventParser(
+      allQueryingParties: Set[Int],
+      stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.FlatEvent]] =
-    createdFlatEventParser(allQueryingParties) | archivedFlatEventParser(allQueryingParties)
+    createdFlatEventParser(allQueryingParties, stringInterning) | archivedFlatEventParser(
+      allQueryingParties,
+      stringInterning,
+    )
 
   private def createdTreeEventParser(
-      allQueryingParties: Set[Int]
+      allQueryingParties: Set[Int],
+      stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ driverMetadata =>
@@ -287,7 +286,8 @@ abstract class EventStorageBackendTemplate(
     }
 
   private def exercisedTreeEventParser(
-      allQueryingParties: Set[Int]
+      allQueryingParties: Set[Int],
+      stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Exercised]] =
     exercisedEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ exerciseConsuming ~ qualifiedChoiceName ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds =>
@@ -332,12 +332,16 @@ abstract class EventStorageBackendTemplate(
         )
     }
 
-  private def rawTreeEventParser(
-      allQueryingParties: Set[Int]
+  def rawTreeEventParser(
+      allQueryingParties: Set[Int],
+      stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent]] =
-    createdTreeEventParser(allQueryingParties) | exercisedTreeEventParser(allQueryingParties)
+    createdTreeEventParser(allQueryingParties, stringInterning) | exercisedTreeEventParser(
+      allQueryingParties,
+      stringInterning,
+    )
 
-  private val selectColumnsForTransactionTreeCreate = Seq(
+  val selectColumnsForTransactionTreeCreate: String = Seq(
     "event_offset",
     "transaction_id",
     "node_index",
@@ -366,7 +370,7 @@ abstract class EventStorageBackendTemplate(
     "driver_metadata",
   ).mkString(", ")
 
-  private val selectColumnsForTransactionTreeExercise = Seq(
+  val selectColumnsForTransactionTreeExercise: String = Seq(
     "event_offset",
     "transaction_id",
     "node_index",
@@ -394,6 +398,27 @@ abstract class EventStorageBackendTemplate(
     "submitters",
     "NULL as driver_metadata",
   ).mkString(", ")
+
+}
+
+abstract class EventStorageBackendTemplate(
+    eventStrategy: EventStrategy,
+    queryStrategy: QueryStrategy,
+    ledgerEndCache: LedgerEndCache,
+    stringInterning: StringInterning,
+    // This method is needed in pruneEvents, but belongs to [[ParameterStorageBackend]].
+    participantAllDivulgedContractsPrunedUpToInclusive: Connection => Option[Offset],
+) extends EventStorageBackend {
+  import com.daml.platform.store.backend.Conversions.ArrayColumnToIntArray._
+  import EventStorageBackendTemplate._
+
+  private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+
+  override def transactionStreamingQueries: TransactionStreamingQueries =
+    new TransactionStreamingQueries(
+      queryStrategy = queryStrategy,
+      stringInterning = stringInterning,
+    )
 
   private def events[T](
       joinClause: CompositeSql,
@@ -474,73 +499,6 @@ abstract class EventStorageBackendTemplate(
     }
   }
 
-  override def transactionEvents(
-      rangeParams: RangeParams,
-      filterParams: FilterParams,
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
-    events(
-      joinClause = cSQL"",
-      additionalAndClause = cSQL"""
-            event_sequential_id > ${rangeParams.startExclusive} AND
-            event_sequential_id <= ${rangeParams.endInclusive} AND""",
-      rowParser = rawFlatEventParser,
-      witnessesColumn = "flat_event_witnesses",
-      partitions = List(
-        "participant_events_create" -> selectColumnsForFlatTransactionsCreate,
-        "participant_events_consuming_exercise" -> selectColumnsForFlatTransactionsExercise,
-        // Note: previously we used divulgence events, however they don't have flat event witnesses and were thus never included anyway
-        // "participant_events_divulgence" -> selectColumnsForFlatTransactionsDivulgence,
-      ),
-    )(
-      limit = rangeParams.limit,
-      fetchSizeHint = rangeParams.fetchSizeHint,
-      filterParams,
-    )(connection)
-  }
-
-  override def activeContractEventIds(
-      partyFilter: Ref.Party,
-      templateIdFilter: Option[Ref.Identifier],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long] = {
-    (
-      stringInterning.party.tryInternalize(partyFilter),
-      templateIdFilter.map(stringInterning.templateId.tryInternalize),
-    ) match {
-      case (None, _) => Vector.empty // partyFilter never seen
-      case (_, Some(None)) => Vector.empty // templateIdFilter never seen
-      case (Some(internedPartyFilter), internedTemplateIdFilterNested) =>
-        val (templateIdFilterClause, templateIdOrderingClause) =
-          internedTemplateIdFilterNested.flatten // flatten works for both None, Some(Some(x)) case, Some(None) excluded before
-          match {
-            case Some(internedTemplateId) =>
-              (
-                cSQL"AND filters.template_id = $internedTemplateId",
-                cSQL"filters.template_id,",
-              )
-            case None => (cSQL"", cSQL"")
-          }
-        SQL"""
-         SELECT filters.event_sequential_id
-         FROM
-           pe_create_id_filter_stakeholder filters
-         WHERE
-           filters.party_id = $internedPartyFilter
-           $templateIdFilterClause
-           AND $startExclusive < event_sequential_id
-           AND event_sequential_id <= $endInclusive
-         ORDER BY
-           filters.party_id,
-           $templateIdOrderingClause
-           filters.event_sequential_id -- deliver in index order
-         ${QueryStrategy.limitClause(Some(limit))}
-       """
-          .asVectorOf(long("event_sequential_id"))(connection)
-    }
-  }
-
   override def activeContractEventBatch(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Ref.Party],
@@ -569,7 +527,7 @@ abstract class EventStorageBackendTemplate(
       ORDER BY
         create_evs.event_sequential_id -- deliver in index order
       """
-      .asVectorOf(rawFlatEventParser(allInternedFilterParties))(connection)
+      .asVectorOf(rawFlatEventParser(allInternedFilterParties, stringInterning))(connection)
   }
 
   override def flatTransaction(
@@ -585,7 +543,7 @@ abstract class EventStorageBackendTemplate(
             AND event_offset <= $ledgerEndOffset""",
       additionalAndClause = cSQL"""
             transaction_id = $transactionId AND""",
-      rowParser = rawFlatEventParser,
+      rowParser = rawFlatEventParser(_, stringInterning),
       witnessesColumn = "flat_event_witnesses",
       partitions = List(
         // we do not want to fetch divulgence events
@@ -597,33 +555,6 @@ abstract class EventStorageBackendTemplate(
       limit = None,
       fetchSizeHint = None,
       filterParams = filterParams,
-    )(connection)
-  }
-
-  override def transactionTreeEvents(
-      rangeParams: RangeParams,
-      filterParams: FilterParams,
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
-    events(
-      joinClause = cSQL"",
-      additionalAndClause = cSQL"""
-            event_sequential_id > ${rangeParams.startExclusive} AND
-            event_sequential_id <= ${rangeParams.endInclusive} AND""",
-      rowParser = rawTreeEventParser,
-      witnessesColumn = "tree_event_witnesses",
-      partitions = List(
-        // we do not want to fetch divulgence events
-        "participant_events_create" -> s"$selectColumnsForTransactionTreeCreate, ${queryStrategy
-            .constBooleanSelect(false)} as exercise_consuming",
-        "participant_events_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-            .constBooleanSelect(true)} as exercise_consuming",
-        "participant_events_non_consuming_exercise" -> s"$selectColumnsForTransactionTreeExercise, ${queryStrategy
-            .constBooleanSelect(false)} as exercise_consuming",
-      ),
-    )(
-      limit = rangeParams.limit,
-      fetchSizeHint = rangeParams.fetchSizeHint,
-      filterParams,
     )(connection)
   }
 
@@ -640,7 +571,7 @@ abstract class EventStorageBackendTemplate(
             AND event_offset <= $ledgerEndOffset""",
       additionalAndClause = cSQL"""
             transaction_id = $transactionId AND""",
-      rowParser = rawTreeEventParser,
+      rowParser = rawTreeEventParser(_, stringInterning),
       witnessesColumn = "tree_event_witnesses",
       partitions = List(
         // we do not want to fetch divulgence events
@@ -658,7 +589,21 @@ abstract class EventStorageBackendTemplate(
     )(connection)
   }
 
-  // This method is too complex for StorageBackend.
+  // TODO etq: Implement pruning queries in terms of event sequential id in order to be able to drop offset based indices.
+  /** Deletes a subset of the indexed data (up to the pruning offset) in the following order and in the manner specified:
+    * 1.a if pruning-all-divulged-contracts is enabled: all divulgence events (retroactive divulgence),
+    * 1.b otherwise: divulgence events for which there are archive events (retroactive divulgence),
+    * 2. entries from filter for create stakeholders for there is an archive for the corresponding create event,
+    * 3. entries from filter for create non-stakeholder informees for there is an archive for the corresponding create event,
+    * 4. all entries from filter for consuming stakeholders,
+    * 5. all entries from filter for consuming non-stakeholders informees,
+    * 6. all entries from filter for non-consuming informees,
+    * 7. create events table for which there is an archive event,
+    * 8. if pruning-all-divulged-contracts is enabled: create contracts which did not have a locally hosted party before their creation offset (immediate divulgence),
+    * 9. all consuming events,
+    * 10. all non-consuming events,
+    * 11. transaction meta entries for which there exists at least one create event.
+    */
   override def pruneEvents(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
@@ -692,9 +637,7 @@ abstract class EventStorageBackendTemplate(
       }(connection, loggingContext)
     }
 
-    pruneWithLogging(queryDescription = "Create events filter table pruning") {
-      eventStrategy.pruneCreateFilters(pruneUpToInclusive)
-    }(connection, loggingContext)
+    pruneIdFilterTables(pruneUpToInclusive)(connection, loggingContext)
 
     pruneWithLogging(queryDescription = "Create events pruning") {
       SQL"""
@@ -753,6 +696,31 @@ abstract class EventStorageBackendTemplate(
           delete from participant_events_non_consuming_exercise delete_events
           where
             delete_events.event_offset <= $pruneUpToInclusive"""
+    }(connection, loggingContext)
+
+    pruneWithLogging(queryDescription = "transaction meta pruning") {
+      pruneTransactionMeta(pruneUpToInclusive = pruneUpToInclusive)
+    }(connection, loggingContext)
+  }
+
+  private def pruneIdFilterTables(pruneUpToInclusive: Offset)(
+      connection: Connection,
+      loggingContext: LoggingContext,
+  ): Unit = {
+    pruneWithLogging("Pruning id filter create stakeholder table") {
+      pruneIdFilterCreateStakeholder(pruneUpToInclusive)
+    }(connection, loggingContext)
+    pruneWithLogging("Pruning id filter create non-stakeholder informee table") {
+      pruneIdFilterCreateNonStakeholderInformee(pruneUpToInclusive)
+    }(connection, loggingContext)
+    pruneWithLogging("Pruning id filter consuming stakeholder table") {
+      pruneIdFilterConsumingStakeholder(pruneUpToInclusive)
+    }(connection, loggingContext)
+    pruneWithLogging("Pruning id filter consuming non-stakeholders informee table") {
+      pruneIdFilterConsumingNonStakeholderInformee(pruneUpToInclusive)
+    }(connection, loggingContext)
+    pruneWithLogging("Pruning id filter non-consuming informee table") {
+      pruneIdFilterNonConsumingInformee(pruneUpToInclusive)
     }(connection, loggingContext)
   }
 
@@ -955,19 +923,123 @@ abstract class EventStorageBackendTemplate(
       offset: Offset
   )(connection: Connection): Option[Long] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
-    def selectFrom(table: String) = cSQL"""
-      SELECT max(event_sequential_id) AS max_esi FROM #$table
-      WHERE event_offset = (select max(event_offset) from #$table where event_offset <= $offset)
-    """
-    SQL"""SELECT max(max_esi) FROM (
-      (${selectFrom("participant_events_consuming_exercise")})
-      UNION ALL
-      (${selectFrom("participant_events_create")})
-      UNION ALL
-      (${selectFrom("participant_events_non_consuming_exercise")})
-    ) participant_events"""
-      .as(get[Long](1).?.single)(connection)
+    SQL"""
+         SELECT
+            event_sequential_id_last
+         FROM
+            participant_transaction_meta
+         WHERE
+            event_offset = (SELECT MAX(event_offset) FROM participant_transaction_meta WHERE event_offset <= $offset)
+       """.as(get[Long](1).singleOpt)(connection)
   }
+
+  private def pruneIdFilterCreateStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row] =
+    pruneIdFilterCreate(
+      tableName = "pe_create_id_filter_stakeholder",
+      pruneUpToInclusive = pruneUpToInclusive,
+    )
+
+  private def pruneIdFilterCreateNonStakeholderInformee(
+      pruneUpToInclusive: Offset
+  ): SimpleSql[Row] =
+    pruneIdFilterCreate(
+      tableName = "pe_create_id_filter_non_stakeholder_informee",
+      pruneUpToInclusive = pruneUpToInclusive,
+    )
+
+  private def pruneIdFilterConsumingStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row] =
+    pruneIdFilterConsumingOrNonConsuming(
+      idFilterTableName = "pe_consuming_id_filter_stakeholder",
+      eventsTableName = "participant_events_consuming_exercise",
+      pruneUpToInclusive = pruneUpToInclusive,
+    )
+
+  private def pruneIdFilterConsumingNonStakeholderInformee(
+      pruneUpToInclusive: Offset
+  ): SimpleSql[Row] = {
+    pruneIdFilterConsumingOrNonConsuming(
+      idFilterTableName = "pe_consuming_id_filter_non_stakeholder_informee",
+      eventsTableName = "participant_events_consuming_exercise",
+      pruneUpToInclusive = pruneUpToInclusive,
+    )
+  }
+
+  private def pruneIdFilterNonConsumingInformee(pruneUpToInclusive: Offset): SimpleSql[Row] =
+    pruneIdFilterConsumingOrNonConsuming(
+      idFilterTableName = "pe_non_consuming_id_filter_informee",
+      eventsTableName = "participant_events_non_consuming_exercise",
+      pruneUpToInclusive = pruneUpToInclusive,
+    )
+
+  /** Callers can call it only once pruning of create, consuming and non-consuming event tables has already finished.
+    * The implementation assumes that these tables have already been pruned.
+    */
+  private def pruneTransactionMeta(pruneUpToInclusive: Offset): SimpleSql[Row] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+         DELETE FROM
+            participant_transaction_meta m
+         WHERE
+          m.event_offset <= $pruneUpToInclusive
+          AND
+          NOT EXISTS (
+            SELECT 1 FROM participant_events_create c
+            WHERE
+              c.event_sequential_id >= m.event_sequential_id_first
+              AND
+              c.event_sequential_id <= m.event_sequential_id_last
+          )
+       """
+  }
+
+  // TODO etq: Currently we query two additional tables: create and consuming events tables.
+  //           This can be simplified to query only the create events table if we impose the ordering
+  //           that create events tables has already been pruned.
+  /** Prunes create events id filter table only for contracts archived before the specified offset
+    */
+  private def pruneIdFilterCreate(tableName: String, pruneUpToInclusive: Offset): SimpleSql[Row] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+          DELETE FROM
+            #$tableName id_filter
+          WHERE EXISTS (
+            SELECT * from participant_events_create c
+            WHERE
+            c.event_offset <= $pruneUpToInclusive
+            AND
+            EXISTS (
+              SELECT 1 FROM participant_events_consuming_exercise archive
+              WHERE
+                archive.event_offset <= $pruneUpToInclusive
+                AND
+                archive.contract_id = c.contract_id
+              )
+            AND
+            c.event_sequential_id = id_filter.event_sequential_id
+          )"""
+  }
+
+  // TODO etq: Currently we query an events table to discover the event offset corresponding to a row from the id filter
+  //           table. This query can simplified not to query the events table at all if we pruned by the event sequential
+  //           id rather than by the event offset.
+  private def pruneIdFilterConsumingOrNonConsuming(
+      idFilterTableName: String,
+      eventsTableName: String,
+      pruneUpToInclusive: Offset,
+  ): SimpleSql[Row] = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    SQL"""
+          DELETE FROM
+            #$idFilterTableName id_filter
+          WHERE EXISTS (
+            SELECT * FROM #$eventsTableName events
+          WHERE
+            events.event_offset <= $pruneUpToInclusive
+            AND
+            events.event_sequential_id = id_filter.event_sequential_id
+          )"""
+  }
+
 }
 
 /** This encapsulates the moving part as composing various Events queries.

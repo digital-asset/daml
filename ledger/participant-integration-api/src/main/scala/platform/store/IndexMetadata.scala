@@ -12,7 +12,11 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
-import com.daml.platform.configuration.ServerRole
+import com.daml.platform.configuration.{
+  ServerRole,
+  TransactionsFlatStreamReaderConfig,
+  TransactionsTreeStreamReaderConfig,
+}
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
@@ -88,6 +92,10 @@ object IndexMetadata {
           participantId = Ref.ParticipantId.assertFromString("1"),
           ledgerEndCache = MutableLedgerEndCache(), // not used
           stringInterning = new StringInterningView(), // not used
+          transactionsFlatStreamReaderConfig = TransactionsFlatStreamReaderConfig.default,
+          transactionsTreeStreamReaderConfig = TransactionsTreeStreamReaderConfig.default,
+          globalMaxEventIdQueries = 20,
+          globalMaxEventPayloadQueries = 10,
         )
       )
   }

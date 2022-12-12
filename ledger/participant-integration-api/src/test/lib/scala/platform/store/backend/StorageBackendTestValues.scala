@@ -122,12 +122,15 @@ private[backend] object StorageBackendTestValues {
       contractId: ContractId,
       signatory: String = "signatory",
       observer: String = "observer",
+      nonStakeholderInformees: Set[String] = Set.empty,
       commandId: String = UUID.randomUUID().toString,
       ledgerEffectiveTime: Option[Timestamp] = Some(someTime),
       driverMetadata: Option[Array[Byte]] = None,
       keyHash: Option[String] = None,
   ): DbDto.EventCreate = {
     val transactionId = transactionIdFromOffset(offset)
+    val stakeholders = Set(signatory, observer)
+    val informees = stakeholders ++ nonStakeholderInformees
     DbDto.EventCreate(
       event_offset = Some(offset.toHexString),
       transaction_id = Some(transactionId),
@@ -140,8 +143,8 @@ private[backend] object StorageBackendTestValues {
       event_id = Some(EventId(transactionId, NodeId(0)).toLedgerString),
       contract_id = contractId.coid,
       template_id = Some(someTemplateId.toString),
-      flat_event_witnesses = Set(signatory, observer),
-      tree_event_witnesses = Set(signatory, observer),
+      flat_event_witnesses = stakeholders,
+      tree_event_witnesses = informees,
       create_argument = Some(someSerializedDamlLfValue),
       create_signatories = Some(Set(signatory)),
       create_observers = Some(Set(observer)),
