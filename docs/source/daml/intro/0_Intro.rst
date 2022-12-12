@@ -17,20 +17,3 @@ Prerequisites:
 - You have installed the :doc:`Daml SDK </getting-started/installation>`
 
 Next: :doc:`1_Token`.
-
-.. toctree::
-  :maxdepth: 2
-  :hidden:
-
-  1_Token
-  2_DamlScript
-  3_Data
-  4_Transformations
-  5_Restrictions
-  6_Parties
-  7_Composing
-  8_Exceptions
-  9_Dependencies
-  10_Functional101
-  11_StdLib
-  12_Testing

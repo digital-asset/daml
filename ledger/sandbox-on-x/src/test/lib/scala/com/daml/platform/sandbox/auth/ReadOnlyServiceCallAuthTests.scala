@@ -19,6 +19,8 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   /** Flag to switch of a particular kind of test for technical reasons. See the use sites for details. */
   protected val testCanReadAsMainActor: Boolean = true
 
+  protected override def prerequisiteParties: List[String] = List(mainActor)
+
   protected def serviceCallWithMainActorUser(
       userPrefix: String,
       rights: Vector[proto.Right.Kind],

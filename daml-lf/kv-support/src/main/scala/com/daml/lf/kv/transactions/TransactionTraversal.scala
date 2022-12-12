@@ -4,17 +4,16 @@
 package com.daml.lf.kv.transactions
 
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.{FrontStack, FrontStackCons, ImmArray, Ref}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.kv.ConversionError
 import com.daml.lf.transaction.TransactionOuterClass.Node
 import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass, TransactionVersion}
-import com.daml.lf.value.{ValueCoder, ValueOuterClass}
+import com.daml.lf.value.ValueOuterClass
 
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 import scala.util.Try
-import scalaz._
-import Scalaz._
+import com.daml.lf.value.ValueCoder.DecodeError
 
 object TransactionTraversal {
 
@@ -63,67 +62,100 @@ object TransactionTraversal {
       toVisit: FrontStack[(RawTransaction.NodeId, Set[Ref.Party])],
       packagesToParties: Map[String, Set[Ref.Party]] = Map.empty,
   ): Either[ConversionError, Map[String, Set[Ref.Party]]] = {
-    toVisit match {
-      case FrontStack() => Right(packagesToParties)
-      case FrontStackCons((nodeId, parentWitnesses), toVisit) =>
+    toVisit.pop match {
+      case None => Right(packagesToParties)
+      case Some(((nodeId, parentWitnesses), toVisit)) =>
         val node = nodes(nodeId.value)
-        informeesOfNode(txVersion, node) match {
-          case Left(error) => Left(ConversionError.DecodeError(error))
-          case Right(nodeWitnesses) =>
-            val witnesses = parentWitnesses union nodeWitnesses
-            def addPackage(templateId: ValueOuterClass.Identifier) = {
-              val currentNodePackagesWithWitnesses = Map(
-                templateId.getPackageId -> witnesses
-              )
-              packagesToParties |+| currentNodePackagesWithWitnesses
-            }
-            node.getNodeTypeCase match {
-              case Node.NodeTypeCase.EXERCISE =>
+        lazy val witnesses = informeesOfNode(txVersion, node).map(_ ++ parentWitnesses)
+        node.getNodeTypeCase match {
+          case Node.NodeTypeCase.EXERCISE =>
+            witnesses match {
+              case Left(value) => Left(value)
+              case Right(witnesses) =>
                 val exercise = node.getExercise
                 // Recurse into children (if any).
                 val next = exercise.getChildrenList.asScala.view
                   .map(RawTransaction.NodeId(_) -> witnesses)
                   .to(ImmArray)
+                val packagesToPartiesWithTemplateParties =
+                  addWitnessesToPackage(packagesToParties, exercise.getTemplateId, witnesses)
                 val currentNodePackagesWithWitnesses =
-                  Map(exercise.getTemplateId.getPackageId -> witnesses) ++
-                    Option
-                      .when(exercise.hasInterfaceId)(
-                        exercise.getInterfaceId.getPackageId -> witnesses
-                      )
-                      .toList
-                      .toMap
+                  Option
+                    .when(exercise.hasInterfaceId)(
+                      exercise.getInterfaceId
+                    )
+                    .map(addWitnessesToPackage(packagesToPartiesWithTemplateParties, _, witnesses))
+                    .getOrElse(packagesToPartiesWithTemplateParties)
                 traverseWitnessesWithPackages(
                   txVersion,
                   nodes,
                   next ++: toVisit,
-                  packagesToParties |+| currentNodePackagesWithWitnesses,
+                  currentNodePackagesWithWitnesses,
                 )
-              case Node.NodeTypeCase.FETCH =>
-                traverseWitnessesWithPackages(
-                  txVersion,
-                  nodes,
-                  toVisit,
-                  addPackage(node.getFetch.getTemplateId),
-                )
-              case Node.NodeTypeCase.CREATE =>
-                traverseWitnessesWithPackages(
-                  txVersion,
-                  nodes,
-                  toVisit,
-                  addPackage(node.getCreate.getTemplateId),
-                )
-              case Node.NodeTypeCase.LOOKUP_BY_KEY =>
-                traverseWitnessesWithPackages(
-                  txVersion,
-                  nodes,
-                  toVisit,
-                  addPackage(node.getLookupByKey.getTemplateId),
-                )
-              case Node.NodeTypeCase.NODETYPE_NOT_SET | Node.NodeTypeCase.ROLLBACK =>
-                traverseWitnessesWithPackages(txVersion, nodes, toVisit, packagesToParties)
             }
+          case Node.NodeTypeCase.FETCH =>
+            val templateId = node.getFetch.getTemplateId
+            witnesses match {
+              case Left(error) => Left(error)
+              case Right(witnesses) =>
+                traverseWitnessesWithPackages(
+                  txVersion,
+                  nodes,
+                  toVisit,
+                  addWitnessesToPackage(packagesToParties, templateId, witnesses),
+                )
+            }
+          case Node.NodeTypeCase.CREATE =>
+            val templateId = node.getCreate.getTemplateId
+            witnesses match {
+              case Left(error) => Left(error)
+              case Right(witnesses) =>
+                traverseWitnessesWithPackages(
+                  txVersion,
+                  nodes,
+                  toVisit,
+                  addWitnessesToPackage(packagesToParties, templateId, witnesses),
+                )
+            }
+          case Node.NodeTypeCase.LOOKUP_BY_KEY =>
+            val templateId = node.getLookupByKey.getTemplateId
+            witnesses match {
+              case Left(error) => Left(error)
+              case Right(witnesses) =>
+                traverseWitnessesWithPackages(
+                  txVersion,
+                  nodes,
+                  toVisit,
+                  addWitnessesToPackage(packagesToParties, templateId, witnesses),
+                )
+            }
+          case Node.NodeTypeCase.ROLLBACK =>
+            // Rollback nodes have only the parent witnesses.
+            val rollback = node.getRollback
+            // Recurse into children (if any).
+            val next = rollback.getChildrenList.asScala.view
+              .map(RawTransaction.NodeId(_) -> parentWitnesses)
+              .to(ImmArray)
+            traverseWitnessesWithPackages(
+              txVersion,
+              nodes,
+              next ++: toVisit,
+              packagesToParties,
+            )
+          case Node.NodeTypeCase.NODETYPE_NOT_SET =>
+            Left(ConversionError.DecodeError(DecodeError("NodeType not set.")))
         }
     }
+  }
+
+  private def addWitnessesToPackage(
+      packagesToParties: Map[String, Set[Ref.Party]],
+      templateId: ValueOuterClass.Identifier,
+      witnesses: Set[Party],
+  ) = {
+    val packageExistingParties = packagesToParties.get(templateId.getPackageId)
+    val packageWithAddedParties = packageExistingParties.getOrElse(Set.empty) ++ witnesses
+    packagesToParties + (templateId.getPackageId -> packageWithAddedParties)
   }
 
   @tailrec
@@ -133,12 +165,12 @@ object TransactionTraversal {
       nodes: Map[String, Node],
       toVisit: FrontStack[(RawTransaction.NodeId, Set[Ref.Party])],
   ): Either[ConversionError, Unit] = {
-    toVisit match {
-      case FrontStack() => Right(())
-      case FrontStackCons((nodeId, parentWitnesses), toVisit) =>
+    toVisit.pop match {
+      case None => Right(())
+      case Some(((nodeId, parentWitnesses), toVisit)) =>
         val node = nodes(nodeId.value)
         informeesOfNode(txVersion, node) match {
-          case Left(error) => Left(ConversionError.DecodeError(error))
+          case Left(error) => Left(error)
           case Right(nodeWitnesses) =>
             val witnesses = parentWitnesses union nodeWitnesses
             // Here node.toByteString is safe.
@@ -154,6 +186,10 @@ object TransactionTraversal {
                   .map(RawTransaction.NodeId(_) -> witnesses)
                   .to(ImmArray)
                 traverseWitnesses(f, txVersion, nodes, next ++: toVisit)
+              case Node.NodeTypeCase.NODETYPE_NOT_SET =>
+                Left(ConversionError.DecodeError(DecodeError("NodeType not set.")))
+              case Node.NodeTypeCase.ROLLBACK =>
+                Left(ConversionError.DecodeError(DecodeError("Cannot traverse rollback nodes.")))
               case _ =>
                 traverseWitnesses(f, txVersion, nodes, toVisit)
             }
@@ -164,9 +200,11 @@ object TransactionTraversal {
   private[this] def informeesOfNode(
       txVersion: TransactionVersion,
       node: TransactionOuterClass.Node,
-  ): Either[ValueCoder.DecodeError, Set[Ref.Party]] =
+  ): Either[ConversionError.DecodeError, Set[Party]] =
     TransactionCoder
       .protoActionNodeInfo(txVersion, node)
       .map(_.informeesOfNode)
+      .left
+      .map(ConversionError.DecodeError)
 
 }

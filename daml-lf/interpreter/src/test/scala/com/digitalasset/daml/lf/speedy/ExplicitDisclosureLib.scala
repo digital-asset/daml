@@ -9,8 +9,9 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{IdString, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
-import com.daml.lf.speedy.SValue.SContractId
+import com.daml.lf.speedy.SExpr.SEMakeClo
+import com.daml.lf.speedy.SValue.{SContractId, SToken}
+import com.daml.lf.speedy.Speedy.{CachedContract, SKeyWithMaintainers}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
@@ -114,11 +115,12 @@ object ExplicitDisclosureLib {
       maintainer: Party,
       templateId: Ref.Identifier = houseTemplateId,
       withHash: Boolean = true,
+      label: String = testKeyName,
   ): DisclosedContract = {
     val key = Value.ValueRecord(
       None,
       ImmArray(
-        None -> Value.ValueText(testKeyName),
+        None -> Value.ValueText(label),
         None -> Value.ValueList(FrontStack.from(ImmArray(Value.ValueParty(maintainer)))),
       ),
     )
@@ -154,13 +156,13 @@ object ExplicitDisclosureLib {
     )
   }
 
-  def buildContractKey(maintainer: Party): GlobalKey =
+  def buildContractKey(maintainer: Party, label: String = testKeyName): GlobalKey =
     GlobalKey.assertBuild(
       houseTemplateType,
       Value.ValueRecord(
         None,
         ImmArray(
-          None -> Value.ValueText(testKeyName),
+          None -> Value.ValueText(label),
           None -> Value.ValueList(FrontStack.from(ImmArray(Value.ValueParty(maintainer)))),
         ),
       ),
@@ -202,6 +204,33 @@ object ExplicitDisclosureLib {
     ),
   )
 
+  def buildHouseCachedContract(
+      signatory: Party,
+      maintainer: Party,
+      templateId: Ref.Identifier = houseTemplateId,
+      withKey: Boolean = true,
+      label: String = testKeyName,
+  ): CachedContract = {
+    val contract = SValue.SRecord(
+      templateId,
+      ImmArray("label", "maintainers").map(Ref.Name.assertFromString),
+      ArrayList(
+        SValue.SText(label),
+        SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainer)))),
+      ),
+    )
+    val mbKey =
+      if (withKey) Some(SKeyWithMaintainers(contract, Set(maintainer))) else None
+
+    CachedContract(
+      templateId,
+      contract,
+      signatories = Set(signatory),
+      observers = Set.empty,
+      key = mbKey,
+    )
+  }
+
   val getOwner: Value => Option[Party] = {
     case Value.ValueRecord(_, ImmArray(_ -> Value.ValueParty(owner), _)) =>
       Some(owner)
@@ -235,7 +264,7 @@ object ExplicitDisclosureLib {
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-  ): (Either[SError.SError, SValue], Speedy.OnLedger) = {
+  ): (Either[SError.SError, SValue], Speedy.OnLedgerMachine) = {
     import SpeedyTestLib.loggingContext
 
     // A token function closure is added as part of compiling the Expr
@@ -246,7 +275,7 @@ object ExplicitDisclosureLib {
         transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureTest"),
         updateSE =
           if (setupArgs.isEmpty) contextSExpr
-          else SExpr.SEApp(contextSExpr, setupArgs.map(SEValue(_))),
+          else SExpr.SEApp(contextSExpr, setupArgs),
         committers = committers,
         disclosedContracts = disclosedContracts,
       )
@@ -258,7 +287,7 @@ object ExplicitDisclosureLib {
 
     assert(setupResult.isRight)
 
-    machine.setExpressionToEvaluate(SExpr.SEApp(runUpdateSExpr(sexpr), Array(SEValue.Token)))
+    machine.setExpressionToEvaluate(SExpr.SEApp(runUpdateSExpr(sexpr), Array(SToken)))
 
     val result = SpeedyTestLib.run(
       machine = machine,
@@ -266,7 +295,7 @@ object ExplicitDisclosureLib {
       getKey = getKey,
     )
 
-    (result, machine.ledgerMode.asInstanceOf[Speedy.OnLedger])
+    (result, machine)
   }
 
   def evaluateSExpr(
@@ -276,13 +305,13 @@ object ExplicitDisclosureLib {
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-  ): (Either[SError.SError, SValue], Speedy.OnLedger) = {
+  ): (Either[SError.SError, SValue], Speedy.OnLedgerMachine) = {
     import SpeedyTestLib.loggingContext
 
     val machine =
       Speedy.Machine.fromUpdateSExpr(
         pkg,
-        transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureTest"),
+        transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureLib"),
         updateSE = runUpdateSExpr(sexpr),
         committers = committers,
         disclosedContracts = disclosedContracts,
@@ -293,13 +322,13 @@ object ExplicitDisclosureLib {
       getKey = getKey,
     )
 
-    (result, machine.ledgerMode.asInstanceOf[Speedy.OnLedger])
+    (result, machine)
   }
 
-  def haveInactiveContractIds(contractIds: ContractId*): Matcher[Speedy.OnLedger] = Matcher {
-    ledger =>
+  def haveInactiveContractIds(contractIds: ContractId*): Matcher[Speedy.OnLedgerMachine] = Matcher {
+    machine =>
       val expectedResult = contractIds.toSet
-      val actualResult = ledger.ptx.contractState.activeState.consumedBy.keySet
+      val actualResult = machine.ptx.contractState.activeState.consumedBy.keySet
       val debugMessage = Seq(
         s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
         s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
@@ -312,26 +341,12 @@ object ExplicitDisclosureLib {
       )
   }
 
-  def haveCachedContractIds(contractIds: ContractId*): Matcher[Speedy.OnLedger] = Matcher {
-    ledger =>
-      val expectedResult = contractIds.toSet
-      val actualResult = ledger.cachedContracts.keySet
-      val debugMessage = Seq(
-        s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
-        s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
-      ).mkString("\n  ", "\n  ", "")
-
-      MatchResult(
-        expectedResult == actualResult,
-        s"Failed with unexpected cached contracts: $expectedResult != $actualResult $debugMessage",
-        s"Failed with unexpected cached contracts: $expectedResult == $actualResult",
-      )
-  }
-
-  def haveDisclosedContracts(disclosedContracts: DisclosedContract*): Matcher[Speedy.OnLedger] =
-    Matcher { ledger =>
+  def haveDisclosedContracts(
+      disclosedContracts: DisclosedContract*
+  ): Matcher[Speedy.OnLedgerMachine] =
+    Matcher { machine =>
       val expectedResult = ImmArray(disclosedContracts: _*)
-      val actualResult = ledger.ptx.disclosedContracts
+      val actualResult = machine.ptx.disclosedContracts
       val debugMessage = Seq(
         s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId)}",
         s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.contractId)}",

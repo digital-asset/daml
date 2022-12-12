@@ -12,7 +12,7 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
-import com.daml.ledger.participant.state.index.v2.{IndexService, UserManagementStore}
+import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
@@ -21,6 +21,11 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.meteringreport.MeteringReportKey
 import com.daml.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
+import com.daml.platform.localstore.api.{
+  IdentityProviderConfigStore,
+  PartyRecordStore,
+  UserManagementStore,
+}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{Port, PortFiles}
 import com.daml.telemetry.TelemetryContext
@@ -38,6 +43,8 @@ object ApiServiceOwner {
   def apply(
       indexService: IndexService,
       userManagementStore: UserManagementStore,
+      identityProviderConfigStore: IdentityProviderConfigStore,
+      partyRecordStore: PartyRecordStore,
       ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
       config: ApiServerConfig,
@@ -55,6 +62,8 @@ object ApiServiceOwner {
       authService: AuthService,
       meteringReportKey: MeteringReportKey = CommunityKey,
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
+      explicitDisclosureUnsafeEnabled: Boolean = false,
+      createExternalServices: () => List[BindableService] = () => Nil,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -102,7 +111,6 @@ object ApiServiceOwner {
         configurationLoadTimeout = config.configurationLoadTimeout,
         initialLedgerConfiguration = config.initialLedgerConfiguration,
         commandConfig = config.command,
-        partyConfig = config.party,
         optTimeServiceBackend = timeServiceBackend,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
@@ -111,10 +119,14 @@ object ApiServiceOwner {
         managementServiceTimeout = config.managementServiceTimeout,
         checkOverloaded = checkOverloaded,
         userManagementStore = userManagementStore,
+        identityProviderConfigStore = identityProviderConfigStore,
+        partyRecordStore = partyRecordStore,
         ledgerFeatures = ledgerFeatures,
         userManagementConfig = config.userManagement,
         apiStreamShutdownTimeout = config.apiStreamShutdownTimeout,
         meteringReportKey = meteringReportKey,
+        explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
+        createExternalServices = createExternalServices,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(
@@ -130,7 +142,6 @@ object ApiServiceOwner {
         ) :: otherInterceptors,
         servicesExecutionContext,
         metrics,
-        config.rateLimit,
       )
       _ <- ResourceOwner.forTry(() => writePortFile(apiService.port))
     } yield {

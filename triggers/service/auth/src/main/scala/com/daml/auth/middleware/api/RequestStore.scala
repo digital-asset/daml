@@ -18,7 +18,7 @@ import scala.concurrent.duration.FiniteDuration
 private[middleware] class RequestStore[K, V](
     maxCapacity: Int,
     timeout: FiniteDuration,
-    monotonicClock: () => Long = System.nanoTime,
+    monotonicClock: () => Long = () => System.nanoTime,
 ) {
 
   /** Mapping from key to insertion timestamp and value.
@@ -54,7 +54,7 @@ private[middleware] class RequestStore[K, V](
       if (store.size >= maxCapacity) {
         false
       } else {
-        store.put(key, (now, value))
+        store.update(key, (now, value))
         true
       }
     }

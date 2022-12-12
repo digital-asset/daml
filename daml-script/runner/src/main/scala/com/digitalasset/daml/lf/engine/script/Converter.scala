@@ -13,7 +13,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.StablePackage
+import com.daml.lf.language.StablePackage.DA
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -65,14 +65,7 @@ object ScriptIds {
 }
 
 final case class AnyTemplate(ty: Identifier, arg: SValue)
-sealed abstract class AnyChoice extends Product with Serializable {
-  def name: ChoiceName
-  def arg: SValue
-}
-object AnyChoice {
-  final case class Template(name: ChoiceName, arg: SValue) extends AnyChoice
-  final case class Interface(ifaceId: Identifier, name: ChoiceName, arg: SValue) extends AnyChoice
-}
+final case class AnyChoice(name: ChoiceName, arg: SValue)
 final case class AnyContractKey(key: SValue)
 // frames ordered from most-recent to least-recent
 final case class StackTrace(frames: Vector[Location]) {
@@ -91,9 +84,6 @@ object StackTrace {
 
 object Converter {
   import com.daml.script.converter.Converter._
-
-  private def daTypes(s: String): Identifier =
-    StablePackage.DA.Types.assertIdentifier(s)
 
   private def toNonEmptySet[A](as: OneAnd[FrontStack, A]): OneAnd[Set, A] = {
     import scalaz.syntax.foldable._
@@ -114,10 +104,8 @@ object Converter {
     )
   }
 
-  private def fromTemplateTypeRep(templateId: value.Identifier): SValue = {
-    val templateTypeRepTy = daInternalAny("TemplateTypeRep")
-    record(templateTypeRepTy, ("getTemplateTypeRep", fromIdentifier(templateId)))
-  }
+  private def fromTemplateTypeRep(templateId: value.Identifier): SValue =
+    record(DA.Internal.Any.TemplateTypeRep, ("getTemplateTypeRep", fromIdentifier(templateId)))
 
   private def fromAnyContractId(
       scriptIds: ScriptIds,
@@ -142,14 +130,13 @@ object Converter {
       templateId: Identifier,
       argument: Value,
   ): Either[String, SValue] = {
-    val anyTemplateTy = daInternalAny("AnyTemplate")
     for {
       translated <- translator
         .translateValue(TTyCon(templateId), argument)
         .left
         .map(err => s"Failed to translate create argument: $err")
     } yield record(
-      anyTemplateTy,
+      DA.Internal.Any.AnyTemplate,
       ("getAnyTemplate", SAny(TTyCon(templateId), translated)),
     )
   }
@@ -178,7 +165,6 @@ object Converter {
       choiceName: ChoiceName,
       argument: Value,
   ): Either[String, SValue] = {
-    val contractIdTy = daInternalAny("AnyChoice")
     for {
       choice <- lookupChoice(templateId, interfaceId, choiceName)
       translated <- translator
@@ -186,9 +172,12 @@ object Converter {
         .left
         .map(err => s"Failed to translate exercise argument: $err")
     } yield record(
-      contractIdTy,
+      DA.Internal.Any.AnyChoice,
       ("getAnyChoice", SAny(choice.argBinder._2, translated)),
-      ("getAnyChoiceTemplateTypeRep", fromIdentifier(toApiIdentifier(templateId))),
+      (
+        "getAnyChoiceTemplateTypeRep",
+        fromTemplateTypeRep(toApiIdentifier(interfaceId.getOrElse(templateId))),
+      ),
     )
   }
 
@@ -202,19 +191,19 @@ object Converter {
   private[this] def toAnyChoice(v: SValue): Either[String, AnyChoice] =
     v match {
       case SRecord(_, _, ArrayList(SAny(TTyCon(choiceCons), choiceVal), _)) =>
-        Right(AnyChoice.Template(choiceArgTypeToChoiceName(choiceCons), choiceVal))
+        Right(AnyChoice(choiceArgTypeToChoiceName(choiceCons), choiceVal))
       case SRecord(
             _,
             _,
             ArrayList(
               SAny(
                 TStruct(Struct((_, TTyCon(choiceCons)), _)),
-                SStruct(_, ArrayList(choiceVal, STypeRep(TTyCon(ifaceId)))),
+                SStruct(_, ArrayList(choiceVal, _)),
               ),
               _,
             ),
           ) =>
-        Right(AnyChoice.Interface(ifaceId, choiceArgTypeToChoiceName(choiceCons), choiceVal))
+        Right(AnyChoice(choiceArgTypeToChoiceName(choiceCons), choiceVal))
       case _ =>
         Left(s"Expected AnyChoice but got $v")
     }
@@ -262,25 +251,15 @@ object Converter {
       // typerep, contract id, choice argument and continuation
       case SRecord(_, _, vals) if vals.size == 4 =>
         for {
-          tplId <- typeRepToIdentifier(vals.get(0))
+          typeId <- typeRepToIdentifier(vals.get(0))
           cid <- toContractId(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
-        } yield anyChoice match {
-          case AnyChoice.Template(name, arg) =>
-            command.ApiCommand.Exercise(
-              typeId = TemplateOrInterface.Template(tplId),
-              contractId = cid,
-              choiceId = name,
-              argument = arg.toUnnormalizedValue,
-            )
-          case AnyChoice.Interface(ifaceId, name, arg) =>
-            command.ApiCommand.Exercise(
-              typeId = TemplateOrInterface.Interface(ifaceId),
-              contractId = cid,
-              choiceId = name,
-              argument = arg.toUnnormalizedValue,
-            )
-        }
+        } yield command.ApiCommand.Exercise(
+          typeId = typeId,
+          contractId = cid,
+          choiceId = anyChoice.name,
+          argument = anyChoice.arg.toUnnormalizedValue,
+        )
       case _ => Left(s"Expected Exercise but got $v")
     }
 
@@ -289,14 +268,9 @@ object Converter {
       // typerep, contract id, choice argument and continuation
       case SRecord(_, _, vals) if vals.size == 4 =>
         for {
+          typeId <- typeRepToIdentifier(vals.get(0))
           anyKey <- toAnyContractKey(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
-          typeId <- anyChoice match {
-            case _: AnyChoice.Template =>
-              typeRepToIdentifier(vals.get(0))
-            case AnyChoice.Interface(ifaceId, _, _) =>
-              Right(ifaceId)
-          }
         } yield command.ApiCommand.ExerciseByKey(
           templateId = typeId,
           contractKey = anyKey.key.toUnnormalizedValue,
@@ -332,7 +306,7 @@ object Converter {
   private[this] val extractToTuple = SEMakeClo(
     Array(),
     2,
-    SEApp(SEBuiltin(SBStructCon(tupleFieldInputOrder)), Array(SELocA(0), SELocA(1))),
+    SEAppAtomic(SEBuiltin(SBStructCon(tupleFieldInputOrder)), Array(SELocA(0), SELocA(1))),
   )
 
   // Extract the two fields out of the RankN encoding used in the Ap constructor.
@@ -340,12 +314,13 @@ object Converter {
       compiledPackages: CompiledPackages,
       fun: SValue,
   ): Either[String, (SValue, SValue)] = {
+    val e = SELet1(extractToTuple, SEAppAtomic(SEValue(fun), Array(SELocS(1))))
     val machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(SEValue(fun), Array(extractToTuple)))(
+      Speedy.Machine.fromPureSExpr(compiledPackages, e)(
         Script.DummyLoggingContext
       )
     machine.run() match {
-      case SResultFinal(v, _) =>
+      case SResultFinal(v) =>
         v match {
           case SStruct(_, values) if values.size == 2 =>
             Right((values.get(fstOutputIdx), values.get(sndOutputIdx)))
@@ -509,21 +484,21 @@ object Converter {
               case ScriptLedgerClient.ExerciseResult(_, _, _, _) =>
                 Left("Expected CreateResult but got ExerciseResult")
             }
-          } yield (SEApp(SEValue(continue), Array(SEValue(contractId))), eventResults.tail)
+          } yield (SEAppAtomic(SEValue(continue), Array(SEValue(contractId))), eventResults.tail)
         }
         case SVariant(_, "Exercise", _, v) => {
           val continue = v.asInstanceOf[SRecord].values.get(3)
           val exercised = eventResults.head.asInstanceOf[ScriptLedgerClient.ExerciseResult]
           for {
             translated <- translateExerciseResult(lookupChoice, translator, exercised)
-          } yield (SEApp(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
+          } yield (SEAppAtomic(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
         }
         case SVariant(_, "ExerciseByKey", _, v) => {
           val continue = v.asInstanceOf[SRecord].values.get(3)
           val exercised = eventResults.head.asInstanceOf[ScriptLedgerClient.ExerciseResult]
           for {
             translated <- translateExerciseResult(lookupChoice, translator, exercised)
-          } yield (SEApp(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
+          } yield (SEAppAtomic(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
         }
         case SVariant(_, "CreateAndExercise", _, v) => {
           val continue = v.asInstanceOf[SRecord].values.get(2)
@@ -531,7 +506,7 @@ object Converter {
           val exercised = eventResults(1).asInstanceOf[ScriptLedgerClient.ExerciseResult]
           for {
             translated <- translateExerciseResult(lookupChoice, translator, exercised)
-          } yield (SEApp(SEValue(continue), Array(SEValue(translated))), eventResults.drop(2))
+          } yield (SEAppAtomic(SEValue(continue), Array(SEValue(translated))), eventResults.drop(2))
         }
         case _ => Left(s"Expected Create, Exercise or ExerciseByKey but got $v")
       }
@@ -545,7 +520,15 @@ object Converter {
     ): Either[String, SExpr] =
       freeAp match {
         case SVariant(_, "PureA", _, v) =>
-          Right(acc.foldLeft[SExpr](SEValue(v))({ case (acc, v) => SEApp(acc, Array(v)) }))
+          Right(acc match {
+            case Nil => SEValue(v)
+            case _ :: _ =>
+              val locs: Array[SExprAtomic] = (1 to acc.length).toArray.reverse.map(SELocS(_))
+              acc.foldRight[SExpr](SEAppAtomic(SEValue(v), locs))({ case (e, acc) =>
+                SELet1(e, acc)
+              })
+          })
+
         case SVariant(_, "Ap", _, v) => {
           val r = for {
             apFields <- toApFields(compiledPackages, v)
@@ -683,15 +666,27 @@ object Converter {
       contract: ScriptLedgerClient.ActiveContract,
   ): Either[String, SValue] = fromAnyTemplate(translator, contract.templateId, contract.argument)
 
+  def fromInterfaceView(
+      translator: preprocessing.ValueTranslator,
+      viewType: Type,
+      value: Value,
+  ): Either[String, SValue] = {
+    for {
+      translated <- translator
+        .translateValue(viewType, value)
+        .left
+        .map(err => s"Failed to translate value of interface view: $err")
+    } yield translated
+  }
+
   // Convert a Created event to a pair of (ContractId (), AnyTemplate)
   def fromCreated(
       translator: preprocessing.ValueTranslator,
       contract: ScriptLedgerClient.ActiveContract,
   ): Either[String, SValue] = {
-    val pairTyCon = daTypes("Tuple2")
     for {
       anyTpl <- fromContract(translator, contract)
-    } yield record(pairTyCon, ("_1", SContractId(contract.contractId)), ("_2", anyTpl))
+    } yield record(DA.Types.Tuple2, ("_1", SContractId(contract.contractId)), ("_2", anyTpl))
   }
 
   def fromStatusException(
@@ -739,7 +734,7 @@ object Converter {
 
   def toUser(v: SValue): Either[String, User] =
     v match {
-      case SRecord(_, _, vals) if vals.size == 2 =>
+      case SRecord(_, _, vals) if vals.size >= 2 =>
         for {
           id <- toUserId(vals.get(0))
           primaryParty <- toOptional(vals.get(1), toParty)
@@ -764,6 +759,7 @@ object Converter {
     def toRight(constructor: String, rank: Int, value: SValue): SValue =
       SVariant(scriptIds.damlScript("UserRight"), Name.assertFromString(constructor), rank, value)
     Right(right match {
+      case UserRight.IdentityProviderAdmin => toRight("IdentityProviderAdmin", 0, SUnit)
       case UserRight.ParticipantAdmin => toRight("ParticipantAdmin", 0, SUnit)
       case UserRight.CanActAs(p) => toRight("CanActAs", 1, SParty(p))
       case UserRight.CanReadAs(p) => toRight("CanReadAs", 2, SParty(p))
@@ -774,6 +770,8 @@ object Converter {
     v match {
       case SVariant(_, "ParticipantAdmin", _, SUnit) =>
         Right(UserRight.ParticipantAdmin)
+      case SVariant(_, "IdentityProviderAdmin", _, SUnit) =>
+        Right(UserRight.IdentityProviderAdmin)
       case SVariant(_, "CanReadAs", _, v) =>
         toParty(v).map(UserRight.CanReadAs(_))
       case SVariant(_, "CanActAs", _, v) =>

@@ -10,6 +10,7 @@ load(
 load("//ledger/ledger-api-tests:conformance.bzl", "conformance_test", "generate_conf", "server_conformance_test")
 load("@oracle//:index.bzl", "oracle_tags")
 load("@os_info//:os_info.bzl", "is_windows")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 
 da_scala_library(
     name = "sandbox-on-x",
@@ -35,11 +36,11 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
-        "//ledger-service/jwt",
         "//ledger/error",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-errors",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
@@ -52,15 +53,19 @@ da_scala_library(
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/jwt",
         "//libs-scala/logging-entries",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
+        "//observability/metrics",
+        "//observability/telemetry",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_config",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -98,7 +103,6 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
-        "//ledger-service/jwt",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-auth-client",
         "//ledger/ledger-api-client",
@@ -111,6 +115,7 @@ da_scala_library(
         "//ledger/test-common",
         "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/grpc-utils",
+        "//libs-scala/jwt",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
@@ -130,7 +135,7 @@ da_scala_test_suite(
     name = "sandbox-on-x-unit-tests",
     size = "small",
     srcs = glob(["src/test/suite/**/*.scala"]),
-    resources = glob(["src/test/resources/**/*"]),
+    resources = glob(["src/test/resources/**/*"]) + glob(["resources/*"]),
     scala_deps = [
         "@maven//:org_mockito_mockito_scala",
     ],
@@ -143,6 +148,7 @@ da_scala_test_suite(
         "//ledger/error",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-errors",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",
@@ -152,6 +158,8 @@ da_scala_test_suite(
         "//ledger/participant-state-index",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
+        "//observability/metrics",
+        "@maven//:commons_io_commons_io",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
     ],
@@ -335,6 +343,38 @@ da_scala_binary(
         ":sandbox-on-x-app-lib",
     ],
 )
+
+# A rule that writes the default config to a file
+genrule(
+    name = "generate-default.conf",
+    srcs = [],
+    outs = ["generated-default.conf"],
+    cmd = "$(location //ledger/sandbox-on-x:app) print-default-config $(location generated-default.conf) -C ledger.participants.default.services-thread-pool-size=1337",
+    tools = ["//ledger/sandbox-on-x:app"],
+    visibility = ["//visibility:public"],
+)
+
+# A rule that writes a script file for copying the generated default config file into the source tree
+write_file(
+    name = "write-update-generated-sources-script",
+    out = "update-generated-sources.sh",
+    content = [
+        "#!/usr/bin/env bash",
+        "cd $BUILD_WORKSPACE_DIRECTORY",
+        "mkdir -p ledger/sandbox-on-x/resources",
+        "cp -fv bazel-bin/ledger/sandbox-on-x/generated-default.conf ledger/sandbox-on-x/resources/generated-default.conf",
+        "",
+    ],
+) if not is_windows else None
+
+# A rule that copies the generated default config file into the source tree
+sh_binary(
+    name = "update-generated-sources",
+    srcs = ["update-generated-sources.sh"],
+    data = [
+        "generate-default.conf",
+    ],
+) if not is_windows else None
 
 alias(
     name = "conformance-test-postgres-bin",
@@ -575,6 +615,24 @@ server_conformance_test(
     ],
 )
 
+SERVERS_EXPLICIT_DISCLOSURE = {
+    "h2database": {
+        "binary": ":app",
+        "server_args": ["explicit-disclosure-unsafe-enabled run"],
+    },
+    "postgresql": {
+        "binary": ":conformance-test-postgres-bin",
+        "server_args": ["explicit-disclosure-unsafe-enabled run -c $(rootpath :postgres.conf)"],
+        "extra_data": [":postgres.conf"],
+    },
+    "oracle": {
+        "binary": ":conformance-test-oracle-bin",
+        "tags": oracle_tags,
+        "server_args": ["explicit-disclosure-unsafe-enabled run -c $(rootpath :oracle.conf)"],
+        "extra_data": [":oracle.conf"],
+    },
+}
+
 server_conformance_test(
     name = "conformance-test-explicit-disclosure",
     hocon = True,
@@ -584,7 +642,32 @@ server_conformance_test(
     lf_versions = [
         "1.dev",
     ],
-    servers = SERVERS,
+    servers = SERVERS_EXPLICIT_DISCLOSURE,
+    test_tool_args = [
+        "--verbose",
+        "--include=ExplicitDisclosureIT",
+        # TODO ED: Enable the following test once https://github.com/digital-asset/daml/issues/14200 is solved
+        "--exclude=ExplicitDisclosureIT:EDDuplicates",
+        # TODO ED: Enable the following tests once https://github.com/digital-asset/daml/issues/14199 is solved
+        "--exclude=ExplicitDisclosureIT:EDExerciseByKeyDisclosedContract",
+        "--exclude=ExplicitDisclosureIT:EDLocalKeyVisibility",
+        "--exclude=ExplicitDisclosureIT:EDNonNormalizedDisclosedContract",
+        "--exclude=ExplicitDisclosureIT:EDNormalizedDisclosedContract",
+    ],
+)
+
+# Suite asserting that tests targeting disabled explicit disclosure are successful
+# (i.e. test asserting that submissions using disclosed contracts are rejected)
+# TODO ED: Remove once feature deemed stable
+conformance_test(
+    name = "conformance-test-explicit-disclosure-disabled-lf-dev-h2",
+    hocon = True,
+    lf_versions = [
+        "1.dev",
+    ],
+    ports = [6865],
+    server = ":app",
+    server_args = ["run"],
     test_tool_args = [
         "--verbose",
         "--include=ExplicitDisclosureIT",

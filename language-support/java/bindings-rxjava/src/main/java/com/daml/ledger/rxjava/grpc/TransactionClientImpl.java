@@ -92,6 +92,30 @@ public final class TransactionClientImpl implements TransactionsClient {
     return getTransactions(begin, filter, verbose, Optional.of(accessToken));
   }
 
+  private Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter,
+      LedgerOffset begin,
+      Set<String> parties,
+      boolean verbose,
+      Optional<String> accessToken) {
+    TransactionFilter filter = contractFilter.transactionFilter(parties);
+    return getTransactions(begin, filter, verbose, accessToken);
+  }
+
+  public Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter,
+      LedgerOffset begin,
+      Set<String> parties,
+      boolean verbose,
+      String accessToken) {
+    return getTransactions(contractFilter, begin, parties, verbose, Optional.of(accessToken));
+  }
+
+  public Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter, LedgerOffset begin, Set<String> parties, boolean verbose) {
+    return getTransactions(contractFilter, begin, parties, verbose, Optional.empty());
+  }
+
   private Flowable<TransactionTree> extractTransactionTrees(
       TransactionServiceOuterClass.GetTransactionsRequest request, Optional<String> accessToken) {
     return ClientPublisherFlowable.create(

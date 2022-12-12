@@ -415,7 +415,7 @@ template Fetcher
     fetcher : Party
   where
     signatory sig
-    observer fetcher
+    observer obs
     choice DoFetch : Fetched
       with cid : ContractId Fetched
       controller fetcher

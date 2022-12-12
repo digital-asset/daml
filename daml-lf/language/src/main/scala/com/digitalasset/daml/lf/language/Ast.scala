@@ -14,8 +14,8 @@ object Ast {
 
   /** Fully applied type constructor. */
   final case class TypeConApp(tycon: TypeConName, args: ImmArray[Type]) {
-    def pretty: String =
-      args.foldLeft(TTyCon(tycon): Type) { case (arg, acc) => TApp(acc, arg) }.pretty
+    def pretty: String = this.toType.pretty
+    def toType: Type = args.foldLeft[Type](TTyCon(tycon))(TApp)
   }
 
   /* Expression variable name. */

@@ -25,11 +25,6 @@ object SignatureReader {
   import Errors._
   import PackageSignature.TypeDecl
 
-  @deprecated("renamed to SignatureReader.Error", since = "2.4.0")
-  type InterfaceReaderError = Error
-  @deprecated("renamed to SignatureReader.Error", since = "2.4.0")
-  final val InterfaceReaderError = Error
-
   sealed abstract class Error extends Product with Serializable
   final case class UnserializableDataType(error: String) extends Error
   final case class InvalidDataTypeDefinition(error: String) extends Error
@@ -82,25 +77,6 @@ object SignatureReader {
       )
   }
 
-  @deprecated("renamed to readPackageSignature", since = "2.4.0")
-  def readInterface(
-      lf: DamlLf.Archive
-  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
-    readPackageSignature(lf)
-
-  @deprecated("renamed to readPackageSignature", since = "2.4.0")
-  def readInterface(
-      packageId: Ref.PackageId,
-      damlLf: DamlLf.ArchivePayload,
-  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
-    readPackageSignature(packageId, damlLf)
-
-  @deprecated("renamed to readPackageSignature", since = "2.4.0")
-  def readInterface(
-      payload: ArchivePayload
-  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
-    readPackageSignature(payload)
-
   def readPackageSignature(
       lf: DamlLf.Archive
   ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
@@ -120,12 +96,6 @@ object SignatureReader {
   private val dummyPkgId = PackageId.assertFromString("-dummyPkg-")
 
   private val dummyInterface = typesig.PackageSignature(dummyPkgId, None, Map.empty, Map.empty)
-
-  @deprecated("renamed to readPackageSignature", since = "2.4.0")
-  def readInterface(
-      f: () => String \/ (PackageId, Ast.Package)
-  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
-    readPackageSignature(f)
 
   def readPackageSignature(
       f: () => String \/ (PackageId, Ast.Package)

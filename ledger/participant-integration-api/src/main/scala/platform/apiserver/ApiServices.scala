@@ -33,15 +33,16 @@ import com.daml.platform.apiserver.meteringreport.MeteringReportKey
 import com.daml.platform.apiserver.services._
 import com.daml.platform.apiserver.services.admin._
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
-import com.daml.platform.configuration.{
-  CommandConfiguration,
-  InitialLedgerConfiguration,
-  PartyConfiguration,
+import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
+import com.daml.platform.localstore.UserManagementConfig
+import com.daml.platform.localstore.api.{
+  IdentityProviderConfigStore,
+  PartyRecordStore,
+  UserManagementStore,
 }
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.{GrpcHealthService, GrpcTransactionService}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.telemetry.TelemetryContext
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -72,6 +73,8 @@ private[daml] object ApiServices {
       optWriteService: Option[state.WriteService],
       indexService: IndexService,
       userManagementStore: UserManagementStore,
+      identityProviderConfigStore: IdentityProviderConfigStore,
+      partyRecordStore: PartyRecordStore,
       authorizer: Authorizer,
       engine: Engine,
       timeProvider: TimeProvider,
@@ -79,7 +82,6 @@ private[daml] object ApiServices {
       configurationLoadTimeout: Duration,
       initialLedgerConfiguration: Option[InitialLedgerConfiguration],
       commandConfig: CommandConfiguration,
-      partyConfig: PartyConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -91,6 +93,8 @@ private[daml] object ApiServices {
       userManagementConfig: UserManagementConfig,
       apiStreamShutdownTimeout: scala.concurrent.duration.Duration,
       meteringReportKey: MeteringReportKey,
+      explicitDisclosureUnsafeEnabled: Boolean,
+      createExternalServices: () => List[BindableService] = () => Nil,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -102,6 +106,7 @@ private[daml] object ApiServices {
     private val activeContractsService: IndexActiveContractsService = indexService
     private val transactionsService: IndexTransactionsService = indexService
     private val contractStore: ContractStore = indexService
+    private val maximumLedgerTimeService: MaximumLedgerTimeService = indexService
     private val completionsService: IndexCompletionsService = indexService
     private val partyManagementService: IndexPartyManagementService = indexService
     private val configManagementService: IndexConfigManagementService = indexService
@@ -126,7 +131,7 @@ private[daml] object ApiServices {
           Future(
             createServices(identityService.ledgerId, currentLedgerConfiguration, checkOverloaded)(
               servicesExecutionContext
-            )
+            ) ++ createExternalServices()
           )
         )(services =>
           Future {
@@ -196,19 +201,23 @@ private[daml] object ApiServices {
 
       val apiHealthService = new GrpcHealthService(healthChecks)
 
-      val maybeApiUserManagementService: Option[UserManagementServiceAuthorization] =
+      val userManagementServices: List[BindableService] =
         if (userManagementConfig.enabled) {
           val apiUserManagementService =
             new ApiUserManagementService(
-              userManagementStore,
+              userManagementStore = userManagementStore,
               maxUsersPageSize = userManagementConfig.maxUsersPageSize,
               submissionIdGenerator = SubmissionIdGenerator.Random,
+              identityProviderExists = new IdentityProviderExists(identityProviderConfigStore),
             )
-          val authorized =
-            new UserManagementServiceAuthorization(apiUserManagementService, authorizer)
-          Some(authorized)
+          val identityProvider =
+            new ApiIdentityProviderConfigService(identityProviderConfigStore)
+          List(
+            new UserManagementServiceAuthorization(apiUserManagementService, authorizer),
+            new IdentityProviderConfigServiceAuthorization(identityProvider, authorizer),
+          )
         } else {
-          None
+          List.empty
         }
 
       val apiMeteringReportService =
@@ -227,7 +236,7 @@ private[daml] object ApiServices {
           apiHealthService,
           apiVersionService,
           new MeteringReportServiceAuthorization(apiMeteringReportService, authorizer),
-        ) ::: maybeApiUserManagementService.toList
+        ) ::: userManagementServices
     }
 
     private def intitializeWriteServiceBackedApiServices(
@@ -247,7 +256,7 @@ private[daml] object ApiServices {
               contractStore,
               metrics,
             ),
-            new ResolveMaximumLedgerTime(contractStore),
+            new ResolveMaximumLedgerTime(maximumLedgerTimeService),
             maxRetries = 3,
             metrics,
           ),
@@ -257,17 +266,14 @@ private[daml] object ApiServices {
         val apiSubmissionService = ApiSubmissionService.create(
           ledgerId,
           writeService,
-          partyManagementService,
           timeProvider,
           timeProviderType,
           ledgerConfigurationSubscription,
           seedService,
           commandExecutor,
           checkOverloaded,
-          ApiSubmissionService.Configuration(
-            partyConfig.implicitPartyAllocation
-          ),
           metrics,
+          explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
         )
 
         // Note: the command service uses the command submission, command completion, and transaction
@@ -291,10 +297,13 @@ private[daml] object ApiServices {
           timeProvider = timeProvider,
           ledgerConfigurationSubscription = ledgerConfigurationSubscription,
           metrics = metrics,
+          explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
         )
 
         val apiPartyManagementService = ApiPartyManagementService.createApiService(
           partyManagementService,
+          new IdentityProviderExists(identityProviderConfigStore),
+          partyRecordStore,
           transactionsService,
           writeService,
           managementServiceTimeout,

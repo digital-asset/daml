@@ -5,16 +5,19 @@ package com.daml.http.json
 
 import akka.http.scaladsl.model.StatusCode
 import com.daml.http.domain
+import com.daml.http.domain.ContractTypeId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
+import com.daml.nonempty.NonEmpty
 import com.google.protobuf.struct.Struct
 import scalaz.syntax.std.option._
-import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
+import scalaz.{-\/, NonEmptyList, \/-}
 import spray.json._
 import spray.json.derived.Discriminator
 import scalaz.syntax.tag._
+import com.daml.struct.json.StructJsonFormat
 
 object JsonProtocol extends JsonProtocolLow {
 
@@ -190,7 +193,7 @@ object JsonProtocol extends JsonProtocolLow {
       case (Some(templateId), Some(key), None) =>
         -\/((templateId.convertTo[domain.ContractTypeId.Template.OptionalPkg], key))
       case (otid, None, Some(contractId)) =>
-        val a = otid map (_.convertTo[domain.TemplateId.OptionalPkg])
+        val a = otid map (_.convertTo[domain.ContractTypeId.OptionalPkg])
         val b = contractId.convertTo[domain.ContractId]
         \/-((a, b))
       case (None, Some(_), None) =>
@@ -292,7 +295,8 @@ object JsonProtocol extends JsonProtocolLow {
       }
     }
 
-  implicit val ActiveContractFormat: RootJsonFormat[domain.ActiveContract[JsValue]] = {
+  implicit val ActiveContractFormat
+      : RootJsonFormat[domain.ActiveContract.ResolvedCtTyId[JsValue]] = {
     implicit val `ctid resolved fmt`: JsonFormat[domain.ContractTypeId.Resolved] =
       jsonFormatFromReaderWriter(
         TemplateIdRequiredPkgFormat[domain.ContractTypeId.Template],
@@ -300,7 +304,7 @@ object JsonProtocol extends JsonProtocolLow {
         // the proper contract type ID right doesn't matter
         TemplateIdRequiredPkgFormat[domain.ContractTypeId],
       )
-    jsonFormat7(domain.ActiveContract.apply[JsValue])
+    jsonFormat7(domain.ActiveContract.apply[ContractTypeId.Resolved, JsValue])
   }
 
   implicit val ArchivedContractFormat: RootJsonFormat[domain.ArchivedContract] =
@@ -313,12 +317,12 @@ object JsonProtocol extends JsonProtocolLow {
       validExtraField: String
   )(
       toRequest: (
-          OneAnd[Set, TpId],
+          NonEmpty[Set[TpId]],
           Map[String, JsValue],
           Option[Extra],
       ) => Request
   ): RootJsonReader[Request] =
-    requestJsonReader(Set(validExtraField)) { (tids: OneAnd[Set, TpId], query, extra) =>
+    requestJsonReader(Set(validExtraField)) { (tids: NonEmpty[Set[TpId]], query, extra) =>
       toRequest(tids, query, extra get validExtraField map (_.convertTo[Extra]))
     }
 
@@ -332,7 +336,7 @@ object JsonProtocol extends JsonProtocolLow {
     */
   private[this] def requestJsonReader[TpId: JsonFormat, Request](validExtraFields: Set[String])(
       toRequest: (
-          OneAnd[Set, TpId],
+          NonEmpty[Set[TpId]],
           Map[String, JsValue],
           Map[String, JsValue],
       ) => Request
@@ -353,10 +357,9 @@ object JsonProtocol extends JsonProtocolLow {
       val extraFields = jsv.asJsObject.fields.filter { case (fieldName, _) =>
         validExtraFields(fieldName)
       }
-      val nonEmptyTids = tids.headOption.cata(
-        h => OneAnd(h, tids - h),
-        deserializationError("search requires at least one item in 'templateIds'"),
-      )
+      val nonEmptyTids = NonEmpty from tids getOrElse {
+        deserializationError("search requires at least one item in 'templateIds'")
+      }
       toRequest(nonEmptyTids, query.getOrElse(Map.empty), extraFields)
     }
   }
@@ -390,10 +393,12 @@ object JsonProtocol extends JsonProtocolLow {
     domain.CommandMeta
   )
 
-  implicit val CreateCommandFormat
-      : RootJsonFormat[domain.CreateCommand[JsValue, domain.TemplateId.OptionalPkg]] = jsonFormat3(
-    domain.CreateCommand[JsValue, domain.TemplateId.OptionalPkg]
-  )
+  implicit val CreateCommandFormat: RootJsonFormat[
+    domain.CreateCommand[JsValue, domain.ContractTypeId.Template.OptionalPkg]
+  ] =
+    jsonFormat3(
+      domain.CreateCommand[JsValue, domain.ContractTypeId.Template.OptionalPkg]
+    )
 
   implicit val ExerciseCommandFormat
       : RootJsonFormat[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] =
@@ -436,10 +441,20 @@ object JsonProtocol extends JsonProtocolLow {
     }
 
   implicit val CreateAndExerciseCommandFormat: RootJsonFormat[
-    domain.CreateAndExerciseCommand[JsValue, JsValue, domain.ContractTypeId.OptionalPkg]
+    domain.CreateAndExerciseCommand[
+      JsValue,
+      JsValue,
+      domain.ContractTypeId.Template.OptionalPkg,
+      domain.ContractTypeId.OptionalPkg,
+    ]
   ] =
     jsonFormat6(
-      domain.CreateAndExerciseCommand[JsValue, JsValue, domain.ContractTypeId.OptionalPkg]
+      domain.CreateAndExerciseCommand[
+        JsValue,
+        JsValue,
+        domain.ContractTypeId.Template.OptionalPkg,
+        domain.ContractTypeId.OptionalPkg,
+      ]
     )
 
   implicit val CompletionOffsetFormat: JsonFormat[domain.CompletionOffset] =

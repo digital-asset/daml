@@ -77,6 +77,8 @@ import GHC.Conc
 import "ghc-lib-parser" Module (unitIdString, stringToUnitId)
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
+import Options.Applicative hiding (option, strOption)
+import qualified Options.Applicative (option)
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
 import System.Directory.Extra
@@ -137,7 +139,11 @@ cmdIde numProcessors =
         <$> telemetryOpt
         <*> debugOpt
         <*> enableScenarioServiceOpt
-        <*> optionsParser numProcessors (EnableScenarioService True) (pure Nothing)
+        <*> optionsParser
+              numProcessors
+              (EnableScenarioService True)
+              (pure Nothing)
+              (optionalDlintUsageParser True)
 
 cmdLicense :: Mod CommandFields Command
 cmdLicense =
@@ -155,9 +161,13 @@ cmdCompile numProcessors =
     cmd = execCompile
         <$> inputFileOpt
         <*> outputFileOpt
-        <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+        <*> optionsParser
+              numProcessors
+              (EnableScenarioService False)
+              optPackageName
+              disabledDlintUsageParser
         <*> optWriteIface
-        <*> optional (strOption $ long "iface-dir" <> metavar "IFACE_DIR" <> help "Directory for interface files")
+        <*> optional (strOptionOnce $ long "iface-dir" <> metavar "IFACE_DIR" <> help "Directory for interface files")
 
     optWriteIface =
         fmap WriteInterface $
@@ -174,7 +184,11 @@ cmdDesugar numProcessors =
     cmd = execDesugar
       <$> inputFileOpt
       <*> outputFileOpt
-      <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+      <*> optionsParser
+            numProcessors
+            (EnableScenarioService False)
+            optPackageName
+            disabledDlintUsageParser
 
 cmdDebugIdeSpanInfo :: Int -> Mod CommandFields Command
 cmdDebugIdeSpanInfo numProcessors =
@@ -185,7 +199,11 @@ cmdDebugIdeSpanInfo numProcessors =
     cmd = execDebugIdeSpanInfo
       <$> inputFileOpt
       <*> outputFileOpt
-      <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+      <*> optionsParser
+            numProcessors
+            (EnableScenarioService False)
+            optPackageName
+            disabledDlintUsageParser
 
 cmdLint :: Int -> Mod CommandFields Command
 cmdLint numProcessors =
@@ -195,7 +213,11 @@ cmdLint numProcessors =
   where
     cmd = execLint
         <$> many inputFileOpt
-        <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+        <*> optionsParser
+              numProcessors
+              (EnableScenarioService False)
+              optPackageName
+              enabledDlintUsageParser
 
 cmdTest :: Int -> Mod CommandFields Command
 cmdTest numProcessors =
@@ -214,11 +236,15 @@ cmdTest numProcessors =
       <*> fmap ShowCoverage showCoverageOpt
       <*> fmap UseColor colorOutput
       <*> junitOutput
-      <*> optionsParser numProcessors (EnableScenarioService True) optPackageName
+      <*> optionsParser
+            numProcessors
+            (EnableScenarioService True)
+            optPackageName
+            disabledDlintUsageParser
       <*> initPkgDbOpt
     filesOpt = optional (flag' () (long "files" <> help filesDoc) *> many inputFileOpt)
     filesDoc = "Only run test declarations in the specified files."
-    junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
+    junitOutput = optional $ strOptionOnce $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
     showCoverageOpt = switch $ long "show-coverage" <> help "Show detailed test coverage"
     runAllTests = switch $ long "all" <> help "Run tests in current project as well as dependencies"
@@ -260,7 +286,7 @@ cmdInspect =
     jsonOpt = switch $ long "json" <> help "Output the raw Protocol Buffer structures as JSON"
     detailOpt =
         fmap (maybe DA.Pretty.prettyNormal DA.Pretty.PrettyLevel) $
-            optional $ option auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
+            optional $ optionOnce auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
     cmd = execInspect <$> inputFileOptWithExt ".dalf or .dar" <*> outputFileOpt <*> jsonOpt <*> detailOpt
 
 cmdVisual :: Mod CommandFields Command
@@ -286,7 +312,11 @@ cmdBuild numProcessors =
     cmd =
         execBuild
             <$> projectOpts "daml build"
-            <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
+            <*> optionsParser
+                  numProcessors
+                  (EnableScenarioService False)
+                  (pure Nothing)
+                  disabledDlintUsageParser
             <*> optionalOutputFileOpt
             <*> incrementalBuildOpt
             <*> initPkgDbOpt
@@ -302,30 +332,34 @@ cmdRepl numProcessors =
             <$> many (strArgument (help "DAR to load in the repl" <> metavar "DAR"))
             <*> many packageImport
             <*> optional
-                  ((,) <$> strOption (long "ledger-host" <> help "Host of the ledger API")
-                       <*> strOption (long "ledger-port" <> help "Port of the ledger API")
+                  ((,) <$> strOptionOnce (long "ledger-host" <> help "Host of the ledger API")
+                       <*> strOptionOnce (long "ledger-port" <> help "Port of the ledger API")
                   )
             <*> accessTokenFileFlag
             <*> optional
                   (ReplClient.ApplicationId <$>
-                     strOption
+                     strOptionOnce
                        (long "application-id" <>
                         help "Application ID used for command submissions"
                        )
                   )
             <*> sslConfig
             <*> optional
-                    (option auto $
+                    (optionOnce auto $
                         long "max-inbound-message-size" <>
                         help "Optional max inbound message size in bytes."
                     )
             <*> timeModeFlag
             <*> projectOpts "daml repl"
-            <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
-            <*> strOption (long "script-lib" <> value "daml-script" <> internal)
+            <*> optionsParser
+                  numProcessors
+                  (EnableScenarioService False)
+                  (pure Nothing)
+                  disabledDlintUsageParser
+            <*> strOptionOnce (long "script-lib" <> value "daml-script" <> internal)
             -- This is useful for tests and `bazel run`.
 
-    packageImport = option readPackage $
+    packageImport = Options.Applicative.option readPackage $
         long "import"
         <> short 'i'
         <> help "Import modules of these packages into the REPL"
@@ -337,7 +371,7 @@ cmdRepl numProcessors =
             unless (looksLikePackageName strName) $
                 Left $ "Illegal package name: " ++ strName
             pure pkg
-    accessTokenFileFlag = optional . option str $
+    accessTokenFileFlag = optional . optionOnce str $
         long "access-token-file"
         <> metavar "TOKEN_PATH"
         <> help "Path to the token-file for ledger authorization"
@@ -348,17 +382,17 @@ cmdRepl numProcessors =
             [ long "tls"
             , help "Enable TLS for the connection to the ledger. This is implied if --cacrt, --pem or --crt are passed"
             ]
-        mbCACert <- optional $ strOption $ mconcat
+        mbCACert <- optional $ strOptionOnce $ mconcat
             [ long "cacrt"
             , help "The crt file to be used as the trusted root CA."
             ]
         mbClientKeyCertPair <- optional $ liftA2 ReplClient.ClientSSLKeyCertPair
-            (strOption $ mconcat
+            (strOptionOnce $ mconcat
                  [ long "pem"
                  , help "The pem file to be used as the private key in mutual authentication."
                  ]
             )
-            (strOption $ mconcat
+            (strOptionOnce $ mconcat
                  [ long "crt"
                  , help "The crt file to be used as the cert chain in mutual authentication."
                  ]
@@ -398,7 +432,13 @@ cmdInit numProcessors =
     command "init" $
     info (helper <*> cmd) $ progDesc "Initialize a Daml project" <> fullDesc
   where
-    cmd = execInit <$> optionsParser numProcessors (EnableScenarioService False) (pure Nothing) <*> projectOpts "daml damlc init"
+    cmd = execInit
+            <$> optionsParser
+                  numProcessors
+                  (EnableScenarioService False)
+                  (pure Nothing)
+                  disabledDlintUsageParser
+            <*> projectOpts "daml damlc init"
 
 cmdPackage :: Int -> Mod CommandFields Command
 cmdPackage numProcessors =
@@ -409,7 +449,11 @@ cmdPackage numProcessors =
     cmd = execPackage
         <$> projectOpts "daml damlc package"
         <*> inputFileOpt
-        <*> optionsParser numProcessors (EnableScenarioService False) (Just <$> packageNameOpt)
+        <*> optionsParser
+              numProcessors
+              (EnableScenarioService False)
+              (Just <$> packageNameOpt)
+              disabledDlintUsageParser
         <*> optionalOutputFileOpt
         <*> optFromDalf
 
@@ -453,7 +497,11 @@ cmdDocTest numProcessors =
     progDesc "Early Access (Labs). doc tests" <> fullDesc
   where
     cmd = execDocTest
-        <$> optionsParser numProcessors (EnableScenarioService True) optPackageName
+        <$> optionsParser
+              numProcessors
+              (EnableScenarioService True)
+              optPackageName
+              disabledDlintUsageParser
         <*> many inputFileOpt
 
 --------------------------------------------------------------------------------
@@ -509,16 +557,14 @@ execIde telemetry (Debug debug) enableScenarioService options =
                       whenJust gcpStateM $ \gcpState -> Logger.GCP.logIgnored gcpState
                       f loggerH
                   TelemetryDisabled -> f loggerH
-          dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
           options <- pure options
               { optScenarioService = enableScenarioService
               , optEnableOfInterestRule = True
               , optSkipScenarioValidation = SkipScenarioValidation True
               -- TODO(MH): The `optionsParser` does not provide a way to skip
               -- individual options. As a stopgap we ignore the argument to
-              -- --jobs and the dlint config.
+              -- --jobs.
               , optThreads = 0
-              , optDlintUsage = DlintEnabled dlintDataDir True
               }
           installDepsAndInitPackageDb options (InitPkgDb True)
           scenarioServiceConfig <- readScenarioServiceConfig
@@ -610,14 +656,13 @@ execLint inputFiles opts =
        withProjectRoot' projectOpts $ \relativize ->
        do
          loggerH <- getLogger opts "lint"
-         opts <- setDlintDataDir opts
          withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
              inputFiles <- getInputFiles relativize inputFiles
              setFilesOfInterest ide (HashSet.fromList inputFiles)
              diags <- forM inputFiles $ \inputFile -> do
                void $ runActionSync ide $ getDlintIdeas inputFile
                getDiagnostics ide
-             if null $ concat diags then
+             if all null diags then
                hPutStrLn stderr "No hints"
              else
                exitFailure
@@ -626,13 +671,6 @@ execLint inputFiles opts =
            withPackageConfig defaultProjectPath $ \PackageConfigFields {pSrc} -> do
            getDamlRootFiles pSrc
        fs -> forM fs $ fmap toNormalizedFilePath' . relativize
-     setDlintDataDir :: Options -> IO Options
-     setDlintDataDir opts = do
-       defaultDir <-locateRunfiles $
-         mainWorkspace </> "compiler/damlc/daml-ide-core"
-       return $ case optDlintUsage opts of
-         DlintEnabled _ _ -> opts
-         DlintDisabled  -> opts{optDlintUsage=DlintEnabled defaultDir True}
 
 defaultProjectPath :: ProjectPath
 defaultProjectPath = ProjectPath "."
@@ -724,13 +762,18 @@ execRepl dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInbou
             -- We change directory so make this absolute
             dars <- mapM makeAbsolute dars
             opts <- pure opts
-                { optDlintUsage = DlintDisabled
-                , optScenarioService = EnableScenarioService False
+                { optScenarioService = EnableScenarioService False
                 , optPackageImports = optPackageImports opts ++ pkgFlags
                 }
             logger <- getLogger opts "repl"
-            runfilesDir <- locateRunfiles (mainWorkspace </> "compiler/repl-service/server")
-            let jar = runfilesDir </> "repl-service.jar"
+            jar <- locateResource Resource
+                -- //compiler/repl-service/server:repl_service_jar
+                { resourcesPath = "repl-service.jar"
+                  -- In a packaged application, this is stored directly underneath
+                  -- the resources directory because it's the target's only output.
+                  -- See @bazel_tools/packaging/packaging.bzl@.
+                , runfilesPathPrefix = mainWorkspace </> "compiler" </> "repl-service" </> "server"
+                }
             ReplClient.withReplClient (ReplClient.Options jar mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInboundMessageSize timeMode Inherit) $ \replHandle ->
                 withTempDir $ \dir ->
                 withCurrentDirectory dir $ do

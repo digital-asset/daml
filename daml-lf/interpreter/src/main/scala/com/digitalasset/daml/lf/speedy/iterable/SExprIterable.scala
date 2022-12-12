@@ -5,16 +5,17 @@ package com.daml.lf.speedy.iterable
 
 import com.daml.lf.speedy.{SExpr, SValue}
 import com.daml.lf.speedy.SExpr.SExpr
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
 // Iterates only over immediate children similar to Haskell’s
 // uniplate.
+@nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppOnlyFunIsAtomic")
 private[speedy] object SExprIterable {
   that =>
   private[iterable] def iterator(e: SExpr): Iterator[SExpr] = e match {
     case SExpr.SEVal(_) => Iterator.empty
-    case SExpr.SEAppGeneral(fun, args) => Iterator(fun) ++ args.iterator
-    case SExpr.SEAppAtomicFun(fun, args) => Iterator(fun) ++ args.iterator
+    case SExpr.SEAppOnlyFunIsAtomic(fun, args) => Iterator(fun) ++ args.iterator
     case SExpr.SEAppAtomicGeneral(fun, args) => Iterator(fun) ++ args.iterator
     case SExpr.SEAppAtomicSaturatedBuiltin(_, args) => args.iterator
     case SExpr.SEMakeClo(_, _, body) => Iterator(body)
@@ -34,7 +35,7 @@ private[speedy] object SExprIterable {
     case SExpr.SEValue(v) => iterator(v)
     case SExpr.SELocF(_) => Iterator.empty
   }
-  private def iterator(v: SValue): Iterator[SExpr] = v match {
+  private[this] def iterator(v: SValue): Iterator[SExpr] = v match {
     case SValue.SPAP(prim, actuals, _) =>
       iterator(prim) ++ actuals.asScala.iterator.flatMap(iterator(_))
     case SValue.STNat(_) | _: SValue.SPrimLit | SValue.STypeRep(_) | SValue.SToken |
@@ -43,7 +44,7 @@ private[speedy] object SExprIterable {
         SValue.SVariant(_, _, _, _) =>
       SValueIterable.iterator(v).flatMap(iterator(_))
   }
-  private def iterator(v: SValue.Prim): Iterator[SExpr] = v match {
+  private[this] def iterator(v: SValue.Prim): Iterator[SExpr] = v match {
     case SValue.PBuiltin(_) => Iterator.empty
     case SValue.PClosure(_, expr, frame) => Iterator(expr) ++ frame.iterator.flatMap(iterator(_))
   }

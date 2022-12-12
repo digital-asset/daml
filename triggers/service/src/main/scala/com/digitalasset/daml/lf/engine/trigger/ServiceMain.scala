@@ -4,12 +4,12 @@
 package com.daml.lf.engine.trigger
 
 import java.util.UUID
-
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
+import ch.qos.logback.classic.Level
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dbutils.JdbcConfig
@@ -27,6 +27,7 @@ import scalaz.syntax.traverse._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.language.postfixOps
 import scala.sys.ShutdownHookThread
 import scala.util.{Failure, Success, Try}
 
@@ -36,7 +37,7 @@ object ServiceMain {
   implicit val timeout: Timeout = 30.seconds
 
   // Used by the test fixture
-  def startServer(
+  private[trigger] def startServerForTest(
       host: String,
       port: Int,
       maxAuthCallbacks: Int,
@@ -52,6 +53,7 @@ object ServiceMain {
       jdbcConfig: Option[JdbcConfig],
       allowExistingSchema: Boolean,
       compilerConfig: Compiler.Config,
+      triggerConfig: TriggerRunnerConfig,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Future[(ServerBinding, ActorSystem[Server.Message])] = {
 
@@ -73,6 +75,9 @@ object ServiceMain {
           jdbcConfig,
           allowExistingSchema,
           compilerConfig,
+          triggerConfig,
+          None,
+          10 seconds,
           logTriggerStatus,
         ),
         "TriggerService",
@@ -93,6 +98,13 @@ object ServiceMain {
     ) match {
       case None => sys.exit(1)
       case Some(config) =>
+        config.rootLoggingLevel.foreach(setLoggingLevel)
+        config.logEncoder match {
+          case LogEncoder.Plain =>
+          case LogEncoder.Json =>
+            discard(System.setProperty("LOG_FORMAT_JSON", "true"))
+        }
+
         val logger = ContextualizedLogger.get(this.getClass)
         val encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]] =
           config.darPaths.traverse(p => DarReader.readArchiveFromFile(p.toFile)) match {
@@ -105,7 +117,7 @@ object ServiceMain {
             case (None, None, Some(both)) => AuthMiddleware(both, both)
             case (Some(int), Some(ext), None) => AuthMiddleware(int, ext)
             case (int, ext, both) =>
-              // Note that this should never happen, as it should be caucht by
+              // Note that this should never happen, as it should be caught by
               // the checkConfig part of our scopt configuration
               logger.withoutContext.error(
                 s"Must specify either both --auth-internal and --auth-external or just --auth. Got: auth-internal: $int, auth-external: $ext, auth: $both."
@@ -167,6 +179,9 @@ object ServiceMain {
               config.jdbcConfig,
               config.allowExistingSchema,
               config.compilerConfig,
+              config.triggerConfig,
+              config.metricsReporter,
+              config.metricsReportingInterval,
             ),
             "TriggerService",
           )
@@ -193,5 +208,9 @@ object ServiceMain {
           discard[serviceF.type](Await.ready(serviceF, 5.seconds))
         }
     }
+  }
+
+  private def setLoggingLevel(level: Level): Unit = {
+    discard(System.setProperty("LOG_LEVEL_ROOT", level.levelStr))
   }
 }

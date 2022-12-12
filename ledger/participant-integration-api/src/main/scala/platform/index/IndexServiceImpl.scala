@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.{CommonErrors, LedgerApiErrors}
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
   Filters,
@@ -15,7 +15,6 @@ import com.daml.ledger.api.domain.{
   LedgerId,
   LedgerOffset,
   PackageEntry,
-  PartyEntry,
   TransactionFilter,
   TransactionId,
 }
@@ -60,7 +59,7 @@ import com.daml.platform.store.dao.{
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
-import com.daml.platform.{ApiOffset, TemplatePartiesFilter, PruneBuffers}
+import com.daml.platform.{ApiOffset, PruneBuffers, TemplatePartiesFilter}
 import com.daml.telemetry.{Event, SpanAttribute, Spans}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.ToTagOps
@@ -84,6 +83,10 @@ private[index] class IndexServiceImpl(
   // (e.g. when the client is temporarily slower than upstream delivery throughput)
   private val LedgerApiStreamsBufferSize = 128
   private val logger = ContextualizedLogger.get(getClass)
+
+  private val maximumLedgerTimeService = new ContractStoreBasedMaximumLedgerTimeService(
+    contractStore
+  )
 
   override def getParticipantId()(implicit
       loggingContext: LoggingContext
@@ -267,11 +270,6 @@ private[index] class IndexServiceImpl(
   ): Future[Option[VersionedContractInstance]] =
     contractStore.lookupActiveContract(forParties, contractId)
 
-  override def lookupContractForValidation(contractId: ContractId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Option[(VersionedContractInstance, Timestamp)]] =
-    contractStore.lookupContractForValidation(contractId)
-
   override def getTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
@@ -286,19 +284,14 @@ private[index] class IndexServiceImpl(
     transactionsReader
       .lookupTransactionTreeById(transactionId.unwrap, requestingParties)
 
-  override def lookupMaximumLedgerTimeAfterInterpretation(
-      contractIds: Set[ContractId]
-  )(implicit loggingContext: LoggingContext): Future[MaximumLedgerTime] =
-    contractStore.lookupMaximumLedgerTimeAfterInterpretation(contractIds)
-
   override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
-  ): Future[List[domain.PartyDetails]] =
+  ): Future[List[IndexerPartyDetails]] =
     ledgerDao.getParties(parties)
 
   override def listKnownParties()(implicit
       loggingContext: LoggingContext
-  ): Future[List[domain.PartyDetails]] =
+  ): Future[List[IndexerPartyDetails]] =
     ledgerDao.listKnownParties()
 
   override def partyEntries(
@@ -465,9 +458,19 @@ private[index] class IndexServiceImpl(
   }
 
   private def toGrpcError(implicit loggingContext: LoggingContext): StatusRuntimeException =
-    LedgerApiErrors.ServiceNotRunning
+    CommonErrors.ServiceNotRunning
       .Reject("Index Service")(new DamlContextualizedErrorLogger(logger, loggingContext, None))
       .asGrpcError
+
+  override def lookupContractStateWithoutDivulgence(contractId: ContractId)(implicit
+      loggingContext: LoggingContext
+  ): Future[ContractState] =
+    contractStore.lookupContractStateWithoutDivulgence(contractId)
+
+  override def lookupMaximumLedgerTimeAfterInterpretation(ids: Set[ContractId])(implicit
+      loggingContext: LoggingContext
+  ): Future[MaximumLedgerTime] =
+    maximumLedgerTimeService.lookupMaximumLedgerTimeAfterInterpretation(ids)
 }
 
 object IndexServiceImpl {

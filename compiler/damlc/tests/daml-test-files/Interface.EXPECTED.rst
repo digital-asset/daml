@@ -44,6 +44,10 @@ Interfaces
 
   **viewtype** `EmptyInterfaceView <type-interface-emptyinterfaceview-28816_>`_
 
+  + **Choice Archive**
+
+    (no fields)
+
   + **Choice GetRich**
 
     .. list-table::
@@ -124,6 +128,8 @@ Data Types
   `EmptyInterfaceView <constr-interface-emptyinterfaceview-1101_>`_
 
     (no fields)
+
+  **instance** `HasFromAnyView <https://docs.daml.com/daml/stdlib/DA-Internal-Interface-AnyView.html#class-da-internal-interface-anyview-hasfromanyview-30108>`_ `Token <type-interface-token-10651_>`_ `EmptyInterfaceView <type-interface-emptyinterfaceview-28816_>`_
 
   **instance** `HasInterfaceView <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492>`_ `Token <type-interface-token-10651_>`_ `EmptyInterfaceView <type-interface-emptyinterfaceview-28816_>`_
 

@@ -26,9 +26,9 @@ import com.google.protobuf
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-
 import java.nio.file.{Files, Path, Paths}
 import java.util.UUID
+
 import scala.util.{Failure, Success}
 
 class EngineModeIT
@@ -40,14 +40,9 @@ class EngineModeIT
   private[this] implicit val esf: ExecutionSequencerFactory =
     new SingleThreadExecutionSequencerPool("testSequencerPool")
 
-  private[this] val List(maxStableVersion, previewVersion, devVersion) =
-    List(
-      LanguageVersion.StableVersions.max,
-      LanguageVersion.EarlyAccessVersions.max,
-      LanguageVersion.DevVersions.max,
-    )
-
   private[this] val applicationId = ApplicationId("EngineModeIT")
+
+  private[this] val party = UUID.randomUUID.toString
 
   private[this] def ledgerClientConfiguration =
     ledger.client.configuration.LedgerClientConfiguration(
@@ -59,7 +54,6 @@ class EngineModeIT
 
   private[this] def buildRequest(pkgId: String, ledgerId: LedgerId) = {
     import scalaz.syntax.tag._
-    val party = "Alice"
     val tmplId = Some(Identifier(pkgId, "UnitMod", "Box"))
     val cmd = Command().withCreate(
       CreateCommand(
@@ -99,6 +93,7 @@ class EngineModeIT
         _ <- client.packageManagementClient.uploadDarFile(darContent)
         pkgsAfter <- client.packageManagementClient.listKnownPackages()
         _ = pkgsAfter.size shouldBe 1
+        _ = client.partyManagementClient.allocateParty(Some(party), None)
         // Uploading the package is not enough.
         // We have to submit a request that forces the engine to load the package.
         request = buildRequest(pkgsAfter.head.packageId, client.ledgerId)
@@ -147,21 +142,28 @@ class EngineModeIT
           }
         }
 
-    accept(maxStableVersion, LanguageVersion.StableVersions, "stable")
-    accept(maxStableVersion, LanguageVersion.EarlyAccessVersions, "early access")
-    accept(maxStableVersion, LanguageVersion.DevVersions, "dev")
+    inside(
+      List(
+        LanguageVersion.StableVersions.max,
+        LanguageVersion.EarlyAccessVersions.max,
+        LanguageVersion.DevVersions.max,
+      )
+    ) { case List(maxStableVersion, previewVersion, devVersion) =>
+      accept(maxStableVersion, LanguageVersion.StableVersions, "stable")
+      accept(maxStableVersion, LanguageVersion.EarlyAccessVersions, "early access")
+      accept(maxStableVersion, LanguageVersion.DevVersions, "dev")
 
-    if (LanguageVersion.EarlyAccessVersions != LanguageVersion.StableVersions) {
-      // a preview version is currently available
-      reject(previewVersion, LanguageVersion.StableVersions, "stable")
-      accept(previewVersion, LanguageVersion.EarlyAccessVersions, "early access")
-      accept(previewVersion, LanguageVersion.DevVersions, "dev")
+      if (LanguageVersion.EarlyAccessVersions != LanguageVersion.StableVersions) {
+        // a preview version is currently available
+        reject(previewVersion, LanguageVersion.StableVersions, "stable")
+        accept(previewVersion, LanguageVersion.EarlyAccessVersions, "early access")
+        accept(previewVersion, LanguageVersion.DevVersions, "dev")
+      }
+
+      reject(devVersion, LanguageVersion.StableVersions, "stable")
+      reject(devVersion, LanguageVersion.EarlyAccessVersions, "early access")
+      accept(devVersion, LanguageVersion.DevVersions, "dev")
     }
-
-    reject(devVersion, LanguageVersion.StableVersions, "stable")
-    reject(devVersion, LanguageVersion.EarlyAccessVersions, "early access")
-    accept(devVersion, LanguageVersion.DevVersions, "dev")
-
   }
 
 }

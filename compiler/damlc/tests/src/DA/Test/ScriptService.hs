@@ -3,6 +3,8 @@
 
 module DA.Test.ScriptService (main) where
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 import Control.Exception
 import Control.Monad
 import DA.Bazel.Runfiles
@@ -42,7 +44,7 @@ import Test.Tasty.HUnit
 import Text.Regex.TDFA
 
 lfVersion :: LF.Version
-lfVersion = max (LF.featureMinVersion LF.featureExceptions) LF.versionDefault
+lfVersion = LF.versionDefault
 
 main :: IO ()
 main =
@@ -1021,8 +1023,8 @@ main =
                   , "expectUserNotFound : Script a -> Script ()"
                   , "expectUserNotFound script = try do _ <- script; undefined catch UserNotFound _ -> pure ()"
                   , "testUserManagement = do"
-                  , "  True <- isValidUserId \"good\""
-                  , "  False <- isValidUserId \"BAD\""
+                  , "  True <- isValidUserId \"Good\""
+                  , "  False <- isValidUserId \"BAD?\" -- contains invalid character '?'"
                   , "  u1 <- validateUserId \"user1\""
                   , "  u2 <- validateUserId \"user2\""
                   , "  let user1 = User u1 None"
@@ -1206,10 +1208,7 @@ expectScriptFailure xs vr pred = case find ((vr ==) . fst) xs of
       assertFailure $ "Predicate for " <> show vr <> " failed on " <> show err
 
 options :: Options
-options =
-  (defaultOptions (Just lfVersion))
-    { optDlintUsage = DlintDisabled
-    }
+options = defaultOptions (Just lfVersion)
 
 runScripts :: SS.Handle -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]
 runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do

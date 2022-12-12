@@ -12,6 +12,10 @@ Interfaces
 
   **viewtype** `TokenView <type-retroactiveinterfaceinstance-tokenview-57374_>`_
 
+  + **Choice Archive**
+
+    (no fields)
+
   + **Choice GetRich**
 
     .. list-table::
@@ -100,6 +104,8 @@ Data Types
        * - amount
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
          -
+
+  **instance** `HasFromAnyView <https://docs.daml.com/daml/stdlib/DA-Internal-Interface-AnyView.html#class-da-internal-interface-anyview-hasfromanyview-30108>`_ `Token <type-retroactiveinterfaceinstance-token-49693_>`_ `TokenView <type-retroactiveinterfaceinstance-tokenview-57374_>`_
 
   **instance** `HasInterfaceView <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492>`_ `Token <type-retroactiveinterfaceinstance-token-49693_>`_ `TokenView <type-retroactiveinterfaceinstance-tokenview-57374_>`_
 

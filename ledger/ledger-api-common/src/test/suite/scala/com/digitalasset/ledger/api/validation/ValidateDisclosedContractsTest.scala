@@ -8,6 +8,7 @@ import com.daml.ledger.api.v1.commands.{
   Commands => ProtoCommands,
   DisclosedContract => ProtoDisclosedContract,
 }
+import ProtoDisclosedContract.{Arguments => ProtoArguments}
 import com.daml.ledger.api.v1.contract_metadata.{ContractMetadata => ProtoContractMetadata}
 import com.daml.ledger.api.v1.value.{
   Identifier => ProtoIdentifier,
@@ -67,7 +68,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withMissingTemplateId),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: template_id",
+        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.template_id",
       metadata = Map.empty,
     )
   }
@@ -99,7 +100,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withMissingContractId),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: contract_id",
+        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.contract_id",
       metadata = Map.empty,
     )
   }
@@ -114,7 +115,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withInvalidContractId),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field contract_id: cannot parse ContractId \"badContractId\"",
+        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field DisclosedContract.contract_id: cannot parse ContractId \"badContractId\"",
       metadata = Map.empty,
     )
   }
@@ -127,17 +128,23 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withMissingCreateArguments),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: arguments",
+        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.arguments",
       metadata = Map.empty,
     )
   }
 
   it should "fail validation on invalid create arguments record field" in {
+    def invalidArguments(arguments: ProtoArguments): ProtoArguments =
+      ProtoArguments.CreateArguments(
+        arguments.createArguments.get.update(
+          _.fields.set(scala.Seq(ProtoRecordField("something", None)))
+        )
+      )
     val withInvalidRecordField =
       ProtoCommands(disclosedContracts =
         scala.Seq(
           api.protoDisclosedContract.update(
-            _.arguments.fields.set(scala.Seq(ProtoRecordField("something", None)))
+            _.arguments.modify(invalidArguments)
           )
         )
       )
@@ -158,7 +165,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withMissingMetadata),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: metadata",
+        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.metadata",
       metadata = Map.empty,
     )
   }
@@ -173,7 +180,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withMissingCreatedAt),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: created_at",
+        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.metadata.created_at",
       metadata = Map.empty,
     )
   }
@@ -188,7 +195,7 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withInvalidCreatedAt),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Can not represent disclosed contract createdAt (Timestamp(1337,133,UnknownFieldSet(Map()))) as a Daml timestamp: Conversion of 1970-01-01T00:22:17.000000133Z to microsecond granularity would result in loss of precision.",
+        "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Can not represent DisclosedContract.metadata.created_at (Timestamp(1337,133,UnknownFieldSet(Map()))) as a Daml timestamp: Conversion of 1970-01-01T00:22:17.000000133Z to microsecond granularity would result in loss of precision.",
       metadata = Map.empty,
     )
   }
@@ -207,7 +214,28 @@ class ValidateDisclosedContractsTest extends AnyFlatSpec with Matchers with Vali
       request = validateDisclosedContracts(withInvalidKeyHashInMetadata),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field contract_key_hash: hash should have 32 bytes, got 10",
+        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field DisclosedContract.metadata.contract_key_hash: hash should have 32 bytes, got 10",
+      metadata = Map.empty,
+    )
+  }
+
+  it should "fail validation on unexpected create arguments blob" in {
+    val withCrappyArguments =
+      ProtoCommands(disclosedContracts =
+        scala.Seq(
+          api.protoDisclosedContract.update(
+            _.arguments := ProtoArguments.CreateArgumentsBlob(
+              com.google.protobuf.any.Any("foo ", ByteString.EMPTY)
+            )
+          )
+        )
+      )
+
+    requestMustFailWith(
+      request = validateDisclosedContracts(withCrappyArguments),
+      code = Status.Code.INVALID_ARGUMENT,
+      description =
+        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field blob: Type of the Any message does not match the given class.",
       metadata = Map.empty,
     )
   }
@@ -226,7 +254,7 @@ object ValidateDisclosedContractsTest {
       ProtoIdentifier("package", moduleName = "module", entityName = "entity")
     val contractId: String = "00" + "00" * 31 + "ef"
     val keyHash: Hash = Hash.assertFromString("00" * 31 + "ff")
-    val contractArguments: ProtoRecord = ProtoRecord(
+    val contractArgumentsRecord: ProtoRecord = ProtoRecord(
       Some(templateId),
       scala.Seq(ProtoRecordField("something", Some(ProtoValue(ProtoValue.Sum.Bool(true))))),
     )
@@ -238,7 +266,7 @@ object ValidateDisclosedContractsTest {
     val protoDisclosedContract: ProtoDisclosedContract = ProtoDisclosedContract(
       templateId = Some(templateId),
       contractId = contractId,
-      arguments = Some(contractArguments),
+      arguments = ProtoArguments.CreateArguments(contractArgumentsRecord),
       metadata = Some(contractMetadata),
     )
     val protoCommands: ProtoCommands =

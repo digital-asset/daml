@@ -4,30 +4,32 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.lf.codegen.backend.java.{JavaEscaper}
+import com.daml.ledger.javaapi.data.codegen.{
+  ContractCompanion,
+  ValueDecoder,
+  PrimitiveValueDecoders,
+}
+import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.typesig._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
-import javax.lang.model.element.Modifier
 
+import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
 private[inner] object FromValueGenerator extends StrictLogging {
 
-  def generateFromValueForRecordLike(
-      fields: Fields,
+  // TODO #15120 delete
+  def generateDeprecatedFromValueForRecordLike(
       className: TypeName,
       typeParameters: IndexedSeq[String],
-      recordValueExtractor: (String, String) => CodeBlock,
-      packagePrefixes: Map[PackageId, String],
   ): MethodSpec = {
     logger.debug("Generating fromValue method")
 
     val converterParams = FromValueExtractorParameters
       .generate(typeParameters)
-      .parameterSpecs
+      .functionParameterSpecs
 
     val method = MethodSpec
       .methodBuilder("fromValue")
@@ -37,32 +39,109 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .addParameter(TypeName.get(classOf[javaapi.data.Value]), "value$")
       .addParameters(converterParams.asJava)
       .addException(classOf[IllegalArgumentException])
-      .addCode(recordValueExtractor("value$", "recordValue$"))
-      .addStatement(
-        "$T record$$ = recordValue$$.asRecord().orElseThrow(() -> new IllegalArgumentException($S))",
-        classOf[javaapi.data.DamlRecord],
-        "Contracts must be constructed from Records",
+      .addAnnotation(classOf[Deprecated])
+      .addJavadoc(
+        "@deprecated since Daml $L; $L",
+        "2.5.0",
+        s"use {@code valueDecoder} instead",
       )
-      .addStatement(
-        "$T fields$$ = record$$.getFields()",
-        ParameterizedTypeName
-          .get(classOf[java.util.List[_]], classOf[javaapi.data.DamlRecord.Field]),
-      )
-      .addStatement("int numberOfFields = fields$$.size()")
-      .beginControlFlow(s"if (numberOfFields != ${fields.size})")
-      .addStatement(
-        "throw new $T($S + numberOfFields)",
-        classOf[IllegalArgumentException],
-        s"Expected ${fields.size} arguments, got ",
-      )
-      .endControlFlow()
 
-    fields.iterator.zip(accessors).foreach { case (FieldInfo(_, damlType, javaName, _), accessor) =>
-      method.addStatement(generateFieldExtractor(damlType, javaName, accessor, packagePrefixes))
-    }
+    val fromValueParams = CodeBlock.join(
+      converterParams.map { param =>
+        CodeBlock.of("$T.fromFunction($N)", classOf[ValueDecoder[_]], param)
+      }.asJava,
+      ",$W",
+    )
+
+    val classStaticAccessor = if (className.typeParameters.size > 0) {
+      val typeParameterList = CodeBlock.join(
+        className.typeParameters.asScala.map { param =>
+          CodeBlock.of("$T", param)
+        }.asJava,
+        ",$W",
+      )
+      CodeBlock.of("$T.<$L>", className.rawType, typeParameterList)
+    } else CodeBlock.of("")
 
     method
-      .addStatement("return new $L($L)", className, generateArgumentList(fields.map(_.javaName)))
+      .addStatement(
+        "return $LvalueDecoder($>$Z$L$<$Z)$Z.decode($L)",
+        classStaticAccessor,
+        fromValueParams,
+        "value$",
+      )
+      .build
+  }
+
+  def generateValueDecoderForRecordLike(
+      fields: Fields,
+      className: TypeName,
+      typeParameters: IndexedSeq[String],
+      methodName: String,
+      recordValueExtractor: (String, String) => CodeBlock,
+      isPublic: Boolean = true,
+  )(implicit packagePrefixes: PackagePrefixes): MethodSpec = {
+    logger.debug(s"Generating value decoder method $methodName")
+
+    val converterParams = FromValueExtractorParameters
+      .generate(typeParameters)
+      .valueDecoderParameterSpecs
+
+    val fromValueCode = CodeBlock
+      .builder()
+      .add(recordValueExtractor("value$", "recordValue$"))
+      .addStatement(
+        "$T fields$$ = $T.recordCheck($L,$WrecordValue$$)",
+        ParameterizedTypeName
+          .get(classOf[java.util.List[_]], classOf[javaapi.data.DamlRecord.Field]),
+        classOf[PrimitiveValueDecoders],
+        fields.size,
+      )
+
+    fields.iterator.zip(accessors).foreach { case (FieldInfo(_, damlType, javaName, _), accessor) =>
+      fromValueCode.addStatement(
+        generateFieldExtractor(damlType, javaName, accessor)
+      )
+    }
+
+    fromValueCode
+      .addStatement(
+        "return new $T($L)",
+        className,
+        generateArgumentList(fields.map(_.javaName)),
+      )
+
+    MethodSpec
+      .methodBuilder(methodName)
+      .addModifiers(if (isPublic) Modifier.PUBLIC else Modifier.PRIVATE, Modifier.STATIC)
+      .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
+      .addTypeVariables(className.typeParameters)
+      .addParameters(converterParams.asJava)
+      .addException(classOf[IllegalArgumentException])
+      .beginControlFlow("return $L ->", "value$")
+      .addCode(fromValueCode.build())
+      // put empty string in endControlFlow in order to have semicolon
+      .endControlFlow("")
+      .build()
+  }
+
+  def generateContractCompanionValueDecoder(
+      className: TypeName,
+      typeParameters: IndexedSeq[String],
+  ): MethodSpec = {
+    logger.debug("Generating method for getting value decoder in template class")
+    val converterParams = FromValueExtractorParameters
+      .generate(typeParameters)
+      .valueDecoderParameterSpecs
+
+    MethodSpec
+      .methodBuilder("valueDecoder")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
+      .addTypeVariables(className.typeParameters)
+      .addParameters(converterParams.asJava)
+      .addException(classOf[IllegalArgumentException])
+      .addStatement("return $T.valueDecoder(COMPANION)", classOf[ContractCompanion[_, _, _]])
       .build()
   }
 
@@ -73,66 +152,49 @@ private[inner] object FromValueGenerator extends StrictLogging {
     CodeBlock
       .builder()
       .addStatement(
-        "$T variant$$ = $L.asVariant().orElseThrow(() -> new IllegalArgumentException($S + $L.getClass().getName()))",
-        classOf[javaapi.data.Variant],
-        inputVar,
-        s"Expected: Variant. Actual: ",
-        inputVar,
-      )
-      .addStatement(
-        "if (!$S.equals(variant$$.getConstructor())) throw new $T($S + variant$$.getConstructor())",
+        "$T $L =$W$T.variantCheck($S,$W$L)",
+        classOf[javaapi.data.Value],
+        outputVar,
+        classOf[PrimitiveValueDecoders],
         constructorName,
-        classOf[IllegalArgumentException],
-        s"Invalid constructor. Expected: $constructorName. Actual: ",
+        inputVar,
       )
-      .addStatement("$T $L = variant$$.getValue()", classOf[javaapi.data.Value], outputVar)
       .build()
   }
 
-  def generateFieldExtractor(
-      fieldType: Type,
-      field: String,
-      accessor: CodeBlock,
-      packagePrefixes: Map[PackageId, String],
+  def generateFieldExtractor(fieldType: Type, field: String, accessor: CodeBlock)(implicit
+      packagePrefixes: PackagePrefixes
   ): CodeBlock =
     CodeBlock.of(
-      "$T $L = $L",
-      toJavaTypeName(fieldType, packagePrefixes),
+      "$T $L =$W$L",
+      toJavaTypeName(fieldType),
       field,
-      extractor(fieldType, field, accessor, newNameGenerator, packagePrefixes),
+      extractor(fieldType, field, accessor, newNameGenerator),
     )
 
-  // Primitive extractors that map a type to the method to retrieve it
-  // Missing on purpose: `Record` and `Variant` -- those should be dealt
-  // with separately as code generation turns them into custom types
   private[this] val extractors =
-    Map[PrimType, (String, Option[String])](
-      (PrimTypeBool, ("asBool", Some(".getValue()"))),
-      (PrimTypeInt64, ("asInt64", Some(".getValue()"))),
-      (PrimTypeText, ("asText", Some(".getValue()"))),
-      (PrimTypeTimestamp, ("asTimestamp", Some(".getValue()"))),
-      (PrimTypeParty, ("asParty", Some(".getValue()"))),
-      (PrimTypeUnit, ("asUnit", None)),
-      (PrimTypeDate, ("asDate", Some(".getValue()"))),
+    Map[PrimType, String](
+      (PrimTypeBool, "fromBool"),
+      (PrimTypeInt64, "fromInt64"),
+      (PrimTypeText, "fromText"),
+      (PrimTypeTimestamp, "fromTimestamp"),
+      (PrimTypeParty, "fromParty"),
+      (PrimTypeUnit, "fromUnit"),
+      (PrimTypeDate, "fromDate"),
     )
 
   // If [[typeName]] is defined in the primitive extractors map, create an extractor for it
-  private def primitive(
+  private[this] def primitive(
       damlType: PrimType,
       apiType: TypeName,
       field: String,
-      accessor: CodeBlock,
-  ): Option[CodeBlock] =
+  ): Option[Extractor] =
     extractors
       .get(damlType)
-      .map { case (extractor, converter) =>
+      .map { extractor =>
         logger.debug(s"Generating primitive extractor for $field of type $apiType")
-        CodeBlock.of(
-          "$L.$L()$L$L",
-          accessor,
-          extractor,
-          orElseThrow(apiType, field),
-          converter.getOrElse(""),
+        Extractor.Decoder(
+          CodeBlock.of("$T.$L", classOf[PrimitiveValueDecoders], extractor)
         )
       }
 
@@ -141,6 +203,37 @@ private[inner] object FromValueGenerator extends StrictLogging {
       ".orElseThrow(() -> new IllegalArgumentException($S))",
       s"Expected $field to be of type $typeName",
     )
+
+  private[this] sealed abstract class Extractor extends Product with Serializable {
+    import Extractor._
+
+    /** An expression of type `T` where `T` is the decoding target */
+    def extract(accessor: CodeBlock): CodeBlock = this match {
+      case Decoder(decoder) => CodeBlock.of("$L$Z.decode($L)", decoder, accessor)
+      case FromFreeVar(decodeAccessor) => decodeAccessor(accessor)
+    }
+
+    /** An expression of type `ValueDecoder<T>` for some `T` */
+    def asDecoder(args: Iterator[String]): CodeBlock = this match {
+      case Decoder(decoder) => decoder
+      case FromFreeVar(decodeAccessor) =>
+        val lambdaBinding = args.next()
+        CodeBlock.of(
+          "$L ->$>$W$L$<",
+          lambdaBinding,
+          decodeAccessor(CodeBlock.of("$L", lambdaBinding)),
+        )
+    }
+  }
+
+  private[this] object Extractor {
+
+    /** Decode the expression passed in as an argument. */
+    final case class FromFreeVar(decodeAccessor: CodeBlock => CodeBlock) extends Extractor
+
+    /** Produce a point-free ValueDecoder. */
+    final case class Decoder(decoder: CodeBlock) extends Extractor
+  }
 
   /** Generates extractor for types that are not immediately covered by primitive extractors
     * @param damlType The type of the field being accessed
@@ -154,12 +247,35 @@ private[inner] object FromValueGenerator extends StrictLogging {
       field: String,
       accessor: CodeBlock,
       args: Iterator[String],
-      packagePrefixes: Map[PackageId, String],
-  ): CodeBlock = {
+  )(implicit
+      packagePrefixes: PackagePrefixes
+  ): CodeBlock =
+    extractorRec(damlType, field, args) extract accessor
+
+  private[this] def extractorRec(damlType: Type, field: String, args: Iterator[String])(implicit
+      packagePrefixes: PackagePrefixes
+  ): Extractor = {
 
     lazy val apiType = toAPITypeName(damlType)
-    lazy val javaType = toJavaTypeName(damlType, packagePrefixes)
+    lazy val javaType = toJavaTypeName(damlType)
     logger.debug(s"Generating composite extractor for $field of type $javaType")
+
+    import Extractor._
+
+    // shorten recursive calls
+    // we always want a ValueDecoder when recurring
+    def go(recDamlType: Type): CodeBlock =
+      extractorRec(recDamlType, field, args) asDecoder args
+
+    def oneTypeArgPrim(primFun: String, param: Type): Extractor =
+      Decoder(
+        CodeBlock.of(
+          "$T.$L($>$Z$L$<)",
+          classOf[PrimitiveValueDecoders],
+          primFun,
+          go(param),
+        )
+      )
 
     damlType match {
       // Case #1: the type is actually a type parameter: we assume the calling code defines a
@@ -167,119 +283,80 @@ private[inner] object FromValueGenerator extends StrictLogging {
       // defined by the accessor
       // TODO: review aforementioned assumption
       case TypeVar(tvName) =>
-        CodeBlock.of("fromValue$L.apply($L)", JavaEscaper.escapeString(tvName), accessor)
+        Decoder(CodeBlock.of("fromValue$L", JavaEscaper.escapeString(tvName)))
 
       case TypePrim(PrimTypeList, ImmArraySeq(param)) =>
-        val optMapArg = args.next()
-        val listMapArg = args.next()
-        CodeBlock.of(
-          """$L.asList()
-            |    .map($L -> $L.toList($L ->
-            |        $L
-            |    ))
-            |    $L
-            |""".stripMargin,
-          accessor,
-          optMapArg,
-          optMapArg,
-          listMapArg,
-          extractor(param, listMapArg, CodeBlock.of("$L", listMapArg), args, packagePrefixes),
-          orElseThrow(apiType, field),
-        )
+        oneTypeArgPrim("fromList", param)
 
       case TypePrim(PrimTypeOptional, ImmArraySeq(param)) =>
-        val optOptArg = args.next()
-        val valArg = args.next()
-        CodeBlock.of(
-          """$L.asOptional()
-            |    .map($L -> $L.toOptional($L ->
-            |        $L
-            |    ))
-            |    $L
-          """.stripMargin,
-          accessor,
-          optOptArg,
-          optOptArg,
-          valArg,
-          extractor(param, valArg, CodeBlock.of("$L", valArg), args, packagePrefixes),
-          orElseThrow(apiType, field),
-        )
+        oneTypeArgPrim("fromOptional", param)
 
-      case TypePrim(PrimTypeContractId, _) =>
-        CodeBlock.of(
-          "new $T($L.asContractId()$L.getValue())",
-          javaType,
-          accessor,
-          orElseThrow(apiType, field),
+      case TypePrim(PrimTypeContractId, ImmArraySeq(TypeVar(name))) =>
+        Decoder(
+          CodeBlock.of(
+            "$T.fromContractId(fromValue$L)",
+            classOf[PrimitiveValueDecoders],
+            JavaEscaper.escapeString(name),
+          )
         )
-
+      case TypePrim(PrimTypeContractId, ImmArraySeq(_)) =>
+        FromFreeVar(accessor =>
+          CodeBlock.of(
+            "new $T($L.asContractId()$L.getValue())",
+            javaType,
+            accessor,
+            orElseThrow(apiType, field),
+          )
+        )
       case TypePrim(PrimTypeTextMap, ImmArraySeq(param)) =>
-        val optMapArg = args.next()
-        val entryArg = args.next()
-        CodeBlock.of(
-          """$L.asTextMap()
-            |    .map($L -> $L.toMap($L ->
-            |        $L
-            |    ))
-            |    $L
-          """.stripMargin,
-          accessor,
-          optMapArg,
-          optMapArg,
-          entryArg,
-          extractor(param, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
-          orElseThrow(apiType, field),
-        )
+        oneTypeArgPrim("fromTextMap", param)
 
       case TypePrim(PrimTypeGenMap, ImmArraySeq(keyType, valueType)) =>
-        val optMapArg = args.next()
-        val entryArg = args.next()
-        CodeBlock.of(
-          """$L.asGenMap()
-              |    .map($L -> $L.toMap(
-              |        $L -> $L,
-              |        $L -> $L
-              |    ))
-              |    $L
-          """.stripMargin,
-          accessor,
-          optMapArg,
-          optMapArg,
-          entryArg,
-          extractor(keyType, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
-          entryArg,
-          extractor(valueType, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
-          orElseThrow(apiType, field),
+        Decoder(
+          CodeBlock.of(
+            "$T.fromGenMap($>$Z$L,$W$L$<)",
+            classOf[PrimitiveValueDecoders],
+            go(keyType),
+            go(valueType),
+          )
         )
 
       case TypeNumeric(_) =>
-        CodeBlock.of("$L.asNumeric()$L.getValue()", accessor, orElseThrow(apiType, field))
+        Decoder(CodeBlock.of("$T.fromNumeric", classOf[PrimitiveValueDecoders]))
 
       case TypePrim(prim, _) =>
-        primitive(prim, apiType, field, accessor).getOrElse(
+        primitive(prim, apiType, field).getOrElse(
           sys.error(s"Unhandled primitive type $prim")
         )
 
       case TypeCon(_, ImmArraySeq()) =>
-        CodeBlock.of("$T.fromValue($L)", javaType, accessor)
+        Decoder(CodeBlock.of("$T.valueDecoder()", javaType))
 
       case TypeCon(_, typeParameters) =>
-        val (targs, extractors) = typeParameters.map { targ =>
-          val innerArg = args.next()
-          toJavaTypeName(targ, packagePrefixes) -> CodeBlock.of(
-            "$L -> $L",
-            innerArg,
-            extractor(targ, field, CodeBlock.of("$L", innerArg), args, packagePrefixes),
-          )
+        val (targs, valueDecoders) = typeParameters.map {
+          case targ @ TypeVar(tvName) =>
+            toJavaTypeName(targ) -> CodeBlock.of(
+              "fromValue$L",
+              JavaEscaper.escapeString(tvName),
+            )
+          case targ @ TypeCon(_, ImmArraySeq()) =>
+            toJavaTypeName(targ) -> CodeBlock.of(
+              "$T.valueDecoder()",
+              toJavaTypeName(targ),
+            )
+          case targ =>
+            toJavaTypeName(targ) -> go(targ)
         }.unzip
 
-        val targsCode = CodeBlock.join(targs.map(CodeBlock.of("$L", _)).asJava, ", ")
-        CodeBlock
-          .builder()
-          .add(CodeBlock.of("$T.<$L>fromValue($L, ", javaType.rawType, targsCode, accessor))
-          .add(CodeBlock.join(extractors.asJava, ", "))
-          .add(")")
-          .build()
+        val targsCode = CodeBlock.join(targs.map(CodeBlock.of("$L", _)).asJava, ",$W")
+        Decoder(
+          CodeBlock
+            .builder()
+            .add(CodeBlock.of("$T.<$L>valueDecoder(", javaType.rawType, targsCode))
+            .add(CodeBlock.join(valueDecoders.asJava, ",$W"))
+            .add(CodeBlock.of(")"))
+            .build()
+        )
     }
   }
 }

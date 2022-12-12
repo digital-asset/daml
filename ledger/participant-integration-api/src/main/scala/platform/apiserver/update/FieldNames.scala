@@ -3,24 +3,70 @@
 
 package com.daml.platform.apiserver.update
 
-// TODO um-for-hub: Get field names from files generated from proto files instead of hardcoding them
+import scalapb.GeneratedMessageCompanion
+import com.daml.ledger.api.v1.admin
+
 object FieldNames {
-  object UpdateUserRequest {
-    val user = "user"
-  }
   object User {
-    val primaryParty = "primary_party"
-    val isDeactivated = "is_deactivated"
-    val metadata = "metadata"
+    val id: String = resolveFieldName(admin.user_management_service.User)(_.ID_FIELD_NUMBER)
+    val primaryParty: String =
+      resolveFieldName(admin.user_management_service.User)(_.PRIMARY_PARTY_FIELD_NUMBER)
+    val isDeactivated: String =
+      resolveFieldName(admin.user_management_service.User)(_.IS_DEACTIVATED_FIELD_NUMBER)
+    val metadata: String =
+      resolveFieldName(admin.user_management_service.User)(_.METADATA_FIELD_NUMBER)
+    val identityProviderId: String =
+      resolveFieldName(admin.user_management_service.User)(_.IDENTITY_PROVIDER_ID_FIELD_NUMBER)
   }
   object Metadata {
-    val annotations = "annotations"
+    val annotations: String =
+      resolveFieldName(admin.object_meta.ObjectMeta)(_.ANNOTATIONS_FIELD_NUMBER)
+    val resourceVersion: String =
+      resolveFieldName(admin.object_meta.ObjectMeta)(_.RESOURCE_VERSION_FIELD_NUMBER)
   }
 
-  object UpdatePartyDetailsRequest {
-    val partyDetails = "party_details"
-  }
   object PartyDetails {
-    val localMetadata = "local_metadata"
+    val party: String =
+      resolveFieldName(admin.party_management_service.PartyDetails)(_.PARTY_FIELD_NUMBER)
+    val localMetadata: String =
+      resolveFieldName(admin.party_management_service.PartyDetails)(_.LOCAL_METADATA_FIELD_NUMBER)
+    val displayName: String =
+      resolveFieldName(admin.party_management_service.PartyDetails)(_.DISPLAY_NAME_FIELD_NUMBER)
+    val isLocal: String =
+      resolveFieldName(admin.party_management_service.PartyDetails)(_.IS_LOCAL_FIELD_NUMBER)
+    val identityProviderId: String =
+      resolveFieldName(admin.party_management_service.PartyDetails)(
+        _.IDENTITY_PROVIDER_ID_FIELD_NUMBER
+      )
   }
+
+  object IdentityProviderConfig {
+    val identityProviderId: String =
+      resolveFieldName(admin.identity_provider_config_service.IdentityProviderConfig)(
+        _.IDENTITY_PROVIDER_ID_FIELD_NUMBER
+      )
+    val issuer =
+      resolveFieldName(admin.identity_provider_config_service.IdentityProviderConfig)(
+        _.ISSUER_FIELD_NUMBER
+      )
+    val isDeactivated =
+      resolveFieldName(admin.identity_provider_config_service.IdentityProviderConfig)(
+        _.IS_DEACTIVATED_FIELD_NUMBER
+      )
+    val jwksUrl =
+      resolveFieldName(admin.identity_provider_config_service.IdentityProviderConfig)(
+        _.JWKS_URL_FIELD_NUMBER
+      )
+  }
+
+  private def resolveFieldName[A <: GeneratedMessageCompanion[_]](
+      companion: A
+  )(getFieldNumberFun: A => Int): String = {
+    val fieldNumber = getFieldNumberFun(companion)
+    companion.scalaDescriptor
+      .findFieldByNumber(fieldNumber)
+      .getOrElse(sys.error(s"Unknown field number $fieldNumber on $companion"))
+      .name
+  }
+
 }

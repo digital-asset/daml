@@ -175,7 +175,7 @@ object TransactionGenerator {
   }
 
   val boolValueGen: Gen[(Sum.Bool, data.Bool)] = Arbitrary.arbBool.arbitrary.map { bool =>
-    (Sum.Bool(bool), new data.Bool(bool))
+    (Sum.Bool(bool), data.Bool of bool)
   }
 
   val dateValueGen: Gen[(Sum.Date, data.Date)] = Arbitrary.arbInt.arbitrary.map { date =>
@@ -221,6 +221,7 @@ object TransactionGenerator {
         Some(scalaTemplateId),
         contractKey.map(_._1),
         Some(scalaRecord),
+        None,
         interfaceViews.map(_._1),
         signatories ++ observers,
         signatories,

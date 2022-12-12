@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class GetTransactionTreesResponse {
+public final class GetTransactionTreesResponse {
 
   private final List<TransactionTree> transactions;
 

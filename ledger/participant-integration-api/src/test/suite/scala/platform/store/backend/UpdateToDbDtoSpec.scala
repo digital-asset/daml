@@ -10,7 +10,7 @@ import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -269,88 +269,16 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
     }
 
+    val transactionId = Ref.TransactionId.assertFromString("TransactionId")
+
     "handle TransactionAccepted (single create node)" in {
-      val transactionMeta = someTransactionMeta
-      val builder = TransactionBuilder()
-      val createNode = builder.create(
-        id = builder.newCid,
-        templateId = "M:T",
-        argument = Value.ValueUnit,
-        signatories = Set("signatory"),
-        observers = Set("observer"),
-        key = None,
-      )
-      val createNodeId = builder.add(createNode)
-      val transaction = builder.buildCommitted()
-      val completionInfo = someCompletionInfo
-      val update = state.Update.TransactionAccepted(
-        optCompletionInfo = Some(completionInfo),
-        transactionMeta = transactionMeta,
-        transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
-        recordTime = someRecordTime,
-        divulgedContracts = List.empty,
-        blindingInfo = None,
-        contractMetadata = Map.empty,
-      )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
-
-      dtos.head shouldEqual DbDto.EventCreate(
-        event_offset = Some(someOffset.toHexString),
-        transaction_id = Some(update.transactionId),
-        ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
-        command_id = Some(completionInfo.commandId),
-        workflow_id = transactionMeta.workflowId,
-        application_id = Some(completionInfo.applicationId),
-        submitters = Some(completionInfo.actAs.toSet),
-        node_index = Some(createNodeId.index),
-        event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
-        contract_id = createNode.coid.coid,
-        template_id = Some(createNode.templateId.toString),
-        flat_event_witnesses = Set("signatory", "observer"), // stakeholders
-        tree_event_witnesses = Set("signatory", "observer"), // informees
-        create_argument = Some(emptyArray),
-        create_signatories = Some(Set("signatory")),
-        create_observers = Some(Set("observer")),
-        create_agreement_text = None,
-        create_key_value = None,
-        create_key_hash = None,
-        create_argument_compression = compressionAlgorithmId,
-        create_key_value_compression = None,
-        event_sequential_id = 0,
-      )
-      dtos(3) shouldEqual DbDto.CommandCompletion(
-        completion_offset = someOffset.toHexString,
-        record_time = update.recordTime.micros,
-        application_id = completionInfo.applicationId,
-        submitters = completionInfo.actAs.toSet,
-        command_id = completionInfo.commandId,
-        transaction_id = Some(update.transactionId),
-        rejection_status_code = None,
-        rejection_status_message = None,
-        rejection_status_details = None,
-        submission_id = Some(someSubmissionId),
-        deduplication_offset = None,
-        deduplication_duration_seconds = None,
-        deduplication_duration_nanos = None,
-        deduplication_start = None,
-      )
-      Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "signatory"),
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "observer"),
-      )
-      dtos.size shouldEqual 4
-    }
-
-    "handle TransactionAccepted (single create node with agreement text)" in {
       val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = TransactionBuilder()
+      val contractId = builder.newCid
       val createNode = builder
         .create(
-          id = builder.newCid,
+          id = contractId,
           templateId = "M:T",
           argument = Value.ValueUnit,
           signatories = Set("signatory"),
@@ -364,11 +292,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
-        contractMetadata = Map.empty,
+        contractMetadata = Map(contractId -> someContractDriverMetadata),
       )
       val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
         someOffset
@@ -397,6 +325,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_argument_compression = compressionAlgorithmId,
         create_key_value_compression = None,
         event_sequential_id = 0,
+        driver_metadata = Some(someContractDriverMetadata.toByteArray),
       )
       dtos(3) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.toHexString,
@@ -414,11 +343,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_duration_seconds = None,
         deduplication_start = None,
       )
-      Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "signatory"),
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "observer"),
+      dtos(4) shouldEqual DbDto.TransactionMeta(
+        transaction_id = transactionId,
+        event_offset = someOffset.toHexString,
+        event_sequential_id_first = 0,
+        event_sequential_id_last = 0,
       )
-      dtos.size shouldEqual 4
+      Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
+        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
+        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "observer"),
+      )
+      dtos.size shouldEqual 5
     }
 
     "handle TransactionAccepted (single consuming exercise node)" in {
@@ -451,7 +386,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -488,6 +423,16 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
         ),
+        DbDto.IdFilterConsumingStakeholder(
+          event_sequential_id = 0,
+          template_id = exerciseNode.templateId.toString,
+          party_id = "signatory",
+        ),
+        DbDto.IdFilterConsumingStakeholder(
+          event_sequential_id = 0,
+          template_id = exerciseNode.templateId.toString,
+          party_id = "observer",
+        ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = update.recordTime.micros,
@@ -503,6 +448,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_nanos = None,
           deduplication_duration_seconds = None,
           deduplication_start = None,
+        ),
+        DbDto.TransactionMeta(
+          transaction_id = transactionId,
+          event_offset = someOffset.toHexString,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
         ),
       )
     }
@@ -537,7 +488,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -574,6 +525,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
         ),
+        DbDto.IdFilterNonConsumingInformee(
+          event_sequential_id = 0,
+          party_id = "signatory",
+        ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = update.recordTime.micros,
@@ -589,6 +544,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_nanos = None,
           deduplication_duration_seconds = None,
           deduplication_start = None,
+        ),
+        DbDto.TransactionMeta(
+          transaction_id = transactionId,
+          event_offset = someOffset.toHexString,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
         ),
       )
     }
@@ -649,7 +610,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -691,6 +652,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
         ),
+        DbDto.IdFilterNonConsumingInformee(
+          event_sequential_id = 0,
+          party_id = "signatory",
+        ),
         DbDto.EventExercise(
           consuming = false,
           event_offset = Some(someOffset.toHexString),
@@ -716,6 +681,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
+        ),
+        DbDto.IdFilterNonConsumingInformee(
+          event_sequential_id = 0,
+          party_id = "signatory",
         ),
         DbDto.EventExercise(
           consuming = false,
@@ -743,6 +712,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
         ),
+        DbDto.IdFilterNonConsumingInformee(
+          event_sequential_id = 0,
+          party_id = "signatory",
+        ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.toHexString,
           record_time = update.recordTime.micros,
@@ -758,6 +731,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_nanos = None,
           deduplication_duration_seconds = None,
           deduplication_start = None,
+        ),
+        DbDto.TransactionMeta(
+          transaction_id = transactionId,
+          event_offset = someOffset.toHexString,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
         ),
       )
     }
@@ -800,7 +779,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -827,7 +806,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_nanos = None,
           deduplication_duration_seconds = None,
           deduplication_start = None,
-        )
+        ),
+        DbDto.TransactionMeta(
+          transaction_id = transactionId,
+          event_offset = someOffset.toHexString,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
+        ),
       )
     }
 
@@ -863,7 +848,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -900,6 +885,20 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
         ),
+        DbDto.IdFilterConsumingStakeholder(
+          event_sequential_id = 0,
+          template_id = exerciseNode.templateId.toString,
+          party_id = "signatory",
+        ),
+        DbDto.IdFilterConsumingStakeholder(
+          event_sequential_id = 0,
+          template_id = exerciseNode.templateId.toString,
+          party_id = "observer",
+        ),
+        DbDto.IdFilterConsumingNonStakeholderInformee(
+          event_sequential_id = 0,
+          party_id = "divulgee",
+        ),
         DbDto.EventDivulgence(
           event_offset = Some(someOffset.toHexString),
           command_id = Some(completionInfo.commandId),
@@ -931,6 +930,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_seconds = None,
           deduplication_start = None,
         ),
+        DbDto.TransactionMeta(
+          transaction_id = transactionId,
+          event_offset = someOffset.toHexString,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
+        ),
       )
     }
 
@@ -941,8 +946,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = TransactionBuilder()
+      val contractId = builder.newCid
       val createNode = builder.create(
-        id = builder.newCid,
+        id = contractId,
         templateId = "M:T",
         argument = Value.ValueUnit,
         signatories = List("signatory"),
@@ -966,11 +972,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
-        contractMetadata = Map.empty,
+        contractMetadata = Map(contractId -> someContractDriverMetadata),
       )
       val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
         someOffset
@@ -999,10 +1005,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_argument_compression = compressionAlgorithmId,
         create_key_value_compression = None,
         event_sequential_id = 0,
+        driver_metadata = Some(someContractDriverMetadata.toByteArray),
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "signatory"),
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "observer"),
+        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
+        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "observer"),
       )
       dtos(3) shouldEqual DbDto.EventExercise(
         consuming = true,
@@ -1030,7 +1037,21 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         exercise_result_compression = compressionAlgorithmId,
         event_sequential_id = 0,
       )
-      dtos(4) shouldEqual DbDto.EventDivulgence(
+      dtos(4) shouldEqual DbDto.IdFilterConsumingStakeholder(
+        event_sequential_id = 0,
+        template_id = exerciseNode.templateId.toString,
+        party_id = "signatory",
+      )
+      dtos(5) shouldEqual DbDto.IdFilterConsumingStakeholder(
+        event_sequential_id = 0,
+        template_id = exerciseNode.templateId.toString,
+        party_id = "observer",
+      )
+      dtos(6) shouldEqual DbDto.IdFilterConsumingNonStakeholderInformee(
+        event_sequential_id = 0,
+        party_id = "divulgee",
+      )
+      dtos(7) shouldEqual DbDto.EventDivulgence(
         event_offset = Some(someOffset.toHexString),
         command_id = Some(completionInfo.commandId),
         workflow_id = transactionMeta.workflowId,
@@ -1045,7 +1066,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_argument_compression = compressionAlgorithmId,
         event_sequential_id = 0,
       )
-      dtos(5) shouldEqual DbDto.CommandCompletion(
+      dtos(8) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.toHexString,
         record_time = update.recordTime.micros,
         application_id = completionInfo.applicationId,
@@ -1061,7 +1082,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_duration_seconds = None,
         deduplication_start = None,
       )
-      dtos.size shouldEqual 6
+      dtos(9) shouldEqual DbDto.TransactionMeta(
+        transaction_id = transactionId,
+        event_offset = someOffset.toHexString,
+        event_sequential_id_first = 0,
+        event_sequential_id_last = 0,
+      )
+      dtos.size shouldEqual 10
     }
 
     "handle TransactionAccepted (explicit blinding info)" in {
@@ -1092,7 +1119,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts =
           List(state.DivulgedContract(createNode.coid, createNode.versionedCoinst)),
@@ -1108,64 +1135,82 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         someOffset
       )(update).toList
 
-      dtos should contain theSameElementsInOrderAs List(
-        DbDto.EventExercise(
-          consuming = true,
-          event_offset = Some(someOffset.toHexString),
-          transaction_id = Some(update.transactionId),
-          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
-          command_id = Some(completionInfo.commandId),
-          workflow_id = transactionMeta.workflowId,
-          application_id = Some(completionInfo.applicationId),
-          submitters = Some(completionInfo.actAs.toSet),
-          node_index = Some(exerciseNodeId.index),
-          event_id = Some(EventId(update.transactionId, exerciseNodeId).toLedgerString),
-          contract_id = exerciseNode.targetCoid.coid,
-          template_id = Some(exerciseNode.templateId.toString),
-          flat_event_witnesses = Set("signatory", "observer"),
-          tree_event_witnesses = Set("disclosee"), // taken from explicit blinding info
-          create_key_value = None,
-          exercise_choice = Some(exerciseNode.choiceId),
-          exercise_argument = Some(emptyArray),
-          exercise_result = Some(emptyArray),
-          exercise_actors = Some(Set("signatory")),
-          exercise_child_event_ids = Some(Vector.empty),
-          create_key_value_compression = compressionAlgorithmId,
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
-          event_sequential_id = 0,
-        ),
-        DbDto.EventDivulgence(
-          event_offset = Some(someOffset.toHexString),
-          command_id = Some(completionInfo.commandId),
-          workflow_id = transactionMeta.workflowId,
-          application_id = Some(completionInfo.applicationId),
-          submitters = Some(completionInfo.actAs.toSet),
-          contract_id = exerciseNode.targetCoid.coid,
-          template_id =
-            Some(createNode.templateId.toString), // taken from explicit divulgedContracts
-          tree_event_witnesses = Set("divulgee"), // taken from explicit blinding info
-          create_argument = Some(emptyArray), // taken from explicit divulgedContracts
-          create_argument_compression = compressionAlgorithmId,
-          event_sequential_id = 0,
-        ),
-        DbDto.CommandCompletion(
-          completion_offset = someOffset.toHexString,
-          record_time = update.recordTime.micros,
-          application_id = completionInfo.applicationId,
-          submitters = completionInfo.actAs.toSet,
-          command_id = completionInfo.commandId,
-          transaction_id = Some(update.transactionId),
-          rejection_status_code = None,
-          rejection_status_message = None,
-          rejection_status_details = None,
-          submission_id = completionInfo.submissionId,
-          deduplication_offset = None,
-          deduplication_duration_nanos = None,
-          deduplication_duration_seconds = None,
-          deduplication_start = None,
-        ),
+      dtos(0) shouldEqual DbDto.EventExercise(
+        consuming = true,
+        event_offset = Some(someOffset.toHexString),
+        transaction_id = Some(update.transactionId),
+        ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
+        command_id = Some(completionInfo.commandId),
+        workflow_id = transactionMeta.workflowId,
+        application_id = Some(completionInfo.applicationId),
+        submitters = Some(completionInfo.actAs.toSet),
+        node_index = Some(exerciseNodeId.index),
+        event_id = Some(EventId(update.transactionId, exerciseNodeId).toLedgerString),
+        contract_id = exerciseNode.targetCoid.coid,
+        template_id = Some(exerciseNode.templateId.toString),
+        flat_event_witnesses = Set("signatory", "observer"),
+        tree_event_witnesses = Set("disclosee"), // taken from explicit blinding info
+        create_key_value = None,
+        exercise_choice = Some(exerciseNode.choiceId),
+        exercise_argument = Some(emptyArray),
+        exercise_result = Some(emptyArray),
+        exercise_actors = Some(Set("signatory")),
+        exercise_child_event_ids = Some(Vector.empty),
+        create_key_value_compression = compressionAlgorithmId,
+        exercise_argument_compression = compressionAlgorithmId,
+        exercise_result_compression = compressionAlgorithmId,
+        event_sequential_id = 0,
       )
+      dtos(1) shouldEqual DbDto.IdFilterConsumingStakeholder(
+        event_sequential_id = 0,
+        template_id = exerciseNode.templateId.toString,
+        party_id = "signatory",
+      )
+      dtos(2) shouldEqual DbDto.IdFilterConsumingStakeholder(
+        event_sequential_id = 0,
+        template_id = exerciseNode.templateId.toString,
+        party_id = "observer",
+      )
+      dtos(3) shouldEqual DbDto.IdFilterConsumingNonStakeholderInformee(
+        event_sequential_id = 0,
+        party_id = "disclosee",
+      )
+      dtos(4) shouldEqual DbDto.EventDivulgence(
+        event_offset = Some(someOffset.toHexString),
+        command_id = Some(completionInfo.commandId),
+        workflow_id = transactionMeta.workflowId,
+        application_id = Some(completionInfo.applicationId),
+        submitters = Some(completionInfo.actAs.toSet),
+        contract_id = exerciseNode.targetCoid.coid,
+        template_id = Some(createNode.templateId.toString), // taken from explicit divulgedContracts
+        tree_event_witnesses = Set("divulgee"), // taken from explicit blinding info
+        create_argument = Some(emptyArray), // taken from explicit divulgedContracts
+        create_argument_compression = compressionAlgorithmId,
+        event_sequential_id = 0,
+      )
+      dtos(5) shouldEqual DbDto.CommandCompletion(
+        completion_offset = someOffset.toHexString,
+        record_time = update.recordTime.micros,
+        application_id = completionInfo.applicationId,
+        submitters = completionInfo.actAs.toSet,
+        command_id = completionInfo.commandId,
+        transaction_id = Some(update.transactionId),
+        rejection_status_code = None,
+        rejection_status_message = None,
+        rejection_status_details = None,
+        submission_id = completionInfo.submissionId,
+        deduplication_offset = None,
+        deduplication_duration_nanos = None,
+        deduplication_duration_seconds = None,
+        deduplication_start = None,
+      )
+      dtos(6) shouldEqual DbDto.TransactionMeta(
+        transaction_id = transactionId,
+        event_offset = someOffset.toHexString,
+        event_sequential_id_first = 0,
+        event_sequential_id_last = 0,
+      )
+      dtos should have length 7
     }
 
     "handle TransactionAccepted (rollback node)" in {
@@ -1205,7 +1250,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         optCompletionInfo = Some(completionInfo),
         transactionMeta = transactionMeta,
         transaction = transaction,
-        transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -1248,6 +1293,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_seconds = None,
           deduplication_start = None,
         ),
+        DbDto.TransactionMeta(
+          transaction_id = transactionId,
+          event_offset = someOffset.toHexString,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
+        ),
       )
     }
 
@@ -1256,8 +1307,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       // This happens if a transaction was submitted through a different participant
       val transactionMeta = someTransactionMeta
       val builder = TransactionBuilder()
+      val contractId = builder.newCid
       val createNode = builder.create(
-        id = builder.newCid,
+        id = contractId,
         templateId = "M:T",
         argument = Value.ValueUnit,
         signatories = List("signatory"),
@@ -1271,6 +1323,69 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transactionMeta = transactionMeta,
         transaction = transaction,
         transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+        recordTime = someRecordTime,
+        divulgedContracts = List.empty,
+        blindingInfo = None,
+        contractMetadata = Map(contractId -> someContractDriverMetadata),
+      )
+      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
+        someOffset
+      )(update).toList
+
+      dtos.head shouldEqual DbDto.EventCreate(
+        event_offset = Some(someOffset.toHexString),
+        transaction_id = Some(update.transactionId),
+        ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
+        command_id = None,
+        workflow_id = transactionMeta.workflowId,
+        application_id = None,
+        submitters = None,
+        node_index = Some(createNodeId.index),
+        event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
+        contract_id = createNode.coid.coid,
+        template_id = Some(createNode.templateId.toString),
+        flat_event_witnesses = Set("signatory", "observer"),
+        tree_event_witnesses = Set("signatory", "observer"),
+        create_argument = Some(emptyArray),
+        create_signatories = Some(Set("signatory")),
+        create_observers = Some(Set("observer")),
+        create_agreement_text = None,
+        create_key_value = None,
+        create_key_hash = None,
+        create_argument_compression = compressionAlgorithmId,
+        create_key_value_compression = None,
+        event_sequential_id = 0,
+        driver_metadata = Some(someContractDriverMetadata.toByteArray),
+      )
+      Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
+        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
+        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "observer"),
+      )
+      dtos.size shouldEqual 4
+    }
+
+    "handle TransactionAccepted (no contract metadata)" in {
+      // Transaction that is missing the contract metadata
+      // This can happen if the submitting participant is running an older version
+      // predating the introduction of the contract driver metadata
+      val transactionMeta = someTransactionMeta
+      val builder = TransactionBuilder()
+      val contractId = builder.newCid
+      val createNode = builder.create(
+        id = contractId,
+        templateId = "M:T",
+        argument = Value.ValueUnit,
+        signatories = List("signatory"),
+        observers = List("observer"),
+        key = None,
+      )
+      val createNodeId = builder.add(createNode)
+      val transaction = builder.buildCommitted()
+      val update = state.Update.TransactionAccepted(
+        optCompletionInfo = None,
+        transactionMeta = transactionMeta,
+        transaction = transaction,
+        transactionId = transactionId,
         recordTime = someRecordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
@@ -1303,12 +1418,19 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_argument_compression = compressionAlgorithmId,
         create_key_value_compression = None,
         event_sequential_id = 0,
+        driver_metadata = None,
+      )
+      dtos(3) shouldEqual DbDto.TransactionMeta(
+        transaction_id = transactionId,
+        event_offset = someOffset.toHexString,
+        event_sequential_id_first = 0,
+        event_sequential_id_last = 0,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "signatory"),
-        DbDto.CreateFilter(0L, createNode.templateId.toString, "observer"),
+        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
+        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "observer"),
       )
-      dtos.size shouldEqual 3
+      dtos.size shouldEqual 4
     }
 
     val deduplicationPeriods = Table(
@@ -1376,8 +1498,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
     "handle TransactionAccepted (all deduplication data)" in {
       val transactionMeta = someTransactionMeta
       val builder = TransactionBuilder()
+      val contractId = builder.newCid
       val createNode = builder.create(
-        id = builder.newCid,
+        id = contractId,
         templateId = "M:T",
         argument = Value.ValueUnit,
         signatories = List("signatory"),
@@ -1399,11 +1522,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             optCompletionInfo = Some(completionInfo),
             transactionMeta = transactionMeta,
             transaction = transaction,
-            transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+            transactionId = transactionId,
             recordTime = someRecordTime,
             divulgedContracts = List.empty,
             blindingInfo = None,
-            contractMetadata = Map.empty,
+            contractMetadata = Map(contractId -> someContractDriverMetadata),
           )
           val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
             someOffset
@@ -1432,10 +1555,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             create_argument_compression = compressionAlgorithmId,
             create_key_value_compression = None,
             event_sequential_id = 0,
+            driver_metadata = Some(someContractDriverMetadata.toByteArray),
           )
           Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-            DbDto.CreateFilter(0L, createNode.templateId.toString, "signatory"),
-            DbDto.CreateFilter(0L, createNode.templateId.toString, "observer"),
+            DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
+            DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "observer"),
           )
           dtos(3) shouldEqual DbDto.CommandCompletion(
             completion_offset = someOffset.toHexString,
@@ -1453,7 +1577,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             deduplication_duration_nanos = expectedDeduplicationDurationNanos,
             deduplication_start = None,
           )
-          dtos.size shouldEqual 4
+          dtos(4) shouldEqual DbDto.TransactionMeta(
+            transaction_id = transactionId,
+            event_offset = someOffset.toHexString,
+            event_sequential_id_first = 0,
+            event_sequential_id_last = 0,
+          )
+          dtos.size shouldEqual 5
       }
     }
   }
@@ -1546,6 +1676,7 @@ object UpdateToDbDtoSpec {
     optNodeSeeds = None,
     optByKeyNodes = None,
   )
+  private val someContractDriverMetadata = Bytes.assertFromString("00abcd")
 
   implicit private val DbDtoEqual: org.scalactic.Equality[DbDto] = DbDtoEq.DbDtoEq
 }

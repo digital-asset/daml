@@ -10,6 +10,7 @@ import java.util.{Timer, TimerTask}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.daml.platform.configuration.ServerRole
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
@@ -45,6 +46,7 @@ private[platform] object HikariDataSourceOwner {
 object DataSourceConnectionProvider {
   private val MaxTransientFailureCount: Int = 5
   private val HealthPollingSchedule: FiniteDuration = 1.second
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   def owner(dataSource: DataSource): ResourceOwner[JdbcConnectionProvider] =
     for {
@@ -55,13 +57,23 @@ object DataSourceConnectionProvider {
       val transientFailureCount = new AtomicInteger(0)
 
       val checkHealth = new TimerTask {
+        private def printProblem(problem: String)(implicit loggingContext: LoggingContext): Unit = {
+          val count = transientFailureCount.incrementAndGet()
+          if (count == 1)
+            logger.info(s"Hikari connection health check failed with $problem problem")
+          ()
+        }
         override def run(): Unit = {
-          try {
-            dataSource.getConnection().close()
-            transientFailureCount.set(0)
-          } catch {
-            case _: SQLTransientConnectionException =>
-              val _ = transientFailureCount.incrementAndGet()
+          LoggingContext.newLoggingContext { implicit loggingContext =>
+            try {
+              dataSource.getConnection().close()
+              transientFailureCount.set(0)
+            } catch {
+              case _: SQLTransientConnectionException =>
+                printProblem("transient connection")
+              case NonFatal(_) =>
+                printProblem("unexpected")
+            }
           }
         }
       }

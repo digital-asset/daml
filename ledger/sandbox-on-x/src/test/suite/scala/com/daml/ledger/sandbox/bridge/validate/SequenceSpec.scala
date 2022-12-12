@@ -3,7 +3,7 @@
 
 package com.daml.ledger.sandbox.bridge.validate
 
-import com.codahale.metrics.MetricRegistry
+import java.time.Duration
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
@@ -21,7 +21,7 @@ import com.daml.ledger.sandbox.domain.{Rejection, Submission}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.IdString
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.Transaction.{KeyActive, KeyCreate}
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -35,7 +35,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, FixtureContext, OptionValues}
 
-import java.time.Duration
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 class SequenceSpec
@@ -178,13 +177,6 @@ class SequenceSpec
     update3 shouldBe transactionAccepted(3)
   }
 
-  it should "validate party allocation if disabled" in new TestContext {
-    val Seq((offset, update)) =
-      sequenceWithoutPartyAllocationValidation()(input(txWithUnallocatedParty))
-    offset shouldBe toOffset(1L)
-    update shouldBe transactionAccepted(1)
-  }
-
   it should "assert internal consistency validation on transaction submission conflicts" in new TestContext {
     // Conflict validation passes on empty Sequencer State
     val Seq((offset1, update1)) =
@@ -323,7 +315,7 @@ class SequenceSpec
   }
 
   private trait TestContext extends FixtureContext {
-    private val bridgeMetrics = new BridgeMetrics(new Metrics(new MetricRegistry))
+    private val bridgeMetrics = new BridgeMetrics(Metrics.ForTesting)
     val timeProviderMock: TimeProvider = mock[TimeProvider]
     val submissionId: IdString.LedgerString =
       Ref.SubmissionId.assertFromString("some-submission-id")
@@ -342,8 +334,6 @@ class SequenceSpec
     val maxDeduplicationDuration: Duration = Duration.ofDays(1L)
 
     val sequenceImpl: SequenceImpl = buildSequence()
-    val sequenceWithoutPartyAllocationValidation: SequenceImpl =
-      buildSequence(validatePartyAllocation = false)
     val sequence: Validation[(Offset, PreparedSubmission)] => Iterable[(Offset, Update)] =
       sequenceImpl()
 
@@ -490,17 +480,17 @@ class SequenceSpec
     }
 
     def buildSequence(
-        validatePartyAllocation: Boolean = true,
         initialLedgerConfiguration: Option[Configuration] = initialLedgerConfiguration,
+        explicitDisclosureEnabled: Boolean = false,
     ) = new SequenceImpl(
       participantId = Ref.ParticipantId.assertFromString(participantName),
       bridgeMetrics = bridgeMetrics,
       timeProvider = timeProviderMock,
-      validatePartyAllocation = validatePartyAllocation,
       initialLedgerEnd = Offset.beforeBegin,
       initialAllocatedParties = allocatedInformees,
       initialLedgerConfiguration = initialLedgerConfiguration,
       maxDeduplicationDuration = maxDeduplicationDuration,
+      explicitDisclosureEnabled = explicitDisclosureEnabled,
     )
 
     def exerciseNonConsuming(
@@ -531,16 +521,18 @@ class SequenceSpec
         completionInfo: CompletionInfo = completionInfo,
         recordTime: Time.Timestamp = currentRecordTime,
         cmdId: Ref.CommandId = commandId(1),
+        contractMetadata: Map[ContractId, Bytes] = Map.empty,
+        tx: SubmittedTransaction = txMock,
     ): Update.TransactionAccepted =
       Update.TransactionAccepted(
         optCompletionInfo = Some(completionInfo.copy(commandId = cmdId)),
         transactionMeta = transactionMeta,
-        transaction = CommittedTransaction(txMock),
+        transaction = CommittedTransaction(tx),
         transactionId = Ref.TransactionId.assertFromString(txId.toString),
         recordTime = recordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
-        contractMetadata = Map.empty,
+        contractMetadata = contractMetadata,
       )
 
     def assertCommandRejected(

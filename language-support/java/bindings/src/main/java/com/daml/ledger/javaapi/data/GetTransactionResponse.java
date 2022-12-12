@@ -7,7 +7,7 @@ import com.daml.ledger.api.v1.TransactionServiceOuterClass;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class GetTransactionResponse {
+public final class GetTransactionResponse {
 
   private final TransactionTree transaction;
 

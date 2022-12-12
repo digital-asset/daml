@@ -5,14 +5,13 @@ package com.daml.lf
 package engine
 package preprocessing
 
-import com.daml.lf.data
 import com.daml.lf.data._
-import com.daml.lf.language.{Ast, PackageInterface}
-import com.daml.lf.transaction.TransactionVersion
+import com.daml.lf.engine.Error.Preprocessing.DuplicateDisclosedContractId
+import com.daml.lf.language.Ast
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 
-import scala.annotation.nowarn
+import scala.collection.mutable
 
 private[lf] final class CommandPreprocessor(
     pkgInterface: language.PackageInterface,
@@ -52,52 +51,18 @@ private[lf] final class CommandPreprocessor(
     speedy.Command.Create(templateId, arg)
   }
 
-  // TODO: https://github.com/digital-asset/daml/issues/12051
-  //  Drop this once Canton support ambiguous choices properly
-  @throws[Error.Preprocessing.Error]
-  @deprecated
-  private def unsafePreprocessLenientExercise(
-      templateId: Ref.Identifier,
+  def unsafePreprocessExercise(
+      typeId: Ref.Identifier,
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
   ): speedy.Command =
-    handleLookup(pkgInterface.lookupLenientChoice(templateId, choiceId)) match {
-      case PackageInterface.ChoiceInfo.Template(choice) =>
-        speedy.Command.ExerciseTemplate(
-          templateId = templateId,
-          contractId = valueTranslator.unsafeTranslateCid(contractId),
-          choiceId = choiceId,
-          argument = valueTranslator.unsafeTranslateValue(choice.argBinder._2, argument),
-        )
-      case PackageInterface.ChoiceInfo.Inherited(ifaceId, choice) =>
-        speedy.Command.ExerciseInterface(
-          interfaceId = ifaceId,
-          contractId = valueTranslator.unsafeTranslateCid(contractId),
-          choiceId = choiceId,
-          argument = valueTranslator.unsafeTranslateValue(choice.argBinder._2, argument),
-        )
+    handleLookup(pkgInterface.lookupTemplateOrInterface(typeId)) match {
+      case TemplateOrInterface.Template(_) =>
+        unsafePreprocessExerciseTemplate(typeId, contractId, choiceId, argument)
+      case TemplateOrInterface.Interface(_) =>
+        unsafePreprocessExerciseInterface(typeId, contractId, choiceId, argument)
     }
-
-  def unsafePreprocessExercise(
-      typeId: data.TemplateOrInterface[Ref.Identifier, Ref.Identifier],
-      contractId: Value.ContractId,
-      choiceId: Ref.ChoiceName,
-      argument: Value,
-  ): speedy.Command = typeId match {
-    // TODO: https://github.com/digital-asset/daml/issues/14747
-    //  In order to split the issue in several PRs, we allow abusing the templateId case as an interface.
-    //  We will change once we have added the interface_id field to the legder API Exercise command
-    case TemplateOrInterface.Template(templateId) =>
-      handleLookup(pkgInterface.lookupTemplateOrInterface(templateId)) match {
-        case TemplateOrInterface.Template(_) =>
-          unsafePreprocessExerciseTemplate(templateId, contractId, choiceId, argument)
-        case TemplateOrInterface.Interface(_) =>
-          unsafePreprocessExerciseInterface(templateId, contractId, choiceId, argument)
-      }
-    case TemplateOrInterface.Interface(ifaceId) =>
-      unsafePreprocessExerciseInterface(ifaceId, contractId, choiceId, argument)
-  }
 
   def unsafePreprocessExerciseTemplate(
       templateId: Ref.Identifier,
@@ -206,15 +171,12 @@ private[lf] final class CommandPreprocessor(
 
   // returns the speedy translation of an Replay command.
   @throws[Error.Preprocessing.Error]
-  @nowarn("msg=deprecated")
   private[preprocessing] def unsafePreprocessReplayCommand(
       cmd: command.ReplayCommand
   ): speedy.Command =
     cmd match {
       case command.ReplayCommand.Create(templateId, argument) =>
         unsafePreprocessCreate(templateId, argument)
-      case command.ReplayCommand.LenientExercise(typeId, coid, choiceId, argument) =>
-        unsafePreprocessLenientExercise(typeId, coid, choiceId, argument)
       case command.ReplayCommand.Exercise(templateId, mbIfaceId, coid, choiceId, argument) =>
         mbIfaceId match {
           case Some(ifaceId) =>
@@ -254,8 +216,21 @@ private[lf] final class CommandPreprocessor(
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessDisclosedContracts(
       discs: ImmArray[command.DisclosedContract]
-  ): ImmArray[speedy.DisclosedContract] =
-    discs.map(unsafePreprocessDisclosedContract)
+  ): ImmArray[speedy.DisclosedContract] = {
+    val contractIds: mutable.Set[Value.ContractId] = mutable.Set.empty
+
+    discs.map { disclosedContract =>
+      if (contractIds.contains(disclosedContract.contractId)) {
+        throw DuplicateDisclosedContractId(
+          disclosedContract.contractId,
+          disclosedContract.templateId,
+        )
+      } else {
+        discard(contractIds += disclosedContract.contractId)
+        unsafePreprocessDisclosedContract(disclosedContract)
+      }
+    }
+  }
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessInterfaceView(
@@ -267,12 +242,8 @@ private[lf] final class CommandPreprocessor(
     discard(handleLookup(pkgInterface.lookupInterface(interfaceId)))
     discard(handleLookup(pkgInterface.lookupInterfaceInstance(interfaceId, templateId)))
 
-    val version =
-      TransactionVersion.assignNodeVersion(
-        pkgInterface.packageLanguageVersion(interfaceId.packageId)
-      )
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
 
-    speedy.InterfaceView(templateId, arg, interfaceId, version)
+    speedy.InterfaceView(templateId, arg, interfaceId)
   }
 }

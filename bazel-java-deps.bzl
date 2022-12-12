@@ -55,9 +55,10 @@ gatling_version = "3.5.1"
 guava_version = "31.0.1-jre"
 
 # observability libs
-dropwizard_version = "4.1.2"
+# cannot update to 4.2.x because of https://github.com/dropwizard/metrics/issues/2920
+dropwizard_version = "4.1.33"
 opentelemetry_version = "1.12.0"
-prometheus_version = "0.8.1"
+prometheus_version = "0.14.1"
 
 def install_java_deps():
     maven_install(
@@ -67,7 +68,7 @@ def install_java_deps():
             "com.auth0:java-jwt:3.10.3",
             "com.auth0:jwks-rsa:0.11.0",
             "com.chuusai:shapeless_{}:2.3.3".format(scala_major_version),
-            "com.github.ben-manes.caffeine:caffeine:2.8.0",
+            "com.github.ben-manes.caffeine:caffeine:3.0.5",
             "com.github.pureconfig:pureconfig_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-core_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-generic_{}:0.14.0".format(scala_major_version),
@@ -110,11 +111,15 @@ def install_java_deps():
             "io.circe:circe-parser_{}:0.13.0".format(scala_major_version),
             "io.circe:circe-yaml_{}:0.13.0".format(scala_major_version),
             "io.dropwizard.metrics:metrics-core:{}".format(dropwizard_version),
-            "io.dropwizard.metrics:metrics-graphite:{}".format(dropwizard_version),
+            maven.artifact("io.dropwizard.metrics", "metrics-graphite", dropwizard_version, exclusions = ["com.rabbitmq:amqp-client"]),
             "io.dropwizard.metrics:metrics-jmx:{}".format(dropwizard_version),
             "io.dropwizard.metrics:metrics-jvm:{}".format(dropwizard_version),
             "io.opentelemetry:opentelemetry-api:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-context:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-exporter-prometheus:{}-alpha".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-common:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-metrics:{}-alpha".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-metrics-testing:{}-alpha".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-testing:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-trace:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha",
@@ -210,8 +215,8 @@ def install_java_deps():
             "org.typelevel:paiges-core_{}:0.3.2".format(scala_major_version),
             "org.wartremover:wartremover_{}:2.4.16".format(scala_version),
             "org.xerial:sqlite-jdbc:3.36.0.1",
-            "com.fasterxml.jackson.core:jackson-core:2.12.0",
-            "com.fasterxml.jackson.core:jackson-databind:2.12.0",
+            "com.fasterxml.jackson.core:jackson-core:2.14.1",
+            "com.fasterxml.jackson.core:jackson-databind:2.14.1",
             "org.scala-lang:scala-library:{}".format(scala_version),
         ],
         fetch_sources = True,

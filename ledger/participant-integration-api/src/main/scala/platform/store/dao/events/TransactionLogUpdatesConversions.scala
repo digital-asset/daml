@@ -3,7 +3,9 @@
 
 package com.daml.platform.store.dao.events
 
+import com.daml.api.util.TimestampConversion
 import com.daml.api.util.TimestampConversion.fromInstant
+import com.daml.ledger.api.v1.contract_metadata.ContractMetadata
 import com.daml.ledger.api.v1.transaction.{
   TransactionTree,
   TreeEvent,
@@ -29,6 +31,9 @@ import com.daml.platform.{ApiOffset, TemplatePartiesFilter, Value}
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.concurrent.{ExecutionContext, Future}
+import com.google.protobuf.ByteString
+
+import com.daml.platform.store.ScalaPbStreamingOptimizations._
 
 private[events] object TransactionLogUpdatesConversions {
   object ToFlatTransaction {
@@ -75,7 +80,9 @@ private[events] object TransactionLogUpdatesConversions {
         eventProjectionProperties,
         lfValueTranslation,
       )
-        .map(transaction => GetTransactionsResponse(Seq(transaction)))
+        .map(transaction =>
+          GetTransactionsResponse(Seq(transaction)).withPrecomputedSerializedSize()
+        )
 
     def toGetFlatTransactionResponse(
         transactionLogUpdate: TransactionLogUpdate,
@@ -244,7 +251,7 @@ private[events] object TransactionLogUpdatesConversions {
         executionContext: ExecutionContext,
     ): TransactionLogUpdate.TransactionAccepted => Future[GetTransactionTreesResponse] =
       toTransactionTree(_, requestingParties, eventProjectionProperties, lfValueTranslation)
-        .map(txTree => GetTransactionTreesResponse(Seq(txTree)))
+        .map(txTree => GetTransactionTreesResponse(Seq(txTree)).withPrecomputedSerializedSize())
 
     private def toTransactionTree(
         transactionAccepted: TransactionLogUpdate.TransactionAccepted,
@@ -426,11 +433,20 @@ private[events] object TransactionLogUpdatesConversions {
           templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
           contractKey = apiContractData.contractKey,
           createArguments = apiContractData.createArguments,
+          createArgumentsBlob = apiContractData.createArgumentsBlob,
           interfaceViews = apiContractData.interfaceViews,
           witnessParties = requestingParties.view.filter(createdWitnesses(createdEvent)).toSeq,
           signatories = createdEvent.createSignatories.toSeq,
           observers = createdEvent.createObservers.toSeq,
           agreementText = createdEvent.createAgreementText.orElse(Some("")),
+          metadata = Some(
+            ContractMetadata(
+              createdAt = Some(TimestampConversion.fromLf(createdEvent.ledgerEffectiveTime)),
+              contractKeyHash =
+                createdEvent.createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
+              driverMetadata = createdEvent.driverMetadata.fold(ByteString.EMPTY)(_.toByteString),
+            )
+          ),
         )
       )
   }

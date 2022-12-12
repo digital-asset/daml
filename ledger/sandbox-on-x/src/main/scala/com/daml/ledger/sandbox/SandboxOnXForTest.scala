@@ -14,14 +14,14 @@ import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.{AuthServiceConfig, ApiServerConfig => _ApiServerConfig}
 import com.daml.platform.config.MetricsConfig.MetricRegistryType
 import com.daml.platform.config.{MetricsConfig, ParticipantConfig => _ParticipantConfig}
-import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
+import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.platform.indexer.{IndexerConfig => _IndexerConfig}
+import com.daml.platform.localstore.UserManagementConfig
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
-
 import java.time.Duration
 import java.util.UUID
+
 import scala.concurrent.duration._
 
 object SandboxOnXForTest {
@@ -49,7 +49,6 @@ object SandboxOnXForTest {
     userManagement = UserManagementConfig.default(true),
     maxInboundMessageSize = 4194304,
     configurationLoadTimeout = 10000.millis,
-    party = PartyConfiguration(implicitPartyAllocation = true),
     seeding = Seeding.Strong,
     port = Port.Dynamic,
     managementServiceTimeout = 120000.millis,

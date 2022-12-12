@@ -60,7 +60,7 @@ final class IndexServiceOwner(
         metrics,
         ledgerDao.contractsReader,
         contractStateCaches = inMemoryState.contractStateCaches,
-      )(servicesExecutionContext, loggingContext)
+      )(servicesExecutionContext)
 
       lfValueTranslation = new LfValueTranslation(
         metrics = metrics,
@@ -179,6 +179,7 @@ final class IndexServiceOwner(
       participantId = participantId,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
+      completionsMaxPayloadsPerPayloadsPage = config.completionsMaxPayloadsPerPayloadsPage,
     )
 
   private def buildInMemoryFanOutExecutionContext(

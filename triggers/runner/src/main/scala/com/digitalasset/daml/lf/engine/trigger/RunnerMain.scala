@@ -4,9 +4,9 @@
 package com.daml.lf.engine.trigger
 
 import java.io.File
-
 import akka.actor.ActorSystem
 import akka.stream._
+import ch.qos.logback.classic.Level
 import com.daml.auth.TokenHolder
 import com.daml.grpc.adapter.AkkaExecutionSequencerPool
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -20,28 +20,36 @@ import com.daml.ledger.client.configuration.{
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.PackageInterface
+import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 object RunnerMain {
 
-  private def listTriggers(darPath: File, dar: Dar[(PackageId, Package)]): Unit = {
+  private def listTriggers(
+      darPath: File,
+      dar: Dar[(PackageId, Package)],
+      verbose: Boolean,
+  ): Unit = {
     println(s"Listing triggers in $darPath:")
-    for ((modName, mod) <- dar.main._2.modules) {
-      for ((defName, defVal) <- mod.definitions) {
-        defVal match {
-          case DValue(TApp(TTyCon(tcon), _), _, _) => {
-            val triggerIds = TriggerIds(tcon.packageId)
-            if (
-              tcon == triggerIds.damlTrigger("Trigger")
-              || tcon == triggerIds.damlTriggerLowLevel("Trigger")
-            ) {
-              println(s"  $modName:$defName")
-            }
-          }
-          case _ => {}
-        }
+    val pkgInterface = PackageInterface(dar.all.toMap)
+    val (mainPkgId, mainPkg) = dar.main
+    for {
+      mod <- mainPkg.modules.values
+      defName <- mod.definitions.keys
+      qualifiedName = QualifiedName(mod.name, defName)
+      triggerId = Identifier(mainPkgId, qualifiedName)
+    } {
+      Trigger.detectTriggerDefinition(pkgInterface, triggerId).foreach {
+        case TriggerDefinition(_, ty, version, level, _) =>
+          if (verbose)
+            println(
+              s"  $qualifiedName\t(type = ${ty.pretty}, level = $level, version = $version)"
+            )
+          else
+            println(s"  $qualifiedName")
       }
     }
   }
@@ -51,11 +59,18 @@ object RunnerMain {
     RunnerConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) => {
+        config.rootLoggingLevel.foreach(setLoggingLevel)
+        config.logEncoder match {
+          case LogEncoder.Plain =>
+          case LogEncoder.Json =>
+            discard(System.setProperty("LOG_FORMAT_JSON", "true"))
+        }
+
         val dar: Dar[(PackageId, Package)] =
           DarDecoder.assertReadArchiveFromFile(config.darPath.toFile)
 
-        if (config.listTriggers) {
-          listTriggers(config.darPath.toFile, dar)
+        config.listTriggers.foreach { verbose =>
+          listTriggers(config.darPath.toFile, dar, verbose)
           sys.exit(0)
         }
 
@@ -104,6 +119,7 @@ object RunnerMain {
             config.applicationId,
             parties,
             config.compilerConfig,
+            config.triggerConfig,
           )
         } yield ()
 
@@ -112,5 +128,9 @@ object RunnerMain {
         Await.result(flow, Duration.Inf)
       }
     }
+  }
+
+  private def setLoggingLevel(level: Level): Unit = {
+    discard(System.setProperty("LOG_LEVEL_ROOT", level.levelStr))
   }
 }

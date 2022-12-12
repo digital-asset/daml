@@ -3,10 +3,10 @@
 
 package com.daml.platform.apiserver.ratelimiting
 
-import com.codahale.metrics.Counter
 import com.daml.error.definitions.LedgerApiErrors.MaximumNumberOfStreams
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.metrics.MetricName
+import com.daml.metrics.api.MetricHandle.Counter
+import com.daml.metrics.api.MetricName
 import com.daml.platform.apiserver.ratelimiting.LimitResult.{
   LimitResultCheck,
   OverLimit,

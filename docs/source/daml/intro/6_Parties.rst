@@ -19,7 +19,7 @@ In this section you will learn about Daml's authorization rules and how to devel
 Preventing IOU Revocation
 -------------------------
 
-The ``SimpleIou`` contract from :doc:`4_Transformations` and :doc:`5_Restrictions` has one major problem: The contract is only signed by the ``issuer``. The signatories are the parties with the power to create and archive contracts. If Alice gave Bob a ``SimpleIou`` for $100 in exchange for some goods, she could just archive it after receiving the goods. Bob would have a record of such actions, but would have to resort to off-ledger means to get his money back.
+The ``SimpleIou`` contract from :doc:`4_Transformations` and :doc:`5_Restrictions` has one major problem: The contract is only signed by the ``issuer``. The signatories are the parties with the power to create and archive contracts. If Alice gave Bob a ``SimpleIou`` for $100 in exchange for some goods, she could just archive it after receiving the goods. Bob would have a record of such actions, but would have to resort to off-ledger means to get his money back:
 
 .. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
@@ -31,14 +31,14 @@ The ``SimpleIou`` contract from :doc:`4_Transformations` and :doc:`5_Restriction
   :start-after: -- SIMPLE_IOU_SCENARIO_BEGIN
   :end-before: -- SIMPLE_IOU_SCENARIO_END
 
-For a party to have any guarantees that only those transformations specified in the choices are actually followed, they either need to be a signatory themselves, or trust one of the signatories to not agree to transactions that archive and re-create contracts in unexpected ways. To make the ``SimpleIou`` safe for Bob, you need to add him as a signatory.
+For a party to have any guarantees that only those transformations specified in the choices are actually followed, they either need to be a signatory themselves, or trust one of the signatories to not agree to transactions that archive and re-create contracts in unexpected ways. To make the ``SimpleIou`` safe for Bob, you need to add him as a signatory:
 
 .. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
   :start-after: -- IOU_BEGIN
   :end-before: -- IOU_END
 
-There's a new problem here: There is no way for Alice to issue or transfer this ``Iou`` to Bob. To get an ``Iou`` with Bob's signature as ``owner`` onto the ledger, his authority is needed.
+There's a new problem here: There is no way for Alice to issue or transfer this ``Iou`` to Bob. To get an ``Iou`` with Bob's signature as ``owner`` onto the ledger, his authority is needed:
 
 .. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
@@ -52,7 +52,7 @@ You'll now learn a couple of common ways of building issuance and transfer workf
 
 .. _intro propose accept:
 
-Use Propose-accept Workflows for One-off Authorization
+Use Propose-Accept Workflows for One-Off Authorization
 ------------------------------------------------------
 
 If there is no standing relationship between Alice and Bob, Alice can propose the issuance of an Iou to Bob, giving him the choice to accept. You can do so by introducing a proposal contract ``IouProposal``:
@@ -62,7 +62,7 @@ If there is no standing relationship between Alice and Bob, Alice can propose th
   :start-after: -- IOU_PROPOSAL_BEGIN
   :end-before: -- IOU_PROPOSAL_END
 
-Note how we have used the fact that templates are records here to store the ``Iou`` in a single field.
+Note how we have used the fact that templates are records here to store the ``Iou`` in a single field:
 
 .. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
@@ -131,7 +131,7 @@ Here it is in action:
 Daml's Authorization Model
 --------------------------
 
-Hopefully, the above will have given you a good intuition for how authority is passed around in Daml. In this section you'll learn about  the formal authorization model to allow you to reason through your contract models. This will allow you to construct them in such a way that you don't run into authorization errors at runtime, or, worse still, allow malicious transactions.
+Hopefully, the above will have given you a good intuition for how authority is passed around in Daml. In this section you'll learn about the formal authorization model to allow you to reason through your contract models. This will allow you to construct them in such a way that you don't run into authorization errors at runtime, or, worse still, allow malicious transactions.
 
 In :ref:`choices` you learned that a transaction is, equivalently, a tree of transactions, or a forest of actions, where each transaction is a list of actions, and each action has a child-transaction called its consequences.
 

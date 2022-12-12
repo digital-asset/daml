@@ -125,8 +125,8 @@ object Profile {
       implicit val fileFormat = jsonFormat6(FileJson.apply)
     }
 
-    case class EventJson(`type`: String, at: Long, frame: Int)
-    case class ProfileJson(
+    final case class EventJson(`type`: String, at: Long, frame: Int)
+    final case class ProfileJson(
         `type`: String,
         name: String,
         unit: String,
@@ -134,9 +134,9 @@ object Profile {
         endValue: Long,
         events: List[EventJson],
     )
-    case class FrameJson(name: String)
-    case class SharedJson(frames: List[FrameJson])
-    case class FileJson(
+    final case class FrameJson(name: String)
+    final case class SharedJson(frames: List[FrameJson])
+    final case class FileJson(
         `$schema`: String,
         profiles: List[ProfileJson],
         shared: SharedJson,
@@ -197,7 +197,7 @@ object Profile {
 
   final case class CreateAndExerciseLabel(tplId: Ref.DefinitionRef, choiceId: Ref.ChoiceName)
 
-  sealed trait ScenarioLabel
+  sealed abstract class ScenarioLabel extends Product with Serializable
 
   final case object SubmitLabel extends ScenarioLabel
   final case object SubmitMustFailLabel extends ScenarioLabel
@@ -238,6 +238,7 @@ object Profile {
       implicit val anonClosure: Allowed[AnonymousClosure.type] = allowAll
       implicit val lfDefRef: Allowed[LfDefRef] = allowAll
       implicit val createDefRef: Allowed[CreateDefRef] = allowAll
+      implicit val templatePreConditionDefRef: Allowed[TemplatePreConditionDefRef] = allowAll
       implicit val signatoriesDefRef: Allowed[SignatoriesDefRef] = allowAll
       implicit val observersDefRef: Allowed[ObserversDefRef] = allowAll
       implicit val interfaceInstanceMethodDefRef: Allowed[InterfaceInstanceMethodDefRef] = allowAll
@@ -264,6 +265,7 @@ object Profile {
           case AnonymousClosure => "<lambda>"
           case LfDefRef(ref) => ref.qualifiedName.toString()
           case CreateDefRef(tmplRef) => s"create @${tmplRef.qualifiedName}"
+          case TemplatePreConditionDefRef(tmplRef) => s"ensures @${tmplRef.qualifiedName}"
           case SignatoriesDefRef(tmplRef) => s"signatories @${tmplRef.qualifiedName}"
           case ObserversDefRef(tmplRef) => s"observers @${tmplRef.qualifiedName}"
           case ContractKeyWithMaintainersDefRef(tmplRef) => s"key @${tmplRef.qualifiedName}"

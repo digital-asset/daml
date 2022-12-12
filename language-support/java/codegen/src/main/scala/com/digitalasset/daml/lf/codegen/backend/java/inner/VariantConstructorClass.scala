@@ -5,13 +5,14 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.Value
+import com.daml.ledger.javaapi.data.codegen.{PrimitiveValueDecoders, ValueDecoder}
 import com.daml.lf.codegen.backend.java.{JavaEscaper, ObjectMethods}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.typesig.{Type, TypeVar}
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
-import javax.lang.model.element.Modifier
 
+import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
 object VariantConstructorClass extends StrictLogging {
@@ -23,13 +24,14 @@ object VariantConstructorClass extends StrictLogging {
       constructorName: String,
       javaName: String,
       body: Type,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ): TypeSpec = {
     TrackLineage.of("variant constructor", constructorName) {
       logger.info("Start")
 
       val className = ClassName.bestGuess(javaName).parameterized(typeArgs)
-      val javaType = toJavaTypeName(body, packagePrefixes)
+      val javaType = toJavaTypeName(body)
       val variantFieldName = lowerCaseFieldName(body match {
         case TypeVar(typeArg) =>
           JavaEscaper.escapeString(typeArg)
@@ -41,11 +43,20 @@ object VariantConstructorClass extends StrictLogging {
         IndexedSeq(FieldInfo("body", body, variantFieldName, javaType))
       )
 
-      val conversionMethods = distinctTypeVars(body, typeArgs).flatMap { params =>
-        List(
-          toValue(constructorName, params, body, variantFieldName, packagePrefixes),
-          fromValue(constructorName, params, className, body, packagePrefixes),
-        )
+      val conversionMethods = distinctTypeVars(body, typeArgs) match {
+        case IndexedSeq(params) =>
+          List(
+            toValue(constructorName, params, body, variantFieldName),
+            deprecatedFromValue(params, params, variant, className),
+          )
+        case IndexedSeq(usedParams, allParams) =>
+          // usedParams is always subset of allParams
+          List(
+            toValue(constructorName, usedParams, body, variantFieldName),
+            deprecatedFromValue(usedParams, allParams, variant, className),
+            toValue(constructorName, allParams, body, variantFieldName),
+            deprecatedFromValue(allParams, allParams, variant, className),
+          )
       }
 
       val typeSpec =
@@ -71,7 +82,8 @@ object VariantConstructorClass extends StrictLogging {
       typeArgs: IndexedSeq[String],
       body: Type,
       fieldName: String,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ) = {
     val extractorParameters = ToValueExtractorParameters.generate(typeArgs)
 
@@ -89,24 +101,32 @@ object VariantConstructorClass extends StrictLogging {
             body,
             CodeBlock.of("this.$L", fieldName),
             newNameGenerator,
-            packagePrefixes,
           ),
       )
       .build()
   }
 
-  private def fromValue(
-      constructor: String,
+  // TODO #15120 delete
+  private def deprecatedFromValue(
       typeParameters: IndexedSeq[String],
+      allTypeParameters: IndexedSeq[String],
+      variantClass: TypeName,
       className: TypeName,
-      fieldType: Type,
-      packagePrefixes: Map[PackageId, String],
   ) = {
     val valueParam = ParameterSpec.builder(classOf[Value], "value$").build()
 
+    val extractorParams =
+      FromValueExtractorParameters.generate(typeParameters)
+
     val converterParams =
-      FromValueExtractorParameters.generate(typeParameters).parameterSpecs
-    MethodSpec
+      extractorParams.functionParameterSpecs
+
+    val converterParamsNameSet = converterParams.map(_.name).toSet
+
+    val allConverterParams =
+      FromValueExtractorParameters.generate(allTypeParameters).functionParameterSpecs
+
+    val method = MethodSpec
       .methodBuilder("fromValue")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
       .addTypeVariables(className.typeParameters)
@@ -114,17 +134,41 @@ object VariantConstructorClass extends StrictLogging {
       .addException(classOf[IllegalArgumentException])
       .addParameter(valueParam)
       .addParameters(converterParams.asJava)
-      .addCode(FromValueGenerator.variantCheck(constructor, "value$", "variantValue$"))
-      .addStatement(
-        FromValueGenerator
-          .generateFieldExtractor(
-            fieldType,
-            "body",
-            CodeBlock.of("variantValue$$"),
-            packagePrefixes,
-          )
+      .addAnnotation(classOf[Deprecated])
+      .addJavadoc(
+        "@deprecated since Daml $L; $L",
+        "2.5.0",
+        s"use {@code valueDecoder} instead",
       )
-      .addStatement("return new $T(body)", className)
+
+    val typeParamsValueDecoders = CodeBlock.join(
+      allConverterParams.map { param =>
+        if (converterParamsNameSet.contains(param.name))
+          CodeBlock.of("$T.fromFunction($N)", classOf[ValueDecoder[_]], param)
+        else
+          CodeBlock.of("$T.impossible()", classOf[PrimitiveValueDecoders])
+      }.asJava,
+      ",$W",
+    )
+
+    val classStaticAccessor = if (className.typeParameters.size > 0) {
+      val typeParameterList = CodeBlock.join(
+        className.typeParameters.asScala.map { param =>
+          CodeBlock.of("$T", param)
+        }.asJava,
+        ",$W",
+      )
+      CodeBlock.of("$T.<$L>", variantClass.rawType, typeParameterList)
+    } else CodeBlock.of("")
+
+    method
+      .addStatement(
+        "return ($T)$LvalueDecoder($L).decode($L)",
+        className,
+        classStaticAccessor,
+        typeParamsValueDecoders,
+        "value$",
+      )
       .build()
   }
 

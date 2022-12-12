@@ -11,7 +11,7 @@ import scala.concurrent.duration._
 
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
-import com.daml.metrics.MetricsReporter
+import com.daml.metrics.api.reporters.MetricsReporter
 
 // defined separately from Config so
 //  1. it is absolutely lexically apparent what `import startSettings._` means

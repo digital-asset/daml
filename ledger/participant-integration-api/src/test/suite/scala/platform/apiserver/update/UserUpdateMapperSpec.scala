@@ -3,10 +3,9 @@
 
 package com.daml.platform.apiserver.update
 
-import com.daml.ledger.api.domain.{ObjectMeta, User}
-import com.daml.ledger.participant.state.index.v2.{AnnotationsUpdate, ObjectMetaUpdate, UserUpdate}
-import com.daml.ledger.participant.state.index.v2.AnnotationsUpdate.{Merge, Replace}
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, User}
 import com.daml.lf.data.Ref
+import com.daml.platform.localstore.api.{ObjectMetaUpdate, UserUpdate}
 import com.google.protobuf.field_mask.FieldMask
 import org.scalatest.EitherValues
 import org.scalatest.freespec.AnyFreeSpec
@@ -22,6 +21,7 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
       primaryParty: Option[Ref.Party] = None,
       isDeactivated: Boolean = false,
       annotations: Map[String, String] = Map.empty,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): User = User(
     id = id,
     primaryParty = primaryParty,
@@ -30,13 +30,15 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
       resourceVersionO = None,
       annotations = annotations,
     ),
+    identityProviderId = identityProviderId,
   )
 
   def makeUserUpdate(
       id: Ref.UserId = userId1,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
       primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
       isDeactivatedUpdateO: Option[Boolean] = None,
-      annotationsUpdateO: Option[AnnotationsUpdate] = None,
+      annotationsUpdateO: Option[Map[String, String]] = None,
   ): UserUpdate = UserUpdate(
     id = id,
     primaryPartyUpdateO = primaryPartyUpdateO,
@@ -45,6 +47,7 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
       resourceVersionO = None,
       annotationsUpdateO = annotationsUpdateO,
     ),
+    identityProviderId = identityProviderId,
   )
 
   val emptyUserUpdate: UserUpdate = makeUserUpdate()
@@ -55,17 +58,21 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
         primaryParty = None,
         isDeactivated = false,
         annotations = Map("a" -> "b"),
+        identityProviderId = IdentityProviderId("abc123"),
       )
       val expected = makeUserUpdate(
         primaryPartyUpdateO = Some(None),
         isDeactivatedUpdateO = Some(false),
-        annotationsUpdateO = Some(Merge.fromNonEmpty(Map("a" -> "b"))),
+        annotationsUpdateO = Some(Map("a" -> "b")),
+        identityProviderId = IdentityProviderId("abc123"),
       )
       "1) with all individual fields to update listed in the update mask" in {
         UserUpdateMapper
           .toUpdate(
             user,
-            FieldMask(Seq("user.is_deactivated", "user.primary_party", "user.metadata.annotations")),
+            FieldMask(
+              Seq("is_deactivated", "primary_party", "metadata.annotations")
+            ),
           )
           .value shouldBe expected
       }
@@ -73,7 +80,7 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
         UserUpdateMapper
           .toUpdate(
             user,
-            FieldMask(Seq("user.is_deactivated", "user.primary_party", "user.metadata")),
+            FieldMask(Seq("is_deactivated", "primary_party", "metadata")),
           )
           .value shouldBe expected
       }
@@ -91,241 +98,55 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
       val expected = makeUserUpdate(
         primaryPartyUpdateO = Some(Some(party1)),
         isDeactivatedUpdateO = Some(false),
-        annotationsUpdateO = Some(Merge.fromNonEmpty(Map("a" -> "b"))),
+        annotationsUpdateO = Some(Map("a" -> "b")),
       )
-      "1) minimal field mask" in {
+      "field mask with non-exact field paths" in {
         UserUpdateMapper
-          .toUpdate(user, FieldMask(Seq("user", "user.is_deactivated")))
+          .toUpdate(user, FieldMask(Seq("primary_party", "is_deactivated", "metadata")))
           .value shouldBe expected
       }
-      "2) not so minimal field mask" in {
+      "field mask with exact field paths" in {
         UserUpdateMapper
-          .toUpdate(user, FieldMask(Seq("user", "user.metadata", "user.is_deactivated")))
-          .value shouldBe expected
-      }
-      "3) also not so minimal field mask" in {
-        UserUpdateMapper
-          .toUpdate(
-            user,
-            FieldMask(Seq("user.primary_party", "user.metadata", "user.is_deactivated")),
-          )
-          .value shouldBe expected
-      }
-      "4) field mask with exact field paths" in {
-        UserUpdateMapper
-          .toUpdate(
-            user,
-            FieldMask(Seq("user.primary_party", "user.metadata.annotations", "user.is_deactivated")),
-          )
+          .toUpdate(user, FieldMask(Seq("primary_party", "is_deactivated", "metadata.annotations")))
           .value shouldBe expected
       }
     }
 
-    // TODO um-for-hub major: Document that no-up update requests are invalid
-    "produce an empty update when new values are all default and merge update semantics is used" in {
-      val user = makeUser(
-        primaryParty = None,
-        isDeactivated = false,
-        annotations = Map.empty,
+    "when exact path match on a primitive field" in {
+      val userWithParty = makeUser(primaryParty = Some(party1))
+      val userWithoutParty = makeUser()
+      UserUpdateMapper
+        .toUpdate(userWithParty, FieldMask(Seq("primary_party")))
+        .value shouldBe makeUserUpdate(primaryPartyUpdateO = Some(Some(party1)))
+      UserUpdateMapper
+        .toUpdate(userWithoutParty, FieldMask(Seq("primary_party")))
+        .value shouldBe makeUserUpdate(primaryPartyUpdateO = Some(None))
+    }
+
+    "when exact path match on the metadata annotations field" in {
+      val userWithAnnotations = makeUser(annotations = Map("a" -> "b"))
+      val userWithoutAnnotations = makeUser()
+      UserUpdateMapper
+        .toUpdate(userWithAnnotations, FieldMask(Seq("metadata.annotations")))
+        .value shouldBe makeUserUpdate(annotationsUpdateO = Some(Map("a" -> "b")))
+      UserUpdateMapper
+        .toUpdate(userWithoutAnnotations, FieldMask(Seq("metadata.annotations")))
+        .value shouldBe makeUserUpdate(annotationsUpdateO = Some(Map.empty))
+    }
+
+    "when inexact path match on metadata annotations field" in {
+      val userWithAnnotations = makeUser(annotations = Map("a" -> "b"))
+      val userWithoutAnnotations = makeUser()
+      UserUpdateMapper
+        .toUpdate(userWithAnnotations, FieldMask(Seq("metadata")))
+        .value shouldBe makeUserUpdate(
+        annotationsUpdateO = Some(Map("a" -> "b"))
       )
       UserUpdateMapper
-        .toUpdate(
-          user,
-          FieldMask(
-            Seq(
-              "user"
-            )
-          ),
-        )
-        .value
-        .isNoUpdate shouldBe true
+        .toUpdate(userWithoutAnnotations, FieldMask(Seq("metadata")))
+        .value shouldBe emptyUserUpdate
     }
 
-    "test use of update modifiers" - {
-      "when exact path match on a primitive field" in {
-        val userWithParty = makeUser(primaryParty = Some(party1))
-        val userWithoutParty = makeUser()
-        UserUpdateMapper
-          .toUpdate(userWithParty, FieldMask(Seq("user.primary_party!replace")))
-          .value shouldBe makeUserUpdate(primaryPartyUpdateO = Some(Some(party1)))
-        UserUpdateMapper
-          .toUpdate(userWithoutParty, FieldMask(Seq("user.primary_party!replace")))
-          .value shouldBe makeUserUpdate(primaryPartyUpdateO = Some(None))
-        UserUpdateMapper
-          .toUpdate(userWithParty, FieldMask(Seq("user.primary_party!merge")))
-          .value shouldBe makeUserUpdate(primaryPartyUpdateO = Some(Some(party1)))
-        UserUpdateMapper
-          .toUpdate(userWithoutParty, FieldMask(Seq("user.primary_party!merge")))
-          .left
-          .value shouldBe UpdatePathError.MergeUpdateModifierOnPrimitiveField(
-          "user.primary_party!merge"
-        )
-        UserUpdateMapper
-          .toUpdate(userWithParty, FieldMask(Seq("user.primary_party")))
-          .value shouldBe makeUserUpdate(primaryPartyUpdateO = Some(Some(party1)))
-        UserUpdateMapper
-          .toUpdate(userWithoutParty, FieldMask(Seq("user.primary_party")))
-          .value shouldBe makeUserUpdate(primaryPartyUpdateO = Some(None))
-      }
-
-      "when exact path match on the metadata annotations field" in {
-        val userWithAnnotations = makeUser(annotations = Map("a" -> "b"))
-        val userWithoutAnnotations = makeUser()
-        UserUpdateMapper
-          .toUpdate(userWithAnnotations, FieldMask(Seq("user.metadata.annotations!replace")))
-          .value shouldBe makeUserUpdate(annotationsUpdateO = Some(Replace(Map("a" -> "b"))))
-        UserUpdateMapper
-          .toUpdate(userWithoutAnnotations, FieldMask(Seq("user.metadata.annotations!replace")))
-          .value shouldBe makeUserUpdate(annotationsUpdateO = Some(Replace(Map.empty)))
-        UserUpdateMapper
-          .toUpdate(userWithAnnotations, FieldMask(Seq("user.metadata.annotations!merge")))
-          .value shouldBe makeUserUpdate(annotationsUpdateO =
-          Some(Merge.fromNonEmpty(Map("a" -> "b")))
-        )
-        UserUpdateMapper
-          .toUpdate(userWithoutAnnotations, FieldMask(Seq("user.metadata.annotations!merge")))
-          .left
-          .value shouldBe UpdatePathError.MergeUpdateModifierOnEmptyMapField(
-          "user.metadata.annotations!merge"
-        )
-        UserUpdateMapper
-          .toUpdate(userWithAnnotations, FieldMask(Seq("user.metadata.annotations")))
-          .value shouldBe makeUserUpdate(annotationsUpdateO =
-          Some(Merge.fromNonEmpty(Map("a" -> "b")))
-        )
-        UserUpdateMapper
-          .toUpdate(userWithoutAnnotations, FieldMask(Seq("user.metadata.annotations")))
-          .value shouldBe makeUserUpdate(annotationsUpdateO = Some(Replace(Map.empty)))
-      }
-
-      "when inexact path match for a primitive field" in {
-        val userWithParty = makeUser(primaryParty = Some(party1))
-        val userWithoutParty = makeUser()
-        UserUpdateMapper
-          .toUpdate(userWithParty, FieldMask(Seq("user!replace")))
-          .value shouldBe makeUserUpdate(
-          primaryPartyUpdateO = Some(Some(party1)),
-          isDeactivatedUpdateO = Some(false),
-          annotationsUpdateO = Some(Replace(Map.empty)),
-        )
-        UserUpdateMapper
-          .toUpdate(userWithoutParty, FieldMask(Seq("user!replace")))
-          .value shouldBe makeUserUpdate(
-          primaryPartyUpdateO = Some(None),
-          isDeactivatedUpdateO = Some(false),
-          annotationsUpdateO = Some(Replace(Map.empty)),
-        )
-        UserUpdateMapper
-          .toUpdate(userWithParty, FieldMask(Seq("user!merge")))
-          .value shouldBe makeUserUpdate(primaryPartyUpdateO = Some(Some(party1)))
-        UserUpdateMapper
-          .toUpdate(userWithoutParty, FieldMask(Seq("user!merge")))
-          .value shouldBe emptyUserUpdate
-        UserUpdateMapper
-          .toUpdate(userWithParty, FieldMask(Seq("user")))
-          .value shouldBe makeUserUpdate(primaryPartyUpdateO = Some(Some(party1)))
-        UserUpdateMapper
-          .toUpdate(userWithoutParty, FieldMask(Seq("user")))
-          .value shouldBe emptyUserUpdate
-      }
-
-      "when inexact path match on metadata annotations field" in {
-        val userWithAnnotations = makeUser(annotations = Map("a" -> "b"))
-        val userWithoutAnnotations = makeUser()
-        UserUpdateMapper
-          .toUpdate(userWithAnnotations, FieldMask(Seq("user!replace")))
-          .value shouldBe makeUserUpdate(
-          primaryPartyUpdateO = Some(None),
-          isDeactivatedUpdateO = Some(false),
-          annotationsUpdateO = Some(Replace(Map("a" -> "b"))),
-        )
-        UserUpdateMapper
-          .toUpdate(userWithoutAnnotations, FieldMask(Seq("user!replace")))
-          .value shouldBe makeUserUpdate(
-          primaryPartyUpdateO = Some(None),
-          isDeactivatedUpdateO = Some(false),
-          annotationsUpdateO = Some(Replace(Map.empty)),
-        )
-        UserUpdateMapper
-          .toUpdate(userWithAnnotations, FieldMask(Seq("user!merge")))
-          .value shouldBe makeUserUpdate(
-          annotationsUpdateO = Some(Merge.fromNonEmpty(Map("a" -> "b")))
-        )
-        UserUpdateMapper
-          .toUpdate(userWithoutAnnotations, FieldMask(Seq("user!merge")))
-          .value shouldBe emptyUserUpdate
-        UserUpdateMapper
-          .toUpdate(userWithAnnotations, FieldMask(Seq("user")))
-          .value shouldBe makeUserUpdate(
-          annotationsUpdateO = Some(Merge.fromNonEmpty(Map("a" -> "b")))
-        )
-        UserUpdateMapper
-          .toUpdate(userWithoutAnnotations, FieldMask(Seq("user")))
-          .value shouldBe emptyUserUpdate
-      }
-
-      "the longest matching path is matched" in {
-        val user = makeUser(
-          annotations = Map("a" -> "b"),
-          primaryParty = Some(party1),
-        )
-        UserUpdateMapper
-          .toUpdate(
-            user,
-            FieldMask(
-              Seq("user!replace", "user.metadata!replace", "user.metadata.annotations!merge")
-            ),
-          )
-          .value shouldBe makeUserUpdate(
-          primaryPartyUpdateO = Some(Some(party1)),
-          isDeactivatedUpdateO = Some(false),
-          annotationsUpdateO = Some(Merge.fromNonEmpty(Map("a" -> "b"))),
-        )
-        UserUpdateMapper
-          .toUpdate(
-            user,
-            FieldMask(Seq("user!replace", "user.metadata!replace", "user.metadata.annotations")),
-          )
-          .value shouldBe makeUserUpdate(
-          primaryPartyUpdateO = Some(Some(party1)),
-          isDeactivatedUpdateO = Some(false),
-          annotationsUpdateO = Some(Merge.fromNonEmpty(Map("a" -> "b"))),
-        )
-        UserUpdateMapper
-          .toUpdate(
-            user,
-            FieldMask(Seq("user!merge", "user.metadata", "user.metadata.annotations!replace")),
-          )
-          .value shouldBe makeUserUpdate(
-          primaryPartyUpdateO = Some(Some(party1)),
-          annotationsUpdateO = Some(Replace(Map("a" -> "b"))),
-        )
-      }
-
-      "when update modifier on a dummy field" in {
-        val user = makeUser(primaryParty = Some(party1))
-        UserUpdateMapper
-          .toUpdate(user, FieldMask(Seq("user.dummy!replace")))
-          .left
-          .value shouldBe UpdatePathError.UnknownFieldPath("user.dummy!replace")
-      }
-
-      "raise an error when an unsupported modifier like syntax is used" in {
-        val user = makeUser(primaryParty = Some(party1))
-        UserUpdateMapper
-          .toUpdate(user, FieldMask(Seq("user!badmodifier")))
-          .left
-          .value shouldBe UpdatePathError.UnknownUpdateModifier(
-          "user!badmodifier"
-        )
-        UserUpdateMapper
-          .toUpdate(user, FieldMask(Seq("user.metadata.annotations!alsobad")))
-          .left
-          .value shouldBe UpdatePathError.UnknownUpdateModifier(
-          "user.metadata.annotations!alsobad"
-        )
-      }
-    }
   }
 
   "produce an error when " - {
@@ -337,70 +158,48 @@ class UserUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherValues {
         .left
         .value shouldBe UpdatePathError.UnknownFieldPath("some_unknown_field")
       UserUpdateMapper
-        .toUpdate(user, FieldMask(Seq("user", "some_unknown_field")))
+        .toUpdate(user, FieldMask(Seq("metadata", "some_unknown_field")))
         .left
         .value shouldBe UpdatePathError.UnknownFieldPath("some_unknown_field")
       UserUpdateMapper
-        .toUpdate(user, FieldMask(Seq("user", "user.some_unknown_field")))
+        .toUpdate(user, FieldMask(Seq("primary_party", "some_unknown_field")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath("user.some_unknown_field")
+        .value shouldBe UpdatePathError.UnknownFieldPath("some_unknown_field")
     }
-    "attempting to update resource version" in {
+    "specifying resource version in the update mask" in {
       UserUpdateMapper
-        .toUpdate(user, FieldMask(Seq("user.metadata.resource_version")))
-        .left
-        .value shouldBe UpdatePathError.UnknownFieldPath("user.metadata.resource_version")
+        .toUpdate(user, FieldMask(Seq("metadata.resource_version")))
+        .value shouldBe emptyUserUpdate
     }
-    "empty string update path" in {
+    "specifying id in the update mask" in {
       UserUpdateMapper
-        .toUpdate(user, FieldMask(Seq("")))
-        .left
-        .value shouldBe UpdatePathError.EmptyFieldPath("")
-    }
-    "empty string field path part of the field mask but non-empty update modifier" in {
-      UserUpdateMapper
-        .toUpdate(user, FieldMask(Seq("!merge")))
-        .left
-        .value shouldBe UpdatePathError.EmptyFieldPath("!merge")
+        .toUpdate(user, FieldMask(Seq("id")))
+        .value shouldBe emptyUserUpdate
     }
     "empty field mask" in {
       UserUpdateMapper
         .toUpdate(user, FieldMask(Seq.empty))
         .left
-        .value shouldBe UpdatePathError.EmptyFieldMask
+        .value shouldBe UpdatePathError.EmptyUpdateMask
     }
     "update path with invalid field path syntax" in {
       UserUpdateMapper
-        .toUpdate(user, FieldMask(Seq("user..primary_party")))
+        .toUpdate(user, FieldMask(Seq(".primary_party")))
         .left
-        .value shouldBe UpdatePathError.UnknownFieldPath("user..primary_party")
+        .value shouldBe UpdatePathError.UnknownFieldPath(".primary_party")
       UserUpdateMapper
         .toUpdate(user, FieldMask(Seq(".user.primary_party")))
         .left
         .value shouldBe UpdatePathError.UnknownFieldPath(".user.primary_party")
-      UserUpdateMapper
-        .toUpdate(user, FieldMask(Seq(".user!merge.primary_party")))
-        .left
-        .value shouldBe UpdatePathError.UnknownUpdateModifier(".user!merge.primary_party")
-      UserUpdateMapper
-        .toUpdate(user, FieldMask(Seq("user!merge.primary_party!merge")))
-        .left
-        .value shouldBe UpdatePathError.InvalidUpdatePathSyntax(
-        "user!merge.primary_party!merge"
-      )
     }
     "multiple update paths with the same field path" in {
       UserUpdateMapper
         .toUpdate(
           user,
-          FieldMask(Seq("user.primary_party!merge", "user.primary_party!replace")),
+          FieldMask(Seq("primary_party", "primary_party")),
         )
         .left
-        .value shouldBe UpdatePathError.DuplicatedFieldPath("user.primary_party!replace")
-      UserUpdateMapper
-        .toUpdate(user, FieldMask(Seq("user.primary_party!merge", "user.primary_party")))
-        .left
-        .value shouldBe UpdatePathError.DuplicatedFieldPath("user.primary_party")
+        .value shouldBe UpdatePathError.DuplicatedFieldPath("primary_party")
     }
   }
 }

@@ -7,6 +7,7 @@ import java.sql.SQLException
 import java.util.UUID
 
 import com.daml.lf.data.Ref
+import com.daml.platform.store.backend.localstore.PartyRecordStorageBackend
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, OptionValues}
@@ -79,6 +80,7 @@ private[backend] trait StorageBackendTestsPartyRecord
     val party = if (partyId != "") partyId else s"party_id_$uuid"
     PartyRecordStorageBackend.DbPartyRecordPayload(
       party = Ref.Party.assertFromString(party),
+      identityProviderId = None,
       resourceVersion = resourceVersion,
       createdAt = createdAt,
     )

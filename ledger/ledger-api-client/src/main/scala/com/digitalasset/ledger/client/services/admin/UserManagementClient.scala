@@ -4,9 +4,10 @@
 package com.daml.ledger.client.services.admin
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{User, UserRight}
+import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementServiceStub
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
+import com.daml.ledger.api.v1.{admin => admin_proto}
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Party, UserId}
@@ -104,16 +105,44 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
 object UserManagementClient {
   private def fromProtoUser(user: proto.User): User =
     User(
-      Ref.UserId.assertFromString(user.id),
-      Option.unless(user.primaryParty.isEmpty)(Party.assertFromString(user.primaryParty)),
+      id = Ref.UserId.assertFromString(user.id),
+      primaryParty =
+        Option.unless(user.primaryParty.isEmpty)(Party.assertFromString(user.primaryParty)),
+      isDeactivated = user.isDeactivated,
+      metadata = user.metadata.fold(domain.ObjectMeta.empty)(fromProtoMetadata),
     )
 
+  private def fromProtoMetadata(
+      metadata: com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
+  ): domain.ObjectMeta = {
+    domain.ObjectMeta(
+      // It's unfortunate that a client is using the server-side domain ObjectMeta and has to know how to parse the resource version
+      resourceVersionO =
+        Option.when(metadata.resourceVersion.nonEmpty)(metadata.resourceVersion).map(_.toLong),
+      annotations = metadata.annotations,
+    )
+  }
+
   private def toProtoUser(user: User): proto.User =
-    proto.User(user.id.toString, user.primaryParty.fold("")(_.toString))
+    proto.User(
+      id = user.id.toString,
+      primaryParty = user.primaryParty.fold("")(_.toString),
+      isDeactivated = user.isDeactivated,
+      metadata = Some(toProtoObjectMeta(user.metadata)),
+    )
+
+  private def toProtoObjectMeta(meta: ObjectMeta): admin_proto.object_meta.ObjectMeta =
+    admin_proto.object_meta.ObjectMeta(
+      // It's unfortunate that a client is using the server-side domain ObjectMeta and has to know how to parse the resource version
+      resourceVersion = meta.resourceVersionO.map(_.toString).getOrElse(""),
+      annotations = meta.annotations,
+    )
 
   private val toProtoRight: domain.UserRight => proto.Right = {
     case domain.UserRight.ParticipantAdmin =>
       proto.Right(proto.Right.Kind.ParticipantAdmin(proto.Right.ParticipantAdmin()))
+    case domain.UserRight.IdentityProviderAdmin =>
+      proto.Right(proto.Right.Kind.IdentityProviderAdmin(proto.Right.IdentityProviderAdmin()))
     case domain.UserRight.CanActAs(party) =>
       proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs(party)))
     case domain.UserRight.CanReadAs(party) =>
@@ -123,6 +152,8 @@ object UserManagementClient {
   private val fromProtoRight: proto.Right => Option[domain.UserRight] = {
     case proto.Right(_: proto.Right.Kind.ParticipantAdmin) =>
       Some(domain.UserRight.ParticipantAdmin)
+    case proto.Right(_: proto.Right.Kind.IdentityProviderAdmin) =>
+      Some(domain.UserRight.IdentityProviderAdmin)
     case proto.Right(proto.Right.Kind.CanActAs(x)) =>
       // Note: assertFromString is OK here, as the server should deliver valid party identifiers.
       Some(domain.UserRight.CanActAs(Ref.Party.assertFromString(x.party)))

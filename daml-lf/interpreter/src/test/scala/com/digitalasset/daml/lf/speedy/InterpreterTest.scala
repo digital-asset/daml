@@ -29,7 +29,7 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
   private def runExpr(e: Expr): SValue = {
     val machine = Speedy.Machine.fromPureExpr(PureCompiledPackages.Empty, e)
     machine.run() match {
-      case SResultFinal(v, _) => v
+      case SResultFinal(v) => v
       case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
     }
   }
@@ -138,7 +138,7 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
     }
     "interpret" in {
       val value = machine.run() match {
-        case SResultFinal(v, _) => v
+        case SResultFinal(v) => v
         case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
       }
       value match {

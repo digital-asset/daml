@@ -18,6 +18,11 @@ import com.daml.platform.store.serialization.Compression
 
 import scala.collection.immutable.ArraySeq
 import scala.concurrent.{ExecutionContext, Future}
+import com.daml.api.util.TimestampConversion
+import com.daml.ledger.api.v1.contract_metadata.{ContractMetadata => PbContractMetadata}
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Time.Timestamp
+import com.google.protobuf.ByteString
 
 /** An event as it's fetched from the participant index, before
   * the deserialization the values contained therein. Allows to
@@ -78,6 +83,9 @@ object Raw {
         createObservers: ArraySeq[String],
         createAgreementText: Option[String],
         eventWitnesses: ArraySeq[String],
+        createKeyHash: Option[Hash],
+        ledgerEffectiveTime: Timestamp,
+        driverMetadata: Option[Array[Byte]],
     ): PbCreatedEvent =
       PbCreatedEvent(
         eventId = eventId,
@@ -89,6 +97,13 @@ object Raw {
         signatories = createSignatories,
         observers = createObservers,
         agreementText = createAgreementText.orElse(Some("")),
+        metadata = Some(
+          PbContractMetadata(
+            createdAt = Some(TimestampConversion.fromLf(ledgerEffectiveTime)),
+            contractKeyHash = createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
+            driverMetadata = ByteString.copyFrom(driverMetadata.getOrElse(Array.empty)),
+          )
+        ),
       )
   }
 
@@ -125,8 +140,11 @@ object Raw {
           createObservers: ArraySeq[String],
           createAgreementText: Option[String],
           createKeyValue: Option[Array[Byte]],
+          createKeyHash: Option[Hash],
           createKeyValueCompression: Option[Int],
+          ledgerEffectiveTime: Timestamp,
           eventWitnesses: ArraySeq[String],
+          driverMetadata: Option[Array[Byte]],
       ): Raw.FlatEvent.Created =
         new Raw.FlatEvent.Created(
           raw = Raw.Created(
@@ -137,6 +155,9 @@ object Raw {
             createObservers = createObservers,
             createAgreementText = createAgreementText,
             eventWitnesses = eventWitnesses,
+            createKeyHash = createKeyHash,
+            ledgerEffectiveTime = ledgerEffectiveTime,
+            driverMetadata = driverMetadata,
           ),
           createArgument = createArgument,
           createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),
@@ -213,8 +234,11 @@ object Raw {
           createObservers: ArraySeq[String],
           createAgreementText: Option[String],
           createKeyValue: Option[Array[Byte]],
+          createKeyHash: Option[Hash],
           createKeyValueCompression: Option[Int],
+          ledgerEffectiveTime: Timestamp,
           eventWitnesses: ArraySeq[String],
+          driverMetadata: Option[Array[Byte]],
       ): Raw.TreeEvent.Created =
         new Raw.TreeEvent.Created(
           raw = Raw.Created(
@@ -225,6 +249,9 @@ object Raw {
             createObservers = createObservers,
             createAgreementText = createAgreementText,
             eventWitnesses = eventWitnesses,
+            createKeyHash = createKeyHash,
+            ledgerEffectiveTime = ledgerEffectiveTime,
+            driverMetadata = driverMetadata,
           ),
           createArgument = createArgument,
           createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),

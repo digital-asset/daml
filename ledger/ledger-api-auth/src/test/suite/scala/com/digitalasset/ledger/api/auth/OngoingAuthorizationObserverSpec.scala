@@ -4,14 +4,15 @@
 package com.daml.ledger.api.auth
 
 import java.time.{Clock, Duration, Instant, ZoneId}
+
 import akka.actor.{Cancellable, Scheduler}
 import com.daml.clock.AdjustableClock
 import com.daml.error.ErrorsAssertions
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.api.auth.AuthorizationError.Expired
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
 import com.daml.logging.LoggingContext
+import com.daml.platform.localstore.api.UserManagementStore
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver
 import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar, MockitoSugar}
@@ -49,7 +50,7 @@ class OngoingAuthorizationObserverSpec
         resolvedFromUser = true,
         applicationId = Some("some_user_id"),
       ),
-      nowF = clock.instant,
+      nowF = () => clock.instant,
       userManagementStore = mock[UserManagementStore],
       // This is also the user rights state refresh timeout
       userRightsCheckIntervalInSeconds = userRightsCheckIntervalInSeconds,
@@ -110,7 +111,7 @@ class OngoingAuthorizationObserverSpec
         applicationId = Some("some_user_id"),
         expiration = Some(clock.instant.plusSeconds(1)),
       ),
-      nowF = clock.instant,
+      nowF = () => clock.instant,
       userManagementStore = mock[UserManagementStore],
       userRightsCheckIntervalInSeconds = 10,
       akkaScheduler = mockScheduler,
@@ -153,7 +154,7 @@ class OngoingAuthorizationObserverSpec
         // the expiration claim will be invalid in the next second
         expiration = Some(expiration),
       ),
-      nowF = clock.instant,
+      nowF = () => clock.instant,
       userManagementStore = mock[UserManagementStore],
       userRightsCheckIntervalInSeconds = 10,
       akkaScheduler = mockScheduler,

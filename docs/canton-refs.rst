@@ -7,14 +7,26 @@ Dummy Canton Refs
 .. dummy canton refs so our sphinx build succeeds. In the assembly repo
    these point to actual Canton docs.
 
-.. _tls-configuration:
+.. _automation-using-bootstrap-scripts:
 
 .. _canton-metrics:
 
+.. _canton_console:
+
 .. _ha_arch:
+
+.. _how-do-i-enable-unsupported-features:
+
+.. _protocol_version:
+
+.. _tls-configuration:
 
 .. _utils.generate_daml_script_participants_conf:
 
-.. _automation-using-bootstrap-scripts:
 
-.. _how-do-i-enable-unsupported-features:
+Dummy TOC Refs
+--------------
+
+.. same idea but for the toc in the docs repo
+
+.. _ledger-administration-introduction:

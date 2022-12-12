@@ -4,15 +4,14 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.typesig
-import typesig.{PrimType, TemplateChoice, Type, TypeCon, TypeNumeric, TypePrim, TypeVar}
+import typesig.{TemplateChoice, Type}
 import typesig.PackageSignature.TypeDecl
 import com.squareup.javapoet._
-
 import ClassGenUtils.companionFieldName
+import com.daml.ledger.javaapi.data.codegen.{Exercised, Update}
 
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
@@ -29,12 +28,10 @@ object ContractIdClass {
       templateClassName: ClassName,
       choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
       kind: For,
-      packagePrefixes: Map[PackageId, String],
   ) = Builder.create(
     templateClassName,
     choices,
     kind,
-    packagePrefixes,
   )
 
   case class Builder private (
@@ -42,19 +39,22 @@ object ContractIdClass {
       contractIdClassName: ClassName,
       idClassBuilder: TypeSpec.Builder,
       choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
-      packagePrefixes: Map[PackageId, String],
   ) {
     def build(): TypeSpec = idClassBuilder.build()
 
-    def addConversionForImplementedInterfaces(
-        implementedInterfaces: Seq[Ref.TypeConName]
+    def addConversionForImplementedInterfaces(implementedInterfaces: Seq[Ref.TypeConName])(implicit
+        packagePrefixes: PackagePrefixes
     ): Builder = {
       idClassBuilder.addMethods(
-        generateToInterfaceMethods("ContractId", "this.contractId", implementedInterfaces).asJava
+        generateToInterfaceMethods(
+          "ContractId",
+          "this.contractId",
+          implementedInterfaces,
+        ).asJava
       )
       implementedInterfaces.foreach { interfaceName =>
-        // XXX why doesn't this use packagePrefixes? -SC
-        val name = ClassName.bestGuess(fullyQualifiedName(interfaceName.qualifiedName))
+        val name =
+          ClassName.bestGuess(fullyQualifiedName(interfaceName))
         val interfaceContractIdName = name nestedClass "ContractId"
         val tplContractIdClassName = templateClassName.nestedClass("ContractId")
         idClassBuilder.addMethod(
@@ -84,6 +84,10 @@ object ContractIdClass {
     }
   }
 
+  private val updateType: ClassName = ClassName get classOf[Update[_]]
+  private val exercisedType: ClassName = ClassName get classOf[Exercised[_]]
+  private def parameterizedUpdateType(returnTypeName: TypeName): TypeName =
+    ParameterizedTypeName.get(updateType, ParameterizedTypeName.get(exercisedType, returnTypeName))
   private val exercisesTypeParam = TypeVariableName get "Cmd"
   private[inner] val exercisesInterface = ClassName bestGuess "Exercises"
 
@@ -91,7 +95,8 @@ object ContractIdClass {
       choices: Map[ChoiceName, TemplateChoice.FWT],
       typeDeclarations: Map[QualifiedName, TypeDecl],
       packageId: PackageId,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ) = {
     val exercisesClass = TypeSpec
       .interfaceBuilder(exercisesInterface)
@@ -105,7 +110,6 @@ object ContractIdClass {
       exercisesClass addMethod Builder.generateExerciseMethod(
         choiceName,
         choice,
-        packagePrefixes,
       )
       for (
         record <- choice.param.fold(
@@ -118,8 +122,7 @@ object ContractIdClass {
         val splatted = Builder.generateFlattenedExerciseMethod(
           choiceName,
           choice,
-          getFieldsWithTypes(record.fields, packagePrefixes),
-          packagePrefixes,
+          getFieldsWithTypes(record.fields),
         )
         exercisesClass.addMethod(splatted)
       }
@@ -131,15 +134,16 @@ object ContractIdClass {
       nestedReturn: String,
       selfArgs: String,
       implementedInterfaces: Seq[Ref.TypeConName],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ) =
     implementedInterfaces.map { interfaceName =>
-      // XXX why doesn't this use packagePrefixes? -SC
-      val name = ClassName.bestGuess(fullyQualifiedName(interfaceName.qualifiedName))
+      val name = ClassName.bestGuess(fullyQualifiedName(interfaceName))
       val interfaceContractIdName = name nestedClass nestedReturn
       MethodSpec
         .methodBuilder("toInterface")
         .addModifiers(Modifier.PUBLIC)
-        .addParameter(name nestedClass InterfaceClass.companionName, "interfaceCompanion")
+        .addParameter(name nestedClass InterfaceClass.companionClassName, "interfaceCompanion")
         .addStatement("return new $T($L)", interfaceContractIdName, selfArgs)
         .returns(interfaceContractIdName)
         .build()
@@ -151,60 +155,50 @@ object ContractIdClass {
         choiceName: ChoiceName,
         choice: TemplateChoice[Type],
         fields: Fields,
-        packagePrefixes: Map[PackageId, String],
+    )(implicit
+        packagePrefixes: PackagePrefixes
     ): MethodSpec =
       ClassGenUtils.generateFlattenedCreateOrExerciseMethod(
         "exercise",
-        exercisesTypeParam,
+        parameterizedUpdateType(toJavaTypeName(choice.returnType)),
         choiceName,
         choice,
         fields,
-        packagePrefixes,
       )(_.addModifiers(Modifier.DEFAULT))
 
     private[ContractIdClass] def generateExerciseMethod(
         choiceName: ChoiceName,
         choice: TemplateChoice[Type],
-        packagePrefixes: Map[PackageId, String],
+    )(implicit
+        packagePrefixes: PackagePrefixes
     ): MethodSpec = {
       val methodName = s"exercise${choiceName.capitalize}"
       val exerciseChoiceBuilder = MethodSpec
         .methodBuilder(methodName)
         .addModifiers(Modifier.DEFAULT, Modifier.PUBLIC)
-        .returns(exercisesTypeParam)
-      val javaType = toJavaTypeName(choice.param, packagePrefixes)
+        .returns(parameterizedUpdateType(toJavaTypeName(choice.returnType)))
+      val javaType = toJavaTypeName(choice.param)
       exerciseChoiceBuilder.addParameter(javaType, "arg")
-      choice.param match {
-        case TypeCon(_, _) =>
-          exerciseChoiceBuilder.addStatement(
-            "$T argValue = arg.toValue()",
-            classOf[javaapi.data.Value],
-          )
-        case TypePrim(PrimType.Unit, ImmArraySeq()) =>
-          exerciseChoiceBuilder
-            .addStatement(
-              "$T argValue = $T.getInstance()",
-              classOf[javaapi.data.Value],
-              classOf[javaapi.data.Unit],
-            )
-        case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) =>
-          exerciseChoiceBuilder
-            .addStatement(
-              "$T argValue = new $T(arg)",
-              classOf[javaapi.data.Value],
-              toAPITypeName(choice.param),
-            )
-      }
       exerciseChoiceBuilder.addStatement(
-        "return makeExerciseCmd($S, argValue)",
-        choiceName,
+        "return makeExerciseCmd($L, arg)",
+        TemplateClass.toChoiceNameField(choiceName),
       )
       exerciseChoiceBuilder.build()
     }
 
-    def generateGetCompanion(kind: For) =
+    def generateGetCompanion(markerName: ClassName, kind: For) =
       ClassGenUtils.generateGetCompanion(
-        ClassName get classOf[javaapi.data.codegen.ContractTypeCompanion],
+        ParameterizedTypeName.get(
+          ClassName get classOf[javaapi.data.codegen.ContractTypeCompanion[_, _, _, _]],
+          WildcardTypeName subtypeOf ParameterizedTypeName.get(
+            ClassName get classOf[javaapi.data.codegen.Contract[_, _]],
+            contractIdClassName,
+            WildcardTypeName subtypeOf classOf[Object],
+          ),
+          contractIdClassName,
+          markerName,
+          WildcardTypeName subtypeOf classOf[Object],
+        ),
         kind match {
           case For.Interface => InterfaceClass.companionName
           case For.Template => ClassGenUtils.companionFieldName
@@ -242,14 +236,14 @@ object ContractIdClass {
       spec.build()
     }
 
+    private[this] val contractIdClassName = ClassName bestGuess "ContractId"
+
     def create(
         templateClassName: ClassName,
         choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
         kind: For,
-        packagePrefixes: Map[PackageId, String],
     ): Builder = {
 
-      val contractIdClassName = ClassName bestGuess "ContractId"
       val idClassBuilder =
         TypeSpec
           .classBuilder("ContractId")
@@ -271,8 +265,8 @@ object ContractIdClass {
           .build()
       idClassBuilder
         .addMethod(constructor)
-        .addMethod(generateGetCompanion(kind))
-      Builder(templateClassName, contractIdClassName, idClassBuilder, choices, packagePrefixes)
+        .addMethod(generateGetCompanion(templateClassName, kind))
+      Builder(templateClassName, contractIdClassName, idClassBuilder, choices)
     }
   }
 }

@@ -113,7 +113,7 @@ A Java file is generated that defines the class for the type ``Person``:
 
   package com.acme.producttypes;
 
-  public class Person {
+  public class Person extends DamlRecord<Person> {
     public final Name name;
     public final BigDecimal age;
 
@@ -126,11 +126,11 @@ A Java file is generated that defines the class for the type ``Person``:
 A Java file is generated that defines the class for the type ``Name``:
 
   .. code-block:: java
-    :caption: com/acme/producttypes.Name.java
+    :caption: com/acme/producttypes/Name.java
 
     package com.acme.producttypes;
 
-    public class Name {
+    public class Name extends DamlRecord<Name> {
       public final String firstName;
       public final String lastName;
 
@@ -174,7 +174,7 @@ A file is generated that defines five Java classes and an interface:
 
 .. code-block:: java
   :caption: com/acme/templates/Bar.java
-  :emphasize-lines: 3,18,24,32,40,44
+  :emphasize-lines: 3,21,27,35,43,47
 
   package com.acme.templates;
 
@@ -182,9 +182,12 @@ A file is generated that defines five Java classes and an interface:
 
     public static final Identifier TEMPLATE_ID = new Identifier("some-package-id", "Com.Acme.Templates", "Bar");
 
+    public static final Choice<Bar, Archive, Unit> CHOICE_Archive =
+      Choice.create(/* ... */);
+
     public static final ContractCompanion.WithKey<Contract, ContractId, Bar, BarKey> COMPANION = 
         new ContractCompanion.WithKey<>("com.acme.templates.Bar",
-          TEMPLATE_ID, ContractId::new, Bar::fromValue, Contract::new, e -> BarKey.fromValue(e));
+          TEMPLATE_ID, ContractId::new, Bar::fromValue, Contract::new, e -> BarKey.fromValue(e), List.of(CHOICE_Archive));
 
     public final String owner;
     public final String name;
@@ -244,11 +247,11 @@ The Java code generated for this variant is:
 
   package com.acme.variants;
 
-  public class BookAttribute {
+  public class BookAttribute extends Variant<BookAttribute> {
     public static BookAttribute fromValue(Value value) { /* ... */ }
 
     public static BookAttribute fromValue(Value value) { /* ... */ }
-    public Value toValue() { /* ... */ }
+    public abstract Variant toValue();
   }
 
 .. code-block:: java
@@ -262,7 +265,7 @@ The Java code generated for this variant is:
     public static Pages fromValue(Value value) { /* ... */ }
 
     public Pages(Long longValue) { /* ... */ }
-    public Value toValue() { /* ... */ }
+    public Variant toValue() { /* ... */ }
   }
 
 .. code-block:: java
@@ -276,7 +279,7 @@ The Java code generated for this variant is:
     public static Authors fromValue(Value value) { /* ... */ }
 
     public Author(List<String> listValue) { /* ... */ }
-    public Value toValue() { /* ... */ }
+    public Variant toValue() { /* ... */ }
 
   }
 
@@ -291,7 +294,7 @@ The Java code generated for this variant is:
     public static Title fromValue(Value value) { /* ... */ }
 
     public Title(String stringValue) { /* ... */ }
-    public Value toValue() { /* ... */ }
+    public Variant toValue() { /* ... */ }
   }
 
 .. code-block:: java
@@ -306,7 +309,7 @@ The Java code generated for this variant is:
     public static Published fromValue(Value value) { /* ... */ }
 
     public Published(Long year, String publisher) { /* ... */ }
-    public DamlRecord toValue() { /* ... */ }
+    public Variant toValue() { /* ... */ }
   }
 
 Parameterized Types
@@ -367,7 +370,7 @@ The Java code generated for this variant is:
   package com.acme.enum;
 
 
-  public enum Color {
+  public enum Color implements DamlEnum<Color> {
     RED,
 
     GREEN,
@@ -514,6 +517,12 @@ Effectively it is a class that contains only the inner type ContractId because o
   
   public final class TIf {
     public static final Identifier TEMPLATE_ID = new Identifier("94fb4fa48cef1ec7d474ff3d6883a00b2f337666c302ec5e2b87e986da5c27a3", "Interfaces", "TIf");
+
+    public static final Choice<TIf, Transfer, ContractId> CHOICE_Transfer =
+      Choice.create(/* ... */);
+
+    public static final Choice<TIf, Archive, Unit> CHOICE_Archive =
+      Choice.create(/* ... */);
 
     public static final INTERFACE INTERFACE = new INTERFACE();
 

@@ -6,6 +6,7 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
+    "lf_scalacopts_stricter",
 )
 load("@build_environment//:configuration.bzl", "sdk_version")
 
@@ -49,6 +50,7 @@ DAML_LF_VERSIONS = [
       if [ "{lf_version}" = "1.dev" ]
       then
         cp -L $(location :daml/Interface.daml) $$TMP_DIR/daml
+        cp -L $(location :daml/InterfaceTriggers.daml) $$TMP_DIR/daml
       fi
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
@@ -111,7 +113,6 @@ da_scala_library(
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//ledger/test-common",
-        "//libs-scala/contextualized-logging",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//triggers/runner:trigger-runner-lib",
@@ -164,13 +165,17 @@ da_scala_library(
             "//ledger/ledger-configuration",
             "//ledger/ledger-resources",
             "//ledger/ledger-runner-common",
+            "//ledger/metrics",
             "//ledger/participant-integration-api",
             "//ledger/sandbox-on-x",
             "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
             "//ledger/test-common",
+            "//libs-scala/contextualized-logging",
+            "//libs-scala/logging-entries",
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/scalatest-utils",
+            "//observability/telemetry",
             "//triggers/runner:trigger-runner-lib",
         ],
     )

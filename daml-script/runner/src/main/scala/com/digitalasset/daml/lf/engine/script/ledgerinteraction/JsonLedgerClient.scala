@@ -4,7 +4,6 @@
 package com.daml.lf.engine.script.ledgerinteraction
 
 import java.time.Instant
-
 import akka.util.ByteString
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -23,12 +22,12 @@ import com.daml.ledger.api.auth.{
   CustomDamlJWTPayload,
   StandardJWTPayload,
 }
-import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.script.{Converter, LfValueCodec}
-import com.daml.lf.language.Ast._
+import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SValue
 import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.PackageSignature.TypeDecl
@@ -174,7 +173,7 @@ class JsonLedgerClient(
       )
     } yield {
       val ctx = templateId.qualifiedName
-      val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).toOption.get
+      val ifaceType = Converter.toIfaceType(ctx, Ast.TTyCon(templateId)).toOption.get
       val parsedResults = queryResponse.results.map(r => {
         val payload = r.payload.convertTo[Value](
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
@@ -185,6 +184,7 @@ class JsonLedgerClient(
       parsedResults
     }
   }
+
   override def queryContractId(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -199,7 +199,7 @@ class JsonLedgerClient(
       )
     } yield {
       val ctx = templateId.qualifiedName
-      val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).toOption.get
+      val ifaceType = Converter.toIfaceType(ctx, Ast.TTyCon(templateId)).toOption.get
       fetchResponse.result.map(r => {
         val payload = r.payload.convertTo[Value](
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
@@ -209,6 +209,69 @@ class JsonLedgerClient(
       })
     }
   }
+
+  override def queryInterface(
+      parties: OneAnd[Set, Ref.Party],
+      interfaceId: Identifier,
+      viewType: Ast.Type,
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Option[Value])]] = {
+    for {
+      parties <- validateTokenParties(parties, "queryInterface")
+      queryResponse <- queryRequestSuccess[QueryArgs, QueryResponse](
+        uri.path./("v1")./("query"),
+        QueryArgs(interfaceId),
+        parties,
+      )
+    } yield {
+      val ctx = interfaceId.qualifiedName
+      val ifaceType = Converter.toIfaceType(ctx, viewType).toOption.get
+      val parsedResults = queryResponse.results.map(r => {
+        val payload = r.payload.convertTo[Value](
+          LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
+        )
+        val cid = ContractId.assertFromString(r.contractId)
+        // TODO https://github.com/digital-asset/daml/issues/14830
+        // contracts with failed-views are not returned over the Json API
+        (cid, Some(payload))
+      })
+      parsedResults
+    }
+  }
+
+  override def queryInterfaceContractId(
+      parties: OneAnd[Set, Ref.Party],
+      interfaceId: Identifier,
+      viewType: Ast.Type,
+      cid: ContractId,
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[Option[Value]] = {
+    recoverInternalServerError {
+      for {
+        parties <- validateTokenParties(parties, "queryInterfaceContractId")
+        response <- queryRequestSuccess[FetchInterfaceArgs, FetchInterfaceResponse](
+          uri.path./("v1")./("fetch"),
+          FetchInterfaceArgs(cid, interfaceId),
+          parties,
+        )
+      } yield {
+        val ctx = interfaceId.qualifiedName
+        val ifaceType = Converter.toIfaceType(ctx, viewType).toOption.get
+        response.results.map { r =>
+          r.payload.convertTo[Value](
+            LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
+          )
+        }
+      }
+    }
+  }
+
+  // TODO https://github.com/digital-asset/daml/issues/14830
+  // fetching failed-view contracts by interfaceId/cid cause InternalServerError from Json API
+  def recoverInternalServerError[A](e: Future[Option[A]]): Future[Option[A]] = {
+    e.recover { case FailedJsonApiRequest(_, _, StatusCodes.InternalServerError, _) =>
+      None
+    }
+  }
+
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -224,7 +287,7 @@ class JsonLedgerClient(
       )
     } yield {
       val ctx = templateId.qualifiedName
-      val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).toOption.get
+      val ifaceType = Converter.toIfaceType(ctx, Ast.TTyCon(templateId)).toOption.get
       fetchResponse.result.map(r => {
         val payload = r.payload.convertTo[Value](
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
@@ -253,9 +316,7 @@ class JsonLedgerClient(
             case command.CreateCommand(tplId, argument) =>
               create(tplId, argument, partySets)
             case command.ExerciseCommand(typeId, cid, choice, argument) =>
-              // TODO: https://github.com/digital-asset/daml/issues/14747
-              //  Fix once Json API distinguish between template and interfaceId within Exercise Command
-              exercise(typeId.merge, cid, choice, argument, partySets)
+              exercise(typeId, cid, choice, argument, partySets)
             case command.ExerciseByKeyCommand(tplId, key, choice, argument) =>
               exerciseByKey(tplId, key, choice, argument, partySets)
             case command.CreateAndExerciseCommand(tplId, template, choice, argument) =>
@@ -276,10 +337,10 @@ class JsonLedgerClient(
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
-    submit(actAs, readAs, commands, optLocation).map({
+    submit(actAs, readAs, commands, optLocation).map {
       case Right(_) => Left(())
       case Left(_) => Right(())
-    })
+    }
   }
 
   override def submitTree(
@@ -749,6 +810,9 @@ object JsonLedgerClient {
   final case class FetchKeyArgs(templateId: Identifier, key: Value)
   final case class FetchResponse(result: Option[ActiveContract])
 
+  final case class FetchInterfaceArgs(contractId: ContractId, interfaceId: Identifier)
+  final case class FetchInterfaceResponse(results: Option[ActiveContract])
+
   final case class CreateArgs(templateId: Identifier, payload: JsValue)
   final case class CreateResponse(contractId: String)
 
@@ -830,6 +894,8 @@ object JsonLedgerClient {
             id.convertTo[Party],
             optName.map(_.convertTo[String]),
             isLocal.convertTo[Boolean],
+            ObjectMeta.empty,
+            IdentityProviderId.Default,
           )
         case _ => deserializationError(s"Expected PartyDetails but got $v")
       }
@@ -854,6 +920,15 @@ object JsonLedgerClient {
       )
     implicit val fetchReader: RootJsonReader[FetchResponse] = v =>
       FetchResponse(v.convertTo[Option[ActiveContract]])
+
+    implicit val fetchInterfaceWriter: JsonWriter[FetchInterfaceArgs] = args =>
+      JsObject(
+        "contractId" -> args.contractId.coid.toString.toJson,
+        "templateId" -> args.interfaceId.toJson,
+      )
+
+    implicit val fetchInterfaceReader: RootJsonReader[FetchInterfaceResponse] = v =>
+      FetchInterfaceResponse(v.convertTo[Option[ActiveContract]])
 
     implicit val activeContractReader: RootJsonReader[ActiveContract] = v => {
       v.asJsObject.getFields("contractId", "payload") match {
@@ -976,11 +1051,14 @@ object JsonLedgerClient {
           JsObject("type" -> JsString("CanActAs"), "party" -> JsString(party))
         case UserRight.ParticipantAdmin =>
           JsObject("type" -> JsString("ParticipantAdmin"))
+        case UserRight.IdentityProviderAdmin =>
+          JsObject("type" -> JsString("IdentityProviderAdmin"))
       }
       override def read(json: JsValue) = {
         val obj = json.asJsObject
         obj.fields.get("type") match {
           case Some(JsString("ParticipantAdmin")) => UserRight.ParticipantAdmin
+          case Some(JsString("IdentityProviderAdmin")) => UserRight.IdentityProviderAdmin
           case Some(JsString("CanReadAs")) =>
             obj.fields.get("party") match {
               case None => deserializationError("UserRight.CanReadAs")

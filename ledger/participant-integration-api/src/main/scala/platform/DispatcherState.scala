@@ -4,7 +4,7 @@
 package com.daml.platform
 
 import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.CommonErrors
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -38,7 +38,7 @@ class DispatcherState(dispatcherShutdownTimeout: Duration)(implicit
 
   def getDispatcher: Dispatcher[Offset] = synchronized {
     dispatcherStateRef match {
-      case DispatcherStateShutdown | DispatcherNotRunning => throw dispatcherNotRunning()
+      case DispatcherStateShutdown | DispatcherNotRunning => throw dispatcherNotRunning
       case DispatcherRunning(dispatcher) => dispatcher
     }
   }
@@ -69,7 +69,7 @@ class DispatcherState(dispatcherShutdownTimeout: Duration)(implicit
       case DispatcherRunning(dispatcher) =>
         dispatcherStateRef = DispatcherNotRunning
         dispatcher
-          .cancel(dispatcherNotRunning())
+          .cancel(() => dispatcherNotRunning)
           .transform {
             case Success(_) =>
               logger.info(s"Active $ServiceName stopped.")
@@ -120,14 +120,14 @@ class DispatcherState(dispatcherShutdownTimeout: Duration)(implicit
       headAtInitialization = initializationOffset,
     )
 
-  private def dispatcherNotRunning(): StatusRuntimeException = {
+  private def dispatcherNotRunning: StatusRuntimeException = {
     val contextualizedErrorLogger = new DamlContextualizedErrorLogger(
       logger = logger,
       // TODO: Use request contextual LoggingContext once a correlation id can be provided
       loggingContext = loggingContext,
       None,
     )
-    LedgerApiErrors.ServiceNotRunning.Reject(ServiceName)(contextualizedErrorLogger).asGrpcError
+    CommonErrors.ServiceNotRunning.Reject(ServiceName)(contextualizedErrorLogger).asGrpcError
   }
 }
 

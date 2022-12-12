@@ -12,28 +12,29 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.daml.http.json.SprayJson
 import com.daml.jwt.domain.Jwt
+import com.daml.lf.data.Ref
 import com.typesafe.scalalogging.StrictLogging
 import org.scalacheck.Gen
 import org.scalatest.Assertions
 import org.scalatest.matchers.{MatchResult, Matcher}
+
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scalaz.\/
 import scalaz.std.option._
-import scalaz.syntax.apply._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
 import scalaz.std.vector._
 import spray.json.{
-  JsBoolean,
+  DefaultJsonProtocol,
   JsArray,
+  JsBoolean,
   JsNull,
   JsNumber,
   JsObject,
   JsString,
   JsValue,
-  DefaultJsonProtocol,
   RootJsonReader,
   enrichAny => `sj enrichAny`,
   enrichString => `sj enrichString`,
@@ -55,7 +56,10 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
       id: String,
       path: Uri.Path,
       input: Source[Message, NotUsed],
-  )
+  ) {
+    def mapInput(f: Source[Message, NotUsed] => Source[Message, NotUsed]): SimpleScenario =
+      copy(input = f(input))
+  }
 
   private[http] final case class ShouldHaveEnded(
       liveStartOffset: domain.Offset,
@@ -65,7 +69,8 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
 
   private[http] object ContractDelta {
     private val tagKeys = Set("created", "archived", "error")
-    type T = (Vector[(String, JsValue)], Vector[domain.ArchivedContract], Option[domain.Offset])
+    type T =
+      (Vector[(domain.ContractId, JsValue)], Vector[domain.ArchivedContract], Option[domain.Offset])
 
     def unapply(
         jsv: JsValue
@@ -76,13 +81,15 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
         pairs = sums collect { case JsObject(fields) => fields.view.filterKeys(tagKeys).toMap.head }
         if pairs.length == sums.length
         sets = pairs groupBy (_._1)
-        creates = sets.getOrElse("created", Vector()) collect { case (_, JsObject(fields)) =>
+        creates = sets.getOrElse("created", Vector()) collect { case (_, fields) =>
           fields
         }
 
-        createPairs = creates collect (Function unlift { add =>
-          (add get "contractId" collect { case JsString(v) => v }) tuple (add get "payload")
-        }): Vector[(String, JsValue)]
+        createPairs = creates map { add =>
+          import json.JsonProtocol.ActiveContractFormat
+          val ac = add.convertTo[domain.ActiveContract[domain.ContractTypeId.Resolved, JsValue]]
+          (ac.contractId, ac.payload)
+        }: Vector[(domain.ContractId, JsValue)]
 
         archives = sets.getOrElse("archived", Vector()) collect { case (_, adata) =>
           import json.JsonProtocol.ArchivedContractFormat
@@ -113,6 +120,64 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
       } yield nums
   }
 
+  private[http] final case class AccountRecord(
+      amount: String,
+      isAbcPrefix: Boolean,
+      is123Suffix: Boolean,
+  )
+  private[http] final case class CreatedAccountEvent(
+      created: CreatedAccountContract,
+      matchedQueries: Vector[Int],
+  )
+  private[http] final case class CreatedAccountContract(
+      contractId: domain.ContractId,
+      templateId: domain.ContractTypeId.Unknown[String],
+      record: AccountRecord,
+  )
+
+  private[http] object ContractTypeId {
+    def unapply(jsv: JsValue): Option[domain.ContractTypeId.Unknown[String]] = for {
+      JsString(templateIdStr) <- Some(jsv)
+      templateId <- Ref.Identifier.fromString(templateIdStr).toOption
+    } yield domain.ContractTypeId.Unknown(
+      templateId.packageId,
+      templateId.qualifiedName.module.dottedName,
+      templateId.qualifiedName.name.dottedName,
+    )
+  }
+
+  private[http] object CreatedAccount {
+    def unapply(jsv: JsValue): Option[CreatedAccountContract] =
+      for {
+        JsObject(created) <- Some(jsv)
+        JsString(contractId) <- created.get("contractId")
+        ContractTypeId(templateId) <- created.get("templateId")
+        JsObject(payload) <- created.get("payload")
+        JsString(amount) <- payload.get("amount")
+        JsBoolean(isAbcPrefix) <- payload get "isAbcPrefix"
+        JsBoolean(is123Suffix) <- payload get "is123Suffix"
+      } yield CreatedAccountContract(
+        domain.ContractId(contractId),
+        templateId,
+        AccountRecord(amount, isAbcPrefix, is123Suffix),
+      )
+  }
+
+  private[http] object AccountQuery {
+    def unapply(jsv: JsValue): Option[CreatedAccountEvent] =
+      for {
+        JsObject(eventsWrapper) <- Some(jsv)
+        JsArray(events) <- eventsWrapper.get("events")
+        Created(
+          CreatedAccount(createdAccountContract),
+          MatchedQueries(NumList(matchedQueries), _),
+        ) <- events.headOption
+      } yield CreatedAccountEvent(
+        createdAccountContract,
+        matchedQueries.map(_.toInt),
+      )
+  }
+
   private[http] abstract class JsoField(label: String) {
     def unapply(jsv: JsObject): Option[(JsValue, JsObject)] =
       jsv.fields get label map ((_, JsObject(jsv.fields - label)))
@@ -121,6 +186,8 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
   private[http] object Created extends JsoField("created")
   private[http] object Archived extends JsoField("archived")
   private[http] object MatchedQueries extends JsoField("matchedQueries")
+  private[http] object ContractIdField extends JsoField("contractId")
+  private[http] object TemplateIdField extends JsoField("templateId")
 
   private[http] final case class EventsBlock(events: Vector[JsValue], offset: Option[JsValue])
   private[http] object EventsBlock {

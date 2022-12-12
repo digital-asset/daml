@@ -5,7 +5,6 @@ package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.CreateAndExerciseCommand;
 import com.daml.ledger.javaapi.data.Template;
-import com.daml.ledger.javaapi.data.Value;
 
 /** Parent of all generated {@code CreateAnd} classes within templates and interfaces. */
 public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
@@ -16,13 +15,19 @@ public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
   }
 
   @Override
-  public CreateAndExerciseCommand makeExerciseCmd(String choice, Value choiceArgument) {
-    return new CreateAndExerciseCommand(
-        getCompanion().TEMPLATE_ID, createArguments.toValue(), choice, choiceArgument);
+  public <A, R> Update<Exercised<R>> makeExerciseCmd(
+      Choice<?, ? super A, R> choice, A choiceArgument) {
+    var command =
+        new CreateAndExerciseCommand(
+            getCompanion().TEMPLATE_ID,
+            createArguments.toValue(),
+            choice.name,
+            choice.encodeArg.apply(choiceArgument));
+    return new Update.ExerciseUpdate<>(command, x -> x, choice.returnTypeDecoder);
   }
 
   /** The origin of the choice, not the createArguments. */
-  protected abstract ContractTypeCompanion getCompanion();
+  protected abstract ContractTypeCompanion<?, ?, ?, ?> getCompanion();
 
   /**
    * Parent of all generated {@code CreateAnd} classes within interfaces. These need to pass both
@@ -37,10 +42,16 @@ public abstract class CreateAnd implements Exercises<CreateAndExerciseCommand> {
     }
 
     @Override
-    public final CreateAndExerciseCommand makeExerciseCmd(String choice, Value choiceArgument) {
+    public final <A, R> Update<Exercised<R>> makeExerciseCmd(
+        Choice<?, ? super A, R> choice, A choiceArgument) {
       // TODO #14056 use getCompanion().TEMPLATE_ID as the interface ID
-      return new CreateAndExerciseCommand(
-          createSource.TEMPLATE_ID, createArguments.toValue(), choice, choiceArgument);
+      var command =
+          new CreateAndExerciseCommand(
+              createSource.TEMPLATE_ID,
+              createArguments.toValue(),
+              choice.name,
+              choice.encodeArg.apply(choiceArgument));
+      return new Update.ExerciseUpdate<>(command, x -> x, choice.returnTypeDecoder);
     }
   }
 }

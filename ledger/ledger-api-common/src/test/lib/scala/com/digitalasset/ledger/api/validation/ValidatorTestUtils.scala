@@ -58,6 +58,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
                   ),
                 ),
                 includeView = true,
+                includeCreateArgumentsBlob = true,
               )
             ),
           )

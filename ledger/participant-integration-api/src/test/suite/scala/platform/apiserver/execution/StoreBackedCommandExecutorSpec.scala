@@ -4,12 +4,16 @@
 package com.daml.platform.apiserver.execution
 
 import java.time.Duration
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
-import com.daml.lf.command.{ContractMetadata, DisclosedContract, ApiCommands => LfCommands}
+import com.daml.lf.command.{
+  DisclosedContract,
+  EngineEnrichedContractMetadata,
+  ProcessedDisclosedContract,
+  ApiCommands => LfCommands,
+}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, ParticipantId}
 import com.daml.lf.data.{ImmArray, Ref, Time}
@@ -32,14 +36,16 @@ class StoreBackedCommandExecutorSpec
   private val disclosedContracts = ImmArray(
     Versioned(
       TransactionVersion.V15,
-      DisclosedContract(
+      ProcessedDisclosedContract(
         templateId = Identifier.assertFromString("some:pkg:identifier"),
         contractId = TransactionBuilder.newCid,
         argument = Value.ValueNil,
-        metadata = ContractMetadata(
+        metadata = EngineEnrichedContractMetadata(
           createdAt = Time.Timestamp.Epoch,
-          keyHash = None,
           driverMetadata = ImmArray.empty,
+          signatories = Set.empty,
+          stakeholders = Set.empty,
+          maybeKeyWithMaintainers = None,
         ),
       ),
     )
@@ -107,7 +113,7 @@ class StoreBackedCommandExecutorSpec
         Ref.ParticipantId.assertFromString("anId"),
         mock[IndexPackagesService],
         mock[ContractStore],
-        new Metrics(new MetricRegistry),
+        Metrics.ForTesting,
       )
 
       LoggingContext.newLoggingContext { implicit context =>

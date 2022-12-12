@@ -24,10 +24,13 @@ final case class ParticipantConfig(
     ),
     indexService: IndexServiceConfig = IndexServiceConfig(),
     indexer: IndexerConfig = IndexerConfig(),
+    participantIdOverride: Option[Ref.ParticipantId] = None,
+    servicesThreadPoolSize: Int = ParticipantConfig.DefaultServicesThreadPoolSize,
 )
 
 object ParticipantConfig {
   def defaultIndexJdbcUrl(participantId: Ref.ParticipantId): String =
     s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
   val DefaultParticipantId: Ref.ParticipantId = Ref.ParticipantId.assertFromString("default")
+  val DefaultServicesThreadPoolSize: Int = Runtime.getRuntime.availableProcessors()
 }

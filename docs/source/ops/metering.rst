@@ -70,7 +70,11 @@ Output
                 "application": "some-application",
                 "events": 42
             }
-        ]
+        ],
+        "check": {
+            "digest": "sxRZw40JJ5gWGUJoecm6-i-UPQ2imBVqeOYnbmYhVNA=",
+            "scheme": "canton-enterprise-2022"
+        }
     }
 
 The output consists of the following sections:
@@ -89,6 +93,6 @@ The output consists of the following sections:
 :applications:
     This section will give an event count for each application used in the reporting period.
 
-
-
+:check:
+    This section is used by the billing operator to verify that the report has not been modified.
 

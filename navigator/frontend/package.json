@@ -90,12 +90,9 @@
     "whatwg-fetch": "^3.5.0"
   },
   "resolutions": {
-    "**/hosted-git-info": "^4.0.2",
-    "**/glob-parent": "^6.0.1",
-    "**/parse-url/parse-path": "^5.0.0",
-    "**/strip-ansi": "^6.0.0",
     "**/shelljs": "^0.8.5",
     "**/moment": "^2.29.4",
+    "apollo/**/parse-url": "^8.1.0",
     "modernizr/**/markdown-it": "^12.3.2"
   }
 }

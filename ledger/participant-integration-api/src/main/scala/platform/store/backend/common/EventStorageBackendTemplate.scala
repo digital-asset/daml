@@ -7,13 +7,14 @@ import java.sql.Connection
 import anorm.SqlParser.{array, bool, byteArray, get, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.offset.Offset
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.store.ChoiceCoder
 import com.daml.platform.store.backend.Conversions.{
   contractId,
   eventId,
+  hashFromHexString,
   offset,
   timestampFromMicros,
 }
@@ -26,7 +27,6 @@ import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, Sql
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interning.StringInterning
 
-import scala.annotation.nowarn
 import scala.collection.immutable.ArraySeq
 
 abstract class EventStorageBackendTemplate(
@@ -59,8 +59,10 @@ abstract class EventStorageBackendTemplate(
       "create_observers",
       "create_agreement_text",
       "create_key_value",
+      "create_key_hash",
       "create_key_value_compression",
       "submitters",
+      "driver_metadata",
     )
 
   private val baseColumnsForFlatTransactionsExercise =
@@ -80,8 +82,10 @@ abstract class EventStorageBackendTemplate(
       "NULL as create_observers",
       "NULL as create_agreement_text",
       "create_key_value",
+      "NULL as create_key_hash",
       "create_key_value_compression",
       "submitters",
+      "NULL as driver_metadata",
     )
 
   private val selectColumnsForFlatTransactionsCreate =
@@ -113,7 +117,7 @@ abstract class EventStorageBackendTemplate(
 
   private type CreatedEventRow =
     SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~ Option[String] ~
-      Option[Array[Byte]] ~ Option[Int]
+      Option[Array[Byte]] ~ Option[Hash] ~ Option[Int] ~ Option[Array[Byte]]
 
   private val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
@@ -123,7 +127,9 @@ abstract class EventStorageBackendTemplate(
       array[Int]("create_observers") ~
       str("create_agreement_text").? ~
       byteArray("create_key_value").? ~
-      int("create_key_value_compression").?
+      hashFromHexString("create_key_hash").? ~
+      int("create_key_value_compression").? ~
+      byteArray("driver_metadata").?
 
   private type ExercisedEventRow =
     SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
@@ -152,7 +158,7 @@ abstract class EventStorageBackendTemplate(
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
           templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ createArgument ~ createArgumentCompression ~
-          createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
+          createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ driverMetadata =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -181,13 +187,16 @@ abstract class EventStorageBackendTemplate(
             ),
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
+            createKeyHash = createKeyHash,
             createKeyValueCompression = createKeyValueCompression,
+            ledgerEffectiveTime = ledgerEffectiveTime,
             eventWitnesses = ArraySeq.unsafeWrapArray(
               eventWitnesses.view
                 .filter(allQueryingParties)
                 .map(stringInterning.party.unsafe.externalize)
                 .toArray
             ),
+            driverMetadata = driverMetadata,
           ),
         )
     }
@@ -234,7 +243,7 @@ abstract class EventStorageBackendTemplate(
       allQueryingParties: Set[Int]
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ driverMetadata =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -263,6 +272,8 @@ abstract class EventStorageBackendTemplate(
             ),
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
+            createKeyHash = createKeyHash,
+            ledgerEffectiveTime = ledgerEffectiveTime,
             createKeyValueCompression = createKeyValueCompression,
             eventWitnesses = ArraySeq.unsafeWrapArray(
               eventWitnesses.view
@@ -270,6 +281,7 @@ abstract class EventStorageBackendTemplate(
                 .map(stringInterning.party.unsafe.externalize)
                 .toArray
             ),
+            driverMetadata = driverMetadata,
           ),
         )
     }
@@ -278,9 +290,9 @@ abstract class EventStorageBackendTemplate(
       allQueryingParties: Set[Int]
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Exercised]] =
     exercisedEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds =>
-        val (interfaceId, choiceName) =
-          ChoiceCoder.decode(exerciseChoice): @nowarn("msg=deprecated")
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ exerciseConsuming ~ qualifiedChoiceName ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds =>
+        val Ref.QualifiedChoiceName(interfaceId, choiceName) =
+          Ref.QualifiedChoiceName.assertFromString(qualifiedChoiceName)
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -341,6 +353,7 @@ abstract class EventStorageBackendTemplate(
     "create_observers",
     "create_agreement_text",
     "create_key_value",
+    "create_key_hash",
     "create_key_value_compression",
     "NULL as exercise_choice",
     "NULL as exercise_argument",
@@ -350,6 +363,7 @@ abstract class EventStorageBackendTemplate(
     "NULL as exercise_actors",
     "NULL as exercise_child_event_ids",
     "submitters",
+    "driver_metadata",
   ).mkString(", ")
 
   private val selectColumnsForTransactionTreeExercise = Seq(
@@ -368,6 +382,7 @@ abstract class EventStorageBackendTemplate(
     "NULL as create_observers",
     "NULL as create_agreement_text",
     "create_key_value",
+    "NULL as create_key_hash",
     "create_key_value_compression",
     "exercise_choice",
     "exercise_argument",
@@ -377,6 +392,7 @@ abstract class EventStorageBackendTemplate(
     "exercise_actors",
     "exercise_child_event_ids",
     "submitters",
+    "NULL as driver_metadata",
   ).mkString(", ")
 
   private def events[T](
@@ -509,7 +525,7 @@ abstract class EventStorageBackendTemplate(
         SQL"""
          SELECT filters.event_sequential_id
          FROM
-           participant_events_create_filter filters
+           pe_create_id_filter_stakeholder filters
          WHERE
            filters.party_id = $internedPartyFilter
            $templateIdFilterClause
@@ -763,6 +779,7 @@ abstract class EventStorageBackendTemplate(
       array[Int]("create_observers").? ~
       str("create_agreement_text").? ~
       byteArray("create_key_value").? ~
+      hashFromHexString("create_key_hash").? ~
       int("create_key_value_compression").? ~
       byteArray("create_argument").? ~
       int("create_argument_compression").? ~
@@ -779,12 +796,10 @@ abstract class EventStorageBackendTemplate(
       long("event_sequential_id") ~
       offset("event_offset")).map {
       case eventKind ~ transactionId ~ nodeIndex ~ commandId ~ workflowId ~ eventId ~ contractId ~ templateId ~ ledgerEffectiveTime ~ createSignatories ~
-          createObservers ~ createAgreementText ~ createKeyValue ~ createKeyCompression ~
-          createArgument ~ createArgumentCompression ~ treeEventWitnesses ~ flatEventWitnesses ~ submitters ~ exerciseChoice ~
+          createObservers ~ createAgreementText ~ createKeyValue ~ createKeyHash ~ createKeyCompression ~
+          createArgument ~ createArgumentCompression ~ treeEventWitnesses ~ flatEventWitnesses ~ submitters ~ qualifiedChoiceName ~
           exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~
           exerciseChildEventIds ~ eventSequentialId ~ offset =>
-        val decodedExerciseChoice =
-          exerciseChoice.map(ChoiceCoder.decode): @nowarn("msg=deprecated")
         RawTransactionEvent(
           eventKind,
           transactionId,
@@ -794,12 +809,12 @@ abstract class EventStorageBackendTemplate(
           eventId,
           contractId,
           templateId.map(stringInterning.templateId.externalize),
-          decodedExerciseChoice.flatMap(_._1),
           ledgerEffectiveTime,
           createSignatories.map(_.map(stringInterning.party.unsafe.externalize)),
           createObservers.map(_.map(stringInterning.party.unsafe.externalize)),
           createAgreementText,
           createKeyValue,
+          createKeyHash,
           createKeyCompression,
           createArgument,
           createArgumentCompression,
@@ -808,7 +823,7 @@ abstract class EventStorageBackendTemplate(
           submitters
             .map(_.view.map(stringInterning.party.unsafe.externalize).toSet)
             .getOrElse(Set.empty),
-          decodedExerciseChoice.map(_._2),
+          qualifiedChoiceName,
           exerciseArgument,
           exerciseArgumentCompression,
           exerciseResult,
@@ -839,6 +854,7 @@ abstract class EventStorageBackendTemplate(
            create_observers,
            create_agreement_text,
            create_key_value,
+           create_key_hash,
            create_key_value_compression,
            create_argument,
            create_argument_compression,
@@ -874,6 +890,7 @@ abstract class EventStorageBackendTemplate(
            NULL as create_observers,
            NULL as create_agreement_text,
            create_key_value,
+           NULL as create_key_hash,
            create_key_value_compression,
            NULL as create_argument,
            NULL as create_argument_compression,
@@ -909,6 +926,7 @@ abstract class EventStorageBackendTemplate(
            NULL as create_observers,
            NULL as create_agreement_text,
            create_key_value,
+           NULL as create_key_hash,
            create_key_value_compression,
            NULL as create_argument,
            NULL as create_argument_compression,
@@ -982,7 +1000,7 @@ trait EventStrategy {
       internedTemplates: Set[Int],
   ): CompositeSql
 
-  /** Pruning participant_events_create_filter entries.
+  /** Pruning pe_create_id_filter_stakeholder entries.
     *
     * @param pruneUpToInclusive create and archive events must be earlier or equal to this offset
     * @return the executable anorm query

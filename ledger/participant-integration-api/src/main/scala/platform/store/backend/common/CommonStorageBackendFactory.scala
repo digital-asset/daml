@@ -4,6 +4,14 @@
 package com.daml.platform.store.backend.common
 
 import com.daml.platform.store.backend._
+import com.daml.platform.store.backend.localstore.{
+  IdentityProviderStorageBackend,
+  IdentityProviderStorageBackendImpl,
+  PartyRecordStorageBackend,
+  PartyRecordStorageBackendImpl,
+  UserManagementStorageBackend,
+  UserManagementStorageBackendImpl,
+}
 import com.daml.platform.store.cache.LedgerEndCache
 
 trait CommonStorageBackendFactory extends StorageBackendFactory {
@@ -23,6 +31,9 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
   override val createUserManagementStorageBackend: UserManagementStorageBackend =
     UserManagementStorageBackendImpl
 
+  override val createIdentityProviderConfigStorageBackend: IdentityProviderStorageBackend =
+    IdentityProviderStorageBackendImpl
+
   override def createMeteringStorageReadBackend(
       ledgerEndCache: LedgerEndCache
   ): MeteringStorageReadBackend =
@@ -33,6 +44,6 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
   }
 
   override def createPartyRecordStorageBackend: PartyRecordStorageBackend =
-    new PartyRecordStorageBackendImpl()
+    PartyRecordStorageBackendImpl
 
 }

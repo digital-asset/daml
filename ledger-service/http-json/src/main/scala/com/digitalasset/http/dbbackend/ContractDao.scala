@@ -10,10 +10,10 @@ import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.dbbackend.Queries.SurrogateTpId
 import com.daml.http.domain
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.lf.crypto.Hash
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Metrics
 import com.daml.nonempty.{+-:, NonEmpty, NonEmptyF}
 import domain.Offset.`Offset ordering`
 import doobie.LogHandler
@@ -94,7 +94,7 @@ object ContractDao {
       tpIdCacheMaxEntries: Option[Long] = None,
   )(implicit
       ec: ExecutionContext,
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): ContractDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)
     val setup = for {
@@ -124,7 +124,7 @@ object ContractDao {
       driver: SupportedJdbcDriver.Available,
       tpIdCacheMaxEntries: Long,
   )(implicit
-      metrics: Metrics
+      metrics: HttpJsonApiMetrics
   ) =
     driver.configure(
       tablePrefix = cfg.baseConfig.tablePrefix,
@@ -135,7 +135,7 @@ object ContractDao {
   def initialize(implicit log: LogHandler, sjd: SupportedJdbcDriver.TC): ConnectionIO[Unit] =
     sjd.q.queries.dropAllTablesIfExist *> sjd.q.queries.initDatabase
 
-  def lastOffset(parties: domain.PartySet, templateId: domain.TemplateId.RequiredPkg)(implicit
+  def lastOffset(parties: domain.PartySet, templateId: domain.ContractTypeId.RequiredPkg)(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
@@ -169,7 +169,7 @@ object ContractDao {
     * @return Any template IDs that are lagging, and the offset to catch them up to, if defined;
     *         otherwise everything is fine.
     */
-  def laggingOffsets[CtId <: domain.TemplateId.RequiredPkg](
+  def laggingOffsets[CtId <: domain.ContractTypeId.RequiredPkg](
       parties: Set[domain.Party],
       expectedOffset: domain.Offset,
       templateIds: NonEmpty[Set[CtId]],
@@ -273,7 +273,7 @@ object ContractDao {
 
   def updateOffset(
       parties: domain.PartySet,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.ContractTypeId.RequiredPkg,
       newOffset: domain.Offset,
       lastOffsets: Map[domain.Party, domain.Offset],
   )(implicit
@@ -311,7 +311,7 @@ object ContractDao {
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
+  ): ConnectionIO[Vector[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     import sjd.q.queries
     for {
       tpId <- surrogateTemplateId(templateId)
@@ -331,7 +331,7 @@ object ContractDao {
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[Vector[(domain.ActiveContract[JsValue], Pos)]] = {
+  ): ConnectionIO[Vector[(domain.ActiveContract.ResolvedCtTyId[JsValue], Pos)]] = {
     import sjd.q.{queries => sjdQueries}, cats.syntax.traverse._, cats.instances.vector._
     predicates.zipWithIndex.toVector
       .traverse { case ((tid, pred), ix) =>
@@ -379,13 +379,13 @@ object ContractDao {
 
   private[http] def fetchById(
       parties: domain.PartySet,
-      templateId: domain.TemplateId.Resolved,
+      templateId: domain.ContractTypeId.Resolved,
       contractId: domain.ContractId,
   )(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
+  ): ConnectionIO[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     import sjd.q._
     for {
       tpId <- surrogateTemplateId(templateId)
@@ -399,13 +399,13 @@ object ContractDao {
 
   private[http] def fetchByKey(
       parties: domain.PartySet,
-      templateId: domain.TemplateId.Resolved,
+      templateId: domain.ContractTypeId.Resolved,
       key: Hash,
   )(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
+  ): ConnectionIO[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     import sjd.q._
     for {
       tpId <- surrogateTemplateId(templateId)
@@ -413,7 +413,7 @@ object ContractDao {
     } yield dbContracts.map(toDomain(templateId))
   }
 
-  private[this] def surrogateTemplateId(templateId: domain.TemplateId.RequiredPkg)(implicit
+  private[this] def surrogateTemplateId(templateId: domain.ContractTypeId.RequiredPkg)(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
@@ -426,7 +426,7 @@ object ContractDao {
 
   private def toDomain(templateId: domain.ContractTypeId.Resolved)(
       a: Queries.DBContract[_, JsValue, JsValue, Vector[String]]
-  ): domain.ActiveContract[JsValue] =
+  ): domain.ActiveContract.ResolvedCtTyId[JsValue] =
     domain.ActiveContract(
       contractId = domain.ContractId(a.contractId),
       templateId = templateId,
@@ -444,7 +444,7 @@ object ContractDao {
 
   final case class StaleOffsetException(
       parties: domain.PartySet,
-      templateId: domain.TemplateId.RequiredPkg,
+      templateId: domain.ContractTypeId.RequiredPkg,
       newOffset: domain.Offset,
       lastOffset: Map[domain.Party, domain.Offset],
   ) extends java.sql.SQLException(

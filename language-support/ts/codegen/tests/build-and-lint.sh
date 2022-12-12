@@ -47,7 +47,8 @@ DAML_TYPES=$(rlocation "$TEST_WORKSPACE/$8")
 DAML_LEDGER=$(rlocation "$TEST_WORKSPACE/$9")
 SDK_VERSION=${10}
 UPLOAD_DAR=$(rlocation "$TEST_WORKSPACE/${11}")
-GRPCURL=$(rlocation "$TEST_WORKSPACE/${12}" | xargs dirname)
+HIDDEN_DAR=$(rlocation "$TEST_WORKSPACE/${12}")
+GRPCURL=$(rlocation "$TEST_WORKSPACE/${13}" | xargs dirname)
 
 TMP_DAML_TYPES=$TMP_DIR/daml-types
 TMP_DAML_LEDGER=$TMP_DIR/daml-ledger
@@ -80,4 +81,4 @@ $YARN run build
 $YARN run lint
 # Invoke 'yarn test'. Control is thereby passed to
 # 'language-support/ts/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
-JAVA=$JAVA SANDBOX=$SANDBOX JSON_API=$JSON_API DAR=$DAR UPLOAD_DAR=$UPLOAD_DAR $YARN test
+JAVA=$JAVA SANDBOX=$SANDBOX JSON_API=$JSON_API DAR=$DAR UPLOAD_DAR=$UPLOAD_DAR HIDDEN_DAR=$HIDDEN_DAR $YARN test

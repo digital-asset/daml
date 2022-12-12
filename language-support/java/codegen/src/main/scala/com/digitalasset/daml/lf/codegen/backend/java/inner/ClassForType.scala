@@ -5,7 +5,7 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.codegen.backend.java.JavaEscaper
-import com.daml.lf.data.Ref.{PackageId, Identifier}
+import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.typesig.{Enum, DefDataType, PackageSignature, Record, Variant}
 import PackageSignature.TypeDecl
 import TypeDecl.{Normal, Template}
@@ -16,20 +16,19 @@ object ClassForType extends StrictLogging {
 
   def apply(
       typeWithContext: TypeWithContext,
-      packagePrefixes: Map[PackageId, String],
       toBeGenerated: Identifier => Boolean,
-  ): List[JavaFile] = {
+  )(implicit packagePrefixes: PackagePrefixes): List[JavaFile] = {
 
     def recurOnTypeLineages: List[JavaFile] =
       typeWithContext.typesLineages
-        .flatMap(ClassForType(_, packagePrefixes, toBeGenerated))
+        .flatMap(ClassForType(_, toBeGenerated))
         .toList
 
     def generateForType(lfInterfaceType: TypeDecl): List[JavaFile] = {
-      val classNameString = fullyQualifiedName(typeWithContext.identifier, packagePrefixes)
+      val classNameString = fullyQualifiedName(typeWithContext.identifier)
       val className = ClassName.bestGuess(classNameString)
-      generateInterfaceTypes(typeWithContext, packagePrefixes) ++
-        generateSerializableTypes(typeWithContext, className, packagePrefixes, lfInterfaceType)
+      generateInterfaceTypes(typeWithContext) ++
+        generateSerializableTypes(typeWithContext, className, lfInterfaceType)
     }
 
     Option
@@ -40,19 +39,30 @@ object ClassForType extends StrictLogging {
   }
 
   private def generateInterfaceTypes(
-      typeWithContext: TypeWithContext,
-      packagePrefixes: Map[PackageId, String],
-  ): List[JavaFile] =
+      typeWithContext: TypeWithContext
+  )(implicit packagePrefixes: PackagePrefixes): List[JavaFile] =
     for {
       (interfaceName, interface) <- typeWithContext.interface.interfaces.toList
-      className = ClassName.bestGuess(fullyQualifiedName(interfaceName))
+      classNameString = fullyQualifiedName(
+        Identifier(typeWithContext.interface.packageId, interfaceName)
+      )
+      className = ClassName.bestGuess(classNameString)
+      interfaceViewTypeName = ClassName.bestGuess(
+        fullyQualifiedName(
+          interface.viewType.getOrElse(
+            throw new IllegalArgumentException(
+              s"View Type is required for interface $interfaceName"
+            )
+          )
+        )
+      )
       packageName = className.packageName()
       interfaceClass =
         InterfaceClass
           .generate(
             className,
+            interfaceViewTypeName,
             interface,
-            packagePrefixes,
             typeWithContext.interface.typeDecls,
             typeWithContext.interface.packageId,
             interfaceName,
@@ -62,9 +72,8 @@ object ClassForType extends StrictLogging {
   private def generateSerializableTypes(
       typeWithContext: TypeWithContext,
       className: ClassName,
-      packagePrefixes: Map[PackageId, String],
       lfInterfaceType: TypeDecl,
-  ): List[JavaFile] = {
+  )(implicit packagePrefixes: PackagePrefixes): List[JavaFile] = {
     val packageName = className.packageName()
     lfInterfaceType match {
       case Normal(DefDataType(typeVars, record: Record.FWT)) =>
@@ -74,7 +83,6 @@ object ClassForType extends StrictLogging {
             className,
             typeVars.map(JavaEscaper.escapeString),
             record,
-            packagePrefixes,
           )
         javaFiles(packageName, recordClass)
       case Normal(DefDataType(typeVars, variant: Variant.FWT)) =>
@@ -88,7 +96,6 @@ object ClassForType extends StrictLogging {
             escapedTypeVars,
             variant,
             typeWithContext,
-            packagePrefixes,
           )
         javaFile(packageName, variantSpec) :: javaFiles(subPackage, constructorSpecs)
       case Normal(DefDataType(_, enum: Enum)) =>
@@ -100,7 +107,6 @@ object ClassForType extends StrictLogging {
             record,
             template,
             typeWithContext,
-            packagePrefixes,
           )
         javaFiles(packageName, typeSpec)
     }

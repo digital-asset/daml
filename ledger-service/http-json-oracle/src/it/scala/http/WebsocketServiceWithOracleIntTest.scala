@@ -4,7 +4,7 @@
 package com.daml.http
 
 abstract class WebsocketServiceWithOracleIntTest
-    extends AbstractWebsocketServiceIntegrationTest
+    extends AbstractWebsocketServiceIntegrationTest("w/ Oracle")
     with HttpServiceOracleInt {
   override def disableContractPayloadIndexing = false
 }

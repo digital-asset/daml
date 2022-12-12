@@ -9,13 +9,13 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
-import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.HttpService.doLoad
 import com.daml.http.dbbackend.{ContractDao, JdbcConfig}
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.ClientUtil.boxedRecord
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.util.TestUtil.getResponseDataBytes
@@ -45,7 +45,6 @@ import com.daml.ledger.runner.common
 import com.daml.ledger.sandbox.SandboxOnXForTest._
 import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.services.time.TimeProviderType
@@ -92,7 +91,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       ec: ExecutionContext,
   ): Future[A] = {
     implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
-    implicit val metrics: Metrics = new Metrics(new MetricRegistry())
+    implicit val metrics: HttpJsonApiMetrics = HttpJsonApiMetrics.ForTesting
     val ledgerId = ledgerIdOverwrite.getOrElse(LedgerId(testName))
     val applicationId = ApplicationId(testName)
 
@@ -286,7 +285,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   private def initializeDb(c: JdbcConfig)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Future[ContractDao] =
     for {
       dao <- Future(ContractDao(c))
@@ -319,8 +318,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   private val noTlsConfig = TlsConfiguration(enabled = false, None, None, None)
 
   def jwtForParties(
-      actAs: List[String],
-      readAs: List[String],
+      actAs: List[domain.Party],
+      readAs: List[domain.Party],
       ledgerId: Option[String] = None,
       withoutNamespace: Boolean = false,
       admin: Boolean = false,
@@ -331,11 +330,11 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         CustomDamlJWTPayload(
           ledgerId = ledgerId,
           applicationId = Some("test"),
-          actAs = actAs,
+          actAs = domain.Party unsubst actAs,
           participantId = None,
           exp = None,
           admin = admin,
-          readAs = readAs,
+          readAs = domain.Party unsubst readAs,
         )
       val payloadJson = customJwtPayload.toJson
       if (withoutNamespace) {
@@ -361,8 +360,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
 
   def headersWithPartyAuth(
-      actAs: List[String],
-      readAs: List[String],
+      actAs: List[domain.Party],
+      readAs: List[domain.Party],
       ledgerId: Option[String],
       withoutNamespace: Boolean = false,
   ): List[Authorization] = {
@@ -432,7 +431,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     postJsonStringRequest(uri, json.prettyPrint, headers)
 
   def postCreateCommand(
-      cmd: domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg],
+      cmd: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
       encoder: DomainJsonEncoder,
       uri: Uri,
       headers: List[HttpHeader],
@@ -448,7 +447,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
 
   def postArchiveCommand(
-      templateId: domain.TemplateId.OptionalPkg,
+      templateId: domain.ContractTypeId.OptionalPkg,
       contractId: domain.ContractId,
       encoder: DomainJsonEncoder,
       uri: Uri,
@@ -500,8 +499,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       owner: domain.Party,
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
-  ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
-    val templateId = domain.TemplateId(None, "Account", "Account")
+  ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
+    val templateId = domain.ContractTypeId.Template(None, "Account", "Account")
     val timeValue = v.Value(time)
     val enabledVariantValue =
       v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
@@ -517,20 +516,20 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
 
   def sharedAccountCreateCommand(
-      owners: Seq[String],
+      owners: Seq[domain.Party],
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
-  ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
-    val templateId = domain.TemplateId(None, "Account", "SharedAccount")
+  ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
+    val templateId = domain.ContractTypeId.Template(None, "Account", "SharedAccount")
     val timeValue = v.Value(time)
+    val ownersEnc = v.Value(
+      v.Value.Sum.List(v.List(domain.Party.unsubst(owners).map(o => v.Value(v.Value.Sum.Party(o)))))
+    )
     val enabledVariantValue =
       v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
     val arg = v.Record(
       fields = List(
-        v.RecordField(
-          "owners",
-          Some(v.Value(v.Value.Sum.List(v.List(owners.map(o => v.Value(v.Value.Sum.Party(o))))))),
-        ),
+        v.RecordField("owners", Some(ownersEnc)),
         v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
         v.RecordField("status", Some(enabledVariantValue)),
       )

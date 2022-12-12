@@ -12,7 +12,6 @@ import com.daml.lf.VersionRange
 import org.scalacheck.Gen
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.daml.lf.data.Ref
-import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
@@ -22,16 +21,15 @@ import com.daml.platform.configuration.{
   CommandConfiguration,
   IndexServiceConfig,
   InitialLedgerConfiguration,
-  PartyConfiguration,
 }
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
 import com.daml.platform.indexer.ha.HaConfig
+import com.daml.platform.localstore.{IdentityProviderManagementConfig, UserManagementConfig}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.DbSupport.DataSourceProperties
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 
@@ -40,6 +38,7 @@ import java.net.InetSocketAddress
 import java.nio.file.Paths
 import java.time.Duration
 import java.time.temporal.ChronoUnit
+import com.daml.metrics.api.reporters.MetricsReporter
 
 object ArbitraryConfig {
   val duration: Gen[Duration] = for {
@@ -183,6 +182,12 @@ object ArbitraryConfig {
     maxUsersPageSize = maxUsersPageSize,
   )
 
+  val identityProviderManagementConfig = for {
+    cacheExpiryAfterWrite <- Gen.finiteDuration
+  } yield IdentityProviderManagementConfig(
+    cacheExpiryAfterWrite = cacheExpiryAfterWrite
+  )
+
   def jwtTimestampLeewayGen: Gen[JwtTimestampLeeway] = {
     for {
       default <- Gen.option(Gen.posNum[Long])
@@ -225,10 +230,6 @@ object ArbitraryConfig {
     JwtEs512Crt,
     JwtRs256Jwks,
   )
-
-  val partyConfiguration = for {
-    implicitPartyAllocation <- Gen.oneOf(true, false)
-  } yield PartyConfiguration(implicitPartyAllocation = implicitPartyAllocation)
 
   val commandConfiguration = for {
     inputBufferSize <- Gen.chooseNum(Int.MinValue, Int.MaxValue)
@@ -289,7 +290,6 @@ object ArbitraryConfig {
     initialLedgerConfiguration <- initialLedgerConfiguration
     managementServiceTimeout <- Gen.finiteDuration
     maxInboundMessageSize <- Gen.chooseNum(0, Int.MaxValue)
-    party <- partyConfiguration
     port <- port
     portFile <- Gen.option(Gen.alphaStr.map(p => Paths.get(p)))
     rateLimit <- rateLimitingConfig
@@ -305,7 +305,6 @@ object ArbitraryConfig {
     initialLedgerConfiguration = initialLedgerConfiguration,
     managementServiceTimeout = managementServiceTimeout,
     maxInboundMessageSize = maxInboundMessageSize,
-    party = party,
     port = port,
     portFile = portFile,
     rateLimit = rateLimit,

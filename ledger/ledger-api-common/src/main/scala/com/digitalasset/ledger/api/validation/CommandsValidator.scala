@@ -158,9 +158,7 @@ final class CommandsValidator(
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
         } yield ApiCommand.Exercise(
-          // TODO: https://github.com/digital-asset/daml/issues/14747
-          //  Fix once the new field interface_id have been added to the API Exercise Command
-          typeId = TemplateOrInterface.Template(validatedTemplateId),
+          typeId = validatedTemplateId,
           contractId = contractId,
           choiceId = choice,
           argument = validatedValue,
@@ -278,6 +276,10 @@ final class CommandsValidator(
 }
 
 object CommandsValidator {
+  def apply(ledgerId: LedgerId, explicitDisclosureUnsafeEnabled: Boolean) = new CommandsValidator(
+    ledgerId = ledgerId,
+    validateDisclosedContracts = new ValidateDisclosedContracts(explicitDisclosureUnsafeEnabled),
+  )
 
   /** Effective submitters of a command
     * @param actAs Guaranteed to be non-empty. Will contain exactly one element in most cases.

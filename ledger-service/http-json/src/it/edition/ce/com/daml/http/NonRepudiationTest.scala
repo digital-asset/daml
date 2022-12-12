@@ -30,11 +30,11 @@ abstract class NonRepudiationTest extends AbstractNonRepudiationTest {
     val domainParty = domain.Party(expectedParty)
     val command = accountCreateCommand(domainParty, expectedNumber).copy(meta = meta)
     postCreateCommand(command, fixture)
-      .flatMap { case (status, _) =>
+      .flatMap(inside(_) { case domain.ErrorResponse(_, _, status, _) =>
         status shouldBe StatusCodes.InternalServerError
         val payloads = db.signedPayloads.get(CommandIdString.wrap(expectedCommandId))
         payloads shouldBe empty
-      }
+      })
   }
 
 }

@@ -16,6 +16,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.annotation.nowarn
 import scala.reflect.ClassTag
 
+@nowarn("msg=Specify both message and version")
 class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
 
   it should "return the correct doc items from the error classes" in {
@@ -29,8 +30,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
         category = "SystemInternalAssumptionViolated",
         hierarchicalGrouping = ErrorClass(Nil),
         conveyance = Some(
-          "This error is logged with log-level ERROR on the server side.\n" +
-            "This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons"
+          "This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons."
         ),
         code = "BLUE_SCREEN",
         deprecation = None,
@@ -42,8 +42,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
         category = "SystemInternalAssumptionViolated",
         hierarchicalGrouping = ErrorClass(Nil),
         conveyance = Some(
-          "This error is logged with log-level ERROR on the server side.\n" +
-            "This error is exposed on the API with grpc-status INTERNAL without any details due to security reasons"
+          "This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons."
         ),
         code = "DEPRECATED_ERROR",
         deprecation =
@@ -61,8 +60,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
           )
         ),
         conveyance = Some(
-          "This error is logged with log-level INFO on the server side.\n" +
-            "This error is exposed on the API with grpc-status UNAVAILABLE including a detailed error message"
+          "This error is logged with log-level INFO on the server side and exposed on the API with grpc-status UNAVAILABLE including a detailed error message."
         ),
         code = "TEST_ROUTINE_FAILURE_PLEASE_IGNORE",
         deprecation = None,

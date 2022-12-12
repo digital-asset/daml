@@ -7,7 +7,8 @@ import akka.NotUsed
 import akka.stream.scaladsl.BidiFlow
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import akka.stream.{Attributes, BidiShape, Inlet, Outlet}
-import com.codahale.metrics.Counter
+import com.daml.metrics.api.MetricHandle.Counter
+import com.daml.metrics.api.MetricsContext
 import org.slf4j.LoggerFactory
 
 /** Enforces that at most [[maxInFlight]] items traverse the flow underneath this one.
@@ -19,7 +20,7 @@ import org.slf4j.LoggerFactory
 class MaxInFlight[I, O](maxInFlight: Int, capacityCounter: Counter, lengthCounter: Counter)
     extends GraphStage[BidiShape[I, I, O, O]] {
 
-  capacityCounter.inc(maxInFlight.toLong)
+  capacityCounter.inc(maxInFlight.toLong)(MetricsContext.Empty)
 
   private val logger = LoggerFactory.getLogger(MaxInFlight.getClass.getName)
 
@@ -100,12 +101,12 @@ class MaxInFlight[I, O](maxInFlight: Int, capacityCounter: Counter, lengthCounte
           }
 
           override def onUpstreamFinish(): Unit = {
-            capacityCounter.dec(maxInFlight.toLong)
+            capacityCounter.dec(maxInFlight.toLong)(MetricsContext.Empty)
             super.onUpstreamFinish()
           }
 
           override def onUpstreamFailure(ex: Throwable): Unit = {
-            capacityCounter.dec(maxInFlight.toLong)
+            capacityCounter.dec(maxInFlight.toLong)(MetricsContext.Empty)
             fail(out2, ex)
             completeStage()
           }

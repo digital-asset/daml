@@ -6,6 +6,7 @@ package com.daml.platform.store.dao.events
 import java.io.ByteArrayOutputStream
 
 import com.daml.metrics.Metrics
+import com.daml.metrics.api.MetricsContext
 import com.daml.platform.store.serialization.Compression
 
 final case class CompressionStrategy(
@@ -62,8 +63,8 @@ object FieldCompressionStrategy {
         }
         val compressed = output.toByteArray
         output.close()
-        metric.compressed.update(compressed.length)
-        metric.uncompressed.update(uncompressed.length)
+        metric.compressed.update(compressed.length)(MetricsContext.Empty)
+        metric.uncompressed.update(uncompressed.length)(MetricsContext.Empty)
         compressed
       },
     )

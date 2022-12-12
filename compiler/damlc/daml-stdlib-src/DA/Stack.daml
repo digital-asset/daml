@@ -15,6 +15,8 @@ import Prelude
 import DA.Text
 import GHC.Stack.Types hiding (SrcLoc(..))
 import qualified GHC.Stack.Types as GHC
+import GHC.Tuple.Check()
+import DA.Stack.Types (SrcLoc (..))
 
 -- | Pretty-print a `CallStack`.
 prettyCallStack : CallStack -> Text
@@ -52,20 +54,6 @@ callStack =
   case ?callStack of
     EmptyCallStack -> EmptyCallStack
     _              -> popCallStack ?callStack
-
--- | Location in the source code.
---
--- Line and column are 0-based.
-data SrcLoc = SrcLoc
--- User-facing type using Text instead of TextLit.
-  { srcLocPackage   : Text
-  , srcLocModule    : Text
-  , srcLocFile      : Text
-  , srcLocStartLine : Int
-  , srcLocStartCol  : Int
-  , srcLocEndLine   : Int
-  , srcLocEndCol    : Int
-  }
 
 convSrcLoc : GHC.SrcLoc -> SrcLoc
 convSrcLoc GHC.SrcLoc{..} =

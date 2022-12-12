@@ -113,18 +113,17 @@ in rec {
 
     # Python development
     pip3        = pkgs.python37Packages.pip;
-    python      = python37;
-    python3     = python37;
-    python37    = pkgs.python37Packages.python;
+    python      = pkgs.python37Packages.python;
+    python3     = python;
+    python37 = python;
 
-    yapf = pkgs.python37Packages.yapf;
+    yapf = pkgs.python38Packages.yapf;
 
-    pex = pkgs.python37Packages.pex;
-    pipenv = import ./tools/pipenv {
-      lib = pkgs.lib;
-      python3 = python3;
-    };
+    pex = pkgs.python38Packages.pex;
+    pipenv = pkgs.pipenv;
 
+    pre-commit = pkgs.pre-commit;
+ 
     sphinx-build      = sphinx;
     sphinx-quickstart = sphinx;
 
@@ -209,7 +208,6 @@ in rec {
       google-beta
       random
       secret
-      template
     ]);
     nix-store-gcs-proxy = pkgs.callPackage ./tools/nix-store-gcs-proxy {};
   };

@@ -6,17 +6,20 @@ package com.daml.platform.apiserver.services.admin
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
-import com.daml.ledger.api.domain.{PartyDetails, PartyEntry}
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.admin.party_management_service.AllocatePartyRequest
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
+  IndexerPartyDetails,
+  PartyEntry,
 }
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.admin.ApiPartyManagementServiceSpec._
+import com.daml.platform.localstore.api.{PartyRecord, PartyRecordStore}
 import com.daml.telemetry.TelemetrySpecBase._
 import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -39,10 +42,14 @@ class ApiPartyManagementServiceSpec
   "ApiPartyManagementService" should {
     "propagate trace context" in {
       val mockIndexTransactionsService = mock[IndexTransactionsService]
+      val mockPartyRecordStore = mock[PartyRecordStore]
+      val mockIdentityProviderExists = mock[IdentityProviderExists]
       when(mockIndexTransactionsService.currentLedgerEnd())
         .thenReturn(Future.successful(Absolute(Ref.LedgerString.assertFromString("0"))))
-
+      when(mockIdentityProviderExists.apply(IdentityProviderId.Default))
+        .thenReturn(Future.successful(true))
       val mockIndexPartyManagementService = mock[IndexPartyManagementService]
+      val party = Ref.Party.assertFromString("aParty")
       when(
         mockIndexPartyManagementService.partyEntries(any[Option[Absolute]])(any[LoggingContext])
       )
@@ -50,13 +57,25 @@ class ApiPartyManagementServiceSpec
           Source.single(
             PartyEntry.AllocationAccepted(
               Some("aSubmission"),
-              PartyDetails(Ref.Party.assertFromString("aParty"), None, isLocal = true),
+              IndexerPartyDetails(party, None, isLocal = true),
             )
           )
         )
+      when(
+        mockPartyRecordStore.createPartyRecord(any[PartyRecord])(any[LoggingContext])
+      ).thenReturn(
+        Future.successful(
+          Right(PartyRecord(party, ObjectMeta.empty, IdentityProviderId.Default))
+        )
+      )
+      when(
+        mockPartyRecordStore.getPartyRecordO(any[Ref.Party])(any[LoggingContext])
+      ).thenReturn(Future.successful(Right(None)))
 
       val apiService = ApiPartyManagementService.createApiService(
         mockIndexPartyManagementService,
+        mockIdentityProviderExists,
+        mockPartyRecordStore,
         mockIndexTransactionsService,
         TestWritePartyService,
         Duration.Zero,

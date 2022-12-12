@@ -67,7 +67,7 @@ is of type ``T``, i.e. the implicit record defined by the template.
 Within choices, you can additionally use the binding ``self`` to refer to the
 contract ID of the current contract (the one on which the choice is being
 executed). For a contract of template ``T``, the ``self`` binding is of type
-``ContractId T``. 
+``ContractId T``.
 
 .. _daml-ref-template-let:
 
@@ -137,6 +137,31 @@ Choices
   Starting with ``choice`` lets you pass in a ``Party`` to use as a controller. But you must make sure to add that party as an ``observer``.
 - See :doc:`choices` for full reference information.
 
+Serializable Types
+******************
+
+Every parameter to a template, choice argument, and choice result must have a *serializable type*.
+This does not merely mean "convertible to bytes"; it has a specific meaning in Daml.
+The serializability rule serves three purposes:
+
+1. Offer a stable means to store ledger values permanently.
+2. Provide a sensible encoding of them over :doc:`/app-dev/ledger-api`.
+3. Provide sensible *types* that directly match their Daml counterparts in languages like Java for language codegen.
+
+For example, certain kinds of type parameters Daml offers are compatible with (1) and (2), but have no proper counterpart in (3), so they are disallowed.
+Similarly, function types have sensible Java counterparts, satisfying (3), but no reliable way to store or share them via the API, thus failing (1) and (2).
+
+The following types are *not serializable*, and thus may not be used in templates.
+
+- Function types.
+- Record types with any non-serializable field.
+- Variant types with any non-serializable value case.
+- Variant and enum types with no constructors.
+- References to a parameterized data type with any non-serializable type argument.
+  This applies whether or not the data type definition uses the type parameter.
+- Defined data types with any type parameter of kind ``Nat``, or any kind other than ``*``.
+  This means higher-kinded types, and types that take a parameter just to pass to ``Numeric``, are not serializable.
+
 .. _daml-ref-agreements:
 
 Agreements
@@ -184,3 +209,20 @@ Contract Keys and Maintainers
 
   Because of this, the ``key`` must include the ``maintainer`` ``Party`` or parties (for example, as part of a tuple or record), and the ``maintainer`` must be a signatory.
 - For a full explanation, see :doc:`/daml/reference/contract-keys`.
+
+Interface Instances
+*******************
+
+.. literalinclude:: ../code-snippets-dev/Interfaces.daml
+   :language: daml
+   :start-after: -- INTERFACE_INSTANCE_IN_TEMPLATE_BEGIN
+   :end-before: -- INTERFACE_INSTANCE_IN_TEMPLATE_END
+
+- Used to make a template an instance of an existing interface.
+- The clause must start with the keywords ``interface instance``, followed by
+  the name of the interface, then the keyword ``for`` and the name of the
+  template (which must match the enclosing declaration), and finally the keyword
+  ``where``, which introduces a block where **all** the methods of the interface
+  must be implemented.
+- See :doc:`interfaces` for full reference information on interfaces, or
+  section :ref:`interface-instances` for interface instances specifically.

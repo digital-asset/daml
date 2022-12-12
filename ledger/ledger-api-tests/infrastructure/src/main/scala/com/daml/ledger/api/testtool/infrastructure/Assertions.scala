@@ -69,13 +69,41 @@ object Assertions {
     assertSameElements(actual, Seq.empty)
   }
 
-  def assertGrpcErrorOneOf(t: Throwable, errors: ErrorCode*): Unit = {
-    val hasErrorCode = errors.map(errorCode => Try(assertGrpcError(t, errorCode, None))).exists {
-      case Success(_) => true
-      case _ => false
+  case class ExtendedAsserts(
+      exceptionMessageSubstring: Option[String] = None,
+      checkDefiniteAnswerMetadata: Boolean = false,
+      additionalErrorAssertions: Throwable => Unit = _ => (),
+  )
+
+  def assertGrpcErrorOneOf(
+      t: Throwable,
+      extendedChecks: Option[ExtendedAsserts],
+      errors: ErrorCode*
+  ): Unit = {
+    errors.map(errorCode => (errorCode, Try(assertGrpcError(t, errorCode, None)))).collectFirst {
+      case (errorCode, Success(_)) => errorCode
+    } match {
+      case Some(matchedErrorCode) =>
+        // In order to catch errors related to the "extended checks" rerun the check on the matching error code.
+        // This results in a more specific error message if one of the error codes matches, but the other checks fail.
+        extendedChecks.foreach {
+          case ExtendedAsserts(
+                exceptionMessageSubstring,
+                checkDefiniteAnswerMetadata,
+                additionalErrorAssertions,
+              ) =>
+            assertGrpcError(
+              t,
+              matchedErrorCode,
+              exceptionMessageSubstring,
+              checkDefiniteAnswerMetadata,
+              additionalErrorAssertions,
+            )
+        }
+
+      case None =>
+        fail(s"gRPC failure did not contain one of the expected error codes $errors.", t)
     }
-    if (hasErrorCode) ()
-    else fail(s"gRPC failure did not contain one of the expected error codes $errors.", t)
   }
 
   def assertGrpcError(
@@ -188,12 +216,14 @@ object Assertions {
     val actualErrorDetails = ErrorDetails.from(status.getDetailsList.asScala.toSeq)
     val actualErrorId = actualErrorDetails
       .collectFirst { case err: ErrorDetails.ErrorInfoDetail => err.errorCodeId }
-      .getOrElse(fail("Actual error id is not defined"))
+      .getOrElse(fail(s"Actual error id is not defined. Actual error: $statusRuntimeException"))
     val actualRetryability = actualErrorDetails
       .collectFirst { case err: ErrorDetails.RetryInfoDetail => err.duration }
 
     if (actualErrorId != expectedErrorId)
-      fail(s"Actual error id ($actualErrorId) does not match expected error id ($expectedErrorId}")
+      fail(
+        s"Actual error id ($actualErrorId) does not match expected error id ($expectedErrorId}. Actual error: $statusRuntimeException"
+      )
 
     Assertions.assertEquals(
       "gRPC error code mismatch",

@@ -68,12 +68,12 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
     val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("foobar")
     val party = Ref.Party.assertFromString("Alice")
     val se = compiledPackages.compiler.unsafeCompile(e)
-    val example: SExpr = SEApp(se, Array(SEValue(SParty(party))))
+    val example: SExpr = SEApp(se, Array(SParty(party)))
     val machine =
       Speedy.Machine.fromUpdateSExpr(compiledPackages, transactionSeed, example, Set(party))
     val res = machine.run()
     res match {
-      case SResultFinal(_, Some(_)) =>
+      case SResultFinal(_) =>
         machine.profile.events.asScala.toList.map(ev => (ev.open, ev.rawLabel))
       case _ =>
         sys.error(s"Unexpected res: $res")
@@ -91,6 +91,8 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
           (true, LfDefRef(id("exp1"))),
           (false, LfDefRef(id("exp1"))),
           (true, CreateDefRef(id("T"))),
+          (true, TemplatePreConditionDefRef(id("T"))),
+          (false, TemplatePreConditionDefRef(id("T"))),
           (true, SignatoriesDefRef(id("T"))),
           (false, SignatoriesDefRef(id("T"))),
           (true, ObserversDefRef(id("T"))),
@@ -98,12 +100,16 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
           (false, CreateDefRef(id("T"))),
           (true, TemplateChoiceDefRef(id("T"), c("Ch1"))),
           (true, CreateDefRef(id("T"))),
+          (true, TemplatePreConditionDefRef(id("T"))),
+          (false, TemplatePreConditionDefRef(id("T"))),
           (true, SignatoriesDefRef(id("T"))),
           (false, SignatoriesDefRef(id("T"))),
           (true, ObserversDefRef(id("T"))),
           (false, ObserversDefRef(id("T"))),
           (false, CreateDefRef(id("T"))),
           (true, CreateDefRef(id("T"))),
+          (true, TemplatePreConditionDefRef(id("T"))),
+          (false, TemplatePreConditionDefRef(id("T"))),
           (true, SignatoriesDefRef(id("T"))),
           (false, SignatoriesDefRef(id("T"))),
           (true, ObserversDefRef(id("T"))),

@@ -16,9 +16,10 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalapb.json4s.JsonFormat
 import spray.json._
-
 import java.time.Duration
 import java.time.temporal.ChronoUnit
+
+import org.scalatest.Inside.inside
 
 class MeteringReportGeneratorSpec extends AsyncWordSpec with Matchers {
 
@@ -45,10 +46,11 @@ class MeteringReportGeneratorSpec extends AsyncWordSpec with Matchers {
       applications = Seq(ApplicationReport(appIdA, 4), ApplicationReport(appIdB, 2)),
       check = None,
     )
-    val Right(signedReport) = JcsSigner.sign(report, testKey)
-    val json = signedReport.toJson.compactPrint
-    val struct: Struct = JsonFormat.parser.fromJsonString[Struct](json)
-    struct
+    inside(JcsSigner.sign(report, testKey)) { case Right(signedReport) =>
+      val json = signedReport.toJson.compactPrint
+      val struct: Struct = JsonFormat.parser.fromJsonString[Struct](json)
+      struct
+    }
   }
 
   "MeteringReportGenerator" should {
@@ -66,13 +68,21 @@ class MeteringReportGeneratorSpec extends AsyncWordSpec with Matchers {
         meteringReportJson = Some(reportJsonStruct),
       )
 
-      val Right(actual) =
-        underTest.generate(request, from, Some(to), Some(appIdX), reportData, generationTime)
-
-      actual.meteringReportJson.get.fields
-        .get("check") shouldBe expected.meteringReportJson.get.fields.get("check")
-      actual.meteringReportJson shouldBe expected.meteringReportJson
-      actual shouldBe expected
+      inside(
+        underTest.generate(
+          request,
+          from,
+          Some(to),
+          Some(appIdX),
+          reportData,
+          generationTime,
+        )
+      ) { case Right(actual) =>
+        actual.meteringReportJson.get.fields
+          .get("check") shouldBe expected.meteringReportJson.get.fields.get("check")
+        actual.meteringReportJson shouldBe expected.meteringReportJson
+        actual shouldBe expected
+      }
 
     }
 

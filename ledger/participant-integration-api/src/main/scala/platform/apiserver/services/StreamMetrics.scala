@@ -5,7 +5,7 @@ package com.daml.platform.apiserver.services
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import com.codahale.metrics.Counter
+import com.daml.metrics.api.MetricHandle.Counter
 
 object StreamMetrics {
   def countElements[Out](counter: Counter): Flow[Out, Out, NotUsed] =

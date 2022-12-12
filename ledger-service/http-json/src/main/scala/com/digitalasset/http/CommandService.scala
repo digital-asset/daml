@@ -3,18 +3,17 @@
 
 package com.daml.http
 
-import com.daml.http.domain.TemplateId.RequiredPkg
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.http.domain.{
   ActiveContract,
   Choice,
   Contract,
+  ContractTypeId,
   CreateAndExerciseCommand,
   CreateCommand,
   ExerciseCommand,
   ExerciseResponse,
   JwtWritePayload,
-  TemplateId,
 }
 import com.daml.http.util.ClientUtil.uniqueCommandId
 import com.daml.http.util.FutureUtil._
@@ -45,18 +44,18 @@ class CommandService(
 
   import CommandService._
 
-  private def withTemplateLoggingContext[T](
-      templateId: TemplateId.RequiredPkg
-  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[TemplateId.RequiredPkg, T] =
+  private def withTemplateLoggingContext[CtId <: ContractTypeId.RequiredPkg, T](
+      templateId: CtId
+  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[CtId, T] =
     withEnrichedLoggingContext(
-      label[TemplateId.RequiredPkg],
+      label[CtId],
       "template_id" -> templateId.toString,
     )
 
-  private def withTemplateChoiceLoggingContext[T](
-      templateId: TemplateId.RequiredPkg,
+  private def withTemplateChoiceLoggingContext[CtId <: ContractTypeId.RequiredPkg, T](
+      templateId: CtId,
       choice: domain.Choice,
-  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[Choice, RequiredPkg with T] =
+  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[Choice, CtId with T] =
     withTemplateLoggingContext(templateId).run(
       withEnrichedLoggingContext(
         label[domain.Choice],
@@ -67,7 +66,7 @@ class CommandService(
   def create(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: CreateCommand[lav1.value.Record, TemplateId.RequiredPkg],
+      input: CreateCommand[lav1.value.Record, ContractTypeId.Template.RequiredPkg],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ domain.CreateCommandResponse[lav1.value.Value]] =
@@ -126,7 +125,7 @@ class CommandService(
   def createAndExercise(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value, TemplateId.RequiredPkg],
+      input: CreateAndExerciseCommand.LAVResolved,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] =
@@ -178,7 +177,7 @@ class CommandService(
   }
 
   private def createCommand(
-      input: CreateCommand[lav1.value.Record, TemplateId.RequiredPkg]
+      input: CreateCommand[lav1.value.Record, ContractTypeId.Template.RequiredPkg]
   ): lav1.commands.Command.Command.Create = {
     Commands.create(refApiIdentifier(input.templateId), input.payload)
   }
@@ -212,7 +211,7 @@ class CommandService(
 
   // TODO #14549 somehow use the choiceInterfaceId
   private def createAndExerciseCommand(
-      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value, TemplateId.RequiredPkg]
+      input: CreateAndExerciseCommand.LAVResolved
   ): lav1.commands.Command.Command.CreateAndExercise =
     Commands
       .createAndExercise(
@@ -259,7 +258,7 @@ class CommandService(
 
   private def exactlyOneActiveContract(
       response: lav1.command_service.SubmitAndWaitForTransactionResponse
-  ): Error \/ ActiveContract[lav1.value.Value] =
+  ): Error \/ ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value] =
     activeContracts(response).flatMap {
       case Seq(x) => \/-(x)
       case xs @ _ =>
@@ -273,7 +272,7 @@ class CommandService(
 
   private def activeContracts(
       response: lav1.command_service.SubmitAndWaitForTransactionResponse
-  ): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] =
+  ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
         InternalError(
@@ -285,11 +284,10 @@ class CommandService(
 
   private def activeContracts(
       tx: lav1.transaction.Transaction
-  ): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] = {
+  ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value]] = {
     Transactions
       .allCreatedEvents(tx)
-      // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok in this scenario
-      .traverse(ActiveContract.fromLedgerApi(domain.ResolvedQuery.Empty, _))
+      .traverse(ActiveContract.fromLedgerApi(domain.ActiveContract.IgnoreInterface, _))
       .leftMap(e => InternalError(Some(Symbol("activeContracts")), e.shows))
   }
 

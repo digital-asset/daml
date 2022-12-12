@@ -154,6 +154,8 @@ object Node {
   ) extends Action
       with ActionNodeInfo.Exercise {
 
+    def qualifiedChoideName = QualifiedChoiceName(interfaceId, choiceId)
+
     override def keyOpt: Option[KeyWithMaintainers] = key
 
     override private[lf] def updateVersion(

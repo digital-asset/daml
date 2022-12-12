@@ -112,14 +112,14 @@ class DecodeV1Spec
       val input = DamlLf1.Kind.newBuilder().setNat(DamlLf1.Unit.newBuilder()).build()
 
       forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
-        an[Error.Parsing] shouldBe thrownBy(moduleDecoder(version).decodeKind(input))
+        an[Error.Parsing] shouldBe thrownBy(moduleDecoder(version).decodeKindForTest(input))
       }
     }
 
     "accept nat kind if lf version >= 1.7" in {
       val input = DamlLf1.Kind.newBuilder().setNat(DamlLf1.Unit.newBuilder()).build()
       forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
-        moduleDecoder(version).decodeKind(input) shouldBe Ast.KNat
+        moduleDecoder(version).decodeKindForTest(input) shouldBe Ast.KNat
       }
     }
   }
@@ -141,7 +141,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(testCases) { natType =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeType(natType))
+          an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeTypeForTest(natType))
         }
       }
     }
@@ -154,10 +154,12 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(positiveTestCases) { (natType, nat) =>
-          decoder.uncheckedDecodeType(natType) shouldBe Ast.TNat(Numeric.Scale.assertFromInt(nat))
+          decoder.uncheckedDecodeTypeForTest(natType) shouldBe Ast.TNat(
+            Numeric.Scale.assertFromInt(nat)
+          )
         }
         forEvery(negativeTestCases) { natType =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeType(natType))
+          an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeTypeForTest(natType))
         }
       }
     }
@@ -194,7 +196,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(decimalTestCases) { (input, expectedOutput) =>
-          decoder.uncheckedDecodeType(input) shouldBe expectedOutput
+          decoder.uncheckedDecodeTypeForTest(input) shouldBe expectedOutput
         }
       }
     }
@@ -203,7 +205,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(numericTestCases) { (input, _) =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeType(input))
+          an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeTypeForTest(input))
         }
       }
     }
@@ -212,7 +214,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(numericTestCases) { (input, expectedOutput) =>
-          decoder.uncheckedDecodeType(input) shouldBe expectedOutput
+          decoder.uncheckedDecodeTypeForTest(input) shouldBe expectedOutput
         }
       }
     }
@@ -221,7 +223,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(decimalTestCases) { (input, _) =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeType(input))
+          an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeTypeForTest(input))
         }
       }
     }
@@ -229,23 +231,25 @@ class DecodeV1Spec
     "reject Any if version < 1.7" in {
       forEveryVersionSuchThat(_ < LV.Features.anyType) { version =>
         val decoder = moduleDecoder(version)
-        an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeType(buildPrimType(ANY)))
+        an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeTypeForTest(buildPrimType(ANY)))
       }
     }
 
     "accept Any if version >= 1.7" in {
       forEveryVersionSuchThat(_ >= LV.Features.anyType) { version =>
         val decoder = moduleDecoder(version)
-        decoder.uncheckedDecodeType(buildPrimType(ANY)) shouldBe TAny
+        decoder.uncheckedDecodeTypeForTest(buildPrimType(ANY)) shouldBe TAny
       }
     }
 
     s"reject BigNumeric and RoundingMode if version < ${LV.Features.bigNumeric}" in {
       forEveryVersionSuchThat(_ < LV.Features.bigNumeric) { version =>
         val decoder = moduleDecoder(version)
-        an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeType(buildPrimType(BIGNUMERIC)))
         an[Error.Parsing] shouldBe thrownBy(
-          decoder.uncheckedDecodeType(buildPrimType(ROUNDING_MODE))
+          decoder.uncheckedDecodeTypeForTest(buildPrimType(BIGNUMERIC))
+        )
+        an[Error.Parsing] shouldBe thrownBy(
+          decoder.uncheckedDecodeTypeForTest(buildPrimType(ROUNDING_MODE))
         )
       }
     }
@@ -253,8 +257,8 @@ class DecodeV1Spec
     s"accept BigNumeric and RoundingMode if version >= ${LV.Features.bigNumeric}" in {
       forEveryVersionSuchThat(_ >= LV.Features.bigNumeric) { version =>
         val decoder = moduleDecoder(version)
-        decoder.uncheckedDecodeType(buildPrimType(BIGNUMERIC)) shouldBe TBigNumeric
-        decoder.uncheckedDecodeType(buildPrimType(ROUNDING_MODE)) shouldBe TRoundingMode
+        decoder.uncheckedDecodeTypeForTest(buildPrimType(BIGNUMERIC)) shouldBe TBigNumeric
+        decoder.uncheckedDecodeTypeForTest(buildPrimType(ROUNDING_MODE)) shouldBe TRoundingMode
       }
     }
 
@@ -301,11 +305,11 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ < LV.Features.internedStrings) { version =>
         val decoder = moduleDecoder(version)
         forEvery(negativeTestCases) { fieldNames =>
-          decoder.uncheckedDecodeType(buildTStructWithoutInterning(fieldNames))
+          decoder.uncheckedDecodeTypeForTest(buildTStructWithoutInterning(fieldNames))
         }
         forEvery(positiveTestCases) { fieldNames =>
           an[Error.Parsing] shouldBe thrownBy(
-            decoder.uncheckedDecodeType(buildTStructWithoutInterning(fieldNames))
+            decoder.uncheckedDecodeTypeForTest(buildTStructWithoutInterning(fieldNames))
           )
         }
       }
@@ -313,11 +317,11 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ >= LV.Features.internedStrings) { version =>
         val decoder = moduleDecoder(version, stringTable)
         forEvery(negativeTestCases) { fieldNames =>
-          decoder.uncheckedDecodeType(buildTStructWithInterning(fieldNames))
+          decoder.uncheckedDecodeTypeForTest(buildTStructWithInterning(fieldNames))
         }
         forEvery(positiveTestCases) { fieldNames =>
           an[Error.Parsing] shouldBe thrownBy(
-            decoder.uncheckedDecodeType(buildTStructWithInterning(fieldNames))
+            decoder.uncheckedDecodeTypeForTest(buildTStructWithInterning(fieldNames))
           )
         }
       }
@@ -332,7 +336,7 @@ class DecodeV1Spec
       forEveryVersion { version =>
         val decoder = moduleDecoder(version)
         forEvery(exceptionBuiltinTypes) { case (proto, bType) =>
-          val result = Try(decoder.uncheckedDecodeType(buildPrimType(proto)))
+          val result = Try(decoder.uncheckedDecodeTypeForTest(buildPrimType(proto)))
 
           if (version >= LV.Features.exceptions)
             result shouldBe Success(Ast.TBuiltin(bType))
@@ -385,7 +389,9 @@ class DecodeV1Spec
 
       forEveryVersionSuchThat(_ >= LV.Features.internedTypes) { version =>
         val decoder = moduleDecoder(version, stringTable, dottedNameTable)
-        forEvery(testCases)(proto => an[Error.Parsing] shouldBe thrownBy(decoder.decodeType(proto)))
+        forEvery(testCases)(proto =>
+          an[Error.Parsing] shouldBe thrownBy(decoder.decodeTypeForTest(proto))
+        )
       }
     }
 
@@ -553,7 +559,7 @@ class DecodeV1Spec
       forEveryVersion { version =>
         val decoder = moduleDecoder(version)
         forEvery(negativeBuiltinTestCases) { (proto, scala) =>
-          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+          decoder.decodeExprForTest(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
@@ -565,7 +571,7 @@ class DecodeV1Spec
 
         forEvery(decimalBuiltinTestCases) { (proto, versionId, scala) =>
           if (LV.Major.V1.minorVersionOrdering.gteq(LV.Minor(versionId), version.minor))
-            decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+            decoder.decodeExprForTest(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
@@ -576,7 +582,7 @@ class DecodeV1Spec
         val decoder = moduleDecoder(version)
 
         forEvery(numericBuiltinTestCases) { (proto, _) =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
+          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(toProtoExpr(proto), "test"))
         }
       }
     }
@@ -587,7 +593,7 @@ class DecodeV1Spec
         val decoder = moduleDecoder(version)
 
         forEvery(numericBuiltinTestCases) { (proto, scala) =>
-          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+          decoder.decodeExprForTest(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
@@ -601,7 +607,7 @@ class DecodeV1Spec
 
         forEvery(numericComparisonBuiltinCases) { (proto, scala) =>
           if (proto != DamlLf1.BuiltinFunction.EQUAL_NUMERIC || version == LV.v1_7)
-            decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+            decoder.decodeExprForTest(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
@@ -612,7 +618,7 @@ class DecodeV1Spec
         val decoder = moduleDecoder(version)
 
         forEvery(decimalBuiltinTestCases) { (proto, _, _) =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
+          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(toProtoExpr(proto), "test"))
         }
       }
     }
@@ -635,7 +641,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(testCases) { string =>
-          inside(decoder.decodeExpr(toDecimalProto(string), "test")) {
+          inside(decoder.decodeExprForTest(toDecimalProto(string), "test")) {
             case Ast.EPrimLit(Ast.PLNumeric(num)) =>
               num shouldBe new BigDecimal(string).setScale(10)
           }
@@ -659,7 +665,9 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(testCases) { string =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExpr(toDecimalProto(string), "test"))
+          an[Error.Parsing] shouldBe thrownBy(
+            decoder.decodeExprForTest(toDecimalProto(string), "test")
+          )
         }
       }
     }
@@ -667,11 +675,11 @@ class DecodeV1Spec
     "reject numeric literal if version < 1.7" in {
 
       val decoder = moduleDecoder(LV(LV.Major.V1, LV.Features.numeric.minor), ImmArraySeq("0.0"))
-      decoder.decodeExpr(toNumericProto(0), "test")
+      decoder.decodeExprForTest(toNumericProto(0), "test")
 
       forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version, ImmArraySeq("0.0"))
-        an[Error.Parsing] shouldBe thrownBy(decoder.decodeExpr(toNumericProto(0), "test"))
+        an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(toNumericProto(0), "test"))
       }
     }
 
@@ -693,7 +701,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version, ImmArraySeq(testCases.map(_._2): _*))
         forEvery(testCases) { (id, string) =>
-          inside(decoder.decodeExpr(toNumericProto(id), "test")) {
+          inside(decoder.decodeExprForTest(toNumericProto(id), "test")) {
             case Ast.EPrimLit(Ast.PLNumeric(num)) =>
               num shouldBe new BigDecimal(string)
           }
@@ -718,8 +726,8 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version, ImmArraySeq("0." +: testCases.map(_._2): _*))
         forEvery(testCases) { (id, _) =>
-          decoder.decodeExpr(toNumericProto(0), "test")
-          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExpr(toNumericProto(id), "test"))
+          decoder.decodeExprForTest(toNumericProto(0), "test")
+          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(toNumericProto(id), "test"))
         }
       }
     }
@@ -728,7 +736,9 @@ class DecodeV1Spec
 
       forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
-        an[Error.Parsing] shouldBe thrownBy(decoder.decodeExpr(toDecimalProto("0.0"), "test"))
+        an[Error.Parsing] shouldBe thrownBy(
+          decoder.decodeExprForTest(toDecimalProto("0.0"), "test")
+        )
       }
     }
 
@@ -738,7 +748,7 @@ class DecodeV1Spec
         val decoder = moduleDecoder(version)
 
         forEvery(comparisonBuiltinCases) { (proto, scala) =>
-          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+          decoder.decodeExprForTest(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
@@ -748,7 +758,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ >= LV.Features.genComparison) { version =>
         val decoder = moduleDecoder(version)
         forEvery(comparisonBuiltinCases) { (proto, _) =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
+          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(toProtoExpr(proto), "test"))
         }
       }
     }
@@ -757,7 +767,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ >= LV.Features.genComparison) { version =>
         val decoder = moduleDecoder(version)
         forEvery(genericComparisonBuiltinCases) { (proto, scala) =>
-          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+          decoder.decodeExprForTest(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
@@ -766,7 +776,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ < LV.Features.genComparison) { version =>
         val decoder = moduleDecoder(version)
         forEvery(genericComparisonBuiltinCases) { (proto, _) =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
+          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(toProtoExpr(proto), "test"))
         }
       }
     }
@@ -775,7 +785,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ >= LV.Features.contractIdTextConversions) { version =>
         val decoder = moduleDecoder(version)
         forEvery(contractIdTextConversionCases) { (proto, scala) =>
-          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+          decoder.decodeExprForTest(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
@@ -784,7 +794,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ < LV.Features.contractIdTextConversions) { version =>
         val decoder = moduleDecoder(version)
         forEvery(contractIdTextConversionCases) { (proto, _) =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
+          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(toProtoExpr(proto), "test"))
         }
       }
     }
@@ -815,7 +825,7 @@ class DecodeV1Spec
       forEveryVersion { version =>
         val decoder = moduleDecoder(version)
         forEvery(exceptionBuiltinCases) { (proto, scala) =>
-          val result = Try(decoder.decodeExpr(toProtoExpr(proto), "test"))
+          val result = Try(decoder.decodeExprForTest(toProtoExpr(proto), "test"))
 
           if (version >= LV.Features.bigNumeric)
             result shouldBe Success(scala)
@@ -845,7 +855,7 @@ class DecodeV1Spec
         val decoder = moduleDecoder(version)
         forEvery(roundingModeTestCases) { (proto, scala) =>
           val result =
-            Try(decoder.decodeExpr(roundingToProtoExpr(proto), "test"))
+            Try(decoder.decodeExprForTest(roundingToProtoExpr(proto), "test"))
 
           if (version >= LV.Features.bigNumeric)
             result shouldBe Success(Ast.EPrimLit(Ast.PLRoundingMode(scala)))
@@ -880,7 +890,7 @@ class DecodeV1Spec
       forEveryVersion { version =>
         val decoder = moduleDecoder(version, ImmArraySeq.empty, ImmArraySeq.empty, typeTable)
         forEvery(exceptionBuiltinCases) { (proto, scala) =>
-          val result = Try(decoder.decodeExpr(proto, "test"))
+          val result = Try(decoder.decodeExprForTest(proto, "test"))
 
           if (version >= LV.Features.exceptions)
             result shouldBe Success(scala)
@@ -914,7 +924,7 @@ class DecodeV1Spec
       val stringTable = ImmArraySeq("a")
       forEveryVersion { version =>
         val decoder = moduleDecoder(version, stringTable, ImmArraySeq.empty, typeTable)
-        val result = Try(decoder.decodeExpr(tryCatchExprProto, "test"))
+        val result = Try(decoder.decodeExprForTest(tryCatchExprProto, "test"))
         if (version >= LV.Features.exceptions)
           result shouldBe Success(tryCatchExprScala)
         else
@@ -941,8 +951,11 @@ class DecodeV1Spec
           DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
         val ifaceTyConName =
           DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
+        val requiredIfaceTyConName =
+          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(3)
         val scalaTemplateTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:T")
         val scalaIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:I")
+        val scalaRequiredIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:J")
 
         val signatoryInterface = DamlLf1.Expr
           .newBuilder()
@@ -1014,60 +1027,6 @@ class DecodeV1Spec
           )
           .build()
 
-        Table(
-          "input" -> "expected output",
-          signatoryInterface -> Ast
-            .ESignatoryInterface(ifaceId = scalaIfaceTyConName, body = EUnit),
-          observerInterface -> Ast.EObserverInterface(ifaceId = scalaIfaceTyConName, body = EUnit),
-          toInterface -> Ast.EToInterface(
-            interfaceId = scalaIfaceTyConName,
-            templateId = scalaTemplateTyConName,
-            value = EUnit,
-          ),
-          fromInterface -> Ast.EFromInterface(
-            interfaceId = scalaIfaceTyConName,
-            templateId = scalaTemplateTyConName,
-            value = EUnit,
-          ),
-          interfaceTemplateTypeRep -> Ast.EInterfaceTemplateTypeRep(
-            ifaceId = scalaIfaceTyConName,
-            body = EUnit,
-          ),
-          unsafeFromInterface -> Ast.EUnsafeFromInterface(
-            interfaceId = scalaIfaceTyConName,
-            templateId = scalaTemplateTyConName,
-            contractIdExpr = EUnit,
-            ifaceExpr = EFalse,
-          ),
-        )
-      }
-
-      forEveryVersion { version =>
-        forEvery(testCases) { (proto, scala) =>
-          val result = Try(interfacePrimitivesDecoder(version).decodeExpr(proto, "test"))
-          if (version < LV.Features.basicInterfaces)
-            inside(result) { case Failure(error) => error shouldBe a[Error.Parsing] }
-          else
-            result shouldBe Success(scala)
-        }
-      }
-    }
-
-    // TODO: #14770 Re-enable when lf 15 protobuf is cleaned up and ready
-    s"decode extended interface primitives iff version < ${LV.Features.extendedInterfaces}" in {
-      val testCases = {
-
-        val unit = DamlLf1.Unit.newBuilder().build()
-        val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
-        val modRef =
-          DamlLf1.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
-        val ifaceTyConName =
-          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
-        val requiredIfaceTyConName =
-          DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(3)
-        val scalaIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:I")
-        val scalaRequiredIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:J")
-
         val toRequiredInterface = DamlLf1.Expr
           .newBuilder()
           .setToRequiredInterface(
@@ -1103,15 +1062,31 @@ class DecodeV1Spec
           )
           .build()
 
-        val typeRepTyConName = DamlLf1.Expr
-          .newBuilder()
-          .setBuiltin(
-            DamlLf1.BuiltinFunction.TYPEREP_TYCON_NAME
-          )
-          .build()
-
         Table(
           "input" -> "expected output",
+          signatoryInterface -> Ast
+            .ESignatoryInterface(ifaceId = scalaIfaceTyConName, body = EUnit),
+          observerInterface -> Ast.EObserverInterface(ifaceId = scalaIfaceTyConName, body = EUnit),
+          toInterface -> Ast.EToInterface(
+            interfaceId = scalaIfaceTyConName,
+            templateId = scalaTemplateTyConName,
+            value = EUnit,
+          ),
+          fromInterface -> Ast.EFromInterface(
+            interfaceId = scalaIfaceTyConName,
+            templateId = scalaTemplateTyConName,
+            value = EUnit,
+          ),
+          interfaceTemplateTypeRep -> Ast.EInterfaceTemplateTypeRep(
+            ifaceId = scalaIfaceTyConName,
+            body = EUnit,
+          ),
+          unsafeFromInterface -> Ast.EUnsafeFromInterface(
+            interfaceId = scalaIfaceTyConName,
+            templateId = scalaTemplateTyConName,
+            contractIdExpr = EUnit,
+            ifaceExpr = EFalse,
+          ),
           toRequiredInterface -> Ast.EToRequiredInterface(
             requiredIfaceId = scalaRequiredIfaceTyConName,
             requiringIfaceId = scalaIfaceTyConName,
@@ -1128,14 +1103,39 @@ class DecodeV1Spec
             contractIdExpr = EUnit,
             ifaceExpr = EFalse,
           ),
+        )
+      }
+
+      forEveryVersion { version =>
+        forEvery(testCases) { (proto, scala) =>
+          val result = Try(interfacePrimitivesDecoder(version).decodeExprForTest(proto, "test"))
+          if (version < LV.Features.basicInterfaces)
+            inside(result) { case Failure(error) => error shouldBe a[Error.Parsing] }
+          else
+            result shouldBe Success(scala)
+        }
+      }
+    }
+
+    s"decode extended TypeRep iff version < ${LV.v1_dev}" in {
+      val testCases = {
+        val typeRepTyConName = DamlLf1.Expr
+          .newBuilder()
+          .setBuiltin(
+            DamlLf1.BuiltinFunction.TYPEREP_TYCON_NAME
+          )
+          .build()
+
+        Table(
+          "input" -> "expected output",
           typeRepTyConName -> Ast.EBuiltin(Ast.BTypeRepTyConName),
         )
       }
 
       forEveryVersion { version =>
         forEvery(testCases) { (proto, scala) =>
-          val result = Try(interfacePrimitivesDecoder(version).decodeExpr(proto, "test"))
-          if (version < LV.Features.extendedInterfaces)
+          val result = Try(interfacePrimitivesDecoder(version).decodeExprForTest(proto, "test"))
+          if (version < LV.v1_dev)
             inside(result) { case Failure(error) => error shouldBe a[Error.Parsing] }
           else
             result shouldBe Success(scala)
@@ -1198,12 +1198,12 @@ class DecodeV1Spec
           val decoder =
             moduleDecoder(version, ImmArraySeq("Choice"), interfaceDottedNameTable, typeTable)
           val proto = DamlLf1.Expr.newBuilder().setUpdate(protoUpdate).build()
-          decoder.decodeExpr(proto, "test") shouldBe Ast.EUpdate(scala)
+          decoder.decodeExprForTest(proto, "test") shouldBe Ast.EUpdate(scala)
         }
       }
     }
 
-    s"translate interface exercise guard iff version >= ${LV.Features.extendedInterfaces}" in {
+    s"translate interface exercise guard iff version >= ${LV.v1_dev}" in {
 
       val unit = DamlLf1.Unit.newBuilder().build()
       val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
@@ -1232,11 +1232,11 @@ class DecodeV1Spec
         Some(EUnit),
       )
 
-      forEveryVersionSuchThat(_ >= LV.Features.extendedInterfaces) { version =>
+      forEveryVersionSuchThat(_ >= LV.v1_dev) { version =>
         val decoder =
           moduleDecoder(version, ImmArraySeq("Choice"), interfaceDottedNameTable, typeTable)
         val proto = DamlLf1.Expr.newBuilder().setUpdate(exerciseInterfaceProto).build()
-        decoder.decodeExpr(proto, "test") shouldBe Ast.EUpdate(exerciseInterfaceScala)
+        decoder.decodeExprForTest(proto, "test") shouldBe Ast.EUpdate(exerciseInterfaceScala)
       }
     }
   }
@@ -1372,7 +1372,7 @@ class DecodeV1Spec
       }
     }
 
-    s"accept interface requires iff version >= ${LV.Features.extendedInterfaces}" in {
+    s"accept interface requires iff version >= ${LV.Features.basicInterfaces}" in {
 
       val interfaceName = Ref.DottedName.assertFromString("I")
 
@@ -1413,8 +1413,8 @@ class DecodeV1Spec
 
       forEveryVersion { version =>
         val decoder = interfaceDefDecoder(version)
-        val result = Try(decoder.decodeDefInterface(interfaceName, requiresDefInterface))
-        if (version >= LV.Features.extendedInterfaces)
+        val result = Try(decoder.decodeDefInterfaceForTest(interfaceName, requiresDefInterface))
+        if (version >= LV.Features.basicInterfaces)
           result shouldBe Success(requiresDefInterfaceScala)
         else
           inside(result) { case Failure(error) => error shouldBe an[Error.Parsing] }
@@ -1630,9 +1630,9 @@ class DecodeV1Spec
 
         val decoder = moduleDecoder(version)
 
-        decoder.decodeChoice(templateName, protoChoiceWithoutObservers)
+        decoder.decodeChoiceForTest(templateName, protoChoiceWithoutObservers)
         an[Error.Parsing] should be thrownBy (decoder
-          .decodeChoice(templateName, protoChoiceWithObservers))
+          .decodeChoiceForTest(templateName, protoChoiceWithObservers))
 
       }
     }
@@ -1660,10 +1660,10 @@ class DecodeV1Spec
 
         val decoder = moduleDecoder(version, stringTable)
 
-        decoder.decodeChoice(templateName, protoChoiceWithoutObservers)
+        decoder.decodeChoiceForTest(templateName, protoChoiceWithoutObservers)
         an[Error.Parsing] should be thrownBy (
           decoder
-            .decodeChoice(templateName, protoChoiceWithObservers),
+            .decodeChoiceForTest(templateName, protoChoiceWithObservers),
         )
 
       }
@@ -1694,9 +1694,9 @@ class DecodeV1Spec
         val decoder = moduleDecoder(version, stringTable, ImmArraySeq.empty, typeTable)
 
         an[Error.Parsing] should be thrownBy (
-          decoder.decodeChoice(templateName, protoChoiceWithoutObservers),
+          decoder.decodeChoiceForTest(templateName, protoChoiceWithoutObservers),
         )
-        decoder.decodeChoice(templateName, protoChoiceWithObservers)
+        decoder.decodeChoiceForTest(templateName, protoChoiceWithObservers)
       }
     }
   }
@@ -1723,7 +1723,8 @@ class DecodeV1Spec
           onlySerializableDataDefs = false,
         )
         val parseError =
-          the[Error.Parsing] thrownBy (decoder.decodeInternedTypes(env, pkgWithInternedTypes))
+          the[Error.Parsing] thrownBy (decoder
+            .decodeInternedTypesForTest(env, pkgWithInternedTypes))
         parseError.toString should include("interned types table is not supported")
       }
     }
@@ -1749,7 +1750,7 @@ class DecodeV1Spec
 
     forEveryVersionSuchThat(_ < LV.v1_dev) { version =>
       val decoder = moduleDecoder(version)
-      an[Error.Parsing] shouldBe thrownBy(decoder.decodeExpr(expr, "test"))
+      an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(expr, "test"))
     }
   }
 
@@ -1761,7 +1762,7 @@ class DecodeV1Spec
         .build()
     forEveryVersion { version =>
       val decoder = moduleDecoder(version)
-      val ex = the[Error.Parsing] thrownBy decoder.decodeDefValue(defValue)
+      val ex = the[Error.Parsing] thrownBy decoder.decodeDefValueForTest(defValue)
       ex.msg shouldBe "DefValue must have no_party_literals set to true"
     }
   }

@@ -1,0 +1,90 @@
+# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(":util.bzl", "daml_ledger_export_test")
+load("//rules_daml:daml.bzl", "daml_compile", "daml_test")
+
+# Compare the generated Daml ledger export to the example export used in the
+# documentation. This functions as both a golden test on ledger exports and to
+# make sure that the documentation stays up-to-date.
+daml_ledger_export_test(
+    name = "matches-docs-test",
+    dar = "//daml-script/test:script-test.dar",
+    expected_args_json = "//docs:source/tools/export/output-root/args.json",
+    expected_daml = "//docs:source/tools/export/output-root/Export.daml",
+    expected_daml_yaml = "//docs:source/tools/export/output-root/daml.yaml",
+    parties = [
+        "Alice",
+        "Bob",
+    ],
+    script_identifier = "ScriptExample:initializeFixed",
+)
+
+daml_compile(
+    name = "values",
+    srcs = [":values/Values.daml"],
+    dependencies = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_ledger_export_test(
+    name = "values-test",
+    dar = ":values.dar",
+    expected_args_json = ":values/args.json",
+    expected_daml = ":values/Export.daml",
+    expected_daml_yaml = ":values/daml.yaml",
+    parties = ["Bank"],
+    script_identifier = "Values:initialize",
+)
+
+# Test that 'Export.daml' actually compiles. We use the expected file instead
+# of the actual one, but if the test above passes they should be identical
+# (modulo normalization).
+daml_test(
+    name = "values-valid",
+    srcs = [
+        ":values/Export.daml",
+        ":values/Values.daml",
+    ],
+    deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_compile(
+    name = "interface-choices",
+    srcs = [
+        ":interface-choices/InterfaceChoices.daml",
+        ":interface-choices/InterfaceChoices/Asset.daml",
+        ":interface-choices/InterfaceChoices/Token.daml",
+    ],
+    dependencies = ["//daml-script/daml:daml-script-1.15.dar"],
+    target = "1.15",
+)
+
+daml_ledger_export_test(
+    name = "interface-choices-test",
+    dar = ":interface-choices.dar",
+    dev = True,
+    expected_args_json = ":interface-choices/args.json",
+    expected_daml = ":interface-choices/Export.daml",
+    expected_daml_yaml = ":interface-choices/daml.yaml",
+    parties = [
+        "Alice",
+        "Bob",
+        "Charlie",
+    ],
+    script_identifier = "InterfaceChoices:initialize",
+)
+
+# Test that 'Export.daml' actually compiles. We use the expected file instead
+# of the actual one, but if the test above passes they should be identical
+# (modulo normalization).
+daml_test(
+    name = "interface-choices-valid",
+    srcs = [
+        ":interface-choices/Export.daml",
+        ":interface-choices/InterfaceChoices.daml",
+        ":interface-choices/InterfaceChoices/Asset.daml",
+        ":interface-choices/InterfaceChoices/Token.daml",
+    ],
+    target = "1.15",
+    deps = ["//daml-script/daml:daml-script-1.15.dar"],
+)

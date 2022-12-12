@@ -3,4 +3,9 @@
 }:
 pkgs.mkShell {
   buildInputs = pkgs.lib.attrsets.mapAttrsToList (name: value: value) default.toolAttrs;
+
+  shellHook = ''
+    # install pre-commit hook (opt-out by setting `DADE_NO_PRE_COMMIT`)
+    test "x$DADE_NO_PRE_COMMIT" = x && pre-commit install
+  '';
 }

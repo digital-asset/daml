@@ -25,6 +25,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref._
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
@@ -32,6 +33,7 @@ import com.daml.platform.sandbox.services.TestCommands
 import org.scalatest._
 import scalaz.syntax.tag._
 import com.daml.platform.sandbox.fixture.SandboxFixture
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -68,17 +70,20 @@ trait AbstractTriggerTest
     LedgerClientChannelConfiguration.InsecureDefaults
 
   protected def ledgerClient(
-      maxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
-  )(implicit ec: ExecutionContext): Future[LedgerClient] =
+      maxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize,
+      config: Option[LedgerClientConfiguration] = None,
+  )(implicit ec: ExecutionContext): Future[LedgerClient] = {
+    val effectiveConfig = config.getOrElse(ledgerClientConfiguration)
     for {
       client <- LedgerClient
         .singleHost(
           "localhost",
           serverPort.value,
-          ledgerClientConfiguration,
+          effectiveConfig,
           ledgerClientChannelConfiguration.copy(maxInboundMessageSize = maxInboundMessageSize),
         )
     } yield client
+  }
 
   override protected def darFile =
     Try(BazelRunfiles.requiredResource("triggers/tests/acs.dar"))
@@ -95,20 +100,28 @@ trait AbstractTriggerTest
       readAs: Set[String] = Set.empty,
   ): Runner = {
     val triggerId = Identifier(packageId, name)
-    Trigger.newLoggingContext(triggerId, Party(party), Party.subst(readAs)) {
-      implicit loggingContext =>
-        val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
-        new Runner(
-          compiledPackages,
-          trigger,
-          client,
-          config.participants(ParticipantId).apiServer.timeProviderType,
-          applicationId,
-          TriggerParties(
-            actAs = Party(party),
-            readAs = Party.subst(readAs),
-          ),
-        )
+
+    Trigger.newTriggerLogContext(
+      triggerId,
+      Party(party),
+      Party.subst(readAs),
+      "test-trigger",
+      ApplicationId("test-trigger-app"),
+    ) { implicit triggerContext: TriggerLogContext =>
+      val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
+
+      Runner(
+        compiledPackages,
+        trigger,
+        DefaultTriggerRunnerConfig,
+        client,
+        config.participants(ParticipantId).apiServer.timeProviderType,
+        applicationId,
+        TriggerParties(
+          actAs = Party(party),
+          readAs = Party.subst(readAs),
+        ),
+      )
     }
   }
 
@@ -135,19 +148,21 @@ trait AbstractTriggerTest
     } yield response.getTransaction.events.head.getCreated.contractId
   }
 
-  protected def archive(
+  protected def exercise(
       client: LedgerClient,
       party: String,
       templateId: LedgerApi.Identifier,
       contractId: String,
+      choice: String,
+      choiceArgument: LedgerApi.Value,
   )(implicit ec: ExecutionContext): Future[Unit] = {
     val commands = Seq(
       Command().withExercise(
         ExerciseCommand(
           templateId = Some(templateId),
           contractId = contractId,
-          choice = "Archive",
-          choiceArgument = Some(LedgerApi.Value().withRecord(LedgerApi.Record())),
+          choice = choice,
+          choiceArgument = Some(choiceArgument),
         )
       )
     )
@@ -165,6 +180,22 @@ trait AbstractTriggerTest
     for {
       _ <- client.commandServiceClient.submitAndWaitForTransaction(request)
     } yield ()
+  }
+
+  protected def archive(
+      client: LedgerClient,
+      party: String,
+      templateId: LedgerApi.Identifier,
+      contractId: String,
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    exercise(
+      client,
+      party,
+      templateId,
+      contractId,
+      "Archive",
+      LedgerApi.Value().withRecord(LedgerApi.Record()),
+    )
   }
 
   protected def queryACS(client: LedgerClient, party: String)(implicit

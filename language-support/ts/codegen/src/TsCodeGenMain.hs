@@ -385,7 +385,7 @@ data TemplateNamespace = TemplateNamespace
 renderTemplateNamespace :: TemplateNamespace -> T.Text
 renderTemplateNamespace TemplateNamespace{..} = T.unlines $ concat
     [ [ "export declare namespace " <> tnsName <> " {" ]
-    , [ "  export type Key = " <> tsTypeRef (genType keyDef Nothing) | Just keyDef <- [tnsMbKeyDef] ]
+    , [ "  export type Key = " <> tsTypeRef (genType keyDef) | Just keyDef <- [tnsMbKeyDef] ]
     , [ "  export type CreateEvent = damlLedger.CreateEvent" <> tParams [tnsName, tK, tI]
       , "  export type ArchiveEvent = damlLedger.ArchiveEvent" <> tParams [tnsName, tI]
       , "  export type Event = damlLedger.Event" <> tParams [tnsName, tK, tI]
@@ -523,38 +523,27 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule,
         ifName
 
 ifaceDefTempl :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
-ifaceDefTempl name mbKeyTy choices =
+ifaceDefTempl = ifaceDefCtTy "Template"
+
+ifaceDefIface :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
+ifaceDefIface = ifaceDefCtTy "InterfaceCompanion"
+
+ifaceDefCtTy :: T.Text -> T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
+ifaceDefCtTy container name mbKeyTy choices =
   concat
   [ ["export declare interface " <> name <> "Interface {"]
   , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
       name <> ", " <>
-      tsTypeRef (genType chcArgTy mbSubst) <> ", " <>
-      tsTypeRef (genType chcRetTy mbSubst) <> ", " <>
+      tsTypeRef (genType chcArgTy) <> ", " <>
+      tsTypeRef (genType chcRetTy) <> ", " <>
       keyTy <> "> & " <> choiceFrom <> ";"
     | ChoiceDef{..} <- choices ]
   , [ "}" ]
   ]
   where
-    mbSubst = Nothing
     keyTy = fromMaybe "undefined" mbKeyTy
-    choiceFrom = "damlTypes.ChoiceFrom<damlTypes.Template<" <> name <> ", " <> keyTy <> ">>"
-
-ifaceDefIface :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
-ifaceDefIface name mbKeyTy choices =
-  concat
-  [ ["export declare interface " <> name <> "Interface " <> "{"]
-  , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
-      name <> ", " <>
-      tsTypeRef (genType chcArgTy mbSubst) <> ", " <>
-      tsTypeRef (genType chcRetTy mbSubst) <> ", " <>
-      keyTy <> "> & " <> choiceFrom <> ";"
-    | ChoiceDef{..} <- choices ]
-  , [ "}" ]
-  ]
-  where
-    mbSubst = Nothing
-    keyTy = fromMaybe "undefined" mbKeyTy
-    choiceFrom = "damlTypes.ChoiceFrom<damlTypes.InterfaceCompanion<" <> name <> ", " <> keyTy <> ">>"
+    choiceFrom = "damlTypes.ChoiceFrom<damlTypes." <> container
+                <> "<" <> name <> ", " <> keyTy <> ">>"
 
 data ChoiceDef = ChoiceDef
   { chcName' :: T.Text
@@ -682,7 +671,7 @@ renderDecoder = \case
         T.concat (map (\(name, d) -> name <> ": " <> renderDecoder d <> ", ") fields) <>
         "})"
     DecoderConstant c -> "jtv.constant(" <> renderDecoderConstant c <> ")"
-    DecoderRef t -> serializerRef (genType t Nothing) <> ".decoder"
+    DecoderRef t -> serializerRef (genType t) <> ".decoder"
     DecoderLazy d -> "damlTypes.lazyMemo(function () { return " <> renderDecoder d <> "; })"
 
 data Encode
@@ -694,13 +683,13 @@ data Encode
 
 renderEncode :: Encode -> T.Text
 renderEncode = \case
-    EncodeRef ref -> let (GenType _ companion) = genType ref Nothing in
+    EncodeRef ref -> let (GenType _ companion) = genType ref in
         "function (__typed__) { return " <> companion <> ".encode(__typed__); }"
     EncodeVariant typ alts -> T.unlines $ concat
         [ [ "function (__typed__) {" -- Note: switch uses ===
           , "  switch(__typed__.tag) {" ]
         , [ "    case '" <> name <> "': return {tag: __typed__.tag, value: " <> companion <> ".encode(__typed__.value)};"
-          | (name, tr) <- alts, let (GenType _ companion) = genType tr Nothing]
+          | (name, tr) <- alts, let (GenType _ companion) = genType tr]
         , [ "    default: throw 'unrecognized type tag: ' + __typed__.tag + ' while serializing a value of type " <> typ <> "';"
           , "  }"
           , "}" ] ]
@@ -709,7 +698,7 @@ renderEncode = \case
         [ [ "function (__typed__) {"
           , "  return {" ]
         , [ "    " <> name <> ": " <> companion <> ".encode(__typed__." <> name <> "),"
-          | (name, tr) <- fields, let (GenType _ companion) = genType tr Nothing]
+          | (name, tr) <- fields, let (GenType _ companion) = genType tr]
         , [ "  };"
           , "}" ] ]
     EncodeThrow -> "function () { throw 'EncodeError'; }"
@@ -723,12 +712,12 @@ renderTypeDef :: TypeDef -> T.Text
 renderTypeDef = \case
     UnionDef t args bs -> T.unlines $ concat
         [ [ "type " <> ty t args <> " =" ]
-        , [ "  |  { tag: '" <> k <> "'; value: " <> tsTypeRef (genType t Nothing) <> " }" | (k, t) <- bs ]
+        , [ "  |  { tag: '" <> k <> "'; value: " <> tsTypeRef (genType t) <> " }" | (k, t) <- bs ]
         , [ ";" ]
         ]
     ObjectDef t args fs -> T.unlines $ concat
         [ [ "type " <> ty t args <> " = {" ]
-        , [ "  " <> k <> ": " <> tsTypeRef (genType t Nothing) <> ";" | (k, t) <- fs ]
+        , [ "  " <> k <> ": " <> tsTypeRef (genType t) <> ";" | (k, t) <- fs ]
         , [ "};" ]
         ]
     EnumDef t args fs -> T.unlines $ concat
@@ -901,18 +890,8 @@ infixr 6 <.> -- This is the same fixity as '<>'.
 
 -- | Returns a pair of the type and a reference to the
 -- companion object/function.
--- If the optional substitution argument `mbSubst = Just (needels, substitution)` is set, type
--- constructors in `needels` will be replaced with `substitution`.  If it is Nothing, no
--- susbtitution is performed. Likewise, if `needels` is empty, no substitution is performed.
---
--- Substitutions are used in interface choices. Here, a type of `ContractId Token` needs to be
--- replaced with `ContractId TokenInterface<Token>`. In an implementing template choice of the
--- template `Asset`, the corresponding type `ContractId Token` needs to be replaced with `ContractId
--- TokenInterface<Asset>`. If the template implements a second `Other` interface, the type `ContractId
--- Token` needs to be replaced with `ContractId (TokenInterface<Asset> & OtherInterface<Asset>)` and
--- `ContractId Other` with `ContractId (TokenInterface<Asset> & OtherInterface<Asset>)`.
-genType :: TypeRef -> Maybe (Set.Set TsTypeConRef, T.Text) -> GenType
-genType (TypeRef curModName t) mbSubst = uncurry GenType $ go t
+genType :: TypeRef -> GenType
+genType (TypeRef curModName t) = uncurry GenType $ go t
   where
     go = \case
         TVar v -> dupe (unTypeVarName v)
@@ -951,9 +930,7 @@ genType (TypeRef curModName t) mbSubst = uncurry GenType $ go t
             in
             ("damlTypes.ContractId<" <> t' <> ">", "damlTypes.ContractId(" <> ser <> ")")
         TConApp con ts ->
-            let (con', ser)
-                  | Just (impls, subst) <- mbSubst, (fst $ genTypeCon curModName con) `Set.member` impls = (subst, "")
-                  | otherwise = coerce $ genTypeCon curModName con
+            let (con', ser) = coerce $ genTypeCon curModName con
                 (ts', sers) = unzip (map go ts)
             in
             if null ts

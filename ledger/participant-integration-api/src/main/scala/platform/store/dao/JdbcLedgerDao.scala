@@ -7,12 +7,12 @@ import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{IndexerPartyDetails, PackageDetails}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
@@ -53,6 +53,7 @@ private class JdbcLedgerDao(
     participantId: Ref.ParticipantId,
     readStorageBackend: ReadStorageBackend,
     parameterStorageBackend: ParameterStorageBackend,
+    completionsMaxPayloadsPerPayloadsPage: Int,
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -240,7 +241,7 @@ private class JdbcLedgerDao(
 
   override def getParties(
       parties: Seq[Party]
-  )(implicit loggingContext: LoggingContext): Future[List[PartyDetails]] =
+  )(implicit loggingContext: LoggingContext): Future[List[IndexerPartyDetails]] =
     if (parties.isEmpty)
       Future.successful(List.empty)
     else
@@ -251,7 +252,7 @@ private class JdbcLedgerDao(
 
   override def listKnownParties()(implicit
       loggingContext: LoggingContext
-  ): Future[List[PartyDetails]] =
+  ): Future[List[IndexerPartyDetails]] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.loadAllParties)(
         readStorageBackend.partyStorageBackend.knownParties
@@ -493,6 +494,7 @@ private class JdbcLedgerDao(
       readStorageBackend.completionStorageBackend,
       queryNonPruned,
       metrics,
+      pageSize = completionsMaxPayloadsPerPayloadsPage,
     )
 
   /** This is a combined store transaction method to support sandbox-classic and tests
@@ -578,27 +580,26 @@ private[platform] object JdbcLedgerDao {
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      completionsMaxPayloadsPerPayloadsPage: Int,
   ): LedgerReadDao =
-    new MeteredLedgerReadDao(
-      new JdbcLedgerDao(
-        dbSupport.dbDispatcher,
-        servicesExecutionContext,
-        eventsPageSize,
-        eventsProcessingParallelism,
-        acsIdPageSize,
-        acsIdPageBufferSize,
-        acsIdPageWorkingMemoryBytes,
-        acsIdFetchingParallelism,
-        acsContractFetchingParallelism,
-        acsGlobalParallelism,
-        metrics,
-        engine,
-        SequentialWriteDao.noop,
-        participantId,
-        dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
-        dbSupport.storageBackendFactory.createParameterStorageBackend,
-      ),
+    new JdbcLedgerDao(
+      dbSupport.dbDispatcher,
+      servicesExecutionContext,
+      eventsPageSize,
+      eventsProcessingParallelism,
+      acsIdPageSize,
+      acsIdPageBufferSize,
+      acsIdPageWorkingMemoryBytes,
+      acsIdFetchingParallelism,
+      acsContractFetchingParallelism,
+      acsGlobalParallelism,
       metrics,
+      engine,
+      SequentialWriteDao.noop,
+      participantId,
+      dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+      dbSupport.storageBackendFactory.createParameterStorageBackend,
+      completionsMaxPayloadsPerPayloadsPage = completionsMaxPayloadsPerPayloadsPage,
     )
 
   def write(
@@ -618,27 +619,26 @@ private[platform] object JdbcLedgerDao {
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      completionsMaxPayloadsPerPayloadsPage: Int,
   ): LedgerDao =
-    new MeteredLedgerDao(
-      new JdbcLedgerDao(
-        dbSupport.dbDispatcher,
-        servicesExecutionContext,
-        eventsPageSize,
-        eventsProcessingParallelism,
-        acsIdPageSize,
-        acsIdPageBufferSize,
-        acsIdPageWorkingMemoryBytes,
-        acsIdFetchingParallelism,
-        acsContractFetchingParallelism,
-        acsGlobalParallelism,
-        metrics,
-        engine,
-        sequentialWriteDao,
-        participantId,
-        dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
-        dbSupport.storageBackendFactory.createParameterStorageBackend,
-      ),
+    new JdbcLedgerDao(
+      dbSupport.dbDispatcher,
+      servicesExecutionContext,
+      eventsPageSize,
+      eventsProcessingParallelism,
+      acsIdPageSize,
+      acsIdPageBufferSize,
+      acsIdPageWorkingMemoryBytes,
+      acsIdFetchingParallelism,
+      acsContractFetchingParallelism,
+      acsGlobalParallelism,
       metrics,
+      engine,
+      sequentialWriteDao,
+      participantId,
+      dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+      dbSupport.storageBackendFactory.createParameterStorageBackend,
+      completionsMaxPayloadsPerPayloadsPage = completionsMaxPayloadsPerPayloadsPage,
     )
 
   val acceptType = "accept"

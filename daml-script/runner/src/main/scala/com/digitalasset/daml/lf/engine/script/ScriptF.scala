@@ -15,11 +15,11 @@ import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, UserId}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SExpr.{SEApp, SEValue}
+import com.daml.lf.speedy.SExpr.{SEAppAtomic, SEValue}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.speedy.Speedy.OffLedgerMachine
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import scalaz.{Foldable, OneAnd}
@@ -60,7 +60,7 @@ object ScriptF {
       val scriptIds: ScriptIds,
       val timeMode: ScriptTimeMode,
       private var _clients: Participants[ScriptLedgerClient],
-      machine: Machine,
+      machine: OffLedgerMachine,
   ) {
     def clients = _clients
     def compiledPackages = machine.compiledPackages
@@ -83,6 +83,12 @@ object ScriptF {
     def lookupKeyTy(id: Identifier): Either[String, Ast.Type] =
       compiledPackages.pkgInterface.lookupTemplateKey(id) match {
         case Right(key) => Right(key.typ)
+        case Left(err) => Left(err.pretty)
+      }
+
+    def lookupInterfaceViewTy(id: Identifier): Either[String, Ast.Type] =
+      compiledPackages.pkgInterface.lookupInterface(id) match {
+        case Right(key) => Right(key.view)
         case Left(err) => Left(err.pretty)
       }
 
@@ -138,7 +144,7 @@ object ScriptF {
                     Converter
                       .fromStatusException(env.scriptIds, statusEx)
                   )
-                } yield SEApp(SEValue(data.continue), Array(SEValue(res)))
+                } yield SEAppAtomic(SEValue(data.continue), Array(SEValue(res)))
             }
         }
       } yield v
@@ -165,7 +171,7 @@ object ScriptF {
         )
         v <- submitRes match {
           case Right(()) =>
-            Future.successful(SEApp(SEValue(data.continue), Array(SEValue(SUnit))))
+            Future.successful(SEAppAtomic(SEValue(data.continue), Array(SEValue(SUnit))))
           case Left(()) =>
             Future.failed(
               SError.SErrorDamlException(
@@ -201,7 +207,7 @@ object ScriptF {
             submitRes,
           )
         )
-      } yield SEApp(SEValue(data.continue), Array(SEValue(res)))
+      } yield SEAppAtomic(SEValue(data.continue), Array(SEValue(res)))
   }
   final case class Query(
       parties: OneAnd[Set, Party],
@@ -229,7 +235,7 @@ object ScriptF {
                 .fromCreated(env.valueTranslator, _)
             )
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(SList(res))))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SList(res))))
 
   }
   final case class QueryContractId(
@@ -247,13 +253,85 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getPartyParticipant(parties.head))
+        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryContractId(parties, tplId, cid)
-        optR <- Converter.toFuture(
-          optR.traverse(Converter.fromContract(env.valueTranslator, _))
-        )
-      } yield SEApp(SEValue(continue), Array(SEValue(SOptional(optR))))
+        optR <- Converter.toFuture(optR.traverse(Converter.fromContract(env.valueTranslator, _)))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(optR))))
   }
+
+  final case class QueryInterface(
+      parties: OneAnd[Set, Party],
+      interfaceId: Identifier,
+      stackTrace: StackTrace,
+      continue: SValue,
+  ) extends Cmd {
+    override def description = "queryInterface"
+
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = {
+
+      def makePair(v1: SValue, v2: SValue): SValue = {
+        import com.daml.lf.language.StablePackage.DA
+        import com.daml.script.converter.Converter.record
+        record(DA.Types.assertIdentifier("Tuple2"), ("_1", v1), ("_2", v2))
+      }
+
+      for {
+        viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
+        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
+        list <- client.queryInterface(parties, interfaceId, viewType)
+        list <- Converter.toFuture(
+          list
+            .to(FrontStack)
+            .traverse { case (cid, optView) =>
+              optView match {
+                case None =>
+                  Right(makePair(SContractId(cid), SOptional(None)))
+                case Some(view) =>
+                  for {
+                    view <- Converter.fromInterfaceView(
+                      env.valueTranslator,
+                      viewType,
+                      view,
+                    )
+                  } yield {
+                    makePair(SContractId(cid), SOptional(Some(view)))
+                  }
+              }
+            }
+        )
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SList(list))))
+    }
+  }
+
+  final case class QueryInterfaceContractId(
+      parties: OneAnd[Set, Party],
+      interfaceId: Identifier,
+      cid: ContractId,
+      stackTrace: StackTrace,
+      continue: SValue,
+  ) extends Cmd {
+    override def description = "queryInterfaceContractId"
+
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = {
+      for {
+        viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
+        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
+        optR <- client.queryInterfaceContractId(parties, interfaceId, viewType, cid)
+        optR <- Converter.toFuture(
+          optR.traverse(Converter.fromInterfaceView(env.valueTranslator, viewType, _))
+        )
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(optR))))
+    }
+  }
+
   final case class QueryContractKey(
       parties: OneAnd[Set, Party],
       tplId: Identifier,
@@ -282,7 +360,7 @@ object ScriptF {
         optR <- Converter.toFuture(
           optR.traverse(Converter.fromCreated(env.valueTranslator, _))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(SOptional(optR))))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(optR))))
   }
   final case class AllocParty(
       displayName: String,
@@ -307,7 +385,7 @@ object ScriptF {
 
       } yield {
         participant.foreach(env.addPartyParticipantMapping(party, _))
-        SEApp(SEValue(continue), Array(SEValue(SParty(party))))
+        SEAppAtomic(SEValue(continue), Array(SEValue(SParty(party))))
       }
 
   }
@@ -333,7 +411,7 @@ object ScriptF {
           partyDetails
             .traverse(details => Converter.fromPartyDetails(env.scriptIds, details))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(SList(partyDetails_.to(FrontStack)))))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SList(partyDetails_.to(FrontStack)))))
 
   }
   final case class GetTime(stackTrace: StackTrace, continue: SValue) extends Cmd {
@@ -360,7 +438,7 @@ object ScriptF {
               Timestamp.assertFromInstant(env.utcClock.instant())
             }
         }
-      } yield SEApp(SEValue(continue), Array(SEValue(STimestamp(time))))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(STimestamp(time))))
 
   }
   final case class SetTime(time: Timestamp, stackTrace: StackTrace, continue: SValue) extends Cmd {
@@ -379,7 +457,7 @@ object ScriptF {
             // service with multiple participants is very dodgy.
             client <- Converter.toFuture(env.clients.getParticipant(None))
             _ <- client.setStaticTime(time)
-          } yield SEApp(SEValue(continue), Array(SEValue(SUnit)))
+          } yield SEAppAtomic(SEValue(continue), Array(SEValue(SUnit)))
         case ScriptTimeMode.WallClock =>
           Future.failed(
             new RuntimeException("setTime is not supported in wallclock mode")
@@ -397,7 +475,7 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = Future {
       sleepAtLeast(micros * 1000)
-      SEApp(SEValue(continue), Array(SEValue(SUnit)))
+      SEAppAtomic(SEValue(continue), Array(SEValue(SUnit)))
     }
 
     private def sleepAtLeast(totalNanos: Long) = {
@@ -429,7 +507,7 @@ object ScriptF {
           case Right(_) => None // valid
           case Left(message) => Some(SText(message)) // invalid; with error message
         }
-      Future.successful(SEApp(SEValue(continue), Array(SEValue(SOptional(errorOption)))))
+      Future.successful(SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(errorOption)))))
     }
   }
 
@@ -452,7 +530,7 @@ object ScriptF {
         res <- Converter.toFuture(
           Converter.fromOptional[Unit](res, _ => Right(SUnit))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(res)))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(res)))
   }
 
   final case class GetUser(
@@ -473,7 +551,7 @@ object ScriptF {
         user <- Converter.toFuture(
           Converter.fromOptional(user, Converter.fromUser(env.scriptIds, _))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(user)))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(user)))
   }
 
   final case class DeleteUser(
@@ -494,7 +572,7 @@ object ScriptF {
         res <- Converter.toFuture(
           Converter.fromOptional[Unit](res, _ => Right(SUnit))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(res)))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(res)))
   }
 
   final case class ListAllUsers(
@@ -514,7 +592,7 @@ object ScriptF {
         users <- Converter.toFuture(
           users.to(FrontStack).traverse(Converter.fromUser(env.scriptIds, _))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(SList(users))))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SList(users))))
   }
 
   final case class GrantUserRights(
@@ -541,7 +619,7 @@ object ScriptF {
               .map(SList(_)),
           )
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(rights)))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(rights)))
   }
 
   final case class RevokeUserRights(
@@ -568,7 +646,7 @@ object ScriptF {
               .map(SList(_)),
           )
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(rights)))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(rights)))
   }
 
   final case class ListUserRights(
@@ -594,7 +672,7 @@ object ScriptF {
               .map(SList(_)),
           )
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(rights)))
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(rights)))
   }
 
   // Shared between Submit, SubmitMustFail and SubmitTree
@@ -693,6 +771,52 @@ object ScriptF {
       case SRecord(_, _, ArrayList(actAs, tplId, cid, continue, stackTrace)) =>
         convert(actAs, tplId, cid, Some(stackTrace), continue)
       case _ => Left(s"Expected QueryContractId payload but got $v")
+    }
+  }
+
+  private def parseQueryInterface(
+      ctx: Ctx,
+      v: SValue,
+  ): Either[String, QueryInterface] = {
+    def convert(
+        actAs: SValue,
+        interfaceId: SValue,
+        stackTrace: Option[SValue],
+        continue: SValue,
+    ) =
+      for {
+        actAs <- Converter.toParties(actAs)
+        interfaceId <- Converter.typeRepToIdentifier(interfaceId)
+        stackTrace <- toStackTrace(ctx, stackTrace)
+      } yield QueryInterface(actAs, interfaceId, stackTrace, continue)
+    v match {
+      case SRecord(_, _, ArrayList(actAs, interfaceId, continue, stackTrace)) =>
+        convert(actAs, interfaceId, Some(stackTrace), continue)
+      case _ => Left(s"Expected QueryInterface payload but got $v")
+    }
+  }
+
+  private def parseQueryInterfaceContractId(
+      ctx: Ctx,
+      v: SValue,
+  ): Either[String, QueryInterfaceContractId] = {
+    def convert(
+        actAs: SValue,
+        interfaceId: SValue,
+        cid: SValue,
+        stackTrace: Option[SValue],
+        continue: SValue,
+    ) =
+      for {
+        actAs <- Converter.toParties(actAs)
+        interfaceId <- Converter.typeRepToIdentifier(interfaceId)
+        cid <- toContractId(cid)
+        stackTrace <- toStackTrace(ctx, stackTrace)
+      } yield QueryInterfaceContractId(actAs, interfaceId, cid, stackTrace, continue)
+    v match {
+      case SRecord(_, _, ArrayList(actAs, interfaceId, cid, continue, stackTrace)) =>
+        convert(actAs, interfaceId, cid, Some(stackTrace), continue)
+      case _ => Left(s"Expected QueryInterfaceContractId payload but got $v")
     }
   }
 
@@ -934,6 +1058,8 @@ object ScriptF {
       case "SubmitTree" => parseSubmit(ctx, v).map(SubmitTree(_))
       case "Query" => parseQuery(ctx, v)
       case "QueryContractId" => parseQueryContractId(ctx, v)
+      case "QueryInterface" => parseQueryInterface(ctx, v)
+      case "QueryInterfaceContractId" => parseQueryInterfaceContractId(ctx, v)
       case "QueryContractKey" => parseQueryContractKey(ctx, v)
       case "AllocParty" => parseAllocParty(ctx, v)
       case "ListKnownParties" => parseListKnownParties(ctx, v)

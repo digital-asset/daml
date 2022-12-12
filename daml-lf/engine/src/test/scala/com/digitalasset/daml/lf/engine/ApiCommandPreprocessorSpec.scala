@@ -112,33 +112,33 @@ class ApiCommandPreprocessorSpec
 
     "reject improperly typed ApiCommands" in {
 
-      // TEST_EVIDENCE: Input Validation: well formed create API command is accepted
+      // TEST_EVIDENCE: Integrity: well formed create API command is accepted
       val validCreate = ApiCommand.Create(
         "Mod:Record",
         ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
       )
-      // TEST_EVIDENCE: Input Validation: well formed exercise API command is accepted
+      // TEST_EVIDENCE: Integrity: well formed exercise API command is accepted
       val validExeTemplate = ApiCommand.Exercise(
-        TemplateOrInterface.Template("Mod:Record"),
+        "Mod:Record",
         newCid,
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
-      // TEST_EVIDENCE: Input Validation: well formed exercise-by-key API command is accepted
+      // TEST_EVIDENCE: Integrity: well formed exercise-by-key API command is accepted
       val validExeByKey = ApiCommand.ExerciseByKey(
         "Mod:Record",
         valueParties,
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
-      // TEST_EVIDENCE: Input Validation: well formed exercise-by-interface command is accepted
+      // TEST_EVIDENCE: Integrity: well formed exercise-by-interface command is accepted
       val validExeInterface = ApiCommand.Exercise(
-        TemplateOrInterface.Interface("Mod:Iface"),
+        "Mod:Iface",
         newCid,
         "IfaceChoice",
         ValueUnit,
       )
-      // TEST_EVIDENCE: Input Validation: well formed create-and-exercise API command is accepted
+      // TEST_EVIDENCE: Integrity: well formed create-and-exercise API command is accepted
       val validCreateAndExe = ApiCommand.CreateAndExercise(
         "Mod:Record",
         ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
@@ -156,25 +156,23 @@ class ApiCommandPreprocessorSpec
 
       val errorTestCases = Table[ApiCommand, ResultOfATypeInvocation[_]](
         ("command", "error"),
-        // TEST_EVIDENCE: Input Validation: ill-formed create API command is rejected
+        // TEST_EVIDENCE: Integrity: ill-formed create API command is rejected
         validCreate.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validCreate.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
-        // TEST_EVIDENCE: Input Validation: ill-formed exercise API command is rejected
-        validExeTemplate.copy(typeId = TemplateOrInterface.Template("Mod:Undefined")) ->
-          a[Error.Preprocessing.Lookup],
-        validExeTemplate.copy(typeId = TemplateOrInterface.Interface("Mod:Undefined")) ->
+        // TEST_EVIDENCE: Integrity: ill-formed exercise API command is rejected
+        validExeTemplate.copy(typeId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExeTemplate.copy(choiceId = "Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExeTemplate.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
-        // TEST_EVIDENCE: Input Validation: exercise-by-interface command is rejected for a
+        // TEST_EVIDENCE: Integrity: exercise-by-interface command is rejected for a
         // choice of another interface.
         validExeInterface.copy(choiceId = "IfaceChoice2") ->
           a[Error.Preprocessing.Lookup],
-        // TEST_EVIDENCE: Input Validation: ill-formed exercise-by-key API command is rejected
+        // TEST_EVIDENCE: Integrity: ill-formed exercise-by-key API command is rejected
         validExeByKey.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExeByKey.copy(contractKey = ValueList(FrontStack(ValueInt64(42)))) ->
@@ -183,7 +181,7 @@ class ApiCommandPreprocessorSpec
           a[Error.Preprocessing.Lookup],
         validExeByKey.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
-        // TEST_EVIDENCE: Input Validation: ill-formed create-and-exercise API command is rejected
+        // TEST_EVIDENCE: Integrity: ill-formed create-and-exercise API command is rejected
         validCreateAndExe.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validCreateAndExe.copy(createArgument =
@@ -217,13 +215,13 @@ class ApiCommandPreprocessorSpec
         ValueRecord("", ImmArray("" -> valueParties, "" -> ValueContractId(culpritCid))),
       ),
       ApiCommand.Exercise(
-        TemplateOrInterface.Template("Mod:RecordRef"),
+        "Mod:RecordRef",
         innocentCid,
         "Change",
         ValueContractId(culpritCid),
       ),
       ApiCommand.Exercise(
-        TemplateOrInterface.Template("Mod:RecordRef"),
+        "Mod:RecordRef",
         culpritCid,
         "Change",
         ValueContractId(innocentCid),

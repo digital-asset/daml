@@ -17,16 +17,8 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:error:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/data",
-        "//daml-lf/engine",
-        "//daml-lf/language",
-        "//daml-lf/transaction",
-        "//daml-lf/validation",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-grpc",
-        "//ledger/participant-integration-api:participant-integration-api-proto_scala",
-        "//ledger/participant-state",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
@@ -62,7 +54,10 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
     ],
     tags = ["maven_coordinates=com.daml:error-test-lib:__VERSION__"],
-    visibility = ["//ledger:__subpackages__"],
+    visibility = [
+        "//ledger:__subpackages__",
+        "//test-evidence:__pkg__",
+    ],
     deps = [
         "//ledger/error",
         "//ledger/test-common",

@@ -83,11 +83,11 @@ object CommandServiceTest {
     readAs = domain.Party subst List("baz", "quux"),
   )
   private lazy val multiPartyJwt = jwtForParties(
-    actAs = domain.Party unsubst multiPartyJwp.submitter.toList,
-    readAs = domain.Party unsubst multiPartyJwp.readAs,
+    actAs = multiPartyJwp.submitter.toList,
+    readAs = multiPartyJwp.readAs,
     ledgerId = Some(multiPartyJwp.ledgerId.unwrap),
   )
-  private val tplId = domain.TemplateId("Foo", "Bar", "Baz")
+  private val tplId = domain.ContractTypeId.Template("Foo", "Bar", "Baz")
 
   implicit private val ignoredLoggingContext
       : LoggingContextOf[HLogging.InstanceUUID with HLogging.RequestID] =
@@ -106,13 +106,11 @@ object CommandServiceTest {
             Future {
               txns.add(req)
               import lav1.event.{CreatedEvent, Event}, Event.Event.Created
+              import com.daml.fetchcontracts.util.IdentifierConverters.apiIdentifier
               val creation = Event(
                 Created(
                   CreatedEvent(
-                    templateId = Some(
-                      lav1.value
-                        .Identifier(tplId.packageId, tplId.moduleName, tplId.entityName)
-                    ),
+                    templateId = Some(apiIdentifier(tplId)),
                     createArguments = Some(lav1.value.Record()),
                   )
                 )

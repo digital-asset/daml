@@ -8,22 +8,23 @@ import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
-import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{AuthServiceConfig, AuthServiceConfigCli}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{CommandConfiguration, IndexServiceConfig}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.platform.localstore.UserManagementConfig
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OParser
-
 import java.io.File
+import java.nio.file.Paths
 import java.time.Duration
 import java.util.UUID
+import com.daml.metrics.api.reporters.MetricsReporter
+
 import scala.jdk.DurationConverters.JavaDurationOps
 
 final case class CliConfig[Extra](
@@ -39,7 +40,6 @@ final case class CliConfig[Extra](
     bufferedStreamsPageSize: Int,
     eventsProcessingParallelism: Int,
     extra: Extra,
-    implicitPartyAllocation: Boolean,
     ledgerId: String,
     maxDeduplicationDuration: Option[Duration],
     maxInboundMessageSize: Int,
@@ -88,7 +88,6 @@ object CliConfig {
       bufferedStreamsPageSize = IndexServiceConfig.DefaultBufferedStreamsPageSize,
       eventsProcessingParallelism = IndexServiceConfig.DefaultEventsProcessingParallelism,
       extra = extra,
-      implicitPartyAllocation = false,
       ledgerId = UUID.randomUUID().toString,
       maxDeduplicationDuration = None,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
@@ -131,10 +130,11 @@ object CliConfig {
     val parser: OParser[_, CliConfig[Extra]] = OParser.sequence(
       builder.head(s"$name as a service"),
       builder.help("help").text("Print this help page."),
-      commandRunLegacy(getEnvVar, extraOptions),
+      commandRunLegacy(name, getEnvVar, extraOptions),
       commandDumpIndexMetadata,
-      commandRunHocon,
+      commandRunHocon(name),
       commandConvertConfig(getEnvVar, extraOptions),
+      commandPrintDefaultConfig(),
       builder.checkConfig(checkNoEmptyParticipant),
     )
 
@@ -169,13 +169,13 @@ object CliConfig {
       .unbounded()
       .action((files, cli) => cli.copy(configFiles = cli.configFiles ++ files))
 
-  private def commandRunHocon[Extra]: OParser[_, CliConfig[Extra]] = {
+  private def commandRunHocon[Extra](name: String): OParser[_, CliConfig[Extra]] = {
     val builder = OParser.builder[CliConfig[Extra]]
     OParser.sequence(
       builder
         .cmd("run")
         .text(
-          "Run Sandbox-on-X with configuration provided in HOCON files."
+          s"Run $name with configuration provided in HOCON files."
         )
         .action((_, config) => config.copy(mode = Mode.Run))
         .children(
@@ -189,6 +189,7 @@ object CliConfig {
   }
 
   private def commandRunLegacy[Extra](
+      name: String,
       getEnvVar: String => Option[String],
       extraOptions: OParser[_, CliConfig[Extra]],
   ): OParser[_, CliConfig[Extra]] =
@@ -196,7 +197,7 @@ object CliConfig {
       .builder[CliConfig[Extra]]
       .cmd("run-legacy-cli-config")
       .text(
-        "Run Sandbox-on-X in a legacy mode with cli-driven configuration."
+        s"Run $name in a legacy mode with cli-driven configuration."
       )
       .action((_, config) => config.copy(mode = Mode.RunLegacyCliConfig))
       .children(legacyCommand(getEnvVar, extraOptions))
@@ -213,6 +214,26 @@ object CliConfig {
       )
       .action((_, config) => config.copy(mode = Mode.ConvertConfig))
       .children(legacyCommand(getEnvVar, extraOptions))
+
+  private def commandPrintDefaultConfig[Extra](): OParser[_, CliConfig[Extra]] = {
+    val builder = OParser.builder[CliConfig[Extra]]
+    builder
+      .cmd("print-default-config")
+      .text(
+        "Prints default config to stdout or to a file"
+      )
+      .action((_, config) => config.copy(mode = Mode.PrintDefaultConfig(None)))
+      .children(
+        builder
+          .arg[String]("<output-file-path>")
+          .minOccurs(0)
+          .text("An optional output file")
+          .action((outputFilePath, config) =>
+            config.copy(mode = Mode.PrintDefaultConfig(Some(Paths.get(outputFilePath))))
+          ),
+        configKeyValueOption,
+      )
+  }
 
   def legacyCommand[Extra](
       getEnvVar: String => Option[String],

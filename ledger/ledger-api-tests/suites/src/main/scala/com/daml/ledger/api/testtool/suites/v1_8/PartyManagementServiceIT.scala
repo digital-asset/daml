@@ -6,18 +6,30 @@ package com.daml.ledger.api.testtool.suites.v1_8
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails
+import com.daml.ledger.api.v1.admin.party_management_service.{
+  AllocatePartyRequest,
+  AllocatePartyResponse,
+  GetPartiesRequest,
+  GetPartiesResponse,
+  PartyDetails,
+  UpdatePartyDetailsRequest,
+}
 import com.daml.ledger.client.binding
 import com.daml.ledger.test.model.Test.Dummy
 import com.daml.lf.data.Ref
 import scalaz.Tag
 import scalaz.syntax.tag.ToTagOps
-
 import java.util.regex.Pattern
+
+import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
+import com.daml.ledger.client.binding.Primitive
+import com.google.protobuf.field_mask.FieldMask
+
+import scala.concurrent.Future
 import scala.util.Random
 
-final class PartyManagementServiceIT extends LedgerTestSuite {
+final class PartyManagementServiceIT extends PartyManagementITBase {
+
   test(
     "PMNonEmptyParticipantID",
     "Asking for the participant identifier should return a non-empty string",
@@ -58,6 +70,77 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
       Tag.unwrap(party).nonEmpty,
       "The allocated party identifier is an empty string",
     )
+  })
+
+  test(
+    "PMAllocateWithLocalMetadataAnnotations",
+    "Successfully allocating a party with non-empty annotations",
+    enabled = features => features.userAndPartyLocalMetadataExtensions,
+    partyAllocation = allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    for {
+      allocate1 <- ledger.allocateParty(
+        AllocatePartyRequest(
+          localMetadata = Some(
+            ObjectMeta(annotations = Map("key1" -> "val1", "key2" -> "val2"))
+          )
+        )
+      )
+      allocatedParty = allocate1.partyDetails.get.party
+      expectedPartyDetails = PartyDetails(
+        party = allocatedParty,
+        displayName = "",
+        isLocal = true,
+        localMetadata = Some(
+          ObjectMeta(
+            resourceVersion = allocate1.partyDetails.get.localMetadata.get.resourceVersion,
+            annotations = Map(
+              "key1" -> "val1",
+              "key2" -> "val2",
+            ),
+          )
+        ),
+      )
+      _ = assertEquals(
+        allocate1,
+        expected = AllocatePartyResponse(
+          partyDetails = Some(
+            expectedPartyDetails
+          )
+        ),
+      )
+      get1 <- ledger.getParties(GetPartiesRequest(Seq(allocatedParty)))
+      _ = assertEquals(
+        get1,
+        expected = GetPartiesResponse(
+          partyDetails = Seq(
+            expectedPartyDetails
+          )
+        ),
+      )
+    } yield ()
+  })
+
+  test(
+    "PMFailToAllocateWhenAnnotationsHaveEmptyValues",
+    "Failing to allocate when annotations have empty values",
+    enabled = features => features.userAndPartyLocalMetadataExtensions,
+    partyAllocation = allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    for {
+      _ <- ledger
+        .allocateParty(
+          AllocatePartyRequest(
+            localMetadata = Some(
+              ObjectMeta(annotations = Map("key1" -> "val1", "key2" -> ""))
+            )
+          )
+        )
+        .mustFailWith(
+          "allocating a party",
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+        )
+    } yield ()
   })
 
   private val pMAllocateWithoutDisplayName = "PMAllocateWithoutDisplayName"
@@ -207,14 +290,25 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
     "It should get details for multiple parties, if they exist",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
+    val useMeta = ledger.features.userAndPartyLocalMetadataExtensions
     for {
       party1 <- ledger.allocateParty(
-        partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
+        partyIdHint = Some("PMGetPartiesDetails_" + Random.alphanumeric.take(10).mkString),
         displayName = Some("Alice"),
+        localMetadata = Some(
+          ObjectMeta(
+            annotations = Map("k1" -> "v1")
+          )
+        ),
       )
       party2 <- ledger.allocateParty(
-        partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
+        partyIdHint = Some("PMGetPartiesDetails_" + Random.alphanumeric.take(10).mkString),
         displayName = Some("Bob"),
+        localMetadata = Some(
+          ObjectMeta(
+            annotations = Map("k2" -> "v2")
+          )
+        ),
       )
       partyDetails <- ledger.getParties(
         Seq(party1, party2, binding.Primitive.Party("non-existent"))
@@ -223,16 +317,20 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
       zeroPartyDetails <- ledger.getParties(Seq.empty)
     } yield {
       assert(
-        partyDetails.sortBy(_.displayName) == Seq(
+        partyDetails.sortBy(_.displayName).map(unsetResourceVersion) == Seq(
           PartyDetails(
             party = Ref.Party.assertFromString(Tag.unwrap(party1)),
             displayName = "Alice",
             isLocal = true,
+            localMetadata =
+              if (useMeta) Some(ObjectMeta(annotations = Map("k1" -> "v1"))) else Some(ObjectMeta()),
           ),
           PartyDetails(
             party = Ref.Party.assertFromString(Tag.unwrap(party2)),
             displayName = "Bob",
             isLocal = true,
+            localMetadata =
+              if (useMeta) Some(ObjectMeta(annotations = Map("k2" -> "v2"))) else Some(ObjectMeta()),
           ),
         ),
         s"The allocated parties, ${Seq(party1, party2)}, were not retrieved successfully. Instead, got $partyDetails.",
@@ -253,10 +351,12 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
     "It should list all known, previously-allocated parties",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
+    val useMeta = ledger.features.userAndPartyLocalMetadataExtensions
     for {
       party1 <- ledger.allocateParty(
         partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
         displayName = None,
+        localMetadata = Some(ObjectMeta(annotations = Map("k1" -> "v1"))),
       )
       party2 <- ledger.allocateParty(
         partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
@@ -266,12 +366,41 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
         partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
         displayName = None,
       )
-      knownPartyIds <- ledger.listKnownParties()
+      knownPartyResp <- ledger.listKnownPartiesResp()
+      knownPartyIds = knownPartyResp.partyDetails.map(_.party).map(Primitive.Party(_)).toSet
     } yield {
       val allocatedPartyIds = Set(party1, party2, party3)
       assert(
         allocatedPartyIds subsetOf knownPartyIds,
         s"The allocated party IDs $allocatedPartyIds are not a subset of $knownPartyIds.",
+      )
+      val fetchedAllocatedPartiesSet = knownPartyResp.partyDetails.collect {
+        case details if allocatedPartyIds.contains(Primitive.Party(details.party)) =>
+          unsetResourceVersion(details)
+      }.toSet
+      assertEquals(
+        fetchedAllocatedPartiesSet,
+        expected = Set(
+          PartyDetails(
+            party = party1.toString,
+            displayName = "",
+            isLocal = true,
+            localMetadata =
+              if (useMeta) Some(ObjectMeta(annotations = Map("k1" -> "v1"))) else Some(ObjectMeta()),
+          ),
+          PartyDetails(
+            party = party2.toString,
+            displayName = "",
+            isLocal = true,
+            localMetadata = Some(ObjectMeta(annotations = Map.empty)),
+          ),
+          PartyDetails(
+            party = party3.toString,
+            displayName = "",
+            isLocal = true,
+            localMetadata = Some(ObjectMeta(annotations = Map.empty)),
+          ),
+        ),
       )
     }
   })
@@ -320,4 +449,89 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
     }
   })
 
+  test(
+    "UpdateAnnotationsOfNonLocalParty",
+    "Update annotations of a non-local party",
+    enabled = _.userAndPartyLocalMetadataExtensions,
+    partyAllocation = allocate(SingleParty, NoParties),
+  )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta)) =>
+    val isDistinctServers = alpha.endpointId != beta.endpointId && alpha.ledgerId != beta.ledgerId
+    if (isDistinctServers) {
+      for {
+        alphaAliceO <- alpha.getParties(Seq(alice)).map(_.headOption)
+        betaAliceO <- beta.getParties(Seq(alice)).map(_.headOption)
+        _ = {
+          assertDefined(alphaAliceO, "Party 'alice' on participant 'alpha'")
+          assertPartyDetails(
+            "Party 'alice' on participant 'alpha'",
+            alphaAliceO.get,
+            expectedParty = alice.toString,
+            expectedIsLocal = true,
+            expectedAnnotations = Map.empty,
+            resourceVersion => assert(resourceVersion.nonEmpty),
+          )
+
+          // Ledger implementations can choose not to publish a party to participants on which this party would be non-local
+          if (betaAliceO.isDefined) {
+            assertPartyDetails(
+              "Party 'alice' on participant 'beta'",
+              betaAliceO.get,
+              expectedParty = alice.toString,
+              expectedIsLocal = false,
+              expectedAnnotations = Map.empty,
+            )
+          }
+        }
+        _ <-
+          if (betaAliceO.isDefined) {
+            // updating a non-local party on participant beta:
+            for {
+              _ <- beta.updatePartyDetails(
+                UpdatePartyDetailsRequest(
+                  partyDetails = Some(
+                    PartyDetails(
+                      party = alice.toString,
+                      localMetadata = Some(ObjectMeta(annotations = Map("foo" -> "bar"))),
+                    )
+                  ),
+                  updateMask = Some(FieldMask(Seq("local_metadata.annotations"))),
+                )
+              )
+              updatedBetaAlice <- beta.getParties(Seq(alice)).map(_.head)
+            } yield {
+              assertPartyDetails(
+                "Party 'alice' after update on 'beta'",
+                actual = updatedBetaAlice,
+                expectedParty = alice.toString,
+                expectedIsLocal = false,
+                expectedAnnotations = Map("foo" -> "bar"),
+                resourceVersionAssertion = resourceVersion => assert(resourceVersion.nonEmpty),
+              )
+            }
+          } else {
+            Future.successful(())
+          }
+      } yield ()
+    } else Future.successful(())
+  })
+
+  /** Checks properties of PartyDetails field by field to help maintain forward compatibility of the test-tool with the Ledger API implementations.
+    */
+  private def assertPartyDetails(
+      context: String,
+      actual: PartyDetails,
+      expectedParty: String,
+      expectedIsLocal: Boolean,
+      expectedAnnotations: Map[String, String],
+      resourceVersionAssertion: String => Unit = _ => (),
+  ): Unit = {
+    assertEquals(s"$context - party", actual.party, expectedParty)
+    assertEquals(s"$context - isLocal", actual.isLocal, expectedIsLocal)
+    assertEquals(
+      s"$context - annotations",
+      actual.localMetadata.fold(Map.empty[String, String])(_.annotations),
+      expectedAnnotations,
+    )
+    resourceVersionAssertion(actual.localMetadata.fold("")(_.resourceVersion))
+  }
 }

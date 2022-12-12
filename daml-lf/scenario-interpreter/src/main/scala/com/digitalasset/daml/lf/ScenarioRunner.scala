@@ -14,10 +14,10 @@ import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.lf.speedy._
 import com.daml.lf.speedy.SExpr.{SExpr, SEValue, SEApp}
 import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.Speedy.OnLedgerMachine
 import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
-import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
@@ -28,7 +28,7 @@ import scala.util.{Failure, Success, Try}
   * @constructor Creates a runner using an instance of [[Speedy.Machine]].
   */
 final class ScenarioRunner private (
-    machine: Speedy.Machine,
+    machine: Speedy.OffLedgerMachine,
     initialSeed: crypto.Hash,
 ) {
   import ScenarioRunner._
@@ -49,7 +49,7 @@ final class ScenarioRunner private (
       steps += 1 // this counts the number of external `Need` interactions
       val res: SResult = machine.run()
       res match {
-        case SResultFinal(v, _) =>
+        case SResultFinal(v) =>
           finalValue = v
 
         case SResultError(err) =>
@@ -124,22 +124,27 @@ final class ScenarioRunner private (
   }
 }
 
-object ScenarioRunner {
+private[lf] object ScenarioRunner {
 
   def run(
-      buildMachine: () => Speedy.Machine,
+      buildMachine: () => Speedy.OffLedgerMachine,
       initialSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): ScenarioResult = {
     val machine = buildMachine()
     val runner = new ScenarioRunner(machine, initialSeed)
     handleUnsafe(runner.runUnsafe) match {
       case Left(err) =>
+        val stackTrace =
+          machine.getLastLocation match {
+            case None => ImmArray()
+            case Some(location) => ImmArray(location)
+          }
         ScenarioError(
           runner.ledger,
           machine.traceLog,
           machine.warningLog,
           runner.currentSubmission,
-          machine.stackTrace(),
+          stackTrace,
           err,
         )
       case Right(t) => t
@@ -170,7 +175,7 @@ object ScenarioRunner {
 
   // The interface we need from a ledger during submission. We allow abstracting over this so we can play
   // tricks like caching all responses in some benchmarks.
-  abstract class LedgerApi[R] {
+  private[lf] abstract class LedgerApi[R] {
     def lookupContract(
         coid: ContractId,
         actAs: Set[Party],
@@ -194,7 +199,7 @@ object ScenarioRunner {
     ): Either[Error, R]
   }
 
-  case class ScenarioLedgerApi(ledger: ScenarioLedger)
+  private[lf] case class ScenarioLedgerApi(ledger: ScenarioLedger)
       extends LedgerApi[ScenarioLedger.CommitResult] {
 
     override def lookupContract(
@@ -384,11 +389,11 @@ object ScenarioRunner {
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
       doEnrichment: Boolean = true,
   )(implicit loggingContext: LoggingContext): SubmissionResult[R] = {
-    val ledgerMachine = Speedy.Machine(
+    val ledgerMachine = Speedy.OnLedgerMachine(
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
       initialSeeding = InitialSeeding.TransactionSeed(seed),
-      expr = SEApp(commands, Array(SEValue(SValue.SToken))),
+      expr = SEApp(commands, Array(SValue.SToken)),
       committers = committers,
       readAs = readAs,
       traceLog = traceLog,
@@ -399,27 +404,26 @@ object ScenarioRunner {
     )
     // TODO (drsk) validate and propagate errors back to submitter
     // https://github.com/digital-asset/daml/issues/14108
-    val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     val enricher = if (doEnrichment) new EnricherImpl(compiledPackages) else NoEnricher
     import enricher._
 
     @tailrec
     def go(): SubmissionResult[R] = {
       ledgerMachine.run() match {
-        case SResult.SResultFinal(resultValue, Some(ctx)) =>
-          ctx match {
-            case PartialTransaction.Result(tx, locationInfo, _, _, _) =>
+        case SResult.SResultFinal(resultValue) =>
+          ledgerMachine.finish match {
+            case Right(OnLedgerMachine.Result(tx, locationInfo, _, _, _)) =>
               ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
                 case Left(err) =>
-                  SubmissionError(err, enrich(onLedger.incompleteTransaction))
+                  SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
                 case Right(r) =>
-                  Commit(r, resultValue, enrich(onLedger.incompleteTransaction))
+                  Commit(r, resultValue, enrich(ledgerMachine.incompleteTransaction))
               }
+            case Left(err) =>
+              throw err
           }
-        case SResult.SResultFinal(_, None) =>
-          throw new RuntimeException(s"Unexpected missing transaction")
         case SResultError(err) =>
-          SubmissionError(Error.RunnerException(err), enrich(onLedger.incompleteTransaction))
+          SubmissionError(Error.RunnerException(err), enrich(ledgerMachine.incompleteTransaction))
         case SResultNeedContract(coid, committers, callback) =>
           ledger.lookupContract(
             coid,
@@ -427,7 +431,7 @@ object ScenarioRunner {
             readAs,
             (vcoinst: VersionedContractInstance) => callback(vcoinst.unversioned),
           ) match {
-            case Left(err) => SubmissionError(err, enrich(onLedger.incompleteTransaction))
+            case Left(err) => SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
             case Right(_) => go()
           }
         case SResultNeedKey(keyWithMaintainers, committers, callback) =>
@@ -438,7 +442,7 @@ object ScenarioRunner {
             readAs,
             callback,
           ) match {
-            case Left(err) => SubmissionError(err, enrich(onLedger.incompleteTransaction))
+            case Left(err) => SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
             case Right(_) => go()
           }
         case SResultNeedTime(callback) =>

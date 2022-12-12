@@ -5,17 +5,17 @@ package com.daml.platform.apiserver.update
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.User
-import com.daml.ledger.participant.state.index.v2._
 import com.daml.lf.data.Ref
+import com.daml.platform.localstore.api.{ObjectMetaUpdate, UserUpdate}
 
 object UserUpdateMapper extends UpdateMapperBase {
 
   import UpdateRequestsPaths.UserPaths
 
-  type DomainObject = domain.User
-  type UpdateObject = UserUpdate
+  type Resource = domain.User
+  type Update = UserUpdate
 
-  override val fullUpdateTrie: UpdatePathsTrie = UserPaths.fullUpdateTrie
+  override val fullResourceTrie: UpdatePathsTrie = UserPaths.fullUpdateTrie
 
   override def makeUpdateObject(user: User, updateTrie: UpdatePathsTrie): Result[UserUpdate] = {
     for {
@@ -25,6 +25,7 @@ object UserUpdateMapper extends UpdateMapperBase {
     } yield {
       UserUpdate(
         id = user.id,
+        identityProviderId = user.identityProviderId,
         primaryPartyUpdateO = primaryPartyUpdate,
         isDeactivatedUpdateO = isDeactivatedUpdate,
         metadataUpdate = ObjectMetaUpdate(
@@ -38,10 +39,10 @@ object UserUpdateMapper extends UpdateMapperBase {
   def resolveAnnotationsUpdate(
       updateTrie: UpdatePathsTrie,
       newValue: Map[String, String],
-  ): Result[Option[AnnotationsUpdate]] =
+  ): Result[Option[Map[String, String]]] =
     updateTrie
       .findMatch(UserPaths.annotations)
-      .fold(noUpdate[AnnotationsUpdate])(updateMatch =>
+      .fold(noUpdate[Map[String, String]])(updateMatch =>
         makeAnnotationsUpdate(newValue = newValue, updateMatch = updateMatch)
       )
 

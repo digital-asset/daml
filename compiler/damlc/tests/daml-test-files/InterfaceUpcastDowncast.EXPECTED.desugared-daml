@@ -37,12 +37,30 @@ instance DA.Internal.Desugar.HasIsInterfaceType A where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq A where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive A where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+instance DA.Internal.Desugar.HasToAnyChoice A DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice A DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded A DA.Internal.Desugar.Archive (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @A cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @A cid pred)
+instance DA.Internal.Desugar.HasExercise A DA.Internal.Desugar.Archive (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @A cid)
+        arg
 instance DA.Internal.Desugar.HasToAnyChoice A ChoiceA (Int) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [A])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice A ChoiceA (Int) where
-  _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [A])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded A ChoiceA (Int) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -59,6 +77,19 @@ instance DA.Internal.Desugar.HasExercise A ChoiceA (Int) where
 data ChoiceA
   = ChoiceA {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+_choice_AArchive :
+  (A -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId A
+   -> A
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming A,
+   DA.Internal.Desugar.Optional (A
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_AArchive
+  = (\ this arg@DA.Internal.Desugar.Archive
+       -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
 _choice_AChoiceA :
   (A -> ChoiceA -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId A
@@ -75,6 +106,8 @@ _choice_AChoiceA
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView A EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView A EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
 data GHC.Types.DamlInterface => B = B GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep B where
   _interfaceTypeRep
@@ -113,12 +146,30 @@ instance DA.Internal.Desugar.HasIsInterfaceType B where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq B where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive B where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+instance DA.Internal.Desugar.HasToAnyChoice B DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice B DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded B DA.Internal.Desugar.Archive (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @B cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @B cid pred)
+instance DA.Internal.Desugar.HasExercise B DA.Internal.Desugar.Archive (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @B cid)
+        arg
 instance DA.Internal.Desugar.HasToAnyChoice B ChoiceB (Int) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [B])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice B ChoiceB (Int) where
-  _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [B])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded B ChoiceB (Int) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -135,6 +186,19 @@ instance DA.Internal.Desugar.HasExercise B ChoiceB (Int) where
 data ChoiceB
   = ChoiceB {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+_choice_BArchive :
+  (B -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId B
+   -> B
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming B,
+   DA.Internal.Desugar.Optional (B
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_BArchive
+  = (\ this arg@DA.Internal.Desugar.Archive
+       -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
 _choice_BChoiceB :
   (B -> ChoiceB -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId B
@@ -153,6 +217,8 @@ _choice_BChoiceB
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView B EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView B EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
 data GHC.Types.DamlTemplate => T1
   = T1 {p1 : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -199,9 +265,9 @@ instance DA.Internal.Desugar.HasIsInterfaceType T1 where
 instance DA.Internal.Desugar.HasExercise T1 DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice T1 DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice T1 DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 _choice_T1Archive :
   (T1 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T1
@@ -226,7 +292,7 @@ _method_T1_A_T1_getOwner
       @A
       @T1
       @"getOwner"
-      \ this@T1 {..} -> let _ = this in let getOwner = p1 in getOwner
+      \ this@T1 {..} -> let _ = this in let $getOwner = p1 in $getOwner
 _view_T1_A_T1 : DA.Internal.Desugar.InterfaceView T1 A T1
 _view_T1_A_T1
   = DA.Internal.Desugar.mkInterfaceView
@@ -234,7 +300,7 @@ _view_T1_A_T1
       @A
       @T1
       \ this@T1 {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
+        -> let _ = this in let $view = EmptyInterfaceView in $view
 instance DA.Internal.Desugar.HasToInterface T1 A where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T1 A where
@@ -253,7 +319,7 @@ _method_T1_B_T1_getCoolness
       @T1
       @"getCoolness"
       \ this@T1 {..}
-        -> let _ = this in let getCoolness = 20 in getCoolness
+        -> let _ = this in let $getCoolness = 20 in $getCoolness
 _view_T1_B_T1 : DA.Internal.Desugar.InterfaceView T1 B T1
 _view_T1_B_T1
   = DA.Internal.Desugar.mkInterfaceView
@@ -261,7 +327,7 @@ _view_T1_B_T1
       @B
       @T1
       \ this@T1 {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
+        -> let _ = this in let $view = EmptyInterfaceView in $view
 instance DA.Internal.Desugar.HasToInterface T1 B where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T1 B where
@@ -313,9 +379,9 @@ instance DA.Internal.Desugar.HasIsInterfaceType T2 where
 instance DA.Internal.Desugar.HasExercise T2 DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice T2 DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice T2 DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 _choice_T2Archive :
   (T2 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T2
@@ -340,7 +406,7 @@ _method_T2_A_T2_getOwner
       @A
       @T2
       @"getOwner"
-      \ this@T2 {..} -> let _ = this in let getOwner = p2 in getOwner
+      \ this@T2 {..} -> let _ = this in let $getOwner = p2 in $getOwner
 _view_T2_A_T2 : DA.Internal.Desugar.InterfaceView T2 A T2
 _view_T2_A_T2
   = DA.Internal.Desugar.mkInterfaceView
@@ -348,7 +414,7 @@ _view_T2_A_T2
       @A
       @T2
       \ this@T2 {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
+        -> let _ = this in let $view = EmptyInterfaceView in $view
 instance DA.Internal.Desugar.HasToInterface T2 A where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T2 A where
@@ -382,7 +448,7 @@ main
               fetchPair2 <- fetchFromInterface @B cidt2a
               assertMsg
                 "fetchPair1 != Some (cidt1b, t1b)"
-                (fetchPair1 == Some (cidt1b, t1b))
+                (fetchPair1 == Some userWrittenTuple (cidt1b, t1b))
               assertMsg "fetchPair2 != None" (isNone fetchPair2)
               exercise cidt1a ChoiceA
               exercise cidt1b ChoiceB

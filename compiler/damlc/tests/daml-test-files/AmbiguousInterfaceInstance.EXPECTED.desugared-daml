@@ -49,9 +49,9 @@ instance DA.Internal.Desugar.HasIsInterfaceType Foo where
 instance DA.Internal.Desugar.HasExercise Foo DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice Foo DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Foo DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 _choice_FooArchive :
   (Foo -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Foo
@@ -76,14 +76,14 @@ _method_Foo_Bar_Foo_bar
       @Bar
       @Foo
       @"bar"
-      \ this@Foo {..} -> let _ = this in let bar = False in bar
+      \ this@Foo {..} -> let _ = this in let $bar = False in $bar
 _view_Foo_Bar_Foo : DA.Internal.Desugar.InterfaceView Foo Bar Foo
 _view_Foo_Bar_Foo
   = DA.Internal.Desugar.mkInterfaceView
       @Foo
       @Bar
       @Foo
-      \ this@Foo {..} -> let _ = this in let view = BarView {} in view
+      \ this@Foo {..} -> let _ = this in let $view = BarView {} in $view
 instance DA.Internal.Desugar.HasToInterface Foo Bar where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Foo Bar where
@@ -120,8 +120,43 @@ instance DA.Internal.Desugar.HasIsInterfaceType Bar where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Bar where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive Bar where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+instance DA.Internal.Desugar.HasToAnyChoice Bar DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Bar DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded Bar DA.Internal.Desugar.Archive (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Bar cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Bar cid pred)
+instance DA.Internal.Desugar.HasExercise Bar DA.Internal.Desugar.Archive (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Bar cid)
+        arg
+_choice_BarArchive :
+  (Bar -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId Bar
+   -> Bar
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming Bar,
+   DA.Internal.Desugar.Optional (Bar
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_BarArchive
+  = (\ this arg@DA.Internal.Desugar.Archive
+       -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView Bar BarView where
   _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView Bar BarView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
 _interface_instance_Bar_Bar_Foo :
   DA.Internal.Desugar.InterfaceInstance Bar Bar Foo
 _interface_instance_Bar_Bar_Foo
@@ -134,14 +169,14 @@ _method_Bar_Bar_Foo_bar
       @Bar
       @Foo
       @"bar"
-      \ this@Foo {..} -> let _ = this in let bar = True in bar
+      \ this@Foo {..} -> let _ = this in let $bar = True in $bar
 _view_Bar_Bar_Foo : DA.Internal.Desugar.InterfaceView Bar Bar Foo
 _view_Bar_Bar_Foo
   = DA.Internal.Desugar.mkInterfaceView
       @Bar
       @Bar
       @Foo
-      \ this@Foo {..} -> let _ = this in let view = BarView {} in view
+      \ this@Foo {..} -> let _ = this in let $view = BarView {} in $view
 instance DA.Internal.Desugar.HasToInterface Foo Bar where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Foo Bar where

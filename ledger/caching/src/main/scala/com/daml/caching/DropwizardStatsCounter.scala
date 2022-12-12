@@ -3,9 +3,8 @@
 
 package com.daml.caching
 
-import java.util.concurrent.TimeUnit
-
 import com.daml.metrics.CacheMetrics
+import com.daml.metrics.api.MetricsContext
 import com.github.benmanes.caffeine.cache.RemovalCause
 import com.github.benmanes.caffeine.cache.stats.{CacheStats, StatsCounter}
 
@@ -14,40 +13,20 @@ private[caching] final class DropwizardStatsCounter(
 ) extends StatsCounter {
 
   override def recordHits(newHits: Int): Unit =
-    metrics.hitCount.inc(newHits.toLong)
+    metrics.hitCount.inc(newHits.toLong)(MetricsContext.Empty)
 
   override def recordMisses(newMisses: Int): Unit =
-    metrics.missCount.inc(newMisses.toLong)
+    metrics.missCount.inc(newMisses.toLong)(MetricsContext.Empty)
 
-  override def recordLoadSuccess(loadTimeNanos: Long): Unit = {
-    metrics.loadSuccessCount.inc()
-    metrics.totalLoadTime.update(loadTimeNanos, TimeUnit.NANOSECONDS)
-  }
+  override def recordLoadSuccess(loadTimeNanos: Long): Unit = ()
 
-  override def recordLoadFailure(loadTimeNanos: Long): Unit = {
-    metrics.loadFailureCount.inc()
-    metrics.totalLoadTime.update(loadTimeNanos, TimeUnit.NANOSECONDS)
-  }
+  override def recordLoadFailure(loadTimeNanos: Long): Unit = ()
 
   override def recordEviction(weight: Int, cause: RemovalCause): Unit = {
     metrics.evictionCount.inc()
-    metrics.evictionWeight.inc(weight.toLong)
+    metrics.evictionWeight.inc(weight.toLong)(MetricsContext.Empty)
   }
 
-  override def recordEviction(): Unit = {
-    metrics.evictionCount.inc()
-    metrics.evictionWeight.inc()
-  }
-
-  override def snapshot(): CacheStats =
-    new CacheStats(
-      metrics.hitCount.getCount,
-      metrics.missCount.getCount,
-      metrics.loadSuccessCount.getCount,
-      metrics.loadFailureCount.getCount,
-      metrics.totalLoadTime.getCount,
-      metrics.evictionCount.getCount,
-      metrics.evictionWeight.getCount,
-    )
+  override def snapshot(): CacheStats = CacheStats.empty
 
 }

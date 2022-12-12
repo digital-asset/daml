@@ -97,6 +97,37 @@ genrule(
 )
 
 genrule(
+    name = "index",
+    srcs = [":sources"],
+    outs = ["index.rst"],
+    cmd = """
+set -euo pipefail
+
+DIR=$$(mktemp -d)
+mkdir -p $$DIR/docs
+tar xf $(location :sources) -C $$DIR/docs
+cat << EOF >> $@
+Daml Files
+----------
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 0
+   :hidden:
+
+   self
+$$(cd $$DIR/docs/source; find . -name \\*.rst | sed 's:\\./\\(.*\\).rst:    \\1 <\\1>:')
+
+Canton References
+-----------------
+
+.. toctree::
+   canton-refs
+EOF
+    """,
+)
+
+genrule(
     name = "sources",
     srcs = glob(["source/**"]) + [
         "//compiler/damlc:daml-base-rst.tar.gz",
@@ -224,7 +255,7 @@ genrule(
         "configs/html/conf.py",
         "configs/pdf/conf.py",
         "configs/pdf/logo.png",
-        "configs/pdf/index.rst",
+        ":index",
         ":sources",
         ":theme",
         "//templates:templates-tarball",
@@ -248,8 +279,7 @@ genrule(
     cp $(location configs/pdf/conf.py) $$DIR/docs/configs/pdf
     sed -i "s,__VERSION__,"{sdk}"," $$DIR/docs/configs/html/conf.py
     sed -i "s,__VERSION__,"{sdk}"," $$DIR/docs/configs/pdf/conf.py
-    mv $$DIR/docs/source/index.rst $$DIR/docs/configs/html
-    cp $(location configs/pdf/index.rst) $$DIR/docs/configs/pdf
+    cp $(location index) $$DIR/docs/source/index.rst
 
     cp $(location configs/pdf/logo.png) $$DIR/docs/configs/pdf
 
@@ -301,16 +331,7 @@ export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
     mkdir -p $$DIR/source $$DIR/target
 
     tar xf $(location sphinx-source-tree) -C $$DIR/source --strip-components=1
-    mv $$DIR/source/configs/{name}/index.rst $$DIR/source/source/
     mv $(location :canton-refs.rst) $$DIR/source/source
-    cat << EOF >> $$DIR/source/source/index.rst
-
-Stub
-----
-
-.. toctree::
-   canton-refs
-EOF
 
     if ! docs/scripts/check-closing-quotes.sh $$DIR/source docs/scripts/check-closing-quotes.sh.allow; then
         exit 1
@@ -700,14 +721,24 @@ daml_test(
 )
 
 daml_test(
-    name = "daml-intro-daml-test",
+    name = "daml-intro-daml-test-excl-8-9-10",
     srcs = glob(
         ["source/daml/intro/daml/**/*.daml"],
         exclude = [
             "source/daml/intro/daml/daml-intro-8/**",
             "source/daml/intro/daml/daml-intro-9/**",
+            "source/daml/intro/daml/daml-intro-10/**",
         ],
     ),
+    deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_test(
+    name = "daml-intro-daml-10-test",
+    srcs = glob(
+        ["source/daml/intro/daml/daml-intro-10/**/*.daml"],
+    ),
+    additional_compiler_flags = ["--ghc-option=-Wwarn=incomplete-patterns"],
     deps = ["//daml-script/daml:daml-script.dar"],
 )
 

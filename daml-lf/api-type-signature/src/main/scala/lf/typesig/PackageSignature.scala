@@ -34,14 +34,9 @@ final case class PackageSignature(
     packageId: PackageId,
     metadata: Option[PackageMetadata],
     typeDecls: Map[QualifiedName, PackageSignature.TypeDecl],
-    @deprecatedName("astInterfaces", "2.4.0") interfaces: Map[QualifiedName, DefInterface.FWT],
+    interfaces: Map[QualifiedName, DefInterface.FWT],
 ) {
   import PackageSignature.TypeDecl
-
-  @deprecated("renamed to interfaces", since = "2.4.0")
-  def astInterfaces: interfaces.type = interfaces
-  @deprecated("renamed to getInterfaces", since = "2.4.0")
-  def getAstInterfaces: j.Map[QualifiedName, DefInterface.FWT] = getInterfaces
 
   def getTypeDecls: j.Map[QualifiedName, TypeDecl] = typeDecls.asJava
   def getInterfaces: j.Map[QualifiedName, DefInterface.FWT] = interfaces.asJava
@@ -224,7 +219,7 @@ object PackageSignature {
     */
   def resolveRetroImplements[S, CC[B] <: Seq[B] with SeqOps[B, CC, CC[B]]](
       s: S,
-      @deprecatedName("newInterfaces", "2.4.0") newSignatures: CC[PackageSignature],
+      newSignatures: CC[PackageSignature],
   )(
       findPackage: GetterSetterAt[PackageId, S, PackageSignature]
   ): (S, CC[PackageSignature]) = {
@@ -247,12 +242,6 @@ object PackageSignature {
     }
   }
 
-  @deprecated("renamed to findInterface", since = "2.4.0")
-  def findAstInterface(
-      findPackage: PartialFunction[PackageId, PackageSignature]
-  ): PartialFunction[Ref.TypeConName, DefInterface.FWT] =
-    findInterface(findPackage)
-
   /** An argument for [[PackageSignature#resolveChoices]] given a package database,
     * such as json-api's `LedgerReader.PackageStore`.
     */
@@ -269,10 +258,7 @@ object PackageSignature {
     * The function will not match if the definition is missing or is not a record.
     */
   def resolveInterfaceViewType(
-      @deprecatedName("findInterface", "2.4.0") findPackage: PartialFunction[
-        PackageId,
-        PackageSignature,
-      ]
+      findPackage: PartialFunction[PackageId, PackageSignature]
   ): PartialFunction[Ref.TypeConName, DefInterface.ViewTypeFWT] =
     Function unlift { tcn =>
       findPackage.lift(tcn.packageId) flatMap (_ resolveInterfaceViewType tcn.qualifiedName)

@@ -42,7 +42,7 @@ applications in production, but they differ in terms of enterprise and non-funct
    * - `Horizontal scalability <https://docs.daml.com/canton/usermanual/ha.html#sequencer>`_
      - Yes
      - No
-   * - `Ledger Pruning <https://docs.daml.com/canton/usermanual/operational_processes.html#ledger-pruning>`_
+   * - `Ledger Pruning <https://docs.daml.com/canton/usermanual/pruning.html>`_
      - Yes
      - No
    * - Local contract store in PostgreSQL
@@ -136,9 +136,5 @@ Next Steps
 - Use ``daml --help`` to see all the commands that the Daml assistant (``daml``) provides.
 - If you run into any other problems, you can use the :doc:`support page </support/support>` to get in touch with us.
 
-.. toctree::
-   :hidden:
 
-   path-variables
-   manual-download
 

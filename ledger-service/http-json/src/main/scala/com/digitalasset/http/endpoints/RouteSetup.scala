@@ -15,30 +15,30 @@ import akka.http.scaladsl.model.headers.{
 import akka.stream.Materializer
 import Endpoints.ET
 import EndpointsCompanion._
-import com.codahale.metrics.Timer
+import akka.stream.scaladsl.Source
+import akka.util.ByteString
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
-import com.daml.metrics.Metrics
 import com.daml.scalautil.Statement.discard
 import domain.{JwtPayloadG, JwtPayloadLedgerIdOnly, JwtPayloadTag, JwtWritePayload}
 import json._
 import util.FutureUtil.{either, eitherT}
 import util.Logging.{InstanceUUID, RequestID}
-import util.toLedgerId
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import lav1.value.{Value => ApiValue}
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
-import scalaz.{-\/, \/, \/-, EitherT, Traverse}
+import scalaz.{-\/, EitherT, Traverse, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 
 private[http] final class RouteSetup(
     allowNonHttps: Boolean,
@@ -52,40 +52,12 @@ private[http] final class RouteSetup(
   import encoder.implicits._
   import util.ErrorOps._
 
-  def proxyWithCommand[A: JsonReader, R](
-      fn: (Jwt, A) => Future[Error \/ R]
-  )(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[R] =
-    for {
-      t2 <- inputJsVal(req): ET[(Jwt, JsValue)]
-      (jwt, reqBody) = t2
-      a <- either(SprayJson.decode[A](reqBody).liftErr(InvalidUserInput)): ET[A]
-      b <- eitherT(handleFutureEitherFailure(fn(jwt, a))): ET[R]
-    } yield b
-
-  private[endpoints] def proxyWithCommandET[A: JsonReader, R](
-      fn: (Jwt, A) => ET[R]
-  )(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[R] = proxyWithCommand((jwt, a: A) => fn(jwt, a).run)(req)
-
-  def proxyWithoutCommand[A](
-      fn: (Jwt, LedgerApiDomain.LedgerId) => Future[A]
-  )(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[A] =
-    for {
-      t3 <- inputAndJwtPayload[JwtPayloadLedgerIdOnly](req).leftMap(it => it: Error)
-      a <- eitherT(handleFutureFailure(fn(t3._1, toLedgerId(t3._2.ledgerId)))): ET[A]
-    } yield a
-
   private[endpoints] def handleCommand[T[_]](req: HttpRequest)(
       fn: (
           Jwt,
           JwtWritePayload,
           JsValue,
-          Timer.Context,
+          TimerHandle,
       ) => LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => ET[
         T[ApiValue]
       ]
@@ -93,11 +65,11 @@ private[http] final class RouteSetup(
       lc: LoggingContextOf[InstanceUUID with RequestID],
       ev1: JsonWriter[T[JsValue]],
       ev2: Traverse[T],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): ET[domain.SyncResponse[JsValue]] =
     for {
       parseAndDecodeTimerCtx <- getParseAndDecodeTimerCtx()
-      _ <- EitherT.pure(metrics.daml.HttpJsonApi.commandSubmissionThroughput.mark())
+      _ <- EitherT.pure(metrics.commandSubmissionThroughput.mark())
       t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
       (jwt, jwtPayload, reqBody) = t3
       resp <- withJwtPayloadLoggingContext(jwtPayload)(
@@ -131,11 +103,11 @@ private[http] final class RouteSetup(
     eitherT(input(req)).flatMap(it => withJwtPayload[String, P](it))
 
   def getParseAndDecodeTimerCtx()(implicit
-      metrics: Metrics
-  ): ET[Timer.Context] =
-    EitherT.pure(metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.time())
+      metrics: HttpJsonApiMetrics
+  ): ET[TimerHandle] =
+    EitherT.pure(metrics.incomingJsonParsingAndValidationTimer.startAsync())
 
-  private[endpoints] def input(req: HttpRequest)(implicit
+  private[http] def input(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ (Jwt, String)] = {
     findJwt(req) match {
@@ -147,10 +119,23 @@ private[http] final class RouteSetup(
     }
   }
 
+  private[http] def inputSource(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Future[Error \/ (Jwt, JwtPayloadLedgerIdOnly, Source[ByteString, Any])] =
+    findJwt(req) match {
+      case e @ -\/(_) =>
+        discard { req.entity.discardBytes(mat) }
+        Future.successful(e)
+      case \/-(j) =>
+        withJwtPayload[Source[ByteString, Any], JwtPayloadLedgerIdOnly](
+          (j, req.entity.dataBytes)
+        ).run
+    }
+
   private[this] def data(entity: RequestEntity): Future[String] =
     entity.toStrict(maxTimeToCollectRequest).map(_.data.utf8String)
 
-  private[this] def inputJsVal(req: HttpRequest)(implicit
+  private[http] def inputJsVal(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[(Jwt, JsValue)] =
     for {
@@ -181,7 +166,7 @@ private[http] final class RouteSetup(
     }
 }
 
-private[endpoints] object RouteSetup {
+private[http] object RouteSetup {
   import Endpoints.IntoEndpointsError
 
   private val logger = ContextualizedLogger.get(getClass)
@@ -200,12 +185,12 @@ private[endpoints] object RouteSetup {
       "read_as" -> jwtPayload.readAs.toString,
     ).run(fn)
 
-  private[endpoints] def handleFutureFailure[A](fa: Future[A])(implicit
+  private[http] def handleFutureFailure[A](fa: Future[A])(implicit
       ec: ExecutionContext
   ): Future[Error \/ A] =
     fa.map(a => \/-(a)).recover(Error.fromThrowable andThen (-\/(_)))
 
-  private[endpoints] def handleFutureEitherFailure[A, B](fa: Future[A \/ B])(implicit
+  private[http] def handleFutureEitherFailure[A, B](fa: Future[A \/ B])(implicit
       ec: ExecutionContext,
       A: IntoEndpointsError[A],
   ): Future[Error \/ B] =

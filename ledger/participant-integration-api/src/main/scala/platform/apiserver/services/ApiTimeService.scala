@@ -4,13 +4,12 @@
 package com.daml.platform.apiserver.services
 
 import java.time.Instant
-
-import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion._
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement
 import com.daml.ledger.api.domain.{LedgerId, optionalLedgerId}
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.daml.ledger.api.v1.testing.time_service._
@@ -27,23 +26,26 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import com.daml.timer.Timeout._
+import io.grpc.stub.StreamObserver
 
 import scala.concurrent.duration.Duration
+import scala.util.{Failure, Success}
 
 private[apiserver] final class ApiTimeService private (
     val ledgerId: LedgerId,
     backend: TimeServiceBackend,
     apiStreamShutdownTimeout: Duration,
 )(implicit
-    protected val mat: Materializer,
-    protected val esf: ExecutionSequencerFactory,
+    mat: Materializer,
+    esf: ExecutionSequencerFactory,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
-) extends TimeServiceAkkaGrpc
+) extends TimeServiceGrpc.TimeService
+    with StreamingServiceLifecycleManagement
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+  protected implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val dispatcher = SignalDispatcher[Instant]()
@@ -54,9 +56,10 @@ private[apiserver] final class ApiTimeService private (
     s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}"
   )
 
-  override protected def getTimeSource(
-      request: GetTimeRequest
-  ): Source[GetTimeResponse, NotUsed] = {
+  def getTime(
+      request: GetTimeRequest,
+      responseObserver: StreamObserver[GetTimeResponse],
+  ): Unit = registerStream(responseObserver) {
     val validated =
       matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
     validated.fold(
@@ -101,7 +104,7 @@ private[apiserver] final class ApiTimeService private (
         )
     }
 
-    val result = for {
+    val validatedInput: Either[StatusRuntimeException, (Instant, Instant)] = for {
       _ <- matchLedgerId(ledgerId)(optionalLedgerId(request.ledgerId))
       expectedTime <- FieldValidations
         .requirePresence(request.currentTime, "current_time")
@@ -117,22 +120,24 @@ private[apiserver] final class ApiTimeService private (
             )
           )
       }
-    } yield {
-      updateTime(expectedTime, requestedTime)
-        .map { _ =>
+    } yield (expectedTime, requestedTime)
+    val result: Future[Either[StatusRuntimeException, Empty]] = validatedInput match {
+      case Left(err) => Future.successful(Left(err))
+      case Right((expectedTime, requestedTime)) =>
+        updateTime(expectedTime, requestedTime) map (_.map { _ =>
           dispatcher.signal()
           Empty()
-        }
-        .andThen(logger.logErrorsOnCall[Empty])
+        })
     }
 
-    result.fold(
-      { error =>
-        logger.warn(s"Failed to set time for request $request: ${error.getMessage}")
-        Future.failed(error)
-      },
-      identity,
-    )
+    result
+      .andThen(logger.logErrorsOnCall)
+      .transform(_.flatMap {
+        case Left(error) =>
+          logger.warn(s"Failed to set time for request $request: ${error.getMessage}")
+          Failure(error)
+        case Right(r) => Success(r)
+      })
   }
 
   override def bindService(): ServerServiceDefinition =

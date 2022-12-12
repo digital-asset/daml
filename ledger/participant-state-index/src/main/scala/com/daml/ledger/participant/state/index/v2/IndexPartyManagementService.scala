@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.index.v2
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.api.domain.{LedgerOffset, PartyDetails, PartyEntry}
+import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.lf.data.Ref.{ParticipantId, Party}
 import com.daml.logging.LoggingContext
 
@@ -19,9 +19,9 @@ trait IndexPartyManagementService {
 
   def getParties(
       parties: Seq[Party]
-  )(implicit loggingContext: LoggingContext): Future[List[PartyDetails]]
+  )(implicit loggingContext: LoggingContext): Future[List[IndexerPartyDetails]]
 
-  def listKnownParties()(implicit loggingContext: LoggingContext): Future[List[PartyDetails]]
+  def listKnownParties()(implicit loggingContext: LoggingContext): Future[List[IndexerPartyDetails]]
 
   def partyEntries(
       startExclusive: Option[LedgerOffset.Absolute]

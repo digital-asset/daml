@@ -3,7 +3,7 @@
 
 package com.daml.http.dbbackend
 
-import com.daml.metrics.Metrics
+import com.daml.http.metrics.HttpJsonApiMetrics
 import scalaz.Liskov, Liskov.<~<
 
 /** Incompatible JDBC operations and settings, selected by
@@ -18,7 +18,7 @@ final class SupportedJdbcDriver[+Q] private (
   def configure(tablePrefix: String, extraConf: Map[String, String], tpIdCacheMaxEntries: Long)(
       implicit
       Q: Q <~< Staged,
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Either[String, SupportedJdbcDriver.TC] = {
     val staged: Staged = Q(q)
     import staged.{backend, ipol}

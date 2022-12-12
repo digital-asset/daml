@@ -4,7 +4,7 @@
 Introduction to the Daml Standard Library
 =========================================
 
-In chapters :doc:`3_Data` and :doc:`10_Functional101` you learnt how to define your own data types and functions. But of course you don't have to implement everything from scratch. Daml comes with the Daml Standard Library which contains types, functions, and typeclasses that cover a large range of use-cases. In this chapter, you'll get an overview of the essentials, but also learn how to browse and search this library to find functions. Being proficient with the Standard Library will make you considerably more efficient writing Daml code. Specifically, this chapter covers:
+In :doc:`3_Data` and :doc:`10_Functional101` you learned how to define your own data types and functions. But of course you don't have to implement everything from scratch. Daml comes with the Daml Standard Library, which contains types, functions and typeclasses that cover a large range of use-cases. In this chapter, you'll get an overview of the essentials, but also learn how to browse and search this library to find functions. Being proficient with the Standard Library will make you considerably more efficient writing Daml code. Specifically, this chapter covers:
 
 - The Prelude
 - Important types from the Standard Library, and associated functions and typeclasses
@@ -39,9 +39,9 @@ Tuples
 In addition to the 2-tuple you have already seen, the Prelude contains definitions for tuples of size up to 15.
 Tuples allow you to store mixed data in an ad-hoc fashion. Common use-cases are return values from functions
 consisting of several pieces or passing around data in folds, as you saw in :ref:`folds`. 
-An example of a relatively wide Tuple can be found in the test modules of the chapter 8 project.
+An example of a relatively wide Tuple can be found in the test modules of the :doc:`8_Exceptions` project.
 ``Test.Intro.Asset.TradeSetup.tradeSetup`` returns the allocated parties and active contracts in a long tuple.
-``Test.Intro.Asset.MultiTrade.testMultiTrade`` puts them back into scope using pattern matching.
+``Test.Intro.Asset.MultiTrade.testMultiTrade`` puts them back into scope using pattern matching:
 
 .. literalinclude:: daml/daml-intro-9/daml/Test/Intro/Asset/TradeSetup.daml
   :language: daml
@@ -79,7 +79,7 @@ The ``Optional`` type represents a value that may be missing. It's the closest t
     // Do something else
   }
 
-In Daml the same thing would be expressed as
+In Daml the same thing would be expressed as:
 
 .. literalinclude:: daml/daml-intro-11/daml/Main.daml
   :language: daml
@@ -183,7 +183,7 @@ For almost all the types and typeclasses presented above, the Standard Library c
 
 You get the idea, the names are fairly descriptive.
 
-Other than the typeclasses defined in Prelude, there are two modules generalizing concepts you've already learnt about, which are worth knowing about: ``Foldable`` and ``Traversable``. In :ref:`looping` you learned all about folds and their Action equivalents. All the examples there were based on lists, but there are many other possible iterators. This is expressed in two additional typeclasses: :doc:`/daml/stdlib/DA-Traversable`, and :doc:`/daml/stdlib/DA-Foldable`. For more detail on these concepts, please refer to the literature in :ref:`haskell-connection`, or `https://wiki.haskell.org/Foldable_and_Traversable <https://wiki.haskell.org/Foldable_and_Traversable>`__.
+Other than the typeclasses defined in Prelude, there are two modules generalizing concepts you've already learned, which are worth knowing about: ``Foldable`` and ``Traversable``. In :ref:`looping` you learned all about folds and their Action equivalents. All the examples there were based on lists, but there are many other possible iterators. This is expressed in two additional typeclasses: :doc:`/daml/stdlib/DA-Traversable`, and :doc:`/daml/stdlib/DA-Foldable`. For more detail on these concepts, please refer to the literature in :ref:`haskell-connection`, or `https://wiki.haskell.org/Foldable_and_Traversable <https://wiki.haskell.org/Foldable_and_Traversable>`__.
 
 Search the Standard Library
 ---------------------------
@@ -217,7 +217,7 @@ Signature (including type constraints) and description usually give a pretty cle
 Search for Functions by Signature
 .................................
 
-The other very common use-case for the search is that you have some values that you want to do something with, but don't know the standard library function you need. On the ``MultiTrade`` template we have a list ``baseAssets``, and thanks to your ensure clause we know it's non-empty. In the original ``Trade`` we used ``baseAsset.owner`` as the signatory. How do you get the first element of this list to extract the ``owner`` without going through the motions of a complete pattern match using ``case``?
+The other very common use case for the search is that you have some values that you want to do something with, but don't know the standard library function you need. On the ``MultiTrade`` template we have a list ``baseAssets``, and thanks to your ensure clause we know it's non-empty. In the original ``Trade`` we used ``baseAsset.owner`` as the signatory. How do you get the first element of this list to extract the ``owner`` without going through the motions of a complete pattern match using ``case``?
 
 The trick is to think about the signature of the function that's needed, and then to search for that signature. In this case, we want a single distinguished element from a list so the signature should be ``[a] -> a``. If you search for that, you'll get a whole range of results, but again, Standard Library results are shown at the top.
 
@@ -240,4 +240,4 @@ Let's try another search. Suppose you didn't want the first element, but the one
 Next Up
 -------
 
-There's little more to learn about writing Daml at this point that isn't best learnt by practice and consulting reference material for both Daml and Haskell. To finish off this course, you'll learn a little more about your options for testing and interacting with Daml code in :doc:`12_Testing`, and about the operational semantics of some keywords and common associated failures.
+There's little more to learn about writing Daml at this point that isn't best learned by practice and consulting reference material for both Daml and Haskell. To finish off this course, you'll learn a little more about your options for testing and interacting with Daml code in :doc:`12_Testing`, and about the operational semantics of some keywords and common associated failures.

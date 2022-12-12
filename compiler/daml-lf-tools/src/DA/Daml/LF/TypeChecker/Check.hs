@@ -346,18 +346,28 @@ typeOfRecProj :: MonadGamma m => TypeConApp -> FieldName -> Expr -> m Type
 typeOfRecProj typ0 field record = do
   dataCons <- checkTypeConApp typ0
   recordType <- match _DataRecord (EExpectedRecordType typ0) dataCons
-  fieldType <- match _Just (EUnknownField field) (lookup field recordType)
-  checkExpr record (typeConAppToType typ0)
+  let typ1 = typeConAppToType typ0
+  fieldType <- match _Just (EUnknownField field typ1) (lookup field recordType)
+  checkExpr record typ1
   pure fieldType
 
 typeOfRecUpd :: MonadGamma m => TypeConApp -> FieldName -> Expr -> Expr -> m Type
 typeOfRecUpd typ0 field record update = do
   dataCons <- checkTypeConApp typ0
   recordType <- match _DataRecord (EExpectedRecordType typ0) dataCons
-  fieldType <- match _Just (EUnknownField field) (lookup field recordType)
   let typ1 = typeConAppToType typ0
+  fieldType <- match _Just (EUnknownField field typ1) (lookup field recordType)
   checkExpr record typ1
-  checkExpr update fieldType
+  catchAndRethrow
+    (\case
+      ETypeMismatch { foundType, expectedType, expr } ->
+        EFieldTypeMismatch
+          { targetRecord = typ1
+          , fieldName = field
+          , foundType, expectedType, expr
+          }
+      e -> e)
+    (checkExpr update fieldType)
   pure typ1
 
 typeOfStructCon :: MonadGamma m => [(FieldName, Expr)] -> m Type
@@ -369,13 +379,13 @@ typeOfStructProj :: MonadGamma m => FieldName -> Expr -> m Type
 typeOfStructProj field expr = do
   typ <- typeOf expr
   structType <- match _TStruct (EExpectedStructType typ) typ
-  match _Just (EUnknownField field) (lookup field structType)
+  match _Just (EUnknownField field typ) (lookup field structType)
 
 typeOfStructUpd :: MonadGamma m => FieldName -> Expr -> Expr -> m Type
 typeOfStructUpd field struct update = do
   typ <- typeOf struct
   structType <- match _TStruct (EExpectedStructType typ) typ
-  fieldType <- match _Just (EUnknownField field) (lookup field structType)
+  fieldType <- match _Just (EUnknownField field typ) (lookup field structType)
   checkExpr update fieldType
   pure typ
 
@@ -849,7 +859,18 @@ checkExpr' expr typ = do
   exprType <- typeOf expr
   typX <- expandTypeSynonyms typ
   unless (alphaType exprType typX) $
-    throwWithContext ETypeMismatch{foundType = exprType, expectedType = typX, expr = Just expr}
+    throwWithContext $
+      case expr of
+        ERecProj { recTypeCon, recField } ->
+          EFieldTypeMismatch
+            { targetRecord = typeConAppToType recTypeCon
+            , fieldName = recField
+            , foundType = exprType
+            , expectedType = typX
+            , expr = Just expr
+            }
+        _ ->
+          ETypeMismatch{foundType = exprType, expectedType = typX, expr = Just expr}
   pure exprType
 
 checkExpr :: MonadGamma m => Expr -> Type -> m ()
@@ -871,21 +892,14 @@ checkIface m iface = do
   -- check view
   let (func, _) = viewtype ^. _TApps
   tycon <- case func of
-    TVar {} -> throwWithContext (EExpectedViewType "a type variable" viewtype)
     TCon tycon -> pure tycon
-    TSynApp {} -> throwWithContext (EExpectedViewType "a type synonym" viewtype)
     TApp {} -> error "checkIface: should not happen"
-    TBuiltin {} -> throwWithContext (EExpectedViewType "a built-in type" viewtype)
-    TForall {} -> throwWithContext (EExpectedViewType "a forall-quantified type" viewtype)
-    TStruct {} -> throwWithContext (EExpectedViewType "a structural record" viewtype)
-    TNat {} -> throwWithContext (EExpectedViewType "a type-level natural number" viewtype)
+    _ -> throwWithContext (EViewTypeHeadNotCon func viewtype)
   DefDataType _loc _naem _serializable tparams dataCons <- inWorld (lookupDataType tycon)
-  unless (null tparams) $ throwWithContext (EExpectedViewType "a type constructor with type variables" viewtype)
+  unless (null tparams) $ throwWithContext (EViewTypeHasVars viewtype)
   case dataCons of
     DataRecord {} -> pure ()
-    DataVariant {} -> throwWithContext (EExpectedViewType "a variant type" viewtype)
-    DataEnum {} -> throwWithContext (EExpectedViewType "an enum type" viewtype)
-    DataInterface {} -> throwWithContext (EExpectedViewType "a interface type" viewtype)
+    _ -> throwWithContext (EViewTypeConNotRecord dataCons viewtype)
 
   -- check requires
   when (tcon `S.member` intRequires iface) $
@@ -1018,12 +1032,35 @@ checkInterfaceInstance tmplParam iiHead iiBody = do
       throwWithContext (EMissingMethodInInterfaceInstance methodName)
     forM_ iiMethods \InterfaceInstanceMethod{iiMethodName, iiMethodExpr} -> do
       case NM.lookup iiMethodName intMethods of
-        Nothing -> throwWithContext (EUnknownMethodInInterfaceInstance iiMethodName)
+        Nothing -> throwWithContext (EUnknownMethodInInterfaceInstance iiInterface iiTemplate iiMethodName)
         Just InterfaceMethod{ifmType} ->
-          checkExpr iiMethodExpr ifmType
+          catchAndRethrow
+            (\case
+              ETypeMismatch { foundType, expectedType, expr } ->
+                EMethodTypeMismatch
+                  { emtmIfaceName = iiInterface
+                  , emtmTplName = iiTemplate
+                  , emtmMethodName = iiMethodName
+                  , emtmFoundType = foundType
+                  , emtmExpectedType = expectedType
+                  , emtmExpr = expr
+                  }
+              e -> e)
+            (checkExpr iiMethodExpr ifmType)
 
     -- check view result type matches interface result type
-    checkExpr iiView intView
+    catchAndRethrow
+      (\case
+          ETypeMismatch { foundType, expectedType, expr } ->
+            EViewTypeMismatch
+              { evtmIfaceName = iiInterface
+              , evtmTplName = iiTemplate
+              , evtmFoundType = foundType
+              , evtmExpectedType = expectedType
+              , evtmExpr = expr
+              }
+          e -> e)
+      (checkExpr iiView intView)
 
 checkFeature :: MonadGamma m => Feature -> m ()
 checkFeature feature = do

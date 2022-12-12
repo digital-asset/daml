@@ -69,7 +69,6 @@ import "ghc-lib" GHC hiding (Succeeded, typecheckModule)
 import "ghc-lib-parser" Module (DefUnitId(..), UnitId(..), stringToUnitId)
 import Safe
 import System.Directory.Extra as Dir
-import System.Environment
 import System.FilePath
 import qualified System.FilePath.Posix as FPP
 import System.IO
@@ -262,17 +261,17 @@ generateRawDalfRule =
                     -- Generate the map from package names to package hashes
                     PackageMap pkgMap <- use_ GeneratePackageMap file
                     stablePkgs <- useNoFile_ GenerateStablePackages
-                    DamlEnv{envEnableScenarios} <- getDamlServiceEnv
+                    DamlEnv{envEnableScenarios, envAllowLargeTuples} <- getDamlServiceEnv
                     modIface <- hm_iface . tmrModInfo <$> use_ TypeCheck file
                     -- GHC Core to Daml-LF
-                    case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
+                    case convertModule lfVersion envEnableScenarios envAllowLargeTuples pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
                         Left e -> return ([e], Nothing)
-                        Right v -> do
+                        Right (v, conversionWarnings) -> do
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
                             pkgs <- getExternalPackages file
                             let world = LF.initWorldSelf pkgs pkg
                                 simplified = LF.simplifyModule world lfVersion v
-                            return ([], Just simplified)
+                            return (conversionWarnings, Just simplified)
 
 getExternalPackages :: NormalizedFilePath -> Action [LF.ExternalPackage]
 getExternalPackages file = do
@@ -413,13 +412,13 @@ generateSerializedDalfRule options =
                             -- lf conversion
                             PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
-                            DamlEnv{envEnableScenarios} <- getDamlServiceEnv
+                            DamlEnv{envEnableScenarios, envAllowLargeTuples} <- getDamlServiceEnv
                             let modInfo = tmrModInfo tm
                                 details = hm_details modInfo
                                 modIface = hm_iface modInfo
-                            case convertModule lfVersion envEnableScenarios pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
+                            case convertModule lfVersion envEnableScenarios envAllowLargeTuples pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
                                 Left e -> pure ([e], Nothing)
-                                Right rawDalf -> do
+                                Right (rawDalf, conversionWarnings) -> do
                                     -- LF postprocessing
                                     pkgs <- getExternalPackages file
                                     let selfPkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps
@@ -431,10 +430,10 @@ generateSerializedDalfRule options =
                                         -- changes without a corresponding ABI change, we would end up with an outdated
                                         -- implementation.
                                     case Serializability.inferModule world lfVersion simplified of
-                                        Left err -> pure ([ideErrorPretty file err], Nothing)
+                                        Left err -> pure (conversionWarnings ++ [ideErrorPretty file err], Nothing)
                                         Right dalf -> do
                                             let (diags, checkResult) = diagsToIdeResult file $ LF.checkModule world lfVersion dalf
-                                            fmap (diags,) $ case checkResult of
+                                            fmap (conversionWarnings ++ diags,) $ case checkResult of
                                                 Nothing -> pure Nothing
                                                 Just () -> do
                                                     writeDalfFile (dalfFileName file) dalf
@@ -613,6 +612,10 @@ generateStablePackages lfVersion fp = do
                     , "DA-Validation-Types.dalf"
                     , "DA-Logic-Types.dalf"
                     , "DA-Internal-Down.dalf"
+                    , "DA-Internal-Interface-AnyView-Types.dalf"
+                    , "DA-Action-State-Type.dalf"
+                    , "DA-Random-Types.dalf"
+                    , "DA-Stack-Types.dalf"
                     ]
                 ]
         forM dalfs $ \dalf -> do
@@ -631,16 +634,15 @@ generateStablePackages lfVersion fp = do
 
 -- | Find the directory containing the stable packages if it exists.
 locateStablePackages :: IO FilePath
-locateStablePackages = do
-    -- On Windows, looking up mainWorkspace/compiler/damlc and then appeanding stable-packages doesn’t work.
-    -- On the other hand, looking up the full path directly breaks our resources logic for dist tarballs.
-    -- Therefore we first try stable-packages and then fall back to resources if that does not exist
-    execPath <- getExecutablePath
-    let jarResources = takeDirectory execPath </> "resources"
-    hasJarResources <- Dir.doesDirectoryExist jarResources
-    if hasJarResources
-        then pure (jarResources </> "stable-packages")
-        else locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "stable-packages")
+locateStablePackages = locateResource Resource
+  -- //compiler/damlc/stable-packages
+  { resourcesPath = "stable-packages"
+    -- In a packaged application, the directory "stable-packages" is preserved
+    -- underneath the resources directory because the bazel target includes
+    -- multiple files.
+    -- See @bazel_tools/packaging/packaging.bzl@.
+  , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc"
+  }
 
 generateStablePackagesRule :: Options -> Rules ()
 generateStablePackagesRule opts =
@@ -1048,8 +1050,8 @@ vrNoteSetNotification vr note = do
 -- callback of any errors. NOTE: results may contain errors for any
 -- dependent module.
 -- TODO (MK): We should have a non-Daml version of this rule
-ofInterestRule :: Options -> Rules ()
-ofInterestRule opts = do
+ofInterestRule :: Rules ()
+ofInterestRule = do
     -- go through a rule (not just an action), so it shows up in the profile
     action $ useNoFile OfInterest
     defineNoFile $ \OfInterest -> do
@@ -1092,12 +1094,9 @@ ofInterestRule opts = do
                     vrNoteSetNotification ovr $ LF.fileWScenarioNoLongerCompilesNote $ T.pack $
                         fromNormalizedFilePath file
 
-        let dlintEnabled = case optDlintUsage opts of
-              DlintEnabled _ _ -> True
-              DlintDisabled -> False
         let files = HashSet.toList scenarioFiles
         let dalfActions = [notifyOpenVrsOnGetDalfError f | f <- files]
-        let dlintActions = [use_ GetDlintDiagnostics f | dlintEnabled, f <- files]
+        let dlintActions = [use_ GetDlintDiagnostics f | f <- files]
         let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
         _ <- parallel $ dalfActions <> dlintActions <> runScenarioActions
         return ()
@@ -1218,20 +1217,36 @@ encodeModuleRule options =
 
 -- dlint
 
-dlintSettings :: FilePath -> Bool -> IO ([Classify], Hint)
-dlintSettings dlintDataDir enableOverrides = do
-    curdir <- getCurrentDirectory
-    home <- ((:[]) <$> getHomeDirectory) `catchIOError` (const $ return [])
-    dlintYaml <- if enableOverrides
-        then
-          findM Dir.doesFileExist $
-          map (</> ".dlint.yaml") (ancestors curdir ++ home)
-      else
-        return Nothing
+dlintSettings :: DlintUsage -> IO ([Classify], Hint)
+dlintSettings DlintDisabled = pure ([], mempty @Hint)
+dlintSettings (DlintEnabled DlintOptions {..}) = do
+    dlintRulesFile <- getDlintRulesFile dlintRulesFile
+    hintFiles <- getHintFiles dlintHintFiles
     (_, cs, hs) <- foldMapM parseSettings $
-      (dlintDataDir </> "dlint.yaml") : maybeToList dlintYaml
+      dlintRulesFile : hintFiles
     return (cs, hs)
     where
+      getDlintRulesFile :: DlintRulesFile -> IO FilePath
+      getDlintRulesFile = \case
+        DefaultDlintRulesFile -> locateResource Resource
+          -- //compiler/damlc/daml-ide-core:dlint.yaml
+          { resourcesPath = "dlint.yaml"
+            -- In a packaged application, this is stored directly underneath
+            -- the resources directory because it's a single file.
+            -- See @bazel_tools/packaging/packaging.bzl@.
+          , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc" </> "daml-ide-core"
+          }
+        ExplicitDlintRulesFile path -> pure path
+
+      getHintFiles :: DlintHintFiles -> IO [FilePath]
+      getHintFiles = \case
+        ImplicitDlintHintFile -> do
+          curdir <- getCurrentDirectory
+          home <- ((:[]) <$> getHomeDirectory) `catchIOError` (const $ return [])
+          fmap maybeToList $ findM Dir.doesFileExist $
+            map (</> ".dlint.yaml") (ancestors curdir ++ home)
+        ExplicitDlintHintFiles files -> pure files
+
       ancestors = init . map joinPath . reverse . inits . splitPath
       -- `findSettings` calls `readFilesConfig` which in turn calls
       -- `readFileConfigYaml` which finally calls `decodeFileEither` from
@@ -1247,9 +1262,7 @@ dlintSettings dlintDataDir enableOverrides = do
 getDlintSettingsRule :: DlintUsage -> Rules ()
 getDlintSettingsRule usage =
     defineNoFile $ \GetDlintSettings ->
-      liftIO $ case usage of
-          DlintEnabled dir enableOverrides -> dlintSettings dir enableOverrides
-          DlintDisabled -> fail "linter configuration unspecified"
+      liftIO $ dlintSettings usage
 
 getDlintDiagnosticsRule :: Rules ()
 getDlintDiagnosticsRule =
@@ -1372,7 +1385,7 @@ damlRule opts = do
     getOpenVirtualResourcesRule
     getDlintSettingsRule (optDlintUsage opts)
     damlGhcSessionRule opts
-    when (optEnableOfInterestRule opts) (ofInterestRule opts)
+    when (optEnableOfInterestRule opts) ofInterestRule
 
 mainRule :: Options -> Rules ()
 mainRule options = do

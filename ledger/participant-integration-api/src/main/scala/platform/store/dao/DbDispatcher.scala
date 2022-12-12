@@ -3,13 +3,15 @@
 
 package com.daml.platform.store.dao
 
-import com.codahale.metrics.{InstrumentedExecutorService, Timer}
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{DatabaseMetrics, MetricName, Metrics}
+import com.daml.metrics.api.MetricHandle.Timer
+import com.daml.metrics.api.MetricName
+import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -24,6 +26,7 @@ private[platform] trait DbDispatcher {
   def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
       loggingContext: LoggingContext
   ): Future[T]
+
 }
 
 private[dao] final class DbDispatcherImpl private[dao] (
@@ -100,6 +103,7 @@ private[dao] final class DbDispatcherImpl private[dao] (
 }
 
 object DbDispatcher {
+
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def owner(

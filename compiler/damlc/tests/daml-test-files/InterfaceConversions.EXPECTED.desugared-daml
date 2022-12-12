@@ -36,12 +36,30 @@ instance DA.Internal.Desugar.HasIsInterfaceType Iface where
   _isInterfaceType _ = DA.Internal.Desugar.True
 instance DA.Internal.Desugar.Eq Iface where
   (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive Iface where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+instance DA.Internal.Desugar.HasToAnyChoice Iface DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Iface DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded Iface DA.Internal.Desugar.Archive (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Iface cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Iface cid pred)
+instance DA.Internal.Desugar.HasExercise Iface DA.Internal.Desugar.Archive (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Iface cid)
+        arg
 instance DA.Internal.Desugar.HasToAnyChoice Iface MyChoice (()) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Iface])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Iface MyChoice (()) where
-  _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Iface])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded Iface MyChoice (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -58,6 +76,20 @@ instance DA.Internal.Desugar.HasExercise Iface MyChoice (()) where
 data MyChoice
   = MyChoice {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+_choice_IfaceArchive :
+  (Iface
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId Iface
+   -> Iface
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming Iface,
+   DA.Internal.Desugar.Optional (Iface
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_IfaceArchive
+  = (\ this arg@DA.Internal.Desugar.Archive
+       -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
 _choice_IfaceMyChoice :
   (Iface -> MyChoice -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Iface
@@ -74,6 +106,110 @@ _choice_IfaceMyChoice
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView Iface EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView Iface EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
+data GHC.Types.DamlInterface => Iface2 = Iface2 GHC.Types.Opaque
+instance DA.Internal.Desugar.HasInterfaceTypeRep Iface2 where
+  _interfaceTypeRep
+    = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
+instance DA.Internal.Desugar.HasFetch Iface2 where
+  fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasToInterface Iface2 Iface2 where
+  _toInterface this = this
+instance DA.Internal.Desugar.HasFromInterface Iface2 Iface2 where
+  fromInterface this = DA.Internal.Desugar.Some this
+  unsafeFromInterface _ this = this
+instance DA.Internal.Desugar.HasMethod Iface2 "getOwner2" (Party)
+getOwner2 : Iface2 -> Party
+getOwner2 = GHC.Types.primitiveInterface @"getOwner2"
+instance DA.Internal.Desugar.HasToAnyTemplate Iface2 where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate Iface2 where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep Iface2 where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasSignatory Iface2 where
+  signatory = GHC.Types.primitive @"ESignatoryInterface"
+instance DA.Internal.Desugar.HasObserver Iface2 where
+  observer = GHC.Types.primitive @"EObserverInterface"
+instance DA.Internal.Desugar.HasCreate Iface2 where
+  create = GHC.Types.primitive @"UCreateInterface"
+instance DA.Internal.Desugar.HasIsInterfaceType Iface2 where
+  _isInterfaceType _ = DA.Internal.Desugar.True
+instance DA.Internal.Desugar.Eq Iface2 where
+  (==) = GHC.Types.primitive @"BEEqual"
+instance DA.Internal.Desugar.HasArchive Iface2 where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+instance DA.Internal.Desugar.HasToAnyChoice Iface2 DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Iface2 DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded Iface2 DA.Internal.Desugar.Archive (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Iface2 cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Iface2 cid pred)
+instance DA.Internal.Desugar.HasExercise Iface2 DA.Internal.Desugar.Archive (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Iface2 cid)
+        arg
+instance DA.Internal.Desugar.HasToAnyChoice Iface2 MyChoice2 (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Iface2 MyChoice2 (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasExerciseGuarded Iface2 MyChoice2 (()) where
+  exerciseGuarded pred cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterfaceGuarded"
+        (DA.Internal.Desugar.toInterfaceContractId @Iface2 cid)
+        arg
+        (DA.Internal.Desugar._exerciseInterfaceGuard @Iface2 cid pred)
+instance DA.Internal.Desugar.HasExercise Iface2 MyChoice2 (()) where
+  exercise cid arg
+    = GHC.Types.primitive
+        @"UExerciseInterface"
+        (DA.Internal.Desugar.toInterfaceContractId @Iface2 cid)
+        arg
+data MyChoice2
+  = MyChoice2 {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+_choice_Iface2Archive :
+  (Iface2
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId Iface2
+   -> Iface2
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming Iface2,
+   DA.Internal.Desugar.Optional (Iface2
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice_Iface2Archive
+  = (\ this arg@DA.Internal.Desugar.Archive
+       -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
+_choice_Iface2MyChoice2 :
+  (Iface2 -> MyChoice2 -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId Iface2
+   -> Iface2 -> MyChoice2 -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming Iface2,
+   DA.Internal.Desugar.Optional (Iface2
+                                 -> MyChoice2 -> [DA.Internal.Desugar.Party]))
+_choice_Iface2MyChoice2
+  = (\ this arg@MyChoice2
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (getOwner2 this), 
+     \ self this arg@MyChoice2
+       -> let _ = self in let _ = this in let _ = arg in do pure (), 
+     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+instance DA.Internal.Desugar.HasInterfaceView Iface2 EmptyInterfaceView where
+  _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView Iface2 EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
 data GHC.Types.DamlTemplate => Template1
   = Template1 {owner1 : Party, value1 : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -127,9 +263,9 @@ instance DA.Internal.Desugar.HasIsInterfaceType Template1 where
 instance DA.Internal.Desugar.HasExercise Template1 DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice Template1 DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Template1 DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 _choice_Template1Archive :
   (Template1
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
@@ -157,7 +293,7 @@ _method_Template1_Iface_Template1_getOwner
       @Template1
       @"getOwner"
       \ this@Template1 {..}
-        -> let _ = this in let getOwner = owner1 in getOwner
+        -> let _ = this in let $getOwner = owner1 in $getOwner
 _view_Template1_Iface_Template1 :
   DA.Internal.Desugar.InterfaceView Template1 Iface Template1
 _view_Template1_Iface_Template1
@@ -166,7 +302,7 @@ _view_Template1_Iface_Template1
       @Iface
       @Template1
       \ this@Template1 {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
+        -> let _ = this in let $view = EmptyInterfaceView in $view
 instance DA.Internal.Desugar.HasToInterface Template1 Iface where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Template1 Iface where
@@ -225,9 +361,9 @@ instance DA.Internal.Desugar.HasIsInterfaceType Template2 where
 instance DA.Internal.Desugar.HasExercise Template2 DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice Template2 DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Template2 DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 _choice_Template2Archive :
   (Template2
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
@@ -255,7 +391,7 @@ _method_Template2_Iface_Template2_getOwner
       @Template2
       @"getOwner"
       \ this@Template2 {..}
-        -> let _ = this in let getOwner = owner2 in getOwner
+        -> let _ = this in let $getOwner = owner2 in $getOwner
 _view_Template2_Iface_Template2 :
   DA.Internal.Desugar.InterfaceView Template2 Iface Template2
 _view_Template2_Iface_Template2
@@ -264,7 +400,7 @@ _view_Template2_Iface_Template2
       @Iface
       @Template2
       \ this@Template2 {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
+        -> let _ = this in let $view = EmptyInterfaceView in $view
 instance DA.Internal.Desugar.HasToInterface Template2 Iface where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Template2 Iface where
@@ -292,14 +428,22 @@ main
                 x2 <- fetchFromInterface @Template2 ifaceCid1
                 x3 <- fetchFromInterface @Template1 ifaceCid2
                 x4 <- fetchFromInterface @Template2 ifaceCid2
-                x1 === Some (templateCid1, template1)
+                x1 === Some userWrittenTuple (templateCid1, template1)
                 x2 === None
                 x3 === None
-                x4 === Some (templateCid2, template2)
+                x4 === Some userWrittenTuple (templateCid2, template2)
          let useAction : (ContractId Template2 -> Update ()) -> Update ()
              useAction action
                = do cid <- create (toInterface @Iface (Template1 p 10))
                     action (fromInterfaceContractId @Template2 cid)
          submit p do useAction $ \ _cid -> pure ()
+         submitMustFail p do useAction $ \ cid -> void (fetch cid)
+         submitMustFail p do useAction $ \ cid -> archive cid
+         let useAction : (ContractId Iface2 -> Update ()) -> Update ()
+             useAction action
+               = do cid <- create (toInterface @Iface (Template1 p 10))
+                    action (coerceInterfaceContractId @Iface2 cid)
+         submit p do useAction $ \ _cid -> pure ()
+         submitMustFail p do useAction $ \ cid -> exercise cid MyChoice2
          submitMustFail p do useAction $ \ cid -> void (fetch cid)
          submitMustFail p do useAction $ \ cid -> archive cid

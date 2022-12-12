@@ -150,13 +150,6 @@ class ConfigLoaderSpec extends AnyFlatSpec with Matchers with EitherValues {
     fromConfig.value shouldBe Config.Default
   }
 
-  it should "load default from the default constructor" in {
-    import PureConfigReaderWriter.Secure._
-    ConfigFactory.invalidateCaches()
-    val fromConfig = ConfigLoader.loadConfig[Config](ConfigFactory.load())
-    fromConfig.value shouldBe Config.Default
-  }
-
 }
 
 object ConfigLoaderSpec {

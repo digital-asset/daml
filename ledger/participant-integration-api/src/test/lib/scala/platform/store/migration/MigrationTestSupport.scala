@@ -11,6 +11,7 @@ import javax.sql.DataSource
 import org.flywaydb.core.Flyway
 
 import scala.util.Using
+import scala.util.control.NonFatal
 
 object MigrationTestSupport {
   def migrateTo(version: String)(implicit dataSource: DataSource, dbType: DbType): Unit = {
@@ -76,16 +77,42 @@ object MigrationTestSupport {
     def updateInAll[T](key: String)(f: T => Any): Vector[Row] = r.map(_.updateIn(key)(f))
   }
 
+  def insertMany(
+      inputs: (TableSchema, Seq[Row])*
+  )(implicit connection: Connection): Unit = {
+    inputs.foreach { case (tableSchema, rows) =>
+      insert(tableSchema, rows: _*)
+    }
+  }
+
   def insert(tableSchema: TableSchema, rows: Row*)(implicit connection: Connection): Unit =
     rows.foreach { row =>
-      assert(tableSchema.columns.keySet == row.keySet)
+      assert(
+        tableSchema.columns.keySet == row.keySet, {
+          val onlyInTable = tableSchema.columns.keySet.removedAll(row.keySet)
+          val onlyInRow = row.keySet.removedAll(tableSchema.columns.keySet)
+          s"table name: ${tableSchema.tableName} - columns only in the table's schema $onlyInTable; columns only in the row's schema: $onlyInRow"
+        },
+      )
       val values =
-        tableSchema.columnsList.map(column => tableSchema.columns(column).put(row(column)))
+        tableSchema.columnsList.map(column =>
+          try
+            tableSchema.columns(column).put(row(column))
+          catch {
+            case NonFatal(e) =>
+              throw new RuntimeException(s"Could not convert value for column: '$column'", e)
+          }
+        )
       val insertStatement =
         s"""INSERT INTO ${tableSchema.tableName}
          |(${tableSchema.columnsList.mkString(", ")})
          |VALUES (${values.mkString(", ")})""".stripMargin
-      Using.resource(connection.createStatement())(_.execute(insertStatement))
+      try
+        Using.resource(connection.createStatement())(_.execute(insertStatement))
+      catch {
+        case NonFatal(e) =>
+          throw new RuntimeException(s"Error while executing query: $insertStatement", e)
+      }
       ()
     }
 

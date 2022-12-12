@@ -8,21 +8,28 @@ package ledgerinteraction
 
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.engine.preprocessing.ValueTranslator
+import com.daml.lf.language.Ast
+import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
 import com.daml.lf.transaction.{
-  Versioned,
   GlobalKey,
   IncompleteTransaction,
   Node,
   NodeId,
   Transaction,
+  Versioned,
 }
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
+import com.daml.logging.LoggingContext
+import com.daml.platform.localstore.InMemoryUserManagementStore
 import com.daml.script.converter.ConverterException
 import io.grpc.StatusRuntimeException
 import scalaz.OneAnd
@@ -61,7 +68,7 @@ class IdeLedgerClient(
 
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
-  private val userManagementStore = new ide.UserManagementStore()
+  private val userManagementStore = new InMemoryUserManagementStore(createAdmin = false)
 
   override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
       ec: ExecutionContext,
@@ -84,6 +91,32 @@ class IdeLedgerClient(
     })
   }
 
+  private def lookupContractInstance(
+      parties: OneAnd[Set, Ref.Party],
+      cid: ContractId,
+  ): Option[Value.ContractInstance] = {
+
+    ledger.lookupGlobalContract(
+      view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
+      effectiveAt = ledger.currentTime,
+      cid,
+    ) match {
+      case ScenarioLedger.LookupOk(
+            _,
+            Versioned(_, contractInstance),
+            stakeholders,
+          ) if parties.any(stakeholders.contains(_)) =>
+        Some(contractInstance)
+      case _ =>
+        // Note that contrary to `fetch` in a scenario, we do not
+        // abort on any of the error cases. This makes sense if you
+        // consider this a wrapper around the ACS endpoint where
+        // we cannot differentiate between visibility errors
+        // and the contract not being active.
+        None
+    }
+  }
+
   override def queryContractId(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -92,24 +125,99 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
-    ledger.lookupGlobalContract(
+    Future.successful(
+      lookupContractInstance(parties, cid).map { case Value.ContractInstance(_, arg, _) =>
+        ScriptLedgerClient.ActiveContract(templateId, cid, arg)
+      }
+    )
+  }
+
+  private[this] def computeView(
+      templateId: TypeConName,
+      interfaceId: TypeConName,
+      arg: Value,
+  ): Option[Value] = {
+
+    val valueTranslator = new ValueTranslator(
+      pkgInterface = compiledPackages.pkgInterface,
+      requireV1ContractIdSuffix = false,
+    )
+
+    valueTranslator.translateValue(TTyCon(templateId), arg) match {
+      case Left(_) =>
+        sys.error("computeView: translateValue failed")
+
+      case Right(argument) =>
+        val compiler: speedy.Compiler = compiledPackages.compiler
+        val iview = speedy.InterfaceView(templateId, argument, interfaceId)
+        val sexpr = compiler.unsafeCompileInterfaceView(iview)
+        val machine = Machine.fromPureSExpr(compiledPackages, sexpr)(Script.DummyLoggingContext)
+
+        machine.run() match {
+          case SResultFinal(svalue) =>
+            val version = machine.tmplId2TxVersion(templateId)
+            Some(svalue.toNormalizedValue(version))
+
+          case _: SResultError =>
+            None
+
+          case res @ (_: SResultNeedPackage | _: SResultNeedContract | _: SResultNeedKey |
+              _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioPassTime |
+              _: SResultScenarioSubmit) =>
+            sys.error(s"computeView: expected SResultFinal, got: $res")
+        }
+    }
+  }
+
+  private[this] def implements(templateId: TypeConName, interfaceId: TypeConName): Boolean = {
+    compiledPackages.pkgInterface.lookupInterfaceInstance(interfaceId, templateId).isRight
+  }
+
+  override def queryInterface(
+      parties: OneAnd[Set, Ref.Party],
+      interfaceId: Identifier,
+      viewType: Ast.Type,
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Option[Value])]] = {
+
+    val acs: Seq[ScenarioLedger.LookupOk] = ledger.query(
       view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
       effectiveAt = ledger.currentTime,
-      cid,
-    ) match {
+    )
+    val filtered: Seq[(ContractId, Value.ContractInstance)] = acs.collect {
       case ScenarioLedger.LookupOk(
-            _,
-            Versioned(_, Value.ContractInstance(_, arg, _)),
+            cid,
+            Versioned(_, contractInstance @ Value.ContractInstance(templateId, _, _)),
             stakeholders,
-          ) if parties.any(stakeholders.contains(_)) =>
-        Future.successful(Some(ScriptLedgerClient.ActiveContract(templateId, cid, arg)))
-      case _ =>
-        // Note that contrary to `fetch` in a scenario, we do not
-        // abort on any of the error cases. This makes sense if you
-        // consider this a wrapper around the ACS endpoint where
-        // we cannot differentiate between visibility errors
-        // and the contract not being active.
-        Future.successful(None)
+          ) if implements(templateId, interfaceId) && parties.any(stakeholders.contains(_)) =>
+        (cid, contractInstance)
+    }
+    val res: Seq[(ContractId, Option[Value])] = {
+      filtered.map { case (cid, contractInstance) =>
+        contractInstance match {
+          case Value.ContractInstance(templateId, arg, _) =>
+            val viewOpt = computeView(templateId, interfaceId, arg)
+            (cid, viewOpt)
+        }
+      }
+    }
+    Future.successful(res)
+  }
+
+  override def queryInterfaceContractId(
+      parties: OneAnd[Set, Ref.Party],
+      interfaceId: Identifier,
+      viewType: Ast.Type,
+      cid: ContractId,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Option[Value]] = {
+
+    lookupContractInstance(parties, cid) match {
+      case None => Future.successful(None)
+      case Some(Value.ContractInstance(templateId, arg, _)) =>
+        val viewOpt = computeView(templateId, interfaceId, arg)
+        Future.successful(viewOpt)
     }
   }
 
@@ -312,6 +420,8 @@ class IdeLedgerClient(
         party = Ref.Party.assertFromString(name),
         displayName = Some(displayName),
         isLocal = true,
+        metadata = ObjectMeta.empty,
+        identityProviderId = IdentityProviderId.Default,
       )
       _ = allocatedParties += (name -> partyDetails)
     } yield partyDetails.party)
@@ -349,28 +459,30 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[Unit]] =
-    Future.successful(userManagementStore.createUser(user, rights.toSet))
+    userManagementStore
+      .createUser(user, rights.toSet)(LoggingContext.empty)
+      .map(_.toOption.map(_ => ()))
 
   override def getUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[User]] =
-    Future.successful(userManagementStore.getUser(id))
+    userManagementStore.getUser(id)(LoggingContext.empty).map(_.toOption)
 
   override def deleteUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[Unit]] =
-    Future.successful(userManagementStore.deleteUser(id))
+    userManagementStore.deleteUser(id)(LoggingContext.empty).map(_.toOption)
 
   override def listAllUsers()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[User]] =
-    Future.successful(userManagementStore.listUsers())
+    userManagementStore.listAllUsers()
 
   override def grantUserRights(
       id: UserId,
@@ -380,7 +492,9 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
-    Future.successful(userManagementStore.grantRights(id, rights.toSet).map(_.toList))
+    userManagementStore
+      .grantRights(id, rights.toSet)(LoggingContext.empty)
+      .map(_.toOption.map(_.toList))
 
   override def revokeUserRights(
       id: UserId,
@@ -390,12 +504,14 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
-    Future.successful(userManagementStore.revokeRights(id, rights.toSet).map(_.toList))
+    userManagementStore
+      .revokeRights(id, rights.toSet)(LoggingContext.empty)
+      .map(_.toOption.map(_.toList))
 
   override def listUserRights(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
-    Future.successful(userManagementStore.listUserRights(id).map(_.toList))
+    userManagementStore.listUserRights(id)(LoggingContext.empty).map(_.toOption.map(_.toList))
 }

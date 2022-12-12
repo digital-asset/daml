@@ -252,7 +252,12 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
     "reject unserializable contract for LF =< 1.14" in {
 
-      val pkg14 =
+      val pkg14 = {
+
+        implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
+          defaultPackageId,
+          LanguageVersion.v1_14,
+        )
         p"""
           // well-formed module
           module NegativeTestCase1 {
@@ -296,6 +301,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
             record @serializable UnserializableContractId = { cid : ContractId (Int64 -> Int64) };
           }
          """
+      }
 
       val negativeTestCases = Table(
         "module",
@@ -311,7 +317,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
         "PositiveTestCase2",
       )
 
-      val pkg15 = pkg14.copy(languageVersion = LanguageVersion.Features.basicInterfaces)
+      val pkg15 = pkg14.copy(languageVersion = LanguageVersion.v1_15)
 
       forEvery(negativeTestCases) { modName =>
         check(pkg14, modName)

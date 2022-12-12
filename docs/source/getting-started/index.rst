@@ -33,7 +33,7 @@ Make sure that you have the Daml SDK, Java 11 or higher, and Visual Studio Code 
 
 You will also need some common software tools to build and interact with the template project:
 
-- `Node <https://nodejs.org/en/>`_ and the associated package manager ``npm``. You need ``node --version`` to report at least ``14.8.3``; if you have an older version, see `this link <https://docs.npmjs.com/downloading-and-installing-node-js-and-npm>`_ for additional installation options.
+- `Node <https://nodejs.org/en/>`_ and the associated package manager ``npm``. Use the `Active LTS <https://nodejs.org/en/about/releases/>`_ Node version, currently ``v18`` (check with ``node --version``).
 - A terminal application for command line interaction.
 
 

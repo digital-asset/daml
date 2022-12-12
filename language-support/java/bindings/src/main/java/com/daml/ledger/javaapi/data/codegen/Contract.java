@@ -3,6 +3,7 @@
 
 package com.daml.ledger.javaapi.data.codegen;
 
+import com.daml.ledger.javaapi.data.Identifier;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -29,6 +30,14 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
   /** The party IDs of this contract's observers. */
   public final Set<String> observers;
 
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by <a
+   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+   * and <em>should not be referenced directly</em>. Applications should refer to the constructors
+   * of code-generated subclasses, or {@link ContractCompanion#fromCreatedEvent}, instead.
+   *
+   * @hidden
+   */
   protected Contract(
       Id id,
       Data data,
@@ -42,8 +51,20 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
     this.observers = observers;
   }
 
-  // concrete 1st type param would need a self-reference type param in Contract
-  protected abstract ContractCompanion<? extends Contract<Id, Data>, Id, Data> getCompanion();
+  /** The template or interface ID for this contract or interface view. */
+  public final Identifier getContractTypeId() {
+    return getCompanion().TEMPLATE_ID;
+  }
+
+  // concrete 3rd type param would need a self-reference type param in Contract
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by {@link Contract}, and <em>should not be
+   * referenced directly</em>. Applications should refer to other methods like {@link
+   * #getContractTypeId} instead.
+   *
+   * @hidden
+   */
+  protected abstract ContractTypeCompanion<? extends Contract<?, Data>, Id, ?, Data> getCompanion();
 
   @Override
   public boolean equals(Object object) {
@@ -75,7 +96,7 @@ public abstract class Contract<Id, Data> implements com.daml.ledger.javaapi.data
   public String toString() {
     return String.format(
         "%s.Contract(%s, %s, %s, %s, %s)",
-        getCompanion().templateClassName,
+        getCompanion().TEMPLATE_CLASS_NAME,
         this.id,
         this.data,
         this.agreementText,

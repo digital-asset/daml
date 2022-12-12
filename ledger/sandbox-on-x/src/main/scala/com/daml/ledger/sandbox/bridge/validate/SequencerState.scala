@@ -8,6 +8,7 @@ import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.validate.SequencerState.{LastUpdatedAt, SequencerQueue}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
+import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
 
 import scala.collection.Searching
 import scala.util.chaining._
@@ -70,11 +71,12 @@ case class SequencerState private (
     )
   }
 
-  private def updateMetrics(newState: SequencerState): Unit = {
-    val stateMetrics = bridgeMetrics.Stages.Sequence
-    stateMetrics.sequencerQueueLength.update(newState.sequencerQueue.length)
-    stateMetrics.keyStateSize.update(newState.keyState.size)
-    stateMetrics.consumedContractsStateSize.update(newState.consumedContractsState.size)
+  private def updateMetrics(newState: SequencerState): Unit = withEmptyMetricsContext {
+    implicit metricsContext =>
+      val stateMetrics = bridgeMetrics.Stages.Sequence
+      stateMetrics.sequencerQueueLength.update(newState.sequencerQueue.length)
+      stateMetrics.keyStateSize.update(newState.keyState.size)
+      stateMetrics.consumedContractsStateSize.update(newState.consumedContractsState.size)
   }
 }
 

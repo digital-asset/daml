@@ -11,7 +11,7 @@ import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 abstract class HttpServiceWithPostgresIntTest
-    extends AbstractHttpServiceIntegrationTestTokenIndependent
+    extends QueryStoreAndAuthDependentIntegrationTest
     with PostgresAroundAll
     with HttpServicePostgresInt {
 
@@ -27,7 +27,7 @@ abstract class HttpServiceWithPostgresIntTest
         jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
         fixture,
         headers,
-      ).flatMap { searchResult: List[domain.ActiveContract[JsValue]] =>
+      ).flatMap { searchResult =>
         discard { searchResult should have size 2 }
         discard { searchResult.map(getField("currency")) shouldBe List.fill(2)(JsString("EUR")) }
         selectAllDbContracts.flatMap { listFromDb =>
@@ -58,7 +58,7 @@ abstract class HttpServiceWithPostgresIntTest
     dao.transact(q.to[List]).unsafeToFuture()
   }
 
-  private def getField(k: String)(a: domain.ActiveContract[JsValue]): JsValue =
+  private def getField(k: String)(a: domain.ActiveContract[Any, JsValue]): JsValue =
     a.payload.asJsObject().getFields(k) match {
       case Seq(x) => x
       case xs @ _ => fail(s"Expected exactly one value, got: $xs")

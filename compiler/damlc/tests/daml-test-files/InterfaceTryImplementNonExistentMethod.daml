@@ -1,0 +1,17 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @ERROR range=17:5-17:26; Tried to implement method ‘nonExistentMethod’, but interface ‘I’ does not have a method with that name.
+module InterfaceTryImplementNonExistentMethod where
+
+data View = View {}
+interface I where
+  viewtype View
+  getSignatory : Party
+
+template T with p : Party where
+  signatory p
+  interface instance I for T where
+    getSignatory = p
+    view = View
+    nonExistentMethod = p

@@ -16,5 +16,12 @@ breaking:
     - FILE
   except:
     - FILE_NO_DELETE # Avoids errors due to refactored `buf` modules.
+  ignore_only:
+    FIELD_SAME_ONEOF:
+      - com/daml/ledger/api/v1/commands.proto
+    FIELD_SAME_JSON_NAME:
+      - com/daml/ledger/api/v1/commands.proto
+    FIELD_SAME_NAME:
+      - com/daml/ledger/api/v1/commands.proto
   ignore:
     - com/daml/ledger/api/v1/admin/metering_report_service.proto

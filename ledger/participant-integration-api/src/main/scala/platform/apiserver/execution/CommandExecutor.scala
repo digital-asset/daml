@@ -3,11 +3,11 @@
 
 package com.daml.platform.apiserver.execution
 
-import com.daml.error.definitions.ErrorCause
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
 import com.daml.ledger.configuration.Configuration
 import com.daml.lf.crypto
 import com.daml.logging.LoggingContext
+import com.daml.platform.apiserver.services.ErrorCause
 
 import scala.concurrent.Future
 

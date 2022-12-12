@@ -13,6 +13,7 @@ import Development.IDE.Types.Location
 import Module (unitIdString)
 
 import Options.Applicative
+import Options.Applicative.Extended (lastOr)
 import Data.List.Extra
 import qualified Data.Text as T
 import qualified Data.Set as Set
@@ -27,7 +28,11 @@ cmd numProcessors f = command "docs" $
 
 documentation :: Int -> Parser CmdArgs
 documentation numProcessors = Damldoc
-    <$> optionsParser numProcessors (EnableScenarioService False) optPackageName
+    <$> optionsParser
+          numProcessors
+          (EnableScenarioService False)
+          optPackageName
+          disabledDlintUsageParser
     <*> optInputFormat
     <*> optOutputPath
     <*> optOutputFormat
@@ -93,12 +98,28 @@ documentation numProcessors = Damldoc
             <> help "Path to output anchor table."
             <> long "output-anchor"
 
-    optExternalAnchorPath :: Parser (Maybe FilePath)
+    optExternalAnchorPath :: Parser ExternalAnchorPath
     optExternalAnchorPath =
-        optional . option str
-            $ metavar "PATH"
-            <> help "Path to input anchor table (for external anchors)."
-            <> long "input-anchor"
+        lastOr DefaultExternalAnchorPath
+            $ defaultExternalAnchorPath
+            <|> noExternalAnchorPath
+            <|> explicitExternalAnchorPath
+        where
+            defaultExternalAnchorPath =
+                flag' DefaultExternalAnchorPath
+                  $ long "default-input-anchor"
+                  <> help "Use the default anchor table for daml-prim and daml-stdlib anchors."
+
+            noExternalAnchorPath =
+                flag' NoExternalAnchorPath
+                  $ long "no-input-anchor"
+                  <> help "Use no anchor table for external anchors."
+
+            explicitExternalAnchorPath =
+                fmap ExplicitExternalAnchorPath $ option str
+                    $ metavar "PATH"
+                    <> help "Path to input anchor table (for external anchors)."
+                    <> long "input-anchor"
 
     optTemplate :: Parser (Maybe FilePath)
     optTemplate =
@@ -251,7 +272,7 @@ data CmdArgs = Damldoc
     , cBaseURL :: Maybe T.Text
     , cHooglePath :: Maybe FilePath
     , cAnchorPath :: Maybe FilePath
-    , cExternalAnchorPath :: Maybe FilePath
+    , cExternalAnchorPath :: ExternalAnchorPath
     , cMainFiles :: [FilePath]
     }
 

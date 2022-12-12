@@ -3,7 +3,6 @@
 
 package com.daml.lf.speedy
 
-import com.daml.lf.data.Ref.Location
 import com.daml.lf.speedy.SExpr.SExpr
 
 /** Top-level speedy definition.
@@ -16,8 +15,7 @@ import com.daml.lf.speedy.SExpr.SExpr
 final case class SDefinition(
     body: SExpr
 ) {
-  private var _cached: Option[(SValue, List[Location])] = None
-  private[speedy] def cached: Option[(SValue, List[Location])] = _cached
-  private[speedy] def setCached(sValue: SValue, stack_trace: List[Location]): Unit =
-    _cached = Some((sValue, stack_trace))
+  private[this] var _cached: Option[SValue] = None
+  private[speedy] def cached: Option[SValue] = _cached
+  private[speedy] def setCached(sValue: SValue): Unit = _cached = Some(sValue)
 }

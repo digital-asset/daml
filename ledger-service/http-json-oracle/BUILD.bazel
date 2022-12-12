@@ -9,10 +9,7 @@ load(
     "kind_projector_plugin",
     "lf_scalacopts",
 )
-
-hj_scalacopts = lf_scalacopts + [
-    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-]
+load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
 
 da_scala_library(
     name = "integration-tests-lib",
@@ -27,6 +24,7 @@ da_scala_library(
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_freespec",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
@@ -40,6 +38,7 @@ da_scala_library(
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
@@ -49,13 +48,13 @@ da_scala_library(
         "//ledger-service/http-json:integration-tests-lib-ee",
         "//ledger-service/http-json-cli:ee",
         "//ledger-service/http-json-testing:ee",
-        "//ledger-service/jwt",
         "//ledger-service/utils",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-runner-common",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/db-utils",
+        "//libs-scala/jwt",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "@maven//:org_scalatest_scalatest_compatible",
@@ -70,6 +69,7 @@ da_scala_test_suite(
         "//docs:quickstart-model.dar",
         "//ledger-service/http-json:Account.dar",
         "//ledger-service/http-json:CIou.dar",
+        "//ledger-service/http-json:RIou.dar",
         "//ledger-service/http-json:User.dar",
         "//ledger/test-common:dar-files",
         "//ledger/test-common/test-certificates",
@@ -109,13 +109,13 @@ da_scala_test_suite(
         "//ledger-service/http-json:integration-tests-lib-ee",
         "//ledger-service/http-json-cli:ee",
         "//ledger-service/http-json-testing:ee",
-        "//ledger-service/jwt",
         "//ledger-service/utils",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-runner-common",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/db-utils",
+        "//libs-scala/jwt",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "@maven//:org_scalatest_scalatest_compatible",

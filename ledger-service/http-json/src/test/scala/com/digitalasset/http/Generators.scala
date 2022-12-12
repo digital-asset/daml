@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import com.daml.fetchcontracts.domain.ContractTypeId
 import com.daml.ledger.api.{v1 => lav1}
 import org.scalacheck.Gen
 import scalaz.{-\/, \/, \/-}
@@ -77,7 +78,7 @@ object Generators {
   def contractGen: Gen[domain.Contract[JsValue]] =
     scalazEitherGen(archivedContractGen, activeContractGen).map(domain.Contract(_))
 
-  def activeContractGen: Gen[domain.ActiveContract[JsValue]] =
+  def activeContractGen: Gen[domain.ActiveContract.ResolvedCtTyId[JsValue]] =
     for {
       contractId <- contractIdGen
       templateId <- Gen.oneOf(
@@ -89,7 +90,7 @@ object Generators {
       signatories <- Gen.listOf(partyGen)
       observers <- Gen.listOf(partyGen)
       agreementText <- Gen.identifier
-    } yield domain.ActiveContract[JsValue](
+    } yield domain.ActiveContract[ContractTypeId.Resolved, JsValue](
       contractId = contractId,
       templateId = templateId,
       key = key,

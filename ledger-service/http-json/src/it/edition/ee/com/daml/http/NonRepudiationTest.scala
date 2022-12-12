@@ -30,10 +30,11 @@ final class NonRepudiationTest
         deduplicationPeriod = None,
       )
     )
-    val domainParty = domain.Party(expectedParty)
-    val command = accountCreateCommand(domainParty, expectedNumber).copy(meta = meta)
-    postCreateCommand(command, fixture)
-      .flatMap { case (status, _) =>
+    for {
+      (domainParty, headers) <- fixture.getUniquePartyAndAuthHeaders(expectedParty)
+      command = accountCreateCommand(domainParty, expectedNumber).copy(meta = meta)
+      res <- postCreateCommand(command, fixture, headers)
+      _ <- inside(res) { case domain.OkResponse(_, _, status) =>
         status shouldBe StatusCodes.OK
         val payloads = db.signedPayloads.get(CommandIdString.wrap(expectedCommandId))
         payloads should have size 1
@@ -44,6 +45,7 @@ final class NonRepudiationTest
         val expectedFields = command.payload.fields.map(stripIdentifiers)
         actualFields should contain theSameElementsAs expectedFields
       }
+    } yield succeed
   }
 
 }

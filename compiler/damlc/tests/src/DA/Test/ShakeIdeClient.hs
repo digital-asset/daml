@@ -1142,7 +1142,7 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
           let vr = VRScenario foo "test"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
-          expectVirtualResourceRegex vr "Stack trace:.*- boom.*Foo:2:1.*- test.*Foo:4:1"
+          expectVirtualResourceRegex vr "Stack trace:.*- boom.*Foo:2:1"
     , testCase' "HasCallStack constraint" $ do
           let fooContent = T.unlines
                 [ "module Foo where"

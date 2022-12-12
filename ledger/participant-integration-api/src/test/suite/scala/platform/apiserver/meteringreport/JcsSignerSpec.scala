@@ -43,39 +43,45 @@ class JcsSignerSpec extends AnyWordSpec with Matchers {
     val badKey = Key("bad", Bytes(Array.empty), "bad")
 
     "sign report" in {
-      val Right(signed) = JcsSigner.sign(report, testKey)
-      JcsSigner.verify(signed, keyLookup) shouldBe Ok
+      JcsSigner.sign(report, testKey).map(signed => JcsSigner.verify(signed, keyLookup) shouldBe Ok)
     }
 
     "verify report json" in {
-      val Right(signed) = JcsSigner.sign(report, testKey)
-      val json = signed.toJson.prettyPrint
-      JcsSigner.verify(json, keyLookup) shouldBe Ok
+      JcsSigner.sign(report, testKey).map { signed =>
+        val json = signed.toJson.prettyPrint
+        JcsSigner.verify(json, keyLookup) shouldBe Ok
+      }
     }
 
     "ignore existing check" in {
-      val Right(expected) = JcsSigner.sign(report.copy(check = None), testKey)
-      val Right(actual) =
-        JcsSigner.sign(report.copy(check = Some(Check("some", "other"))), testKey)
-      actual shouldBe expected
+      for {
+        expected <- JcsSigner.sign(report.copy(check = None), testKey)
+        actual <- JcsSigner.sign(report.copy(check = Some(Check("some", "other"))), testKey)
+      } yield {
+        actual shouldBe expected
+      }
     }
 
     "fail generation if key is not valid" in {
-      val Left(_) = JcsSigner.sign(report, badKey)
+      JcsSigner.sign(report, badKey).isLeft shouldBe true
     }
 
     "fail verification if details are changed" in {
-      val Right(signed) = JcsSigner.sign(report, testKey)
-      val modified = signed.copy(`final` = !signed.`final`)
-      val DigestMismatch(_) = JcsSigner.verify(modified, keyLookup)
+      for {
+        signed <- JcsSigner.sign(report, testKey)
+        modified = signed.copy(`final` = !signed.`final`)
+      } yield JcsSigner.verify(modified, keyLookup) should matchPattern { case DigestMismatch(_) =>
+      }
     }
 
     "fail verification if JSON is invalid" in {
-      val InvalidJson(_) = JcsSigner.verify("""{"bad": json""", keyLookup)
+      JcsSigner.verify("""{"bad": json""", keyLookup) should matchPattern { case InvalidJson(_) => }
     }
 
     "fail verification if JSON is not a participant report" in {
-      val InvalidJson(_) = JcsSigner.verify("""{"not: "report"}""", keyLookup)
+      JcsSigner.verify("""{"not: "report"}""", keyLookup) should matchPattern {
+        case InvalidJson(_) =>
+      }
     }
 
     "fail verification if check sections is missing" in {
@@ -91,7 +97,9 @@ class JcsSignerSpec extends AnyWordSpec with Matchers {
 
     "fail verification check regeneration fails" in {
       val check = Check("unknown", "digest")
-      val CheckGeneration(_) = JcsSigner.verify(report.copy(check = Some(check)), _ => Some(badKey))
+      JcsSigner.verify(report.copy(check = Some(check)), _ => Some(badKey)) should matchPattern {
+        case CheckGeneration(_) =>
+      }
     }
 
   }

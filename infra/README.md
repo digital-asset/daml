@@ -55,6 +55,19 @@ machines we have at all times, and thus perform zero-downtime upgrades with
 hopefully no impact on users. (Assuming the only failure mode of the new
 machines is to fail at startup.)
 
+> For CI nodes, it's better to do a whole group at once, with overlap: first
+> spin up the second group with the new settings, wait for the nodes to be
+> available, deactivate the old nodes in the Azure UI, and when all of the old
+> nodes are idle, set the old group size to 0. This is because when changing a
+> group's size we do not control which node gets killed, and we'd rather not
+> kill a node that is currently running a job.
+>
+> Alternatively, killing a node in an instance group through the [GCP Console
+> UI](https://console.cloud.google.com) will both kill that node _and_ reduce
+> the instance group count by one, so that can be used to manually reduce a
+> group's size one machine at a time if we don't want to wait for all the nodes
+> in a group to be idle.
+
 At the Terraform level, this is achieved by using the special `count` field,
 which allows one to duplicate (multiplicate) a Terraform resource description.
 Within a resource that has a `count` entry, the special variable `count.index`
@@ -148,3 +161,64 @@ _kill_machine() {
 }
 compdef _kill_machine kill_machine
 ```
+
+Nodes should be deactivated and idle before they are killed, to avoid killing a
+running job.
+
+## Deactivating a node
+
+Deactivating a node can be done from the [Azure Pipelines
+UI](https://dev.azure.com) in [Organization Settings / Agent
+Pools](https://dev.azure.com/digitalasset/daml/_settings/agentqueues), for
+people with the appropriate access rights. That page also allows one to see how
+many pending jobs there are and, for each machine, which build they are
+currently running.
+
+On the Agents tab of a pool's page, there is an Enabled column with a toggle.
+Clicking that toggle deactivates a node: it stays in the pool and is still
+running, but will not get assigned new jobs. This is a good step towards
+killing the node while still allowing it to finish the job it is currently
+processing (or making sur it doesn't get assigned another job in-between you
+looking at the node state and killing it).
+
+As there is no way to tell Azure to run a job on a specific node, deactiating a
+node is the only way to ensure a job gets assigned to "another one" if that
+node is suspected of being corrupted in some way.
+
+## Wiping the Windows Bazel cache
+
+The Windows Bazel cache tends to get corrupted. Over time, we have tried to
+address various ways in which it gets corrupted through patches to Bazel (that
+have since been upstreamed) and a periodic clean-up job (`fix_bazel_cache`) as
+part of the CI build.
+
+Though rare, there are still cases where the cache gets corrupted, either
+locally on a machine or globally in the GCS bucket.
+
+When a machine's cache is suspected corrupt, it is best to just kill the node.
+
+If killing a node doesn't solve the issue (i.e. the cache appears corrupt even
+on "new" nodes running their first job), it means the network cache is corrupt.
+Fortunately, the Windows network cache is segmented across builds: there is a
+separate cache prefix for the PRs build, the main branch build, the
+compatibility run, etc.
+
+This means that corruption is limited to one build, limiting the impact to some
+extent, and that we can wipe only the relevant cache, leaving the rest intact.
+
+Wiping the cache amounts to running a command along the lines of:
+
+```
+gsutil -m rm -r gs://daml-bazel-cache/3ecf0dac8af5-v13/
+```
+
+You need delete access on the `daml-bazel-cache` GCS bucket for this to work.
+
+The name of the cache (in this example `3ecf0dac8af5-v13`) can be derived from
+the version number in `ci/configure-bazel.sh` when setting the suffix; the hash
+is printed by the `Configure Bazel` step, and needs to be taken from the output
+of an affected failed build.
+
+Note that, due to the sheer number of files, wiping the cache for the PRs build
+can take upwards of 15 hours, during which the machine on which the command is
+run must be turned on and connected to the internet.

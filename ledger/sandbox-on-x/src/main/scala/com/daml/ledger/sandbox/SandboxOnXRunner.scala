@@ -3,11 +3,13 @@
 
 package com.daml.ledger.sandbox
 
+import java.util.concurrent.Executors
+
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.codahale.metrics.{InstrumentedExecutorService, MetricRegistry}
+import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.auth.{
@@ -21,6 +23,7 @@ import com.daml.ledger.api.v1.experimental_features.{
   CommandDeduplicationPeriodSupport,
   CommandDeduplicationType,
   ExperimentalContractIds,
+  ExperimentalExplicitDisclosure,
 }
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -32,21 +35,19 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{JvmMetricSet, Metrics}
+import com.daml.metrics.{Metrics, OpenTelemetryMeterOwner}
 import com.daml.platform.LedgerApiServer
-import com.daml.platform.apiserver.LedgerFeatures
-import com.daml.platform.apiserver.TimeServiceBackend
-import com.daml.platform.config.MetricsConfig.MetricRegistryType
-import com.daml.platform.config.MetricsConfig
+import com.daml.platform.apiserver.configuration.RateLimitingConfig
+import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
+import com.daml.platform.apiserver.ratelimiting.{RateLimitingInterceptor, ThreadpoolCheck}
+import com.daml.platform.apiserver.{LedgerFeatures, TimeServiceBackend}
 import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.DbType
 import com.daml.ports.Port
 
-import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.util.Try
-import scala.util.chaining._
 
 object SandboxOnXRunner {
   val RunnerName = "sandbox-on-x"
@@ -56,16 +57,20 @@ object SandboxOnXRunner {
       configAdaptor: BridgeConfigAdaptor,
       config: Config,
       bridgeConfig: BridgeConfig,
+      explicitDisclosureUnsafeEnabled: Boolean = false,
   ): ResourceOwner[Port] =
     new ResourceOwner[Port] {
       override def acquire()(implicit context: ResourceContext): Resource[Port] =
-        SandboxOnXRunner.run(bridgeConfig, config, configAdaptor).acquire()
+        SandboxOnXRunner
+          .run(bridgeConfig, config, configAdaptor, explicitDisclosureUnsafeEnabled)
+          .acquire()
     }
 
   def run(
       bridgeConfig: BridgeConfig,
       config: Config,
       configAdaptor: BridgeConfigAdaptor,
+      explicitDisclosureUnsafeEnabled: Boolean,
   ): ResourceOwner[Port] = newLoggingContext { implicit loggingContext =>
     implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
     implicit val materializer: Materializer = Materializer(actorSystem)
@@ -75,19 +80,22 @@ object SandboxOnXRunner {
       // This is necessary because we can't declare them as implicits in a `for` comprehension.
       _ <- ResourceOwner.forActorSystem(() => actorSystem)
       _ <- ResourceOwner.forMaterializer(() => materializer)
+      openTelemetryMeter <- OpenTelemetryMeterOwner(
+        config.metrics.enabled,
+        Some(config.metrics.reporter),
+      )
 
       (participantId, dataSource, participantConfig) <- assertSingleParticipant(config)
+      metrics <- MetricsOwner(openTelemetryMeter, config.metrics, participantId)
       timeServiceBackendO = configAdaptor.timeServiceBackend(participantConfig.apiServer)
       (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
 
-      metrics <- buildMetrics(config.metrics, participantId)
-      servicesThreadPoolSize = Runtime.getRuntime.availableProcessors()
+      servicesThreadPoolSize = participantConfig.servicesThreadPoolSize
       servicesExecutionContext <- buildServicesExecutionContext(metrics, servicesThreadPoolSize)
 
       buildWriteServiceLambda = buildWriteService(
         participantId = participantId,
         feedSink = stateUpdatesFeedSink,
-        participantConfig = participantConfig,
         bridgeConfig = bridgeConfig,
         materializer = materializer,
         loggingContext = loggingContext,
@@ -95,6 +103,8 @@ object SandboxOnXRunner {
         servicesThreadPoolSize = servicesThreadPoolSize,
         servicesExecutionContext = servicesExecutionContext,
         timeServiceBackendO = timeServiceBackendO,
+        stageBufferSize = bridgeConfig.stageBufferSize,
+        explicitDisclosureEnabled = explicitDisclosureUnsafeEnabled,
       )
       apiServer <- new LedgerApiServer(
         ledgerFeatures = LedgerFeatures(
@@ -112,6 +122,7 @@ object SandboxOnXRunner {
           contractIdFeatures = ExperimentalContractIds.of(
             v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
           ),
+          explicitDisclosure = ExperimentalExplicitDisclosure.of(explicitDisclosureUnsafeEnabled),
         ),
         authService = configAdaptor.authService(participantConfig),
         buildWriteService = buildWriteServiceLambda,
@@ -128,6 +139,9 @@ object SandboxOnXRunner {
         timeServiceBackendO = timeServiceBackendO,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
+        explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
+        rateLimitingInterceptor =
+          participantConfig.apiServer.rateLimit.map(buildRateLimitingInterceptor(metrics)),
       )(actorSystem, materializer).owner
     } yield {
       logInitializationHeader(
@@ -169,7 +183,9 @@ object SandboxOnXRunner {
     config.participants.toList match {
 
       case (participantId, participantConfig) :: Nil =>
-        ResourceOwner.successful((participantId, participantConfig))
+        ResourceOwner.successful(
+          (participantConfig.participantIdOverride.getOrElse(participantId), participantConfig)
+        )
       case _ =>
         ResourceOwner.failed {
           val loggingMessage = "Sandbox-on-X can only be run with a single participant."
@@ -182,7 +198,6 @@ object SandboxOnXRunner {
   def buildWriteService(
       participantId: Ref.ParticipantId,
       feedSink: Sink[(Offset, Update), NotUsed],
-      participantConfig: ParticipantConfig,
       bridgeConfig: BridgeConfig,
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -190,17 +205,20 @@ object SandboxOnXRunner {
       servicesThreadPoolSize: Int,
       servicesExecutionContext: ExecutionContextExecutorService,
       timeServiceBackendO: Option[TimeServiceBackend],
+      stageBufferSize: Int,
+      explicitDisclosureEnabled: Boolean,
   ): IndexService => ResourceOwner[WriteService] = { indexService =>
     val bridgeMetrics = new BridgeMetrics(metrics)
     for {
       ledgerBridge <- LedgerBridge.owner(
         participantId,
-        participantConfig,
         bridgeConfig,
         indexService,
         bridgeMetrics,
         servicesThreadPoolSize,
         timeServiceBackendO.getOrElse(TimeProvider.UTC),
+        stageBufferSize,
+        explicitDisclosureEnabled,
       )(loggingContext, servicesExecutionContext)
       writeService <- ResourceOwner.forCloseable(() =>
         new BridgeWriteService(
@@ -226,30 +244,6 @@ object SandboxOnXRunner {
         )
       )
       .map(ExecutionContext.fromExecutorService)
-
-  private def buildMetrics(
-      metricsConfig: MetricsConfig,
-      participantId: Ref.ParticipantId,
-  ): ResourceOwner[Metrics] = {
-    val metrics = metricsConfig.registryType match {
-      case MetricRegistryType.JvmShared =>
-        Metrics.fromSharedMetricRegistries(participantId)
-      case MetricRegistryType.New =>
-        new Metrics(new MetricRegistry)
-    }
-
-    metrics
-      .tap(_.registry.registerAll(new JvmMetricSet))
-      .pipe { metrics =>
-        if (metricsConfig.enabled)
-          ResourceOwner
-            .forCloseable(() => metricsConfig.reporter.register(metrics.registry))
-            .map(_.start(metricsConfig.reportingInterval.toMillis, TimeUnit.MILLISECONDS))
-        else
-          ResourceOwner.unit
-      }
-      .map(_ => metrics)
-  }
 
   private def logInitializationHeader(
       config: Config,
@@ -293,4 +287,19 @@ object SandboxOnXRunner {
       ledgerDetails,
     )
   }
+
+  def buildRateLimitingInterceptor(
+      metrics: Metrics
+  )(config: RateLimitingConfig): RateLimitingInterceptor = {
+
+    val apiServices: ThreadpoolCount = new ThreadpoolCount(metrics)(
+      "Api Services Threadpool",
+      metrics.daml.lapi.threadpool.apiServices,
+    )
+    val apiServicesCheck = ThreadpoolCheck(apiServices, config.maxApiServicesQueueSize)
+
+    RateLimitingInterceptor(metrics, config, List(apiServicesCheck))
+
+  }
+
 }

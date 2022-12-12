@@ -20,13 +20,14 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver._
+import com.daml.platform.apiserver.ratelimiting.RateLimitingInterceptor
 import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.index.{InMemoryStateUpdater, IndexServiceOwner}
 import com.daml.platform.indexer.IndexerServiceOwner
-import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
+import com.daml.platform.localstore._
 import com.daml.platform.store.DbSupport
-import com.daml.platform.usermanagement.{PersistentUserManagementStore, UserManagementConfig}
+import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
@@ -43,6 +44,12 @@ class LedgerApiServer(
     timeServiceBackendO: Option[TimeServiceBackend],
     servicesExecutionContext: ExecutionContextExecutorService,
     metrics: Metrics,
+    // TODO ED: Remove flag once explicit disclosure is deemed stable and all
+    //          backing ledgers implement proper validation against malicious clients.
+    //          Currently, we provide this flag outside the HOCON configuration objects
+    //          in order to ensure that participants cannot be configured to accept explicitly disclosed contracts.
+    explicitDisclosureUnsafeEnabled: Boolean = false,
+    rateLimitingInterceptor: Option[RateLimitingInterceptor] = None,
 )(implicit actorSystem: ActorSystem, materializer: Materializer) {
 
   def owner: ResourceOwner[ApiService] = {
@@ -109,6 +116,7 @@ class LedgerApiServer(
           ledgerId,
           participantConfig.apiServer,
           participantId,
+          explicitDisclosureUnsafeEnabled,
         )
       } yield apiService
     }
@@ -127,10 +135,18 @@ class LedgerApiServer(
       ledgerId: LedgerId,
       apiServerConfig: ApiServerConfig,
       participantId: Ref.ParticipantId,
+      explicitDisclosureUnsafeEnabled: Boolean,
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
-  ): ResourceOwner[ApiService] =
+  ): ResourceOwner[ApiService] = {
+    val identityProviderStore =
+      PersistentIdentityProviderConfigStore.cached(
+        dbSupport = dbSupport,
+        metrics = metrics,
+        cacheExpiryAfterWrite = apiServerConfig.identityProviderManagement.cacheExpiryAfterWrite,
+        maxIdentityProviders = IdentityProviderManagementConfig.MaxIdentityProviders,
+      )(servicesExecutionContext, loggingContext)
     ApiServiceOwner(
       indexService = indexService,
       ledgerId = ledgerId,
@@ -139,7 +155,7 @@ class LedgerApiServer(
       healthChecks = healthChecksWithIndexer + ("write" -> writeService),
       metrics = metrics,
       timeServiceBackend = timeServiceBackend,
-      otherInterceptors = List.empty,
+      otherInterceptors = rateLimitingInterceptor.toList,
       engine = sharedEngine,
       servicesExecutionContext = servicesExecutionContext,
       userManagementStore = PersistentUserManagementStore.cached(
@@ -151,11 +167,20 @@ class LedgerApiServer(
         maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
         timeProvider = TimeProvider.UTC,
       )(servicesExecutionContext, loggingContext),
+      identityProviderConfigStore = identityProviderStore,
+      partyRecordStore = new PersistentPartyRecordStore(
+        dbSupport = dbSupport,
+        metrics = metrics,
+        timeProvider = TimeProvider.UTC,
+        executionContext = servicesExecutionContext,
+      ),
       ledgerFeatures = ledgerFeatures,
       participantId = participantId,
       authService = authService,
       jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
+      explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
     )
+  }
 }
 
 object LedgerApiServer {

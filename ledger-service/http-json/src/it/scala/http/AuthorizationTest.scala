@@ -14,6 +14,9 @@ import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, ClaimSet
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
+import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -48,6 +51,9 @@ final class AuthorizationTest
 
   private val accessTokenFile = Files.createTempFile("Extractor", "AuthSpec")
 
+  private val authorizationSecurity: SecurityTest =
+    SecurityTest(property = Authorization, asset = "HTTP JSON API Service")
+
   override def authService = mockedAuthService
   override def packageFiles = List()
 
@@ -74,16 +80,23 @@ final class AuthorizationTest
 
   behavior of "PackageService against an authenticated sandbox"
 
-  // TEST_EVIDENCE: Authorization: Updating the package service fails with insufficient authorization
-  it should "fail immediately if the authorization is insufficient" in withLedger {
-    client => ledgerId =>
-      instanceUUIDLogCtx(implicit lc =>
-        packageService(client).reload(Jwt(emptyTokenValue), ledgerId).failed.map(_ => succeed)
+  it should "fail updating the package service immediately with insufficient authorization" taggedAs authorizationSecurity
+    .setAttack(
+      Attack(
+        "Ledger client",
+        "does not provide an auth token",
+        "refuse updating the package service with a failure",
       )
+    ) in withLedger { client => ledgerId =>
+    instanceUUIDLogCtx(implicit lc =>
+      packageService(client).reload(Jwt(emptyTokenValue), ledgerId).failed.map(_ => succeed)
+    )
   }
 
-  // TEST_EVIDENCE: Authorization: Updating the package service succeeds with sufficient authorization
-  it should "succeed if the authorization is sufficient" in withLedger { client => ledgerId =>
+  it should "succeed updating the package service with sufficient authorization" taggedAs authorizationSecurity
+    .setHappyCase(
+      "A ledger client can update the package service when authorized"
+    ) in withLedger { client => ledgerId =>
     instanceUUIDLogCtx(implicit lc =>
       packageService(client).reload(Jwt(publicTokenValue), ledgerId).map(_ => succeed)
     )

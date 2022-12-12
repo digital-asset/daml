@@ -448,7 +448,7 @@ object Repl {
   implicit val parserParameters: parser.ParserParameters[Repl.this.type] =
     parser.ParserParameters(
       defaultPackageId = Ref.PackageId.assertFromString("-dummy-"),
-      languageVersion = LV.defaultV1,
+      languageVersion = LV.default,
     )
 
   // Invoke the given top-level function with given arguments.
@@ -477,7 +477,7 @@ object Repl {
               case SResultError(err) =>
                 println(prettyError(err).render(128))
                 None
-              case SResultFinal(v, _) =>
+              case SResultFinal(v) =>
                 Some(v)
               case other =>
                 sys.error("unimplemented callback: " + other.toString)
@@ -558,7 +558,7 @@ object Repl {
         case error: ScenarioRunner.ScenarioError =>
           println(
             "failed at " +
-              prettyLoc(machine.lastLocation).render(128) +
+              prettyLoc(machine.getLastLocation).render(128) +
               ": " + PrettyScenario.prettyError(error.error).render(128)
           )
           failures += 1

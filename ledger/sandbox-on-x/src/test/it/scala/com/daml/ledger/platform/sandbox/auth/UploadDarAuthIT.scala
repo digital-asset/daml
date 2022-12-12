@@ -14,7 +14,9 @@ final class UploadDarAuthIT extends AdminServiceCallAuthTests {
 
   override def serviceCallName: String = "PackageManagementService#UploadDar"
 
-  private val request = new UploadDarFileRequest(ByteString.readFrom(new FileInputStream(darFile)))
+  lazy private val request = new UploadDarFileRequest(
+    ByteString.readFrom(new FileInputStream(darFile))
+  )
 
   override def serviceCallWithToken(token: Option[String]): Future[Any] =
     stub(PackageManagementServiceGrpc.stub(channel), token).uploadDarFile(request)

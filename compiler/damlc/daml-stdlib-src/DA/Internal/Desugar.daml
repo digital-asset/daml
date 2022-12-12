@@ -11,6 +11,7 @@ module DA.Internal.Desugar (
     module DA.Internal.Template.Functions,
     module DA.Internal.Exception,
     module DA.Internal.Interface,
+    module DA.Internal.Interface.AnyView,
     Eq(..), Show(..),
     Bool(..), Text, Optional(..),
     (&&),
@@ -26,13 +27,15 @@ module DA.Internal.Desugar (
     Method,
     mkMethod,
     InterfaceView,
-    mkInterfaceView
+    mkInterfaceView,
+    userWrittenTuple
 ) where
 
 import DA.Internal.Prelude
 import DA.Internal.Template
 import DA.Internal.Template.Functions
 import DA.Internal.Interface
+import DA.Internal.Interface.AnyView
 import DA.Internal.LF
 #ifndef DAML_EXCEPTIONS
 import DA.Internal.Exception ()
@@ -40,6 +43,7 @@ import DA.Internal.Exception ()
 import DA.Internal.Exception
 #endif
 import GHC.Types (magic, Symbol)
+import GHC.Tuple.Check (userWrittenTuple)
 
 -- These are only used as markers by desugaring, we do not translate them to LF.
 data NonConsuming t = NonConsuming {}

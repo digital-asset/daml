@@ -47,6 +47,7 @@ import com.daml.ledger.sandbox.SandboxOnXForTest._
 import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -92,12 +93,11 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
   )(implicit system: ActorSystem, ec: ExecutionContext): Future[HttpResponse] = {
     Http()
       .singleRequest {
-        if (cookieJar.nonEmpty) {
-          val hd +: tl = cookieJar.view.map(headers.HttpCookiePair(_)).toSeq
-          val cookies = headers.Cookie(hd, tl: _*)
-          request.addHeader(cookies)
-        } else {
-          request
+        cookieJar.view.map(headers.HttpCookiePair(_)).toList match {
+          case head :: tail =>
+            request.addHeader(headers.Cookie(head, tail: _*))
+          case Nil =>
+            request
         }
       }
       .andThen { case Success(resp) =>
@@ -375,7 +375,7 @@ trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
     val host = InetAddress.getLoopbackAddress
     val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
     val exe =
-      if (!isWindows) BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-cmd")
+      if (!isWindows) BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-server")
       else BazelRunfiles.rlocation("external/toxiproxy_dev_env/toxiproxy-server-windows-amd64.exe")
     val port = LockedFreePort.find()
     val proc = Process(Seq(exe, "--port", port.port.value.toString)).run()
@@ -558,7 +558,7 @@ trait TriggerServiceFixture
               Cli.DefaultMaxRestartInterval,
             )
             for {
-              r <- ServiceMain.startServer(
+              r <- ServiceMain.startServerForTest(
                 host.getHostName,
                 Port.Dynamic.value,
                 Cli.DefaultMaxAuthCallbacks,
@@ -574,6 +574,7 @@ trait TriggerServiceFixture
                 jdbcConfig,
                 false,
                 Compiler.Config.Dev,
+                DefaultTriggerRunnerConfig,
                 logTriggerStatus,
               )
             } yield r
