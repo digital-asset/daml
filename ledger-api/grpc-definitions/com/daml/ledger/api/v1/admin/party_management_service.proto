@@ -143,7 +143,7 @@ message AllocatePartyResponse {
   PartyDetails party_details = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(party_details.identity_provider_id)``
 // In a scenario when a party is known to this participant
 // but has been allocated through a different participant, the resource version of it might be not set on
 // this participant until after the first update RPC has been completed.

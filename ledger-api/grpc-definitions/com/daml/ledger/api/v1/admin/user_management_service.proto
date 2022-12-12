@@ -142,7 +142,7 @@ message Right {
 // RPC requests and responses
 /////////////////////////////
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(user.identity_provider_id)``
 message CreateUserRequest {
     // The user to create.
     // Required
@@ -176,7 +176,7 @@ message GetUserResponse {
     User user = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(user.identity_provider_id)``
 message UpdateUserRequest {
     // The user to update.
     // Required,
