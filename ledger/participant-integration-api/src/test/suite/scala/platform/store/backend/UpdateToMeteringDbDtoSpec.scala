@@ -15,11 +15,11 @@ import com.daml.lf.transaction.{
   VersionedTransaction,
 }
 import com.daml.metrics.UpdateEventsMetrics
-import com.daml.metrics.api.testing.InMemoryMetricsFactory
+import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import org.scalatest.wordspec.AnyWordSpec
 
-class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
+class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
   import DbDtoEq._
 
@@ -149,7 +149,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
       UpdateToMeteringDbDto(clock = () => timestamp, updateEventsMetrics)(MetricsContext.Empty)(
         List((Offset.fromHexString(offset), someTransactionAccepted))
       )
-      updateEventsMetrics.meteredEventsCounter.getCount shouldBe (statistics.committed.actions + statistics.rolledBack.actions)
+      updateEventsMetrics.meteredEventsMeter.value shouldBe (statistics.committed.actions + statistics.rolledBack.actions)
     }
   }
 

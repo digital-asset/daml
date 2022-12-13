@@ -15,7 +15,7 @@ class UpdateEventsMetrics(prefix: MetricName, metricFactory: Factory) {
         |This is an estimate of the total number and not a substitute for the metering report.""".stripMargin,
     qualification = Debug,
   )
-  val meteredEventsCounter: MetricHandle.Counter = metricFactory.counter(
+  val meteredEventsMeter: MetricHandle.Meter = metricFactory.meter(
     prefix :+ "metered_events",
     "Number of events that will be metered.",
   )

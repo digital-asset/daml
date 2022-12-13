@@ -40,7 +40,7 @@ object UpdateToMeteringDbDto {
         .map { case (applicationId, count) =>
           withExtraMetricLabels(UpdateEventsMetrics.Labels.applicationId -> applicationId) {
             implicit mc =>
-              metrics.meteredEventsCounter.inc(count.toLong)
+              metrics.meteredEventsMeter.mark(count.toLong)
           }
           DbDto.TransactionMetering(
             application_id = applicationId,
