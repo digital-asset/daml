@@ -8,9 +8,8 @@ import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.{RSAKeyProvider}
-import com.daml.jwt.JwtVerifier.Error
 import com.typesafe.scalalogging.StrictLogging
-import scalaz.{Show, \/}
+import scalaz.\/
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
 
@@ -31,15 +30,6 @@ class JwtVerifier(val verifier: com.auth0.jwt.interfaces.JWTVerifier) extends Jw
   private def base64Decode(jwt: domain.DecodedJwt[String]): Error \/ domain.DecodedJwt[String] =
     jwt.traverse(Base64.decode).leftMap(e => Error(Symbol("base64Decode"), e.shows))
 
-}
-
-object JwtVerifier {
-  final case class Error(what: Symbol, message: String)
-
-  object Error {
-    implicit val showInstance: Show[Error] =
-      Show.shows(e => s"JwtVerifier.Error: ${e.what}, ${e.message}")
-  }
 }
 
 // HMAC256 validator factory
