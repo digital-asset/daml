@@ -14,7 +14,6 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.FutureOps
 
-//TODO DPP-1299 Move to a package
 class IdentityProviderAwareAuthService(
     defaultAuthService: AuthService,
     configLoader: ConfigLoader,
