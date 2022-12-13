@@ -56,7 +56,6 @@ import spray.json.{JsArray, JsObject, JsValue, JsonReader, JsonWriter, enrichAny
 
 import scala.collection.mutable.HashSet
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 import scalaz.EitherT.{either, eitherT, rightT}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.nonempty.NonEmpty
@@ -775,24 +774,19 @@ class WebSocketService(
   ): Flow[A, A, NotUsed] =
     Flow[A]
       .watchTermination() { (_, future) =>
-        discard { numConns.incrementAndGet }
+        val afterInc = numConns.incrementAndGet()
         metrics.websocketRequestCounter.inc()
         logger.info(
-          s"New websocket client has connected, current number of clients:${numConns.get()}"
+          s"New websocket client has connected, current number of clients:$afterInc"
         )
-        future onComplete {
-          case Success(_) =>
-            discard { numConns.decrementAndGet }
-            metrics.websocketRequestCounter.dec()
-            logger.info(
-              s"Websocket client has disconnected. Current number of clients: ${numConns.get()}"
-            )
-          case Failure(ex) =>
-            discard { numConns.decrementAndGet }
-            metrics.websocketRequestCounter.dec()
-            logger.info(
-              s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: ${numConns.get()}"
-            )
+        future onComplete { td =>
+          def msg = td.fold(
+            ex => s"interrupted on Failure: ${ex.getMessage}. remaining",
+            _ => "has disconnected. Current",
+          )
+          val afterDec = numConns.decrementAndGet()
+          metrics.websocketRequestCounter.dec()
+          logger.info(s"Websocket client $msg number of clients: $afterDec")
         }
         NotUsed
       }
