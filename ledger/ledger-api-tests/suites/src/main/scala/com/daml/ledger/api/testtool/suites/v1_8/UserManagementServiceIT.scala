@@ -133,6 +133,12 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
 
     for {
       _ <- createAndCheck(
+        "invalid identity_provider_id",
+        User("u3", identityProviderId = "???"),
+        List.empty,
+        LedgerApiErrors.RequestValidation.InvalidField,
+      )
+      _ <- createAndCheck(
         "empty user-id",
         User(""),
         List.empty,
