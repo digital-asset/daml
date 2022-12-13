@@ -39,6 +39,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//language-support/scala/bindings-akka",
         "//ledger-service/db-backend",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/nonempty",
         "//libs-scala/scala-utils",
     ],

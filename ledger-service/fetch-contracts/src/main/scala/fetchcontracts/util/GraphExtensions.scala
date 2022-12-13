@@ -4,11 +4,12 @@
 package com.daml.fetchcontracts.util
 
 import akka.NotUsed
-import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Sink}
+import akka.stream.scaladsl.{Flow, FlowOpsMat, GraphDSL, Keep, Sink}
 import akka.stream.{FanOutShape2, FlowShape, Graph}
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.Liskov.<~<
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object GraphExtensions {
   implicit final class `Graph FOS2 funs`[A, Y, Z, M](
@@ -29,4 +30,38 @@ object GraphExtensions {
       divertToMat(Sink.head)(noM.subst[CK](Keep.right[NotUsed, Future[Z]]))
     }
   }
+
+  type FlowOpsMatAux[+Out, +Mat, ReprMat0[+_, +_]] = FlowOpsMat[Out, Mat] {
+    type ReprMat[+O, +M] = ReprMat0[O, M]
+  }
+
+  import language.implicitConversions
+
+  private[fetchcontracts] implicit def `flowops logTermination`[O, M](
+      self: FlowOpsMat[O, M]
+  ): `flowops logTermination`[O, M, self.ReprMat] =
+    new `flowops logTermination`[O, M, self.ReprMat](self)
+
+  private[fetchcontracts] final class `flowops logTermination`[O, M, RM[+_, +_]](
+      private val self: FlowOpsMatAux[O, M, RM]
+  ) extends AnyVal {
+    def logTermination(
+        extraMessage: String
+    )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): RM[O, M] =
+      self.watchTermination() { (mat, fd) =>
+        fd.onComplete(
+          _.fold(
+            { t =>
+              logger.info(s"S11 $extraMessage trying to abort ${t.getMessage}")
+            },
+            { _ =>
+              logger.info(s"S11 $extraMessage trying to shutdown")
+            },
+          )
+        )
+        mat
+      }
+  }
+
+  private val logger = ContextualizedLogger.get(getClass)
 }

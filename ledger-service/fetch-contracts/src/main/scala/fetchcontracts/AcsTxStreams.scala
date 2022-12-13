@@ -9,6 +9,7 @@ import akka.stream.{FanOutShape2, Graph}
 import com.daml.scalautil.Statement.discard
 import domain.ContractTypeId
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
+import util.GraphExtensions._
 import util.IdentifierConverters.apiIdentifier
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.{v1 => lav1}
@@ -39,6 +40,9 @@ private[daml] object AcsTxStreams {
     */
   private[daml] def acsFollowingAndBoundary(
       transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed]
+  )(implicit
+      ec: concurrent.ExecutionContext,
+      lc: com.daml.logging.LoggingContextOf[Any],
   ): Graph[FanOutShape2[
     lav1.active_contracts_service.GetActiveContractsResponse,
     ContractStreamStep.LAV1,
@@ -93,6 +97,9 @@ private[daml] object AcsTxStreams {
     */
   private[daml] def transactionsFollowingBoundary(
       transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed]
+  )(implicit
+      ec: concurrent.ExecutionContext,
+      lc: com.daml.logging.LoggingContextOf[Any],
   ): Graph[FanOutShape2[
     BeginBookmark[domain.Offset],
     ContractStreamStep.Txn.LAV1,
@@ -110,12 +117,14 @@ private[daml] object AcsTxStreams {
       import domain.Offset.`Offset ordering`
       val lastTxOff = b add last(LedgerBegin: Off)
       val maxOff = b add max(LedgerBegin: Off)
+      val logTxnOut = b add Flow[ContractStreamStep.Txn.LAV1].logTermination("after-split")
       // format: off
       discard { txnSplit.in <~ txns <~ dupOff }
       discard {                        dupOff                                ~> mergeOff ~> maxOff }
       discard { txnSplit.out1.map(off => AbsoluteBookmark(off)) ~> lastTxOff ~> mergeOff }
+      discard { txnSplit.out0 ~> logTxnOut }
       // format: on
-      new FanOutShape2(dupOff.in, txnSplit.out0, maxOff.out)
+      new FanOutShape2(dupOff.in, logTxnOut.out, maxOff.out)
     }
 
   private[this] def transactionToInsertsAndDeletes(
