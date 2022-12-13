@@ -54,7 +54,7 @@ private[daml] final case class InsertDeleteStep[+D, +C](
   }
 }
 
-private[daml] object InsertDeleteStep extends WithLAV1[InsertDeleteStep] {
+private[daml] object InsertDeleteStep extends /**/ WithLAV1[InsertDeleteStep] {
   type Inserts[+C] = Vector[C]
   val Inserts: Vector.type = Vector
 
