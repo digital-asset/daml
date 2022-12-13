@@ -4,8 +4,7 @@
 package com.daml.http.util
 
 import akka.NotUsed
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Keep, Flow, FlowOpsMat}
+import akka.stream.scaladsl.{Flow, FlowOpsMat}
 import Logging.InstanceUUID
 import com.daml.logging.{LoggingContextOf, ContextualizedLogger}
 import scalaz.{-\/, \/}
@@ -61,7 +60,7 @@ object FlowUtil {
   private[http] implicit final class `Flow flatMapMerge`[In, Out, Mat](
       private val self: Flow[In, Out, Mat]
   ) extends AnyVal {
-    import akka.stream.{Graph, SourceShape, KillSwitches}
+    import akka.stream.{Graph, SourceShape}
     import akka.stream.scaladsl.Source
 
     def flatMapMergeCancellable[T, M](
