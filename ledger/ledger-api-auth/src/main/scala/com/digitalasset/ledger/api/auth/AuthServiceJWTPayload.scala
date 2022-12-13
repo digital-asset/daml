@@ -69,7 +69,7 @@ object StandardJWTTokenFormat {
   final case object ParticipantId extends StandardJWTTokenFormat
 }
 
-/** Payload parsed from the standard "sub", "aud", "exp" claims as specified in
+/** Payload parsed from the standard "sub", "aud", "exp", "iss" claims as specified in
   * https://datatracker.ietf.org/doc/html/rfc7519#section-4.1
   *
   * @param issuer  The issuer of the JWT.
