@@ -69,33 +69,14 @@ object FlowUtil {
         f: Out => Graph[SourceShape[T], M],
     )(implicit
         ec: ExecutionContext,
-        mat: Materializer,
         lc: LoggingContextOf[InstanceUUID],
     ): Flow[In, T, Mat] = {
-      val _ = Source
-        .never[T]
-        .viaMat(KillSwitches.single)(Keep.right)
-        .preMaterialize()
       self
         .flatMapMerge(
           breadth,
           f andThen (gss => (Source fromGraph gss logTermination "fmm-inner")),
         )
-        .watchTermination() { (mat, fd) =>
-          fd.onComplete(
-            _.fold(
-              { t =>
-                logger.info(s"S11 trying to abort ${t.getMessage}")
-              // ks.abort(t)
-              },
-              { _ =>
-                logger.info(s"S11 trying to shutdown")
-              // ks.shutdown()
-              },
-            )
-          )
-          mat
-        }
+        .logTermination("fmm-outer")
     }
   }
 

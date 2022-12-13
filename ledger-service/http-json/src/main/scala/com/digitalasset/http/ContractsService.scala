@@ -27,6 +27,7 @@ import com.daml.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.FutureUtil.toFuture
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
+import util.FlowUtil._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.{v1 => api}
@@ -596,7 +597,8 @@ class ContractsService(
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
 
     val txnFilter = transactionFilter(parties, templateIds)
-    def source = getActiveContracts(jwt, ledgerId, txnFilter, true)(lc)
+    def source =
+      getActiveContracts(jwt, ledgerId, txnFilter, true)(lc).logTermination("ACS-before-tx")
 
     val transactionsSince
         : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
@@ -606,7 +608,7 @@ class ContractsService(
         txnFilter,
         _: api.ledger_offset.LedgerOffset,
         terminates,
-      )(lc)
+      )(lc).logTermination("tx-after-ACS")
 
     import com.daml.fetchcontracts.AcsTxStreams.{
       acsFollowingAndBoundary,
