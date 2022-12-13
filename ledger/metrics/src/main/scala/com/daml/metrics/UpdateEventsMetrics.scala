@@ -1,10 +1,20 @@
 package com.daml.metrics
 
+import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.Factory
-import com.daml.metrics.api.{MetricHandle, MetricName}
+import com.daml.metrics.api.{MetricDoc, MetricHandle, MetricName}
 
 class UpdateEventsMetrics(prefix: MetricName, metricFactory: Factory) {
 
-  val meteredEventsCounter: MetricHandle.Counter = metricFactory.counter(prefix :+ "metered_events")
+  @MetricDoc.Tag(
+    summary = "Number of events that will be metered",
+    description = """Represents the number of events that will be included in the metering report.
+        |This is an estimate of the total number and not a substitute for the metering report.""".stripMargin,
+    qualification = Debug,
+  )
+  val meteredEventsCounter: MetricHandle.Counter = metricFactory.counter(
+    prefix :+ "metered_events",
+    "Number of events that will be metered.",
+  )
 
 }
