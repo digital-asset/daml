@@ -13,18 +13,9 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
-import com.daml.platform.{
-  ApplicationId,
-  ContractId,
-  Identifier,
-  Key,
-  PackageId,
-  Party,
-  TransactionId,
-}
+import com.daml.platform.{ApplicationId, ContractId, Identifier, Key, PackageId, Party}
 import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.dao.events.Raw
-import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
@@ -34,7 +25,10 @@ import com.daml.scalautil.NeverEqualsOverride
 import java.sql.Connection
 import javax.sql.DataSource
 
-import com.daml.platform.store.backend.common.TransactionStreamingQueries
+import com.daml.platform.store.backend.common.{
+  TransactionPointwiseQueries,
+  TransactionStreamingQueries,
+}
 
 import scala.annotation.unused
 
@@ -264,6 +258,7 @@ object ContractStorageBackend {
 
 trait EventStorageBackend {
 
+  def transactionPointwiseQueries: TransactionPointwiseQueries
   def transactionStreamingQueries: TransactionStreamingQueries
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
@@ -283,17 +278,10 @@ trait EventStorageBackend {
       allFilterParties: Set[Party],
       endInclusive: Long,
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-  def flatTransaction(
-      transactionId: TransactionId,
-      filterParams: FilterParams,
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-  def transactionTree(
-      transactionId: TransactionId,
-      filterParams: FilterParams,
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
 
   /** Max event sequential id of observable (create, consuming and nonconsuming exercise) events. */
   def maxEventSequentialIdOfAnObservableEvent(offset: Offset)(connection: Connection): Option[Long]
+
   def rawEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
   ): Vector[EventStorageBackend.RawTransactionEvent]
