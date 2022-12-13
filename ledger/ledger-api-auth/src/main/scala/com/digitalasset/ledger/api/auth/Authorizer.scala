@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.auth
 
-import java.time.Instant
 import akka.actor.Scheduler
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
@@ -18,6 +17,7 @@ import io.grpc.StatusRuntimeException
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import scalapb.lenses.Lens
 
+import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -90,17 +90,15 @@ final class Authorizer(
       for {
         _ <- valid(claims)
         _ <- claims.isAdminOrIDPAdmin
-        identityProviderId <- requireValidIdentityProviderId(identityProviderId)
-        _ <- validateIdentityProviderId(identityProviderId, claims)
+        optionalIdentityProviderId = requireValidIdentityProviderId(identityProviderId)
+        _ <- validateIdentityProviderId(optionalIdentityProviderId, claims)
       } yield ()
     }
 
   def requireValidIdentityProviderId(
       identityProviderId: String
-  ): Either[AuthorizationError, IdentityProviderId] =
-    IdentityProviderId.fromString(identityProviderId).left.map { error =>
-      AuthorizationError.InvalidIdentityProviderIdArgument(error)
-    }
+  ): Option[IdentityProviderId] =
+    IdentityProviderId.fromString(identityProviderId).toOption
 
   def requireAdminOrIDPAdminClaims[Req, Res](
       call: Req => Future[Res]
@@ -115,7 +113,7 @@ final class Authorizer(
     }
 
   private def validateIdentityProviderId(
-      identityProviderId: IdentityProviderId,
+      optionalIdentityProviderId: Option[IdentityProviderId],
       claims: ClaimSet.Claims,
   ): Either[AuthorizationError, Unit] =
     if (claims.claims.contains(ClaimAdmin))
@@ -128,8 +126,10 @@ final class Authorizer(
       claims.identityProviderId match {
         case IdentityProviderId.Default =>
           Right(()) // default IDP can do everything - pass
-        case id if id == identityProviderId =>
+        case id if optionalIdentityProviderId.contains(id) =>
           Right(()) // if it's limited and matches the request - pass
+        case _ if optionalIdentityProviderId.isEmpty =>
+          Right(())
         case id: IdentityProviderId.Id =>
           Left(AuthorizationError.InvalidIdentityProviderId(id))
       }
