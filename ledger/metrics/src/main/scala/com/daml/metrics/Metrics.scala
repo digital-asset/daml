@@ -53,6 +53,8 @@ final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMe
 
     object parallelIndexer extends ParallelIndexerMetrics(prefix :+ "parallel_indexer", registry)
 
+    object indexerEvents extends UpdateEventsMetrics(prefix :+ "indexer", openTelemetryFactory)
+
     object services extends ServicesMetrics(prefix :+ "services", registry)
 
     object grpc extends DamlGrpcServerMetrics(openTelemetryFactory, "participant")
