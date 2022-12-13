@@ -230,7 +230,7 @@ object UpdateToDbDto {
                   tree_event_witnesses = informees,
                   create_key_value = createKeyValue
                     .map(compressionStrategy.createKeyValueCompression.compress),
-                  exercise_choice = Some(exercise.qualifiedChoideName.toString),
+                  exercise_choice = Some(exercise.qualifiedChoiceName.toString),
                   exercise_argument = Some(exerciseArgument)
                     .map(compressionStrategy.exerciseArgumentCompression.compress),
                   exercise_result = exerciseResult
