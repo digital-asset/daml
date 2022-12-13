@@ -847,7 +847,7 @@ class WebSocketService(
             jwtPayload.parties,
             offPrefix,
             rq.q: q,
-          )
+          ).logTermination("GTSFP-outer")
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
@@ -980,6 +980,7 @@ class WebSocketService(
             liveStartingOffset,
             Terminates.Never,
           )
+          .logTermination("IDSS-outer")
           .via(
             convertFilterContracts(
               resolvedQuery,

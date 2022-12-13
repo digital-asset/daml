@@ -614,13 +614,15 @@ class ContractsService(
       acsFollowingAndBoundary,
       transactionsFollowingBoundary,
     }, com.daml.fetchcontracts.util.GraphExtensions._
-    val contractsAndBoundary = startOffset.cata(
-      so =>
-        Source
-          .single(AbsoluteBookmark(so.offset))
-          .viaMat(transactionsFollowingBoundary(transactionsSince).divertToHead)(Keep.right),
-      source.viaMat(acsFollowingAndBoundary(transactionsSince).divertToHead)(Keep.right),
-    )
+    val contractsAndBoundary = startOffset
+      .cata(
+        so =>
+          Source
+            .single(AbsoluteBookmark(so.offset))
+            .viaMat(transactionsFollowingBoundary(transactionsSince).divertToHead)(Keep.right),
+        source.viaMat(acsFollowingAndBoundary(transactionsSince).divertToHead)(Keep.right),
+      )
+      .logTermination("contractsAndBoundary")
     contractsAndBoundary mapMaterializedValue { fob =>
       fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
       NotUsed
