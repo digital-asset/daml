@@ -53,7 +53,7 @@ private[daml] object AcsTxStreams {
       import ContractStreamStep.{LiveBegin, Acs}
       type Off = BeginBookmark[domain.Offset]
       val acs = b add acsAndBoundary
-      val dupOff = b add Broadcast[Off](2)
+      val dupOff = b add Broadcast[Off](2, eagerCancel = true)
       val liveStart = Flow fromFunction { off: Off =>
         LiveBegin(off)
       }
@@ -79,7 +79,7 @@ private[daml] object AcsTxStreams {
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       import lav1.active_contracts_service.{GetActiveContractsResponse => GACR}
-      val dup = b add Broadcast[GACR](2)
+      val dup = b add Broadcast[GACR](2, eagerCancel = true)
       val acs = b add (Flow fromFunction ((_: GACR).activeContracts))
       val off = b add Flow[GACR]
         .collect {
