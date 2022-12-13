@@ -69,8 +69,10 @@ object StandardJWTTokenFormat {
   final case object ParticipantId extends StandardJWTTokenFormat
 }
 
-/** Payload parsed from the standard "sub", "aud", "exp" claims as specified in
+/** Payload parsed from the standard "sub", "aud", "exp", "iss" claims as specified in
   * https://datatracker.ietf.org/doc/html/rfc7519#section-4.1
+  *
+  * @param issuer  The issuer of the JWT.
   *
   * @param userId  The user that is authenticated by this payload.
   *
@@ -81,6 +83,7 @@ object StandardJWTTokenFormat {
   * @param exp            If set, the token is only valid before the given instant.
   */
 final case class StandardJWTPayload(
+    issuer: Option[String],
     userId: String,
     participantId: Option[String],
     exp: Option[Instant],
@@ -114,6 +117,7 @@ object AuthServiceJWTCodec {
   private[this] final val propParticipantId: String = "participantId"
   private[this] final val propApplicationId: String = "applicationId"
   private[this] final val propAud: String = "aud"
+  private[this] final val propIss: String = "iss"
   private[this] final val propAdmin: String = "admin"
   private[this] final val propActAs: String = "actAs"
   private[this] final val propReadAs: String = "readAs"
@@ -141,6 +145,7 @@ object AuthServiceJWTCodec {
       )
     case v: StandardJWTPayload if v.format == StandardJWTTokenFormat.Scope =>
       JsObject(
+        propIss -> writeOptionalString(v.issuer),
         propAud -> writeOptionalString(v.participantId),
         "sub" -> JsString(v.userId),
         "exp" -> writeOptionalInstant(v.exp),
@@ -148,6 +153,7 @@ object AuthServiceJWTCodec {
       )
     case v: StandardJWTPayload =>
       JsObject(
+        propIss -> writeOptionalString(v.issuer),
         propAud -> JsString(audPrefix + v.participantId.getOrElse("")),
         "sub" -> JsString(v.userId),
         "exp" -> writeOptionalInstant(v.exp),
@@ -190,6 +196,7 @@ object AuthServiceJWTCodec {
         audienceValue.map(_.substring(audPrefix.length)).filter(_.nonEmpty) match {
           case Some(participantId) =>
             StandardJWTPayload(
+              issuer = readOptionalString("iss", fields),
               participantId = Some(participantId),
               userId = readOptionalString("sub", fields).get, // guarded by if-clause above
               exp = readInstant("exp", fields),
@@ -204,6 +211,7 @@ object AuthServiceJWTCodec {
       } else if (scopes.contains(scopeLedgerApiFull)) {
         // We support the tokens with scope containing `daml_ledger_api`, there is no restriction of `aud` field.
         StandardJWTPayload(
+          issuer = readOptionalString("iss", fields),
           participantId = audienceValue,
           userId = readOptionalString("sub", fields).get, // guarded by if-clause above
           exp = readInstant("exp", fields),
