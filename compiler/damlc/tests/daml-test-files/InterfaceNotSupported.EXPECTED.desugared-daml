@@ -51,7 +51,7 @@ instance DA.Internal.Desugar.HasExercise A DA.Internal.Desugar.Archive (()) wher
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @A cid)
         arg
-_choice_AArchive :
+_choice$_AArchive :
   (A -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId A
    -> A
@@ -59,7 +59,7 @@ _choice_AArchive :
    DA.Internal.Desugar.Consuming A,
    DA.Internal.Desugar.Optional (A
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_AArchive
+_choice$_AArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 

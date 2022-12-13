@@ -77,7 +77,7 @@ instance DA.Internal.Desugar.HasExercise Iface FooBar (()) where
 data FooBar
   = FooBar {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-_choice_IfaceArchive :
+_choice$_IfaceArchive :
   (Iface
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Iface
@@ -86,19 +86,19 @@ _choice_IfaceArchive :
    DA.Internal.Desugar.Consuming Iface,
    DA.Internal.Desugar.Optional (Iface
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_IfaceArchive
+_choice$_IfaceArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_IfaceFooBar :
+_choice$_IfaceFooBar :
   (Iface -> FooBar -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Iface
    -> Iface -> FooBar -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming Iface,
    DA.Internal.Desugar.Optional (Iface
                                  -> FooBar -> [DA.Internal.Desugar.Party]))
-_choice_IfaceFooBar
+_choice$_IfaceFooBar
   = (\ this arg@FooBar
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (owner this), 
