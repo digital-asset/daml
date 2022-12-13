@@ -1669,6 +1669,25 @@ private[lf] object SBuiltin {
     }
   }
 
+  /** $acting_as_consortium
+    *    :: Token
+    *    -> List Party    (members)
+    *    -> Party         (consortium)
+    *    -> Unit
+    */
+  final case object SBActingAsConsortium extends SBuiltin(3) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      checkToken(args, 0)
+      val members = args.get(1)
+      val consortium = args.get(2)
+      val _ = (members, consortium)
+      ??? // NICK
+    }
+  }
+
   final case class SBSSubmit(optLocation: Option[Location], mustFail: Boolean) extends SBuiltin(3) {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
