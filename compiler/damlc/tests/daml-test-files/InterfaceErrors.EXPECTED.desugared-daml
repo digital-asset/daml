@@ -76,7 +76,7 @@ instance DA.Internal.Desugar.HasExercise MyInterface MyVirtualChoice (()) where
 data MyVirtualChoice
   = MyVirtualChoice {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-_choice_MyInterfaceArchive :
+_choice$_MyInterfaceArchive :
   (MyInterface
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId MyInterface
@@ -85,12 +85,12 @@ _choice_MyInterfaceArchive :
    DA.Internal.Desugar.Consuming MyInterface,
    DA.Internal.Desugar.Optional (MyInterface
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_MyInterfaceArchive
+_choice$_MyInterfaceArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_MyInterfaceMyVirtualChoice :
+_choice$_MyInterfaceMyVirtualChoice :
   (MyInterface -> MyVirtualChoice -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId MyInterface
    -> MyInterface
@@ -98,7 +98,7 @@ _choice_MyInterfaceMyVirtualChoice :
    DA.Internal.Desugar.Consuming MyInterface,
    DA.Internal.Desugar.Optional (MyInterface
                                  -> MyVirtualChoice -> [DA.Internal.Desugar.Party]))
-_choice_MyInterfaceMyVirtualChoice
+_choice$_MyInterfaceMyVirtualChoice
   = (\ this arg@MyVirtualChoice
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties ([] : [Party]), 
@@ -159,7 +159,7 @@ instance DA.Internal.Desugar.HasToAnyChoice MyTemplate DA.Internal.Desugar.Archi
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice MyTemplate DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-_choice_MyTemplateArchive :
+_choice$_MyTemplateArchive :
   (MyTemplate
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId MyTemplate
@@ -168,7 +168,7 @@ _choice_MyTemplateArchive :
    DA.Internal.Desugar.Consuming MyTemplate,
    DA.Internal.Desugar.Optional (MyTemplate
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_MyTemplateArchive
+_choice$_MyTemplateArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)

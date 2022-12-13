@@ -53,7 +53,7 @@ instance DA.Internal.Desugar.HasToAnyChoice T DA.Internal.Desugar.Archive (()) w
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice T DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-_choice_TArchive :
+_choice$_TArchive :
   (T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T
@@ -61,16 +61,16 @@ _choice_TArchive :
    DA.Internal.Desugar.Consuming T,
    DA.Internal.Desugar.Optional (T
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_TArchive
+_choice$_TArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_interface_instance_T_I_T :
+_interface_instance$_T_I_T :
   DA.Internal.Desugar.InterfaceInstance T I T
-_interface_instance_T_I_T
+_interface_instance$_T_I_T
   = DA.Internal.Desugar.mkInterfaceInstance @T @I @T
-_view_T_I_T : DA.Internal.Desugar.InterfaceView T I T
-_view_T_I_T
+_view$_T_I_T : DA.Internal.Desugar.InterfaceView T I T
+_view$_T_I_T
   = DA.Internal.Desugar.mkInterfaceView
       @T
       @I

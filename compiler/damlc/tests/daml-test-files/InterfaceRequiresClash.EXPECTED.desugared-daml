@@ -17,10 +17,10 @@ instance DA.Internal.Desugar.HasToInterface C C where
 instance DA.Internal.Desugar.HasFromInterface C C where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
-_requires_C_A:I : DA.Internal.Desugar.RequiresT C A.I
-_requires_C_A:I = DA.Internal.Desugar.RequiresT
-_requires_C_B:I : DA.Internal.Desugar.RequiresT C B.I
-_requires_C_B:I = DA.Internal.Desugar.RequiresT
+_requires$_C_A:I : DA.Internal.Desugar.RequiresT C A.I
+_requires$_C_A:I = DA.Internal.Desugar.RequiresT
+_requires$_C_B:I : DA.Internal.Desugar.RequiresT C B.I
+_requires$_C_B:I = DA.Internal.Desugar.RequiresT
 instance DA.Internal.Desugar.HasToInterface C A.I where
   _toInterface = GHC.Types.primitive @"EToRequiredInterface"
 instance DA.Internal.Desugar.HasFromInterface C A.I where
@@ -69,7 +69,7 @@ instance DA.Internal.Desugar.HasExercise C DA.Internal.Desugar.Archive (()) wher
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @C cid)
         arg
-_choice_CArchive :
+_choice$_CArchive :
   (C -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId C
    -> C
@@ -77,7 +77,7 @@ _choice_CArchive :
    DA.Internal.Desugar.Consuming C,
    DA.Internal.Desugar.Optional (C
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_CArchive
+_choice$_CArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 

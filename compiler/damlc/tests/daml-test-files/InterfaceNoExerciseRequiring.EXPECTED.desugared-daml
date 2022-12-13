@@ -86,7 +86,7 @@ instance DA.Internal.Record.HasField "byHowMuch" GetRich Int where
     = DA.Internal.Record.getFieldPrim @"byHowMuch" @GetRich @Int
   setField
     = DA.Internal.Record.setFieldPrim @"byHowMuch" @GetRich @Int
-_choice_TokenArchive :
+_choice$_TokenArchive :
   (Token
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
@@ -95,12 +95,12 @@ _choice_TokenArchive :
    DA.Internal.Desugar.Consuming Token,
    DA.Internal.Desugar.Optional (Token
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_TokenArchive
+_choice$_TokenArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_TokenGetRich :
+_choice$_TokenGetRich :
   (Token -> GetRich -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
    -> Token
@@ -108,7 +108,7 @@ _choice_TokenGetRich :
    DA.Internal.Desugar.Consuming Token,
    DA.Internal.Desugar.Optional (Token
                                  -> GetRich -> [DA.Internal.Desugar.Party]))
-_choice_TokenGetRich
+_choice$_TokenGetRich
   = (\ this arg@GetRich {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getOwner this), 
@@ -136,9 +136,9 @@ instance DA.Internal.Desugar.HasToInterface SubToken SubToken where
 instance DA.Internal.Desugar.HasFromInterface SubToken SubToken where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
-_requires_SubToken_Token :
+_requires$_SubToken_Token :
   DA.Internal.Desugar.RequiresT SubToken Token
-_requires_SubToken_Token = DA.Internal.Desugar.RequiresT
+_requires$_SubToken_Token = DA.Internal.Desugar.RequiresT
 instance DA.Internal.Desugar.HasToInterface SubToken Token where
   _toInterface = GHC.Types.primitive @"EToRequiredInterface"
 instance DA.Internal.Desugar.HasFromInterface SubToken Token where
@@ -181,7 +181,7 @@ instance DA.Internal.Desugar.HasExercise SubToken DA.Internal.Desugar.Archive ((
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @SubToken cid)
         arg
-_choice_SubTokenArchive :
+_choice$_SubTokenArchive :
   (SubToken
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId SubToken
@@ -190,7 +190,7 @@ _choice_SubTokenArchive :
    DA.Internal.Desugar.Consuming SubToken,
    DA.Internal.Desugar.Optional (SubToken
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_SubTokenArchive
+_choice$_SubTokenArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
