@@ -3,7 +3,10 @@
 
 package com.daml.http
 
-abstract class WebsocketServiceIntegrationTest extends AbstractWebsocketServiceIntegrationTest {
+abstract class WebsocketServiceIntegrationTest
+    extends AbstractWebsocketServiceIntegrationTest(
+      integration = "w/o DB"
+    ) {
   override def jdbcConfig = None
 }
 
@@ -12,7 +15,7 @@ final class WebsocketServiceIntegrationTestCustomToken
     with AbstractHttpServiceIntegrationTestFunsCustomToken
 
 abstract class WebsocketServiceWithPostgresIntTest
-    extends AbstractWebsocketServiceIntegrationTest
+    extends AbstractWebsocketServiceIntegrationTest("w/ Postgres")
     with HttpServicePostgresInt
 
 final class WebsocketServiceWithPostgresIntTestCustomToken

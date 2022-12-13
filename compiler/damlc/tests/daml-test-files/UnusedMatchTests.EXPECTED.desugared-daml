@@ -105,7 +105,7 @@ instance DA.Internal.Desugar.HasToAnyChoice T Revoke (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice T Revoke (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-_choice_TArchive :
+_choice$_TArchive :
   (T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T
@@ -113,18 +113,18 @@ _choice_TArchive :
    DA.Internal.Desugar.Consuming T,
    DA.Internal.Desugar.Optional (T
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_TArchive
+_choice$_TArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_TRevoke :
+_choice$_TRevoke :
   (T -> Revoke -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T -> Revoke -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming T,
    DA.Internal.Desugar.Optional (T
                                  -> Revoke -> [DA.Internal.Desugar.Party]))
-_choice_TRevoke
+_choice$_TRevoke
   = (\ this@T {..} arg@Revoke
        -> let
             (revokeRetVal, sig, obs, assertion, plainEnglish, ident)

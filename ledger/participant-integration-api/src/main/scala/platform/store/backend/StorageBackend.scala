@@ -24,7 +24,7 @@ import com.daml.platform.{
 }
 import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.dao.events.Raw
-import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
+import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
@@ -33,6 +33,8 @@ import com.daml.platform.store.interning.StringInterning
 import com.daml.scalautil.NeverEqualsOverride
 import java.sql.Connection
 import javax.sql.DataSource
+
+import com.daml.platform.store.backend.common.TransactionStreamingQueries
 
 import scala.annotation.unused
 
@@ -262,6 +264,8 @@ object ContractStorageBackend {
 
 trait EventStorageBackend {
 
+  def transactionStreamingQueries: TransactionStreamingQueries
+
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
   def pruneEvents(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(
@@ -273,17 +277,7 @@ trait EventStorageBackend {
       pruneAllDivulgedContracts: Boolean,
       connection: Connection,
   ): Boolean
-  def transactionEvents(
-      rangeParams: RangeParams,
-      filterParams: FilterParams,
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-  def activeContractEventIds(
-      partyFilter: Party,
-      templateIdFilter: Option[Identifier],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long]
+
   def activeContractEventBatch(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Party],
@@ -293,10 +287,6 @@ trait EventStorageBackend {
       transactionId: TransactionId,
       filterParams: FilterParams,
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-  def transactionTreeEvents(
-      rangeParams: RangeParams,
-      filterParams: FilterParams,
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
   def transactionTree(
       transactionId: TransactionId,
       filterParams: FilterParams,

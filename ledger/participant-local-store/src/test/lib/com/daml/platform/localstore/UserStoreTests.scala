@@ -3,7 +3,6 @@
 
 package com.daml.platform.localstore
 
-import com.daml.ledger.api.IdentityProviderIdFilter
 import com.daml.ledger.api.domain.{
   IdentityProviderConfig,
   IdentityProviderId,
@@ -90,6 +89,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
       isDeactivatedUpdateO: Option[Boolean] = None,
       annotationsUpdateO: Option[Map[String, String]] = None,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): UserUpdate = UserUpdate(
     id = id,
     primaryPartyUpdateO = primaryPartyUpdateO,
@@ -98,6 +98,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       resourceVersionO = None,
       annotationsUpdateO = annotationsUpdateO,
     ),
+    identityProviderId = identityProviderId,
   )
 
   def resetResourceVersion(
@@ -214,7 +215,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           list1 <- tested.listUsers(
             fromExcl = None,
             maxResults = 3,
-            identityProviderIdFilter = IdentityProviderIdFilter.All,
+            identityProviderId = IdentityProviderId.Default,
           )
           _ = list1 shouldBe Right(
             UsersPage(
@@ -228,7 +229,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           list2 <- tested.listUsers(
             fromExcl = list1.getOrElse(fail("Expecting a Right()")).lastUserIdOption,
             maxResults = 4,
-            identityProviderIdFilter = IdentityProviderIdFilter.All,
+            identityProviderId = IdentityProviderId.Default,
           )
           _ = list2 shouldBe Right(UsersPage(Seq(createdUser("user4"))))
         } yield {
@@ -244,13 +245,13 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           users1 <- tested.listUsers(
             fromExcl = None,
             maxResults = 10000,
-            identityProviderIdFilter = IdentityProviderIdFilter.All,
+            identityProviderId = IdentityProviderId.Default,
           )
           res3 <- tested.deleteUser("user1")
           users2 <- tested.listUsers(
             fromExcl = None,
             maxResults = 10000,
-            identityProviderIdFilter = IdentityProviderIdFilter.All,
+            identityProviderId = IdentityProviderId.Default,
           )
         } yield {
           res1 shouldBe Right(createdUser("user1"))
@@ -286,7 +287,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           list1 <- tested.listUsers(
             fromExcl = None,
             maxResults = 3,
-            identityProviderIdFilter = IdentityProviderIdFilter.ByValue(persistedIdentityProviderId),
+            identityProviderId = persistedIdentityProviderId,
           )
           _ = list1 shouldBe Right(
             UsersPage(
@@ -299,15 +300,13 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           list2 <- tested.listUsers(
             fromExcl = None,
             maxResults = 4,
-            identityProviderIdFilter = IdentityProviderIdFilter.All,
+            identityProviderId = IdentityProviderId.Default,
           )
           _ = list2 shouldBe Right(
             UsersPage(
               Seq(
-                createdUser("user1", identityProviderId = persistedIdentityProviderId),
                 createdUser("user2"),
                 createdUser("user3"),
-                createdUser("user4", identityProviderId = persistedIdentityProviderId),
               )
             )
           )
@@ -426,35 +425,6 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
   }
 
   "updating" - {
-    "update a identity_provider_id for the user" in {
-      val id2 =
-        IdentityProviderId.Id(LedgerString.assertFromString("idp2"))
-      val idp2 = IdentityProviderConfig(
-        identityProviderId = id2,
-        jwksUrl = JwksUrl("http://domain.com/"),
-        issuer = "issuer2",
-      )
-      testIt { tested =>
-        val pr1 = newUser("user1", identityProviderId = persistedIdentityProviderId)
-        for {
-          _ <- createIdentityProviderConfig(idp1)
-          _ <- createIdentityProviderConfig(idp2)
-          _ <- tested.createUser(pr1, Set.empty)
-          update1 <- tested.updateUser(
-            userUpdate = UserUpdate(
-              id = pr1.id,
-              metadataUpdate = ObjectMetaUpdate.empty,
-              identityProviderIdUpdate = Some(id2),
-            )
-          )
-          _ = resetResourceVersion(update1.value) shouldBe newUser(
-            "user1",
-            identityProviderId = id2,
-          )
-        } yield succeed
-      }
-    }
-
     "update an existing user's annotations" in {
       testIt { tested =>
         val pr1 = newUser("user1", isDeactivated = true, primaryParty = None)
@@ -470,6 +440,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
                 resourceVersionO = create1.value.metadata.resourceVersionO,
                 annotationsUpdateO = Some(Map("k1" -> "v1")),
               ),
+              identityProviderId = pr1.identityProviderId,
             )
           )
           _ = resetResourceVersion(update1.value) shouldBe newUser(
@@ -500,6 +471,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
                   )
                 ),
               ),
+              identityProviderId = user.identityProviderId,
             )
           )
           _ = update1.value shouldBe createdUser(
@@ -524,6 +496,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
                 resourceVersionO = None,
                 annotationsUpdateO = Some(Map("k1" -> "v1")),
               ),
+              identityProviderId = IdentityProviderId.Default,
             )
           )
           _ = res1.left.value shouldBe UserManagementStore.UserNotFound(userId)
@@ -543,6 +516,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
                 resourceVersionO = Some(100),
                 annotationsUpdateO = Some(Map("k1" -> "v1")),
               ),
+              identityProviderId = user.identityProviderId,
             )
           )
           _ = res1.left.value shouldBe UserManagementStore.ConcurrentUserUpdate(user.id)

@@ -23,17 +23,9 @@ proto_gen(
     ],
 )
 
-proto_gen(
-    name = "sample-service-akka-sources",
-    srcs = [":sample-service-proto"],
-    plugin_exec = "//scala-protoc-plugins/scala-akka:protoc-gen-scala-akka",
-    plugin_name = "scala-akka",
-)
-
 scala_library(
     name = "sample-service-scalapb",
     srcs = [
-        ":sample-service-akka-sources",
         ":sample-service-scalapb-sources",
     ],
     unused_dependency_checker_mode = "error",
@@ -42,16 +34,12 @@ scala_library(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_stub",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger-api/rs-grpc-akka",
     ] + [
         "{}_{}".format(dep, scala_major_version_suffix)
         for dep in [
             "@maven//:com_thesamet_scalapb_lenses",
             "@maven//:com_thesamet_scalapb_scalapb_runtime",
             "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc",
-            "@maven//:com_typesafe_akka_akka_actor",
-            "@maven//:com_typesafe_akka_akka_stream",
         ]
     ],
 )

@@ -326,6 +326,7 @@ object domain {
   sealed abstract class UserRight extends Product with Serializable
   object UserRight {
     final case object ParticipantAdmin extends UserRight
+    final case object IdentityProviderAdmin extends UserRight
     final case class CanActAs(party: Ref.Party) extends UserRight
     final case class CanReadAs(party: Ref.Party) extends UserRight
   }

@@ -3,7 +3,6 @@
 
 package com.daml.platform.localstore.api
 
-import com.daml.ledger.api.IdentityProviderIdFilter
 import com.daml.ledger.api.domain.{IdentityProviderId, User, UserRight}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
@@ -12,10 +11,10 @@ import scala.concurrent.{ExecutionContext, Future}
 
 case class UserUpdate(
     id: Ref.UserId,
+    identityProviderId: IdentityProviderId,
     primaryPartyUpdateO: Option[Option[Ref.Party]] = None,
     isDeactivatedUpdateO: Option[Boolean] = None,
     metadataUpdate: ObjectMetaUpdate,
-    identityProviderIdUpdate: Option[IdentityProviderId] = None,
 )
 
 case class ObjectMetaUpdate(
@@ -47,7 +46,7 @@ trait UserManagementStore {
   def listUsers(
       fromExcl: Option[Ref.UserId],
       maxResults: Int,
-      identityProviderIdFilter: IdentityProviderIdFilter,
+      identityProviderId: IdentityProviderId,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[UsersPage]]

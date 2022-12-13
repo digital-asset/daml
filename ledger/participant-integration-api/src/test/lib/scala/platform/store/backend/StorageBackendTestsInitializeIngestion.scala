@@ -7,6 +7,8 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.platform.store.backend.common.EventIdSourceForInformees
+import org.scalatest.compatible.Assertion
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -26,10 +28,11 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       TransactionMetering(Ref.ApplicationId.assertFromString(app), 1, someTime, offset)
     )
 
-  it should "delete overspill entries" in {
-    val signatory = Ref.Party.assertFromString("signatory")
+  private val signatory = Ref.Party.assertFromString("signatory")
+  private val readers = Set(signatory)
 
-    val dtos1: Vector[DbDto] = Vector(
+  {
+    val dtos = Vector(
       // 1: config change
       dtoConfiguration(offset(1), someConfiguration),
       // 2: party allocation
@@ -37,223 +40,326 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       // 3: package upload
       dtoPackage(offset(3)),
       dtoPackageEntry(offset(3)),
-      // 4: transaction with create node
-      dtoCreate(offset(4), 1L, hashCid("#4"), signatory = signatory),
-      DbDto.CreateFilter(1L, someTemplateId.toString, someParty.toString),
-      dtoCompletion(offset(4)),
-      // 5: transaction with exercise node and retroactive divulgence
-      dtoExercise(offset(5), 2L, false, hashCid("#4")),
-      dtoDivulgence(Some(offset(5)), 3L, hashCid("#4")),
-      dtoCompletion(offset(5)),
-      // Transaction Metering
-      dtoMetering("AppA", offset(1)),
-      dtoMetering("AppB", offset(4)),
     )
-
-    val dtos2: Vector[DbDto] = Vector(
-      // 6: config change
-      dtoConfiguration(offset(6), someConfiguration),
-      // 7: party allocation
-      dtoPartyEntry(offset(7), "party2"),
-      // 8: package upload
-      dtoPackage(offset(8)),
-      dtoPackageEntry(offset(8)),
-      // 9: transaction with create node
-      dtoCreate(offset(9), 4L, hashCid("#9"), signatory = signatory),
-      DbDto.CreateFilter(4L, someTemplateId.toString, someParty.toString),
-      dtoCompletion(offset(9)),
-      // 10: transaction with exercise node and retroactive divulgence
-      dtoExercise(offset(10), 5L, false, hashCid("#9")),
-      dtoDivulgence(Some(offset(10)), 6L, hashCid("#9")),
-      dtoCompletion(offset(10)),
-      // Transaction Metering
-      dtoMetering("AppC", offset(6)),
-    )
-
-    val readers = Set(signatory)
-
-    // Initialize
-    executeSql(backend.parameter.initializeParameters(someIdentityParams))
-    executeSql(backend.meteringParameter.initializeLedgerMeteringEnd(someLedgerMeteringEnd))
-
-    // Start the indexer (a no-op in this case)
-    val end1 = executeSql(backend.parameter.ledgerEnd)
-    executeSql(backend.ingestion.deletePartiallyIngestedData(end1))
-
-    // Fully insert first batch of updates
-    executeSql(ingest(dtos1, _))
-    executeSql(updateLedgerEnd(ledgerEnd(5, 3L)))
-
-    // Partially insert second batch of updates (indexer crashes before updating ledger end)
-    executeSql(ingest(dtos2, _))
-
-    // Check the contents
-    val parties1 = executeSql(backend.party.knownParties)
-    val config1 = executeSql(backend.configuration.ledgerConfiguration)
-    val packages1 = executeSql(backend.packageBackend.lfPackages)
-    val contract41 = executeSql(
-      backend.contract.activeContractWithoutArgument(
-        readers,
-        hashCid("#4"),
+    it should "delete overspill entries - config, parties, packages" in {
+      fixture(
+        dtos1 = dtos,
+        lastOffset1 = 3L,
+        lastEventSeqId1 = 0L,
+        dtos2 = Vector(
+          // 4: config change
+          dtoConfiguration(offset(4), someConfiguration),
+          // 5: party allocation
+          dtoPartyEntry(offset(5), "party2"),
+          // 6: package upload
+          dtoPackage(offset(6)),
+          dtoPackageEntry(offset(6)),
+        ),
+        lastOffset2 = 6L,
+        lastEventSeqId2 = 0L,
+        checkContentsBefore = () => {
+          val parties = executeSql(backend.party.knownParties)
+          val config = executeSql(backend.configuration.ledgerConfiguration)
+          val packages = executeSql(backend.packageBackend.lfPackages)
+          parties should have length 1
+          packages should have size 1
+          config shouldBe Some(offset(1) -> someConfiguration)
+        },
+        checkContentsAfter = () => {
+          val parties = executeSql(backend.party.knownParties)
+          val config = executeSql(backend.configuration.ledgerConfiguration)
+          val packages = executeSql(backend.packageBackend.lfPackages)
+          parties should have length 1
+          packages should have size 1
+          config shouldBe Some(offset(1) -> someConfiguration)
+        },
       )
-    )
-    val contract91 = executeSql(
-      backend.contract.activeContractWithoutArgument(
-        readers,
-        hashCid("#9"),
+    }
+
+    it should "delete overspill entries written before first ledger end update - config, parties, packages" in {
+      fixtureOverspillBeforeFirstLedgerEndUpdate(
+        dtos = dtos,
+        lastOffset = 3,
+        lastEventSeqId = 0L,
+        checkContentsAfter = () => {
+          val parties2 = executeSql(backend.party.knownParties)
+          val config2 = executeSql(backend.configuration.ledgerConfiguration)
+          val packages2 = executeSql(backend.packageBackend.lfPackages)
+          parties2 shouldBe empty
+          packages2 shouldBe empty
+          config2 shouldBe empty
+        },
       )
-    )
-    val filterIds1 = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = someParty,
-        templateIdFilter = None,
-        startExclusive = 0,
-        endInclusive = 1000,
-        limit = 1000,
-      )
-    )
-
-    val metering1 =
-      executeSql(backend.metering.read.reportData(Timestamp.Epoch, None, None))
-
-    // Restart the indexer - should delete data from the partial insert above
-    val end2 = executeSql(backend.parameter.ledgerEnd)
-    executeSql(backend.ingestion.deletePartiallyIngestedData(end2))
-
-    // Move the ledger end so that any non-deleted data would become visible
-    executeSql(updateLedgerEnd(ledgerEnd(10, 6L)))
-
-    // Check the contents
-    val parties2 = executeSql(backend.party.knownParties)
-    val config2 = executeSql(backend.configuration.ledgerConfiguration)
-    val packages2 = executeSql(backend.packageBackend.lfPackages)
-    val contract42 = executeSql(
-      backend.contract.activeContractWithoutArgument(
-        readers,
-        hashCid("#4"),
-      )
-    )
-    val contract92 = executeSql(
-      backend.contract.activeContractWithoutArgument(
-        readers,
-        hashCid("#9"),
-      )
-    )
-    val filterIds2 = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = someParty,
-        templateIdFilter = None,
-        startExclusive = 0,
-        endInclusive = 1000,
-        limit = 1000,
-      )
-    )
-
-    val metering2 =
-      executeSql(backend.metering.read.reportData(Timestamp.Epoch, None, None))
-
-    parties1 should have length 1
-    packages1 should have size 1
-    config1 shouldBe Some(offset(1) -> someConfiguration)
-    contract41 should not be empty
-    contract91 shouldBe None
-    filterIds1 shouldBe List(1L, 4L) // since ledger-end does not limit the range query
-
-    // Metering report can include partially ingested data in non-final reports
-    metering1.applicationData should have size 3
-    metering1.isFinal shouldBe false
-
-    parties2 should have length 1
-    packages2 should have size 1
-    config2 shouldBe Some(offset(1) -> someConfiguration)
-    contract42 should not be empty
-    contract92 shouldBe None
-    filterIds2 shouldBe List(1L)
-
-    metering2.applicationData should have size 2 // Partially ingested data removed
-
+    }
   }
 
-  it should "delete overspill entries written before first ledger end update" in {
-    val signatory = Ref.Party.assertFromString("signatory")
-
-    val dtos1: Vector[DbDto] = Vector(
-      // 1: config change
-      dtoConfiguration(offset(1), someConfiguration),
-      // 2: party allocation
-      dtoPartyEntry(offset(2), "party1"),
-      // 3: package upload
-      dtoPackage(offset(3)),
-      dtoPackageEntry(offset(3)),
-      // 4: transaction with create node
-      dtoCreate(offset(4), 1L, hashCid("#4"), signatory = signatory),
-      DbDto.CreateFilter(1L, someTemplateId.toString, someParty.toString),
-      dtoCompletion(offset(4)),
-      // 5: transaction with exercise node and retroactive divulgence
-      dtoExercise(offset(5), 2L, false, hashCid("#4")),
-      dtoDivulgence(Some(offset(5)), 3L, hashCid("#4")),
-      dtoCompletion(offset(5)),
-      // Transaction Metering
+  {
+    val dtos = Vector(
       dtoMetering("AppA", offset(1)),
       dtoMetering("AppB", offset(4)),
     )
+    it should "delete overspill entries - metering" in {
+      fixture(
+        dtos1 = dtos,
+        lastOffset1 = 4L,
+        lastEventSeqId1 = 0L,
+        dtos2 = Vector(
+          dtoMetering("AppC", offset(6))
+        ),
+        lastOffset2 = 6L,
+        lastEventSeqId2 = 0L,
+        checkContentsBefore = () => {
+          val metering =
+            executeSql(backend.metering.read.reportData(Timestamp.Epoch, None, None))
+          // Metering report can include partially ingested data in non-final reports
+          metering.applicationData should have size 3
+          metering.isFinal shouldBe false
+        },
+        checkContentsAfter = () => {
+          val metering =
+            executeSql(backend.metering.read.reportData(Timestamp.Epoch, None, None))
+          metering.applicationData should have size 2 // Partially ingested data removed
+        },
+      )
+    }
 
-    val readers = Set(signatory)
+    it should "delete overspill entries written before first ledger end update - metering" in {
+      fixtureOverspillBeforeFirstLedgerEndUpdate(
+        dtos = dtos,
+        lastOffset = 4,
+        lastEventSeqId = 0L,
+        checkContentsAfter = () => {
+          val metering2 =
+            executeSql(backend.metering.read.reportData(Timestamp.Epoch, None, None))
+          metering2.applicationData shouldBe empty
+        },
+      )
+    }
+  }
 
+  {
+    val dtos = Vector(
+      // 1: transaction with a create node
+      dtoCreate(offset(1), 1L, hashCid("#101"), signatory = signatory),
+      DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, someParty),
+      DbDto.IdFilterCreateNonStakeholderInformee(1L, someParty),
+      dtoTransactionMeta(
+        offset(1),
+        event_sequential_id_first = 1L,
+        event_sequential_id_last = 1L,
+      ),
+      dtoCompletion(offset(41)),
+      // 2: transaction with exercise node and retroactive divulgence
+      dtoExercise(offset(2), 2L, false, hashCid("#101")),
+      DbDto.IdFilterNonConsumingInformee(2L, someParty),
+      dtoExercise(offset(2), 3L, true, hashCid("#102")),
+      DbDto.IdFilterConsumingStakeholder(3L, someTemplateId.toString, someParty),
+      DbDto.IdFilterConsumingNonStakeholderInformee(3L, someParty),
+      dtoDivulgence(Some(offset(2)), 4L, hashCid("#101")),
+      dtoTransactionMeta(
+        offset(2),
+        event_sequential_id_first = 2L,
+        event_sequential_id_last = 4L,
+      ),
+      dtoCompletion(offset(2)),
+    )
+
+    it should "delete overspill entries - events, transaction meta, completions" in {
+      fixture(
+        dtos1 = dtos,
+        lastOffset1 = 2L,
+        lastEventSeqId1 = 4L,
+        dtos2 = Vector(
+          // 3: transaction with create node
+          dtoCreate(offset(3), 5L, hashCid("#201"), signatory = signatory),
+          DbDto.IdFilterCreateStakeholder(5L, someTemplateId.toString, someParty),
+          DbDto.IdFilterCreateNonStakeholderInformee(5L, someParty),
+          dtoTransactionMeta(
+            offset(3),
+            event_sequential_id_first = 5L,
+            event_sequential_id_last = 5L,
+          ),
+          dtoCompletion(offset(3)),
+          // 4: transaction with exercise node and retroactive divulgence
+          dtoExercise(offset(4), 6L, false, hashCid("#201")),
+          DbDto.IdFilterNonConsumingInformee(6L, someParty),
+          dtoExercise(offset(4), 7L, true, hashCid("#202")),
+          DbDto.IdFilterConsumingStakeholder(7L, someTemplateId.toString, someParty),
+          DbDto.IdFilterConsumingNonStakeholderInformee(7L, someParty),
+          dtoDivulgence(Some(offset(4)), 8L, hashCid("#201")),
+          dtoTransactionMeta(
+            offset(4),
+            event_sequential_id_first = 6L,
+            event_sequential_id_last = 8L,
+          ),
+          dtoCompletion(offset(4)),
+        ),
+        lastOffset2 = 10L,
+        lastEventSeqId2 = 6L,
+        checkContentsBefore = () => {
+          val contract101 =
+            executeSql(backend.contract.activeContractWithoutArgument(readers, hashCid("#101")))
+          val contract202 =
+            executeSql(backend.contract.activeContractWithoutArgument(readers, hashCid("#201")))
+          contract101 should not be empty
+          contract202 shouldBe None
+          // TODO etq: Add assertion on transaction_meta table
+          fetchIdsCreateStakeholder() shouldBe List(
+            1L,
+            5L,
+          ) // since ledger-end does not limit the range query
+          fetchIdsCreateNonStakeholder() shouldBe List(1L, 5L)
+          fetchIdsConsumingStakeholder() shouldBe List(3L, 7L)
+          fetchIdsConsumingNonStakeholder() shouldBe List(3L, 7L)
+          fetchIdsNonConsuming() shouldBe List(2L, 6L)
+        },
+        checkContentsAfter = () => {
+          val contract101 = executeSql(
+            backend.contract.activeContractWithoutArgument(readers, hashCid("#101"))
+          )
+          val contract202 = executeSql(
+            backend.contract.activeContractWithoutArgument(readers, hashCid("#201"))
+          )
+          contract101 should not be empty
+          contract202 shouldBe None
+          // TODO etq: Add assertion on transaction_meta table
+          fetchIdsCreateStakeholder() shouldBe List(1L)
+          fetchIdsCreateNonStakeholder() shouldBe List(1L)
+          fetchIdsConsumingStakeholder() shouldBe List(3L)
+          fetchIdsConsumingNonStakeholder() shouldBe List(3L)
+          fetchIdsNonConsuming() shouldBe List(2L)
+        },
+      )
+    }
+
+    it should "delete overspill entries written before first ledger end update - events, transaction meta, completions" in {
+      fixtureOverspillBeforeFirstLedgerEndUpdate(
+        dtos = dtos,
+        lastOffset = 2,
+        lastEventSeqId = 3L,
+        checkContentsAfter = () => {
+          val contract101 = executeSql(
+            backend.contract.activeContractWithoutArgument(readers, hashCid("#101"))
+          )
+          contract101 shouldBe None
+          // TODO etq: Add assertion on transaction_meta table
+          fetchIdsCreateStakeholder() shouldBe empty
+          fetchIdsCreateNonStakeholder() shouldBe empty
+          fetchIdsConsumingStakeholder() shouldBe empty
+          fetchIdsConsumingNonStakeholder() shouldBe empty
+          fetchIdsNonConsuming() shouldBe empty
+        },
+      )
+    }
+  }
+
+  private def fetchIdsNonConsuming(): Vector[Long] = {
+    executeSql(
+      backend.event.transactionStreamingQueries.fetchEventIdsForInformee(
+        EventIdSourceForInformees.NonConsumingInformee
+      )(informee = someParty, startExclusive = 0, endInclusive = 1000, limit = 1000)
+    )
+  }
+
+  private def fetchIdsConsumingNonStakeholder(): Vector[Long] = {
+    executeSql(
+      backend.event.transactionStreamingQueries
+        .fetchEventIdsForInformee(EventIdSourceForInformees.ConsumingNonStakeholder)(
+          informee = someParty,
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
+    )
+  }
+
+  private def fetchIdsConsumingStakeholder(): Vector[Long] = {
+    executeSql(
+      backend.event.transactionStreamingQueries
+        .fetchEventIdsForInformee(EventIdSourceForInformees.ConsumingStakeholder)(
+          informee = someParty,
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
+    )
+  }
+
+  private def fetchIdsCreateNonStakeholder(): Vector[Long] = {
+    executeSql(
+      backend.event.transactionStreamingQueries
+        .fetchEventIdsForInformee(EventIdSourceForInformees.CreateNonStakeholder)(
+          informee = someParty,
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
+    )
+  }
+
+  private def fetchIdsCreateStakeholder(): Vector[Long] = {
+    executeSql(
+      backend.event.transactionStreamingQueries
+        .fetchEventIdsForInformee(EventIdSourceForInformees.CreateStakeholder)(
+          informee = someParty,
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
+    )
+  }
+
+  private def fixture(
+      dtos1: Vector[DbDto],
+      lastOffset1: Long,
+      lastEventSeqId1: Long,
+      dtos2: Vector[DbDto],
+      lastOffset2: Long,
+      lastEventSeqId2: Long,
+      checkContentsBefore: () => Assertion,
+      checkContentsAfter: () => Assertion,
+  ): Assertion = {
     // Initialize
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
     executeSql(backend.meteringParameter.initializeLedgerMeteringEnd(someLedgerMeteringEnd))
-
     // Start the indexer (a no-op in this case)
     val end1 = executeSql(backend.parameter.ledgerEnd)
     executeSql(backend.ingestion.deletePartiallyIngestedData(end1))
-
-    // Insert first batch of updates, but crash before writing the first ledger end
+    // Fully insert first batch of updates
     executeSql(ingest(dtos1, _))
-
+    executeSql(updateLedgerEnd(ledgerEnd(lastOffset1, lastEventSeqId1)))
+    // Partially insert second batch of updates (indexer crashes before updating ledger end)
+    executeSql(ingest(dtos2, _))
+    // Check the contents
+    checkContentsBefore()
     // Restart the indexer - should delete data from the partial insert above
     val end2 = executeSql(backend.parameter.ledgerEnd)
     executeSql(backend.ingestion.deletePartiallyIngestedData(end2))
-
     // Move the ledger end so that any non-deleted data would become visible
-    executeSql(updateLedgerEnd(ledgerEnd(10, 6L)))
-
+    executeSql(updateLedgerEnd(ledgerEnd(lastOffset2 + 1, lastEventSeqId2 + 1)))
     // Check the contents
-    val parties2 = executeSql(backend.party.knownParties)
-    val config2 = executeSql(backend.configuration.ledgerConfiguration)
-    val packages2 = executeSql(backend.packageBackend.lfPackages)
-    val contract42 = executeSql(
-      backend.contract.activeContractWithoutArgument(
-        readers,
-        hashCid("#4"),
-      )
-    )
-    val contract92 = executeSql(
-      backend.contract.activeContractWithoutArgument(
-        readers,
-        hashCid("#9"),
-      )
-    )
-    val filterIds2 = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = someParty,
-        templateIdFilter = None,
-        startExclusive = 0,
-        endInclusive = 1000,
-        limit = 1000,
-      )
-    )
+    checkContentsAfter()
+  }
 
-    val metering2 =
-      executeSql(backend.metering.read.reportData(Timestamp.Epoch, None, None))
-
-    parties2 shouldBe empty
-    packages2 shouldBe empty
-    config2 shouldBe empty
-    contract42 shouldBe None
-    contract92 shouldBe None
-    filterIds2 shouldBe empty
-    metering2.applicationData shouldBe empty
-
+  private def fixtureOverspillBeforeFirstLedgerEndUpdate(
+      dtos: Vector[DbDto],
+      lastOffset: Long,
+      lastEventSeqId: Long,
+      checkContentsAfter: () => Assertion,
+  ): Assertion = {
+    // Initialize
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(backend.meteringParameter.initializeLedgerMeteringEnd(someLedgerMeteringEnd))
+    // Start the indexer (a no-op in this case)
+    val end1 = executeSql(backend.parameter.ledgerEnd)
+    executeSql(backend.ingestion.deletePartiallyIngestedData(end1))
+    // Insert first batch of updates, but crash before writing the first ledger end
+    executeSql(ingest(dtos, _))
+    // Restart the indexer - should delete data from the partial insert above
+    val end2 = executeSql(backend.parameter.ledgerEnd)
+    executeSql(backend.ingestion.deletePartiallyIngestedData(end2))
+    // Move the ledger end so that any non-deleted data would become visible
+    executeSql(updateLedgerEnd(ledgerEnd(lastOffset + 1, lastEventSeqId + 1)))
+    checkContentsAfter()
   }
 }

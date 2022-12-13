@@ -61,7 +61,7 @@ instance DA.Internal.Desugar.HasExercise Token DA.Internal.Desugar.Archive (()) 
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
-_choice_TokenArchive :
+_choice$_TokenArchive :
   (Token
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
@@ -70,7 +70,7 @@ _choice_TokenArchive :
    DA.Internal.Desugar.Consuming Token,
    DA.Internal.Desugar.Optional (Token
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_TokenArchive
+_choice$_TokenArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
@@ -134,7 +134,7 @@ instance DA.Internal.Desugar.HasToAnyChoice Asset DA.Internal.Desugar.Archive ((
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Asset DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-_choice_AssetArchive :
+_choice$_AssetArchive :
   (Asset
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Asset
@@ -143,17 +143,17 @@ _choice_AssetArchive :
    DA.Internal.Desugar.Consuming Asset,
    DA.Internal.Desugar.Optional (Asset
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_AssetArchive
+_choice$_AssetArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_interface_instance_Asset_Token_Asset :
+_interface_instance$_Asset_Token_Asset :
   DA.Internal.Desugar.InterfaceInstance Asset Token Asset
-_interface_instance_Asset_Token_Asset
+_interface_instance$_Asset_Token_Asset
   = DA.Internal.Desugar.mkInterfaceInstance @Asset @Token @Asset
-_method_Asset_Token_Asset_getOwner :
+_method$_Asset_Token_Asset_getOwner :
   DA.Internal.Desugar.Method Asset Token Asset "getOwner"
-_method_Asset_Token_Asset_getOwner
+_method$_Asset_Token_Asset_getOwner
   = DA.Internal.Desugar.mkMethod
       @Asset
       @Token
@@ -161,9 +161,9 @@ _method_Asset_Token_Asset_getOwner
       @"getOwner"
       \ this@Asset {..}
         -> let _ = this in let $getOwner = owner in $getOwner
-_method_Asset_Token_Asset_getAmount :
+_method$_Asset_Token_Asset_getAmount :
   DA.Internal.Desugar.Method Asset Token Asset "getAmount"
-_method_Asset_Token_Asset_getAmount
+_method$_Asset_Token_Asset_getAmount
   = DA.Internal.Desugar.mkMethod
       @Asset
       @Token
@@ -171,9 +171,9 @@ _method_Asset_Token_Asset_getAmount
       @"getAmount"
       \ this@Asset {..}
         -> let _ = this in let $getAmount = amount in $getAmount
-_method_Asset_Token_Asset_setAmount :
+_method$_Asset_Token_Asset_setAmount :
   DA.Internal.Desugar.Method Asset Token Asset "setAmount"
-_method_Asset_Token_Asset_setAmount
+_method$_Asset_Token_Asset_setAmount
   = DA.Internal.Desugar.mkMethod
       @Asset
       @Token
@@ -183,9 +183,9 @@ _method_Asset_Token_Asset_setAmount
         -> let _ = this in
            let $setAmount x = toInterface @Token (this {amount = x})
            in $setAmount
-_view_Asset_Token_Asset :
+_view$_Asset_Token_Asset :
   DA.Internal.Desugar.InterfaceView Asset Token Asset
-_view_Asset_Token_Asset
+_view$_Asset_Token_Asset
   = DA.Internal.Desugar.mkInterfaceView
       @Asset
       @Token

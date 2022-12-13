@@ -27,6 +27,11 @@ object H2ResetStorageBackend extends ResetStorageBackend {
       truncate table participant_party_record_annotations;
       truncate table string_interning;
       truncate table pe_create_id_filter_stakeholder;
+      truncate table pe_create_id_filter_non_stakeholder_informee;
+      truncate table pe_consuming_id_filter_stakeholder;
+      truncate table pe_consuming_id_filter_non_stakeholder_informee;
+      truncate table pe_non_consuming_id_filter_informee;
+      truncate table participant_transaction_meta;
       truncate table participant_users;
       truncate table participant_user_rights;
       truncate table participant_user_annotations;

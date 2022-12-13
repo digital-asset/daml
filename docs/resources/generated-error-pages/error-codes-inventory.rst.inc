@@ -514,7 +514,109 @@ PACKAGE_UPLOAD_REJECTED
 
 
 
-2.3.1.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices / PartyManagementServiceErrorGroup
+2.3.1.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices / IdentityProviderConfigServiceErrorGroup
+===================================================================================================================
+
+
+
+
+
+.. _error_code_IDP_CONFIG_ALREADY_EXISTS:
+
+IDP_CONFIG_ALREADY_EXISTS
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: There already exists an identity provider configuration with the same identity provider id.
+
+    **Category**: InvalidGivenCurrentSystemStateResourceExists
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ALREADY_EXISTS including a detailed error message.
+
+    **Resolution**: Check that you are connecting to the right participant node and the identity provider id is spelled correctly, or use an identity provider that already exists.
+
+
+
+
+.. _error_code_IDP_CONFIG_BY_ISSUER_NOT_FOUND:
+
+IDP_CONFIG_BY_ISSUER_NOT_FOUND
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: The identity provider config referred to by the request was not found.
+
+    **Category**: InvalidGivenCurrentSystemStateResourceMissing
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
+
+    **Resolution**: Check that you are connecting to the right participant node and the identity provider config is spelled correctly, or create the configuration.
+
+
+
+
+.. _error_code_IDP_CONFIG_ISSUER_ALREADY_EXISTS:
+
+IDP_CONFIG_ISSUER_ALREADY_EXISTS
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: There already exists an identity provider configuration with the same issuer.
+
+    **Category**: InvalidGivenCurrentSystemStateResourceExists
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ALREADY_EXISTS including a detailed error message.
+
+    **Resolution**: Check that you are connecting to the right participant node and the identity provider id is spelled correctly, or use an identity provider that already exists.
+
+
+
+
+.. _error_code_IDP_CONFIG_NOT_FOUND:
+
+IDP_CONFIG_NOT_FOUND
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: The identity provider config referred to by the request was not found.
+
+    **Category**: InvalidGivenCurrentSystemStateResourceMissing
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status NOT_FOUND including a detailed error message.
+
+    **Resolution**: Check that you are connecting to the right participant node and the identity provider config is spelled correctly, or create the configuration.
+
+
+
+
+.. _error_code_INVALID_IDENTITY_PROVIDER_UPDATE_REQUEST:
+
+INVALID_IDENTITY_PROVIDER_UPDATE_REQUEST
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: There was an attempt to update an identity provider config using an invalid update request.
+
+    **Category**: InvalidIndependentOfSystemState
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status INVALID_ARGUMENT including a detailed error message.
+
+    **Resolution**: Inspect the error details for specific information on what made the request invalid. Retry with an adjusted update request.
+
+
+
+
+.. _error_code_TOO_MANY_IDENTITY_PROVIDER_CONFIGS:
+
+TOO_MANY_IDENTITY_PROVIDER_CONFIGS
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: A system can have only a limited number of identity provider configurations. There was an attempt to create an identity provider configuration.
+
+    **Category**: InvalidGivenCurrentSystemStateOther
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
+
+    **Resolution**: Delete some of the already existing identity provider configurations. Contact the participant operator if the limit is too low.
+
+
+
+2.3.1.2. ParticipantErrorGroup / LedgerApiErrors / AdminServices / PartyManagementServiceErrorGroup
 ===================================================================================================================
 
 
@@ -616,7 +718,7 @@ PARTY_NOT_FOUND
 
 
 
-2.3.1.2. ParticipantErrorGroup / LedgerApiErrors / AdminServices / UserManagementServiceErrorGroup
+2.3.1.3. ParticipantErrorGroup / LedgerApiErrors / AdminServices / UserManagementServiceErrorGroup
 ===================================================================================================================
 
 

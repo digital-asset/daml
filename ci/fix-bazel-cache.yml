@@ -27,7 +27,7 @@ jobs:
         echo "$GCRED" > $key
         gcloud auth activate-service-account --key-file=$key
         export BOTO_CONFIG=/dev/null
-        ./bazel-bin/ci/cron/cron bazel-cache --age 120 --delete --cache-suffix '**'
+        ./bazel-bin/ci/cron/cron bazel-cache --age 75 --delete --cache-suffix '**'
       env:
         GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     - template: tell-slack-failed.yml

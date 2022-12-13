@@ -25,13 +25,13 @@ object UserUpdateMapper extends UpdateMapperBase {
     } yield {
       UserUpdate(
         id = user.id,
+        identityProviderId = user.identityProviderId,
         primaryPartyUpdateO = primaryPartyUpdate,
         isDeactivatedUpdateO = isDeactivatedUpdate,
         metadataUpdate = ObjectMetaUpdate(
           resourceVersionO = user.metadata.resourceVersionO,
           annotationsUpdateO = annotationsUpdate,
         ),
-        identityProviderIdUpdate = None,
       )
     }
   }

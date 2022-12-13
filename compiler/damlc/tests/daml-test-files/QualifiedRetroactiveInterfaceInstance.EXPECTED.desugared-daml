@@ -183,7 +183,7 @@ instance DA.Internal.Record.HasField "byHowMuch" GetRich Int where
     = DA.Internal.Record.getFieldPrim @"byHowMuch" @GetRich @Int
   setField
     = DA.Internal.Record.setFieldPrim @"byHowMuch" @GetRich @Int
-_choice_TokenArchive :
+_choice$_TokenArchive :
   (Token
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
@@ -192,12 +192,12 @@ _choice_TokenArchive :
    DA.Internal.Desugar.Consuming Token,
    DA.Internal.Desugar.Optional (Token
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_TokenArchive
+_choice$_TokenArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_TokenSplit :
+_choice$_TokenSplit :
   (Token -> Split -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
    -> Token
@@ -207,7 +207,7 @@ _choice_TokenSplit :
    DA.Internal.Desugar.Consuming Token,
    DA.Internal.Desugar.Optional (Token
                                  -> Split -> [DA.Internal.Desugar.Party]))
-_choice_TokenSplit
+_choice$_TokenSplit
   = (\ this arg@Split {..}
        -> let _ = this in
           let _ = arg
@@ -218,7 +218,7 @@ _choice_TokenSplit
        -> let _ = self in
           let _ = this in let _ = arg in do splitImpl this splitAmount, 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
-_choice_TokenTransfer :
+_choice$_TokenTransfer :
   (Token -> Transfer -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
    -> Token
@@ -226,7 +226,7 @@ _choice_TokenTransfer :
    DA.Internal.Desugar.Consuming Token,
    DA.Internal.Desugar.Optional (Token
                                  -> Transfer -> [DA.Internal.Desugar.Party]))
-_choice_TokenTransfer
+_choice$_TokenTransfer
   = (\ this arg@Transfer {..}
        -> let _ = this in
           let _ = arg
@@ -239,14 +239,14 @@ _choice_TokenTransfer
        -> let _ = self in
           let _ = this in let _ = arg in do transferImpl this newOwner, 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
-_choice_TokenNoop :
+_choice$_TokenNoop :
   (Token -> Noop -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
    -> Token -> Noop -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Token,
    DA.Internal.Desugar.Optional (Token
                                  -> Noop -> [DA.Internal.Desugar.Party]))
-_choice_TokenNoop
+_choice$_TokenNoop
   = (\ this arg@Noop {..}
        -> let _ = this in
           let _ = arg
@@ -257,7 +257,7 @@ _choice_TokenNoop
        -> let _ = self in
           let _ = this in let _ = arg in do noopImpl this nothing, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice_TokenGetRich :
+_choice$_TokenGetRich :
   (Token -> GetRich -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
    -> Token
@@ -265,7 +265,7 @@ _choice_TokenGetRich :
    DA.Internal.Desugar.Consuming Token,
    DA.Internal.Desugar.Optional (Token
                                  -> GetRich -> [DA.Internal.Desugar.Party]))
-_choice_TokenGetRich
+_choice$_TokenGetRich
   = (\ this arg@GetRich {..}
        -> let _ = this in
           let _ = arg
@@ -287,14 +287,14 @@ instance DA.Internal.Desugar.HasInterfaceView Token TokenView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView Token TokenView where
   _fromAnyView = GHC.Types.primitive @"EFromAnyView"
-_interface_instance_Token_Token_Asset:Asset :
+_interface_instance$_Token_Token_Asset:Asset :
   DA.Internal.Desugar.InterfaceInstance Token Token Asset.Asset
-_interface_instance_Token_Token_Asset:Asset
+_interface_instance$_Token_Token_Asset:Asset
   = DA.Internal.Desugar.mkInterfaceInstance
       @Token @Token @Asset.Asset
-_method_Token_Token_Asset:Asset_setAmount :
+_method$_Token_Token_Asset:Asset_setAmount :
   DA.Internal.Desugar.Method Token Token Asset.Asset "setAmount"
-_method_Token_Token_Asset:Asset_setAmount
+_method$_Token_Token_Asset:Asset_setAmount
   = DA.Internal.Desugar.mkMethod
       @Token
       @Token
@@ -304,9 +304,9 @@ _method_Token_Token_Asset:Asset_setAmount
         -> let _ = this in
            let $setAmount x = toInterface @Token (this {amount = x})
            in $setAmount
-_method_Token_Token_Asset:Asset_splitImpl :
+_method$_Token_Token_Asset:Asset_splitImpl :
   DA.Internal.Desugar.Method Token Token Asset.Asset "splitImpl"
-_method_Token_Token_Asset:Asset_splitImpl
+_method$_Token_Token_Asset:Asset_splitImpl
   = DA.Internal.Desugar.mkMethod
       @Token
       @Token
@@ -324,9 +324,9 @@ _method_Token_Token_Asset:Asset_splitImpl
                         (toInterfaceContractId @Token cid1, 
                          toInterfaceContractId @Token cid2)
            in $splitImpl
-_method_Token_Token_Asset:Asset_transferImpl :
+_method$_Token_Token_Asset:Asset_transferImpl :
   DA.Internal.Desugar.Method Token Token Asset.Asset "transferImpl"
-_method_Token_Token_Asset:Asset_transferImpl
+_method$_Token_Token_Asset:Asset_transferImpl
   = DA.Internal.Desugar.mkMethod
       @Token
       @Token
@@ -339,9 +339,9 @@ _method_Token_Token_Asset:Asset_transferImpl
                = do cid <- create this {owner = newOwner}
                     pure (toInterfaceContractId @Token cid)
            in $transferImpl
-_method_Token_Token_Asset:Asset_noopImpl :
+_method$_Token_Token_Asset:Asset_noopImpl :
   DA.Internal.Desugar.Method Token Token Asset.Asset "noopImpl"
-_method_Token_Token_Asset:Asset_noopImpl
+_method$_Token_Token_Asset:Asset_noopImpl
   = DA.Internal.Desugar.mkMethod
       @Token
       @Token
@@ -354,9 +354,9 @@ _method_Token_Token_Asset:Asset_noopImpl
                = do [1] === [1]
                     pure ()
            in $noopImpl
-_view_Token_Token_Asset:Asset :
+_view$_Token_Token_Asset:Asset :
   DA.Internal.Desugar.InterfaceView Token Token Asset.Asset
-_view_Token_Token_Asset:Asset
+_view$_Token_Token_Asset:Asset
   = DA.Internal.Desugar.mkInterfaceView
       @Token
       @Token

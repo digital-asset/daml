@@ -4,11 +4,6 @@
 System Architecture FAQ
 #######################
 
-This page provides brief answers to common questions about Daml and Canton system architecture by summarizing and linking to relevant documentation.This is not an introductory page. The page as a whole and the individual questions and answers assume that you've worked through the getting started guides, and  know enough about the sytem already to run into the questions yourself.
-
-Canton Architecture
--------------------
-
 What does the Sequencer do?
 ///////////////////////////
 

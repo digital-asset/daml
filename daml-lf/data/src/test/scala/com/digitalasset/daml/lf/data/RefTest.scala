@@ -348,13 +348,16 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
   }
 
   "UserId" - {
-    val validCharacters = "abcdefghijklmnopqrstuvwxyz0123456789._-#!|@^$`+'~:"
+    val validCharacters = ('a' to 'z') ++ ('A' to 'Z') ++ ('0' to '9') ++ "._-#!|@^$`+'~:"
     val validUserIds =
       validCharacters.flatMap(c => Vector(c.toString, s"$c$c")) ++
         Vector(
           "a",
           "jo1hn.d200oe",
-          validCharacters,
+          "ALL_UPPER_CASE",
+          "JOHn_doe",
+          "office365|10030000838D23AF@MicrosoftOnline.com",
+          validCharacters.mkString,
           // The below are examples from https://auth0.com/docs/users/user-profiles/sample-user-profiles
           // with the exception of requiring only lowercase characters to be used
           "google-oauth2|103547991597142817347",
@@ -371,17 +374,14 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
       validUserIds.foreach(userId => ApplicationId.fromString(userId) shouldBe a[Right[_, _]])
     }
 
-    "reject invalid user ids" in {
-      val invalidCharacters = "àáABCDEFGHIJKLMNOPQRSTUVWXYZ \\%&*()=[]{};<>,?\""
-      val invalidUserIds =
-        invalidCharacters.map(c => c.toString) ++
-          Vector(
-            "john/doe",
-            "JOHn_doe",
-            "",
-            "office365|10030000838D23AF@MicrosoftOnline.com",
-          )
+    "reject user ids containing invalid characters" in {
+      val invalidCharacters = "àá \\%&*()=[]{};<>,?\""
+      val invalidUserIds = invalidCharacters.map(_.toString) :+ "john/doe"
       invalidUserIds.foreach(userId => UserId.fromString(userId) shouldBe a[Left[_, _]])
+    }
+
+    "reject the empty string" in {
+      UserId.fromString("") shouldBe a[Left[_, _]]
     }
 
     "reject too long strings" in {

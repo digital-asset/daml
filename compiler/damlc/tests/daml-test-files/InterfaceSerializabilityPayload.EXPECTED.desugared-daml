@@ -75,7 +75,7 @@ data Get
 instance DA.Internal.Record.HasField "anyActor" Get Party where
   getField = DA.Internal.Record.getFieldPrim @"anyActor" @Get @Party
   setField = DA.Internal.Record.setFieldPrim @"anyActor" @Get @Party
-_choice_GettableArchive :
+_choice$_GettableArchive :
   (Gettable
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Gettable
@@ -84,19 +84,19 @@ _choice_GettableArchive :
    DA.Internal.Desugar.Consuming Gettable,
    DA.Internal.Desugar.Optional (Gettable
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_GettableArchive
+_choice$_GettableArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_GettableGet :
+_choice$_GettableGet :
   (Gettable -> Get -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Gettable
    -> Gettable -> Get -> DA.Internal.Desugar.Update (Gettable),
    DA.Internal.Desugar.NonConsuming Gettable,
    DA.Internal.Desugar.Optional (Gettable
                                  -> Get -> [DA.Internal.Desugar.Party]))
-_choice_GettableGet
+_choice$_GettableGet
   = (\ this arg@Get {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (anyActor), 

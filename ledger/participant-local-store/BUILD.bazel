@@ -27,6 +27,7 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//ledger/metrics",
         "//libs-scala/contextualized-logging",
+        "//observability/metrics",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
     ],
 )
@@ -84,6 +85,7 @@ da_scala_test_suite(
         "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",
         "//libs-scala/contextualized-logging",
+        "//observability/metrics",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
     ],

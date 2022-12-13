@@ -7,10 +7,7 @@ load(
     "kind_projector_plugin",
     "lf_scalacopts",
 )
-
-hj_scalacopts = lf_scalacopts + [
-    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-]
+load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
 
 [
     da_scala_library(
@@ -54,7 +51,6 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger/ledger-api-common",
             "//ledger/ledger-resources",
             "//ledger/ledger-runner-common",
-            "//ledger/metrics",
             "//ledger/participant-integration-api",
             "//ledger/sandbox-on-x",
             "//ledger/sandbox-on-x:sandbox-on-x-test-lib",

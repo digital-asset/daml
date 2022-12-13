@@ -101,11 +101,11 @@ object OracleAround {
       }
 
     @tailrec
-    def retry[T](times: Int, sleepMillisBeforeReTry: Long = 0)(body: => T): T = Try(body) match {
+    def retry[T](times: Int, sleepMillisBeforeReTry: Long)(body: => T): T = Try(body) match {
       case Success(t) => t
       case Failure(_) if times > 0 =>
         if (sleepMillisBeforeReTry > 0) Thread.sleep(sleepMillisBeforeReTry)
-        retry(times - 1)(body)
+        retry(times - 1, sleepMillisBeforeReTry)(body)
       case Failure(t) => throw t
     }
 

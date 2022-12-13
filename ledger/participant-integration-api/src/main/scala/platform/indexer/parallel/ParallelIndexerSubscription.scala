@@ -22,6 +22,7 @@ import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.interning.{InternizingStringInterningView, StringInterning}
 import java.sql.Connection
+import scala.util.chaining._
 
 import com.daml.metrics.api.MetricsContext
 
@@ -186,6 +187,7 @@ object ParallelIndexerSubscription {
     Timed.value(
       metrics.daml.parallelIndexer.seqMapping.duration, {
         var eventSeqId = previous.lastSeqEventId
+        var lastTransactionMetaEventSeqId = eventSeqId
         val batchWithSeqIds = current.batch.map {
           case dbDto: DbDto.EventCreate =>
             eventSeqId += 1
@@ -199,10 +201,24 @@ object ParallelIndexerSubscription {
             eventSeqId += 1
             dbDto.copy(event_sequential_id = eventSeqId)
 
-          case dbDto: DbDto.CreateFilter =>
-            // we do not increase the event_seq_id here, because all the CreateFilter DbDto-s must have the same eventSeqId as the preceding EventCreate
+          case dbDto: DbDto.IdFilterCreateStakeholder =>
+            // we do not increase the event_seq_id here, because all the IdFilterCreateStakeholder DbDto-s must have the same eventSeqId as the preceding EventCreate
             dbDto.copy(event_sequential_id = eventSeqId)
-
+          case dbDto: DbDto.IdFilterCreateNonStakeholderInformee =>
+            dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.IdFilterConsumingStakeholder =>
+            dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.IdFilterConsumingNonStakeholderInformee =>
+            dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.IdFilterNonConsumingInformee =>
+            dbDto.copy(event_sequential_id = eventSeqId)
+          case dbDto: DbDto.TransactionMeta =>
+            dbDto
+              .copy(
+                event_sequential_id_first = lastTransactionMetaEventSeqId + 1,
+                event_sequential_id_last = eventSeqId,
+              )
+              .tap(_ => lastTransactionMetaEventSeqId = eventSeqId)
           case unChanged => unChanged
         }
 

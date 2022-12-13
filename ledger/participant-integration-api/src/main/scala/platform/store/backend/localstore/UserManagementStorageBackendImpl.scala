@@ -5,10 +5,15 @@ package com.daml.platform.store.backend.localstore
 
 import anorm.SqlParser.{bool, int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
-import com.daml.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
+import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{IdentityProviderId, UserRight}
+import com.daml.ledger.api.domain.UserRight.{
+  CanActAs,
+  CanReadAs,
+  IdentityProviderAdmin,
+  ParticipantAdmin,
+}
 import com.daml.ledger.api.v1.admin.user_management_service.Right
-import com.daml.ledger.api.{IdentityProviderIdFilter, domain}
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.backend.common.{ComposableQuery, QueryStrategy}
 import com.daml.platform.{LedgerString, Party, UserId}
@@ -142,7 +147,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   override def getUsersOrderedById(
       fromExcl: Option[UserId],
       maxResults: Int,
-      filter: IdentityProviderIdFilter,
+      identityProviderId: IdentityProviderId,
   )(
       connection: Connection
   ): Vector[UserManagementStorageBackend.DbUserWithId] = {
@@ -151,15 +156,16 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       case None => Nil
       case Some(id: String) => List(cSQL"user_id > ${id}")
     }
-    val identityProviderIdWhereClause = filter match {
-      case IdentityProviderIdFilter.All => Nil
-      case IdentityProviderIdFilter.ByValue(identityProviderId) =>
-        List(cSQL"identity_provider_id=${identityProviderId.value: String}")
+    val identityProviderIdWhereClause = identityProviderId match {
+      case IdentityProviderId.Default =>
+        List(cSQL"identity_provider_id is NULL")
+      case IdentityProviderId.Id(value) =>
+        List(cSQL"identity_provider_id=${value: String}")
     }
     val whereClause = {
       val clauses = userIdWhereClause ++ identityProviderIdWhereClause
       if (clauses.nonEmpty) {
-        cSQL"WHERE ${clauses.mkComposite("", "AND", "")}"
+        cSQL"WHERE ${clauses.mkComposite("", " AND ", "")}"
       } else
         cSQL""
     }
@@ -286,6 +292,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       case (Right.PARTICIPANT_ADMIN_FIELD_NUMBER, None) => ParticipantAdmin
       case (Right.CAN_ACT_AS_FIELD_NUMBER, Some(party)) => CanActAs(party)
       case (Right.CAN_READ_AS_FIELD_NUMBER, Some(party)) => CanReadAs(party)
+      case (Right.IDENTITY_PROVIDER_ADMIN_FIELD_NUMBER, None) => IdentityProviderAdmin
       case _ =>
         throw new RuntimeException(s"Could not convert ${(value, partyO)} to a user right.")
     }
@@ -294,6 +301,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   private def fromUserRight(right: UserRight): (Int, Option[Party]) = {
     right match {
       case ParticipantAdmin => (Right.PARTICIPANT_ADMIN_FIELD_NUMBER, None)
+      case IdentityProviderAdmin => (Right.IDENTITY_PROVIDER_ADMIN_FIELD_NUMBER, None)
       case CanActAs(party) => (Right.CAN_ACT_AS_FIELD_NUMBER, Some(party))
       case CanReadAs(party) => (Right.CAN_READ_AS_FIELD_NUMBER, Some(party))
       case _ =>

@@ -5,7 +5,7 @@ import DA.Set qualified as S (fromList, singleton)
 import Daml.Finance.Interface.Account.Account qualified as Account (Controllers(..))
 import Daml.Finance.Interface.Account.Factory qualified as Account (Create(..), F)
 import Daml.Finance.Interface.Holding.Factory qualified as Holding (F)
-import Daml.Finance.Interface.Types.Common (AccountKey(..), Id(..))
+import Daml.Finance.Interface.Types.Common.Types (AccountKey(..), Id(..))
 
 -- | Initiate / Accept template to open an account.
 -- The account is created using an `Account.Factory` template. By doing so, our workflow is generic

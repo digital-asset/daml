@@ -306,14 +306,14 @@ printTestCoverage ShowCoverage{getShowCoverage} allPackages results
           , printf "  %d defined" defined
           , printf "  %d (%5.1f%%) exercised" exercised (pctage exercised defined)
           ] ++ showCoverageReport printChoiceIdentifier "internal template choices never exercised" neverExercised
-        , let defined = countWhere (isLocal . fst) allImplementations
-              internal = countWhere (isLocal . fst) allImplementations
-              external = countWhere (not . isLocal . fst) allImplementations
+        , let localImplementations = M.filter (isLocal . fst) allImplementations
+              defined = M.size localImplementations
+              (internal, external) = M.partitionWithKey (\(ifaceId, _) _ -> isNothing (package ifaceId)) localImplementations
           in
           [ printf "- Internal interface implementations"
           , printf "  %d defined" defined
-          , printf "    %d internal interfaces" internal
-          , printf "    %d external interfaces" external
+          , printf "    %d internal interfaces" (M.size internal)
+          , printf "    %d external interfaces" (M.size external)
           ]
         , let defined = M.size localImplementationChoices
               exercised = M.size localImplementationChoicesExercised
