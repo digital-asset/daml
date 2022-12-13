@@ -1684,7 +1684,7 @@ private[lf] object SBuiltin {
       val members = args.get(1)
       val consortium = args.get(2)
       val _ = (members, consortium)
-      ??? // NICK
+      ??? // TODO: https://github.com/digital-asset/daml/issues/15882
     }
   }
 
