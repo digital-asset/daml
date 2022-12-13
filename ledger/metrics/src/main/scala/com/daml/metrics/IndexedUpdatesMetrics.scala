@@ -20,13 +20,38 @@ class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: Factory) {
     "Number of events that will be metered.",
   )
 
+  @MetricDoc.Tag(
+    summary = "Updated processed by the indexer",
+    description =
+      """Represents the total number of updates processed and indexed by the indexer.""".stripMargin,
+    qualification = Debug,
+  )
+  val eventsMeter: MetricHandle.Meter =
+    metricFactory.meter(prefix :+ "events", "Number of events ingested by the indexer.")
+
 }
 
 object IndexedUpdatesMetrics {
 
   object Labels {
-
     val applicationId = "application_id"
+    val grpcCode = "grpc_code"
+    object eventType {
+
+      val key = "event_type"
+
+      val configurationChange = "configuration_change"
+      val partyAllocation = "party_allocation"
+      val packageUpload = "package_upload"
+      val transaction = "transaction"
+    }
+
+    object status {
+      val key = "status"
+
+      val accepted = "accepted"
+      val rejected = "rejected"
+    }
 
   }
 }
