@@ -21,3 +21,12 @@ class UpdateEventsMetrics(prefix: MetricName, metricFactory: Factory) {
   )
 
 }
+
+object UpdateEventsMetrics {
+
+  object Labels {
+
+    val applicationId = "application_id"
+
+  }
+}
