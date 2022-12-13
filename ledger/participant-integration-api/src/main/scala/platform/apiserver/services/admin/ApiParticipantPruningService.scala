@@ -18,6 +18,8 @@ import com.daml.ledger.participant.state.index.v2.{IndexParticipantPruningServic
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.api.MetricsContext
+import com.daml.metrics.{Metrics, Tracked}
 import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.api.grpc.GrpcApiService
@@ -32,6 +34,7 @@ import scala.jdk.FutureConverters.CompletionStageOps
 final class ApiParticipantPruningService private (
     readBackend: IndexParticipantPruningService with LedgerEndService,
     writeBackend: state.WriteParticipantPruningService,
+    metrics: Metrics,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ParticipantPruningServiceGrpc.ParticipantPruningService
     with GrpcApiService {
@@ -70,12 +73,20 @@ final class ApiParticipantPruningService private (
 
               // If write service pruning succeeds but ledger api server index pruning fails, the user can bring the
               // systems back in sync by reissuing the prune request at the currently specified or later offset.
-              _ <- pruneWriteService(pruneUpTo, submissionId, request.pruneAllDivulgedContracts)
+              _ <- Tracked.future(
+                metrics.daml.services.pruning.pruneStarted,
+                metrics.daml.services.pruning.pruneCompleted,
+                pruneWriteService(pruneUpTo, submissionId, request.pruneAllDivulgedContracts),
+              )(MetricsContext(("phase", "writeService")))
 
-              pruneResponse <- pruneLedgerApiServerIndex(
-                pruneUpTo,
-                request.pruneAllDivulgedContracts,
-              )
+              pruneResponse <- Tracked.future(
+                metrics.daml.services.pruning.pruneStarted,
+                metrics.daml.services.pruning.pruneCompleted,
+                pruneLedgerApiServerIndex(
+                  pruneUpTo,
+                  request.pruneAllDivulgedContracts,
+                ),
+              )(MetricsContext(("phase", "ledgerApiServerIndex")))
 
             } yield pruneResponse).andThen(logger.logErrorsOnCall[PruneResponse])
         },
@@ -191,10 +202,11 @@ object ApiParticipantPruningService {
   def createApiService(
       readBackend: IndexParticipantPruningService with LedgerEndService,
       writeBackend: state.WriteParticipantPruningService,
+      metrics: Metrics,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ParticipantPruningServiceGrpc.ParticipantPruningService with GrpcApiService =
-    new ApiParticipantPruningService(readBackend, writeBackend)
+    new ApiParticipantPruningService(readBackend, writeBackend, metrics)
 
 }
