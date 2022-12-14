@@ -3,13 +3,14 @@
 
 package com.daml.executors
 
+import java.util.concurrent.{ExecutorService, ThreadFactory, Executors => JavaExecutors}
+
 import com.codahale.metrics.{InstrumentedExecutorService, MetricRegistry}
 import com.daml.metrics.ExecutorServiceMetrics
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
-import java.util.concurrent.{ExecutorService, ThreadFactory, Executors => JavaExecutors}
 
-object Executors {
+object InstrumentedExecutors {
 
   def newWorkStealingExecutor(
       name: String,

@@ -90,7 +90,7 @@ private[platform] object InMemoryStateUpdater {
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[UpdaterFlow] = for {
     prepareUpdatesExecutor <- ResourceOwner.forExecutorService(() =>
-      executors.Executors.newWorkStealingExecutor(
+      executors.InstrumentedExecutors.newWorkStealingExecutor(
         metrics.daml.lapi.threadpool.indexBypass.prepareUpdates,
         prepareUpdatesParallelism,
         metrics.registry,
@@ -98,7 +98,7 @@ private[platform] object InMemoryStateUpdater {
       )
     )
     updateCachesExecutor <- ResourceOwner.forExecutorService(() =>
-      executors.Executors.newFixedThreadPool(
+      executors.InstrumentedExecutors.newFixedThreadPool(
         metrics.daml.lapi.threadpool.indexBypass.updateInMemoryState,
         1,
         metrics.registry,

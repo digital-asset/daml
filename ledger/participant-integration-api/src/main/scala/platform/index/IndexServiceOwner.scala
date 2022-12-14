@@ -187,7 +187,7 @@ final class IndexServiceOwner(
   ): ResourceOwner[ExecutionContextExecutorService] =
     ResourceOwner
       .forExecutorService(() =>
-        executors.Executors.newWorkStealingExecutor(
+        executors.InstrumentedExecutors.newWorkStealingExecutor(
           metrics.daml.lapi.threadpool.inMemoryFanOut.toString,
           threadPoolSize,
           metrics.registry,

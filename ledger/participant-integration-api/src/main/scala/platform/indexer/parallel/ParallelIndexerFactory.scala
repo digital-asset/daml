@@ -67,7 +67,7 @@ object ParallelIndexerFactory {
             executionContext <- ResourceOwner
               .forExecutorService(() =>
                 ExecutionContext.fromExecutorService(
-                  executors.Executors.newFixedThreadPoolWithFactory(
+                  executors.InstrumentedExecutors.newFixedThreadPoolWithFactory(
                     "ha-coordinator",
                     1,
                     new ThreadFactoryBuilder().setNameFormat("ha-coordinator-%d").build,

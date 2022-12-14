@@ -35,7 +35,7 @@ object AsyncSupport {
     ResourceOwner
       .forExecutorService { () =>
         val (executorName, metricRegistry, executorServiceMetrics) = withMetric
-        executors.Executors.newFixedThreadPoolWithFactory(
+        executors.InstrumentedExecutors.newFixedThreadPoolWithFactory(
           executorName,
           size,
           new ThreadFactoryBuilder()

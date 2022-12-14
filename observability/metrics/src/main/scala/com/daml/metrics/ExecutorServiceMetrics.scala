@@ -14,7 +14,7 @@ class ExecutorServiceMetrics(factory: Factory) {
   private val logger = LoggerFactory.getLogger(getClass)
   private val prefix = MetricName("daml", "executor")
   private val PoolMetricsPrefix: MetricName = prefix :+ "pool"
-  private val TasksMetricPrefix: MetricName = prefix :+ "tasks"
+  private val TasksMetricsPrefix: MetricName = prefix :+ "tasks"
   private val ThreadsMetricsPrefix: MetricName = prefix :+ "threads"
 
   def monitorExecutorService(name: String, executor: ExecutorService): ExecutorService = {
@@ -41,7 +41,7 @@ class ExecutorServiceMetrics(factory: Factory) {
         "Estimate of the number of worker threads that are not blocked waiting to join tasks or for other managed synchronization.",
       )
       factory.gaugeWithSupplier(
-        TasksMetricPrefix :+ "stolen",
+        TasksMetricsPrefix :+ "stolen",
         () => executor.getStealCount,
         "Estimate of the total number of completed tasks that were executed by a thread other than their submitter.",
       )
@@ -49,7 +49,7 @@ class ExecutorServiceMetrics(factory: Factory) {
       // from index 1, therefore skipping the first queue. This is done assuming that the first queue represents tasks not yet assigned
       // to a worker.
       factory.gaugeWithSupplier(
-        TasksMetricPrefix :+ "executing" :+ "queued",
+        TasksMetricsPrefix :+ "executing" :+ "queued",
         () => executor.getQueuedTaskCount,
         "Estimate of the total number of tasks currently held in queues by worker threads (but not including tasks submitted to the pool that have not begun executing).",
       )
@@ -77,18 +77,18 @@ class ExecutorServiceMetrics(factory: Factory) {
       )
       activeThreadsGauge(() => executor.getActiveCount)
       factory.gaugeWithSupplier(
-        TasksMetricPrefix :+ "completed",
+        TasksMetricsPrefix :+ "completed",
         () => executor.getCompletedTaskCount,
         "Approximate total number of tasks that have completed execution.",
       )
       factory.gaugeWithSupplier(
-        TasksMetricPrefix :+ "submitted",
+        TasksMetricsPrefix :+ "submitted",
         () => executor.getTaskCount,
         "Approximate total number of tasks that have ever been scheduled for execution.",
       )
       queuedTasksGauge(() => executor.getQueue.size)
       factory.gaugeWithSupplier(
-        TasksMetricPrefix :+ "queue" :+ "remaining",
+        TasksMetricsPrefix :+ "queue" :+ "remaining",
         () => executor.getQueue.remainingCapacity,
         "Additional elements that this queue can ideally accept without blocking.",
       )
@@ -113,7 +113,7 @@ class ExecutorServiceMetrics(factory: Factory) {
 
   private def queuedTasksGauge(queueSize: () => Int)(implicit mc: MetricsContext): Unit = {
     factory.gaugeWithSupplier(
-      TasksMetricPrefix :+ "queued",
+      TasksMetricsPrefix :+ "queued",
       queueSize,
       "Approximate number of tasks that are queued for execution.",
     )

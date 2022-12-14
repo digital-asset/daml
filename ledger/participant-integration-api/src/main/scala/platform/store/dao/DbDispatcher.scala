@@ -7,7 +7,7 @@ import java.sql.Connection
 import java.util.concurrent.{Executor, TimeUnit}
 
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.executors.Executors
+import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -129,7 +129,7 @@ object DbDispatcher {
         serverRole.threadPoolSuffix,
       )
       executor <- ResourceOwner.forExecutorService(() =>
-        Executors.newFixedThreadPoolWithFactory(
+        InstrumentedExecutors.newFixedThreadPoolWithFactory(
           threadPoolName,
           connectionPoolSize,
           new ThreadFactoryBuilder()
