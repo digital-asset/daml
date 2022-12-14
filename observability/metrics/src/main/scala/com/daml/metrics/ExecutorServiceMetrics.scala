@@ -38,7 +38,7 @@ class ExecutorServiceMetrics(factory: Factory) {
       factory.gaugeWithSupplier(
         ThreadsMetricsPrefix :+ "running",
         () => executor.getRunningThreadCount,
-        "estimate of the number of worker threads that are not blocked waiting to join tasks or for other managed synchronization.",
+        "Estimate of the number of worker threads that are not blocked waiting to join tasks or for other managed synchronization.",
       )
       factory.gaugeWithSupplier(
         TasksMetricPrefix :+ "stolen",
