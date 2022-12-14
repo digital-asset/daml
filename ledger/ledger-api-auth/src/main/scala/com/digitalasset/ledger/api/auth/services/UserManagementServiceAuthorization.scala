@@ -40,8 +40,9 @@ private[daml] final class UserManagementServiceAuthorization(
     defaultToAuthenticatedUser(request.userId) match {
       case Failure(ex) => Future.failed(ex)
       case Success(Some(userId)) =>
-        // TODO: what to do here with IDP?
-        service.getUser(request.copy(userId = userId))
+        authorizer.requireIDPContext(request.identityProviderId, service.getUser)(
+          request.copy(userId = userId)
+        )
       case Success(None) =>
         authorizer.requireIDPContext(request.identityProviderId, service.getUser)(request)
     }
@@ -63,7 +64,10 @@ private[daml] final class UserManagementServiceAuthorization(
   override def listUserRights(request: ListUserRightsRequest): Future[ListUserRightsResponse] =
     defaultToAuthenticatedUser(request.userId) match {
       case Failure(ex) => Future.failed(ex)
-      case Success(Some(userId)) => service.listUserRights(request.copy(userId = userId))
+      case Success(Some(userId)) =>
+        authorizer.requireIDPContext(request.identityProviderId, service.listUserRights)(
+          request.copy(userId = userId)
+        )
       case Success(None) =>
         authorizer.requireIDPContext(request.identityProviderId, service.listUserRights)(request)
     }

@@ -362,6 +362,9 @@ private[apiserver] final class ApiUserManagementService(
           )
       }
 
+  // Here we check if user exists and actually belongs to the requested Identity Provider
+  // Alternatively, identity_provider_id could be part of the compound unique key within user database.
+  // It was considered as complication for the implementation and for now is simplified.
   private def userBelongsToIDPOrError(
       identityProviderId: IdentityProviderId,
       userId: Ref.UserId,
