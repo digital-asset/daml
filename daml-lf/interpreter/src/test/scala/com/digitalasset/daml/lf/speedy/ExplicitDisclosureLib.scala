@@ -224,6 +224,7 @@ object ExplicitDisclosureLib {
     CachedContract(
       templateId,
       contract,
+      agreementText = "",
       signatories = Set(signatory),
       observers = Set.empty,
       key = mbKey,

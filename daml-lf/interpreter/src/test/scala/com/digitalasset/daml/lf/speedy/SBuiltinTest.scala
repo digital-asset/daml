@@ -1680,6 +1680,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val cachedContract = CachedContract(
           templateId,
           disclosedContract.argument,
+          "",
           Set(alice),
           Set.empty,
           None,
@@ -1687,6 +1688,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val cachedContractSExpr = SBuildCachedContract(
           SEValue(STypeRep(TTyCon(templateId))),
           SEValue(disclosedContract.argument),
+          SEValue(SText("")),
           SEValue(SList(FrontStack(SParty(alice)))),
           SEValue(SList(FrontStack.Empty)),
           SEValue(SOptional(None)),
@@ -1723,6 +1725,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val cachedContract = CachedContract(
           templateId,
           disclosedContract.argument,
+          "agreement",
           Set(alice),
           Set.empty,
           optionalKey,
@@ -1730,6 +1733,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val cachedContractSExpr = SBuildCachedContract(
           SEValue(STypeRep(TTyCon(templateId))),
           SEValue(disclosedContract.argument),
+          SEValue(SText("agreement")),
           SEValue(SList(FrontStack(SParty(alice)))),
           SEValue(SList(FrontStack.Empty)),
           SEValue(SOptional(Some(keyWithMaintainers))),
