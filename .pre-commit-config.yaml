@@ -36,7 +36,7 @@ repos:
       language: system
       require_serial: true
       entry: "bash -c 'yarn install --silent && yarn run pprettier --write \"$@\"'"
-      types: [ts]
+      types: [ts, tsx]
     - id: copyrights
       name: copyright headers
       description: Idempotently add DA copyright headers to source files.
