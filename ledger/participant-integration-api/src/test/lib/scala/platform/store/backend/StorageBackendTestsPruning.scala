@@ -23,6 +23,11 @@ private[backend] trait StorageBackendTestsPruning
 
   import StorageBackendTestValues._
 
+  private val signatoryParty = Ref.Party.assertFromString("signatory")
+  private val observerParty = Ref.Party.assertFromString("observer")
+  private val nonStakeholderInformeeParty = Ref.Party.assertFromString("nonstakeholderinformee")
+  private val actorParty = Ref.Party.assertFromString("actor")
+
   it should "correctly update the pruning offset" in {
     val offset_1 = offset(3)
     val offset_2 = offset(2)
@@ -86,8 +91,6 @@ private[backend] trait StorageBackendTestsPruning
   }
 
   it should "prune consuming and non-consuming events" in {
-    val signatoryParty = Ref.Party.assertFromString("signatory")
-    val actorParty = Ref.Party.assertFromString("actor")
     val nonConsuming = dtoExercise(
       offset = offset(3),
       eventSequentialId = 5L,
@@ -234,9 +237,6 @@ private[backend] trait StorageBackendTestsPruning
   }
 
   it should "prune an archived contract" in {
-    val signatoryParty = Ref.Party.assertFromString("signatory")
-    val observerParty = Ref.Party.assertFromString("observer")
-    val nonStakeholderInformeeParty = Ref.Party.assertFromString("nonstakeholderinformee")
     // a create event in its own transaction
     val create = dtoCreate(
       offset = offset(1),
@@ -326,7 +326,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     }
 
-    def fetchTreeEvents_streaming(
+    def fetchTreeEventsCreate_streaming(
         eventSequentialIds: Iterable[Long]
     ): Seq[EventStorageBackend.Entry[Raw.TreeEvent]] = {
       executeSql(
@@ -339,37 +339,11 @@ private[backend] trait StorageBackendTestsPruning
       )
     }
 
-    def fetchEventsTree_pointwise(
-        firstEventSequentialId: Long,
-        lastEventSequentialId: Long,
-    ): Seq[EventStorageBackend.Entry[Raw.TreeEvent]] = {
-      executeSql(
-        backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(
-          firstEventSequentialId = firstEventSequentialId,
-          lastEventSequentialId = lastEventSequentialId,
-          requestingParties = Set(signatoryParty, observerParty, nonStakeholderInformeeParty),
-        )
-      )
-    }
-
-    def fetchEventsFlat_pointwise(
-        firstEventSequentialId: Long,
-        lastEventSequentialId: Long,
-    ): Seq[EventStorageBackend.Entry[Raw.FlatEvent]] = {
-      executeSql(
-        backend.event.transactionPointwiseQueries.fetchFlatTransactionEvents(
-          firstEventSequentialId = firstEventSequentialId,
-          lastEventSequentialId = lastEventSequentialId,
-          requestingParties = Set(signatoryParty, observerParty, nonStakeholderInformeeParty),
-        )
-      )
-    }
-
     // Make sure the entries related to the create event are visible
     val before1_idsSignatory_streaming = fetchIdsSignatory_streaming
     val before2_idsObserver_streaming = fetchIdsObserver_streaming
     val before3_idsNonStakeholders_streaming = fetchIdsNonStakeholders_streaming
-    val before4_treeEvents_streaming = fetchTreeEvents_streaming(
+    val before4_treeEvents_streaming = fetchTreeEventsCreate_streaming(
       before1_idsSignatory_streaming ++ before2_idsObserver_streaming ++ before3_idsNonStakeholders_streaming
     )
 
@@ -414,7 +388,7 @@ private[backend] trait StorageBackendTestsPruning
           target = EventIdSourceForInformees.CreateNonStakeholder
         )(informee = signatoryParty, startExclusive = 0, endInclusive = 2L, limit = 10)
     )
-    val after4_treeEvents = fetchTreeEvents_streaming(
+    val after4_treeEvents = fetchTreeEventsCreate_streaming(
       before1_idsSignatory_streaming ++ before2_idsObserver_streaming ++ before3_idsNonStakeholders_streaming
     )
 
@@ -445,9 +419,6 @@ private[backend] trait StorageBackendTestsPruning
   }
 
   it should "not prune an active contract" in {
-    val signatoryParty = Ref.Party.assertFromString("signatory")
-    val observerParty = Ref.Party.assertFromString("observer")
-    val nonStakeholderInformeeParty = Ref.Party.assertFromString("nonstakeholderinformee")
     val partyEntry = dtoPartyEntry(offset(1), signatoryParty)
     val create = dtoCreate(
       offset = offset(2),
@@ -524,32 +495,6 @@ private[backend] trait StorageBackendTestsPruning
         )(
           eventSequentialIds = eventSequentialIds,
           allFilterParties = Set(signatoryParty),
-        )
-      )
-    }
-
-    def fetchEventsTree_pointwise(
-        firstEventSequentialId: Long,
-        lastEventSequentialId: Long,
-    ): Seq[EventStorageBackend.Entry[Raw.TreeEvent]] = {
-      executeSql(
-        backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(
-          firstEventSequentialId = firstEventSequentialId,
-          lastEventSequentialId = lastEventSequentialId,
-          requestingParties = Set(signatoryParty, observerParty, nonStakeholderInformeeParty),
-        )
-      )
-    }
-
-    def fetchEventsFlat_pointwise(
-        firstEventSequentialId: Long,
-        lastEventSequentialId: Long,
-    ): Seq[EventStorageBackend.Entry[Raw.FlatEvent]] = {
-      executeSql(
-        backend.event.transactionPointwiseQueries.fetchFlatTransactionEvents(
-          firstEventSequentialId = firstEventSequentialId,
-          lastEventSequentialId = lastEventSequentialId,
-          requestingParties = Set(signatoryParty, observerParty, nonStakeholderInformeeParty),
         )
       )
     }
@@ -846,4 +791,31 @@ private[backend] trait StorageBackendTestsPruning
     before should not be empty
     after shouldBe empty
   }
+
+  private def fetchEventsTree_pointwise(
+      firstEventSequentialId: Long,
+      lastEventSequentialId: Long,
+  ): Seq[EventStorageBackend.Entry[Raw.TreeEvent]] = {
+    executeSql(
+      backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(
+        firstEventSequentialId = firstEventSequentialId,
+        lastEventSequentialId = lastEventSequentialId,
+        requestingParties = Set(signatoryParty, observerParty, nonStakeholderInformeeParty),
+      )
+    )
+  }
+
+  private def fetchEventsFlat_pointwise(
+      firstEventSequentialId: Long,
+      lastEventSequentialId: Long,
+  ): Seq[EventStorageBackend.Entry[Raw.FlatEvent]] = {
+    executeSql(
+      backend.event.transactionPointwiseQueries.fetchFlatTransactionEvents(
+        firstEventSequentialId = firstEventSequentialId,
+        lastEventSequentialId = lastEventSequentialId,
+        requestingParties = Set(signatoryParty, observerParty, nonStakeholderInformeeParty),
+      )
+    )
+  }
+
 }
