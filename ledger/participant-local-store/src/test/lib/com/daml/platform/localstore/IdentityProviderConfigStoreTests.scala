@@ -146,6 +146,22 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
       }
     }
 
+    "allow to get active identity provider config by issuer" in {
+      testIt { tested =>
+        val cfg = config()
+        val nonExistingIssuer = "issuer_which_does_not_exist"
+        for {
+          res1 <- tested.createIdentityProviderConfig(cfg)
+          res2 <- tested.getActiveIdentityProviderByIssuer(cfg.issuer)
+          res3 <- tested.getActiveIdentityProviderByIssuer(nonExistingIssuer).failed
+        } yield {
+          res1 shouldBe Right(cfg)
+          res2 shouldBe cfg
+          res3 shouldBe an[Exception]
+        }
+      }
+    }
+
     "allow to check if identity provider config by id exists" in {
       testIt { tested =>
         val cfg = config()

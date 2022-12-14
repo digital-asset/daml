@@ -152,6 +152,12 @@ class LedgerApiServer(
         cacheExpiryAfterWrite = apiServerConfig.identityProviderManagement.cacheExpiryAfterWrite,
         maxIdentityProviders = IdentityProviderManagementConfig.MaxIdentityProviders,
       )(servicesExecutionContext, loggingContext)
+    val identityProviderConfigLoader = new ConfigLoader {
+      override def getIdentityProviderConfig(issuer: LedgerId)(implicit
+          loggingContext: LoggingContext
+      ): Future[domain.IdentityProviderConfig] =
+        identityProviderStore.getActiveIdentityProviderByIssuer(issuer)
+    }
     ApiServiceOwner(
       indexService = indexService,
       ledgerId = ledgerId,
@@ -183,21 +189,7 @@ class LedgerApiServer(
       participantId = participantId,
       authService = new IdentityProviderAwareAuthService(
         defaultAuthService = authService,
-        configLoader = new ConfigLoader {
-          override def getIdentityProviderConfig(issuer: LedgerId)(implicit
-              loggingContext: LoggingContext
-          ): Future[domain.IdentityProviderConfig] = {
-            identityProviderStore
-              .getIdentityProviderConfig(issuer)
-              .flatMap {
-                case Right(value) if !value.isDeactivated => Future.successful(value)
-                case Right(_) => Future.failed(new Exception("IDP is deactivated"))
-                case Left(error) =>
-                  Future.failed(new Exception(error.toString))
-              }(servicesExecutionContext)
-
-          }
-        },
+        configLoader = identityProviderConfigLoader,
         jwtVerifierLoader = new CachedJwtVerifierLoader(
           config = CachedJwtVerifierLoader.Config(
             jwtTimestampLeeway = participantConfig.jwtTimestampLeeway
