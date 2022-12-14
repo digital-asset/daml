@@ -3,14 +3,35 @@
 
 package com.daml.lf.codegen.json
 
+import com.daml.ledger.javaapi.data.Identifier
 import com.daml.ledger.javaapi.{data => JData}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.value.{Value => LfValue}
+
+import scala.jdk.CollectionConverters._
+import scala.jdk.OptionConverters._
 
 object ValueConversion {
   def toLfValue(v: JData.Value): LfValue = v match {
-    case record: JData.DamlRecord => ???
-    case variant: JData.Variant => ???
-    case id: JData.ContractId => ???
+    case record: JData.DamlRecord =>
+      LfValue.ValueRecord(
+        record.getRecordId.toScala.map(jid => toRefId(jid)),
+        ImmArray.from(
+          record.getFields.asScala.map(f =>
+            f.getLabel.toScala.map(Ref.Name.assertFromString) -> toLfValue(f.getValue)
+          )
+        ),
+      )
+    case variant: JData.Variant =>
+      LfValue.ValueVariant(
+        variant.getVariantId.toScala.map(jid => toRefId(jid)),
+        Ref.Name.assertFromString(variant.getConstructor),
+        toLfValue(variant.getValue),
+      )
+    case cid: JData.ContractId =>
+      LfValue.ValueContractId(
+        LfValue.ContractId.assertFromString(cid.getValue)
+      )
     case list: JData.DamlList => ???
     case optional: JData.DamlOptional => ???
     case textMap: JData.DamlTextMap => ???
@@ -23,7 +44,17 @@ object ValueConversion {
     case date: JData.Date => ???
     case party: JData.Party => ???
     case bool: JData.Bool => ???
-    case unit: JData.Unit => ???
+    case unit: JData.Unit => LfValue.ValueUnit
+  }
+
+  private def toRefId(jid: Identifier): Ref.Identifier = {
+    Ref.Identifier(
+      Ref.PackageId.assertFromString(jid.getPackageId),
+      Ref.QualifiedName(
+        Ref.DottedName.assertFromString(jid.getModuleName),
+        Ref.DottedName.assertFromString(jid.getEntityName),
+      ),
+    )
   }
 
   def fromLfValue(lfV: LfValue): JData.Value = lfV match {
