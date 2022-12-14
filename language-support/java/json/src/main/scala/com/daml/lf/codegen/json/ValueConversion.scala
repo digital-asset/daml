@@ -8,6 +8,8 @@ import com.daml.ledger.javaapi.{data => JData}
 import com.daml.lf.data.{FrontStack, Numeric, ImmArray, Ref, SortedLookupList, Time}
 import com.daml.lf.value.{Value => LfValue}
 
+import scalaz.syntax.std.option._
+
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
 import java.util.function.{Function => JFunction}
@@ -36,7 +38,7 @@ object ValueConversion {
       )
     case list: JData.DamlList =>
       LfValue.ValueList(
-        FrontStack.from(list.getValues.asScala.map(toLfValue))
+        FrontStack.from(list.toList(JFunction.identity()).asScala.map(toLfValue))
       )
     case optional: JData.DamlOptional =>
       LfValue.ValueOptional(
@@ -71,31 +73,66 @@ object ValueConversion {
   }
 
   def fromLfValue(lfV: LfValue): JData.Value = lfV match {
-    case LfValue.ValueRecord(tycon, fields) => ???
-    case LfValue.ValueVariant(tycon, variant, value) => ???
-    case LfValue.ValueContractId(value) => ???
-    case LfValue.ValueList(values) => ???
-    case LfValue.ValueOptional(value) => ???
-    case LfValue.ValueTextMap(value) => ???
-    case LfValue.ValueGenMap(entries) => ???
-    case LfValue.ValueEnum(tycon, value) => ???
-    case LfValue.ValueInt64(value) => ???
-    case LfValue.ValueNumeric(value) => ???
-    case LfValue.ValueText(value) => ???
-    case LfValue.ValueTimestamp(value) => ???
-    case LfValue.ValueDate(value) => ???
-    case LfValue.ValueParty(value) => ???
-    case LfValue.ValueBool(value) => ???
-    case LfValue.ValueUnit => JData.Unit
+    case LfValue.ValueRecord(tycon, fields) =>
+      val lfFields = fields.toList.map { case (name, value) =>
+        name.cata(
+          n => new JData.DamlRecord.Field(n, fromLfValue(value)),
+          new JData.DamlRecord.Field(fromLfValue(value)),
+        )
+      }.asJava
+      tycon.cata(
+        id => new JData.DamlRecord(fromRefId(id), lfFields),
+        new JData.DamlRecord(lfFields),
+      )
+    case LfValue.ValueVariant(tycon, variant, value) =>
+      tycon.cata(
+        id => new JData.Variant(fromRefId(id), variant, fromLfValue(value)),
+        new JData.Variant(variant, fromLfValue(value)),
+      )
+
+    case LfValue.ValueContractId(value) => new JData.ContractId(value.coid)
+    case LfValue.ValueList(values) =>
+      JData.DamlList.of(values.toImmArray.toList.map(fromLfValue).asJava)
+    case LfValue.ValueOptional(value) =>
+      JData.DamlOptional.of(value.map(fromLfValue).toJava)
+    case LfValue.ValueTextMap(value) =>
+      JData.DamlTextMap.of(value.toHashMap.view.mapValues(fromLfValue).toMap.asJava)
+    case LfValue.ValueGenMap(entries) =>
+      JData.DamlGenMap.of(
+        entries
+          .map { case (v1, v2) =>
+            fromLfValue(v1) -> fromLfValue(v2)
+          }
+          .toList
+          .toMap
+          .asJava
+      )
+    case LfValue.ValueEnum(tycon, value) =>
+      tycon.cata(
+        id => new JData.DamlEnum(fromRefId(id), value),
+        new JData.DamlEnum(value),
+      )
+    case LfValue.ValueInt64(value) => new JData.Int64(value)
+    case LfValue.ValueNumeric(value) => new JData.Numeric(value)
+    case LfValue.ValueText(value) => new JData.Text(value)
+    case LfValue.ValueTimestamp(value) => new JData.Timestamp(value.micros)
+    case LfValue.ValueDate(value) => new JData.Date(value.days)
+    case LfValue.ValueParty(value) => new JData.Party(value)
+    case LfValue.ValueBool(value) => JData.Bool.of(value)
+    case LfValue.ValueUnit => JData.Unit.getInstance
   }
 
-  private def toRefId(jid: Identifier): Ref.Identifier = {
-    Ref.Identifier(
-      Ref.PackageId.assertFromString(jid.getPackageId),
-      Ref.QualifiedName(
-        Ref.DottedName.assertFromString(jid.getModuleName),
-        Ref.DottedName.assertFromString(jid.getEntityName),
-      ),
-    )
-  }
+  private def toRefId(jid: Identifier): Ref.Identifier = Ref.Identifier(
+    Ref.PackageId.assertFromString(jid.getPackageId),
+    Ref.QualifiedName(
+      Ref.DottedName.assertFromString(jid.getModuleName),
+      Ref.DottedName.assertFromString(jid.getEntityName),
+    ),
+  )
+
+  private def fromRefId(id: Ref.Identifier): Identifier = new Identifier(
+    id.packageId,
+    id.qualifiedName.module.dottedName,
+    id.qualifiedName.name.dottedName,
+  )
 }

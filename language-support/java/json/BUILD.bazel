@@ -20,23 +20,14 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     resources = [],
     scala_deps = [
-        #        "@maven//:com_typesafe_scala_logging_scala_logging",
-        #        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     tags = [],
     visibility = ["//visibility:public"],
     deps = [
-        #        "//daml-lf/api-type-signature",
-        #        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
-        #        "//daml-lf/archive:daml_lf_archive_reader",
-        #        "//daml-lf/data",
-        #        "//daml-lf/language",
+        "//daml-lf/data",
         "//daml-lf/transaction",
-        #        "//language-support/codegen-common",
         "//language-support/java/bindings:bindings-java",
-        #        "//libs-scala/nonempty",
-        #        "@maven//:com_google_protobuf_protobuf_java",
-        #        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
