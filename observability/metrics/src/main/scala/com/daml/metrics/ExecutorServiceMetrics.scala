@@ -5,6 +5,12 @@ package com.daml.metrics
 
 import java.util.concurrent.{ExecutorService, ForkJoinPool, ThreadPoolExecutor}
 
+import com.daml.metrics.ExecutorServiceMetrics.{
+  CommonMetricsName,
+  ForkJoinMetricsName,
+  NameLabelKey,
+  ThreadPoolMetricsName,
+}
 import com.daml.metrics.api.MetricHandle.Factory
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import org.slf4j.LoggerFactory
@@ -12,10 +18,6 @@ import org.slf4j.LoggerFactory
 class ExecutorServiceMetrics(factory: Factory) {
 
   private val logger = LoggerFactory.getLogger(getClass)
-  private val prefix = MetricName("daml", "executor")
-  private val PoolMetricsPrefix: MetricName = prefix :+ "pool"
-  private val TasksMetricsPrefix: MetricName = prefix :+ "tasks"
-  private val ThreadsMetricsPrefix: MetricName = prefix :+ "threads"
 
   def monitorExecutorService(name: String, executor: ExecutorService): ExecutorService = {
     executor match {
@@ -32,16 +34,16 @@ class ExecutorServiceMetrics(factory: Factory) {
   }
 
   def monitorForkJoin(name: String, executor: ForkJoinPool): Unit = {
-    MetricsContext.withMetricLabels("name" -> name, "type" -> "fork_join") { implicit mc =>
+    MetricsContext.withMetricLabels(NameLabelKey -> name, "type" -> "fork_join") { implicit mc =>
       poolSizeGauge(() => executor.getPoolSize)
       activeThreadsGauge(() => executor.getActiveThreadCount)
       factory.gaugeWithSupplier(
-        ThreadsMetricsPrefix :+ "running",
+        ForkJoinMetricsName.RunningThreads,
         () => executor.getRunningThreadCount,
         "Estimate of the number of worker threads that are not blocked waiting to join tasks or for other managed synchronization.",
       )
       factory.gaugeWithSupplier(
-        TasksMetricsPrefix :+ "stolen",
+        ForkJoinMetricsName.StolenTasks,
         () => executor.getStealCount,
         "Estimate of the total number of completed tasks that were executed by a thread other than their submitter.",
       )
@@ -49,7 +51,7 @@ class ExecutorServiceMetrics(factory: Factory) {
       // from index 1, therefore skipping the first queue. This is done assuming that the first queue represents tasks not yet assigned
       // to a worker.
       factory.gaugeWithSupplier(
-        TasksMetricsPrefix :+ "executing" :+ "queued",
+        ForkJoinMetricsName.ExecutingQueuedTasks,
         () => executor.getQueuedTaskCount,
         "Estimate of the total number of tasks currently held in queues by worker threads (but not including tasks submitted to the pool that have not begun executing).",
       )
@@ -61,34 +63,34 @@ class ExecutorServiceMetrics(factory: Factory) {
     MetricsContext.withMetricLabels("name" -> name, "type" -> "thread_pool") { implicit mc =>
       poolSizeGauge(() => executor.getPoolSize)
       factory.gaugeWithSupplier(
-        PoolMetricsPrefix :+ "core",
+        ThreadPoolMetricsName.CorePoolSize,
         () => executor.getCorePoolSize,
         "Core number of threads.",
       )
       factory.gaugeWithSupplier(
-        PoolMetricsPrefix :+ "max",
+        ThreadPoolMetricsName.MaxPoolSize,
         () => executor.getMaximumPoolSize,
         "Maximum allowed number of threads.",
       )
       factory.gaugeWithSupplier(
-        PoolMetricsPrefix :+ "largest",
+        ThreadPoolMetricsName.LargestPoolSize,
         () => executor.getMaximumPoolSize,
         "Largest number of threads that have ever simultaneously been in the pool.",
       )
       activeThreadsGauge(() => executor.getActiveCount)
       factory.gaugeWithSupplier(
-        TasksMetricsPrefix :+ "completed",
+        ThreadPoolMetricsName.CompletedTasks,
         () => executor.getCompletedTaskCount,
         "Approximate total number of tasks that have completed execution.",
       )
       factory.gaugeWithSupplier(
-        TasksMetricsPrefix :+ "submitted",
+        ThreadPoolMetricsName.SubmittedTasks,
         () => executor.getTaskCount,
         "Approximate total number of tasks that have ever been scheduled for execution.",
       )
       queuedTasksGauge(() => executor.getQueue.size)
       factory.gaugeWithSupplier(
-        TasksMetricsPrefix :+ "queue" :+ "remaining",
+        ThreadPoolMetricsName.RemainingQueueCapacity,
         () => executor.getQueue.remainingCapacity,
         "Additional elements that this queue can ideally accept without blocking.",
       )
@@ -97,7 +99,7 @@ class ExecutorServiceMetrics(factory: Factory) {
 
   private def poolSizeGauge(size: () => Int)(implicit mc: MetricsContext): Unit = {
     factory.gaugeWithSupplier(
-      PoolMetricsPrefix :+ "size",
+      CommonMetricsName.PoolSize,
       size,
       "Number of worker threads present in the pool.",
     )
@@ -105,7 +107,7 @@ class ExecutorServiceMetrics(factory: Factory) {
 
   private def activeThreadsGauge(activeThreads: () => Int)(implicit mc: MetricsContext): Unit = {
     factory.gaugeWithSupplier(
-      ThreadsMetricsPrefix :+ "active",
+      CommonMetricsName.ActiveThreads,
       activeThreads,
       "Estimate of the number of threads that executing tasks.",
     )
@@ -113,10 +115,47 @@ class ExecutorServiceMetrics(factory: Factory) {
 
   private def queuedTasksGauge(queueSize: () => Int)(implicit mc: MetricsContext): Unit = {
     factory.gaugeWithSupplier(
-      TasksMetricsPrefix :+ "queued",
+      CommonMetricsName.QueuedTasks,
       queueSize,
       "Approximate number of tasks that are queued for execution.",
     )
+  }
+
+}
+object ExecutorServiceMetrics {
+
+  val NameLabelKey = "name"
+
+  private val prefix = MetricName("daml", "executor")
+  private val PoolMetricsPrefix: MetricName = prefix :+ "pool"
+  private val TasksMetricsPrefix: MetricName = prefix :+ "tasks"
+  private val ThreadsMetricsPrefix: MetricName = prefix :+ "threads"
+
+  object ThreadPoolMetricsName {
+
+    val CorePoolSize: MetricName = PoolMetricsPrefix :+ "core"
+    val MaxPoolSize: MetricName = PoolMetricsPrefix :+ "max"
+    val LargestPoolSize: MetricName = PoolMetricsPrefix :+ "largest"
+    val CompletedTasks: MetricName = TasksMetricsPrefix :+ "completed"
+    val SubmittedTasks: MetricName = TasksMetricsPrefix :+ "submitted"
+    val RemainingQueueCapacity: MetricName = TasksMetricsPrefix :+ "queue" :+ "remaining"
+
+  }
+
+  object ForkJoinMetricsName {
+
+    val RunningThreads: MetricName = ThreadsMetricsPrefix :+ "running"
+    val StolenTasks: MetricName = TasksMetricsPrefix :+ "stolen"
+    val ExecutingQueuedTasks: MetricName = TasksMetricsPrefix :+ "executing" :+ "queued"
+
+  }
+
+  object CommonMetricsName {
+
+    val PoolSize: MetricName = PoolMetricsPrefix :+ "size"
+    val ActiveThreads: MetricName = ThreadsMetricsPrefix :+ "active"
+    val QueuedTasks: MetricName = TasksMetricsPrefix :+ "queued"
+
   }
 
 }

@@ -5,7 +5,7 @@ package com.daml.metrics.api.testing
 
 import com.codahale.metrics.Snapshot
 import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Meter, Timer}
-import com.daml.metrics.api.MetricsContext
+import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.metrics.api.dropwizard.{
   DropwizardCounter,
   DropwizardHistogram,
@@ -21,6 +21,12 @@ import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
 trait MetricValues {
 
   import scala.language.implicitConversions
+
+  implicit def convertInMemoryFactoryToValuable(
+      factory: InMemoryMetricsFactory
+  ): InMemoryMetricFactoryValues = new InMemoryMetricFactoryValues(
+    factory
+  )
 
   implicit def convertCounterToValuable(counter: Counter): CounterValues = new CounterValues(
     counter
@@ -39,6 +45,21 @@ trait MetricValues {
     new TimerValues(
       timer
     )
+
+  class InMemoryMetricFactoryValues(factory: InMemoryMetricsFactory) {
+
+    def asyncGaugeValues(labelFilter: LabelFilter*): Map[MetricName, Any] = {
+      factory.asyncGauges
+        .filter { case ((_, metricContext), _) =>
+          labelFilter.forall(filter => metricContext.labels.get(filter.name).contains(filter.value))
+        }
+        .map { case ((metricName, _), valueProvider) =>
+          metricName -> valueProvider()
+        }
+        .toMap
+    }
+
+  }
 
   class CounterValues(counter: Counter) {
 
