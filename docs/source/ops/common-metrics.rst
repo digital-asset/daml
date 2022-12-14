@@ -130,7 +130,7 @@ daml_http_websocket_messages_sent_bytes
 
 Java Execution Service Metrics
 ******************************
-We expose the below metrics for all daml execution services.
+We expose the below metrics for all execution services used by Daml components.
 These metrics have the following common labels attached:
 
 - **name**:
