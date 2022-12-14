@@ -37,6 +37,20 @@ da_scala_test(
     data = [],
     resource_strip_prefix = "language-support/java/java/src/test/resources/",
     resources = glob(["src/test/resources/**/*"]),
-    scala_deps = [],
-    deps = [],
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    deps = [
+        ":json",
+        "//daml-lf/data",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
+        "//language-support/java/bindings:bindings-java",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
 )
