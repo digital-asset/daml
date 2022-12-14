@@ -4,7 +4,6 @@
 package com.daml.ledger.api.auth
 
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.daml.platform.localstore.api.UserManagementStore
 import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, ServerCall, Status}
 import org.mockito.captor.ArgCaptor
@@ -12,8 +11,10 @@ import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-
 import java.util.concurrent.CompletableFuture
+
+import com.daml.platform.localstore.api.UserManagementStore
+
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.Promise
 import scala.util.Success
