@@ -16,7 +16,6 @@ import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.dao.JdbcLedgerDao
 import com.daml.platform.store.dao.events._
 import com.daml.platform._
-
 import java.util.UUID
 
 object UpdateToDbDto {
