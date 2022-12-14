@@ -1,6 +1,7 @@
 nodes.local.start
 
 test_domain.service.set_mediator_deduplication_timeout(6.minutes)
+test_domain.service.set_max_rate_per_participant(10000)
 
 test_domain.service.update_dynamic_domain_parameters(_.update(
   ledgerTimeRecordTimeTolerance = 3.minutes,
