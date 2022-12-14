@@ -265,7 +265,9 @@
   type: jar-scala
 - target: //libs-scala/nameof:nameof
   type: jar-scala
-- target: //libs-scala/struct-json:struct-json
+- target: //libs-scala/struct-json/struct-spray-json:struct-spray-json
+  type: jar-scala
+- target: //libs-scala/struct-json/struct-circe-json:struct-circe-json
   type: jar-scala
 - target: //ledger/error:error
   type: jar-scala

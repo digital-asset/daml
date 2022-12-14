@@ -1,13 +1,13 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.struct.json
+package com.daml.struct.circe
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import spray.json._
+import io.circe.parser._
 
-class StructJsonFormatTest extends AnyWordSpec with Matchers {
+class StructEncoderDecoderTest extends AnyWordSpec with Matchers {
 
   private val sample =
     """
@@ -21,12 +21,13 @@ class StructJsonFormatTest extends AnyWordSpec with Matchers {
       |}
       |""".stripMargin
 
-  StructJsonFormat.getClass.getName should {
+  StructEncoderDecoder.getClass.getName should {
     "serialize/deserialize without loss" in {
-      val expected = sample.parseJson
-      val struct = StructJsonFormat.read(expected)
-      val actual = StructJsonFormat.write(struct)
+      val expected = parse(sample)
+      val struct = expected.flatMap(j => StructEncoderDecoder(j.hcursor))
+      val actual = struct.map(s => StructEncoderDecoder(s))
       actual shouldBe expected
     }
   }
+
 }

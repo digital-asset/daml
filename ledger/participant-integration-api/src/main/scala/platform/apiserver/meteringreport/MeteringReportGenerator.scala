@@ -13,7 +13,7 @@ import com.google.protobuf.struct.Struct
 import com.google.protobuf.timestamp.{Timestamp => ProtoTimestamp}
 import spray.json.enrichAny
 import HmacSha256.Key
-import com.daml.struct.json.StructJsonFormat
+import com.daml.struct.spray.StructJsonFormat
 
 class MeteringReportGenerator(participantId: Ref.ParticipantId, key: Key) {
 

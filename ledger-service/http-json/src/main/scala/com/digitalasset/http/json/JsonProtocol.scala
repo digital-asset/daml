@@ -17,7 +17,7 @@ import scalaz.{-\/, NonEmptyList, \/-}
 import spray.json._
 import spray.json.derived.Discriminator
 import scalaz.syntax.tag._
-import com.daml.struct.json.StructJsonFormat
+import com.daml.struct.spray.StructJsonFormat
 
 object JsonProtocol extends JsonProtocolLow {
 

@@ -76,7 +76,7 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/scala-utils",
-            "//libs-scala/struct-json",
+            "//libs-scala/struct-json/struct-spray-json",
             "//observability/akka-http-metrics",
             "//observability/metrics",
             "@maven//:io_dropwizard_metrics_metrics_core",
