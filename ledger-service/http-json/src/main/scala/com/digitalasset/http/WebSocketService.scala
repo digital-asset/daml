@@ -14,6 +14,7 @@ import com.daml.fetchcontracts.util.{
   InsertDeleteStep,
   LedgerBegin,
 }
+import com.daml.fetchcontracts.util.GraphExtensions._
 import com.daml.http.EndpointsCompanion._
 import com.daml.http.domain.{
   ContractKeyStreamRequest,

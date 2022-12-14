@@ -31,18 +31,18 @@ object GraphExtensions {
     }
   }
 
-  type FlowOpsMatAux[+Out, +Mat, ReprMat0[+_, +_]] = FlowOpsMat[Out, Mat] {
+  private[this] type FlowOpsMatAux[+Out, +Mat, ReprMat0[+_, +_]] = FlowOpsMat[Out, Mat] {
     type ReprMat[+O, +M] = ReprMat0[O, M]
   }
 
   import language.implicitConversions
 
-  private[fetchcontracts] implicit def `flowops logTermination`[O, M](
+  private[daml] implicit def `flowops logTermination`[O, M](
       self: FlowOpsMat[O, M]
   ): `flowops logTermination`[O, M, self.ReprMat] =
     new `flowops logTermination`[O, M, self.ReprMat](self)
 
-  private[fetchcontracts] final class `flowops logTermination`[O, M, RM[+_, +_]](
+  private[daml] final class `flowops logTermination`[O, M, RM[+_, +_]](
       private val self: FlowOpsMatAux[O, M, RM]
   ) extends AnyVal {
     def logTermination(

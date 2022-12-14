@@ -24,10 +24,10 @@ import com.daml.fetchcontracts.util.{
 import util.{ApiValueToLfValueConverter, toLedgerId}
 import com.daml.fetchcontracts.AcsTxStreams.transactionFilter
 import com.daml.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
+import com.daml.fetchcontracts.util.GraphExtensions._
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.FutureUtil.toFuture
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
-import util.FlowUtil._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.{v1 => api}
