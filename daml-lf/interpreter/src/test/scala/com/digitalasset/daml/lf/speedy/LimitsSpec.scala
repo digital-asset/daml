@@ -376,7 +376,6 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
             None -> Value.ValueList(observers.view.map(Value.ValueParty).to(FrontStack)),
           ),
         ),
-        "Agreement",
       ),
     )
   }

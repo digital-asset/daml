@@ -161,6 +161,14 @@ private[apiserver] final class ApiPartyManagementService private (
         metadataO = recordO.map(_.metadata),
         recordO.map(_.identityProviderId),
       )
+    case (details, _) if identityProviderId == IdentityProviderId.Default =>
+      // Expose party if it is non-local to the participant and Identity Provider is Default.
+      // Required for the backward compatibility with the usages before IDP management has been introduced.
+      toProtoPartyDetails(
+        partyDetails = details,
+        metadataO = None,
+        None,
+      )
   }
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {

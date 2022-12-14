@@ -8,7 +8,6 @@ import java.security.interfaces.RSAPublicKey
 import java.util.concurrent.TimeUnit
 
 import com.auth0.jwk.UrlJwkProvider
-import com.daml.jwt.JwtVerifier.Error
 import com.google.common.cache.{Cache, CacheBuilder}
 import scalaz.{-\/, Show, \/}
 import scalaz.syntax.show._

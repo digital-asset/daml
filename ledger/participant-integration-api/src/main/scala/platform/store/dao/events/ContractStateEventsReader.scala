@@ -65,7 +65,6 @@ object ContractStateEventsReader {
     Contract(
       template = templateId,
       arg = deserializedCreateArgument,
-      agreementText = "",
     )
   }
 

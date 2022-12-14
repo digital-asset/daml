@@ -102,6 +102,7 @@ class Server(config: Config) {
     })
     if (config.yieldUserTokens) // ignore everything but the applicationId
       StandardJWTPayload(
+        issuer = None,
         userId = applicationId getOrElse "",
         participantId = None,
         exp = None,

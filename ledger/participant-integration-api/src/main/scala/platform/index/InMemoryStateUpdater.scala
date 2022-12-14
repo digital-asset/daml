@@ -193,7 +193,6 @@ private[platform] object InMemoryStateUpdater {
               contract = Contract(
                 template = createdEvent.templateId,
                 arg = createdEvent.createArgument,
-                agreementText = createdEvent.createAgreementText.getOrElse(""),
               ),
               globalKey = createdEvent.contractKey.map(k =>
                 Key.assertBuild(createdEvent.templateId, k.unversioned)

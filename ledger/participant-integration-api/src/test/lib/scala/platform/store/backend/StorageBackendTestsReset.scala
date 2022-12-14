@@ -85,9 +85,9 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       backend.stringInterning.loadStringInterningEntries(0, 1000)
     )
     val filterIds = executeSql(
-      backend.event.activeContractEventIds(
-        partyFilter = someParty,
-        templateIdFilter = None,
+      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
+        stakeholder = someParty,
+        templateIdO = None,
         startExclusive = 0,
         endInclusive = 1000,
         limit = 1000,

@@ -180,6 +180,10 @@ final class IndexServiceOwner(
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
       completionsMaxPayloadsPerPayloadsPage = config.completionsMaxPayloadsPerPayloadsPage,
+      transactionsFlatStreamReaderConfig = config.transactionsFlatStreamReaderConfig,
+      transactionsTreeStreamReaderConfig = config.transactionsTreeStreamReaderConfig,
+      globalMaxEventIdQueries = config.globalMaxEventIdQueries,
+      globalMaxEventPayloadQueries = config.globalMaxEventPayloadQueries,
     )
 
   private def buildInMemoryFanOutExecutionContext(

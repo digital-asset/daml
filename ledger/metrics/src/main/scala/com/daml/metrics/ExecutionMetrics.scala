@@ -101,7 +101,7 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
                     |executing Daml code and fetching data).""",
     qualification = Debug,
   )
-  val totalRunning: Meter = meter(prefix :+ "total_running")
+  val totalRunning: Counter = counter(prefix :+ "total_running")
 
   @MetricDoc.Tag(
     summary = "The time spent executing a Daml command.",
@@ -117,7 +117,7 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
                     |engine (excluding fetching data).""",
     qualification = Debug,
   )
-  val engineRunning: Meter = meter(prefix :+ "engine_running")
+  val engineRunning: Counter = counter(prefix :+ "engine_running")
 
   @MetricDoc.GroupTag(
     representative = "daml.execution.cache.<state_cache>",

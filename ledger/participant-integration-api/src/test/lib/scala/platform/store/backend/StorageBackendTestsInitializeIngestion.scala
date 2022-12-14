@@ -7,6 +7,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.platform.store.backend.common.EventIdSourceForInformees
 import org.scalatest.compatible.Assertion
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
@@ -200,22 +201,17 @@ private[backend] trait StorageBackendTestsInitializeIngestion
             executeSql(backend.contract.activeContractWithoutArgument(readers, hashCid("#101")))
           val contract202 =
             executeSql(backend.contract.activeContractWithoutArgument(readers, hashCid("#201")))
-          // TODO etq: Add assertion for the remaining filter tables & transaction_meta table
-          val idsCreateStakeholder = executeSql(
-            backend.event.activeContractEventIds(
-              partyFilter = someParty,
-              templateIdFilter = None,
-              startExclusive = 0,
-              endInclusive = 1000,
-              limit = 1000,
-            )
-          )
           contract101 should not be empty
           contract202 shouldBe None
-          idsCreateStakeholder shouldBe List(
+          // TODO etq: Add assertion on transaction_meta table
+          fetchIdsCreateStakeholder() shouldBe List(
             1L,
             5L,
           ) // since ledger-end does not limit the range query
+          fetchIdsCreateNonStakeholder() shouldBe List(1L, 5L)
+          fetchIdsConsumingStakeholder() shouldBe List(3L, 7L)
+          fetchIdsConsumingNonStakeholder() shouldBe List(3L, 7L)
+          fetchIdsNonConsuming() shouldBe List(2L, 6L)
         },
         checkContentsAfter = () => {
           val contract101 = executeSql(
@@ -224,19 +220,14 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           val contract202 = executeSql(
             backend.contract.activeContractWithoutArgument(readers, hashCid("#201"))
           )
-          // TODO etq: Add assertion for the remaining filter tables & transaction_meta table
-          val idsCreateStakeholder = executeSql(
-            backend.event.activeContractEventIds(
-              partyFilter = someParty,
-              templateIdFilter = None,
-              startExclusive = 0,
-              endInclusive = 1000,
-              limit = 1000,
-            )
-          )
           contract101 should not be empty
           contract202 shouldBe None
-          idsCreateStakeholder shouldBe List(1L)
+          // TODO etq: Add assertion on transaction_meta table
+          fetchIdsCreateStakeholder() shouldBe List(1L)
+          fetchIdsCreateNonStakeholder() shouldBe List(1L)
+          fetchIdsConsumingStakeholder() shouldBe List(3L)
+          fetchIdsConsumingNonStakeholder() shouldBe List(3L)
+          fetchIdsNonConsuming() shouldBe List(2L)
         },
       )
     }
@@ -250,21 +241,72 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           val contract101 = executeSql(
             backend.contract.activeContractWithoutArgument(readers, hashCid("#101"))
           )
-          // TODO etq: Add assertion for the remaining filter tables & transaction_meta table
-          val idsCreateStakeholder = executeSql(
-            backend.event.activeContractEventIds(
-              partyFilter = someParty,
-              templateIdFilter = None,
-              startExclusive = 0,
-              endInclusive = 1000,
-              limit = 1000,
-            )
-          )
           contract101 shouldBe None
-          idsCreateStakeholder shouldBe empty
+          // TODO etq: Add assertion on transaction_meta table
+          fetchIdsCreateStakeholder() shouldBe empty
+          fetchIdsCreateNonStakeholder() shouldBe empty
+          fetchIdsConsumingStakeholder() shouldBe empty
+          fetchIdsConsumingNonStakeholder() shouldBe empty
+          fetchIdsNonConsuming() shouldBe empty
         },
       )
     }
+  }
+
+  private def fetchIdsNonConsuming(): Vector[Long] = {
+    executeSql(
+      backend.event.transactionStreamingQueries.fetchEventIdsForInformee(
+        EventIdSourceForInformees.NonConsumingInformee
+      )(informee = someParty, startExclusive = 0, endInclusive = 1000, limit = 1000)
+    )
+  }
+
+  private def fetchIdsConsumingNonStakeholder(): Vector[Long] = {
+    executeSql(
+      backend.event.transactionStreamingQueries
+        .fetchEventIdsForInformee(EventIdSourceForInformees.ConsumingNonStakeholder)(
+          informee = someParty,
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
+    )
+  }
+
+  private def fetchIdsConsumingStakeholder(): Vector[Long] = {
+    executeSql(
+      backend.event.transactionStreamingQueries
+        .fetchEventIdsForInformee(EventIdSourceForInformees.ConsumingStakeholder)(
+          informee = someParty,
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
+    )
+  }
+
+  private def fetchIdsCreateNonStakeholder(): Vector[Long] = {
+    executeSql(
+      backend.event.transactionStreamingQueries
+        .fetchEventIdsForInformee(EventIdSourceForInformees.CreateNonStakeholder)(
+          informee = someParty,
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
+    )
+  }
+
+  private def fetchIdsCreateStakeholder(): Vector[Long] = {
+    executeSql(
+      backend.event.transactionStreamingQueries
+        .fetchEventIdsForInformee(EventIdSourceForInformees.CreateStakeholder)(
+          informee = someParty,
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
+    )
   }
 
   private def fixture(

@@ -200,7 +200,6 @@ object ExplicitDisclosureLib {
           None -> Value.ValueParty(maintainer),
         ),
       ),
-      "test",
     ),
   )
 

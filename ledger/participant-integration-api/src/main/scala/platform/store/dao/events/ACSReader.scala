@@ -54,12 +54,7 @@ class FilterTableACSReader(
   ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed] = {
     val allFilterParties = filter.allFilterParties
 
-    val wildcardFilters = filter.wildcardParties.map { party =>
-      Filter(party, None)
-    }
-    val filters = filter.relation.iterator.flatMap { case (templateId, parties) =>
-      parties.iterator.map(party => Filter(party, Some(templateId)))
-    }.toVector ++ wildcardFilters
+    val filters = makeSimpleFilters(filter).toVector
 
     val idQueryLimiter =
       new QueueBasedConcurrencyLimiter(idFetchingParallelism, executionContext)
@@ -78,13 +73,14 @@ class FilterTableACSReader(
       )(idQuery =>
         idQueryLimiter.execute {
           dispatcher.executeSql(metrics.daml.index.db.getActiveContractIds) { connection =>
-            val result = eventStorageBackend.activeContractEventIds(
-              partyFilter = filter.party,
-              templateIdFilter = filter.templateId,
-              startExclusive = idQuery.fromExclusiveEventSeqId,
-              endInclusive = activeAt._2,
-              limit = idQuery.pageSize,
-            )(connection)
+            val result =
+              eventStorageBackend.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
+                stakeholder = filter.party,
+                templateIdO = filter.templateId,
+                startExclusive = idQuery.fromExclusiveEventSeqId,
+                endInclusive = activeAt._2,
+                limit = idQuery.pageSize,
+              )(connection)
             logger.debug(
               s"getActiveContractIds $filter returned #${result.size} ${result.lastOption
                   .map(last => s"until $last")
@@ -135,10 +131,21 @@ class FilterTableACSReader(
   }
 }
 
+// TODO etq: Extract utilities common for tx processing to a separate object
 object FilterTableACSReader {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   case class Filter(party: Party, templateId: Option[Identifier])
+
+  def makeSimpleFilters(filter: TemplatePartiesFilter): Seq[Filter] = {
+    val wildcardFilters = filter.wildcardParties.map { party =>
+      Filter(party, None)
+    }
+    val filters = filter.relation.iterator.flatMap { case (templateId, parties) =>
+      parties.iterator.map(party => Filter(party, Some(templateId)))
+    }.toVector ++ wildcardFilters
+    filters
+  }
 
   case class IdQuery(fromExclusiveEventSeqId: Long, pageSize: Int)
 

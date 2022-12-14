@@ -149,11 +149,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   private[this] val txVersion = TransactionVersion.StableVersions.min
   private[this] def newBuilder() = new TransactionBuilder(_ => txVersion)
 
-  protected final val someContractInstance = ContractInstance(
-    someTemplateId,
-    someContractArgument,
-    someAgreement,
-  )
+  protected final val someContractInstance = ContractInstance(someTemplateId, someContractArgument)
   protected final val someVersionedContractInstance =
     newBuilder().versionContract(someContractInstance)
 

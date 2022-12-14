@@ -61,7 +61,6 @@ class ReinterpretTest
               Some(Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")),
               ImmArray((Some[Name]("p"), ValueParty(party))),
             ),
-            "",
           )
         )
     )

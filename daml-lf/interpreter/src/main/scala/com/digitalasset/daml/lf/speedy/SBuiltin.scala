@@ -1147,7 +1147,7 @@ private[lf] object SBuiltin {
           def continue(coinst: V.ContractInstance): Control = {
             machine.pushKont(KCacheContract(coid))
             val e = coinst match {
-              case V.ContractInstance(actualTmplId, arg, _) =>
+              case V.ContractInstance(actualTmplId, arg) =>
                 SELet1(
                   // The call to ToCachedContractDefRef(actualTmplId) will query package
                   // of actualTmplId if not known.
@@ -1666,6 +1666,25 @@ private[lf] object SBuiltin {
           machine.setControl(Control.Value(STimestamp(timestamp)))
         }
       )
+    }
+  }
+
+  /** $acting_as_consortium
+    *    :: Token
+    *    -> List Party    (members)
+    *    -> Party         (consortium)
+    *    -> Unit
+    */
+  final case object SBActingAsConsortium extends SBuiltin(3) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      checkToken(args, 0)
+      val members = args.get(1)
+      val consortium = args.get(2)
+      val _ = (members, consortium)
+      ??? // TODO: https://github.com/digital-asset/daml/issues/15882
     }
   }
 

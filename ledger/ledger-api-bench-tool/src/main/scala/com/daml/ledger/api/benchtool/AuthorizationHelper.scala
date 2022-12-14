@@ -21,6 +21,7 @@ class AuthorizationHelper(val authorizationTokenSecret: String) {
     */
   def tokenFor(userId: String): String = {
     val payload = StandardJWTPayload(
+      issuer = None,
       participantId = None,
       userId = userId,
       exp = None,
