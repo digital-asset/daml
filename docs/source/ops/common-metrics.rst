@@ -164,7 +164,7 @@ daml_executor_pool_largest
 
 daml_executor_threads_active
 ============================
-- **Description**: Estimate of the number of threads that executing tasks.
+- **Description**: Estimate of the number of threads that are executing tasks.
 - **Type**: Gauge
 
 daml_executor_threads_running
