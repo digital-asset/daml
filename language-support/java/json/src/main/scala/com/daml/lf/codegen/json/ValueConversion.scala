@@ -5,26 +5,28 @@ package com.daml.lf.codegen.json
 
 import com.daml.ledger.javaapi.data.Identifier
 import com.daml.ledger.javaapi.{data => JData}
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.{FrontStack, Numeric, ImmArray, Ref, SortedLookupList, Time}
 import com.daml.lf.value.{Value => LfValue}
 
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
+import java.util.function.{Function => JFunction}
 
 object ValueConversion {
   def toLfValue(v: JData.Value): LfValue = v match {
     case record: JData.DamlRecord =>
       LfValue.ValueRecord(
-        record.getRecordId.toScala.map(jid => toRefId(jid)),
+        record.getRecordId.toScala.map(toRefId),
         ImmArray.from(
           record.getFields.asScala.map(f =>
-            f.getLabel.toScala.map(Ref.Name.assertFromString) -> toLfValue(f.getValue)
+            f.getLabel.toScala.map(Ref.Name.assertFromString) ->
+              toLfValue(f.getValue)
           )
         ),
       )
     case variant: JData.Variant =>
       LfValue.ValueVariant(
-        variant.getVariantId.toScala.map(jid => toRefId(jid)),
+        variant.getVariantId.toScala.map(toRefId),
         Ref.Name.assertFromString(variant.getConstructor),
         toLfValue(variant.getValue),
       )
@@ -32,29 +34,40 @@ object ValueConversion {
       LfValue.ValueContractId(
         LfValue.ContractId.assertFromString(cid.getValue)
       )
-    case list: JData.DamlList => ???
-    case optional: JData.DamlOptional => ???
-    case textMap: JData.DamlTextMap => ???
-    case genMap: JData.DamlGenMap => ???
-    case enum: JData.DamlEnum => ???
-    case int64: JData.Int64 => ???
-    case numeric: JData.Numeric => ???
-    case text: JData.Text => ???
-    case timestamp: JData.Timestamp => ???
-    case date: JData.Date => ???
-    case party: JData.Party => ???
-    case bool: JData.Bool => ???
-    case unit: JData.Unit => LfValue.ValueUnit
-  }
-
-  private def toRefId(jid: Identifier): Ref.Identifier = {
-    Ref.Identifier(
-      Ref.PackageId.assertFromString(jid.getPackageId),
-      Ref.QualifiedName(
-        Ref.DottedName.assertFromString(jid.getModuleName),
-        Ref.DottedName.assertFromString(jid.getEntityName),
-      ),
-    )
+    case list: JData.DamlList =>
+      LfValue.ValueList(
+        FrontStack.from(list.getValues.asScala.map(toLfValue))
+      )
+    case optional: JData.DamlOptional =>
+      LfValue.ValueOptional(
+        optional.getValue.toScala.map(toLfValue)
+      )
+    case textMap: JData.DamlTextMap =>
+      LfValue.ValueTextMap(
+        SortedLookupList(textMap.toMap(JFunction.identity(), toLfValue).asScala.toMap)
+      )
+    case genMap: JData.DamlGenMap =>
+      LfValue.ValueGenMap(
+        ImmArray.from(genMap.toMap(toLfValue, toLfValue).asScala)
+      )
+    case enum: JData.DamlEnum =>
+      LfValue.ValueEnum(
+        enum.getEnumId.toScala.map(toRefId),
+        Ref.Name.assertFromString(enum.getConstructor),
+      )
+    case int64: JData.Int64 => LfValue.ValueInt64(int64.getValue)
+    case numeric: JData.Numeric =>
+      LfValue.ValueNumeric(Numeric.assertFromUnscaledBigDecimal(numeric.getValue))
+    case text: JData.Text => LfValue.ValueText(text.getValue)
+    case timestamp: JData.Timestamp =>
+      LfValue.ValueTimestamp(
+        Time.Timestamp.assertFromInstant(timestamp.getValue)
+      )
+    case date: JData.Date =>
+      LfValue.ValueDate(Time.Date.assertFromDaysSinceEpoch(date.getValue.toEpochDay.toInt))
+    case party: JData.Party => LfValue.ValueParty(Ref.Party.assertFromString(party.getValue))
+    case bool: JData.Bool => LfValue.ValueBool(bool.getValue)
+    case _: JData.Unit => LfValue.ValueUnit
   }
 
   def fromLfValue(lfV: LfValue): JData.Value = lfV match {
@@ -73,6 +86,16 @@ object ValueConversion {
     case LfValue.ValueDate(value) => ???
     case LfValue.ValueParty(value) => ???
     case LfValue.ValueBool(value) => ???
-    case LfValue.ValueUnit => ???
+    case LfValue.ValueUnit => JData.Unit
+  }
+
+  private def toRefId(jid: Identifier): Ref.Identifier = {
+    Ref.Identifier(
+      Ref.PackageId.assertFromString(jid.getPackageId),
+      Ref.QualifiedName(
+        Ref.DottedName.assertFromString(jid.getModuleName),
+        Ref.DottedName.assertFromString(jid.getEntityName),
+      ),
+    )
   }
 }
