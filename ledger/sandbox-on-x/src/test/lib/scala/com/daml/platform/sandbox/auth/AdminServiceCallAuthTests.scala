@@ -9,7 +9,6 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import java.util.UUID
 import scala.concurrent.Future
 
-//TODO DPP-1299 Include tests for IdentityProviderAdmin
 trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
   private val signedIncorrectly = ServiceCallContext(
