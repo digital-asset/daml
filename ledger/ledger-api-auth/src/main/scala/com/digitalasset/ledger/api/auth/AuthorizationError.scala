@@ -56,11 +56,6 @@ object AuthorizationError {
     override val reason = s"Claims do not authorize to act as party '$party'"
   }
 
-  final case class InvalidIdentityProviderIdArgument(error: String) extends AuthorizationError {
-    override val reason =
-      s"Invalid identityProviderId argument: '$error'."
-  }
-
   final case class InvalidIdentityProviderId(identityProviderId: IdentityProviderId.Id)
       extends AuthorizationError {
     override val reason =

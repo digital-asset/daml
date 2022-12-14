@@ -97,7 +97,6 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
 }
 
 object AuthServiceJWT {
-
   def apply(verifier: com.auth0.jwt.interfaces.JWTVerifier) =
     new AuthServiceJWT(new JwtVerifier(verifier))
 

@@ -14,7 +14,6 @@ import org.scalatest.{Inside, OptionValues}
 import java.sql.SQLException
 import java.util.UUID
 
-//TODO DPP-1299 Include IdentityProviderConfig tests
 private[backend] trait StorageBackendTestsUserManagement
     extends Matchers
     with Inside

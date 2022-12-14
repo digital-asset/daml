@@ -15,7 +15,6 @@ import java.time.{Duration, Instant}
   * The existing cases should be treated as immutable in order to guarantee backwards compatibility for
   * [[AuthService]] implementations.
   */
-//TODO DPP-1299 Include Additional claim for admin IdentityProviderConfig
 sealed abstract class Claim
 
 /** Authorized to use all admin services.

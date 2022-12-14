@@ -18,7 +18,6 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-//TODO DPP-1299 Include IdentityProviderConfig
 trait HttpServiceUserFixture extends AkkaBeforeAndAfterAll { this: Suite =>
   protected def testId: String
 
