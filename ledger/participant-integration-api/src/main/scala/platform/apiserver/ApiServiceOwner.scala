@@ -138,7 +138,6 @@ object ApiServiceOwner {
         AuthorizationInterceptor(
           authService,
           Option.when(config.userManagement.enabled)(userManagementStore),
-          Option.when(config.userManagement.enabled)(identityProviderConfigStore),
           servicesExecutionContext,
         ) :: otherInterceptors,
         servicesExecutionContext,

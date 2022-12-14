@@ -90,15 +90,10 @@ final class Authorizer(
       for {
         _ <- valid(claims)
         _ <- claims.isAdminOrIDPAdmin
-        optionalIdentityProviderId = requireValidIdentityProviderId(identityProviderId)
-        _ <- validateIdentityProviderId(optionalIdentityProviderId, claims)
+        requestIdentityProviderId = IdentityProviderId.fromString(identityProviderId).toOption
+        _ <- validateRequestIdentityProviderId(requestIdentityProviderId, claims)
       } yield ()
     }
-
-  def requireValidIdentityProviderId(
-      identityProviderId: String
-  ): Option[IdentityProviderId] =
-    IdentityProviderId.fromString(identityProviderId).toOption
 
   def requireAdminOrIDPAdminClaims[Req, Res](
       call: Req => Future[Res]
@@ -112,28 +107,17 @@ final class Authorizer(
       }
     }
 
-  private def validateIdentityProviderId(
-      optionalIdentityProviderId: Option[IdentityProviderId],
+  private def validateRequestIdentityProviderId(
+      requestIdentityProviderId: Option[IdentityProviderId],
       claims: ClaimSet.Claims,
-  ): Either[AuthorizationError, Unit] =
-    if (claims.claims.contains(ClaimAdmin))
-      // admin should not need check - letting it through as is
+  ): Either[AuthorizationError, Unit] = claims.identityProviderId match {
+    case id: IdentityProviderId.Id if !requestIdentityProviderId.contains(id) =>
+      // Claim is valid only for the specific Identity Provider,
+      // and identity_provider_id in the request matches the one provided in the claim.
+      Left(AuthorizationError.InvalidIdentityProviderId(id))
+    case _ =>
       Right(())
-    else if (!claims.resolvedFromUser)
-      // token is not being resolved from the user - letting it through as is
-      Right(())
-    else {
-      claims.identityProviderId match {
-        case IdentityProviderId.Default =>
-          Right(()) // default IDP can do everything - pass
-        case id if optionalIdentityProviderId.contains(id) =>
-          Right(()) // if it's limited and matches the request - pass
-        case _ if optionalIdentityProviderId.isEmpty =>
-          Right(())
-        case id: IdentityProviderId.Id =>
-          Left(AuthorizationError.InvalidIdentityProviderId(id))
-      }
-    }
+  }
 
   private[this] def requireForAll[T](
       xs: IterableOnce[T],

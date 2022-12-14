@@ -190,7 +190,8 @@ class LedgerApiServer(
             identityProviderStore
               .getIdentityProviderConfig(issuer)
               .flatMap {
-                case Right(value) => Future.successful(value)
+                case Right(value) if !value.isDeactivated => Future.successful(value)
+                case Right(_) => Future.failed(new Exception("IDP is deactivated"))
                 case Left(error) =>
                   Future.failed(new Exception(error.toString))
               }(servicesExecutionContext)
