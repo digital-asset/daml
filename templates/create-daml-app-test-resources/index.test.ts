@@ -426,7 +426,7 @@ const failedLogin = async (page: Page, partyName: string) => {
 
 test("error on user id with invalid format", async () => {
   // user ids must be ASCII
-  const invalidUser = "Raphaël"
+  const invalidUser = "Raphaël";
   const page = await newUiPage();
   const error = await failedLogin(page, invalidUser);
   expect(error).toMatch(/User ID \\"Raphaël\\" does not match regex/);
