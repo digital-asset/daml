@@ -1147,7 +1147,7 @@ private[lf] object SBuiltin {
           def continue(coinst: V.ContractInstance): Control = {
             machine.pushKont(KCacheContract(coid))
             val e = coinst match {
-              case V.ContractInstance(actualTmplId, arg, _) =>
+              case V.ContractInstance(actualTmplId, arg) =>
                 SELet1(
                   // The call to ToCachedContractDefRef(actualTmplId) will query package
                   // of actualTmplId if not known.

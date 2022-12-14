@@ -41,10 +41,13 @@ class TransactionCoderSpec
   "encode-decode" should {
 
     "do contractInstance" in {
-      forAll(versionedContractInstanceGen)(coinst =>
+      forAll(versionedContraactInstanceWithAgreement)(coinst =>
         TransactionCoder.decodeVersionedContractInstance(
           ValueCoder.CidDecoder,
-          TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, coinst).toOption.get,
+          TransactionCoder
+            .encodeContractInstance(ValueCoder.CidEncoder, coinst)
+            .toOption
+            .get,
         ) shouldBe Right(normalizeContract(coinst))
       )
     }
@@ -950,8 +953,14 @@ class TransactionCoderSpec
     key.copy(key = normalize(key.key, version))
   }
 
-  private[this] def normalizeContract(contract: Value.VersionedContractInstance) =
-    contract.map(_.copy(arg = normalize(contract.unversioned.arg, contract.version)))
+  private[this] def normalizeContract(contract: Versioned[Value.ContractInstanceWithAgreement]) =
+    contract.map(
+      _.copy(contractInstance =
+        contract.unversioned.contractInstance.copy(
+          arg = normalize(contract.unversioned.contractInstance.arg, contract.version)
+        )
+      )
+    )
 
   private[this] def normalize(
       value0: Value,
