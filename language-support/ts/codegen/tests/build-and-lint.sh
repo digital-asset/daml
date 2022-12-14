@@ -49,6 +49,7 @@ SDK_VERSION=${10}
 UPLOAD_DAR=$(rlocation "$TEST_WORKSPACE/${11}")
 HIDDEN_DAR=$(rlocation "$TEST_WORKSPACE/${12}")
 GRPCURL=$(rlocation "$TEST_WORKSPACE/${13}" | xargs dirname)
+DIFF="${14}"
 
 TMP_DAML_TYPES=$TMP_DIR/daml-types
 TMP_DAML_LEDGER=$TMP_DIR/daml-ledger
@@ -66,9 +67,24 @@ cd $TMP_DIR
 PATH=`dirname $YARN`:$PATH $DAML2TS -o daml2js $DAR
 PATH=$PATH:$GRPCURL
 
+# yarn.lock includes local paths and hashes for daml.js; remove them
+# before grepping
+hide_changing_paths() {
+    sed -Ee 's!^("@daml.js/)([0-9a-f]+)@file:daml2js/\2":!\1...": # elided for diff!' \
+        -e 's!( +"@daml.js/)[0-9a-f]+" "file:.*"!\1..." "file:..." # elided for diff!' "$1"
+}
+
 # Build, lint, test.
 cd build-and-lint-test
 $YARN install > /dev/null
+# simulating what yarn install --frozen-lockfile is supposed to do,
+# because --frozen-lockfile appears to behave exactly like
+# --pure-lockfile - #14873
+if ! "$DIFF" -du <(hide_changing_paths $TS_DIR/yarn.lock) <(hide_changing_paths $TMP_DIR/yarn.lock); then
+    echo "FAIL: $TS_DIR/yarn.lock could not satisfy $TS_DIR/build-and-lint-test/package.json" 1>&2
+    echo "FAIL: yarn.lock requires all of the above changes" 1>&2
+    exit 1
+fi
 $YARN run build
 $YARN run lint
 # Invoke 'yarn test'. Control is thereby passed to
