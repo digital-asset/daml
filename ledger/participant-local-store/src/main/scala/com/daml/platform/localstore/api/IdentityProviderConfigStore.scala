@@ -7,7 +7,7 @@ import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.api.IdentityProviderConfigStore.Result
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 trait IdentityProviderConfigStore {
 
@@ -38,6 +38,20 @@ trait IdentityProviderConfigStore {
   def identityProviderConfigExists(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContext
   ): Future[Boolean]
+
+  final def getActiveIdentityProviderByIssuer(issuer: String)(implicit
+      loggingContext: LoggingContext
+  ): Future[IdentityProviderConfig] =
+    getIdentityProviderConfig(issuer)
+      .flatMap {
+        case Right(value) if !value.isDeactivated => Future.successful(value)
+        case Right(value) =>
+          Future.failed(
+            new Exception(s"Identity Provider ${value.identityProviderId.value} is deactivated.")
+          )
+        case Left(error) =>
+          Future.failed(new Exception(error.toString))
+      }(ExecutionContext.parasitic)
 
 }
 object IdentityProviderConfigStore {
