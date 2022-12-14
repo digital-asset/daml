@@ -70,7 +70,7 @@ object ParallelIndexerFactory {
                   executors.Executors.newFixedThreadPoolWithFactory(
                     "ha-coordinator",
                     1,
-                    new ThreadFactoryBuilder().setNameFormat(s"ha-coordinator-%d").build,
+                    new ThreadFactoryBuilder().setNameFormat("ha-coordinator-%d").build,
                     metrics.registry,
                     metrics.executorServiceMetrics,
                     throwable =>
