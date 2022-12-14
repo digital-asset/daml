@@ -128,7 +128,7 @@ daml_http_websocket_messages_sent_bytes
 - **Description**: Distribution of payload sizes in WebSocket messages sent.
 - **Type**: Histogram
 
-JAVA execution service metrics
+Java Execution Service Metrics
 ******************************
 We expose the below metrics for all daml execution services.
 These metrics have the following common labels attached:
