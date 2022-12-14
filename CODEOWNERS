@@ -83,5 +83,5 @@ NOTICES     @garyverhaegen-da @dasormeter
 /libs-scala/scalatest-utils/src/    @S11001001
 /libs-scala/test-evidence/ @digital-asset/kv-participant @soren-da @matthiasS-da
 
-# Obserability platform libraries
+# Observability related libraries
 /observability @digital-asset/platform-enablement
