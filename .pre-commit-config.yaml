@@ -35,7 +35,8 @@ repos:
       name: pprettier
       language: system
       require_serial: true
-      entry: "bash -c 'yarn install --silent && yarn run pprettier --write \"$@\"'"
+      # NB: we need to pass a single argument which ends up in $0 when invoking bash -c
+      entry: "bash -c 'yarn install --silent && yarn run pprettier --write \"$@\"' bash"
       types_or: [ts, tsx]
     - id: copyrights
       name: copyright headers
