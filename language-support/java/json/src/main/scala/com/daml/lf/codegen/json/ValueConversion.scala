@@ -8,22 +8,22 @@ import com.daml.lf.value.{Value => LfValue}
 
 object ValueConversion {
   def toLfValue(v: JData.Value): LfValue = v match {
-    case bool: JData.Bool => ???
-    case date: JData.Date => ???
-    case text: JData.Text => ???
-    case unit: JData.Unit => ???
-    case int64: JData.Int64 => ???
-    case party: JData.Party => ???
-    case numeric: JData.Numeric => ???
-    case variant: JData.Variant => ???
-    case enum: JData.DamlEnum => ???
-    case list: JData.DamlList => ???
-    case timestamp: JData.Timestamp => ???
-    case id: JData.ContractId => ???
-    case map: JData.DamlGenMap => ???
     case record: JData.DamlRecord => ???
-    case map: JData.DamlTextMap => ???
+    case variant: JData.Variant => ???
+    case id: JData.ContractId => ???
+    case list: JData.DamlList => ???
     case optional: JData.DamlOptional => ???
+    case textMap: JData.DamlTextMap => ???
+    case genMap: JData.DamlGenMap => ???
+    case enum: JData.DamlEnum => ???
+    case int64: JData.Int64 => ???
+    case numeric: JData.Numeric => ???
+    case text: JData.Text => ???
+    case timestamp: JData.Timestamp => ???
+    case date: JData.Date => ???
+    case party: JData.Party => ???
+    case bool: JData.Bool => ???
+    case unit: JData.Unit => ???
   }
 
   def fromLfValue(lfV: LfValue): JData.Value = lfV match {
