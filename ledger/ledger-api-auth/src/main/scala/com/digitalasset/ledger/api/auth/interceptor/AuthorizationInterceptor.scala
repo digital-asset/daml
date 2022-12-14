@@ -12,7 +12,7 @@ import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.localstore.api.{IdentityProviderConfigStore, UserManagementStore}
+import com.daml.platform.localstore.api.UserManagementStore
 import io.grpc._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -27,7 +27,6 @@ import scala.util.{Failure, Success, Try}
 final class AuthorizationInterceptor(
     authService: AuthService,
     userManagementStoreO: Option[UserManagementStore],
-    identityProviderConfigStore0: Option[IdentityProviderConfigStore],
     implicit val ec: ExecutionContext,
 )(implicit loggingContext: LoggingContext)
     extends ServerInterceptor {
@@ -85,13 +84,11 @@ final class AuthorizationInterceptor(
       case ClaimSet.AuthenticatedUser(identityProviderId, userIdStr, participantId, expiration) =>
         for {
           userManagementStore <- getUserManagementStore(userManagementStoreO)
-          identityProviderStore <- getIdentityProviderStore(identityProviderConfigStore0)
           userId <- getUserId(userIdStr)
           user <- verifyUserIsActive(userManagementStore, userId)
-          _ <- verifyIdentityProviderConfig(
+          _ <- verifyUserIsWithinIdentityProvider(
             identityProviderId,
             user,
-            identityProviderStore,
           )
           userRightsResult <- userManagementStore.listUserRights(userId)
           claimsSet <- userRightsResult match {
@@ -122,11 +119,10 @@ final class AuthorizationInterceptor(
       case _ => Future.successful(claimSet)
     }
 
-  private def verifyIdentityProviderConfig(
+  private def verifyUserIsWithinIdentityProvider(
       identityProviderId: IdentityProviderId,
       user: User,
-      identityProviderConfigStore: IdentityProviderConfigStore,
-  ): Future[Unit] = {
+  ): Future[Unit] =
     if (user.identityProviderId != identityProviderId) {
       Future.failed(
         LedgerApiErrors.AuthorizationChecks.PermissionDenied
@@ -135,26 +131,7 @@ final class AuthorizationInterceptor(
           )(errorLogger)
           .asGrpcError
       )
-    } else {
-      identityProviderId match {
-        case IdentityProviderId.Default =>
-          Future.unit
-        case id: IdentityProviderId.Id =>
-          identityProviderConfigStore.getIdentityProviderConfig(id).flatMap {
-            case Right(identityProviderConfig) if !identityProviderConfig.isDeactivated =>
-              Future.unit
-            case _ =>
-              Future.failed(
-                LedgerApiErrors.AuthorizationChecks.PermissionDenied
-                  .Reject(
-                    s"IDP is deactivated"
-                  )(errorLogger)
-                  .asGrpcError
-              )
-          }
-      }
-    }
-  }
+    } else Future.unit
 
   private def verifyUserIsActive(
       userManagementStore: UserManagementStore,
@@ -200,20 +177,6 @@ final class AuthorizationInterceptor(
         Future.successful(userManagementStore)
     }
 
-  private[this] def getIdentityProviderStore(
-      identityProviderStoreO: Option[IdentityProviderConfigStore]
-  ): Future[IdentityProviderConfigStore] =
-    identityProviderStoreO match {
-      case None =>
-        Future.failed(
-          LedgerApiErrors.AuthorizationChecks.Unauthenticated
-            .UserBasedAuthenticationIsDisabled()(errorLogger)
-            .asGrpcError
-        )
-      case Some(identityProviderStore) =>
-        Future.successful(identityProviderStore)
-    }
-
   private[this] def getUserId(userIdStr: String): Future[Ref.UserId] =
     Ref.UserId.fromString(userIdStr) match {
       case Left(err) =>
@@ -245,11 +208,10 @@ object AuthorizationInterceptor {
   def apply(
       authService: AuthService,
       userManagementStoreO: Option[UserManagementStore],
-      identityProviderStore0: Option[IdentityProviderConfigStore],
       ec: ExecutionContext,
   ): AuthorizationInterceptor =
     LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
-      new AuthorizationInterceptor(authService, userManagementStoreO, identityProviderStore0, ec)
+      new AuthorizationInterceptor(authService, userManagementStoreO, ec)
     }
 
   def convertUserRightsToClaims(userRights: Set[UserRight]): Seq[Claim] = {
