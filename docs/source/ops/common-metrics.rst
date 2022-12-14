@@ -137,7 +137,7 @@ These metrics have the following common labels attached:
     The name of the executor service, that identifies its internal usage.
 
 - **type**:
-    The type of the execution service. Currently supported for `fork_join` and `thread_pool`
+    The type of the execution service: currently we support `fork_join` and `thread_pool`.
 
 daml_executor_pool_size
 =======================
