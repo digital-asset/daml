@@ -3,12 +3,13 @@
 package com.daml.ledger.api.auth
 
 import com.auth0.jwt.JWT
-import com.daml.jwt.JwtVerifier
+import com.daml.jwt.{JwtFromBearerHeader, JwtVerifier}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import io.grpc.Metadata
 import spray.json._
+import com.daml.jwt.{Error => JwtError}
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.concurrent.{ExecutionContext, Future}
@@ -53,7 +54,7 @@ class IdentityProviderAwareAuthService(
       header: String
   ): Future[ClaimSet] =
     for {
-      token <- toFuture(JwtVerifier.fromHeader(header))
+      token <- toFuture(JwtFromBearerHeader(header))
       decodedJWT <- Future(JWT.decode(token))
       claims <- extractClaims(
         token,
@@ -87,7 +88,7 @@ class IdentityProviderAwareAuthService(
   private def verifyToken(token: String, verifier: JwtVerifier): Future[DecodedJwt[String]] =
     toFuture(verifier.verify(com.daml.jwt.domain.Jwt(token)).toEither)
 
-  private def toFuture[T](e: Either[JwtVerifier.Error, T]): Future[T] =
+  private def toFuture[T](e: Either[JwtError, T]): Future[T] =
     e.fold(err => Future.failed(new Exception(err.message)), Future.successful)
 
   private def parsePayload(

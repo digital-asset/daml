@@ -13,6 +13,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.CachedJwtVerifierLoader.CacheKey
 import com.github.benmanes.caffeine.{cache => caffeine}
 import scalaz.\/
+import com.daml.jwt.{Error => JwtError}
 
 import java.security.interfaces.RSAPublicKey
 import java.util.concurrent.TimeUnit
@@ -61,7 +62,7 @@ class CachedJwtVerifierLoader(
       verifier <- fromDisjunction(RSA256Verifier(publicKey, config.jwtTimestampLeeway))
     } yield verifier
 
-  private def fromDisjunction[T](e: \/[JwtVerifier.Error, T]): Future[T] =
+  private def fromDisjunction[T](e: \/[JwtError, T]): Future[T] =
     e.fold(err => Future.failed(new Exception(err.message)), Future.successful)
 
 }
