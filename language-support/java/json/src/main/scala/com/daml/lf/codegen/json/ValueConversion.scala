@@ -3,4 +3,11 @@
 
 package com.daml.lf.codegen.json
 
-class ValueConversion {}
+import com.daml.lf.value.{Value => LfValue}
+import com.daml.ledger.javaapi.data.Value
+
+object ValueConversion {
+  def toLfValue(v: Value): LfValue = ???
+
+  def fromLfValue(lfV: LfValue): Value = ???
+}
