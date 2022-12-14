@@ -1,19 +1,18 @@
 // Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform
+package com.daml.ledger.api.auth
 
 import com.auth0.jwk.UrlJwkProvider
 import com.daml.caching.CaffeineCache
 import com.daml.caching.CaffeineCache.FutureAsyncCacheLoader
 import com.daml.jwt.{JwtTimestampLeeway, JwtVerifier, RSA256Verifier}
-import com.daml.ledger.api.auth.JwtVerifierLoader
 import com.daml.ledger.api.domain.JwksUrl
 import com.daml.metrics.Metrics
-import com.daml.platform.CachedJwtVerifierLoader.CacheKey
 import com.github.benmanes.caffeine.{cache => caffeine}
 import scalaz.\/
 import com.daml.jwt.{Error => JwtError}
+import com.daml.ledger.api.auth.CachedJwtVerifierLoader.CacheKey
 
 import java.security.interfaces.RSAPublicKey
 import java.util.concurrent.TimeUnit
