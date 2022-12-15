@@ -12,6 +12,7 @@ import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
 import java.util.function.{Function => JFunction}
 import java.util.stream.Collectors
+import scala.collection.immutable.ListMap
 
 object ValueConversion {
   def toLfValue(v: JData.Value): LfValue = v match {
@@ -112,12 +113,11 @@ object ValueConversion {
       JData.DamlTextMap.of(value.toHashMap.view.mapValues(fromLfValue).toMap.asJava)
     case LfValue.ValueGenMap(entries) =>
       JData.DamlGenMap.of(
-        entries.toSeq.view
-          .map { case (v1, v2) =>
+        ListMap(
+          entries.toSeq.view.map { case (v1, v2) =>
             fromLfValue(v1) -> fromLfValue(v2)
-          }
-          .toMap
-          .asJava
+          }.toSeq: _*
+        ).asJava
       )
     case LfValue.ValueEnum(tycon, value) =>
       tycon.cata(

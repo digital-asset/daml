@@ -24,8 +24,9 @@ class ValueConversionSpec extends AnyWordSpec with Matchers with ScalaCheckPrope
 
   "value conversion" should {
     "do values" in {
-      "do values" in forAll(valueGen)(testRoundTrip)
+      forAll(valueGen)(testRoundTrip)
     }
+
     "do Int" in {
       forAll(Arbitrary.arbLong.arbitrary)(i => testRoundTrip(ValueInt64(i)))
     }
