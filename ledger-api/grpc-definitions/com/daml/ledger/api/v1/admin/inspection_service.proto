@@ -1,0 +1,36 @@
+// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1.admin;
+
+import "com/daml/ledger/api/v1/value.proto";
+import "com/daml/ledger/api/v1/event.proto";
+
+option java_outer_classname = "InspectionServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+
+// Experimental API allow participant inspection
+service InspectionService {
+    rpc GetContractById (GetContractByIdRequest) returns (GetContractByIdResponse);
+
+    rpc GetContractByKey (GetContractByKeyRequest) returns (GetContractByKeyResponse);
+
+}
+
+message GetContractByIdRequest {
+  string contract_id = 1;             // Required
+}
+message GetContractByIdResponse {
+  CreatedEvent active_contract = 1;   // Optional
+}
+
+message GetContractByKeyRequest {
+  Value contract_key = 1;             // Required
+}
+message GetContractByKeyResponse {
+  CreatedEvent active_contract = 1;   // Optional
+}
+

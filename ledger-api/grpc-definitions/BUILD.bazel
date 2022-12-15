@@ -184,6 +184,7 @@ ledger_api_haskellpb_sources_admin = [
     "MeteringReportService.hs",
     "ObjectMeta.hs",
     "UserManagementService.hs",
+    "InspectionService.hs",
 ]
 
 genrule(
@@ -191,6 +192,7 @@ genrule(
     srcs = [
         "@com_google_protobuf//:well_known_protos",
         "@go_googleapis//google/rpc:status.proto",
+        ":ledger-api-protos-fg",
         ":ledger-api-protos-fg-admin",
     ],
     outs = ["Com/Daml/Ledger/Api/V1/Admin/" + b for b in ledger_api_haskellpb_sources_admin],
