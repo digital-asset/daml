@@ -264,7 +264,6 @@ object TransactionVersionTest {
           None -> Value.ValueText("test"),
         ),
       ),
-      "test",
     ),
   )
   val coimplementsContract: Versioned[Value.ContractInstance] = Versioned(
@@ -278,7 +277,6 @@ object TransactionVersionTest {
           None -> Value.ValueText("test"),
         ),
       ),
-      "test",
     ),
   )
   val testData = Seq(

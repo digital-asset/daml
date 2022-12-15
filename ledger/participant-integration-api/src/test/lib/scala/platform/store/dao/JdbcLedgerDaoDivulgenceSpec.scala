@@ -138,7 +138,6 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       VersionedContractInstance(
         version = TransactionVersion.V10,
         template = someContractInstance.template,
-        agreementText = someContractInstance.agreementText,
         arg = someContractInstance.arg,
       )
 

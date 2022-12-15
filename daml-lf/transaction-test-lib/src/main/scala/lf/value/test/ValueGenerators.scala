@@ -259,16 +259,14 @@ object ValueGenerators {
     for {
       template <- idGen
       arg <- valueGen()
-      agreement <- Arbitrary.arbitrary[String]
-    } yield ContractInstance(template, arg, agreement)
+    } yield ContractInstance(template, arg)
   }
 
   val versionedContractInstanceGen: Gen[Value.VersionedContractInstance] =
     for {
       template <- idGen
       arg <- versionedValueGen
-      agreement <- Arbitrary.arbitrary[String]
-    } yield arg.map(Value.ContractInstance(template, _, agreement))
+    } yield arg.map(Value.ContractInstance(template, _))
 
   val keyWithMaintainersGen: Gen[Node.KeyWithMaintainers] = {
     for {
@@ -276,6 +274,12 @@ object ValueGenerators {
       maintainers <- genNonEmptyParties
     } yield Node.KeyWithMaintainers(key, maintainers)
   }
+
+  val versionedContraactInstanceWithAgreement: Gen[Versioned[Value.ContractInstanceWithAgreement]] =
+    for {
+      coinst <- versionedContractInstanceGen
+      agrement <- Arbitrary.arbitrary[String]
+    } yield coinst.map(Value.ContractInstanceWithAgreement(_, agrement))
 
   /** Makes create nodes that violate the rules:
     *

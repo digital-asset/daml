@@ -94,7 +94,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         precondition TRACE @Bool "precondition" (M:T {precondition} this);
         signatories TRACE @(List Party) "contract signatories" (Cons @Party [M:T {signatory} this] (Nil @Party));
         observers TRACE @(List Party) "contract observers" (Cons @Party [M:T {observer} this] (Nil @Party));
-        agreement TRACE @Text "agreement" "";
+        agreement TRACE @Text "contract agreement" "";
         choice Choice (self) (arg: M:Either M:Nested Int64) : M:Nested,
           controllers TRACE @(List Party) "choice controllers" (Cons @Party [M:T {signatory} this] (Nil @Party)),
           observers TRACE @(List Party) "choice observers" (Nil @Party)
@@ -115,7 +115,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         precondition TRACE @Bool "precondition" (M:Human {precond} this);
         signatories TRACE @(List Party) "contract signatories" (Cons @Party [M:Human {person} this] (Nil @Party));
         observers TRACE @(List Party) "contract observers" (Cons @Party [M:Human {obs} this] (Nil @Party));
-        agreement TRACE @Text "agreement" "";
+        agreement TRACE @Text "contract agreement" "";
         choice Archive (self) (arg: Unit): Unit,
           controllers Cons @Party [M:Human {person} this] (Nil @Party)
           to upure @Unit (TRACE @Unit "archive" ());
@@ -341,7 +341,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             None -> emptyNestedValue,
           ),
         ),
-        "agreement",
       ),
     )
 
@@ -371,7 +370,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         None,
         ImmArray(None -> ValueParty(alice), None -> ValueParty(charlie)),
       ),
-      "",
     ),
   )
 
@@ -390,7 +388,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           None -> emptyNestedValue,
         ),
       ),
-      "agreement",
     ),
   )
 
@@ -405,11 +402,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
 
   private[this] val dummyContract = Versioned(
     TransactionVersion.StableVersions.max,
-    Value.ContractInstance(
-      Dummy,
-      ValueRecord(None, ImmArray(None -> ValueParty(alice))),
-      "",
-    ),
+    Value.ContractInstance(Dummy, ValueRecord(None, ImmArray(None -> ValueParty(alice)))),
   )
   private[this] val getWronglyTypedContract = Map(cId -> dummyContract)
 
@@ -476,7 +469,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "agreement",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -520,7 +513,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "agreement",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -544,7 +537,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "precondition",
-              "agreement",
+              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -567,7 +560,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "agreement",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -594,7 +587,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "agreement",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -617,7 +610,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "agreement",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -641,7 +634,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "agreement",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -667,7 +660,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "agreement",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -712,7 +705,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "agreement",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -738,7 +731,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "precondition",
-              "agreement",
+              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -761,7 +754,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "agreement",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -788,7 +781,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "agreement",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -811,7 +804,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "agreement",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -835,7 +828,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq(
             "starts test",
             "precondition",
-            "agreement",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -862,6 +855,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "queries contract",
+              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -903,6 +897,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "queries contract",
+              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -931,6 +926,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "queries contract",
+              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -1171,6 +1167,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq(
             "starts test",
             "queries contract",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -1194,6 +1191,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           msgs shouldBe Seq(
             "starts test",
             "queries contract",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "key",
@@ -1226,6 +1224,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "maintainers",
               "queries key",
               "queries contract",
+              "contract agreement",
               "contract signatories",
               "contract observers",
               "choice controllers",
@@ -1269,6 +1268,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "maintainers",
               "queries key",
               "queries contract",
+              "contract agreement",
               "contract signatories",
               "contract observers",
               "choice controllers",
@@ -1298,6 +1298,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "maintainers",
                 "queries key",
                 "queries contract",
+                "contract agreement",
                 "contract signatories",
                 "contract observers",
               )
@@ -1536,6 +1537,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             "maintainers",
             "queries key",
             "queries contract",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "choice controllers",
@@ -1560,6 +1562,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             "maintainers",
             "queries key",
             "queries contract",
+            "contract agreement",
             "contract signatories",
             "contract observers",
             "choice controllers",
@@ -1621,6 +1624,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               msgs shouldBe buildLog(
                 "starts test",
                 "queries contract",
+                "contract agreement",
                 "contract signatories",
                 "contract observers",
                 "key",
@@ -1667,6 +1671,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               msgs shouldBe buildLog(
                 "starts test",
                 "queries contract",
+                "contract agreement",
                 "contract signatories",
                 "contract observers",
                 "key",
@@ -1930,6 +1935,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "queries contract",
+              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -1968,6 +1974,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "queries contract",
+              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -1994,6 +2001,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "queries contract",
+              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -2233,6 +2241,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "maintainers",
               "queries key",
               "queries contract",
+              "contract agreement",
               "contract signatories",
               "contract observers",
               "ends test",
@@ -2277,6 +2286,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "maintainers",
               "queries key",
               "queries contract",
+              "contract agreement",
               "contract signatories",
               "contract observers",
             )
@@ -2304,6 +2314,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "maintainers",
                 "queries key",
                 "queries contract",
+                "contract agreement",
                 "contract signatories",
                 "contract observers",
               )
@@ -2521,6 +2532,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "queries contract",
+              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -2562,6 +2574,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "queries contract",
+              "contract agreement",
               "contract signatories",
               "contract observers",
               "key",
@@ -2786,6 +2799,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "maintainers",
               "queries key",
               "queries contract",
+              "contract agreement",
               "contract signatories",
               "contract observers",
               "ends test",
@@ -2809,6 +2823,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "maintainers",
               "queries key",
               "queries contract",
+              "contract agreement",
               "contract signatories",
               "contract observers",
             )
@@ -2836,6 +2851,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "maintainers",
                 "queries key",
                 "queries contract",
+                "contract agreement",
                 "contract signatories",
                 "contract observers",
               )

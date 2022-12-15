@@ -28,6 +28,12 @@ trait ACSReader {
   ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed]
 }
 
+object ACSReader {
+  def acsBeforePruningErrorReason(acsOffset: String, prunedUpToOffset: String): String =
+    s"Active contracts request at offset ${acsOffset} precedes pruned offset ${prunedUpToOffset}"
+
+}
+
 class FilterTableACSReader(
     dispatcher: DbDispatcher,
     queryNonPruned: QueryNonPruned,
@@ -102,7 +108,10 @@ class FilterTableACSReader(
             )(connection),
             activeAt._1,
             pruned =>
-              s"Active contracts request after ${activeAt._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+              ACSReader.acsBeforePruningErrorReason(
+                acsOffset = activeAt._1.toHexString,
+                prunedUpToOffset = pruned.toHexString,
+              ),
           )(connection, implicitly)
           logger.debug(
             s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption

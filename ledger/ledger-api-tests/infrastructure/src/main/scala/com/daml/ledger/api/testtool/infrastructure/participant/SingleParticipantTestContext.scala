@@ -308,11 +308,13 @@ final class SingleParticipantTestContext private[participant] (
       parties: Seq[Party],
       templateIds: Seq[TemplateId] = Seq.empty,
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+      activeAtOffset: String = "",
   ): GetActiveContractsRequest =
     new GetActiveContractsRequest(
       ledgerId = ledgerId,
       filter = Some(transactionFilter(parties, templateIds, interfaceFilters)),
       verbose = true,
+      activeAtOffset,
     )
 
   override def activeContracts(parties: Party*): Future[Vector[CreatedEvent]] =

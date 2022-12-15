@@ -20,7 +20,10 @@ import com.daml.scalautil.Statement.discard
 
 import scala.collection.concurrent.{TrieMap, Map => ConcurrentMap}
 
-trait InMemoryMetricsFactory extends Factory {
+class InMemoryMetricsFactory extends Factory {
+
+  val asyncGauges: ConcurrentMap[(MetricName, MetricsContext), () => Any] =
+    TrieMap[(MetricName, MetricsContext), () => Any]()
 
   override def timer(name: MetricName, description: String)(implicit
       context: MetricsContext
@@ -34,7 +37,7 @@ trait InMemoryMetricsFactory extends Factory {
       name: MetricName,
       gaugeSupplier: () => T,
       description: String,
-  )(implicit context: MetricsContext): Unit = ()
+  )(implicit context: MetricsContext): Unit = asyncGauges.addOne(name -> context -> gaugeSupplier)
 
   override def meter(name: MetricName, description: String)(implicit
       context: MetricsContext

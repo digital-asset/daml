@@ -112,14 +112,14 @@ object TransactionCoder {
     */
   def encodeContractInstance(
       encodeCid: ValueCoder.EncodeCid,
-      coinst: Value.VersionedContractInstance,
+      coinst: Versioned[Value.ContractInstanceWithAgreement],
   ): Either[EncodeError, TransactionOuterClass.ContractInstance] =
     ValueCoder
-      .encodeVersionedValue(encodeCid, coinst.version, coinst.unversioned.arg)
+      .encodeVersionedValue(encodeCid, coinst.version, coinst.unversioned.contractInstance.arg)
       .map(
         TransactionOuterClass.ContractInstance
           .newBuilder()
-          .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.template))
+          .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.contractInstance.template))
           .setArgVersioned(_)
           .setAgreement(coinst.unversioned.agreementText)
           .build()
@@ -154,31 +154,30 @@ object TransactionCoder {
     for {
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
       value <- ValueCoder.decodeValue(decodeCid, protoCoinst.getArgVersioned)
-    } yield Value.ContractInstance(id, value, (protoCoinst.getAgreement))
+    } yield Value.ContractInstance(id, value)
 
   private[this] def decodeContractInstance(
       decodeCid: ValueCoder.DecodeCid,
       nodeVersion: TransactionVersion,
       protoCoinst: TransactionOuterClass.ContractInstance,
-  ): Either[DecodeError, Value.ContractInstance] =
+  ): Either[DecodeError, Value.ContractInstanceWithAgreement] =
     for {
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
       value <- decodeValue(decodeCid, nodeVersion, protoCoinst.getArgVersioned)
-    } yield Value.ContractInstance(id, value, protoCoinst.getAgreement)
+    } yield Value.ContractInstanceWithAgreement(
+      Value.ContractInstance(id, value),
+      protoCoinst.getAgreement,
+    )
 
   def decodeVersionedContractInstance(
       decodeCid: ValueCoder.DecodeCid,
       protoCoinst: TransactionOuterClass.ContractInstance,
-  ): Either[DecodeError, Value.VersionedContractInstance] =
+  ): Either[DecodeError, Versioned[Value.ContractInstanceWithAgreement]] =
     for {
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
       value <- ValueCoder.decodeVersionedValue(decodeCid, protoCoinst.getArgVersioned)
-    } yield value.map(
-      Value.ContractInstance(
-        id,
-        _,
-        protoCoinst.getAgreement,
-      )
+    } yield value.map(arg =>
+      Value.ContractInstanceWithAgreement(Value.ContractInstance(id, arg), protoCoinst.getAgreement)
     )
 
   private[this] def encodeKeyWithMaintainers(
@@ -505,15 +504,19 @@ object TransactionCoder {
         for {
           ni <- nodeId
           c <- decodeCid.decode(protoCreate.getContractIdStruct)
-          ci <-
+          entry <-
             if (nodeVersion < TransactionVersion.minNoVersionValue) {
               decodeContractInstance(decodeCid, nodeVersion, protoCreate.getContractInstance)
             } else {
               for {
                 tmplId <- ValueCoder.decodeIdentifier(protoCreate.getTemplateId)
                 arg <- ValueCoder.decodeValue(decodeCid, nodeVersion, protoCreate.getArgUnversioned)
-              } yield Value.ContractInstance(tmplId, arg, protoCreate.getAgreement)
+              } yield Value.ContractInstanceWithAgreement(
+                Value.ContractInstance(tmplId, arg),
+                protoCreate.getAgreement,
+              )
             }
+          Value.ContractInstanceWithAgreement(ci, agreementText) = entry
           stakeholders <- toPartySet(protoCreate.getStakeholdersList)
           signatories <- toPartySet(protoCreate.getSignatoriesList)
           key <- decodeOptionalKeyWithMaintainers(
@@ -525,7 +528,7 @@ object TransactionCoder {
           coid = c,
           templateId = ci.template,
           arg = ci.arg,
-          agreementText = ci.agreementText,
+          agreementText = agreementText,
           signatories = signatories,
           stakeholders = stakeholders,
           key = key,

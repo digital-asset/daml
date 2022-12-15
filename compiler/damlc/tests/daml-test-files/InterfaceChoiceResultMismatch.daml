@@ -1,0 +1,23 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module InterfaceChoiceResultMismatch where
+
+-- @ERROR range=23:12-23:27; Tried to get a result of type ‘Either Text ()’ by exercising choice ‘C’ on interface ‘I’ but exercising choice ‘C’ should return type ‘()’ instead.
+
+interface I where
+  getController : Party
+
+  choice C : ()
+    controller getController
+    do pure ()
+
+exerciseE : Choice t c (Either Text r) => ContractId t -> c -> Update r
+exerciseE cid c = do
+  r <- exercise cid c
+  case r of
+    Left err -> abort err
+    Right r -> pure r
+
+test : ContractId I -> Update ()
+test cid = exerciseE cid C

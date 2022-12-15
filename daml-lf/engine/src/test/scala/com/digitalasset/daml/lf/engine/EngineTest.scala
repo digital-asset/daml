@@ -1248,7 +1248,6 @@ class EngineTest
         ContractInstance(
           TypeConName(basicTestsPkgId, tid),
           ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs),
-          "",
         )
       )
 
@@ -1403,7 +1402,6 @@ class EngineTest
               (Some[Name]("obs"), ValueParty(clara)),
             ),
           ),
-          "",
         )
       )
 
@@ -1446,7 +1444,6 @@ class EngineTest
         ContractInstance(
           TypeConName(basicTestsPkgId, lookerUpTemplate),
           ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
-          "",
         )
       )
 
@@ -1845,7 +1842,6 @@ class EngineTest
         ContractInstance(
           TypeConName(basicTestsPkgId, fetcherTemplate),
           ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
-          "",
         )
       )
 
@@ -1929,7 +1925,6 @@ class EngineTest
             (None, ValueParty(alice)),
           ),
         ),
-        "",
       )
     )
     val contracts = defaultContracts + (fetcherCid -> fetcherInst)
@@ -2100,7 +2095,6 @@ class EngineTest
         ContractInstance(
           TypeConName(exceptionsPkgId, "Exceptions:K"),
           ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
-          "",
         )
       )
     )
@@ -2252,7 +2246,6 @@ class EngineTest
         ContractInstance(
           TypeConName(exceptionsPkgId, "Exceptions:K"),
           ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
-          "",
         )
       )
     )
@@ -2332,7 +2325,6 @@ class EngineTest
         ContractInstance(
           TypeConName(exceptionsPkgId, "Exceptions:K"),
           ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
-          "",
         )
       )
     )
@@ -2530,7 +2522,6 @@ object EngineTest {
             (Some[Ref.Name]("k"), ValueInt64(42)),
           ),
         ),
-        "",
       )
     )
 
@@ -2544,7 +2535,6 @@ object EngineTest {
               Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
               ImmArray((Some[Name]("p"), ValueParty(party))),
             ),
-            "",
           )
         ),
       toContractId("BasicTests:CallablePayout:1") ->
@@ -2558,7 +2548,6 @@ object EngineTest {
                 (Some[Ref.Name]("receiver"), ValueParty(bob)),
               ),
             ),
-            "",
           )
         ),
       toContractId("BasicTests:WithKey:1") ->

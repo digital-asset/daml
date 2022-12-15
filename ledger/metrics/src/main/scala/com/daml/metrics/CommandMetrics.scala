@@ -36,7 +36,7 @@ class CommandMetrics(val prefix: MetricName, override val registry: MetricRegist
                     |over to the synchronization services).""",
     qualification = Debug,
   )
-  val submissionsRunning: Meter = meter(prefix :+ "submissions_running")
+  val submissionsRunning: Counter = counter(prefix :+ "submissions_running")
 
   @MetricDoc.Tag(
     summary = "The number of Daml commands that failed in interpretation.",

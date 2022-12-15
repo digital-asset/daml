@@ -958,13 +958,12 @@ private[lf] object SBuiltin {
     *    -> CachedContract
     *    -> ContractId arg
     */
-  final case object SBUCreate extends OnLedgerBuiltin(2) {
+  final case object SBUCreate extends OnLedgerBuiltin(1) {
     override protected def executeWithLedger(
         args: util.ArrayList[SValue],
         machine: OnLedgerMachine,
     ): Control = {
-      val agreement = getSText(args, 0)
-      val cached = extractCachedContract(args.get(1))
+      val cached = extractCachedContract(args.get(0))
       val version = machine.tmplId2TxVersion(cached.templateId)
       val createArgValue = cached.value.toNormalizedValue(version)
       cached.key match {
@@ -982,7 +981,7 @@ private[lf] object SBuiltin {
               submissionTime = machine.submissionTime,
               templateId = cached.templateId,
               arg = createArgValue,
-              agreementText = agreement,
+              agreementText = cached.agreementText,
               optLocation = machine.getLastLocation,
               signatories = cached.signatories,
               stakeholders = cached.stakeholders,
@@ -1147,7 +1146,7 @@ private[lf] object SBuiltin {
           def continue(coinst: V.ContractInstance): Control = {
             machine.pushKont(KCacheContract(coid))
             val e = coinst match {
-              case V.ContractInstance(actualTmplId, arg, _) =>
+              case V.ContractInstance(actualTmplId, arg) =>
                 SELet1(
                   // The call to ToCachedContractDefRef(actualTmplId) will query package
                   // of actualTmplId if not known.
@@ -1669,6 +1668,25 @@ private[lf] object SBuiltin {
     }
   }
 
+  /** $acting_as_consortium
+    *    :: Token
+    *    -> List Party    (members)
+    *    -> Party         (consortium)
+    *    -> Unit
+    */
+  final case object SBActingAsConsortium extends SBuiltin(3) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Control = {
+      checkToken(args, 0)
+      val members = args.get(1)
+      val consortium = args.get(2)
+      val _ = (members, consortium)
+      ??? // TODO: https://github.com/digital-asset/daml/issues/15882
+    }
+  }
+
   final case class SBSSubmit(optLocation: Option[Location], mustFail: Boolean) extends SBuiltin(3) {
     override private[speedy] def execute(
         args: util.ArrayList[SValue],
@@ -2154,6 +2172,12 @@ private[lf] object SBuiltin {
         throw SErrorCrash(where, s"value not a list of parties or party: $v")
     }
 
+  private[this] def extractText(where: String, v: SValue): String =
+    v match {
+      case SText(text) => text
+      case _ => throw SErrorCrash(where, s"value not a text: $v")
+    }
+
   private[this] val keyWithMaintainersStructFields: Struct[Unit] =
     Struct.assertFromNameSeq(List(Ast.keyFieldName, Ast.maintainersFieldName))
 
@@ -2175,7 +2199,9 @@ private[lf] object SBuiltin {
     }
 
   private[this] val cachedContractFieldNames =
-    List("type", "value", "signatories", "observers", "mbKey").map(Ref.Name.assertFromString)
+    List("type", "value", "agreementText", "signatories", "observers", "mbKey").map(
+      Ref.Name.assertFromString
+    )
 
   private[this] val cachedContractStruct =
     Struct.assertFromSeq(cachedContractFieldNames.zipWithIndex)
@@ -2183,6 +2209,7 @@ private[lf] object SBuiltin {
   private[this] val List(
     cachedContractTypeFieldIdx,
     cachedContractArgIdx,
+    cachedAgreementTextIdx,
     cachedContractSignatoriesIdx,
     cachedContractObserversIdx,
     cachedContractKeyIdx,
@@ -2213,6 +2240,8 @@ private[lf] object SBuiltin {
         CachedContract(
           templateId = templateId,
           value = vals.get(cachedContractArgIdx),
+          agreementText =
+            extractText(NameOf.qualifiedNameOfCurrentFunc, vals.get(cachedAgreementTextIdx)),
           signatories = extractParties(
             NameOf.qualifiedNameOfCurrentFunc,
             vals.get(cachedContractSignatoriesIdx),

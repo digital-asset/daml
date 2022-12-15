@@ -220,9 +220,6 @@ CREATE INDEX participant_events_create_event_offset ON participant_events_create
 -- sequential_id index for paging
 CREATE INDEX participant_events_create_event_sequential_id ON participant_events_create (event_sequential_id);
 
--- lookup by transaction id
-CREATE INDEX participant_events_create_transaction_id_idx ON participant_events_create (transaction_id);
-
 -- lookup by contract id
 CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create (contract_id);
 
@@ -281,9 +278,6 @@ CREATE INDEX participant_events_consuming_exercise_event_offset ON participant_e
 -- sequential_id index for paging
 CREATE INDEX participant_events_consuming_exercise_event_sequential_id ON participant_events_consuming_exercise (event_sequential_id);
 
--- lookup by transaction id
-CREATE INDEX participant_events_consuming_exercise_transaction_id_idx ON participant_events_consuming_exercise (transaction_id);
-
 -- lookup by contract id
 CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (contract_id);
 
@@ -338,9 +332,6 @@ CREATE INDEX participant_events_non_consuming_exercise_event_offset ON participa
 
 -- sequential_id index for paging
 CREATE INDEX participant_events_non_consuming_exercise_event_sequential_id ON participant_events_non_consuming_exercise (event_sequential_id);
-
--- lookup by transaction id
-CREATE INDEX participant_events_non_consuming_exercise_transaction_id_idx ON participant_events_non_consuming_exercise (transaction_id);
 
 CREATE TABLE string_interning (
     internal_id integer PRIMARY KEY NOT NULL,

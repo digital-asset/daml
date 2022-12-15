@@ -73,7 +73,6 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
           Some("T1"),
           ImmArray((Some[Name]("party"), ValueParty(party))),
         ),
-        "",
       ),
     )
 
@@ -86,7 +85,6 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
           Some("X1"),
           ImmArray((Some[Name]("party"), ValueParty(party))),
         ),
-        "",
       ),
     )
 
