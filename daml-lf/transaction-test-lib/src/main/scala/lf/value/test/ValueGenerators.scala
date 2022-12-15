@@ -203,7 +203,7 @@ object ValueGenerators {
     recordGen,
     valueOptionalGen,
     valueMapGen,
-//    valueGenMapGen,
+    valueGenMapGen,
   )
 
   private def flatGen = Gen.oneOf(
@@ -217,6 +217,7 @@ object ValueGenerators {
     coidValueGen,
     party.map(ValueParty),
     Gen.oneOf(ValueTrue, ValueFalse),
+    Gen.const(ValueUnit),
   )
 
   def valueGen: Gen[Value] = Gen.lzy {

@@ -3,7 +3,6 @@
 
 package com.daml.lf.codegen.json
 
-import com.daml.ledger.javaapi.data.Identifier
 import com.daml.ledger.javaapi.{data => JData}
 import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, SortedLookupList, Time}
 import com.daml.lf.value.{Value => LfValue}
@@ -12,6 +11,7 @@ import scalaz.syntax.std.option._
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
 import java.util.function.{Function => JFunction}
+import java.util.stream.Collectors
 
 object ValueConversion {
   def toLfValue(v: JData.Value): LfValue = v match {
@@ -49,7 +49,12 @@ object ValueConversion {
       )
     case genMap: JData.DamlGenMap =>
       LfValue.ValueGenMap(
-        ImmArray.from(genMap.toMap(toLfValue, toLfValue).asScala)
+        ImmArray.from(
+          genMap.stream
+            .map(x => toLfValue(x.getKey) -> toLfValue(x.getValue))
+            .collect(Collectors.toList[(LfValue, LfValue)])
+            .asScala
+        )
       )
     case enum: JData.DamlEnum =>
       LfValue.ValueEnum(
@@ -129,7 +134,7 @@ object ValueConversion {
     case LfValue.ValueUnit => JData.Unit.getInstance
   }
 
-  private def toRefId(jid: Identifier): Ref.Identifier = Ref.Identifier(
+  private def toRefId(jid: JData.Identifier): Ref.Identifier = Ref.Identifier(
     Ref.PackageId.assertFromString(jid.getPackageId),
     Ref.QualifiedName(
       Ref.DottedName.assertFromString(jid.getModuleName),
@@ -137,7 +142,7 @@ object ValueConversion {
     ),
   )
 
-  private def fromRefId(id: Ref.Identifier): Identifier = new Identifier(
+  private def fromRefId(id: Ref.Identifier): JData.Identifier = new JData.Identifier(
     id.packageId,
     id.qualifiedName.module.dottedName,
     id.qualifiedName.name.dottedName,
