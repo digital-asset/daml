@@ -49,7 +49,6 @@ da_scala_test(
     ],
     deps = [
         ":json",
-        "//daml-lf/data",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//language-support/java/bindings:bindings-java",
