@@ -351,15 +351,19 @@ object Trigger {
     }
   }
 
-  sealed abstract class Version extends Serializable
+  final class Version(protected val rank: Int) extends Ordered[Version] {
+    override def compare(that: Version): Int = this.rank compare that.rank
+  }
   object Version {
-    case object `2.0` extends Version
-    case object `2.5` extends Version
+    val `2.0` = new Version(0)
+    val `2.5` = new Version(5)
+    val `2.6` = new Version(6)
 
     def fromString(s: Option[String]): Either[String, Version] =
       s match {
         case None => Right(`2.0`)
         case Some("Version_2_5") => Right(`2.5`)
+        case Some("Version_2_6") => Right(`2.6`)
         case Some(s) => Left(s"""cannot parse trigger version "$s".""")
       }
   }
@@ -380,6 +384,8 @@ private[lf] class Runner private (
     applicationId: ApplicationId,
     parties: TriggerParties,
 )(implicit triggerContext: TriggerLogContext) {
+
+  private val version = trigger.defn.version
 
   // Compiles LF expressions into Speedy expressions.
   private val compiler = compiledPackages.compiler
@@ -724,15 +730,19 @@ private[lf] class Runner private (
         ctx.copy(value = converter.fromHeartbeat)
     }
 
-  private[this] def conflateMsgValue: TriggerContextualFlow[SValue, SValue, NotUsed] =
-    Flow
-      .fromFunction[TriggerContext[SValue], TriggerContext[SValue]](identity)
-      .conflateWithSeed { case ctx @ Ctx(_, value, _) =>
-        ctx.copy(value = BackStack.empty :+ value)
-      } { case (ctx @ Ctx(_, stack, _), Ctx(_, value, _)) =>
-        ctx.copy(value = stack :+ value)
-      }
-      .map(_.map(stack => SList(stack.toImmArray.toFrontStack)))
+  private[this] def conflateMsgValue: TriggerContextualFlow[SValue, SValue, NotUsed] = {
+    val noop = Flow.fromFunction[TriggerContext[SValue], TriggerContext[SValue]](identity)
+    if (version < Trigger.Version.`2.6`)
+      noop
+    else
+      noop
+        .conflateWithSeed { case ctx @ Ctx(_, value, _) =>
+          ctx.copy(value = BackStack.empty :+ value)
+        } { case (ctx @ Ctx(_, stack, _), Ctx(_, value, _)) =>
+          ctx.copy(value = stack :+ value)
+        }
+        .map(_.map(stack => SList(stack.toImmArray.toFrontStack)))
+  }
 
   // A flow for trigger messages representing a process for the
   // accumulated state changes resulting from application of the

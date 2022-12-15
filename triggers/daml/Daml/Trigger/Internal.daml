@@ -33,7 +33,7 @@ import DA.Optional (fromOptional)
 import Daml.Trigger.LowLevel hiding (Trigger)
 
 -- We use this singleton enumeration to track the version of the API between Daml code and Scala code of the trigger
-data Version = Version_2_5
+data Version = Version_2_6
 
 -- public API
 
