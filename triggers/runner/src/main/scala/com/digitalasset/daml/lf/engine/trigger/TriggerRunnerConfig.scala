@@ -32,7 +32,7 @@ object TriggerRunnerConfig {
       maxSubmissionRequests = 100,
       maxSubmissionDuration = 5.seconds,
       // 256 here comes from the default ExecutionContext.
-      submissionFailureQueueSize = parallelism,
+      submissionFailureQueueSize = 256 + parallelism,
     )
   }
 }
