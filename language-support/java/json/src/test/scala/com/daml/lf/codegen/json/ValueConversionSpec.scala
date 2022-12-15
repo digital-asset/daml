@@ -26,95 +26,6 @@ class ValueConversionSpec extends AnyWordSpec with Matchers with ScalaCheckPrope
     "do values" in {
       forAll(valueGen)(testRoundTrip)
     }
-
-    "do Int" in {
-      forAll(Arbitrary.arbLong.arbitrary)(i => testRoundTrip(ValueInt64(i)))
-    }
-
-    "do Bool" in {
-      forAll(Arbitrary.arbBool.arbitrary)(b => testRoundTrip(ValueBool(b)))
-    }
-
-    "do Numeric" in {
-      import ValueGenerators.Implicits._
-
-      forAll("Numeric scale", "Decimal (BigDecimal) invariant") {
-        (s: Numeric.Scale, d: BigDecimal) =>
-          // we are filtering on decimals invariant under string conversion
-          whenever(Numeric.fromBigDecimal(s, d).isRight) {
-            val Right(dec) = Numeric.fromBigDecimal(s, d)
-            val value = ValueNumeric(dec)
-            val recoveredDecimal =
-              ValueConversion.toLfValue(ValueConversion.fromLfValue(value)) match {
-                case ValueNumeric(x) => x
-                case x => fail(s"should have got a numeric back, got $x")
-              }
-            Numeric.toUnscaledString(value.value) shouldEqual Numeric.toUnscaledString(
-              recoveredDecimal
-            )
-          }
-      }
-    }
-
-    "do Text" in {
-      forAll("Text (String) invariant")((t: String) => testRoundTrip(ValueText(t)))
-    }
-
-    "do Party" in {
-      forAll(party)(p => testRoundTrip(ValueParty(p)))
-    }
-
-    "do TimeStamp" in {
-      forAll(timestampGen)(t => testRoundTrip(ValueTimestamp(t)))
-    }
-
-    "do Date" in {
-      forAll(dateGen)(d => testRoundTrip(ValueDate(d)))
-    }
-
-    "do ContractId" in {
-      forAll(coidValueGen)(testRoundTrip)
-    }
-
-    "do ContractId V0 in any ValueVersion" in {
-      forAll(coidValueGen)(testRoundTrip)
-    }
-
-    "do lists" in {
-      forAll(valueListGen)(testRoundTrip)
-    }
-
-    "do optionals" in {
-      forAll(valueOptionalGen)(testRoundTrip)
-    }
-
-    "do maps" in {
-      forAll(valueMapGen)(testRoundTrip)
-    }
-
-    "do genMaps" in {
-      forAll(valueGenUniqueKeysMapGen) { lfValue =>
-        val jValue: JData.Value = ValueConversion.fromLfValue(lfValue)
-        val convertedLfGenMap: LfValue = ValueConversion.toLfValue(jValue)
-
-        val lfGenEntrySet = extractMapEntries(lfValue)
-        val convertedLfGenEntrySet = extractMapEntries(convertedLfGenMap)
-
-        convertedLfGenEntrySet shouldEqual lfGenEntrySet
-      }
-    }
-
-    "do variant" in {
-      forAll(variantGen)(testRoundTrip)
-    }
-
-    "do record" in {
-      forAll(recordGen)(testRoundTrip)
-    }
-
-    "do unit" in {
-      testRoundTrip(ValueUnit)
-    }
   }
 
   private def testRoundTrip(lfValue: LfValue): Assertion = {
@@ -122,12 +33,5 @@ class ValueConversionSpec extends AnyWordSpec with Matchers with ScalaCheckPrope
     val convertedLfValue: LfValue = ValueConversion.toLfValue(jValue)
 
     convertedLfValue shouldEqual lfValue
-  }
-
-  private def extractMapEntries(valueGenMap: LfValue): Set[(LfValue, LfValue)] = {
-    valueGenMap match {
-      case LfValue.ValueGenMap(entries) => entries.toList.toSet
-      case x => fail(s"should have got a value gen map back, got $x")
-    }
   }
 }
