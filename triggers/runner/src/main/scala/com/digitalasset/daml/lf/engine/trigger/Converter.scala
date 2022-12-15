@@ -192,10 +192,11 @@ final class Converter(
     }
 
   private[this] val fromCreatedEvent: CreatedEvent => Either[String, SValue] =
-    if (triggerDef.version < Trigger.Version.`2.6`)
+    if (triggerDef.version < Trigger.Version.`2.6`) {
       fromV20CreatedEvent
-    else
+    } else {
       fromV25CreatedEvent
+    }
 
   private def fromEvent(ev: Event): Either[String, SValue] =
     ev.event match {

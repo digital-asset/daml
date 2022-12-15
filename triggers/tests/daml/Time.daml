@@ -4,7 +4,6 @@
 
 module Time where
 
-import DA.Foldable (forA_)
 import DA.Functor (void)
 
 import Daml.Trigger.LowLevel
@@ -14,7 +13,7 @@ test = Trigger
   { initialState = \party _readAs _ -> do
       submitCommands [createCmd (T party)]
       pure (False, [])
-  , update = \msgs -> forA_ msgs $ \case 
+  , update = \msg -> case msg of
     MTransaction (Transaction _ _ events) -> do
       (done, ts) <- get
       case (done, events) of

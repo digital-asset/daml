@@ -25,10 +25,7 @@ import com.daml.ledger.api.v1.{value => api}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement._
 import com.daml.lf.archive.Dar
-import com.daml.lf.data.FrontStack
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.BackStack
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{BackStack, FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
@@ -213,9 +210,19 @@ object Trigger {
     pkgInterface.lookupValue(triggerId) match {
       case Right(DValueSignature(TApp(ty @ TTyCon(tyCon), tyArg), _, _)) =>
         val triggerIds = TriggerIds(tyCon.packageId)
-        if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
+        if (tyCon == triggerIds.damlTriggerLowLevel("BatchTrigger")) {
           val expr = EVal(triggerId)
           val ty = TypeConApp(tyCon, ImmArray(tyArg))
+          detectVersion(pkgInterface, triggerIds).map(
+            TriggerDefinition(triggerId, ty, _, Level.Low, expr)
+          )
+        } else if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
+          val runTrigger = EVal(triggerIds.damlTriggerInternal("runLegacyTrigger"))
+          val expr = EApp(runTrigger, EVal(triggerId))
+          val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
+          val stateTy = TApp(triggerState, tyArg)
+          val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
+          val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
           detectVersion(pkgInterface, triggerIds).map(
             TriggerDefinition(triggerId, ty, _, Level.Low, expr)
           )
@@ -384,8 +391,6 @@ private[lf] class Runner private (
     applicationId: ApplicationId,
     parties: TriggerParties,
 )(implicit triggerContext: TriggerLogContext) {
-
-  private val version = trigger.defn.version
 
   // Compiles LF expressions into Speedy expressions.
   private val compiler = compiledPackages.compiler
@@ -732,16 +737,31 @@ private[lf] class Runner private (
 
   private[this] def conflateMsgValue: TriggerContextualFlow[SValue, SValue, NotUsed] = {
     val noop = Flow.fromFunction[TriggerContext[SValue], TriggerContext[SValue]](identity)
-    if (version < Trigger.Version.`2.6`)
+
+    if (trigger.defn.version < Trigger.Version.`2.6`) {
       noop
-    else
+    } else {
       noop
-        .conflateWithSeed { case ctx @ Ctx(_, value, _) =>
-          ctx.copy(value = BackStack.empty :+ value)
-        } { case (ctx @ Ctx(_, stack, _), Ctx(_, value, _)) =>
+        .batch(
+          triggerConfig.maximumBatchSize,
+          { case ctx @ Ctx(context, value, _) =>
+            TriggerLogContext.newRootSpan("batch") { batchContext =>
+              batchContext
+                .groupWith(context)
+                .logDebug("Batching message for rule evaluation", "index" -> 0)
+
+              ctx.copy(context = batchContext, value = BackStack(value))
+            }
+          },
+        ) { case (ctx @ Ctx(batchContext, stack, _), Ctx(context, value, _)) =>
+          batchContext
+            .groupWith(context)
+            .logDebug("Batching message for rule evaluation", "index" -> (stack.length + 1))
+
           ctx.copy(value = stack :+ value)
         }
         .map(_.map(stack => SList(stack.toImmArray.toFrontStack)))
+    }
   }
 
   // A flow for trigger messages representing a process for the
@@ -836,12 +856,12 @@ private[lf] class Runner private (
       val submissions = gb add Merge[TriggerContext[SubmitRequest]](2)
       val finalStateIn = gb add Concat[SValue](2)
       // format: off
-      initialState.finalState                    ~> initialStateOut ~> rule.initState
+      initialState.finalState                    ~> initialStateOut                     ~> rule.initState
       initialState.elemsOut                          ~> submissions
                           msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> conflateMsgValue ~> rule.elemsIn
-                                                        submissions <~ rule.elemsOut
-                                                    initialStateOut                     ~> finalStateIn
-                                                                       rule.finalStates ~> finalStateIn ~> saveLastState
+                                                        submissions                     <~ rule.elemsOut
+                                                    initialStateOut                                         ~> finalStateIn
+                                                                                           rule.finalStates ~> finalStateIn ~> saveLastState
       // format: on
       new FlowShape(msgIn.in, submissions.out)
     }

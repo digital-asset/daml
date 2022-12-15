@@ -59,7 +59,7 @@ import qualified DA.Map as Map
 import DA.Optional
 
 import Daml.Trigger.Internal
-import Daml.Trigger.LowLevel hiding (Trigger)
+import Daml.Trigger.LowLevel hiding (BatchTrigger, Trigger)
 import qualified Daml.Trigger.LowLevel as LowLevel
 
 -- public API
@@ -310,9 +310,9 @@ updateImpl userTrigger triggered (msg :: rest) = do
           put $ state { userState }
           updateImpl userTrigger True rest
 
--- | Transform the high-level trigger type into the one from `Daml.Trigger.LowLevel`.
-runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
-runTrigger userTrigger = LowLevel.Trigger
+-- | Transform the high-level trigger type into the batching trigger from `Daml.Trigger.LowLevel`.
+runTrigger : Trigger s -> LowLevel.BatchTrigger (TriggerState s)
+runTrigger userTrigger = LowLevel.BatchTrigger
   { initialState = initialState
   , update = updateImpl userTrigger False
   , registeredTemplates = userTrigger.registeredTemplates
@@ -324,4 +324,3 @@ runTrigger userTrigger = LowLevel.Trigger
           userState = runTriggerInitializeA userTrigger.initialize (TriggerInitState acs party readAs)
           state = TriggerState acs party readAs userState Map.empty
       in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
-

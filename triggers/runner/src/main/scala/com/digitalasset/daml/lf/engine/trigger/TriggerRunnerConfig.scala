@@ -13,6 +13,7 @@ import scala.concurrent.duration._
   * @param maxSubmissionRequests Used to control rate at which we throttle ledger client submission requests.
   * @param maxSubmissionDuration Used to control rate at which we throttle ledger client submission requests.
   * @param submissionFailureQueueSize Size of the queue holding ledger API command submission failures.
+  * @param maximumBatchSize
   */
 final case class TriggerRunnerConfig(
     parallelism: Int,
@@ -20,6 +21,7 @@ final case class TriggerRunnerConfig(
     maxSubmissionRequests: Int,
     maxSubmissionDuration: FiniteDuration,
     submissionFailureQueueSize: Int,
+    maximumBatchSize: Long,
 )
 
 object TriggerRunnerConfig {
@@ -33,6 +35,7 @@ object TriggerRunnerConfig {
       maxSubmissionDuration = 5.seconds,
       // 256 here comes from the default ExecutionContext.
       submissionFailureQueueSize = 256 + parallelism,
+      maximumBatchSize = 1000,
     )
   }
 }
