@@ -716,7 +716,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
 
   test(
     "ActiveAtOffsetInvalidFormat",
-    "Fail whe active_at_offset has invalid format",
+    "Fail when active_at_offset has invalid format",
     enabled = _.acsActiveAtOffsetFeature,
     disabledReason = "Requires ACS with active_at_offset",
     partyAllocation = allocate(SingleParty),
