@@ -4,7 +4,7 @@
 package com.daml.platform.indexer.parallel
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.executors
+import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.ExecutorServiceMetrics
@@ -35,7 +35,7 @@ object AsyncSupport {
     ResourceOwner
       .forExecutorService { () =>
         val (executorName, metricRegistry, executorServiceMetrics) = withMetric
-        executors.InstrumentedExecutors.newFixedThreadPoolWithFactory(
+        InstrumentedExecutors.newFixedThreadPoolWithFactory(
           executorName,
           size,
           new ThreadFactoryBuilder()

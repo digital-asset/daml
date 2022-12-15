@@ -6,7 +6,7 @@ package com.daml.platform.indexer.parallel
 import java.util.{Timer, concurrent}
 
 import akka.stream.{KillSwitch, Materializer}
-import com.daml.executors
+import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.participant.state.v2.ReadService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -67,7 +67,7 @@ object ParallelIndexerFactory {
             executionContext <- ResourceOwner
               .forExecutorService(() =>
                 ExecutionContext.fromExecutorService(
-                  executors.InstrumentedExecutors.newFixedThreadPoolWithFactory(
+                  InstrumentedExecutors.newFixedThreadPoolWithFactory(
                     "ha-coordinator",
                     1,
                     new ThreadFactoryBuilder().setNameFormat("ha-coordinator-%d").build,

@@ -70,12 +70,10 @@ object InstrumentedExecutors {
       registry: MetricRegistry,
       executorServiceMetrics: ExecutorServiceMetrics,
       executorService: ExecutorService,
-  ) = {
-    new InstrumentedExecutorService(
-      executorServiceMetrics
-        .monitorExecutorService(name, executorService),
-      registry,
-      name,
-    )
-  }
+  ) = new InstrumentedExecutorService(
+    executorServiceMetrics
+      .monitorExecutorService(name, executorService),
+    registry,
+    name,
+  )
 }

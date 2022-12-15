@@ -6,7 +6,7 @@ package com.daml.platform.index
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.executors
+import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
@@ -90,7 +90,7 @@ private[platform] object InMemoryStateUpdater {
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[UpdaterFlow] = for {
     prepareUpdatesExecutor <- ResourceOwner.forExecutorService(() =>
-      executors.InstrumentedExecutors.newWorkStealingExecutor(
+      InstrumentedExecutors.newWorkStealingExecutor(
         metrics.daml.lapi.threadpool.indexBypass.prepareUpdates,
         prepareUpdatesParallelism,
         metrics.registry,
@@ -98,7 +98,7 @@ private[platform] object InMemoryStateUpdater {
       )
     )
     updateCachesExecutor <- ResourceOwner.forExecutorService(() =>
-      executors.InstrumentedExecutors.newFixedThreadPool(
+      InstrumentedExecutors.newFixedThreadPool(
         metrics.daml.lapi.threadpool.indexBypass.updateInMemoryState,
         1,
         metrics.registry,

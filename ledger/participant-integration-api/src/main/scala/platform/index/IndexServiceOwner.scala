@@ -4,7 +4,7 @@
 package com.daml.platform.index
 
 import com.daml.error.definitions.IndexErrors.IndexDbException
-import com.daml.executors
+import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -187,7 +187,7 @@ final class IndexServiceOwner(
   ): ResourceOwner[ExecutionContextExecutorService] =
     ResourceOwner
       .forExecutorService(() =>
-        executors.InstrumentedExecutors.newWorkStealingExecutor(
+        InstrumentedExecutors.newWorkStealingExecutor(
           metrics.daml.lapi.threadpool.inMemoryFanOut.toString,
           threadPoolSize,
           metrics.registry,
