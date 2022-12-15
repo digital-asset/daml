@@ -37,7 +37,7 @@ object ValueConversion {
       )
     case list: JData.DamlList =>
       LfValue.ValueList(
-        FrontStack.from(list.toList(JFunction.identity()).asScala.map(toLfValue))
+        list.toList(toLfValue).asScala.to(FrontStack)
       )
     case optional: JData.DamlOptional =>
       LfValue.ValueOptional(
@@ -74,11 +74,15 @@ object ValueConversion {
     case party: JData.Party => LfValue.ValueParty(Ref.Party.assertFromString(party.getValue))
     case bool: JData.Bool => LfValue.ValueBool(bool.getValue)
     case _: JData.Unit => LfValue.ValueUnit
+    case x =>
+      throw new IllegalArgumentException(
+        s"Unknown value type $x."
+      )
   }
 
   def fromLfValue(lfV: LfValue): JData.Value = lfV match {
     case LfValue.ValueRecord(tycon, fields) =>
-      val lfFields = fields.toList.map { case (name, value) =>
+      val lfFields = fields.toSeq.map { case (name, value) =>
         name.cata(
           n => new JData.DamlRecord.Field(n, fromLfValue(value)),
           new JData.DamlRecord.Field(fromLfValue(value)),
@@ -96,18 +100,17 @@ object ValueConversion {
 
     case LfValue.ValueContractId(value) => new JData.ContractId(value.coid)
     case LfValue.ValueList(values) =>
-      JData.DamlList.of(values.toImmArray.toList.map(fromLfValue).asJava)
+      JData.DamlList.of(values.toImmArray.toSeq.map(fromLfValue).asJava)
     case LfValue.ValueOptional(value) =>
       JData.DamlOptional.of(value.map(fromLfValue).toJava)
     case LfValue.ValueTextMap(value) =>
       JData.DamlTextMap.of(value.toHashMap.view.mapValues(fromLfValue).toMap.asJava)
     case LfValue.ValueGenMap(entries) =>
       JData.DamlGenMap.of(
-        entries
+        entries.toSeq.view
           .map { case (v1, v2) =>
             fromLfValue(v1) -> fromLfValue(v2)
           }
-          .toList
           .toMap
           .asJava
       )

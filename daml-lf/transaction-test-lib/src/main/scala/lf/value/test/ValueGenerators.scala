@@ -203,6 +203,7 @@ object ValueGenerators {
     recordGen,
     valueOptionalGen,
     valueMapGen,
+//    valueGenMapGen,
   )
 
   private def flatGen = Gen.oneOf(
