@@ -214,7 +214,7 @@ object ValueGenerators {
     Gen.const(ValueUnit),
   )
 
-  def valueGen(nested: Gen[Value] = nestedGen): Gen[Value] = Gen.lzy {
+  def valueGen(nested: => Gen[Value] = nestedGen): Gen[Value] = Gen.lzy {
     Gen.sized { size =>
       for {
         s <- Gen.choose(0, size)

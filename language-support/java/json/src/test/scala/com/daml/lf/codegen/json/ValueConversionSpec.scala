@@ -22,14 +22,15 @@ class ValueConversionSpec extends AnyWordSpec with Matchers with ScalaCheckPrope
 
   "value conversion" should {
     "do values" in {
-      val nested: Gen[LfValue] = Gen.oneOf(
-        valueListGen,
-        variantGen,
-        recordGen,
-        valueOptionalGen,
-        valueMapGen,
-        valueGenMapGen,
-      )
+      def nested: Gen[LfValue] =
+        Gen.oneOf(
+          valueListGen,
+          variantGen,
+          recordGen,
+          valueOptionalGen,
+          valueMapGen,
+          valueGenMapGen,
+        )
       forAll(valueGen(nested))(testRoundTrip)
     }
   }
