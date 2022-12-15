@@ -6,9 +6,9 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
+    "lf_scalacopts_stricter",
     "scala_source_jar",
     "scaladoc_jar",
-    "lf_scalacopts_stricter",
 )
 load(
     "//rules_daml:daml.bzl",
@@ -37,7 +37,7 @@ da_scala_test(
     name = "test",
     srcs = glob(["src/test/**/*.scala"]),
     data = [],
-    resource_strip_prefix = "language-support/java/java/src/test/resources/",
+    resource_strip_prefix = "language-support/java/json/src/test/resources/",
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
