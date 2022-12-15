@@ -7,6 +7,8 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.concurrent.Future
+
 class AcsTxStreamsTest extends AsyncWordSpec with Matchers with AkkaBeforeAndAfterAll {
   import AcsTxStreamsTest._
   import AcsTxStreams.acsFollowingAndBoundary
@@ -20,7 +22,7 @@ class AcsTxStreamsTest extends AsyncWordSpec with Matchers with AkkaBeforeAndAft
         val (_, _, _) = (
           lav1.active_contracts_service.GetActiveContractsResponse(offset = "42"),
           lav1.transaction.Transaction(offset = "84"),
-          probeAll(acsFollowingAndBoundary(_ => akka.stream.scaladsl.Source.empty)),
+          probeCodensity(acsFollowingAndBoundary)(_ => akka.stream.scaladsl.Source.never),
         )
         succeed
       }
@@ -32,7 +34,7 @@ object AcsTxStreamsTest {
   import akka.NotUsed
   import akka.actor.ActorSystem
   import akka.{stream => s}
-  import s.scaladsl.{GraphDSL, RunnableGraph}
+  import s.scaladsl.{GraphDSL, RunnableGraph, Source}
   import s.{testkit => tk}
   import tk.TestPublisher.{Probe => InProbe}
   import tk.TestSubscriber.{Probe => OutProbe}
@@ -41,6 +43,18 @@ object AcsTxStreamsTest {
 
   private implicit val `log ctx`: LoggingContextOf[Any] =
     LoggingContextOf.newLoggingContext(LoggingContextOf.label[Any])(identity)
+
+  private def probeCodensity[K, I0, I1, O0, O1](
+      part: (K => Source[I1, NotUsed]) => s.Graph[s.FanOutShape2[I0, O0, O1], NotUsed]
+  )(
+      k: K => Source[I1, NotUsed]
+  )(implicit
+      as: ActorSystem
+  ): RunnableGraph[(InProbe[I0], Future[InProbe[I1]], OutProbe[O0], OutProbe[O1])] = {
+    val i1 = concurrent.Promise[InProbe[I1]]()
+    probeAll(part(a => k(a) merge TestSource.probe[I1].mapMaterializedValue(i1.success)))
+      .mapMaterializedValue { case (i0, o0, o1) => (i0, i1.future, o0, o1) }
+  }
 
   private def probeAll[I, O0, O1](
       part: s.Graph[s.FanOutShape2[I, O0, O1], NotUsed]
