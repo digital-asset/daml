@@ -4,17 +4,15 @@
 package com.daml.lf.codegen.json
 
 import com.daml.ledger.javaapi.{data => JData}
-import com.daml.lf.data._
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.lf.value.test.ValueGenerators
-import org.scalacheck.{Arbitrary, Shrink}
+import org.scalacheck.Shrink
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 class ValueConversionSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks {
-  import LfValue._
   import ValueGenerators._
 
   implicit val noStringShrink: Shrink[String] = Shrink.shrinkAny[String]
