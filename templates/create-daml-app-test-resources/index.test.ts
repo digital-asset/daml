@@ -425,11 +425,11 @@ const failedLogin = async (page: Page, partyName: string) => {
 };
 
 test("error on user id with invalid format", async () => {
-  // user ids must be lowercase
-  const invalidUser = "Alice";
+  // user ids should not contains `%`
+  const invalidUser = "Alice%";
   const page = await newUiPage();
   const error = await failedLogin(page, invalidUser);
-  expect(error).toMatch(/User ID \\"Alice\\" does not match regex/);
+  expect(error).toMatch(/User ID \\"Alice%\\" does not match regex/);
   await page.close();
 }, 40_000);
 
