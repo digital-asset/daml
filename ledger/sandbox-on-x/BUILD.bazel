@@ -53,6 +53,7 @@ da_scala_library(
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/executors",
         "//libs-scala/jwt",
         "//libs-scala/logging-entries",
         "//libs-scala/ports",

@@ -4,23 +4,15 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test_suite",
 )
 
 da_scala_library(
-    name = "metrics",
+    name = "executors",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    resources = glob(["src/main/resources/**/*"]),
-    scala_deps = [
-    ],
-    tags = ["maven_coordinates=com.daml:ledger-metrics:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    runtime_deps = [],
+    tags = ["maven_coordinates=com.daml:executors:__VERSION__"],
+    visibility = ["//visibility:public"],
     deps = [
         "//observability/metrics",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:io_opentelemetry_opentelemetry_api",
     ],
 )

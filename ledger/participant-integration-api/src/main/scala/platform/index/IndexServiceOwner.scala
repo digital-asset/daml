@@ -3,8 +3,8 @@
 
 package com.daml.platform.index
 
-import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.error.definitions.IndexErrors.IndexDbException
+import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -16,15 +16,14 @@ import com.daml.platform.InMemoryState
 import com.daml.platform.apiserver.TimedIndexService
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.IndexServiceConfig
+import com.daml.platform.store.DbSupport
 import com.daml.platform.store.cache._
 import com.daml.platform.store.dao.events.{BufferedTransactionsReader, LfValueTranslation}
 import com.daml.platform.store.dao.{BufferedCommandCompletionsReader, JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.interning.StringInterning
-import com.daml.platform.store.DbSupport
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 
-import java.util.concurrent.Executors
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
 import scala.util.control.NoStackTrace
@@ -192,13 +191,13 @@ final class IndexServiceOwner(
   ): ResourceOwner[ExecutionContextExecutorService] =
     ResourceOwner
       .forExecutorService(() =>
-        new InstrumentedExecutorService(
-          Executors.newWorkStealingPool(threadPoolSize),
-          metrics.registry,
+        InstrumentedExecutors.newWorkStealingExecutor(
           metrics.daml.lapi.threadpool.inMemoryFanOut.toString,
+          threadPoolSize,
+          metrics.registry,
+          metrics.executorServiceMetrics,
         )
       )
-      .map(ExecutionContext.fromExecutorService)
 
   private object InMemoryStateNotInitialized extends NoStackTrace
 }

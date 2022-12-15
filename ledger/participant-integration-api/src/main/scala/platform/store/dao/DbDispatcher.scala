@@ -3,8 +3,11 @@
 
 package com.daml.platform.store.dao
 
-import com.codahale.metrics.InstrumentedExecutorService
+import java.sql.Connection
+import java.util.concurrent.{Executor, TimeUnit}
+
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -14,10 +17,8 @@ import com.daml.metrics.api.MetricName
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-
-import java.sql.Connection
-import java.util.concurrent.{Executor, Executors, TimeUnit}
 import javax.sql.DataSource
+
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -128,18 +129,17 @@ object DbDispatcher {
         serverRole.threadPoolSuffix,
       )
       executor <- ResourceOwner.forExecutorService(() =>
-        new InstrumentedExecutorService(
-          Executors.newFixedThreadPool(
-            connectionPoolSize,
-            new ThreadFactoryBuilder()
-              .setNameFormat(s"$threadPoolName-%d")
-              .setUncaughtExceptionHandler((_, e) =>
-                logger.error("Uncaught exception in the SQL executor.", e)
-              )
-              .build(),
-          ),
-          metrics.registry,
+        InstrumentedExecutors.newFixedThreadPoolWithFactory(
           threadPoolName,
+          connectionPoolSize,
+          new ThreadFactoryBuilder()
+            .setNameFormat(s"$threadPoolName-%d")
+            .setUncaughtExceptionHandler((_, e) =>
+              logger.error("Uncaught exception in the SQL executor.", e)
+            )
+            .build(),
+          metrics.registry,
+          metrics.executorServiceMetrics,
         )
       )
     } yield new DbDispatcherImpl(

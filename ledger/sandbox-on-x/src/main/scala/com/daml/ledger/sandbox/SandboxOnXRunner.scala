@@ -3,15 +3,13 @@
 
 package com.daml.ledger.sandbox
 
-import java.util.concurrent.Executors
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
+import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.api.auth.{
   AuthServiceJWT,
   AuthServiceNone,
@@ -46,7 +44,7 @@ import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.DbType
 import com.daml.ports.Port
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
+import scala.concurrent.ExecutionContextExecutorService
 import scala.util.Try
 
 object SandboxOnXRunner {
@@ -237,13 +235,13 @@ object SandboxOnXRunner {
   ): ResourceOwner[ExecutionContextExecutorService] =
     ResourceOwner
       .forExecutorService(() =>
-        new InstrumentedExecutorService(
-          Executors.newWorkStealingPool(servicesThreadPoolSize),
+        InstrumentedExecutors.newWorkStealingExecutor(
+          metrics.daml.lapi.threadpool.apiServices,
+          servicesThreadPoolSize,
           metrics.registry,
-          metrics.daml.lapi.threadpool.apiServices.toString,
+          metrics.executorServiceMetrics,
         )
       )
-      .map(ExecutionContext.fromExecutorService)
 
   private def logInitializationHeader(
       config: Config,
