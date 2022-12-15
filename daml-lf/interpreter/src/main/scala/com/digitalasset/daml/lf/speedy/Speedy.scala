@@ -121,6 +121,7 @@ private[lf] object Speedy {
   final case class CachedContract(
       templateId: Ref.TypeConName,
       value: SValue,
+      agreementText: String,
       signatories: Set[Party],
       observers: Set[Party],
       key: Option[SKeyWithMaintainers],
