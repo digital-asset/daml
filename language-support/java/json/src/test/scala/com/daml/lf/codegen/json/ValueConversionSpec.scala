@@ -6,7 +6,7 @@ package com.daml.lf.codegen.json
 import com.daml.ledger.javaapi.{data => JData}
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.lf.value.test.ValueGenerators
-import org.scalacheck.Shrink
+import org.scalacheck.{Gen, Shrink}
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -22,7 +22,15 @@ class ValueConversionSpec extends AnyWordSpec with Matchers with ScalaCheckPrope
 
   "value conversion" should {
     "do values" in {
-      forAll(valueGen)(testRoundTrip)
+      val nested: Gen[LfValue] = Gen.oneOf(
+        valueListGen,
+        variantGen,
+        recordGen,
+        valueOptionalGen,
+        valueMapGen,
+        valueGenMapGen,
+      )
+      forAll(valueGen(nested))(testRoundTrip)
     }
   }
 
