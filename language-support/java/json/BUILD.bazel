@@ -8,6 +8,7 @@ load(
     "da_scala_test",
     "scala_source_jar",
     "scaladoc_jar",
+    "lf_scalacopts_stricter",
 )
 load(
     "//rules_daml:daml.bzl",
@@ -22,7 +23,8 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
-    tags = [],
+    scalacopts = lf_scalacopts_stricter,
+    tags = ["maven_coordinates=com.daml:bindings-java-json:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/data",
