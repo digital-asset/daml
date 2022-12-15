@@ -186,8 +186,9 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       parties: Seq[Primitive.Party],
       templateIds: Seq[TemplateId],
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+      activeAtOffset: String = "",
   ): GetActiveContractsRequest =
-    delegate.activeContractsRequest(parties, templateIds, interfaceFilters)
+    delegate.activeContractsRequest(parties, templateIds, interfaceFilters, activeAtOffset)
   override def activeContracts(parties: Primitive.Party*): Future[Vector[CreatedEvent]] =
     withTimeout(s"Active contracts for parties $parties", delegate.activeContracts(parties: _*))
   override def activeContractsByTemplateId(

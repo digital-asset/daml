@@ -82,7 +82,7 @@ class LAPIMetrics(val prefix: MetricName, override val registry: MetricRegistry)
     val completions: Counter = counter(prefix :+ "completions_sent")
 
     @MetricDoc.Tag(
-      summary = "The number of the actice contracts sent by the ledger api.",
+      summary = "The number of the active contracts sent by the ledger api.",
       description = """The total number of active contracts sent over the ledger api streams to all
                       |clients.""",
       qualification = Traffic,

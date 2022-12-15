@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.event.{CreatedEvent, Event}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.client.binding.Primitive.{Party, TemplateId}
-import com.daml.ledger.client.binding.Template
+import com.daml.ledger.client.binding.{Primitive, Template}
 import com.daml.ledger.test.model.Test.Divulgence2._
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test.Witnesses._
@@ -611,9 +611,164 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     } yield ()
   })
 
+  test(
+    "ActiveAtOffsetInfluencesAcs",
+    "Allow to specify optional active_at_offset",
+    enabled = _.acsActiveAtOffsetFeature,
+    disabledReason = "Requires ACS with active_at_offset",
+    partyAllocation = allocate(SingleParty),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val transactionFilter = Some(TransactionFilter(filtersByParty = Map(party.unwrap -> Filters())))
+    for {
+      c1 <- ledger.create(party, Dummy(party))
+      offset1 <- ledger.currentEnd()
+      c2 <- ledger.create(party, Dummy(party))
+      offset2 <- ledger.currentEnd()
+      // acs at offset1
+      (acsOffset1, acs1) <- ledger
+        .activeContractsIds(
+          GetActiveContractsRequest(
+            filter = transactionFilter,
+            activeAtOffset = offset1.getAbsolute,
+          )
+        )
+      _ = assertEquals("acs1", acs1.toSet, Set(c1))
+      _ = assertEquals("acs1 offset", acsOffset1, Some(offset1))
+      // acs at offset2
+      (acsOffset2, acs2) <- ledger
+        .activeContractsIds(
+          GetActiveContractsRequest(
+            filter = transactionFilter,
+            activeAtOffset = offset2.getAbsolute,
+          )
+        )
+      _ = assertEquals("ACS at the second offset", acs2.toSet, Set(c1, c2))
+      _ = assertEquals("acs1 offset", acsOffset2, Some(offset2))
+      // acs at the default offset
+      (acsOffset3, acs3) <- ledger
+        .activeContractsIds(
+          GetActiveContractsRequest(
+            filter = transactionFilter,
+            activeAtOffset = "",
+          )
+        )
+      endOffset <- ledger.currentEnd()
+      _ = assertEquals("ACS at the default offset", acs3.toSet, Set(c1, c2))
+      _ = assertEquals("acs1 offset", acsOffset3, Some(endOffset))
+    } yield ()
+  })
+
+  test(
+    "AcsAtPruningOffsetIsAllowed",
+    "Allow requesting ACS at the pruning offset",
+    enabled = _.acsActiveAtOffsetFeature,
+    disabledReason = "Requires ACS with active_at_offset",
+    partyAllocation = allocate(SingleParty),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val transactionFilter = Some(TransactionFilter(filtersByParty = Map(party.unwrap -> Filters())))
+    for {
+      c1 <- ledger.create(party, Dummy(party))
+      anOffset <- ledger.currentEnd()
+      _ <- ledger.create(party, Dummy(party))
+      _ <- ledger.prune(pruneUpTo = anOffset)
+      (acsOffset, acs) <- ledger
+        .activeContractsIds(
+          GetActiveContractsRequest(
+            filter = transactionFilter,
+            activeAtOffset = anOffset.getAbsolute,
+          )
+        )
+      _ = assertEquals("acs valid_at at pruning offset", acs.toSet, Set(c1))
+      _ = assertEquals("acs valid_at offset", acsOffset, Some(anOffset))
+    } yield ()
+  })
+
+  test(
+    "AcsBeforePruningOffsetIsDisallowed",
+    "Fail when requesting ACS before the pruning offset",
+    enabled = _.acsActiveAtOffsetFeature,
+    disabledReason = "Requires ACS with active_at_offset",
+    partyAllocation = allocate(SingleParty),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val transactionFilter = Some(TransactionFilter(filtersByParty = Map(party.unwrap -> Filters())))
+    for {
+      offset1 <- ledger.currentEnd()
+      _ <- ledger.create(party, Dummy(party))
+      offset2 <- ledger.currentEnd()
+      _ <- ledger.create(party, Dummy(party))
+      _ <- ledger.prune(pruneUpTo = offset2)
+      _ <- ledger
+        .activeContractsIds(
+          GetActiveContractsRequest(
+            filter = transactionFilter,
+            activeAtOffset = offset1.getAbsolute,
+          )
+        )
+        .mustFailWith(
+          "ACS before the pruning offset",
+          LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
+        )
+    } yield ()
+  })
+
+  test(
+    "ActiveAtOffsetInvalidFormat",
+    "Fail when active_at_offset has invalid format",
+    enabled = _.acsActiveAtOffsetFeature,
+    disabledReason = "Requires ACS with active_at_offset",
+    partyAllocation = allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val transactionFilter = Some(TransactionFilter(filtersByParty = Map(party.unwrap -> Filters())))
+    for {
+      _ <- ledger
+        .activeContracts(
+          GetActiveContractsRequest(
+            filter = transactionFilter,
+            activeAtOffset = s"bad",
+          )
+        )
+        .mustFailWith(
+          "invalid offset format",
+          LedgerApiErrors.RequestValidation.NonHexOffset,
+        )
+    } yield ()
+  })
+
+  test(
+    "ActiveAtOffsetAfterLedgerEnd",
+    "Fail when active_at_offset is after the ledger end offset",
+    enabled = _.acsActiveAtOffsetFeature,
+    disabledReason = "Requires ACS with active_at_offset",
+    partyAllocation = allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val transactionFilter = Some(TransactionFilter(filtersByParty = Map(party.unwrap -> Filters())))
+    for {
+      _ <- ledger
+        .activeContracts(
+          GetActiveContractsRequest(
+            filter = transactionFilter,
+            activeAtOffset = s"000000100000001d",
+          )
+        )
+        .mustFailWith(
+          "offset after ledger end",
+          LedgerApiErrors.RequestValidation.OffsetAfterLedgerEnd,
+        )
+    } yield ()
+  })
+
   private def createDummyContracts(party: Party, ledger: ParticipantTestContext)(implicit
       ec: ExecutionContext
-  ) = {
+  ): Future[
+    (
+        Primitive.ContractId[Dummy],
+        Primitive.ContractId[DummyWithParam],
+        Primitive.ContractId[DummyFactory],
+    )
+  ] = {
     for {
       dummy <- ledger.create(party, Dummy(party))
       dummyWithParam <- ledger.create(party, DummyWithParam(party))

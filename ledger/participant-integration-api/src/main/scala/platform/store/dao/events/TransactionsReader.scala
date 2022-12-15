@@ -188,7 +188,10 @@ private[dao] final class TransactionsReader(
           eventSeqIdReader.readEventSeqIdRange(activeAt)(connection),
           activeAt,
           pruned =>
-            s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}",
+            ACSReader.acsBeforePruningErrorReason(
+              acsOffset = activeAt.toHexString,
+              prunedUpToOffset = pruned.toHexString,
+            ),
         )
       )
       .map { x =>
