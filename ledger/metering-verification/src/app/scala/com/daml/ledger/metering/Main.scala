@@ -15,7 +15,7 @@ import scala.util.Try
 /** The metering report validation app can be used to verify that a provided metering report is consistent with
   * a `check` section within the report. When the report is created the check section is populated with a digest
   * and a scheme that was used in the creation of that digest.  Different schemes may be used by different
-  * schemes (e.g. community verses enterprise) and for different point in time.
+  * release variants (e.g. community verses enterprise) and for different points in time.
   *
   * The app takes as parameters a directory that contains one file for each supported scheme and the report
   * file to be verified. The scheme files need to contain JSON with fields for the scheme name digest algorithm
