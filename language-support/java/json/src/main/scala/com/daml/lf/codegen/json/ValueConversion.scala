@@ -5,9 +5,8 @@ package com.daml.lf.codegen.json
 
 import com.daml.ledger.javaapi.data.Identifier
 import com.daml.ledger.javaapi.{data => JData}
-import com.daml.lf.data.{FrontStack, Numeric, ImmArray, Ref, SortedLookupList, Time}
+import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, SortedLookupList, Time}
 import com.daml.lf.value.{Value => LfValue}
-
 import scalaz.syntax.std.option._
 
 import scala.jdk.CollectionConverters._
@@ -59,7 +58,12 @@ object ValueConversion {
       )
     case int64: JData.Int64 => LfValue.ValueInt64(int64.getValue)
     case numeric: JData.Numeric =>
-      LfValue.ValueNumeric(Numeric.assertFromUnscaledBigDecimal(numeric.getValue))
+      LfValue.ValueNumeric(
+        Numeric.assertFromBigDecimal(
+          Numeric.Scale.assertFromInt(numeric.getValue.scale()),
+          numeric.getValue,
+        )
+      )
     case text: JData.Text => LfValue.ValueText(text.getValue)
     case timestamp: JData.Timestamp =>
       LfValue.ValueTimestamp(

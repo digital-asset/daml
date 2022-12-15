@@ -89,7 +89,15 @@ class ValueConversionSpec extends AnyWordSpec with Matchers with ScalaCheckPrope
     }
 
     "do genMaps" in {
-      forAll(valueGenMapGen)(testRoundTrip)
+      forAll(valueGenUniqueKeysMapGen) { lfValue =>
+        val jValue: JData.Value = ValueConversion.fromLfValue(lfValue)
+        val convertedLfGenMap: LfValue = ValueConversion.toLfValue(jValue)
+
+        val lfGenEntrySet = extractMapEntries(lfValue)
+        val convertedLfGenEntrySet = extractMapEntries(convertedLfGenMap)
+
+        convertedLfGenEntrySet shouldEqual lfGenEntrySet
+      }
     }
 
     "do variant" in {
@@ -105,10 +113,17 @@ class ValueConversionSpec extends AnyWordSpec with Matchers with ScalaCheckPrope
     }
   }
 
-  def testRoundTrip(lfValue: LfValue): Assertion = {
+  private def testRoundTrip(lfValue: LfValue): Assertion = {
     val jValue: JData.Value = ValueConversion.fromLfValue(lfValue)
     val convertedLfValue: LfValue = ValueConversion.toLfValue(jValue)
 
     convertedLfValue shouldEqual lfValue
+  }
+
+  private def extractMapEntries(valueGenMap: LfValue): Set[(LfValue, LfValue)] = {
+    valueGenMap match {
+      case LfValue.ValueGenMap(entries) => entries.toList.toSet
+      case x => fail(s"should have got a value gen map back, got $x")
+    }
   }
 }

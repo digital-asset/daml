@@ -157,6 +157,11 @@ object ValueGenerators {
       .listOf(Gen.zip(valueGen, valueGen))
       .map(list => ValueGenMap(list.to(ImmArray)))
 
+  def valueGenUniqueKeysMapGen: Gen[ValueGenMap] =
+    Gen
+      .listOf(Gen.zip(valueGen, valueGen))
+      .map(list => ValueGenMap(list.distinctBy(_._1).to(ImmArray)))
+
   private val genHash: Gen[crypto.Hash] =
     Gen
       .containerOfN[Array, Byte](
