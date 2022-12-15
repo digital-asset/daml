@@ -44,6 +44,7 @@ DAML_LF_VERSIONS = [
       cp -L $(location :daml/ReadAs.daml) $$TMP_DIR/daml
       cp -L $(location :daml/ActAs.daml) $$TMP_DIR/daml
       cp -L $(location :daml/QueryFilter.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/CatExample.daml) $$TMP_DIR/daml
       cp -L $(location //templates:copy-trigger/src/CopyTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger{suffix}.dar) $$TMP_DIR/daml-trigger.dar
       cp -L $(location //daml-script/daml:daml-script{suffix}.dar) $$TMP_DIR/daml-script.dar
@@ -115,6 +116,7 @@ da_scala_library(
         "//ledger/test-common",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "//observability/telemetry",
         "//triggers/runner:trigger-runner-lib",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
@@ -165,7 +167,6 @@ da_scala_library(
             "//ledger/ledger-configuration",
             "//ledger/ledger-resources",
             "//ledger/ledger-runner-common",
-            "//ledger/metrics",
             "//ledger/participant-integration-api",
             "//ledger/sandbox-on-x",
             "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
