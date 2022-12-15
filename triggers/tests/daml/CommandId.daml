@@ -4,7 +4,6 @@
 
 module CommandId where
 
-import DA.Foldable (forA_)
 import Daml.Trigger.LowLevel
 
 test : Trigger [Text]
@@ -12,7 +11,7 @@ test = Trigger
   { initialState = \party _readAs _ -> do
       submitCommands [createCmd (T party)]
       pure []
-  , update = \msgs -> forA_ msgs $ \case 
+  , update = \msg -> case msg of
       MTransaction (Transaction _ (Some (CommandId cmdId)) [CreatedEvent (fromCreated @T -> Some (_, cid, _))]) -> do
         submitCommands [exerciseCmd cid Archive]
         modify (cmdId ::)

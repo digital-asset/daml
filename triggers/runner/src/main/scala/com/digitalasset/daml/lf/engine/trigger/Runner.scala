@@ -25,10 +25,7 @@ import com.daml.ledger.api.v1.{value => api}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement._
 import com.daml.lf.archive.Dar
-import com.daml.lf.data.FrontStack
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.BackStack
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{BackStack, FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
@@ -213,9 +210,19 @@ object Trigger {
     pkgInterface.lookupValue(triggerId) match {
       case Right(DValueSignature(TApp(ty @ TTyCon(tyCon), tyArg), _, _)) =>
         val triggerIds = TriggerIds(tyCon.packageId)
-        if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
+        if (tyCon == triggerIds.damlTriggerLowLevel("BatchTrigger")) {
           val expr = EVal(triggerId)
           val ty = TypeConApp(tyCon, ImmArray(tyArg))
+          detectVersion(pkgInterface, triggerIds).map(
+            TriggerDefinition(triggerId, ty, _, Level.Low, expr)
+          )
+        } else if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
+          val runTrigger = EVal(triggerIds.damlTriggerInternal("runLegacyTrigger"))
+          val expr = EApp(runTrigger, EVal(triggerId))
+          val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
+          val stateTy = TApp(triggerState, tyArg)
+          val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
+          val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
           detectVersion(pkgInterface, triggerIds).map(
             TriggerDefinition(triggerId, ty, _, Level.Low, expr)
           )
@@ -351,15 +358,19 @@ object Trigger {
     }
   }
 
-  sealed abstract class Version extends Serializable
+  final class Version(protected val rank: Int) extends Ordered[Version] {
+    override def compare(that: Version): Int = this.rank compare that.rank
+  }
   object Version {
-    case object `2.0` extends Version
-    case object `2.5` extends Version
+    val `2.0` = new Version(0)
+    val `2.5` = new Version(5)
+    val `2.6` = new Version(6)
 
     def fromString(s: Option[String]): Either[String, Version] =
       s match {
         case None => Right(`2.0`)
         case Some("Version_2_5") => Right(`2.5`)
+        case Some("Version_2_6") => Right(`2.6`)
         case Some(s) => Left(s"""cannot parse trigger version "$s".""")
       }
   }
@@ -712,6 +723,22 @@ private[lf] class Runner private (
     (initialStateFree, evaluatedUpdate)
   }
 
+  private[this] def conflateMsgValue: TriggerContextualFlow[SValue, SValue, NotUsed] = {
+    val noop = Flow.fromFunction[TriggerContext[SValue], TriggerContext[SValue]](identity)
+
+    if (trigger.defn.version < Trigger.Version.`2.6`) {
+      noop
+    } else {
+      noop
+        .conflateWithSeed { case ctx @ Ctx(_, value, _) =>
+          ctx.copy(value = BackStack.empty :+ value)
+        } { case (ctx @ Ctx(_, stack, _), Ctx(_, value, _)) =>
+          ctx.copy(value = stack :+ value)
+        }
+        .map(_.map(stack => SList(stack.toImmArray.toFrontStack)))
+    }
+  }
+
   private[this] def encodeMsgs: TriggerContextualFlow[TriggerMsg, SValue, NotUsed] =
     Flow fromFunction {
       case ctx @ Ctx(_, TriggerMsg.Transaction(transaction), _) =>
@@ -723,16 +750,6 @@ private[lf] class Runner private (
       case ctx @ Ctx(_, TriggerMsg.Heartbeat, _) =>
         ctx.copy(value = converter.fromHeartbeat)
     }
-
-  private[this] def conflateMsgValue: TriggerContextualFlow[SValue, SValue, NotUsed] =
-    Flow
-      .fromFunction[TriggerContext[SValue], TriggerContext[SValue]](identity)
-      .conflateWithSeed { case ctx @ Ctx(_, value, _) =>
-        ctx.copy(value = BackStack.empty :+ value)
-      } { case (ctx @ Ctx(_, stack, _), Ctx(_, value, _)) =>
-        ctx.copy(value = stack :+ value)
-      }
-      .map(_.map(stack => SList(stack.toImmArray.toFrontStack)))
 
   // A flow for trigger messages representing a process for the
   // accumulated state changes resulting from application of the
@@ -826,12 +843,12 @@ private[lf] class Runner private (
       val submissions = gb add Merge[TriggerContext[SubmitRequest]](2)
       val finalStateIn = gb add Concat[SValue](2)
       // format: off
-      initialState.finalState                    ~> initialStateOut ~> rule.initState
+      initialState.finalState                    ~> initialStateOut                     ~> rule.initState
       initialState.elemsOut                          ~> submissions
                           msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> conflateMsgValue ~> rule.elemsIn
-                                                        submissions <~ rule.elemsOut
-                                                    initialStateOut                     ~> finalStateIn
-                                                                       rule.finalStates ~> finalStateIn ~> saveLastState
+                                                        submissions                     <~ rule.elemsOut
+                                                    initialStateOut                                         ~> finalStateIn
+                                                                                           rule.finalStates ~> finalStateIn ~> saveLastState
       // format: on
       new FlowShape(msgIn.in, submissions.out)
     }
