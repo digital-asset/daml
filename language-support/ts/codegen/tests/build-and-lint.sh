@@ -77,10 +77,12 @@ hide_changing_paths() {
 # Build, lint, test.
 cd build-and-lint-test
 $YARN install > /dev/null
-# simulating what yarn install --frozen-lockfile is supposed to do,
-# because --frozen-lockfile appears to behave exactly like
-# --pure-lockfile - #14873
-if ! "$DIFF" -du <(hide_changing_paths $TS_DIR/yarn.lock) <(hide_changing_paths $TMP_DIR/yarn.lock); then
+# when testing 0.0.0 only, simulate what
+# yarn install --frozen-lockfile is supposed to do, because
+# --frozen-lockfile appears to behave exactly like --pure-lockfile
+# (see #14873)
+if grep -qE '^    "@daml/types" "0.0.0"$' $TMP_DIR/yarn.lock && \
+        ! "$DIFF" -du <(hide_changing_paths $TS_DIR/yarn.lock) <(hide_changing_paths $TMP_DIR/yarn.lock); then
     echo "FAIL: $TS_DIR/yarn.lock could not satisfy $TS_DIR/build-and-lint-test/package.json" 1>&2
     echo "FAIL: yarn.lock requires all of the above changes" 1>&2
     exit 1
