@@ -53,6 +53,9 @@ da_scala_test(
         kind_projector_plugin,
     ],
     scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_akka_akka_stream_testkit",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -64,7 +67,13 @@ da_scala_test(
     scalacopts = hj_scalacopts,
     deps = [
         ":fetch-contracts",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/logging-entries",
         "//libs-scala/scalatest-utils",
+        "@maven//:org_reactivestreams_reactive_streams",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
