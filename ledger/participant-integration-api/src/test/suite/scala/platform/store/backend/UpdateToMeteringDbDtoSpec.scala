@@ -14,7 +14,7 @@ import com.daml.lf.transaction.{
   TransactionVersion,
   VersionedTransaction,
 }
-import com.daml.metrics.UpdateEventsMetrics
+import com.daml.metrics.IndexedUpdatesMetrics
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import org.scalatest.wordspec.AnyWordSpec
@@ -154,7 +154,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
   }
 
   private def newUpdateMetrics = {
-    new UpdateEventsMetrics(MetricName("test"), InMemoryMetricsFactory)
+    new IndexedUpdatesMetrics(MetricName("test"), InMemoryMetricsFactory)
   }
 
 }

@@ -7,7 +7,7 @@ import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.Factory
 import com.daml.metrics.api.{MetricDoc, MetricHandle, MetricName}
 
-class UpdateEventsMetrics(prefix: MetricName, metricFactory: Factory) {
+class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: Factory) {
 
   @MetricDoc.Tag(
     summary = "Number of events that will be metered",
@@ -22,7 +22,7 @@ class UpdateEventsMetrics(prefix: MetricName, metricFactory: Factory) {
 
 }
 
-object UpdateEventsMetrics {
+object IndexedUpdatesMetrics {
 
   object Labels {
 
