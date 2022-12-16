@@ -207,37 +207,78 @@ object Trigger {
       )
     }
 
+    def fromV20ExtractTriggerDefinition(
+        ty: TTyCon,
+        tyArg: Type,
+        triggerIds: TriggerIds,
+    ): Either[String, TriggerDefinition] = {
+      val tyCon = ty.tycon
+      if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
+        val expr = EVal(triggerId)
+        val ty = TypeConApp(tyCon, ImmArray(tyArg))
+        detectVersion(pkgInterface, triggerIds).map(
+          TriggerDefinition(triggerId, ty, _, Level.Low, expr)
+        )
+      } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
+        val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
+        val expr = EApp(runTrigger, EVal(triggerId))
+        val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
+        val stateTy = TApp(triggerState, tyArg)
+        val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
+        val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
+        detectVersion(pkgInterface, triggerIds).map(
+          TriggerDefinition(triggerId, ty, _, Level.High, expr)
+        )
+      } else {
+        error(triggerId, ty)
+      }
+    }
+
+    def fromV26ExtractTriggerDefinition(
+        ty: TTyCon,
+        tyArg: Type,
+        triggerIds: TriggerIds,
+    ): Either[String, TriggerDefinition] = {
+      val tyCon = ty.tycon
+      val version = Trigger.Version.`2.6`
+
+      if (tyCon == triggerIds.damlTriggerLowLevel("BatchTrigger")) {
+        val expr = EVal(triggerId)
+        val ty = TypeConApp(tyCon, ImmArray(tyArg))
+
+        Right(TriggerDefinition(triggerId, ty, version, Level.Low, expr))
+      } else if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
+        val runTrigger = EVal(triggerIds.damlTriggerInternal("runLegacyTrigger"))
+        val expr = EApp(runTrigger, EVal(triggerId))
+        val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
+        val stateTy = TApp(triggerState, tyArg)
+        val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
+        val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
+
+        Right(TriggerDefinition(triggerId, ty, version, Level.Low, expr))
+      } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
+        val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
+        val expr = EApp(runTrigger, EVal(triggerId))
+        val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
+        val stateTy = TApp(triggerState, tyArg)
+        val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
+        val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
+
+        Right(TriggerDefinition(triggerId, ty, version, Level.High, expr))
+      } else {
+        error(triggerId, ty)
+      }
+    }
+
     pkgInterface.lookupValue(triggerId) match {
       case Right(DValueSignature(TApp(ty @ TTyCon(tyCon), tyArg), _, _)) =>
         val triggerIds = TriggerIds(tyCon.packageId)
-        if (tyCon == triggerIds.damlTriggerLowLevel("BatchTrigger")) {
-          val expr = EVal(triggerId)
-          val ty = TypeConApp(tyCon, ImmArray(tyArg))
-          detectVersion(pkgInterface, triggerIds).map(
-            TriggerDefinition(triggerId, ty, _, Level.Low, expr)
-          )
-        } else if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
-          val runTrigger = EVal(triggerIds.damlTriggerInternal("runLegacyTrigger"))
-          val expr = EApp(runTrigger, EVal(triggerId))
-          val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
-          val stateTy = TApp(triggerState, tyArg)
-          val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
-          val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
-          detectVersion(pkgInterface, triggerIds).map(
-            TriggerDefinition(triggerId, ty, _, Level.Low, expr)
-          )
-        } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
-          val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
-          val expr = EApp(runTrigger, EVal(triggerId))
-          val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
-          val stateTy = TApp(triggerState, tyArg)
-          val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
-          val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
-          detectVersion(pkgInterface, triggerIds).map(
-            TriggerDefinition(triggerId, ty, _, Level.High, expr)
-          )
-        } else {
-          error(triggerId, ty)
+        detectVersion(pkgInterface, triggerIds).flatMap { version =>
+          if (version < Trigger.Version.`2.6`) {
+            fromV20ExtractTriggerDefinition(ty, tyArg, triggerIds)
+          } else {
+            fromV26ExtractTriggerDefinition(ty, tyArg, triggerIds)
+          }
         }
 
       case Right(DValueSignature(ty, _, _)) =>

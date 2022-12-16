@@ -46,7 +46,7 @@ abstract class AbstractFuncTests
       s"with $contractPairings contract pairings and always failing submissions" should {
         def command(template: String, owner: String, i: Int): CreateCommand =
           CreateCommand(
-            templateId = Some(LedgerApi.Identifier(packageId, "CatExample", template)),
+            templateId = Some(LedgerApi.Identifier(packageId, "Cats", template)),
             createArguments = Some(
               LedgerApi.Record(fields =
                 Seq(
@@ -98,7 +98,7 @@ abstract class AbstractFuncTests
             )
             runner = getRunner(
               client,
-              QualifiedName.assertFromString(s"CatExample:trigger"),
+              QualifiedName.assertFromString("Cats:trigger"),
               party,
             )
             (acs, offset) <- runner.queryACS()
@@ -109,7 +109,7 @@ abstract class AbstractFuncTests
                 msgFlow = Flow[TriggerContext[TriggerMsg]]
                   // Allow flow to proceed until we observe a CatExample:TestComplete contract being created
                   .takeWhile(
-                    notObserving(LedgerApi.Identifier(packageId, "CatExample", "TestComplete"))
+                    notObserving(LedgerApi.Identifier(packageId, "Cats", "TestComplete"))
                   ),
               )
               ._2
