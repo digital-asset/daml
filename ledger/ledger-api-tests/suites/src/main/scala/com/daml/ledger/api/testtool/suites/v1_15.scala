@@ -12,6 +12,7 @@ package object v1_15 {
       new InterfaceIT,
       new InterfaceSubscriptionsIT,
       new ExplicitDisclosureIT,
+      new TransactionServiceGetEventsIT,
     )
 
   def optional(tlsConfig: Option[TlsConfiguration]): Vector[LedgerTestSuite] =

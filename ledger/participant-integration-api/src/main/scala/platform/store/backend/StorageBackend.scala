@@ -22,10 +22,11 @@ import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, 
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.platform.store.interning.StringInterning
 import com.daml.scalautil.NeverEqualsOverride
+
 import java.sql.Connection
 import javax.sql.DataSource
-
 import com.daml.platform.store.backend.common.{
+  EventReaderQueries,
   TransactionPointwiseQueries,
   TransactionStreamingQueries,
 }
@@ -260,6 +261,7 @@ trait EventStorageBackend {
 
   def transactionPointwiseQueries: TransactionPointwiseQueries
   def transactionStreamingQueries: TransactionStreamingQueries
+  def eventReaderQueries: EventReaderQueries
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */

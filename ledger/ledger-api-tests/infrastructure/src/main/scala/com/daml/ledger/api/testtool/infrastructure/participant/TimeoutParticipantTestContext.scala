@@ -57,6 +57,10 @@ import com.daml.ledger.api.v1.package_service.{GetPackageResponse, PackageStatus
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
+  GetEventsByContractIdRequest,
+  GetEventsByContractIdResponse,
+  GetEventsByContractKeyRequest,
+  GetEventsByContractKeyResponse,
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
   GetTransactionsRequest,
@@ -322,6 +326,21 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     s"Flat transaction by event id for event id $eventId and parties $parties",
     delegate.flatTransactionByEventId(eventId, parties: _*),
   )
+
+  override def getEventsByContractId(
+      request: GetEventsByContractIdRequest
+  ): Future[GetEventsByContractIdResponse] = withTimeout(
+    s"Get events by contract id for request $request",
+    delegate.getEventsByContractId(request),
+  )
+
+  override def getEventsByContractKey(
+      request: GetEventsByContractKeyRequest
+  ): Future[GetEventsByContractKeyResponse] = withTimeout(
+    s"Get events by contract key for request $request",
+    delegate.getEventsByContractKey(request),
+  )
+
   override def create[T](
       party: Primitive.Party,
       template: Template[T],

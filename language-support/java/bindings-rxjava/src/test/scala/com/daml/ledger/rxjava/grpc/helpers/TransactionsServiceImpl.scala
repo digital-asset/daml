@@ -4,7 +4,6 @@
 package com.daml.ledger.rxjava.grpc.helpers
 
 import java.util.concurrent.atomic.AtomicReference
-
 import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.{
   LedgerItem,
   ledgerOffsetOrdering,
@@ -29,6 +28,7 @@ import io.grpc.{Metadata, ServerServiceDefinition, Status}
 import io.reactivex.disposables.Disposable
 import io.reactivex.{Observable, Observer}
 
+import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 final class TransactionsServiceImpl(ledgerContent: Observable[LedgerItem])
@@ -106,6 +106,18 @@ final class TransactionsServiceImpl(ledgerContent: Observable[LedgerItem])
       new GetFlatTransactionResponse(None)
     ) // just a mock, not intended for consumption
   }
+
+  override def getEventsByContractId(
+      request: GetEventsByContractIdRequest
+  ): Future[GetEventsByContractIdResponse] = {
+    Future.successful(GetEventsByContractIdResponse(immutable.Seq.empty))
+  } // just a mock, not intended for consumption
+
+  override def getEventsByContractKey(
+      request: GetEventsByContractKeyRequest
+  ): Future[GetEventsByContractKeyResponse] = {
+    Future.successful(GetEventsByContractKeyResponse(immutable.Seq.empty, None))
+  } // just a mock, not intended for consumption
 
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] = {
     lastLedgerEndRequest.set(request)

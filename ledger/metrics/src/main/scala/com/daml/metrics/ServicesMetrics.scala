@@ -65,6 +65,10 @@ class ServicesMetrics(
     @MetricDoc.FanInstanceTag
     val lookupContractKey: Timer = factory.timer(prefix :+ "lookup_contract_key")
     @MetricDoc.FanInstanceTag
+    val getEventsByContractId: Timer = factory.timer(prefix :+ "get_events_by_contract_id")
+    @MetricDoc.FanInstanceTag
+    val getEventsByContractKey: Timer = factory.timer(prefix :+ "get_events_by_contract_key")
+    @MetricDoc.FanInstanceTag
     val lookupMaximumLedgerTime: Timer = factory.timer(prefix :+ "lookup_maximum_ledger_time")
     @MetricDoc.FanInstanceTag
     val getParticipantId: Timer = factory.timer(prefix :+ "get_participant_id")
