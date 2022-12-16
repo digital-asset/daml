@@ -3,9 +3,10 @@
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
+import com.daml.error.ErrorCode
+
 import java.time.Instant
 import java.util.concurrent.TimeoutException
-
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.IncludeInterfaceView
@@ -417,6 +418,11 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     s"Submit and wait for transaction tree for request $request",
     delegate.submitAndWaitForTransactionTree(request),
   )
+  override def submitRequestAndTolerateGrpcError[T](
+      errorToTolerate: ErrorCode,
+      submitAndWaitGeneric: ParticipantTestContext => Future[T],
+  ): Future[T] = // timeout enforced by submitAndWaitGeneric
+    delegate.submitRequestAndTolerateGrpcError(errorToTolerate, submitAndWaitGeneric)
   override def completionStreamRequest(from: LedgerOffset)(
       parties: Primitive.Party*
   ): CompletionStreamRequest = delegate.completionStreamRequest(from)(parties: _*)
