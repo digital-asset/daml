@@ -21,6 +21,10 @@ import com.daml.ledger.api.domain.{
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.event_query_service.{
+  GetEventsByContractIdResponse,
+  GetEventsByContractKeyResponse,
+}
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
@@ -33,8 +37,9 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.ledger.participant.state.index.v2._
+import com.daml.lf.ledger.{EventId => LfEventId}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{ApplicationId, Identifier, Party}
+import com.daml.lf.data.Ref.{ApplicationId, Identifier}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
@@ -46,12 +51,12 @@ import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.index.IndexServiceImpl.{
+  foldToSource,
   memoizedTransactionFilterProjection,
   transactionFilterProjection,
+  validateTransactionFilter,
   validatedAcsActiveAtOffset,
   withValidatedFilter,
-  validateTransactionFilter,
-  foldToSource,
 }
 import com.daml.platform.store.dao.{
   EventProjectionProperties,
@@ -62,12 +67,13 @@ import com.daml.platform.store.dao.{
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
-import com.daml.platform.{ApiOffset, PruneBuffers, TemplatePartiesFilter}
+import com.daml.platform.{ApiOffset, Party, PruneBuffers, TemplatePartiesFilter}
 import com.daml.tracing.{Event, SpanAttribute, Spans}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Success, Try}
 
 private[index] class IndexServiceImpl(
     val ledgerId: LedgerId,
@@ -292,6 +298,29 @@ private[index] class IndexServiceImpl(
     transactionsReader
       .lookupTransactionTreeById(transactionId.unwrap, requestingParties)
 
+  override def getEventsByContractId(
+      contractId: ContractId,
+      requestingParties: Set[Ref.Party],
+  )(implicit loggingContext: LoggingContext): Future[GetEventsByContractIdResponse] =
+    ledgerDao.eventsReader.getEventsByContractId(
+      contractId,
+      requestingParties,
+    )
+
+  override def getEventsByContractKey(
+      contractKey: com.daml.lf.value.Value,
+      templateId: Ref.Identifier,
+      requestingParties: Set[Ref.Party],
+      endExclusiveEventId: Option[LfEventId],
+  )(implicit loggingContext: LoggingContext): Future[GetEventsByContractKeyResponse] = {
+    ledgerDao.eventsReader.getEventsByContractKey(
+      contractKey,
+      templateId,
+      requestingParties,
+      endExclusiveEventId,
+    )
+  }
+
   override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[List[IndexerPartyDetails]] =
@@ -419,13 +448,16 @@ private[index] class IndexServiceImpl(
 
   private def ledgerEnd(): Offset = dispatcher().getHead()
 
+  private def ledgerOffsetToOffset(ledgerOffset: LedgerOffset): Try[Offset] = ledgerOffset match {
+    case LedgerOffset.LedgerBegin => Success(Offset.beforeBegin)
+    case LedgerOffset.LedgerEnd => Success(ledgerEnd())
+    case LedgerOffset.Absolute(offset) => ApiOffset.tryFromString(offset)
+  }
+
   // Returns a function that memoizes the current end
   // Can be used directly or shared throughout a request processing
-  private def convertOffset: LedgerOffset => Source[Offset, NotUsed] = {
-    case LedgerOffset.LedgerBegin => Source.single(Offset.beforeBegin)
-    case LedgerOffset.LedgerEnd => Source.single(ledgerEnd())
-    case LedgerOffset.Absolute(offset) =>
-      ApiOffset.tryFromString(offset).fold(Source.failed, off => Source.single(off))
+  private def convertOffset: LedgerOffset => Source[Offset, NotUsed] = { ledgerOffset =>
+    ledgerOffsetToOffset(ledgerOffset).fold(Source.failed, off => Source.single(off))
   }
 
   private def between[A](

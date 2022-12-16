@@ -10,6 +10,10 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.event_query_service.{
+  GetEventsByContractIdResponse,
+  GetEventsByContractKeyResponse,
+}
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
@@ -21,7 +25,9 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.ledger.participant.state.index.v2.{IndexerPartyDetails, PackageDetails}
 import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -76,6 +82,21 @@ private[platform] trait LedgerDaoCommandCompletionsReader {
   ): Source[(Offset, CompletionStreamResponse), NotUsed]
 }
 
+private[platform] trait LedgerDaoEventsReader {
+
+  def getEventsByContractId(
+      contractId: ContractId,
+      requestingParties: Set[Ref.Party],
+  )(implicit loggingContext: LoggingContext): Future[GetEventsByContractIdResponse]
+
+  def getEventsByContractKey(
+      contractKey: com.daml.lf.value.Value,
+      templateId: Ref.Identifier,
+      requestingParties: Set[Party],
+      endExclusiveEventId: Option[EventId],
+  )(implicit loggingContext: LoggingContext): Future[GetEventsByContractKeyResponse]
+
+}
 private[platform] trait LedgerReadDao extends ReportsHealth {
 
   /** Looks up the ledger id */
@@ -100,6 +121,8 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   def transactionsReader: LedgerDaoTransactionsReader
 
   def contractsReader: LedgerDaoContractsReader
+
+  def eventsReader: LedgerDaoEventsReader
 
   def completions: LedgerDaoCommandCompletionsReader
 
@@ -157,6 +180,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
   )(implicit loggingContext: LoggingContext): Future[ReportData]
+
 }
 
 // TODO sandbox-classic clean-up: This interface and its implementation is only used in the JdbcLedgerDao suite
@@ -190,7 +214,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
 
   /** Stores a party allocation or rejection thereof.
     *
-    * @param Offset  Pair of previous offset and the offset to store the party entry at
+    * @param offset  Pair of previous offset and the offset to store the party entry at
     * @param partyEntry  the PartyEntry to be stored
     * @return Ok when the operation was successful otherwise a Duplicate
     */
