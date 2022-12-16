@@ -44,8 +44,8 @@ object MetricDoc {
       qualification: MetricQualification,
   ) extends StaticAnnotation
 
-  // This tag works in combination with the FanTag and declares a metric that can be represented by
-  // the documentation info of the corresponding FanTag.
+  // This tag works in combination with the FanTag and declares a metric that can be represented in
+  // the documentation by the info of the corresponding FanTag.
   case class FanInstanceTag() extends StaticAnnotation
 
 }
