@@ -3,7 +3,7 @@
 
 module Cash where
 
-import IAsset qualified
+import IAsset
 
 template Cash
   with
@@ -23,19 +23,19 @@ template Cash
           cash = this
           newOwner = newOwner
 
-    interface instance IAsset.IAsset for Cash where
-      view = IAsset.VAsset with
+    interface instance IAsset for Cash where
+      view = VAsset with
         issuer
         owner
         description = show @Cash this
 
       setOwner newOwner =
-        toInterface @IAsset.IAsset $
+        toInterface @IAsset $
           this with
             owner = newOwner
 
       toTransferProposal newOwner =
-        toInterface @IAsset.IAssetTransferProposal $
+        toInterface @IAssetTransferProposal $
           CashTransferProposal with
             cash = this
             newOwner
@@ -71,9 +71,9 @@ template CashTransferProposal
       do
         create cash
 
-    interface instance IAsset.IAssetTransferProposal for CashTransferProposal where
-      view = IAsset.VAssetTransferProposal with
-        assetView = view (toInterface @IAsset.IAsset cash)
+    interface instance IAssetTransferProposal for CashTransferProposal where
+      view = VAssetTransferProposal with
+        assetView = view (toInterface @IAsset cash)
         newOwner
 
-      asset = toInterface @IAsset.IAsset cash
+      asset = toInterface @IAsset cash
