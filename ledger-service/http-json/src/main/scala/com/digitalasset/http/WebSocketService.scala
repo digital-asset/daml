@@ -838,7 +838,7 @@ class WebSocketService(
           InvalidUserInput("Multiple requests over the same WebSocket connection are not allowed.")
         )
       )
-      .flatMapMergeCancellable(
+      .flatMapMerge(
         2, // 2 streams max, the 2nd is to be able to send an error back
         _.map { case (offPrefix, rq: ResolvedQueryRequest[q]) =>
           implicit val SQ: StreamQuery[q] = rq.alg
