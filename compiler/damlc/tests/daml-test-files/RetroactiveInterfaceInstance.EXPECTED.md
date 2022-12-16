@@ -1,4 +1,4 @@
-# <a name="module-retroactiveinterfaceinstance-60009"></a>Module RetroactiveInterfaceInstance
+# <a name="module-retroactiveinterfaceinstance-60009"></a>RetroactiveInterfaceInstance
 
 ## Interfaces
 

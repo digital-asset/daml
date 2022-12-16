@@ -1,4 +1,4 @@
-# <a name="module-multiplenames-16996"></a>Module MultipleNames
+# <a name="module-multiplenames-16996"></a>MultipleNames
 
 Test multiple names sharing the same type signature.
 

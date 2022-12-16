@@ -1,4 +1,4 @@
-# <a name="module-newtype-87936"></a>Module Newtype
+# <a name="module-newtype-87936"></a>Newtype
 
 ## Data Types
 

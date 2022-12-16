@@ -1,7 +1,7 @@
 .. _module-multiplenames-16996:
 
-Module MultipleNames
---------------------
+MultipleNames
+-------------
 
 Test multiple names sharing the same type signature\.
 

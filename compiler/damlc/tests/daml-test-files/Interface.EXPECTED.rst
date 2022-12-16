@@ -1,7 +1,7 @@
 .. _module-interface-72439:
 
-Module Interface
-----------------
+Interface
+---------
 
 Templates
 ^^^^^^^^^

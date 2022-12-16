@@ -1,4 +1,4 @@
-# <a name="module-interface-72439"></a>Module Interface
+# <a name="module-interface-72439"></a>Interface
 
 ## Templates
 

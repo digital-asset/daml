@@ -1,7 +1,7 @@
 .. _module-retroactiveinterfaceinstance-60009:
 
-Module RetroactiveInterfaceInstance
------------------------------------
+RetroactiveInterfaceInstance
+----------------------------
 
 Interfaces
 ^^^^^^^^^^

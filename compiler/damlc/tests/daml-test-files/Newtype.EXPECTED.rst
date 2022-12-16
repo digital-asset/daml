@@ -1,7 +1,7 @@
 .. _module-newtype-87936:
 
-Module Newtype
---------------
+Newtype
+-------
 
 Data Types
 ^^^^^^^^^^
