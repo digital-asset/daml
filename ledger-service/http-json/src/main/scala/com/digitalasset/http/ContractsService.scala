@@ -24,6 +24,7 @@ import com.daml.fetchcontracts.util.{
 import util.{ApiValueToLfValueConverter, toLedgerId}
 import com.daml.fetchcontracts.AcsTxStreams.transactionFilter
 import com.daml.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
+import com.daml.fetchcontracts.util.GraphExtensions._
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.FutureUtil.toFuture
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
@@ -596,7 +597,9 @@ class ContractsService(
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
 
     val txnFilter = transactionFilter(parties, templateIds)
-    def source = getActiveContracts(jwt, ledgerId, txnFilter, true)(lc)
+    def source =
+      (getActiveContracts(jwt, ledgerId, txnFilter, true)(lc)
+        via logTermination("ACS upstream"))
 
     val transactionsSince
         : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
@@ -606,19 +609,21 @@ class ContractsService(
         txnFilter,
         _: api.ledger_offset.LedgerOffset,
         terminates,
-      )(lc)
+      )(lc) via logTermination("transactions upstream")
 
     import com.daml.fetchcontracts.AcsTxStreams.{
       acsFollowingAndBoundary,
       transactionsFollowingBoundary,
     }, com.daml.fetchcontracts.util.GraphExtensions._
-    val contractsAndBoundary = startOffset.cata(
-      so =>
-        Source
-          .single(AbsoluteBookmark(so.offset))
-          .viaMat(transactionsFollowingBoundary(transactionsSince).divertToHead)(Keep.right),
-      source.viaMat(acsFollowingAndBoundary(transactionsSince).divertToHead)(Keep.right),
-    )
+    val contractsAndBoundary = startOffset
+      .cata(
+        so =>
+          Source
+            .single(AbsoluteBookmark(so.offset))
+            .viaMat(transactionsFollowingBoundary(transactionsSince).divertToHead)(Keep.right),
+        source.viaMat(acsFollowingAndBoundary(transactionsSince).divertToHead)(Keep.right),
+      )
+      .via(logTermination("ACS+tx or tx stream"))
     contractsAndBoundary mapMaterializedValue { fob =>
       fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
       NotUsed
