@@ -8,6 +8,7 @@ package com.daml.ledger.api.v1;
 import "com/daml/ledger/api/v1/ledger_offset.proto";
 import "com/daml/ledger/api/v1/transaction_filter.proto";
 import "com/daml/ledger/api/v1/transaction.proto";
+import "com/daml/ledger/api/v1/value.proto";
 
 option java_outer_classname = "TransactionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
@@ -38,6 +39,13 @@ service TransactionService {
 
   // Lookup a transaction by its ID.
   rpc GetFlatTransactionById (GetTransactionByIdRequest) returns (GetFlatTransactionResponse);
+
+  // Lookup a transaction by the ID of an event that appears within it.
+  rpc GetContractById (GetContractByIdRequest) returns (GetContractByIdResponse);
+
+  // Lookup a transaction by its ID.
+  rpc GetContractByKey (GetContractByKeyRequest) returns (GetContractByKeyResponse);
+
 
   // Get the current ledger end.
   // Subscriptions started with the returned offset will serve transactions created after this RPC was called.
@@ -126,6 +134,46 @@ message GetTransactionResponse {
 
 message GetFlatTransactionResponse {
   Transaction transaction = 1;
+}
+
+message GetContractByIdRequest {
+  // The contract id being queried
+  // Required
+  string contract_id = 1;
+}
+message GetContractByIdResponse {
+  // The collection of events, will only contain consumed ExerciseEvents
+  repeated TreeEvent events = 1;
+}
+
+message GetContractByKeyRequest {
+
+  // The contract key to search for.  Note that only contracts that are visible to the
+  // requesting parties will returned.  To ensure that no contract key assignments are missed
+  // request as a key maintainer.
+  // Required
+  Value contract_key = 1;
+
+  // Optional - will default to 1000
+  int32 max_responses = 2;
+
+  // Search from ledger offset after the provided begin_exclusive
+  // Optional - will default to the epoch offset if not provided
+  LedgerOffset begin_exclusive = 3;
+
+  // If provided only return rows with an offset <= `end_inclusive`
+  // Optional
+  LedgerOffset end_inclusive = 4;
+
+}
+message GetContractByKeyResponse {
+
+  // The collection of events, will only contain CreateEvent and consuming ExerciseEvents
+  repeated TreeEvent events = 1;
+
+  // If populated there are potentially more rows, to avoid gaps make
+  // the next request with `begin_exclusive` set to `last`
+  LedgerOffset last = 2;
 }
 
 message GetLedgerEndRequest {
