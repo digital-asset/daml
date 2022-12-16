@@ -929,6 +929,19 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    #    {
+    #        "start": "2.6.0-snapshot",
+    #        "platform_ranges": [
+    #            {
+    #                "end": "2.6.0-snapshot",
+    #                "exclusions": [
+    #                    "ParticipantPruningIT:PREventsByContractIdPruned",
+    #                    "ParticipantPruningIT:PREventsByContractKey",
+    #                    "EventQueryServiceIT",
+    #                ],
+    #            },
+    #        ],
+    #    },
 ]
 
 def in_range(version, range):

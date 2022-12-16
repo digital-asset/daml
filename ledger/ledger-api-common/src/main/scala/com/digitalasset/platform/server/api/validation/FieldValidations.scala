@@ -13,6 +13,7 @@ import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.data.Ref.Party
+import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.server.api.validation.ResourceAnnotationValidation.{
   AnnotationsSizeExceededError,
@@ -143,6 +144,23 @@ object FieldValidations {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.LedgerString] =
     requireNonEmptyParsedId(Ref.LedgerString.fromString)(s, fieldName)
+
+  def optionalLedgerString(
+      s: String,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Option[Ref.LedgerString]] =
+    optionalString(s) { nes => requireLedgerString(nes, fieldName) }
+
+  def optionalEventId(
+      s: String,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Option[EventId]] = optionalString(s) { s =>
+    EventId.fromString(s).left.map(invalidField(fieldName, _))
+  }
 
   def requireIdentityProviderId(
       s: String,
