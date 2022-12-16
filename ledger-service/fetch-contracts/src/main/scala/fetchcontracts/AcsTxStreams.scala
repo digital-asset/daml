@@ -53,7 +53,7 @@ private[daml] object AcsTxStreams {
       import ContractStreamStep.{LiveBegin, Acs}
       type Off = BeginBookmark[domain.Offset]
       val acs = b add acsAndBoundary
-      val dupOff = b add Broadcast[Off](2, eagerCancel = true)
+      val dupOff = b add Broadcast[Off](2, eagerCancel = false)
       val liveStart = Flow fromFunction { off: Off =>
         LiveBegin(off)
       }
