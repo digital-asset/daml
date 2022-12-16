@@ -288,7 +288,7 @@ updateImpl userTrigger msgs = do
         MCompletion completion ->
           -- NB: the commands-in-flight and ACS updateState sees are those
           -- prior to updates incurred by the msg
-          let userState = utUpdateState userTrigger.updateState state.commandsInFlight state.acs state.actAs state.readAs (MCompletion completion) state.userState
+          let userState = mkUserState state state.acs
           in case completion.status of
             Succeeded {} -> do
               -- We delete successful completions when we receive the corresponding transaction
@@ -303,7 +303,7 @@ updateImpl userTrigger msgs = do
         MTransaction transaction -> do
           let acs = applyTransaction transaction state.acs
               -- again, we use the commands-in-flight and ACS before the update below
-              userState = utUpdateState userTrigger.updateState state.commandsInFlight acs state.actAs state.readAs (MTransaction transaction) state.userState
+              userState = mkUserState state acs
               -- See the comment above for why we delete this here instead of when we receive the completion.
               (acs', commandsInFlight) = case transaction.commandId of
                 None -> (acs, state.commandsInFlight)
@@ -311,9 +311,12 @@ updateImpl userTrigger msgs = do
           put $ state { acs = acs', userState, commandsInFlight }
           pure True
         MHeartbeat -> do
-          let userState = utUpdateState userTrigger.updateState state.commandsInFlight state.acs state.actAs state.readAs MHeartbeat state.userState
+          let userState = mkUserState state state.acs
           put $ state { userState }
           pure True
+      where
+        mkUserState state acs =
+          utUpdateState userTrigger.updateState state.commandsInFlight acs state.actAs state.readAs msg state.userState
 
 -- | Transform the high-level trigger type into the batching trigger from `Daml.Trigger.LowLevel`.
 runTrigger : Trigger s -> LowLevel.BatchTrigger (TriggerState s)
