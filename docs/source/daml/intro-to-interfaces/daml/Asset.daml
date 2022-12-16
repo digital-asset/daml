@@ -51,7 +51,3 @@ interface TransferProposal
       controller (view (asset this)).owner
       do
         create (asset this)
-
-    choice ArchiveAssetTransferProposal : ()
-      controller (signatory this)
-      do pure ()
