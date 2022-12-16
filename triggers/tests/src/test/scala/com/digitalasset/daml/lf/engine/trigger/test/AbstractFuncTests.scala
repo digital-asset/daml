@@ -114,7 +114,7 @@ abstract class AbstractFuncTests
               )
               ._2
           } yield {
-            fail("DEBUGGY")
+            succeed
           }
         }
       }
