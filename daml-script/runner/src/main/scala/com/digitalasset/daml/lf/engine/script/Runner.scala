@@ -358,7 +358,7 @@ object Runner {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Speedy.Machine, Future[SValue]) = {
+  ): (Speedy.PureMachine, Future[SValue]) = {
     val script = data.assertRight(Script.fromIdentifier(compiledPackages, scriptId))
     val scriptAction: Script.Action = (script, inputValue) match {
       case (script: Script.Action, None) => script
