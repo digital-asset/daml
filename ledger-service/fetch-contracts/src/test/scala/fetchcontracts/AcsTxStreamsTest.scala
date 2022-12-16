@@ -48,9 +48,9 @@ class AcsTxStreamsTest extends AsyncWordSpec with Matchers with AkkaBeforeAndAft
 object AcsTxStreamsTest {
   import akka.NotUsed
   import akka.actor.ActorSystem
-  import akka.{stream => s}
-  import s.scaladsl.{GraphDSL, RunnableGraph, Source}
-  import s.{testkit => tk}
+  import akka.{stream => aks}
+  import aks.scaladsl.{GraphDSL, RunnableGraph, Source}
+  import aks.{testkit => tk}
   import tk.TestPublisher.{Probe => InProbe}
   import tk.TestSubscriber.{Probe => OutProbe}
   import tk.scaladsl.{TestSource, TestSink}
@@ -71,7 +71,7 @@ object AcsTxStreamsTest {
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   private def probeFOS2PlusContinuation[K, I0, I1, O0, O1](
-      part: (Any => Source[I1, NotUsed]) => s.Graph[s.FanOutShape2[I0, O0, O1], NotUsed]
+      part: (Any => Source[I1, NotUsed]) => aks.Graph[aks.FanOutShape2[I0, O0, O1], NotUsed]
   )(implicit
       as: ActorSystem
   ): RunnableGraph[(InProbe[I0], Future[InProbe[I1]], OutProbe[O0], OutProbe[O1])] = {
@@ -89,7 +89,7 @@ object AcsTxStreamsTest {
   }
 
   private def probeAll[I, O0, O1](
-      part: s.Graph[s.FanOutShape2[I, O0, O1], NotUsed]
+      part: aks.Graph[aks.FanOutShape2[I, O0, O1], NotUsed]
   )(implicit as: ActorSystem): RunnableGraph[(InProbe[I], OutProbe[O0], OutProbe[O1])] =
     RunnableGraph fromGraph GraphDSL.createGraph(
       TestSource.probe[I],
@@ -103,6 +103,6 @@ object AcsTxStreamsTest {
       o0 <~ here.out0
       o1 <~ here.out1
       // format: on
-      s.ClosedShape
+      aks.ClosedShape
     }
 }
