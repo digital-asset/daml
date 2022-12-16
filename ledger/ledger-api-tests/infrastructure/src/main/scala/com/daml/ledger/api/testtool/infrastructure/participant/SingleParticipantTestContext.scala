@@ -674,29 +674,25 @@ final class SingleParticipantTestContext private[participant] (
   override def submitRequestAndTolerateGrpcError[T](
       errorCodeToTolerateOnce: ErrorCode,
       submitAndWaitGeneric: ParticipantTestContext => Future[T],
-  ): Future[T] = for {
-    // Issue the `submitAndWaitGeneric` submit the first (and for the
-    // most part the only) time. Returns a top-level Left if we
-    // encounter the error that we are supposed to tolerate.
-    eitherInFlightOrSuccess <- submitAndWaitGeneric(this).transform {
-      case Failure(e: StatusRuntimeException)
-          if errorCodeToTolerateOnce.category.grpcCode
-            .map(_.value())
-            .contains(StatusProto.fromThrowable(e).getCode) =>
-        Success(Left(e))
-      case otherTry =>
-        // Otherwise return a Right with a nested Either that
-        // let's us create a failed or successful future in the
-        // default case of the step below.
-        Success(Right(otherTry.toEither))
-    }
-    originalOrRetry <- eitherInFlightOrSuccess.fold(
-      _ =>
-        // If we are retrying a single time, back off first for one second.
-        Delayed.Future.by(1.second)(submitAndWaitGeneric(this)),
-      _.fold(Future.failed, Future.successful),
-    )
-  } yield originalOrRetry
+  ): Future[T] =
+    submitAndWaitGeneric(this)
+      .transform {
+        case Failure(e: StatusRuntimeException)
+            if errorCodeToTolerateOnce.category.grpcCode
+              .map(_.value())
+              .contains(StatusProto.fromThrowable(e).getCode) =>
+          Success(Left(e))
+        case otherTry =>
+          // Otherwise return a Right with a nested Either that
+          // let's us create a failed or successful future in the
+          // default case of the step below.
+          Success(Right(otherTry.toEither))
+      }
+      .flatMap {
+        case Left(_) => // If we are retrying a single time, back off first for one second.
+          Delayed.Future.by(1.second)(submitAndWaitGeneric(this))
+        case Right(firstCallResult) => firstCallResult.fold(Future.failed, Future.successful)
+      }
 
   override def completionStreamRequest(from: LedgerOffset = referenceOffset)(
       parties: Party*
