@@ -72,7 +72,7 @@ compile_deps = [
     "//libs-scala/scala-utils",
     "//libs-scala/timer-utils",
     "//libs-scala/nameof",
-    "//libs-scala/struct-json",
+    "//libs-scala/struct-json/struct-spray-json",
     "//observability/telemetry",
     "//observability/metrics",
     "@maven//:com_google_guava_guava",

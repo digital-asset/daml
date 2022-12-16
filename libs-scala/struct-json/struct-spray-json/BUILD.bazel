@@ -8,20 +8,20 @@ load(
 )
 
 da_scala_library(
-    name = "struct-json",
+    name = "struct-spray-json",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:com_thesamet_scalapb_lenses",
         "@maven//:com_thesamet_scalapb_scalapb_runtime",
         "@maven//:io_spray_spray_json",
     ],
-    tags = ["maven_coordinates=com.daml:struct-json:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:struct-spray-json:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [],
 )
 
 da_scala_test_suite(
-    name = "struct-json-test",
+    name = "struct-spray-json-test",
     srcs = glob(["src/test/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:com_thesamet_scalapb_lenses",
@@ -29,6 +29,6 @@ da_scala_test_suite(
         "@maven//:io_spray_spray_json",
     ],
     deps = [
-        ":struct-json",
+        ":struct-spray-json",
     ],
 )
