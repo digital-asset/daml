@@ -1,4 +1,4 @@
-# <a name="module-defaultmethods-34992"></a>Module DefaultMethods
+# <a name="module-defaultmethods-34992"></a>DefaultMethods
 
 ## Typeclasses
 

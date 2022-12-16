@@ -1,7 +1,7 @@
 .. _module-defaultmethods-34992:
 
-Module DefaultMethods
----------------------
+DefaultMethods
+--------------
 
 Typeclasses
 ^^^^^^^^^^^

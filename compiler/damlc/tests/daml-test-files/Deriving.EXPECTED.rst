@@ -1,7 +1,7 @@
 .. _module-deriving-95739:
 
-Module Deriving
----------------
+Deriving
+--------
 
 Data Types
 ^^^^^^^^^^

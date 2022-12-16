@@ -38,7 +38,7 @@ instance RenderDoc ModuleDoc where
     renderDoc m | isModuleEmpty m = mempty
     renderDoc ModuleDoc{..} = mconcat
         [ renderDoc md_anchor
-        , RenderModuleHeader ("Module " <> unModulename md_name)
+        , RenderModuleHeader (unModulename md_name)
         , renderDoc md_descr
         , section "Templates" md_templates
         , section "Interfaces" md_interfaces

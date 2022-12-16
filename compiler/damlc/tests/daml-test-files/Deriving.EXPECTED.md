@@ -1,4 +1,4 @@
-# <a name="module-deriving-95739"></a>Module Deriving
+# <a name="module-deriving-95739"></a>Deriving
 
 ## Data Types
 

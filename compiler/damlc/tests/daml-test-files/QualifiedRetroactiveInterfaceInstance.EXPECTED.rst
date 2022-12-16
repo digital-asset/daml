@@ -1,7 +1,7 @@
 .. _module-qualifiedretroactiveinterfaceinstance-76052:
 
-Module QualifiedRetroactiveInterfaceInstance
---------------------------------------------
+QualifiedRetroactiveInterfaceInstance
+-------------------------------------
 
 Interfaces
 ^^^^^^^^^^

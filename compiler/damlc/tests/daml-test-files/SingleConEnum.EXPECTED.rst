@@ -1,7 +1,7 @@
 .. _module-singleconenum-33613:
 
-Module SingleConEnum
---------------------
+SingleConEnum
+-------------
 
 Data Types
 ^^^^^^^^^^
