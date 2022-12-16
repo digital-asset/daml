@@ -42,39 +42,39 @@ cashTest = do
 
   bobUsdTransferProposal <-
     alice `submit` do
-      exerciseCmd aliceUsd Cash.ProposeTransfer with
+      exerciseCmd aliceUsd Cash.ProposeCashTransfer with
         newOwner = bob
 
   bobUsd <-
     bob `submit` do
-      exerciseCmd bobUsdTransferProposal Cash.AcceptTransfer
+      exerciseCmd bobUsdTransferProposal Cash.AcceptCashTransferProposal
 
   charlieUsdTransferProposal <-
     bob `submit` do
-      exerciseCmd bobUsd Cash.ProposeTransfer with
+      exerciseCmd bobUsd Cash.ProposeCashTransfer with
         newOwner = charlie
 
   charlieUsd <-
     charlie `submit` do
-      exerciseCmd charlieUsdTransferProposal Cash.AcceptTransfer
+      exerciseCmd charlieUsdTransferProposal Cash.AcceptCashTransferProposal
 
   dominicUsdTransferProposal <-
     charlie `submit` do
-      exerciseCmd charlieUsd Cash.ProposeTransfer with
+      exerciseCmd charlieUsd Cash.ProposeCashTransfer with
         newOwner = dominic
 
   charlieUsd' <-
     dominic `submit` do
-      exerciseCmd dominicUsdTransferProposal Cash.RejectTransfer
+      exerciseCmd dominicUsdTransferProposal Cash.RejectCashTransferProposal
 
   emilyUsdTransferProposal <-
     charlie `submit` do
-      exerciseCmd charlieUsd' Cash.ProposeTransfer with
+      exerciseCmd charlieUsd' Cash.ProposeCashTransfer with
         newOwner = emily
 
   charlieUsd'' <-
     charlie `submit` do
-      exerciseCmd emilyUsdTransferProposal Cash.WithdrawProposal
+      exerciseCmd emilyUsdTransferProposal Cash.WithdrawCashTransferProposal
 
   pure ()
 
@@ -107,7 +107,7 @@ archiveCashTransferProposalTest = do
 
   bobUsdTransferProposal <-
     alice `submit` do
-      exerciseCmd aliceUsd Cash.ProposeTransfer with
+      exerciseCmd aliceUsd Cash.ProposeCashTransfer with
         newOwner = bob
 
   alice `submit` do
@@ -126,39 +126,39 @@ nftTest = do
 
   bobMemeTransferProposal <-
     alice `submit` do
-      exerciseCmd aliceMeme NFT.ProposeTransfer with
+      exerciseCmd aliceMeme NFT.ProposeNFTTransfer with
         newOwner = bob
 
   bobMeme <-
     bob `submit` do
-      exerciseCmd bobMemeTransferProposal NFT.AcceptTransfer
+      exerciseCmd bobMemeTransferProposal NFT.AcceptNFTTransferProposal
 
   charlieMemeTransferProposal <-
     bob `submit` do
-      exerciseCmd bobMeme NFT.ProposeTransfer with
+      exerciseCmd bobMeme NFT.ProposeNFTTransfer with
         newOwner = charlie
 
   charlieMeme <-
     charlie `submit` do
-      exerciseCmd charlieMemeTransferProposal NFT.AcceptTransfer
+      exerciseCmd charlieMemeTransferProposal NFT.AcceptNFTTransferProposal
 
   dominicMemeTransferProposal <-
     charlie `submit` do
-      exerciseCmd charlieMeme NFT.ProposeTransfer with
+      exerciseCmd charlieMeme NFT.ProposeNFTTransfer with
         newOwner = dominic
 
   charlieMeme' <-
     dominic `submit` do
-      exerciseCmd dominicMemeTransferProposal NFT.RejectTransfer
+      exerciseCmd dominicMemeTransferProposal NFT.RejectNFTTransferProposal
 
   emilyMemeTransferProposal <-
     charlie `submit` do
-      exerciseCmd charlieMeme' NFT.ProposeTransfer with
+      exerciseCmd charlieMeme' NFT.ProposeNFTTransfer with
         newOwner = emily
 
   charlieMeme'' <-
     charlie `submit` do
-      exerciseCmd emilyMemeTransferProposal NFT.WithdrawProposal
+      exerciseCmd emilyMemeTransferProposal NFT.WithdrawNFTTransferProposal
 
   pure ()
 
@@ -189,7 +189,7 @@ archiveNftTransferProposalTest = do
 
   bobMemeTransferProposal <-
     alice `submit` do
-      exerciseCmd aliceMeme NFT.ProposeTransfer with
+      exerciseCmd aliceMeme NFT.ProposeNFTTransfer with
         newOwner = bob
 
   alice `submit` do
@@ -206,39 +206,39 @@ mkAssetTest mkAsset = do
 
   bobAssetTransferProposal <-
     alice `submit` do
-      exerciseCmd aliceAsset IAsset.ProposeTransfer with
+      exerciseCmd aliceAsset IAsset.ProposeIAssetTransfer with
         newOwner = bob
 
   bobAsset <-
     bob `submit` do
-      exerciseCmd bobAssetTransferProposal IAsset.AcceptTransfer
+      exerciseCmd bobAssetTransferProposal IAsset.AcceptIAssetTransferProposal
 
   charlieAssetTransferProposal <-
     bob `submit` do
-      exerciseCmd bobAsset IAsset.ProposeTransfer with
+      exerciseCmd bobAsset IAsset.ProposeIAssetTransfer with
         newOwner = charlie
 
   charlieAsset <-
     charlie `submit` do
-      exerciseCmd charlieAssetTransferProposal IAsset.AcceptTransfer
+      exerciseCmd charlieAssetTransferProposal IAsset.AcceptIAssetTransferProposal
 
   dominicAssetTransferProposal <-
     charlie `submit` do
-      exerciseCmd charlieAsset IAsset.ProposeTransfer with
+      exerciseCmd charlieAsset IAsset.ProposeIAssetTransfer with
         newOwner = dominic
 
   charlieAsset' <-
     dominic `submit` do
-      exerciseCmd dominicAssetTransferProposal IAsset.RejectTransfer
+      exerciseCmd dominicAssetTransferProposal IAsset.RejectIAssetTransferProposal
 
   emilyAssetTransferProposal <-
     charlie `submit` do
-      exerciseCmd charlieAsset' IAsset.ProposeTransfer with
+      exerciseCmd charlieAsset' IAsset.ProposeIAssetTransfer with
         newOwner = emily
 
   charlieAsset'' <-
     charlie `submit` do
-      exerciseCmd emilyAssetTransferProposal IAsset.WithdrawProposal
+      exerciseCmd emilyAssetTransferProposal IAsset.WithdrawIAssetTransferProposal
 
   pure ()
 
@@ -265,7 +265,7 @@ mkArchiveAssetTransferProposalTest mkAsset = do
 
   bobAssetTransferProposal <-
     alice `submit` do
-      exerciseCmd aliceAsset IAsset.ProposeTransfer with
+      exerciseCmd aliceAsset IAsset.ProposeIAssetTransfer with
         newOwner = bob
 
   alice `submit` do

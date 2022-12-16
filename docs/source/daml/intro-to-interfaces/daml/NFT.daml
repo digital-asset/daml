@@ -13,11 +13,11 @@ template NFT
   where
     signatory issuer, owner
 
-    choice ProposeTransfer : ContractId TransferProposal
+    choice ProposeNFTTransfer : ContractId NFTTransferProposal
       with newOwner : Party
       controller owner
       do
-        create TransferProposal with
+        create NFTTransferProposal with
           nft = this
           newOwner = newOwner
 
@@ -34,11 +34,11 @@ template NFT
 
       toTransferProposal newOwner =
         toInterface @IAsset.IAssetTransferProposal $
-          TransferProposal with
+          NFTTransferProposal with
             nft = this
             newOwner
 
-template TransferProposal
+template NFTTransferProposal
   with
     nft : NFT
     newOwner : Party
@@ -46,23 +46,23 @@ template TransferProposal
     signatory (signatory nft)
     observer newOwner
 
-    choice AcceptTransfer : ContractId NFT
+    choice AcceptNFTTransferProposal : ContractId NFT
       controller newOwner
       do
         create nft with
           owner = newOwner
 
-    choice RejectTransfer : ContractId NFT
+    choice RejectNFTTransferProposal : ContractId NFT
       controller newOwner
       do
         create nft
 
-    choice WithdrawProposal : ContractId NFT
+    choice WithdrawNFTTransferProposal : ContractId NFT
       controller nft.owner
       do
         create nft
 
-    interface instance IAsset.IAssetTransferProposal for TransferProposal where
+    interface instance IAsset.IAssetTransferProposal for NFTTransferProposal where
       view = IAsset.VAssetTransferProposal with
         assetView = view (toInterface @IAsset.IAsset nft)
         newOwner

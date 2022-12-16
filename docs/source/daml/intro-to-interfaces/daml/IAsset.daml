@@ -16,7 +16,7 @@ interface IAsset
     setOwner : Party -> IAsset
     toTransferProposal : Party -> IAssetTransferProposal
 
-    choice ProposeTransfer : ContractId IAssetTransferProposal
+    choice ProposeIAssetTransfer : ContractId IAssetTransferProposal
       with newOwner : Party
       controller (view this).owner
       do
@@ -37,17 +37,17 @@ interface IAssetTransferProposal
 
     asset : IAsset
 
-    choice AcceptTransfer : ContractId IAsset
+    choice AcceptIAssetTransferProposal : ContractId IAsset
       controller (view this).newOwner
       do
         create $ setOwner (asset this) (view this).newOwner
 
-    choice RejectTransfer : ContractId IAsset
+    choice RejectIAssetTransferProposal : ContractId IAsset
       controller (view this).newOwner
       do
         create (asset this)
 
-    choice WithdrawProposal : ContractId IAsset
+    choice WithdrawIAssetTransferProposal : ContractId IAsset
       controller (view (asset this)).owner
       do
         create (asset this)
