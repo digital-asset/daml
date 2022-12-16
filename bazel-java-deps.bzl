@@ -65,8 +65,8 @@ def install_java_deps():
         artifacts = version_specific.get(scala_major_version, []) + [
             "ch.qos.logback:logback-classic:1.2.8",
             "ch.qos.logback:logback-core:1.2.8",
-            "com.auth0:java-jwt:3.10.3",
-            "com.auth0:jwks-rsa:0.11.0",
+            "com.auth0:java-jwt:4.2.1",
+            "com.auth0:jwks-rsa:0.21.2",
             "com.chuusai:shapeless_{}:2.3.3".format(scala_major_version),
             "com.github.ben-manes.caffeine:caffeine:3.0.5",
             "com.github.pureconfig:pureconfig_{}:0.14.0".format(scala_major_version),
