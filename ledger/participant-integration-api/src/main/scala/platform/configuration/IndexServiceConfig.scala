@@ -72,7 +72,7 @@ case class TransactionsFlatStreamReaderConfig(
     // TODO etq: This must be a power of 2
     maxParallelPayloadConsumingQueries: Int = 2,
     maxParallelPayloadQueries: Int = 2,
-    payloadProcessingParallelism: Int = 8,
+    transactionsProcessingParallelism: Int = 8,
 )
 object TransactionsFlatStreamReaderConfig {
   def default: TransactionsFlatStreamReaderConfig = TransactionsFlatStreamReaderConfig()
@@ -91,7 +91,7 @@ case class TransactionsTreeStreamReaderConfig(
     maxParallelPayloadConsumingQueries: Int = 2,
     maxParallelPayloadNonConsumingQueries: Int = 2,
     maxParallelPayloadQueries: Int = 2,
-    payloadProcessingParallelism: Int = 8,
+    transactionsProcessingParallelism: Int = 8,
 )
 object TransactionsTreeStreamReaderConfig {
   def default: TransactionsTreeStreamReaderConfig = TransactionsTreeStreamReaderConfig()

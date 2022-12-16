@@ -264,7 +264,9 @@ class TransactionsTreeStreamReader(
       .mergeSorted(payloadsNonConsuming)(orderBySequentialEventId)
     val sourceOfTreeTransactions = TransactionsReader
       .groupContiguous(allSortedPayloads)(by = _.transactionId)
-      .mapAsync(payloadProcessingParallelism)(deserializeLfValues(_, eventProjectionProperties))
+      .mapAsync(transactionsProcessingParallelism)(
+        deserializeLfValues(_, eventProjectionProperties)
+      )
       .mapConcat { events =>
         val response = TransactionConversions.toGetTransactionTreesResponse(events)
         response.map(r => offsetFor(r) -> r)

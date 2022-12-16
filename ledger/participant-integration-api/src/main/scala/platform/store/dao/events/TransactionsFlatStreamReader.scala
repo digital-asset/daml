@@ -161,6 +161,7 @@ class TransactionsFlatStreamReader(
       ids.async
         .addAttributes(
           Attributes.inputBuffer(
+            // TODO: Consider use the nearest greater or equal power of two instead to prevent stream creation failures
             initial = maxParallelPayloadQueries,
             max = maxParallelPayloadQueries,
           )
@@ -217,7 +218,9 @@ class TransactionsFlatStreamReader(
     val allSortedPayloads = payloadsConsuming.mergeSorted(payloadsCreate)(orderBySequentialEventId)
     TransactionsReader
       .groupContiguous(allSortedPayloads)(by = _.transactionId)
-      .mapAsync(payloadProcessingParallelism)(deserializeLfValues(_, eventProjectionProperties))
+      .mapAsync(transactionsProcessingParallelism)(
+        deserializeLfValues(_, eventProjectionProperties)
+      )
       .mapConcat { groupOfPayloads: Vector[EventStorageBackend.Entry[Event]] =>
         val response = TransactionConversions.toGetTransactionsResponse(groupOfPayloads)
         response.map(r => offsetFor(r) -> r)
