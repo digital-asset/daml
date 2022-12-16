@@ -12,45 +12,68 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
 class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegistry)
     extends DropwizardFactory {
 
+  @MetricDoc.FanTag(
+    representative = "daml.services.index.<operation>",
+    summary = "The time to execute an index service operation.",
+    description = """The index service is an internal component responsible for access to the
+                    |index db data. Its operations are invoked whenever a client request received
+                    |over the ledger api requires access to the index db. This metric captures
+                    |time statistics of such operations.""",
+    qualification = Debug,
+  )
   object index extends DropwizardFactory {
     val prefix: MetricName = ServicesMetrics.this.prefix :+ "index"
     override val registry: MetricRegistry = ServicesMetrics.this.registry
 
-    @MetricDoc.Tag(
-      summary = "The time to execute an index service operation.",
-      description = """The index service is an internal component responsible for access to the
-                      |index db data. Its operations are invoked whenever a client request received
-                      |over the ledger api requires access to the index db. This metric captures
-                      |time statistics of such operations.""",
-      qualification = Debug,
-    )
-    val operationForDocs: Timer = DropwizardTimer(prefix :+ "<operation>", null)
-
+    @MetricDoc.FanInstanceTag
     val listLfPackages: Timer = timer(prefix :+ "list_lf_packages")
+    @MetricDoc.FanInstanceTag
     val getLfArchive: Timer = timer(prefix :+ "get_lf_archive")
+    @MetricDoc.FanInstanceTag
     val packageEntries: Timer = timer(prefix :+ "package_entries")
+    @MetricDoc.FanInstanceTag
     val getLedgerConfiguration: Timer = timer(prefix :+ "get_ledger_configuration")
+    @MetricDoc.FanInstanceTag
     val currentLedgerEnd: Timer = timer(prefix :+ "current_ledger_end")
+    @MetricDoc.FanInstanceTag
     val getCompletions: Timer = timer(prefix :+ "get_completions")
+    @MetricDoc.FanInstanceTag
     val getCompletionsLimited: Timer = timer(prefix :+ "get_completions_limited")
+    @MetricDoc.FanInstanceTag
     val transactions: Timer = timer(prefix :+ "transactions")
+    @MetricDoc.FanInstanceTag
     val transactionTrees: Timer = timer(prefix :+ "transaction_trees")
+    @MetricDoc.FanInstanceTag
     val getTransactionById: Timer = timer(prefix :+ "get_transaction_by_id")
+    @MetricDoc.FanInstanceTag
     val getTransactionTreeById: Timer = timer(prefix :+ "get_transaction_tree_by_id")
+    @MetricDoc.FanInstanceTag
     val getActiveContracts: Timer = timer(prefix :+ "get_active_contracts")
+    @MetricDoc.FanInstanceTag
     val lookupActiveContract: Timer = timer(prefix :+ "lookup_active_contract")
+    @MetricDoc.FanInstanceTag
     val lookupContractStateWithoutDivulgence: Timer = timer(
       prefix :+ "lookup_contract_state_without_divulgence"
     )
+    @MetricDoc.FanInstanceTag
     val lookupContractKey: Timer = timer(prefix :+ "lookup_contract_key")
+    @MetricDoc.FanInstanceTag
     val lookupMaximumLedgerTime: Timer = timer(prefix :+ "lookup_maximum_ledger_time")
+    @MetricDoc.FanInstanceTag
     val getParticipantId: Timer = timer(prefix :+ "get_participant_id")
+    @MetricDoc.FanInstanceTag
     val getParties: Timer = timer(prefix :+ "get_parties")
+    @MetricDoc.FanInstanceTag
     val listKnownParties: Timer = timer(prefix :+ "list_known_parties")
+    @MetricDoc.FanInstanceTag
     val partyEntries: Timer = timer(prefix :+ "party_entries")
+    @MetricDoc.FanInstanceTag
     val lookupConfiguration: Timer = timer(prefix :+ "lookup_configuration")
+    @MetricDoc.FanInstanceTag
     val configurationEntries: Timer = timer(prefix :+ "configuration_entries")
+    @MetricDoc.FanInstanceTag
     val prune: Timer = timer(prefix :+ "prune")
+    @MetricDoc.FanInstanceTag
     val getTransactionMetering: Timer = timer(prefix :+ "get_transaction_metering")
 
     object InMemoryFanoutBuffer extends DropwizardFactory {
@@ -149,36 +172,36 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
     }
   }
 
+  @MetricDoc.FanTag(
+    representative = "daml.services.read.<operation>",
+    summary = "The time to execute a read service operation.",
+    description = """The read service is an internal interface for reading the events from the
+                    |synchronization interfaces. The metrics expose the time needed to execute
+                    |each operation.""",
+    qualification = Debug,
+  )
   object read extends DropwizardFactory {
     val prefix: MetricName = ServicesMetrics.this.prefix :+ "read"
     override val registry: MetricRegistry = index.registry
 
-    @MetricDoc.Tag(
-      summary = "The time to execute a read service operation.",
-      description = """The read service is an internal interface for reading the events from the
-                      |synchronization interfaces. The metrics expose the time needed to execute
-                      |each operation.""",
-      qualification = Debug,
-    )
-    val readOperationForDocs: Timer = DropwizardTimer(prefix :+ "<operation>", null)
-
+    @MetricDoc.FanInstanceTag
     val getLedgerInitialConditions: Timer = timer(prefix :+ "get_ledger_initial_conditions")
+    @MetricDoc.FanInstanceTag
     val stateUpdates: Timer = timer(prefix :+ "state_updates")
   }
 
+  @MetricDoc.FanTag(
+    representative = "daml.services.write.<operation>",
+    summary = "The time to execute a write service operation.",
+    description = """The write service is an internal interface for changing the state through
+                    |the synchronization services. The methods in this interface are all methods
+                    |that are supported uniformly across all ledger implementations. This metric
+                    |exposes the time needed to execute each operation.""",
+    qualification = Debug,
+  )
   object write extends DropwizardFactory {
     val prefix: MetricName = ServicesMetrics.this.prefix :+ "write"
     override val registry: MetricRegistry = index.registry
-
-    @MetricDoc.Tag(
-      summary = "The time to execute a write service operation.",
-      description = """The write service is an internal interface for changing the state through
-                      |the synchronization services. The methods in this interface are all methods
-                      |that are supported uniformly across all ledger implementations. This metric
-                      |exposes the time needed to execute each operation.""",
-      qualification = Debug,
-    )
-    val writeOperationForDocs: Timer = DropwizardTimer(prefix :+ "<operation>", null)
 
     @MetricDoc.Tag(
       summary = "The number of submitted transactions by the write service.",
@@ -191,11 +214,17 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
     val submitOperationForDocs: Timer =
       DropwizardTimer(prefix :+ "submit_transaction" :+ "count", null)
 
+    @MetricDoc.FanInstanceTag
     val submitTransaction: Timer = timer(prefix :+ "submit_transaction")
+    @MetricDoc.FanInstanceTag
     val submitTransactionRunning: Counter = counter(prefix :+ "submit_transaction_running")
+    @MetricDoc.FanInstanceTag
     val uploadPackages: Timer = timer(prefix :+ "upload_packages")
+    @MetricDoc.FanInstanceTag
     val allocateParty: Timer = timer(prefix :+ "allocate_party")
+    @MetricDoc.FanInstanceTag
     val submitConfiguration: Timer = timer(prefix :+ "submit_configuration")
+    @MetricDoc.FanInstanceTag
     val prune: Timer = timer(prefix :+ "prune")
   }
 }
