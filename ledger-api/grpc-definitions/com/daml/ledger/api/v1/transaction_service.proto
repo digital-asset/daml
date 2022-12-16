@@ -8,6 +8,7 @@ package com.daml.ledger.api.v1;
 import "com/daml/ledger/api/v1/ledger_offset.proto";
 import "com/daml/ledger/api/v1/transaction_filter.proto";
 import "com/daml/ledger/api/v1/transaction.proto";
+import "com/daml/ledger/api/v1/value.proto";
 
 option java_outer_classname = "TransactionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
@@ -38,6 +39,12 @@ service TransactionService {
 
   // Lookup a transaction by its ID.
   rpc GetFlatTransactionById (GetTransactionByIdRequest) returns (GetFlatTransactionResponse);
+
+  // Get the create and the consuming exercise event for the contract with the provided ID
+  rpc GetEventsByContractId (GetEventsByContractIdRequest) returns (GetEventsByContractIdResponse);
+
+  // Get all create and consuming exercise events for the contracts with the provided contract key
+  rpc GetEventsByContractKey (GetEventsByContractKeyRequest) returns (GetEventsByContractKeyResponse);
 
   // Get the current ledger end.
   // Subscriptions started with the returned offset will serve transactions created after this RPC was called.
@@ -126,6 +133,74 @@ message GetTransactionResponse {
 
 message GetFlatTransactionResponse {
   Transaction transaction = 1;
+}
+
+message GetEventsByContractIdRequest {
+  // The contract id being queried.
+  // Required
+  string contract_id = 1;
+
+  // The parties whose events the client expects to see.
+  // The events associated with the contract id will only be returned if the requesting parties includes
+  // at least one party that is a witness of the action that created the event. For a full description
+  // of witness see https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#projections.
+  // Required
+  repeated string requesting_parties = 2;
+
+}
+message GetEventsByContractIdResponse {
+  // The collection of events, will only contain CreateEvent and consuming ExerciseEvents. If the
+  // requested `contract_id` has been archived or never existed this collection will be empty.
+  repeated TreeEvent events = 1;
+}
+
+message GetEventsByContractKeyRequest {
+
+  // The contract key to search for.
+  // Required
+  Value contract_key = 1;
+
+  // The template id associated with the contract key
+  // Required
+  Identifier template_id = 2;
+
+  // The parties whose events the client expects to see.
+  // The events associated with the contract key will only be returned if the requesting parties includes
+  // at least one party that is a witness of the action that created the event. For a full description
+  // of witness see https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#projections.
+  // Required
+  repeated string requesting_parties = 3;
+
+  // Optional - will default to 1000.
+  uint32 max_events = 4;
+
+  // Search from ledger offset after the provided begin_exclusive
+  // Optional - will default to the searching of ledger from the start
+  LedgerOffset begin_exclusive = 5;
+
+  // If provided only return events with an offset <= `end_inclusive`
+  // Optional
+  LedgerOffset end_inclusive = 6;
+
+}
+
+message GetEventsByContractKeyResponse {
+
+  // The collection of events, will only contain CreateEvents and consuming ExerciseEvents. Note
+  // that the number of events contained should not be used to determine if another call is
+  // required to get all rows, use the `last_offset` below for this determination.
+  repeated TreeEvent events = 1;
+
+  // If populated there are potentially more rows, to avoid gaps make
+  // the next request with `begin_exclusive` set to `last_offset`
+  LedgerOffset last_offset = 2;
+
+  // This will pruning offset at the time of the report. Any events associated with consumed contracts
+  // that precede the `pruning_offset` will not be present in the report. Events associated active
+  // contracts will be present even if they predate the `pruning_offset`.
+  // Optional
+  LedgerOffset pruned_offset = 3;
+
 }
 
 message GetLedgerEndRequest {

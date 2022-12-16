@@ -146,6 +146,32 @@ final class GrpcTransactionService(
     }
   }
 
+  override def getEventsByContractId(
+      request: GetEventsByContractIdRequest
+  ): Future[GetEventsByContractIdResponse] = {
+    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit loggingContext =>
+        getSingleTransaction(
+          request,
+          validator.validateEventsByContractId,
+          service.getEventsByContractId,
+        )
+    }
+  }
+
+  override def getEventsByContractKey(
+      request: GetEventsByContractKeyRequest
+  ): Future[GetEventsByContractKeyResponse] = {
+    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit loggingContext =>
+        getSingleTransaction(
+          request,
+          validator.validateEventsByContractKey,
+          service.getEventsByContractKey,
+        )
+    }
+  }
+
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] = {
     val validation = validator.validateLedgerEnd(request)
 

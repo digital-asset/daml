@@ -448,7 +448,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
       recordedAt = let,
-      transaction = CommittedTransaction(txBuilder.buildCommitted()),
+      transaction = txBuilder.buildCommitted(),
       explicitDisclosure = Map(nid -> Set("Alice", "Bob")),
     )
   }
@@ -470,7 +470,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
       recordedAt = let,
-      transaction = CommittedTransaction(txBuilder.buildCommitted()),
+      transaction = txBuilder.buildCommitted(),
       explicitDisclosure = Map(nid -> Set(alice, bob)),
     )
   }
@@ -503,7 +503,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val txBuilder = newBuilder()
     val exerciseId = txBuilder.add(exerciseNode(targetCid))
     val childId = txBuilder.add(create(txBuilder.newCid), exerciseId)
-    val tx = CommittedTransaction(txBuilder.build())
+    val tx = txBuilder.buildCommitted()
     val offset = nextOffset()
     val id = offset.toLong
     val txId = s"trId$id"
@@ -517,7 +517,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
       recordedAt = let,
-      transaction = CommittedTransaction(tx),
+      transaction = tx,
       explicitDisclosure = Map(exerciseId -> Set("Alice", "Bob"), childId -> Set("Alice", "Bob")),
     )
   }

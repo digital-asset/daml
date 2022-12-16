@@ -59,6 +59,10 @@ import com.daml.ledger.api.v1.package_service.{GetPackageResponse, PackageStatus
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
+  GetEventsByContractIdRequest,
+  GetEventsByContractIdResponse,
+  GetEventsByContractKeyRequest,
+  GetEventsByContractKeyResponse,
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
   GetTransactionsRequest,
@@ -300,6 +304,15 @@ trait ParticipantTestContext extends UserManagementTestContext {
   /** Managed version of [[flatTransactionByEventId]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
   def flatTransactionByEventId(eventId: String, parties: Primitive.Party*): Future[Transaction]
+
+  def getEventsByContractId(
+      request: GetEventsByContractIdRequest
+  ): Future[GetEventsByContractIdResponse]
+
+  def getEventsByContractKey(
+      request: GetEventsByContractKeyRequest
+  ): Future[GetEventsByContractKeyResponse]
+
   def create[T](
       party: Primitive.Party,
       template: Template[T],

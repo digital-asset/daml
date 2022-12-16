@@ -72,6 +72,22 @@ private[daml] final class TransactionServiceAuthorization(
       service.getFlatTransactionById,
     )(request)
 
+  override def getEventsByContractId(
+      request: GetEventsByContractIdRequest
+  ): Future[GetEventsByContractIdResponse] =
+    authorizer.requireReadClaimsForAllParties(
+      request.requestingParties,
+      service.getEventsByContractId,
+    )(request)
+
+  override def getEventsByContractKey(
+      request: GetEventsByContractKeyRequest
+  ): Future[GetEventsByContractKeyResponse] =
+    authorizer.requireReadClaimsForAllParties(
+      request.requestingParties,
+      service.getEventsByContractKey,
+    )(request)
+
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] =
     authorizer.requirePublicClaims(service.getLedgerEnd)(request)
 
@@ -79,4 +95,5 @@ private[daml] final class TransactionServiceAuthorization(
     TransactionServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
+
 }
