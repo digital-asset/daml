@@ -250,6 +250,12 @@ mkAssetTest mkAsset = do
       )
     ]
 
+  charlieAssetView <-
+    queryInterfaceContractId @IAsset charlie charlieAsset''
+
+  charlieAssetView ===
+    Some (view (toInterface @IAsset (mkAsset alice charlie)))
+
   pure ()
 
 mkArchiveAssetTest : (Template t, Implements t IAsset) => (Party -> Party -> t) -> Script ()
