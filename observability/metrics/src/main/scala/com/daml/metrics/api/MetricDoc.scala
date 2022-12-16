@@ -35,7 +35,7 @@ object MetricDoc {
   case class GroupTag(representative: String, groupableClass: Class[_]) extends StaticAnnotation
 
   // The FanTag is used to define a documentation entry that will fan out and represent all the
-  // metrics that are tagged with a FanInstanceTag and their name matches the given representative
+  // metrics that are tagged with a FanInstanceTag and whose name matches the given representative
   // wildcard.
   case class FanTag(
       representative: String,
