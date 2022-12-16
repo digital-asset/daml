@@ -6,6 +6,10 @@ package com.daml.metrics.api
 import scala.annotation.StaticAnnotation
 
 object MetricDoc {
+  // How to use the MetricDoc tags to provide documentation for metrics:
+  // -- use Tag to annotate a unique metric located in a single place: a.b.c
+  // -- use GroupTag for places where similar leaf metrics are rooted at multiple places: a.*.c
+  // -- use FanTag when a single root fans out into a collection of similar but distinctly named metrics: a.b.*
 
   sealed trait MetricQualification
   object MetricQualification {
@@ -16,25 +20,32 @@ object MetricDoc {
     case object Debug extends MetricQualification
   }
 
+  // The Tag can be defined to document a single metric. Its summary, description and
+  // qualification will be present as a separate documentation entry unless a GroupTag is defined
+  // for the class that may belongs.
   case class Tag(
       summary: String,
       description: String,
       qualification: MetricQualification,
   ) extends StaticAnnotation
 
-  // The GroupTag can be defined for metrics that share similar names, belong in the same class and
-  // should be grouped using a wildcard (the representative).
+  // The GroupTag can be defined for metrics that belong in the same class, are used in multiple
+  // places and can be grouped using a wildcard (the representative). The metrics of the class
+  // should be annotated with a Tag.
   case class GroupTag(representative: String, groupableClass: Class[_]) extends StaticAnnotation
 
-  // This tag is used to define a representative that will replace all the documentation entries
-  // that their metric name matches the given wildcard and are tagged with a GroupByNameTag
-  case class GroupRepresenterTag(
+  // The FanTag is used to define a documentation entry that will fan out and represent all the
+  // metrics that are tagged with a FanInstanceTag and their name matches the given representative
+  // wildcard.
+  case class FanTag(
       representative: String,
       summary: String,
       description: String,
       qualification: MetricQualification,
   ) extends StaticAnnotation
 
-  case class GroupByNameTag() extends StaticAnnotation
+  // This tag works in combination with the FanTag and declares a metric that can be represented by
+  // the documentation info of the corresponding FanTag.
+  case class FanInstanceTag() extends StaticAnnotation
 
 }

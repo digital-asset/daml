@@ -12,7 +12,7 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
 class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegistry)
     extends DropwizardFactory {
 
-  @MetricDoc.GroupRepresenterTag(
+  @MetricDoc.FanTag(
     representative = "daml.services.index.<operation>",
     summary = "The time to execute an index service operation.",
     description = """The index service is an internal component responsible for access to the
@@ -25,55 +25,55 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
     val prefix: MetricName = ServicesMetrics.this.prefix :+ "index"
     override val registry: MetricRegistry = ServicesMetrics.this.registry
 
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val listLfPackages: Timer = timer(prefix :+ "list_lf_packages")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val getLfArchive: Timer = timer(prefix :+ "get_lf_archive")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val packageEntries: Timer = timer(prefix :+ "package_entries")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val getLedgerConfiguration: Timer = timer(prefix :+ "get_ledger_configuration")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val currentLedgerEnd: Timer = timer(prefix :+ "current_ledger_end")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val getCompletions: Timer = timer(prefix :+ "get_completions")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val getCompletionsLimited: Timer = timer(prefix :+ "get_completions_limited")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val transactions: Timer = timer(prefix :+ "transactions")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val transactionTrees: Timer = timer(prefix :+ "transaction_trees")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val getTransactionById: Timer = timer(prefix :+ "get_transaction_by_id")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val getTransactionTreeById: Timer = timer(prefix :+ "get_transaction_tree_by_id")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val getActiveContracts: Timer = timer(prefix :+ "get_active_contracts")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val lookupActiveContract: Timer = timer(prefix :+ "lookup_active_contract")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val lookupContractStateWithoutDivulgence: Timer = timer(
       prefix :+ "lookup_contract_state_without_divulgence"
     )
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val lookupContractKey: Timer = timer(prefix :+ "lookup_contract_key")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val lookupMaximumLedgerTime: Timer = timer(prefix :+ "lookup_maximum_ledger_time")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val getParticipantId: Timer = timer(prefix :+ "get_participant_id")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val getParties: Timer = timer(prefix :+ "get_parties")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val listKnownParties: Timer = timer(prefix :+ "list_known_parties")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val partyEntries: Timer = timer(prefix :+ "party_entries")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val lookupConfiguration: Timer = timer(prefix :+ "lookup_configuration")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val configurationEntries: Timer = timer(prefix :+ "configuration_entries")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val prune: Timer = timer(prefix :+ "prune")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val getTransactionMetering: Timer = timer(prefix :+ "get_transaction_metering")
 
     object InMemoryFanoutBuffer extends DropwizardFactory {
@@ -172,7 +172,7 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
     }
   }
 
-  @MetricDoc.GroupRepresenterTag(
+  @MetricDoc.FanTag(
     representative = "daml.services.read.<operation>",
     summary = "The time to execute a read service operation.",
     description = """The read service is an internal interface for reading the events from the
@@ -184,13 +184,13 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
     val prefix: MetricName = ServicesMetrics.this.prefix :+ "read"
     override val registry: MetricRegistry = index.registry
 
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val getLedgerInitialConditions: Timer = timer(prefix :+ "get_ledger_initial_conditions")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val stateUpdates: Timer = timer(prefix :+ "state_updates")
   }
 
-  @MetricDoc.GroupRepresenterTag(
+  @MetricDoc.FanTag(
     representative = "daml.services.write.<operation>",
     summary = "The time to execute a write service operation.",
     description = """The write service is an internal interface for changing the state through
@@ -214,17 +214,17 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
     val submitOperationForDocs: Timer =
       DropwizardTimer(prefix :+ "submit_transaction" :+ "count", null)
 
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val submitTransaction: Timer = timer(prefix :+ "submit_transaction")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val submitTransactionRunning: Counter = counter(prefix :+ "submit_transaction_running")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val uploadPackages: Timer = timer(prefix :+ "upload_packages")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val allocateParty: Timer = timer(prefix :+ "allocate_party")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val submitConfiguration: Timer = timer(prefix :+ "submit_configuration")
-    @MetricDoc.GroupByNameTag
+    @MetricDoc.FanInstanceTag
     val prune: Timer = timer(prefix :+ "prune")
   }
 }
