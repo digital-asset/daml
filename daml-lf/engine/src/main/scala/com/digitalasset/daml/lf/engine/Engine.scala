@@ -517,20 +517,11 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       argument: Value,
       interfaceId: Identifier,
   )(implicit loggingContext: LoggingContext): Result[Versioned[Value]] = {
-    def interpret(machine: PureMachine): Result[SValue] = {
-      machine.run() match {
-        case SResultFinal(v) => ResultDone(v)
-        case SResultError(err) => handleError(err, None)
-        case err @ SResultQuestion(_) =>
-          ResultError(
-            Error.Interpretation.Internal(
-              NameOf.qualifiedNameOfCurrentFunc,
-              s"unexpected ${err.getClass.getSimpleName}",
-              None,
-            )
-          )
+    def interpret(machine: PureMachine): Result[SValue] =
+      machine.runPure() match {
+        case Right(v) => ResultDone(v)
+        case Left(err) => handleError(err, None)
       }
-    }
     for {
       view <- preprocessor.preprocessInterfaceView(templateId, argument, interfaceId)
       sexpr <- runCompilerSafely(
