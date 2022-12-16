@@ -68,9 +68,6 @@ object PlaySpeedy {
   }
 
   def runMachine(name: String, machine: PureMachine, expected: Int): Unit = {
-
-    println(s"example name: $name")
-
     machine.runPure().toTry.get match {
       case SInt64(got) =>
         if (got != expected) {
