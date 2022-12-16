@@ -8,7 +8,7 @@ import scala.annotation.StaticAnnotation
 object MetricDoc {
   // How to use the MetricDoc tags to provide documentation for metrics:
   // -- use Tag to annotate a unique metric located in a single place: a.b.c
-  // -- use GroupTag for places where similar leaf metrics are rooted at multiple places: a.*.c
+  // -- use GroupTag for similar leaf metrics that are rooted at multiple places: a.*.c
   // -- use FanTag when a single root fans out into a collection of similar but distinctly named metrics: a.b.*
 
   sealed trait MetricQualification
