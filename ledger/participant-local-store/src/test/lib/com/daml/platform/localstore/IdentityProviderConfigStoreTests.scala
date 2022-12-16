@@ -149,15 +149,20 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
     "allow to get active identity provider config by issuer" in {
       testIt { tested =>
         val cfg = config()
+        val deactivatedConfig = config().copy(isDeactivated = true)
         val nonExistingIssuer = "issuer_which_does_not_exist"
         for {
           res1 <- tested.createIdentityProviderConfig(cfg)
-          res2 <- tested.getActiveIdentityProviderByIssuer(cfg.issuer)
-          res3 <- tested.getActiveIdentityProviderByIssuer(nonExistingIssuer).failed
+          res2 <- tested.createIdentityProviderConfig(deactivatedConfig)
+          res3 <- tested.getActiveIdentityProviderByIssuer(cfg.issuer)
+          res4 <- tested.getActiveIdentityProviderByIssuer(nonExistingIssuer).failed
+          res5 <- tested.getActiveIdentityProviderByIssuer(deactivatedConfig.issuer).failed
         } yield {
           res1 shouldBe Right(cfg)
-          res2 shouldBe cfg
-          res3 shouldBe an[Exception]
+          res2 shouldBe Right(deactivatedConfig)
+          res3 shouldBe cfg
+          res4 shouldBe an[Exception]
+          res5 shouldBe an[Exception]
         }
       }
     }
