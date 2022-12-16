@@ -84,4 +84,5 @@ private[daml] final class TransactionServiceAuthorization(
     TransactionServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
+
 }

@@ -10,6 +10,7 @@ trait IndexService
     with IndexConfigurationService
     with IndexCompletionsService
     with IndexTransactionsService
+    with IndexEventQueryService
     with IndexActiveContractsService
     with ContractStore
     with MaximumLedgerTimeService

@@ -144,7 +144,7 @@ object EventStorageBackendTemplate {
 
   private val archivedEventRow: RowParser[ArchiveEventRow] = sharedRow
 
-  private def createdFlatEventParser(
+  private[common] def createdFlatEventParser(
       allQueryingParties: Set[Int],
       stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.FlatEvent.Created]] =
@@ -194,7 +194,7 @@ object EventStorageBackendTemplate {
         )
     }
 
-  private def archivedFlatEventParser(
+  private[common] def archivedFlatEventParser(
       allQueryingParties: Set[Int],
       stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.FlatEvent.Archived]] =
@@ -429,6 +429,12 @@ abstract class EventStorageBackendTemplate(
 
   override def transactionStreamingQueries: TransactionStreamingQueries =
     new TransactionStreamingQueries(
+      queryStrategy = queryStrategy,
+      stringInterning = stringInterning,
+    )
+
+  override def eventReaderQueries: EventReaderQueries =
+    new EventReaderQueries(
       queryStrategy = queryStrategy,
       stringInterning = stringInterning,
     )

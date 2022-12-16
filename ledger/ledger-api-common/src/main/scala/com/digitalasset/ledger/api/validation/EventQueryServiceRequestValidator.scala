@@ -1,0 +1,67 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.ledger.api.validation
+
+import com.daml.error.ContextualizedErrorLogger
+import com.daml.ledger.api.messages.event
+import com.daml.ledger.api.v1.event_query_service.{
+  GetEventsByContractIdRequest,
+  GetEventsByContractKeyRequest,
+}
+import com.daml.platform.server.api.validation.FieldValidations
+import io.grpc.StatusRuntimeException
+
+object EventQueryServiceRequestValidator {
+  type Result[X] = Either[StatusRuntimeException, X]
+
+}
+class EventQueryServiceRequestValidator(partyNameChecker: PartyNameChecker) {
+
+  import EventQueryServiceRequestValidator.Result
+
+  private val partyValidator = new PartyValidator(partyNameChecker)
+
+  import FieldValidations._
+
+  def validateEventsByContractId(
+      req: GetEventsByContractIdRequest
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Result[event.GetEventsByContractIdRequest] = {
+    for {
+      contractId <- requireContractId(req.contractId, "contract_id")
+      _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
+      parties <- partyValidator.requireKnownParties(req.requestingParties)
+    } yield {
+      event.GetEventsByContractIdRequest(contractId, parties)
+    }
+  }
+
+  def validateEventsByContractKey(
+      req: GetEventsByContractKeyRequest
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Result[event.GetEventsByContractKeyRequest] = {
+
+    for {
+      apiContractKey <- requirePresence(req.contractKey, "contract_key")
+      contractKey <- ValueValidator.validateValue(apiContractKey)
+      apiTemplateId <- requirePresence(req.templateId, "template_id")
+      templateId <- FieldValidations.validateIdentifier(apiTemplateId)
+      _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
+      requestingParties <- partyValidator.requireKnownParties(req.requestingParties)
+      endExclusiveEventId <- optionalEventId(req.endExclusiveEventId, "event_id")
+    } yield {
+
+      event.GetEventsByContractKeyRequest(
+        contractKey = contractKey,
+        templateId = templateId,
+        requestingParties = requestingParties,
+        endExclusiveEventId = endExclusiveEventId,
+      )
+    }
+
+  }
+
+}
