@@ -211,14 +211,15 @@ object Trigger {
         ty: TTyCon,
         tyArg: Type,
         triggerIds: TriggerIds,
+        version: Trigger.Version,
     ): Either[String, TriggerDefinition] = {
       val tyCon = ty.tycon
+
       if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
         val expr = EVal(triggerId)
         val ty = TypeConApp(tyCon, ImmArray(tyArg))
-        detectVersion(pkgInterface, triggerIds).map(
-          TriggerDefinition(triggerId, ty, _, Level.Low, expr)
-        )
+
+        Right(TriggerDefinition(triggerId, ty, version, Level.Low, expr))
       } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
         val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
         val expr = EApp(runTrigger, EVal(triggerId))
@@ -226,9 +227,8 @@ object Trigger {
         val stateTy = TApp(triggerState, tyArg)
         val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
         val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
-        detectVersion(pkgInterface, triggerIds).map(
-          TriggerDefinition(triggerId, ty, _, Level.High, expr)
-        )
+
+        Right(TriggerDefinition(triggerId, ty, version, Level.High, expr))
       } else {
         error(triggerId, ty)
       }
@@ -238,9 +238,9 @@ object Trigger {
         ty: TTyCon,
         tyArg: Type,
         triggerIds: TriggerIds,
+        version: Trigger.Version,
     ): Either[String, TriggerDefinition] = {
       val tyCon = ty.tycon
-      val version = Trigger.Version.`2.6`
 
       if (tyCon == triggerIds.damlTriggerLowLevel("BatchTrigger")) {
         val expr = EVal(triggerId)
@@ -275,9 +275,9 @@ object Trigger {
         val triggerIds = TriggerIds(tyCon.packageId)
         detectVersion(pkgInterface, triggerIds).flatMap { version =>
           if (version < Trigger.Version.`2.6`) {
-            fromV20ExtractTriggerDefinition(ty, tyArg, triggerIds)
+            fromV20ExtractTriggerDefinition(ty, tyArg, triggerIds, version)
           } else {
-            fromV26ExtractTriggerDefinition(ty, tyArg, triggerIds)
+            fromV26ExtractTriggerDefinition(ty, tyArg, triggerIds, version)
           }
         }
 
