@@ -22,7 +22,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // (2) ``IsAuthenticatedUser(uid)`` denoting whether ``uid`` is the empty string or equal to the id of the authenticated user.
 // (3) ``IsAuthenticatedIdentityProviderAdmin(idp)`` denoting whether ``idp`` is equal to the ``identity_provider_id``
 // of the authenticated user and the user has an IdentityProviderAdmin right.
-// If `user_id` set to the empty string (the default), then the data for the authenticated user will be retrieved.
+// If `user_id` is set to the empty string (the default), then the data for the authenticated user will be retrieved.
 // If `identity_provider_id` set to empty string, the default identity provider will be assumed.
 //
 // The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
