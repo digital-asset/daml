@@ -47,7 +47,7 @@ da_scala_library(
 
 da_scala_test(
     name = "tests",
-    size = "medium",
+    size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
     plugins = [
         kind_projector_plugin,
