@@ -981,7 +981,7 @@ class WebSocketService(
             liveStartingOffset,
             Terminates.Never,
           )
-          .logTermination("IDSS-outer")
+          .logTermination("IDSS-outer-1")
           .via(
             convertFilterContracts(
               resolvedQuery,
@@ -1031,6 +1031,7 @@ class WebSocketService(
                     liveStartingOffset,
                     Terminates.Never,
                   )
+                  .logTermination("IDSS-outer-2")
                   .via(
                     convertFilterContracts(
                       resolvedQuery,
