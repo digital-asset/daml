@@ -272,7 +272,7 @@ dedupExerciseByKey k c = do
 runTrigger : forall s. Trigger s -> LowLevel.BatchTrigger (TriggerState s)
 runTrigger userTrigger = LowLevel.BatchTrigger
   { initialState
-  , update
+  , update = update
   , registeredTemplates = userTrigger.registeredTemplates
   , heartbeat = userTrigger.heartbeat
   }
