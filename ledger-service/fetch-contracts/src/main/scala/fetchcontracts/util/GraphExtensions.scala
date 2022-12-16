@@ -35,6 +35,26 @@ object GraphExtensions {
     type ReprMat[+O, +M] = ReprMat0[O, M]
   }
 
+  private[daml] def logTermination[A](
+      extraMessage: String
+  )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): Flow[A, A, NotUsed] =
+    if (logger.info.isEnabled)
+      Flow[A].watchTermination() { (mat, fd) =>
+        fd.onComplete(
+          _.fold(
+            { t =>
+              logger.info(s"stream-abort [$extraMessage] trying to abort ${t.getMessage}")
+            },
+            { _ =>
+              logger.info(s"stream-stop [$extraMessage] trying to shutdown")
+            },
+          )
+        )
+        mat
+      }
+    else
+      Flow[A]
+
   import language.implicitConversions
 
   private[daml] implicit def `flowops logTermination`[O, M](
@@ -47,20 +67,9 @@ object GraphExtensions {
   ) extends AnyVal {
     def logTermination(
         extraMessage: String
-    )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): RM[O, M] =
-      self.watchTermination() { (mat, fd) =>
-        fd.onComplete(
-          _.fold(
-            { t =>
-              logger.info(s"S11 $extraMessage trying to abort ${t.getMessage}")
-            },
-            { _ =>
-              logger.info(s"S11 $extraMessage trying to shutdown")
-            },
-          )
-        )
-        mat
-      }
+    )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): RM[O, M] = {
+      self via GraphExtensions.logTermination(extraMessage)
+    }
   }
 
   private val logger = ContextualizedLogger.get(getClass)
