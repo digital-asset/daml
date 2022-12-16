@@ -14,11 +14,11 @@ import scala.annotation.nowarn
 
 private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK machine states
 
-  def ppMachine(m: Machine): String = {
+  def ppMachine(m: Machine[_]): String = {
     s"[${m.currentEnvBase}] ${ppEnv(m.currentEnv)} -- ${ppCtrl(m.currentControl)} -- ${ppKontStack(m)}"
   }
 
-  def ppCtrl(control: Control): String =
+  def ppCtrl(control: Control[_]): String =
     control match {
       case Control.WeAreUnset => "unset"
       case Control.Value(v) => s"V-${pp(v)}"
@@ -32,7 +32,7 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
     s"#${env.size()}={${commas(env.asScala.map(pp))}}"
   }
 
-  def ppKontStack(m: Machine): String = {
+  def ppKontStack(m: Machine[_]): String = {
     val depth = m.kontDepth()
     if (depth == 0) {
       s"[#0]"

@@ -17,6 +17,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.{Control, Machine, ScenarioMachine}
+import com.daml.lf.speedy.Question.Scenario
 import com.daml.logging.LoggingContext
 
 import java.io.File
@@ -83,8 +84,9 @@ private[lf] class CollectAuthorityState {
     while (finalValue == null) {
       step += 1
       machine.run() match {
-        case SResultScenarioGetParty(_, callback) => callback(cachedParty(step))
-        case SResultScenarioSubmit(committers, commands, location, mustFail, callback) =>
+        case SResultQuestion(Scenario.GetParty(_, callback)) =>
+          callback(cachedParty(step))
+        case SResultQuestion(Scenario.Submit(committers, commands, location, mustFail, callback)) =>
           assert(!mustFail)
           val api = new CannedLedgerApi(step, cachedContract)
           ScenarioRunner.submit(
@@ -101,8 +103,6 @@ private[lf] class CollectAuthorityState {
               callback(value)
             case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
           }
-        case SResultNeedContract(_, _, _) =>
-          crash("Off-ledger need contract callback")
         case SResultFinal(v) => finalValue = v
         case r => crash(s"bench run: unexpected result from speedy: ${r}")
       }
@@ -119,7 +119,7 @@ private[lf] class CollectAuthorityState {
     while (finalValue == null) {
       step += 1
       machine.run() match {
-        case SResultScenarioGetParty(partyText, callback) =>
+        case SResultQuestion(Scenario.GetParty(partyText, callback)) =>
           Party.fromString(partyText) match {
             case Right(res) =>
               cachedParty = cachedParty + (step -> res)
@@ -127,7 +127,7 @@ private[lf] class CollectAuthorityState {
             case Left(msg) =>
               crash(s"Party.fromString failed: $msg")
           }
-        case SResultScenarioSubmit(committers, commands, location, mustFail, callback) =>
+        case SResultQuestion(Scenario.Submit(committers, commands, location, mustFail, callback)) =>
           assert(!mustFail)
           val api = new CachedLedgerApi(step, ledger)
           ScenarioRunner.submit(

@@ -132,7 +132,7 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
       (1 to 100000).map(i => EPrimLit(PLInt64(i.toLong))).to(ImmArray),
       ENil(t_int64List),
     )
-    var machine: Speedy.Machine = null
+    var machine: Speedy.PureMachine = null
     "compile" in {
       machine = Speedy.Machine.fromPureExpr(PureCompiledPackages.Empty, list)
     }
