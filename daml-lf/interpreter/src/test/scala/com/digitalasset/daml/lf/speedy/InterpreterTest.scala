@@ -197,7 +197,7 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
                   name = modName,
                   definitions = Map(
                     DottedName.assertFromString("bar") ->
-                      DValue(TBuiltin(BTBool), ETrue, false)
+                      DValue(TUpdate(TBool), EUpdate(UpdatePure(TBool, ETrue)), false)
                   ),
                   templates = Map.empty,
                   exceptions = Map.empty,
@@ -232,9 +232,12 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
       )
     )
 
+    val seed = crypto.Hash.hashPrivateKey("test")
+    val committers = Set(Ref.Party.assertFromString("alice"))
+
     "succeeds" in {
       val result = SpeedyTestLib.run(
-        machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref)),
+        machine = Speedy.Machine.fromUpdateExpr(pkgs1, seed, EVal(ref), committers),
         getPkg = { case pkgId if pkgId == ref.packageId => pkgs2 },
       )
       result shouldBe Right(SValue.SBool(true))
@@ -242,7 +245,7 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
 
     "crashes without definition" in {
       val result = SpeedyTestLib.run(
-        machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref)),
+        machine = Speedy.Machine.fromUpdateExpr(pkgs1, seed, EVal(ref), committers),
         getPkg = { case pkgId if pkgId == ref.packageId => pkgs3 },
       )
       inside(result) { case Left(SError.SErrorCrash(loc, msg)) =>
