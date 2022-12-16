@@ -12,21 +12,30 @@ import scala.concurrent.Future
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class AcsTxStreamsTest extends AsyncWordSpec with Matchers with AkkaBeforeAndAfterAll {
   import AcsTxStreamsTest._
-  import AcsTxStreams.acsFollowingAndBoundary
 
   "acsFollowingAndBoundary" when {
-    // "ACS is active" should {}
-
-    "ACS is past liveBegin" should {
-      "propagate cancellation of tx stream" in {
-        val (_, _) = (liveBegin, txEnd)
-        val (acs, futx, out, off) =
-          probeCodensity(acsFollowingAndBoundary)(_ => akka.stream.scaladsl.Source.never).run()
-        acs sendNext liveBegin
+    "ACS is active" should {
+      "cancel the ACS on output cancel" in {
+        val (acs, futx, out, _) = probeAcsFollowingAndBoundary()
         out.cancel()
         acs.expectCancellation()
+        futx.isCompleted should ===(false)
+      }
+    }
+
+    "ACS is past liveBegin" should {
+      "not start tx until ACS is complete" in {
+        val (acs, futx, _, _) = probeAcsFollowingAndBoundary()
+        acs.sendNext(liveBegin)
+        futx.isCompleted should ===(false)
+      }
+
+      "propagate cancellation of tx stream" in {
+        val (_, _) = (liveBegin, txEnd)
+        val (acs, futx, out, off) = probeAcsFollowingAndBoundary()
+        acs.sendNext(liveBegin).sendComplete()
         off.expectSubscription()
-        off.expectComplete()
+        out.cancel()
         futx.map { tx =>
           tx.expectCancellation()
           succeed
@@ -49,10 +58,18 @@ object AcsTxStreamsTest {
   import com.daml.logging.LoggingContextOf
 
   private val liveBegin = lav1.active_contracts_service.GetActiveContractsResponse(offset = "42")
+  // private val liveBeginOff = util.AbsoluteBookmark(domain.Offset(liveBegin.offset))
   private val txEnd = lav1.transaction.Transaction(offset = "84")
 
   private implicit val `log ctx`: LoggingContextOf[Any] =
     LoggingContextOf.newLoggingContext(LoggingContextOf.label[Any])(identity)
+
+  private def probeAcsFollowingAndBoundary()(implicit
+      ec: concurrent.ExecutionContext,
+      as: ActorSystem,
+  ) =
+    probeCodensity(AcsTxStreams.acsFollowingAndBoundary)(_ => akka.stream.scaladsl.Source.never)
+      .run()
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   private def probeCodensity[K, I0, I1, O0, O1](
@@ -65,9 +82,9 @@ object AcsTxStreamsTest {
     val i1 = concurrent.Promise[InProbe[I1]]()
     probeAll(
       part(a =>
-        k(a).mergeMat(TestSource.probe[I1]) { (probes, i1p) =>
+        k(a).mergeMat(TestSource.probe[I1], eagerComplete = true) { (nu, i1p) =>
           i1.success(i1p)
-          probes
+          nu
         }
       )
     )
