@@ -120,6 +120,34 @@ abstract class AbstractFuncTests
       }
     }
 
+    "Batch trigger" should {
+      val triggerId = QualifiedName.assertFromString("BatchTrigger:test")
+
+      "process and track contract creation, exercise and archive" in {
+        for {
+          client <- ledgerClient()
+          party <- allocateParty(client)
+          runner = getRunner(client, triggerId, party)
+          (acs, offset) <- runner.queryACS()
+          // 1 for create of T
+          // 1 for completion
+          // 1 for archive on T
+          // 1 for completion
+          finalState <- runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(4))
+            ._2
+        } yield {
+          inside(finalState) { case SList(commandIds) =>
+            commandIds.toSet should have size 2
+            // ensure all are UUIDs
+            commandIds.map(inside(_) { case SText(s) =>
+              SText(UUID.fromString(s).toString)
+            }) should ===(commandIds)
+          }
+        }
+      }
+    }
+
     "AcsTests" should {
       val assetId = LedgerApi.Identifier(packageId, "ACS", "Asset")
       val assetMirrorId = LedgerApi.Identifier(packageId, "ACS", "AssetMirror")

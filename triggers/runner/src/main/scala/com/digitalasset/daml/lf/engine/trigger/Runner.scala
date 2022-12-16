@@ -273,6 +273,7 @@ object Trigger {
     pkgInterface.lookupValue(triggerId) match {
       case Right(DValueSignature(TApp(ty @ TTyCon(tyCon), tyArg), _, _)) =>
         val triggerIds = TriggerIds(tyCon.packageId)
+        // Ensure version related trigger definition updates take into account the conflateMsgValue code
         detectVersion(pkgInterface, triggerIds).flatMap { version =>
           if (version < Trigger.Version.`2.6`) {
             fromV20ExtractTriggerDefinition(ty, tyArg, triggerIds, version)
@@ -779,6 +780,7 @@ private[lf] class Runner private (
   private[this] def conflateMsgValue: TriggerContextualFlow[SValue, SValue, NotUsed] = {
     val noop = Flow.fromFunction[TriggerContext[SValue], TriggerContext[SValue]](identity)
 
+    // Ensure version related trigger definition updates take into account the detectTriggerDefinition code
     if (trigger.defn.version < Trigger.Version.`2.6`) {
       noop
     } else {
