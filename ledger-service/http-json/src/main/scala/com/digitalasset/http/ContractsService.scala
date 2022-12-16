@@ -598,7 +598,8 @@ class ContractsService(
 
     val txnFilter = transactionFilter(parties, templateIds)
     def source =
-      getActiveContracts(jwt, ledgerId, txnFilter, true)(lc) via logTermination("ACS-before-tx")
+      (getActiveContracts(jwt, ledgerId, txnFilter, true)(lc)
+        via logTermination("ACS upstream"))
 
     val transactionsSince
         : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
@@ -608,7 +609,7 @@ class ContractsService(
         txnFilter,
         _: api.ledger_offset.LedgerOffset,
         terminates,
-      )(lc) via logTermination("tx-after-ACS")
+      )(lc) via logTermination("transactions upstream")
 
     import com.daml.fetchcontracts.AcsTxStreams.{
       acsFollowingAndBoundary,
@@ -622,7 +623,7 @@ class ContractsService(
             .viaMat(transactionsFollowingBoundary(transactionsSince).divertToHead)(Keep.right),
         source.viaMat(acsFollowingAndBoundary(transactionsSince).divertToHead)(Keep.right),
       )
-      .via(logTermination("contractsAndBoundary"))
+      .via(logTermination("ACS+tx or tx stream"))
     contractsAndBoundary mapMaterializedValue { fob =>
       fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
       NotUsed

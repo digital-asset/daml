@@ -848,7 +848,7 @@ class WebSocketService(
             jwtPayload.parties,
             offPrefix,
             rq.q: q,
-          ) via logTermination("GTSFP-outer")
+          ) via logTermination("getTransactionSourceForParty")
         }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
@@ -981,7 +981,7 @@ class WebSocketService(
             liveStartingOffset,
             Terminates.Never,
           )
-          .via(logTermination("IDSS-outer-1"))
+          .via(logTermination("insertDeleteStepSource with ACS"))
           .via(
             convertFilterContracts(
               resolvedQuery,
@@ -1031,7 +1031,7 @@ class WebSocketService(
                     liveStartingOffset,
                     Terminates.Never,
                   )
-                  .via(logTermination("IDSS-outer-2"))
+                  .via(logTermination("insertDeleteStepSource without ACS"))
                   .via(
                     convertFilterContracts(
                       resolvedQuery,
