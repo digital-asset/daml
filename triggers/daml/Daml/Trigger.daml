@@ -274,12 +274,27 @@ utUpdateState updateState commandsInFlight acs actAs readAs msg =
       let state = TriggerUpdateState commandsInFlight acs actAs readAs
       in execState $ flip runTriggerUpdateA state $ updateState msg
 
-updateImpl : forall s. Trigger s -> [Message] -> TriggerRule (TriggerState s) ()
-updateImpl userTrigger msgs = do
-  runUserTrigger <- or <$> mapA processMessage msgs
-  when runUserTrigger $
-    runRule userTrigger.rule
+-- | Transform the high-level trigger type into the batching trigger from `Daml.Trigger.LowLevel`.
+runTrigger : forall s. Trigger s -> LowLevel.BatchTrigger (TriggerState s)
+runTrigger userTrigger = LowLevel.BatchTrigger
+  { initialState = initialState
+  , update = update
+  , registeredTemplates = userTrigger.registeredTemplates
+  , heartbeat = userTrigger.heartbeat
+  }
   where
+    initialState party readAs (ActiveContracts createdEvents) =
+      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS mempty Map.empty) createdEvents
+          userState = runTriggerInitializeA userTrigger.initialize (TriggerInitState acs party readAs)
+          state = TriggerState acs party readAs userState Map.empty
+      in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
+
+    update : [Message] -> TriggerRule (TriggerState s) ()
+    update msgs = do
+      runUserTrigger <- or <$> mapA processMessage msgs
+      when runUserTrigger $
+        runRule userTrigger.rule
+
     -- Returns 'True' if the processed message means we need to run the user's trigger.
     processMessage : Message -> TriggerRule (TriggerState s) Bool
     processMessage msg = do
@@ -317,18 +332,3 @@ updateImpl userTrigger msgs = do
       where
         mkUserState state acs =
           utUpdateState userTrigger.updateState state.commandsInFlight acs state.actAs state.readAs msg state.userState
-
--- | Transform the high-level trigger type into the batching trigger from `Daml.Trigger.LowLevel`.
-runTrigger : Trigger s -> LowLevel.BatchTrigger (TriggerState s)
-runTrigger userTrigger = LowLevel.BatchTrigger
-  { initialState = initialState
-  , update = updateImpl userTrigger
-  , registeredTemplates = userTrigger.registeredTemplates
-  , heartbeat = userTrigger.heartbeat
-  }
-  where
-    initialState party readAs (ActiveContracts createdEvents) =
-      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS mempty Map.empty) createdEvents
-          userState = runTriggerInitializeA userTrigger.initialize (TriggerInitState acs party readAs)
-          state = TriggerState acs party readAs userState Map.empty
-      in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
