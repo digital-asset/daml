@@ -268,12 +268,6 @@ dedupExerciseByKey k c = do
   unless (any ((Some (k, c) ==) . fromExerciseByKey @t) cmds) $
     void $ emitCommands [exerciseByKeyCmd @t k c] []
 
-
-utUpdateState : (Message -> TriggerUpdateA s ()) -> Map CommandId [Command] -> ACS -> Party -> [Party] -> Message -> s -> s
-utUpdateState updateState commandsInFlight acs actAs readAs msg =
-      let state = TriggerUpdateState commandsInFlight acs actAs readAs
-      in execState $ flip runTriggerUpdateA state $ updateState msg
-
 -- | Transform the high-level trigger type into the batching trigger from `Daml.Trigger.LowLevel`.
 runTrigger : forall s. Trigger s -> LowLevel.BatchTrigger (TriggerState s)
 runTrigger userTrigger = LowLevel.BatchTrigger
@@ -289,7 +283,10 @@ runTrigger userTrigger = LowLevel.BatchTrigger
           state = TriggerState acs party readAs userState Map.empty
       in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
 
-    update : [Message] -> TriggerRule (TriggerState s) ()
+    mkUserState state acs msg =
+      let state' = TriggerUpdateState state.commandsInFlight acs state.actAs state.readAs
+      in execState (flip runTriggerUpdateA state' $ userTrigger.updateState msg) state.userState
+
     update msgs = do
       runUserTrigger <- or <$> mapA processMessage msgs
       when runUserTrigger $
@@ -303,7 +300,7 @@ runTrigger userTrigger = LowLevel.BatchTrigger
         MCompletion completion ->
           -- NB: the commands-in-flight and ACS updateState sees are those
           -- prior to updates incurred by the msg
-          let userState = mkUserState state state.acs
+          let userState = mkUserState state state.acs msg
           in case completion.status of
             Succeeded {} -> do
               -- We delete successful completions when we receive the corresponding transaction
@@ -318,7 +315,7 @@ runTrigger userTrigger = LowLevel.BatchTrigger
         MTransaction transaction -> do
           let acs = applyTransaction transaction state.acs
               -- again, we use the commands-in-flight and ACS before the update below
-              userState = mkUserState state acs
+              userState = mkUserState state acs msg
               -- See the comment above for why we delete this here instead of when we receive the completion.
               (acs', commandsInFlight) = case transaction.commandId of
                 None -> (acs, state.commandsInFlight)
@@ -326,9 +323,7 @@ runTrigger userTrigger = LowLevel.BatchTrigger
           put $ state { acs = acs', userState, commandsInFlight }
           pure True
         MHeartbeat -> do
-          let userState = mkUserState state state.acs
+          let userState = mkUserState state state.acs msg
           put $ state { userState }
           pure True
-      where
-        mkUserState state acs =
-          utUpdateState userTrigger.updateState state.commandsInFlight acs state.actAs state.readAs msg state.userState
+
