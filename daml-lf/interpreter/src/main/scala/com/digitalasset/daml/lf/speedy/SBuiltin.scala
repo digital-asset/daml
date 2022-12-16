@@ -951,9 +951,8 @@ private[lf] object SBuiltin {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
-    ): Control[Q] = {
+    ): Control.Value = {
       getSUnit(args, 0)
-
       Control.Value(SBool(machine.compiledPackages.pkgInterface.lookupTemplate(templateId).isRight))
     }
   }
