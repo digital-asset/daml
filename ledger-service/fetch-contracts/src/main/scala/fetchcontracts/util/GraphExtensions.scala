@@ -34,15 +34,15 @@ object GraphExtensions {
   private[daml] def logTermination[A](
       extraMessage: String
   )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): Flow[A, A, NotUsed] =
-    if (logger.info.isEnabled)
+    if (logger.trace.isEnabled)
       Flow[A].watchTermination() { (mat, fd) =>
         fd.onComplete(
           _.fold(
             { t =>
-              logger.info(s"stream-abort [$extraMessage] trying to abort ${t.getMessage}")
+              logger.trace(s"stream-abort [$extraMessage] trying to abort ${t.getMessage}")
             },
             { _ =>
-              logger.info(s"stream-stop [$extraMessage] trying to shutdown")
+              logger.trace(s"stream-stop [$extraMessage] trying to shutdown")
             },
           )
         )
