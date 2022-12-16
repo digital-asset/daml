@@ -8,6 +8,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.InterfaceFilter
 import com.daml.ledger.api.messages.transaction
 import com.daml.lf.data.Ref
+import com.daml.lf.value.Value.ContractId
 import com.google.rpc.error_details
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -30,6 +31,10 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
   protected val eventId = "eventId"
   protected val transactionId = "42"
   protected val ledgerEnd = domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString("1000"))
+  protected val contractId = ContractId.V1.assertFromString("00" * 32 + "0001")
+  protected val moduleName = Ref.ModuleName.assertFromString("moduleName")
+  protected val dottedName = Ref.DottedName.assertFromString("dottedName")
+  protected val templateId = Ref.Identifier(packageId, Ref.QualifiedName(moduleName, dottedName))
 
   protected def hasExpectedFilters(req: transaction.GetTransactionsRequest) = {
     val filtersByParty = req.filter.filtersByParty

@@ -88,6 +88,10 @@ import com.daml.ledger.api.v1.transaction_filter.{
   TransactionFilter,
 }
 import com.daml.ledger.api.v1.transaction_service.{
+  GetEventsByContractIdRequest,
+  GetEventsByContractIdResponse,
+  GetEventsByContractKeyRequest,
+  GetEventsByContractKeyResponse,
   GetLedgerEndRequest,
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
@@ -485,6 +489,16 @@ final class SingleParticipantTestContext private[participant] (
     transaction.events.collect { case Event(Created(e)) =>
       Primitive.ContractId(e.contractId)
     }
+
+  override def getEventsByContractId(
+      request: GetEventsByContractIdRequest
+  ): Future[GetEventsByContractIdResponse] =
+    services.transaction.getEventsByContractId(request)
+
+  override def getEventsByContractKey(
+      request: GetEventsByContractKeyRequest
+  ): Future[GetEventsByContractKeyResponse] =
+    services.transaction.getEventsByContractKey(request)
 
   override def create[T](
       party: Party,

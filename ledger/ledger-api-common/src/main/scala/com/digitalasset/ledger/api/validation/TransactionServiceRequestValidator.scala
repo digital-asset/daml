@@ -11,6 +11,8 @@ import com.daml.ledger.api.messages.transaction
 import com.daml.ledger.api.messages.transaction.GetTransactionTreesRequest
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
+  GetEventsByContractIdRequest,
+  GetEventsByContractKeyRequest,
   GetLedgerEndRequest,
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
@@ -189,5 +191,54 @@ class TransactionServiceRequestValidator(
         )
       }
       .fold(partyValidator.requireKnownParties(transactionFilter.filtersByParty.keys))(Left(_))
+
+  def validateEventsByContractId(
+      req: GetEventsByContractIdRequest
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Result[transaction.GetEventsByContractIdRequest] = {
+    for {
+      contractId <- requireContractId(req.contractId, "contract_id")
+      _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
+      parties <- partyValidator.requireKnownParties(req.requestingParties)
+    } yield {
+      transaction.GetEventsByContractIdRequest(contractId, parties)
+    }
+  }
+
+  def validateEventsByContractKey(
+      req: GetEventsByContractKeyRequest
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Result[transaction.GetEventsByContractKeyRequest] = {
+
+    for {
+      apiContractKey <- requirePresence(req.contractKey, "contract_key")
+      contractId <- ValueValidator.validateValue(apiContractKey)
+      apiTemplateId <- requirePresence(req.templateId, "template_id")
+      templateId <- FieldValidations.validateIdentifier(apiTemplateId)
+      _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
+      requestingParties <- partyValidator.requireKnownParties(req.requestingParties)
+      startExclusive <- LedgerOffsetValidator.validateOptional(
+        req.beginExclusive,
+        "start_exclusive",
+      )
+      endInclusive <- LedgerOffsetValidator.validateOptional(
+        req.endInclusive,
+        "end_inclusive",
+      )
+    } yield {
+
+      transaction.GetEventsByContractKeyRequest(
+        contractKey = contractId,
+        templateId = templateId,
+        requestingParties = requestingParties,
+        maxEvents = if (req.maxEvents != 0) req.maxEvents else 1000,
+        startExclusive = startExclusive.getOrElse(LedgerOffset.LedgerBegin),
+        endInclusive = endInclusive.getOrElse(LedgerOffset.LedgerEnd),
+      )
+    }
+
+  }
 
 }

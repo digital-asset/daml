@@ -7,12 +7,16 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.api.messages.transaction.{
+  GetEventsByContractIdRequest,
+  GetEventsByContractKeyRequest,
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
   GetTransactionTreesRequest,
   GetTransactionsRequest,
 }
 import com.daml.ledger.api.v1.transaction_service.{
+  GetEventsByContractIdResponse,
+  GetEventsByContractKeyResponse,
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
@@ -51,4 +55,13 @@ trait TransactionService {
   def getFlatTransactionByEventId(
       req: GetTransactionByEventIdRequest
   )(implicit loggingContext: LoggingContext): Future[GetFlatTransactionResponse]
+
+  def getEventsByContractId(
+      req: GetEventsByContractIdRequest
+  ): Future[GetEventsByContractIdResponse]
+
+  def getEventsByContractKey(
+      req: GetEventsByContractKeyRequest
+  ): Future[GetEventsByContractKeyResponse]
+
 }

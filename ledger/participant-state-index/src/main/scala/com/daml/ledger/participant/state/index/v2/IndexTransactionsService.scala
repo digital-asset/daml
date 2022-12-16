@@ -8,11 +8,15 @@ import akka.stream.scaladsl.Source
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain.{LedgerOffset, TransactionFilter, TransactionId}
 import com.daml.ledger.api.v1.transaction_service.{
+  GetEventsByContractIdResponse,
+  GetEventsByContractKeyResponse,
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
@@ -44,4 +48,19 @@ trait IndexTransactionsService extends LedgerEndService {
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]]
+
+  def getEventsByContractId(
+      contractId: ContractId,
+      requestingParties: Set[Ref.Party],
+  )(implicit loggingContext: LoggingContext): Future[GetEventsByContractIdResponse]
+
+  def getEventsByContractKey(
+      contractKey: Value,
+      templateId: Ref.Identifier,
+      requestingParties: Set[Ref.Party],
+      maxEvents: Int,
+      startExclusive: LedgerOffset,
+      endInclusive: LedgerOffset,
+  )(implicit loggingContext: LoggingContext): Future[GetEventsByContractKeyResponse]
+
 }

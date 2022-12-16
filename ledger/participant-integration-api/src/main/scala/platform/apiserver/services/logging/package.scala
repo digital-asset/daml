@@ -11,8 +11,10 @@ import com.daml.ledger.api.domain.{
   TransactionFilter,
   TransactionId,
 }
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.logging._
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.ToLoggingKey._
 import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingValue}
@@ -99,5 +101,14 @@ package object logging {
 
   private[services] def verbose(v: Boolean): LoggingEntry =
     "verbose" -> v
+
+  private[services] def contractId(id: ContractId): LoggingEntry =
+    "contractId" -> id.coid
+
+  private[services] def contractKey(key: Value): LoggingEntry =
+    "contractKey" -> key.toString
+
+  private[services] def templateId(id: Identifier): LoggingEntry =
+    "templateId" -> id.toString
 
 }

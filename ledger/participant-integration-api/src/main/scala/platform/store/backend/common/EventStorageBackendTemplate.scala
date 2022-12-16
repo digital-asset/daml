@@ -433,6 +433,12 @@ abstract class EventStorageBackendTemplate(
       stringInterning = stringInterning,
     )
 
+  override def eventReaderQueries: EventReaderQueries =
+    new EventReaderQueries(
+      queryStrategy = queryStrategy,
+      stringInterning = stringInterning,
+    )
+
   override def activeContractEventBatch(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Ref.Party],

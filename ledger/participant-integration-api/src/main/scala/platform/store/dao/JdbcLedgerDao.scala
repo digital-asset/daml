@@ -537,6 +537,11 @@ private class JdbcLedgerDao(
       servicesExecutionContext
     )
 
+  override def eventsReader: LedgerDaoEventsReader =
+    new EventsReader(dbDispatcher, readStorageBackend.eventStorageBackend, metrics, translation)(
+      servicesExecutionContext
+    )
+
   override val completions: CommandCompletionsReader =
     new CommandCompletionsReader(
       dbDispatcher,

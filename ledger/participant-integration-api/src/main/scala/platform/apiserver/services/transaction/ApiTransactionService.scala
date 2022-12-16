@@ -18,6 +18,8 @@ import com.daml.ledger.api.domain.{
 }
 import com.daml.ledger.api.messages.transaction._
 import com.daml.ledger.api.v1.transaction_service.{
+  GetEventsByContractIdResponse,
+  GetEventsByContractKeyResponse,
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
@@ -201,6 +203,55 @@ private[apiserver] final class ApiTransactionService private (
 
     lookUpFlatByTransactionId(request.transactionId, request.requestingParties)(errorLogger)
       .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
+  }
+
+  override def getEventsByContractId(
+      request: GetEventsByContractIdRequest
+  ): Future[GetEventsByContractIdResponse] = {
+
+    withEnrichedLoggingContext(
+      logging.contractId(request.contractId),
+      logging.parties(request.requestingParties),
+    ) { implicit loggingContext =>
+      logger.info("Received request for events by contract ID")
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+    }
+    logger.trace(s"Events by contract ID request: $request")
+
+    transactionsService
+      .getEventsByContractId(
+        request.contractId,
+        request.requestingParties,
+      )
+      .andThen(logger.logErrorsOnCall[GetEventsByContractIdResponse])
+  }
+
+  override def getEventsByContractKey(
+      request: GetEventsByContractKeyRequest
+  ): Future[GetEventsByContractKeyResponse] = {
+
+    withEnrichedLoggingContext(
+      logging.contractKey(request.contractKey),
+      logging.templateId(request.templateId),
+      logging.parties(request.requestingParties),
+      logging.startExclusive(request.startExclusive),
+      logging.endInclusive(Some(request.endInclusive)),
+    ) { implicit loggingContext =>
+      logger.info("Received request for events by contract key")
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+    }
+    logger.trace(s"Events by contract key request: $request")
+
+    transactionsService
+      .getEventsByContractKey(
+        request.contractKey,
+        request.templateId,
+        request.requestingParties,
+        request.maxEvents,
+        request.startExclusive,
+        request.endInclusive,
+      )
+      .andThen(logger.logErrorsOnCall[GetEventsByContractKeyResponse])
   }
 
   private def lookUpTreeByTransactionId(

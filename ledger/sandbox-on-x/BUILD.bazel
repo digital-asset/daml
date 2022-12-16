@@ -618,6 +618,26 @@ server_conformance_test(
     ],
 )
 
+# Way to run ContractIT and ContractKey for LookupByContract PoC
+# TODO: Remove once PoC completed
+conformance_test(
+    name = "conformance-test-events-by-contract",
+    hocon = True,
+    lf_versions = [
+        "1.dev",
+    ],
+    ports = [6865],
+    server = ":app",
+    server_args = ["run"],
+    test_tool_args = [
+        "--verbose",
+        "--include=TransactionServiceGetEventsIT",
+        #        "--include=ContractIdIT",
+        #        "--include=TransactionServiceQueryIT",
+        #        "--include=ContractKeysIT:CKLocalKeyVisibility",
+    ],
+)
+
 exports_files([
     "src/app/resources/logback.xml",
 ])

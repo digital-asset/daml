@@ -157,6 +157,8 @@ class MainIndexDBMetrics(prefix: MetricName, factory: MetricsFactory)
   val lookupTransactionTreeById: DatabaseMetrics = createDbMetrics(
     "lookup_transaction_tree_by_id"
   )
+  val getEventsByContractId: DatabaseMetrics = createDbMetrics("get_events_by_contract_id")
+  val getEventsByContractKey: DatabaseMetrics = createDbMetrics("get_events_by_contract_key")
   val getActiveContracts: DatabaseMetrics = createDbMetrics("get_active_contracts")
   val getActiveContractIds: DatabaseMetrics = createDbMetrics("get_active_contract_ids")
   val getActiveContractBatch: DatabaseMetrics = createDbMetrics("get_active_contract_batch")
