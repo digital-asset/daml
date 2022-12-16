@@ -44,7 +44,7 @@ da_scala_library(
 daml_compile(
     name = "InterfaceTestPackage",
     srcs = glob(["src/test/daml/**/*.daml"]),
-    target = lf_version_configuration.get("dev"),  # TODO(#13296) remove when interfaces in default
+    target = lf_version_configuration.get("latest"),  # TODO(#13296) remove when interfaces in default
 )
 
 da_scala_test(

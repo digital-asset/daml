@@ -189,7 +189,7 @@ daml_compile(
         "Account",
         "IAccount",
     ]],
-    target = lf_version_configuration.get("dev"),  # TODO(SC #13296) remove when interfaces in default
+    target = lf_version_configuration.get("latest"),  # TODO(SC #13296) remove when interfaces in default
     visibility = ["//ledger-service:__subpackages__"],
 )
 
@@ -207,7 +207,7 @@ daml_compile(
         "RIIou",
         "Transferrable",
     ]],
-    target = lf_version_configuration.get("dev"),  # TODO(SC #13296) remove when interfaces in default
+    target = lf_version_configuration.get("latest"),  # TODO(SC #13296) remove when interfaces in default
     visibility = ["//ledger-service:__subpackages__"],
 )
 
@@ -217,7 +217,7 @@ daml_compile(
         "RIou",
     ]],
     data_dependencies = ["//ledger/test-common:model-tests-%s.dar" % lf_version_configuration.get("default")],
-    target = lf_version_configuration.get("dev"),  # TODO(SC #13296) remove when interfaces in default
+    target = lf_version_configuration.get("latest"),  # TODO(SC #13296) remove when interfaces in default
     visibility = ["//ledger-service:__subpackages__"],
 )
 
