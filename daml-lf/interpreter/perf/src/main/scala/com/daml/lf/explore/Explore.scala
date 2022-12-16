@@ -38,7 +38,7 @@ object PlaySpeedy {
       val (expected, expr) = examples(name)
       val converted = compiler.unsafeClosureConvert(expr)
       val machine = Machine.fromPureSExpr(PureCompiledPackages.Empty, converted)
-      runMachine(name, machine, expected)
+      runMachine(machine, expected)
     }
   }
 
@@ -67,7 +67,7 @@ object PlaySpeedy {
     Config(names)
   }
 
-  def runMachine(name: String, machine: PureMachine, expected: Int): Unit = {
+  def runMachine(machine: PureMachine, expected: Int): Unit = {
     machine.runPure().toTry.get match {
       case SInt64(got) =>
         if (got != expected) {
