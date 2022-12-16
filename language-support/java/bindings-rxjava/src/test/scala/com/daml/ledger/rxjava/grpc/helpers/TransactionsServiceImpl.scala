@@ -120,6 +120,20 @@ final class TransactionsServiceImpl(ledgerContent: Observable[LedgerItem])
     promise.future
   }
 
+  override def getEventsByContractId(
+      request: GetEventsByContractIdRequest
+  ): Future[GetEventsByContractIdResponse] = {
+    // Experimental
+    Future.failed(new NotImplementedError())
+  }
+
+  override def getEventsByContractKey(
+      request: GetEventsByContractKeyRequest
+  ): Future[GetEventsByContractKeyResponse] = {
+    // Experimental
+    Future.failed(new NotImplementedError())
+  }
+
 }
 
 object TransactionsServiceImpl {

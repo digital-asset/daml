@@ -141,4 +141,18 @@ final class GrpcTransactionService(
   override def bindService(): ServerServiceDefinition =
     TransactionServiceGrpc.bindService(this, executionContext)
 
+  override def getEventsByContractId(
+      request: GetEventsByContractIdRequest
+  ): Future[GetEventsByContractIdResponse] = {
+    // Experimental
+    Future.failed(new NotImplementedError())
+  }
+
+  override def getEventsByContractKey(
+      request: GetEventsByContractKeyRequest
+  ): Future[GetEventsByContractKeyResponse] = {
+    // Experimental
+    Future.failed(new NotImplementedError())
+  }
+
 }

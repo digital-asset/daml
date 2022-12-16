@@ -79,4 +79,18 @@ private[daml] final class TransactionServiceAuthorization(
     TransactionServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
+
+  override def getEventsByContractId(
+      request: GetEventsByContractIdRequest
+  ): Future[GetEventsByContractIdResponse] = {
+    // Experimental
+    Future.failed(new NotImplementedError())
+  }
+
+  override def getEventsByContractKey(
+      request: GetEventsByContractKeyRequest
+  ): Future[GetEventsByContractKeyResponse] = {
+    // Experimental
+    Future.failed(new NotImplementedError())
+  }
 }
