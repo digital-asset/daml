@@ -58,7 +58,6 @@ object AcsTxStreamsTest {
   import com.daml.logging.LoggingContextOf
 
   private val liveBegin = lav1.active_contracts_service.GetActiveContractsResponse(offset = "42")
-  // private val liveBeginOff = util.AbsoluteBookmark(domain.Offset(liveBegin.offset))
   private val txEnd = lav1.transaction.Transaction(offset = "84")
 
   private implicit val `log ctx`: LoggingContextOf[Any] =
@@ -68,23 +67,21 @@ object AcsTxStreamsTest {
       ec: concurrent.ExecutionContext,
       as: ActorSystem,
   ) =
-    probeCodensity(AcsTxStreams.acsFollowingAndBoundary)(_ => akka.stream.scaladsl.Source.never)
-      .run()
+    probeFOS2PlusContinuation(AcsTxStreams.acsFollowingAndBoundary).run()
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-  private def probeCodensity[K, I0, I1, O0, O1](
-      part: (K => Source[I1, NotUsed]) => s.Graph[s.FanOutShape2[I0, O0, O1], NotUsed]
-  )(
-      k: K => Source[I1, NotUsed]
+  private def probeFOS2PlusContinuation[K, I0, I1, O0, O1](
+      part: (Any => Source[I1, NotUsed]) => s.Graph[s.FanOutShape2[I0, O0, O1], NotUsed]
   )(implicit
       as: ActorSystem
   ): RunnableGraph[(InProbe[I0], Future[InProbe[I1]], OutProbe[O0], OutProbe[O1])] = {
     val i1 = concurrent.Promise[InProbe[I1]]()
+    // filling in i1 like this is terribly hacky but is well enough for a test
     probeAll(
-      part(a =>
-        k(a).mergeMat(TestSource.probe[I1], eagerComplete = true) { (nu, i1p) =>
+      part(_ =>
+        TestSource.probe[I1].mapMaterializedValue { i1p =>
           i1.success(i1p)
-          nu
+          NotUsed
         }
       )
     )
