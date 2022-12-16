@@ -637,7 +637,7 @@ object SpeedyTest {
     val disclosedCachedContract: CachedContract =
       buildHouseCachedContract(alice, alice, label = "disclosed-label")
     val testLogger: WarningLog = new WarningLog(ContextualizedLogger.createFor("daml.warnings"))
-    val machine: Speedy.OnLedgerMachine = Speedy.Machine
+    val machine: Speedy.UpdateMachine = Speedy.Machine
       .fromUpdateSExpr(
         pkg,
         crypto.Hash.hashPrivateKey("VisibilityChecking"),

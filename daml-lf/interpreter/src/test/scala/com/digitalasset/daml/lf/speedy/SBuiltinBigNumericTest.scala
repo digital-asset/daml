@@ -6,7 +6,6 @@ package speedy
 
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.Inside.inside
@@ -378,19 +377,6 @@ object SBuiltinBigNumericTest {
   val compiledPackages =
     PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
 
-  private def eval(e: Expr, onLedger: Boolean = true): Either[SError.SError, SValue] =
-    evalSExpr(compiledPackages.compiler.unsafeCompile(e), onLedger)
-
-  private def evalSExpr(e: SExpr, onLedger: Boolean): Either[SError.SError, SValue] = {
-    val machine =
-      if (onLedger)
-        Speedy.Machine.fromScenarioSExpr(
-          compiledPackages,
-          scenario = SELet1(e, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
-        )
-      else
-        Speedy.Machine.fromPureSExpr(compiledPackages, e)
-    SpeedyTestLib.run(machine)
-  }
-
+  private def eval(e: Expr): Either[SError.SError, SValue] =
+    Speedy.Machine.runPureExpr(e, compiledPackages)
 }

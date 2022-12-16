@@ -162,8 +162,8 @@ class IdeLedgerClient(
             None
 
           case res @ (_: SResultNeedPackage | _: SResultNeedContract | _: SResultNeedKey |
-              _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioPassTime |
-              _: SResultScenarioSubmit) =>
+              _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioGetTime |
+              _: SResultScenarioPassTime | _: SResultScenarioSubmit) =>
             sys.error(s"computeView: expected SResultFinal, got: $res")
         }
     }

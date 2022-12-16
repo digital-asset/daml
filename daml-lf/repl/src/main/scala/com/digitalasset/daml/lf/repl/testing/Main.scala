@@ -203,7 +203,7 @@ object Repl {
 
     def run(
         expr: Expr
-    ): (Speedy.Machine, ScenarioRunner.ScenarioResult) = {
+    ): (Speedy.ScenarioMachine, ScenarioRunner.ScenarioResult) = {
       val machine =
         Speedy.Machine.fromScenarioExpr(
           compiledPackages,
@@ -520,8 +520,7 @@ object Repl {
   def invokeTest(state: State, idAndArgs: Seq[String]): (Boolean, State) = {
     buildExprFromTest(state, idAndArgs)
       .map { expr =>
-        val (_, errOrLedger) =
-          state.scenarioRunner.run(expr)
+        val (_, errOrLedger) = state.scenarioRunner.run(expr)
         errOrLedger match {
           case error: ScenarioRunner.ScenarioError =>
             println(PrettyScenario.prettyError(error.error).render(128))
