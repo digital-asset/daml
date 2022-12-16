@@ -52,7 +52,7 @@ protobuf_version = "3.19.6"
 akka_version = "2.6.18"
 akka_http_version = "10.2.8"
 gatling_version = "3.5.1"
-guava_version = "31.0.1-jre"
+guava_version = "31.1-jre"
 
 # observability libs
 # cannot update to 4.2.x because of https://github.com/dropwizard/metrics/issues/2920
