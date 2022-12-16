@@ -46,9 +46,9 @@ object FlowUtil {
       self
         .flatMapMerge(
           breadth,
-          f andThen (gss => (Source fromGraph gss logTermination "fmm-inner")),
+          f andThen (gss => (Source fromGraph gss via logTermination("fmm-inner"))),
         )
-        .logTermination("fmm-outer")
+        .via(logTermination("fmm-outer"))
     }
   }
 }

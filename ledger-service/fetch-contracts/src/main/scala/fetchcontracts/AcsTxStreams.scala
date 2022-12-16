@@ -117,7 +117,7 @@ private[daml] object AcsTxStreams {
       import domain.Offset.`Offset ordering`
       val lastTxOff = b add last(LedgerBegin: Off)
       val maxOff = b add max(LedgerBegin: Off)
-      val logTxnOut = b add Flow[ContractStreamStep.Txn.LAV1].logTermination("after-split")
+      val logTxnOut = b add logTermination[ContractStreamStep.Txn.LAV1]("after-split")
       // format: off
       discard { txnSplit.in <~ txns <~ dupOff }
       discard {                        dupOff                                ~> mergeOff ~> maxOff }

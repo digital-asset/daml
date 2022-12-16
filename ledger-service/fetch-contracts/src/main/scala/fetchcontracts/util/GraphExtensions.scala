@@ -4,7 +4,7 @@
 package com.daml.fetchcontracts.util
 
 import akka.NotUsed
-import akka.stream.scaladsl.{Flow, FlowOpsMat, GraphDSL, Keep, Sink}
+import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Sink}
 import akka.stream.{FanOutShape2, FlowShape, Graph}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.Liskov.<~<
@@ -31,10 +31,6 @@ object GraphExtensions {
     }
   }
 
-  private[this] type FlowOpsMatAux[+Out, +Mat, ReprMat0[+_, +_]] = FlowOpsMat[Out, Mat] {
-    type ReprMat[+O, +M] = ReprMat0[O, M]
-  }
-
   private[daml] def logTermination[A](
       extraMessage: String
   )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): Flow[A, A, NotUsed] =
@@ -54,23 +50,6 @@ object GraphExtensions {
       }
     else
       Flow[A]
-
-  import language.implicitConversions
-
-  private[daml] implicit def `flowops logTermination`[O, M](
-      self: FlowOpsMat[O, M]
-  ): `flowops logTermination`[O, M, self.ReprMat] =
-    new `flowops logTermination`[O, M, self.ReprMat](self)
-
-  private[daml] final class `flowops logTermination`[O, M, RM[+_, +_]](
-      private val self: FlowOpsMatAux[O, M, RM]
-  ) extends AnyVal {
-    def logTermination(
-        extraMessage: String
-    )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): RM[O, M] = {
-      self via GraphExtensions.logTermination(extraMessage)
-    }
-  }
 
   private val logger = ContextualizedLogger.get(getClass)
 }
