@@ -8,7 +8,7 @@ import Daml.Script
 import Cash qualified
 import NFT qualified
 
-import Asset qualified
+import IAsset qualified
 
 data Parties = Parties with
     alice
@@ -195,77 +195,77 @@ archiveNftTransferProposalTest = do
   alice `submit` do
     archiveCmd bobMemeTransferProposal
 
-mkAssetTest : (Template t, Implements t Asset.Asset) => (Party -> t) -> Script ()
+mkAssetTest : (Template t, Implements t IAsset.IAsset) => (Party -> t) -> Script ()
 mkAssetTest mkAsset = do
   Parties {..} <- allocateParties
 
   aliceAsset <-
     alice `submit` do
-      toInterfaceContractId @Asset.Asset <$>
+      toInterfaceContractId @IAsset.IAsset <$>
         createCmd (mkAsset alice)
 
   bobAssetTransferProposal <-
     alice `submit` do
-      exerciseCmd aliceAsset Asset.ProposeTransfer with
+      exerciseCmd aliceAsset IAsset.ProposeTransfer with
         newOwner = bob
 
   bobAsset <-
     bob `submit` do
-      exerciseCmd bobAssetTransferProposal Asset.AcceptTransfer
+      exerciseCmd bobAssetTransferProposal IAsset.AcceptTransfer
 
   charlieAssetTransferProposal <-
     bob `submit` do
-      exerciseCmd bobAsset Asset.ProposeTransfer with
+      exerciseCmd bobAsset IAsset.ProposeTransfer with
         newOwner = charlie
 
   charlieAsset <-
     charlie `submit` do
-      exerciseCmd charlieAssetTransferProposal Asset.AcceptTransfer
+      exerciseCmd charlieAssetTransferProposal IAsset.AcceptTransfer
 
   dominicAssetTransferProposal <-
     charlie `submit` do
-      exerciseCmd charlieAsset Asset.ProposeTransfer with
+      exerciseCmd charlieAsset IAsset.ProposeTransfer with
         newOwner = dominic
 
   charlieAsset' <-
     dominic `submit` do
-      exerciseCmd dominicAssetTransferProposal Asset.RejectTransfer
+      exerciseCmd dominicAssetTransferProposal IAsset.RejectTransfer
 
   emilyAssetTransferProposal <-
     charlie `submit` do
-      exerciseCmd charlieAsset' Asset.ProposeTransfer with
+      exerciseCmd charlieAsset' IAsset.ProposeTransfer with
         newOwner = emily
 
   charlieAsset'' <-
     charlie `submit` do
-      exerciseCmd emilyAssetTransferProposal Asset.WithdrawProposal
+      exerciseCmd emilyAssetTransferProposal IAsset.WithdrawProposal
 
   pure ()
 
-mkArchiveAssetTest : (Template t, Implements t Asset.Asset) => (Party -> t) -> Script ()
+mkArchiveAssetTest : (Template t, Implements t IAsset.IAsset) => (Party -> t) -> Script ()
 mkArchiveAssetTest mkAsset = do
   Parties {..} <- allocateParties
 
   aliceAsset <-
     alice `submit` do
-      toInterfaceContractId @Asset.Asset <$>
+      toInterfaceContractId @IAsset.IAsset <$>
         createCmd (mkAsset alice)
 
   alice `submit` do
     archiveCmd aliceAsset
 
-mkArchiveAssetTransferProposalTest : (Template t, Implements t Asset.Asset) => (Party -> t) -> Script ()
+mkArchiveAssetTransferProposalTest : (Template t, Implements t IAsset.IAsset) => (Party -> t) -> Script ()
 mkArchiveAssetTransferProposalTest mkAsset = do
   Parties {..} <- allocateParties
 
   aliceAsset <-
     alice `submit` do
-      toInterfaceContractId @Asset.Asset <$>
+      toInterfaceContractId @IAsset.IAsset <$>
         createCmd (mkAsset alice)
 
   bobAssetTransferProposal <-
     alice `submit` do
-      exerciseCmd aliceAsset Asset.ProposeTransfer with
+      exerciseCmd aliceAsset IAsset.ProposeTransfer with
         newOwner = bob
 
   alice `submit` do
