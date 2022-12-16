@@ -21,6 +21,7 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     resources = [],
     scala_deps = [
+        "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter,
@@ -30,6 +31,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//language-support/java/bindings:bindings-java",
+        "//ledger-service/lf-value-json",
     ],
 )
 
