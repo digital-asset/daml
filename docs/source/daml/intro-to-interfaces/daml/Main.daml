@@ -3,6 +3,7 @@
 
 module Main where
 
+import DA.Assert
 import Daml.Script
 
 import Cash
@@ -195,14 +196,14 @@ archiveNftTransferProposalTest = do
   alice `submit` do
     archiveCmd bobMemeTransferProposal
 
-mkAssetTest : (Template t, Implements t IAsset) => (Party -> t) -> Script ()
+mkAssetTest : (Template t, Implements t IAsset) => (Party -> Party -> t) -> Script ()
 mkAssetTest mkAsset = do
   Parties {..} <- allocateParties
 
   aliceAsset <-
     alice `submit` do
       toInterfaceContractId @IAsset <$>
-        createCmd (mkAsset alice)
+        createCmd (mkAsset alice alice)
 
   bobAssetTransferProposal <-
     alice `submit` do
@@ -240,28 +241,37 @@ mkAssetTest mkAsset = do
     charlie `submit` do
       exerciseCmd emilyAssetTransferProposal WithdrawIAssetTransferProposal
 
+  charlieAssets <-
+    queryInterface @IAsset charlie
+
+  charlieAssets ===
+    [ ( charlieAsset''
+      , Some (view (toInterface @IAsset (mkAsset alice charlie)))
+      )
+    ]
+
   pure ()
 
-mkArchiveAssetTest : (Template t, Implements t IAsset) => (Party -> t) -> Script ()
+mkArchiveAssetTest : (Template t, Implements t IAsset) => (Party -> Party -> t) -> Script ()
 mkArchiveAssetTest mkAsset = do
   Parties {..} <- allocateParties
 
   aliceAsset <-
     alice `submit` do
       toInterfaceContractId @IAsset <$>
-        createCmd (mkAsset alice)
+        createCmd (mkAsset alice alice)
 
   alice `submit` do
     archiveCmd aliceAsset
 
-mkArchiveAssetTransferProposalTest : (Template t, Implements t IAsset) => (Party -> t) -> Script ()
+mkArchiveAssetTransferProposalTest : (Template t, Implements t IAsset) => (Party -> Party -> t) -> Script ()
 mkArchiveAssetTransferProposalTest mkAsset = do
   Parties {..} <- allocateParties
 
   aliceAsset <-
     alice `submit` do
       toInterfaceContractId @IAsset <$>
-        createCmd (mkAsset alice)
+        createCmd (mkAsset alice alice)
 
   bobAssetTransferProposal <-
     alice `submit` do
@@ -271,10 +281,10 @@ mkArchiveAssetTransferProposalTest mkAsset = do
   alice `submit` do
     archiveCmd bobAssetTransferProposal
 
-mkCash : Party -> Cash
-mkCash party = Cash with
-  issuer = party
-  owner = party
+mkCash : Party -> Party -> Cash
+mkCash issuer owner = Cash with
+  issuer
+  owner
   currency = "USD"
   amount = 42.0
 
@@ -287,10 +297,10 @@ cashArchiveAssetTest = mkArchiveAssetTest mkCash
 cashArchiveAssetTransferProposalTest : Script ()
 cashArchiveAssetTransferProposalTest = mkArchiveAssetTransferProposalTest mkCash
 
-mkNft : Party -> NFT
-mkNft party = NFT with
-  issuer = party
-  owner = party
+mkNft : Party -> Party -> NFT
+mkNft issuer owner = NFT with
+  issuer
+  owner
   url = "https://nyan.feline/"
 
 nftAssetTest : Script ()
