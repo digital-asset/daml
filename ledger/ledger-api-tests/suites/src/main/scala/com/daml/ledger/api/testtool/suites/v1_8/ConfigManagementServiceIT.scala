@@ -165,7 +165,6 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
       )
       assertGrpcErrorOneOf(
         failure,
-        extendedChecks = None,
         LedgerApiErrors.Admin.ConfigurationEntryRejected,
         LedgerApiErrors.RequestValidation.InvalidArgument,
         KvErrors.Consistency.PostExecutionConflicts,

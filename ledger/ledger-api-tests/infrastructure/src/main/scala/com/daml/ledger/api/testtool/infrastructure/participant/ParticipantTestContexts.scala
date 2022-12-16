@@ -3,8 +3,9 @@
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
-import java.time.Instant
+import com.daml.error.ErrorCode
 
+import java.time.Instant
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.{
@@ -358,6 +359,10 @@ trait ParticipantTestContext extends UserManagementTestContext {
   def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse]
+  def submitRequestAndTolerateGrpcError[T](
+      errorCode: ErrorCode,
+      submitAndWaitGeneric: ParticipantTestContext => Future[T],
+  ): Future[T]
   def completionStreamRequest(from: LedgerOffset = referenceOffset)(
       parties: Primitive.Party*
   ): CompletionStreamRequest

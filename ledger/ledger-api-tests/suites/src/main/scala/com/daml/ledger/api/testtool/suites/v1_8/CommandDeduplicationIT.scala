@@ -691,23 +691,22 @@ final class CommandDeduplicationIT(
       acceptedOffset: LedgerOffset,
   )(implicit ec: ExecutionContext): Future[Unit] =
     ledger
-      .submitAndWaitForTransaction(request)
+      .submitRequestAndTolerateGrpcError(
+        LedgerApiErrors.ConsistencyErrors.SubmissionAlreadyInFlight,
+        _.submitAndWaitForTransaction(request),
+      )
       .mustFail("Request was accepted but we were expecting it to fail with a duplicate error")
       .map(
-        assertGrpcErrorOneOf(
+        assertGrpcError(
           _,
-          extendedChecks = Some(
-            ExtendedAsserts(
-              checkDefiniteAnswerMetadata = true,
-              additionalErrorAssertions = assertDeduplicatedSubmissionIdAndOffsetOnError(
-                acceptedSubmissionId,
-                acceptedOffset,
-                _,
-              ),
-            )
-          ),
           LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
-          LedgerApiErrors.ConsistencyErrors.SubmissionAlreadyInFlight,
+          None,
+          checkDefiniteAnswerMetadata = true,
+          additionalErrorAssertions = assertDeduplicatedSubmissionIdAndOffsetOnError(
+            acceptedSubmissionId,
+            acceptedOffset,
+            _,
+          ),
         )
       )
 
@@ -727,7 +726,6 @@ final class CommandDeduplicationIT(
         request.toString,
         completion,
         Code.ALREADY_EXISTS, // Deduplication error
-        Code.ABORTED, // Code for inflight request: Different grpc code implied by retryability of ContentionOnSharedResources
       )
       assertDeduplicatedSubmissionIdAndOffsetOnCompletion(
         acceptedSubmissionId,
@@ -810,10 +808,15 @@ final class CommandDeduplicationIT(
   )(implicit
       ec: ExecutionContext
   ): Future[CompletionResponse] =
-    submitRequestAndFindCompletion(ledger, request, parties: _*).map { response =>
-      additionalCompletionAssertion(response)
-      response
-    }
+    ledger
+      .submitRequestAndTolerateGrpcError(
+        LedgerApiErrors.ConsistencyErrors.SubmissionAlreadyInFlight,
+        submitRequestAndFindCompletion(_, request, parties: _*),
+      )
+      .map { response =>
+        additionalCompletionAssertion(response)
+        response
+      }
 
   private def submitAndWaitRequestAndAssertCompletion(
       ledger: ParticipantTestContext,
