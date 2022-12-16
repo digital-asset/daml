@@ -73,7 +73,7 @@ template TransferProposal
 
     interface instance Asset.TransferProposal for TransferProposal where
       view = Asset.TransferProposalView with
-        assetView = Prelude.view (toInterface @Asset.Asset cash)
+        assetView = view (toInterface @Asset.Asset cash)
         newOwner
 
       asset = toInterface @Asset.Asset cash
